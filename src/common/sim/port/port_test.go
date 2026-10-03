@@ -7,6 +7,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
@@ -301,10 +302,10 @@ func TestDiff(t *testing.T) {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
 
-		if diffs[0].Field != "mtu" || diffs[0].From.Canonical() != "1500" || diffs[0].To.Canonical() != "9000" {
+		if diffs[0].Field != "mtu" || diffs[0].From.TypeID() != "port.mtu" || diffs[0].To.TypeID() != "port.mtu" || diffs[0].From.Canonical() != "1500" || diffs[0].To.Canonical() != "9000" {
 			t.Errorf("diffs[0] = %+v, want mtu change 1500 -> 9000", diffs[0])
 		}
-		if diffs[1].Field != "lag_parent" || diffs[1].From.Canonical() != "lag1" || diffs[1].To.Canonical() != "" {
+		if diffs[1].Field != "lag_parent" || diffs[1].From.TypeID() != "port.lag_parent" || diffs[1].To.TypeID() != "port.lag_parent" || diffs[1].From.Canonical() != "lag1" || diffs[1].To.Canonical() != "" {
 			t.Errorf("diffs[1] = %+v, want lag_parent change lag1 -> \"\"", diffs[1])
 		}
 		if diffs[2].Field != "" || diffs[2].Subject.Key != "1/1/2" || diffs[2].To != nil {
@@ -761,4 +762,10 @@ func TestTableTransmit(t *testing.T) {
 			t.Errorf("Transmit(\"1/1/1\", 1501) reason = %q, want %q", reason, port.ReasonMTUExceeded)
 		}
 	})
+}
+
+func TestPortRuleConstants(t *testing.T) {
+	if got, want := port.RuleEgressNoMember, trace.RuleID("lag.egress.no_member"); got != want {
+		t.Errorf("RuleEgressNoMember = %q, want %q", got, want)
+	}
 }

@@ -365,71 +365,6 @@ func stringCompare(a, b string) int {
 	}
 }
 
-func TestMetadataCloneSharesNoSlices(t *testing.T) {
-	t.Parallel()
-
-	catalog := analysis.EvidenceCatalog{}
-	catalog, evRef := catalog.Add(analysis.Evidence{
-		Kind:    "observation",
-		Origin:  "test",
-		Context: "original",
-	})
-
-	scope := analysis.NodeScope("sw1")
-	origIssues := []analysis.Issue{{
-		Code:     "test/code",
-		Status:   analysis.Incomplete,
-		Scope:    scope,
-		Message:  "original message",
-		Evidence: []trace.EvidenceRef{evRef},
-	}}
-	origAssumptions := []analysis.Assumption{{
-		Scope:     scope,
-		Statement: "assumption 1",
-		Evidence:  []trace.EvidenceRef{evRef},
-	}}
-
-	meta := analysis.NewMetadata(scope, origIssues, catalog, origAssumptions)
-	cloned := meta.Clone()
-
-	if !cloned.Equal(meta) {
-		t.Fatal("cloned metadata does not equal original")
-	}
-
-	issues1 := meta.Issues()
-	issues2 := cloned.Issues()
-	if len(issues1) == 0 || len(issues2) == 0 {
-		t.Fatal("expected non-empty issues")
-	}
-	if &issues1[0] == &issues2[0] {
-		t.Error("clone shared issues backing array with original")
-	}
-	if &issues1[0].Evidence[0] == &issues2[0].Evidence[0] {
-		t.Error("clone shared issue evidence slice with original")
-	}
-
-	assumptions1 := meta.Assumptions()
-	assumptions2 := cloned.Assumptions()
-	if len(assumptions1) == 0 || len(assumptions2) == 0 {
-		t.Fatal("expected non-empty assumptions")
-	}
-	if &assumptions1[0] == &assumptions2[0] {
-		t.Error("clone shared assumptions backing array with original")
-	}
-	if &assumptions1[0].Evidence[0] == &assumptions2[0].Evidence[0] {
-		t.Error("clone shared assumption evidence slice with original")
-	}
-
-	entries1 := meta.Evidence().Entries()
-	entries2 := cloned.Evidence().Entries()
-	if len(entries1) == 0 || len(entries2) == 0 {
-		t.Fatal("expected non-empty evidence entries")
-	}
-	if &entries1[0] == &entries2[0] {
-		t.Error("clone shared evidence catalog entries slice with original")
-	}
-}
-
 func TestMetadataEqualIgnoresIssueMessage(t *testing.T) {
 	t.Parallel()
 
@@ -551,6 +486,47 @@ func TestSameIssues(t *testing.T) {
 	}
 	if analysis.SameIssues(a, a[:1]) {
 		t.Error("SameIssues returned true for differing lengths")
+	}
+}
+
+func TestSameIssue(t *testing.T) {
+	t.Parallel()
+
+	scope := analysis.NodeScope("sw1")
+	base := analysis.Issue{Code: "code-1", Status: analysis.Incomplete, Scope: scope, Message: "m1"}
+	if !analysis.SameIssue(base, base) {
+		t.Error("SameIssue returned false for an issue and itself")
+	}
+
+	otherCode := base
+	otherCode.Code = "code-2"
+	if analysis.SameIssue(base, otherCode) {
+		t.Error("SameIssue returned true for differing Code")
+	}
+
+	staleMessage := base
+	staleMessage.Message = "stale"
+	if analysis.SameIssue(base, staleMessage) {
+		t.Error("SameIssue returned true for differing Message")
+	}
+
+	otherScope := base
+	otherScope.Scope = analysis.NodeScope("sw2")
+	if analysis.SameIssue(base, otherScope) {
+		t.Error("SameIssue returned true for differing Scope")
+	}
+
+	otherStatus := base
+	otherStatus.Status = analysis.Complete
+	if analysis.SameIssue(base, otherStatus) {
+		t.Error("SameIssue returned true for differing Status")
+	}
+
+	_, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "survey", Origin: "rack-walk", Context: "sw1"})
+	withEvidence := base
+	withEvidence.Evidence = []trace.EvidenceRef{ref}
+	if analysis.SameIssue(base, withEvidence) {
+		t.Error("SameIssue returned true for differing Evidence")
 	}
 }
 

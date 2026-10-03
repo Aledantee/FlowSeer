@@ -306,12 +306,15 @@ func TestDiff(t *testing.T) {
 		t.Errorf("mode change: got (%v, %v, %v), want (%v, %v, true)", from, to, ok, lag.ActiveBackup, lag.BalanceTCP)
 	}
 
-	memberKey := trace.CompositeKey("lag1", "1/1/1")
+	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
 	from, to, ok := findChange("port", memberKey, "priority")
 	fromFact, okFrom := from.(trace.Fact)
 	toFact, okTo := to.(trace.Fact)
 	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(32768) || toFact.Canonical() != "100" {
-		t.Errorf("priority change: got (%v, %v, %v), want (32768, 100, true)", from, to, ok)
+		t.Fatalf("priority change: got (%v, %v, %v), want (32768, 100, true)", from, to, ok)
+	}
+	if fromFact.TypeID() != "lag.port_priority" || toFact.TypeID() != "lag.port_priority" {
+		t.Errorf("priority change fact types = (%q, %q), want lag.port_priority", fromFact.TypeID(), toFact.TypeID())
 	}
 }
 
@@ -415,7 +418,7 @@ func TestDiffCoversRebalanceInterval(t *testing.T) {
 // TestVSwitchStoresEffectiveLAGConfiguration proves a package outside lag and
 // mcast can name every exported Config field and construct a value: it builds
 // the effective LAG configuration through vswitch.Config alone and checks it
-// against lag.Config{}.Defaults directly.
+// against lag.Config{}.Normalize directly.
 func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	t.Parallel()
 
@@ -445,13 +448,24 @@ func TestVSwitchStoresEffectiveLAGConfiguration(t *testing.T) {
 	}
 }
 
-func TestDiffOmittedModeMatchesActiveBackup(t *testing.T) {
+func TestDiffNormalizesBothSides(t *testing.T) {
 	t.Parallel()
 
-	a := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: ""}}}
-	b := lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.ActiveBackup}}}
-	if diffs := lag.Diff(a, b); len(diffs) != 0 {
-		t.Fatalf("Diff reported changes between omitted mode and ActiveBackup: %v", diffs)
+	omitted := lag.Config{LAGs: map[string]lag.LAG{
+		"lag1": {Members: map[string]lag.Member{"1/1/1": {}}},
+	}}
+	explicit := lag.Config{LAGs: map[string]lag.LAG{
+		"lag1": {
+			RebalanceInterval: new(10 * time.Second),
+			LACP:              lag.LACPConfig{SystemPriority: 32768},
+			Members:           map[string]lag.Member{"1/1/1": {Priority: 32768}},
+		},
+	}}
+	if diffs := lag.Diff(omitted, explicit); len(diffs) != 0 {
+		t.Errorf("Diff(omitted, explicit) = %v, want no changes", diffs)
+	}
+	if diffs := lag.Diff(explicit, omitted); len(diffs) != 0 {
+		t.Errorf("Diff(explicit, omitted) = %v, want no changes", diffs)
 	}
 }
 

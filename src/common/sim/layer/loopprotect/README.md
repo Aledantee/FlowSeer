@@ -10,7 +10,7 @@ so this package parses none of them, and defines its own instead.
 
 The layer runs deterministically in memory without background goroutines or
 wall clocks. Time advances through explicit, time-stamped calls to `Receive`,
-`Wake`, and `LinkChange`. It is independent of spanning tree: both may be
+`Advance`, and `LinkChange`. It is independent of spanning tree: both may be
 configured on one switch, and a `Layer` here neither knows about STP nor
 consults its own gate before deciding whether to keep sending probes — see
 "Emission ignores the gate" below.
@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -46,7 +47,7 @@ func main() {
 		panic(err)
 	}
 
-	layer, err := loopprotect.New(loopprotect.Config{
+	lyr, err := loopprotect.New(loopprotect.Config{
 		Interval: 5 * time.Second,
 		Ports: map[string]loopprotect.Port{
 			"1/1/1": {Action: loopprotect.Block},
@@ -58,22 +59,22 @@ func main() {
 	}
 
 	t0 := time.Unix(1700000000, 0)
-	layer.LinkChange(t0, "1/1/1", true)
-	layer.LinkChange(t0, "1/1/2", true)
+	lyr.LinkChange(t0, "1/1/1", true)
+	lyr.LinkChange(t0, "1/1/2", true)
 
 	// The first probes go out one interval after the links came up.
-	fx := layer.Wake(t0.Add(5 * time.Second))
+	fx := lyr.Advance(t0.Add(5 * time.Second))
 
 	// The unmanaged hub loops 1/1/1's probe back onto the switch; the
 	// switch decodes it and finds it names this switch as sender.
-	probe, err := loopprotect.Decode(loopprotect.Encode(fx.Emissions[0].Probe, mac))
+	probe, err := loopprotect.Decode(fx.Emissions[0].Frame)
 	if err != nil {
 		panic(err)
 	}
-	layer.Receive(t0, loopprotect.Return{VID: probe.VID}, probe)
+	lyr.Receive(t0, loopprotect.Return{VID: probe.VID}, probe)
 
-	fmt.Printf("1/1/1: %s\n", layer.PortInfo("1/1/1").Action) // Block
-	fmt.Printf("1/1/2: %s\n", layer.PortInfo("1/1/2").Action) // (none)
+	fmt.Printf("1/1/1: %s\n", lyr.PortInfo("1/1/1").Action) // Block
+	fmt.Printf("1/1/2: %s\n", lyr.PortInfo("1/1/2").Action) // (none)
 }
 ```
 
@@ -161,7 +162,7 @@ clearing and would hold the port down forever.
 
 ## Emission ignores the gate
 
-`Wake` emits one probe per protected port per VLAN in `Port.VLANs` — or one
+`Advance` emits one probe per protected port per VLAN in `Port.VLANs` — or one
 probe for VID 0, which the switch sends on the port's PVID, when `VLANs` is
 empty — for every port that is not currently applying `Disable`, walking
 ports in sorted name order so a wake's emissions are deterministic. A
@@ -170,9 +171,9 @@ action; only an *applied* `Disable` stops emission, because only a returned
 probe can apply it in the first place — gating on the configured action
 alone would make `Disable` unreachable. Sequence numbers increase per port.
 
-The layer meters its own probes: a `Wake` before the interval is due lifts
+The layer meters its own probes: an `Advance` before the interval is due lifts
 whatever recovery windows have elapsed and emits nothing. A switch wakes its
-layers together, so `Wake` runs at every spanning tree hello and at every
+layers together, so `Advance` runs at every spanning tree hello and at every
 recovery expiry as well, and a probe on each of those would run far ahead of
 the configured interval. `NextWake` reports the earlier of the next probe and
 the next recovery.

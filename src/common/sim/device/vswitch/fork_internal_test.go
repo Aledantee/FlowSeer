@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -53,8 +54,9 @@ var switchFieldClasses = map[string]forkClass{
 	"lag":                      classDeepCopied,
 	"mcast":                    classDeepCopied,
 	"routing":                  classDeepCopied,
-	"filter":                   classImmutableShared,
+	"filter":                   classResetOnFork,
 	"traffic":                  classDeepCopied,
+	"trafficSwitchports":       classImmutableShared,
 	"copies":                   classDeepCopied,
 	"emissions":                classDeepCopied,
 	"portP2P":                  classDeepCopied,
@@ -250,6 +252,7 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 					"1/1/1": {RateBPS: 1000, BurstOctets: 500},
 				},
 			},
+			Filter: &filter.Config{},
 			Phy: &phy.Config{
 				Ethernet: map[string]phy.Ethernet{
 					"1/1/1": {
@@ -268,6 +271,9 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	sw, err := NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
+	}
+	if sw.filter == nil {
+		t.Fatal("newTestSwitchForFork produced nil filter")
 	}
 	sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0)
 	sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0)

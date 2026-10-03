@@ -37,8 +37,8 @@ func (f setSnapshotFact) TypeID() string { return "filter.set" }
 // Canonical returns the serialized rule set state.
 func (f setSnapshotFact) Canonical() string { return string(f) }
 
-// SnapshotSet returns an immutable snapshot of s.
-func SnapshotSet(s RuleSet) trace.Fact {
+// snapshotSet returns an immutable snapshot of s.
+func snapshotSet(s RuleSet) trace.Fact {
 	return setSnapshotFact("stateful=" + strconv.FormatBool(s.Stateful) +
 		";default=" + strconv.Quote(string(s.Default)) +
 		";rule_count=" + strconv.Itoa(len(s.Rules)))
@@ -132,8 +132,8 @@ func (f bindingSnapshotFact) TypeID() string { return "filter.binding" }
 // Canonical returns the binding set representation.
 func (f bindingSnapshotFact) Canonical() string { return string(f) }
 
-// SnapshotBinding returns an immutable snapshot of a binding target set.
-func SnapshotBinding(set string) trace.Fact {
+// snapshotBinding returns an immutable snapshot of a binding target set.
+func snapshotBinding(set string) trace.Fact {
 	return bindingSnapshotFact("set=" + strconv.Quote(set))
 }
 
@@ -169,7 +169,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: setSubject,
 				Field:   "",
 				From:    nil,
-				To:      SnapshotSet(setB),
+				To:      snapshotSet(setB),
 			})
 			for idx, r := range setB.Rules {
 				ruleKey := r.Name
@@ -192,7 +192,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: setSubject,
 				Field:   "",
-				From:    SnapshotSet(setA),
+				From:    snapshotSet(setA),
 				To:      nil,
 			})
 			for idx, r := range setA.Rules {
@@ -277,7 +277,7 @@ func Diff(a, b Config) []trace.Change {
 				Subject: bindingSubject,
 				Field:   "",
 				From:    nil,
-				To:      SnapshotBinding(setB),
+				To:      snapshotBinding(setB),
 			})
 			continue
 		}
@@ -286,7 +286,7 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: bindingSubject,
 				Field:   "",
-				From:    SnapshotBinding(setA),
+				From:    snapshotBinding(setA),
 				To:      nil,
 			})
 			continue
@@ -296,8 +296,8 @@ func Diff(a, b Config) []trace.Change {
 				Layer:   LayerName,
 				Subject: bindingSubject,
 				Field:   "set",
-				From:    SnapshotBinding(setA),
-				To:      SnapshotBinding(setB),
+				From:    snapshotBinding(setA),
+				To:      snapshotBinding(setB),
 			})
 		}
 	}

@@ -10,9 +10,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// TestTreeForAnswersForEveryVLAN pins the mapping this phase lands: one tree
-// carries every VLAN, including the ones vlan.ID.Valid rejects, so no caller has
-// to check a VID before asking the gate about it.
+// TestTreeForAnswersForEveryVLAN asserts that one tree carries every VLAN,
+// including the ones vlan.ID.Valid rejects, so no caller has to check a VID
+// before asking about it.
 func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 	t.Parallel()
 
@@ -42,7 +42,7 @@ func TestTreeForAnswersForEveryVLAN(t *testing.T) {
 
 // TestLoopGuardIgnoresAnEdgePort verifies the exclusion directly because Receive resets
 // edge from the administrative setting and auto-edge promotion fires only on a Designated
-// port; no Receive, Wake, and LinkChange sequence can leave a port both operationally edge
+// port; no Receive, Advance, and LinkChange sequence can leave a port both operationally edge
 // and holding received information in a non-designated role.
 func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	t.Parallel()
@@ -265,10 +265,10 @@ func TestPortNamesStayBridgeGlobal(t *testing.T) {
 }
 
 // TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding pins that loop guard,
-// like bpdu.BPDU guard, is a bridge-global property of the port: it must hold an
+// like BPDU guard, is a bridge-global property of the port: it must hold an
 // MSTI's own role and state out of the active topology on an internal
-// (non-boundary) port, not just the CIST's. The peer bpdu.BPDU carries this
-// bridge's own bpdu.ConfigID and l.boundary is checked directly, so the port
+// (non-boundary) port, not just the CIST's. The peer BPDU carries this
+// bridge's own ConfigID and l.boundary is checked directly, so the port
 // stays internal throughout: an external peer would route the MSTI's role
 // through the boundary mirror instead and pass for the wrong reason.
 func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
@@ -322,7 +322,7 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 	l.Receive(t0.Add(33*time.Second), "1/1/1", peer)
 
 	if l.boundary("1/1/1") {
-		t.Fatal("port classified boundary from a bpdu.BPDU carrying this bridge's own bpdu.ConfigID, want internal")
+		t.Fatal("port classified boundary from a BPDU carrying this bridge's own ConfigID, want internal")
 	}
 	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
 		t.Fatalf("CIST role = %v, want Root before the peer goes quiet", info.Role)
@@ -471,7 +471,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 	}.Normalize(layer.Env{}))
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 
-	// A plain RSTP peer (no bpdu.ConfigID at all) is unambiguously external.
+	// A plain RSTP peer (no ConfigID at all) is unambiguously external.
 	peer := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096},
 		BridgeID:     bpdu.BridgeID{Priority: 4096},
@@ -487,7 +487,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 
 	cist := l.cist()
 	if !cist.ports["1/1/1"].external {
-		t.Fatal("port not classified external from a peer carrying no bpdu.ConfigID")
+		t.Fatal("port not classified external from a peer carrying no ConfigID")
 	}
 	if cist.rootPort != "1/1/1" {
 		t.Fatalf("CIST root port = %q, want 1/1/1", cist.rootPort)
@@ -505,7 +505,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 
 // TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal pins the bug
 // where a port's region-internal received information (regional root,
-// internal cost, remaining hops) survived a later bpdu.BPDU that reclassified the
+// internal cost, remaining hops) survived a later BPDU that reclassified the
 // port external, so a boundary bridge re-originated a stale, decreasing hop
 // count instead of MaxHops.
 func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
@@ -536,8 +536,8 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 	p.rcvInternalRootPathCost = 100
 	p.rcvRemainingHops = 5
 
-	// A superior, foreign-region bpdu.BPDU: a lower root than what is stored, and
-	// no matching bpdu.ConfigID, so this bridge stores it as external information.
+	// A superior, foreign-region BPDU: a lower root than what is stored, and
+	// no matching ConfigID, so this bridge stores it as external information.
 	foreignRegion := MST{Name: "region-2"}
 	foreignConfigID := foreignRegion.ConfigID()
 	b := bpdu.BPDU{
@@ -554,7 +554,7 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "1/1/1", b)
 
 	if !p.external {
-		t.Fatal("port not classified external after a foreign-region bpdu.BPDU")
+		t.Fatal("port not classified external after a foreign-region BPDU")
 	}
 	if p.rcvRegionalRootID != (bpdu.BridgeID{}) || p.rcvInternalRootPathCost != 0 || p.rcvRemainingHops != 0 {
 		t.Errorf("internal-only fields survived the flip: regionalRoot=%v internalCost=%d remainingHops=%d, want all cleared",
@@ -576,7 +576,7 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 
 // TestMSTITopologyChangeBitReachesAndFlushesThePeer pins that a per-instance
 // topology change is carried on the wire and acted on. Bridge A raises a
-// change on MSTI 1 alone; the bpdu.BPDU it emits must carry the bit in MSTI 1's
+// change on MSTI 1 alone; the BPDU it emits must carry the bit in MSTI 1's
 // record and none in MSTI 2's; bridge B receiving it must flush MSTI 1's
 // VLAN on its other ports and leave MSTI 2's VLAN alone.
 func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
@@ -707,7 +707,7 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 		t.Fatal("MSTI 1's port has no live forward delay timer before the flip; the test proves nothing")
 	}
 
-	// A superior foreign-region bpdu.BPDU makes "1/1/1" a boundary port and, being
+	// A superior foreign-region BPDU makes "1/1/1" a boundary port and, being
 	// superior, this bridge's CIST root port.
 	foreignRegion := MST{Name: "region-2"}
 	foreignConfigID := foreignRegion.ConfigID()
@@ -725,7 +725,7 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "1/1/1", b)
 
 	if !l.boundary("1/1/1") {
-		t.Fatal("port not classified boundary after the foreign-region bpdu.BPDU")
+		t.Fatal("port not classified boundary after the foreign-region BPDU")
 	}
 	if !mstiPort.fwdDelayTimer.IsZero() {
 		t.Fatalf("MSTI 1's forward delay timer = %v, want cleared once the port becomes boundary", mstiPort.fwdDelayTimer)
@@ -787,7 +787,7 @@ func TestPVSTTreeMappingCoversEveryVLAN(t *testing.T) {
 // TestTransmitBudgetKeyingFollowsTheMode pins where the transmit budget
 // lives. Outside PVST mode every tree shares one budget per port, which is
 // what IEEE 802.1Q meters and what lets an MST bridge spend one slot for the
-// CIST bpdu.BPDU carrying every instance's record. Inside it each tree meters its
+// CIST BPDU carrying every instance's record. Inside it each tree meters its
 // own, because each VLAN puts a frame of its own on the wire.
 func TestTransmitBudgetKeyingFollowsTheMode(t *testing.T) {
 	t.Parallel()

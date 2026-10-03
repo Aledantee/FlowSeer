@@ -30,9 +30,6 @@ func (f pvidFact) TypeID() string { return "bridge.pvid" }
 // Canonical returns the decimal string of the PVID.
 func (f pvidFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
 
-// VID returns the underlying vlan.ID.
-func (f pvidFact) VID() vlan.ID { return vlan.ID(f) }
-
 // PVIDFact returns a trace.Fact wrapping a PVID.
 func PVIDFact(vid vlan.ID) trace.Fact { return pvidFact(vid) }
 

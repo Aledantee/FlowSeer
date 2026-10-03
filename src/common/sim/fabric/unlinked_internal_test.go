@@ -82,3 +82,45 @@ func TestFabricUnlinkedInternal(t *testing.T) {
 		}
 	}
 }
+
+func TestFabricUnlinkedOmittedPortConfiguredUp(t *testing.T) {
+	t.Parallel()
+
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	cfg := Config{
+		Switches: map[string]vswitch.Config{"sw1": {Ports: ports, Bridge: &bridge.Config{}}},
+		Hosts: map[string]Host{
+			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
+			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
+		},
+		Cables: []Cable{
+			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}},
+		},
+		PhyAssumption: &PhyAssumption{
+			Medium: TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	}
+	fab, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	got := fab.unlinked("sw1")
+	if len(got) != 1 || got[0].Port != "1/1/3" || got[0].Oper != port.Unknown || got[0].Reason != ReasonAdjacencyUnresolved {
+		t.Errorf("unlinked(sw1) = %+v, want 1/1/3 Unknown with reason adjacency-unresolved", got)
+	}
+}

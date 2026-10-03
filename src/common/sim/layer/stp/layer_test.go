@@ -440,7 +440,7 @@ func TestSharedPortForwardDelay(t *testing.T) {
 		t.Fatalf("initial state = %v, want Discarding", info.State)
 	}
 
-	// Advance time step-by-step through NextWake and Wake
+	// Advance time step-by-step through NextWake and Advance
 	reachedLearningAt := time.Time{}
 	reachedForwardingAt := time.Time{}
 
@@ -1106,7 +1106,7 @@ func TestTransmitHoldCountGating(t *testing.T) {
 
 	w5 := l.Advance(t0.Add(5 * time.Second))
 	if len(w5.Emissions) != 1 || w5.Emissions[0].Port != "1/1/1" {
-		t.Fatalf("Wake(5s) emissions = %+v, want 1 on 1/1/1", w5.Emissions)
+		t.Fatalf("Advance(5s) emissions = %+v, want 1 on 1/1/1", w5.Emissions)
 	}
 
 	// The link-up proposal, the hellos at 2 s and 4 s, the one reply that
@@ -1151,7 +1151,7 @@ func TestMigratedRootPortClimbsTheLadder(t *testing.T) {
 	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot || info.SendRSTP || info.State == stp.StateForwarding {
 		t.Fatalf("after a superior legacy BPDU: %+v, want a migrated root port not yet forwarding", info)
 	}
-	// Wake every second as the fabric would, and keep the information fresh
+	// Advance every second as the fabric would, and keep the information fresh
 	// with a hello every two seconds; the ladder started at link-up, so it
 	// fires at t0+15 s and t0+30 s whatever the role.
 	for s := 5; s <= 30; s++ {
@@ -1659,7 +1659,7 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 
 // TestMSTBridgeMigratedPortEmitsPlainConfigurationBPDU is evidence that a
 // port an MST bridge has migrated to legacy STP emits a Configuration BPDU a
-// legacy peer can read, not a version 3 MST BPDU: Encode picks the MST shape
+// legacy peer can read, not a version 3 MST BPDU: bpdu.Encode picks the MST shape
 // whenever ConfigID is set regardless of Version and Type, so attaching the
 // region's configuration identifier on a migrated port would silently
 // mislabel the frame it just downgraded.
@@ -1772,11 +1772,9 @@ func TestMSTIRecordFlagsCarryThePerInstancePortRole(t *testing.T) {
 
 // TestInferiorExternalBPDUKeepsStoredInternalInformation is evidence that a
 // port's classification is assigned only after the BPDU it just received is
-// compared against what the port already stores. Before the fix, the port's
-// external flag flipped first, so the stored (internal) information was
-// read back in the external vector shape for that one comparison, dropping
-// its regional root and letting a clearly inferior external BPDU read as
-// superior.
+// compared against what the port already stores. A port's external flag does
+// not flip before comparison, preserving stored internal vector information
+// against inferior external BPDUs.
 func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 	t.Parallel()
 
@@ -1855,9 +1853,9 @@ func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 // TestAutoEdgeReachesAnMSTIAtTheSameWake is evidence that auto-edge detection
 // mirrors onto every MST instance's own port at the same wake the CIST's
 // fires, rather than waiting for a later LinkChange to carry it across.
-// Before the fix, an instance stayed dark two forward delays longer than the
-// CIST and then raised a topology change of its own on becoming an edge,
-// which is exactly the flush auto-edge exists to prevent.
+// Without immediate mirroring, an instance stays dark two forward delays longer than the
+// CIST and raises a topology change of its own on becoming an edge,
+// which is the flush auto-edge exists to prevent.
 func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	t.Parallel()
 
@@ -1880,7 +1878,7 @@ func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
-	// MigrateTime (3s) is the auto-edge delay on a point-to-point link.
+	// migrateTime (3s) is the auto-edge delay on a point-to-point link.
 	fx := l.Advance(t0.Add(3 * time.Second))
 
 	if info := l.PortInfo("1/1/1"); !info.Edge || info.State != stp.StateForwarding {
@@ -2725,9 +2723,8 @@ func TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs(t *testing.T) {
 
 // TestPVSTBPDUGuardFiresOnSSTPBPDU is evidence that an SSTP BPDU on a
 // BPDU-guarded access port disables it even on a bridge that does not run
-// PVST: ReceiveSSTP used to return before receiveLink ran, on the theory that
-// nothing should be applied to a tree that does not exist on this bridge, but
-// that also skipped the guard, which belongs to the link and must run first.
+// PVST: ReceiveSSTP runs receiveLink before checking whether a tree exists on
+// this bridge, ensuring BPDU guard runs first.
 func TestPVSTBPDUGuardFiresOnSSTPBPDU(t *testing.T) {
 	t.Parallel()
 
@@ -2766,9 +2763,8 @@ func TestPVSTBPDUGuardFiresOnSSTPBPDU(t *testing.T) {
 // TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN is evidence that a topology
 // change raised while applying a BPDU to a non-VLAN-1 tree flushes that
 // tree's own VLAN, not every VLAN on every other port. applyBPDU's
-// topology-change branch used to pass nil to mergeFlushTarget, which means
-// "every FID", the same shorthand raiseTopologyChange itself uses only for
-// the CIST's empty FID set.
+// topology-change branch passes the tree's VLAN rather than nil (which means
+// "every FID").
 func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	t.Parallel()
 
@@ -2861,7 +2857,7 @@ func TestPVSTAlreadyEmittedCheckIsPerVLAN(t *testing.T) {
 // link-replicated: LinkChange and receiveLink both call syncInstancePorts
 // after writing the CIST's copy, and Mcheck must too, or a PVST bridge that
 // migrated a port back to legacy STP on the CIST alone (a version-0
-// Configuration BPDU past MigrateTime) leaves every other VLAN's copy false.
+// Configuration BPDU past migrateTime) leaves every other VLAN's copy false.
 // That copy gates emission directly: l.emit refuses to send a non-CIST
 // tree's BPDU on a port whose own sendRSTP is false, so a stale copy
 // silences that VLAN on the port until the next link bounce or a fresh RST
@@ -2888,7 +2884,7 @@ func TestMcheckSyncsSendRSTPToEveryTree(t *testing.T) {
 	}
 	legacyConfig.SetRole(bpdu.RoleDesignated)
 
-	// LinkChange itself set mdelayWhile to t0+MigrateTime, so the legacy BPDU
+	// LinkChange itself set mdelayWhile to t0+migrateTime, so the legacy BPDU
 	// must arrive after that for receiveLink's own migration delay check to
 	// let the demotion through.
 	l.Receive(t0.Add(4*time.Second), "l1", legacyConfig)
@@ -3109,7 +3105,7 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 // TestATreesPortStartsAtTheBridgePortsConfiguredCost verifies that an MSTI or PVST tree
 // with no per-instance path cost override starts at the
 // bridge port's own configured cost, the same fallback the CIST itself
-// derives from, rather than at DefaultPathCost(0) until the first LinkChange
+// derives from, rather than at defaultPathCost(0) until the first LinkChange
 // overwrites it.
 func TestATreesPortStartsAtTheBridgePortsConfiguredCost(t *testing.T) {
 	t.Parallel()

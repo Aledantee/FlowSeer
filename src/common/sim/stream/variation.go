@@ -12,8 +12,10 @@ import (
 
 // Variation transforms one frame at index n. Validate checks settings that do
 // not depend on the frame; [Spec.Validate] checks template-dependent settings.
-// Implementations must leave their inputs unchanged and be safe to share
-// between sources. Draws use the source's seeded generator.
+// The set of variations is closed to this package: Apply takes the package's
+// unexported generator, so no other package can implement Variation. Every
+// variation here leaves its inputs unchanged and is safe to share between
+// sources. Draws use the source's seeded generator.
 type Variation interface {
 	// Validate reports invalid settings before a source starts.
 	Validate() error

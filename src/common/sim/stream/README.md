@@ -102,7 +102,10 @@ so both checksums are recomputed; it never patches a byte in place. The
 template must re-encode to an IP packet of the same length, with its UDP length
 covering the full IP payload. Earlier size variations must leave the whole IP
 packet intact.
-It cannot follow a custom variation whose effect on the IP packet is unknown.
+The set of variations is closed to this package, because `Variation.Apply` takes
+the unexported generator. A UDP port variation cannot follow a variation type
+that `Spec.Validate` does not list, since that type's effect on the IP packet is
+unknown.
 The port variation preserves bytes after the IP packet, including Ethernet
 padding, and refuses fragmented IPv4 templates.
 

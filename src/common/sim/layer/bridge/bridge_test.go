@@ -178,7 +178,7 @@ func TestDiffDistinguishesVLANAwareness(t *testing.T) {
 	if len(changes) != 1 {
 		t.Fatalf("len(Diff()) = %d, want 1: %+v", len(changes), changes)
 	}
-	if got := changes[0]; got.Field != "vlan_awareness" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
+	if got := changes[0]; got.Field != "vlan_awareness" || got.From.TypeID() != "bridge.bool" || got.To.TypeID() != "bridge.bool" || got.From.Canonical() != "false" || got.To.Canonical() != "true" {
 		t.Errorf("Diff()[0] = %+v, want vlan_awareness false -> true", got)
 	}
 }
@@ -2185,7 +2185,7 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 	}
 	entries := br.Entries()
 	if len(entries) != 1 {
-		t.Fatalf("len(Entries()) after Age = %d, want 1", len(entries))
+		t.Fatalf("len(Entries()) after Advance = %d, want 1", len(entries))
 	}
 	if entries[0].MAC != macD || entries[0].Lifetime != bridge.Static {
 		t.Errorf("Entries()[0] = %+v, want D with Lifetime: bridge.Static", entries[0])
@@ -2204,10 +2204,8 @@ func TestStaticEntriesSurviveAgingAndTheBound(t *testing.T) {
 }
 
 // TestAgeActsOnLifetimeNotOrigin verifies that Origin and Lifetime are independent axes,
-// so Age removes exactly the Aging entries regardless of who installed
-// them, and a Configured, Aging entry ages while an Observed, Static one does not — a
-// combination the old Static boolean could not express, since it answered both questions at
-// once.
+// so Advance removes exactly the Aging entries regardless of who installed
+// them, and a Configured, Aging entry ages while an Observed, Static one does not.
 func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 	ports := buildTestPorts(t, 4)
 	br := mustNewBridge(t, bridge.Config{}, ports)
@@ -2223,7 +2221,7 @@ func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 
 	entries := br.Entries()
 	if len(entries) != 2 {
-		t.Fatalf("len(Entries()) after Age = %d, want 2, got %+v", len(entries), entries)
+		t.Fatalf("len(Entries()) after Advance = %d, want 2, got %+v", len(entries), entries)
 	}
 	byMAC := make(map[netaddr.MAC]bridge.Entry, len(entries))
 	for _, e := range entries {
@@ -2233,13 +2231,13 @@ func TestAgeActsOnLifetimeNotOrigin(t *testing.T) {
 		t.Errorf("Configured, Static entry (A) = %+v, ok=%v, want present and unchanged", a, ok)
 	}
 	if _, ok := byMAC[macB]; ok {
-		t.Errorf("Configured, Aging entry (B) survived Age, want removed")
+		t.Errorf("Configured, Aging entry (B) survived Advance, want removed")
 	}
 	if c, ok := byMAC[macC]; !ok || c.Origin != bridge.Observed || c.Lifetime != bridge.Static {
 		t.Errorf("Observed, Static entry (C) = %+v, ok=%v, want present and unchanged", c, ok)
 	}
 	if _, ok := byMAC[macD]; ok {
-		t.Errorf("Observed, Aging entry (D) survived Age, want removed")
+		t.Errorf("Observed, Aging entry (D) survived Advance, want removed")
 	}
 }
 
@@ -2285,7 +2283,7 @@ func TestDiffReportsMaxEntriesChange(t *testing.T) {
 		t.Fatalf("Diff returned %d changes, want 1", len(changes))
 	}
 	ch := changes[0]
-	if ch.Field != "max_entries" || ch.From.Canonical() != "0" || ch.To.Canonical() != "2" || ch.Layer != bridge.LayerName {
+	if ch.Field != "max_entries" || ch.From.TypeID() != "bridge.int" || ch.To.TypeID() != "bridge.int" || ch.From.Canonical() != "0" || ch.To.Canonical() != "2" || ch.Layer != bridge.LayerName {
 		t.Errorf("Diff change = %+v, want max_entries From: 0 To: 2 at LayerRelay", ch)
 	}
 }
@@ -2602,7 +2600,7 @@ func TestDiffReportsFloodVLANsProtectedPortsAndForwardBPDU(t *testing.T) {
 			t.Fatalf("len(changes) = %d, want 1", len(changes))
 		}
 		ch := changes[0]
-		if ch.Field != "forward_bpdu" || ch.From.Canonical() != "false" || ch.To.Canonical() != "true" || ch.Layer != bridge.LayerName {
+		if ch.Field != "forward_bpdu" || ch.From.TypeID() != "bridge.bool" || ch.To.TypeID() != "bridge.bool" || ch.From.Canonical() != "false" || ch.To.Canonical() != "true" || ch.Layer != bridge.LayerName {
 			t.Errorf("change = %+v, want forward_bpdu From: false To: true at LayerRelay", ch)
 		}
 	})

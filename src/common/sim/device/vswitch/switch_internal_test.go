@@ -1,13 +1,19 @@
 package vswitch
 
 import (
+	"net/netip"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestSwitchSpeedsInternal(t *testing.T) {
@@ -89,5 +95,87 @@ func TestLinkChangeValidTransitionRecordsNoFault(t *testing.T) {
 
 	if err := sw.operErr; err != nil {
 		t.Errorf("sw.operErr = %v after a valid transition, want nil", err)
+	}
+}
+
+func TestReleaseHeldFrameOntoDownPortRecordsPortStatusDown(t *testing.T) {
+	t.Parallel()
+
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	macRouter := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	sw, err := New(Config{
+		Ports: ports,
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"rp1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	hf := routing.HeldFrame{
+		Interface: "rp1",
+		Port:      "1/1/1",
+		Cause:     routing.HeldReleased,
+		Frame:     ethernet.Frame{Payload: make([]byte, 100)},
+	}
+
+	sw.releaseHeldFrame(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), hf)
+
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("DrainNeighborFailures() returned %d drops, want 1", len(drops))
+	}
+	if drops[0].Reason != port.ReasonPortDown {
+		t.Errorf("drop reason = %v, want %v", drops[0].Reason, port.ReasonPortDown)
+	}
+	if drops[0].Port != "1/1/1" {
+		t.Errorf("drop port = %q, want 1/1/1", drops[0].Port)
+	}
+	if got, want := drops[0].Step.RuleID, trace.RuleID("port.status.port-down"); got != want {
+		t.Errorf("drop step RuleID = %q, want literal %q", got, want)
+	}
+}
+
+func TestSwitchWithoutTrafficLeavesTrafficSwitchportsNil(t *testing.T) {
+	t.Parallel()
+
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	pvid := vlan.ID(10)
+	sw, err := New(Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	if sw.trafficSwitchports != nil {
+		t.Errorf("trafficSwitchports = %v, want nil when Traffic is not configured", sw.trafficSwitchports)
 	}
 }

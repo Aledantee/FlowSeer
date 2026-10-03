@@ -103,10 +103,17 @@ const (
 // value bridges exchange and compare to decide whether they belong to the
 // same MST region.
 type ConfigID struct {
+	// Selector is the configuration identifier format selector octet.
 	Selector uint8
-	Name     string
+
+	// Name is the configuration name, at most 32 octets when encoded on the
+	// wire (null-padded).
+	Name string
+
 	Revision uint16
-	Digest   [16]byte
+
+	// Digest is the HMAC-MD5 signature of the 4096-entry VID-to-MSTID table.
+	Digest [16]byte
 }
 
 // MSTID identifies a Multiple Spanning Tree Instance on the wire (0 for CIST, 1..4094).
@@ -297,29 +304,45 @@ func (b *BPDU) SetTopologyChangeAck(v bool) {
 
 var stpGroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00}
 
-// BridgeGroupAddress returns the standard IEEE 802.1D bridge group multicast address (01:80:c2:00:00:00).
-func BridgeGroupAddress() netaddr.MAC {
-	return stpGroupAddress
-}
-
-// GroupAddress returns the standard IEEE 802.1D bridge group multicast address (01:80:c2:00:00:00).
-func GroupAddress() netaddr.MAC {
-	return stpGroupAddress
-}
-
 const (
-	llcBPDULength       = 3 + 36
+	// llcBPDULength is the LLC header plus the RST BPDU body (IEEE 802.1D-2004
+	// clause 9.3.3), the value the 802.3 length field carries.
+	llcBPDULength = 3 + 36
+
+	// llcConfigBPDULength is the LLC header plus the Configuration BPDU body
+	// (IEEE 802.1D-2004 clause 9.3.1), the value the 802.3 length field carries.
 	llcConfigBPDULength = 3 + 35
-	llcTCNBPDULength    = 3 + 4
-	minDataLength       = 46
-	mstProtocolVersion  = 3
-	mstBodyLength       = 102
-	mstiRecordLength    = 16
+
+	// llcTCNBPDULength is the LLC header plus the Topology Change Notification
+	// BPDU body (IEEE 802.1D-2004 clause 9.3.2), the value the 802.3 length
+	// field carries.
+	llcTCNBPDULength = 3 + 4
+
+	// minDataLength pads the frame to the 802.3 minimum of 60 octets before
+	// the check sequence, as a capture would show it.
+	minDataLength = 46
+
+	// mstProtocolVersion is the IEEE 802.1Q protocol version identifier
+	// (payload octet 5) that marks an MST BPDU.
+	mstProtocolVersion = 3
+
+	// mstBodyLength is the MST BPDU body length in octets (payload octets
+	// 3-104), counted from the protocol identifier through the CIST
+	// remaining hops, before any MSTI records.
+	mstBodyLength = 102
+
+	// mstiRecordLength is the octet length of one MSTI record.
+	mstiRecordLength = 16
+
+	// minMSTPayloadLength is the minimum LLC payload length, LLC header
+	// included, that can hold an MST BPDU body with no MSTI records
+	// (3 + mstBodyLength).
 	minMSTPayloadLength = 105
 
-	// MaxMSTIRecords is the most MSTI records an MST BPDU can fit: the version 3
-	// length field carries 64 plus 16 octets per record in a uint16, so the record
-	// count is capped at (math.MaxUint16-64)/mstiRecordLength.
+	// MaxMSTIRecords is the most MSTI records [Encode] can fit in an MST
+	// BPDU: the version 3 length field carries 64 plus 16 octets per
+	// record in a uint16, so the record count is capped at
+	// (math.MaxUint16-64)/mstiRecordLength.
 	MaxMSTIRecords = (math.MaxUint16 - 64) / mstiRecordLength
 )
 
@@ -343,7 +366,7 @@ const (
 // identifier, CIST remaining hops, and one 16-octet record per entry in b.MSTIs). An
 // MST body is longer than the 802.3 minimum even with no MSTI records, so the payload
 // is sized to the body rather than padded to minDataLength. b.MSTIs beyond
-// maxMSTIRecords cannot fit the version 3 length field; Encode reports an error
+// MaxMSTIRecords cannot fit the version 3 length field; Encode reports an error
 // rather than write a length that would misread on decode.
 func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	if b.ConfigID != nil {
@@ -405,9 +428,20 @@ func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	}
 }
 
+// encodeMST writes b as an IEEE 802.1Q MST BPDU (protocol version 3). See
+// [Encode] for the shape.
+//
+// The MST body positions the CIST bridge identifier and the CIST regional
+// root identifier the other way round from the RST body putBody writes:
+// putBody leaves b.BridgeID at [20:28], which the MST shape uses for the
+// CIST regional root identifier, and putMSTBody's [96:104] for what the
+// RST shape treats as the bridge identifier is where the MST shape carries
+// the real CIST bridge identifier. encodeMST overwrites [20:28] with
+// b.RegionalRootID after putBody runs, and putMSTBody writes b.BridgeID at
+// [96:104], so the two fields land where the layout says they do.
 func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	if len(b.MSTIs) > MaxMSTIRecords {
-		return ethernet.Frame{}, errs.From(ErrUnsupported).
+		return ethernet.Frame{}, errs.New().
 			Attr("records", len(b.MSTIs)).
 			Attr("max_records", MaxMSTIRecords).
 			Msgf("MST BPDU holds %d MSTI records, more than the %d the version 3 length field can carry", len(b.MSTIs), MaxMSTIRecords)
@@ -437,6 +471,14 @@ func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	}, nil
 }
 
+// putMSTBody writes the MST body that follows the RST prefix putBody
+// writes: the version 3 length at [39:41], the 51-octet MST configuration
+// identifier at [41:92], the CIST internal root path cost at [92:96], the
+// CIST bridge identifier at [96:104] (encodeMST writes the CIST regional
+// root identifier at [20:28] separately), the CIST remaining hops at
+// [104], and one 16-octet record per entry in b.MSTIs starting at [105].
+// payload must already be sized for len(b.MSTIs) records, and the caller
+// has already checked len(b.MSTIs) against MaxMSTIRecords.
 func putMSTBody(payload []byte, b BPDU) {
 	n := len(b.MSTIs)
 	binary.BigEndian.PutUint16(payload[39:41], uint16(64+mstiRecordLength*n))
@@ -454,6 +496,8 @@ func putMSTBody(payload []byte, b BPDU) {
 	for i, rec := range b.MSTIs {
 		off := minMSTPayloadLength + mstiRecordLength*i
 		payload[off] = rec.Flags
+		// The MSTID has no octets of its own: it rides in the low 12 bits of
+		// the regional root priority (the system ID extension).
 		priority := (rec.RegionalRootID.Priority & 0xF000) | (uint16(rec.MSTID) & 0x0FFF)
 		binary.BigEndian.PutUint16(payload[off+1:off+3], priority)
 		copy(payload[off+3:off+9], rec.RegionalRootID.Address[:])
@@ -598,6 +642,8 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 	}
 }
 
+// putBody writes the fields the Configuration and RST shapes share, from the
+// root identifier at octet 8 through the forward delay at octet 37.
 func putBody(payload []byte, b BPDU) {
 	binary.BigEndian.PutUint16(payload[8:10], b.RootID.Priority)
 	copy(payload[10:16], b.RootID.Address[:])
@@ -611,6 +657,9 @@ func putBody(payload []byte, b BPDU) {
 	binary.BigEndian.PutUint16(payload[36:38], encodeDuration(b.ForwardDelay))
 }
 
+// readBody reads the fields putBody writes. Received information ages on the
+// sender's hello time, so a zero one would be stale the instant it arrived and
+// never elect anything; it is refused.
 func readBody(payload []byte) (BPDU, error) {
 	if binary.BigEndian.Uint16(payload[34:36]) == 0 {
 		return BPDU{}, errs.From(ErrUnsupported).
@@ -633,6 +682,11 @@ func readBody(payload []byte) (BPDU, error) {
 	}, nil
 }
 
+// readMSTBody reads the MST body [putMSTBody] writes and fills in b's MST
+// fields, including taking b.RegionalRootID from the RST prefix's bridge
+// identifier field and b.BridgeID from the MST body's [96:104] (see
+// [encodeMST]). The caller has already checked that payload holds at least
+// minMSTPayloadLength octets.
 func readMSTBody(payload []byte, b *BPDU) error {
 	v3Len := binary.BigEndian.Uint16(payload[39:41])
 	if v3Len < 64 || (v3Len-64)%mstiRecordLength != 0 {
@@ -653,6 +707,8 @@ func readMSTBody(payload []byte, b *BPDU) error {
 	var digest [16]byte
 	copy(digest[:], payload[76:92])
 
+	// readBody populated b.BridgeID from payload[20:28]; the MST shape
+	// uses that slot for the CIST regional root identifier instead.
 	b.RegionalRootID = b.BridgeID
 
 	var bridgeAddr netaddr.MAC
