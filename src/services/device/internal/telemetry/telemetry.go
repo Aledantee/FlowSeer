@@ -82,6 +82,7 @@ type View struct {
 	logger          *slog.Logger
 	driftDetections metric.Int64Counter
 	rpcDuration     rpcconv.ServerCallDuration
+	clientDuration  rpcconv.ClientCallDuration
 }
 
 // ViewConfig supplies what a [View] is built from. A nil MeterProvider records
@@ -118,7 +119,33 @@ func NewView(cfg ViewConfig) (*View, error) {
 		return nil, errs.From(err).Code(ErrCodeInstrument).Msg("build rpc server duration histogram")
 	}
 
-	return &View{logger: logger, driftDetections: driftDetections, rpcDuration: rpcDuration}, nil
+	clientDuration, err := rpcconv.NewClientCallDuration(meter)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeInstrument).Msg("build rpc client duration histogram")
+	}
+
+	return &View{
+		logger:          logger,
+		driftDetections: driftDetections,
+		rpcDuration:     rpcDuration,
+		clientDuration:  clientDuration,
+	}, nil
+}
+
+// RecordEngineCall records one client call's duration to the authorization engine.
+// procedure is the procedure name (e.g. "openfga.v1.OpenFGAService/Check").
+// seconds is the call duration.
+// errType is the classified error for a failed call and empty for one that succeeded.
+func (v *View) RecordEngineCall(ctx context.Context, procedure string, seconds float64, errType string) {
+	if v == nil {
+		return
+	}
+
+	attrs := []attribute.KeyValue{semconv.RPCMethodKey.String(RPCMethod(procedure))}
+	if errType != "" {
+		attrs = append(attrs, semconv.ErrorTypeKey.String(errType))
+	}
+	v.clientDuration.Record(ctx, seconds, rpcconv.SystemNameGRPC, attrs...)
 }
 
 // RecordRPC records one served call's duration.

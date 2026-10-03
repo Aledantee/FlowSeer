@@ -30,3 +30,18 @@ intervals {
   # write.
   drift { seconds: 3600 }
 }
+
+authentication {
+  issuers {
+    issuer: "https://127.0.0.1:8445/dex"
+    audience: "flowseer-device"
+    organization_claim_name: "groups"
+  }
+}
+
+authorization {
+  endpoint: "https://127.0.0.1:8081"
+  store_id: "PLACEHOLDER_STORE_ID"
+  model_id: "PLACEHOLDER_MODEL_ID"
+  preshared_key_file: "/etc/flowseer/secrets/openfga.key"
+}

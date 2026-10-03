@@ -243,7 +243,7 @@ Landed: `5b8a83e6..6ebca6cb`
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase2-plan.md`
 After: U1
-Landed:
+Landed: `e5ea2690..2e1c5ce1`
 
 ### U3. Service migration: enforcement on, projector, stamped identity
 

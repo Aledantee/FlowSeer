@@ -311,3 +311,164 @@ dev_tenant: "0192E6A0-0000-7000-8000-000000000001"
 		t.Fatalf("expected ErrCodeConfigInvalid for uppercase UUID dev_tenant, got %v", err)
 	}
 }
+
+func TestOperatorAuthenticationAndAuthorization(t *testing.T) {
+	accepted := validConfig + `
+platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"
+  organization_claim_name: "org_id"
+}
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }
+  ca_file: "/etc/ssl/certs/ca.pem"
+}
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
+  ca_file: "/etc/ssl/certs/ca.pem"
+}
+`
+	cfg, err := host.LoadConfig(writeConfig(t, accepted))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+
+	authn := cfg.Authentication()
+	if authn == nil {
+		t.Fatal("Authentication() returned nil")
+	}
+	if len(authn.GetIssuers()) != 1 {
+		t.Fatalf("issuers count = %d, want 1", len(authn.GetIssuers()))
+	}
+	iss := authn.GetIssuers()[0]
+	if iss.GetIssuer() != "https://auth.example.test" {
+		t.Errorf("issuer = %q, want https://auth.example.test", iss.GetIssuer())
+	}
+	if iss.GetAudience() != "flowseer-device" {
+		t.Errorf("audience = %q, want flowseer-device", iss.GetAudience())
+	}
+	if iss.GetOrganizationClaimName() != "org_id" {
+		t.Errorf("organization_claim_name = %q, want org_id", iss.GetOrganizationClaimName())
+	}
+	if authn.GetCaFile() != "/etc/ssl/certs/ca.pem" {
+		t.Errorf("ca_file = %q, want /etc/ssl/certs/ca.pem", authn.GetCaFile())
+	}
+
+	authz := cfg.Authorization()
+	if authz == nil {
+		t.Fatal("Authorization() returned nil")
+	}
+	if authz.GetEndpoint() != "https://authz.example.test:8081" {
+		t.Errorf("endpoint = %q, want https://authz.example.test:8081", authz.GetEndpoint())
+	}
+	if authz.GetStoreId() != "0192e6a0000070008000000000000001" {
+		t.Errorf("store_id = %q, want 0192e6a0000070008000000000000001", authz.GetStoreId())
+	}
+	if authz.GetModelId() != "0192e6a0000070008000000000000002" {
+		t.Errorf("model_id = %q, want 0192e6a0000070008000000000000002", authz.GetModelId())
+	}
+	if authz.GetPresharedKeyFile() != "/etc/flowseer/authz.key" {
+		t.Errorf("preshared_key_file = %q, want /etc/flowseer/authz.key", authz.GetPresharedKeyFile())
+	}
+	if authz.GetCaFile() != "/etc/ssl/certs/ca.pem" {
+		t.Errorf("ca_file = %q, want /etc/ssl/certs/ca.pem", authz.GetCaFile())
+	}
+
+	refusals := []struct {
+		name    string
+		replace string
+		with    string
+	}{
+		{
+			name: "http issuer refused",
+			replace: `authentication {
+  issuers {
+    issuer: "https://auth.example.test"`,
+			with: `authentication {
+  issuers {
+    issuer: "http://auth.example.test"`,
+		},
+		{
+			name:    "http endpoint refused",
+			replace: `endpoint: "https://authz.example.test:8081"`,
+			with:    `endpoint: "http://authz.example.test:8081"`,
+		},
+		{
+			name:    "endpoint with path refused",
+			replace: `endpoint: "https://authz.example.test:8081"`,
+			with:    `endpoint: "https://authz.example.test:8081/path"`,
+		},
+		{
+			name:    "endpoint without port refused",
+			replace: `endpoint: "https://authz.example.test:8081"`,
+			with:    `endpoint: "https://authz.example.test"`,
+		},
+		{
+			name:    "relative key path refused",
+			replace: `preshared_key_file: "/etc/flowseer/authz.key"`,
+			with:    `preshared_key_file: "authz.key"`,
+		},
+		{
+			name: "two issuers with one URL refused",
+			replace: `  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }`,
+			with: `  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device-2"
+  }`,
+		},
+		{
+			name: "platform_admin issuer no issuer names refused",
+			replace: `platform_admin {
+  issuer: "https://auth.example.test"`,
+			with: `platform_admin {
+  issuer: "https://unlisted.example.test"`,
+		},
+		{
+			name:    "empty audience refused",
+			replace: `audience: "flowseer-device"`,
+			with:    `audience: ""`,
+		},
+		{
+			name: "no issuers refused",
+			replace: `  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }`,
+			with: "",
+		},
+	}
+
+	for _, tc := range refusals {
+		t.Run(tc.name, func(t *testing.T) {
+			body := strings.Replace(accepted, tc.replace, tc.with, 1)
+			if body == accepted {
+				t.Fatalf("replacement target %q was not found in accepted config", tc.replace)
+			}
+			_, err := host.LoadConfig(writeConfig(t, body))
+			if err == nil {
+				t.Fatalf("LoadConfig() error = nil, want %s refused", tc.name)
+			}
+			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+				t.Fatalf("LoadConfig() error code = %v, want %v", code, host.ErrCodeConfigInvalid)
+			}
+		})
+	}
+}

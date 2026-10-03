@@ -183,3 +183,15 @@ func (c *Config) PlatformAdmin() *storev1.PlatformAdmin {
 func (c *Config) DevTenant() string {
 	return c.msg.GetDevTenant()
 }
+
+// Authentication returns the configured operator authentication options, or
+// nil if none is set.
+func (c *Config) Authentication() *storev1.OperatorAuthentication {
+	return c.msg.GetAuthentication()
+}
+
+// Authorization returns the configured authorization engine options, or nil if
+// none is set.
+func (c *Config) Authorization() *storev1.AuthorizationEngine {
+	return c.msg.GetAuthorization()
+}

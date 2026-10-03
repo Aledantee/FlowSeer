@@ -173,3 +173,44 @@ func TestRPCMethodMatchesTheConventionsVocabulary(t *testing.T) {
 		t.Errorf("RPCMethod(%q) = %q, want it unchanged", want, got)
 	}
 }
+
+func TestRecordEngineCall(t *testing.T) {
+	view, reader := newView(t, &bytes.Buffer{})
+
+	// 1. Successful engine call
+	view.RecordEngineCall(context.Background(), "openfga.v1.OpenFGAService/Check", 0.05, "")
+	// 2. Failed engine call with error.type
+	view.RecordEngineCall(context.Background(), "openfga.v1.OpenFGAService/BatchCheck", 0.12, "authz/engine-refused")
+
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &collected); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+
+	hist := findHistogram(t, &collected, "rpc.client.call.duration")
+	if len(hist.DataPoints) != 2 {
+		t.Fatalf("got %d data points, want 2", len(hist.DataPoints))
+	}
+
+	// 3. Nil view does not panic
+	var nilView *telemetry.View
+	nilView.RecordEngineCall(context.Background(), "openfga.v1.OpenFGAService/Check", 0.01, "")
+}
+
+func findHistogram(t *testing.T, collected *metricdata.ResourceMetrics, name string) metricdata.Histogram[float64] {
+	t.Helper()
+	for _, scope := range collected.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if m.Name != name {
+				continue
+			}
+			hist, ok := m.Data.(metricdata.Histogram[float64])
+			if !ok {
+				t.Fatalf("%s is %T, want a float64 histogram", name, m.Data)
+			}
+			return hist
+		}
+	}
+	t.Fatalf("%s was not collected", name)
+	return metricdata.Histogram[float64]{}
+}

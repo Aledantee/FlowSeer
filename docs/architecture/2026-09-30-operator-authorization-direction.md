@@ -542,3 +542,106 @@ passes on this ground, and a query the checker answered false stays
   failed before its check, and the second one's error could say whether an
   object exists. `Checker` does not promise an error that unwraps to the
   context's.
+
+### 2026-10-03: authorization model, principal identity, and configuration
+
+Phase 2 fixes the authorization model, principal identity hashing, issuer
+discovery, and engine configuration.
+
+#### The authorization model
+
+The OpenFGA model is stored in protojson format at
+`src/services/device/internal/authz/openfga/model.json` and corresponds to this
+DSL:
+
+```openfga
+model
+  schema 1.1
+
+type user
+type platform
+  relations
+    define admin: [user]
+type role
+  relations
+    define assignee: [user]
+type tenant
+  relations
+    define claimed: [user]
+    define enrolled: [user]
+    define member: claimed and enrolled
+    define platform_claimed: [user]
+    define platform_admin: platform_claimed and platform#admin
+    define partner_admin: member from partner
+    define active_admin: admin or partner_admin or platform_admin
+    define admin: [user, role#assignee]
+    define operator: [user, role#assignee] or active_admin
+    define capturer: [user, role#assignee, tenant#active_admin] or active_admin
+    define viewer: [user, role#assignee] or capturer or operator
+    define full_payload: [user, role#assignee]
+    define partner: [tenant]
+    define platform: [platform]
+type site
+type tag
+type edge
+  relations
+    define tenant: [tenant]
+    define administer: [user, role#assignee] or admin from tenant
+    define operate: [user, role#assignee] or operator from tenant
+    define capture: [user, role#assignee] or capturer from tenant
+    define view: [user, role#assignee] or administer or operate or capture or viewer from tenant
+type device
+  relations
+    define tenant: [tenant]
+    define operate: [user, role#assignee] or operator from tenant
+    define view: [user, role#assignee] or operate or viewer from tenant
+type capture_session
+  relations
+    define tenant: [tenant]
+    define edge: [edge]
+    define requester: [user]
+    define manage: capture from edge
+    define download: requester or capture from edge
+```
+
+The relations beyond the core tenant shape serve explicit cross-boundary roles:
+
+- `platform#claimed` and `enrolled` separate contextual token assertions from
+  stored platform assignments. A platform administrator loses reach when their
+  token stops asserting the platform claim.
+- Grants on `edge` and `device` are direct assignees or inherited from tenant
+  roles. Direct grants support fine-grained permissions on individual devices
+  or edges without site or tag infrastructure.
+- `tenant#active_admin` is a grantee on tenant roles so partner administrators
+  can be granted operational roles in customer tenants.
+- `capture_session#manage` delegates to edge capture permissions, while
+  `download` allows either the original requester or a user holding edge capture
+  permissions.
+
+The earlier decision stating that resource permissions avoid intersections
+holds for resource types (`edge`, `device`, `capture_session`). Those types
+evaluate unions of direct assignees and tenant-derived roles. Intersections occur
+only on `platform#admin` and `tenant#member` (`claimed and enrolled`). A
+resource permission reaches those intersections only indirectly through
+`tenant`.
+
+#### Principal identification
+
+`PrincipalID` is the hex-encoded SHA-256 digest of `issuer + "\x00" + subject`.
+The zero-byte separator prevents collisions between distinct issuer and subject
+pairs that share concatenations. The fixed 64-character hex representation fits
+database column limits and OpenFGA object identifier constraints.
+
+#### Issuer configuration
+
+`OperatorAuthentication` configures up to 8 OIDC issuers. Each entry requires
+an HTTPS issuer URL and audience string, with an optional organization claim
+name. Issuers and engine endpoints require HTTPS to prevent cleartext network
+manipulation of token verification keys.
+
+#### Engine configuration
+
+`AuthorizationEngine` configures the OpenFGA connection through opaque bounded
+strings (`store_id` and `model_id`) rather than naming engine internals in the
+protobuf schema. The service adapter validates the engine identifier format and
+verifies that the remote model matches the embedded model at startup.
