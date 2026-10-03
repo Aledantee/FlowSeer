@@ -1,6 +1,7 @@
 ---
 title: A Panic-to-Error Conversion That Reaches an API the Unit Did Not Scope Is a Re-Plan, Not a Wider Diff
 date: 2026-09-18
+last_verified: 2026-10-03
 category: architecture-patterns
 module: src/common/sim/device/vswitch
 problem_type: architecture_pattern
@@ -42,13 +43,12 @@ the error upward.
 
 Each shape below replaced an error-threading conversion that escaped its unit.
 
-- **Sticky fault read through a separate accessor.** When the reaching frame is
-  a no-error core API, record the first failure on the receiver and expose it
-  through a new method instead of returning it. `setOperStatus` runs under
-  `Switch.Forward`/`Peek` (no error return); it calls `recordOperFault`, and
-  callers learn of the fault through `Switch.Err`
-  (`src/common/sim/device/vswitch/switch.go:3543-3556`). This keeps one fault shape
-  for the type rather than threading an error through `applyLAGEffects →
+- **Sticky fault recorded on the receiver.** When the reaching frame is
+  a no-error core API, record the first failure on the receiver instead of returning it.
+  `setOperStatus` runs under `Switch.Forward`/`Peek` (no error return). It calls
+  `recordOperFault` (`src/common/sim/device/vswitch/switch.go:3813-3825`), recording
+  the failure on `operErr` rather than taking the process down. This keeps one
+  fault shape for the type rather than threading an error through `applyLAGEffects →
   interceptLACP → forward → Forward`.
 
 - **Pre-pass that validates before any un-erroring emitter runs.** When the
