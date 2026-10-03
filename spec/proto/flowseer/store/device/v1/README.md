@@ -115,3 +115,13 @@ together or not at all.
 to get the reason behind every refused call: the request interceptor grades
 refusals at DEBUG precisely so an incident can turn them on, and before this
 field existed there was no way to.
+
+`authentication` configures OIDC identity providers trusted to authenticate
+operators. Each issuer entry names an HTTPS issuer URL, an expected audience,
+and an optional organization claim name. An absolute CA bundle file can be
+provided when issuers use private certificates.
+
+`authorization` names the external authorization engine endpoint, store and
+model identifiers, a preshared key file path, and an optional CA bundle. Both
+sections are optional: leaving them unset preserves unauthenticated and
+unauthorized operation.
