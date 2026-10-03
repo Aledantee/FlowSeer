@@ -165,6 +165,9 @@ var importOrder = map[string][]string{
 	// context, so it names the device and the log taxonomy directly.
 	"event/log": {"model/inventory", "net/addr", "net/log"},
 
+	// The envelope that carries ingested observation data from adapters to central.
+	"integration/ingest": {"model/inventory", "event/log"},
+
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by

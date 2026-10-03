@@ -23,27 +23,17 @@ message SyslogRecord {
 
   // The device that emitted this log record. Must be present.
   flowseer.model.inventory.v1.DeviceGlobalRef device = 1 [(buf.validate.field).required = true];
-  // FlowSeer-assigned UUID identifying this record, for deduplication. Must
-  // be present.
-  string record_id = 2 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.uuid = true
-  ];
   // Timestamp when the record was received by the collector. Must be present.
   google.protobuf.Timestamp received_at = 3 [(buf.validate.field).required = true];
   // Timestamp from the message header (RFC 5424 TIMESTAMP). Unset when the
   // sender emitted NILVALUE.
   google.protobuf.Timestamp sent_at = 4;
-  // Severity of the record (RFC 5424 severity). Must be present.
-  flowseer.net.log.v1.SyslogSeverity severity = 5 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).enum.defined_only = true
-  ];
-  // Facility that generated the record (RFC 5424 facility). Must be present.
-  flowseer.net.log.v1.SyslogFacility facility = 6 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).enum.defined_only = true
-  ];
+  // Severity of the record (RFC 5424 severity). Unset means the message carried
+  // no PRI.
+  flowseer.net.log.v1.SyslogSeverity severity = 5 [(buf.validate.field).enum.defined_only = true];
+  // Facility that generated the record (RFC 5424 facility). Unset means the
+  // message carried no PRI.
+  flowseer.net.log.v1.SyslogFacility facility = 6 [(buf.validate.field).enum.defined_only = true];
   // Hostname from the message header (RFC 5424 HOSTNAME). Unset when omitted
   // or sent as NILVALUE.
   string hostname = 7 [

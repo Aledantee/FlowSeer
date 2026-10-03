@@ -2182,7 +2182,7 @@ func (l *Lane) recordEvidence(ds *deviceState, fingerprint string, req *dispatch
 	if req.GetMutation() != nil {
 		kind = evidence.KindInterfaceDescriptionChange
 	}
-	route := obs.GetProvenance().GetProtocol()
+	route := obs.GetProvenance().GetManagement()
 	_ = l.evid.Record(ds.key, fingerprint, kind, route, obs.GetCompleteness(), l.cfg.Clock())
 }
 
