@@ -1,0 +1,556 @@
+package openfga
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
+	"net"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+
+	openfgav1 "github.com/openfga/api/proto/openfga/v1"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
+	"go.opentelemetry.io/otel/trace"
+	nooptrace "go.opentelemetry.io/otel/trace/noop"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
+	grpcstatus "google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
+
+	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
+	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
+)
+
+// Authorization engine error codes.
+var (
+	// ErrCodeStoreMismatch indicates that the engine does not hold the configured store.
+	ErrCodeStoreMismatch = errs.NewCode("authz/engine-store-mismatch")
+	// ErrCodeModelMismatch indicates that the engine model differs from the embedded model.
+	ErrCodeModelMismatch = errs.NewCode("authz/engine-model-mismatch")
+	// ErrCodeConfig indicates an invalid configuration parameter.
+	ErrCodeConfig = errs.NewCode("authz/engine-config")
+	// ErrCodeRefused indicates authentication or permission failure on the engine.
+	ErrCodeRefused = errs.NewCode("authz/engine-refused")
+	// ErrCodeUnreachable indicates the engine is unavailable or timed out.
+	ErrCodeUnreachable = errs.NewCode("authz/engine-unreachable")
+	// ErrCodeProtocol indicates an unexpected engine response or protocol failure.
+	ErrCodeProtocol = errs.NewCode("authz/engine-protocol")
+)
+
+// Options configures an OpenFGA authorization Checker.
+type Options struct {
+	Endpoint       string
+	StoreID        string
+	ModelID        string
+	KeyFile        string
+	CAFile         string
+	Timeout        time.Duration
+	View           *telemetry.View
+	TracerProvider trace.TracerProvider
+	Propagator     propagation.TextMapPropagator
+}
+
+// Checker implements authz.Checker using an OpenFGA service client over gRPC.
+type Checker struct {
+	storeID    string
+	modelID    string
+	timeout    time.Duration
+	view       *telemetry.View
+	tracer     trace.Tracer
+	propagator propagation.TextMapPropagator
+	conn       *grpc.ClientConn
+	client     openfgav1.OpenFGAServiceClient
+}
+
+var _ authz.Checker = (*Checker)(nil)
+
+type presharedKeyCredential struct {
+	token string
+}
+
+func (c presharedKeyCredential) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	return map[string]string{
+		"authorization": "Bearer " + c.token,
+	}, nil
+}
+
+func (c presharedKeyCredential) RequireTransportSecurity() bool {
+	return true
+}
+
+type metadataCarrier metadata.MD
+
+func (m metadataCarrier) Get(key string) string {
+	values := metadata.MD(m).Get(key)
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func (m metadataCarrier) Set(key, value string) {
+	metadata.MD(m).Set(key, value)
+}
+
+func (m metadataCarrier) Keys() []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+// New constructs a Checker connected to OpenFGA, verifies the configured store
+// and authorization model against the engine, and returns the ready Checker.
+func New(ctx context.Context, opts Options) (*Checker, error) {
+	// 1. Validate store and model ID format via generated validation.
+	req := &openfgav1.ReadAuthorizationModelRequest{
+		StoreId: opts.StoreID,
+		Id:      opts.ModelID,
+	}
+	if err := req.Validate(); err != nil {
+		return nil, errs.From(err).Code(ErrCodeConfig).Msg("invalid store or model id")
+	}
+
+	// 2. Validate endpoint: must be https URL of host and port with no path, query, or user.
+	u, err := url.Parse(opts.Endpoint)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeConfig).Msg("invalid endpoint URL")
+	}
+	if u.Scheme != "https" {
+		return nil, errs.New().Code(ErrCodeConfig).Msg("endpoint must have https scheme")
+	}
+	host, port, err := net.SplitHostPort(u.Host)
+	if err != nil || host == "" || port == "" {
+		return nil, errs.New().Code(ErrCodeConfig).Msg("endpoint must have host and port")
+	}
+	if u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return nil, errs.New().Code(ErrCodeConfig).Msg("endpoint must not have path, query, or user")
+	}
+
+	// 3. Read preshared key file.
+	keyVal, err := credential.ReadKeyFile(opts.KeyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	// 4. Configure TLS and CA file.
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+		ServerName: host,
+	}
+	if opts.CAFile != "" {
+		caPEM, err := os.ReadFile(opts.CAFile)
+		if err != nil {
+			return nil, errs.From(err).Code(ErrCodeConfig).Msg("read CA file")
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caPEM) {
+			return nil, errs.New().Code(ErrCodeConfig).Msg("failed to parse CA certificate")
+		}
+		tlsConfig.RootCAs = certPool
+	}
+
+	timeout := opts.Timeout
+	if timeout <= 0 {
+		timeout = 5 * time.Second
+	}
+
+	tracerProvider := opts.TracerProvider
+	if tracerProvider == nil {
+		tracerProvider = nooptrace.NewTracerProvider()
+	}
+	tracer := tracerProvider.Tracer("go.aledante.io/FlowSeer/src/services/device", trace.WithSchemaURL(semconv.SchemaURL))
+
+	checker := &Checker{
+		storeID:    opts.StoreID,
+		modelID:    opts.ModelID,
+		timeout:    timeout,
+		view:       opts.View,
+		tracer:     tracer,
+		propagator: opts.Propagator,
+	}
+
+	dialOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)),
+		grpc.WithNoProxy(),
+		grpc.WithDisableServiceConfig(),
+		grpc.WithDisableRetry(),
+		grpc.WithPerRPCCredentials(presharedKeyCredential{token: keyVal.RevealString()}),
+		grpc.WithUnaryInterceptor(checker.unaryClientInterceptor),
+	}
+
+	conn, err := grpc.NewClient(u.Host, dialOpts...)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeConfig).Msg("create grpc client")
+	}
+	checker.conn = conn
+	checker.client = openfgav1.NewOpenFGAServiceClient(conn)
+
+	// 5. Verify Store on engine.
+	callCtx, cancel := context.WithTimeout(ctx, timeout)
+	storeResp, err := checker.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: opts.StoreID})
+	cancel()
+	if err != nil {
+		_ = checker.Close()
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		st, _ := grpcstatus.FromError(err)
+		if st.Code() == 5002 || st.Code() == 5 /* codes.NotFound */ {
+			return nil, errs.From(err).Code(ErrCodeStoreMismatch).Msg("store not found on engine")
+		}
+		return nil, checker.classifyError(err)
+	}
+	if storeResp.GetId() != opts.StoreID {
+		_ = checker.Close()
+		return nil, errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
+	}
+
+	// 6. Verify Model on engine.
+	callCtx, cancel = context.WithTimeout(ctx, timeout)
+	modelResp, err := checker.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
+		StoreId: opts.StoreID,
+		Id:      opts.ModelID,
+	})
+	cancel()
+	if err != nil {
+		_ = checker.Close()
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		st, _ := grpcstatus.FromError(err)
+		if st.Code() == 2001 || st.Code() == 5 /* codes.NotFound */ {
+			return nil, errs.From(err).Code(ErrCodeModelMismatch).Msg("model not found on engine")
+		}
+		return nil, checker.classifyError(err)
+	}
+	serverModel := modelResp.GetAuthorizationModel()
+	if serverModel == nil || serverModel.GetId() != opts.ModelID {
+		_ = checker.Close()
+		return nil, errs.New().Code(ErrCodeModelMismatch).Msg("model id mismatch")
+	}
+
+	// 7. Compare server model with embedded model.
+	embeddedModel, err := Model()
+	if err != nil {
+		_ = checker.Close()
+		return nil, errs.From(err).Code(ErrCodeConfig).Msg("load embedded model")
+	}
+	cloned := proto.Clone(serverModel).(*openfgav1.AuthorizationModel)
+	cloned.Id = ""
+	if !proto.Equal(embeddedModel, cloned) {
+		_ = checker.Close()
+		return nil, errs.New().Code(ErrCodeModelMismatch).Msg("stored authorization model does not match embedded model")
+	}
+
+	return checker, nil
+}
+
+func (c *Checker) unaryClientInterceptor(
+	ctx context.Context,
+	method string,
+	req, reply any,
+	cc *grpc.ClientConn,
+	invoker grpc.UnaryInvoker,
+	opts ...grpc.CallOption,
+) error {
+	start := time.Now()
+	cleanMethod := strings.TrimPrefix(method, "/")
+
+	ctx, span := c.tracer.Start(ctx, cleanMethod,
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			semconv.RPCSystemNameGRPC,
+			semconv.RPCMethodKey.String(cleanMethod),
+		),
+	)
+	defer span.End()
+
+	if c.propagator != nil {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.New(nil)
+		} else {
+			md = md.Copy()
+		}
+		c.propagator.Inject(ctx, metadataCarrier(md))
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
+
+	err := invoker(ctx, method, req, reply, cc, opts...)
+	duration := time.Since(start).Seconds()
+
+	var errType string
+	if err != nil {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		errType = telemetry.ErrorType(c.classifyError(err))
+	}
+	if c.view != nil {
+		c.view.RecordEngineCall(ctx, cleanMethod, duration, errType)
+	}
+	return err
+}
+
+func (c *Checker) classifyError(err error) error {
+	if err == nil {
+		return nil
+	}
+	st, ok := grpcstatus.FromError(err)
+	if !ok {
+		switch {
+		case errors.Is(err, context.DeadlineExceeded):
+			return errs.From(err).Code(ErrCodeUnreachable).Msg("engine call timed out")
+		case errors.Is(err, context.Canceled):
+			return err
+		default:
+			return errs.From(err).Code(ErrCodeProtocol).Msg("engine protocol error")
+		}
+	}
+
+	code := st.Code()
+	codeInt := int(code)
+	if (codeInt >= 1000 && codeInt <= 1999) || code == 16 /* codes.Unauthenticated */ || code == 7 /* codes.PermissionDenied */ {
+		return errs.From(err).Code(ErrCodeRefused).Msg("engine refused call")
+	}
+	if code == 14 /* codes.Unavailable */ || code == 4 /* codes.DeadlineExceeded */ {
+		return errs.From(err).Code(ErrCodeUnreachable).Msg("engine unreachable")
+	}
+	return errs.From(err).Code(ErrCodeProtocol).Msg("engine protocol error")
+}
+
+func (c *Checker) handleError(callerCtx context.Context, err error) error {
+	if callerCtx.Err() != nil {
+		return callerCtx.Err()
+	}
+	return c.classifyError(err)
+}
+
+func isValidObject(s string) bool {
+	if len(s) < 2 || len(s) > 256 {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '#' || r == '@' {
+			return false
+		}
+	}
+	t, id, ok := strings.Cut(s, ":")
+	if !ok || t == "" || id == "" || strings.Contains(id, ":") || id == "*" {
+		return false
+	}
+	return true
+}
+
+func isValidRelation(s string) bool {
+	if len(s) < 1 || len(s) > 50 {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == ':' || r == '#' || r == '@' {
+			return false
+		}
+	}
+	return true
+}
+
+func isValidCheckUser(s string) bool {
+	if len(s) < 2 || len(s) > 512 {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '#' || r == '@' {
+			return false
+		}
+	}
+	t, id, ok := strings.Cut(s, ":")
+	if !ok || t == "" || id == "" || strings.Contains(id, ":") || id == "*" {
+		return false
+	}
+	return true
+}
+
+func isValidTupleUser(s string) bool {
+	if len(s) < 2 || len(s) > 512 {
+		return false
+	}
+	for _, r := range s {
+		if unicode.IsControl(r) || r == ' ' || r == '\t' || r == '\r' || r == '\n' || r == '@' {
+			return false
+		}
+	}
+	if strings.Contains(s, "#") {
+		obj, rel, ok := strings.Cut(s, "#")
+		return ok && isValidObject(obj) && isValidRelation(rel)
+	}
+	t, id, ok := strings.Cut(s, ":")
+	return ok && t != "" && id != "" && !strings.Contains(id, ":")
+}
+
+func isValidQuery(q authz.Query) bool {
+	if !isValidObject(q.Object) || !isValidRelation(q.Relation) || !isValidCheckUser(q.User) {
+		return false
+	}
+	for _, t := range q.ContextualTuples {
+		if !isValidObject(t.Object) || !isValidRelation(t.Relation) || !isValidTupleUser(t.User) {
+			return false
+		}
+	}
+	return true
+}
+
+// Check evaluates a single authorization query. An invalid identifier OpenFGA
+// refuses is answered false without a network call.
+func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return false, ctxErr
+	}
+	if !isValidQuery(q) {
+		return false, nil
+	}
+
+	req := &openfgav1.CheckRequest{
+		StoreId:              c.storeID,
+		AuthorizationModelId: c.modelID,
+		TupleKey: &openfgav1.CheckRequestTupleKey{
+			Object:   q.Object,
+			Relation: q.Relation,
+			User:     q.User,
+		},
+	}
+	if len(q.ContextualTuples) > 0 {
+		tuples := make([]*openfgav1.TupleKey, len(q.ContextualTuples))
+		for i, t := range q.ContextualTuples {
+			tuples[i] = &openfgav1.TupleKey{
+				Object:   t.Object,
+				Relation: t.Relation,
+				User:     t.User,
+			}
+		}
+		req.ContextualTuples = &openfgav1.ContextualTupleKeys{
+			TupleKeys: tuples,
+		}
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	resp, err := c.client.Check(callCtx, req)
+	cancel()
+	if err != nil {
+		return false, c.handleError(ctx, err)
+	}
+
+	return resp.GetAllowed(), nil
+}
+
+// BatchCheck evaluates a list of authorization queries in query order, sending at most
+// 50 checks per gRPC call. Invalid queries are answered false without a call.
+func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool, error) {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+	results := make([]bool, len(queries))
+	if len(queries) == 0 {
+		return results, nil
+	}
+
+	type pendingCheck struct {
+		queryIndex int
+		item       *openfgav1.BatchCheckItem
+	}
+
+	var pending []pendingCheck
+	for i, q := range queries {
+		if !isValidQuery(q) {
+			results[i] = false
+			continue
+		}
+		item := &openfgav1.BatchCheckItem{
+			CorrelationId: strconv.Itoa(i),
+			TupleKey: &openfgav1.CheckRequestTupleKey{
+				Object:   q.Object,
+				Relation: q.Relation,
+				User:     q.User,
+			},
+		}
+		if len(q.ContextualTuples) > 0 {
+			tuples := make([]*openfgav1.TupleKey, len(q.ContextualTuples))
+			for j, t := range q.ContextualTuples {
+				tuples[j] = &openfgav1.TupleKey{
+					Object:   t.Object,
+					Relation: t.Relation,
+					User:     t.User,
+				}
+			}
+			item.ContextualTuples = &openfgav1.ContextualTupleKeys{
+				TupleKeys: tuples,
+			}
+		}
+		pending = append(pending, pendingCheck{queryIndex: i, item: item})
+	}
+
+	if len(pending) == 0 {
+		return results, nil
+	}
+
+	const maxBatchSize = 50
+	for start := 0; start < len(pending); start += maxBatchSize {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return nil, ctxErr
+		}
+		end := start + maxBatchSize
+		if end > len(pending) {
+			end = len(pending)
+		}
+		chunk := pending[start:end]
+
+		checks := make([]*openfgav1.BatchCheckItem, len(chunk))
+		for j, p := range chunk {
+			checks[j] = p.item
+		}
+
+		req := &openfgav1.BatchCheckRequest{
+			StoreId:              c.storeID,
+			AuthorizationModelId: c.modelID,
+			Checks:               checks,
+		}
+
+		callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+		resp, err := c.client.BatchCheck(callCtx, req)
+		cancel()
+		if err != nil {
+			return nil, c.handleError(ctx, err)
+		}
+
+		for _, p := range chunk {
+			single, ok := resp.GetResult()[p.item.CorrelationId]
+			if !ok {
+				return nil, errs.New().Code(ErrCodeProtocol).Msgf("batch check response missing correlation id %s", p.item.CorrelationId)
+			}
+			if single.GetError() != nil {
+				return nil, errs.New().Code(ErrCodeProtocol).Msgf("batch check item %s returned error: %s", p.item.CorrelationId, single.GetError().GetMessage())
+			}
+			results[p.queryIndex] = single.GetAllowed()
+		}
+	}
+
+	return results, nil
+}
+
+// Close closes the underlying gRPC connection.
+func (c *Checker) Close() error {
+	if c.conn != nil {
+		return c.conn.Close()
+	}
+	return nil
+}
