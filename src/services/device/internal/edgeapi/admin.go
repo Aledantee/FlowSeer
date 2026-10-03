@@ -429,7 +429,7 @@ func (s *AdminService) GetEdge(ctx context.Context, req *connect.Request[apiedge
 func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apiedgev1.ListEdgesRequest]) (*connect.Response[apiedgev1.ListEdgesResponse], error) {
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, authz.Abandon(ctx, connectErr(err))
 	}
 	size := int(req.Msg.GetPageSize())
 	if size <= 0 {
@@ -440,7 +440,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 	}
 	after, err := decodePageToken(req.Msg.GetPageToken())
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, authz.Abandon(ctx, connectErr(err))
 	}
 
 	keys, err := s.store.Keys(ctx, tenantID)
@@ -481,7 +481,7 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 
 		allowedIDs, err := authz.Filter(ctx, "view", "edge", chunk)
 		if err != nil {
-			return nil, connectErr(err)
+			return nil, err
 		}
 		allowedSet := make(map[string]bool, len(allowedIDs))
 		for _, id := range allowedIDs {
@@ -505,6 +505,11 @@ func (s *AdminService) ListEdges(ctx context.Context, req *connect.Request[apied
 				pageFilled = true
 				break
 			}
+		}
+	}
+	if examined == 0 {
+		if _, err := authz.Filter(ctx, "view", "edge", nil); err != nil {
+			return nil, err
 		}
 	}
 
