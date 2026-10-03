@@ -102,7 +102,7 @@ expect(candidates).toHaveLength(1)
 return candidates[0]
 ```
 
-Pass the resolved root to `axe.run()` (`frontend/web/src/ui/a11y.test.ts:482-502`):
+Pass the resolved root to `axe.run()` (`frontend/web/src/ui/a11y.test.ts:483-503`):
 
 ```ts
 const auditElement = overlayAudit

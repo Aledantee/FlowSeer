@@ -231,7 +231,7 @@ no query, so it mounts without a stub.
 
 `frontend/web/src/FleetView.motion.test.ts` holds both modes by changing the
 composable's query instead. Its stub returns one `MediaQueryList` per query
-string (`:19-32`). motion-dom asked for `(prefers-reduced-motion)`
+string (`:20-33`). motion-dom asked for `(prefers-reduced-motion)`
 (`motion-dom/dist/es/render/utils/reduced-motion/index.mjs:9`) and the
 composable asked for `(prefers-reduced-motion: reduce)`
 (`frontend/web/node_modules/motion-v/dist/es/animation/hooks/use-reduced-motion.mjs:4`),

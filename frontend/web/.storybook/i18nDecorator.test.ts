@@ -39,10 +39,11 @@ const storyModule = {
 
 let mounted: { app: App; container: HTMLElement }[] = []
 
-function mountStory(component: Component) {
+function mountStory(component: Component, configure?: (app: App) => void) {
   const container = document.createElement('div')
   document.body.append(container)
   const app = createApp(component)
+  configure?.(app)
   app.use(createWebI18n())
   app.mount(container)
   mounted.push({ app, container })
@@ -95,93 +96,97 @@ describe('i18nDecorator', () => {
     expect(probe?.textContent).toBe('Gesund')
   })
 
-  it('mounts en and de canvases together and unmounting either leaves the others translations usable', async () => {
-    // First pair: unmount en, verify de continues translating and reacts to locale change
-    const enStories1 = composeStories(storyModule, {
+  it('unmounting en canvas leaves de translations usable and reactive to locale change', async () => {
+    const enStories = composeStories(storyModule, {
       initialGlobals: { locale: 'en' },
     })
-    const deStories1 = composeStories(storyModule, {
+    const deStories = composeStories(storyModule, {
       initialGlobals: { locale: 'de' },
     })
 
-    const enMount1 = mountStory(enStories1.Default)
-    const deMount1 = mountStory(deStories1.Default)
+    const enMount = mountStory(enStories.Default)
+    const deMount = mountStory(deStories.Default)
     await nextTick()
 
-    expect(enMount1.container.textContent).toContain('Healthy')
-    expect(deMount1.container.textContent).toContain('Gesund')
+    expect(enMount.container.textContent).toContain('Healthy')
+    expect(deMount.container.textContent).toContain('Gesund')
 
-    enMount1.app.unmount()
-    enMount1.container.remove()
+    enMount.app.unmount()
+    enMount.container.remove()
     await nextTick()
 
-    const deProbe1 = deMount1.container.querySelector('.probe-text')
-    expect(deProbe1?.textContent).toBe('Gesund')
+    const deProbe = deMount.container.querySelector('.probe-text')
+    expect(deProbe?.textContent).toBe('Gesund')
 
-    reactive(deStories1.Default.globals).locale = 'en'
+    reactive(deStories.Default.globals).locale = 'en'
     await nextTick()
 
-    expect(deProbe1?.textContent).toBe('Healthy')
+    expect(deProbe?.textContent).toBe('Healthy')
 
-    // Second pair: unmount de, verify en continues translating and reacts to locale change
-    const enStories2 = composeStories(storyModule, {
+    deMount.app.unmount()
+    deMount.container.remove()
+  })
+
+  it('unmounting de canvas leaves en translations usable and reactive to locale change', async () => {
+    const enStories = composeStories(storyModule, {
       initialGlobals: { locale: 'en' },
     })
-    const deStories2 = composeStories(storyModule, {
+    const deStories = composeStories(storyModule, {
       initialGlobals: { locale: 'de' },
     })
 
-    const enMount2 = mountStory(enStories2.Default)
-    const deMount2 = mountStory(deStories2.Default)
+    const enMount = mountStory(enStories.Default)
+    const deMount = mountStory(deStories.Default)
     await nextTick()
 
-    expect(enMount2.container.textContent).toContain('Healthy')
-    expect(deMount2.container.textContent).toContain('Gesund')
+    expect(enMount.container.textContent).toContain('Healthy')
+    expect(deMount.container.textContent).toContain('Gesund')
 
-    deMount2.app.unmount()
-    deMount2.container.remove()
+    deMount.app.unmount()
+    deMount.container.remove()
     await nextTick()
 
-    const enProbe2 = enMount2.container.querySelector('.probe-text')
-    expect(enProbe2?.textContent).toBe('Healthy')
+    const enProbe = enMount.container.querySelector('.probe-text')
+    expect(enProbe?.textContent).toBe('Healthy')
 
-    reactive(enStories2.Default.globals).locale = 'de'
+    reactive(enStories.Default.globals).locale = 'de'
     await nextTick()
 
-    expect(enProbe2?.textContent).toBe('Gesund')
+    expect(enProbe?.textContent).toBe('Gesund')
+
+    enMount.app.unmount()
+    enMount.container.remove()
   })
 
   it('exempts UiAppRoot from being wrapped in a second UiAppRoot while wrapping other stories', async () => {
+    let appRootCount = 0
+    let buttonRootCount = 0
+
     const appRootStories = composeStories(appRootStoryModule)
     const buttonStories = composeStories(buttonStoryModule)
 
-    const mountAppRoot = mountStory(appRootStories.Default)
-    const mountButton = mountStory(buttonStories.Primary)
+    mountStory(appRootStories.Default, (app) => {
+      app.mixin({
+        created() {
+          if (this.$.type === UiAppRoot) {
+            appRootCount += 1
+          }
+        },
+      })
+    })
+
+    mountStory(buttonStories.Primary, (app) => {
+      app.mixin({
+        created() {
+          if (this.$.type === UiAppRoot) {
+            buttonRootCount += 1
+          }
+        },
+      })
+    })
     await nextTick()
 
-    const countUiAppRootAncestors = (el: Element | null): number => {
-      let count = 0
-      let cur = (
-        el as unknown as {
-          __vueParentComponent?: {
-            type?: Component
-            parent?: unknown
-          }
-        }
-      )?.__vueParentComponent
-      while (cur) {
-        if (cur.type === UiAppRoot) {
-          count++
-        }
-        cur = (cur as { parent?: unknown }).parent as typeof cur
-      }
-      return count
-    }
-
-    const appRootBtn = mountAppRoot.container.querySelector('button')
-    const buttonBtn = mountButton.container.querySelector('button')
-
-    expect(countUiAppRootAncestors(appRootBtn)).toBe(1)
-    expect(countUiAppRootAncestors(buttonBtn)).toBe(1)
+    expect(appRootCount).toBe(1)
+    expect(buttonRootCount).toBe(1)
   })
 })

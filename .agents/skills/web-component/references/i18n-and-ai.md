@@ -47,18 +47,18 @@ reactively while exposing a default message and a customization slot:
 
 ```vue
 <script setup lang="ts">
-import { computed } from "vue";
-import { ComboboxEmpty } from "reka-ui";
-import { useI18n } from "vue-i18n";
+import { computed } from 'vue'
+import { ComboboxEmpty } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 
 export interface UiCommandEmptyProps {
-  text?: string;
+  text?: string
 }
 
-const props = defineProps<UiCommandEmptyProps>();
+const props = defineProps<UiCommandEmptyProps>()
 
-const { t } = useI18n({ useScope: "global" });
-const resolvedText = computed(() => props.text ?? t("ui.commandEmpty.text"));
+const { t } = useI18n({ useScope: 'global' })
+const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 </script>
 
 <template>
@@ -94,7 +94,6 @@ const resolvedText = computed(() => props.text ?? t("ui.commandEmpty.text"));
 - **i18n:** the story audit mounts each story in `en` and `de`. The audit
   asserts zero missing-key, fallback, and parent-scope warnings. German
   pagination renders `Zurück` and `Weiter`.
-
 - **AI:** with an `ai` prop, `registry.list()` includes the target, and
   `highlight(id)` sets `data-ai-selected`. Without the prop, nothing
   registers.
