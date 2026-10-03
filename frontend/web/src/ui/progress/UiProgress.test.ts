@@ -95,38 +95,44 @@ describe('UiProgress', () => {
 
   it('updates progress aria-label and valuetext on live locale change and preserves explicit overrides', async () => {
     const i18n = createWebI18n('en')
-    const { el } = mountProgress({ modelValue: 45, max: 100 }, i18n)
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiProgress, { modelValue: 45, max: 100 }),
+          h(UiProgress, {
+            modelValue: 45,
+            max: 100,
+            ariaLabel: 'Custom Progress',
+            valueText: 'Custom Value',
+          }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => app.unmount()
 
-    expect(el.getAttribute('aria-label')).toBe('Progress')
-    expect(el.getAttribute('aria-valuetext')).toBe('45%')
+    const progressEls = host.querySelectorAll('[role="progressbar"]')
+    const defaultEl = progressEls[0]
+    const customEl = progressEls[1]
+    if (!defaultEl || !customEl) {
+      throw new Error('Expected both progress elements to be rendered')
+    }
+
+    expect(defaultEl.getAttribute('aria-label')).toBe('Progress')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    expect(el.getAttribute('aria-label')).toBe('Fortschritt')
-    expect(el.getAttribute('aria-valuetext')).toBe('45\u00a0%')
-
-    dispose()
-    document.body.replaceChildren()
-
-    const { el: elOverride } = mountProgress(
-      {
-        modelValue: 45,
-        max: 100,
-        ariaLabel: 'Custom Progress',
-        valueText: 'Custom Value',
-      },
-      i18n,
-    )
-
-    expect(elOverride.getAttribute('aria-label')).toBe('Custom Progress')
-    expect(elOverride.getAttribute('aria-valuetext')).toBe('Custom Value')
-
-    i18n.global.locale.value = 'en'
-    await nextTick()
-
-    expect(elOverride.getAttribute('aria-label')).toBe('Custom Progress')
-    expect(elOverride.getAttribute('aria-valuetext')).toBe('Custom Value')
+    expect(defaultEl.getAttribute('aria-label')).toBe('Fortschritt')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45\u00a0%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
   })
 
   it('preserves explicit ariaLabel and valueText overrides across locales, including empty strings', () => {

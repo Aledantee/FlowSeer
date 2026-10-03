@@ -609,6 +609,7 @@ describe('UiCommand', () => {
     dispose()
     document.body.replaceChildren()
 
+    const i18nOverride = createWebI18n('de')
     mountApp(
       () =>
         h(
@@ -628,7 +629,7 @@ describe('UiCommand', () => {
             ]),
           ],
         ),
-      i18n,
+      i18nOverride,
     )
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
@@ -644,7 +645,7 @@ describe('UiCommand', () => {
     expect(customList?.getAttribute('aria-label')).toBe('Custom List')
     expect(document.body.textContent).toContain('Custom None')
 
-    i18n.global.locale.value = 'en'
+    i18nOverride.global.locale.value = 'en'
     await nextTick()
 
     expect(document.body.querySelector('h2')?.textContent).toBe('Custom Title')
