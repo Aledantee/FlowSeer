@@ -568,7 +568,6 @@ describe('AiActionLayer selection and Ask', () => {
     resolvePending?.('Erledigt')
     await settle()
 
-    // Unavailable
     isUnavailable = true
     type('Noch eine Frage')
     await settle()
@@ -576,7 +575,6 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
     expect(document.body.textContent).toContain('KI ist nicht verfügbar')
 
-    // Generic error
     isUnavailable = false
     shouldFail = true
     type('Dritte Frage')
@@ -816,7 +814,6 @@ describe('AiActionLayer selection and Ask', () => {
     resolvePending?.('Done')
     await settle()
 
-    // Unavailable state
     isUnavailable = true
     type('Next question')
     await settle()
@@ -825,7 +822,6 @@ describe('AiActionLayer selection and Ask', () => {
     const unavailableStatus = document.querySelector('[role="status"]')
     expect(unavailableStatus?.textContent?.trim()).toBe('')
 
-    // Generic error state
     isUnavailable = false
     shouldFail = true
     type('Third question')
@@ -836,7 +832,89 @@ describe('AiActionLayer selection and Ask', () => {
     expect(alert?.textContent?.trim()).toBe('')
   })
 
-  it('updates catalog defaults on locale switch while preserving explicit overrides in the same DOM', async () => {
+  it('updates all ten catalog defaults on locale switch across all interactive states', async () => {
+    let isUnavailable = false
+    let shouldFail = false
+    let resolvePending: ((val: string) => void) | undefined
+    const { registry, i18n } = setup(
+      box,
+      () => ({ wide: true, narrow: false }),
+      {},
+      'en',
+    )
+    registry.onRequest(async () => {
+      if (isUnavailable) throw new AiUnavailableError()
+      if (shouldFail) throw 'non-error failure'
+      return new Promise<string>((res) => {
+        resolvePending = res
+      })
+    })
+    registry.highlight('a:devices:device:d1')
+    await settle()
+
+    const button = askButton()
+    expect(button?.getAttribute('aria-label')).toBe('Ask about d1')
+    expect(button?.textContent?.trim()).toBe('AI')
+
+    button?.click()
+    await settle()
+
+    const heading = document.querySelector('form p')
+    expect(heading?.textContent).toContain('Ask about d1')
+
+    const textarea = document.querySelector('textarea')
+    expect(textarea?.getAttribute('aria-label')).toBe('Your question')
+    expect(textarea?.getAttribute('placeholder')).toBe(
+      'Why is this device offline?',
+    )
+
+    const cancel = cancelButton('Cancel')
+    expect(cancel.textContent?.trim()).toBe('Cancel')
+    const submit = submitButton()
+    expect(submit.textContent?.trim()).toBe('Ask')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(button?.textContent?.trim()).toBe('KI')
+    expect(button?.getAttribute('aria-label')).toBe('Frage zu d1 stellen')
+    expect(heading?.textContent).toContain('Frage zu d1')
+    expect(textarea?.getAttribute('aria-label')).toBe('Frage')
+    expect(textarea?.getAttribute('placeholder')).toBe(
+      'Warum ist dieses Gerät offline?',
+    )
+    expect(cancel.textContent?.trim()).toBe('Abbrechen')
+    expect(submit.textContent?.trim()).toBe('Fragen')
+
+    type('Frage')
+    await settle()
+    submit.click()
+    await nextTick()
+    const pendingStatus = document.querySelector('[role="status"]')
+    expect(pendingStatus?.textContent).toContain('Frage wird gesendet…')
+
+    resolvePending?.('Fertig')
+    await settle()
+
+    isUnavailable = true
+    type('Zweite Frage')
+    await settle()
+    submit.click()
+    await settle()
+    const unavailableStatus = document.querySelector('[role="status"]')
+    expect(unavailableStatus?.textContent).toContain('KI ist nicht verfügbar')
+
+    isUnavailable = false
+    shouldFail = true
+    type('Dritte Frage')
+    await settle()
+    submit.click()
+    await settle()
+    const alert = document.querySelector('[role="alert"]')
+    expect(alert?.textContent).toContain('Etwas ist schiefgelaufen.')
+  })
+
+  it('preserves explicit overrides across locale switch', async () => {
     let isUnavailable = false
     let shouldFail = false
     let resolvePending: ((val: string) => void) | undefined
@@ -865,7 +943,6 @@ describe('AiActionLayer selection and Ask', () => {
     registry.highlight('a:devices:device:d1')
     await settle()
 
-    // Open panel in English
     const button = askButton()
     expect(button?.getAttribute('aria-label')).toBe('Custom inquire')
     expect(button?.textContent?.trim()).toBe('Bot')
@@ -885,11 +962,9 @@ describe('AiActionLayer selection and Ask', () => {
     expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
     expect(submitButton().textContent?.trim()).toBe('Ask')
 
-    // Switch locale to German
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    // Defaults changed, overrides stayed
     expect(button?.getAttribute('aria-label')).toBe('Custom inquire')
     expect(button?.textContent?.trim()).toBe('Bot')
     expect(heading?.textContent).toContain('Frage zu d1')
@@ -900,7 +975,6 @@ describe('AiActionLayer selection and Ask', () => {
     expect(cancelButton('Dismiss').textContent?.trim()).toBe('Dismiss')
     expect(submitButton().textContent?.trim()).toBe('Fragen')
 
-    // Pending state (default asking label changed)
     type('Frage')
     await settle()
     submitButton().click()
@@ -911,7 +985,6 @@ describe('AiActionLayer selection and Ask', () => {
     resolvePending?.('Fertig')
     await settle()
 
-    // Unavailable state (explicit override preserved)
     isUnavailable = true
     type('Zweite Frage')
     await settle()
@@ -919,7 +992,6 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
     expect(document.body.textContent).toContain('Custom offline')
 
-    // Generic error state (explicit override preserved)
     isUnavailable = false
     shouldFail = true
     type('Dritte Frage')

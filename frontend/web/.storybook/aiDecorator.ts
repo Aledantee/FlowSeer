@@ -57,28 +57,17 @@ function createStoryScope() {
   let host: MountedCanvas | undefined
   let removeWindow: (() => void) | undefined
   let removeDispatcher: (() => void) | undefined
-  let removeRegistrySub: (() => void) | undefined
-  let removeFocus: (() => void) | undefined
 
-  function updateActiveLabels() {
-    const selected = aiRegistry.selection()?.element
-    if (selected) {
-      const canvas = [...canvases].find((c) => c.element.contains(selected))
-      if (canvas) {
-        activeLabels.value = canvas.labels
-        return
-      }
+  function onTargetChange(id: string | undefined) {
+    if (!id) {
+      activeLabels.value = undefined
+      return
     }
-    const focused =
-      typeof document !== 'undefined' ? document.activeElement : null
-    if (focused instanceof HTMLElement) {
-      const canvas = [...canvases].find((c) => c.element.contains(focused))
-      if (canvas) {
-        activeLabels.value = canvas.labels
-        return
-      }
-    }
-    activeLabels.value = host?.labels
+    const targetElement = aiRegistry.view(id)?.element
+    const canvas = [...canvases].find(
+      (c) => targetElement && c.element.contains(targetElement),
+    )
+    activeLabels.value = canvas?.labels
   }
 
   function openDocument() {
@@ -98,20 +87,10 @@ function createStoryScope() {
       if (!handler) return Promise.reject(new AiUnavailableError())
       return handler(request)
     })
-    removeRegistrySub = aiRegistry.subscribe(updateActiveLabels)
-    if (typeof document !== 'undefined') {
-      const onFocus = () => updateActiveLabels()
-      document.addEventListener('focusin', onFocus)
-      removeFocus = () => document.removeEventListener('focusin', onFocus)
-    }
   }
 
   function closeDocument() {
     aiRegistry.clearHighlight()
-    removeFocus?.()
-    removeFocus = undefined
-    removeRegistrySub?.()
-    removeRegistrySub = undefined
     removeDispatcher?.()
     removeDispatcher = undefined
     removeWindow?.()
@@ -125,7 +104,6 @@ function createStoryScope() {
     if (!next) return
     host = next
     next.showLayer.value = true
-    updateActiveLabels()
   }
 
   function mount(canvas: StoryCanvas): () => void {
@@ -151,14 +129,12 @@ function createStoryScope() {
     }
     canvases.add(mounted)
     electHost()
-    updateActiveLabels()
 
     return () => {
       aiRegistry.unregister(canvas.element)
       canvases.delete(mounted)
       if (ownsId) handlers.delete(canvas.id)
       if (host !== mounted) {
-        updateActiveLabels()
         return
       }
       mounted.showLayer.value = false
@@ -168,7 +144,7 @@ function createStoryScope() {
     }
   }
 
-  return { mount, activeLabels }
+  return { mount, activeLabels, onTargetChange }
 }
 
 const storyScope = createStoryScope()
@@ -204,12 +180,21 @@ export const withAiTargets: Decorator = (story, context) => {
         })
       })
       onBeforeUnmount(() => release?.())
-      return { root, showLayer, activeLabels: storyScope.activeLabels }
+      return {
+        root,
+        showLayer,
+        activeLabels: storyScope.activeLabels,
+        onTargetChange: storyScope.onTargetChange,
+      }
     },
     template: `
       <div ref="root" data-ai-story-root>
         <story />
-        <UiAiActionLayer v-if="showLayer" :labels="activeLabels" />
+        <UiAiActionLayer
+          v-if="showLayer"
+          :labels="activeLabels"
+          @target-change="onTargetChange"
+        />
       </div>
     `,
   }

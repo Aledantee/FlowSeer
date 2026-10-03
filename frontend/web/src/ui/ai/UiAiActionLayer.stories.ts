@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { onMounted, onUnmounted } from 'vue'
-import UiAiActionLayer from './UiAiActionLayer.vue'
+import UiAiActionLayer, {
+  type UiAiActionLayerLabels,
+} from './UiAiActionLayer.vue'
 import { aiRegistry } from '../../ai'
 
 const meta: Meta<typeof UiAiActionLayer> = {
@@ -107,7 +109,7 @@ export const Overrides: Story = {
         asking: 'Querying telemetry engine…',
         unavailable: 'Diagnostic assistant offline',
         error: 'Telemetry analysis request rejected',
-      },
+      } satisfies UiAiActionLayerLabels,
     },
   },
   render: () => ({
