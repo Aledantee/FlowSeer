@@ -214,6 +214,16 @@ translation in the infinitive style of the `ui.*` messages
 | Needs attention | Handlungsbedarf |
 | `{count} device`, `{count} devices` | `{count} Gerät`, `{count} Geräte` |
 | `{count} result`, `{count} results` | `{count} Ergebnis`, `{count} Ergebnisse` |
+- **Requirement 6 covers names a kit component renders from its own text
+  props.** The dock tooltip's device and site names, shown through
+  `UiTooltip`'s `label` and `hint`, must carry `translate="no"`, so
+  `UiTooltip` gains a way to mark them, inside this phase.
+  (decided by the user, 2026-10-03)
+- **The review gets one more fix round** past its three-round limit,
+  resumed from `parked/wcc-p4-review` (`141f39c9`), on the false test in
+  `frontend/web/src/components/GlobalSearch.test.ts`, the brand literal,
+  the dock tooltip marking above, and the items in Review gaps.
+  (decided by the user, 2026-10-03)
 
 ## Requirements
 
