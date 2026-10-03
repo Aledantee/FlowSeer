@@ -192,3 +192,28 @@ export const LongText: Story = {
     `,
   }),
 }
+
+export const RightSheet: Story = {
+  args: {
+    title: 'Assistant Sheet',
+    description:
+      'Autonomous reasoning diagnostics and fleet overview assistance.',
+    side: 'right',
+    size: 'sm',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiDialog, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <UiDialog v-bind="args">
+        <p class="text-sm text-foreground">Sheet body content aligned to the right viewport edge.</p>
+        <template #footer>
+          <UiButton variant="primary">Dismiss</UiButton>
+        </template>
+      </UiDialog>
+    `,
+  }),
+}

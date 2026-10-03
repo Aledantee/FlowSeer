@@ -33,12 +33,15 @@ import {
   UiBreadcrumbList,
   UiBreadcrumbPage,
   UiBreadcrumbSeparator,
+  UiAiAssistant,
   UiAiContextLayer,
+  UiDialog,
   UiDropdownMenuItem,
   UiMotion,
   UiTooltip,
   useMotionFeedback,
 } from './ui'
+import type { AiSeed } from './ai'
 import {
   SHORTCUTS,
   dockTabShortcut,
@@ -123,6 +126,18 @@ const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
 const message = ref<NoticeKey | ''>('')
+
+const assistantOpen = ref(false)
+const assistantSeed = ref<AiSeed | undefined>()
+
+function toggleAssistant() {
+  assistantOpen.value = !assistantOpen.value
+}
+
+function handleContinueInAssistant(seed: AiSeed) {
+  assistantSeed.value = seed
+  assistantOpen.value = true
+}
 
 function siteName(id: string) {
   return (
@@ -778,6 +793,7 @@ function workspaceKey(event: KeyboardEvent) {
     void action()
   }
   if (matches(event, SHORTCUTS.toggleSplit)) return run(toggleSplit)
+  if (matches(event, SHORTCUTS.assistant)) return run(toggleAssistant)
   // Alt shortcuts would swallow characters typed into fields.
   if (typingIn(event.target)) return
   if (matches(event, SHORTCUTS.minimize)) return run(() => minimizePane())
@@ -1114,6 +1130,20 @@ onUnmounted(() => clearInterval(timer))
             @select="openResult"
             @dock="dockResult"
           />
+          <UiTooltip
+            :label="t('ui.aiAssistant.title')"
+            :shortcut="SHORTCUTS.assistant"
+          >
+            <button
+              type="button"
+              class="assistant-toggle grid place-items-center shrink-0 h-6.5 px-2 border border-border rounded-control bg-transparent text-xs font-medium text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px]"
+              :aria-label="t('ui.aiAssistant.title')"
+              data-ai-assistant-toggle
+              @click="toggleAssistant"
+            >
+              <span>{{ t('ui.aiAssistant.title') }}</span>
+            </button>
+          </UiTooltip>
           <ThemeSwitcher />
           <LocaleSwitcher />
           <HelpButton />
@@ -1121,7 +1151,7 @@ onUnmounted(() => clearInterval(timer))
           <AccountMenu />
         </div>
       </header>
-      <UiAiContextLayer>
+      <UiAiContextLayer @continue="handleContinueInAssistant">
         <main
           id="main"
           tabindex="-1"
@@ -1311,8 +1341,35 @@ onUnmounted(() => clearInterval(timer))
               </PageHost>
             </Transition>
           </template>
+          <aside
+            v-if="wide && assistantOpen"
+            class="assistant-pane flex-[0_0_20rem] lg:flex-[0_0_24rem] border-l border-border bg-card z-[4] flex flex-col pt-[var(--topbar-height)]"
+            data-ai-assistant-column
+          >
+            <UiAiAssistant
+              :open="wide && assistantOpen"
+              :seed="assistantSeed"
+              @close="assistantOpen = false"
+              @update:open="assistantOpen = $event"
+            />
+          </aside>
         </main>
       </UiAiContextLayer>
+      <UiDialog
+        :open="!wide && assistantOpen"
+        side="right"
+        size="sm"
+        content-class="p-0 max-w-sm"
+        :fallback-title="t('ui.aiAssistant.title')"
+        @update:open="assistantOpen = $event"
+      >
+        <UiAiAssistant
+          :open="!wide && assistantOpen"
+          :seed="assistantSeed"
+          @close="assistantOpen = false"
+          @update:open="assistantOpen = $event"
+        />
+      </UiDialog>
       <PageDock
         :tabs="tabs"
         :title="tabTitle"

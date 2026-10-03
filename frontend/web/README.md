@@ -200,8 +200,9 @@ Data display components under `src/ui/` present tables, metrics, and progress:
 
 Overlay, navigation, and command primitives under `src/ui/` wrap Reka UI headless components styled with semantic tokens:
 
-- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, and keyboard escape dismissal.
+- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, keyboard escape dismissal, and optional right-edge sheet layout (`side="right"`).
 - `UiPopover`: floating popover anchored to triggers with configurable alignment and collision padding.
+- `UiContextMenu` suite: contextual right-click and keyboard menus with roving focus and outside-click dismissal (`UiContextMenu`, `UiContextMenuTrigger`, `UiContextMenuContent`, `UiContextMenuItem`, `UiContextMenuSeparator`).
 - `UiDropdownMenu` suite: dropdown action menus with nested submenus, roving focus, keyboard navigation, and separators (`UiDropdownMenuItem`, `UiDropdownMenuSeparator`).
 - `UiTabs`: a single tab container that creates accessible triggers and panels from the `tabs` prop. Use `v-model` for controlled selection or `defaultValue` for initial selection; `trigger-${value}` and `${value}` slots replace a tab's label and panel content.
 - `UiBreadcrumb` suite: hierarchical breadcrumb navigation (`UiBreadcrumbList`, `UiBreadcrumbItem`, `UiBreadcrumbLink`, `UiBreadcrumbPage`, `UiBreadcrumbSeparator`, `UiBreadcrumbEllipsis`) featuring responsive auto-collapsing of intermediate links into a dropdown menu on narrow viewports.
@@ -397,9 +398,9 @@ A message read into a top-level `const` keeps the locale the module was set up i
 
 ## AI targets
 
-The console can expose meaningful instances to an agent without an AI
+The console can expose meaningful instances to an agent or model without an AI
 backend. A view marks an element with the `v-ai-target` directive bound to an
-`AiTarget`; the directive registers the element while it is mounted and
+`AiTarget`. The directive registers the element while it is mounted and
 removes it when it unmounts, so a row that leaves a filter stops being
 addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
 `standalone` for a Storybook story or a test), keeping IDs stable across pane
@@ -411,40 +412,181 @@ the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
 `visibility: collapse` on the target or an ancestor) are listed or selectable.
 Offscreen elements remain addressable so `highlight()` can scroll them into view.
 
-`window.flowseerAi` is the inspectable contract:
+Earlier prototypes explored hover triggers and a floating button that followed
+keyboard focus. Both were removed on purpose: hover triggers fired by accident
+during pointer travel, and focus-following buttons created visual clutter and
+nested interactive elements. AI interactions now center on three surfaces:
+
+1. **Context menu (`UiAiContextLayer`):** Right-clicking an element or pressing
+   Shift+F10 (or the `ContextMenu` key) on a focused item opens a menu of
+   labelled action verbs ("Why is this offline?", "Summarize this site").
+   Triggering a verb opens an answer-first popover anchored to that element.
+2. **Summary button (`UiAiSummary`):** The dashboard and device views retain a
+   dedicated summary placement, rendering structured results directly in the
+   content flow.
+3. **Assistant panel (`UiAiAssistant`):** A docked right column on wide screens,
+   or a full-height right sheet (`UiDialog` with `side="right"`) on narrow
+   viewports, opened via the top-bar button or Mod+I (`shortcuts.assistant`).
+   "Continue in assistant" from an inline popover transfers targets and turns
+   into the panel without losing context.
+
+### Interaction contract
+
+`window.flowseerAi` in `src/ai/registry.ts` is the inspectable browser API:
 
 ```ts
 window.flowseerAi.listTargets() // visible targets, sorted by id
-window.flowseerAi.highlight('a:devices:device:desktop:d1') // selects and scrolls into view; true when visible
+window.flowseerAi.highlight('a:devices:device:desktop:d1') // scrolls into view; true when visible
 window.flowseerAi.clearHighlight()
-const unsubscribe = window.flowseerAi.onRequest(async (request) => {
-  // request: { requestId, kind, targetId, label, context, prompt? }
-  return 'An answer built from the request snapshot.'
-})
-unsubscribe()
+
+const unsubscribeRequest = window.flowseerAi.onRequest(
+  async function* (request) {
+    // request: { requestId, action, targets, prompt?, history, signal }
+    yield {
+      type: 'summary',
+      headline: 'Core switch uplink experiencing frame loss',
+      tone: 'warning',
+      findings: [
+        {
+          severity: 'warning',
+          title: 'CRC error rate elevated',
+          detail:
+            'Port ge-0/0/1 reports 2.4% FCS error rate over the last 15 minutes.',
+          refs: [
+            { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+          ],
+        },
+      ],
+      cause: {
+        text: 'Marginal optical transceiver on uplink port.',
+        confidence: 'medium',
+        refs: [
+          { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+        ],
+      },
+      metrics: [{ label: 'FCS errors', value: '2.4%', tone: 'warning' }],
+      next: [{ label: 'Poll switch optical diagnostic levels' }],
+      sources: [
+        { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+      ],
+    }
+  },
+)
+
+const unsubscribeFeedback = window.flowseerAi.onFeedback(
+  ({ requestId, rating }) => {
+    // Record operator feedback
+  },
+)
+
+unsubscribeRequest()
+unsubscribeFeedback()
 ```
 
 `highlight(id)` selects and scrolls the exact mounted instance into view and
-returns `true`; unknown or CSS-hidden IDs return `false`. `onRequest` installs
-the asynchronous handler; the returned function removes it. With no handler
+returns `true`. Unknown or CSS-hidden IDs return `false`. `onRequest` installs
+the asynchronous handler, and the returned function removes it. With no handler
 installed, Ask and summary report **AI is unavailable** rather than inventing an
 answer. The application has no model provider yet, so `main.ts` installs
-`createMockAiHandler` (`src/ai/mock.ts`): it answers a summary from the target's
-context after a short pause that shows the pending shimmer, and leaves Ask
-unavailable. A result is revealed a word at a time; reduced motion shows it at
-once. A handler that rejects
-produces an error state, and an answer whose target unmounted, was replaced, or
-became hidden before it resolved is discarded, so a result never lands on a
-different instance that reused the ID.
+`createMockAiHandler` (`src/ai/mock.ts`): it answers summaries from the target's
+context in two snapshots with a pending delay, and answers Ask with a placeholder.
+A handler that rejects produces an error state.
 
-The on-screen action layer draws a small AI button in the top-right corner of
-the registered element, or just above that corner when a control occupies it,
-without nesting controls inside rows, charts, or buttons. A selection or focus
-within a target reveals Ask, and Alt+A opens it from the focused target; pointer
-hover reveals nothing. The prompt and answer use `UiPopover` with
-`UiButton` and `UiTextarea`; `UiAiSummary` owns the idle, loading, result,
-error, and retry states and makes no request until **Generate summary** is
-activated.
+### Typed results
+
+Results render using typed objects defined in `src/ai/types.ts` rather than
+raw Markdown or HTML strings. This avoids HTML-injection risks and allows native
+design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`) to
+present structured insights:
+
+- `AiSummary`: contains a headline, overall tone (`ok`, `warning`, `critical`,
+  `unknown`), structured findings with individual severities and entity
+  references, an optional likely cause with confidence rating, optional impact,
+  key metrics with status tones, recommended next steps, and entity sources.
+- `AiAnswer`: conversational or question responses containing prose text,
+  associated entity references, and an optional nested `AiSummary`.
+
+An example structured `AiSummary` payload:
+
+```json
+{
+  "type": "summary",
+  "headline": "Core switch uplink experiencing frame loss",
+  "tone": "warning",
+  "findings": [
+    {
+      "severity": "warning",
+      "title": "CRC error rate elevated",
+      "detail": "Port ge-0/0/1 reports 2.4% FCS error rate over the last 15 minutes.",
+      "refs": [
+        {
+          "kind": "device",
+          "id": "cologne-core-01",
+          "label": "cologne-core-01"
+        }
+      ]
+    }
+  ],
+  "cause": {
+    "text": "Marginal optical transceiver on uplink port.",
+    "confidence": "medium",
+    "refs": [
+      { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+    ]
+  },
+  "impact": {
+    "text": "Downstream access points report intermittent packet retransmissions.",
+    "refs": [
+      { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+    ]
+  },
+  "metrics": [{ "label": "FCS errors", "value": "2.4%", "tone": "warning" }],
+  "next": [{ "label": "Poll switch optical diagnostic levels" }],
+  "sources": [
+    { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+  ]
+}
+```
+
+### Snapshot delivery and cancellation
+
+A handler returns `Promise<AiResult>` or an `AsyncIterable<AiResult>`. Streaming
+delivers progressive snapshots where each yielded object is a complete result
+state so far, eliminating fragile delta-patching protocols. The active request
+carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
+iteration and freezing the current rendered snapshot. Every received snapshot
+must satisfy the `isAiResult` validator. Malformed payloads immediately halt the
+run and display an error.
+
+### Bound and unbound runs
+
+Requests initiate in either bound or unbound mode:
+
+- **Bound runs (`bound: true`):** Used by contextual menus and inline summaries.
+  The run monitors the registered DOM element. If that element unmounts or is
+  replaced by a different DOM node, the request aborts with `AiStaleError` to
+  prevent outdated results from settling on stale targets. Updating context on
+  the same element (such as periodically refreshing traffic counters) preserves
+  the run.
+- **Unbound runs (`bound: false`):** Used by the assistant panel. The panel
+  snapshots target context into chips when context is added. The session
+  remains active across page transitions and filter changes even after targets
+  unmount.
+
+### Context menu exclusions
+
+`UiAiContextLayer` intercepts right-click events in the capture phase to find the
+closest registered AI target. To avoid blocking expected browser controls, the
+listener halts propagation without calling `preventDefault()` when:
+
+- The click originates inside `a[href]`, `input`, `textarea`, `select`, or
+  `[contenteditable]` elements.
+- The document has an active, non-empty text selection.
+- No registered target is found under the pointer.
+- The closest target has `kind: 'view'` (such as background canvas clicks on
+  `DeviceView` or `TopologyGraph`).
+
+In all four cases, the native browser context menu appears normally.
 
 ## Boundaries and next decisions
 
