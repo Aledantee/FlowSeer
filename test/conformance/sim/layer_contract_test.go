@@ -1,5 +1,13 @@
 // Package conformance enforces layer architecture contracts across
 // packages under src/common/sim/layer.
+//
+// The contract is a table of guards, layerGuards. The gate writes the
+// declarations of a layer package as lines of text, one name line and one
+// signature line for a function, and each guard tests one literal against
+// those lines or against the package's imports and type names. A guard
+// arrives with a fixture directory under testdata/ that it refuses, and
+// TestLayerContractGuardsRefuseTheirFixtures fails for a guard whose
+// fixture passes without it.
 package conformance
 
 import (
@@ -7,6 +15,7 @@ import (
 	"go/ast"
 	goparser "go/parser"
 	"go/token"
+	"go/types"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -15,8 +24,94 @@ import (
 	"testing"
 )
 
-// TestLayerContract enforces that all layer packages under src/common/sim/layer/
-// satisfy the universal and stateful layer architecture contracts.
+const (
+	simImportPath     = "go.aledante.io/FlowSeer/src/common/sim"
+	layerImportPrefix = simImportPath + "/layer/"
+	fixtureRoot       = "test/conformance/sim/testdata"
+)
+
+type guardKind int
+
+const (
+	// requireLine reports a package without the literal line.
+	requireLine guardKind = iota
+	// requireLineIfStateful reports a stateful package without the literal line.
+	requireLineIfStateful
+	// requireLineIfPresent reports a package that holds the when line and
+	// lacks the literal line.
+	requireLineIfPresent
+	// refuseLine reports a package that holds the literal line.
+	refuseLine
+	// marksStateful makes the package stateful when it holds the literal
+	// line. It reports nothing itself.
+	marksStateful
+	// refuseImport reports each import of a non-test file under the
+	// directory for which refuses returns true.
+	refuseImport
+	// refuseTypeName reports each type of a non-test file under the
+	// directory for which refuses returns true.
+	refuseTypeName
+)
+
+// guard is one row of the contract. Its name is the fixture directory the
+// gate refuses.
+type guard struct {
+	name    string
+	kind    guardKind
+	literal string
+	when    string
+	// refuses receives the directory's name and an import path or a type
+	// name.
+	refuses func(dirName, value string) bool
+}
+
+// layerGuards lists what the gate enforces. A guard arrives with its fixture.
+var layerGuards = []guard{
+	{name: "layer_name", kind: requireLine, literal: "const LayerName"},
+	{name: "normalize", kind: requireLine, literal: "func (Config) Normalize(layer.Env) (Config)"},
+	{name: "validate", kind: requireLine, literal: "func (Config) Validate(layer.Env) (error)"},
+	{name: "config_clone", kind: requireLine, literal: "func (Config) Clone() (Config)"},
+	{name: "diff", kind: requireLine, literal: "func Diff(Config, Config) ([]trace.Change)"},
+	{name: "stateful_layer", kind: marksStateful, literal: "type Layer"},
+	{name: "stateful_new", kind: marksStateful, literal: "func New"},
+	{name: "stateful_retention_key", kind: marksStateful, literal: "func RetentionKey"},
+	{name: "new", kind: requireLineIfStateful, literal: "func New(Config, layer.Env) (*Layer, error)"},
+	{name: "layer_clone", kind: requireLineIfStateful, literal: "func (*Layer) Clone() (*Layer)"},
+	{name: "retention_key", kind: requireLineIfStateful, literal: "func RetentionKey(Config, layer.Env) (string)"},
+	{name: "advance", kind: requireLineIfPresent, when: "func Layer.Advance", literal: "func (*Layer) Advance(time.Time) (layer.Effects)"},
+	{name: "wake", kind: refuseLine, literal: "func Layer.Wake"},
+	{name: "age", kind: refuseLine, literal: "func Layer.Age"},
+	{name: "exported_fact", kind: refuseTypeName, refuses: exportedFactType},
+	{name: "import_sibling", kind: refuseImport, refuses: importsSiblingLayer},
+	{name: "import_device", kind: refuseImport, refuses: importsBelow(simImportPath + "/device")},
+	{name: "import_fabric", kind: refuseImport, refuses: importsBelow(simImportPath + "/fabric")},
+}
+
+func exportedFactType(_, name string) bool {
+	return ast.IsExported(name) && strings.HasSuffix(name, "Fact")
+}
+
+// importsSiblingLayer refuses an import below sim/layer/ whose first path
+// element is not the importing directory's name. The layer package itself,
+// sim/layer, is not below sim/layer/.
+func importsSiblingLayer(dirName, path string) bool {
+	rest, ok := strings.CutPrefix(path, layerImportPrefix)
+	if !ok {
+		return false
+	}
+	first, _, _ := strings.Cut(rest, "/")
+
+	return first != dirName
+}
+
+func importsBelow(root string) func(dirName, path string) bool {
+	return func(_, path string) bool {
+		return path == root || strings.HasPrefix(path, root+"/")
+	}
+}
+
+// TestLayerContract enforces layerGuards on every package directory under
+// src/common/sim/layer/.
 func TestLayerContract(t *testing.T) {
 	root := repoRoot(t)
 	layerRoot := filepath.Join(root, "src", "common", "sim", "layer")
@@ -32,14 +127,14 @@ func TestLayerContract(t *testing.T) {
 		if !entry.IsDir() {
 			continue
 		}
-		dirPath := filepath.Join(layerRoot, entry.Name())
-		findings, parsed := checkLayerDir(fset, root, dirPath)
+		findings, err := checkLayerDir(fset, root, filepath.Join(layerRoot, entry.Name()), layerGuards)
+		if err != nil {
+			t.Fatalf("checking %s: %v", entry.Name(), err)
+		}
 		for _, finding := range findings {
-			t.Errorf("%s: %s", entry.Name(), finding)
+			t.Error(finding)
 		}
-		if parsed > 0 {
-			scanned++
-		}
+		scanned++
 	}
 
 	if scanned == 0 {
@@ -48,907 +143,391 @@ func TestLayerContract(t *testing.T) {
 	t.Logf("scanned %d layer packages", scanned)
 }
 
-// TestLayerContractReportsViolations asserts that checkLayerDir detects each
-// category of layer contract violation across fixture packages under testdata/.
-func TestLayerContractReportsViolations(t *testing.T) {
-	root := repoRoot(t)
-	testdataRoot := filepath.Join(root, "test", "conformance", "sim", "testdata")
+// refusedFindings is what the full guard list reports for each row's
+// fixture. A stateful_ row reports no finding of its own: its fixture is a
+// stateless package made stateful, so the findings are the members the
+// stateful rows require and the fixture lacks.
+var refusedFindings = map[string][]string{
+	"layer_name": {
+		`test/conformance/sim/testdata/layer_name: missing "const LayerName"`,
+	},
+	"normalize": {
+		`test/conformance/sim/testdata/normalize: missing "func (Config) Normalize(layer.Env) (Config)"`,
+	},
+	"validate": {
+		`test/conformance/sim/testdata/validate: missing "func (Config) Validate(layer.Env) (error)"`,
+	},
+	"config_clone": {
+		`test/conformance/sim/testdata/config_clone: missing "func (Config) Clone() (Config)"`,
+	},
+	"diff": {
+		`test/conformance/sim/testdata/diff: missing "func Diff(Config, Config) ([]trace.Change)"`,
+	},
+	"stateful_layer": {
+		`test/conformance/sim/testdata/stateful_layer: missing "func New(Config, layer.Env) (*Layer, error)"`,
+		`test/conformance/sim/testdata/stateful_layer: missing "func (*Layer) Clone() (*Layer)"`,
+		`test/conformance/sim/testdata/stateful_layer: missing "func RetentionKey(Config, layer.Env) (string)"`,
+	},
+	"stateful_new": {
+		`test/conformance/sim/testdata/stateful_new: missing "func New(Config, layer.Env) (*Layer, error)"`,
+		`test/conformance/sim/testdata/stateful_new: missing "func (*Layer) Clone() (*Layer)"`,
+		`test/conformance/sim/testdata/stateful_new: missing "func RetentionKey(Config, layer.Env) (string)"`,
+	},
+	"stateful_retention_key": {
+		`test/conformance/sim/testdata/stateful_retention_key: missing "func New(Config, layer.Env) (*Layer, error)"`,
+		`test/conformance/sim/testdata/stateful_retention_key: missing "func (*Layer) Clone() (*Layer)"`,
+	},
+	"new": {
+		`test/conformance/sim/testdata/new: missing "func New(Config, layer.Env) (*Layer, error)"`,
+	},
+	"layer_clone": {
+		`test/conformance/sim/testdata/layer_clone: missing "func (*Layer) Clone() (*Layer)"`,
+	},
+	"retention_key": {
+		`test/conformance/sim/testdata/retention_key: missing "func RetentionKey(Config, layer.Env) (string)"`,
+	},
+	"advance": {
+		`test/conformance/sim/testdata/advance: missing "func (*Layer) Advance(time.Time) (layer.Effects)"`,
+	},
+	"wake": {
+		`test/conformance/sim/testdata/wake: declares "func Layer.Wake"`,
+	},
+	"age": {
+		`test/conformance/sim/testdata/age: declares "func Layer.Age"`,
+	},
+	"exported_fact": {
+		`test/conformance/sim/testdata/exported_fact/fixture.go:42: declares type "FooFact"`,
+	},
+	"import_sibling": {
+		`test/conformance/sim/testdata/import_sibling/sub/x.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/layer/bridge"`,
+	},
+	"import_device": {
+		`test/conformance/sim/testdata/import_device/fixture.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/device/vswitch"`,
+	},
+	"import_fabric": {
+		`test/conformance/sim/testdata/import_fabric/fixture.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/fabric"`,
+	},
+}
 
-	tests := []struct {
-		name         string
-		fixtureDir   string
-		wantFindings []string
-	}{
-		{
-			name:         "compliant layer produces no violations",
-			fixtureDir:   "valid",
-			wantFindings: nil,
-		},
-		{
-			name:       "missing const LayerName is reported",
-			fixtureDir: "missing_layer_name",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_layer_name: missing const LayerName",
-			},
-		},
-		{
-			name:       "missing Config type is reported",
-			fixtureDir: "missing_config",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_config: missing Config type",
-				"test/conformance/sim/testdata/missing_config: missing Config.Normalize(layer.Env) method",
-				"test/conformance/sim/testdata/missing_config: missing Config.Validate(layer.Env) method",
-				"test/conformance/sim/testdata/missing_config: missing Config.Clone method",
-				"test/conformance/sim/testdata/missing_config: missing Diff function",
-			},
-		},
-		{
-			name:       "missing Normalize method is reported",
-			fixtureDir: "missing_normalize",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_normalize: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "missing Validate method is reported",
-			fixtureDir: "missing_validate",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_validate: missing Config.Validate(layer.Env) method",
-			},
-		},
-		{
-			name:       "missing Config.Clone method is reported",
-			fixtureDir: "missing_clone",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_clone: missing Config.Clone method",
-			},
-		},
-		{
-			name:       "missing Diff function is reported",
-			fixtureDir: "missing_diff",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_diff: missing Diff function",
-			},
-		},
-		{
-			name:       "stateful layer missing New constructor is reported",
-			fixtureDir: "missing_new",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_new: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "stateful layer missing Layer.Clone method is reported",
-			fixtureDir: "missing_layer_clone",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_layer_clone: missing (*Layer).Clone method",
-			},
-		},
-		{
-			name:       "stateful layer missing RetentionKey function is reported",
-			fixtureDir: "missing_retention_key",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/missing_retention_key: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "forbidden sibling layer import is reported",
-			fixtureDir: "import_sibling",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/import_sibling/fixture.go:5: forbidden sibling import of go.aledante.io/FlowSeer/src/common/sim/layer/bridge",
-			},
-		},
-		{
-			name:       "forbidden sim/device import is reported",
-			fixtureDir: "import_device",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/import_device/fixture.go:4: forbidden import of go.aledante.io/FlowSeer/src/common/sim/device/vswitch",
-			},
-		},
-		{
-			name:       "forbidden sim/fabric import is reported",
-			fixtureDir: "import_fabric",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/import_fabric/fixture.go:4: forbidden import of go.aledante.io/FlowSeer/src/common/sim/fabric",
-			},
-		},
-		{
-			name:       "exported fact type is reported",
-			fixtureDir: "exported_fact",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/exported_fact/fixture.go:10: exported fact type FooFact",
-			},
-		},
-		{
-			name:       "forbidden Layer.Wake method is reported",
-			fixtureDir: "wake_method",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wake_method/fixture.go:38: forbidden Layer method Wake",
-			},
-		},
-		{
-			name:       "forbidden Layer.Age method is reported",
-			fixtureDir: "age_method",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/age_method/fixture.go:38: forbidden Layer method Age",
-			},
-		},
-		{
-			name:       "wrong Normalize parameter list is reported",
-			fixtureDir: "wrong_normalize",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_normalize: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "wrong Validate results is reported",
-			fixtureDir: "wrong_validate",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_validate: missing Config.Validate(layer.Env) method",
-			},
-		},
-		{
-			name:       "wrong New parameter list is reported",
-			fixtureDir: "wrong_new_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_params: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "wrong New results is reported",
-			fixtureDir: "wrong_new_results",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_results: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "wrong RetentionKey parameter list is reported",
-			fixtureDir: "wrong_retention_key",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_retention_key: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "wrong Advance results is reported",
-			fixtureDir: "wrong_advance",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "bare local Env type in Normalize is reported",
-			fixtureDir: "wrong_normalize_bare_env",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_normalize_bare_env: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "wrong Advance parameter list is reported",
-			fixtureDir: "wrong_advance_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance_params/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "wrong Diff results is reported",
-			fixtureDir: "wrong_diff_results",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_results: missing Diff function",
-			},
-		},
-		{
-			name:       "wrong Config.Clone result type is reported",
-			fixtureDir: "wrong_config_clone_result",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_config_clone_result: missing Config.Clone method",
-			},
-		},
-		{
-			name:       "wrong (*Layer).Clone result type is reported",
-			fixtureDir: "wrong_layer_clone_result",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_layer_clone_result: missing (*Layer).Clone method",
-			},
-		},
-		{
-			name:       "wrong RetentionKey results is reported",
-			fixtureDir: "wrong_retention_key_results",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_retention_key_results: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "wrong Diff parameter list is reported",
-			fixtureDir: "wrong_diff_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_params: missing Diff function",
-			},
-		},
-		{
-			name:       "wrong Advance time parameter type is reported",
-			fixtureDir: "wrong_advance_time_type",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance_time_type/fixture.go:42: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "wrong Advance effects result type is reported",
-			fixtureDir: "wrong_advance_effects_type",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance_effects_type/fixture.go:46: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "wrong Config.Clone parameter count is reported",
-			fixtureDir: "wrong_config_clone_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_config_clone_params: missing Config.Clone method",
-			},
-		},
-		{
-			name:       "wrong (*Layer).Clone parameter count is reported",
-			fixtureDir: "wrong_layer_clone_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_layer_clone_params: missing (*Layer).Clone method",
-			},
-		},
-		{
-			name:       "exported fact in subdirectory is reported",
-			fixtureDir: "sub_exported_fact",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/sub_exported_fact/sub/x.go:3: exported fact type FooFact",
-			},
-		},
-		{
-			name:       "sibling import in subdirectory is reported",
-			fixtureDir: "sub_sibling_import",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/sub_sibling_import/sub/x.go:4: forbidden sibling import of go.aledante.io/FlowSeer/src/common/sim/layer/bridge",
-			},
-		},
-		{
-			name:       "directory holding no Go files is reported",
-			fixtureDir: "no_go_files",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/no_go_files: holds no Go files",
-			},
-		},
-		{
-			name:       "pointer Config in New parameters is reported",
-			fixtureDir: "wrong_new_ptr_config",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_ptr_config: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "pointer Config in Diff parameters is reported",
-			fixtureDir: "wrong_diff_ptr_config",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_ptr_config: missing Diff function",
-			},
-		},
-		{
-			name:       "pointer Config in RetentionKey parameters is reported",
-			fixtureDir: "wrong_retention_key_ptr_config",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_retention_key_ptr_config: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "pointer receiver on Normalize is reported",
-			fixtureDir: "wrong_normalize_ptr_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_normalize_ptr_recv: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "pointer receiver on Validate is reported",
-			fixtureDir: "wrong_validate_ptr_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_validate_ptr_recv: missing Config.Validate(layer.Env) method",
-			},
-		},
-		{
-			name:       "pointer receiver on Config.Clone is reported",
-			fixtureDir: "wrong_config_clone_ptr_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_config_clone_ptr_recv: missing Config.Clone method",
-			},
-		},
-		{
-			name:       "value receiver on Layer.Clone is reported",
-			fixtureDir: "wrong_layer_clone_val_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_layer_clone_val_recv: missing (*Layer).Clone method",
-			},
-		},
-		{
-			name:       "wrong Validate parameter list is reported",
-			fixtureDir: "wrong_validate_params",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_validate_params: missing Config.Validate(layer.Env) method",
-			},
-		},
-		{
-			name:       "New second parameter not layer.Env is reported",
-			fixtureDir: "wrong_new_env_param",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_env_param: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "New second result not error is reported",
-			fixtureDir: "wrong_new_second_result",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_second_result: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "New first result not *Layer is reported",
-			fixtureDir: "wrong_new_first_result",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_first_result: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "Normalize returning pointer to Config is reported",
-			fixtureDir: "wrong_normalize_result_ptr",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_normalize_result_ptr: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "Config methods on wrong receiver type are reported",
-			fixtureDir: "wrong_config_receiver",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Normalize(layer.Env) method",
-				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Validate(layer.Env) method",
-				"test/conformance/sim/testdata/wrong_config_receiver: missing Config.Clone method",
-			},
-		},
-		{
-			name:       "wrong selector name in Normalize parameter is reported",
-			fixtureDir: "wrong_normalize_sel_name",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_normalize_sel_name: missing Config.Normalize(layer.Env) method",
-			},
-		},
-		{
-			name:       "wrong selector name in Advance parameter is reported",
-			fixtureDir: "wrong_advance_time_sel_name",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance_time_sel_name/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "wrong selector name in Advance results is reported",
-			fixtureDir: "wrong_advance_effects_sel_name",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_advance_effects_sel_name/fixture.go:44: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects",
-			},
-		},
-		{
-			name:       "wrong selector name in Diff results is reported",
-			fixtureDir: "wrong_diff_sel_name",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_sel_name: missing Diff function",
-			},
-		},
-		{
-			name:       "Diff first parameter not Config is reported",
-			fixtureDir: "wrong_diff_first_param",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_first_param: missing Diff function",
-			},
-		},
-		{
-			name:       "Diff second parameter not Config is reported",
-			fixtureDir: "wrong_diff_second_param",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_second_param: missing Diff function",
-			},
-		},
-		{
-			name:       "Diff array result not slice is reported",
-			fixtureDir: "wrong_diff_array_result",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_array_result: missing Diff function",
-			},
-		},
-		{
-			name:       "Diff result bare identifier not slice is reported",
-			fixtureDir: "wrong_diff_result_bare_ident",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_diff_result_bare_ident: missing Diff function",
-			},
-		},
-		{
-			name:       "Layer.Clone selector result type is reported",
-			fixtureDir: "wrong_layer_clone_sel_layer",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_layer_clone_sel_layer: missing (*Layer).Clone method",
-			},
-		},
-		{
-			name:       "New selector Layer result type is reported",
-			fixtureDir: "wrong_new_sel_layer",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_sel_layer: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "New selector error result type is reported",
-			fixtureDir: "wrong_new_sel_error",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wrong_new_sel_error: missing New(cfg, layer.Env) constructor",
-			},
-		},
-		{
-			name:       "members declared only in subdirectory are reported missing",
-			fixtureDir: "sub_members_only",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/sub_members_only: missing const LayerName",
-				"test/conformance/sim/testdata/sub_members_only: missing Config type",
-				"test/conformance/sim/testdata/sub_members_only: missing Config.Normalize(layer.Env) method",
-				"test/conformance/sim/testdata/sub_members_only: missing Config.Validate(layer.Env) method",
-				"test/conformance/sim/testdata/sub_members_only: missing Config.Clone method",
-				"test/conformance/sim/testdata/sub_members_only: missing Diff function",
-			},
-		},
-		{
-			name:       "forbidden Layer.Wake method on value receiver is reported",
-			fixtureDir: "wake_method_val_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/wake_method_val_recv/fixture.go:38: forbidden Layer method Wake",
-			},
-		},
-		{
-			name:       "forbidden Layer.Age method on value receiver is reported",
-			fixtureDir: "age_method_val_recv",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/age_method_val_recv/fixture.go:38: forbidden Layer method Age",
-			},
-		},
-		{
-			name:       "Layer declaration alone makes package stateful",
-			fixtureDir: "stateful_layer_only",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/stateful_layer_only: missing New(cfg, layer.Env) constructor",
-				"test/conformance/sim/testdata/stateful_layer_only: missing (*Layer).Clone method",
-				"test/conformance/sim/testdata/stateful_layer_only: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "New constructor alone makes package stateful",
-			fixtureDir: "stateful_new_only",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/stateful_new_only: missing (*Layer).Clone method",
-				"test/conformance/sim/testdata/stateful_new_only: missing RetentionKey(cfg, layer.Env) function",
-			},
-		},
-		{
-			name:       "RetentionKey function alone makes package stateful",
-			fixtureDir: "stateful_retention_key_only",
-			wantFindings: []string{
-				"test/conformance/sim/testdata/stateful_retention_key_only: missing New(cfg, layer.Env) constructor",
-				"test/conformance/sim/testdata/stateful_retention_key_only: missing (*Layer).Clone method",
-			},
-		},
+// TestLayerContractGuardsRefuseTheirFixtures runs the whole list over each
+// row's fixture and requires the findings above. It then drops the row and
+// requires none, which fails a row whose fixture another row also refuses.
+func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
+	root := repoRoot(t)
+	fset := token.NewFileSet()
+
+	named := map[string]bool{"valid": true, "valid_stateless": true}
+	for _, g := range layerGuards {
+		if named[g.name] {
+			t.Errorf("row %q repeats a fixture directory", g.name)
+		}
+		named[g.name] = true
+
+		t.Run(g.name, func(t *testing.T) {
+			want, ok := refusedFindings[g.name]
+			if !ok {
+				t.Fatalf("refusedFindings lists nothing for row %q", g.name)
+			}
+			dir := filepath.Join(root, filepath.FromSlash(fixtureRoot), g.name)
+
+			got, err := checkLayerDir(fset, root, dir, layerGuards)
+			if err != nil {
+				t.Fatalf("checking fixture: %v", err)
+			}
+			if !slices.Equal(got, want) {
+				t.Errorf("findings with every row:\ngot  %q\nwant %q", got, want)
+			}
+
+			without := slices.DeleteFunc(slices.Clone(layerGuards), func(other guard) bool {
+				return other.name == g.name
+			})
+			got, err = checkLayerDir(fset, root, dir, without)
+			if err != nil {
+				t.Fatalf("checking fixture without the row: %v", err)
+			}
+			if len(got) != 0 {
+				t.Errorf("findings without row %q, want none: %q", g.name, got)
+			}
+		})
 	}
 
+	for name := range refusedFindings {
+		if !named[name] {
+			t.Errorf("refusedFindings names %q, which no row does", name)
+		}
+	}
+
+	entries, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(fixtureRoot)))
+	if err != nil {
+		t.Fatalf("reading %s: %v", fixtureRoot, err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() && !named[entry.Name()] {
+			t.Errorf("fixture directory %s/%s is named by no row", fixtureRoot, entry.Name())
+		}
+	}
+}
+
+// TestLayerContractPassesValidFixtures holds what the gate lets through.
+// valid_stateless is a package with the five members every layer has, as phy
+// is, and valid is a whole stateful layer with the source honest packages hold.
+func TestLayerContractPassesValidFixtures(t *testing.T) {
+	root := repoRoot(t)
 	fset := token.NewFileSet()
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			dirPath := filepath.Join(testdataRoot, tc.fixtureDir)
-			findings, _ := checkLayerDir(fset, root, dirPath)
-			if !slices.Equal(findings, tc.wantFindings) {
-				t.Fatalf("findings mismatch:\ngot:  %v\nwant: %v", findings, tc.wantFindings)
+
+	for _, name := range []string{"valid", "valid_stateless"} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(root, filepath.FromSlash(fixtureRoot), name)
+			got, err := checkLayerDir(fset, root, dir, layerGuards)
+			if err != nil {
+				t.Fatalf("checking fixture: %v", err)
+			}
+			if len(got) != 0 {
+				t.Errorf("findings, want none: %q", got)
 			}
 		})
 	}
 }
 
-// checkLayerDir inspects a single layer package directory and its subdirectories,
-// returning all conformance violations found and the count of parsed Go files.
-func checkLayerDir(fset *token.FileSet, root, dirPath string) ([]string, int) {
-	relDir, err := filepath.Rel(root, dirPath)
-	if err != nil {
-		relDir = dirPath
+// TestLayerContractStopsOnUnparsableFile writes the broken file under
+// t.TempDir(), since gofumpt exits 2 on a Go file that does not parse and the
+// verifier runs it over every changed file.
+func TestLayerContractStopsOnUnparsableFile(t *testing.T) {
+	root := repoRoot(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "broken.go"), []byte("package broken\n\nfunc (\n"), 0o600); err != nil {
+		t.Fatalf("writing broken file: %v", err)
 	}
-	relDir = filepath.ToSlash(relDir)
 
-	var (
-		findings []string
-		parsed   int
-		topFiles []*ast.File
-	)
+	findings, err := checkLayerDir(token.NewFileSet(), root, dir, layerGuards)
+	if err == nil {
+		t.Fatalf("got findings %q and no error, want an error", findings)
+	}
+	if !strings.Contains(err.Error(), "broken.go") {
+		t.Errorf("error %q does not name the file", err)
+	}
+}
 
-	pkgDirName := filepath.Base(dirPath)
+// layerFacts is what checkLayerDir reads from one layer package directory.
+type layerFacts struct {
+	dirName string
+	// lines holds a name line and, for a function, a signature line for
+	// each declaration of the non-test files in the directory itself.
+	lines map[string]bool
+	// imports and types come from every non-test file under the directory,
+	// subdirectories included.
+	imports []sourceValue
+	types   []sourceValue
+}
 
-	err = filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+type sourceValue struct {
+	pos   string
+	value string
+}
+
+// checkLayerDir reads the layer package directory at dir by path and returns
+// what guards report. A file that does not parse is an error.
+func checkLayerDir(fset *token.FileSet, root, dir string, guards []guard) ([]string, error) {
+	facts, err := readLayerDir(fset, root, dir)
+	if err != nil {
+		return nil, err
+	}
+
+	relDir := relativePath(root, dir)
+	stateful := false
+	for _, g := range guards {
+		if g.kind == marksStateful && facts.lines[g.literal] {
+			stateful = true
+		}
+	}
+
+	var findings []string
+	for _, g := range guards {
+		switch g.kind {
+		case requireLine:
+			if !facts.lines[g.literal] {
+				findings = append(findings, fmt.Sprintf("%s: missing %q", relDir, g.literal))
+			}
+		case requireLineIfStateful:
+			if stateful && !facts.lines[g.literal] {
+				findings = append(findings, fmt.Sprintf("%s: missing %q", relDir, g.literal))
+			}
+		case requireLineIfPresent:
+			if facts.lines[g.when] && !facts.lines[g.literal] {
+				findings = append(findings, fmt.Sprintf("%s: missing %q", relDir, g.literal))
+			}
+		case refuseLine:
+			if facts.lines[g.literal] {
+				findings = append(findings, fmt.Sprintf("%s: declares %q", relDir, g.literal))
+			}
+		case refuseImport:
+			for _, imp := range facts.imports {
+				if g.refuses(facts.dirName, imp.value) {
+					findings = append(findings, fmt.Sprintf("%s: imports %q", imp.pos, imp.value))
+				}
+			}
+		case refuseTypeName:
+			for _, typ := range facts.types {
+				if g.refuses(facts.dirName, typ.value) {
+					findings = append(findings, fmt.Sprintf("%s: declares type %q", typ.pos, typ.value))
+				}
+			}
+		case marksStateful:
+		}
+	}
+
+	return findings, nil
+}
+
+func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
+	facts := layerFacts{dirName: filepath.Base(dir), lines: map[string]bool{}}
+
+	err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			if d.Name() == "testdata" {
+			if path != dir && d.Name() == "testdata" {
 				return filepath.SkipDir
 			}
+
 			return nil
 		}
 		if !strings.HasSuffix(d.Name(), ".go") || strings.HasSuffix(d.Name(), "_test.go") {
 			return nil
 		}
-		file, err := goparser.ParseFile(fset, path, nil, 0)
+
+		file, err := goparser.ParseFile(fset, path, nil, goparser.SkipObjectResolution)
 		if err != nil {
-			findings = append(findings, fmt.Sprintf("parsing file %s: %v", path, err))
-			return nil
+			return fmt.Errorf("parsing %s: %w", relativePath(root, path), err)
 		}
-		parsed++
 
-		// Forbidden imports in non-test files: layers cannot import siblings, device, or fabric.
 		for _, imp := range file.Imports {
-			importPath := strings.Trim(imp.Path.Value, `"`)
-			switch {
-			case importPath == "go.aledante.io/FlowSeer/src/common/sim/device" || strings.HasPrefix(importPath, "go.aledante.io/FlowSeer/src/common/sim/device/"):
-				findings = append(findings, fmt.Sprintf("%s: forbidden import of %s", filePos(fset, root, imp.Pos()), importPath))
-			case importPath == "go.aledante.io/FlowSeer/src/common/sim/fabric" || strings.HasPrefix(importPath, "go.aledante.io/FlowSeer/src/common/sim/fabric/"):
-				findings = append(findings, fmt.Sprintf("%s: forbidden import of %s", filePos(fset, root, imp.Pos()), importPath))
-			case strings.HasPrefix(importPath, "go.aledante.io/FlowSeer/src/common/sim/layer/"):
-				sub := strings.TrimPrefix(importPath, "go.aledante.io/FlowSeer/src/common/sim/layer/")
-				if sub != "" && sub != pkgDirName && !strings.HasPrefix(sub, pkgDirName+"/") {
-					findings = append(findings, fmt.Sprintf("%s: forbidden sibling import of %s", filePos(fset, root, imp.Pos()), importPath))
-				}
-			}
+			facts.imports = append(facts.imports, sourceValue{
+				pos:   filePos(fset, root, imp.Pos()),
+				value: strings.Trim(imp.Path.Value, `"`),
+			})
 		}
-
-		// Step fact types must remain unexported within their declaring layer package.
 		for _, decl := range file.Decls {
-			if gd, ok := decl.(*ast.GenDecl); ok && gd.Tok == token.TYPE {
-				for _, spec := range gd.Specs {
-					if ts, ok := spec.(*ast.TypeSpec); ok {
-						if ts.Name.IsExported() && strings.HasSuffix(ts.Name.Name, "Fact") {
-							findings = append(findings, fmt.Sprintf("%s: exported fact type %s", filePos(fset, root, ts.Pos()), ts.Name.Name))
-						}
-					}
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				if typ, ok := spec.(*ast.TypeSpec); ok {
+					facts.types = append(facts.types, sourceValue{
+						pos:   filePos(fset, root, typ.Pos()),
+						value: typ.Name.Name,
+					})
 				}
 			}
 		}
 
-		if filepath.Dir(path) == dirPath {
-			topFiles = append(topFiles, file)
+		if filepath.Dir(path) == dir {
+			for _, line := range declarationLines(file) {
+				facts.lines[line] = true
+			}
 		}
+
 		return nil
 	})
 	if err != nil {
-		return []string{fmt.Sprintf("walking directory %s: %v", dirPath, err)}, 0
+		return layerFacts{}, fmt.Errorf("reading %s: %w", relativePath(root, dir), err)
 	}
 
-	if len(topFiles) == 0 {
-		findings = append(findings, fmt.Sprintf("%s: holds no Go files", relDir))
-		return findings, parsed
-	}
-
-	var (
-		hasLayerName         bool
-		hasConfig            bool
-		hasNormalize         bool
-		hasValidate          bool
-		hasConfigClone       bool
-		hasDiff              bool
-		declaresLayer        bool
-		declaresNew          bool
-		declaresRetentionKey bool
-		hasNew               bool
-		hasLayerClone        bool
-		hasRetentionKey      bool
-	)
-
-	for _, file := range topFiles {
-		for _, decl := range file.Decls {
-			switch d := decl.(type) {
-			case *ast.GenDecl:
-				if d.Tok == token.CONST {
-					for _, spec := range d.Specs {
-						if vs, ok := spec.(*ast.ValueSpec); ok {
-							for _, name := range vs.Names {
-								if name.Name == "LayerName" {
-									hasLayerName = true
-								}
-							}
-						}
-					}
-				}
-				if d.Tok == token.TYPE {
-					for _, spec := range d.Specs {
-						if ts, ok := spec.(*ast.TypeSpec); ok {
-							if ts.Name.Name == "Config" {
-								hasConfig = true
-							}
-							if ts.Name.Name == "Layer" {
-								declaresLayer = true
-							}
-						}
-					}
-				}
-			case *ast.FuncDecl:
-				if d.Recv == nil {
-					// Package-level functions.
-					switch d.Name.Name {
-					case "Diff":
-						if takesTwoConfigParams(d.Type.Params) && returnsChanges(d.Type.Results) {
-							hasDiff = true
-						}
-					case "New":
-						declaresNew = true
-						if takesConfigAndEnvParams(d.Type.Params) && returnsLayerAndError(d.Type.Results) {
-							hasNew = true
-						}
-					case "RetentionKey":
-						declaresRetentionKey = true
-						if takesConfigAndEnvParams(d.Type.Params) && returnsString(d.Type.Results) {
-							hasRetentionKey = true
-						}
-					}
-				} else if len(d.Recv.List) > 0 {
-					// Methods.
-					recvExpr := d.Recv.List[0].Type
-					recvType := receiverTypeName(recvExpr)
-					isPtrRecv := false
-					if _, ok := recvExpr.(*ast.StarExpr); ok {
-						isPtrRecv = true
-					}
-					if recvType == "Config" && !isPtrRecv {
-						switch d.Name.Name {
-						case "Normalize":
-							if takesOnlyEnvParam(d.Type.Params) && returnsConfig(d.Type.Results) {
-								hasNormalize = true
-							}
-						case "Validate":
-							if takesOnlyEnvParam(d.Type.Params) && returnsError(d.Type.Results) {
-								hasValidate = true
-							}
-						case "Clone":
-							if paramCount(d.Type.Params) == 0 && returnsConfig(d.Type.Results) {
-								hasConfigClone = true
-							}
-						}
-					}
-					if recvType == "Layer" {
-						switch d.Name.Name {
-						case "Clone":
-							if isPtrRecv && paramCount(d.Type.Params) == 0 && returnsLayer(d.Type.Results) {
-								hasLayerClone = true
-							}
-						case "Advance":
-							if !takesTimeParam(d.Type.Params) || !returnsEffects(d.Type.Results) {
-								findings = append(findings, fmt.Sprintf("%s: invalid (*Layer).Advance signature, want Advance(time.Time) layer.Effects", filePos(fset, root, d.Pos())))
-							}
-						case "Wake", "Age":
-							findings = append(findings, fmt.Sprintf("%s: forbidden Layer method %s", filePos(fset, root, d.Pos()), d.Name.Name))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	if !hasLayerName {
-		findings = append(findings, fmt.Sprintf("%s: missing const LayerName", relDir))
-	}
-	if !hasConfig {
-		findings = append(findings, fmt.Sprintf("%s: missing Config type", relDir))
-	}
-	if !hasNormalize {
-		findings = append(findings, fmt.Sprintf("%s: missing Config.Normalize(layer.Env) method", relDir))
-	}
-	if !hasValidate {
-		findings = append(findings, fmt.Sprintf("%s: missing Config.Validate(layer.Env) method", relDir))
-	}
-	if !hasConfigClone {
-		findings = append(findings, fmt.Sprintf("%s: missing Config.Clone method", relDir))
-	}
-	if !hasDiff {
-		findings = append(findings, fmt.Sprintf("%s: missing Diff function", relDir))
-	}
-
-	isStateful := declaresLayer || declaresNew || declaresRetentionKey
-	if isStateful {
-		if !hasNew {
-			findings = append(findings, fmt.Sprintf("%s: missing New(cfg, layer.Env) constructor", relDir))
-		}
-		if !hasLayerClone {
-			findings = append(findings, fmt.Sprintf("%s: missing (*Layer).Clone method", relDir))
-		}
-		if !hasRetentionKey {
-			findings = append(findings, fmt.Sprintf("%s: missing RetentionKey(cfg, layer.Env) function", relDir))
-		}
-	}
-
-	return findings, parsed
+	return facts, nil
 }
 
-func receiverTypeName(expr ast.Expr) string {
-	switch t := expr.(type) {
-	case *ast.StarExpr:
-		return receiverTypeName(t.X)
-	case *ast.Ident:
-		return t.Name
-	}
-	return ""
-}
-
-func isConfigType(expr ast.Expr) bool {
-	if id, ok := expr.(*ast.Ident); ok {
-		return id.Name == "Config"
-	}
-	return false
-}
-
-func isEnvType(expr ast.Expr) bool {
-	if sel, ok := expr.(*ast.SelectorExpr); ok {
-		if id, ok := sel.X.(*ast.Ident); ok && id.Name == "layer" && sel.Sel.Name == "Env" {
-			return true
+// declarationLines writes each declaration of file as text: `const LayerName`,
+// `type Layer`, `func New`, and `func Layer.Wake` for a method, whose pointer
+// star is dropped. A function also gets a signature line of its receiver
+// type, one type per parameter, and its results in parentheses whatever their
+// count: `func (*Layer) Clone() (*Layer)`. Parameter names do not appear.
+func declarationLines(file *ast.File) []string {
+	var lines []string
+	for _, decl := range file.Decls {
+		switch d := decl.(type) {
+		case *ast.GenDecl:
+			lines = append(lines, genDeclLines(d)...)
+		case *ast.FuncDecl:
+			lines = append(lines, funcLines(d)...)
 		}
 	}
-	return false
+
+	return lines
 }
 
-func isTimeType(expr ast.Expr) bool {
-	if sel, ok := expr.(*ast.SelectorExpr); ok {
-		if id, ok := sel.X.(*ast.Ident); ok && id.Name == "time" && sel.Sel.Name == "Time" {
-			return true
-		}
-	}
-	return false
-}
-
-func isEffectsType(expr ast.Expr) bool {
-	if sel, ok := expr.(*ast.SelectorExpr); ok {
-		if id, ok := sel.X.(*ast.Ident); ok && id.Name == "layer" && sel.Sel.Name == "Effects" {
-			return true
-		}
-	}
-	return false
-}
-
-func paramTypes(fields *ast.FieldList) []ast.Expr {
-	if fields == nil {
+func genDeclLines(decl *ast.GenDecl) []string {
+	var keyword string
+	switch decl.Tok {
+	case token.CONST:
+		keyword = "const"
+	case token.VAR:
+		keyword = "var"
+	case token.TYPE:
+		keyword = "type"
+	default:
 		return nil
 	}
-	var types []ast.Expr
-	for _, field := range fields.List {
-		if len(field.Names) == 0 {
-			types = append(types, field.Type)
-		} else {
-			for range field.Names {
-				types = append(types, field.Type)
+
+	var lines []string
+	for _, spec := range decl.Specs {
+		switch s := spec.(type) {
+		case *ast.ValueSpec:
+			for _, name := range s.Names {
+				lines = append(lines, keyword+" "+name.Name)
 			}
+		case *ast.TypeSpec:
+			lines = append(lines, keyword+" "+s.Name.Name)
 		}
 	}
-	return types
+
+	return lines
 }
 
-func paramCount(fields *ast.FieldList) int {
+func funcLines(fn *ast.FuncDecl) []string {
+	name := "func " + fn.Name.Name
+	signature := "func "
+	if fn.Recv != nil && len(fn.Recv.List) == 1 {
+		recv := types.ExprString(fn.Recv.List[0].Type)
+		name = "func " + strings.TrimPrefix(recv, "*") + "." + fn.Name.Name
+		signature += "(" + recv + ") "
+	}
+	signature += fmt.Sprintf("%s(%s) (%s)", fn.Name.Name, typeList(fn.Type.Params), typeList(fn.Type.Results))
+
+	return []string{name, signature}
+}
+
+// typeList prints one type per parameter or result, so `a, b Config` and
+// an unnamed `Config` read alike.
+func typeList(fields *ast.FieldList) string {
 	if fields == nil {
-		return 0
+		return ""
 	}
-	n := 0
+
+	var list []string
 	for _, field := range fields.List {
-		if len(field.Names) == 0 {
-			n++
-		} else {
-			n += len(field.Names)
+		for range max(len(field.Names), 1) {
+			list = append(list, types.ExprString(field.Type))
 		}
 	}
-	return n
+
+	return strings.Join(list, ", ")
 }
 
-func takesTwoConfigParams(params *ast.FieldList) bool {
-	types := paramTypes(params)
-	return len(types) == 2 && isConfigType(types[0]) && isConfigType(types[1])
-}
+func relativePath(root, path string) string {
+	rel, err := filepath.Rel(root, path)
+	if err != nil {
+		return filepath.ToSlash(path)
+	}
 
-func takesOnlyEnvParam(params *ast.FieldList) bool {
-	types := paramTypes(params)
-	return len(types) == 1 && isEnvType(types[0])
-}
-
-func takesConfigAndEnvParams(params *ast.FieldList) bool {
-	types := paramTypes(params)
-	return len(types) == 2 && isConfigType(types[0]) && isEnvType(types[1])
-}
-
-func takesTimeParam(params *ast.FieldList) bool {
-	types := paramTypes(params)
-	return len(types) == 1 && isTimeType(types[0])
-}
-
-func returnsConfig(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 1 {
-		return false
-	}
-	id, ok := types[0].(*ast.Ident)
-	return ok && id.Name == "Config"
-}
-
-func returnsError(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 1 {
-		return false
-	}
-	id, ok := types[0].(*ast.Ident)
-	return ok && id.Name == "error"
-}
-
-func returnsChanges(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 1 {
-		return false
-	}
-	slice, ok := types[0].(*ast.ArrayType)
-	if !ok || slice.Len != nil {
-		return false
-	}
-	sel, ok := slice.Elt.(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	id, ok := sel.X.(*ast.Ident)
-	return ok && id.Name == "trace" && sel.Sel.Name == "Change"
-}
-
-func returnsLayer(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 1 {
-		return false
-	}
-	star, ok := types[0].(*ast.StarExpr)
-	if !ok {
-		return false
-	}
-	id, ok := star.X.(*ast.Ident)
-	return ok && id.Name == "Layer"
-}
-
-func returnsLayerAndError(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 2 {
-		return false
-	}
-	star, ok := types[0].(*ast.StarExpr)
-	if !ok {
-		return false
-	}
-	id, ok := star.X.(*ast.Ident)
-	if !ok || id.Name != "Layer" {
-		return false
-	}
-	errID, ok := types[1].(*ast.Ident)
-	return ok && errID.Name == "error"
-}
-
-func returnsString(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	if len(types) != 1 {
-		return false
-	}
-	id, ok := types[0].(*ast.Ident)
-	return ok && id.Name == "string"
-}
-
-func returnsEffects(results *ast.FieldList) bool {
-	types := paramTypes(results)
-	return len(types) == 1 && isEffectsType(types[0])
+	return filepath.ToSlash(rel)
 }
 
 func filePos(fset *token.FileSet, root string, pos token.Pos) string {
 	position := fset.Position(pos)
-	rel, err := filepath.Rel(root, position.Filename)
-	if err == nil {
-		return fmt.Sprintf("%s:%d", filepath.ToSlash(rel), position.Line)
-	}
-	return fmt.Sprintf("%s:%d", filepath.ToSlash(position.Filename), position.Line)
+
+	return fmt.Sprintf("%s:%d", relativePath(root, position.Filename), position.Line)
 }
 
 func repoRoot(t *testing.T) string {

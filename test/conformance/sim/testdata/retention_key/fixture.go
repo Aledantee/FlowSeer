@@ -35,6 +35,6 @@ func (l *Layer) Clone() *Layer {
 	return &Layer{}
 }
 
-func RetentionKey(cfg Config, env layer.Env) string {
+func RetentionKey(cfg Config) string {
 	return "key"
 }

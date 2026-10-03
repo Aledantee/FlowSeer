@@ -115,7 +115,7 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 			assertPointerOrValueIdentical(t, "Switch."+f.Name, vSrc, vDst)
 		case classResetOnFork:
 			if !vDst.IsZero() {
-				t.Errorf("field %q is classified resetOnFork but has non-zero value %+v on fork", f.Name, vDst.Interface())
+				t.Errorf("field %q is classified resetOnFork but has non-zero value %+v on fork", f.Name, exportValue(vDst).Interface())
 			}
 		case classDeepCopied:
 			// Verified by running each probe below.

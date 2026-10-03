@@ -21,7 +21,7 @@ func (c Config) Clone() Config {
 	return c
 }
 
-func Diff(prev, next Config) []trace.Change {
+func (c Config) Diff(prev, next Config) []trace.Change {
 	return nil
 }
 

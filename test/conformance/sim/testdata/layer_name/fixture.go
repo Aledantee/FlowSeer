@@ -5,7 +5,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-const LayerName trace.Layer = "fixture"
+var LayerName trace.Layer = "fixture"
 
 type Config struct{}
 
