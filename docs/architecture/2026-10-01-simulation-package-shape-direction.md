@@ -108,9 +108,12 @@ drawn now so that extraction touches `fabric` and nothing else.
 - `const LayerName trace.Layer`, with `Rule*` and `Reason*` constants
   declared by the package that produces them. The runtime type keeps the
   name `Layer`, so the constant cannot take it.
-- `Config` with `Normalize`, `Validate`, and `Clone`, each taking the same
-  `layer.Env` (node identity, port table, device address, resolved speeds).
-- `Diff(a, b Config) []trace.Change`.
+- `Config` with `Normalize` and `Validate`, each taking the same
+  `layer.Env` (node identity, port table, device address, resolved speeds),
+  and `Clone`, which takes nothing.
+- `Diff(a, b Config) []trace.Change`. A change's subject key of several
+  parts comes from `trace.CompositeKey`, which quotes each part with
+  `strconv.Quote` and joins them with `/`, since port names hold `/`.
 - `New(cfg, env)` returning the runtime layer, `Clone` on it, and for a layer
   with timers `Advance(now)` returning `layer.Effects` and `NextWake`.
 - `RetentionKey(cfg, env)` on every layer that holds runtime state.
@@ -166,3 +169,15 @@ radio propagation and client behaviour.
 - A wireless access point, a client, and a radio medium each arrive as a
   package under `device/` or `medium/`, with radio layers under `layer/`.
   None of them is planned here.
+
+## Amendments
+
+### 2026-10-03: the contract as it landed
+
+Landed 2026-10-03: the capability contract across `src/common/sim/layer`,
+with `layer.Env`, `layer.Effects`, and one `Advance` verb in place of `Age`
+and `Wake`, the BPDU and SSTP codecs in `src/common/net/bpdu`, and the gate
+in `test/conformance/sim`. Two lines of the contract above changed to match
+it. `Config.Clone` takes no `layer.Env`, since a copy needs no device
+context. A subject key of several parts has one form, built by
+`trace.CompositeKey`.
