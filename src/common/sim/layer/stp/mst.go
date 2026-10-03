@@ -39,9 +39,7 @@ func (p InstancePort) TypeID() string { return "stp.mst.instance_port" }
 
 // Canonical returns the canonical string representation of the InstancePort fact.
 func (p InstancePort) Canonical() string {
-	return fmt.Sprintf("priority=%d,path_cost=%d",
-		effectivePortPriority(p.Priority, p.PriorityPresent),
-		p.PathCost)
+	return fmt.Sprintf("priority=%d,path_cost=%d", p.Priority, p.PathCost)
 }
 
 // Instance holds the configuration of one Multiple Spanning Tree Instance:

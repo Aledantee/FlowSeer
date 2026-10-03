@@ -57,7 +57,6 @@ type tree struct {
 
 	topologyChangeCount uint64
 	lastTopologyChange  time.Time
-	topologyChangeTimer time.Time
 
 	ports map[string]*portState
 }

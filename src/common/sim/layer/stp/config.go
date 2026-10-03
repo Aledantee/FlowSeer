@@ -213,10 +213,38 @@ func (c Config) Normalize(_ layer.Env) Config {
 	}
 	if cloned.MST != nil {
 		normalized := cloned.MST.Normalize()
+		for id, inst := range normalized.Instances {
+			for name, instPort := range inst.Ports {
+				if !instPort.PriorityPresent {
+					if bp, ok := cloned.Ports[name]; ok {
+						instPort.Priority = bp.Priority
+					} else {
+						instPort.Priority = DefaultPortPriority
+					}
+					instPort.PriorityPresent = true
+					inst.Ports[name] = instPort
+				}
+			}
+			normalized.Instances[id] = inst
+		}
 		cloned.MST = &normalized
 	}
 	if cloned.PVST != nil {
 		normalized := cloned.PVST.Normalize(cloned.Priority)
+		for vid, tree := range normalized.Trees {
+			for name, treePort := range tree.Ports {
+				if !treePort.PriorityPresent {
+					if bp, ok := cloned.Ports[name]; ok {
+						treePort.Priority = bp.Priority
+					} else {
+						treePort.Priority = DefaultPortPriority
+					}
+					treePort.PriorityPresent = true
+					tree.Ports[name] = treePort
+				}
+			}
+			normalized.Trees[vid] = tree
+		}
 		cloned.PVST = &normalized
 	}
 	return cloned

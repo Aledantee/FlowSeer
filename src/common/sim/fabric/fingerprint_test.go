@@ -55,7 +55,7 @@ var deviceFieldClasses = map[string]fieldClassification{
 }
 
 var portInfoFieldClasses = map[string]fieldClassification{
-	"MSTID":              fieldIncluded,
+	"Tree":               fieldIncluded,
 	"Role":               fieldIncluded,
 	"State":              fieldIncluded,
 	"BlockReason":        fieldIncluded,
@@ -125,7 +125,7 @@ func baseSnapshotForTest() Snapshot {
 				TreeRoles: map[vlan.ID]map[string]stp.PortInfo{
 					10: {
 						"1/1/1": {
-							MSTID:          1,
+							Tree:           stp.TreeRef{Kind: stp.TreeMSTI, ID: 1},
 							Role:           bpdu.RoleRoot,
 							State:          stp.StateForwarding,
 							BlockReason:    "",
@@ -332,7 +332,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.MSTID = 2
+				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -855,10 +855,10 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstSnap1 := cloneSnapshot(base)
 	mstDev1 := mstSnap1.Devices["sw1"]
 	mstDev1.TreeRoles[1] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 0, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeCIST, ID: 0}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstDev1.TreeRoles[10] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 1, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstSnap1.Devices["sw1"] = mstDev1
 
@@ -866,7 +866,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstDev2 := mstSnap2.Devices["sw1"]
 	// CIST unchanged, MSTI 1 role changed
 	mstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
-		MSTID: 1, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
+		Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
 	}
 	mstSnap2.Devices["sw1"] = mstDev2
 
@@ -1064,11 +1064,11 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 		// stp.PortInfo fields
 		{
 			typ:   reflect.TypeOf(stp.PortInfo{}),
-			field: "MSTID",
+			field: "Tree",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.MSTID = 2
+				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},

@@ -257,7 +257,7 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 		},
 	}
 
-	res := fab.run(20, 3)
+	res := fab.run(21, 3)
 	if res.Stop == StopConverged {
 		t.Errorf("res.Stop = StopConverged, want convergence blocked by pending journey")
 	}

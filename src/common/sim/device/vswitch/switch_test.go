@@ -7261,8 +7261,9 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 // override, same shape as stp's TestMSTInstancesSelectIndependentRoots), so
 // once the two switches converge, MSTI 1's root port is l2 while the CIST
 // and MSTI 2 both keep l1 (equal cost on both links resolves to the lower
-// port ID). Failing l2 then raises a topology change on MSTI 1 alone: the
-// CIST and MSTI 2 were never forwarding on l2, so neither transitions.
+// port ID). Failing l2 causes MSTI 1's alternate port on l1 to start forwarding
+// as the new root port, raising a topology change on MSTI 1 alone that propagates
+// to active port p3. The CIST and MSTI 2 already forwarded on l1, so neither transitions.
 func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -7316,19 +7317,28 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		},
 	})
 
+	sw2.LinkChange(start, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+
 	switches := []*vswitch.Switch{sw1, sw2}
 	cables := []switchCable{
 		{swA: 0, portA: "l1", swB: 1, portB: "l1"},
 		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
 	}
 
+	rounds := 0
 	snapshot := func() string {
+		rounds++
 		var b strings.Builder
 		for _, sw := range switches {
 			roles := sw.Roles()
-			for _, name := range []string{"l1", "l2"} {
-				fmt.Fprintf(&b, "%v/%v;", roles[name].Role, roles[name].State)
+			for _, name := range []string{"l1", "l2", "p3"} {
+				if r, ok := roles[name]; ok {
+					fmt.Fprintf(&b, "%v/%v;", r.Role, r.State)
+				}
 			}
+		}
+		if r, ok := sw2.Roles()["p3"]; !ok || r.State != stp.StateForwarding {
+			fmt.Fprintf(&b, "round-%d;", rounds)
 		}
 		return b.String()
 	}
@@ -7343,6 +7353,59 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		t.Fatalf("sw2 CIST on l1 = role %v state %v, want Root Forwarding", cist.Role, cist.State)
 	}
 
+	reg := region(map[bpdu.MSTID]stp.Instance{
+		1: {VLANs: []vlan.ID{10}},
+		2: {VLANs: []vlan.ID{20}},
+	})
+	cfgID := reg.ConfigID()
+	peerMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}
+	p3Agr := bpdu.BPDU{
+		Version:              3,
+		Type:                 bpdu.TypeRapid,
+		RootID:               bpdu.BridgeID{Priority: 4096, Address: mac1},
+		RootPathCost:         0,
+		InternalRootPathCost: 20000,
+		BridgeID:             bpdu.BridgeID{Priority: 32768, Address: peerMAC},
+		PortID:               0x8001,
+		HelloTime:            2 * time.Second,
+		MaxAge:               20 * time.Second,
+		ForwardDelay:         15 * time.Second,
+		ConfigID:             &cfgID,
+		RegionalRootID:       bpdu.BridgeID{Priority: 4096, Address: mac1},
+		RemainingHops:        20,
+		MSTIs: []bpdu.MSTIRecord{
+			{
+				MSTID:                1,
+				RegionalRootID:       bpdu.BridgeID{Priority: 32769, Address: mac1},
+				InternalRootPathCost: 300000,
+				BridgePriority:       0x80,
+				PortPriority:         128,
+				RemainingHops:        20,
+			},
+			{
+				MSTID:                2,
+				RegionalRootID:       bpdu.BridgeID{Priority: 32770, Address: mac1},
+				InternalRootPathCost: 300000,
+				BridgePriority:       0x80,
+				PortPriority:         128,
+				RemainingHops:        20,
+			},
+		},
+	}
+	p3Agr.SetRole(bpdu.RoleRoot)
+	p3Agr.SetAgreement(true)
+	var recBPDU bpdu.BPDU
+	recBPDU.SetRole(bpdu.RoleRoot)
+	recBPDU.SetAgreement(true)
+	p3Agr.MSTIs[0].Flags = recBPDU.Flags
+	p3Agr.MSTIs[1].Flags = recBPDU.Flags
+	frame, err := bpdu.Encode(p3Agr, peerMAC)
+	if err != nil {
+		t.Fatalf("encode p3 agreement: %v", err)
+	}
+	sw2.Forward(now, "p3", frame)
+	t.Logf("TreeRoles after p3 agreement: %+v", sw2.TreeRoles())
+
 	macVLAN10 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
 	macVLAN20 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x20}
 	mustSwitchLearn(t, sw2, []bridge.Seed{
@@ -7351,6 +7414,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	})
 
 	sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	t.Logf("TreeRoles after l2 down: %+v", sw2.TreeRoles())
 
 	entries := sw2.Entries()
 	if len(entries) != 1 || entries[0].FID != 20 || entries[0].Port != "p3" {

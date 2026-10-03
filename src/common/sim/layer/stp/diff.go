@@ -125,6 +125,8 @@ func (f vlanListFact) Canonical() string {
 // reporting changes to bridge priority, hello time, max age, forward delay,
 // tx hold count, and per-port priority, admin path cost, admin edge,
 // point-to-point mode, auto edge, and the four guards.
+// Diff is kept as one function to perform a single, unified comparison across
+// all spanning tree configuration fields in field order.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize(layer.Env{})
 	b = b.Normalize(layer.Env{})
@@ -416,7 +418,7 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),
@@ -512,7 +514,7 @@ func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),

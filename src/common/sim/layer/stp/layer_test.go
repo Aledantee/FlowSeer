@@ -1,6 +1,7 @@
 package stp_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"slices"
 	"strings"
@@ -411,8 +412,8 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	if infoP2.Role != bpdu.RoleRoot || infoP2.State != stp.StateForwarding {
 		t.Errorf("sw3 p2 after failover: got role %v, state %v; want Root Forwarding", infoP2.Role, infoP2.State)
 	}
-	if !slices.Contains(flushPorts(fxDown.Flush), "p2") {
-		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p2\"", fxDown.Flush)
+	if !slices.Contains(flushPorts(fxDown.Flush), "p1") {
+		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p1\"", fxDown.Flush)
 	}
 }
 
@@ -723,8 +724,8 @@ func TestTimesInForceFollowTheRoot(t *testing.T) {
 	if l.BridgeID() != (bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")}) {
 		t.Errorf("BridgeID = %+v", l.BridgeID())
 	}
-	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != 3*time.Second || fwd != 20*time.Second {
-		t.Errorf("times in force = %v %v %v, want the root's 30s 3s 20s", maxAge, hello, fwd)
+	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != stp.DefaultHelloTime || fwd != 20*time.Second {
+		t.Errorf("times in force = %v %v %v, want the root's 30s %v 20s", maxAge, hello, fwd, stp.DefaultHelloTime)
 	}
 	if info := l.PortInfo("1/1/1"); info.DesignatedRoot != root || info.Priority != stp.DefaultPortPriority {
 		t.Errorf("PortInfo = %+v, want designated root %+v and default priority", info, root)
@@ -1234,9 +1235,13 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 		l.LinkChange(t0, name, true, true, 1_000_000_000)
 	}
 
+	// Two forward delays carry the ports to Forwarding so they are active.
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
+
 	// A TCN on the first port flushes every other port, which is the widest
 	// flush list one call produces.
-	fx := l.Receive(t0.Add(4*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	fx := l.Receive(t0.Add(36*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 
 	want := names[1:]
 	if !slices.Equal(flushPorts(fx.Flush), want) {
@@ -1258,7 +1263,11 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
 
-	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	// Two forward delays carry the ports to Forwarding so they are active.
+	l.Advance(t0.Add(16 * time.Second))
+	l.Advance(t0.Add(32 * time.Second))
+
+	fx := l.Receive(t0.Add(36*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || slices.Contains(got, "1/1/1") {
 		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
@@ -1442,6 +1451,21 @@ func TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance(t *testing.T) {
 	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
 
+	// Downstream peer on 1/1/2 agrees, moving 1/1/2 to Forwarding.
+	downstreamAgr := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 32768, Address: localMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: localMAC},
+		PortID:       0x8002,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstreamAgr.SetRole(bpdu.RoleRoot)
+	downstreamAgr.SetAgreement(true)
+	l.Receive(now, "1/1/2", downstreamAgr)
+
 	// A foreign-region BPDU marks 1/1/1 a boundary port and, being superior,
 	// elects it Root; point-to-point and synced, it forwards in this same
 	// call, raising the topology change under test.
@@ -1580,6 +1604,10 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 		}
 	}
 
+	if stableRounds < 2 || len(queue) > 0 {
+		t.Fatalf("convergeLayers did not converge after 400 rounds: snapshot %q, queue %d", snapshot(), len(queue))
+	}
+
 	return now
 }
 
@@ -1641,16 +1669,16 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 	convergeLayers(t, start, layers, cables, snapshot)
 
 	msti1 := sw2.VLANPortInfo(10, "l2")
-	if msti1.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
+	if msti1.Role != bpdu.RoleRoot || msti1.State != stp.StateForwarding || !sw2.Forwards("l2", 10) {
+		t.Errorf("sw2 MSTI 1 on l2 = (role %v, state %v, forwards %t), want Root Forwarding true", msti1.Role, msti1.State, sw2.Forwards("l2", 10))
 	}
 	if got := sw2.VLANPortInfo(10, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
 	}
 
 	msti2 := sw2.VLANPortInfo(20, "l1")
-	if msti2.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
+	if msti2.Role != bpdu.RoleRoot || msti2.State != stp.StateForwarding || !sw2.Forwards("l1", 20) {
+		t.Errorf("sw2 MSTI 2 on l1 = (role %v, state %v, forwards %t), want Root Forwarding true", msti2.Role, msti2.State, sw2.Forwards("l1", 20))
 	}
 	if got := sw2.VLANPortInfo(20, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
 		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
@@ -2545,6 +2573,11 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 			if reason := c.l.PortInfo("l1").BlockReason; reason == stp.BlockReasonLoopInconsistent {
 				t.Errorf("block reason after the call = %q, want the loop-guard clear to have run", reason)
 			}
+			if c.want != stp.SSTPGuarded {
+				if role := c.l.PortInfo("l1").Role; role == bpdu.RoleAlternate {
+					t.Errorf("role after the call = %q, want port to leave Alternate", role)
+				}
+			}
 		})
 	}
 }
@@ -2603,6 +2636,9 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 	}
 
 	after := []stp.PortInfo{local.PortInfo("l1"), local.VLANPortInfo(20, "l1")}
+	if after[0].RxBPDUs != before[0].RxBPDUs+1 {
+		t.Errorf("RxBPDUs = %d, want %d", after[0].RxBPDUs, before[0].RxBPDUs+1)
+	}
 	for i := range before {
 		// The received BPDU counter is the one field that must move: the
 		// frame did arrive, it is what the boundary report rests on.
@@ -2610,9 +2646,6 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 		if before[i] != after[i] {
 			t.Errorf("tree %d port state changed: got %+v, want %+v", i, after[i], before[i])
 		}
-	}
-	if after[0].RxBPDUs != before[0].RxBPDUs {
-		t.Error("RxBPDUs was not counted for an SSTP BPDU on a non-PVST bridge")
 	}
 
 	guarded := mustNewSTP(t, stp.Config{
@@ -2775,6 +2808,14 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 
 	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
 	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// Advance through Learning to Forwarding so ports become active.
+	start = start.Add(16 * time.Second)
+	local.Advance(start)
+	peer.Advance(start)
+	start = start.Add(16 * time.Second)
+	local.Advance(start)
+	peer.Advance(start)
 
 	// A designated, agreeing BPDU for VLAN 20 with the topology-change flag
 	// set, delivered straight to VLAN 20's tree. The peer's first hello timer
@@ -3165,5 +3206,1312 @@ func TestRetentionKeyDiffersOnPortSpeed(t *testing.T) {
 	key2 := stp.RetentionKey(cfg, env2)
 	if key1 == key2 {
 		t.Fatalf("RetentionKey() produced identical key %q for different port speeds", key1)
+	}
+}
+
+func TestLosingAutoEdgeReturnsMSTIPortToDiscarding(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {AutoEdge: true}},
+		MST: &stp.MST{
+			Name: "region-1",
+			Instances: map[bpdu.MSTID]stp.Instance{
+				1: {VLANs: []vlan.ID{10}},
+			},
+		},
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(t0, "l1", true, true, 1_000_000_000)
+
+	// Auto-edge opens port after 3s.
+	l.Advance(t0.Add(3 * time.Second))
+
+	if got := l.VLANPortInfo(10, "l1").State; got != stp.StateForwarding {
+		t.Fatalf("MSTI 1 state before BPDU = %v, want Forwarding", got)
+	}
+
+	// Receive a BPDU on l1; losing auto-edge.
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")},
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	mstCfg := &stp.MST{
+		Name: "region-1",
+		Instances: map[bpdu.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+		},
+	}
+	cid := mstCfg.ConfigID()
+	b.ConfigID = &cid
+
+	l.Receive(t0.Add(4*time.Second), "l1", b)
+
+	if got := l.VLANPortInfo(10, "l1").State; got != stp.StateDiscarding {
+		t.Errorf("MSTI 1 state after BPDU = %v, want Discarding", got)
+	}
+}
+
+func TestPVSTAndMSTIAgreementDoesNotSurviveLinkBounce(t *testing.T) {
+	t.Parallel()
+
+	t.Run("PVST", func(t *testing.T) {
+		t.Parallel()
+
+		start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+		l := mustNewSTP(t, stp.Config{
+			Priority: 4096,
+			Address:  mustMAC(t, "00:11:22:33:44:01"),
+			Ports:    map[string]stp.Port{"l1": {}},
+			PVST:     pvstTrees(nil, 1, 10),
+		}, mustPortTable(t, "l1"))
+
+		l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+		// Peer sends agreement on VLAN 10 for our root.
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 4106, Address: mustMAC(t, "00:11:22:33:44:01")},
+			RootPathCost: 0,
+			BridgeID:     bpdu.BridgeID{Priority: 32778, Address: mustMAC(t, "00:11:22:33:44:02")},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.ReceiveSSTP(start.Add(time.Second), "l1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, b)
+
+		if got := l.VLANPortInfo(10, "l1").State; got != stp.StateForwarding {
+			t.Fatalf("VLAN 10 state after agreement = %v, want Forwarding", got)
+		}
+
+		t.Logf("after agreement: %+v", l.VLANPortInfo(10, "l1"))
+
+		// Bounce link.
+		l.LinkChange(start.Add(2*time.Second), "l1", false, true, 1_000_000_000)
+		t.Logf("after down: %+v", l.VLANPortInfo(10, "l1"))
+		l.LinkChange(start.Add(3*time.Second), "l1", true, true, 1_000_000_000)
+		t.Logf("after up: %+v", l.VLANPortInfo(10, "l1"))
+
+		if got := l.VLANPortInfo(10, "l1").State; got != stp.StateDiscarding {
+			t.Errorf("VLAN 10 state after link bounce = %v, want Discarding", got)
+		}
+	})
+}
+
+func TestLoopInconsistentPVSTPortReceivesUnadmittedSSTPLeavesAlternate(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
+		PVST:     pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// Receive superior BPDU so l1 becomes Root port.
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:02")},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:02")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+	l.Receive(start.Add(time.Second), "l1", b)
+
+	if got := l.PortInfo("l1").Role; got != bpdu.RoleRoot {
+		t.Fatalf("l1 role before expiry = %v, want Root", got)
+	}
+
+	// Expire information (3 * 2s = 6s) so loop guard fires.
+	l.Advance(start.Add(8 * time.Second))
+
+	if got := l.PortInfo("l1"); got.BlockReason != stp.BlockReasonLoopInconsistent || got.Role != bpdu.RoleAlternate {
+		t.Fatalf("l1 after expiry = %+v, want loop-inconsistent and Alternate", got)
+	}
+
+	// SSTP BPDU arrives with Admitted: false.
+	sstpBPDU := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4106, Address: mustMAC(t, "00:11:22:33:44:02")},
+		BridgeID:     bpdu.BridgeID{Priority: 4106, Address: mustMAC(t, "00:11:22:33:44:02")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	sstpBPDU.SetRole(bpdu.RoleDesignated)
+
+	l.ReceiveSSTP(start.Add(9*time.Second), "l1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: false}, sstpBPDU)
+
+	if got := l.PortInfo("l1").Role; got == bpdu.RoleAlternate {
+		t.Errorf("l1 role after unadmitted SSTP = %v, want it to leave Alternate in that call", got)
+	}
+}
+
+func TestSpeedChangeOnForwardingRSTPPortDoesNotRestartHandshake(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {}},
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+
+	// Peer sends agreement so port reaches Forwarding immediately on point-to-point.
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:01")},
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(bpdu.RoleRoot)
+	b.SetAgreement(true)
+
+	l.Receive(start.Add(time.Second), "l1", b)
+
+	before := l.PortInfo("l1")
+	if before.State != stp.StateForwarding {
+		t.Fatalf("l1 state before speed change = %v, want Forwarding", before.State)
+	}
+	if before.PathCost != 20_000 {
+		t.Fatalf("l1 path cost before speed change = %d, want 20000", before.PathCost)
+	}
+
+	// Speed changes from 1Gbps to 10Gbps (cost 20000 -> 2000).
+	fx := l.LinkChange(start.Add(2*time.Second), "l1", true, true, 10_000_000_000)
+
+	after := l.PortInfo("l1")
+	if after.PathCost != 2_000 {
+		t.Errorf("l1 path cost after speed change = %d, want 2000", after.PathCost)
+	}
+	if after.State != stp.StateForwarding {
+		t.Errorf("l1 state after speed change = %v, want Forwarding (no new handshake)", after.State)
+	}
+	if after.ForwardTransitions != before.ForwardTransitions {
+		t.Errorf("ForwardTransitions = %d, want untouched %d", after.ForwardTransitions, before.ForwardTransitions)
+	}
+	if len(fx.Emissions) != 0 {
+		t.Errorf("Emissions on speed change = %+v, want none (no new handshake)", fx.Emissions)
+	}
+}
+
+func TestMSTIRecordBridgePriorityOctetPlacedAtHighNibble(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+		MST: &stp.MST{
+			Name: "region-1",
+			Instances: map[bpdu.MSTID]stp.Instance{
+				1: {
+					Priority: 0x4000,
+					VLANs:    []vlan.ID{10},
+				},
+			},
+		},
+	}, tbl)
+
+	fx := l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	if len(fx.Emissions) == 0 {
+		t.Fatal("LinkChange produced no emissions")
+	}
+
+	payload := fx.Emissions[0].Frame.Payload
+	const bridgePriorityOctetOffset = 105 + 13
+	if len(payload) <= bridgePriorityOctetOffset {
+		t.Fatalf("payload length %d too short for MSTI record", len(payload))
+	}
+	got := payload[bridgePriorityOctetOffset]
+	if got != 0x40 {
+		t.Errorf("MSTI record bridge priority octet = 0x%02x, want 0x40", got)
+	}
+}
+
+func TestReceiveMSTIPortPriorityHighNibbleAnd12BitPortID(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	mstCfg := &stp.MST{
+		Name: "region-1",
+		Instances: map[bpdu.MSTID]stp.Instance{
+			1: {
+				Priority: 32768,
+				VLANs:    []vlan.ID{10},
+			},
+		},
+	}
+	cid := mstCfg.ConfigID()
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+		MST: mstCfg,
+	}, tbl)
+
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	b := bpdu.BPDU{
+		Version:       3,
+		Type:          bpdu.TypeRapid,
+		RootID:        bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:      bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:        0x8103,
+		HelloTime:     2 * time.Second,
+		MaxAge:        20 * time.Second,
+		ForwardDelay:  15 * time.Second,
+		RemainingHops: 20,
+		ConfigID:      &cid,
+		MSTIs: []bpdu.MSTIRecord{
+			{
+				MSTID:                1,
+				RegionalRootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+				InternalRootPathCost: 10,
+				BridgePriority:       0x10,
+				PortPriority:         0x8F,
+				RemainingHops:        20,
+			},
+		},
+	}
+	b.SetRole(bpdu.RoleDesignated)
+
+	l.Receive(now.Add(time.Second), "1/1/1", b)
+
+	info := l.VLANPortInfo(10, "1/1/1")
+	if info.DesignatedPort != 0x8103 {
+		t.Errorf("MSTI 1 designated port = 0x%04x, want 0x8103", info.DesignatedPort)
+	}
+}
+
+func TestZeroHelloTimeAcceptedAndStoredAsOneSecond(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {PathCost: 100},
+		},
+	}, tbl)
+
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+
+	frame, err := bpdu.Encode(b, peerMAC)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	binary.BigEndian.PutUint16(frame.Payload[34:36], 0)
+
+	decoded, err := bpdu.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode(hello 0): %v", err)
+	}
+
+	l.Receive(now, "1/1/1", decoded)
+
+	info := l.PortInfo("1/1/1")
+	if info.Role != bpdu.RoleRoot {
+		t.Fatalf("port role = %v, want Root", info.Role)
+	}
+
+	l.Advance(now.Add(2900 * time.Millisecond))
+	if l.PortInfo("1/1/1").Role != bpdu.RoleRoot {
+		t.Errorf("role aged out early at +2.9s, want still Root")
+	}
+
+	l.Advance(now.Add(3100 * time.Millisecond))
+	if l.PortInfo("1/1/1").Role != bpdu.RoleDesignated {
+		t.Errorf("role did not age out at +3.1s, got %v, want Designated", l.PortInfo("1/1/1").Role)
+	}
+}
+
+func TestAgreementLeavesDesignatedPortDiscardingWhenInvalid(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	peerMAC := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	tbl := mustPortTable(t, "1/1/1")
+
+	newLayer := func(p2p stp.PointToPointMode, restrictedRole bool) *stp.Layer {
+		return mustNewSTP(t, stp.Config{
+			Priority: 32768,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {
+					PathCost:       100,
+					PointToPoint:   p2p,
+					RestrictedRole: restrictedRole,
+				},
+			},
+		}, tbl)
+	}
+
+	// 1. Shared link: agreement on a shared link must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceFalse, false)
+		l.LinkChange(now, "1/1/1", true, false, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("shared link agreement moved Designated port to %v, want Discarding", st)
+		}
+	}
+
+	// 2. STP mode: agreement received on a port that migrated to legacy STP must not open it.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		now2 := now.Add(4 * time.Second)
+		legacy := bpdu.BPDU{
+			Version:      0,
+			Type:         bpdu.TypeConfiguration,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		legacy.SetRole(bpdu.RoleDesignated)
+		l.Receive(now2, "1/1/1", legacy)
+
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now2.Add(time.Second), "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("STP mode agreement moved Designated port to %v, want Discarding", st)
+		}
+	}
+
+	// 3. Designated sender with worse vector: agreement from a Designated sender whose vector
+	// is worse than this port's must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleDesignated)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("worse vector Designated agreement moved port to %v, want Discarding", st)
+		}
+	}
+
+	// 4. Root sender with better vector: agreement from a Root sender whose vector is better
+	// than this port's must not open the Designated port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, true)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+			BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("better vector Root agreement moved port to %v, want Discarding", st)
+		}
+		if trans := l.PortInfo("1/1/1").ForwardTransitions; trans != 0 {
+			t.Errorf("better vector Root agreement caused %d forward transitions, want 0", trans)
+		}
+	}
+
+	// 5. Valid agreement baseline: point-to-point RSTP with Root sender and worse vector opens port.
+	{
+		l := newLayer(stp.PointToPointForceTrue, false)
+		l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+		b := bpdu.BPDU{
+			Version:      2,
+			Type:         bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: peerMAC},
+			PortID:       0x8001,
+			HelloTime:    2 * time.Second,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		b.SetRole(bpdu.RoleRoot)
+		b.SetAgreement(true)
+
+		l.Receive(now, "1/1/1", b)
+		if st := l.PortInfo("1/1/1").State; st != stp.StateForwarding {
+			t.Errorf("valid agreement did not open Designated port: got %v, want Forwarding", st)
+		}
+	}
+}
+
+func TestMSTIProposalAndAgreementExchange(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	mac1 := mustMAC(t, "00:11:22:33:44:01")
+	mac2 := mustMAC(t, "00:11:22:33:44:02")
+	tbl := mustPortTable(t, "1/1/1")
+
+	mstCfg := func(cistPrio uint16, msti1Prio uint16, mac netaddr.MAC) stp.Config {
+		return stp.Config{
+			Priority: cistPrio,
+			Address:  mac,
+			Ports: map[string]stp.Port{
+				"1/1/1": {PathCost: 100},
+			},
+			MST: &stp.MST{
+				Name:     "region-1",
+				Revision: 1,
+				Instances: map[bpdu.MSTID]stp.Instance{
+					1: {
+						Priority: msti1Prio,
+						VLANs:    []vlan.ID{10},
+					},
+				},
+			},
+		}
+	}
+
+	// Two bridges in one region on a point-to-point link bring an MSTI Designated port
+	// to Forwarding in the same exchange that brings the CIST there, with no Advance.
+	sw1 := mustNewSTP(t, mstCfg(4096, 32768, mac1), tbl)
+	sw2 := mustNewSTP(t, mstCfg(32768, 4096, mac2), tbl)
+
+	fx1 := sw1.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	sw2.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	if len(fx1.Emissions) == 0 {
+		t.Fatal("sw1 LinkChange produced no emissions")
+	}
+
+	b1, err := bpdu.Decode(fx1.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw1 BPDU: %v", err)
+	}
+
+	fx2Rx := sw2.Receive(now, "1/1/1", b1)
+	if len(fx2Rx.Emissions) == 0 {
+		t.Fatal("sw2 Receive produced no agreement emissions")
+	}
+
+	b2Resp, err := bpdu.Decode(fx2Rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw2 response BPDU: %v", err)
+	}
+
+	fx1Rx := sw1.Receive(now, "1/1/1", b2Resp)
+
+	// sw1 CIST Designated port received CIST agreement and forwarded
+	if st := sw1.PortInfo("1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw1 CIST port state = %v, want Forwarding", st)
+	}
+
+	// sw1 MSTI 1 Root port received MSTI 1 proposal and forwarded, emitting MSTI 1 agreement
+	if st := sw1.VLANPortInfo(10, "1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw1 MSTI 1 port state = %v, want Forwarding", st)
+	}
+
+	if len(fx1Rx.Emissions) == 0 {
+		t.Fatal("sw1 Receive produced no MSTI agreement emission")
+	}
+
+	b1MstiAgr, err := bpdu.Decode(fx1Rx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("Decode sw1 MSTI agreement BPDU: %v", err)
+	}
+
+	sw2.Receive(now, "1/1/1", b1MstiAgr)
+
+	// sw2 MSTI 1 Designated port received MSTI 1 agreement and forwarded
+	if st := sw2.VLANPortInfo(10, "1/1/1").State; st != stp.StateForwarding {
+		t.Errorf("sw2 MSTI 1 Designated port state = %v, want Forwarding", st)
+	}
+
+	// Test: An MSTI agreement whose CIST message names another regional root is not recorded.
+	{
+		cfgA := mstCfg(4096, 4096, mac1)
+		swA := mustNewSTP(t, cfgA, tbl)
+		swA.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+		// swA is Designated on MSTI 1, Discarding
+		cid := cfgA.MST.ConfigID()
+		badCISTAgreement := bpdu.BPDU{
+			Version:        3,
+			Type:           bpdu.TypeRapid,
+			RootID:         bpdu.BridgeID{Priority: 4096, Address: mac1},
+			RegionalRootID: bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:99:99:99:99:99")}, // mismatch!
+			BridgeID:       bpdu.BridgeID{Priority: 32768, Address: mac2},
+			PortID:         0x8001,
+			HelloTime:      2 * time.Second,
+			MaxAge:         20 * time.Second,
+			ForwardDelay:   15 * time.Second,
+			RemainingHops:  20,
+			ConfigID:       &cid,
+			MSTIs: []bpdu.MSTIRecord{
+				{
+					MSTID:                1,
+					Flags:                0x40 | 0x08, // Agreement + RoleRoot
+					RegionalRootID:       bpdu.BridgeID{Priority: 4096 | 1, Address: mac1},
+					InternalRootPathCost: 10,
+					BridgePriority:       0x80,
+					PortPriority:         0x80,
+					RemainingHops:        20,
+				},
+			},
+		}
+		badCISTAgreement.SetRole(bpdu.RoleRoot)
+		badCISTAgreement.SetAgreement(true)
+
+		swA.Receive(now, "1/1/1", badCISTAgreement)
+		if st := swA.VLANPortInfo(10, "1/1/1").State; st != stp.StateDiscarding {
+			t.Errorf("MSTI agreement with mismatched CIST regional root moved port to %v, want Discarding", st)
+		}
+	}
+}
+
+func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	macB := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1", "1/1/2")
+	b := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macB,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, tbl)
+
+	b.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	b.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+
+	// Make 1/1/1 Root port by receiving superior BPDU from macRoot
+	rootBPDU := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	rootBPDU.SetRole(bpdu.RoleDesignated)
+	rootBPDU.SetProposal(true)
+	b.Receive(now, "1/1/1", rootBPDU)
+
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/1 role=%v state=%v, want Root Forwarding", info.Role, info.State)
+	}
+	if info := b.PortInfo("1/1/2"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		t.Fatalf("port 1/1/2 role=%v state=%v, want Designated Discarding", info.Role, info.State)
+	}
+
+	// Downstream port 1/1/2 receives an agreement from its peer and moves to Forwarding.
+	// In THAT CALL, b emits a BPDU on its Root port 1/1/1 with the TC flag set.
+	downstreamAgr := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 20000,
+		BridgeID:     bpdu.BridgeID{Priority: 32768, Address: macB},
+		PortID:       0x8002,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstreamAgr.SetRole(bpdu.RoleRoot)
+	downstreamAgr.SetAgreement(true)
+
+	fxAgr := b.Receive(now, "1/1/2", downstreamAgr)
+	if info := b.PortInfo("1/1/2"); info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/2 state=%v, want Forwarding", info.State)
+	}
+
+	foundRootTC := false
+	for _, e := range fxAgr.Emissions {
+		if e.Port == "1/1/1" {
+			dec, err := bpdu.Decode(e.Frame)
+			if err != nil {
+				t.Fatalf("decode 1/1/1 frame: %v", err)
+			}
+			if dec.TopologyChange() {
+				foundRootTC = true
+			}
+		}
+	}
+	if !foundRootTC {
+		t.Errorf("receive agreement on 1/1/2 emitted no TC-flagged BPDU on Root port 1/1/1, emissions = %v", fxAgr.Emissions)
+	}
+
+	// While tcWhile runs (helloTime + 1s = 3s), the hello loop emits a BPDU on Root port with TC set.
+	now = now.Add(2 * time.Second)
+	fxHello1 := b.Advance(now)
+	foundRootHello1 := false
+	for _, e := range fxHello1.Emissions {
+		if e.Port == "1/1/1" {
+			dec, err := bpdu.Decode(e.Frame)
+			if err != nil {
+				t.Fatalf("decode 1/1/1 hello: %v", err)
+			}
+			if dec.TopologyChange() {
+				foundRootHello1 = true
+			}
+		}
+	}
+	if !foundRootHello1 {
+		t.Errorf("advance at hello time emitted no TC-flagged BPDU on Root port 1/1/1, emissions = %v", fxHello1.Emissions)
+	}
+
+	// After helloTime + 1s (now is at t0 + 4s > 3s), tcWhile has expired; hello loop sends no BPDU on Root port.
+	now = now.Add(2 * time.Second)
+	fxHello2 := b.Advance(now)
+	for _, e := range fxHello2.Emissions {
+		if e.Port == "1/1/1" {
+			t.Errorf("Root port 1/1/1 emitted BPDU after tcWhile expired: %v", e)
+		}
+	}
+
+	// The port a flagged BPDU arrived on sends none back.
+	flaggedBPDU := rootBPDU
+	flaggedBPDU.SetTopologyChange(true)
+	flaggedBPDU.SetProposal(false)
+	fxFlagged := b.Receive(now, "1/1/1", flaggedBPDU)
+	for _, e := range fxFlagged.Emissions {
+		if e.Port == "1/1/1" {
+			t.Errorf("port 1/1/1 sent BPDU back after receiving flagged BPDU: %v", e)
+		}
+	}
+}
+
+func TestPortLeavingForwardingRaisesNoTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	tbl := mustPortTable(t, "1/1/1")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+	}, tbl)
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+
+	// Advance to Forwarding
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+
+	if info := l.PortInfo("1/1/1"); info.State != stp.StateForwarding {
+		t.Fatalf("port state = %v, want Forwarding", info.State)
+	}
+
+	beforeCount, _ := l.TopologyChanges()
+	fx := l.LinkChange(now, "1/1/1", false, false, 0)
+	afterCount, _ := l.TopologyChanges()
+
+	if afterCount != beforeCount {
+		t.Errorf("topology changes moved from %d to %d on port down, want unchanged", beforeCount, afterCount)
+	}
+	for _, e := range fx.Emissions {
+		dec, err := bpdu.Decode(e.Frame)
+		if err == nil && dec.TopologyChange() {
+			t.Errorf("emission carries TC flag on port down: %v", e)
+		}
+	}
+	if !slices.Contains(flushPorts(fx.Flush), "1/1/1") {
+		t.Errorf("port 1/1/1 not flushed on down: %v", fx.Flush)
+	}
+}
+
+func TestInactivePortsIgnoreTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	mac := mustMAC(t, "00:11:22:33:44:02")
+	rootMAC := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1", "1/1/2", "1/1/3", "1/1/4")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+			"1/1/3": {},
+			"1/1/4": {AdminEdge: true},
+		},
+	}, tbl)
+	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/3", true, true, 1_000_000_000)
+	l.LinkChange(now, "1/1/4", true, true, 1_000_000_000)
+
+	// Make 1/1/1 Root (active), 1/1/2 Alternate (inactive)
+	bpduRoot := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: rootMAC},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: rootMAC},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	bpduRoot.SetRole(bpdu.RoleDesignated)
+	bpduRoot.SetProposal(true)
+	l.Receive(now, "1/1/1", bpduRoot)
+
+	bpduAlt := bpduRoot
+	bpduAlt.PortID = 0x8002
+	l.Receive(now, "1/1/2", bpduAlt)
+
+	if info := l.PortInfo("1/1/2"); info.Role != bpdu.RoleAlternate {
+		t.Fatalf("port 1/1/2 role = %v, want Alternate", info.Role)
+	}
+	if info := l.PortInfo("1/1/3"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		t.Fatalf("port 1/1/3 role = %v, state = %v, want Designated Discarding", info.Role, info.State)
+	}
+	if info := l.PortInfo("1/1/4"); !info.Edge || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/4 edge = %v, state = %v, want Edge Forwarding", info.Edge, info.State)
+	}
+
+	tcBPDU := bpduRoot
+	tcBPDU.SetTopologyChange(true)
+	tcBPDU.SetProposal(false)
+
+	// Inactive Alternate port 1/1/2 receives TC flag -> flushes nothing
+	fxAlt := l.Receive(now, "1/1/2", tcBPDU)
+	if len(fxAlt.Flush) != 0 {
+		t.Errorf("Alternate port receiving TC flushed %v, want none", fxAlt.Flush)
+	}
+
+	// Inactive Designated Discarding port 1/1/3 receives TC flag -> flushes nothing
+	fxDesig := l.Receive(now, "1/1/3", tcBPDU)
+	if len(fxDesig.Flush) != 0 {
+		t.Errorf("Designated Discarding port receiving TC flushed %v, want none", fxDesig.Flush)
+	}
+
+	// Active Root port 1/1/1 receives TC flag -> flushes active ports, but edge port 1/1/4 is untouched
+	fxActive := l.Receive(now, "1/1/1", tcBPDU)
+	if slices.Contains(flushPorts(fxActive.Flush), "1/1/4") {
+		t.Errorf("Active port receiving TC flushed edge port 1/1/4: %v", fxActive.Flush)
+	}
+}
+
+func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	now := t0
+	mac := mustMAC(t, "00:11:22:33:44:01")
+	tbl := mustPortTable(t, "1/1/1")
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mac,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+	}, tbl)
+	// STP legacy mode
+	l.LinkChange(now, "1/1/1", true, false, 1_000_000_000)
+
+	// Advance to Forwarding so 1/1/1 is active Designated port
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+	now = now.Add(16 * time.Second)
+	l.Advance(now)
+
+	if info := l.PortInfo("1/1/1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding {
+		t.Fatalf("port 1/1/1 role = %v, state = %v, want Designated Forwarding", info.Role, info.State)
+	}
+
+	// Receive TCN BPDU on Designated port
+	fxTCN := l.Receive(now, "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	if len(fxTCN.Emissions) == 0 {
+		t.Fatal("receive TCN produced no emissions")
+	}
+	bAck, err := bpdu.Decode(fxTCN.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode ack emission: %v", err)
+	}
+	if !bAck.TopologyChangeAck() {
+		t.Errorf("next Configuration BPDU after TCN has TCAck = false, want true")
+	}
+
+	// The one after has TCAck clear, but TC flag set for 35s
+	now = now.Add(2 * time.Second)
+	fxHello := l.Advance(now)
+	if len(fxHello.Emissions) == 0 {
+		t.Fatal("hello produced no emissions")
+	}
+	bHello, err := bpdu.Decode(fxHello.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode hello emission: %v", err)
+	}
+	if bHello.TopologyChangeAck() {
+		t.Errorf("subsequent Configuration BPDU still has TCAck = true, want false")
+	}
+	if !bHello.TopologyChange() {
+		t.Errorf("subsequent Configuration BPDU has TC = false, want true during 35s window")
+	}
+
+	// At now = t0 + 32s + 34s (34s after TCN), TC flag is still set
+	fx34 := l.Advance(t0.Add(32*time.Second + 34*time.Second))
+	if len(fx34.Emissions) > 0 {
+		b34, err := bpdu.Decode(fx34.Emissions[0].Frame)
+		if err == nil && !b34.TopologyChange() {
+			t.Errorf("at 34s after TCN, TC flag is false, want true")
+		}
+	}
+
+	// At 36s after TCN (> 35s), TC flag is clear
+	fx36 := l.Advance(t0.Add(32*time.Second + 36*time.Second))
+	if len(fx36.Emissions) > 0 {
+		b36, err := bpdu.Decode(fx36.Emissions[0].Frame)
+		if err == nil && b36.TopologyChange() {
+			t.Errorf("at 36s after TCN, TC flag is true, want false")
+		}
+	}
+}
+
+func TestInferiorRSTBPDUDoesNotChangeExternalClassification(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macLocal := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+	macInferior := mustMAC(t, "00:11:22:33:44:99")
+
+	region := &stp.MST{Name: "region-1", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{
+		1: {VLANs: []vlan.ID{10}},
+	}}
+	cid := region.ConfigID()
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macLocal,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+		},
+		MST: region,
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	internalBPDU := bpdu.BPDU{
+		Version:        3,
+		Type:           bpdu.TypeRapid,
+		RootID:         bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost:   0,
+		BridgeID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		ConfigID:       &cid,
+		RegionalRootID: bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RemainingHops:  20,
+	}
+	internalBPDU.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/1", internalBPDU)
+
+	rootBefore, costBefore, _ := l.Root()
+
+	inferiorRST := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 61440, Address: macInferior},
+		RootPathCost: 100000,
+		BridgeID:     bpdu.BridgeID{Priority: 61440, Address: macInferior},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	inferiorRST.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0.Add(time.Second), "1/1/1", inferiorRST)
+
+	rootAfter, costAfter, _ := l.Root()
+	if rootAfter != rootBefore || costAfter != costBefore {
+		t.Fatalf("Root after inferior RST BPDU = %v (cost %d), want %v (cost %d) kept", rootAfter, costAfter, rootBefore, costBefore)
+	}
+}
+
+func TestPathCostAdditionSaturatesAtMaxUint32(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macLocal := mustMAC(t, "00:11:22:33:44:03")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macLocal,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	bpdu1 := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 100,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	bpdu1.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/1", bpdu1)
+
+	bpdu2 := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0xfffffff0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8002,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	bpdu2.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/2", bpdu2)
+
+	_, cost, rootPort := l.Root()
+	if rootPort != "1/1/1" {
+		t.Fatalf("elected root port = %q (cost %d), want %q (cost %d)", rootPort, cost, "1/1/1", 20100)
+	}
+}
+
+func TestForwardDelayLadderStepsByForwardDelayInForceAndEmitsBridgeHello(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macLocal := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority:     32768,
+		Address:      macLocal,
+		ForwardDelay: 15 * time.Second,
+		HelloTime:    2 * time.Second,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, false, 1_000_000_000)
+
+	rootBPDU := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    1 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 4 * time.Second,
+	}
+	rootBPDU.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/1", rootBPDU)
+
+	now := t0.Add(4 * time.Second)
+	l.Advance(now)
+	if state := l.PortInfo("1/1/2").State; state != stp.StateLearning {
+		t.Fatalf("port 1/1/2 state after 4s = %v, want Learning", state)
+	}
+
+	fx := l.Advance(t0.Add(2 * time.Second))
+	for _, em := range fx.Emissions {
+		if em.Port == "1/1/2" {
+			dec, err := bpdu.Decode(em.Frame)
+			if err != nil {
+				t.Fatalf("decode emission: %v", err)
+			}
+			if dec.HelloTime != 2*time.Second {
+				t.Errorf("emitted HelloTime = %v, want 2s (bridge's own)", dec.HelloTime)
+			}
+		}
+	}
+}
+
+func TestAdvanceExpiresInformationBeforeEmittingHello(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macLocal := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macLocal,
+		Ports: map[string]stp.Port{
+			"1/1/1": {},
+			"1/1/2": {},
+		},
+	}, mustPortTable(t, "1/1/1", "1/1/2"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+
+	rootBPDU := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	rootBPDU.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/1", rootBPDU)
+
+	l.Advance(t0.Add(2 * time.Second))
+	l.Advance(t0.Add(4 * time.Second))
+
+	fx := l.Advance(t0.Add(6 * time.Second))
+	found112Hello := false
+	for _, em := range fx.Emissions {
+		if em.Port == "1/1/2" {
+			found112Hello = true
+			dec, err := bpdu.Decode(em.Frame)
+			if err != nil {
+				t.Fatalf("decode 1/1/2 frame: %v", err)
+			}
+			if dec.RootID != l.BridgeID() {
+				t.Fatalf("hello emitted on designated port 1/1/2 named root %v, want bridge itself %v", dec.RootID, l.BridgeID())
+			}
+		}
+	}
+	if !found112Hello {
+		t.Fatalf("advance at root info expiration emitted no hello on 1/1/2: %+v", fx.Emissions)
+	}
+}
+
+func TestPVSTLoopGuardBlocksOnPerVLANExpiry(t *testing.T) {
+	t.Parallel()
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	macLocal := mustMAC(t, "00:11:22:33:44:02")
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  macLocal,
+		Ports: map[string]stp.Port{
+			"1/1/1": {LoopGuard: true},
+		},
+		PVST: pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "1/1/1"))
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+
+	b1 := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b1.SetRole(bpdu.RoleDesignated)
+	l.Receive(t0, "1/1/1", b1)
+
+	b10 := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b10.SetRole(bpdu.RoleDesignated)
+	l.ReceiveSSTP(t0, "1/1/1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, b10)
+
+	l.Receive(t0.Add(2*time.Second), "1/1/1", b1)
+	l.Receive(t0.Add(4*time.Second), "1/1/1", b1)
+	l.Advance(t0.Add(6 * time.Second))
+
+	info1 := l.VLANPortInfo(1, "1/1/1")
+	if info1.Role != bpdu.RoleRoot || info1.State != stp.StateForwarding {
+		t.Errorf("VLAN 1 port role=%v state=%v, want Root Forwarding", info1.Role, info1.State)
+	}
+
+	info10 := l.VLANPortInfo(10, "1/1/1")
+	if info10.State != stp.StateDiscarding || info10.BlockReason != stp.BlockReasonLoopInconsistent {
+		t.Fatalf("VLAN 10 port state=%v reason=%v, want Discarding and loop-inconsistent", info10.State, info10.BlockReason)
+	}
+}
+
+func TestBPDUDecisionFactIncludesMSTIRecords(t *testing.T) {
+	t.Parallel()
+	macRoot := mustMAC(t, "00:11:22:33:44:01")
+	cid := (&stp.MST{Name: "region-1", Revision: 1}).ConfigID()
+
+	b1 := bpdu.BPDU{
+		Version:        3,
+		Type:           bpdu.TypeRapid,
+		RootID:         bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:         0x8001,
+		ConfigID:       &cid,
+		RegionalRootID: bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		MSTIs: []bpdu.MSTIRecord{
+			{MSTID: 1, InternalRootPathCost: 100},
+		},
+	}
+	b2 := b1
+	b2.MSTIs = []bpdu.MSTIRecord{
+		{MSTID: 1, InternalRootPathCost: 200},
+	}
+
+	var p stp.PortInfo
+	fact1 := stp.BPDUDecisionFact(b1, p, p).Canonical()
+	fact2 := stp.BPDUDecisionFact(b2, p, p).Canonical()
+
+	if fact1 == fact2 {
+		t.Fatalf("facts for BPDUs differing in MSTI cost are identical: %q", fact1)
+	}
+}
+
+func TestPortInfoSnapshotDistinguishesPVSTAndMSTI(t *testing.T) {
+	t.Parallel()
+	mac := mustMAC(t, "00:11:22:33:44:01")
+
+	pvst := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		PVST:     pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "1/1/1"))
+
+	mst := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mac,
+		Ports:    map[string]stp.Port{"1/1/1": {}},
+		MST: &stp.MST{Name: "region-1", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{
+			10: {VLANs: []vlan.ID{10}},
+		}},
+	}, mustPortTable(t, "1/1/1"))
+
+	pvstFact := pvst.ForwardingFact("1/1/1", 10, true, true).Canonical()
+	mstFact := mst.ForwardingFact("1/1/1", 10, true, true).Canonical()
+
+	if pvstFact == mstFact {
+		t.Fatalf("PVST VLAN 10 snapshot and MSTI 10 snapshot are identical: %q", pvstFact)
 	}
 }

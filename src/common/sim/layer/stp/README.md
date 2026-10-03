@@ -124,7 +124,7 @@ a port, and the trace carries it.
 | `BPDUGuard` | A BPDU on the port disables it for spanning tree, on the CIST and every MSTI alike: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
 | `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
 | `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
-| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. The outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. | Any BPDU received on the port, or a link down. |
+| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. Under MSTP the outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. Under PVST each tree arms loop guard on its own expiry. | A BPDU applied to that tree (or any BPDU under MSTP), or a link down. |
 
 Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
 all apply loop protection only to ports that were receiving BPDUs and recover on
@@ -242,20 +242,17 @@ guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
 of auto-edge status, runs once per frame in `receiveLink`, which both entry
 points share, whatever `SSTPOutcome` the tree half goes on to report.
 
-Every property `receiveLink` can change belongs to the link, not to any tree,
-but the link keeps no state apart from the trees: `portState` embeds a
-`linkState{up, pointToPoint, edge, sendRSTP}`, one copy per tree, and
-`syncInstancePorts` copies the CIST's whole `linkState` onto every other
-tree's port once `receiveLink` finishes. A second group of link properties —
-path cost, whether the link is external, the BPDU-guard and loop-guard flags,
-the PVST-boundary mark, the migration-delay timer, and the two BPDU counters —
-is written only on the CIST's port state and read through it, rather than
-replicated: `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and `BadBPDUs` answer
-from the CIST's copy on any VLAN, the same value `PortInfo` reports for the
-common tree. A VLAN with no tree under PVST answers neither kind: `treeFor`
-says so through its second return, and `VLANPortInfo` and `ForwardingFact`
-return the zero value for it rather than VLAN 1's, because VLAN 1's tree is a
-tree like any other, not a stand-in for a VLAN that has none.
+Every property `receiveLink` can change belongs to the link, not to any tree.
+`Layer` holds one `linkRecord` per port for physical and administrative link
+state: `up`, `pointToPoint`, `edge`, `sendRSTP`, `adminEdge`, `linkPathCost`,
+`external`, `bpduGuardDisabled`, `pvstBoundary`, `mdelayWhile`, `edgeDelayWhile`,
+`rxBPDUs`, and `badBPDUs`. `portState` holds tree-owned state alone.
+`VLANPortInfo`'s `BlockReason`, `RxBPDUs`, and `BadBPDUs` answer from the port's
+`linkRecord` on any VLAN, the same value `PortInfo` reports for the common tree.
+A VLAN with no tree under PVST answers neither kind: `treeFor` says so through
+its second return, and `VLANPortInfo` and `ForwardingFact` return the zero value
+for it rather than VLAN 1's, because VLAN 1's tree is a tree like any other, not
+a stand-in for a VLAN that has none.
 
 A separate `Receive` taking a VLAN would read as though an RSTP bridge
 classified its BPDUs per VLAN, which it does not.
@@ -412,6 +409,29 @@ there reaches every tree. On an internal port it discards more than it
 strictly must, costing a round of flooding to relearn entries that were never
 stale. Narrowing it would need a target that can say
 "every FID except these", which `layer.FlushTarget` deliberately cannot.
+
+## Standards and state machines
+
+The layer implements the state machines defined in IEEE Std 802.1Q-2003 (incorporating IEEE Std 802.1s-2002) and follows the unified RSTP and MSTP state machine consolidation from the IEEE P802.1aq/D1.5 draft (May 2009). Conformance test behavior is drawn from the UNH-IOL Rapid Spanning Tree Conformance Test Suite (referencing IEEE Std 802.1Q-2011). Frame encoding offsets are cross-checked against the Wireshark dissector (`epan/dissectors/packet-bpdu.c`). Published editions of IEEE Std 802.1D-2004 and IEEE Std 802.1Q-2011 were not directly consulted and are unverified.
+
+The implementation structures its logic around the standard state machines:
+
+- Port Role Selection (PRS): IEEE 802.1Q-2003 clauses 13.9, 13.10, 13.11, and 13.24. Compares the six-part priority vector (Root ID, External Path Cost, Regional Root ID, Internal Path Cost, Designated Bridge ID, Designated Port ID) to elect the root and assign port roles.
+- Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
+- Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20. Computes proposal and agreement handshakes and steps the forward delay ladder.
+- Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Transmits periodic hellos on designated ports and root ports during active topology changes, bounded by txHoldCount.
+- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19 and 13.29.11. Generates topology change notifications when a non-edge port moves to Forwarding, arms tcWhile for HelloTime + 1 second, and propagates the change away from the receiving port.
+- Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
+
+### Limits
+
+The layer deliberately departs from or fixes ambiguous areas of the standards:
+
+- No disputed flag (draft P802.1aq/D1.5 clause 13.29.17) and no Master role (IEEE role MIB tables define only Root, Alternate, Designated, and Backup, so a boundary port MSTI role mirrors the CIST).
+- Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
+- The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
+- A port losing auto-edge returns to Discarding and proposes again across all trees, standing in for the disputed mechanism. Draft Figure 13-16 only clears operEdge.
+- Port priority configurations that are not multiples of 16 are accepted. The layer extracts and transmits the high four bits as port priority (IEEE 802.1Q-2003 clause 13.24.21).
 
 ## State retention
 
