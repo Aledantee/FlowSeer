@@ -70,6 +70,9 @@ type Layer struct {
 	// would starve the VLANs that sort last. Layer.tx resolves the key.
 	portTx map[txKey]*portTx
 
+	// links holds the physical and administrative link state for each port.
+	links map[string]*linkRecord
+
 	// mst is the region configuration when this bridge runs MSTP, and nil
 	// when it runs plain RSTP with the CIST as its only tree.
 	mst *MST
@@ -148,6 +151,7 @@ func newLayer(cfg Config) *Layer {
 		treeVLANs:    make(map[treeID][]vlan.ID),
 		treeOrder:    []treeID{cistID},
 		portTx:       make(map[txKey]*portTx, len(sortedNames)),
+		links:        make(map[string]*linkRecord, len(sortedNames)),
 		mst:          cfg.MST,
 		pvst:         cfg.PVST,
 	}
@@ -185,20 +189,21 @@ func newLayer(cfg Config) *Layer {
 			}
 		}
 
+		l.links[name] = &linkRecord{
+			adminEdge:    pCfg.AdminEdge,
+			edge:         pCfg.AdminEdge,
+			sendRSTP:     true,
+			linkPathCost: linkCost,
+		}
+
 		cist.ports[name] = &portState{
 			name:          name,
 			cfg:           pCfg,
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
-			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
-			adminEdge:     pCfg.AdminEdge,
-			linkState: linkState{
-				edge:     pCfg.AdminEdge,
-				sendRSTP: true,
-			},
-			role:  bpdu.RoleDisabled,
-			state: StateDiscarding,
+			role:          bpdu.RoleDisabled,
+			state:         StateDiscarding,
 		}
 	}
 
@@ -322,13 +327,8 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePort
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
 			pathCostFixed: fixed,
-			adminEdge:     pCfg.AdminEdge,
-			linkState: linkState{
-				edge:     pCfg.AdminEdge,
-				sendRSTP: true,
-			},
-			role:  bpdu.RoleDisabled,
-			state: StateDiscarding,
+			role:          bpdu.RoleDisabled,
+			state:         StateDiscarding,
 		}
 	}
 
@@ -347,18 +347,24 @@ func (l *Layer) Clone() *Layer {
 		maxAge:       l.maxAge,
 		forwardDelay: l.forwardDelay,
 		txHoldCount:  l.txHoldCount,
-		portNames:    slices.Clone(l.portNames),
+		portNames:    l.portNames,
 		trees:        make(map[treeID]*tree, len(l.trees)),
 		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
 		treeVLANs:    make(map[treeID][]vlan.ID, len(l.treeVLANs)),
-		treeOrder:    slices.Clone(l.treeOrder),
+		treeOrder:    l.treeOrder,
 		portTx:       make(map[txKey]*portTx, len(l.portTx)),
+		links:        make(map[string]*linkRecord, len(l.links)),
 	}
 
-	cp.cfg.Ports = make(map[string]Port, len(l.cfg.Ports))
-	for k, v := range l.cfg.Ports {
-		cp.cfg.Ports[k] = v
+	records := make([]linkRecord, len(l.links))
+	i := 0
+	for k, v := range l.links {
+		records[i] = *v
+		cp.links[k] = &records[i]
+		i++
 	}
+
+	cp.cfg.Ports = l.cfg.Ports
 	if l.mst != nil {
 		mst := l.mst.Clone()
 		cp.mst = &mst

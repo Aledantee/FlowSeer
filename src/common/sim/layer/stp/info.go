@@ -63,13 +63,13 @@ type PortInfo struct {
 // BPDUs, which is what clears loopInconsistent on every receive, so those
 // two cannot both hold after a receive and the order between them only
 // fixes what a reader sees should that stop being true.
-func (l *Layer) blockReason(p, cistP *portState) BlockReason {
+func (l *Layer) blockReason(p, cistP *portState, link *linkRecord) BlockReason {
 	switch {
-	case cistP.bpduGuardDisabled:
+	case link.bpduGuardDisabled:
 		return BlockReasonBPDUGuard
 	case p.pvidInconsistent:
 		return BlockReasonPVIDInconsistent
-	case cistP.loopInconsistent:
+	case p.loopInconsistent || (cistP != nil && cistP.loopInconsistent):
 		return BlockReasonLoopInconsistent
 	default:
 		return ""
@@ -200,30 +200,26 @@ func (l *Layer) TracksVLAN(vid vlan.ID) bool {
 // spanning tree this bridge cannot simulate per VLAN: an MSTP neighbor on a
 // PVST bridge, or a PVST neighbor on one that is not. The mark survives
 // until the link goes down, since only that can replace the neighbor.
+// PVSTBoundary reports whether the named port faces a neighbor whose
+// spanning tree this bridge cannot simulate per VLAN: an MSTP neighbor on a
+// PVST bridge, or a PVST neighbor on one that is not. The mark survives
+// until the link goes down, since only that can replace the neighbor.
 func (l *Layer) PVSTBoundary(port string) bool {
-	p, ok := l.cist().ports[port]
+	link, ok := l.links[port]
 	if !ok {
 		return false
 	}
 
-	return p.pvstBoundary
+	return link.pvstBoundary
 }
 
 // PortLinked reports whether the layer would process a BPDU arriving on the
 // named port rather than treat it as SSTPPortDown: the port is one this
-// layer tracks and its CIST copy currently holds the link up. ReceiveSSTP
-// makes exactly this check before doing anything else with a frame, and it
-// is the one read-only distinction the other accessors do not make directly:
-// a PortInfo snapshot carries no link bit, and it renders a port whose link
-// went down through the same Disabled and Discarding values a port that
-// never came up shows. A caller can still recover the answer from a
-// snapshot, but only by re-deriving this layer's own role and guard rules —
-// that a down port clears its guards, so a Disabled port reporting BPDU
-// guard is up — which is the coupling this accessor exists to spare it.
+// layer tracks and its link is currently up.
 func (l *Layer) PortLinked(port string) bool {
-	p, ok := l.cist().ports[port]
+	link, ok := l.links[port]
 
-	return ok && p.up
+	return ok && link.up
 }
 
 // portInfo renders a PortInfo snapshot for one port within one tree. The
@@ -235,16 +231,11 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	if !ok {
 		return PortInfo{}
 	}
-	// The counters and the guard fields blockReason reads are link-on-cist:
-	// every tree's snapshot answers from the CIST's copy, not its own, which
-	// for the CIST tree is p itself. Every tree is built from l.portNames, so
-	// the CIST always has a matching port for any port a tree tracks; the
-	// zero portState below only guards that invariant, not a case this
-	// simulator reaches.
-	cistP, ok := l.cist().ports[port]
-	if !ok {
-		cistP = &portState{}
+	link := l.links[port]
+	if link == nil {
+		link = &linkRecord{}
 	}
+	cistP := l.cist().ports[port]
 
 	var desigRoot, desig bpdu.BridgeID
 	var desigPort uint16
@@ -270,29 +261,29 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 		MSTID:              bpdu.MSTID(t.id),
 		Role:               p.role,
 		State:              p.state,
-		BlockReason:        l.blockReason(p, cistP),
+		BlockReason:        l.blockReason(p, cistP, link),
 		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
 		DesignatedRoot:     desigRoot,
 		Designated:         desig,
 		DesignatedPort:     desigPort,
 		DesignatedCost:     desigCost,
-		PointToPoint:       p.pointToPoint,
-		Edge:               p.edge,
+		PointToPoint:       link.pointToPoint,
+		Edge:               link.edge,
 		ForwardTransitions: p.forwardTransitions,
 		TxBPDUs:            p.txBPDUs,
-		RxBPDUs:            cistP.rxBPDUs,
-		BadBPDUs:           cistP.badBPDUs,
-		SendRSTP:           p.sendRSTP,
+		RxBPDUs:            link.rxBPDUs,
+		BadBPDUs:           link.badBPDUs,
+		SendRSTP:           link.sendRSTP,
 	}
 }
 
 // BadBPDU records that a frame received on the named port could not be
-// decoded as a BPDU. badBPDUs is link-on-cist, so it is bumped on the CIST's
-// port alone; every tree's PortInfo answers from that same copy. An
+// decoded as a BPDU. badBPDUs is link-owned, so it is bumped on the link
+// record alone; every tree's PortInfo answers from that same copy. An
 // untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
-	if p, ok := l.cist().ports[port]; ok {
-		p.badBPDUs++
+	if link, ok := l.links[port]; ok {
+		link.badBPDUs++
 	}
 }

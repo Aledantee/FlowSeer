@@ -34,9 +34,10 @@ func (l *Layer) NextWake() (time.Time, bool) {
 			}
 			// The edge delay is due only on a port that can still become an
 			// edge, or a wake would be scheduled that changes nothing.
-			if p.cfg.AutoEdge && !p.edge && p.up && p.sendRSTP && p.role == bpdu.RoleDesignated &&
-				p.state == StateDiscarding && p.pointToPoint && p.proposing {
-				update(p.edgeDelayWhile)
+			link := l.links[p.name]
+			if p.cfg.AutoEdge && !link.edge && link.up && link.sendRSTP && p.role == bpdu.RoleDesignated &&
+				p.state == StateDiscarding && link.pointToPoint && p.proposing {
+				update(link.edgeDelayWhile)
 			}
 			tx := l.tx(t, p.name)
 			if (tx.pendingAgreement || tx.pendingDesignated) && !tx.tick.IsZero() {
@@ -59,20 +60,22 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 	autoEdgeFired := false
 	for _, name := range l.portNames {
 		p := t.ports[name]
-		if p.cfg.AutoEdge && p.sendRSTP && p.up && p.role == bpdu.RoleDesignated &&
-			p.state == StateDiscarding && p.pointToPoint && p.proposing &&
-			!p.edgeDelayWhile.IsZero() && !p.edgeDelayWhile.After(now) {
-			p.edge = true
-			p.edgeDelayWhile = time.Time{}
-			p.state = StateForwarding
-			p.fwdDelayTimer = time.Time{}
-			p.proposing = false
-			p.forwardTransitions++
-			// edge is a bridge-global link property (see syncInstancePorts):
-			// an MSTI port must reach Forwarding at the same wake as the
-			// CIST's, or it raises a topology change of its own for a flush
-			// auto-edge exists to prevent.
-			l.syncInstancePorts(name, p)
+		link := l.links[name]
+		if p.cfg.AutoEdge && link.sendRSTP && link.up && p.role == bpdu.RoleDesignated &&
+			p.state == StateDiscarding && link.pointToPoint && p.proposing &&
+			!link.edgeDelayWhile.IsZero() && !link.edgeDelayWhile.After(now) {
+			link.edge = true
+			link.edgeDelayWhile = time.Time{}
+			for _, id := range l.treeOrder {
+				if tp, ok := l.trees[id].ports[name]; ok {
+					if tp.state != StateForwarding {
+						tp.state = StateForwarding
+						tp.forwardTransitions++
+					}
+					tp.fwdDelayTimer = time.Time{}
+					tp.proposing = false
+				}
+			}
 			autoEdgeFired = true
 		}
 	}
@@ -92,7 +95,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 				continue
 			}
 			tx := l.tx(mt, name)
-			if !p.up || tx.tick.IsZero() || tx.tick.After(now) {
+			link := l.links[name]
+			if !link.up || tx.tick.IsZero() || tx.tick.After(now) {
 				continue
 			}
 			// A held kind belongs to the role that requested it; released
@@ -118,7 +122,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		mt.helloTimer = now.Add(l.helloTime)
 		for _, name := range l.portNames {
 			p, ok := mt.ports[name]
-			if ok && p.up && p.role == bpdu.RoleDesignated {
+			link := l.links[name]
+			if ok && link.up && p.role == bpdu.RoleDesignated {
 				l.emit(mt, p, now, emissionDesignated, &emissions)
 			}
 		}
@@ -148,7 +153,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					p.state = StateForwarding
 					p.forwardTransitions++
 					stateChanged = true
-					if !p.edge {
+					link := l.links[p.name]
+					if !link.edge {
 						l.raiseTopologyChange(mt, p.name, now, &flushes)
 					}
 				case StateForwarding:
@@ -172,7 +178,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
 				continue
 			}
-			if id == cistID && p.loopGuardWatches() &&
+			link := l.links[p.name]
+			if id == cistID && p.loopGuardWatches(link) &&
 				(p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup) {
 				p.loopInconsistent = true
 			}

@@ -17,12 +17,14 @@ const (
 )
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
+	link := l.links[p.name]
+
 	// SSTP has no legacy shape: bpdu.EncodeSSTP forces a version of at least 2 and
 	// bpdu.DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
 	// legacy STP has no frame it can send. It builds and meters nothing
 	// rather than sending a per-VLAN frame whose header would contradict its
 	// content.
-	if l.pvst != nil && t.id != cistID && !p.sendRSTP {
+	if l.pvst != nil && t.id != cistID && !link.sendRSTP {
 		return
 	}
 
@@ -40,7 +42,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 		var msg bpdu.BPDU
 		switch kind {
 		case emissionDesignated:
-			proposal := p.pointToPoint && p.state == StateDiscarding && !p.agreed && p.sendRSTP
+			proposal := link.pointToPoint && p.state == StateDiscarding && !p.agreed && link.sendRSTP
 			msg = l.makeBPDU(t, p, now, proposal)
 		case emissionAgreement:
 			msg = l.makeAgreementBPDU(t, p, now)
@@ -105,7 +107,8 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 	}
 
 	var built []taggedFrame
-	if p.sendRSTP {
+	link := l.links[p.name]
+	if link.sendRSTP {
 		sstp, err := bpdu.EncodeSSTP(b, t.vid, l.address)
 		if err != nil {
 			return nil, err
@@ -128,8 +131,8 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 // edgeDelay is the time without a BPDU after which a port may be detected as
 // an edge: migrateTime on a point-to-point link, the max age in force on a
 // shared one.
-func (l *Layer) edgeDelay(t *tree, p *portState) time.Duration {
-	if p.pointToPoint {
+func (l *Layer) edgeDelay(t *tree, link *linkRecord) time.Duration {
+	if link.pointToPoint {
 		return migrateTime
 	}
 	maxAge, _, _ := l.times(t)
@@ -235,7 +238,8 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 		ForwardDelay: fwdDelay,
 	}
 
-	if !p.sendRSTP {
+	link := l.links[p.name]
+	if !link.sendRSTP {
 		b.Version = 0
 		b.Type = bpdu.TypeConfiguration
 		proposal = false
@@ -260,7 +264,7 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	// above): bpdu.Encode picks the MST shape whenever ConfigID is set regardless
 	// of Version and Type, and a legacy peer needs a Configuration BPDU, not
 	// version 3.
-	if l.mst != nil && p.sendRSTP {
+	if l.mst != nil && link.sendRSTP {
 		cid := *l.configID
 		b.ConfigID = &cid
 		b.RegionalRootID = t.regionalRootID
@@ -273,9 +277,10 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 }
 
 func (l *Layer) makeAgreementBPDU(t *tree, p *portState, now time.Time) bpdu.BPDU {
+	link := l.links[p.name]
 	b := l.makeBPDU(t, p, now, false)
 	b.SetRole(p.role)
-	if p.sendRSTP {
+	if link.sendRSTP {
 		b.SetAgreement(true)
 	}
 	b.SetProposal(false)

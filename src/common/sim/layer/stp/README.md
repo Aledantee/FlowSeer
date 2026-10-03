@@ -242,20 +242,17 @@ guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
 of auto-edge status, runs once per frame in `receiveLink`, which both entry
 points share, whatever `SSTPOutcome` the tree half goes on to report.
 
-Every property `receiveLink` can change belongs to the link, not to any tree,
-but the link keeps no state apart from the trees: `portState` embeds a
-`linkState{up, pointToPoint, edge, sendRSTP}`, one copy per tree, and
-`syncInstancePorts` copies the CIST's whole `linkState` onto every other
-tree's port once `receiveLink` finishes. A second group of link properties —
-path cost, whether the link is external, the BPDU-guard and loop-guard flags,
-the PVST-boundary mark, the migration-delay timer, and the two BPDU counters —
-is written only on the CIST's port state and read through it, rather than
-replicated: `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and `BadBPDUs` answer
-from the CIST's copy on any VLAN, the same value `PortInfo` reports for the
-common tree. A VLAN with no tree under PVST answers neither kind: `treeFor`
-says so through its second return, and `VLANPortInfo` and `ForwardingFact`
-return the zero value for it rather than VLAN 1's, because VLAN 1's tree is a
-tree like any other, not a stand-in for a VLAN that has none.
+Every property `receiveLink` can change belongs to the link, not to any tree.
+`Layer` holds one `linkRecord` per port for physical and administrative link
+state: `up`, `pointToPoint`, `edge`, `sendRSTP`, `adminEdge`, `linkPathCost`,
+`external`, `bpduGuardDisabled`, `pvstBoundary`, `mdelayWhile`, `edgeDelayWhile`,
+`rxBPDUs`, and `badBPDUs`. `portState` holds tree-owned state alone.
+`VLANPortInfo`'s `BlockReason`, `RxBPDUs`, and `BadBPDUs` answer from the port's
+`linkRecord` on any VLAN, the same value `PortInfo` reports for the common tree.
+A VLAN with no tree under PVST answers neither kind: `treeFor` says so through
+its second return, and `VLANPortInfo` and `ForwardingFact` return the zero value
+for it rather than VLAN 1's, because VLAN 1's tree is a tree like any other, not
+a stand-in for a VLAN that has none.
 
 A separate `Receive` taking a VLAN would read as though an RSTP bridge
 classified its BPDUs per VLAN, which it does not.

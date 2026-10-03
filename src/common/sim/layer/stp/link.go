@@ -11,26 +11,21 @@ import (
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
-	t := l.cist()
-	p, ok := t.ports[port]
-	if !ok || !p.up {
+	link, ok := l.links[port]
+	if !ok || !link.up {
 		return layer.Effects{}
 	}
 
-	p.sendRSTP = true
-	p.mdelayWhile = now.Add(migrateTime)
-
-	// sendRSTP is link-replicated: every other tree's emit gate reads its own
-	// copy, and only a sync carries this migration check onto it. Without
-	// this, a non-CIST tree that receiveLink had already forced to version 0
-	// would stay silenced after an operator forces the CIST back to RSTP.
-	l.syncInstancePorts(port, p)
+	link.sendRSTP = true
+	link.mdelayWhile = now.Add(migrateTime)
 
 	var flushes []layer.FlushTarget
 
 	emissions := l.recomputeAll(now, &flushes)
 
-	if p.role == bpdu.RoleDesignated && p.up {
+	t := l.cist()
+	p := t.ports[port]
+	if p != nil && p.role == bpdu.RoleDesignated && link.up {
 		alreadyEmitted := false
 		for _, e := range emissions {
 			// Under PVST every tree can emit on this port; only a match on
@@ -52,38 +47,6 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 	}
 }
 
-// syncInstancePorts carries a physical link property change on the CIST's
-// port cistP onto every other tree's port state of the same name: the whole
-// link-replicated linkState, assigned in one statement so a field added to
-// it later propagates without a copy line of its own, plus the link-derived
-// path cost for an instance that left its own unconfigured. These are link
-// properties, not per-instance ones, so every tree tracks its own copy to
-// give recompute one shape of portState to read regardless of tree;
-// instanceRemainingHops and the boundary role rule are what actually let
-// instances diverge.
-func (l *Layer) syncInstancePorts(name string, cistP *portState) {
-	for _, id := range l.treeOrder {
-		if id == cistID {
-			continue
-		}
-		mp, ok := l.trees[id].ports[name]
-		if !ok {
-			continue
-		}
-
-		mp.linkState = cistP.linkState
-		if !mp.pathCostFixed {
-			mp.pathCost = cistP.linkPathCost
-		}
-		if !cistP.up {
-			mp.role = bpdu.RoleDisabled
-			mp.state = StateDiscarding
-			mp.rcvInfoValid = false
-			mp.pvidInconsistent = false
-		}
-	}
-}
-
 // LinkChange records a physical or administrative link transition on a port.
 // A port coming up point-to-point transmits a proposal immediately in the
 // returned emissions. A link down clears received information and moves the
@@ -94,6 +57,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	if !ok {
 		return layer.Effects{}
 	}
+	link := l.links[port]
 
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
@@ -101,38 +65,39 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	l.armHelloTimers(now)
 
 	if !up {
-		if !p.up {
+		if !link.up {
 			return layer.Effects{}
 		}
 		oldState := p.state
-		p.up = false
-		p.role = bpdu.RoleDisabled
-		p.state = StateDiscarding
-		p.rcvInfoValid = false
-		p.agreed = false
-		p.proposing = false
-		l.clearPending(p.name)
-		p.fwdDelayTimer = time.Time{}
-		// Both guard states clear here, which is what makes a link down and up
-		// the recovery for BPDU guard. A port that comes back up holds no
-		// expired information, so loop guard has nothing to trigger on either.
-		// The PVST boundary mark clears for a different reason: it names the
-		// protocol the neighbor speaks, and only a link transition can put a
-		// different neighbor there.
-		p.bpduGuardDisabled = false
-		p.loopInconsistent = false
-		p.pvidInconsistent = false
-		p.pvstBoundary = false
+		link.up = false
+		link.bpduGuardDisabled = false
+		link.pvstBoundary = false
+		link.edgeDelayWhile = time.Time{}
+		link.mdelayWhile = time.Time{}
+		l.clearPending(port)
+
+		for _, id := range l.treeOrder {
+			tp := l.trees[id].ports[port]
+			if tp == nil {
+				continue
+			}
+			tp.role = bpdu.RoleDisabled
+			tp.state = StateDiscarding
+			tp.rcvInfoValid = false
+			tp.agreed = false
+			tp.proposing = false
+			tp.fwdDelayTimer = time.Time{}
+			tp.pvidInconsistent = false
+			tp.loopInconsistent = false
+		}
 
 		// The entries learned on the dead port are the ones certainly stale
 		// whatever tree they belong to; the topology change below flushes
 		// every other port by its own tree's VLANs.
-		flushes = append(flushes, layer.FlushTarget{Port: p.name})
-		if oldState == StateForwarding && !p.edge {
-			l.raiseTopologyChange(t, p.name, now, &flushes)
+		flushes = append(flushes, layer.FlushTarget{Port: port})
+		if oldState == StateForwarding && !link.edge {
+			l.raiseTopologyChange(t, port, now, &flushes)
 		}
-
-		l.syncInstancePorts(port, p)
 
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
@@ -153,25 +118,18 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 	if linkCost == 0 {
 		linkCost = defaultPathCost(speedBPS)
 	}
-	// A cost the tree configured for itself stays put across a link change,
-	// the way syncInstancePorts already leaves a fixed instance cost alone.
-	// Only PVST sets this on the CIST's own port state, by configuring VLAN
-	// 1's path cost on the tree that occupies the CIST slot.
-	cost := linkCost
-	if p.pathCostFixed {
-		cost = p.pathCost
-	}
-	// A report of the state the port already has is not a transition: two
-	// callers may describe the same link, and re-entering a port that is up
-	// would restart its handshake for nothing. A speed change alone is not
-	// that either, but it must still reach every tree's own path cost: the
-	// link-derived cost is written and synced without disturbing the role,
-	// agreement, migration, edge, or forward-delay state the full handshake
-	// below would reset.
-	if p.up && p.pointToPoint == p2p && p.pathCost == cost {
-		if p.linkPathCost != linkCost {
-			p.linkPathCost = linkCost
-			l.syncInstancePorts(port, p)
+
+	// A port already up with unchanged point-to-point status does not restart its
+	// handshake; a speed change updates pathCost on every unfixed tree and recomputes.
+	if link.up && link.pointToPoint == p2p {
+		if link.linkPathCost != linkCost {
+			link.linkPathCost = linkCost
+			for _, id := range l.treeOrder {
+				tp := l.trees[id].ports[port]
+				if tp != nil && !tp.pathCostFixed {
+					tp.pathCost = linkCost
+				}
+			}
 			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 		}
 
@@ -180,37 +138,40 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			Flush:     flushes,
 		}
 	}
-	p.linkPathCost = linkCost
 
-	p.up = true
-	p.pointToPoint = p2p
-	p.pathCost = cost
+	link.linkPathCost = linkCost
+	link.up = true
+	link.pointToPoint = p2p
+	link.sendRSTP = true
+	link.mdelayWhile = now.Add(migrateTime)
+	link.edge = link.adminEdge
+	link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 
-	p.role = bpdu.RoleDesignated
-	p.agreed = false
-	p.sendRSTP = true
-	p.mdelayWhile = now.Add(migrateTime)
-
-	p.edge = p.adminEdge
-	p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
-
-	p.proposing = p.pointToPoint && !p.edge && p.sendRSTP
-
-	if p.edge {
-		p.state = StateForwarding
-		p.forwardTransitions++
-	} else {
-		p.state = StateDiscarding
-		if !p.pointToPoint {
-			p.fwdDelayTimer = now.Add(l.forwardDelay)
+	for _, id := range l.treeOrder {
+		tp := l.trees[id].ports[port]
+		if tp == nil {
+			continue
+		}
+		if !tp.pathCostFixed {
+			tp.pathCost = linkCost
+		}
+		tp.role = bpdu.RoleDesignated
+		tp.agreed = false
+		tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
+		if link.edge {
+			tp.state = StateForwarding
+			tp.forwardTransitions++
+		} else {
+			tp.state = StateDiscarding
+			if !link.pointToPoint {
+				tp.fwdDelayTimer = now.Add(l.forwardDelay)
+			}
 		}
 	}
 
-	l.syncInstancePorts(port, p)
-
 	emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 
-	if p.pointToPoint && !p.edge && p.role == bpdu.RoleDesignated && p.state == StateDiscarding {
+	if link.pointToPoint && !link.edge && p.role == bpdu.RoleDesignated && p.state == StateDiscarding {
 		alreadyEmitted := false
 		for _, e := range emissions {
 			// Under PVST every tree can emit on this port; only a match on
@@ -236,71 +197,80 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 // receiveLink runs the half of a receive that belongs to the link rather than
 // to any one tree: BPDU guard, the loop-guard clear every BPDU earns, the
 // protocol migration between RSTP and legacy STP, and the loss of auto-edge
-// status. It runs once per received frame whatever tree the frame belongs to,
-// against the CIST's port state, which is where those link properties live.
+// status. It runs once per received frame whatever tree the frame belongs to.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
-func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
+func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
 	t := l.cist()
+	p := t.ports[port]
+	link := l.links[port]
 
 	// Any BPDU on the port is evidence the link carries traffic both ways,
 	// which is the condition loop guard was waiting to see restored. This
 	// runs before the BPDU guard checks below: a frame that trips or is held
 	// by BPDU guard is still such evidence, and guard and loop guard clear on
 	// independent events.
-	p.loopInconsistent = false
+	for _, tr := range l.trees {
+		if tp, ok := tr.ports[port]; ok {
+			tp.loopInconsistent = false
+		}
+	}
 
 	// BPDU guard exists to keep an unexpected bridge on an access port out of
 	// the topology, so the frame that proves one is there disables the port
 	// before anything reads the BPDU. Only a link down and up brings it back.
-	if p.cfg.BPDUGuard && !p.bpduGuardDisabled {
-		p.bpduGuardDisabled = true
-		p.rcvInfoValid = false
-		p.agreed = false
-		p.proposing = false
-		l.clearPending(p.name)
-		p.fwdDelayTimer = time.Time{}
+	if p.cfg.BPDUGuard && !link.bpduGuardDisabled {
+		link.bpduGuardDisabled = true
+		l.clearPending(port)
+		for _, tr := range l.trees {
+			if tp, ok := tr.ports[port]; ok {
+				tp.rcvInfoValid = false
+				tp.agreed = false
+				tp.proposing = false
+				tp.fwdDelayTimer = time.Time{}
+			}
+		}
 
 		// The entries learned on the port are the ones certainly stale,
 		// whatever tree they belong to. The topology change itself is left
 		// to recompute, which raises it from the same transition with the
 		// same origin and timestamp; raising it here as well would count one
 		// event twice.
-		*flushes = append(*flushes, layer.FlushTarget{Port: p.name})
+		*flushes = append(*flushes, layer.FlushTarget{Port: port})
 
 		return l.recomputeAll(now, flushes), true
 	}
-	if p.bpduGuardDisabled {
+	if link.bpduGuardDisabled {
 		return nil, true
 	}
 
-	if (b.Type == bpdu.TypeConfiguration || b.Type == bpdu.TypeTopologyChangeNotification) && p.sendRSTP && !p.mdelayWhile.After(now) {
-		p.sendRSTP = false
-		p.mdelayWhile = now.Add(migrateTime)
-	} else if b.Type == bpdu.TypeRapid && !p.sendRSTP && !p.mdelayWhile.After(now) {
-		p.sendRSTP = true
-		p.mdelayWhile = now.Add(migrateTime)
+	if (b.Type == bpdu.TypeConfiguration || b.Type == bpdu.TypeTopologyChangeNotification) && link.sendRSTP && !link.mdelayWhile.After(now) {
+		link.sendRSTP = false
+		link.mdelayWhile = now.Add(migrateTime)
+	} else if b.Type == bpdu.TypeRapid && !link.sendRSTP && !link.mdelayWhile.After(now) {
+		link.sendRSTP = true
+		link.mdelayWhile = now.Add(migrateTime)
 	}
 
-	wasAutoEdge := p.edge && !p.adminEdge
-	p.edge = p.adminEdge
-	p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
+	wasAutoEdge := link.edge && !link.adminEdge
+	link.edge = link.adminEdge
+	link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 
 	if wasAutoEdge {
-		if p.state == StateForwarding {
-			l.raiseTopologyChange(t, p.name, now, flushes)
+		for _, id := range l.treeOrder {
+			tr := l.trees[id]
+			tp, ok := tr.ports[port]
+			if !ok {
+				continue
+			}
+			if tp.state == StateForwarding {
+				l.raiseTopologyChange(tr, port, now, flushes)
+			}
+			tp.state = StateDiscarding
+			tp.fwdDelayTimer = time.Time{}
+			tp.proposing = link.pointToPoint && link.sendRSTP
 		}
-		p.state = StateDiscarding
-		p.fwdDelayTimer = time.Time{}
-		p.proposing = p.pointToPoint && p.sendRSTP
 	}
-
-	// edge and sendRSTP are link-replicated: whatever this receive changed on
-	// the CIST's copy — an auto-edge loss above, or a migration a few lines
-	// up — must reach every other tree's own copy before the frame is judged,
-	// or a property this function exists to hold link-wide is invisible to
-	// every tree but the CIST's.
-	l.syncInstancePorts(p.name, p)
 
 	return nil, false
 }
