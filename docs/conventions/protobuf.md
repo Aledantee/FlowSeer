@@ -1,6 +1,6 @@
 ---
 name: Protobuf Model Conventions
-last_updated: 2026-09-25
+last_updated: 2026-10-03
 ---
 
 # FlowSeer — Protobuf Model Conventions
@@ -377,8 +377,11 @@ holds the rationale and standards grounding for each rule.
 ## Field numbering
 
 Numbers 1–15 encode as a single-byte tag; they go to the fields every consumer
-reads. A removed number is `reserved` — with its name, in the same change —
-and never reused.
+reads. Until the first stable release a removed number leaves no `reserved`
+line, for the number or for the name, and is never reused. From the first
+stable release on, a removed number is `reserved` with its name in the same
+change, and never reused. [`code-style-proto.md`](../code-style-proto.md),
+Evolution, gives the reason.
 
 Where a `oneof` sits **alongside other fields** — an interface whose kind
 selector shares the message with its identity and facets — its arms start at
