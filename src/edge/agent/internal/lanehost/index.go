@@ -21,11 +21,13 @@ type DeviceEntry struct {
 type LookupResult uint8
 
 const (
-	// LookupUnknown indicates the address is not claimed or its sole claimant was not
-	// onboarded by a lane attempt of this process and listed at this address.
+	// LookupUnknown indicates the address has no claimant, or its sole claimant is
+	// unserved: a device listed at the address that no lane attempt of this process
+	// onboarded there and that [DeviceIndex.ApplyListing] did not re-assert as held.
 	LookupUnknown LookupResult = iota
-	// LookupFound indicates exactly one listed device claims the address and was onboarded
-	// by a lane attempt of this process and listed at this address.
+	// LookupFound indicates exactly one device is listed at the address and was
+	// onboarded by a lane attempt of this process, or re-asserted as held by
+	// [DeviceIndex.ApplyListing].
 	LookupFound
 	// LookupAmbiguous indicates two or more listed devices share the address.
 	LookupAmbiguous
@@ -40,16 +42,17 @@ type deviceRecord struct {
 }
 
 // DeviceIndex maps peer addresses to device identities and bindings, safe for
-// concurrent use: the onboarder writes while the syslog source reads.
+// concurrent use: the onboarder writes while the syslog source reads. The zero
+// value is not usable: [NewDeviceIndex] builds one.
 //
 // Invariant: the index holds a record for every listed device, unserved and
 // address-less ones included. Each device ID is associated with at most one address.
-// An address resolves to a device entry (LookupFound) if and only if exactly one
+// An address resolves to a device entry (LookupFound) only if exactly one
 // listed device claims that address and that device was onboarded by a lane attempt
-// of this process and listed at this address. An address claimed by two or more listed
-// devices resolves to no device (LookupAmbiguous). An address with no claimant or whose
-// sole claimant was not onboarded by a lane attempt of this process and listed at
-// this address resolves to no device (LookupUnknown).
+// of this process and is listed at this address. An address claimed by two or more
+// listed devices resolves to no device (LookupAmbiguous). An address with no claimant
+// or whose sole claimant is unserved resolves to no device (LookupUnknown).
+// [DeviceIndex.ApplyListing] states when a claimant is served.
 //
 // The index follows the listing: for a held device, the index reflects the listed
 // address and binding, while the lane session stays on the onboarded address until
@@ -69,22 +72,23 @@ func NewDeviceIndex() *DeviceIndex {
 	}
 }
 
-// Key returns the index key for an address, which is the address with an
+// key returns the index key for an address, which is the address with an
 // IPv4-mapped IPv6 form unmapped and any IPv6 zone removed: a dual-stack listener
 // reports an IPv4 peer in the mapped form, a link-local peer may arrive with a
 // zone, and a device is listed in the plain form.
-func Key(addr netip.Addr) string {
+func key(addr netip.Addr) string {
 	return addr.Unmap().WithZone("").String()
 }
 
 func normalizeAddress(address string) string {
 	if parsed, err := netip.ParseAddr(address); err == nil {
-		return Key(parsed)
+		return key(parsed)
 	}
 	return address
 }
 
-func (idx *DeviceIndex) dropClaim(address, deviceID string) {
+// dropClaimLocked removes deviceID from the claimants of address. The caller holds idx.mu.
+func (idx *DeviceIndex) dropClaimLocked(address, deviceID string) {
 	if address == "" {
 		return
 	}
@@ -96,7 +100,8 @@ func (idx *DeviceIndex) dropClaim(address, deviceID string) {
 	}
 }
 
-func (idx *DeviceIndex) addClaim(address, deviceID string) {
+// addClaimLocked adds deviceID to the claimants of address. The caller holds idx.mu.
+func (idx *DeviceIndex) addClaimLocked(address, deviceID string) {
 	if address == "" {
 		return
 	}
@@ -110,7 +115,7 @@ func (idx *DeviceIndex) addClaim(address, deviceID string) {
 
 func (idx *DeviceIndex) setDeviceLocked(deviceID, address string, binding *inventoryv1.BindingGlobalRef, served bool) {
 	if old, ok := idx.devices[deviceID]; ok && old.address != "" && old.address != address {
-		idx.dropClaim(old.address, deviceID)
+		idx.dropClaimLocked(old.address, deviceID)
 	}
 	if address == "" {
 		idx.devices[deviceID] = deviceRecord{
@@ -122,7 +127,7 @@ func (idx *DeviceIndex) setDeviceLocked(deviceID, address string, binding *inven
 		}
 		return
 	}
-	idx.addClaim(address, deviceID)
+	idx.addClaimLocked(address, deviceID)
 	idx.devices[deviceID] = deviceRecord{
 		deviceID: deviceID,
 		address:  address,
@@ -184,7 +189,7 @@ func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice, heldIDs m
 	for devID, rec := range idx.devices {
 		if _, ok := keep[devID]; !ok {
 			delete(idx.devices, devID)
-			idx.dropClaim(rec.address, devID)
+			idx.dropClaimLocked(rec.address, devID)
 		}
 	}
 
@@ -215,11 +220,11 @@ func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice, heldIDs m
 }
 
 // Lookup returns the device entry mapped to address and the outcome of the resolution.
-// It returns [LookupFound] and the entry when exactly one device claims the address
-// and that device was onboarded by a lane attempt of this process and listed at this address.
+// It returns [LookupFound] and the entry only when exactly one device claims the address
+// and that device was onboarded by a lane attempt of this process and is listed at this address.
 // If two or more listed devices share the address, it returns [LookupAmbiguous] and an empty entry.
-// If the address is not held in the index, or its sole claimant was not onboarded by a lane
-// attempt of this process and listed at this address, it returns [LookupUnknown] and an empty entry.
+// If the address has no claimant, or its sole claimant is unserved (see [DeviceIndex.ApplyListing]), it returns
+// [LookupUnknown] and an empty entry.
 func (idx *DeviceIndex) Lookup(address string) (DeviceEntry, LookupResult) {
 	if idx == nil {
 		return DeviceEntry{}, LookupUnknown

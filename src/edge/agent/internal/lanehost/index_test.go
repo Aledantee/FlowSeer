@@ -402,3 +402,70 @@ func TestDeviceIndex_LinkLocalIPv6WithZone(t *testing.T) {
 		t.Errorf("Lookup(\"fe80::1%%en0\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
 	}
 }
+
+func TestDeviceIndex_AddWithEmptyDeviceIDIsNoOp(t *testing.T) {
+	t.Parallel()
+
+	idx := lanehost.NewDeviceIndex()
+	idx.Add("192.0.2.1", "", bindingRefFor(bindingOne))
+
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"192.0.2.1\") after Add with an empty device ID = (%v, %v), want LookupUnknown", entry, res)
+	}
+}
+
+// TestDeviceIndex_ApplyListingSkipsNilRowAndEmptyDeviceID builds a row the wire
+// refuses, so it asserts the rejection first: the listing is then known to
+// carry what the index defends against. A nil row is skipped the same way, but
+// the generated getters are nil-safe, so the empty-id guard alone already
+// covers it and no mutation of the nil guard changes an outcome.
+func TestDeviceIndex_ApplyListingSkipsNilRowAndEmptyDeviceID(t *testing.T) {
+	t.Parallel()
+
+	noID := listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 9})
+	noID.SetDeviceId("")
+	if protovalidate.Validate(noID) == nil {
+		t.Fatal("protovalidate accepted a listed device with no device ID, want a rejection")
+	}
+	valid := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+
+	idx := lanehost.NewDeviceIndex()
+	idx.ApplyListing(
+		[]*attachv1.ListedDevice{nil, noID, valid},
+		map[string]struct{}{"": {}, deviceOne: {}},
+	)
+
+	if entry, res := idx.Lookup("192.0.2.1"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Lookup(\"192.0.2.1\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+	if entry, res := idx.Lookup("192.0.2.9"); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup of the address listed with no device ID = (%v, %v), want LookupUnknown", entry, res)
+	}
+}
+
+// TestDeviceIndex_ApplyListingWithEmptyBindingIDKeepsARef pins that a listed
+// binding id of "" still yields a ref, carrying the empty id, rather than nil.
+// The wire refuses the listing, so the test asserts that first.
+func TestDeviceIndex_ApplyListingWithEmptyBindingIDKeepsARef(t *testing.T) {
+	t.Parallel()
+
+	listed := listedDeviceWithAddr(deviceOne, []byte{192, 0, 2, 1})
+	listed.SetBindingId("")
+	if protovalidate.Validate(listed) == nil {
+		t.Fatal("protovalidate accepted a listed device with no binding ID, want a rejection")
+	}
+
+	idx := lanehost.NewDeviceIndex()
+	idx.ApplyListing([]*attachv1.ListedDevice{listed}, map[string]struct{}{deviceOne: {}})
+
+	entry, res := idx.Lookup("192.0.2.1")
+	if res != lanehost.LookupFound {
+		t.Fatalf("Lookup(\"192.0.2.1\") = %v, want LookupFound", res)
+	}
+	if entry.Binding == nil {
+		t.Fatal("Binding = nil, want a ref carrying the empty id")
+	}
+	if got := entry.Binding.GetBinding().GetId(); got != "" {
+		t.Errorf("Binding ID = %q, want empty", got)
+	}
+}

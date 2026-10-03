@@ -1133,8 +1133,9 @@ func TestSync_DuplicateDeviceInListingPinsCurrentBehavior(t *testing.T) {
 	addrA := "172.16.0.6"
 	addrB := "172.16.0.7"
 
-	devA := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	devA := listedDevice(deviceOne, 30*time.Second)
 	devA.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build())
+	validateDevice(t, devA)
 
 	devB := listedDevice(deviceOne, 30*time.Second)
 	devB.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
@@ -1190,5 +1191,84 @@ func TestSync_DuplicateDeviceInListingPinsCurrentBehavior(t *testing.T) {
 	}
 	if entry, res := idx.Lookup(addrB); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
 		t.Errorf("Sync 2 Lookup(B) = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+}
+
+// TestSync_LaneRestartCarriesServedStatusWithTheListedBinding covers the
+// carry-over across a lane restart: the second attempt starts with no held
+// devices, the listing keeps the address and changes the binding, and
+// onboarding fails. The index still resolves the address, with the listed
+// binding.
+func TestSync_LaneRestartCarriesServedStatusWithTheListedBinding(t *testing.T) {
+	t.Parallel()
+
+	dev1 := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+
+	const otherBinding = "0192e6a0-0000-7000-8000-0000000000b2"
+	dev2 := listedDevice(deviceOne, 30*time.Second)
+	dev2.SetBindingId(otherBinding)
+	validateDevice(t, dev2)
+
+	idx := lanehost.NewDeviceIndex()
+	onboarder1 := newOnboarder(t, &listerFake{listings: [][]*attachv1.ListedDevice{{dev1}}}, newRegistrar(), nil, idx)
+	if err := onboarder1.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 1: %v", err)
+	}
+	entry, res := idx.Lookup("172.16.0.6")
+	if res != lanehost.LookupFound || entry.Binding.GetBinding().GetId() != bindingID {
+		t.Fatalf("Lookup after attempt 1 = (%v, %v), want LookupFound with binding %s", entry, res, bindingID)
+	}
+
+	reg2 := newRegistrar()
+	reg2.failing[deviceOne] = true
+	onboarder2 := newOnboarder(t, &listerFake{listings: [][]*attachv1.ListedDevice{{dev2}}}, reg2, nil, idx)
+	if err := onboarder2.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 2: %v", err)
+	}
+	if added := reg2.addedDevices(); len(added) != 0 {
+		t.Fatalf("attempt 2 onboarded %v, want nothing", added)
+	}
+
+	entry, res = idx.Lookup("172.16.0.6")
+	if res != lanehost.LookupFound {
+		t.Fatalf("Lookup after attempt 2 = %v, want LookupFound", res)
+	}
+	if got := entry.Binding.GetBinding().GetId(); got != otherBinding {
+		t.Errorf("Binding after attempt 2 = %s, want the listed %s", got, otherBinding)
+	}
+}
+
+// TestSync_EmptyBindingIDOnboardsWithAnEmptyRef pins what both callers of the
+// binding ref builder do with an id of "": a ref carrying it, never nil. The
+// wire refuses such a listing, so the test asserts that first.
+func TestSync_EmptyBindingIDOnboardsWithAnEmptyRef(t *testing.T) {
+	t.Parallel()
+
+	dev := listedDevice(deviceOne, 30*time.Second)
+	dev.SetBindingId("")
+	if protovalidate.Validate(dev) == nil {
+		t.Fatal("protovalidate accepted a listed device with no binding ID, want a rejection")
+	}
+
+	registrar := newRegistrar()
+	idx := lanehost.NewDeviceIndex()
+	onboarder := newOnboarder(t, &listerFake{listings: [][]*attachv1.ListedDevice{{dev}}}, registrar, nil, idx)
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+
+	session, ok := registrar.session(deviceOne)
+	if !ok {
+		t.Fatalf("no session registered for %s", deviceOne)
+	}
+	if session.Prov.Binding == nil {
+		t.Error("session provenance Binding = nil, want a ref carrying the empty id")
+	}
+	entry, res := idx.Lookup("172.16.0.6")
+	if res != lanehost.LookupFound {
+		t.Fatalf("Lookup = %v, want LookupFound", res)
+	}
+	if entry.Binding == nil {
+		t.Error("index Binding = nil, want a ref carrying the empty id")
 	}
 }
