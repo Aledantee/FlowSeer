@@ -52,7 +52,7 @@ Packages maintaining runtime state (`bridge`, `filter`, `lag`, `loopprotect`, `m
 - `(*Layer).Clone() *Layer`: deep copies runtime state for branching or non-mutating preview.
 - `RetentionKey(cfg Config, env layer.Env) string`: produces an exact key determining when active state may be retained across switch reconfiguration.
 
-Layers advance simulated time through `(*Layer).Advance(now time.Time) layer.Effects`. Layers that report an earliest pending deadline declare `(*Layer).NextWake() (time.Time, bool)` (`lag`, `loopprotect`, `routing`, `stp`); `bridge` and `mcast` declare `Advance` without `NextWake`. `routing` parks hold-queue exits during `Advance` and returns them through `(*Layer).DrainExits() []HeldFrame`. Layers without timers (`filter`, `traffic`) declare neither method. Method names `Wake` and `Age` belong to the host virtual switch and are forbidden on layer types.
+Layers advance simulated time through `(*Layer).Advance(now time.Time) layer.Effects`. Layers that report an earliest pending deadline declare `(*Layer).NextWake() (time.Time, bool)` (`lag`, `loopprotect`, `routing`, `stp`). `bridge` and `mcast` declare `Advance` without `NextWake`. `routing` parks hold-queue exits during `Advance` and returns them through `(*Layer).DrainExits() []HeldFrame`. Layers without timers (`filter`, `traffic`) declare neither method. Method names `Wake` and `Age` belong to the host virtual switch and are forbidden on layer types.
 
 ### Isolation boundaries
 

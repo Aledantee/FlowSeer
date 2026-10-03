@@ -2304,8 +2304,57 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
+	step, ok := findStep(res.Steps, trace.RuleID("port.status.down"))
+	if !ok {
+		t.Fatalf("no literal port.status.down step in trace: %+v", res.Steps)
+	}
+	if step.Layer != stp.LayerName {
+		t.Errorf("step layer = %v, want %v", step.Layer, stp.LayerName)
+	}
 	if root, _, _ := sw.Root(); root.Address == macRoot {
 		t.Error("layer adopted a root from a BPDU on a down port")
+	}
+}
+
+func TestSSTPOnDownPortIsDropped(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	p10 := vlan.ID(10)
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &p10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		},
+	})
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	frame := pvstSSTPFrame(t, 10, 10, peer)
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
+		t.Fatalf("SSTP on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
+	}
+	step, ok := findStep(res.Steps, trace.RuleID("port.status.down"))
+	if !ok {
+		t.Fatalf("no literal port.status.down step in trace: %+v", res.Steps)
+	}
+	if step.Layer != stp.LayerName {
+		t.Errorf("step layer = %v, want %v", step.Layer, stp.LayerName)
 	}
 }
 
@@ -4646,6 +4695,13 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
 			t.Fatalf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
 		}
+		step, ok := findStep(res.Steps, trace.RuleID("port.status.mtu-exceeded"))
+		if !ok {
+			t.Fatalf("no literal port.status.mtu-exceeded step in trace: %+v", res.Steps)
+		}
+		if step.Layer != routing.LayerName {
+			t.Errorf("step layer = %v, want %v", step.Layer, routing.LayerName)
+		}
 		if len(res.Egress) != 1 || res.Egress[0].Port != "ethB" || res.Egress[0].Dropped != port.ReasonMTUExceeded {
 			t.Fatalf("egress = %+v, want one refused entry on ethB", res.Egress)
 		}
@@ -5020,10 +5076,94 @@ func TestRoutedFrameMTUExceededVLANAndPort(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
 			t.Errorf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
 		}
+		step, ok := findStep(res.Steps, trace.RuleID("port.status.mtu-exceeded"))
+		if !ok {
+			t.Fatalf("no literal port.status.mtu-exceeded step in trace: %+v", res.Steps)
+		}
+		if step.Layer != routing.LayerName {
+			t.Errorf("step layer = %v, want %v", step.Layer, routing.LayerName)
+		}
 		if len(res.Egress) != 1 || res.Egress[0].Dropped != port.ReasonMTUExceeded {
 			t.Errorf("egress = %+v, want dropped for mtu-exceeded", res.Egress)
 		}
 	})
+}
+
+func TestRoutedFrameEgressLAGNoMember(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}, Members: map[string]lag.Member{"1/1/2": {}}},
+		}},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"rp1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"rp2": {Port: "lag1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+					Neighbors: []routing.Neighbor{
+						{Interface: "rp2", Addr: ipH2, MAC: macH2},
+					},
+				},
+			},
+		},
+	}
+	sw := mustSwitch(t, cfg)
+
+	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("hello lag"))
+	frame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       macRouter,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	}
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoMember {
+		t.Fatalf("outcome=%v reason=%v, want Dropped/no-member", res.Outcome, res.Reason)
+	}
+	step, ok := findStep(res.Steps, trace.RuleID("lag.egress.no_member"))
+	if !ok {
+		t.Fatalf("no literal lag.egress.no_member step in trace: %+v", res.Steps)
+	}
+	if step.Layer != routing.LayerName {
+		t.Errorf("step layer = %v, want %v", step.Layer, routing.LayerName)
+	}
+}
+
+func TestHubFrameEgressLAGNoMember(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}, Members: map[string]lag.Member{"1/1/2": {}}},
+		}},
+	}
+	sw := mustSwitch(t, cfg)
+
+	frame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       macH2,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("hub to lag"),
+	}
+	res := sw.Forward(fixedTime, "1/1/1", frame)
+	step, ok := findStep(res.Steps, trace.RuleID("lag.egress.no_member"))
+	if !ok {
+		t.Fatalf("no literal lag.egress.no_member step in trace: %+v", res.Steps)
+	}
+	if step.Layer != port.LayerName {
+		t.Errorf("step layer = %v, want %v", step.Layer, port.LayerName)
+	}
 }
 
 func TestRoutedFrameEgressPortBlocked(t *testing.T) {
@@ -9139,7 +9279,10 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 	if drops[0].Port != "1/1/3" {
 		t.Errorf("port = %q, want 1/1/3", drops[0].Port)
 	}
-	if want := trace.RuleID("port.status." + string(port.ReasonMTUExceeded)); drops[0].Step.RuleID != want {
+	if drops[0].Step.Layer != routing.LayerName {
+		t.Errorf("step layer = %v, want %v", drops[0].Step.Layer, routing.LayerName)
+	}
+	if want := trace.RuleID("port.status.mtu-exceeded"); drops[0].Step.RuleID != want {
 		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, want)
 	}
 }
@@ -9224,6 +9367,60 @@ func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.
 	}
 	if drops[0].Step.RuleID != trace.RuleID(drops[0].Reason) {
 		t.Errorf("rule = %v, want %v: the step and the reason must agree", drops[0].Step.RuleID, drops[0].Reason)
+	}
+}
+
+func TestReleaseOntoLAGWithNoSelectableMemberRecordsRoutingReason(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}, Members: map[string]lag.Member{"1/1/2": {}}},
+		}},
+		Routing: &routing.Config{
+			VRFs: map[string]routing.VRF{
+				"default": {
+					Interfaces: map[string]routing.Interface{
+						"rp1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+						"rp2": {Port: "lag1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+					},
+					NeighborPolicy: routing.NeighborPolicy{HoldDepth: 3},
+				},
+			},
+		},
+	})
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	holdFrameToward(t, sw, fixedTime, dst, []byte("held toward lag"))
+
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
+
+	for _, em := range sw.Drain() {
+		if em.Frame.Dst == learnedMAC {
+			t.Fatalf("the held frame egressed on %s, want no emission: lag1 distributes to nothing", em.Port)
+		}
+	}
+	drops := sw.DrainNeighborFailures()
+	if len(drops) != 1 {
+		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
+	}
+	if drops[0].Reason != bridge.ReasonNoMember {
+		t.Errorf("reason = %v, want %v", drops[0].Reason, bridge.ReasonNoMember)
+	}
+	if drops[0].Port != "lag1" {
+		t.Errorf("port = %q, want lag1", drops[0].Port)
+	}
+	if drops[0].Step.Layer != routing.LayerName {
+		t.Errorf("step layer = %v, want %v", drops[0].Step.Layer, routing.LayerName)
+	}
+	if want := trace.RuleID("lag.egress.no_member"); drops[0].Step.RuleID != want {
+		t.Errorf("rule = %v, want %v", drops[0].Step.RuleID, want)
 	}
 }
 

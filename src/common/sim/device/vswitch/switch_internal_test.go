@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -145,5 +146,36 @@ func TestReleaseHeldFrameOntoDownPortRecordsPortStatusDown(t *testing.T) {
 	}
 	if got, want := drops[0].Step.RuleID, trace.RuleID("port.status.port-down"); got != want {
 		t.Errorf("drop step RuleID = %q, want literal %q", got, want)
+	}
+}
+
+func TestSwitchWithoutTrafficLeavesTrafficSwitchportsNil(t *testing.T) {
+	t.Parallel()
+
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+
+	pvid := vlan.ID(10)
+	sw, err := New(Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	if sw.trafficSwitchports != nil {
+		t.Errorf("trafficSwitchports = %v, want nil when Traffic is not configured", sw.trafficSwitchports)
 	}
 }
