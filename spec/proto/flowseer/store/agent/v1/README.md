@@ -62,8 +62,8 @@ Leaving `syslog` unset runs no syslog source.
 ## Syslog listener configuration
 
 An agent runs a syslog source only when `syslog` names one or more listeners.
-Without it, no socket is bound and the syslog module is omitted from the
-supervision tree.
+Without it, no socket is bound: the syslog module is declared in the
+supervision tree and its gate is off.
 
 ```prototext
 syslog {
@@ -79,10 +79,12 @@ syslog {
 }
 ```
 
-A listener defaults to UDP when `transport` is omitted. Framing applies only to
-TCP listeners; setting framing on a UDP listener fails validation at load. Unset
-raw failure bounds default to 20 failures per device per minute before sampling,
-and sample one in 100 thereafter.
+Each `address` is a host and a port. A bare host or a bare port fails validation
+at load rather than at bind time. A listener defaults to UDP when `transport` is
+omitted. Framing applies only to TCP listeners; setting framing on a UDP
+listener fails validation at load. Unset raw failure bounds default to 20
+failures per device per minute before sampling, and sample one in 100
+thereafter.
 
 ## Two files, two protections
 

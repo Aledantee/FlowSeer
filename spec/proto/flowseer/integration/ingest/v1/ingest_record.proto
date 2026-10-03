@@ -17,8 +17,8 @@ message IngestRecord {
   ];
   // The observation's provenance. Must be present.
   flowseer.model.inventory.v1.Provenance provenance = 2 [(buf.validate.field).required = true];
-  // Optional raw payload evidence attached on parse failure or during a raw
-  // window.
+  // Raw payload evidence attached on parse failure or during a raw window.
+  // Unset means no raw evidence was attached.
   RawEvidence raw = 3;
 
   // The typed record payload. Exactly one arm is present.
@@ -43,7 +43,8 @@ message RawEvidence {
       not_in: [0]
     }
   ];
-  // Number of raw-bearing failures suppressed since the last kept failure.
+  // Number of raw-bearing failures from the same device suppressed since the
+  // last kept failure for that device. Unset means none were suppressed.
   uint64 suppressed_since_last = 3;
 }
 

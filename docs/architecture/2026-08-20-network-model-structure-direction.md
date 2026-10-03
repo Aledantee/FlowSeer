@@ -75,7 +75,8 @@ spec/proto/flowseer/
   errs/v1/              the error wire payload
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
-  integration/          holds only a README; fabric contract reserved
+  integration/
+    ingest/v1/          IngestRecord, the envelope an edge or central adapter publishes to the ingestion pipeline
   runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
     device/v1/          the device service's persisted records; imported by nothing
@@ -84,8 +85,8 @@ spec/proto/flowseer/
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
-`integration/` holds only a README, with its own fabric contract (announce,
-kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
+`integration/` holds `ingest/v1`, with the rest of its fabric contract
+(announce, kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
 process-local service runtime contract; it must not be treated as a
 ConnectRPC API package by inference.
 
@@ -1025,3 +1026,12 @@ Breaking checks are suspended for the module (`buf.yaml`), so nothing checks
 that a number is not reused. Review holds the rule, as
 [`docs/code-style-proto.md`](../code-style-proto.md), Evolution, says of the
 others. The `reserved` lines earlier removals left stay.
+
+### 2026-10-03 — `integration/ingest/v1` is the first package under `integration/`
+
+`integration/ingest/v1` holds `IngestRecord` and `RawEvidence`, the envelope
+the [central ingestion pipeline record](2026-10-02-central-ingestion-pipeline-direction.md)
+specifies. It imports `event/log` and `model/inventory` and nothing imports it.
+The 2026-09-18 amendment's "leaving `integration/` holding only a README"
+described the tree at that date. The announcement, kind descriptor, and event
+subject contracts stay reserved.
