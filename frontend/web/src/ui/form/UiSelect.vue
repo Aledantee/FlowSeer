@@ -27,6 +27,7 @@ export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  // The label is a name from the data, which a page translator leaves alone.
   identifier?: boolean
 }
 

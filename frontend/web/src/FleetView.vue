@@ -68,7 +68,7 @@ import {
 } from './navigation/page'
 import type { PageContext, PageLocation, PageTarget } from './navigation/page'
 import { workspaceContext } from './navigation/workspace'
-import type { PaneId } from './navigation/workspace'
+import type { NoticeKey, PaneId } from './navigation/workspace'
 import {
   DOCK_KEY,
   isLocation,
@@ -80,9 +80,7 @@ import {
 } from './navigation/dock'
 import type { DockTab, Panes } from './navigation/dock'
 import { useLabels } from './i18n/labels'
-
-// A name has no translation, so the brand is data, not a message.
-const BRAND = 'FlowSeer'
+import { BRAND } from './brand'
 const NAV_ITEMS = [
   'dashboard',
   'devices',
@@ -124,7 +122,7 @@ const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
-const message = ref('')
+const message = ref<NoticeKey | ''>('')
 
 function siteName(id: string) {
   return (
@@ -703,7 +701,7 @@ const searchPages = computed<SearchPage[]>(() => [
     const described = tabTitle(tab)
     const parts: TextPart[] = [
       { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
-      { text: described.detail ?? '', identifier: described.detailName },
+      { text: described.detail, identifier: described.detailName },
     ]
     return {
       id: `tab:${tab.id}`,

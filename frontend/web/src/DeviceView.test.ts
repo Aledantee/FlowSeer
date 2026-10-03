@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, createApp, h, nextTick, ref } from 'vue'
 import DeviceView from './DeviceView.vue'
 import { pageContext, pageFor } from './navigation/page'
-import { workspaceContext } from './navigation/workspace'
+import { workspaceContext, type NoticeKey } from './navigation/workspace'
 import { devices, moveDevice, sites, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
 import { createAiRegistry, createAiTargetDirective } from './ai'
@@ -48,7 +48,7 @@ async function mountDeviceView(
   )
   const workspace = {
     fleet: ref(fleet),
-    message: ref(''),
+    message: ref<NoticeKey | ''>(''),
     reassign: () => {},
     move: ref(undefined),
     undoMove: () => {},

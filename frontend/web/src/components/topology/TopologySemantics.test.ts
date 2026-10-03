@@ -21,7 +21,7 @@ import {
   telemetryOf,
 } from '../../domain/telemetry'
 import { pageContext, pageFor } from '../../navigation/page'
-import { workspaceContext } from '../../navigation/workspace'
+import { workspaceContext, type NoticeKey } from '../../navigation/workspace'
 import { topologyLive } from './live'
 import type { Selection } from './live'
 import { createAiRegistry, createAiTargetDirective } from '../../ai'
@@ -29,6 +29,7 @@ import type { AiRegistry } from '../../ai'
 import TopologyInspector from './TopologyInspector.vue'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
+import TopologySiteNode from './TopologySiteNode.vue'
 import en from '../../i18n/locales/en.json'
 import { createWebI18n, type WebLocale } from '../../i18n'
 import { i18nWarnings, unmarkedIdentifiers } from '../../i18n/testing'
@@ -105,7 +106,7 @@ function mount(
   )
   const workspace = {
     fleet: ref(currentDevices),
-    message: ref(''),
+    message: ref<NoticeKey | ''>(''),
     reassign: () => {},
     move: ref(undefined),
     undoMove: () => {},
@@ -258,6 +259,24 @@ describe('topology in German', () => {
     expect(
       host.querySelector('strong')?.closest('[translate="no"]'),
     ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in a site node', () => {
+    const site = sites[0]
+    const host = mount(
+      TopologySiteNode,
+      {
+        data: { siteId: site.id },
+        sites,
+        tenantName: () => 'Aurora Hospitality',
+      },
+      { locale: 'de' },
+    )
+
+    expect(host.querySelector('strong')?.textContent).toBe(site.name)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
@@ -272,6 +291,7 @@ describe('topology in German', () => {
     expect(label).toMatch(
       /^Angenommene Verbindung, noch nicht ermittelt\. .+ zu .+, 10G, .+Mbit\/s, Gesund$/,
     )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 

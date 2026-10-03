@@ -29,8 +29,8 @@ When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
   the locale. Structural defaults stay in `withDefaults`.
 - Plurals use vue-i18n plural messages, never ternary expressions.
 - Numbers use `n()`, and dates and times use `d()` with a named format.
-  Relative times, lists, and units use the matching `Intl` API for the
-  active locale.
+  Relative times use the matching `Intl` API for the active locale, while
+  unit labels and the list separator are messages.
 - Never build a sentence from fragments. Word order differs between
   English and German. Use one message with named interpolation.
 - German runs about 30% longer. LongText stories supply long content and
@@ -47,18 +47,18 @@ reactively while exposing a default message and a customization slot:
 
 ```vue
 <script setup lang="ts">
-import { computed } from "vue";
-import { ComboboxEmpty } from "reka-ui";
-import { useI18n } from "vue-i18n";
+import { computed } from 'vue'
+import { ComboboxEmpty } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 
 export interface UiCommandEmptyProps {
-  text?: string;
+  text?: string
 }
 
-const props = defineProps<UiCommandEmptyProps>();
+const props = defineProps<UiCommandEmptyProps>()
 
-const { t } = useI18n({ useScope: "global" });
-const resolvedText = computed(() => props.text ?? t("ui.commandEmpty.text"));
+const { t } = useI18n({ useScope: 'global' })
+const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 </script>
 
 <template>
@@ -80,9 +80,9 @@ from `src/components/DevicePorts.vue`.
   Keys are camelCase.
 - **Composables.** Format through `useFormat()` (`src/i18n/format.ts`) and
   name identifiers through `useLabels()` (`src/i18n/labels.ts`). A view
-  never calls `toLocaleString`, `toUpperCase`, or an English plural
-  ternary, and never keeps a unit or an identifier word in a script
-  constant.
+  never calls `toLocaleString`, never calls `toUpperCase` on translated
+  text, or an English plural ternary, and never keeps a unit or an
+  identifier word in a script constant.
 - **Fixture data.** A fixture value typed `string` renders verbatim. A value
   typed as a union of literals is an identifier, and its text is a message.
   Names, addresses, serials, port names, and models carry `translate="no"`.
@@ -101,9 +101,11 @@ from `src/components/DevicePorts.vue`.
   identifiers sit inside `translate="no"` elements. The fixture set in
   `src/domain/testing.ts` covers device names, addresses, client hostnames,
   MACs, sites, tenants, serials, models, firmware versions, port names, and
-  the brand. The property checks text nodes only, so `aria-label`, `title`,
-  and detached tooltip elements (such as `UiTooltip` on the dock) sit outside
-  it. Each new surface requires an explicit test call.
+  the brand. The property checks text nodes only, so `aria-label` and `title`
+  sit outside it. Tooltips sit inside the property: `UiTooltip` exposes
+  `label` and `hint` slots so callers can mark identifier spans with
+  `translate="no"` while leaving message text unmarked. Each new surface
+  requires an explicit test call.
 
 ## AI contract, once `useAiTarget` exists
 

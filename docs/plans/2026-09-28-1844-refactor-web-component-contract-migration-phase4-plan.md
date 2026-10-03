@@ -58,12 +58,15 @@ first and rewrote the AI targets of every view inventoried here.
   (decided by the user, 2026-10-03)
 - **English reads `Mbit/s`,** as requirement 2's example does.
   (decided by the user, 2026-10-03)
-- **English otherwise keeps today's literals, with three exceptions.**
+- **English otherwise keeps today's literals, with five exceptions.**
   The scaled unit reads `Gbit/s` to match, relative times come from
-  `Intl.RelativeTimeFormat`, and clock times from `d()`. Why:
+  `Intl.RelativeTimeFormat`, clock times from `d()`, the escalation
+  `Last answered` line is its own line without a full stop, and the
+  unanswered-poll text puts the age in parentheses. Why:
   `Intl.NumberFormat` with `unit: 'megabit-per-second'` prints `Mb/s` in
-  both locales, so unit labels are messages, and the contract sends
-  relative times and dates through `Intl`.
+  both locales, unit labels are messages, the contract sends relative
+  times and dates through `Intl`, and a relative time such as `vor 38
+  Min.` ends in a full stop.
 - **The switch is one button.** It flips between the two locales, shows
   the active locale's code, and names the other language by its own
   name from `Intl.DisplayNames`. Why: the theme switch beside it is one
