@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 )
 
@@ -20,9 +21,11 @@ type DeviceEntry struct {
 type LookupResult uint8
 
 const (
-	// LookupUnknown indicates the address is not claimed or its claimant is not served.
+	// LookupUnknown indicates the address is not claimed or its sole claimant has not
+	// been onboarded at this address in this process.
 	LookupUnknown LookupResult = iota
-	// LookupFound indicates exactly one listed device is mapped to the address and served.
+	// LookupFound indicates exactly one listed device claims the address and was onboarded
+	// at this address by a lane attempt of this process and is still listed there.
 	LookupFound
 	// LookupAmbiguous indicates two or more listed devices share the address.
 	LookupAmbiguous
@@ -39,12 +42,19 @@ type deviceRecord struct {
 // DeviceIndex maps peer addresses to device identities and bindings, safe for
 // concurrent use: the onboarder writes while the syslog source reads.
 //
-// Invariant: each device ID is associated with at most one address, and an
-// address resolves to a device entry if and only if exactly one listed device
-// carries that address and the lane serves that device. An address claimed by
-// two or more listed devices resolves to no device (LookupAmbiguous). An address
-// with no claimant or whose sole claimant is not served by the lane resolves
-// to no device (LookupUnknown).
+// Invariant: the index holds a record for every listed device, unserved and
+// address-less ones included. Each device ID is associated with at most one address.
+// An address resolves to a device entry (LookupFound) if and only if exactly one
+// listed device claims that address and that device was onboarded at this address by
+// a lane attempt of this process and is still listed there. An address claimed by
+// two or more listed devices resolves to no device (LookupAmbiguous). An address with
+// no claimant or whose sole claimant has not been onboarded at this address in this
+// process resolves to no device (LookupUnknown).
+//
+// The index follows the listing: for a held device, the index reflects the listed
+// address and binding, while the lane session stays on the onboarded address until
+// the attempt restarts. That state outlives the lane attempt: a lane restart keeps
+// that state, and a process restart starts with an empty index.
 type DeviceIndex struct {
 	mu      sync.RWMutex                   // guards claims, devices
 	claims  map[string]map[string]struct{} // address -> set of device IDs claiming it
@@ -67,6 +77,45 @@ func Key(addr netip.Addr) string {
 	return addr.Unmap().WithZone("").String()
 }
 
+func (idx *DeviceIndex) dropClaim(address, deviceID string) {
+	if address == "" {
+		return
+	}
+	if claimants, exists := idx.claims[address]; exists {
+		delete(claimants, deviceID)
+		if len(claimants) == 0 {
+			delete(idx.claims, address)
+		}
+	}
+}
+
+func (idx *DeviceIndex) addClaim(address, deviceID string) {
+	if address == "" {
+		return
+	}
+	claimants := idx.claims[address]
+	if claimants == nil {
+		claimants = make(map[string]struct{})
+		idx.claims[address] = claimants
+	}
+	claimants[deviceID] = struct{}{}
+}
+
+func deviceRefFor(deviceID string) *inventoryv1.DeviceGlobalRef {
+	return inventoryv1.DeviceGlobalRef_builder{
+		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build(),
+	}.Build()
+}
+
+func bindingRefOf(bindingID string) *inventoryv1.BindingGlobalRef {
+	if bindingID == "" {
+		return nil
+	}
+	return inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(bindingID)}.Build(),
+	}.Build()
+}
+
 // Add records or updates a device mapping for the given address and marks it served,
 // dropping any other address previously associated with deviceID. If another device already
 // carries this address, the address becomes shared and resolves to no device.
@@ -77,9 +126,7 @@ func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.Bindi
 	if parsed, err := netip.ParseAddr(address); err == nil {
 		address = Key(parsed)
 	}
-	devRef := inventoryv1.DeviceGlobalRef_builder{
-		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build(),
-	}.Build()
+	devRef := deviceRefFor(deviceID)
 
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
@@ -92,20 +139,10 @@ func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.Bindi
 	}
 
 	if old, ok := idx.devices[deviceID]; ok && old.address != "" && old.address != address {
-		if claimants, exists := idx.claims[old.address]; exists {
-			delete(claimants, deviceID)
-			if len(claimants) == 0 {
-				delete(idx.claims, old.address)
-			}
-		}
+		idx.dropClaim(old.address, deviceID)
 	}
 
-	claimants := idx.claims[address]
-	if claimants == nil {
-		claimants = make(map[string]struct{})
-		idx.claims[address] = claimants
-	}
-	claimants[deviceID] = struct{}{}
+	idx.addClaim(address, deviceID)
 
 	idx.devices[deviceID] = deviceRecord{
 		deviceID: deviceID,
@@ -116,19 +153,16 @@ func (idx *DeviceIndex) Add(address, deviceID string, binding *inventoryv1.Bindi
 	}
 }
 
-// RecordClaim records a listed device's address claim, dropping any other address
-// previously claimed by deviceID. An empty address drops any claim for deviceID
-// without recording a new one. If the device was previously served at the same
-// address, its served status is preserved; otherwise, the device is recorded as
-// not served until marked served via Add.
-func (idx *DeviceIndex) RecordClaim(address, deviceID string, binding *inventoryv1.BindingGlobalRef) {
-	if idx == nil || deviceID == "" {
+// ApplyListing applies a whole device listing to the index under a single write lock.
+// It prunes devices not present in the listing, records one address claim per listed device
+// with a usable address (recording devices with unusable addresses with no claim),
+// drops each device's claim on any other address, and re-asserts as served, with the listed
+// address and binding, every listed device present in heldIDs.
+// If a listed device was already served at the listed address by an earlier onboarder in this
+// process, its served status is preserved.
+func (idx *DeviceIndex) ApplyListing(devices []*attachv1.ListedDevice, heldIDs map[string]struct{}) {
+	if idx == nil {
 		return
-	}
-	if address != "" {
-		if parsed, err := netip.ParseAddr(address); err == nil {
-			address = Key(parsed)
-		}
 	}
 
 	idx.mu.Lock()
@@ -141,85 +175,76 @@ func (idx *DeviceIndex) RecordClaim(address, deviceID string, binding *inventory
 		idx.claims = make(map[string]map[string]struct{})
 	}
 
-	old, hadOld := idx.devices[deviceID]
-	if hadOld && old.address != "" && old.address != address {
-		if claimants, exists := idx.claims[old.address]; exists {
-			delete(claimants, deviceID)
-			if len(claimants) == 0 {
-				delete(idx.claims, old.address)
-			}
+	keep := make(map[string]struct{}, len(devices))
+	for _, listed := range devices {
+		if listed != nil && listed.GetDeviceId() != "" {
+			keep[listed.GetDeviceId()] = struct{}{}
 		}
 	}
-
-	if address == "" {
-		idx.devices[deviceID] = deviceRecord{
-			deviceID: deviceID,
-			address:  "",
-			binding:  nil,
-			device:   nil,
-			served:   false,
-		}
-		return
-	}
-
-	claimants := idx.claims[address]
-	if claimants == nil {
-		claimants = make(map[string]struct{})
-		idx.claims[address] = claimants
-	}
-	claimants[deviceID] = struct{}{}
-
-	devRef := inventoryv1.DeviceGlobalRef_builder{
-		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(deviceID)}.Build(),
-	}.Build()
-
-	served := hadOld && old.address == address && old.served
-
-	idx.devices[deviceID] = deviceRecord{
-		deviceID: deviceID,
-		address:  address,
-		binding:  binding,
-		device:   devRef,
-		served:   served,
-	}
-}
-
-// Prune removes any device from the index whose device ID is not in listedIDs.
-// Any address that was previously shared by a pruned device and a remaining device
-// resolves again to the remaining device once only one claimant remains.
-func (idx *DeviceIndex) Prune(listedIDs []string) {
-	if idx == nil {
-		return
-	}
-	keep := make(map[string]struct{}, len(listedIDs))
-	for _, id := range listedIDs {
-		keep[id] = struct{}{}
-	}
-
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
 
 	for devID, rec := range idx.devices {
 		if _, ok := keep[devID]; !ok {
 			delete(idx.devices, devID)
-			if rec.address != "" {
-				if claimants, exists := idx.claims[rec.address]; exists {
-					delete(claimants, devID)
-					if len(claimants) == 0 {
-						delete(idx.claims, rec.address)
-					}
-				}
+			idx.dropClaim(rec.address, devID)
+		}
+	}
+
+	for _, listed := range devices {
+		if listed == nil {
+			continue
+		}
+		devID := listed.GetDeviceId()
+		if devID == "" {
+			continue
+		}
+
+		addr, err := addressOf(listed.GetIp())
+		if err == nil && addr != "" {
+			if parsed, parseErr := netip.ParseAddr(addr); parseErr == nil {
+				addr = Key(parsed)
 			}
+		} else {
+			addr = ""
+		}
+
+		old, hadOld := idx.devices[devID]
+		if hadOld && old.address != "" && old.address != addr {
+			idx.dropClaim(old.address, devID)
+		}
+
+		if addr == "" {
+			idx.devices[devID] = deviceRecord{
+				deviceID: devID,
+				address:  "",
+				binding:  nil,
+				device:   nil,
+				served:   false,
+			}
+			continue
+		}
+
+		idx.addClaim(addr, devID)
+
+		_, isHeld := heldIDs[devID]
+		served := isHeld || (hadOld && old.address == addr && old.served)
+
+		idx.devices[devID] = deviceRecord{
+			deviceID: devID,
+			address:  addr,
+			binding:  bindingRefOf(listed.GetBindingId()),
+			device:   deviceRefFor(devID),
+			served:   served,
 		}
 	}
 }
 
 // Lookup returns the device entry mapped to address and the outcome of the resolution.
 // It returns [LookupFound] and the entry when exactly one device claims the address
-// and that device is served by the lane.
+// and that device was onboarded at this address by a lane attempt of this process and
+// is still listed there.
 // If two or more listed devices share the address, it returns [LookupAmbiguous] and an empty entry.
-// If the address is not held in the index, or its sole claimant is not served by the lane,
-// it returns [LookupUnknown] and an empty entry.
+// If the address is not held in the index, or its sole claimant has not been onboarded at this
+// address in this process, it returns [LookupUnknown] and an empty entry.
 func (idx *DeviceIndex) Lookup(address string) (DeviceEntry, LookupResult) {
 	if idx == nil {
 		return DeviceEntry{}, LookupUnknown
