@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-No tracked frontend source file, configuration file, or stylesheet imports `tailwind-merge`. `frontend/web/package.json:32` declares the pinned direct requirement at `3.7.0`, but it is the only direct declaration and has no active importer.
+No tracked frontend source file, configuration file, or stylesheet imports `tailwind-merge`. `frontend/web/package.json:33` declares the pinned direct requirement at `3.7.0`, but it is the only direct declaration and has no active importer.
 
 ## Why it is safe
 

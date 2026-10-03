@@ -103,8 +103,8 @@ from `performance.now()`
 (`motion-dom/dist/es/frameloop/batcher.mjs:22-24`). `FleetView.motion.test.ts`,
 `UiMotion.test.ts`, and `UiMotion.reduced.test.ts` do this through
 `installMotionClock` and `advanceMotion`, and undo the spy in `afterEach`
-(`FleetView.motion.test.ts:86`, `UiMotion.test.ts:21`,
-`UiMotion.reduced.test.ts:33`), because a leaked mocked clock freezes
+(`FleetView.motion.test.ts:87`, `UiMotion.test.ts:22`,
+`UiMotion.reduced.test.ts:34`), because a leaked mocked clock freezes
 `performance.now()` for every later case in the file. A fixed wall-clock wait is
 not reliable: on a loaded host the 140 ms layout animation can finish before the
 test samples. Do not mock motion-v.

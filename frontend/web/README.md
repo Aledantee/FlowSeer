@@ -108,9 +108,10 @@ is contained in the content area.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.
 - `src/i18n/` holds `createWebI18n`, English and German catalogs, and shared number formats.
-- `src/ui/` holds design system components and headless primitives; `src/ui/app/UiAppRoot.vue` provides the top-level application wrapper (`ConfigProvider`, `TooltipProvider`, and `UiMotionConfig`), passing the Composer locale to Reka.
+- `src/ui/` holds design system components and headless primitives. `src/ui/app/UiAppRoot.vue` provides the top-level application wrapper (`ConfigProvider`, `TooltipProvider`, and `UiMotionConfig`) and passes the Composer locale to Reka.
 - `src/style.css` defines the shell layout, connected chrome frame, and brand glow ribbons.
 - `src/theme/tailwind.css` configures Tailwind v4 Preflight, base element normalizations, and `@theme` overlay keyframes (`--animate-overlay-in/out`, `--animate-dialog-in/out`, `--animate-fade-in/out`, `--animate-dialog-fade-in`).
+
 - `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, radii, and z-index tokens (`--z-raised`, `--z-sticky`, `--z-overlay`, `--z-toast`, `--z-skip-link`) into Tailwind theme directives.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.
@@ -224,7 +225,7 @@ const tabs = [
 
 Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
 
-Overlays stack on the z-index tokens in `src/theme/tokens.css`: `--z-overlay` (50) for dialogs, popovers, and menus, `--z-toast` (60) for the toast viewport, and `--z-sticky` (10) for the top bar and table headers. Their entrances and exits are CSS keyframes, declared in `src/theme/tailwind.css` as `--animate-overlay-in/out` for popovers, menus, and select lists, `--animate-dialog-in/out` for dialog content, and `--animate-fade-in/out` for scrims and toasts. Each wrapper applies them on `data-[state=open]` and `data-[state=closed]` of its content element. The keyframes matter because Reka's `Presence` keeps a closing node mounted until its `animationend` and ignores CSS transitions, so an exit written as a transition never plays. Under reduced motion every pair switches to a fade of the same duration; dialog entry uses `--animate-dialog-fade-in`, which runs the fade at the dialog's 160 ms. Tooltips and combobox lists do not animate, and the command dialog content has an exit fade only. `UiAppRoot` (`src/ui/app/UiAppRoot.vue`) mounts `ConfigProvider`, `TooltipProvider`, and `UiMotionConfig` once for the whole view tree, passing the active Composer locale to Reka.
+Overlays stack on the z-index tokens in `src/theme/tokens.css`: `--z-overlay` (50) for dialogs, popovers, and menus, `--z-toast` (60) for the toast viewport, and `--z-sticky` (10) for the top bar and table headers. Their entrances and exits are CSS keyframes, declared in `src/theme/tailwind.css` as `--animate-overlay-in/out` for popovers, menus, and select lists, `--animate-dialog-in/out` for dialog content, and `--animate-fade-in/out` for scrims and toasts. Each wrapper applies them on `data-[state=open]` and `data-[state=closed]` of its content element. The keyframes matter because Reka's `Presence` keeps a closing node mounted until its `animationend` and ignores CSS transitions, so an exit written as a transition never plays. Under reduced motion every pair switches to a fade of the same duration. Dialog entry uses `--animate-dialog-fade-in`, which runs the fade at the dialog's 160 ms. Tooltips and combobox lists do not animate, and the command dialog content has an exit fade only. `UiAppRoot` (`src/ui/app/UiAppRoot.vue`) mounts `ConfigProvider`, `TooltipProvider`, and `UiMotionConfig` once for the whole view tree. It passes the active Composer locale to Reka.
 
 ### Chart color tokens and accessibility
 
@@ -290,12 +291,12 @@ control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 
 FlowSeer uses vue-i18n in Composition mode with English and German catalogs:
 
-- `src/i18n/index.ts` exports `createWebI18n(locale = 'en')`, returning a fresh plugin instance with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats.
+- `src/i18n/index.ts` exports `createWebI18n(locale = 'en')` with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats. Each call returns a fresh plugin instance because vue-i18n binds its lifecycle to the app: `install` wraps `app.unmount` to call `i18n.dispose()`, so sharing an instance disposes it when the first app unmounts.
 - `src/main.ts` installs one plugin instance on the Vue application before mount. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
-- Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`, synchronizing translated template text, accessible labels, and headless primitives.
+- Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`. That keeps translated template text and headless primitives synchronized.
 - In Storybook, the `withLocale` decorator watches `reactive(context.globals).locale` and updates the active Composer. The Storybook toolbar provides English and German options without per-story provider wrappers.
 - Component defaults belong to `ui.<owner>.<suffix>` in `src/i18n/locales/en.json` and `de.json`. Identifiers, keys, and slot content remain caller data, while the owning component renders localized display text.
-- Optional text props resolve reactively as `props.text ?? t(key)` in computed properties or templates. Hoisted `withDefaults` defaults never call `t`, preventing scope errors and frozen translations. Structural defaults stay in `withDefaults`.
+- Optional text props resolve reactively as `props.text ?? t(key)` in computed properties or templates. Hoisted `withDefaults` defaults never call `t`. Calling `t` inside `withDefaults` causes scope errors and freezes translations across locale switches. Structural defaults stay in `withDefaults`.
 
 `src/ui/command/UiCommandEmpty.vue` demonstrates an optional text override with a localized catalog default:
 

@@ -95,10 +95,10 @@ host: `<UiAiActionLayer v-if="showLayer" />`.
 
 - `frontend/web/.storybook/aiDecorator.ts:43-123` holds the module-level scope,
   host election, and per-target dispatch.
-- `frontend/web/.storybook/aiDecorator.test.ts:138-177` mounts two canvases,
+- `frontend/web/.storybook/aiDecorator.test.ts:140-179` mounts two canvases,
   asserts one `.ai-ask`, keeps both targets listable after the first unmounts,
   and expects `window.flowseerAi` to be deleted only after the second unmounts.
-- `frontend/web/.storybook/aiDecorator.test.ts:179-189` mounts the same story
+- `frontend/web/.storybook/aiDecorator.test.ts:181-191` mounts the same story
   twice and asserts one target and one action layer.
 - `frontend/web/src/ai/registry.ts:226-235` shows the registry keeps a single
   handler, which forces the decorator to dispatch by target.
@@ -109,7 +109,7 @@ host: `<UiAiActionLayer v-if="showLayer" />`.
 
 ## What this does not cover
 
-- The application path. `frontend/web/src/main.ts:22` installs the contract once
+- The application path. `frontend/web/src/main.ts:28` installs the contract once
   for the console, where no second canvas competes for the document.
 - The action layer's placement geometry. Whether its Ask button is drawn or
   withheld is `placeAsk`'s concern (`frontend/web/src/ui/ai/geometry.ts:135`),

@@ -11,7 +11,7 @@ approved: 2026-10-01
 ## Why it is required
 
 `frontend/web/eslint.config.js:1` imports `@eslint/js`, and line 8 applies its
-recommended rules to the web source. `frontend/web/package.json:39` pins the
+recommended rules to the web source. `frontend/web/package.json:41` pins the
 direct requirement at `10.0.1`.
 
 ## Why it is safe
