@@ -182,9 +182,9 @@ func TestDeviceIndex_ApplyListing_SharerReplacedRemainsAmbiguous(t *testing.T) {
 
 	spawn.Go(ctx, "sharer-reader", func() {
 		for ctx.Err() == nil {
-			entry, res := idx.Lookup("192.0.2.1")
-			if res == lanehost.LookupFound {
-				t.Errorf("Lookup resolved to %s during sharer replacement, want LookupAmbiguous throughout", entry.DeviceID)
+			_, res := idx.Lookup("192.0.2.1")
+			if res != lanehost.LookupAmbiguous {
+				t.Errorf("Lookup resolved to %v during sharer replacement, want LookupAmbiguous throughout", res)
 				break
 			}
 		}
@@ -296,7 +296,7 @@ func listedDeviceWithV6Addr(deviceID string, addr netip.Addr) *attachv1.ListedDe
 // refuses, so it asserts the rejection first: the listing is then known to
 // carry what the index defends against. A nil row is skipped the same way, but
 // the generated getters are nil-safe, so the empty-id guard alone already
-// covers it and no mutation of the nil guard changes an outcome.
+// covers it.
 func TestDeviceIndex_ApplyListingSkipsNilRowAndEmptyDeviceID(t *testing.T) {
 	t.Parallel()
 
@@ -387,6 +387,9 @@ func TestDeviceIndex_RowWithUnusableAddressClaimsNothingAndOthersApply(t *testin
 	unusable.SetIp(addrv1.IpAddress_builder{
 		V4: addrv1.Ipv4Address_builder{Octets: []byte{192, 0}}.Build(),
 	}.Build())
+	if protovalidate.Validate(unusable) == nil {
+		t.Fatal("protovalidate accepted a listed device with a two-octet address, want a rejection")
+	}
 	idx.ApplyListing([]*attachv1.ListedDevice{
 		unusable,
 		listedDeviceWithAddr(deviceTwo, []byte{192, 0, 2, 2}),
@@ -397,6 +400,9 @@ func TestDeviceIndex_RowWithUnusableAddressClaimsNothingAndOthersApply(t *testin
 	}
 	if entry, res := idx.Lookup("192.0.2.2"); res != lanehost.LookupFound || entry.DeviceID != deviceTwo {
 		t.Errorf("Lookup(\"192.0.2.2\") = (%v, %v), want (%s, LookupFound)", entry, res, deviceTwo)
+	}
+	if entry, res := idx.Lookup(""); res != lanehost.LookupUnknown {
+		t.Errorf("Lookup(\"\") = (%v, %v), want LookupUnknown", entry, res)
 	}
 }
 
