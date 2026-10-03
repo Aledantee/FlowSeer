@@ -50,6 +50,9 @@ covering port tables and VLAN membership.
 | [Schema Building Blocks](2026-09-25-schema-building-blocks-direction.md) | Accepted direction | Adding any FlowSeer-owned protobuf package or message: canonical units, key rules, the network-instance key, facet and table naming, protocol packages, and the Endpoint, Wlan, and Alarm entities. |
 | [Dependency Admission](2026-10-01-dependency-admission-direction.md) | Proposed direction | Adding, upgrading, or removing a Go module, npm package, container image, buf module or plugin, or toolchain pin, or reviewing a dependency version. |
 | [Central Ingestion Pipeline](2026-10-02-central-ingestion-pipeline-direction.md) | Accepted direction | Adding an ingestion source, the ingest envelope, central intake, a consumer of ingested records, or choosing where history, current state, or an API read model is stored. |
+| [Central High Availability](2026-10-03-central-high-availability-direction.md) | Proposed direction | Changing how the device service reaches NATS, which listener serves which service, a background module that must run once across replicas, or readiness. |
+| [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Running more than one edge node at a site, the address devices send syslog and traps to, which Edge hosts a device lane, or an agent build for an operating system other than Linux. |
+| [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or
