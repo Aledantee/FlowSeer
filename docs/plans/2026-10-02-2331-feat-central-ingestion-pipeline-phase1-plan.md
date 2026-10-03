@@ -95,6 +95,10 @@ The parent plan's Decisions apply. These are local to the phase.
   the reserved rules, to the vendor module alone (lines 27-29). No configured
   lint rule, no hook under `tools/hooks/`, and no test under `test/` reads
   `reserved`, and `AGENTS.md` does not state the rule.
+- The 24 `reserved` lines that earlier removals left in 14 files under
+  `spec/proto/flowseer/` stay. Why: U1 changes the rule for removals from
+  this phase on, and no removal of this phase touches those files. (decided
+  by the user, 2026-10-03)
 - `SyslogRecord`'s other fields keep their numbers, and no reader migrates.
   Why: the only Go that names `record_id` is its own rules test
   (`test/conformance/proto/event_log_rules_test.go:18,34,95,162-176`), and
@@ -140,7 +144,11 @@ The parent plan's Decisions apply. These are local to the phase.
   attachment is not stored in `assembly` today.
 - A parse failure is a record whose `syslog.Record.Status` is not `Complete`
   (`src/protocol/syslog/record.go:44-53`) or whose mapped field exceeds its
-  schema bound. The over-long field is left unset.
+  schema bound. The over-long field is left unset. `message` is the one
+  exception: the mapper cuts it to 65,527 bytes and sets `message_truncated`,
+  as the field's contract says
+  (`spec/proto/flowseer/event/log/v1/syslog_record.proto:73-79`). Only a
+  stream transport reaches that length.
 - Raw policy defaults: 20 raw-bearing failures per device per minute, then 1
   in 100. Both are configuration. Why: the parent plan fixes the shape, and
   these numbers only bound the worst case at about one raw datagram every
@@ -160,12 +168,45 @@ The parent plan's Decisions apply. These are local to the phase.
   transport enum. Why: a listener is a transport and an address in the
   library as well (`syslog.ListenConfig`), so a later transport adds an enum
   value and no field. (decided by the user, 2026-10-03)
-- The enum is `AgentSyslogTransport`, and a file names at most eight
-  listeners. Why: the package prefixes its own types and keeps its own enums
-  (`spec/proto/flowseer/store/agent/v1/agent_config.proto:76,104,113-119`),
-  and `syslog.Listen` refuses more than `Limits.MaxListeners`, which defaults
-  to eight (`src/protocol/syslog/receiver.go:89`,
+- `AgentSyslogTransport` declares UDP and TCP, and this phase serves both.
+  The source sets the receiver's `MaxPayload` to 65,535, and
+  `source_test.go` gains a TCP case. Why: the library serves both transports
+  (`src/protocol/syslog/README.md:83`), and its default `MaxPayload` of 64
+  KiB (`src/protocol/syslog/options.go:12,54`) is one byte over what
+  `RawEvidence.data` takes. (decided by the user, 2026-10-03)
+- A listener carries a framing enum with the library's five values, unset
+  means auto, and this phase tests each. Why: auto frames an LF-delimited
+  payload only when it starts with `<`
+  (`src/protocol/syslog/README.md:112-114`), so a device that sends legacy
+  lines without PRI over TCP needs an explicit framing. (decided by the user,
+  2026-10-03)
+- A listener's unset `transport` means UDP. Why: the file's own enum reads
+  its zero value as a default
+  (`spec/proto/flowseer/store/agent/v1/agent_config.proto:119-121`). (decided
+  by the user, 2026-10-03)
+- The enums are `AgentSyslogTransport` and `AgentSyslogFraming`. Each has an
+  `_UNSPECIFIED = 0` the agent reads as the default, the framing values
+  follow the library's order (auto, octet counting, LF, CRLF, NUL), and a
+  file names at most eight listeners. Why: the package prefixes its own
+  types and keeps its own enums (`agent_config.proto:76,104,113-119`), the
+  library declares the five in that order
+  (`src/protocol/syslog/framing.go:15-26`), and `syslog.Listen` refuses more
+  than `Limits.MaxListeners`, which defaults to eight
+  (`src/protocol/syslog/receiver.go:89`,
   `src/protocol/syslog/options.go:14-15`).
+- A listener that sets `framing` and is not a TCP listener is refused at
+  load, by a rule on the message. Why: a datagram is its own frame
+  (`src/protocol/syslog/README.md:115`), so the library would ignore the
+  value, and this file refuses a setting the agent would not honor "rather
+  than corrected", since nothing would report the difference
+  (`agent_config.proto:92-96`). `docs/code-style-proto.md`, Validation, puts
+  such a rule in the schema.
+- The source counts its publish retries and exports the receiver's own
+  losses. Why: `docs/conventions/observability.md`, Required measurement
+  families, asks a component that publishes durable messages for its retried
+  and discarded counts. A wrong framing closes the connection on every
+  message (`src/protocol/syslog/README.md:116`) and leaves no record to
+  count.
 - U2 amends the ingestion direction record with both wire decisions, and U1
   amends the network model record with the reserved rule. Why: each changes
   a contract more than one package reads, and this plan is deleted once the
@@ -204,14 +245,28 @@ The parent plan's Decisions apply. These are local to the phase.
 9. `SyslogRecord` holds no id. Example: a record with only a device and a
    receive time validates, and an envelope wrapping it fails only on its own
    missing `record_id`.
-10. The agent listens only where `AgentConfig.syslog` names a listener.
-    Example: a file with no `syslog` block starts no source, and one UDP
-    listener on a loopback address receives the requirement 3 datagram.
+10. The agent listens only where `AgentConfig.syslog` names a listener, over
+    UDP or TCP, and an unset `transport` means UDP. Example: a file with no
+    `syslog` block starts no source, and a listener that names only a
+    loopback address receives the requirement 3 datagram over UDP.
 11. After the phase no schema it touched holds a `reserved` line for a field
     it removed, and no document asks for one before the first stable release.
     Example: `syslog_record.proto` has no field 2 and no `reserved` line, and
     `docs/code-style-proto.md`, Evolution, says a pre-release removal leaves
     none and a number is never reused.
+12. A TCP listener frames by its `framing`, and unset means the library's
+    detection. Example: with LF framing the line
+    `Oct  3 10:00:00 sw1 app: up` and a line feed arrive as one record with
+    severity unset. Under auto the same bytes close the connection and add
+    one to the receiver's framing discards.
+13. A listener that sets `framing` and is not a TCP listener is refused at
+    load. Example: `framing: AGENT_SYSLOG_FRAMING_LF` with `transport` unset
+    fails `LoadConfig`.
+14. A message longer than 65,527 bytes is cut to that length and marked
+    truncated, and its raw evidence fits. Example: a 65,535-byte
+    octet-counted TCP frame with no recognizable envelope yields a
+    65,527-byte `message`, `message_truncated` true, and 65,535 bytes of raw
+    evidence in an envelope that validates.
 
 ## Out of scope
 
@@ -220,15 +275,15 @@ The parent plan's Decisions apply. These are local to the phase.
   the per-edge stream until intake lands.
 - The `RAW_REASON_WINDOW` trigger. The enum value exists and nothing sets it
   until the raw window phase.
-- TLS syslog and vendor field mapping beyond what `SyslogRecord` holds.
+- TLS syslog and vendor field mapping beyond what `SyslogRecord` holds. The
+  transport enum declares no TLS value.
 - Lane records stored before U2. One holds `Provenance.protocol` at field 3
   inside `last_observations`
   (`spec/proto/flowseer/store/device/v1/lane_record.proto:109`) and reads
   back with neither arm set. Nothing migrates it (`AGENTS.md`, Agent
   behavior).
-- The 24 `reserved` lines that earlier removals left in 14 files under
-  `spec/proto/flowseer/`. They stay. U1 changes the rule for removals from
-  this phase on.
+- Removing the `reserved` lines earlier removals left under
+  `spec/proto/flowseer/`. They stay, as the Decisions say.
 - Input trust: the source reads datagrams from untrusted network senders. The
   parser's limits (`src/protocol/syslog/options.go`) bound them, and only a
   hosted device's address is accepted.
@@ -358,11 +413,13 @@ Change: `AgentConfig` gains `AgentSyslog syslog = 6`, where unset means the
 agent runs no syslog source. It holds `repeated AgentSyslogListener
 listeners`, one to eight, `raw_failures_per_minute` (unset means 20), and
 `raw_sample_every` (unset means 100). A listener has `address`, a
-`host:port` string, and `transport`, an `AgentSyslogTransport` that declares
-`AGENT_SYSLOG_TRANSPORT_UNSPECIFIED = 0` and `AGENT_SYSLOG_TRANSPORT_UDP =
-1`. The open questions settle whether the enum also declares TCP, whether a
-listener carries a framing, and whether `transport` may be unset.
-`host.Config` exposes the listeners and the two numbers.
+`host:port` string, `transport` (`AgentSyslogTransport`: UDP = 1, TCP = 2,
+unset or zero means UDP), and `framing` (`AgentSyslogFraming`: auto = 1,
+octet counting = 2, LF = 3, CRLF = 4, NUL = 5, unset or zero means auto). A
+rule on the message refuses a `framing` on a listener that is not TCP.
+`host.Config` exposes the listeners as `syslog.ListenConfig` values and the
+two numbers. An unset framing stays empty there, which the library reads as
+auto for TCP (`src/protocol/syslog/framing.go:32-39`).
 `generated/go/proto` is regenerated, never hand-edited.
 `lanehost.DeviceIndex` maps a peer address to a device id and
 binding ref, safe for concurrent use. `OnboardConfig` takes one, and the
@@ -372,10 +429,13 @@ device today, so the index has no removal path either. `Run` creates the index a
 both the lane assembly and the syslog module, with the attachment's leaf and
 the edge ref from `edgeRefOf`.
 The source calls `syslog.Listen` with one `ListenConfig` per configured
-listener and `CaptureRaw` on, and loops on `Receiver.Next`
-(`src/protocol/syslog/receiver.go:81,228`). For each record it resolves the
-device from `Observation.Peer` (`src/protocol/syslog/record.go:72`), maps the
-record, copies the raw bytes from `Record.Raw`, a `*[]byte` that is nil when
+listener, `CaptureRaw` on, and `Limits.MaxPayload` at 65,535, and loops on
+`Receiver.Next` (`src/protocol/syslog/receiver.go:81,228`). For each record
+it resolves the device from `Observation.Peer`
+(`src/protocol/syslog/record.go:72`), over either transport, and maps the
+record. The mapper sets `source_address` from the peer and cuts a `message`
+over 65,527 bytes, as the Decisions say. The source copies the raw bytes
+from `Record.Raw`, a `*[]byte` that is nil when
 capture is off (`src/protocol/syslog/record.go:170`), applies the raw policy,
 and wraps the record in an envelope. The envelope gets one `uuid.NewV7` as
 its `record_id` and the provenance the Decisions describe. The mapper sets
@@ -391,12 +451,28 @@ listener. Every goroutine starts through `src/common/spawn`. Counters follow
 `flowseer.edge.syslog.published` and `flowseer.edge.syslog.dropped` with
 unit `{record}` and a `reason` attribute on the second, and
 `flowseer.edge.syslog.raw.kept` and `flowseer.edge.syslog.raw.suppressed`.
+`flowseer.edge.syslog.publish.retries`, unit `{attempt}`, counts each
+repeated publish. Three observable counters read `Receiver.Stats()`
+(`src/protocol/syslog/stats.go:7-20,33`), as the host reads the report
+queue's (`src/edge/agent/host/host.go:320-329`):
+`flowseer.edge.syslog.receiver.received`, unit `{frame}`, from `Received`,
+`flowseer.edge.syslog.receiver.discarded`, unit `{frame}`, with `reason` of
+`udp_admission`, `oversized`, or `framing` from `UDPDropped`, `Oversized`,
+and `FramingErrors`, and `flowseer.edge.syslog.receiver.connections_closed`,
+unit `{connection}`, with `reason` of `pressure` or `rejected` from
+`PressureClosed` and `ConnectionRejected`. While the source retries a
+publish it does not call `Next`, so the receiver drops UDP datagrams and
+holds TCP senders until `PressureTimeout`, 30 seconds by default, closes
+them (`src/protocol/syslog/README.md:89-91`,
+`src/protocol/syslog/options.go:44-46,81`).
 No device id is an attribute.
 Tests: `config_test.go` covers a file with no `syslog` block, which starts
 no source and leaves `TestAWorkingFileIsTwoLinesAndEverythingElseDefaults`
-passing, a block that names one UDP listener and takes both defaults,
-configured numbers that win, and a block with no listener or with nine,
-which `LoadConfig` refuses. `TestModules_DeclaresLaneAndCapture`
+passing, a block whose one listener names only an address and comes out as
+UDP with both defaults, configured numbers that win, and a block with no
+listener or with nine, which `LoadConfig` refuses. One table maps each
+transport and each of the five framings to its library value and leaves an
+unset framing empty, and one case shows requirement 13. `TestModules_DeclaresLaneAndCapture`
 (`capture_test.go:64-79`) expects the third module. `onboard_test.go`
 builds its `OnboardConfig` with an index (line 209) and finds an onboarded
 device in it under its listed address. `index_test.go` covers add, replace, and a lookup that
@@ -408,12 +484,18 @@ manifest (`src/protocol/syslog/testdata/corpus/manifest.json`) holds none of
 the last three. The test validates each envelope. Each case checks that the provenance names the
 indexed binding and the edge, that its `log` arm is `LOG_PROTOCOL_SYSLOG`,
 that `firmware_fingerprint` is unset, and that `observed_at` and
-`received_at` both equal the case's receive time. `rawpolicy_test.go` drives 220 failures in one minute and the
+`received_at` both equal the case's receive time. A fifth payload of
+65,535 bytes with no envelope shows the cut `message` and its flag. `rawpolicy_test.go` drives 220 failures in one minute and the
 window roll-over with the injected clock. `source_test.go` starts a hub and a
 leaf as `edgebus_test.go` does, sends UDP datagrams from a hosted and an
 unknown address, and reads the envelope from the hub's edge stream. It checks
 that the stored message's `Nats-Msg-Id` header equals the envelope's
-`record_id`. A sourced copy keeps its headers and gains `Nats-Stream-Source`
+`record_id`. Over TCP it sends one message under each of the five framings
+and reads each envelope, with the two forms auto accepts both sent under
+auto. It shows requirement 12 with the LF line, which under auto yields no
+envelope and a `receiver.discarded` count of one for `framing`, and
+requirement 14 with the 65,535-byte frame. A publisher stub that refuses
+the first attempt sees one message id twice and one `publish.retries`. A sourced copy keeps its headers and gains `Nats-Stream-Source`
 (`github.com/nats-io/nats-server/v2` v2.15.0, `server/stream.go:4886-4893`).
 Nothing
 here proves the mapping against a real device's output, since every payload
@@ -450,44 +532,3 @@ go test -race ./test/conformance/proto/... ./src/modules/localnet/access/... ./s
 - [ ] This plan's `status` is set with an outcome note under its title, and
       the parent's `Landed:` line for U1 holds the commit range.
 - [ ] No plan labels in code.
-
-## Open questions
-
-All three come from the listener shape and block U4. U1, U2, and U3 wait on
-none of them.
-
-1. Does this phase serve a TCP listener, and which values does
-   `AgentSyslogTransport` declare?
-   (a) UDP alone. TCP joins the enum with the change that serves it.
-   Recommended: the parent plan's requirement 1 is a UDP datagram, and the
-   configuration file adds a knob only when a deployment needs it
-   (`spec/proto/flowseer/store/agent/v1/agent_config.proto:31-34`). Cost: the
-   enum holds one value until then.
-   (b) UDP and TCP, both served. The library serves both
-   (`src/protocol/syslog/README.md:83`), so the source passes the transport
-   on. Cost: question 2, a TCP case in `source_test.go`, and a payload bound.
-   The receiver's default `MaxPayload` is 64 KiB
-   (`src/protocol/syslog/options.go:12,54`), one byte over the 65,535 that
-   `RawEvidence.data` takes, so the source sets it to 65,535. A message over
-   65,527 bytes is cut and marked `message_truncated`
-   (`spec/proto/flowseer/event/log/v1/README.md:37-41`).
-   (c) UDP and TCP declared, and a TCP listener refused at load until a later
-   phase serves it. Cost: the schema offers a value every agent refuses.
-2. Under 1(b), does a listener carry a framing?
-   (a) No field. The source leaves `ListenConfig.Framing` empty and the
-   library picks `Auto` for TCP (`src/protocol/syslog/receiver.go:17-18`).
-   Recommended under 1(b). Cost: `Auto` takes an LF-delimited payload only
-   when it starts with `<` (`src/protocol/syslog/framing.go:16-17`), so a
-   legacy line without PRI cannot arrive over TCP, and requirement 4 holds
-   for UDP alone.
-   (b) A framing enum on the listener with the library's five values
-   (`src/protocol/syslog/framing.go:15-26`), unset meaning auto. Cost: five
-   values and their cases in this phase.
-3. May a listener leave `transport` unset?
-   (a) Yes, and unset means UDP. Recommended: the file's own enum reads its
-   zero value as a default (`agent_config.proto:119-121`), and its header
-   says an unset field names what the agent does then (lines 15-16).
-   (b) No. `transport` is required and the zero value is rejected, as
-   `ManagementEndpoint.protocol` is
-   (`spec/proto/flowseer/model/inventory/v1/binding.proto:91-97`). Cost: a
-   listener block is two lines where one would do under 1(a).
