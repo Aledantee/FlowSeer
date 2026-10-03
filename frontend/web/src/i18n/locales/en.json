@@ -125,5 +125,94 @@
       "shiftMark": "⇧",
       "upMark": "↑"
     }
+  },
+  "view": {
+    "common": {
+      "allSites": "All sites",
+      "allTenants": "All tenants",
+      "band": {
+        "ghz2": "2.4 GHz",
+        "ghz5": "5 GHz",
+        "ghz6": "6 GHz"
+      },
+      "clients": "{count} client | {count} clients",
+      "devices": "{count} device | {count} devices",
+      "duplex": {
+        "full": "Full duplex",
+        "half": "Half duplex"
+      },
+      "factSeparator": " · ",
+      "health": {
+        "degraded": "Degraded",
+        "healthy": "Healthy",
+        "offline": "Offline"
+      },
+      "healthLine": {
+        "allHealthy": "All healthy",
+        "degraded": "{count} degraded",
+        "offline": "{count} offline"
+      },
+      "lifecycle": {
+        "active": "Active",
+        "retired": "Retired"
+      },
+      "medium": {
+        "copper": "Copper",
+        "fiber": "Fiber"
+      },
+      "mode": {
+        "access": "Access",
+        "routed": "Routed",
+        "trunk": "Trunk"
+      },
+      "noReading": "—",
+      "pages": {
+        "clients": "Clients",
+        "dashboard": "Dashboard",
+        "device": "Device",
+        "devices": "Devices",
+        "sites": "Sites",
+        "topology": "Topology"
+      },
+      "portStatus": {
+        "disabled": "Disabled",
+        "down": "Down",
+        "up": "Up"
+      },
+      "reachability": {
+        "reachable": "Reachable",
+        "unreachable": "Unreachable"
+      },
+      "results": "{count} result | {count} results",
+      "severity": {
+        "critical": "Critical",
+        "info": "Info",
+        "warning": "Warning"
+      },
+      "signal": {
+        "fair": "Fair",
+        "strong": "Strong",
+        "weak": "Weak"
+      },
+      "sites": "{count} site | {count} sites",
+      "speed": {
+        "gigabit": "{value}G",
+        "megabit": "{value}M"
+      },
+      "units": {
+        "celsius": "°C",
+        "dbm": "dBm",
+        "gb": "GB",
+        "gbps": "Gbit/s",
+        "ghz": "GHz",
+        "mbps": "Mbit/s",
+        "ms": "ms",
+        "w": "W"
+      },
+      "unknownDevice": "Unknown device",
+      "unknownSite": "Unknown site",
+      "unknownTenant": "Unknown tenant",
+      "valueWithUnit": "{value} {unit}"
+    }
   }
 }

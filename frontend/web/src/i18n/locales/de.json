@@ -125,5 +125,94 @@
       "shiftMark": "⇧",
       "upMark": "↑"
     }
+  },
+  "view": {
+    "common": {
+      "allSites": "Alle Standorte",
+      "allTenants": "Alle Mandanten",
+      "band": {
+        "ghz2": "2,4 GHz",
+        "ghz5": "5 GHz",
+        "ghz6": "6 GHz"
+      },
+      "clients": "{count} Client | {count} Clients",
+      "devices": "{count} Gerät | {count} Geräte",
+      "duplex": {
+        "full": "Vollduplex",
+        "half": "Halbduplex"
+      },
+      "factSeparator": " · ",
+      "health": {
+        "degraded": "Beeinträchtigt",
+        "healthy": "Gesund",
+        "offline": "Offline"
+      },
+      "healthLine": {
+        "allHealthy": "Alles gesund",
+        "degraded": "{count} beeinträchtigt",
+        "offline": "{count} offline"
+      },
+      "lifecycle": {
+        "active": "Aktiv",
+        "retired": "Ausgemustert"
+      },
+      "medium": {
+        "copper": "Kupfer",
+        "fiber": "Glasfaser"
+      },
+      "mode": {
+        "access": "Zugang",
+        "routed": "Geroutet",
+        "trunk": "Trunk"
+      },
+      "noReading": "—",
+      "pages": {
+        "clients": "Clients",
+        "dashboard": "Dashboard",
+        "device": "Gerät",
+        "devices": "Geräte",
+        "sites": "Standorte",
+        "topology": "Topologie"
+      },
+      "portStatus": {
+        "disabled": "Deaktiviert",
+        "down": "Getrennt",
+        "up": "Verbunden"
+      },
+      "reachability": {
+        "reachable": "Erreichbar",
+        "unreachable": "Nicht erreichbar"
+      },
+      "results": "{count} Ergebnis | {count} Ergebnisse",
+      "severity": {
+        "critical": "Kritisch",
+        "info": "Info",
+        "warning": "Warnung"
+      },
+      "signal": {
+        "fair": "Mäßig",
+        "strong": "Stark",
+        "weak": "Schwach"
+      },
+      "sites": "{count} Standort | {count} Standorte",
+      "speed": {
+        "gigabit": "{value}G",
+        "megabit": "{value}M"
+      },
+      "units": {
+        "celsius": "°C",
+        "dbm": "dBm",
+        "gb": "GB",
+        "gbps": "Gbit/s",
+        "ghz": "GHz",
+        "mbps": "Mbit/s",
+        "ms": "ms",
+        "w": "W"
+      },
+      "unknownDevice": "Unbekanntes Gerät",
+      "unknownSite": "Unbekannter Standort",
+      "unknownTenant": "Unbekannter Mandant",
+      "valueWithUnit": "{value} {unit}"
+    }
   }
 }
