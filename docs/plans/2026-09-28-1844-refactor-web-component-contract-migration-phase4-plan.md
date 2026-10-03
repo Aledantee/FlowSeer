@@ -386,10 +386,17 @@ Neither blocks a unit.
 - frontend/web/src/components/TrafficChart.vue:50: `format.clock(new Date(2000, 0, 1, hour))` becomes `String(hour)`; fails: a chart hour label reads what `Intl.DateTimeFormat` prints for that hour in each locale
 - frontend/web/src/WorkspacePage.vue:268: `time: format.clock(asOf.value)` becomes `time: ''`; fails: the dashboard heading line holds the clock time after `Stand`
 - frontend/web/src/components/LocaleSwitcher.vue:41: `translate="no"` is removed from the language name; fails: the name element in the accessible name carries `translate="no"`
-- frontend/web/src/WorkspacePage.vue:856: `t('view.devices.detailsFor', { name: device.name })` becomes `'Details for ' + device.name`; fails: the German sweep of `/devices` finds no English in a parameterized message
+- frontend/web/src/WorkspacePage.vue:852: `t('view.devices.detailsFor', { name: device.name })` becomes `'Details for ' + device.name`; fails: the German sweep of `/devices` finds no English in a parameterized message
 - frontend/web/src/FleetView.test.ts:665: `Number(after?.matching)` and `Number(after?.count)` read `n()` output, which is `NaN` in `en` from 1,000; fails: the comparison uses raw counts
 - .agents/skills/web-component/references/i18n-and-ai.md:32: says units and lists use the matching `Intl` API, while unit labels and the list separator are messages (`frontend/web/src/i18n/format.ts:15-22`); fails: the rule matches the code
 - .agents/skills/web-component/references/i18n-and-ai.md:82: says a view never calls `toUpperCase`, while `LocaleSwitcher.vue:37` and `DashboardView.vue:86` change case; fails: the rule is scoped to translated text or the calls are gone
 - docs/solutions/conventions/vue-i18n-instances-mutate-catalogs-and-formats-in-place.md:42: cites `index.ts:37-48` as `createWebI18n`, which now sits at `index.ts:52-64` and also clones `datetimeFormats`; fails: the citation and snippet match the file
 - docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md:60: the Decision lists three English exceptions, while the escalation `Last answered` line and the unanswered-poll text also changed (`frontend/web/src/DeviceView.vue:188-191`, `:241`); fails: the Decision names both changes and why
+- frontend/web/src/FleetView.vue:446: `identifier: true` is removed from a device option, or from a site option at `:1042` or `:1226`; fails: a switcher option that shows a device or site name carries `translate="no"`
+- frontend/web/src/navigation/PageDock.vue:134: the `labelName`, `detailName`, or pair-part `translate` binding is removed; fails: a docked device tab's name, its site, and a device in a docked pair carry `translate="no"`, and a page label carries none
+- frontend/web/src/FleetView.vue:1194: the `translate` binding on the side pane header is removed; fails: a device name in the side pane header carries `translate="no"`
+- frontend/web/src/components/GlobalSearch.vue:446: `translate="no"` is removed from the client address, MAC, or device span, or from the interface far end at `:462`; fails: each carries `translate="no"` in a search row
+- frontend/web/src/FleetView.vue:275: `message.value = t('view.fleet.openFailed')` stores text again, likewise at `:325`, `:415`, and `WorkspacePage.vue:321`, `:340`; fails: each notice follows a locale switch
+- frontend/web/src/WorkspacePage.vue:527: `{{ t(message) }}` becomes `{{ message }}`; fails: the notice on a list page reads the message, not its key
+- frontend/web/src/WorkspacePage.vue:699: a literal sort arrow returns beside the status, last-answered, or site header label; fails: each sorted header shows one mark
 
