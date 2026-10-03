@@ -387,14 +387,7 @@ Neither of the first two blocks a unit.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
-3. Requirement 6: does a name inside a component that takes a string and
-   renders it itself count? The dock tooltip
-   (`frontend/web/src/navigation/PageDock.vue:67`) shows `cologne-ap-02
-   öffnen` and a site name through `UiTooltip`'s `label` and `hint`
-   (`frontend/web/src/ui/tooltip/UiTooltip.vue:101-102`) with no
-   `translate="no"`. Marking it needs a change to `UiTooltip`, a kit
-   primitive outside this phase's Files. An accept needs the Requirement
-   to say whether such a sink is in or out.
+3. Answered: see the Decision on kit text props (2026-10-03).
 
 ## Review gaps
 
