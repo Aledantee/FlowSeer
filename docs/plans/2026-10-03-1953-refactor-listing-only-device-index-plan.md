@@ -5,7 +5,7 @@ date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 ---
@@ -267,10 +267,3 @@ Waves: U1
       last-seen-active rule.
 - [ ] This plan's `status` is set with an outcome note under its title.
 - [ ] No plan labels in code.
-
-## Review gaps
-
-- src/edge/agent/host/syslog_test.go:38: `listedAt` is a helper with one caller (line 269), against `docs/code-style.md` "No abstraction with a single caller"; fails: the row is built inline in `TestSyslogAssembly_SetupPublishesAnIngestRecordNamingThisEdge`
-- src/edge/agent/internal/lanehost/onboard_test.go:796: the message says "although the lane never onboarded it" though the first attempt onboarded the device, and the test never asserts that the second attempt onboarded nothing; fails: `reg2.addedDevices()` is asserted empty before the lookups and the message names the second attempt
-- src/edge/agent/internal/lanehost/index_test.go:299: "no mutation of the nil guard changes an outcome" names a nil guard `ApplyListing` no longer has; fails: the comment ends at the empty-id guard covering a nil row
-- src/edge/agent/internal/lanehost/index_test.go:384: "The wire refuses a two-octet address" is stated and not asserted, unlike the other invalid fixtures in the file; fails: `protovalidate.Validate(unusable)` is asserted to reject the row before it is applied
