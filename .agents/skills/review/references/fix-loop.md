@@ -38,16 +38,25 @@ surviving mutation or wrong text, and the case that would fail on it. A gap
 whose only test would restate the implementation (a buffer capacity, a log
 string) is dropped with that reason in the report and is not recorded.
 
+A gap or convention finding a round returns is written to the record, with
+`fixes needed`, when that round settles and before the pass starts, as
+`SKILL.md` step 5 records a verdict. The pass closes items only from the
+record, so an item kept in the report alone is never rerun, and a session that
+ends mid-pass would lose it. A planless `gaps:` line carries every open item,
+earlier ones included, because the last `gaps:` line wins. For example, the
+initial review finds one behavior defect and no gap, and round one is clean
+and returns two gaps. The plan then holds `## Review gaps` with two items and
+`review: fixes needed`, and the pass reruns both mutations.
+
 ### The gap pass
 
 The pass runs in `SKILL.md` step 6, before the accept verdict: after the last
 clean round, or at once when the review holds gaps or convention findings and
 nothing that needs a round. Step 6 runs on the user's answer to fix and review
 again, or under a stage brief that includes it, as `drive`'s does. The initial
-review stays report-only. On the other two answers ("apply the fixes here" and
-"apply chosen findings only"), the coordinator closes each recorded item by
-the gap pass's rule before it writes `accept after fixes`. An item still
-recorded leaves `fixes needed`.
+review stays report-only. The other two answers ("apply the fixes here" and
+"apply chosen findings only") reach the accept through `SKILL.md` step 5,
+which says what the coordinator closes first and what keeps `fixes needed`.
 
 Run steps 1 and 2 of a round with one fix worker per file group and no review
 after. Each fix's commit body quotes the gap's mutation and its `--- FAIL`
@@ -66,8 +75,7 @@ initial review that finds only one gap records `fixes needed`.
 `accept after fixes` is written only when the record is empty, after the
 coordinator reran every recorded mutation and read every corrected line. For
 example, if the pass worker fixes two of three gaps and the third item stays,
-the verdict stays `fixes needed`, on "apply the fixes here" and "apply chosen
-findings only" too.
+the verdict stays `fixes needed`.
 
 A pass whose diff changes source outside tests, comments, and docs is a round,
 counts toward the three rounds in total, and runs steps 3 and 4. Items that
@@ -76,13 +84,29 @@ round one is not clean, round two is clean, and the pass changes a helper,
 that pass is round three, and a behavior finding there ends the loop at the
 cap.
 
-One review runs one gap pass. An item that survives it ends the review at
-`fixes needed` with a question offering one more gap pass or stopping. A
-gap that needs source already becomes a round, so no third option exists. A
-delegated reviewer does not ask: it states each surviving
-item's `path:line` and mutation as its blocker. For example, a plan without
-phases under `drive` parks at `fixes needed`, and the next review stage reads
-the item from the plan's `## Review gaps` section.
+Once the review has run three rounds, the pass changes no source outside
+tests, comments, and docs. A fix worker that needs such a change reports the
+item as a blocker, and the item stays recorded. The coordinator does not merge
+a pass branch whose diff holds such a change, because the worker's duty alone
+does not say what happens when the worker ignores it. For example, rounds one
+and two are not clean, round three is clean, and the one recorded gap needs a
+helper changed. The worker reports it, the item stays, and the verdict is
+`fixes needed` with the question below.
+
+One review runs one gap pass. Every item still recorded once the pass has run
+ends the review at `fixes needed` with a question offering one more gap pass
+or stopping, whether the item survived the pass or a later round found it. A
+gap that needs source becomes a round, or after three rounds waits for the
+next review, so no third option exists. When a behavior or false-test finding
+is also open, the outcome of the three-round limit (When to stop) is the
+review's and the items stay recorded. When a Requirement question is also
+open, the question offers taking the Requirement to `plan`, one more gap pass,
+or stopping. One more gap pass is a new review: `review` runs again from
+step 1, reads the record, and has a fresh round count and one pass, and step 6
+runs in it. A delegated reviewer does not ask: it states each item's
+`path:line` and its mutation or wrong text as its blocker. For example, a plan
+without phases under `drive` parks at `fixes needed`, and the next review
+stage reads the item from the plan's `## Review gaps` section.
 
 A session that ends mid-pass leaves `fixes needed` on disk, which every
 gate refuses, so the remedy is `review` again.
@@ -134,14 +158,15 @@ gate refuses, so the remedy is `review` again.
 
 - A round in which neither reviewer returns a behavior or false-test
   finding ends the loop. For example, if a round returns two gaps and one
-  convention finding, the loop ends and the gap pass starts. With a recorded
-  gap or convention finding, run the gap pass in `SKILL.md` step 6, which ends
-  by writing `accept after fixes` only when the record is empty. With none
-  recorded, write `accept after fixes` directly. List what remains in the
-  final report and end with the `accept` row's question when the verdict
-  reads an accept, or the question the gap pass describes when an item
-  survived. No earlier round writes `accept after fixes`, since the gates
-  read it as passing.
+  convention finding, the loop ends and the gap pass starts. After a clean
+  round, run the gap pass in `SKILL.md` step 6 only when the record holds an
+  item and this review has not run one. Write `accept after fixes` only with
+  an empty record and no Requirement question open, directly after the clean
+  round or at the end of the pass. List what remains in the final report and
+  end with the `accept` row's question when the verdict reads an accept, or
+  with the question the gap pass or the Requirement bullet below describes
+  when it does not. No earlier round writes `accept after fixes`, since the
+  gates read it as passing.
 - A finding that needs a plan Requirement changed blocks an accept and keeps
   the verdict `fixes needed`. It goes under the plan's Open questions in the
   verdict commit, naming the Requirement. The report's question offers taking
