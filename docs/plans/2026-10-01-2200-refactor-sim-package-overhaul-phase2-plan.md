@@ -3,7 +3,7 @@ title: Capability Contract and Surface Trim - Plan
 type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -76,6 +76,11 @@ same instant, the two verbs stay and the record is amended.
   the layer whatever the keys are (Inventory, Default LACP key).
 - The plan stays whole at ten units. Why: one cluster. Every unit before the
   trims edits `V/switch.go`, so the graph is a chain until U8.
+- U10 is re-planned before more fixing, so the contract gate names one
+  fixture per guard it enforces. The review ended `rework` after three fix
+  rounds with sixteen guards no fixture refuses and a fork row that fails by
+  panic. The re-plan starts from `parked/sim-p2-review`, which holds every
+  fix commit, and U1 to U9 stay landed. (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -486,14 +491,3 @@ go list -f '{{.ImportPath}}{{range .Imports}} {{.}}{{end}}' ./src/common/sim/lay
 - Whether a default LACP key must stay fixed when a LAG is added is a question
   about IEEE 802.1AX, unverified here and not vendored under `spec/`. Phase 4
   decides it. U5 states the current rule in `L/lag/README.md`.
-- Parked by drive: the review ended `rework` after three fix rounds
-  (`1ad57013` on `parked/sim-p2-review`, which holds every fix commit). Every
-  finding against production code is fixed. What remains is in
-  `test/conformance/sim`: sixteen checker guards that no fixture refuses,
-  three of them reachable by honest source, and a fork gate row that fails
-  by panic. Options: a fourth fix round on the gate fixtures only, resumed
-  from `parked/sim-p2-review` (one more review and fix pass, scoped to one
-  test package) | re-plan U10 (the gate unit gets a fixture per guard
-  before any more fixing, at the cost of a plan stage). Recommended: a
-  fourth round, because the open work is test fixtures in one package and
-  the production change has been reviewed clean.
