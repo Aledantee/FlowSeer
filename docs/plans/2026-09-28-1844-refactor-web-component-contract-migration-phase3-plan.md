@@ -104,6 +104,13 @@ Storybook's `setProjectAnnotations` in the happy-dom audit.
   layer. Why: new AI surfaces then start on the i18n foundation, and the
   inventory taken from this tree stays valid. (decided by the user,
   2026-10-01)
+- **The review gets one more fix round** past its three-round limit,
+  resumed from `parked/wcc-p3-review` (`b51c97f9`). It covers the catalog
+  isolation test that passes against a shallow copy, the shared
+  `numberFormats` object, the casts and non-null assertions in the two new
+  tests, the decorator solution that disagrees with the code, and the
+  colliding state names in the label property test. Why: each open finding
+  names its fix. (decided by the user, 2026-10-03)
 
 The parent stop condition does not hold with the resolved versions above.
 A Composition-mode probe using the current preview, `setProjectAnnotations`,
