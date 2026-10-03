@@ -323,4 +323,17 @@ It does not mark the component migration implemented.
 
 ## Open questions
 
-None.
+- Parked by drive: the fourth fix round closed its six findings, and its
+  review was not clean, so the verdict stays `rework`. The work is on
+  `parked/wcc-p3-review` (`24ef7fc2`), unmerged; the verifier passes there
+  and the production code has no open defect. Open: the German half of both
+  plugin isolation tests in `frontend/web/src/i18n/i18n.test.ts` cannot
+  fail (the fix reorders one block and adds one merge), a redundant
+  assertion, one trailing participle, and 320 px overflow in seven LongText
+  stories in component CSS this phase did not change. Options: apply the
+  three test and prose fixes here and record `accept after fixes`, with
+  the overflow as a follow-up (fast, but no fifth independent review) | a
+  fifth fix round with review (slower, and every round so far found a new
+  gap) | take the remainder to `plan`. Recommended: apply the three fixes
+  here, because each is named to the line and touches only a test and a
+  solution document.
