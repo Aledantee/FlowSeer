@@ -467,7 +467,7 @@ func casePlanningFilterRuleChange() Case {
 	}
 	ruleSnap := NewFactExpectation(filter.SnapshotRule(denyRule))
 	expectedChanges := []ChangeExpectation{
-		expectedChange("filter", trace.Subject{Kind: "rule", Key: trace.CompositeKey("lan-in", "deny-mdns-unicast")}, "", nil, &ruleSnap),
+		expectedChange("filter", trace.Subject{Kind: "rule", Key: `"lan-in"/"deny-mdns-unicast"`}, "", nil, &ruleSnap),
 	}
 
 	return Case{

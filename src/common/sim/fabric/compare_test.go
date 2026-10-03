@@ -21,6 +21,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+// isFact reports whether f is a non-nil fact with the given type identifier
+// and canonical form.
+func isFact(f trace.Fact, typeID, canonical string) bool {
+	return f != nil && f.TypeID() == typeID && f.Canonical() == canonical
+}
+
 func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
 	actions := make([]fabric.Action, len(injs))
 	for i := range injs {
@@ -493,10 +499,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		var foundLen, foundSpeed bool
 		for _, ch := range changes {
 			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "length" && ch.From.Canonical() == "0" && ch.To.Canonical() == "50" {
+				if ch.Field == "length" && isFact(ch.From, "fabric.length_meters", "0") && isFact(ch.To, "fabric.length_meters", "50") {
 					foundLen = true
 				}
-				if ch.Field == "top_speed" && ch.From.Canonical() == "0" && ch.To.Canonical() == "100000000" {
+				if ch.Field == "top_speed" && isFact(ch.From, "fabric.top_speed_bps", "0") && isFact(ch.To, "fabric.top_speed_bps", "100000000") {
 					foundSpeed = true
 				}
 			}
@@ -536,7 +542,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
 					foundMedium = true
 				}
-				if ch.Field == "delay" && ch.From == nil && ch.To.Canonical() == (1*time.Microsecond).String() {
+				if ch.Field == "delay" && ch.From == nil && isFact(ch.To, "fabric.delay", (1*time.Microsecond).String()) {
 					foundDelay = true
 				}
 			}
@@ -592,10 +598,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 					ch.To == (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
 					foundPort = true
 				}
-				if ch.Field == "address" && ch.From.Canonical() == macH1.String() && ch.To.Canonical() == macH1New.String() {
+				if ch.Field == "address" && isFact(ch.From, "fabric.mac", macH1.String()) && isFact(ch.To, "fabric.mac", macH1New.String()) {
 					foundAddr = true
 				}
-				if ch.Field == "vlan" && ch.From.Canonical() == strconv.Itoa(int(vid10)) && ch.To.Canonical() == strconv.Itoa(int(vid20)) {
+				if ch.Field == "vlan" && isFact(ch.From, "fabric.vlan", strconv.Itoa(int(vid10))) && isFact(ch.To, "fabric.vlan", strconv.Itoa(int(vid20))) {
 					foundVLAN = true
 				}
 			}
@@ -731,13 +737,13 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 				}
 				if ch.Field == "gateway" {
 					foundGW = true
-					if ch.From.Canonical() != gw1.String() || ch.To.Canonical() != gw2.String() {
+					if !isFact(ch.From, "fabric.gateway", gw1.String()) || !isFact(ch.To, "fabric.gateway", gw2.String()) {
 						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
 					}
 				}
 				if ch.Field == "neighbors.10.0.10.3" {
 					foundNbr = true
-					if ch.From != nil || ch.To.Canonical() != mac2.String() {
+					if ch.From != nil || !isFact(ch.To, "fabric.mac", mac2.String()) {
 						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
 					}
 				}

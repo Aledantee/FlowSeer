@@ -701,7 +701,7 @@ var (
 	transceiverH3 = netaddr.MAC{0x02, 0, 0, 0, 1, 0x03}
 )
 
-// CaseTopologyShadowingUnresolvedTransceiver returns the case whose journey crosses a link
+// caseTopologyShadowingUnresolvedTransceiver returns the case whose journey crosses a link
 // whose medium is unresolved. The link still carries the frame, since both ends agree on the
 // same observed speed, but its timing rests on an unidentified transceiver, so the journey is
 // Incomplete with propagation-unknown scoped to that link. Registered alongside
@@ -796,7 +796,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 	}
 }
 
-// CaseTopologyShadowingUnresolvedTransceiverKnownDelivery returns the companion case sharing
+// caseTopologyShadowingUnresolvedTransceiverKnownDelivery returns the companion case sharing
 // [unresolvedTransceiverSpec]: h1's known-unicast delivery to h3 crosses only resolved,
 // stated-medium links, so it stays Complete beside the Incomplete h2 delivery in
 // [caseTopologyShadowingUnresolvedTransceiver].
@@ -928,7 +928,7 @@ var (
 	uncabledBehind4 = netaddr.MAC{0x02, 0, 0, 0, 1, 0x04}
 )
 
-// CaseTopologyShadowingUncabledPortDefiniteDrop returns the case for a switch port named as
+// caseTopologyShadowingUncabledPortDefiniteDrop returns the case for a switch port named as
 // definitely absent rather than merely unreported: sw1 port 3 is named in Config.Uncabled with
 // a static forwarding entry behind it, so a frame to that entry drops definitely, Complete,
 // with port-down. Port 2 and port 4 are omitted from both a cable and Uncabled, so
@@ -1362,7 +1362,7 @@ var (
 	foreignUnicastForeign = netaddr.MAC{0x02, 0, 0, 0, 1, 0x09}
 )
 
-// CaseTroubleshootingHostRejectsForeignUnicast returns a case whose network path is fully
+// caseTroubleshootingHostRejectsForeignUnicast returns a case whose network path is fully
 // resolved and Complete, so it isolates the host-layer decision from topology uncertainty: h2's
 // switch forwards a known-unicast frame addressed to a foreign MAC onto h2's port, and h2
 // refuses it because the destination is neither its own address nor broadcast.

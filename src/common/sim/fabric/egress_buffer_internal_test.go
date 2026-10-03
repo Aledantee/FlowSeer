@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -125,7 +126,7 @@ func TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue(t *testing.T) {
 	if got, want := entry.Step.Inputs[0].Canonical(), "depth_before_octets=1014;frame_octets=1014;threshold_octets=1518"; got != want {
 		t.Errorf("queue fact = %q, want %q", got, want)
 	}
-	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: trace.CompositeKey(ep.Port, "0")}); got != want {
+	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: strconv.Quote(ep.Port) + "/" + strconv.Quote("0")}); got != want {
 		t.Errorf("subject = %+v, want %+v", got, want)
 	}
 	if len(entry.Step.Evidence) != 1 {
@@ -166,7 +167,7 @@ func TestEgressLagThresholdKeepsLogicalSubjectAndPhysicalIssue(t *testing.T) {
 		t.Fatalf("LAG crossing entries = %+v, want queue step", journey.Entries)
 	}
 	entry := journey.Entries[0]
-	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: trace.CompositeKey("lag1", "5")}); got != want {
+	if got, want := entry.Step.Subject, (trace.Subject{Kind: "port", Key: `"lag1"/"5"`}); got != want {
 		t.Errorf("logical queue subject = %+v, want %+v", got, want)
 	}
 	if entry.Device != member.Node || entry.Port != member.Port {

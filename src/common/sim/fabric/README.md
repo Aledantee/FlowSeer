@@ -288,7 +288,7 @@ queue still reports its peak. The depth and peak stay out of
 The first unstated enqueue beyond one maximum-size encoded frame records an
 `EntryQueueThreshold` before it enters the pending queue. Its `traffic` step
 uses `OpQueue`, the logical port and PCP as its subject (or kind `host` keyed by
-`<node>/<pcp>` on a host egress queue), and a `QueueThresholdFact` with the
+`"<node>"/"<pcp>"`, each part quoted, on a host egress queue), and a `QueueThresholdFact` with the
 depth before enqueue, frame octets, and the port-MTU-derived threshold. The
 entry names the physical endpoint, and its evidence context names the logical
 port or host node. It carries one evidence reference shared with that
@@ -666,9 +666,10 @@ frame emissions through the run's arrival queue. Each device holds at most one
 wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
 0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
 before frames scheduled for the same instant. `Step` returns `EntryWake` for
-these timer events without appending to any frame journey. `Mcheck(node, port)`
-is the one out-of-band protocol call: it runs the switch's management check
-at the current clock and queues the emission and the next wake like a step.
+these timer events without appending to any frame journey. A scenario's
+`ActionMcheck` is the one out-of-band protocol call: it runs the switch's
+management check at the current clock and queues the emission and the next wake
+like a step.
 
 Frames emitted by switch layers during wake-ups or forwarding cross cables and
 hubs as journeys marked `Protocol`. The one exception is a released held
@@ -676,7 +677,8 @@ frame: it carries a neighbor resolution's ordinary data, not a frame of the
 switch's own, so its journey is marked `Protocol` false like the data frame
 that was held. A release usually happens during the `Forward` that observes
 the advertisement resolving the neighbor, not during a wake-up; `Switch.Wake`
-settles a resolution timeout and reports a frame the hold queue pushed out. Periodic
+and `Switch.Age` settle a resolution timeout and report a frame the hold queue
+pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
 `Run(budget)` which returns a `RunResult` containing the stop reason, steps
 taken, pending work, status, issues, and fingerprints. In scenarios configured
@@ -693,11 +695,11 @@ derived state is in `Switch(name).Ports()` and `Links()`.
 Every non-LAG switch port falls into one of three cases:
 
 - Cabled: the link below decides the state.
-- Listed in `Config.Uncabled`: `Down`, and `Unlinked` lists it with `no-cable`.
+- Listed in `Config.Uncabled`: `Down` with reason `no-cable`.
   An entry must name an existing non-LAG switch port that no cable and no
   other entry names.
-- Neither: `Unknown`, since nothing says what is attached. `Unlinked` lists it
-  with `adjacency-unresolved`.
+- Neither: `Unknown` with reason `adjacency-unresolved`, since nothing says
+  what is attached. `Metadata()` reports it as an Incomplete issue on the port.
 
 A cabled link resolves in this order:
 

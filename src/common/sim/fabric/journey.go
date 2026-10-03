@@ -5,7 +5,6 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -148,34 +147,6 @@ type JourneyOrigin struct {
 	Kind   JourneyOriginKind
 	Of     FrameID
 	Mirror string
-}
-
-// validate verifies that Of and Mirror fields are consistent with Kind.
-func (o JourneyOrigin) validate() error {
-	switch o.Kind {
-	case OriginInjection:
-		if o.Of != 0 {
-			return errs.New().Attr("kind", o.Kind).Attr("of", o.Of).Msg("injection origin must not specify parent frame ID")
-		}
-		if o.Mirror != "" {
-			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("injection origin must not specify mirror name")
-		}
-	case OriginMirror:
-		if o.Of == 0 {
-			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
-		}
-	case OriginRelease:
-		if o.Of == 0 {
-			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
-		}
-		if o.Mirror != "" {
-			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("release origin must not specify mirror name")
-		}
-	default:
-		return errs.New().Attr("kind", o.Kind).Msg("unknown journey origin kind")
-	}
-
-	return nil
 }
 
 const (
@@ -484,13 +455,6 @@ func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	}
 
 	return scopes
-}
-
-func sameIssue(a, b analysis.Issue) bool {
-	a, b = a.Canonical(), b.Canonical()
-
-	return a.Code == b.Code && a.Status == b.Status && a.Scope.Compare(b.Scope) == 0 && a.Message == b.Message &&
-		slices.Equal(a.Evidence, b.Evidence)
 }
 
 func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {

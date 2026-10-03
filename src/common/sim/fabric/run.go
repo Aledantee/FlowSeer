@@ -1792,7 +1792,7 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 	}
 	var uniqueIssues []analysis.Issue
 	for _, iss := range issues {
-		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return sameIssue(kept, iss) }) {
+		if !slices.ContainsFunc(uniqueIssues, func(kept analysis.Issue) bool { return analysis.SameIssue(kept, iss) }) {
 			uniqueIssues = append(uniqueIssues, iss)
 		}
 	}
