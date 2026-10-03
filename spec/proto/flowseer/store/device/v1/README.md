@@ -45,7 +45,7 @@ mutation {
   intent {
     device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
     idempotency_key: "0192e6a0-0000-7000-8000-00000000a001"
-    actor { operator { subject: "zitadel|2837" } }
+    actor { operator { issuer: "https://auth.example.com" subject: "zitadel|2837" } }
     access_policy { key: "icx7150-lab" version: 3 }
     expected_firmware_fingerprint: "ICX7150-24P SPS10010g"
     interface_description { interface_name: "ethernet 1/1/1" description: "uplink to core" }

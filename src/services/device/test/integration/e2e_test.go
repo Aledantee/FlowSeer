@@ -238,7 +238,10 @@ func (d *deployment) intent(key, description, fingerprint string) *accessv1.Muta
 		Device:         deviceRef(),
 		IdempotencyKey: proto.String(key),
 		Actor: accessv1.Actor_builder{
-			Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
+			Operator: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("e2e-operator"),
+			}.Build(),
 		}.Build(),
 		AccessPolicy:                policyv1.AccessPolicyHandle_builder{Key: proto.String(fixturePolicyKey), Version: proto.Uint64(1)}.Build(),
 		ExpectedFirmwareFingerprint: proto.String(fingerprint),
@@ -398,9 +401,6 @@ func (d *deployment) abandon(t *testing.T, sequence uint64) {
 		connect.NewRequest(devicev1.AbandonMutationRequest_builder{
 			Device:   deviceRef(),
 			Sequence: proto.Uint64(sequence),
-			Actor: accessv1.Actor_builder{
-				Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
-			}.Build(),
 		}.Build()))
 	if err != nil {
 		t.Fatalf("AbandonMutation(%d): %v", sequence, err)
@@ -489,10 +489,7 @@ func TestAnAbandonedMutationIsResolvedByRestoringWhatCentralExpected(t *testing.
 	restore := connect.NewRequest(devicev1.ResolveDesynchronizationRequest_builder{
 		Device:   deviceRef(),
 		Sequence: proto.Uint64(second.GetSequence()),
-		Actor: accessv1.Actor_builder{
-			Operator: identityv1.OperatorRef_builder{Subject: proto.String("e2e-operator")}.Build(),
-		}.Build(),
-		Restore: &devicev1.RestoreExpectedDecision{},
+		Restore:  &devicev1.RestoreExpectedDecision{},
 	}.Build())
 
 	deadline = time.Now().Add(120 * time.Second)
@@ -1092,7 +1089,10 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("alice")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("alice"),
+			}.Build(),
 			Reason:               proto.String("test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),

@@ -761,7 +761,9 @@ type MutationIntent_builder struct {
 	// Client-generated key that makes a retried submission the same intent.
 	// Must be present.
 	IdempotencyKey *string
-	// Who asked. Must be present.
+	// Who asked. Set centrally from the authenticated caller, or from central's
+	// own reason for an intent it admits itself; replaces a value a request
+	// carries.
 	Actor *Actor
 	// The policy version the intent is admitted under; a later policy edit
 	// does not change an intent in flight. Must be present.
@@ -1088,11 +1090,11 @@ const file_flowseer_model_access_v1_operation_proto_rawDesc = "" +
 	"\x05Actor\x12E\n" +
 	"\boperator\x18\x01 \x01(\v2'.flowseer.model.identity.v1.OperatorRefH\x00R\boperator\x12?\n" +
 	"\x06system\x18\x02 \x01(\v2%.flowseer.model.access.v1.SystemActorH\x00R\x06systemB\x12\n" +
-	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\xff\x03\n" +
+	"\tprincipal\x12\x05\xbaH\x02\b\x01\"\xf7\x03\n" +
 	"\x0eMutationIntent\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x124\n" +
-	"\x0fidempotency_key\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x12=\n" +
-	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12Y\n" +
+	"\x0fidempotency_key\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x0eidempotencyKey\x125\n" +
+	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorR\x05actor\x12Y\n" +
 	"\raccess_policy\x18\x04 \x01(\v2,.flowseer.model.policy.v1.AccessPolicyHandleB\x06\xbaH\x03\xc8\x01\x01R\faccessPolicy\x12Q\n" +
 	"\x1dexpected_firmware_fingerprint\x18\x05 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x1bexpectedFirmwareFingerprint\x12k\n" +

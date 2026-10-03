@@ -21,6 +21,7 @@ func validApply() *devicev1.ApplyInterfaceDescriptionRequest {
 	device.SetDevice(local)
 
 	operator := &identityv1.OperatorRef{}
+	operator.SetIssuer("https://auth.example.com")
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)

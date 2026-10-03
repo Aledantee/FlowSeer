@@ -146,11 +146,10 @@ func TestDeviceAccessStatusRules(t *testing.T) {
 func TestDeviceAbandonAndResolveRules(t *testing.T) {
 	tests := []validationCase{
 		{
-			name: "abandon with device, sequence, and actor is valid",
+			name: "abandon with device and sequence is valid",
 			message: devicev1.AbandonMutationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(42),
-				Actor:    operatorActor(),
 			}.Build(),
 			wantValid: true,
 		},
@@ -158,7 +157,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			name: "abandon without a sequence is rejected",
 			message: devicev1.AbandonMutationRequest_builder{
 				Device: deviceRef(deviceID),
-				Actor:  operatorActor(),
 			}.Build(),
 		},
 		{
@@ -166,14 +164,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			message: devicev1.AbandonMutationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(0),
-				Actor:    operatorActor(),
-			}.Build(),
-		},
-		{
-			name: "abandon without an actor is rejected",
-			message: devicev1.AbandonMutationRequest_builder{
-				Device:   deviceRef(deviceID),
-				Sequence: proto.Uint64(42),
 			}.Build(),
 		},
 		{
@@ -185,7 +175,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			message: devicev1.ResolveDesynchronizationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(42),
-				Actor:    operatorActor(),
 				Accept:   devicev1.AcceptObservedDecision_builder{}.Build(),
 			}.Build(),
 			wantValid: true,
@@ -195,7 +184,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			message: devicev1.ResolveDesynchronizationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(42),
-				Actor:    operatorActor(),
 				Replace:  mutationIntent().Build(),
 			}.Build(),
 			wantValid: true,
@@ -205,7 +193,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			message: devicev1.ResolveDesynchronizationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(42),
-				Actor:    operatorActor(),
 			}.Build(),
 		},
 		{
@@ -213,7 +200,6 @@ func TestDeviceAbandonAndResolveRules(t *testing.T) {
 			message: devicev1.ResolveDesynchronizationRequest_builder{
 				Device:   deviceRef(deviceID),
 				Sequence: proto.Uint64(42),
-				Actor:    operatorActor(),
 				Replace:  accessv1.MutationIntent_builder{}.Build(),
 			}.Build(),
 		},

@@ -148,6 +148,7 @@ func deviceRef() *inventoryv1.DeviceGlobalRef {
 
 func intentFor(description string) *accessv1.MutationIntent {
 	operator := &identityv1.OperatorRef{}
+	operator.SetIssuer("https://auth.example.com")
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)
@@ -421,7 +422,6 @@ func TestAbandonEndsAnOpenMutationAndRefusesATerminalOne(t *testing.T) {
 	msg := &devicev1.AbandonMutationRequest{}
 	msg.SetDevice(deviceRef())
 	msg.SetSequence(seq)
-	msg.SetActor(intentFor("x").GetActor())
 
 	resp, err := h.svc.AbandonMutation(ctx, connect.NewRequest(msg))
 	if err != nil {
@@ -505,7 +505,6 @@ func resolveRequest(sequence uint64) *devicev1.ResolveDesynchronizationRequest {
 	msg := &devicev1.ResolveDesynchronizationRequest{}
 	msg.SetDevice(deviceRef())
 	msg.SetSequence(sequence)
-	msg.SetActor(intentFor("x").GetActor())
 	return msg
 }
 

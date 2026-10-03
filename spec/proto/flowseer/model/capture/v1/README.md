@@ -35,12 +35,14 @@ capture as an `OperatorRef` from
 [`model/identity/v1`](../../identity/v1/README.md), the same value a
 mutation intent's `Actor` carries. It comes from that leaf and not from
 `model/access`, so naming a person does not pull the access plane into the
-edge's capture schemas. The caller writes the subject, and nothing verifies it
-until caller authentication lands. Field 1, a free-text `operator` string
-before `requested_by`, is reserved.
+edge's capture schemas. It names the person by issuer and subject. Field 1, a
+free-text `operator` string before `requested_by`, is reserved.
 
 ```prototext
-requested_by { subject: "zitadel|usr_123" }
+requested_by {
+  issuer: "https://idp.example.com"
+  subject: "zitadel|usr_123"
+}
 reason: "loss on the uplink"
 full_payload_requested: false
 ```

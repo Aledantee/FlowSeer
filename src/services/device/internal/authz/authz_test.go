@@ -317,6 +317,7 @@ func validCaptureSessionRecord(t *testing.T) *capturemodelv1.CaptureSessionRecor
 			}.Build(),
 			Authorization: capturemodelv1.CaptureAuthorization_builder{
 				RequestedBy: identitymodelv1.OperatorRef_builder{
+					Issuer:  proto.String("https://auth.example.com"),
 					Subject: proto.String(testPrincipalID),
 				}.Build(),
 				Reason:               proto.String("authorized test session"),
@@ -348,6 +349,7 @@ func validCreateCaptureSessionRequest(t *testing.T) *capturev1.CreateCaptureSess
 		}.Build(),
 		Authorization: capturemodelv1.CaptureAuthorization_builder{
 			RequestedBy: identitymodelv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
 				Subject: proto.String(testPrincipalID),
 			}.Build(),
 			Reason:               proto.String("authorized test session"),

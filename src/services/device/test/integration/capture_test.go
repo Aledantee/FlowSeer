@@ -168,7 +168,10 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("integration test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -769,7 +772,10 @@ func TestRemotePacketCapture_EndToEndWithAgent(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("e2e agent test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -875,7 +881,10 @@ func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
 			MaxPackets: proto.Uint64(1000),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("cancellation test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -1003,7 +1012,10 @@ func TestRemotePacketCapture_InactivityTimeout(t *testing.T) {
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("inactivity test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -1089,7 +1101,10 @@ func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("privacy test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),

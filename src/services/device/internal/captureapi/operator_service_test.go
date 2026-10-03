@@ -145,7 +145,10 @@ func newTestCreateRequest(maxPackets uint64) *operatorcapturev1.CreateCaptureSes
 			}.Build(),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("debugging traffic"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -196,7 +199,7 @@ func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
 	// and stores nothing.
 	for name, requester := range map[string]*identityv1.OperatorRef{
 		"no requester":  nil,
-		"empty subject": identityv1.OperatorRef_builder{Subject: proto.String("")}.Build(),
+		"empty subject": identityv1.OperatorRef_builder{Issuer: proto.String("https://auth.example.com"), Subject: proto.String("")}.Build(),
 	} {
 		before, err := h.store.ListSessions(ctx, testTenantID)
 		if err != nil {
