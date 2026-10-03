@@ -23,7 +23,7 @@ func fdbLookupScope(parent analysis.Scope, fid vlan.ID, mac netaddr.MAC) analysi
 	return analysis.FieldScope(parent, "fdb", strconv.Itoa(int(fid)), mac.String())
 }
 
-// Counters records forwarding database lifecycle events on a [Bridge].
+// Counters records forwarding database lifecycle events on a [Layer].
 type Counters struct {
 	Learned uint64
 	Expired uint64
@@ -51,15 +51,15 @@ const (
 type Lifetime string
 
 const (
-	// Aging is the zero value: [Bridge.Age] removes the record once it has
+	// Aging is the zero value: [Layer.Advance] removes the record once it has
 	// sat longer than the bridge's configured aging time.
 	Aging Lifetime = ""
 
-	// Static is a record [Bridge.Age] never removes.
+	// Static is a record [Layer.Advance] never removes.
 	Static Lifetime = "static"
 )
 
-// Seed represents a forwarding database entry to preload into a [Bridge].
+// Seed represents a forwarding database entry to preload into a [Layer].
 type Seed struct {
 	FID       vlan.ID
 	MAC       netaddr.MAC

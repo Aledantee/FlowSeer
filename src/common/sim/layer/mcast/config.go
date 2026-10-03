@@ -80,13 +80,11 @@ type VLANSnooping struct {
 	MembershipInterval time.Duration
 	RouterPortInterval time.Duration
 
-	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses
-	// [defaultLastMemberQueryInterval].
+	// LastMemberQueryInterval is the spacing between last-member queries. Zero uses 1 second.
 	LastMemberQueryInterval time.Duration
 
 	// LastMemberQueryCount is the robustness variable: how many last-member queries a
-	// querier sends before concluding a group or source has no more listeners. Zero uses
-	// [defaultLastMemberQueryCount].
+	// querier sends before concluding a group or source has no more listeners. Zero uses 2.
 	LastMemberQueryCount int
 }
 

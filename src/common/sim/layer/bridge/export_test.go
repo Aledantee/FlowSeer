@@ -8,10 +8,18 @@ import (
 
 // Forward is a test helper that runs Ingress then Egress, learning dynamic addresses.
 func (b *Layer) Forward(now time.Time, ingress string, f ethernet.Frame) Result {
-	return b.forward(now, ingress, f, true)
+	in, res, ok := b.Ingress(now, ingress, f, true, true)
+	if !ok {
+		return res
+	}
+	return b.Egress(in, f)
 }
 
 // Peek is a test helper that runs Ingress then Egress without mutating the forwarding database.
 func (b *Layer) Peek(now time.Time, ingress string, f ethernet.Frame) Result {
-	return b.forward(now, ingress, f, false)
+	in, res, ok := b.Ingress(now, ingress, f, false, false)
+	if !ok {
+		return res
+	}
+	return b.Egress(in, f)
 }

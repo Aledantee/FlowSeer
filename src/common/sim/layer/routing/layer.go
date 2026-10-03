@@ -96,7 +96,7 @@ const (
 
 	// ReasonNeighborHoldOverflow indicates a frame dropped because a newer frame for the same
 	// unresolved next hop took its place in a full hold queue. It is deliberately distinct from
-	// ReasonNeighborMiss: the neighbor may well resolve, and often does on the same Wake.
+	// ReasonNeighborMiss: the neighbor may well resolve, and often does on the same Advance.
 	ReasonNeighborHoldOverflow trace.Reason = "neighbor-hold-overflow"
 
 	// ReasonNeighborPending indicates a frame held because the next hop's neighbor entry is
@@ -751,7 +751,7 @@ func (l *Layer) Interface(name string) (Interface, bool) {
 // lifecycle" section.
 //
 // now is the instant the neighbor lifecycle reasons against, both for a newly created entry's
-// resolution deadline and (through [Layer.Age]) an existing one's reachability deadline. commit
+// resolution deadline and (through [Layer.Advance]) an existing one's reachability deadline. commit
 // gates every mutation Route can make to the neighbor table: with it clear, Route never creates
 // an entry or queues a frame, so a preview cannot change what a later call observes.
 //
