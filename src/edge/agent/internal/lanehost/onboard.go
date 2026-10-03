@@ -208,10 +208,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 
 	addr, err := addressOf(listed.GetIp())
 	if err != nil {
-		o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
-			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
-			slog.String("flowseer.device.id", deviceID),
-			slog.String("error.type", errorType(err)))
+		o.warnNotOnboarded(ctx, deviceID, err)
 		return
 	}
 	binding := inventoryv1.BindingGlobalRef_builder{
@@ -223,14 +220,7 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	err = o.cfg.Lane.AddDevice(attempt, deviceID, session)
 	cancel()
 	if err != nil {
-		// A warning, not an error: this device is not held and the next Sync
-		// tries it again, which is a retry rather than an abandoned
-		// operation. An edge with one device switched off would otherwise
-		// report an error per reconnection for as long as it stays off.
-		o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
-			slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
-			slog.String("flowseer.device.id", deviceID),
-			slog.String("error.type", errorType(err)))
+		o.warnNotOnboarded(ctx, deviceID, err)
 		return
 	}
 
@@ -254,6 +244,18 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 			slog.String("otel.event.name", "flowseer.edge.device.horizon_unmeasured"),
 			slog.String("flowseer.device.id", deviceID))
 	}
+}
+
+// warnNotOnboarded reports a device that was not onboarded. It is a warning,
+// not an error: the device is not held and the next Sync tries it again, which
+// is a retry rather than an abandoned operation. An edge with one device
+// switched off would otherwise report an error per reconnection for as long
+// as it stays off.
+func (o *Onboarder) warnNotOnboarded(ctx context.Context, deviceID string, err error) {
+	o.log.WarnContext(ctx, "listed device was not onboarded; it will be tried again",
+		slog.String("otel.event.name", "flowseer.edge.device.onboarding_failed"),
+		slog.String("flowseer.device.id", deviceID),
+		slog.String("error.type", errorType(err)))
 }
 
 // deviceSession builds what the lane needs to reach one listed device.

@@ -111,7 +111,7 @@ func MapRecord(
 			var params []*eventlogv1.SyslogStructuredDataParam
 			paramsValid := true
 			for _, p := range el.Parameters {
-				if !validText(p.Name, maxParamName) || len(p.Value) > maxParamValue || !utf8.Valid(p.Value) {
+				if !validText(p.Name, maxParamName) || !utf8.Valid(p.Value) || utf8.RuneCount(p.Value) > maxParamValue {
 					isParseFailure = true
 					paramsValid = false
 					break
@@ -195,9 +195,13 @@ func BuildEnvelope(
 }
 
 // validText reports whether s fits a string field bounded to 1..limit
-// characters. Byte length is at least the character count, so a value that
-// passes here passes the schema bound. A string field holds UTF-8 only, and
-// the parser keeps header and parameter bytes as the device sent them.
+// characters. The schema counts characters, not bytes, so a multi-byte value
+// within the bound is kept. A string field holds UTF-8 only, and the parser
+// keeps header and parameter bytes as the device sent them.
 func validText(s string, limit int) bool {
-	return len(s) >= 1 && len(s) <= limit && utf8.ValidString(s)
+	if !utf8.ValidString(s) {
+		return false
+	}
+	n := utf8.RuneCountInString(s)
+	return n >= 1 && n <= limit
 }
