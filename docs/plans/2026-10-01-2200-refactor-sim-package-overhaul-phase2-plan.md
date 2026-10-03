@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/conventions/a-refusal-test-needs-an-input-only-the-refusal-rejects.md
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
