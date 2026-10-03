@@ -4,11 +4,13 @@ type: fix
 date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: docs
 ---
 
 # Review Finding Kinds and the Gap Pass - Plan
+
+> Implemented. 3 units, 2026-10-03T10:25Z to 2026-10-03T10:25Z.
 
 ## Goal
 
