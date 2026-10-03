@@ -27,7 +27,10 @@ import (
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/lanehost"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/report"
 	"go.aledante.io/FlowSeer/src/edge/agent/internal/subscribeloop"
+	"go.aledante.io/FlowSeer/src/edge/agent/internal/syslogsource"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/modules/localnet/access"
+	"go.aledante.io/FlowSeer/src/protocol/syslog"
 )
 
 // ErrCodeStart is an agent that cannot be assembled from what it was given.
@@ -143,6 +146,8 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	}
 	defer attachment.Close(context.WithoutCancel(ctx))
 
+	deviceIndex := lanehost.NewDeviceIndex()
+
 	assembly := &assembly{
 		cfg:      cfg,
 		opts:     opts,
@@ -151,6 +156,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		edge:     edgeClient,
 		dispatch: dispatchClient,
 		audit:    auditClient,
+		index:    deviceIndex,
 	}
 
 	captureAssembly := &captureAssembly{
@@ -158,6 +164,14 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		opts:          opts,
 		signer:        signer,
 		captureClient: captureClient,
+	}
+
+	syslogAssembly := &syslogAssembly{
+		cfg:    cfg,
+		opts:   opts,
+		edgeID: edgeID,
+		leaf:   attachment.Leaf,
+		index:  deviceIndex,
 	}
 
 	return service.Run(ctx, service.Config{
@@ -184,7 +198,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 			Insecure:    &loopbackIsInsecure,
 			Headers:     map[string]string{},
 		},
-		Modules: modules(assembly, captureAssembly),
+		Modules: modules(assembly, captureAssembly, syslogAssembly),
 	})
 }
 
@@ -198,6 +212,7 @@ type assembly struct {
 	edge     attachv1connect.EdgeServiceClient
 	dispatch dispatchv1connect.DispatchServiceClient
 	audit    auditv1connect.AuditServiceClient
+	index    *lanehost.DeviceIndex
 }
 
 // setup builds one attempt: the lane, the onboarder, the report queue, and
@@ -235,6 +250,7 @@ func (a *assembly) setup(ctx context.Context) (service.Attempt, error) {
 	onboarder, err := lanehost.NewOnboarder(lanehost.OnboardConfig{
 		Client: a.edge,
 		Lane:   lane,
+		Index:  a.index,
 		Edge:   edgeRefOf(a.edgeID),
 		// Nil for a packaged deployment, which is what NewOnboarder reads
 		// as the real dialers.
@@ -490,9 +506,97 @@ func registerCaptureInstruments(meter metric.Meter, contact *subscribeloop.Conta
 	)
 }
 
-func modules(a *assembly, ca *captureAssembly) []service.Module {
+type syslogAssembly struct {
+	cfg    *Config
+	opts   Options
+	edgeID string
+	leaf   *edgebus.Leaf
+	index  *lanehost.DeviceIndex
+}
+
+func (sa *syslogAssembly) setup(ctx context.Context) (service.Attempt, error) {
+	listeners := sa.cfg.SyslogListeners()
+	if len(listeners) == 0 {
+		return service.Attempt{}, nil
+	}
+
+	clock := sa.opts.Clock
+	if clock == nil {
+		clock = time.Now
+	}
+
+	rawPerMin, rawSampleEvery := sa.cfg.SyslogRawPolicy()
+	policy := syslogsource.NewRawPolicy(uint32(rawPerMin), uint32(rawSampleEvery), clock)
+
+	meter := service.Meter(ctx)
+	src, err := syslogsource.Listen(ctx, syslogsource.Config{
+		Listeners: listeners,
+		Index:     sa.index,
+		Publisher: sa.leaf,
+		EdgeRef:   edgeRefOf(sa.edgeID),
+		Policy:    policy,
+		Meter:     meter,
+	})
+	if err != nil {
+		return service.Attempt{}, err
+	}
+
+	if err := registerSyslogReceiverInstruments(meter, src.Receiver().Stats); err != nil {
+		_ = src.Close()
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{
+		Runner: src.Run,
+	}, nil
+}
+
+func registerSyslogReceiverInstruments(meter metric.Meter, readStats func() syslog.Stats) error {
+	observe := func(name, unit, description string, read func() int64) error {
+		_, err := meter.Int64ObservableCounter(name,
+			metric.WithUnit(unit),
+			metric.WithDescription(description),
+			metric.WithInt64Callback(func(_ context.Context, o metric.Int64Observer) error {
+				o.Observe(read())
+				return nil
+			}))
+		return err
+	}
+
+	return errors.Join(
+		observe("flowseer.edge.syslog.receiver.received", "{frame}",
+			"syslog frames received across all listeners",
+			func() int64 { return int64(readStats().Received) }),
+		observe("flowseer.edge.syslog.receiver.oversized", "{frame}",
+			"syslog frames dropped because they exceed MaxPayload",
+			func() int64 { return int64(readStats().Oversized) }),
+		observe("flowseer.edge.syslog.receiver.framing_errors", "{frame}",
+			"syslog frames that violated the configured transport framing",
+			func() int64 { return int64(readStats().FramingErrors) }),
+		observe("flowseer.edge.syslog.receiver.udp_dropped", "{datagram}",
+			"syslog datagrams dropped due to receiver queue capacity",
+			func() int64 { return int64(readStats().UDPDropped) }),
+		observe("flowseer.edge.syslog.receiver.pressure_closed", "{connection}",
+			"syslog stream connections closed under receiver pressure",
+			func() int64 { return int64(readStats().PressureClosed) }),
+		observe("flowseer.edge.syslog.receiver.connections_rejected", "{connection}",
+			"syslog stream connections rejected due to connection limits",
+			func() int64 { return int64(readStats().ConnectionRejected) }),
+	)
+}
+
+func modules(a *assembly, ca *captureAssembly, sa *syslogAssembly) []service.Module {
+	hasSyslog := false
+	if sa != nil && sa.cfg != nil {
+		hasSyslog = len(sa.cfg.SyslogListeners()) > 0
+	}
+	var syslogLeaf *service.Leaf
+	if sa != nil {
+		syslogLeaf = &service.Leaf{Setup: sa.setup}
+	}
 	return []service.Module{
 		{Name: "lane", Leaf: &service.Leaf{Setup: a.setup}},
 		{Name: "capture", Leaf: &service.Leaf{Setup: ca.setup}},
+		{Name: "syslog", Gate: service.FixedGate(hasSyslog), Leaf: syslogLeaf},
 	}
 }

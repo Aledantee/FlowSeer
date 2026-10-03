@@ -75,7 +75,10 @@ type OnboardConfig struct {
 	// listing not having failed: from central the edge looks enrolled,
 	// healthy, and permanently unsubscribed.
 	PerDeviceTimeout time.Duration
-	Logger           *slog.Logger
+	// Index maps peer addresses to device identities for cross-module lookup.
+	// Nil records to no index.
+	Index  *DeviceIndex
+	Logger *slog.Logger
 }
 
 // Onboarder holds the devices this edge has been told to serve, and adds the
@@ -224,6 +227,14 @@ func (o *Onboarder) onboard(ctx context.Context, listed *attachv1.ListedDevice) 
 	o.mu.Lock()
 	o.held[deviceID], _ = proto.Clone(listed).(*attachv1.ListedDevice)
 	o.mu.Unlock()
+	if o.cfg.Index != nil {
+		if addr, err := addressOf(listed.GetIp()); err == nil {
+			binding := inventoryv1.BindingGlobalRef_builder{
+				Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String(listed.GetBindingId())}.Build(),
+			}.Build()
+			o.cfg.Index.Add(addr, deviceID, binding)
+		}
+	}
 
 	o.log.InfoContext(ctx, "device onboarded",
 		slog.String("otel.event.name", "flowseer.edge.device.onboarded"),

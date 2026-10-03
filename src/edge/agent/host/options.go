@@ -76,8 +76,8 @@ type Options struct {
 	CaptureInactivityTimeout time.Duration
 	// Clock is what the lane reads the time from: every audit record's
 	// timestamp, the operation-duration measurement, the moment a mutation
-	// was submitted, and the recovery runner's own waiting. Nil means
-	// [time.Now].
+	// was submitted, the recovery runner's own waiting, and the syslog raw
+	// window. Nil means [time.Now].
 	//
 	// Substituting it changes what the agent believes the time is and
 	// nothing else. It skips no check and takes no branch away, which is why

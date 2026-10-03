@@ -21,6 +21,7 @@ transport, and the orderings between them.
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
 | `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
+| `internal/syslogsource` | Sockets, mapping, and raw payload suppression for syslog ingestion from hosted network devices |
 
 ## Which devices this edge serves
 
@@ -196,3 +197,21 @@ Stream contact metrics are exported under `flowseer.edge.capture.connections`,
 `.failures`, and `.messages`. No packet payload byte is ever written to a log
 record: what the runner logs about a chunk is its first sequence, its packet
 count, and whether it is final.
+
+## Syslog ingestion
+
+When configured with listeners, `host.Run` includes the `"syslog"` module
+gated on listener presence. It binds UDP and TCP listeners, admits syslog
+datagrams and frames up to 65,535 bytes, maps them to `SyslogRecord` payloads,
+and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>.ingest.syslog`.
+
+Incoming datagrams are accepted only from management addresses known to
+`lanehost.DeviceIndex`. Senders from unknown addresses are dropped and counted
+on `flowseer.edge.syslog.dropped` with reason `unknown_source`.
+
+When a record fails parsing or exceeds field length bounds, `RawPolicy`
+evaluates whether to attach the raw payload. The first 20 failures per device
+per minute retain raw bytes under reason `RAW_REASON_PARSE_FAILURE`, and 1 in
+100 thereafter, recording the suppressed count. Oversized messages beyond 65,527
+bytes are truncated and marked with `message_truncated`.
+

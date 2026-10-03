@@ -195,19 +195,23 @@ func edgeRef() *edgev1.EdgeGlobalRef {
 	}.Build()
 }
 
-func newOnboarder(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler) *lanehost.Onboarder {
+func newOnboarder(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler, index ...*lanehost.DeviceIndex) *lanehost.Onboarder {
 	t.Helper()
-	return newOnboarderOver(t, lister, registrar, logs, nil)
+	return newOnboarderOver(t, lister, registrar, logs, nil, index...)
 }
 
-func newOnboarderOver(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler, endpoints *endpointRecorder) *lanehost.Onboarder {
+func newOnboarderOver(t *testing.T, lister *listerFake, registrar *registrarFake, logs slog.Handler, endpoints *endpointRecorder, index ...*lanehost.DeviceIndex) *lanehost.Onboarder {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
 	if logs != nil {
 		logger = slog.New(logs)
 	}
+	var idx *lanehost.DeviceIndex
+	if len(index) > 0 {
+		idx = index[0]
+	}
 	cfg := lanehost.OnboardConfig{
-		Client: lister, Lane: registrar, Edge: edgeRef(), Logger: logger,
+		Client: lister, Lane: registrar, Edge: edgeRef(), Index: idx, Logger: logger,
 		PerDeviceTimeout: 50 * time.Millisecond,
 	}
 	if endpoints != nil {
@@ -231,8 +235,9 @@ func TestTheAgentOnboardsWhatItIsToldToServe(t *testing.T) {
 		listedDevice(deviceTwo, time.Minute),
 	}}}
 	registrar := newRegistrar()
+	idx := lanehost.NewDeviceIndex()
 
-	if err := newOnboarder(t, lister, registrar, nil).Sync(context.Background()); err != nil {
+	if err := newOnboarder(t, lister, registrar, nil, idx).Sync(context.Background()); err != nil {
 		t.Fatalf("Sync: %v", err)
 	}
 
@@ -257,6 +262,17 @@ func TestTheAgentOnboardsWhatItIsToldToServe(t *testing.T) {
 	}
 	if got := session.AccessPolicy.GetVersion(); got != 3 {
 		t.Errorf("AccessPolicy version = %d, want the listing's 3", got)
+	}
+
+	entry, ok := idx.Lookup("172.16.0.6")
+	if !ok {
+		t.Fatal("device not found in index under listed address 172.16.0.6")
+	}
+	if entry.DeviceID != deviceOne && entry.DeviceID != deviceTwo {
+		t.Errorf("index DeviceID = %q, want one of listed devices", entry.DeviceID)
+	}
+	if entry.Binding.GetBinding().GetId() != bindingID {
+		t.Errorf("index Binding = %q, want %q", entry.Binding.GetBinding().GetId(), bindingID)
 	}
 	if session.DelayedEffect.Horizon != 30*time.Second {
 		t.Errorf("DelayedEffect.Horizon = %v, want the listing's 30s", session.DelayedEffect.Horizon)
