@@ -396,7 +396,7 @@ option. One Connect interceptor enforces it:
 | The object is named in a request field | checks the relation on that object before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
 | The object is the admitted tenant (creating an edge) | checks the relation on the tenant before the handler runs, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
 | The object is the platform | checks the relation on `platform:flowseer` before the handler runs, reading no tenant header, and returns `Internal` and drops the response after a failed `Require` or `Filter` |
-| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed `Require` or `Filter` |
+| The object is known only after a load | runs the handler with an obligation in the context, and returns `Internal` and drops the response when the handler returned without a check or answered after a failed `Require` or `Filter`, or `ctx.Err()` when the handler returned an error with no check after the context ended |
 | The handler filters a list | same obligation as a load |
 | No rule | refuses the call |
 
