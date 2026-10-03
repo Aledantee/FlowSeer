@@ -103,7 +103,7 @@ watch(
 
 Domain unit tests alone do not guarantee a view initializes. Every view must have a
 mount test in Vitest that instantiates the component within its router context
-(`frontend/web/src/FleetView.test.ts:23-43`):
+(`frontend/web/src/FleetView.test.ts:68-98`):
 
 ```ts
 async function mountAt(path: string) {

@@ -13,7 +13,7 @@ approved: 2026-10-01
 `frontend/web/src/components/topology/layout.ts:1-3` imports ELK's layout API
 and worker, and line 16 creates the worker-backed layout engine used by the
 topology graph. The direct requirement is pinned at `0.12.0` in
-`frontend/web/package.json:29`.
+`frontend/web/package.json:30`.
 
 ## Why it is safe
 

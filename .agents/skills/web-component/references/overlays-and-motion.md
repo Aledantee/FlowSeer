@@ -251,8 +251,8 @@ frame from `performance.now()`
 `FleetView.motion.test.ts`, `UiMotion.test.ts`, and `UiMotion.reduced.test.ts`
 install a mocked `performance.now` before the mount and advance it
 (`installMotionClock`, `advanceMotion`). Each file ends the spy in `afterEach`
-(`FleetView.motion.test.ts:86`, `UiMotion.test.ts:21`,
-`UiMotion.reduced.test.ts:33`), because a mocked clock left installed freezes
+(`FleetView.motion.test.ts:87`, `UiMotion.test.ts:22`,
+`UiMotion.reduced.test.ts:34`), because a mocked clock left installed freezes
 `performance.now()` for every later case. A fixed wall-clock wait is not
 reliable: on a loaded host the 140 ms layout animation can finish before the
 test samples.

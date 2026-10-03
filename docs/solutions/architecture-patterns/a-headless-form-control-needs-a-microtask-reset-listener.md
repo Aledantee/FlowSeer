@@ -87,7 +87,7 @@ export function useFormReset(options: UseFormResetOptions): void {
 }
 ```
 
-In `frontend/web/src/ui/form/UiSelect.vue:97-126`, the component tracks controlled
+In `frontend/web/src/ui/form/UiSelect.vue:106-135`, the component tracks controlled
 versus uncontrolled state and uses the reset hook:
 
 ```ts
@@ -123,11 +123,11 @@ useFormReset({
 
 - `frontend/web/src/ui/form/useFormReset.ts:23-50` handles microtask dispatch
   and element resolution.
-- `frontend/web/src/ui/form/formReset.test.ts:21-53` tests controlled input reset
+- `frontend/web/src/ui/form/formReset.test.ts:22-54` tests controlled input reset
   and `v-model` synchronization.
-- `frontend/web/src/ui/form/formReset.test.ts:121-149` tests uncontrolled
+- `frontend/web/src/ui/form/formReset.test.ts:122-150` tests uncontrolled
   checkbox reset with `FormData`.
-- `frontend/web/src/ui/form/formReset.test.ts:291-416` tests clearing controlled
+- `frontend/web/src/ui/form/formReset.test.ts:294-419` tests clearing controlled
   state to `undefined` across Checkbox, Switch, RadioGroup, and Select.
 
 ## What this does not cover

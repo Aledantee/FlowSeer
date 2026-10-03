@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-`frontend/web/src/ui/app/UiAppRoot.vue:2` and `frontend/web/src/ui/form/UiSelect.vue:22` import Reka UI primitives. The pinned direct requirement is `reka-ui` at `2.10.5` in `frontend/web/package.json`.
+`frontend/web/src/ui/app/UiAppRoot.vue:3` and `frontend/web/src/ui/form/UiSelect.vue:22` import Reka UI primitives. The pinned direct requirement is `reka-ui` at `2.10.5` in `frontend/web/package.json`.
 
 ## Why it is safe
 
