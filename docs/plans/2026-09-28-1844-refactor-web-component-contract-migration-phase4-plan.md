@@ -386,3 +386,17 @@ Neither blocks a unit.
 2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
+
+- Parked by drive: the fourth fix round closed the false search test, the
+  brand literal, the visible tooltip text, and 25 of 32 gap items, and its
+  review was not clean, so the verdict stays `rework`. The work is on
+  `parked/wcc-p4-review` (`722f615e`), unmerged. Open: reka-ui prints the
+  tooltip's accessible text as one hidden node built from `UiTooltip`'s
+  string props, so names there are unmarked (only the whole node can be
+  marked); `ClientsView.vue` AI context counts changed from `n()` to
+  `String()`, against the Decision that AI targets follow the screen; a
+  slot test in `UiTooltip.test.ts` that cannot fail. Options: apply the two
+  small fixes here and rule on the hidden description | a fifth fix round
+  | take the tooltip marking to `plan`. Recommended: apply the fixes here
+  with the whole hidden node marked `translate="no"`, because each open
+  item names its fix.
