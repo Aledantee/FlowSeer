@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
+compound: docs/solutions/architecture-patterns/a-process-lifetime-index-fed-by-attempt-state-applies-listings-under-one-lock.md
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md, docs/architecture/2026-08-20-network-model-structure-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
