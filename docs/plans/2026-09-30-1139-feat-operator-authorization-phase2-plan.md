@@ -36,7 +36,8 @@ is `github.com/openfga/openfga@v1.21.0`, `api@` is
 
 - Token verification uses `github.com/coreos/go-oidc/v3` v3.21.0
   (Apache-2.0), which brings `github.com/go-jose/go-jose/v4` v4.1.4
-  (Apache-2.0) and `golang.org/x/oauth2` v0.36.0 (BSD-3-Clause). (unconfirmed)
+  (Apache-2.0) and `golang.org/x/oauth2` v0.36.0 (BSD-3-Clause).
+  (decided by the user, 2026-10-03)
   Why: its verifier parses against an allowlist that never holds `none` or
   HMAC (`oidc@/oidc.go:178-191`, `oidc@/verify.go:313`), matches the issuer
   exactly (`:237`), requires the audience (`:253`), and refuses a token that
@@ -219,6 +220,14 @@ is `github.com/openfga/openfga@v1.21.0`, `api@` is
   parent fixes this phase as one unit of its own, U2 shares no file with the
   rest and runs beside them in the first wave, and the other five form one
   cluster. The length is sources and the options of three open decisions.
+- The `Checker` reaches OpenFGA through `github.com/openfga/api/proto` over
+  gRPC, without `github.com/openfga/language`, so the model is not written
+  in DSL. This replaces the owned HTTP client and its JSON model above.
+  Why: typed requests, `proto.Equal` for the model, and the transport the
+  spike measured. (decided by the user, 2026-10-03)
+- The lab issuer is not chosen yet. The user asked for a wider survey of
+  issuers with their pros and cons before deciding.
+  (decided by the user, 2026-10-03)
 
 ## Requirements
 
@@ -551,8 +560,3 @@ Unverified, for the implementer to settle:
 For phase 3: whether a start fails when the engine or an issuer is
 unreachable, and whether a suspended tenant's organization still yields
 `claimed` (`TenantLifecycle`, `tenant.proto:26-33`).
-- Parked by drive: the three decisions above. Options for each are listed
-  with their costs. Recommended: go-oidc v3.21.0, an owned HTTP client with
-  a JSON model, and Keycloak 26.7.4, because the units are written for
-  them, the client adds no module, and Keycloak's tokens list every
-  organization of a user.
