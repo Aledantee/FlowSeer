@@ -167,6 +167,11 @@ var importOrder = map[string][]string{
 	// context, so it names the device and the log taxonomy directly.
 	"event/log": {"model/inventory", "net/addr", "net/log"},
 
+	// The durable audit record of what an operator did, read outside any live
+	// transport context, so it names the operator, the edge, or the capture
+	// session directly.
+	"event/operator": {"model/identity", "model/edge", "model/capture"},
+
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by
@@ -398,6 +403,8 @@ func TestLayeringViolationRules(t *testing.T) {
 		{name: "operator api imports the execution envelope", importer: "api/device", imported: "edge/dispatch"},
 		{name: "capture upload imports the entity and the chunk frames", importer: "edge/capture", imported: "model/capture", want: true},
 		{name: "operator edge api imports authz", importer: "api/edge", imported: "authz", want: true},
+		{name: "operator action event imports identity", importer: "event/operator", imported: "model/identity", want: true},
+		{name: "operator action event imports inventory directly", importer: "event/operator", imported: "model/inventory"},
 		{
 			name:       "authz leaf imports model",
 			importer:   "authz",

@@ -76,6 +76,7 @@ spec/proto/flowseer/
   errs/v1/              the error wire payload
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
+    operator/v1/        OperatorActionEvent, the durable audit record of operator actions
   integration/          holds only a README; fabric contract reserved
   runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
@@ -122,6 +123,7 @@ model/inventory ← event/access
 errs ← {edge/dispatch, store/device}
 authz ← {api/capture, api/device, api/edge, api/identity}
 event/access ← edge/audit
+event/operator ← {model/identity, model/edge, model/capture}
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
@@ -1024,3 +1026,9 @@ authorization rules.
 
 `OperatorRef` gains a required `issuer` URI beside `subject`, naming a person
 by issuer and subject.
+
+### 2026-10-03: operator action event package
+
+`OperatorActionEvent` lives in `event/operator/v1`, an event-only family that
+records what an operator attempted and completed. It imports `model/identity/v1`,
+`model/edge/v1`, and `model/capture/v1`.

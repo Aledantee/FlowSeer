@@ -27,6 +27,8 @@ const (
 	HubEdgeStreamPrefix = "FLOWSEER_EDGE_"
 	// AuditStream holds every DeviceOperationEvent central writes.
 	AuditStream = "FLOWSEER_DEVICE_AUDIT"
+	// OperatorActionStream holds every OperatorActionEvent central writes.
+	OperatorActionStream = "FLOWSEER_OPERATOR_ACTIONS"
 	// LaneBucket is the key-value bucket the device service's lane records
 	// live in, one key per device.
 	LaneBucket = "device-lanes"
@@ -79,6 +81,11 @@ func EdgePublishSubjects(tenant, edgeID string) map[string]string {
 // AuditSubject is where central writes the audit record of one device.
 func AuditSubject(tenant, deviceID string) string {
 	return fmt.Sprintf("flowseer.%s.audit.device.%s", tenant, deviceID)
+}
+
+// OperatorActionSubject is where central writes the audit record of one operator action.
+func OperatorActionSubject(tenant, action string) string {
+	return fmt.Sprintf("flowseer.%s.operator.action.%s", tenant, action)
 }
 
 // HubEdgeStream names the hub stream that sources one edge's buffer.

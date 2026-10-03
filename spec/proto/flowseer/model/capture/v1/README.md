@@ -51,7 +51,7 @@ full_payload_requested: false
 
 Imports: model/edge, model/identity, net/capture, net/key
 
-Imported by: api/capture, edge/capture
+Imported by: api/capture, edge/capture, event/operator
 
 Deliberately absent:
 
