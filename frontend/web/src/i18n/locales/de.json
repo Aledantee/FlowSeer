@@ -134,6 +134,22 @@
       "logoutUnavailable": "Abmelden ist erst möglich, wenn die Anmeldung angebunden ist",
       "operator": "Operator"
     },
+    "clients": {
+      "accessPoint": "Zugangspunkt",
+      "allAccessPoints": "Alle Zugangspunkte",
+      "allBands": "Alle Bänder",
+      "band": "Band",
+      "client": "Client",
+      "emptyDescription": "Eine andere Suche oder ein anderes Band versuchen.",
+      "emptyTitle": "Keine Clients passen zu dieser Ansicht",
+      "filterBand": "Nach Band filtern",
+      "mac": "MAC-Adresse",
+      "noSearch": "keine",
+      "search": "Clients suchen",
+      "searchPlaceholder": "Nach Hostname, IP- oder MAC-Adresse suchen…",
+      "signal": "Signal",
+      "stopFiltering": "Filter nach {name} aufheben"
+    },
     "common": {
       "allSites": "Alle Standorte",
       "allTenants": "Alle Mandanten",
@@ -150,6 +166,7 @@
         "site": "Standort",
         "traffic": "Datenverkehr"
       },
+      "connectedClients": "Verbundene Clients",
       "devices": "{count} Gerät | {count} Geräte",
       "duplex": {
         "full": "Vollduplex",
@@ -209,6 +226,7 @@
         "strong": "Stark",
         "weak": "Schwach"
       },
+      "signalReading": "{reading} ({quality})",
       "sites": "{count} Standort | {count} Standorte",
       "speed": {
         "gigabit": "{value}G",
@@ -254,6 +272,71 @@
       "targetLabel": "Dashboard · {site}",
       "targetLabelAll": "Dashboard · alle Standorte",
       "trafficTitle": "Datenverkehr der letzten 24 Stunden"
+    },
+    "device": {
+      "allDevices": "Alle Geräte",
+      "checked": "geprüft {age}",
+      "clientsNoneAccessPoint": "Derzeit sind keine Clients verbunden.",
+      "clientsNoneOther": "Clients verbinden sich über Zugangspunkte, nicht über dieses Gerät.",
+      "copied": "Zusammenfassung kopiert. In das Ticket oder die Nachricht einfügen.",
+      "copyEscalation": "Eskalationszusammenfassung kopieren",
+      "copyFailed": "Kopieren war nicht möglich. Die Zusammenfassung unten auswählen.",
+      "downlinks": "Downlinks",
+      "downlinksNone": "Über dieses Gerät verbindet sich nichts.",
+      "escalation": {
+        "bindingReachable": "- {name}: erreichbar, geprüft {age}",
+        "bindingUnreachable": "- {name}: nicht erreichbar, geprüft {age}",
+        "headline": {
+          "degraded": "{name} ({kind}, {address}) ist beeinträchtigt.",
+          "healthy": "{name} ({kind}, {address}) ist gesund.",
+          "offline": "{name} ({kind}, {address}) ist offline."
+        },
+        "issue": "- {summary} ({age})",
+        "neighbours": "{answering} von {total} weiterem Gerät am Standort antwortet. | {answering} von {total} weiteren Geräten am Standort antworten.",
+        "site": "Standort: {site}, {tenant}."
+      },
+      "issuesHealthy": "Jeder Pfad zu diesem Gerät hat die letzte Abfrage beantwortet.",
+      "issuesNoEvent": "Noch kein Ereignis erklärt diesen Status.",
+      "issuesTitle": "Warum Handlungsbedarf besteht",
+      "issuesTitleHealthy": "Keine offenen Probleme",
+      "lastAnswered": "Zuletzt geantwortet {age}",
+      "lifecycle": "Lebenszyklus",
+      "moveButton": "Gerät verschieben",
+      "moveField": "Standort innerhalb dieses Mandanten",
+      "moveIntro": "Ein Gerät gehört zu einem Standort. Die Verschiebung ersetzt die bisherige Zuordnung.",
+      "moveNoSite": "Für {tenant} gibt es keinen anderen Standort, an den dieses Gerät verschoben werden könnte.",
+      "moveSummary": "Zu einem anderen Standort verschieben",
+      "neighbours": {
+        "all": "Das einzige andere Gerät bei {site} antwortet, daher liegt der Fehler wahrscheinlich an diesem Gerät oder seiner Verbindung. | Die anderen {count} Geräte bei {site} antworten, daher liegt der Fehler wahrscheinlich an diesem Gerät oder seiner Verbindung.",
+        "none": "Kein anderes Gerät bei {site} antwortet, der gesamte Standort könnte ausgefallen sein.",
+        "some": "{answering} von {count} weiteren Geräten bei {site} antworten."
+      },
+      "openDashboard": "Dashboard von {site} öffnen",
+      "paths": {
+        "reachableAll": "Alle Pfade sind erreichbar.",
+        "reachableOne": "Der Pfad ist erreichbar.",
+        "unreachableAll": "Alle {total} Pfade sind nicht erreichbar.",
+        "unreachableBoth": "Beide Pfade sind nicht erreichbar.",
+        "unreachableOnly": "Der einzige Pfad ist nicht erreichbar.",
+        "unreachableSome": "{down} von {total} Pfaden sind nicht erreichbar."
+      },
+      "pathsTitle": "Wie FlowSeer es erreicht",
+      "poll": "Jetzt abfragen",
+      "pollAnswered": {
+        "degraded": "Gerade eben geantwortet. Weiterhin beeinträchtigt.",
+        "healthy": "Gerade eben geantwortet. Weiterhin gesund.",
+        "offline": "Gerade eben geantwortet. Weiterhin offline."
+      },
+      "pollUnanswered": "Weiterhin keine Antwort. {paths} (Letzte Antwort {age})",
+      "polling": "Abfrage läuft…",
+      "siteEdge": "Standortrand",
+      "uplink": "Uplink",
+      "viewAll": "Alle anzeigen"
+    },
+    "devicePorts": {
+      "poe": "{power} PoE",
+      "ports": "{count} Port | {count} Ports",
+      "summary": "{active} von {total} verbunden"
     },
     "devices": {
       "allStatuses": "Alle Status",

@@ -74,13 +74,6 @@ export function openIssues(scope: Device[]): FleetEvent[] {
     (event) => event.severity !== 'info' && failing.has(event.deviceId),
   )
 }
-export function healthLine(health: Record<Health, number>): string {
-  const parts = [
-    health.Offline ? `${health.Offline} offline` : '',
-    health.Degraded ? `${health.Degraded} degraded` : '',
-  ].filter(Boolean)
-  return parts.length ? parts.join(' · ') : 'All healthy'
-}
 export function scopedEvents(scope: Device[]): FleetEvent[] {
   const ids = new Set(scope.map((device) => device.id))
   return events
@@ -134,13 +127,6 @@ export function trafficHistory(
     const jitter = 1 + (((index * 7) % 5) - 2) * 0.03
     return { hour, mbps: Math.round((now * load(hour) * jitter) / reference) }
   })
-}
-
-export function formatAgo(minutes: number): string {
-  if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} min ago`
-  const hours = Math.floor(minutes / 60)
-  return `${hours} h ago`
 }
 
 // Worst site first: most offline, then most degraded devices, then by name.

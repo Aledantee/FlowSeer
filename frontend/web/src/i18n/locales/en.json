@@ -134,6 +134,22 @@
       "logoutUnavailable": "Logout is unavailable until sign-in is connected",
       "operator": "Operator"
     },
+    "clients": {
+      "accessPoint": "Access point",
+      "allAccessPoints": "All access points",
+      "allBands": "All bands",
+      "band": "Band",
+      "client": "Client",
+      "emptyDescription": "Try a different search or band.",
+      "emptyTitle": "No clients match this view",
+      "filterBand": "Filter by band",
+      "mac": "MAC address",
+      "noSearch": "none",
+      "search": "Search clients",
+      "searchPlaceholder": "Search hostname, IP, or MAC address…",
+      "signal": "Signal",
+      "stopFiltering": "Stop filtering by {name}"
+    },
     "common": {
       "allSites": "All sites",
       "allTenants": "All tenants",
@@ -150,6 +166,7 @@
         "site": "Site",
         "traffic": "Traffic"
       },
+      "connectedClients": "Connected clients",
       "devices": "{count} device | {count} devices",
       "duplex": {
         "full": "Full duplex",
@@ -209,6 +226,7 @@
         "strong": "Strong",
         "weak": "Weak"
       },
+      "signalReading": "{reading} ({quality})",
       "sites": "{count} site | {count} sites",
       "speed": {
         "gigabit": "{value}G",
@@ -254,6 +272,71 @@
       "targetLabel": "Dashboard · {site}",
       "targetLabelAll": "Dashboard · all sites",
       "trafficTitle": "Traffic, last 24 hours"
+    },
+    "device": {
+      "allDevices": "All devices",
+      "checked": "checked {age}",
+      "clientsNoneAccessPoint": "No clients are connected right now.",
+      "clientsNoneOther": "Clients connect through access points, not this device.",
+      "copied": "Summary copied. Paste it into the ticket or message.",
+      "copyEscalation": "Copy escalation summary",
+      "copyFailed": "Could not copy. Select the summary below.",
+      "downlinks": "Downlinks",
+      "downlinksNone": "Nothing connects through this device.",
+      "escalation": {
+        "bindingReachable": "- {name}: reachable, checked {age}",
+        "bindingUnreachable": "- {name}: unreachable, checked {age}",
+        "headline": {
+          "degraded": "{name} ({kind}, {address}) is degraded.",
+          "healthy": "{name} ({kind}, {address}) is healthy.",
+          "offline": "{name} ({kind}, {address}) is offline."
+        },
+        "issue": "- {summary} ({age})",
+        "neighbours": "{answering} of {total} other device at the site is answering. | {answering} of {total} other devices at the site are answering.",
+        "site": "Site: {site}, {tenant}."
+      },
+      "issuesHealthy": "Every path to this device answered its last poll.",
+      "issuesNoEvent": "No event explains this status yet.",
+      "issuesTitle": "Why it needs attention",
+      "issuesTitleHealthy": "No open issues",
+      "lastAnswered": "Last answered {age}",
+      "lifecycle": "Lifecycle",
+      "moveButton": "Move device",
+      "moveField": "Site within this tenant",
+      "moveIntro": "A device belongs to one site. Moving it replaces its current assignment.",
+      "moveNoSite": "{tenant} has no other site to move this device to.",
+      "moveSummary": "Move to another site",
+      "neighbours": {
+        "all": "The only other device at {site} is answering, so the fault is likely this device or its link. | The other {count} devices at {site} are answering, so the fault is likely this device or its link.",
+        "none": "No other device at {site} is answering; the whole site may be down.",
+        "some": "{answering} of {count} other devices at {site} are answering."
+      },
+      "openDashboard": "Open {site} dashboard",
+      "paths": {
+        "reachableAll": "All paths are reachable.",
+        "reachableOne": "Its path is reachable.",
+        "unreachableAll": "All {total} paths are unreachable.",
+        "unreachableBoth": "Both paths are unreachable.",
+        "unreachableOnly": "Its only path is unreachable.",
+        "unreachableSome": "{down} of {total} paths are unreachable."
+      },
+      "pathsTitle": "How FlowSeer reaches it",
+      "poll": "Poll now",
+      "pollAnswered": {
+        "degraded": "Answered just now. Still degraded.",
+        "healthy": "Answered just now. Still healthy.",
+        "offline": "Answered just now. Still offline."
+      },
+      "pollUnanswered": "Still not answering. {paths} (Last answer {age})",
+      "polling": "Polling…",
+      "siteEdge": "Site edge",
+      "uplink": "Uplink",
+      "viewAll": "View all"
+    },
+    "devicePorts": {
+      "poe": "{power} PoE",
+      "ports": "{count} port | {count} ports",
+      "summary": "{active} of {total} up"
     },
     "devices": {
       "allStatuses": "All statuses",

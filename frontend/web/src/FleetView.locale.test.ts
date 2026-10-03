@@ -7,6 +7,9 @@ import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
 import { DOCK_KEY } from './navigation/dock'
 import { devices, filterDevices } from './domain/fleet'
+import { clientsOf, signalQuality } from './domain/clients'
+import type { Port } from './domain/telemetry'
+import DevicePorts from './components/DevicePorts.vue'
 import { createAiRegistry, createAiTargetDirective } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
@@ -558,6 +561,291 @@ describe('sites in German', () => {
     ])
     expect(table?.textContent).toContain('1 offline')
     expect(table?.textContent).toContain(germanAgo.format(-38, 'minute'))
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+const clientsSection = (host: HTMLElement) =>
+  host.querySelector('#clients-title')?.closest('section')
+
+function clientCount(host: HTMLElement) {
+  return clientsSection(host)?.querySelector('.ml-auto')?.textContent?.trim()
+}
+
+describe('clients in German', () => {
+  it('names the columns, the bands, the readings, and the counts', async () => {
+    const { host, router, registry } = await mountLocale('/clients', 'de')
+    const all = clientsOf(devices)
+    const first = all[0]
+    if (!first) throw new Error('The fixture has no clients')
+
+    const section = clientsSection(host)
+    expect(section?.querySelector('#clients-title')?.textContent).toContain(
+      'Verbundene Clients',
+    )
+    expect(text(section?.querySelectorAll('th') ?? [])).toEqual([
+      'Client',
+      'MAC-Adresse',
+      'Zugangspunkt',
+      'Band',
+      'Signal',
+      'Datenverkehr',
+    ])
+    expect(section?.querySelector('input')?.getAttribute('placeholder')).toBe(
+      'Nach Hostname, IP- oder MAC-Adresse suchen…',
+    )
+    expect(await statusOptions(host, 'Nach Band filtern')).toEqual([
+      'Alle Bänder',
+      '2,4 GHz',
+      '5 GHz',
+      '6 GHz',
+    ])
+    expect(clientCount(host)).toBe(
+      `${new Intl.NumberFormat('de').format(all.length)} Ergebnisse`,
+    )
+
+    const row = section?.querySelector('tbody tr')
+    const quality = {
+      Strong: 'Stark',
+      Fair: 'Mäßig',
+      Weak: 'Schwach',
+    }[signalQuality(first.signal)]
+    const reading = `${first.signal}${NBSP}dBm`
+    expect(row?.querySelector('td:nth-child(5)')?.textContent).toContain(
+      quality,
+    )
+    expect(row?.querySelector('td:nth-child(5)')?.textContent).toContain(
+      reading,
+    )
+    expect(row?.querySelector('td:nth-child(6)')?.textContent).toContain(
+      `${first.throughput}${NBSP}Mbit/s`,
+    )
+    const mac = row?.querySelector('td.font-mono')
+    expect(mac?.textContent?.trim()).toBe(first.mac)
+    expect(mac?.closest('[translate="no"]')).not.toBe(null)
+    expect(row?.querySelector('strong')?.closest('[translate="no"]')).not.toBe(
+      null,
+    )
+    const target = registry
+      .list()
+      .find((item) => item.id === `a:clients:client:${first.id}`)
+    expect(target?.context.signal).toBe(`${reading} (${quality})`)
+    expect(registry.view('a:clients:view:all')?.target.label).toBe(
+      'Verbundene Clients',
+    )
+
+    await router.push({ path: '/clients', query: { q: first.mac } })
+    await settle()
+
+    expect(clientCount(host)).toBe('1 Ergebnis')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('names the empty state and the access point filter', async () => {
+    const { host } = await mountLocale(
+      '/clients?ap=dev-3&q=nothing-matches-this',
+      'de',
+    )
+
+    expect(clientsSection(host)?.textContent).toContain(
+      'Keine Clients passen zu dieser Ansicht',
+    )
+    expect(clientsSection(host)?.textContent).toContain(
+      'Eine andere Suche oder ein anderes Band versuchen.',
+    )
+    const stop = clientsSection(host)?.querySelector(
+      'button[aria-label^="Filter nach"]',
+    )
+    expect(stop?.getAttribute('aria-label')).toBe(
+      'Filter nach berlin-ap-01 aufheben',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a locale switch in the band options', async () => {
+    const { host, setLocale } = await mountLocale('/clients', 'de')
+    expect(await statusOptions(host, 'Nach Band filtern')).toContain('2,4 GHz')
+
+    await setLocale('en')
+
+    expect(await statusOptions(host, 'Filter by band')).toEqual([
+      'All bands',
+      '2.4 GHz',
+      '5 GHz',
+      '6 GHz',
+    ])
+    expect(clientCount(host)).toMatch(/ results$/)
+
+    await setLocale('de')
+
+    expect(await statusOptions(host, 'Nach Band filtern')).toContain('2,4 GHz')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+const deviceSeverityNames = (host: HTMLElement) =>
+  text(
+    host
+      .querySelector('#issues-title')
+      ?.closest('section')
+      ?.querySelectorAll('li small span.text-sm') ?? [],
+  )
+
+describe('device route in German', () => {
+  it('names the status, the identifiers, and the paths', async () => {
+    const offline = cologneAp()
+    const { host } = await mountLocale(`/devices/${offline.id}`, 'de')
+
+    expect(host.querySelector('#issues-title')?.textContent?.trim()).toBe(
+      'Warum Handlungsbedarf besteht',
+    )
+    expect(host.querySelector('h1')?.closest('[translate="no"]')).not.toBe(null)
+    expect(host.textContent).toContain(
+      `Zuletzt geantwortet ${germanAgo.format(-38, 'minute')}`,
+    )
+    expect(host.textContent).toContain('Nicht erreichbar')
+    expect(host.textContent).toContain(
+      'Für Nord Retail gibt es keinen anderen Standort, an den dieses Gerät verschoben werden könnte.',
+    )
+    expect(host.textContent).toContain('Eskalationszusammenfassung kopieren')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('names the move control and the downlinks', async () => {
+    const { host } = await mountLocale('/devices/dev-2', 'de')
+
+    expect(host.querySelector('summary')?.textContent?.trim()).toBe(
+      'Zu einem anderen Standort verschieben',
+    )
+    expect(host.textContent).toContain('Gerät verschieben')
+    expect(host.querySelector('#links-title')?.textContent).toContain(
+      'Downlinks',
+    )
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a locale switch in the severity names and the age', async () => {
+    const offline = cologneAp()
+    const { host, setLocale } = await mountLocale(
+      `/devices/${offline.id}`,
+      'de',
+    )
+    expect(deviceSeverityNames(host)).toEqual(['Kritisch'])
+
+    await setLocale('en')
+
+    expect(deviceSeverityNames(host)).toEqual(['Critical'])
+    expect(host.querySelector('#issues-title')?.textContent?.trim()).toBe(
+      'Why it needs attention',
+    )
+    expect(host.textContent).toContain(
+      `Last answered ${englishAgo.format(-38, 'minute')}`,
+    )
+
+    await setLocale('de')
+
+    expect(deviceSeverityNames(host)).toEqual(['Kritisch'])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+})
+
+const portsFixture: Port[] = [
+  {
+    name: 'xe-0/1/0',
+    status: 'Up',
+    speed: 10000,
+    neighborId: 'dev-1',
+    throughput: 1234.5,
+  },
+  {
+    name: 'ge-0/0/0',
+    status: 'Up',
+    speed: 2500,
+    endpoint: 'Printer',
+    throughput: 3,
+    poe: 15,
+  },
+  { name: 'ge-0/0/1', status: 'Disabled', throughput: 0 },
+]
+
+async function mountPorts(locale: WebLocale, ports: Port[]) {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const i18n = createWebI18n(locale)
+  const app = createApp(DevicePorts, {
+    ports,
+    device: (id: string) => devices.find((item) => item.id === id),
+  })
+  app.use(i18n)
+  app.mount(host)
+  dispose = () => app.unmount()
+  await nextTick()
+  return {
+    host,
+    async setLocale(next: WebLocale) {
+      i18n.global.locale.value = next
+      await nextTick()
+    },
+  }
+}
+
+describe('device ports in German', () => {
+  it('counts the ports and formats speeds, rates, and power', async () => {
+    const { host } = await mountPorts('de', portsFixture)
+
+    expect(host.querySelector('ol')?.getAttribute('aria-label')).toBe('3 Ports')
+    expect(host.querySelector('.port-summary')?.textContent?.trim()).toBe(
+      `2 von 3 verbunden · 15${NBSP}W PoE`,
+    )
+    expect(text(host.querySelectorAll('.port-rate'))).toEqual([
+      `10G · 1.234,5${NBSP}Mbit/s`,
+      `2,5G · 3${NBSP}Mbit/s`,
+    ])
+    expect(labelsOf(host.querySelectorAll('ol button'))).toEqual([
+      'xe-0/1/0 · Verbunden · 10G · berlin-gw-01',
+      'ge-0/0/0 · Verbunden · 2,5G · Printer',
+      'ge-0/0/1 · Deaktiviert',
+    ])
+    for (const name of host.querySelectorAll('.port-name')) {
+      expect(name.closest('[translate="no"]')).not.toBe(null)
+    }
+    expect(
+      host.querySelector('.port-neighbor')?.closest('[translate="no"]'),
+    ).not.toBe(null)
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('selects the singular form and omits power without PoE', async () => {
+    const [first] = portsFixture
+    if (!first) throw new Error('Missing port fixture')
+    const { host } = await mountPorts('de', [first])
+
+    expect(host.querySelector('ol')?.getAttribute('aria-label')).toBe('1 Port')
+    expect(host.querySelector('.port-summary')?.textContent?.trim()).toBe(
+      '1 von 1 verbunden',
+    )
+  })
+
+  it('follows a locale switch', async () => {
+    const { host, setLocale } = await mountPorts('de', portsFixture)
+
+    await setLocale('en')
+
+    expect(host.querySelector('ol')?.getAttribute('aria-label')).toBe('3 ports')
+    expect(host.querySelector('.port-summary')?.textContent?.trim()).toBe(
+      `2 of 3 up · 15${NBSP}W PoE`,
+    )
+    expect(text(host.querySelectorAll('.port-rate'))).toEqual([
+      `10G · 1,234.5${NBSP}Mbit/s`,
+      `2.5G · 3${NBSP}Mbit/s`,
+    ])
+    expect(labelsOf(host.querySelectorAll('ol button'))[2]).toBe(
+      'ge-0/0/1 · Disabled',
+    )
+
+    await setLocale('de')
+
+    expect(host.querySelector('ol')?.getAttribute('aria-label')).toBe('3 Ports')
     expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })
