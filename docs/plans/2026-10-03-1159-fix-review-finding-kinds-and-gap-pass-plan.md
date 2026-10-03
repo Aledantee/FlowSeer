@@ -4,16 +4,14 @@ type: fix
 date: 2026-10-03
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: fixes needed
 execution: docs
 ---
 
 # Review Finding Kinds and the Gap Pass - Plan
 
-> Partially implemented: U1, U2, U3 (3 units, 2026-10-03T10:25Z to
-> 2026-10-03T10:25Z). Their review ended at `fixes needed`, and U4, U5, and
-> U6 carry its findings and the Decisions that settle its two questions.
+> Implemented. 6 units, 2026-10-03T10:25Z to 2026-10-03T11:08Z.
 
 ## Goal
 
