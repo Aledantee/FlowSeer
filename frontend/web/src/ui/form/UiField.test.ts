@@ -4,6 +4,7 @@ import { createApp, h } from 'vue'
 import UiField from './UiField.vue'
 import UiInput from './UiInput.vue'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import en from '../../i18n/locales/en.json'
 
 let dispose = () => {}
 afterEach(() => {
@@ -12,9 +13,20 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+function overrideEnglish(
+  i18n: ReturnType<typeof createWebI18n>,
+  messages: Record<string, unknown>,
+) {
+  // mergeLocaleMessage writes into the catalog object every createWebI18n
+  // shares, so the merge targets a private copy.
+  i18n.global.setLocaleMessage('en', structuredClone(en))
+  i18n.global.mergeLocaleMessage('en', messages)
+}
+
 function mountField(
   fieldProps: Record<string, unknown> = {},
   locale: WebLocale = 'en',
+  messages?: Record<string, unknown>,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
@@ -26,6 +38,7 @@ function mountField(
     },
   })
   const i18n = createWebI18n(locale)
+  if (messages) overrideEnglish(i18n, messages)
   app.use(i18n)
   app.mount(host)
   dispose = () => app.unmount()
@@ -91,5 +104,12 @@ describe('UiField', () => {
     })
     const mark = label?.querySelector('span')
     expect(mark?.textContent?.trim()).toBe('(mandatory)')
+  })
+
+  it('takes the required mark from the catalog', () => {
+    const { label } = mountField({ label: 'Site', required: true }, 'en', {
+      ui: { field: { requiredMark: '(required)' } },
+    })
+    expect(label?.querySelector('span')?.textContent?.trim()).toBe('(required)')
   })
 })
