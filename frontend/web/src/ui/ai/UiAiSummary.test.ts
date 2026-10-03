@@ -26,7 +26,7 @@ const target: AiTarget = {
 }
 
 function mount(
-  handler?: (request: AiRequest) => Promise<string> | string,
+  handler?: (request: AiRequest) => Promise<unknown> | unknown,
   locale: WebLocale = 'en',
   props?: Partial<UiAiSummaryProps>,
 ) {
@@ -37,7 +37,23 @@ function mount(
   const element = document.createElement('div')
   document.body.append(element)
   registry.register(element, currentTarget.value)
-  if (handler) registry.onRequest(handler)
+  if (handler) {
+    registry.onRequest(async (req) => {
+      const res = await handler(req)
+      if (typeof res === 'string') {
+        return {
+          type: 'summary',
+          headline: res,
+          tone: 'ok',
+          findings: [],
+          metrics: [],
+          next: [],
+          sources: [],
+        }
+      }
+      return res as never
+    })
+  }
 
   const host = document.createElement('div')
   document.body.append(host)
@@ -93,8 +109,8 @@ describe('UiAiSummary', () => {
 
     expect(handler).toHaveBeenCalledTimes(1)
     expect(handler.mock.calls[0]?.[0]).toMatchObject({
-      kind: 'summary',
-      targetId: target.id,
+      action: 'summary',
+      targets: [expect.objectContaining({ id: target.id })],
     })
   })
 
@@ -178,7 +194,7 @@ describe('UiAiSummary', () => {
     const requests: AiRequest[] = []
     const { setTarget } = mount((request) => {
       requests.push(request)
-      return `Summary for ${request.context.site}`
+      return `Summary for ${request.targets[0]?.context.site}`
     })
 
     await settle()
@@ -194,13 +210,13 @@ describe('UiAiSummary', () => {
     button('Generate summary')?.click()
     await settle()
     expect(document.body.textContent).toContain('Summary for Hamburg Hafen')
-    expect(requests[1]?.context).toEqual({ site: 'Hamburg Hafen' })
+    expect(requests[1]?.targets[0]?.context).toEqual({ site: 'Hamburg Hafen' })
   })
 
   it('ignores a late answer after the same target id changes context', async () => {
     let releaseOld: ((answer: string) => void) | undefined
     const { setTarget } = mount((request) => {
-      if (request.context.site === 'Berlin Mitte')
+      if (request.targets[0]?.context.site === 'Berlin Mitte')
         return new Promise<string>((resolve) => {
           releaseOld = resolve
         })

@@ -77,6 +77,18 @@ function setup(
   const registry: AiRegistry = createAiRegistry({
     viewport,
   })
+  const originalOnRequest = registry.onRequest.bind(registry)
+  registry.onRequest = (
+    handler: (request: AiRequest) => Promise<unknown> | unknown,
+  ) => {
+    return originalOnRequest(async (req) => {
+      const res = await handler(req)
+      if (typeof res === 'string') {
+        return { type: 'answer', text: res, refs: [] }
+      }
+      return res as never
+    })
+  }
   const element = document.createElement('div')
   element.tabIndex = 0
   setBox(element, boxValue)
@@ -317,7 +329,7 @@ describe('AiActionLayer selection and Ask', () => {
     const firstRequest = deferred<string>()
     const secondRequest = deferred<string>()
     registry.onRequest((request) =>
-      request.targetId === 'a:devices:device:d1'
+      request.targets[0]?.id === 'a:devices:device:d1'
         ? firstRequest.promise
         : secondRequest.promise,
     )
@@ -427,7 +439,7 @@ describe('AiActionLayer selection and Ask', () => {
     await settle()
 
     expect(seen).toHaveLength(1)
-    expect(seen[0]?.targetId).toBe(second.target.id)
+    expect(seen[0]?.targets[0]?.id).toBe(second.target.id)
   })
 
   it('opens Ask from the focused target with Alt+A', async () => {

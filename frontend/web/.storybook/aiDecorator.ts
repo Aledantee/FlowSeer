@@ -78,9 +78,12 @@ function createStoryScope() {
     // story keeps its own configured demo handler instead of sharing the
     // handler of whichever canvas mounted last.
     removeDispatcher = aiRegistry.onRequest((request) => {
-      const targetElement = aiRegistry.view(request.targetId)?.element
+      const targetId = request.targets[0]?.id
+      const targetElement = targetId
+        ? aiRegistry.view(targetId)?.element
+        : undefined
       const handler =
-        handlers.get(request.targetId) ??
+        (targetId ? handlers.get(targetId) : undefined) ??
         [...canvases].find(
           (canvas) => targetElement && canvas.element.contains(targetElement),
         )?.handler
@@ -156,8 +159,11 @@ export const withAiTargets: Decorator = (story, context) => {
     UiAiActionLayerLabels | undefined
   const handler: AiHandler =
     configured ??
-    (async (request) =>
-      `Demo answer for “${request.label}” in ${context.title ?? 'this story'}. Install a handler with parameters.ai.handler.`)
+    (async (request) => ({
+      type: 'answer',
+      text: `Demo answer for “${request.targets[0]?.label ?? ''}” in ${context.title ?? 'this story'}. Install a handler with parameters.ai.handler.`,
+      refs: [],
+    }))
   return {
     components: { story, UiAiActionLayer },
     setup() {

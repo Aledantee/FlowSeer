@@ -70,7 +70,15 @@ async function generate() {
   const snapshot = targetSnapshot(props.target)
   state.value = { kind: 'loading' }
   try {
-    const answer = await registry.request(props.target, { kind: 'summary' })
+    const run = registry.request(props.target, {
+      action: 'summary',
+      bound: true,
+    })
+    let answer = ''
+    for await (const s of run.snapshots) {
+      if (s.type === 'summary') answer = s.headline
+      else if (s.type === 'answer') answer = s.text
+    }
     if (requestToken !== token || snapshot !== targetSnapshot(props.target))
       return
     state.value = { kind: 'result', answer }

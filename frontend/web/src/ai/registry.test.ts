@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiStaleError, AiUnavailableError, createAiRegistry } from './registry'
 import type { AiRegistry, AiViewport } from './registry'
 import { installAiWindow } from './window'
-import type { AiRequest, AiTarget } from './types'
+import type { AiAnswer, AiHandler, AiSummary, AiTarget } from './types'
 
 function target(id: string, extra: Partial<AiTarget> = {}): AiTarget {
   return {
@@ -33,6 +33,22 @@ function viewport(initial: AiViewport): {
       current = next
     },
   }
+}
+
+const sampleSummary: AiSummary = {
+  type: 'summary',
+  headline: 'All devices healthy',
+  tone: 'ok',
+  findings: [],
+  metrics: [],
+  next: [],
+  sources: [],
+}
+
+const sampleAnswer: AiAnswer = {
+  type: 'answer',
+  text: 'Traffic is nominal.',
+  refs: [],
 }
 
 afterEach(() => {
@@ -167,7 +183,7 @@ describe('target registry', () => {
     expect(scrollSpy).not.toHaveBeenCalled()
   })
 
-  it('excludes targets inside a CSS-hidden ancestor across all target kinds', async () => {
+  it('excludes targets inside a CSS-hidden ancestor across all target kinds', () => {
     const registry = createAiRegistry()
     const card = element()
     const chart = document.createElement('div')
@@ -195,9 +211,9 @@ describe('target registry', () => {
     expect(registry.idForElement(chart)).toBeUndefined()
     expect(registry.highlight('a:dashboard:chart:traffic')).toBe(false)
 
-    await expect(
-      registry.request(chartTarget, { kind: 'ask' }),
-    ).rejects.toBeInstanceOf(AiStaleError)
+    expect(() =>
+      registry.request(chartTarget, { action: 'ask', bound: true }),
+    ).toThrow(AiStaleError)
 
     card.style.display = ''
     const scrollSpy = vi.spyOn(chart, 'scrollIntoView')
@@ -249,8 +265,8 @@ describe('target registry', () => {
 
   it('replaces and unsubscribes a request handler without clearing a newer one', () => {
     const registry = createAiRegistry()
-    const first = vi.fn(async () => 'first')
-    const second = vi.fn(async () => 'second')
+    const first: AiHandler = async () => sampleAnswer
+    const second: AiHandler = async () => sampleSummary
     const removeFirst = registry.onRequest(first)
     const removeSecond = registry.onRequest(second)
 
@@ -262,118 +278,210 @@ describe('target registry', () => {
   })
 })
 
-describe('request snapshots', () => {
-  it('rejects when no handler is installed', async () => {
+describe('request snapshots and AiRun', () => {
+  it('rejects synchronously when no handler is installed', () => {
     const registry = createAiRegistry()
     registry.register(element(), target('a:devices:device:d1'))
 
-    await expect(
-      registry.request(target('a:devices:device:d1'), { kind: 'ask' }),
-    ).rejects.toBeInstanceOf(AiUnavailableError)
+    expect(() =>
+      registry.request(target('a:devices:device:d1'), { action: 'ask' }),
+    ).toThrow(AiUnavailableError)
   })
 
-  it('hands the handler a snapshot with a unique id and the caller prompt', async () => {
+  it('normalizes a promise into a one-snapshot iterable and preserves snapshot order for iterables', async () => {
     const registry = createAiRegistry()
     const node = element()
-    registry.register(node, target('a:devices:device:d1', { label: 'd1' }))
-    const seen: AiRequest[] = []
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+
+    // Promise normalization
+    registry.onRequest(async () => sampleAnswer)
+    const run1 = registry.request(t, { action: 'ask' })
+    const results1: AiAnswer[] = []
+    for await (const s of run1.snapshots) {
+      results1.push(s as AiAnswer)
+    }
+    expect(results1).toEqual([sampleAnswer])
+
+    // Iterable snapshot order
+    const snap1: AiSummary = { ...sampleSummary, headline: 'Snapshot 1' }
+    const snap2: AiSummary = { ...sampleSummary, headline: 'Snapshot 2' }
+    registry.onRequest(async function* () {
+      yield snap1
+      yield snap2
+    })
+    const run2 = registry.request(t, { action: 'summary' })
+    const results2: AiSummary[] = []
+    for await (const s of run2.snapshots) {
+      results2.push(s as AiSummary)
+    }
+    expect(results2).toEqual([snap1, snap2])
+  })
+
+  it('ends the run with an error when an invalid snapshot is returned', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+
+    // @ts-expect-error invalid snapshot shape
+    registry.onRequest(async () => ({ type: 'summary', headline: 123 }))
+    const run = registry.request(t, { action: 'summary' })
+
+    await expect(async () => {
+      for await (const snapshot of run.snapshots) {
+        void snapshot
+      }
+    }).rejects.toThrow('The AI returned a result FlowSeer cannot show.')
+  })
+
+  it('aborts the signal when stop is called', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+
+    let capturedSignal: AbortSignal | undefined
     registry.onRequest((request) => {
-      seen.push(request)
-      return 'answer'
+      capturedSignal = request.signal
+      return new Promise<AiAnswer>(() => {})
     })
 
-    const first = await registry.request(target('a:devices:device:d1'), {
-      kind: 'ask',
-      prompt: 'Why offline?',
-    })
-    const second = await registry.request(target('a:devices:device:d1'), {
-      kind: 'summary',
-    })
-
-    expect(first).toBe('answer')
-    expect(second).toBe('answer')
-    expect(seen).toHaveLength(2)
-    expect(seen[0]).toMatchObject({
-      kind: 'ask',
-      targetId: 'a:devices:device:d1',
-      label: 'd1',
-      context: { entity: 'a:devices:device:d1' },
-      prompt: 'Why offline?',
-    })
-    expect(seen[1]?.prompt).toBeUndefined()
-    expect(seen[0]?.requestId).not.toBe(seen[1]?.requestId)
+    const run = registry.request(t, { action: 'ask' })
+    expect(capturedSignal?.aborted).toBe(false)
+    run.stop()
+    expect(capturedSignal?.aborted).toBe(true)
   })
 
-  it('discards an answer when the registration unmounts before it resolves', async () => {
+  it('keeps a bound run alive across same-element context updates', async () => {
     const registry = createAiRegistry()
     const node = element()
-    registry.register(
-      node,
-      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
-    )
-    let release: ((value: string) => void) | undefined
+    const t = target('a:devices:device:d1', { context: { peak: '100' } })
+    registry.register(node, t)
+
+    let resolveHandler: ((res: AiSummary) => void) | undefined
     registry.onRequest(
       () =>
-        new Promise<string>((resolve) => {
-          release = resolve
+        new Promise<AiSummary>((resolve) => {
+          resolveHandler = resolve
         }),
     )
 
-    const pending = registry.request(
-      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
-      {
-        kind: 'ask',
-      },
-    )
-    registry.unregister(node)
-    release?.('late answer')
+    const run = registry.request(t, { action: 'summary', bound: true })
 
-    await expect(pending).rejects.toBeInstanceOf(AiStaleError)
+    // Same element, updated context
+    registry.register(node, { ...t, context: { peak: '200' } })
+
+    resolveHandler?.(sampleSummary)
+
+    const snapshots: AiSummary[] = []
+    for await (const s of run.snapshots) {
+      snapshots.push(s as AiSummary)
+    }
+    expect(snapshots).toEqual([sampleSummary])
   })
 
-  it('discards an answer when the target becomes CSS-hidden before resolution', async () => {
+  it('ends a bound run as stale when its element unregisters', async () => {
     const registry = createAiRegistry()
-    const parent = element()
-    const child = document.createElement('div')
-    parent.append(child)
-    registry.register(
-      child,
-      target('a:dashboard:chart:traffic', { kind: 'chart' }),
-    )
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
 
-    let release: ((value: string) => void) | undefined
+    let resolveHandler: ((res: AiSummary) => void) | undefined
     registry.onRequest(
       () =>
-        new Promise<string>((resolve) => {
-          release = resolve
+        new Promise<AiSummary>((resolve) => {
+          resolveHandler = resolve
         }),
     )
 
-    const pending = registry.request(
-      target('a:dashboard:chart:traffic', { kind: 'chart' }),
-      { kind: 'ask' },
-    )
-    parent.style.display = 'none'
-    release?.('late answer')
+    const run = registry.request(t, { action: 'summary', bound: true })
+    registry.unregister(node)
+    resolveHandler?.(sampleSummary)
 
-    await expect(pending).rejects.toBeInstanceOf(AiStaleError)
+    await expect(async () => {
+      for await (const snapshot of run.snapshots) {
+        void snapshot
+      }
+    }).rejects.toBeInstanceOf(AiStaleError)
+  })
+
+  it('allows an unbound run to survive unregistering', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+
+    let resolveHandler: ((res: AiAnswer) => void) | undefined
+    registry.onRequest(
+      () =>
+        new Promise<AiAnswer>((resolve) => {
+          resolveHandler = resolve
+        }),
+    )
+
+    const run = registry.request(t, { action: 'ask', bound: false })
+    registry.unregister(node)
+    resolveHandler?.(sampleAnswer)
+
+    const snapshots: AiAnswer[] = []
+    for await (const s of run.snapshots) {
+      snapshots.push(s as AiAnswer)
+    }
+    expect(snapshots).toEqual([sampleAnswer])
+  })
+
+  it('omits signal from AiRun.request and freezes the request at start', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+
+    registry.onRequest(async () => sampleAnswer)
+    const run = registry.request(t, { action: 'ask', prompt: 'test prompt' })
+
+    expect('signal' in run.request).toBe(false)
+    expect(Object.isFrozen(run.request)).toBe(true)
+    expect(Object.isFrozen(run.request.targets)).toBe(true)
+    expect(Object.isFrozen(run.request.targets[0])).toBe(true)
+    expect(Object.isFrozen(run.request.targets[0]?.context)).toBe(true)
+  })
+
+  it('delivers feedback to onFeedback listeners and unsubscribes cleanly', () => {
+    const registry = createAiRegistry()
+    const listener = vi.fn()
+    const unsubscribe = registry.onFeedback(listener)
+
+    registry.feedback('req-1', 'up')
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({ requestId: 'req-1', rating: 'up' })
+
+    unsubscribe()
+    registry.feedback('req-2', 'down')
+    expect(listener).toHaveBeenCalledTimes(1)
   })
 })
 
 describe('window API', () => {
-  it('installs and removes the document contract', () => {
+  it('installs and removes the document contract including onFeedback', () => {
     const registry = createAiRegistry()
     const fake = {} as Window
     const remove = installAiWindow(registry, fake)
     registry.register(element(), target('a:devices:device:d1'))
 
-    const api = (fake as { flowseerAi?: { listTargets: () => AiTarget[] } })
-      .flowseerAi
+    const api = fake.flowseerAi
+    expect(api).toBeDefined()
     expect(api?.listTargets().map((item) => item.id)).toEqual([
       'a:devices:device:d1',
     ])
 
+    const listener = vi.fn()
+    const unsub = api?.onFeedback(listener)
+    registry.feedback('req-10', 'up')
+    expect(listener).toHaveBeenCalledWith({ requestId: 'req-10', rating: 'up' })
+    unsub?.()
+
     remove()
-    expect((fake as { flowseerAi?: unknown }).flowseerAi).toBeUndefined()
+    expect(fake.flowseerAi).toBeUndefined()
   })
 })

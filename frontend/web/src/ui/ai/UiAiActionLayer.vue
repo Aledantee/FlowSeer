@@ -284,12 +284,18 @@ async function runAsk() {
   pending.value = true
   state.value = { kind: 'idle' }
   try {
-    const answer = await registry.request(view.target, {
-      kind: 'ask',
+    const run = registry.request(view.target, {
+      action: 'ask',
       prompt: text,
+      bound: true,
     })
+    let answerText = ''
+    for await (const snapshot of run.snapshots) {
+      if (snapshot.type === 'answer') answerText = snapshot.text
+      else if (snapshot.type === 'summary') answerText = snapshot.headline
+    }
     if (!isCurrent()) return
-    state.value = { kind: 'answer', answer }
+    state.value = { kind: 'answer', answer: answerText }
   } catch (error: unknown) {
     if (!isCurrent()) return
     if (error instanceof AiStaleError) {

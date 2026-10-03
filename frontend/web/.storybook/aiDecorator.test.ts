@@ -24,20 +24,36 @@ const storyModule = {
   default: { title: 'Lifecycle/DocumentScope' },
   Alpha: {
     parameters: {
-      ai: { handler: (request: AiRequest) => `alpha:${request.targetId}` },
+      ai: {
+        handler: (request: AiRequest) => ({
+          type: 'answer' as const,
+          text: `alpha:${request.targets[0]?.id}`,
+          refs: [],
+        }),
+      },
     },
     render: () => h('div', 'Alpha body'),
   },
   Beta: {
     parameters: {
-      ai: { handler: (request: AiRequest) => `beta:${request.targetId}` },
+      ai: {
+        handler: (request: AiRequest) => ({
+          type: 'answer' as const,
+          text: `beta:${request.targets[0]?.id}`,
+          refs: [],
+        }),
+      },
     },
     render: () => h('div', 'Beta body'),
   },
   WithOverrides: {
     parameters: {
       ai: {
-        handler: (request: AiRequest) => `overrides:${request.targetId}`,
+        handler: (request: AiRequest) => ({
+          type: 'answer' as const,
+          text: `overrides:${request.targets[0]?.id}`,
+          refs: [],
+        }),
         labels: {
           ai: 'Bot',
           askAbout: 'Custom inquire',
@@ -76,7 +92,11 @@ const storyModule = {
   AutoHighlightOverrides: {
     parameters: {
       ai: {
-        handler: (request: AiRequest) => `auto-overrides:${request.targetId}`,
+        handler: (request: AiRequest) => ({
+          type: 'answer' as const,
+          text: `auto-overrides:${request.targets[0]?.id}`,
+          refs: [],
+        }),
         labels: {
           ai: 'Bot',
           askAbout: 'Custom inquire',
