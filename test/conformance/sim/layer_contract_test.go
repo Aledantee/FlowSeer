@@ -5,9 +5,9 @@
 // declarations of a layer package as lines of text, one name line and one
 // signature line for a function, and each guard tests one literal against
 // those lines or against the package's imports and type names. A guard
-// arrives with a fixture directory under testdata/ that it refuses, and
-// TestLayerContractGuardsRefuseTheirFixtures fails for a guard that does not
-// refuse its fixture, or a fixture another guard also refuses.
+// arrives with a fixture directory under testdata/, and
+// TestLayerContractGuardsRefuseTheirFixtures requires each fixture to produce
+// the findings listed for it, and none once the row is dropped.
 package conformance
 
 import (
@@ -196,6 +196,7 @@ var refusedFindings = map[string][]string{
 		`test/conformance/sim/testdata/age: declares "func Layer.Age"`,
 	},
 	"exported_fact": {
+		`test/conformance/sim/testdata/exported_fact/fixture.go:42: declares type "FooFact"`,
 		`test/conformance/sim/testdata/exported_fact/sub/x.go:3: declares type "FooFact"`,
 	},
 	"import_sibling": {
@@ -210,8 +211,8 @@ var refusedFindings = map[string][]string{
 }
 
 // TestLayerContractGuardsRefuseTheirFixtures runs the whole list over each
-// row's fixture and requires the findings above. It then drops the row and
-// requires none, which fails a row whose fixture another row also refuses.
+// row's fixture and requires the findings listed for it, and none once the
+// row is dropped.
 func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
@@ -271,6 +272,8 @@ func TestLayerContractGuardsRefuseTheirFixtures(t *testing.T) {
 // TestLayerContractPassesValidFixtures holds what the gate lets through.
 // valid_stateless is a package with the five members every layer has, as phy
 // is, and valid is a whole stateful layer with the source honest packages hold.
+// Its imports of sim/devicex and sim/fabricx begin with a refused root and
+// are not below it.
 func TestLayerContractPassesValidFixtures(t *testing.T) {
 	root := repoRoot(t)
 	fset := token.NewFileSet()
@@ -308,8 +311,11 @@ func TestLayerContractStopsOnUnparsableFile(t *testing.T) {
 	}
 }
 
-// TestLayerContractReadsEmptyReceiverList writes a file with an empty receiver
-// list under t.TempDir() and verifies that it is read as a plain function.
+// TestLayerContractReadsEmptyReceiverList holds that func () New() {} is
+// read as a plain function. The package comment of go/parser/parser.go says
+// the parser accepts a larger language than is syntactically permitted by
+// the Go spec, so go/parser accepts the declaration and returns a non-nil
+// receiver list with no entry.
 func TestLayerContractReadsEmptyReceiverList(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "stray")
