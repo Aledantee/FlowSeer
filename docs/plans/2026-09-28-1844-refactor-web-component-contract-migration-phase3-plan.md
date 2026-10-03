@@ -111,6 +111,20 @@ Storybook's `setProjectAnnotations` in the happy-dom audit.
   tests, the decorator solution that disagrees with the code, and the
   colliding state names in the label property test. Why: each open finding
   names its fix. (decided by the user, 2026-10-03)
+- **The coordinator closes the fourth round's three remaining findings
+  directly**, without a fifth review round: the German halves of both
+  plugin isolation tests, a redundant assertion, and a trailing participle.
+  Each isolation case must fail when its catalog or formats are left
+  uncloned. (decided by the user, 2026-10-03)
+- **Phase 3 fixes the 320 px overflow its LongText stories exposed.** At a
+  320 px viewport, `UiTooltip` cuts off a long label on one line, a long
+  `UiButton` label wraps outside the button outline (alert dialog and toast
+  action LongText), and the page scrolls horizontally in the pagination
+  with-edges and LongText stories, the command default story, and the
+  status badge, breadcrumb, and table LongText and table sortable stories.
+  None of these may overflow at 320 px in either locale or theme. Why:
+  long German text is what this phase adds, so its stories must hold at the
+  narrowest supported width. (decided by the user, 2026-10-03)
 
 The parent stop condition does not hold with the resolved versions above.
 A Composition-mode probe using the current preview, `setProjectAnnotations`,
@@ -324,17 +338,4 @@ It does not mark the component migration implemented.
 
 ## Open questions
 
-- Parked by drive: the fourth fix round closed its six findings, and its
-  review was not clean, so the verdict stays `rework`. The work is on
-  `parked/wcc-p3-review` (`24ef7fc2`), unmerged; the verifier passes there
-  and the production code has no open defect. Open: the German half of both
-  plugin isolation tests in `frontend/web/src/i18n/i18n.test.ts` cannot
-  fail (the fix reorders one block and adds one merge), a redundant
-  assertion, one trailing participle, and 320 px overflow in seven LongText
-  stories in component CSS this phase did not change. Options: apply the
-  three test and prose fixes here and record `accept after fixes`, with
-  the overflow as a follow-up (fast, but no fifth independent review) | a
-  fifth fix round with review (slower, and every round so far found a new
-  gap) | take the remainder to `plan`. Recommended: apply the three fixes
-  here, because each is named to the line and touches only a test and a
-  solution document.
+None.
