@@ -86,8 +86,8 @@ type OnboardConfig struct {
 //
 // Safe for concurrent use: one Sync runs at a time. Serializing them is not
 // caution about the map. Two Syncs racing could both find a device absent and
-// both add it, and a second AddDevice for an already-registered device is
-// refused by the lane (stranding any work racing to add it).
+// both add it, which costs a second probe, Reporter.Onboarded call and audit
+// record before the loser is refused by the lane.
 type Onboarder struct {
 	cfg OnboardConfig
 	log *slog.Logger

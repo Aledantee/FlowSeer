@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -376,11 +377,10 @@ func TestADeviceListedWithNoHorizonIsStillOnboarded(t *testing.T) {
 }
 
 // TestARelistDoesNotReAddADeviceAlreadyOnboarded is the constraint the
-// re-listing runs into: a second AddDevice for a registered device replaces
-// its whole lane state, orphaning its queue and any drainer working through
-// it. So the second listing must not reach the lane — and because it does
-// not, a device whose listing changed keeps its first values, which is why
-// the divergence is recorded rather than passed over.
+// re-listing runs into: the lane refuses a second AddDevice for an
+// already-registered device. So the second listing must not reach the lane,
+// and because it does not, a device whose listing changed keeps its first
+// values, which is why the divergence is recorded rather than passed over.
 func TestARelistDoesNotReAddADeviceAlreadyOnboarded(t *testing.T) {
 	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
 		{listedDevice(deviceOne, 0)},
@@ -545,6 +545,8 @@ func TestADeviceThatNeverAnswersDoesNotHoldTheListingUp(t *testing.T) {
 func TestOnboard_UnusableAddressIsReportedAndNotOnboarded(t *testing.T) {
 	t.Parallel()
 
+	// invalidDevice is deliberately malformed with a two-octet address to
+	// verify that addressOf rejects an address that is not 4 or 16 octets.
 	invalidDevice := listedDevice(deviceOne, 30*time.Second)
 	invalidDevice.SetIp(addrv1.IpAddress_builder{
 		V4: addrv1.Ipv4Address_builder{Octets: []byte{1, 2}}.Build(),
@@ -579,8 +581,9 @@ func TestOnboard_UnusableAddressIsReportedAndNotOnboarded(t *testing.T) {
 func TestSync_ListingDropsDeviceRemovesItsAddressFromIndex(t *testing.T) {
 	t.Parallel()
 
+	dev1 := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
 	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
-		{listedDevice(deviceOne, 30*time.Second)},
+		{dev1},
 		{},
 	}}
 	registrar := newRegistrar()
@@ -605,8 +608,9 @@ func TestSync_ListingDropsDeviceRemovesItsAddressFromIndex(t *testing.T) {
 func TestSync_FailedListDevicesLeavesIndexAsItWas(t *testing.T) {
 	t.Parallel()
 
+	dev1 := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
 	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
-		{listedDevice(deviceOne, 30*time.Second)},
+		{dev1},
 	}}
 	registrar := newRegistrar()
 	idx := lanehost.NewDeviceIndex()
@@ -636,10 +640,11 @@ func TestSync_FailedListDevicesLeavesIndexAsItWas(t *testing.T) {
 func TestSync_ListingDropsDeviceAndLaterRelistResolvesAgain(t *testing.T) {
 	t.Parallel()
 
+	dev1 := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
 	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
-		{listedDevice(deviceOne, 30*time.Second)},
+		{dev1},
 		{},
-		{listedDevice(deviceOne, 30*time.Second)},
+		{dev1},
 	}}
 	registrar := newRegistrar()
 	idx := lanehost.NewDeviceIndex()
@@ -670,8 +675,8 @@ func TestSync_ListingDropsDeviceAndLaterRelistResolvesAgain(t *testing.T) {
 func TestSync_SharedAddressRelistTransitions(t *testing.T) {
 	t.Parallel()
 
-	dev1 := listedDevice(deviceOne, 30*time.Second)
-	dev2 := listedDevice(deviceTwo, 30*time.Second)
+	dev1 := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	dev2 := validateDevice(t, listedDevice(deviceTwo, 30*time.Second))
 
 	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
 		{dev1, dev2},
@@ -840,7 +845,18 @@ func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
 	}}
 	registrar := newRegistrar()
 	idx := lanehost.NewDeviceIndex()
-	onboarder := newOnboarder(t, lister, registrar, nil, idx)
+	cfg := lanehost.OnboardConfig{
+		Client:           lister,
+		Lane:             registrar,
+		Edge:             edgeRef(),
+		Index:            idx,
+		Logger:           slog.New(slog.DiscardHandler),
+		PerDeviceTimeout: 5 * time.Second,
+	}
+	onboarder, err := lanehost.NewOnboarder(cfg)
+	if err != nil {
+		t.Fatalf("NewOnboarder: %v", err)
+	}
 
 	if err := onboarder.Sync(context.Background()); err != nil {
 		t.Fatalf("Sync 1: %v", err)
@@ -857,7 +873,9 @@ func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
 	}
 
 	// Sync 2 prunes devPruned from the index while keeping it in onboarder.held.
+	lister.mu.Lock()
 	lister.listings = append(lister.listings, []*attachv1.ListedDevice{devDrop, devMove})
+	lister.mu.Unlock()
 	if err := onboarder.Sync(context.Background()); err != nil {
 		t.Fatalf("Sync 2: %v", err)
 	}
@@ -882,12 +900,16 @@ func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
 	devPrunedAgain.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 8}}.Build()}.Build())
 	validateDevice(t, devPrunedAgain)
 
+	lister.mu.Lock()
 	lister.listings = append(lister.listings, []*attachv1.ListedDevice{devNew, devMoveNew, devPrunedAgain})
+	lister.mu.Unlock()
 
 	release := make(chan struct{})
 	entered := make(chan string, 1)
+	registrar.mu.Lock()
 	registrar.block[devNew.GetDeviceId()] = release
 	registrar.entered = entered
+	registrar.mu.Unlock()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -895,9 +917,16 @@ func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
 	syncDone := make(chan error, 1)
 	spawn.Go(ctx, "sync-runner", func() {
 		syncDone <- onboarder.Sync(ctx)
-	})
+	}, spawn.ReportTo(func(err error) {
+		syncDone <- err
+	}))
 
-	inFlight := <-entered
+	var inFlight string
+	select {
+	case inFlight = <-entered:
+	case err := <-syncDone:
+		t.Fatalf("Sync exited before AddDevice: %v", err)
+	}
 	if inFlight != devNew.GetDeviceId() {
 		t.Fatalf("entered AddDevice for %s, want %s", inFlight, devNew.GetDeviceId())
 	}
@@ -925,6 +954,12 @@ func TestSync_PruneAndRecordClaimsBeforeOnboarding(t *testing.T) {
 
 	if err := <-syncDone; err != nil {
 		t.Fatalf("Sync 3: %v", err)
+	}
+	if got := registrar.addedDevices(); !slices.Contains(got, devNew.GetDeviceId()) {
+		t.Fatalf("added devices = %v, want blocked device %s added", got, devNew.GetDeviceId())
+	}
+	if _, ok := registrar.session(devNew.GetDeviceId()); !ok {
+		t.Fatalf("session not registered for blocked device %s", devNew.GetDeviceId())
 	}
 }
 
@@ -1042,7 +1077,9 @@ func TestSync_HeldDevicesSwappingAddressesInOneListing(t *testing.T) {
 
 	dev2At6 := validateDevice(t, listedDevice(deviceTwo, 30*time.Second))
 
+	lister.mu.Lock()
 	lister.listings = append(lister.listings, []*attachv1.ListedDevice{dev1At7, dev2At6})
+	lister.mu.Unlock()
 
 	if err := onboarder.Sync(context.Background()); err != nil {
 		t.Fatalf("Sync 2: %v", err)
@@ -1052,5 +1089,106 @@ func TestSync_HeldDevicesSwappingAddressesInOneListing(t *testing.T) {
 	}
 	if entry, res := idx.Lookup("172.16.0.7"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
 		t.Errorf("Lookup 172.16.0.7 after swap = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+}
+
+func TestSync_MappedIPv4NormalizedAcrossSyncs(t *testing.T) {
+	t.Parallel()
+
+	mapped := netip.MustParseAddr("::ffff:172.16.0.6")
+	dev := listedDevice(deviceOne, 30*time.Second)
+	dev.SetIp(addrv1.IpAddress_builder{
+		V6: addrv1.Ipv6Address_builder{Octets: mapped.AsSlice()}.Build(),
+	}.Build())
+	validateDevice(t, dev)
+
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
+		{dev},
+	}}
+	registrar := newRegistrar()
+	idx := lanehost.NewDeviceIndex()
+	onboarder := newOnboarder(t, lister, registrar, nil, idx)
+
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 1: %v", err)
+	}
+	if entry, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Fatalf("Lookup plain form after Sync 1 = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 2: %v", err)
+	}
+	if entry, res := idx.Lookup("172.16.0.6"); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Fatalf("Lookup plain form after Sync 2 = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+}
+
+// TestSync_DuplicateDeviceInListingPinsCurrentBehavior pins current behavior
+// when one listing names a device ID twice with different addresses A then B.
+// ApplyListing lets the last row win while onboarding lets the first row win.
+func TestSync_DuplicateDeviceInListingPinsCurrentBehavior(t *testing.T) {
+	t.Parallel()
+
+	addrA := "172.16.0.6"
+	addrB := "172.16.0.7"
+
+	devA := validateDevice(t, listedDevice(deviceOne, 30*time.Second))
+	devA.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 6}}.Build()}.Build())
+
+	devB := listedDevice(deviceOne, 30*time.Second)
+	devB.SetIp(addrv1.IpAddress_builder{V4: addrv1.Ipv4Address_builder{Octets: []byte{172, 16, 0, 7}}.Build()}.Build())
+	validateDevice(t, devB)
+
+	lister := &listerFake{listings: [][]*attachv1.ListedDevice{
+		{devA, devB},
+	}}
+	registrar := newRegistrar()
+	endpoints := &endpointRecorder{}
+	idx := lanehost.NewDeviceIndex()
+	onboarder := newOnboarderOver(t, lister, registrar, nil, endpoints, idx)
+
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 1: %v", err)
+	}
+
+	session1, ok := registrar.session(deviceOne)
+	if !ok {
+		t.Fatalf("Sync 1: no session registered for %s", deviceOne)
+	}
+	snmp1, _ := endpoints.built()
+	if len(snmp1) != 1 || snmp1[0].Address != addrA {
+		t.Errorf("Sync 1 endpoints built = %v, want [%s]", snmp1, addrA)
+	}
+	if got := session1.BindingID; got != bindingID {
+		t.Errorf("Sync 1 session BindingID = %q, want %q", got, bindingID)
+	}
+	if entry, res := idx.Lookup(addrA); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Sync 1 Lookup(A) = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
+	}
+	if entry, res := idx.Lookup(addrB); res != lanehost.LookupUnknown {
+		t.Errorf("Sync 1 Lookup(B) = (%v, %v), want LookupUnknown", entry, res)
+	}
+
+	if err := onboarder.Sync(context.Background()); err != nil {
+		t.Fatalf("Sync 2: %v", err)
+	}
+
+	session2, ok := registrar.session(deviceOne)
+	if !ok {
+		t.Fatalf("Sync 2: no session registered for %s", deviceOne)
+	}
+	snmp2, _ := endpoints.built()
+	if len(snmp2) != 1 || snmp2[0].Address != addrA {
+		t.Errorf("Sync 2 endpoints built = %v, want [%s]", snmp2, addrA)
+	}
+	if got := session2.BindingID; got != bindingID {
+		t.Errorf("Sync 2 session BindingID = %q, want %q", got, bindingID)
+	}
+	if entry, res := idx.Lookup(addrA); res != lanehost.LookupUnknown {
+		t.Errorf("Sync 2 Lookup(A) = (%v, %v), want LookupUnknown", entry, res)
+	}
+	if entry, res := idx.Lookup(addrB); res != lanehost.LookupFound || entry.DeviceID != deviceOne {
+		t.Errorf("Sync 2 Lookup(B) = (%v, %v), want (%s, LookupFound)", entry, res, deviceOne)
 	}
 }
