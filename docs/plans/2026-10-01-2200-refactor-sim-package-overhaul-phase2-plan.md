@@ -15,8 +15,8 @@ parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 > Partially implemented: U1 to U9, commits `414ffd79..69906c50`. U10 remains.
 > Its gate landed in `48814812`, and the review ended `rework` on it after
 > three fix rounds (`1ad57013`): the checker holds guards that no fixture
-> refuses, and the fork gate's reset rows fail by panic (Inventory, Gate
-> guards). U10 below replaces that gate.
+> refuses, and a fork gate reset row panics where it should fail (Inventory,
+> Gate guards). U10 below replaces that gate.
 
 ## Goal
 
@@ -86,9 +86,9 @@ same instant, the two verbs stay and the record is amended.
   rounds with sixteen guards no fixture refuses and a fork row that fails by
   panic. The re-plan starts from `parked/sim-p2-review`, which holds every
   fix commit, and U1 to U9 stay landed. (decided by the user, 2026-10-03)
-- The gate holds its guards as a table, and each row names the fixture
-  directory that breaks it alone. The gate's own test drops each row in turn
-  and requires that row's fixture to pass. Why: the merged checker's guards
+- The gate holds its guards as a table, and each row names a fixture
+  directory the gate refuses. The gate's own test drops each row in turn and
+  requires that row's fixture to pass. Why: the merged checker's guards
   are operands of nested conditions over syntax nodes, its 66 fixture
   directories leave the 23 of Inventory, Gate guards, unheld, and a table
   turns a missing fixture into a failing test.
@@ -145,6 +145,8 @@ serializes, as `stp`, `lag`, `routing`, and `bridge` do.
   fixtures (parent R7).
 - Hostile input to the gate. It reads this repository's Go source under
   `src/common/sim/layer/`, whose authors are trusted.
+- A gate row for `NextWake`. R1 does not list it, and `bridge` and `mcast`
+  advance without one (U3).
 
 ## Inventory
 
@@ -355,7 +357,7 @@ operand of `G` there are 23:
 | 837 | an unnamed parameter counts | `Clone(int)` |
 | 868, 877, 886, 903, 933 | one result for `Normalize` and `Config.Clone`, `Validate`, `Diff`, `(*Layer).Clone`, `RetentionKey` | `Normalize(layer.Env) (Config, error)` |
 | 872 | the result of `Normalize` and `Config.Clone` is `Config` | another named type |
-| 881, 937 | the result of `Validate` and of `RetentionKey` is an identifier | a pointer or slice result |
+| 880, 936 | the result of `Validate` and of `RetentionKey` is an identifier, the `ok` of each assertion | a pointer or slice result |
 | 911 | `(*Layer).Clone` returns `*Layer` | `Clone() *Config` |
 | 916 | two results for `New` | a third result |
 
@@ -372,13 +374,19 @@ Nothing holds the other three.
 The fork gate formats a non-zero `resetOnFork` field with `vDst.Interface()`
 (`V/fork_internal_test.go:116-119`). `vDst` is read from an unexported field,
 and `Interface` "panics if the Value was obtained by accessing unexported
-struct fields" (`go doc reflect.Value.Interface`), so each of the five reset
-rows of `switchFieldClasses` fails by panic.
+struct fields" (`go doc reflect.Value.Interface`). The test passes today,
+since `Fork` resets all five such fields. A `Fork` that kept one would panic
+the test where it should fail with a message.
 
 The table U10 builds. A row's name is its fixture directory under
 `test/conformance/sim/testdata/`. A fixture is one file holding what the
 merged `valid/fixture.go` declares, a whole stateful layer, with the one
-change named. The three `stateful_` rows start from `valid_stateless`.
+change named. Fifteen rows refuse, each with one finding that quotes its
+literal. The three `stateful_` rows report nothing themselves. Each marks the
+package stateful, their fixtures start from `valid_stateless`, and what the
+gate reports there are the findings of `new`, `layer_clone`, and
+`retention_key` for the members the fixture lacks. With its `stateful_` row
+dropped the fixture is stateless and passes.
 
 | Row and fixture | Rule | The fixture's change |
 | --- | --- | --- |
@@ -571,15 +579,18 @@ Files: test/conformance/sim/, src/common/sim/device/vswitch/fork_internal_test.g
 After: U8, U9
 Change: `test/conformance/sim` reads each directory under
 `src/common/sim/layer/` by path, as `test/conformance/panic` does, and writes
-the declarations in the directory's own non-test files as lines of text. Each
-declaration gets a name line (`const LayerName`, `type Layer`, `func New`,
-`func Layer.Wake`, a pointer receiver's star dropped). Each function also
-gets a signature line with its receiver type, one type per parameter, and its
-results in parentheses (`func (*Layer) Clone() (*Layer)`). Parameter names do
-not appear. The checker takes a list of guards and applies the 18 rows of
-Inventory, Gate guards. A row tests one literal against those lines, or
-against the imports and type names of every non-test file under the
-directory, and a finding quotes the literal. Three things change for a layer.
+the declarations of the non-test files in the directory itself as lines of
+text. Each declaration gets a name line (`const LayerName`, `type Layer`,
+`func New`, `func Layer.Wake`, a pointer receiver's star dropped). Each
+function also gets a signature line the gate builds itself: the receiver
+type, one `ExprString` per parameter, and the results in parentheses whatever
+their count (`func (*Layer) Clone() (*Layer)`, `func (*Layer) Wake() ()`).
+One form for every count leaves no branch for a fixture to hold. Parameter
+names do not appear. The checker takes a list of guards and applies the 18
+rows of Inventory, Gate guards. A row tests one literal against those lines,
+or against the imports and type names of every non-test file under the
+directory, subdirectories other than `testdata` included, and a finding
+quotes the literal. Three things change for a layer.
 `Advance` needs its pointer receiver. An aliased import of `layer`, `trace`,
 or `time` reads as a missing member, and no layer aliases one. The `Config`
 type and an empty directory lose their own findings, since the five member
@@ -591,17 +602,20 @@ formats a reset field through `exportValue`, as
 of what is enforced and say a guard arrives with its fixture.
 Tests: `TestLayerContract` passes on the tree and fails when it scanned no
 package. `TestLayerContractGuardsRefuseTheirFixtures` runs the whole list
-over each row's fixture and requires exactly the row's findings, written as
-literals. It then runs the list without that row and requires none. It fails
-for a directory under `testdata/` that no row names, other than `valid` and
-`valid_stateless`. `TestLayerContractPassesValidFixtures` requires no finding
-for those two. `valid` holds every item of the Inventory's list, and for each
-item the commit body quotes the `--- FAIL` line that removing its exemption
-produces. `TestLayerContractStopsOnUnparsableFile` writes a broken file into
-`t.TempDir()`, since the verifier runs `gofumpt` over every changed Go file
+over each row's fixture and requires exactly the findings its table lists
+for that row, written as literals. It then runs the list without that row
+and requires none. It fails for a directory under `testdata/` that no row
+names, other than `valid` and `valid_stateless`.
+`TestLayerContractPassesValidFixtures` requires no finding for those two.
+`valid` holds every item of the Inventory's list, and for each item the
+commit body quotes the `--- FAIL` line that removing its exemption produces.
+`TestLayerContractStopsOnUnparsableFile` writes a broken file into
+`t.TempDir()`. It cannot sit under `testdata/`, since the verifier runs
+`gofumpt` over every changed Go file
 (`.claude/skills/verify-change/scripts/verify-change.sh:620`) and `gofumpt`
-v0.11.0 exits 2 on one. The commit body records that the new gate refused all
-65 old directories. With `Fork` changed to copy `filter`
+v0.11.0 exits 2 on a file that does not parse. The commit body records that
+the new gate refused all 65 old directories. With `Fork` changed to copy
+`filter`
 (`V/switch.go:495-505`), `TestSwitchFieldsAreClassifiedAndChecked` fails on
 its `resetOnFork` line with the field's name and without a panic, and the
 commit body quotes that line. No test shows the table covers R1 to R3. A
