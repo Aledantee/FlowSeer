@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-The `vue-tsc` package resolves `typescript@6.0.3` in `frontend/web/pnpm-lock.yaml:8399-8403`, and `frontend/web/package.json:12-13` invokes `vue-tsc` for the build and typecheck scripts. The pinned direct requirement is `typescript` at `6.0.3` in `frontend/web/package.json`.
+The `vue-tsc` package resolves `typescript@6.0.3` in `frontend/web/pnpm-lock.yaml:8483-8487`, and `frontend/web/package.json:12-13` invokes `vue-tsc` for the build and typecheck scripts. The pinned direct requirement is `typescript` at `6.0.3` in `frontend/web/package.json`.
 
 ## Why it is safe
 

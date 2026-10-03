@@ -1,10 +1,10 @@
 import type { Decorator } from '@storybook/vue3-vite'
-import { reactive, watch, type Component } from 'vue'
+import { reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import UiAppRoot from '../src/ui/app/UiAppRoot.vue'
 
 export const withLocale: Decorator = (story, context) => {
-  const isAppRoot = context.component === (UiAppRoot as unknown as Component)
+  const isAppRoot = context.component === UiAppRoot
   return {
     name: 'WithLocale',
     components: { story, UiAppRoot },

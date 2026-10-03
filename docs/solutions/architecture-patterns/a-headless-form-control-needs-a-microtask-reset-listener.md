@@ -127,7 +127,7 @@ useFormReset({
   and `v-model` synchronization.
 - `frontend/web/src/ui/form/formReset.test.ts:122-150` tests uncontrolled
   checkbox reset with `FormData`.
-- `frontend/web/src/ui/form/formReset.test.ts:294-419` tests clearing controlled
+- `frontend/web/src/ui/form/formReset.test.ts:294-418` tests clearing controlled
   state to `undefined` across Checkbox, Switch, RadioGroup, and Select.
 
 ## What this does not cover

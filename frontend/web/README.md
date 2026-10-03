@@ -111,7 +111,6 @@ is contained in the content area.
 - `src/ui/` holds design system components and headless primitives. `src/ui/app/UiAppRoot.vue` provides the top-level application wrapper (`ConfigProvider`, `TooltipProvider`, and `UiMotionConfig`) and passes the Composer locale to Reka.
 - `src/style.css` defines the shell layout, connected chrome frame, and brand glow ribbons.
 - `src/theme/tailwind.css` configures Tailwind v4 Preflight, base element normalizations, and `@theme` overlay keyframes (`--animate-overlay-in/out`, `--animate-dialog-in/out`, `--animate-fade-in/out`, `--animate-dialog-fade-in`).
-
 - `src/theme/tokens.css` wires semantic tokens, typography scales, shadows, radii, and z-index tokens (`--z-raised`, `--z-sticky`, `--z-overlay`, `--z-toast`, `--z-skip-link`) into Tailwind theme directives.
 
 Vue 3 Composition API, strict TypeScript, Vite, and Vue Router provide the shell.

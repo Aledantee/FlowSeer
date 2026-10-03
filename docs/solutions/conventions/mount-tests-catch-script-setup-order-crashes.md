@@ -103,28 +103,37 @@ watch(
 
 Domain unit tests alone do not guarantee a view initializes. Every view must have a
 mount test in Vitest that instantiates the component within its router context
-(`frontend/web/src/FleetView.test.ts:68-98`):
+(`frontend/web/src/FleetView.test.ts:68-97`):
 
 ```ts
 async function mountAt(path: string) {
+  const host = document.createElement('div')
+  document.body.append(host)
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [
       {
-        path: '/:view(dashboard|devices|sites|topology|components)',
+        path: '/:view(dashboard|devices|clients|sites|topology)',
         component: FleetView,
       },
+      { path: '/devices/:deviceId', component: FleetView },
     ],
   })
+  registry = createAiRegistry()
+  const app = createApp({
+    render() {
+      return h(UiAppRoot, {}, () => h(FleetView))
+    },
+  })
   await router.push(path)
-  const host = document.createElement('div')
-  document.body.append(host)
-  const app = createApp({ template: '<RouterView />' })
+  app.use(createWebI18n())
   app.use(router)
+  app.directive('ai-target', createAiTargetDirective(registry))
+  app.provide(aiRegistryKey, registry)
+  await router.isReady()
   app.mount(host)
   dispose = () => app.unmount()
-  await router.isReady()
-  await nextTick()
+  await settle()
   return { host, router }
 }
 ```
