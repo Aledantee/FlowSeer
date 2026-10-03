@@ -4,12 +4,14 @@ type: refactor
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Capability Contract and Surface Trim - Plan
+
+> Implemented. 10 units, 2026-10-02T17:41Z to 2026-10-03T09:28Z.
 
 ## Goal
 

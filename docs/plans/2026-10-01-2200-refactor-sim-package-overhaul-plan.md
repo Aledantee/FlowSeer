@@ -135,7 +135,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim
 ### U2. Capability contract and surface trim
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md
 After: U1
-Landed:
+Landed: `414ffd79..48814812`
 Change: `sim/layer` holds the shared contract types, every capability
 package has the contract's shape, rule identifiers belong to their
 producers, fact types and dead exports are gone, and the BPDU codec lives
