@@ -164,3 +164,16 @@ Paths are as of commit `61775c73`. `S` is
 - Does the fabric replace the switch's point-to-point default
   (`src/common/netsim/vswitch/switch.go:2960`) before any BPDU is sent on an
   unresolved link? Phase 10 answers it.
+- Parked by drive: the re-plan (`848d934e` on `parked/sim-p3-replan`, which
+  holds the re-planned units and their fetched clauses) found that R3's
+  example cannot be met as written. Its trigger is a forwarding port going
+  down, and the sources the re-plan read (IEEE Std 802.1Q-2003 clauses 13
+  and 14, P802.1aq/D1.5) raise no topology change for that. Options:
+  replace R3's example with a port that starts forwarding, as U5 and
+  Correctness 15 already prove (follows the parent's decision that
+  protocols follow their standards, and changes a fixed requirement's
+  example) | keep the example as a stated departure from the standard, a
+  change raised on leaving Forwarding at the four sites of Correctness 15
+  with that entry's test inverted (keeps R3 as written, and the layer then
+  departs from the standard there). Recommended: replace the example,
+  because the parent decided that protocols follow their standards.
