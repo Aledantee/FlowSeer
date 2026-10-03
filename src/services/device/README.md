@@ -270,7 +270,7 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/drift` | the poll that compares a managed interface against its expectation |
 | `internal/connecterr` | the errs-to-Connect mapping every handler answers through |
 | `internal/authn` | the token verifier, interceptor, and caller identity carrier |
-| `internal/authz` | the operator authorization obligations and model |
+| `internal/authz` | the operator authorization obligations |
 | `internal/authz/openfga` | the OpenFGA authorization engine checker and embedded model |
 | `internal/telemetry` | this service's instrumentation scope |
 | `internal/host` | configuration, certificate, interceptors, and the module assembly |

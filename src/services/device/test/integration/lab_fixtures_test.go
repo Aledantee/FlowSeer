@@ -1,8 +1,11 @@
 package integration_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -17,13 +20,19 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
+	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
+
+// labFixturePath is where one of the files a lab run is assembled from lives.
+func labFixturePath(name string) string {
+	// Five levels up: integration, test, device, services, src.
+	return filepath.Join("..", "..", "..", "..", "..", "deploy", "lab", name)
+}
 
 // labFixture is one of the files a lab run is assembled from.
 func labFixture(t *testing.T, name string) []byte {
 	t.Helper()
-	// Five levels up: integration, test, device, services, src.
-	body, err := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "deploy", "lab", name))
+	body, err := os.ReadFile(labFixturePath(name))
 	if err != nil {
 		t.Fatalf("read %s: %v", name, err)
 	}
@@ -38,7 +47,8 @@ func labFixture(t *testing.T, name string) []byte {
 // that names a date. This is the cheapest possible place to find it instead.
 //
 // Parsing only. Three of the four carry placeholders that are meant to fail
-// their schema rules, and the next test is about that.
+// their schema rules, and the next test is about that. The central file is the
+// exception, and the test after that one holds it to its schema.
 func TestTheLabFixturesParse(t *testing.T) {
 	t.Parallel()
 
@@ -80,7 +90,40 @@ func TestTheLabProvisioningPlaceholdersAreRefused(t *testing.T) {
 	if err == nil {
 		t.Fatal("the provisioning fixture passes its schema rules; its placeholders would be accepted as a real key and anchor")
 	}
-	t.Logf("refused as intended: %v", err)
+
+	// Both placeholders are refused, each by its own rule. A placeholder that
+	// happens to be 32 bytes long passes the anchor rule, and the key alone
+	// would keep this test green.
+	var validation *protovalidate.ValidationError
+	if !errors.As(err, &validation) {
+		t.Fatalf("the provisioning fixture is refused with %v, want a validation error", err)
+	}
+	refused := map[string]bool{}
+	for _, violation := range validation.Violations {
+		for _, element := range violation.Proto.GetField().GetElements() {
+			refused[element.GetFieldName()] = true
+		}
+	}
+	for _, field := range []string{"setup_key", "trust_anchors"} {
+		if !refused[field] {
+			t.Errorf("the provisioning fixture's %s placeholder passes its schema rule; refused fields: %v", field, refused)
+		}
+	}
+}
+
+// The central fixture satisfies its schema, so the service loads it as soon as
+// the two placeholder ids are replaced.
+//
+// It goes through the loader the service starts with rather than the schema
+// alone, so a rule the loader adds is held too. Its authorization ids are
+// placeholders by design, but they are refused by the engine client and not
+// by the schema, which the next test asserts.
+func TestTheLabCentralConfigLoads(t *testing.T) {
+	t.Parallel()
+
+	if _, err := host.LoadConfig(labFixturePath("central.textproto")); err != nil {
+		t.Fatalf("host.LoadConfig(deploy/lab/central.textproto): %v", err)
+	}
 }
 
 const dexImage = "dexidp/dex:v2.45.1@sha256:8499afd690c437f52301efd2b05b2455da5bd2dfc20332cd697dc9937f808462"
@@ -98,27 +141,49 @@ func TestTheLabAuthorizationPlaceholdersAreRefused(t *testing.T) {
 		t.Fatal("central.textproto missing authorization section")
 	}
 
-	opt := openfga.Options{
+	const wellFormedID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+
+	// Each placeholder id is refused with the other id well formed, so the
+	// refusal is the one id's alone.
+	for _, tc := range []struct {
+		name    string
+		storeID string
+		modelID string
+		field   string
+	}{
+		{"store id placeholder", authzCfg.GetStoreId(), wellFormedID, "StoreId"},
+		{"model id placeholder", wellFormedID, authzCfg.GetModelId(), "Id"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := openfga.New(t.Context(), openfga.Options{
+				Endpoint: authzCfg.GetEndpoint(),
+				StoreID:  tc.storeID,
+				ModelID:  tc.modelID,
+				KeyFile:  authzCfg.GetPresharedKeyFile(),
+				CAFile:   authzCfg.GetCaFile(),
+			})
+			gotCode, ok := errs.CodeOf(err)
+			if !ok || gotCode != openfga.ErrCodeConfig {
+				t.Fatalf("openfga.New: got %v (code %v), want %v", err, gotCode, openfga.ErrCodeConfig)
+			}
+			if !strings.Contains(err.Error(), tc.field) {
+				t.Errorf("openfga.New error %q does not name %s", err, tc.field)
+			}
+		})
+	}
+
+	_, err := openfga.New(t.Context(), openfga.Options{
 		Endpoint: authzCfg.GetEndpoint(),
-		StoreID:  authzCfg.GetStoreId(),
-		ModelID:  authzCfg.GetModelId(),
+		StoreID:  wellFormedID,
+		ModelID:  wellFormedID,
 		KeyFile:  authzCfg.GetPresharedKeyFile(),
 		CAFile:   authzCfg.GetCaFile(),
-	}
-
-	_, err := openfga.New(t.Context(), opt)
+	})
 	gotCode, ok := errs.CodeOf(err)
-	if !ok || gotCode != openfga.ErrCodeConfig {
-		t.Fatalf("openfga.New with placeholders: got %v (code %v), want %v", err, gotCode, openfga.ErrCodeConfig)
-	}
-
-	opt.StoreID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
-	opt.ModelID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
-
-	_, err2 := openfga.New(t.Context(), opt)
-	gotCode2, ok2 := errs.CodeOf(err2)
-	if !ok2 || gotCode2 != credential.ErrCodeNotFound {
-		t.Fatalf("openfga.New with valid IDs and missing keyfile: got %v (code %v), want %v", err2, gotCode2, credential.ErrCodeNotFound)
+	if !ok || gotCode != credential.ErrCodeNotFound {
+		t.Fatalf("openfga.New with valid IDs and missing keyfile: got %v (code %v), want %v", err, gotCode, credential.ErrCodeNotFound)
 	}
 }
 
@@ -141,7 +206,6 @@ func TestTheLabOpenFGARequiresAKeyAndTLS(t *testing.T) {
 		t.Fatalf("unmarshal compose.yaml: %v", err)
 	}
 
-	// 1. Assert images
 	pg, ok := compose.Services["postgres"]
 	if !ok {
 		t.Fatal("missing postgres service in compose.yaml")
@@ -177,7 +241,6 @@ func TestTheLabOpenFGARequiresAKeyAndTLS(t *testing.T) {
 		t.Errorf("dex image: got %q, want %q", dex.Image, dexImage)
 	}
 
-	// 2. OpenFGA settings
 	wantEnv := map[string]string{
 		"OPENFGA_AUTHN_METHOD":              "preshared",
 		"OPENFGA_GRPC_TLS_ENABLED":          "true",
@@ -192,18 +255,21 @@ func TestTheLabOpenFGARequiresAKeyAndTLS(t *testing.T) {
 		}
 	}
 
-	// 3. Healthcheck uses grpc_health_probe with -tls, -tls-ca-cert, -tls-server-name
-	hcArgs := strings.Join(fga.Healthcheck.Test, " ")
-	if !strings.Contains(hcArgs, "grpc_health_probe") {
-		t.Errorf("healthcheck probe missing grpc_health_probe: %q", hcArgs)
+	// Each flag is matched as a whole argument: "-tls" is a prefix of
+	// "-tls-ca-cert", so a substring match passes with the plain flag gone.
+	probe := fga.Healthcheck.Test
+	if !slices.Contains(probe, "grpc_health_probe") {
+		t.Errorf("healthcheck probe missing grpc_health_probe: %q", probe)
 	}
-	for _, flag := range []string{"-tls", "-tls-ca-cert", "-tls-server-name"} {
-		if !strings.Contains(hcArgs, flag) {
-			t.Errorf("healthcheck probe missing flag %s: %q", flag, hcArgs)
+	if !slices.Contains(probe, "-tls") {
+		t.Errorf("healthcheck probe missing flag -tls: %q", probe)
+	}
+	for _, flag := range []string{"-tls-ca-cert=", "-tls-server-name="} {
+		if !slices.ContainsFunc(probe, func(arg string) bool { return strings.HasPrefix(arg, flag) && len(arg) > len(flag) }) {
+			t.Errorf("healthcheck probe missing flag %s<value>: %q", flag, probe)
 		}
 	}
 
-	// 4. Loopback bind on every published port
 	for svcName, svc := range compose.Services {
 		for _, port := range svc.Ports {
 			if !strings.HasPrefix(port, "127.0.0.1:") {
@@ -244,5 +310,107 @@ func TestTheLabIssuerMatchesCentral(t *testing.T) {
 
 	if dexCfg.Web.HTTP != "" {
 		t.Errorf("dex config defines web.http %q, want none", dexCfg.Web.HTTP)
+	}
+}
+
+// labScript is one of the scripts a lab run starts from.
+func labScript(t *testing.T, name string) string {
+	t.Helper()
+	return string(labFixture(t, name))
+}
+
+// heredocBody returns the lines of the here-document the script writes to
+// target, a path expression as the script spells it.
+func heredocBody(t *testing.T, script, target string) []string {
+	t.Helper()
+
+	var body []string
+	in := false
+	for line := range strings.SplitSeq(script, "\n") {
+		switch {
+		case !in && strings.Contains(line, "<< EOF") && strings.HasSuffix(strings.TrimSpace(line), "> "+target):
+			in = true
+		case in && line == "EOF":
+			return body
+		case in:
+			body = append(body, line)
+		}
+	}
+	t.Fatalf("no here-document written to %s", target)
+	return nil
+}
+
+// Dex's environment file keeps every value literal.
+//
+// Compose reads the file and substitutes $name in an unquoted value. A bcrypt
+// hash is $2y$10$<salt><digest>, so unquoted it reaches Dex with its first
+// segments eaten, and the password grant then fails with a login error that
+// names nothing about the file. No test starts Compose, so this holds the
+// script's text: every assignment is one single-quoted value.
+func TestTheLabSecretsScriptQuotesTheDexEnvFile(t *testing.T) {
+	t.Parallel()
+
+	assignment := regexp.MustCompile(`^[A-Z_]+='\$\{[A-Z_]+\}'$`)
+	lines := heredocBody(t, labScript(t, "write-lab-secrets.sh"), `"${SECRETS_DIR}/dex.env"`)
+	if len(lines) == 0 {
+		t.Fatal("dex.env here-document is empty")
+	}
+	for _, line := range lines {
+		if !assignment.MatchString(line) {
+			t.Errorf("dex.env line %q is not one single-quoted value", line)
+		}
+	}
+}
+
+// The lab password hashes meet the cost Dex requires, and the passwords never
+// appear in a process's arguments.
+//
+// htpasswd defaults to cost 5 and Dex refuses anything below 10 at login, so a
+// default invocation yields a file that loads and a user who cannot sign in.
+func TestTheLabSecretsScriptHashesAtDexsCostFromStdin(t *testing.T) {
+	t.Parallel()
+
+	var hashing []string
+	for line := range strings.SplitSeq(labScript(t, "write-lab-secrets.sh"), "\n") {
+		if fields := strings.Fields(line); slices.Contains(fields, "htpasswd") && slices.Contains(fields, "-niB") {
+			hashing = fields
+		}
+	}
+	if hashing == nil {
+		t.Fatal("no htpasswd invocation that reads the password from stdin (-niB)")
+	}
+	cost := slices.Index(hashing, "-C")
+	if cost < 0 || cost+1 >= len(hashing) || hashing[cost+1] != "10" {
+		t.Errorf("htpasswd invocation %q does not set -C 10", hashing)
+	}
+}
+
+// Every file the README reads from secrets/ is one the script writes.
+//
+// The README's run is not executed by any test, so a file name that drifts
+// between the two fails only for whoever follows the steps.
+func TestTheLabReadmeReadsOnlyFilesTheSecretsScriptWrites(t *testing.T) {
+	t.Parallel()
+
+	script := labScript(t, "write-lab-secrets.sh")
+	named := regexp.MustCompile(`secrets/([A-Za-z0-9_.-]+)`).FindAllStringSubmatch(labScript(t, "README.md"), -1)
+	if len(named) == 0 {
+		t.Fatal("deploy/lab/README.md names no file under secrets/")
+	}
+	for _, m := range named {
+		if !strings.Contains(script, m[1]) {
+			t.Errorf("deploy/lab/README.md reads secrets/%s, which write-lab-secrets.sh does not write", m[1])
+		}
+	}
+}
+
+// The store script keeps the preshared key out of curl's arguments.
+func TestTheLabStoreScriptKeepsTheKeyOutOfCurlArguments(t *testing.T) {
+	t.Parallel()
+
+	for line := range strings.SplitSeq(labScript(t, "write-openfga-store.sh"), "\n") {
+		if strings.Contains(line, "-H") && strings.Contains(line, "PSK") {
+			t.Errorf("curl is given the preshared key as an argument: %q", strings.TrimSpace(line))
+		}
 	}
 }

@@ -1,12 +1,15 @@
 package host_test
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"buf.build/go/protovalidate"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
@@ -382,85 +385,115 @@ authorization {
 		t.Errorf("ca_file = %q, want /etc/ssl/certs/ca.pem", authz.GetCaFile())
 	}
 
+	// Each case changes one property of the accepted file, so the rule it
+	// names is the only one that can refuse it. Deleting that rule from the
+	// schema turns the case green, which is what makes it hold the rule. The
+	// platform_admin issuer must keep naming a configured issuer, or the
+	// cross-reference rule would refuse the file as well.
+	type edit struct{ replace, with string }
+	const (
+		adminIssuer = `platform_admin {
+  issuer: "https://auth.example.test"`
+		httpAdminIssuer = `platform_admin {
+  issuer: "http://auth.example.test"`
+		onlyIssuer = `  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }`
+		adminBlock = `platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"
+  organization_claim_name: "org_id"
+}
+`
+	)
 	refusals := []struct {
-		name    string
-		replace string
-		with    string
+		name  string
+		edits []edit
+		field string
+		rule  string
 	}{
 		{
 			name: "http issuer refused",
-			replace: `authentication {
+			edits: []edit{
+				{`authentication {
   issuers {
-    issuer: "https://auth.example.test"`,
-			with: `authentication {
+    issuer: "https://auth.example.test"`, `authentication {
   issuers {
-    issuer: "http://auth.example.test"`,
+    issuer: "http://auth.example.test"`},
+				{adminIssuer, httpAdminIssuer},
+			},
+			field: "authentication.issuers.issuer",
+			rule:  "string.prefix",
 		},
 		{
-			name:    "http endpoint refused",
-			replace: `endpoint: "https://authz.example.test:8081"`,
-			with:    `endpoint: "http://authz.example.test:8081"`,
+			name:  "http endpoint refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "http://authz.example.test:8081"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
 		},
 		{
-			name:    "endpoint with path refused",
-			replace: `endpoint: "https://authz.example.test:8081"`,
-			with:    `endpoint: "https://authz.example.test:8081/path"`,
+			name:  "endpoint with path refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "https://authz.example.test:8081/path"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
 		},
 		{
-			name:    "endpoint without port refused",
-			replace: `endpoint: "https://authz.example.test:8081"`,
-			with:    `endpoint: "https://authz.example.test"`,
+			name:  "endpoint without port refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "https://authz.example.test"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
 		},
 		{
-			name:    "relative key path refused",
-			replace: `preshared_key_file: "/etc/flowseer/authz.key"`,
-			with:    `preshared_key_file: "authz.key"`,
+			name:  "relative key path refused",
+			edits: []edit{{`preshared_key_file: "/etc/flowseer/authz.key"`, `preshared_key_file: "authz.key"`}},
+			field: "authorization.preshared_key_file",
+			rule:  "string.pattern",
 		},
 		{
 			name: "two issuers with one URL refused",
-			replace: `  issuers {
-    issuer: "https://auth.example.test"
-    audience: "flowseer-device"
-    organization_claim_name: "org_id"
-  }`,
-			with: `  issuers {
-    issuer: "https://auth.example.test"
-    audience: "flowseer-device"
-    organization_claim_name: "org_id"
-  }
+			edits: []edit{{onlyIssuer, onlyIssuer + `
   issuers {
     issuer: "https://auth.example.test"
     audience: "flowseer-device-2"
-  }`,
+  }`}},
+			field: "authentication",
+			rule:  "operator_authentication.unique_issuers",
 		},
 		{
 			name: "platform_admin issuer no issuer names refused",
-			replace: `platform_admin {
-  issuer: "https://auth.example.test"`,
-			with: `platform_admin {
-  issuer: "https://unlisted.example.test"`,
+			edits: []edit{{adminIssuer, `platform_admin {
+  issuer: "https://unlisted.example.test"`}},
+			rule: "device_service_config.platform_admin_issuer_configured",
 		},
 		{
-			name:    "empty audience refused",
-			replace: `audience: "flowseer-device"`,
-			with:    `audience: ""`,
+			name:  "empty audience refused",
+			edits: []edit{{`audience: "flowseer-device"`, `audience: ""`}},
+			field: "authentication.issuers.audience",
+			rule:  "string.min_len",
 		},
 		{
-			name: "no issuers refused",
-			replace: `  issuers {
-    issuer: "https://auth.example.test"
-    audience: "flowseer-device"
-    organization_claim_name: "org_id"
-  }`,
-			with: "",
+			// With no issuer left there is nothing for platform_admin to name,
+			// so the block goes too. The cross-reference rule is not what this
+			// case is about.
+			name:  "no issuers refused",
+			edits: []edit{{onlyIssuer, ""}, {adminBlock, ""}},
+			field: "authentication.issuers",
+			rule:  "repeated.min_items",
 		},
 	}
 
 	for _, tc := range refusals {
 		t.Run(tc.name, func(t *testing.T) {
-			body := strings.Replace(accepted, tc.replace, tc.with, 1)
-			if body == accepted {
-				t.Fatalf("replacement target %q was not found in accepted config", tc.replace)
+			body := accepted
+			for _, e := range tc.edits {
+				next := strings.Replace(body, e.replace, e.with, 1)
+				if next == body {
+					t.Fatalf("replacement target %q was not found in accepted config", e.replace)
+				}
+				body = next
 			}
 			_, err := host.LoadConfig(writeConfig(t, body))
 			if err == nil {
@@ -468,6 +501,27 @@ authorization {
 			}
 			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
 				t.Fatalf("LoadConfig() error code = %v, want %v", code, host.ErrCodeConfigInvalid)
+			}
+
+			var validation *protovalidate.ValidationError
+			if !errors.As(err, &validation) {
+				t.Fatalf("LoadConfig() error = %v, want a schema validation error", err)
+			}
+			// Every violation sits on the one field the case changed, and one of
+			// them is the rule it names. Rules on that field may overlap.
+			ruled := false
+			for _, violation := range validation.Violations {
+				var names []string
+				for _, element := range violation.Proto.GetField().GetElements() {
+					names = append(names, element.GetFieldName())
+				}
+				if got := strings.Join(names, "."); got != tc.field {
+					t.Errorf("violation %q on %q, want it on %q", violation.Proto.GetRuleId(), got, tc.field)
+				}
+				ruled = ruled || violation.Proto.GetRuleId() == tc.rule
+			}
+			if !ruled {
+				t.Errorf("no violation of %q on %q: %v", tc.rule, tc.field, validation.Violations)
 			}
 		})
 	}
