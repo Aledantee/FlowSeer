@@ -146,10 +146,8 @@ func TestIngestRecordRules(t *testing.T) {
 			}(),
 		},
 		{
-			name: "syslog record holding no id with only device and received_at passes",
-			message: func() *eventlogv1.SyslogRecord {
-				return testSyslogRecord()
-			}(),
+			name:    "syslog record holding no id with only device and received_at passes",
+			message: testSyslogRecord(),
 		},
 		{
 			name: "envelope wrapping minimal syslog record fails only on missing record_id",
