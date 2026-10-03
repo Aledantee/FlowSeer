@@ -3,7 +3,7 @@ title: Web Component Contract Migration, Phase 4 - View Strings and Locale Forma
 type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
+artifact_readiness: implementation-ready
 status: planned
 execution: code
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -18,7 +18,8 @@ messages. Numbers, dates, relative times, and units format through
 vue-i18n or `Intl` for the active locale. Identifiers carry
 `translate="no"`. A locale switch in the app re-renders every view in
 German. Two composables under `src/i18n/` own formatting and identifier
-labels, and each view unit moves its strings into both catalogs.
+labels, each view unit moves its strings into both catalogs, and a
+language switch in the top bar sets the locale.
 
 Stop condition: `frontend/web/src/ai/catalog.ts` or a `UiAiContextLayer`
 exists when implementation starts. The AI actions plan then landed
@@ -41,18 +42,31 @@ first and rewrote the AI targets of every view inventoried here.
   catalog file per locale. A catalog written whole in a first unit would
   widen the graph, but a view's message shapes (plural forms, slots
   around inline markup) are settled while its template is edited, so
-  every view unit would reopen it. Seven units stay one plan for the
+  every view unit would reopen it. Eight units stay one plan for the
   same reason (`.agents/skills/plan/references/phases.md`).
 - **Owners.** A message is keyed `view.<owner>.<key>`, with the owners
   the String inventory lists. Vocabulary two owners share lives under
   `view.common`. Why: page names, health words, and units repeat across
   files today (`FleetView.vue:337`, `WorkspacePage.vue:87-97`).
-- **English keeps today's literals, with three exceptions.** The traffic
-  unit reads `Mbit/s` and `Gbit/s`, relative times come from
+- **A language switch sits beside the theme switch.** A saved choice
+  wins, then the first of `navigator.languages` that is `en` or `de`,
+  then `en`. The choice is stored under `flowseer.locale`, and
+  `<html lang>` follows the Composer locale.
+  (decided by the user, 2026-10-03)
+- **English reads `Mbit/s`,** as requirement 2's example does.
+  (decided by the user, 2026-10-03)
+- **English otherwise keeps today's literals, with three exceptions.**
+  The scaled unit reads `Gbit/s` to match, relative times come from
   `Intl.RelativeTimeFormat`, and clock times from `d()`. Why:
-  requirement 2 fixes `Mbit/s` in both locales, `Intl.NumberFormat` with
-  `unit: 'megabit-per-second'` prints `Mb/s` in both, and the contract
-  sends relative times and dates through `Intl`.
+  `Intl.NumberFormat` with `unit: 'megabit-per-second'` prints `Mb/s` in
+  both locales, so unit labels are messages, and the contract sends
+  relative times and dates through `Intl`.
+- **The switch is one button.** It flips between the two locales, shows
+  the active locale's code, and names the other language by its own
+  name from `Intl.DisplayNames`. Why: the theme switch beside it is one
+  button with a tooltip and a status announcement
+  (`ThemeSwitcher.vue`), and a menu is only needed from a third locale,
+  which is out of scope.
 - **`useFormat()` in `src/i18n/format.ts` formats values.** It reads the
   global Composer on every call, so output follows a locale switch.
   - `quantity(value, unit)` joins `n(value, 'decimal')` and the unit's
@@ -142,9 +156,10 @@ is `node_modules/.pnpm/@intlify+core-base@11.4.12/node_modules/@intlify/core-bas
 | `node_modules/vue/compiler-sfc/index.mjs` | `vue` re-exports the SFC compiler. |
 
 `Intl` output is locale data. Node 22.14.0 (ICU 76.1) prints the values
-below. A browser's ICU can abbreviate differently, so tests build their
-expectation from `Intl` with literal arguments and pin a literal only
-for `n()` grouping.
+below, and `new Intl.DisplayNames(l, { type: 'language' }).of(l)` prints
+`English` and `Deutsch`. A browser's ICU can abbreviate differently, so
+tests build their expectation from `Intl` with literal arguments and
+pin a literal only for `n()` grouping.
 
 ```bash
 node -e "for (const l of ['en','de']) { const r = new Intl.RelativeTimeFormat(l, { numeric: 'auto', style: 'short' }); console.log(l, r.format(-38, 'minute'), '|', r.format(-13, 'hour'), '|', r.format(0, 'second'), '|', new Intl.NumberFormat(l, { style: 'unit', unit: 'megabit-per-second' }).format(1234.5), '|', new Intl.DateTimeFormat(l, { hour: 'numeric', minute: '2-digit' }).format(new Date(2026, 9, 3, 14, 0))) }"
@@ -220,6 +235,11 @@ translation in the infinitive style of the `ui.*` messages
    each sit inside an element with `translate="no"`.
 7. No app template holds literal text. Example: `<p>Hello</p>` in any
    view fails `templates.test.ts` with the file and line.
+8. The language switch sets the locale and remembers it. Example: with
+   nothing saved and `navigator.languages` of `['fr-FR', 'de-AT']` the
+   app starts in `de`. Pressing the switch shows English, stores `en`
+   under `flowseer.locale`, and sets `<html lang="en">`, and a reload
+   starts in `en`.
 
 ## Out of scope
 
@@ -234,6 +254,8 @@ translation in the infinitive style of the `ui.*` messages
   to phase 5, the next change to `src/ui/table/` stories.
 - An i18n lint package, lazy loading, and locales beyond `en` and `de`.
   No package is added, so no dependency statement is written.
+- Storybook. Its preview keeps the locale toolbar and does not read
+  `flowseer.locale`.
 - `templateLiterals` reads this repository's own `.vue` files, written
   by trusted authors. It does not defend against hostile input.
 
@@ -295,10 +317,18 @@ Change: `templates.test.ts` replaces its file list with globs over `src/*.vue`, 
 Tests: `FleetView.locale.test.ts` sweeps `/dashboard`, `/devices`, a device route, `/clients`, and `/sites` in both locales and through a live switch in each direction, and asserts no i18n warning at any step. `templates.test.ts` fails on any `.vue` file the globs match that holds a literal. Nothing mechanical finds an English string built in `<script>` or in a bound expression that never reaches a message. The review reads each migrated file's script against the String inventory for those.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/FleetView.locale.test.ts frontend/web/src/i18n/templates.test.ts frontend/web/README.md .agents/skills/web-component/references/i18n-and-ai.md`
 
-Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7
+### U8. Language switch
 
-Every unit from U2 on edits both catalogs and `templates.test.ts`, which
-makes the graph a chain.
+Files: `frontend/web/src/components/LocaleSwitcher.vue`, `frontend/web/src/components/LocaleSwitcher.test.ts`, `frontend/web/src/i18n/locale.ts`, `frontend/web/src/i18n/locale.test.ts`, `frontend/web/src/main.ts`, `frontend/web/src/FleetView.vue`, `frontend/web/src/FleetView.locale.test.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/README.md`
+After: U7
+Change: `locale.ts` exports `resolveLocale(saved, languages)`: the saved value when it is a supported locale, else the first entry of `languages` whose primary subtag equals `en` or `de` without regard to case, else `en`. It reads and writes `flowseer.locale` in `localStorage`, treating blocked storage as nothing saved, and exports a function that keeps `document.documentElement.lang` equal to a Composer's locale. `main.ts:32` creates the plugin with the resolved locale and starts that binding. `LocaleSwitcher.vue` is one button after `ThemeSwitcher` in the top bar tools (`FleetView.vue:1068`), the size of the theme switch and shown at every width the theme switch is. It shows the active locale's code with `translate="no"`. Its tooltip and accessible name are one `view.localeSwitcher` message around the other language's own name, and that name carries its `lang`. Pressing it sets the Composer locale, saves the choice, and announces the change in a status region as `ThemeSwitcher.vue` does. When saving fails the locale still changes and the announcement says the choice was not saved. The globs from U7 already cover the new template. The README's top bar paragraph and Internationalization section describe the switch, the starting rule, and the storage key.
+Tests: `locale.test.ts` resolves: a saved `de` beats `['en-US']`, an unsupported saved value is ignored, `['fr-FR', 'de-AT', 'en']` gives `de`, `['DE']` gives `de`, `['den', 'en-GB']` gives `en` because `den` is another language whose tag only starts with `de`, `[]` gives `en`, and storage that throws on read gives the browser language. The document binding sets `lang` at start and after a Composer change. `LocaleSwitcher.test.ts` mounts in `en`: the accessible name holds `Deutsch` inside an element with `lang="de"`, a press sets the Composer to `de`, stores `de`, announces in German, and the name then holds `English`. With storage that throws on write, a press still switches and announces the unsaved notice. `FleetView.locale.test.ts` presses the switch on a mounted `/devices` and asserts the navigation and heading turn German with no remount and no i18n warning. The browser check under Verification runs after this unit.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/components/LocaleSwitcher.vue frontend/web/src/components/LocaleSwitcher.test.ts frontend/web/src/i18n/locale.ts frontend/web/src/i18n/locale.test.ts frontend/web/src/main.ts frontend/web/src/FleetView.vue frontend/web/src/FleetView.locale.test.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/README.md`
+
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8
+
+Every unit from U2 on edits both catalogs, and U2 to U7 edit
+`templates.test.ts`, which makes the graph a chain.
 
 ## Verification
 
@@ -312,13 +342,22 @@ pnpm build
 
 Each unit runs its focused tests and the verifier over its Files. The
 browser loop in `.agents/skills/web-component/references/review.md` runs
-for the `TrafficChart` stories in both locales and themes. The views
-have no stories. Looking at them in German at 320 px and 1280 px needs
-the app to start in German, which open question 1 decides.
+for the `TrafficChart` stories in both locales and themes.
+
+The views have no stories, so after U8 they are checked in the app.
+With `pnpm dev` and agent-browser, switch to German and look at the
+dashboard, devices, a device, clients, and sites at 320 px and 1280 px,
+and topology at 1280 px, in both themes. The check fails on horizontal
+page scroll, clipped text, or a top bar row that no longer fits. The fix
+goes in the file that causes it, and the report names that file when it
+lies outside U8's Files. Without agent-browser the report says so and
+names the pages for a person to look at.
 
 ## Definition of done
 
-- [ ] All seven requirements pass.
+- [ ] All eight requirements pass.
+- [ ] The German views passed the browser check at 320 px and 1280 px,
+      or the report says it did not run and why.
 - [ ] Every changed path passes the diff-aware verifier.
 - [ ] The review read every migrated file's script for strings the
       template check cannot see.
@@ -328,33 +367,10 @@ the app to start in German, which open question 1 decides.
 
 ## Open questions
 
-1. **How is the app's locale chosen?** This keeps the plan at
-   `needs-decisions`. `main.ts:32` always starts in `en`, and nothing in
-   the tree changes the running app's locale. The Goal's "locale switch
-   in the app" reads either as a control, the way the README calls the
-   theme control "the icon-only theme switch", or as the Composer change
-   requirement 3 already tests. The direction record names neither.
-   - **A language switch beside the theme switch (recommended).** A
-     saved choice wins, then the first of `navigator.languages` that is
-     `en` or `de`, then `en`. The theme works this way, with its choice
-     saved under `flowseer.theme`. German becomes reachable, and the
-     review can look at the German views at 320 px. It costs one more
-     unit and one more control in a top bar that is tight on phones.
-   - **Browser language at startup, no control.** No new UI. A user
-     cannot override it, and the browser check needs a browser started
-     in German.
-   - **Nothing in this phase.** The locale changes only in tests and
-     Storybook. German view layout gets no real-browser check, so an
-     overflow at 320 px stays unseen until a later plan.
+Neither blocks a unit.
 
-   The first answer adds a unit after U7: `LocaleSwitcher.vue` under
-   `src/components/`, a `src/i18n/locale.ts` that resolves the choice
-   and stores it under `flowseer.locale`, `main.ts` starting from it,
-   and `<html lang>` kept equal to the Composer locale. The second adds
-   that unit without the component and the storage. U1 to U7 stand
-   either way.
-2. Unverified: why the story audit lost the AI action once
+1. Unverified: why the story audit lost the AI action once
    `ui-table--default` was wrapped in `UiScrollArea`. See Out of scope.
-3. Unverified: whether a browser's ICU abbreviates relative times as
+2. Unverified: whether a browser's ICU abbreviates relative times as
    Node 22.14.0 does. Tests do not pin those strings, and the browser
    check is where a difference would show.
