@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { UiScrollArea, UiTooltip } from '../ui'
 import { dockTabShortcut } from './shortcuts'
 import AppIcon from '../components/AppIcon.vue'
 import type { Health } from '../domain/fleet'
 import type { DockTab } from './dock'
+import { useFormat } from '../i18n/format'
+import { useLabels } from '../i18n/labels'
 defineProps<{
   tabs: DockTab[]
   title: (tab: DockTab) => {
@@ -15,14 +18,17 @@ defineProps<{
   }
   canSplit: boolean
 }>()
+const { t } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const emit = defineEmits<{
   open: [id: string]
   split: [id: string]
   close: [id: string]
 }>()
 function badge(health: Health | undefined, attention: number | undefined) {
-  if (health && health !== 'Healthy') return health
-  if (attention) return `${attention} need attention`
+  if (health && health !== 'Healthy') return labels.health(health)
+  if (attention) return format.counted('view.dock.needAttention', attention)
   return ''
 }
 </script>
@@ -31,7 +37,7 @@ function badge(health: Health | undefined, attention: number | undefined) {
   <nav
     v-if="tabs.length"
     class="page-dock absolute z-[7] inset-x-4 bottom-3 flex justify-center pointer-events-none"
-    aria-label="Minimized pages"
+    :aria-label="t('view.dock.minimizedPages')"
   >
     <UiScrollArea
       axis="x"
@@ -49,17 +55,13 @@ function badge(health: Health | undefined, attention: number | undefined) {
           :class="{ pair: tab.beside }"
         >
           <UiTooltip
-            :label="`Open ${title(tab).label}`"
+            :label="t('view.dock.open', { label: title(tab).label })"
             :hint="
-              [
+              format.facts([
                 title(tab).detail,
                 badge(title(tab).health, title(tab).attention),
-                canSplit && !tab.beside
-                  ? 'Shift-click opens it side by side'
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' · ')
+                canSplit && !tab.beside && t('view.dock.shiftHint'),
+              ])
             "
             :shortcut="index < 9 ? dockTabShortcut(index + 1) : undefined"
             side="top"
@@ -105,22 +107,24 @@ function badge(health: Health | undefined, attention: number | undefined) {
           </UiTooltip>
           <UiTooltip
             v-if="canSplit && !tab.beside"
-            label="Open side by side"
+            :label="t('view.dock.openBeside')"
             :shortcut="index < 9 ? dockTabShortcut(index + 1, true) : undefined"
             side="top"
           >
             <button
               class="dock-action grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
-              :aria-label="`Open ${title(tab).label} side by side`"
+              :aria-label="
+                t('view.dock.openBesideLabel', { label: title(tab).label })
+              "
               @click="emit('split', tab.id)"
             >
               <AppIcon name="panel-right" />
             </button>
           </UiTooltip>
-          <UiTooltip label="Remove from dock" side="top">
+          <UiTooltip :label="t('view.dock.remove')" side="top">
             <button
               class="dock-action grid place-items-center w-6.5 h-6.5 mr-1 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-surface/80 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5"
-              :aria-label="`Close ${title(tab).label}`"
+              :aria-label="t('view.dock.close', { label: title(tab).label })"
               @click="emit('close', tab.id)"
             >
               <AppIcon name="close" />

@@ -3,11 +3,19 @@ import { templateLiterals } from './testing'
 
 // Files whose templates must hold no literal text. A literal shows as
 // `file:line text` in the failure.
-const checked = import.meta.glob<string>(['../ui/**/Ui*.vue'], {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-})
+const checked = import.meta.glob<string>(
+  [
+    '../ui/**/Ui*.vue',
+    '../FleetView.vue',
+    '../navigation/PageDock.vue',
+    '../navigation/PageHost.vue',
+  ],
+  {
+    eager: true,
+    query: '?raw',
+    import: 'default',
+  },
+)
 
 describe('templateLiterals', () => {
   it('reports a text node with its line', () => {
