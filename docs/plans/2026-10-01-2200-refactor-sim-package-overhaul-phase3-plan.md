@@ -4,12 +4,14 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan
+
+> **Outcome**: Implemented across units U1 through U6 (`a8a26462..7602c877`). All inventory entries verified with failing-first tests. The layer and BPDU codec conform to IEEE 802.1Q, IEEE 802.1D, and Cisco PVST+ contracts.
 
 ## Goal
 
