@@ -196,7 +196,7 @@ var refusedFindings = map[string][]string{
 		`test/conformance/sim/testdata/age: declares "func Layer.Age"`,
 	},
 	"exported_fact": {
-		`test/conformance/sim/testdata/exported_fact/fixture.go:42: declares type "FooFact"`,
+		`test/conformance/sim/testdata/exported_fact/sub/x.go:3: declares type "FooFact"`,
 	},
 	"import_sibling": {
 		`test/conformance/sim/testdata/import_sibling/sub/x.go:4: imports "go.aledante.io/FlowSeer/src/common/sim/layer/bridge"`,
@@ -387,7 +387,7 @@ func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
 			return err
 		}
 		if d.IsDir() {
-			if path != dir && d.Name() == "testdata" {
+			if d.Name() == "testdata" {
 				return filepath.SkipDir
 			}
 
@@ -410,7 +410,7 @@ func readLayerDir(fset *token.FileSet, root, dir string) (layerFacts, error) {
 		}
 		for _, decl := range file.Decls {
 			gen, ok := decl.(*ast.GenDecl)
-			if !ok || gen.Tok != token.TYPE {
+			if !ok {
 				continue
 			}
 			for _, spec := range gen.Specs {
@@ -466,8 +466,6 @@ func genDeclLines(decl *ast.GenDecl) []string {
 		keyword = "var"
 	case token.TYPE:
 		keyword = "type"
-	default:
-		return nil
 	}
 
 	var lines []string
@@ -488,7 +486,7 @@ func genDeclLines(decl *ast.GenDecl) []string {
 func funcLines(fn *ast.FuncDecl) []string {
 	name := "func " + fn.Name.Name
 	signature := "func "
-	if fn.Recv != nil && len(fn.Recv.List) == 1 {
+	if fn.Recv != nil {
 		recv := types.ExprString(fn.Recv.List[0].Type)
 		name = "func " + strings.TrimPrefix(recv, "*") + "." + fn.Name.Name
 		signature += "(" + recv + ") "
