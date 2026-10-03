@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 
@@ -47,6 +48,10 @@ var (
 	ErrCodeUnreachable = errs.NewCode("authz/engine-unreachable")
 	// ErrCodeProtocol indicates an unexpected engine response or protocol failure.
 	ErrCodeProtocol = errs.NewCode("authz/engine-protocol")
+	// ErrCodeConflict indicates a concurrent write conflict on the engine.
+	ErrCodeConflict = errs.NewCode("authz/engine-conflict")
+	// ErrCodeInvalidTuple indicates an invalid tuple that fails identifier validation.
+	ErrCodeInvalidTuple = errs.NewCode("authz/engine-invalid-tuple")
 )
 
 const (
@@ -74,24 +79,31 @@ type Options struct {
 	KeyFile        string
 	CAFile         string
 	Timeout        time.Duration
+	Clock          func() time.Time
 	View           *telemetry.View
 	TracerProvider trace.TracerProvider
 	Propagator     propagation.TextMapPropagator
 }
 
-// Checker implements authz.Checker using an OpenFGA service client over gRPC.
+// Checker implements authz.Engine using an OpenFGA service client over gRPC.
 type Checker struct {
 	storeID    string
 	modelID    string
 	timeout    time.Duration
+	clock      func() time.Time
 	view       *telemetry.View
 	tracer     trace.Tracer
 	propagator propagation.TextMapPropagator
 	conn       *grpc.ClientConn
 	client     openfgav1.OpenFGAServiceClient
+
+	verifyMu       sync.Mutex
+	verified       bool
+	lastVerifyErr  error
+	lastVerifyTime time.Time
 }
 
-var _ authz.Checker = (*Checker)(nil)
+var _ authz.Engine = (*Checker)(nil)
 
 // presharedKeyCredential sends the key as a bearer token. Key is exported
 // because fmt consults a secret.Value's redaction only for an exported field.
@@ -133,7 +145,7 @@ func (m metadataCarrier) Keys() []string {
 
 // New constructs a Checker connected to OpenFGA, verifies the configured store
 // and authorization model against the engine, and returns the ready Checker.
-func New(ctx context.Context, opts Options) (*Checker, error) {
+func New(_ context.Context, opts Options) (*Checker, error) {
 	req := &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: opts.StoreID,
 		Id:      opts.ModelID,
@@ -189,10 +201,16 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 	}
 	tracer := tracerProvider.Tracer("go.aledante.io/FlowSeer/src/services/device", trace.WithSchemaURL(semconv.SchemaURL))
 
+	clock := opts.Clock
+	if clock == nil {
+		clock = time.Now
+	}
+
 	checker := &Checker{
 		storeID:    opts.StoreID,
 		modelID:    opts.ModelID,
 		timeout:    timeout,
+		clock:      clock,
 		view:       opts.View,
 		tracer:     tracer,
 		propagator: opts.Propagator,
@@ -214,61 +232,95 @@ func New(ctx context.Context, opts Options) (*Checker, error) {
 	checker.conn = conn
 	checker.client = openfgav1.NewOpenFGAServiceClient(conn)
 
-	callCtx, cancel := context.WithTimeoutCause(ctx, timeout, errCallTimeout)
-	storeResp, err := checker.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: opts.StoreID})
+	return checker, nil
+}
+
+// Verify runs the start check against OpenFGA, verifying the configured store and
+// authorization model against the engine.
+func (c *Checker) Verify(ctx context.Context) error {
+	return c.verify(ctx)
+}
+
+func (c *Checker) verify(ctx context.Context) error {
+	c.verifyMu.Lock()
+	defer c.verifyMu.Unlock()
+
+	if c.verified {
+		return nil
+	}
+
+	now := c.clock()
+	if !c.lastVerifyTime.IsZero() && now.Sub(c.lastVerifyTime) < 5*time.Second {
+		return c.lastVerifyErr
+	}
+
+	err := c.doVerify(ctx)
+	if err == nil {
+		c.verified = true
+		c.lastVerifyErr = nil
+		c.lastVerifyTime = time.Time{}
+		return nil
+	}
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+
+	c.lastVerifyErr = err
+	c.lastVerifyTime = now
+	return err
+}
+
+func (c *Checker) doVerify(ctx context.Context) error {
+	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	storeResp, err := c.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: c.storeID})
 	cancel()
 	if err != nil {
-		_ = checker.Close()
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return ctx.Err()
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 5002 || st.Code() == 5 /* codes.NotFound */ {
-			return nil, errs.From(err).Code(ErrCodeStoreMismatch).Msg("store not found on engine")
+			return errs.From(err).Code(ErrCodeStoreMismatch).Msg("store not found on engine")
 		}
-		return nil, checker.classifyError(err)
+		return c.classifyError(err)
 	}
-	if storeResp.GetId() != opts.StoreID {
-		_ = checker.Close()
-		return nil, errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
+	if storeResp.GetId() != c.storeID {
+		return errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
 	}
 
-	callCtx, cancel = context.WithTimeoutCause(ctx, timeout, errCallTimeout)
-	modelResp, err := checker.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
-		StoreId: opts.StoreID,
-		Id:      opts.ModelID,
+	callCtx, cancel = context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	modelResp, err := c.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
+		StoreId: c.storeID,
+		Id:      c.modelID,
 	})
 	cancel()
 	if err != nil {
-		_ = checker.Close()
 		if ctx.Err() != nil {
-			return nil, ctx.Err()
+			return ctx.Err()
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 2001 || st.Code() == 5 /* codes.NotFound */ {
-			return nil, errs.From(err).Code(ErrCodeModelMismatch).Msg("model not found on engine")
+			return errs.From(err).Code(ErrCodeModelMismatch).Msg("model not found on engine")
 		}
-		return nil, checker.classifyError(err)
+		return c.classifyError(err)
 	}
 	serverModel := modelResp.GetAuthorizationModel()
-	if serverModel == nil || serverModel.GetId() != opts.ModelID {
-		_ = checker.Close()
-		return nil, errs.New().Code(ErrCodeModelMismatch).Msg("model id mismatch")
+	if serverModel == nil || serverModel.GetId() != c.modelID {
+		return errs.New().Code(ErrCodeModelMismatch).Msg("model id mismatch")
 	}
 
 	embeddedModel, err := Model()
 	if err != nil {
-		_ = checker.Close()
-		return nil, errs.From(err).Code(ErrCodeConfig).Msg("load embedded model")
+		return errs.From(err).Code(ErrCodeConfig).Msg("load embedded model")
 	}
 	cloned := proto.Clone(serverModel).(*openfgav1.AuthorizationModel)
 	cloned.Id = ""
 	if !proto.Equal(embeddedModel, cloned) {
-		_ = checker.Close()
-		return nil, errs.New().Code(ErrCodeModelMismatch).Msg("stored authorization model does not match embedded model")
+		return errs.New().Code(ErrCodeModelMismatch).Msg("stored authorization model does not match embedded model")
 	}
 
-	return checker, nil
+	return nil
 }
 
 func (c *Checker) unaryClientInterceptor(
@@ -346,6 +398,9 @@ func (c *Checker) classifyError(err error) error {
 
 	code := st.Code()
 	codeInt := int(code)
+	if code == 10 /* codes.Aborted */ {
+		return errs.From(err).Code(ErrCodeConflict).Retryable().Msg("engine write conflict")
+	}
 	if (codeInt >= 1000 && codeInt <= 1999) || code == 16 /* codes.Unauthenticated */ || code == 7 /* codes.PermissionDenied */ {
 		return errs.From(err).Code(ErrCodeRefused).Msg("engine refused call")
 	}
@@ -419,6 +474,9 @@ func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 	if !isValidQuery(q) {
 		return false, nil
 	}
+	if err := c.verify(ctx); err != nil {
+		return false, err
+	}
 
 	req := &openfgav1.CheckRequest{
 		StoreId:              c.storeID,
@@ -458,6 +516,9 @@ func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return nil, ctxErr
+	}
+	if err := c.verify(ctx); err != nil {
+		return nil, err
 	}
 	results := make([]bool, len(queries))
 	if len(queries) == 0 {

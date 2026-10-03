@@ -60,28 +60,39 @@ func TestOpenFGACheckerAgainstServer(t *testing.T) {
 		t.Fatalf("openfga.New against server: %v", err)
 	}
 	defer func() { _ = checker.Close() }()
+	if err := checker.Verify(context.Background()); err != nil {
+		t.Fatalf("checker.Verify against server: %v", err)
+	}
 
 	// An absent store is a store mismatch.
 	const absentStoreID = "01JK9999999999999999999999"
-	_, err = openfga.New(context.Background(), openfga.Options{
+	absentStoreChecker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  absentStoreID,
 		ModelID:  env.modelID,
 		KeyFile:  keyFile,
 		CAFile:   env.certPath,
 	})
-	wantIntegrationCode(t, err, openfga.ErrCodeStoreMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New absent store: %v", err)
+	}
+	defer func() { _ = absentStoreChecker.Close() }()
+	wantIntegrationCode(t, absentStoreChecker.Verify(context.Background()), openfga.ErrCodeStoreMismatch)
 
 	// An absent model is a model mismatch.
 	const absentModelID = "01JK9999999999999999999998"
-	_, err = openfga.New(context.Background(), openfga.Options{
+	absentModelChecker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  env.storeID,
 		ModelID:  absentModelID,
 		KeyFile:  keyFile,
 		CAFile:   env.certPath,
 	})
-	wantIntegrationCode(t, err, openfga.ErrCodeModelMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New absent model: %v", err)
+	}
+	defer func() { _ = absentModelChecker.Close() }()
+	wantIntegrationCode(t, absentModelChecker.Verify(context.Background()), openfga.ErrCodeModelMismatch)
 
 	// A stored model one relation short of the embedded one is a model mismatch.
 	embModel, err := openfga.Model()
@@ -104,24 +115,32 @@ func TestOpenFGACheckerAgainstServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("write short model: %v", err)
 	}
-	_, err = openfga.New(context.Background(), openfga.Options{
+	shortChecker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  env.storeID,
 		ModelID:  shortResp.GetAuthorizationModelId(),
 		KeyFile:  keyFile,
 		CAFile:   env.certPath,
 	})
-	wantIntegrationCode(t, err, openfga.ErrCodeModelMismatch)
+	if err != nil {
+		t.Fatalf("openfga.New short model: %v", err)
+	}
+	defer func() { _ = shortChecker.Close() }()
+	wantIntegrationCode(t, shortChecker.Verify(context.Background()), openfga.ErrCodeModelMismatch)
 
 	// A wrong key is refused.
-	_, err = openfga.New(context.Background(), openfga.Options{
+	wrongKeyChecker, err := openfga.New(context.Background(), openfga.Options{
 		Endpoint: "https://" + env.endpoint,
 		StoreID:  env.storeID,
 		ModelID:  env.modelID,
 		KeyFile:  wrongKeyFile,
 		CAFile:   env.certPath,
 	})
-	wantIntegrationCode(t, err, openfga.ErrCodeRefused)
+	if err != nil {
+		t.Fatalf("openfga.New wrong key: %v", err)
+	}
+	defer func() { _ = wrongKeyChecker.Close() }()
+	wantIntegrationCode(t, wrongKeyChecker.Verify(context.Background()), openfga.ErrCodeRefused)
 
 	// A batch holding one query twice answers both.
 	if err := env.WriteTuple(context.Background(), "user:alice", "claimed", "platform:global"); err != nil {
