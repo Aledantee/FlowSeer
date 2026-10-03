@@ -434,4 +434,14 @@ describe('UiTooltip', () => {
     expect(keyTexts()).toEqual(['constructor'])
     expect(accessibleText()).toBe('Quick action Shortcut hint constructor')
   })
+
+  it('applies wrapping and max-width classes to tooltip content', async () => {
+    mountTooltip({ defaultOpen: true })
+    await settle()
+
+    const content = tooltipNamed('Quick action')
+    expect(content.className).toContain('max-w-72')
+    expect(content.className).toContain('flex-wrap')
+    expect(content.className).toContain('break-words')
+  })
 })

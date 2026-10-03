@@ -20,7 +20,7 @@ withDefaults(defineProps<UiBadgeProps>(), {
 })
 
 const badgeVariants = tv({
-  base: 'inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap',
+  base: 'inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap max-w-full',
   variants: {
     variant: {
       default: 'bg-subtle text-foreground border border-border',

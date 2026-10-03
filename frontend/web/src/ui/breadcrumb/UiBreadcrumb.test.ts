@@ -313,4 +313,11 @@ describe('UiBreadcrumb', () => {
     expect(customTrigger.getAttribute('aria-label')).toBe('Custom Ellipsis')
     expect(customSeparator.textContent?.trim()).toBe('>')
   })
+
+  it('applies flex-wrap and break-words to breadcrumb list to prevent overflow', () => {
+    const host = mountBreadcrumb({ collapsed: false })
+    const ol = host.querySelector('ol')
+    expect(ol?.className).toContain('flex-wrap')
+    expect(ol?.className).toContain('break-words')
+  })
 })

@@ -58,7 +58,7 @@ rootContext.contentId ||= useId(undefined, 'reka-command-content')
       :aria-label="resolvedLabel"
       :auto-focus="autoFocus"
       v-bind="$attrs"
-      class="flex h-11 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+      class="flex h-11 w-full min-w-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
       @update:model-value="emit('update:modelValue', $event)"
     />
   </div>

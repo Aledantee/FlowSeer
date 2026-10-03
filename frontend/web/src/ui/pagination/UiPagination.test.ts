@@ -367,4 +367,13 @@ describe('UiPagination', () => {
     await nextTick()
     expect(onUpdatePage).toHaveBeenCalledWith(2)
   })
+
+  it('applies flex-wrap and max-w-full to prevent horizontal overflow', () => {
+    const { el } = mountPagination({ total: 100, page: 5 })
+    expect(el.className).toContain('flex-wrap')
+    expect(el.className).toContain('max-w-full')
+    const list = el.firstElementChild
+    expect(list?.className).toContain('flex-wrap')
+    expect(list?.className).toContain('max-w-full')
+  })
 })

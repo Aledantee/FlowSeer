@@ -109,10 +109,13 @@ function resolvePageLabel(pageNumber: number): string {
     :default-page="defaultPage"
     :sibling-count="siblingCount"
     :show-edges="showEdges"
-    class="flex items-center gap-2"
+    class="flex flex-wrap items-center gap-2 max-w-full"
     @update:page="emit('update:page', $event)"
   >
-    <PaginationList v-slot="{ items }" class="flex items-center gap-1 text-xs">
+    <PaginationList
+      v-slot="{ items }"
+      class="flex flex-wrap items-center gap-1 text-xs max-w-full"
+    >
       <PaginationFirst
         v-if="showEdges"
         class="inline-flex h-8 w-8 items-center justify-center rounded-control border border-border bg-card text-foreground hover:bg-hover disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"

@@ -50,11 +50,14 @@ const dotVariants = tv({
 
 <template>
   <UiBadge
-    class="!text-sm"
+    class="!text-sm max-w-full"
     :variant="variantMap[props.status]"
     :size="props.size"
+    :title="displayLabel"
   >
     <i aria-hidden="true" :class="dotVariants({ status })" />
-    <slot>{{ displayLabel }}</slot>
+    <span class="truncate">
+      <slot>{{ displayLabel }}</slot>
+    </span>
   </UiBadge>
 </template>

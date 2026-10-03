@@ -11,7 +11,7 @@ withDefaults(defineProps<UiBreadcrumbListProps>(), {
 <template>
   <component
     :is="as"
-    class="flex items-center gap-1.5 text-sm text-muted-foreground"
+    class="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground break-words"
   >
     <slot />
   </component>

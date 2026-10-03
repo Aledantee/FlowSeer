@@ -192,4 +192,14 @@ describe('UiBadge', () => {
       'Operational',
     ])
   })
+
+  it('sets title attribute and truncate class to expose full text without overflow', () => {
+    const { el } = mount(UiStatusBadge, {
+      status: 'Healthy',
+      label: 'Very long status description',
+    })
+    expect(el.getAttribute('title')).toBe('Very long status description')
+    expect(el.className).toContain('max-w-full')
+    expect(el.querySelector('.truncate')).not.toBeNull()
+  })
 })

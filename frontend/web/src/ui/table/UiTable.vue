@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { provide, toRef, type Ref } from 'vue'
 
+defineOptions({
+  inheritAttrs: false,
+})
+
 export interface UiTableProps {
   dense?: boolean
   stickyHeader?: boolean
@@ -23,10 +27,13 @@ provide<TableContext>('ui-table-context', {
 </script>
 
 <template>
-  <table
-    data-ui-table
-    class="w-full caption-bottom text-sm border-collapse text-left"
-  >
-    <slot />
-  </table>
+  <div class="relative w-full overflow-x-auto">
+    <table
+      v-bind="$attrs"
+      data-ui-table
+      class="w-full caption-bottom text-sm border-collapse text-left"
+    >
+      <slot />
+    </table>
+  </div>
 </template>

@@ -32,7 +32,7 @@ export const Default: Story = {
       UiCommandShortcut,
     },
     template: `
-      <div class="w-[450px] rounded-panel border border-border bg-popover shadow-md overflow-hidden">
+      <div class="w-full max-w-[450px] rounded-panel border border-border bg-popover shadow-md overflow-hidden">
         <UiCommand>
           <UiCommandInput />
           <UiCommandList>
