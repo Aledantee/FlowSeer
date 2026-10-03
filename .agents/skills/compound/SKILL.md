@@ -106,19 +106,10 @@ as an observation for `steer`.
 Run the verifier on the changed files and report the path and the one
 sentence a reader should remember.
 
-When the work's `implement` and `review` checkpoints are in place, read the
-review verdict (the plan's `review` field, or the checkpoints file's last
-`review:` line) before asking what happens next (`AGENTS.md`, Agent
-behavior):
-
-| Verdict | Question |
-| --- | --- |
-| an accept, and `python3 .claude/skills/land/scripts/review-gaps.py <plan>` exits 0 (planless work: no `gaps:` line, or `gaps: none`) | run `land` now, or stop here |
-| `gaps open`, or an accept beside a listed gap | run the gap pass (`review`, `references/fix-loop.md`), or stop here. Never `land`, which stops on a gap |
-| `fixes needed` or `rework` | the options `review`'s step 5 table gives for that verdict. Never `land` |
-
-The same question ends a run the gate stopped with `compound: no lesson` or
-`compound: observation logged`.
+When the work's `implement` and `review` checkpoints are in place, end by
+asking the user (`AGENTS.md`, Agent behavior) whether to run `land` now or
+stop here. The same question ends a run the gate stopped with
+`compound: no lesson` or `compound: observation logged`.
 
 ## Refresh
 

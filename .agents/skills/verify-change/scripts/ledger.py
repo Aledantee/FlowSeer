@@ -14,8 +14,6 @@ and the note, and the `verify-change` contract stays in one place.
     ledger.py set U2 blocked --note "<reason>"
     ledger.py show
     ledger.py checkpoint review "accept"
-    ledger.py checkpoint review "gaps open"
-    ledger.py checkpoint gaps "<path:line mutation; path:line mutation>"
     ledger.py checkpoint --replace implemented "<request in a few words>"
 
 `set ... passed` takes the commit from `HEAD` and `verified_at` from the

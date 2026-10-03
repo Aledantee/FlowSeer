@@ -23,14 +23,14 @@ them:
 
 | Group | Meaning | Next skill |
 | --- | --- | --- |
-| `land` | `implemented` on this branch with an accepted `review`, a `compound` field, and no entry under `## Review gaps`, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
+| `land` | `implemented` on this branch with an accepted `review` and a `compound` field, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
 | `in-progress` | `partially-implemented`, named by the ledger here, an unblocked phase of a parent with landed phases, or a finished phase whose `Landed:` line is empty | `implement` |
-| `unchecked` | `implemented`, with a review verdict that is not an accept (`gaps open` included), or implemented on this branch with no `review` or `compound` field, or with an entry listed under `## Review gaps` on this branch or on `main`. The row prints the verdict, and the gap count beside an accept | `review` (step 6 for `rework` or `fixes needed`, the gap pass in `review`'s `references/fix-loop.md` for `gaps open` or a listed gap), or `compound` |
+| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field | `review` (step 6 for `rework` or `fixes needed`), or `compound` |
 | `replan` | `artifact_readiness: needs-decisions`, prerequisites landed | `plan`, then `implement` |
 | `ready` | `planned`, implementation-ready, nothing to wait for | `implement` |
 | `waiting` | a prerequisite phase has not landed; the line names it | none yet |
 | `stale` | a parent still `planned` whose phases have all landed | set its `status`, as `implement`'s Finish describes |
-| `retire` | `implemented`, `superseded`, or `abandoned` on `main` and still on disk. An `implemented` plan with a verdict that is not an accept, or with a listed review gap, is `unchecked` instead | `land/references/retire-plan.md`, or a `steer` sweep for several |
+| `retire` | `implemented`, `superseded`, or `abandoned` on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
 
 A phase line names its parent, which is the path to hand `drive`. Take two
 `in-progress` phases of one parent in the parent's unit order.

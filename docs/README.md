@@ -42,9 +42,7 @@ not its progress. `land` deletes the plan once the work lands, after moving
 any decision that outlives it into `docs/architecture/`. The `review` and
 `compound` skills each add a field of their own name beside `status`
 (`review: accept`, `compound: no lesson`), which `land` reads before
-merging, together with the plan's `## Review gaps` section, which must list
-nothing. A review that leaves a gap open records `review: gaps open`, which
-`land` does not accept.
+merging.
 
 A large plan is split into a parent plan and phase plans; a phase plan
 names its parent in a `parent:` field, and the parent stays `planned`

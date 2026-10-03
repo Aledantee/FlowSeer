@@ -11,7 +11,7 @@ Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 | --- | --- | --- |
 | behaviour | shipped code does the wrong thing for some input, or contradicts a numbered Requirement | a round: steps 1 to 4 |
 | false test | a test fails, errors, or passes only on some runs, or its title, comment, or commit body names a behaviour and it passes with that behaviour removed | a round: steps 1 to 4 |
-| gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states, or a comment or doc is wrong | recorded now, closed in the gap pass below |
+| gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states, or a comment or doc is wrong | collected, closed in the gap pass below |
 
 A false test is as serious as a defect, because the suite reports a
 guarantee it does not hold and the next reader trusts it. A gap claims
@@ -24,49 +24,32 @@ the specific condition its title, comment, or commit body states, and a gap
 when it removes a branch or boundary none of them states. When both readings
 hold, it is a false test, since that side is reviewed.
 
-Record each gap when it is settled, as one `- ` list item at column 0 under
-a `## Review gaps` heading at the end of the plan: `path:line`, the
-surviving mutation, and the case that would fail on it. That is the only
-shape `review-gaps.py` counts. A plain line, a numbered item, a `+` bullet,
-or an indented bullet is not a gap to any gate, and an item may continue on
-indented lines. A gap whose only test would restate the implementation (a
-buffer capacity, a log string) is dropped with that reason in the report,
-not recorded.
-
-While one gap is open the verdict is `gaps open`, since every gate reads the
-verdict and a new gate would have to learn the list. `fixes needed` and
-`rework` mean a behaviour or false-test finding only. Planless work has no
-plan section, so it writes its gaps to the checkpoints file as one line,
-beside the verdict:
-
-```bash
-.claude/skills/verify-change/scripts/ledger.py checkpoint gaps "<path:line mutation; path:line mutation>"
-.claude/skills/verify-change/scripts/ledger.py checkpoint review "gaps open"
-```
+The coordinator collects each gap as it is settled, from the initial review
+and from every round, in its report: `path:line`, the surviving mutation,
+and the case that would fail on it. A gap is not written to a plan section
+or a checkpoint line. A gap whose only test would restate the implementation
+(a buffer capacity, a log string) is dropped with that reason in the report.
 
 ### The gap pass
 
-The pass starts from the verdict `gaps open`: straight away when the
-initial review holds gaps and nothing that needs a round, or once the loop
-has ended on a clean round. Close the recorded gaps in one pass: steps 1 and
-2, no review after. Each fix's commit body quotes the gap's mutation and its
+The pass runs in the same review, before any verdict: after the last clean
+round, or at once when the initial review holds gaps and nothing that needs
+a round. Run steps 1 and 2 of a round with one fix worker per file group and
+no review after. Each fix's commit body quotes the gap's mutation and its
 `--- FAIL` line (`implement`, step 2.3). A pass whose diff changes source
 outside tests, comments, and docs is a round after all, and steps 3 and 4
 run on it.
 
-One coordinator ends the pass. After it has merged every fix lane, it reruns
-each quoted mutation on the merged tree and deletes the gap's line (planless
-work: appends a `gaps:` line listing what remains, `none` when nothing does)
-only when the suite fails on that mutation. When every line is gone and
-every mutation failed, it writes `accept after fixes`. A mutation that
-still survives keeps its line, and the verdict stays `gaps open`.
+The coordinator reruns every quoted mutation on the merged tree. Only when
+every mutation now fails the suite does it write `accept after fixes`. Until
+then the recorded verdict stays `fixes needed`, and with only gaps found the
+initial report records `fixes needed`, not `accept`. A gap whose mutation
+still survives after the pass is listed in the final report, the verdict
+stays `fixes needed`, and the report's question offers one more gap pass or
+a reviewed round on that gap.
 
-Under `drive` and `land` the stage worker that runs the pass is the
-coordinator: it merges its own fix lanes, reruns, deletes, and writes the
-verdict, so nothing in the pass waits on a session that is not there. That
-worker leaves source outside tests, comments, and docs untouched. A gap
-whose fix needs it stays listed under `gaps open`, and the worker reports it
-as a blocker for a reviewed round.
+A session that ends mid-pass leaves `fixes needed` on disk, which every
+gate refuses, so the remedy is `review` again.
 
 ## One round
 
@@ -114,14 +97,13 @@ as a blocker for a reviewed round.
 ## When to stop
 
 - A round in which neither reviewer returns a behaviour or false-test
-  finding ends the loop. With a gap recorded, replace the recorded
-  `fixes needed` or `rework` with `gaps open` (as `SKILL.md` step 5 records a
-  verdict) and run the gap pass, which ends by writing `accept after fixes`.
-  With none recorded, write `accept after fixes` directly. List what remains
-  in the final report and end with the `accept` row's question when the
-  verdict reads an accept, or the `gaps open` row's when the pass left a gap
-  open. No earlier round writes `accept after fixes`, since the gates read
-  it as passing.
+  finding ends the loop. With a gap collected, run the gap pass, which ends
+  by writing `accept after fixes` when every mutation fails. With none
+  collected, write `accept after fixes` directly. List what remains in the
+  final report and end with the `accept` row's question when the verdict
+  reads an accept, or the question the gap pass describes when a gap
+  survived. No earlier round writes `accept after fixes`, since the gates
+  read it as passing.
 - A finding that needs a Requirement changed is neither class. It goes in
   the final report as a decision for the plan's owner and does not hold the
   loop open.

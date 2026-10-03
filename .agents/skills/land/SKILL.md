@@ -58,8 +58,7 @@ unsandboxed) the card carries the same entries; load
 | Implementation landed | plan `status`, or the checkpoints file's `implemented:` line with commits in `main..HEAD` (in Orca also the card's `implemented:` entry with `.workspaceStatus` `in-review`) | `status: implemented`, or the line present |
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
-| Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes`. `gaps open` is not an accept, so it gates work whose gap is still open |
-| Verdict and gap list agree | `python3 .claude/skills/land/scripts/review-gaps.py <plan>`, with every plan this branch carries. Planless work: the checkpoints file's last `gaps:` line | exit 0, or no `gaps:` line, or `gaps: none`. An accept beside a listed gap is a contradiction and fails this row |
+| Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes` |
 | Lesson captured or declined | plan `compound` field, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
 
 A verdict or outcome in neither place is missing, whatever the conversation
@@ -68,8 +67,7 @@ the rows below do. An absent ledger is not a signal.
 
 A failed signal whose remedy is another skill's work (a plan not implemented,
 a `partially implemented:` entry, a ledger unit not `passed` even when the
-plan says `implemented`, no review verdict, a review gap still open, no
-compound outcome) pauses the
+plan says `implemented`, no review verdict, no compound outcome) pauses the
 merge. Say which signal failed, and the ledger against the plan's `status`
 when they disagree, then ask the user (`AGENTS.md`, Agent behavior) whether to
 run the missing skill now, all missing signals in one question:
@@ -80,7 +78,6 @@ run the missing skill now, all missing signals in one question:
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
 | review verdict is `rework` or `fixes needed` | fix the findings and review again (`review`, step 6); stop |
-| review verdict is `gaps open`, or an accept with a gap still listed | run the gap pass (`review`, `references/fix-loop.md`); stop. After a pass that ended `gaps open`, a reviewed fix round instead (`review`, step 6); stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`. A partial implementation is
@@ -169,27 +166,20 @@ find "$(git rev-parse --git-dir)" -maxdepth 1 -name flowseer-plan-status.json -d
 
 Then load `references/retire-plan.md` for each plan step 1 gated whose
 `status` reads `implemented` (a phase plan, and its parent too when the
-merged parent shows every phase landed, once `review-gaps.py <parent>` exits
-0, since step 1 did not gate the parent), and for each plan the branch
+merged parent shows every phase landed), and for each plan the branch
 marked `superseded` or `abandoned`. It promotes or amends the direction
 records the plan's decisions call for, rewrites the links to the plan, and
 deletes it in a commit of its own.
 
 A merge can carry in a finished plan that no `land` gated, such as a phase a
-`drive` merged into another branch. Step 1 could not read it before the
-merge, so read it now:
+`drive` merged into another branch. Retire those too: each plan the merged tree holds whose `status` is
+`superseded` or `abandoned`, and each `implemented` one whose `review` and
+`compound` fields read as step 1 requires. Report an `implemented` plan
+missing a field without retiring it.
 
 ```bash
 grep -l -E '^status: (implemented|superseded|abandoned)' docs/plans/*-plan.md
 ```
-
-Retire each plan the merged tree holds whose `status` is `superseded` or
-`abandoned`. Gate each `implemented` one as step 1 gates a plan: its `review`
-verdict an accept, `compound` set, and
-`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exiting 0, a
-parent plan included. One that fails is not retired, and `land` stops before
-step 5 with step 1's question for the signal it fails, since step 5 would
-carry the plan, gap and all, to `main`.
 
 Planless work skips the first retire and still runs the check.
 

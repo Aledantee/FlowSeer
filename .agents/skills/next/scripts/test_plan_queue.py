@@ -54,21 +54,16 @@ class PlanQueueTest(unittest.TestCase):
             f"### U1. Phase\nFiles: `{PHASE}`\nLanded: {landed}\n"
         )
 
-    def run_queue(self, *args):
-        return subprocess.run(
-            [sys.executable, str(SCRIPT), *args],
+    def groups(self):
+        out = subprocess.run(
+            [sys.executable, str(SCRIPT), "--json"],
             cwd=self.root,
             env=self.env,
             check=True,
             capture_output=True,
             text=True,
-        ).stdout
-
-    def rows(self):
-        return {row["path"]: row for row in json.loads(self.run_queue("--json"))}
-
-    def groups(self):
-        return {path: row["group"] for path, row in self.rows().items()}
+        )
+        return {row["path"]: row["group"] for row in json.loads(out.stdout)}
 
     def finish(self, rel, extra=""):
         self.write(rel, f"---\nstatus: implemented\n{extra}review: accept\ncompound: no lesson\n---\n")
@@ -94,62 +89,11 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain done")
         self.assertEqual(self.groups().get(PLAIN), "land")
 
-    def test_listed_review_gap_keeps_a_finished_phase_unchecked(self):
-        self.write(PARENT, self.parent("`abcdef0..abcdef1`"))
-        self.finish(PHASE, f"parent: {PARENT}\n")
-        with (self.root / PHASE).open("a", encoding="utf-8") as plan:
-            plan.write("## Review gaps\n\n- `a.go:1`: off by one survives\n")
-        self.commit("phase done, gap listed")
-        self.assertEqual(self.groups().get(PHASE), "unchecked")
-
-    def test_listed_review_gap_keeps_a_finished_plain_plan_unchecked(self):
-        self.finish(PLAIN)
-        with (self.root / PLAIN).open("a", encoding="utf-8") as plan:
-            plan.write("## Review gaps\n\n- `a.go:1`: off by one survives\n")
-        self.commit("plain done, gap listed")
-        self.assertEqual(self.groups().get(PLAIN), "unchecked")
-
-    def test_emptied_review_gaps_section_leaves_a_plan_owed_a_land(self):
-        self.finish(PLAIN)
-        with (self.root / PLAIN).open("a", encoding="utf-8") as plan:
-            plan.write("## Review gaps\n\n## Notes\n\n- not a gap\n")
-        self.commit("plain done, gaps closed")
-        self.assertEqual(self.groups().get(PLAIN), "land")
-
     def test_finished_plan_on_main_is_owed_a_retire(self):
         self.git("checkout", "-q", "main")
         self.finish(PLAIN)
         self.commit("plain done on main")
         self.assertEqual(self.groups().get(PLAIN), "retire")
-
-    def hold_gaps(self, rel):
-        # No list: the verdict alone has to keep the plan from landing.
-        self.write(rel, "---\nstatus: implemented\nreview: gaps open\ncompound: no lesson\n---\n")
-
-    def test_gaps_open_verdict_on_this_branch_is_unchecked_and_shown(self):
-        self.hold_gaps(PLAIN)
-        self.commit("plain reviewed, gaps open")
-        row = self.rows()[PLAIN]
-        self.assertEqual(row["group"], "unchecked")
-        self.assertEqual(row["review"], "gaps open")
-        self.assertIn("review: gaps open", self.run_queue())
-
-    def test_gaps_open_verdict_on_main_is_not_a_retire(self):
-        self.git("checkout", "-q", "main")
-        self.hold_gaps(PLAIN)
-        self.commit("plain reviewed on main, gaps open")
-        self.assertEqual(self.groups().get(PLAIN), "unchecked")
-
-    def test_accept_beside_a_listed_gap_on_main_is_not_a_retire(self):
-        self.git("checkout", "-q", "main")
-        self.finish(PLAIN)
-        with (self.root / PLAIN).open("a", encoding="utf-8") as plan:
-            plan.write("## Review gaps\n\n- `a.go:1`: off by one survives\n")
-        self.commit("plain done on main, gap listed")
-        row = self.rows()[PLAIN]
-        self.assertEqual(row["group"], "unchecked")
-        self.assertEqual(row["gaps"], 1)
-        self.assertIn("review gaps listed: 1", self.run_queue())
 
 
 if __name__ == "__main__":

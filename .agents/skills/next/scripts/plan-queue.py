@@ -8,29 +8,22 @@ Reads plan frontmatter, unit headings, and a parent plan's phase lines
 that touch a plan, and the plans this branch changed. Prints one line per
 plan with work left, grouped:
 
-  land         implemented on this branch with an accepted review, a
-               compound field, and no entry under `## Review gaps`, still
-               on disk. A phase also has its
+  land         implemented on this branch with an accepted review and a
+               compound field, still on disk. A phase also has its
                `Landed:` range. land goes first, since it gates every plan
-               this branch carries past main. The verdict `gaps open` is not
-               an accept, so a plan with a gap to close is never here
+               this branch carries past main
   in-progress  partially-implemented, named by this worktree's ledger, an
                unblocked phase of a parent that has landed phases, or a
                finished phase whose `Landed:` line is still empty
-  unchecked    implemented, with a review verdict that is not an accept
-               (`gaps open` included), or implemented on this branch with no
-               review or compound field, or with an entry still listed under
-               `## Review gaps` (an accept beside one is a contradiction, on
-               main as on this branch)
+  unchecked    implemented, with a review verdict that is not an accept, or
+               implemented on this branch with no review or compound field
   replan       artifact_readiness needs-decisions, prerequisites landed; the
                next step is the plan skill, not implement
   ready        planned, implementation-ready, every prerequisite landed
   waiting      a prerequisite phase has not landed; names it
   stale        a parent still `planned` whose phases have all landed
   retire       implemented, superseded, or abandoned on main and still on
-               disk; land's retire step never ran for it. An implemented
-               plan retires only with no review verdict or an accept, and no
-               entry listed under `## Review gaps`
+               disk; land's retire step never ran for it
 
 Within a group the oldest plan comes first, by the date in its filename. A
 plan another unmerged branch already changes is flagged
@@ -42,7 +35,6 @@ and how many phases the parent still has open.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import re
 import subprocess
@@ -57,16 +49,6 @@ UNIT_ID = re.compile(r"U\d+[a-z]*")
 PLAN_PATH = re.compile(r"docs/plans/[\w.-]+-plan\.md")
 FIELD = re.compile(r"^(?:- )?\*{0,2}([A-Z][A-Za-z ]+):\*{0,2}")
 COMMIT_RANGE = re.compile(r"[0-9a-f]{7,}")
-
-# The one parser of a plan's `## Review gaps` entries, so every script that
-# decides whether a plan can land agrees with land's gate. Resolved from this
-# file, since the working directory differs between callers.
-_spec = importlib.util.spec_from_file_location(
-    "review_gaps", Path(__file__).resolve().parents[2] / "land/scripts/review-gaps.py"
-)
-review_gaps = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(review_gaps)
-
 ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "stale", "retire"]
 
 
@@ -190,9 +172,6 @@ def main() -> int:
         status = fm.get("status", "")
         review = fm.get("review", "")
         readiness = fm.get("artifact_readiness", "")
-        # A plan that lists a gap is not finished, whatever its verdict says:
-        # an accept beside a listed gap is a contradiction.
-        gaps = review_gaps.open_gaps(root / rel) if status == "implemented" else []
         missing: list[str] = []
         started_parent = False
         open_phases = 0
@@ -208,7 +187,7 @@ def main() -> int:
             started_parent = any(u["landed"] for u in parent["units"])
             open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
 
-        if status in FINISHED and rel not in changed_here and not gaps and not (review and review not in ACCEPTED):
+        if status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
             # Finished and on main, yet still on disk: land's retire step
             # never ran for it.
             group = "retire"
@@ -223,10 +202,8 @@ def main() -> int:
             else:
                 continue
         elif status == "implemented":
-            unfinished = (
-                (review and review not in ACCEPTED)
-                or gaps
-                or (rel in changed_here and (not review or "compound" not in fm))
+            unfinished = (review and review not in ACCEPTED) or (
+                rel in changed_here and (not review or "compound" not in fm)
             )
             if rel in changed_here and rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
                 # plan-state.py reads a phase with an empty `Landed:` line
@@ -237,9 +214,8 @@ def main() -> int:
             elif rel not in changed_here:
                 continue
             else:
-                # Reviewed, compounded, and free of listed gaps on this
-                # branch, still on disk: land has not run for it.
-                # plan-state.py prints `land`.
+                # Reviewed and compounded on this branch, still on disk:
+                # land has not run for it. plan-state.py prints `land`.
                 group = "land"
         elif status not in OPEN:
             continue
@@ -262,7 +238,6 @@ def main() -> int:
                 "readiness": readiness,
                 "review": review or None,
                 "compound": fm.get("compound"),
-                "gaps": len(gaps),
                 "units": len(plan["units"]),
                 "parent": fm.get("parent"),
                 "open_phases": open_phases,
@@ -288,8 +263,6 @@ def main() -> int:
             flags.append("large")
         if row["group"] == "unchecked":
             flags.append(f"review: {row['review'] or 'none'}; compound: {row['compound'] or 'none'}")
-            if row["gaps"]:
-                flags.append(f"review gaps listed: {row['gaps']}")
         if row["parent"]:
             flags.append(f"phase of {row['parent']}, {row['open_phases']} open")
         if row["ledger"]:

@@ -57,7 +57,7 @@ this branch's `HEAD`, started with `orca-worker.sh start` with the table's
 | --- | --- | --- | --- | --- |
 | re-plan | `artifact_readiness: needs-decisions` | `plan` on this plan, against this tree | `plan` | the plan reads `implementation-ready` |
 | implement | `status` is not `implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | the plan reads `implemented`, a phase's `Landed:` line in its parent carries the range, and every unit in the worker's ledger is `passed` |
-| review | `review` is absent or not an accept (`review (verdict: gaps open)` included), or the plan lists a review gap beside an accept (`review (gaps: N)`) | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop. With the verdict `gaps open`, only the gap pass of `review`'s `references/fix-loop.md`. A listed gap beside an accept is a contradiction: set the verdict to `gaps open` in a commit first, so the pass starts from it | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` and its `## Review gaps` section lists nothing |
+| review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
 | compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |
 
 `$base` is the commit a lane's branch forked from, read from the `start`
@@ -90,10 +90,7 @@ for the stage's "Done when":
 
 - re-plan: `grep -q '^artifact_readiness: implementation-ready$' <plan>`
 - implement: `grep -q '^status: implemented$' <plan>`
-- review: `grep -q '^review: accept' <plan>`. A gap pass starts from
-  `gaps open`, so the test waits for the worker's own write of
-  `accept after fixes`, which the worker makes only after it has rerun every
-  quoted mutation and deleted the lines that now fail (`review-stage.md`).
+- review: `grep -q '^review: accept' <plan>`
 - compound: `grep -q '^compound:' <plan>`
 
 On `done` without the stage's report on the screen, wait again without
@@ -141,8 +138,7 @@ merge-check in step 3 stops the drive. A turn that ends right after
 announcing the next stage leaves nothing to wake it. Run each stage once:
 the skills' own caps (three verifier rounds on a unit, three fix rounds in
 a review) decide when patching stops, and a parked question is what sends a
-plan back. A review stage's gap pass is part of its one run, and a pass that
-ends `gaps open` is a parked plan under item 7, not a stage to run again.
+plan back.
 
 ## 3. Drive a parent's phases
 
@@ -209,27 +205,20 @@ runtime does not hand off.
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
-on a review that ends in `rework` or `fixes needed` after its loop, on a
-gap pass that ends `gaps open` because a quoted mutation still survives or a
-gap's fix needs source outside tests, comments, and docs, or on a change to
-a policy surface. A `rework` that names the round limit parks with another
-round as an option. A `gaps open` park offers a reviewed fix round
-(`review`, step 6) on the surviving gaps, and stopping with the plan
-unlanded. Load `references/parking.md` to park it, and again when the user
+on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
+surface. A `rework` that names the round limit parks with another round as
+an option. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`
 lines first and asks them before anything else.
 
 ## 5. Stop and ask
 
-Stop when every plan in scope has its three fields set with an accept for
-the verdict and `review-gaps.py <plan>` exits 0, when only parked or waiting
-plans remain, when no pool is usable, or when the verifier is red on a merged
-union. A plan whose verdict is `gaps open`, or that lists a gap beside an
-accept, is not done: run the review stage's gap pass (step 2's table) on it
-first. Asking `drive` to run a parent is the
-user's answer for its phase lands (step 3). A plan without phases lands only
-from the question below, since a merge into `main` lands for every worktree;
-a policy-surface change stays a parked question.
+Stop when every plan in scope has its three fields set, when only parked or
+waiting plans remain, when no pool is usable, or when the verifier is red on
+a merged union. Asking `drive` to run a parent is the user's answer for its
+phase lands (step 3). A plan without phases lands only from the question
+below, since a merge into `main` lands for every worktree; a policy-surface
+change stays a parked question.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each
@@ -252,9 +241,8 @@ Print the result in `land`'s fast-forward command (`land`, step 5).
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 
 - every parked question, with its options and the recommendation;
-- when a plan without phases has its three fields set with an accept for the
-  verdict and `review-gaps.py <plan>` exits 0: run `land` now (recommended),
-  or stop here;
+- when a plan without phases has its three fields set: run `land` now
+  (recommended), or stop here;
 - when plans remain and a question was answered: continue the drive now, or
   stop here.
 

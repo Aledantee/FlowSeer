@@ -9,13 +9,7 @@ delete, every decision in it that outlives the work gets a home in
 `docs/architecture/`.
 
 Which plans retire: a plan with `status: implemented`, `superseded`, or
-`abandoned`. An `implemented` plan also needs a `review` verdict that is an
-accept (`gaps open` is not one) and
-`python3 .claude/skills/land/scripts/review-gaps.py <plan>` exiting 0. A
-plan written before the `review` field has no verdict and needs the script
-alone. A plan that fails either is not retired: it goes to `review`'s gap
-pass or fix loop, since its deletion would delete the open gap with it. A
-phase plan retires with its phase; its parent stays, since
+`abandoned`. A phase plan retires with its phase; its parent stays, since
 `drive` and `next` read the remaining phases off the parent's unit
 `Files:` and `Landed:` lines, and retires once its own status reads
 `implemented`. A `partially-implemented` plan never retires.

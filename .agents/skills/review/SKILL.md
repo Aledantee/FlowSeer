@@ -173,25 +173,22 @@ it in the report and carry on.
 
 ## 5. Report
 
-Verdict first (accept, gaps open, fixes needed, rework), then findings, most
-severe first: title, `path:line`, what goes wrong and when, and the smallest
-fix or the direction with its unchecked claim (step 4). Then the residual
-testing gap. The verdict is the one field every gate reads, so it carries
-the gaps:
+Verdict first (accept, fixes needed, rework), then findings, most severe
+first: title, `path:line`, what goes wrong and when, and the smallest fix or
+the direction with its unchecked claim (step 4). Then the residual testing
+gap. List every gap the review found, each with its surviving mutation
+(`references/fix-loop.md`), whatever the verdict.
 
 | Verdict | When |
 | --- | --- |
 | `accept` | no finding of any class is open, gaps included |
-| `gaps open` | no behaviour or false-test finding is open, and at least one gap is |
-| `fixes needed` | a behaviour or false-test finding is open |
-| `rework` | such a finding is too large to fix in place |
+| `fixes needed` | a behaviour or false-test finding is open, or a gap is |
+| `rework` | a behaviour or false-test finding is too large to fix in place |
 
 `accept after fixes` is never the verdict of a review's initial report, and a
-report that holds only gaps is `gaps open`, never `accept`. `accept after
-fixes` is written only once the fixes exist (a gap pass ends by writing it),
-since `land`, `drive`, and `next` all read it as passing. `gaps open` is not
-an accept to any of them. Gaps are recorded as `references/fix-loop.md`
-describes whatever the verdict, so the list outlives a round.
+report that holds only gaps is `fixes needed`, never `accept`. `accept after
+fixes` is written only once the fixes exist and every gap's mutation now
+fails the suite, since `land`, `drive`, and `next` all read it as passing.
 
 When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
@@ -200,9 +197,7 @@ message naming the review, then run the verifier on the plan path so the
 receipt post-dates the commit. Planless work runs
 `.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
-and needs no commit or run. It has no plan section for the gap list, so it
-also runs `ledger.py checkpoint gaps "<path:line mutation; ...>"`
-(`references/fix-loop.md`). In Orca, also append the verdict to the worktree
+and needs no commit or run. In Orca, also append the verdict to the worktree
 comment, keeping what `implement` wrote:
 
 ```bash
@@ -218,23 +213,23 @@ happens next (`AGENTS.md`, Agent behavior):
 | Verdict | Options, recommended first |
 | --- | --- |
 | accept | run `compound` now; stop here |
-| gaps open | run the gap pass now (`references/fix-loop.md`); stop here |
-| fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
-| fixes needed or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
+| fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean, gaps included (step 6); stop |
+| fixes needed or rework, findings across file groups | fix and review again until clean, gaps included (step 6); apply chosen findings only; stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
 
 On "apply the fixes", make them, run the verifier on the changed paths,
-report what changed, and only then replace the recorded verdict, recorded as
-above: `review: accept after fixes`, or `review: gaps open` while a recorded
-gap is still listed.
+report what changed, and only then replace the recorded verdict with
+`review: accept after fixes`, recorded as above. When the report listed
+gaps, that verdict also needs every gap's mutation rerun and failing
+(`references/fix-loop.md`, The gap pass).
 
 ## 6. Fix and re-review, when asked
 
 When the user chooses to fix the findings and review again until clean,
 load `references/fix-loop.md`. Clean means no behaviour defect and no false
-test. A gap (behaviour no test names, a wrong comment or doc) is recorded
-in the plan and closed in one pass before the phase lands, with no further
-review round. The coordinating session runs the rounds through fix workers
-and never makes the fixes itself.
+test. The gaps then close in the gap pass, inside this review and before
+the verdict, with no further review round. The coordinating session runs
+the rounds and the pass through fix workers and never makes the fixes
+itself.
 
 A correction to this procedure is logged as `compound`, Observe describes.
