@@ -52,11 +52,51 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // Advance advances timer-driven state to now, firing due hellos, forward delays,
 // topology change timers, and information age-outs.
 func (l *Layer) Advance(now time.Time) layer.Effects {
-	t := l.cist()
-
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
 
+	agedOut := l.expireReceivedInfo(now)
+	autoEdgeFired := l.advanceAutoEdge(now, &flushes)
+	stateChanged := l.advanceForwardDelay(now, &flushes, &emissions)
+	l.clearExpiredTCWhile(now)
+
+	if agedOut || stateChanged || autoEdgeFired {
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+	}
+
+	l.releaseHeldTransmissions(now, &emissions)
+	l.sendDueHellos(now, &emissions)
+
+	return layer.Effects{
+		Emissions: emissions,
+		Flush:     flushes,
+	}
+}
+
+func (l *Layer) expireReceivedInfo(now time.Time) bool {
+	agedOut := false
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
+				continue
+			}
+			link := l.links[p.name]
+			if (id == cistID || l.pvst != nil) && p.loopGuardWatches(link) &&
+				(p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup) {
+				p.loopInconsistent = true
+			}
+			p.rcvInfoValid = false
+			agedOut = true
+		}
+	}
+
+	return agedOut
+}
+
+func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) bool {
+	t := l.cist()
 	autoEdgeFired := false
 	for _, name := range l.portNames {
 		p := t.ports[name]
@@ -74,85 +114,21 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					}
 					tp.fwdDelayTimer = time.Time{}
 					tp.proposing = false
-					l.deactivatePort(l.trees[id], tp, &flushes)
+					l.deactivatePort(l.trees[id], tp, flushes)
 				}
 			}
 			autoEdgeFired = true
 		}
 	}
 
-	// Both emission loops walk every tree, the way the forward-delay, age-out
-	// and topology-change loops below already do. Outside PVST mode the walk
-	// is behavior-neutral: treeOrder holds the CIST first, the budget is
-	// shared, and an MSTI's own hello timer never runs because only the CIST
-	// emits. Inside it, a per-VLAN tree's periodic hello would otherwise
-	// never fire and a transmission held on it would never be released.
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
+	return autoEdgeFired
+}
 
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			if !ok {
-				continue
-			}
-			tx := l.tx(mt, name)
-			link := l.links[name]
-			if !link.up || tx.tick.IsZero() || tx.tick.After(now) {
-				continue
-			}
-			// A held kind belongs to the role that requested it; released
-			// under another role it would be an agreement from a designated
-			// port or a designated claim from a blocked one.
-			if tx.pendingAgreement {
-				tx.pendingAgreement = false
-				if p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate {
-					l.emit(mt, p, now, emissionAgreement, &emissions)
-				}
-			}
-			if tx.pendingDesignated {
-				tx.pendingDesignated = false
-				if p.role == bpdu.RoleDesignated {
-					l.emit(mt, p, now, emissionDesignated, &emissions)
-				}
-			}
-			if tx.pendingTCN {
-				tx.pendingTCN = false
-				if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
-					l.emit(mt, p, now, emissionTCN, &emissions)
-				}
-			}
-		}
-
-		if mt.helloTimer.IsZero() || mt.helloTimer.After(now) {
-			continue
-		}
-		mt.helloTimer = now.Add(l.helloTime)
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			link := l.links[name]
-			if !ok || !link.up {
-				continue
-			}
-			if p.role == bpdu.RoleDesignated {
-				l.emit(mt, p, now, emissionDesignated, &emissions)
-			} else if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
-				if link.sendRSTP {
-					l.emit(mt, p, now, emissionAgreement, &emissions)
-				} else {
-					l.emit(mt, p, now, emissionTCN, &emissions)
-				}
-			}
-		}
-	}
-
-	// The forward delay ladder runs per tree, since role and state are per
-	// tree: an MSTI's own internal ports climb it independently of the CIST's.
-	// A boundary port never sets fwdDelayTimer for a non-CIST tree (recompute
-	// mirrors its state from the CIST outright), so this never double-drives
-	// one.
+func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) bool {
 	stateChanged := false
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
+		_, _, fwdDelay := l.times(mt)
 		for _, name := range l.portNames {
 			p, ok := mt.ports[name]
 			if !ok || p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now) {
@@ -164,14 +140,14 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 				switch p.state {
 				case StateDiscarding:
 					p.state = StateLearning
-					p.fwdDelayTimer = now.Add(l.forwardDelay)
+					p.fwdDelayTimer = now.Add(fwdDelay)
 				case StateLearning:
 					p.state = StateForwarding
 					p.forwardTransitions++
 					stateChanged = true
 					link := l.links[p.name]
 					if !link.edge {
-						l.initiateTopologyChange(mt, p, now, &flushes, &emissions)
+						l.initiateTopologyChange(mt, p, now, flushes, emissions)
 					}
 				case StateForwarding:
 				}
@@ -180,30 +156,10 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		}
 	}
 
-	// Every tree's received information keeps the landed 3xHelloTime silence
-	// bound regardless of internal or external classification; only the test
-	// for accepting new information at Receive differs by hop count or
-	// message age. Loop guard is a CIST-only concept: an MSTI's own role on
-	// an internal port never gets to hold a segment open past its peer, and
-	// on a boundary port it mirrors the CIST outright.
-	agedOut := false
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-				continue
-			}
-			link := l.links[p.name]
-			if id == cistID && p.loopGuardWatches(link) &&
-				(p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup) {
-				p.loopInconsistent = true
-			}
-			p.rcvInfoValid = false
-			agedOut = true
-		}
-	}
+	return stateChanged
+}
 
+func (l *Layer) clearExpiredTCWhile(now time.Time) {
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
 		for _, name := range l.portNames {
@@ -214,13 +170,65 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			}
 		}
 	}
+}
 
-	if agedOut || stateChanged || autoEdgeFired {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+func (l *Layer) releaseHeldTransmissions(now time.Time, emissions *[]layer.Emission) {
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok {
+				continue
+			}
+			tx := l.tx(mt, name)
+			link := l.links[name]
+			if !link.up || tx.tick.IsZero() || tx.tick.After(now) {
+				continue
+			}
+			if tx.pendingAgreement {
+				tx.pendingAgreement = false
+				if p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate {
+					l.emit(mt, p, now, emissionAgreement, emissions)
+				}
+			}
+			if tx.pendingDesignated {
+				tx.pendingDesignated = false
+				if p.role == bpdu.RoleDesignated {
+					l.emit(mt, p, now, emissionDesignated, emissions)
+				}
+			}
+			if tx.pendingTCN {
+				tx.pendingTCN = false
+				if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+					l.emit(mt, p, now, emissionTCN, emissions)
+				}
+			}
+		}
 	}
+}
 
-	return layer.Effects{
-		Emissions: emissions,
-		Flush:     flushes,
+func (l *Layer) sendDueHellos(now time.Time, emissions *[]layer.Emission) {
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		if mt.helloTimer.IsZero() || mt.helloTimer.After(now) {
+			continue
+		}
+		mt.helloTimer = now.Add(l.helloTime)
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			link := l.links[name]
+			if !ok || !link.up {
+				continue
+			}
+			if p.role == bpdu.RoleDesignated {
+				l.emit(mt, p, now, emissionDesignated, emissions)
+			} else if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+				if link.sendRSTP {
+					l.emit(mt, p, now, emissionAgreement, emissions)
+				} else {
+					l.emit(mt, p, now, emissionTCN, emissions)
+				}
+			}
+		}
 	}
 }

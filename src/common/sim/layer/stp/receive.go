@@ -401,9 +401,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.
 		if b.RemainingHops <= 1 {
-			if t.id == cistID {
-				link.external = !internal
-			}
 			emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
 			return emissions
@@ -417,9 +414,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		// longer exists stops refreshing the timer on every hop and the
 		// port's own information ages out.
 		if b.MessageAge+time.Second > b.MaxAge {
-			if t.id == cistID {
-				link.external = !internal
-			}
 			emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
 			return emissions
@@ -455,22 +449,17 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	// The classification updates only now, after the stored vector above was
-	// built against what the port currently holds under its old
-	// classification. Assigning it earlier would compare that stored
-	// information as though it already carried this BPDU's classification,
-	// which can invert the superiority verdict for the one BPDU that flips
-	// internal to external or back. It is written only for the CIST's own
-	// call: a non-CIST tree's applyBPDU (PVST, an SSTP arrival on a VLAN
-	// other than 1) would otherwise leave a copy on a port boundary never
-	// reads.
-	if t.id == cistID {
-		link.external = !internal
-	}
-
 	heldCISTVec := l.cistPortVector(p)
 
 	if sameSource || isSuperior {
+		// The classification updates only when received information is
+		// stored (IEEE 802.1Q clause 13.24.10). Assigning it earlier or
+		// on an inferior BPDU would rewrite how stored vectors are read.
+		// It is written only for the CIST's own call.
+		if t.id == cistID {
+			link.external = !internal
+		}
+		p.loopInconsistent = false
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
 

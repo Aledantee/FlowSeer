@@ -125,6 +125,8 @@ func (f vlanListFact) Canonical() string {
 // reporting changes to bridge priority, hello time, max age, forward delay,
 // tx hold count, and per-port priority, admin path cost, admin edge,
 // point-to-point mode, auto edge, and the four guards.
+// Diff is kept as one function to perform a single, unified comparison across
+// all spanning tree configuration fields in field order.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize(layer.Env{})
 	b = b.Normalize(layer.Env{})

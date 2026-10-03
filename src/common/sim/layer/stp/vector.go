@@ -2,9 +2,17 @@ package stp
 
 import (
 	"cmp"
+	"math"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 )
+
+func saturatingAdd(a, b uint32) uint32 {
+	if math.MaxUint32-a < b {
+		return math.MaxUint32
+	}
+	return a + b
+}
 
 // priorityVector is the six-component spanning tree priority vector IEEE
 // 802.1Q compares to elect roots and designated ports. An RSTP tree, and the
@@ -75,15 +83,15 @@ func candidateVector(t *tree, p *portState, external bool) priorityVector {
 		// region for this vector: it IS the CIST regional root here, not a
 		// name borrowed from the peer's region, so the regional root mirrors
 		// this tree's own bridge identifier and the internal cost stays zero.
-		cand.externalRootPathCost = p.rcvRootPathCost + p.pathCost
+		cand.externalRootPathCost = saturatingAdd(p.rcvRootPathCost, p.pathCost)
 		cand.regionalRootID = t.bridgeID
 	case t.id == cistID:
 		cand.externalRootPathCost = p.rcvRootPathCost
 		cand.regionalRootID = p.rcvRegionalRootID
-		cand.internalRootPathCost = p.rcvInternalRootPathCost + p.pathCost
+		cand.internalRootPathCost = saturatingAdd(p.rcvInternalRootPathCost, p.pathCost)
 	default:
 		cand.regionalRootID = p.rcvRootID
-		cand.internalRootPathCost = p.rcvRootPathCost + p.pathCost
+		cand.internalRootPathCost = saturatingAdd(p.rcvRootPathCost, p.pathCost)
 	}
 
 	return cand

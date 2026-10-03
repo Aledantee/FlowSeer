@@ -165,7 +165,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		} else {
 			tp.state = StateDiscarding
 			if !link.pointToPoint {
-				tp.fwdDelayTimer = now.Add(l.forwardDelay)
+				_, _, fwdDelay := l.times(l.trees[id])
+				tp.fwdDelayTimer = now.Add(fwdDelay)
 			}
 		}
 	}

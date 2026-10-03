@@ -28,12 +28,33 @@ const (
 	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
 )
 
+// TreeKind identifies the spanning tree model a tree belongs to.
+type TreeKind string
+
+const (
+	// TreeCIST identifies the Common and Internal Spanning Tree.
+	TreeCIST TreeKind = "CIST"
+
+	// TreeMSTI identifies a Multiple Spanning Tree Instance.
+	TreeMSTI TreeKind = "MSTI"
+
+	// TreeVLAN identifies a Per-VLAN Spanning Tree.
+	TreeVLAN TreeKind = "VLAN"
+)
+
+// TreeRef identifies one spanning tree instance within a layer snapshot.
+type TreeRef struct {
+	Kind TreeKind
+	ID   uint16
+}
+
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
-	// MSTID names the tree this snapshot belongs to: 0 for the CIST, the
-	// instance identifier for an MSTI. It rides here so a trace fact can name
-	// the blocking instance rather than leaving a reader to infer it.
-	MSTID              bpdu.MSTID
+	// Tree names the tree this snapshot belongs to: TreeCIST for the CIST,
+	// TreeMSTI for an MSTI, or TreeVLAN for a PVST tree. It rides here so a
+	// trace fact can name the blocking instance rather than leaving a reader
+	// to infer it.
+	Tree               TreeRef
 	Role               bpdu.Role
 	State              State
 	BlockReason        BlockReason
@@ -146,7 +167,7 @@ func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
 	if t.rootPort != "" {
 		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
-			return rp.rcvMaxAge, rp.rcvHelloTime, rp.rcvForwardDelay
+			return rp.rcvMaxAge, l.helloTime, rp.rcvForwardDelay
 		}
 	}
 
@@ -257,8 +278,22 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	case bpdu.RoleDisabled:
 	}
 
+	var treeRef TreeRef
+	switch {
+	case l.pvst != nil:
+		vid := uint16(t.id)
+		if t.id == cistID {
+			vid = 1
+		}
+		treeRef = TreeRef{Kind: TreeVLAN, ID: vid}
+	case t.id == cistID:
+		treeRef = TreeRef{Kind: TreeCIST, ID: 0}
+	default:
+		treeRef = TreeRef{Kind: TreeMSTI, ID: uint16(t.id)}
+	}
+
 	return PortInfo{
-		MSTID:              bpdu.MSTID(t.id),
+		Tree:               treeRef,
 		Role:               p.role,
 		State:              p.state,
 		BlockReason:        l.blockReason(p, cistP, link),

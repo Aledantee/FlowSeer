@@ -84,6 +84,24 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 	oldRootCost := t.rootPathCost
 	oldRootPort := t.rootPort
 
+	l.electRoot(t, now)
+	l.assignRoles(t, now)
+	l.updatePortStates(t, now, flushes, &emissions)
+
+	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
+		for _, name := range l.portNames {
+			p := t.ports[name]
+			link := l.links[name]
+			if link.up && p.role == bpdu.RoleDesignated && link.pointToPoint && p.state == StateDiscarding && !p.agreed {
+				l.emit(t, p, now, emissionDesignated, &emissions)
+			}
+		}
+	}
+
+	return emissions
+}
+
+func (l *Layer) electRoot(t *tree, now time.Time) {
 	bestVector := priorityVector{
 		rootID:         t.bridgeID,
 		regionalRootID: t.bridgeID,
@@ -98,19 +116,17 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		if !ok || !hasLink || !link.up || !p.rcvInfoValid {
 			continue
 		}
-		// bpduGuardDisabled and loopInconsistent are link-on-cist: only the
-		// CIST's copy is ever written, so every tree's root election reads
-		// them through cistP the way the role switch below already does. A
-		// guard that fires on the CIST must hold every MSTI's election too,
-		// not only the CIST's own. Restricted role denies the port the root
-		// role, and pvidInconsistent is tree-owned: a peer that disagrees
+		// bpduGuardDisabled and loopInconsistent are link-on-cist outside PVST:
+		// only the CIST's copy is ever written, so every tree's root election reads
+		// them through cistP the way the role switch below already does. Under PVST
+		// each tree tracks its own loop guard inconsistency. Restricted role denies
+		// the port the root role, and pvidInconsistent is tree-owned: a peer that disagrees
 		// about which VLAN the link is describes a different VLAN's tree, so
 		// it reads from p. None of the four may contribute the bridge's root
-		// vector. Every tree is built from l.portNames, so the CIST always
-		// has a matching port for any port a tree tracks; a missing one here
-		// only guards that invariant, not a case this simulator reaches.
+		// vector.
 		cistP, ok := l.cist().ports[name]
-		if !ok || link.bpduGuardDisabled || p.cfg.RestrictedRole || (cistP != nil && cistP.loopInconsistent) || p.pvidInconsistent {
+		isLoopInconsistent := p.loopInconsistent || (l.pvst == nil && cistP != nil && cistP.loopInconsistent)
+		if !ok || link.bpduGuardDisabled || p.cfg.RestrictedRole || isLoopInconsistent || p.pvidInconsistent {
 			continue
 		}
 		if !p.rcvTime.Add(3 * p.rcvHelloTime).After(now) {
@@ -155,7 +171,9 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			t.rootPathCost = bestVector.internalRootPathCost
 		}
 	}
+}
 
+func (l *Layer) assignRoles(t *tree, now time.Time) {
 	for _, name := range l.portNames {
 		p, ok := t.ports[name]
 		if !ok {
@@ -166,15 +184,8 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		// The boundary role rule is MSTP's: an MSTI on a port facing another
 		// region follows the CIST rather than running its own election. It
 		// must not reach a PVST bridge, where l.mst is nil by construction
-		// and the first ordinary VLAN 1 hello marks every port external
-		// (Receive sets external from the internal classification, which
-		// needs l.mst). Ungated, every non-VLAN-1 tree would copy VLAN 1's
-		// role on every port instead of electing its own root.
+		// and the first ordinary VLAN 1 hello marks every port external.
 		if l.mst != nil && t.id != cistID && l.boundary(name) {
-			// Every tree is built from l.portNames, so the CIST always has a
-			// matching port for any port a tree tracks; the zero portState
-			// below only guards that invariant, not a case this simulator
-			// reaches.
 			cistP, ok := l.cist().ports[name]
 			if !ok {
 				cistP = &portState{}
@@ -188,14 +199,6 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			continue
 		}
 
-		// bpduGuardDisabled and loopInconsistent are bridge-global properties
-		// of the port, like the internal/external classification: only the
-		// CIST's copy is ever written (Receive's guard branch, and Advance's
-		// loop-guard arm), so an MSTI reads them from the CIST's port state
-		// the way it already reaches across for l.boundary. Every tree is
-		// built from l.portNames, so the CIST always has a matching port for
-		// any port a tree tracks; the zero portState below only guards that
-		// invariant, not a case this simulator reaches.
 		cistP, ok := l.cist().ports[name]
 		if !ok {
 			cistP = &portState{}
@@ -205,7 +208,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		switch {
 		case !link.up || link.bpduGuardDisabled:
 			p.role = bpdu.RoleDisabled
-		case cistP.loopInconsistent:
+		case p.loopInconsistent || (l.pvst == nil && cistP.loopInconsistent):
 			// A loop-inconsistent port is Alternate and never Designated: a
 			// port that stopped hearing its designated peer is the one that
 			// would open a loop by claiming the segment.
@@ -234,6 +237,10 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 		}
 	}
+}
+
+func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+	_, _, fwdDelay := l.times(t)
 
 	for _, name := range l.portNames {
 		p, ok := t.ports[name]
@@ -248,21 +255,11 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		// and a VLAN's tree would mirror VLAN 1's state over the state its
 		// own election just decided.
 		if l.mst != nil && t.id != cistID && l.boundary(name) {
-			// Every tree is built from l.portNames, so the CIST always has a
-			// matching port for any port a tree tracks; the zero portState
-			// below only guards that invariant, not a case this simulator
-			// reaches.
 			cistP, ok := l.cist().ports[name]
 			if !ok {
 				cistP = &portState{}
 			}
 			p.state = cistP.state
-			// A port that just flipped internal to boundary may still carry
-			// a live timer from its internal role and state ladder; a
-			// boundary port never drives its own state, so nothing else
-			// clears it. Left set, the next Advance would advance the port on
-			// a timer behind a state this branch already mirrored, raising
-			// a topology change with nothing behind it.
 			p.fwdDelayTimer = time.Time{}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
@@ -280,10 +277,10 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			if link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
-			} else if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
+			} else if p.state == StateDiscarding && (p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay))) {
 				// No agreement path: the forward delay ladder carries the port
 				// through Learning and Forwarding as on a shared link.
-				p.fwdDelayTimer = now.Add(l.forwardDelay)
+				p.fwdDelayTimer = now.Add(fwdDelay)
 			}
 		case bpdu.RoleDesignated:
 			switch {
@@ -298,8 +295,8 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 				// Without an agreement the port still forwards after two
 				// forward delays, so a peer that never answers, a host for
 				// one, does not leave the port dark for the run.
-				if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
-					p.fwdDelayTimer = now.Add(l.forwardDelay)
+				if p.state == StateDiscarding && (p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay))) {
+					p.fwdDelayTimer = now.Add(fwdDelay)
 				}
 			}
 		}
@@ -307,24 +304,12 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
 			if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
-				l.initiateTopologyChange(t, p, now, flushes, &emissions)
+				l.initiateTopologyChange(t, p, now, flushes, emissions)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
 			l.deactivatePort(t, p, flushes)
 		}
 	}
-
-	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
-		for _, name := range l.portNames {
-			p := t.ports[name]
-			link := l.links[name]
-			if link.up && p.role == bpdu.RoleDesignated && link.pointToPoint && p.state == StateDiscarding && !p.agreed {
-				l.emit(t, p, now, emissionDesignated, &emissions)
-			}
-		}
-	}
-
-	return emissions
 }
 
 // designatedOrBlocked decides the role of a port that is up and not the root

@@ -1,7 +1,9 @@
 package stp
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -67,7 +69,7 @@ func PortTransitionFact(port, action string, before, after PortInfo) trace.Fact 
 }
 
 func bpduSnapshot(b bpdu.BPDU) string {
-	return "{version=" + strconv.FormatUint(uint64(b.Version), 10) +
+	s := "{version=" + strconv.FormatUint(uint64(b.Version), 10) +
 		";type=" + strconv.FormatUint(uint64(b.Type), 10) +
 		";flags=" + strconv.FormatUint(uint64(b.Flags), 10) +
 		";root=" + strconv.Quote(b.RootID.String()) +
@@ -77,11 +79,54 @@ func bpduSnapshot(b bpdu.BPDU) string {
 		";message_age=" + strconv.FormatInt(int64(b.MessageAge), 10) +
 		";max_age=" + strconv.FormatInt(int64(b.MaxAge), 10) +
 		";hello=" + strconv.FormatInt(int64(b.HelloTime), 10) +
-		";forward_delay=" + strconv.FormatInt(int64(b.ForwardDelay), 10) + "}"
+		";forward_delay=" + strconv.FormatInt(int64(b.ForwardDelay), 10)
+	if b.ConfigID != nil {
+		s += ";config_id=" + configIDSnapshot(*b.ConfigID) +
+			";regional_root=" + strconv.Quote(b.RegionalRootID.String()) +
+			";internal_cost=" + strconv.FormatUint(uint64(b.InternalRootPathCost), 10) +
+			";remaining_hops=" + strconv.FormatUint(uint64(b.RemainingHops), 10) +
+			";mstis=" + mstiRecordsSnapshot(b.MSTIs)
+	}
+	return s + "}"
+}
+
+func configIDSnapshot(c bpdu.ConfigID) string {
+	return "{selector=" + strconv.FormatUint(uint64(c.Selector), 10) +
+		";name=" + strconv.Quote(c.Name) +
+		";revision=" + strconv.FormatUint(uint64(c.Revision), 10) +
+		";digest=" + fmt.Sprintf("%x", c.Digest) + "}"
+}
+
+func mstiRecordsSnapshot(recs []bpdu.MSTIRecord) string {
+	var b strings.Builder
+	b.WriteByte('[')
+	for i, rec := range recs {
+		if i > 0 {
+			b.WriteByte(',')
+		}
+		b.WriteString("{mstid=")
+		b.WriteString(strconv.FormatUint(uint64(rec.MSTID), 10))
+		b.WriteString(";flags=")
+		b.WriteString(strconv.FormatUint(uint64(rec.Flags), 10))
+		b.WriteString(";regional_root=")
+		b.WriteString(strconv.Quote(rec.RegionalRootID.String()))
+		b.WriteString(";internal_cost=")
+		b.WriteString(strconv.FormatUint(uint64(rec.InternalRootPathCost), 10))
+		b.WriteString(";bridge_priority=")
+		b.WriteString(strconv.FormatUint(uint64(rec.BridgePriority), 10))
+		b.WriteString(";port_priority=")
+		b.WriteString(strconv.FormatUint(uint64(rec.PortPriority), 10))
+		b.WriteString(";remaining_hops=")
+		b.WriteString(strconv.FormatUint(uint64(rec.RemainingHops), 10))
+		b.WriteByte('}')
+	}
+	b.WriteByte(']')
+	return b.String()
 }
 
 func portInfoSnapshot(info PortInfo) string {
-	return "{mstid=" + strconv.FormatUint(uint64(info.MSTID), 10) +
+	return "{tree_kind=" + strconv.Quote(string(info.Tree.Kind)) +
+		";tree_id=" + strconv.FormatUint(uint64(info.Tree.ID), 10) +
 		";role=" + strconv.Quote(string(info.Role)) +
 		";state=" + strconv.Quote(string(info.State)) +
 		";block_reason=" + strconv.Quote(string(info.BlockReason)) +
