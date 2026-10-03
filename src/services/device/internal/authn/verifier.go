@@ -18,6 +18,7 @@ import (
 
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // Authentication error codes returned by the verifier and interceptor.
@@ -111,10 +112,6 @@ func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	rt.mu.Unlock()
 
 	resp, err := rt.base.RoundTrip(req)
-	if req.Context().Err() != nil || errors.Is(err, context.Canceled) {
-		return resp, err
-	}
-
 	now := rt.now()
 	if err != nil {
 		rt.mu.Lock()
@@ -128,13 +125,6 @@ func (rt *replayTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 
 	bodyBytes, readErr := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
-	if req.Context().Err() != nil || errors.Is(readErr, context.Canceled) {
-		if readErr != nil {
-			return nil, readErr
-		}
-		resp.Body = io.NopCloser(bytes.NewReader(bodyBytes))
-		return resp, nil
-	}
 	if readErr != nil {
 		rt.mu.Lock()
 		rt.cache[urlStr] = &cachedHTTPResult{
@@ -239,86 +229,88 @@ func NewVerifier(opts Options) (*Verifier, error) {
 }
 
 func (v *Verifier) getProvider(ctx context.Context, issuerURL string, audience string) (*providerState, error) {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+
 	v.providersMu.Lock()
 	if state, ok := v.providers[issuerURL]; ok {
 		v.providersMu.Unlock()
 		return state, nil
 	}
 	call, ok := v.inflight[issuerURL]
-	if ok {
-		v.providersMu.Unlock()
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-call.done:
-			if call.err != nil {
-				return nil, call.err
+	if !ok {
+		call = &discoveryCall{done: make(chan struct{})}
+		v.inflight[issuerURL] = call
+
+		spawn.Go(context.WithoutCancel(ctx), "authn.discovery", func() {
+			discCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), v.client.Timeout)
+			defer cancel()
+			discoveryCtx := oidc.ClientContext(discCtx, v.client)
+			provider, err := oidc.NewProvider(discoveryCtx, issuerURL)
+			if err != nil {
+				discErr := errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("discover oidc provider")
+				v.providersMu.Lock()
+				delete(v.inflight, issuerURL)
+				call.err = discErr
+				close(call.done)
+				v.providersMu.Unlock()
+				return
 			}
-			return call.state, nil
-		}
-	}
 
-	call = &discoveryCall{done: make(chan struct{})}
-	v.inflight[issuerURL] = call
+			var claims struct {
+				JWKSURI string `json:"jwks_uri"`
+			}
+			if err := provider.Claims(&claims); err != nil || claims.JWKSURI == "" {
+				claimsErr := errs.New().Code(ErrCodeUnavailable).Retryable().Msg("extract jwks_uri from discovery")
+				v.providersMu.Lock()
+				delete(v.inflight, issuerURL)
+				call.err = claimsErr
+				close(call.done)
+				v.providersMu.Unlock()
+				return
+			}
+
+			verifier := provider.Verifier(&oidc.Config{
+				ClientID: audience,
+				Now:      v.clock,
+			})
+
+			state := &providerState{
+				provider: provider,
+				verifier: verifier,
+				jwksURI:  claims.JWKSURI,
+			}
+
+			v.providersMu.Lock()
+			v.providers[issuerURL] = state
+			delete(v.inflight, issuerURL)
+			call.state = state
+			close(call.done)
+			v.providersMu.Unlock()
+		})
+	}
 	v.providersMu.Unlock()
 
-	discoveryCtx := oidc.ClientContext(ctx, v.client)
-	provider, err := oidc.NewProvider(discoveryCtx, issuerURL)
-	if err != nil {
-		discErr := errs.New().Code(ErrCodeUnavailable).Retryable().Cause(err).Msg("discover oidc provider")
-		v.providersMu.Lock()
-		delete(v.inflight, issuerURL)
-		call.err = discErr
-		close(call.done)
-		v.providersMu.Unlock()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-call.done:
 		if ctxErr := ctx.Err(); ctxErr != nil {
 			return nil, ctxErr
 		}
-		return nil, discErr
-	}
-
-	var claims struct {
-		JWKSURI string `json:"jwks_uri"`
-	}
-	if err := provider.Claims(&claims); err != nil || claims.JWKSURI == "" {
-		claimsErr := errs.New().Code(ErrCodeUnavailable).Retryable().Msg("extract jwks_uri from discovery")
-		v.providersMu.Lock()
-		delete(v.inflight, issuerURL)
-		call.err = claimsErr
-		close(call.done)
-		v.providersMu.Unlock()
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return nil, ctxErr
+		if call.err != nil {
+			return nil, call.err
 		}
-		return nil, claimsErr
+		return call.state, nil
 	}
-
-	verifier := provider.Verifier(&oidc.Config{
-		ClientID: audience,
-		Now:      v.clock,
-	})
-
-	state := &providerState{
-		provider: provider,
-		verifier: verifier,
-		jwksURI:  claims.JWKSURI,
-	}
-
-	v.providersMu.Lock()
-	v.providers[issuerURL] = state
-	delete(v.inflight, issuerURL)
-	call.state = state
-	close(call.done)
-	v.providersMu.Unlock()
-
-	if ctxErr := ctx.Err(); ctxErr != nil {
-		return nil, ctxErr
-	}
-	return state, nil
 }
 
 func isKeyFetchError(err error) bool {
-	return strings.Contains(err.Error(), "fetching keys")
+	if err == nil {
+		return false
+	}
+	return strings.HasPrefix(err.Error(), "failed to verify signature: fetching keys ")
 }
 
 func parseClaimValues(raw json.RawMessage) ([]string, error) {
@@ -334,7 +326,7 @@ func parseClaimValues(raw json.RawMessage) ([]string, error) {
 		for _, item := range v {
 			s, ok := item.(string)
 			if !ok {
-				return nil, errors.New("organization claim array contains non-string item")
+				return nil, errs.Msg("organization claim array contains non-string item")
 			}
 			values = append(values, s)
 		}
@@ -347,7 +339,7 @@ func parseClaimValues(raw json.RawMessage) ([]string, error) {
 		slices.Sort(values)
 		return values, nil
 	default:
-		return nil, errors.New("invalid organization claim shape")
+		return nil, errs.Msg("invalid organization claim shape")
 	}
 }
 

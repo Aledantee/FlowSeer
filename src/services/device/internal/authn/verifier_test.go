@@ -926,7 +926,6 @@ func TestVerifierCallerCancellationNotCached(t *testing.T) {
 			if n == 1 && cancelFirstRequest != nil {
 				cancelFirstRequest()
 				time.Sleep(50 * time.Millisecond)
-				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -1079,5 +1078,580 @@ func TestVerifierInjectedClockDecidesExpiry(t *testing.T) {
 	code, ok := errs.CodeOf(err)
 	if !ok || code != authn.ErrCodeTokenExpired {
 		t.Fatalf("got code %v, want authn/token-expired (err: %v)", code, err)
+	}
+}
+
+type endpointBehavior string
+
+const (
+	behaviorAnswersCorrectly endpointBehavior = "answers-correctly"
+	behaviorAnswers500       endpointBehavior = "answers-500"
+	behaviorRefusesConn      endpointBehavior = "refuses-connection"
+	behaviorNeverAnswers     endpointBehavior = "never-answers-until-timeout"
+)
+
+type propertyTokenKind string
+
+const (
+	tokenValidCachedKID   propertyTokenKind = "valid-with-cached-key-id"
+	tokenValidUnknownKID  propertyTokenKind = "valid-with-unknown-key-id"
+	tokenKnownKIDWrongSig propertyTokenKind = "known-key-id-wrong-signature"
+	tokenAudOther         propertyTokenKind = "correct-signature-aud-other"
+	tokenAudFetchingKeys  propertyTokenKind = "correct-signature-aud-fetching-keys"
+	tokenExpired          propertyTokenKind = "expired"
+	tokenMalformed        propertyTokenKind = "malformed"
+)
+
+type propertyPriorState string
+
+const (
+	priorFresh                    propertyPriorState = "fresh-verifier"
+	priorKeyFetchFailedInWindow   propertyPriorState = "key-fetch-failed-in-window"
+	priorKeyFetchFailedPastWindow propertyPriorState = "key-fetch-failed-past-window"
+	priorCanceledMidDiscovery     propertyPriorState = "caller-canceled-mid-discovery"
+	priorCanceledMidKeyFetch      propertyPriorState = "caller-canceled-mid-key-fetch"
+)
+
+type propertyCallerContext string
+
+const (
+	ctxLive           propertyCallerContext = "live"
+	ctxCanceledBefore propertyCallerContext = "canceled-before-call"
+	ctxCanceledMidReq propertyCallerContext = "canceled-mid-request"
+)
+
+type propertyHarness struct {
+	rsaKey      *rsa.PrivateKey
+	otherRSAKey *rsa.PrivateKey
+	rsaKID      string
+	otherKID    string
+
+	discServer *httptest.Server
+	keysServer *httptest.Server
+
+	currentDiscBehavior atomic.Pointer[endpointBehavior]
+	currentKeysBehavior atomic.Pointer[endpointBehavior]
+
+	cancelMidRequest atomic.Pointer[context.CancelFunc]
+
+	discHook atomic.Pointer[func()]
+	keysHook atomic.Pointer[func()]
+
+	frozenNanos atomic.Int64
+}
+
+func (h *propertyHarness) now() time.Time {
+	return time.Unix(0, h.frozenNanos.Load()).UTC()
+}
+
+func (h *propertyHarness) setNow(t time.Time) {
+	h.frozenNanos.Store(t.UnixNano())
+}
+
+func newPropertyHarness(t *testing.T) *propertyHarness {
+	t.Helper()
+
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate rsa key: %v", err)
+	}
+	otherRSAKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate other rsa key: %v", err)
+	}
+
+	h := &propertyHarness{
+		rsaKey:      rsaKey,
+		otherRSAKey: otherRSAKey,
+		rsaKID:      "test-rsa-key-1",
+		otherKID:    "test-unknown-kid-1",
+	}
+
+	behOK := behaviorAnswersCorrectly
+	h.currentDiscBehavior.Store(&behOK)
+	h.currentKeysBehavior.Store(&behOK)
+
+	discMux := http.NewServeMux()
+	discMux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
+			(*fn)()
+		}
+		if hook := h.discHook.Load(); hook != nil && *hook != nil {
+			(*hook)()
+		}
+		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
+			(*fn)()
+		}
+
+		beh := *h.currentDiscBehavior.Load()
+		switch beh {
+		case behaviorAnswersCorrectly:
+			jwksURI := h.keysServer.URL + "/keys"
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"issuer":                                h.discServer.URL,
+				"jwks_uri":                              jwksURI,
+				"id_token_signing_alg_values_supported": []string{"RS256"},
+				"response_types_supported":              []string{"id_token"},
+				"subject_types_supported":               []string{"public"},
+			})
+		case behaviorAnswers500:
+			http.Error(w, "discovery 500 error", http.StatusInternalServerError)
+		case behaviorNeverAnswers:
+			time.Sleep(250 * time.Millisecond)
+		case behaviorRefusesConn:
+			hj, ok := w.(http.Hijacker)
+			if ok {
+				conn, _, _ := hj.Hijack()
+				_ = conn.Close()
+			}
+		}
+	})
+	h.discServer = httptest.NewServer(discMux)
+	t.Cleanup(h.discServer.Close)
+
+	keysMux := http.NewServeMux()
+	keysMux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
+		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
+			(*fn)()
+		}
+		if hook := h.keysHook.Load(); hook != nil && *hook != nil {
+			(*hook)()
+		}
+		if fn := h.cancelMidRequest.Swap(nil); fn != nil {
+			(*fn)()
+		}
+
+		beh := *h.currentKeysBehavior.Load()
+		switch beh {
+		case behaviorAnswersCorrectly:
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"keys": []map[string]any{
+					{
+						"kty": "RSA",
+						"kid": h.rsaKID,
+						"use": "sig",
+						"alg": "RS256",
+						"n":   base64.RawURLEncoding.EncodeToString(rsaKey.N.Bytes()),
+						"e":   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(rsaKey.E)).Bytes()),
+					},
+				},
+			})
+		case behaviorAnswers500:
+			http.Error(w, "keys 500 error", http.StatusInternalServerError)
+		case behaviorNeverAnswers:
+			time.Sleep(250 * time.Millisecond)
+		case behaviorRefusesConn:
+			hj, ok := w.(http.Hijacker)
+			if ok {
+				conn, _, _ := hj.Hijack()
+				_ = conn.Close()
+			}
+		}
+	})
+	h.keysServer = httptest.NewServer(keysMux)
+	t.Cleanup(h.keysServer.Close)
+
+	return h
+}
+
+func (h *propertyHarness) makeToken(t *testing.T, kind propertyTokenKind, issuerURL string) string {
+	t.Helper()
+	now := h.now()
+	baseClaims := map[string]any{
+		"iss": issuerURL,
+		"aud": "flowseer-device",
+		"sub": "u1",
+		"exp": now.Add(time.Hour).Unix(),
+		"iat": now.Unix(),
+	}
+
+	switch kind {
+	case tokenValidCachedKID:
+		return signRSAToken(t, h.rsaKey, h.rsaKID, baseClaims)
+	case tokenValidUnknownKID:
+		return signRSAToken(t, h.otherRSAKey, h.otherKID, baseClaims)
+	case tokenKnownKIDWrongSig:
+		return signRSAToken(t, h.otherRSAKey, h.rsaKID, baseClaims)
+	case tokenAudOther:
+		c := cloneMap(baseClaims)
+		c["aud"] = "other"
+		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+	case tokenAudFetchingKeys:
+		c := cloneMap(baseClaims)
+		c["aud"] = "aud with fetching keys text"
+		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+	case tokenExpired:
+		c := cloneMap(baseClaims)
+		c["exp"] = now.Add(-time.Hour).Unix()
+		return signRSAToken(t, h.rsaKey, h.rsaKID, c)
+	case tokenMalformed:
+		return "header.malformed.payload"
+	default:
+		t.Fatalf("unhandled token kind: %v", kind)
+		return ""
+	}
+}
+
+func cloneMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
+}
+
+type propertyExpectedResult struct {
+	errCode    errs.Code
+	retryable  bool
+	contextErr error
+	success    bool
+}
+
+func propertyExpectedOutcome(
+	disc endpointBehavior,
+	keys endpointBehavior,
+	tok propertyTokenKind,
+	prior propertyPriorState,
+	callerCtx propertyCallerContext,
+) propertyExpectedResult {
+	if callerCtx == ctxCanceledBefore {
+		return propertyExpectedResult{contextErr: context.Canceled}
+	}
+
+	if tok == tokenMalformed {
+		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+	}
+
+	discoveryCached := (prior == priorKeyFetchFailedInWindow ||
+		prior == priorKeyFetchFailedPastWindow ||
+		prior == priorCanceledMidKeyFetch)
+	validKeyCached := discoveryCached
+
+	if validKeyCached {
+		switch tok {
+		case tokenValidCachedKID:
+			return propertyExpectedResult{success: true}
+		case tokenAudOther:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenAudFetchingKeys:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenExpired:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
+		}
+	}
+
+	if prior == priorKeyFetchFailedInWindow && (tok == tokenValidUnknownKID || tok == tokenKnownKIDWrongSig) {
+		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+	}
+
+	if callerCtx == ctxCanceledMidReq {
+		return propertyExpectedResult{contextErr: context.Canceled}
+	}
+
+	if !discoveryCached {
+		if disc != behaviorAnswersCorrectly {
+			return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+		}
+		if keys != behaviorAnswersCorrectly {
+			return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+		}
+		switch tok {
+		case tokenValidCachedKID:
+			return propertyExpectedResult{success: true}
+		case tokenValidUnknownKID:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenKnownKIDWrongSig:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenAudOther:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenAudFetchingKeys:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+		case tokenExpired:
+			return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
+		}
+	}
+
+	if tok == tokenAudOther {
+		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+	}
+	if tok == tokenAudFetchingKeys {
+		return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+	}
+	if tok == tokenExpired {
+		return propertyExpectedResult{errCode: authn.ErrCodeTokenExpired}
+	}
+
+	if prior == priorKeyFetchFailedInWindow {
+		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+	}
+
+	if keys != behaviorAnswersCorrectly {
+		return propertyExpectedResult{errCode: authn.ErrCodeUnavailable, retryable: true}
+	}
+
+	return propertyExpectedResult{errCode: authn.ErrCodeTokenInvalid}
+}
+
+func checkCaseResult(t *testing.T, caseKey string, expected propertyExpectedResult, p authn.Principal, err error) {
+	t.Helper()
+	if expected.contextErr != nil {
+		if !errors.Is(err, expected.contextErr) {
+			t.Fatalf("[%s] want context error %v bare, got %v", caseKey, expected.contextErr, err)
+		}
+		if err != context.Canceled && err != context.DeadlineExceeded {
+			t.Fatalf("[%s] want bare context error, got %T: %v", caseKey, err, err)
+		}
+		return
+	}
+
+	if expected.success {
+		if err != nil {
+			t.Fatalf("[%s] expected success, got error: %v", caseKey, err)
+		}
+		if p.Subject != "u1" {
+			t.Fatalf("[%s] got subject %q, want u1", caseKey, p.Subject)
+		}
+		return
+	}
+
+	if err == nil {
+		t.Fatalf("[%s] expected error %v, got success (principal: %+v)", caseKey, expected.errCode, p)
+	}
+
+	code, ok := errs.CodeOf(err)
+	if !ok || code != expected.errCode {
+		t.Fatalf("[%s] got code %v, want %v (err: %v)", caseKey, code, expected.errCode, err)
+	}
+
+	if expected.retryable && !errs.Retryable(err) {
+		t.Fatalf("[%s] expected retryable error, got non-retryable: %v", caseKey, err)
+	}
+	if !expected.retryable && errs.Retryable(err) {
+		t.Fatalf("[%s] expected non-retryable error, got retryable: %v", caseKey, err)
+	}
+}
+
+func TestVerifierOutageClassificationProperty(t *testing.T) {
+	h := newPropertyHarness(t)
+
+	discBehaviors := []endpointBehavior{
+		behaviorAnswersCorrectly,
+		behaviorAnswers500,
+		behaviorRefusesConn,
+		behaviorNeverAnswers,
+	}
+
+	keysBehaviors := []endpointBehavior{
+		behaviorAnswersCorrectly,
+		behaviorAnswers500,
+		behaviorRefusesConn,
+		behaviorNeverAnswers,
+	}
+
+	tokens := []propertyTokenKind{
+		tokenValidCachedKID,
+		tokenValidUnknownKID,
+		tokenKnownKIDWrongSig,
+		tokenAudOther,
+		tokenAudFetchingKeys,
+		tokenExpired,
+		tokenMalformed,
+	}
+
+	priorStates := []propertyPriorState{
+		priorFresh,
+		priorKeyFetchFailedInWindow,
+		priorKeyFetchFailedPastWindow,
+		priorCanceledMidDiscovery,
+		priorCanceledMidKeyFetch,
+	}
+
+	callerContexts := []propertyCallerContext{
+		ctxLive,
+		ctxCanceledBefore,
+		ctxCanceledMidReq,
+	}
+
+	totalProduct := len(discBehaviors) * len(keysBehaviors) * len(tokens) * len(priorStates) * len(callerContexts)
+	impossibleCases := map[string]string{}
+	runCount := 0
+	skippedCount := 0
+
+	behOK := behaviorAnswersCorrectly
+	beh500 := behaviorAnswers500
+
+	for _, disc := range discBehaviors {
+		for _, keys := range keysBehaviors {
+			for _, tokKind := range tokens {
+				for _, prior := range priorStates {
+					for _, ctxKind := range callerContexts {
+						caseKey := fmt.Sprintf("disc=%s/keys=%s/tok=%s/prior=%s/ctx=%s", disc, keys, tokKind, prior, ctxKind)
+						if _, skip := impossibleCases[caseKey]; skip {
+							skippedCount++
+							continue
+						}
+						runCount++
+
+						t0 := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+						h.setNow(t0)
+
+						issuerURL := h.discServer.URL
+
+						tokValidCached := h.makeToken(t, tokenValidCachedKID, issuerURL)
+						tokValidUnknown := h.makeToken(t, tokenValidUnknownKID, issuerURL)
+
+						v, err := authn.NewVerifier(authn.Options{
+							Issuers: []authn.IssuerConfig{
+								{
+									Issuer:   issuerURL,
+									Audience: "flowseer-device",
+								},
+							},
+							Client: &http.Client{
+								Timeout: 100 * time.Millisecond,
+							},
+							Clock: h.now,
+						})
+						if err != nil {
+							t.Fatalf("NewVerifier %s: %v", caseKey, err)
+						}
+
+						testToken := h.makeToken(t, tokKind, issuerURL)
+
+						var callCtx context.Context
+						var callCancel context.CancelFunc
+						switch ctxKind {
+						case ctxLive:
+							callCtx = context.Background()
+						case ctxCanceledBefore:
+							c, cancel := context.WithCancel(context.Background())
+							cancel()
+							callCtx = c
+						case ctxCanceledMidReq:
+							c, cancel := context.WithCancel(context.Background())
+							callCancel = cancel
+							callCtx = c
+						}
+
+						var leaderDone chan struct{}
+						switch prior {
+						case priorFresh:
+						case priorKeyFetchFailedInWindow:
+							h.currentDiscBehavior.Store(&behOK)
+							h.currentKeysBehavior.Store(&behOK)
+							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
+								t.Fatalf("setup %s verify valid: %v", caseKey, err)
+							}
+							t1 := t0.Add(15 * time.Second)
+							h.setNow(t1)
+							h.currentKeysBehavior.Store(&beh500)
+							if _, err := v.Verify(context.Background(), tokValidUnknown); err == nil {
+								t.Fatalf("setup %s expected failure for unknown kid", caseKey)
+							}
+						case priorKeyFetchFailedPastWindow:
+							h.currentDiscBehavior.Store(&behOK)
+							h.currentKeysBehavior.Store(&behOK)
+							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
+								t.Fatalf("setup %s verify valid: %v", caseKey, err)
+							}
+							t1 := t0.Add(15 * time.Second)
+							h.setNow(t1)
+							h.currentKeysBehavior.Store(&beh500)
+							if _, err := v.Verify(context.Background(), tokValidUnknown); err == nil {
+								t.Fatalf("setup %s expected failure for unknown kid", caseKey)
+							}
+							h.setNow(t1.Add(15 * time.Second))
+						case priorCanceledMidDiscovery:
+							discBeh := disc
+							keysBeh := keys
+							h.currentDiscBehavior.Store(&discBeh)
+							h.currentKeysBehavior.Store(&keysBeh)
+							if ctxKind == ctxCanceledMidReq && tokKind != tokenMalformed {
+								h.cancelMidRequest.Store(&callCancel)
+							}
+							leaderStarted := make(chan struct{})
+							done := make(chan struct{})
+							leaderDone = done
+							ctxPrior, cancelPrior := context.WithCancel(context.Background())
+							hook := func() {
+								cancelPrior()
+								close(leaderStarted)
+							}
+							h.discHook.Store(&hook)
+							go func() {
+								_, _ = v.Verify(ctxPrior, tokValidCached)
+								close(done)
+							}()
+							<-leaderStarted
+							h.discHook.Store(nil)
+						case priorCanceledMidKeyFetch:
+							h.currentDiscBehavior.Store(&behOK)
+							h.currentKeysBehavior.Store(&behOK)
+							if _, err := v.Verify(context.Background(), tokValidCached); err != nil {
+								t.Fatalf("setup %s verify valid: %v", caseKey, err)
+							}
+							t1 := t0.Add(15 * time.Second)
+							h.setNow(t1)
+							keysBeh := keys
+							h.currentKeysBehavior.Store(&keysBeh)
+							if ctxKind == ctxCanceledMidReq && (tokKind == tokenValidUnknownKID || tokKind == tokenKnownKIDWrongSig) {
+								h.cancelMidRequest.Store(&callCancel)
+							}
+							leaderStarted := make(chan struct{})
+							done := make(chan struct{})
+							leaderDone = done
+							ctxPrior, cancelPrior := context.WithCancel(context.Background())
+							hook := func() {
+								cancelPrior()
+								close(leaderStarted)
+							}
+							h.keysHook.Store(&hook)
+							go func() {
+								_, _ = v.Verify(ctxPrior, tokValidUnknown)
+								close(done)
+							}()
+							<-leaderStarted
+							h.keysHook.Store(nil)
+						}
+
+						discBeh := disc
+						keysBeh := keys
+						h.currentDiscBehavior.Store(&discBeh)
+						h.currentKeysBehavior.Store(&keysBeh)
+						if ctxKind == ctxCanceledMidReq && prior != priorCanceledMidDiscovery && prior != priorCanceledMidKeyFetch {
+							validKeyCached := (prior == priorKeyFetchFailedInWindow || prior == priorKeyFetchFailedPastWindow || prior == priorCanceledMidKeyFetch)
+							willMakeNetworkCall := tokKind != tokenMalformed
+							if validKeyCached && (tokKind == tokenValidCachedKID || tokKind == tokenAudOther || tokKind == tokenAudFetchingKeys || tokKind == tokenExpired) {
+								willMakeNetworkCall = false
+							}
+							if prior == priorKeyFetchFailedInWindow && (tokKind == tokenValidUnknownKID || tokKind == tokenKnownKIDWrongSig) {
+								willMakeNetworkCall = false
+							}
+							if willMakeNetworkCall {
+								h.cancelMidRequest.Store(&callCancel)
+							}
+						}
+
+						p, callErr := v.Verify(callCtx, testToken)
+						h.cancelMidRequest.Store(nil)
+						if callCancel != nil {
+							callCancel()
+						}
+						if leaderDone != nil {
+							<-leaderDone
+						}
+
+						expected := propertyExpectedOutcome(disc, keys, tokKind, prior, ctxKind)
+						checkCaseResult(t, caseKey, expected, p, callErr)
+					}
+				}
+			}
+		}
+	}
+
+	if runCount < totalProduct-skippedCount {
+		t.Fatalf("ran %d cases, want at least %d (%d total minus %d impossible)", runCount, totalProduct-skippedCount, totalProduct, skippedCount)
 	}
 }
