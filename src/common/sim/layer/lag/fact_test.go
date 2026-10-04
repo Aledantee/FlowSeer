@@ -6,9 +6,11 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestSelectionFactCapturesConsumedHashTuple(t *testing.T) {
@@ -208,5 +210,38 @@ func TestMarkerDecodeFact(t *testing.T) {
 	wantInvalid := `ether_type=34825;payload_len=110;valid=false;reason="unsupported-lacpdu"`
 	if factInvalid.Canonical() != wantInvalid {
 		t.Fatalf("Canonical() = %q, want %q", factInvalid.Canonical(), wantInvalid)
+	}
+}
+
+func TestSlowProtocolsDecodeFactSelectsSubtype(t *testing.T) {
+	t.Parallel()
+
+	reason := lag.ReasonUnsupportedLACPDU
+	lacpFrame := ethernet.Frame{
+		EtherType: ethernet.EtherTypeSlowProtocols,
+		Payload:   []byte{lacp.SubtypeLACP},
+	}
+	markerFrame := ethernet.Frame{
+		EtherType: ethernet.EtherTypeSlowProtocols,
+		Payload:   []byte{lacp.SubtypeMarker},
+	}
+	emptyFrame := ethernet.Frame{EtherType: ethernet.EtherTypeSlowProtocols}
+
+	emptyFact := lag.SlowProtocolsDecodeFact(emptyFrame, false, reason)
+	if !trace.EqualFact(emptyFact, lag.LACPDecodeFact(emptyFrame, false, reason)) {
+		t.Fatalf("SlowProtocolsDecodeFact() for empty payload = %#v, want LACP decode fact", emptyFact)
+	}
+
+	lacpFact := lag.SlowProtocolsDecodeFact(lacpFrame, false, reason)
+	if !trace.EqualFact(lacpFact, lag.LACPDecodeFact(lacpFrame, false, reason)) {
+		t.Fatalf("SlowProtocolsDecodeFact() for LACP = %#v, want LACP decode fact", lacpFact)
+	}
+
+	markerFact := lag.SlowProtocolsDecodeFact(markerFrame, false, reason)
+	if !trace.EqualFact(markerFact, lag.MarkerDecodeFact(markerFrame, false, reason)) {
+		t.Fatalf("SlowProtocolsDecodeFact() for Marker = %#v, want Marker decode fact", markerFact)
+	}
+	if trace.EqualFact(lacpFact, markerFact) {
+		t.Fatal("SlowProtocolsDecodeFact() returned the same fact for LACP and Marker")
 	}
 }
