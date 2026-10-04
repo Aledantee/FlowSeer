@@ -5,6 +5,7 @@ date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
@@ -367,3 +368,16 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
   record buffered before a device moved edges would then be refused after
   the move. Whether a sink needs that check, and against what, is decided
   with the first consumer that acts on a record.
+
+## Review gaps
+
+- src/services/device/internal/intake/intake.go:198: delete the final `msg.Ack()`; fails: a delivered valid record whose message is asserted acknowledged
+- src/services/device/internal/intake/intake.go:252: check the prefix `EdgeSubtree(tenant, edge) + "."` without `ingest.`; fails: a subject inside the edge's subtree and outside its `ingest` branch
+- src/services/device/internal/intake/intake.go:262: accept an unset `provenance.edge`; fails: an otherwise valid envelope with no edge in its provenance
+- src/services/device/internal/intake/intake.go:270: build the message id from the edge id, not the tenant; fails: a published record whose stored `Nats-Msg-Id` is read back
+- docs/architecture/2026-08-20-device-service-and-inventory-direction.md:338: "The Execute and Events bullets below record the earlier shape", while the Events bullet now states the current subjects
+- docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md:25: "Nothing central reads the `ingest` branch", while intake follows it
+- docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md:50: "The record id is also the NATS message id", while the central id is `<tenant>.<record_id>`
+- docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md:160: a 512 MiB central budget with default stream limits, which reserve 640 MiB and fail hub start, and `hub.go` line cites the merge shifted
+- src/services/device/internal/intake/README.md:29: the diagram draws the evidence and typed publishes as alternatives, while the code publishes evidence and then the typed record
+- src/services/device/internal/host/host_test.go:1793: `//nolint:gosec`, a new suppression for a linter that is not enabled
