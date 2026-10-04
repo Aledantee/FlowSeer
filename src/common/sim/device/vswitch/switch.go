@@ -164,8 +164,9 @@ type Emission struct {
 	// arrived tagged at priority 5 and left a routed or untagged access port
 	// would re-derive as 0 and overtake nothing, where the live, non-held
 	// path queues it at 5. A protocol frame leaves it at zero: a BPDU, an
-	// LACPDU and a loop-protect probe all go out either untagged or tagged at
-	// priority 0 by [bridge.Layer.OriginateFrame].
+	// LACPDU, and a loop-protect probe all go out either untagged or tagged at
+	// priority 0 by [bridge.Layer.OriginateFrame], while a Marker response
+	// preserves the request's tag stack and queues with PCP 0.
 	PCP vlan.PCP
 
 	// Protocol reports whether the frame is a BPDU, LACPDU, Marker response,
@@ -2475,6 +2476,10 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 			s.lag.BadLACPDU(ingress)
 		}
 		after := s.lag.PortInfo(ingress)
+		dropInput := lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
+		if f.Payload[0] == lacp.SubtypeMarker {
+			dropInput = lag.MarkerDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
+		}
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -2486,7 +2491,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 						Op:      trace.OpDrop,
 						RuleID:  lag.RuleLACPDUUnsupported,
 						Subject: trace.Subject{Kind: "port", Key: ingress},
-						Inputs:  []trace.Fact{lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)},
+						Inputs:  []trace.Fact{dropInput},
 						Outputs: []trace.Fact{lag.MemberTransitionFact(ingress, "bad-lacpdu", before, after)},
 					},
 				},

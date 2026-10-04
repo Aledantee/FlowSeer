@@ -204,8 +204,8 @@ func TestMarkerDecodeFact(t *testing.T) {
 		t.Fatalf("Canonical() = %q, want %q", fact.Canonical(), want)
 	}
 
-	factInvalid := lag.MarkerDecodeFact(f, false, "unsupported-marker")
-	wantInvalid := `ether_type=34825;payload_len=110;valid=false;reason="unsupported-marker"`
+	factInvalid := lag.MarkerDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
+	wantInvalid := `ether_type=34825;payload_len=110;valid=false;reason="unsupported-lacpdu"`
 	if factInvalid.Canonical() != wantInvalid {
 		t.Fatalf("Canonical() = %q, want %q", factInvalid.Canonical(), wantInvalid)
 	}
