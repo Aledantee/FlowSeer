@@ -66,5 +66,7 @@ Intake publishes these instruments in the scope
 Refusals emit the named event `flowseer.intake.record.refused` at WARN level.
 The event carries the stream edge, refusal reason, and subject and is limited
 to one event per edge every ten seconds. The full refusal count remains in the
-counter. If JetStream stops a consumer, intake logs a WARN with the edge and a
-bounded `error.type`.
+counter. Intake logs terminal consumer errors as `intake consumer stopped` and
+non-terminal consumer errors as `intake consumer error`. Both messages carry
+the edge and a bounded `error.type`, and neither is logged after the handler
+context ends.

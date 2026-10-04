@@ -2,6 +2,7 @@ package edgebus
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 
@@ -15,7 +16,7 @@ import (
 type EdgeFollower struct {
 	hub      *Hub
 	interval time.Duration
-	attach   func(context.Context, string) (jetstream.ConsumeContext, error)
+	attach   func(context.Context, context.Context, string) (jetstream.ConsumeContext, error)
 	cancel   context.CancelFunc
 	done     chan struct{}
 
@@ -28,9 +29,11 @@ type EdgeFollower struct {
 // FollowEdges starts discovery of attached edge streams. The first discovery
 // pass runs under ctx. Later passes run at interval, which defaults to ten
 // seconds, and stop when ctx ends or [EdgeFollower.Close] is called. The
-// returned follower must be closed. attach receives the context for its pass
-// and must stop its attach operation when that context ends.
-func FollowEdges(ctx context.Context, hub *Hub, interval time.Duration, attach func(context.Context, string) (jetstream.ConsumeContext, error)) (*EdgeFollower, error) {
+// returned follower must be closed. attach receives the pass context, the
+// follower lifetime context, and the edge id. The pass context bounds the
+// attach operation. The lifetime ends when ctx ends, Close is called, or the
+// first discovery pass fails. An interval pass failure leaves it live.
+func FollowEdges(ctx context.Context, hub *Hub, interval time.Duration, attach func(context.Context, context.Context, string) (jetstream.ConsumeContext, error)) (*EdgeFollower, error) {
 	if interval <= 0 {
 		interval = 10 * time.Second
 	}
@@ -40,9 +43,9 @@ func FollowEdges(ctx context.Context, hub *Hub, interval time.Duration, attach f
 		done: make(chan struct{}), consumers: map[string]jetstream.ConsumeContext{},
 		closeDone: make(chan struct{}),
 	}
-	if err := f.discover(ctx); err != nil {
-		f.drainConsumers()
+	if err := f.discover(ctx, runCtx); err != nil {
 		cancel()
+		f.drainConsumers()
 		return nil, err
 	}
 	spawn.Go(runCtx, "edgebus.EdgeFollower.follow", func() { f.follow(runCtx) })
@@ -69,20 +72,26 @@ func (f *EdgeFollower) follow(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = f.discover(ctx)
+			if ctx.Err() != nil {
+				return
+			}
+			_ = f.discover(ctx, ctx)
 		}
 	}
 }
 
-func (f *EdgeFollower) discover(ctx context.Context) error {
-	for _, edgeID := range f.hub.AttachedEdges() {
+func (f *EdgeFollower) discover(ctx, lifetime context.Context) error {
+	edges := f.hub.AttachedEdges()
+	// Stable order makes a pass with one intentional attach failure reproducible.
+	sort.Strings(edges)
+	for _, edgeID := range edges {
 		f.mu.Lock()
 		_, following := f.consumers[edgeID]
 		f.mu.Unlock()
 		if following {
 			continue
 		}
-		consumer, err := f.attach(ctx, edgeID)
+		consumer, err := f.attach(ctx, lifetime, edgeID)
 		if err != nil {
 			return err
 		}
