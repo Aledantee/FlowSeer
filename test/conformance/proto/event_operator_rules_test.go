@@ -229,3 +229,90 @@ func TestOperatorActionCompletedRules(t *testing.T) {
 
 	runValidationCases(t, tests)
 }
+
+func TestOperatorActionNewObjectArms(t *testing.T) {
+	role := operatorv1.OperatorActionRole_builder{
+		Role:      validAccessRoleRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build()
+	assignment := operatorv1.OperatorActionRoleAssignment_builder{
+		Role:   validAccessRoleRef(),
+		Member: validOperatorRef(),
+	}.Build()
+	partner := operatorv1.OperatorActionPartner_builder{
+		Tenant:    validTenantRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+	}.Build()
+	grant := operatorv1.OperatorActionFullPayloadGrant_builder{
+		Member:    validOperatorRef(),
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
+	}.Build()
+
+	base := validOperatorActionEvent()
+	base.Edge = nil
+	base.Action = operatorv1.OperatorAction_OPERATOR_ACTION_TENANT_CREATE.Enum()
+	base.Tenant = validTenantRef()
+
+	member := validOperatorActionEvent()
+	member.Edge = nil
+	member.Action = operatorv1.OperatorAction_OPERATOR_ACTION_MEMBER_ENROLL.Enum()
+	member.Member = validOperatorRef()
+
+	roleEvent := validOperatorActionEvent()
+	roleEvent.Edge = nil
+	roleEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleEvent.Role = role
+
+	assignmentEvent := validOperatorActionEvent()
+	assignmentEvent.Edge = nil
+	assignmentEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_ASSIGN.Enum()
+	assignmentEvent.RoleAssignment = assignment
+
+	partnerEvent := validOperatorActionEvent()
+	partnerEvent.Edge = nil
+	partnerEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_CONNECT.Enum()
+	partnerEvent.Partner = partner
+
+	grantEvent := validOperatorActionEvent()
+	grantEvent.Edge = nil
+	grantEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_GRANT.Enum()
+	grantEvent.FullPayloadGrant = grant
+
+	roleWithoutRef := validOperatorActionEvent()
+	roleWithoutRef.Edge = nil
+	roleWithoutRef.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleWithoutRef.Role = operatorv1.OperatorActionRole_builder{
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build()
+	assignmentWithoutMember := validOperatorActionEvent()
+	assignmentWithoutMember.Edge = nil
+	assignmentWithoutMember.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_ASSIGN.Enum()
+	assignmentWithoutMember.RoleAssignment = operatorv1.OperatorActionRoleAssignment_builder{
+		Role: validAccessRoleRef(),
+	}.Build()
+	partnerWithoutTenant := validOperatorActionEvent()
+	partnerWithoutTenant.Edge = nil
+	partnerWithoutTenant.Action = operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_CONNECT.Enum()
+	partnerWithoutTenant.Partner = operatorv1.OperatorActionPartner_builder{
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+	}.Build()
+	grantWithoutExpiry := validOperatorActionEvent()
+	grantWithoutExpiry.Edge = nil
+	grantWithoutExpiry.Action = operatorv1.OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_GRANT.Enum()
+	grantWithoutExpiry.FullPayloadGrant = operatorv1.OperatorActionFullPayloadGrant_builder{
+		Member: validOperatorRef(),
+	}.Build()
+
+	runValidationCases(t, []validationCase{
+		{name: "tenant object arm validates", message: base.Build(), wantValid: true},
+		{name: "member object arm validates", message: member.Build(), wantValid: true},
+		{name: "role object arm validates", message: roleEvent.Build(), wantValid: true},
+		{name: "role assignment object arm validates", message: assignmentEvent.Build(), wantValid: true},
+		{name: "partner object arm validates", message: partnerEvent.Build(), wantValid: true},
+		{name: "full payload grant object arm validates", message: grantEvent.Build(), wantValid: true},
+		{name: "role object without a ref is rejected", message: roleWithoutRef.Build()},
+		{name: "role assignment without a member is rejected", message: assignmentWithoutMember.Build()},
+		{name: "partner object without a tenant is rejected", message: partnerWithoutTenant.Build()},
+		{name: "full payload grant without expiry is rejected", message: grantWithoutExpiry.Build()},
+	})
+}

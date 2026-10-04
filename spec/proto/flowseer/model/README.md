@@ -13,7 +13,7 @@ A package belongs in `model/` if its messages define domain identity, entity
 lifecycle, or shared operation vocabulary needed across service boundaries.
 `model/edge` passes because it defines the Edge entity, its lifecycle, and its
 assertion header. `api/edge` fails admission because it defines Connect RPC
-services; services live in service roots (`api/`, `edge/`).
+services. Services live in service roots (`api/`, `edge/`).
 
 ## Boundaries
 
@@ -33,7 +33,8 @@ Packages in `model/` may import `net/` primitives and sibling `model/` leaves.
 - `credential/v1/`: Typed credential material for device authentication (SNMPv3, SSH).
 - `edge/v1/`: Edge entity, keys, proof of possession, assertion headers, and provisioning.
 - `endpoint/v1/`: Endpoint entity, lifecycle, state, roam, connection failure, and events.
-- `identity/v1/`: Operator and tenant identity.
+- `identity/v1/`: Operator and tenant identity, tenant access records, roles,
+  partner links, and full-payload grants.
 - `inventory/v1/`: Hardware, component, integration, and topology entities and ref pairs.
 - `policy/v1/`: Access policy, credential, and host-trust handles.
 - `wireless/v1/`: Wireless LAN entity, SSID configuration, broadcast state, and radio associations.

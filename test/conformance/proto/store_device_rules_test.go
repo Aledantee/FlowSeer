@@ -289,3 +289,28 @@ func TestStoredEdgeRules(t *testing.T) {
 		{name: "stored edge without a record is rejected", message: storev1.StoredEdge_builder{}.Build()},
 	})
 }
+
+func validPlatformAdmin() *storev1.PlatformAdmin {
+	return storev1.PlatformAdmin_builder{
+		Issuer:                proto.String("https://idp.example.com"),
+		Organization:          proto.String("flowseer-platform"),
+		Subjects:              []string{"platform-admin"},
+		OrganizationClaimName: proto.String("org_id"),
+	}.Build()
+}
+
+func TestPlatformAdminSubjectsRules(t *testing.T) {
+	noSubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
+	noSubject.SetSubjects(nil)
+	tooManySubjects := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
+	tooManySubjects.SetSubjects(make([]string, 17))
+	repeatedSubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
+	repeatedSubject.SetSubjects([]string{"platform-admin", "platform-admin"})
+
+	runValidationCases(t, []validationCase{
+		{name: "one platform subject validates", message: validPlatformAdmin(), wantValid: true},
+		{name: "platform admin without a subject is rejected", message: noSubject},
+		{name: "platform admin with 17 subjects is rejected", message: tooManySubjects},
+		{name: "platform admin with a repeated subject is rejected", message: repeatedSubject},
+	})
+}

@@ -4,7 +4,7 @@ type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
@@ -255,7 +255,7 @@ Landed: `af914ebf..d68db6e6`
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase4-plan.md`
 After: U3
-Landed:
+Landed: `54dfbd98..8a95245a`
 
 Waves: U1 | U2 | U3 | U4
 

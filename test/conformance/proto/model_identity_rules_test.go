@@ -221,3 +221,67 @@ func TestModelIdentityRules(t *testing.T) {
 		},
 	})
 }
+
+func validAccessRoleRef() *identityv1.RoleGlobalRef {
+	return identityv1.RoleGlobalRef_builder{
+		Role: identityv1.RoleLocalRef_builder{
+			Id: proto.String("0192e6a0-0000-7000-8000-0000000000b1"),
+		}.Build(),
+	}.Build()
+}
+
+func validAccessMember() *identityv1.Member {
+	return identityv1.Member_builder{
+		Operator:   identityv1.OperatorRef_builder{Issuer: proto.String("https://idp.example.com"), Subject: proto.String("member-1")}.Build(),
+		EnrolledAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		EnrolledBy: identityv1.OperatorRef_builder{Issuer: proto.String("https://idp.example.com"), Subject: proto.String("admin-1")}.Build(),
+		Roles:      []*identityv1.RoleGlobalRef{validAccessRoleRef()},
+	}.Build()
+}
+
+func TestAccessRecordsRules(t *testing.T) {
+	validRole := identityv1.Role_builder{
+		Ref:         validAccessRoleRef(),
+		Name:        proto.String("capture operator"),
+		Description: proto.String("May operate captures"),
+		Relations:   []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build()
+	validGrant := identityv1.FullPayloadGrant_builder{
+		ExpiresAt: timestamppb.New(time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)),
+		Reason:    proto.String("case 42"),
+		GrantedBy: validOperatorRef(),
+		GrantedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+	}.Build()
+	validPartner := identityv1.Partner_builder{
+		Tenant:      validTenantRef(),
+		Relations:   []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+		ConnectedAt: timestamppb.New(time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)),
+		ConnectedBy: validOperatorRef(),
+	}.Build()
+
+	roleWithoutRelations := proto.Clone(validRole).(*identityv1.Role)
+	roleWithoutRelations.SetRelations(nil)
+	roleWithRepeatedRelation := proto.Clone(validRole).(*identityv1.Role)
+	roleWithRepeatedRelation.SetRelations([]identityv1.TenantRelation{
+		identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+		identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+	})
+	roleWithUndefinedRelation := proto.Clone(validRole).(*identityv1.Role)
+	roleWithUndefinedRelation.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation(99)})
+	partnerWithAdmin := proto.Clone(validPartner).(*identityv1.Partner)
+	partnerWithAdmin.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_ADMIN})
+	memberWithTooManyRoles := proto.Clone(validAccessMember()).(*identityv1.Member)
+	memberWithTooManyRoles.SetRoles(make([]*identityv1.RoleGlobalRef, 65))
+
+	runValidationCases(t, []validationCase{
+		{name: "role record validates", message: validRole, wantValid: true},
+		{name: "member record validates", message: validAccessMember(), wantValid: true},
+		{name: "full payload grant validates", message: validGrant, wantValid: true},
+		{name: "partner record validates", message: validPartner, wantValid: true},
+		{name: "role without a relation is rejected", message: roleWithoutRelations},
+		{name: "role with a repeated relation is rejected", message: roleWithRepeatedRelation},
+		{name: "role with an undefined relation is rejected", message: roleWithUndefinedRelation},
+		{name: "partner with admin is rejected", message: partnerWithAdmin},
+		{name: "member with 65 roles is rejected", message: memberWithTooManyRoles},
+	})
+}

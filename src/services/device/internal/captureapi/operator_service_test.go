@@ -31,6 +31,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
@@ -125,6 +126,7 @@ func (i testTenantInterceptor) WrapStreamingClient(next connect.StreamingClientF
 type operatorTestHarness struct {
 	hub               *edgebus.Hub
 	store             *captureapi.Store
+	access            *accessstore.Store
 	broadcaster       *captureapi.Broadcaster
 	notifyCount       atomic.Int64
 	projectCount      atomic.Int64
@@ -196,6 +198,11 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 		interceptor: interceptor,
 	}
 	h.setNow(frozen)
+	accessKV, err := hub.JetStream().KeyValue(context.Background(), edgebus.AccessBucket)
+	if err != nil {
+		t.Fatalf("access bucket: %v", err)
+	}
+	h.access = accessstore.New(accessKV, h.now)
 
 	h.capturesDir = filepath.Join(t.TempDir(), "captures")
 	store, err := captureapi.NewStore(kv, h.capturesDir, h.now)
@@ -205,6 +212,7 @@ func newOperatorTestHarness(t *testing.T) *operatorTestHarness {
 	h.store = store
 
 	svc := captureapi.NewOperatorService(h.store, broadcaster, captureapi.OperatorServiceConfig{
+		FullPayload: h.access.FullPayloadActive,
 		EdgeTenant: func(_ context.Context, edgeID string) (string, error) {
 			switch edgeID {
 			case testEdge1ID:
@@ -1691,7 +1699,6 @@ func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
 	h := newOperatorTestHarness(t)
 	p := testPrincipal()
 
-	// 1. Full payload requested without tenant#full_payload grant -> PermissionDenied
 	reqFull := newTestCreateRequest(100)
 	reqFull.GetAuthorization().SetFullPayloadRequested(true)
 	reqFull.GetAuthorization().SetReason("incident investigation")
@@ -1704,7 +1711,6 @@ func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
 		t.Fatalf("code = %v, want CodePermissionDenied", connect.CodeOf(err))
 	}
 
-	// Verify no session was created in store
 	sessions, err := h.store.ListSessions(ctx, testTenantID)
 	if err != nil {
 		t.Fatalf("list sessions: %v", err)
@@ -1713,7 +1719,20 @@ func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
 		t.Fatalf("store holds %d sessions, want 0", len(sessions))
 	}
 
-	// 2. Grant full_payload on tenant:<testTenantID>
+	operator := identityv1.OperatorRef_builder{Issuer: new(p.Issuer), Subject: new(p.Subject)}.Build()
+	member := identityv1.Member_builder{
+		Operator: operator, EnrolledAt: timestamppb.New(h.now()), EnrolledBy: operator,
+		FullPayload: identityv1.FullPayloadGrant_builder{
+			ExpiresAt: timestamppb.New(h.now().Add(time.Hour)), Reason: new("case 42"),
+			GrantedBy: operator, GrantedAt: timestamppb.New(h.now()),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(member); err != nil {
+		t.Fatalf("member fixture: %v", err)
+	}
+	if _, err := h.access.CreateMember(ctx, testTenantID, member); err != nil {
+		t.Fatal(err)
+	}
 	if err := h.engine.Write(ctx, []authz.Tuple{
 		{Object: "tenant:" + testTenantID, Relation: "full_payload", User: "user:" + p.ID},
 	}, nil); err != nil {
@@ -1734,8 +1753,17 @@ func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
 	if len(queries) != 1 || queries[0].Object != "tenant:"+testTenantID || queries[0].Relation != "full_payload" {
 		t.Fatalf("handler recorded queries %v, want only tenant:%s#full_payload", queries, testTenantID)
 	}
+	h.setNow(h.now().Add(time.Hour))
+	if stored, err := h.engine.Read(ctx, "tenant:"+testTenantID); err != nil || len(stored) != 1 {
+		t.Fatalf("stored full payload tuple = %v, %v, want one tuple", stored, err)
+	}
+	if _, err := h.client.CreateCaptureSession(ctx, connect.NewRequest(reqFull)); connect.CodeOf(err) != connect.CodePermissionDenied || operatorErrorCode(t, err) != "captureapi/full-payload-expired" {
+		t.Fatalf("expired grant error = %v, want PermissionDenied with captureapi/full-payload-expired", err)
+	}
+	if sessions, err := h.store.ListSessions(ctx, testTenantID); err != nil || len(sessions) != 1 {
+		t.Fatalf("sessions after expiry = %d, %v, want one", len(sessions), err)
+	}
 
-	// 3. Headers-only request succeeds even without full_payload grant
 	if err := h.engine.Write(ctx, nil, []authz.Tuple{
 		{Object: "tenant:" + testTenantID, Relation: "full_payload", User: "user:" + p.ID},
 	}); err != nil {
@@ -1752,6 +1780,79 @@ func TestCreateCaptureSessionFullPayloadCheck(t *testing.T) {
 	}
 	if respHeaders.Msg.GetSession() == nil {
 		t.Fatal("session is nil in response")
+	}
+}
+
+func TestCreateCaptureSessionFullPayloadResolverFailures(t *testing.T) {
+	cases := []struct {
+		name string
+		hook func(context.Context, string, *identityv1.OperatorRef) (bool, error)
+		want connect.Code
+	}{
+		{name: "unset", want: connect.CodeUnavailable},
+		{name: "failing", hook: func(context.Context, string, *identityv1.OperatorRef) (bool, error) {
+			return false, errs.New().Code(accessstore.ErrCodeDecode).Msg("bad member record")
+		}, want: connect.CodeUnavailable},
+		{name: "inactive", hook: func(context.Context, string, *identityv1.OperatorRef) (bool, error) {
+			return false, nil
+		}, want: connect.CodePermissionDenied},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newOperatorTestHarness(t)
+			p := testPrincipal()
+			ctx, err := h.interceptor.Admit(authn.NewContext(context.Background(), p), testTenantID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			calls := 0
+			hook := tc.hook
+			if hook != nil {
+				hook = func(ctx context.Context, tenantID string, operator *identityv1.OperatorRef) (bool, error) {
+					calls++
+					if tenantID != testTenantID || operator.GetIssuer() != p.Issuer || operator.GetSubject() != p.Subject {
+						t.Errorf("hook arguments = %q, %v, want authenticated caller in %s", tenantID, operator, testTenantID)
+					}
+					return tc.hook(ctx, tenantID, operator)
+				}
+			}
+			svc := captureapi.NewOperatorService(h.store, h.broadcaster, captureapi.OperatorServiceConfig{
+				EdgeTenant:  func(context.Context, string) (string, error) { return testTenantID, nil },
+				FullPayload: hook,
+			})
+			req := newTestCreateRequest(10)
+			req.GetAuthorization().SetFullPayloadRequested(true)
+			if err := protovalidate.Validate(req); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := svc.CreateCaptureSession(ctx, connect.NewRequest(req)); connect.CodeOf(err) != connect.CodePermissionDenied {
+				t.Fatalf("without authorization error = %v, want PermissionDenied", err)
+			}
+			if calls != 0 {
+				t.Fatalf("hook ran %d times before authorization, want zero", calls)
+			}
+			h.engine.Grant("user:"+p.ID, "full_payload", "tenant")
+			if allowed, err := h.engine.Check(ctx, authz.Query{Object: "tenant:" + testTenantID, Relation: "full_payload", User: "user:" + p.ID}); err != nil || !allowed {
+				t.Fatalf("grant control = %v, %v, want allowed", allowed, err)
+			}
+			_, err = svc.CreateCaptureSession(ctx, connect.NewRequest(req))
+			if connect.CodeOf(err) != tc.want {
+				t.Fatalf("error = %v, want %v", err, tc.want)
+			}
+			if tc.hook != nil && calls != 1 {
+				t.Fatalf("hook calls = %d, want one", calls)
+			}
+			if tc.want == connect.CodePermissionDenied && operatorErrorCode(t, err) != "captureapi/full-payload-expired" {
+				t.Fatalf("error code = %q, want captureapi/full-payload-expired", operatorErrorCode(t, err))
+			}
+			if sessions, err := h.store.ListSessions(ctx, testTenantID); err != nil || len(sessions) != 0 {
+				t.Fatalf("sessions = %d, %v, want zero", len(sessions), err)
+			}
+			req.GetAuthorization().SetFullPayloadRequested(false)
+			if _, err := svc.CreateCaptureSession(ctx, connect.NewRequest(req)); err != nil {
+				t.Fatalf("headers-only capture: %v", err)
+			}
+		})
 	}
 }
 

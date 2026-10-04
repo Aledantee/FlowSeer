@@ -83,6 +83,39 @@ keyed by resource and alarm type. An Alarm is managed as an observed state
 and transition (`AlarmState`, `AlarmEvent`), distinct from an append-only
 syslog record.
 
+## Identity and access
+
+### Member
+
+An operator enrolled in one tenant, identified by its issuer and subject.
+The member record holds role assignments and the explicit full-payload grant.
+Membership requires both enrollment and the token's organization claim.
+Removing the member removes its grants
+([access records](spec/proto/flowseer/model/identity/v1/access.proto)).
+
+### Role
+
+A UUID-identified set of tenant-wide `admin`, `operator`, `capturer`, or
+`viewer` relations. Members receive those relations through role assignments.
+Role names are labels and may repeat. Full payload is granted directly to a
+member and belongs to no role
+([access records](spec/proto/flowseer/model/identity/v1/access.proto)).
+
+### Partner
+
+A customer's link to a service-provider tenant. The customer's record grants
+the provider's active admins `operator`, `capturer`, or `viewer` access.
+The link requires no provider consent and grants no tenant administration
+([authorization model](src/services/device/internal/authz/openfga/model.json)).
+
+### Platform admin
+
+An operator whose issuer and subject are configured in `platform_admin` and
+whose token carries the configured platform organization claim. Platform admins
+administer tenants. Full payload still requires enrollment and an explicit,
+unexpired member grant
+([operator authorization](docs/architecture/2026-09-30-operator-authorization-direction.md)).
+
 ## Runtime
 
 ### Service Module

@@ -72,6 +72,12 @@ type HubConfig struct {
 	// OperatorActionMaxPerSubject bounds the operator action stream to at most this many
 	// records per subject. Zero means 10,000.
 	OperatorActionMaxPerSubject int64
+	// OperatorReadMaxBytes bounds the operator read stream within the central budget. Zero
+	// means 16 MiB.
+	OperatorReadMaxBytes int64
+	// OperatorReadMaxPerSubject bounds the operator read stream to at most this many
+	// records per subject. Zero means 1,000.
+	OperatorReadMaxPerSubject int64
 	// AuditDuplicateWindow is how long the audit stream remembers an event
 	// id; a re-delivered record inside it is stored once. Zero means ten
 	// minutes, longer than any edge re-send.
@@ -138,8 +144,10 @@ const (
 	defaultAuditDedupeWindow         = 10 * time.Minute
 	defaultOperatorActionStreamBytes = 64 << 20
 	defaultOperatorActionMaxPerSubj  = 10000
+	defaultOperatorReadStreamBytes   = 16 << 20
+	defaultOperatorReadMaxPerSubj    = 1000
 	// defaultCentralBudget reserves the central account's disk for the
-	// journal, the audit stream, and the operator action stream; defaultEdgeBudget
+	// journal, the audit stream, and the two operator streams; defaultEdgeBudget
 	// bounds one edge's source stream plus margin. They are independent, so telemetry
 	// cannot starve the journal.
 	defaultCentralBudget = 512 << 20
@@ -347,7 +355,7 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 }
 
 func (h *Hub) createStores(ctx context.Context) error {
-	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket} {
+	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket, AccessBucket} {
 		if _, err := h.centralJS.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  bucket,
 			Storage: jetstream.FileStorage,
@@ -406,6 +414,27 @@ func (h *Hub) createStores(ctx context.Context) error {
 		Duplicates:        window,
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create operator action stream")
+	}
+
+	opReadBytes := h.cfg.OperatorReadMaxBytes
+	if opReadBytes <= 0 {
+		opReadBytes = defaultOperatorReadStreamBytes
+	}
+	opReadMaxPerSubj := h.cfg.OperatorReadMaxPerSubject
+	if opReadMaxPerSubj <= 0 {
+		opReadMaxPerSubj = defaultOperatorReadMaxPerSubj
+	}
+	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:              OperatorReadStream,
+		Subjects:          []string{"flowseer.*.operator.read.*"},
+		Storage:           jetstream.FileStorage,
+		Retention:         jetstream.LimitsPolicy,
+		Discard:           jetstream.DiscardOld,
+		MaxBytes:          opReadBytes,
+		MaxMsgsPerSubject: opReadMaxPerSubj,
+		Duplicates:        window,
+	}); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Msg("create operator read stream")
 	}
 	return nil
 }
