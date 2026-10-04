@@ -312,6 +312,10 @@ Paths under `internal/` are under `src/services/device/`. "The record" is
   deletes the stored tuple. `tenant#member`, which fixtures store because
   the fake computes nothing, is outside the table and stays. A test that
   asserts no tuple names a user gives that user `member` through `Grant`.
+- The operator action trail splits views into `FLOWSEER_OPERATOR_READS`
+  beside `FLOWSEER_OPERATOR_ACTIONS`, amending the record's single-stream
+  design, and the 24-hour full-payload ceiling and the one-sided partner
+  link stand as written. (decided by the user, 2026-10-04)
 
 ## Requirements
 
