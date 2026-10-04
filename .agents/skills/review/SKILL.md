@@ -219,9 +219,11 @@ An item is one line:
 ```
 
 A gap or false test names the surviving mutation, a convention or hardening
-finding the wrong text.
-An item with class `false test, blocking` also records its mutation, the run
-count when it is flaky, and `review-fix-test: yes|no`.
+finding the wrong text. A blocking false-test item uses this full form:
+
+```text
+- <path:line>: <mutation>; fails: <the case that would fail>; class: false test, blocking; runs: <n> when flaky; review-fix-test: yes|no
+```
 
 | Verdict | When |
 | --- | --- |
@@ -286,12 +288,12 @@ asking the user what happens next (`AGENTS.md`, Agent behavior):
 | --- | --- |
 | accept, no follow-up recorded | run `compound` now; stop here |
 | accept, follow-ups recorded | close the follow-ups in one pass (step 6), then `compound`; run `compound` now and leave them recorded; stop here |
-| fixes needed, findings in one file group and a round remains | apply the fixes here; fix and review again (step 6); stop |
-| fixes needed, findings across file groups and a round remains | fix and review again (step 6); apply chosen findings only; stop |
-| fixes needed, only blocking false tests remain at round count two | close them in the follow-up pass (step 6), which is not a round; stop |
+| fixes needed, a security or behavior finding is open in one file group and a round remains | apply the fixes here; fix and review again (step 6); stop |
+| fixes needed, security or behavior findings are open across file groups and a round remains | fix and review again (step 6); apply chosen findings only; stop |
+| fixes needed, only blocking false tests remain | close them in the follow-up pass (step 6), which is not a round; stop |
 | fixes needed, a blocking false test still open once the pass has run | one more pass (runs `review` again from step 1 with step 6), or stop |
 | fixes needed, a Requirement question is open | take the Requirement to `plan`, or stop |
-| rework | take what the review established to `plan`; stop |
+| rework | use the options in `references/fix-loop.md`, `When to stop` |
 
 A delegated reviewer does not ask. It states each verdict-holding finding and
 each Requirement-change finding as its blocker, and lists the follow-ups
