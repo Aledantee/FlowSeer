@@ -156,7 +156,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 ### U4. Link aggregation and physical layer to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md
 After: U2
-Landed:
+Landed: `9077fffa..db130681`
 Change: `layer/lag` follows IEEE 802.1AX, and `layer/phy` resolves speed,
 duplex, and PoE within the stated bounds.
 Tests: one failing-first test per inventory entry.

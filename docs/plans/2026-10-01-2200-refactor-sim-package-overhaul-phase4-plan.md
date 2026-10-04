@@ -4,13 +4,15 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Link Aggregation and Physical Layer to Standard - Plan
+
+> Implemented. 6 units, 2026-10-04T13:02:48Z to 2026-10-04T14:30:22Z.
 
 ## Goal
 
@@ -544,12 +546,12 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit, with the contract
+- [x] Verifier green for every changed path of every unit, with the contract
       gate in `test/conformance/sim` untouched.
-- [ ] Each Correctness entry has its failing-first test or its strike.
-- [ ] The READMEs of `L`, `P`, and `C` name their sources, clauses, and
+- [x] Each Correctness entry has its failing-first test or its strike.
+- [x] The READMEs of `L`, `P`, and `C` name their sources, clauses, and
       Limits, and the virtual-device record is amended.
-- [ ] No plan label in code, comments, or commit messages. This plan's
+- [x] No plan label in code, comments, or commit messages. This plan's
       `status` is set, and the parent's U4 `Landed:` holds the range.
 
 ## Open questions
