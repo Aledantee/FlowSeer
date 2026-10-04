@@ -76,6 +76,10 @@ under Inventory, Sources.
 - The review's `rework` verdict after three fix rounds is answered with a
   fourth round. It resumes from `parked/sim-p3-review` and is limited to
   the seven findings that verdict lists. (decided by the user, 2026-10-04)
+- The fourth round's `rework` verdict is answered with a re-plan. The
+  topology-change emission becomes one new unit, specified from the
+  standard's state machines, then implemented and reviewed from
+  `parked/sim-p3-review`. (decided by the user, 2026-10-04)
 
 ## Requirements
 
@@ -584,15 +588,3 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
-- Parked by drive: the fourth fix round also ended `rework`. It closed the
-  seven listed findings and its re-review found eight more on the same
-  topology-change emission, two of them behavior (a deferred frame dropped
-  at release on a CIST Designated port, and deferred frames leaving out of
-  order). No round read IEEE Std 802.1Q for it. The work is on
-  `parked/sim-p3-review`. Options: re-plan the emission as one new unit
-  from the standard's state machines, then implement and review it (a
-  plan stage first, and the fix stops being patch on patch) | run a fifth
-  fix round (cheapest next step, four rounds have not converged) | accept
-  the review with the gaps recorded (unblocks the land, ships both
-  defects). Recommended: re-plan the emission, because each round's fix
-  opened a new defect in the mechanism it patched.
