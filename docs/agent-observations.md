@@ -25,24 +25,3 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
-
-## 2026-10-02 delegate: pool rows carry no account plan, so a percent window reads as equal headroom on every plan
-Skill or agent: `.claude/skills/delegate/SKILL.md`, "Pick the role, then
-resolve the lane" step 1, Wave size, and Dispatch by quota, with
-`.claude/skills/delegate/scripts/pool-usage.sh` and
-`.claude/skills/tune/scripts/discover-host.sh`, which write the pool rows.
-What happened: the `codex` row read `signed_in: true` with its only window at
-0%, so a review wave gave the pool two slots. The account was on the free
-plan. Codex answered `400 The 'gpt-6.1-sol' model is not supported when using
-Codex with a ChatGPT account`, then the same for `gpt-6-sol`, and four lanes
-were started and stopped before the user said to avoid the pool. The steps
-were followed as written. The user's correction: check which kind of account
-each pool is signed in to, `codex` and `claude` included, because half of a
-20x plan's window is far more capacity than 80% of a standard plan's.
-Suggested change: `pool-usage.sh` and `discover-host.sh` record each pool's
-account plan in its row. `delegate` step 1 drops a model the plan does not
-serve. Wave size counts slots from the capacity left, the plan's multiplier
-times the unused share of the window, instead of from the percent alone.
-Left for `plan`: the change spans both scripts, the registry schema, `tune`,
-and `delegate`, and the plan field each CLI reports needs a source read
-first. `steer` does not apply it.

@@ -896,9 +896,13 @@ model that still makes progress. Users describe the failure mode from the
 other side: a task that spawned seven subagents on the session model and
 exhausted a budget before one of them finished, cured by naming a smaller
 model for them. `delegate` therefore sizes each wave from measured
-headroom rather than from how much work is ready: a pool holds two lanes
-under 50% used, one up to 85%, none above, and the coordinator caps the
-sum at six.
+headroom rather than from how much work is ready: each pool row states its
+slots per window, the account plan's capacity times the unused share of
+the window counted in halves of a standard plan's window, at least one
+below the pool's limit and none at or above it, and the coordinator caps
+the sum at six. The percent alone read a small plan at 0% as the same
+headroom as a large plan at 50%, and a wave sized that way lost four lanes
+to a pool whose account did not serve the models it was given.
 
 A brief names the checks already run and the findings already settled.
 Without that, a reviewer re-runs the coordinator's race tests and a fix
@@ -960,9 +964,10 @@ and `orca account list` reports which providers are signed in and how much
 of each rate-limit window is used, which is why `delegate` discovers the
 worker agent and provider per session instead of assuming Claude and picks
 the provider for each wave by remaining quota. The 85% threshold is a
-starting point chosen so that the two lanes a pool may hold under 50%
-cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
-idle.
+starting point chosen so that the lanes a pool holds below it cannot push
+a window over its limit mid-run. It guards the percent whatever the plan's
+capacity, since a large plan can hold six lanes just under it. Tune it
+when a wave gets cut off or when quota sits idle.
 
 Orca reads usage only for the providers it has credentials for. Its
 `unavailable` status describes its view, not the pool. The
