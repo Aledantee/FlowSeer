@@ -78,16 +78,18 @@ type Intake struct {
 	logger     *slog.Logger
 	metrics    intakeMetrics
 	follower   *edgebus.EdgeFollower
-	handlerCtx context.Context
-	cancel     context.CancelFunc
+	validator  func(proto.Message) error
 
-	mu         sync.Mutex
-	lastLogged map[string]time.Time
+	mu                sync.Mutex
+	lastLogged        map[string]time.Time
+	lastConsumeLogged map[string]time.Time
 }
 
-// Start attaches intake to every current edge and discovers edges attached
-// later until ctx ends or [Intake.Close] is called. The returned Intake must
-// be closed.
+// Start uses ctx to bound each discovery attach call. The follower lifetime
+// ends when ctx ends, Close is called, or the first discovery pass fails.
+// Attached consumers use that lifetime for delivery and consume error logging.
+// Discovery ends when ctx ends or Close is called. An interval attach failure
+// does not end the lifetime. The returned Intake must be closed.
 func Start(ctx context.Context, cfg Config) (*Intake, error) {
 	if cfg.Hub == nil {
 		return nil, errs.New().Code(ErrCodeStart).Msg("intake needs a hub")
@@ -113,17 +115,16 @@ func Start(ctx context.Context, cfg Config) (*Intake, error) {
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("build intake instruments")
 	}
-	handlerCtx, cancel := context.WithCancel(ctx)
 	i := &Intake{
 		hub: cfg.Hub, central: cfg.Central, retryDelay: cfg.RetryDelay,
-		logger: logger, metrics: metrics, lastLogged: map[string]time.Time{},
-		handlerCtx: handlerCtx, cancel: cancel,
+		logger: logger, metrics: metrics,
+		validator:  func(msg proto.Message) error { return protovalidate.Validate(msg) },
+		lastLogged: map[string]time.Time{}, lastConsumeLogged: map[string]time.Time{},
 	}
-	follower, err := edgebus.FollowEdges(ctx, cfg.Hub, cfg.DiscoveryInterval, func(attachCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
-		return i.attach(attachCtx, edgeID)
+	follower, err := edgebus.FollowEdges(ctx, cfg.Hub, cfg.DiscoveryInterval, func(attachCtx, lifetime context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+		return i.attach(attachCtx, lifetime, edgeID)
 	})
 	if err != nil {
-		cancel()
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("follow edge streams")
 	}
 	i.follower = follower
@@ -135,11 +136,10 @@ func (i *Intake) Close() {
 	if i == nil || i.follower == nil {
 		return
 	}
-	i.cancel()
 	i.follower.Close()
 }
 
-func (i *Intake) attach(ctx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+func (i *Intake) attach(ctx, lifetime context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 	stream, err := i.hub.EdgeStream(ctx, edgeID)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Attr("edge", edgeID).Msg("look up edge stream")
@@ -154,8 +154,8 @@ func (i *Intake) attach(ctx context.Context, edgeID string) (jetstream.ConsumeCo
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Attr("edge", edgeID).Msg("create intake consumer")
 	}
-	consume, err := consumer.Consume(func(msg jetstream.Msg) { i.handle(edgeID, msg) }, jetstream.ConsumeErrHandler(func(_ jetstream.ConsumeContext, err error) {
-		i.logConsumeError(edgeID, err)
+	consume, err := consumer.Consume(func(msg jetstream.Msg) { i.handle(lifetime, edgeID, msg) }, jetstream.ConsumeErrHandler(func(_ jetstream.ConsumeContext, err error) {
+		i.logConsumeError(lifetime, edgeID, err)
 	}))
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeStart).Attr("edge", edgeID).Msg("start intake consumer")
@@ -163,9 +163,8 @@ func (i *Intake) attach(ctx context.Context, edgeID string) (jetstream.ConsumeCo
 	return consume, nil
 }
 
-func (i *Intake) handle(edgeID string, msg jetstream.Msg) {
+func (i *Intake) handle(ctx context.Context, edgeID string, msg jetstream.Msg) {
 	started := time.Now()
-	ctx := i.handlerCtx
 	i.recordAge(ctx, msg, started)
 
 	tenantID, known := i.hub.EdgeTenant(edgeID)
@@ -175,9 +174,10 @@ func (i *Intake) handle(edgeID string, msg jetstream.Msg) {
 		i.retry(ctx, msg, started)
 		return
 	}
-	publications, reason, err := prepare(tenantID, edgeID, msg.Subject(), msg.Data())
+	publications, reason, err := prepareWithValidator(tenantID, edgeID, msg.Subject(), msg.Data(), i.validator)
 	if err != nil {
 		i.retry(ctx, msg, started)
+		i.logRetry(ctx, edgeID, msg.Subject(), prepareErrorType(err))
 		return
 	}
 	if reason != "" {
@@ -232,15 +232,9 @@ func (i *Intake) recordAge(ctx context.Context, msg jetstream.Msg, deliveredAt t
 }
 
 func (i *Intake) logRefusal(ctx context.Context, edgeID, subject, reason string) {
-	i.mu.Lock()
-	now := time.Now()
-	previous := i.lastLogged[edgeID]
-	if now.Sub(previous) < refusalLogInterval {
-		i.mu.Unlock()
+	if ctx.Err() != nil || !i.allowRecordLog(edgeID) {
 		return
 	}
-	i.lastLogged[edgeID] = now
-	i.mu.Unlock()
 	i.logger.WarnContext(ctx, "record refused",
 		slog.String("otel.event.name", "flowseer.intake.record.refused"),
 		slog.String("flowseer.edge.id", edgeID),
@@ -249,18 +243,70 @@ func (i *Intake) logRefusal(ctx context.Context, edgeID, subject, reason string)
 	)
 }
 
-func (i *Intake) logConsumeError(edgeID string, err error) {
-	errorType := "consume_error"
-	switch {
-	case errors.Is(err, jetstream.ErrConsumerDeleted):
-		errorType = "consumer_deleted"
-	case errors.Is(err, jetstream.ErrBadRequest):
-		errorType = "bad_request"
+func (i *Intake) logRetry(ctx context.Context, edgeID, subject, errorType string) {
+	if ctx.Err() != nil || !i.allowRecordLog(edgeID) {
+		return
 	}
-	i.logger.WarnContext(i.handlerCtx, "intake consumer stopped",
+	i.logger.WarnContext(ctx, "record retry scheduled",
+		slog.String("flowseer.edge.id", edgeID),
+		slog.String("flowseer.intake.subject", subject),
+		slog.String(string(semconv.ErrorTypeKey), errorType),
+	)
+}
+
+func (i *Intake) allowRecordLog(edgeID string) bool {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	now := time.Now()
+	previous := i.lastLogged[edgeID]
+	if now.Sub(previous) < refusalLogInterval {
+		return false
+	}
+	i.lastLogged[edgeID] = now
+	return true
+}
+
+func (i *Intake) logConsumeError(ctx context.Context, edgeID string, err error) {
+	if ctx.Err() != nil || !i.allowConsumeLog(edgeID) {
+		return
+	}
+	errorType, terminal := consumeErrorType(err)
+	message := "intake consumer error"
+	if terminal {
+		message = "intake consumer stopped"
+	}
+	i.logger.WarnContext(ctx, message,
 		slog.String("flowseer.edge.id", edgeID),
 		slog.String(string(semconv.ErrorTypeKey), errorType),
 	)
+}
+
+func (i *Intake) allowConsumeLog(edgeID string) bool {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	now := time.Now()
+	previous := i.lastConsumeLogged[edgeID]
+	if now.Sub(previous) < refusalLogInterval {
+		return false
+	}
+	i.lastConsumeLogged[edgeID] = now
+	return true
+}
+
+func consumeErrorType(err error) (string, bool) {
+	switch {
+	case errors.Is(err, jetstream.ErrConsumerDeleted):
+		return "consumer_deleted", true
+	case errors.Is(err, jetstream.ErrBadRequest):
+		return "bad_request", true
+	case errors.Is(err, jetstream.ErrConnectionClosed):
+		return "connection_closed", true
+	case errors.Is(err, jetstream.ErrNoHeartbeat):
+		return "no_heartbeat", false
+	case strings.HasPrefix(err.Error(), "nats: invalid format of Nats-Pending-"):
+		return "consume_error", true
+	}
+	return "consume_error", false
 }
 
 type publication struct {
@@ -271,16 +317,10 @@ type publication struct {
 	evidence   bool
 }
 
-// prepare checks and converts one edge delivery without depending on
+// prepareWithValidator checks and converts one edge delivery without depending on
 // JetStream. It returns the evidence publication first when raw bytes are
 // attached, so a redelivery after the typed publication fails is duplicate
 // safe in both central streams.
-func prepare(tenantID, edgeID, subject string, data []byte) ([]publication, string, error) {
-	return prepareWithValidator(tenantID, edgeID, subject, data, func(msg proto.Message) error {
-		return protovalidate.Validate(msg)
-	})
-}
-
 func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validate func(proto.Message) error) ([]publication, string, error) {
 	if !strings.HasPrefix(subject, edgebus.EdgeSubtree(tenantID, edgeID)+".ingest.") {
 		return nil, reasonForeignSubject, nil
@@ -292,7 +332,7 @@ func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validat
 	if err := validate(record); err != nil {
 		var validationErr *protovalidate.ValidationError
 		if !errors.As(err, &validationErr) {
-			return nil, "", err
+			return nil, "", &prepareError{errorType: "validation", err: err}
 		}
 		return nil, reasonInvalid, nil
 	}
@@ -316,7 +356,7 @@ func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validat
 		withoutRaw.ClearRaw()
 		encoded, err := proto.Marshal(withoutRaw)
 		if err != nil {
-			return nil, "", err
+			return nil, "", &prepareError{errorType: "marshal", err: err}
 		}
 		typed = encoded
 	}
@@ -325,6 +365,23 @@ func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validat
 		messageID: messageID, recordType: recordType,
 	})
 	return publications, "", nil
+}
+
+type prepareError struct {
+	errorType string
+	err       error
+}
+
+func (e *prepareError) Error() string { return e.err.Error() }
+
+func (e *prepareError) Unwrap() error { return e.err }
+
+func prepareErrorType(err error) string {
+	var prepareErr *prepareError
+	if errors.As(err, &prepareErr) {
+		return prepareErr.errorType
+	}
+	return "prepare_error"
 }
 
 func recordTypeAndDevice(record *ingestv1.IngestRecord) (string, string) {

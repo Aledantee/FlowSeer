@@ -85,8 +85,9 @@ type Forwarder struct {
 	lastLogged map[string]time.Time
 }
 
-// StartForwarder attaches to every edge stream present now and to each one
-// attached later, and forwards until the caller's ctx ends or [Forwarder.Close]
+// StartForwarder uses the caller's ctx to bound discovery attach calls. The
+// follower lifetime ends when ctx ends, Close is called, or the first
+// discovery pass fails. Attached consumers forward until [Forwarder.Close]
 // is called. The returned forwarder must be closed.
 func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwarder, error) {
 	if cfg.Endpoint == "" {
@@ -135,7 +136,7 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 		cfg: cfg, hub: hub, logger: logger, refused: refused,
 		lastLogged: map[string]time.Time{},
 	}
-	follower, err := FollowEdges(ctx, hub, cfg.DiscoveryInterval, func(attachCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+	follower, err := FollowEdges(ctx, hub, cfg.DiscoveryInterval, func(attachCtx context.Context, _ context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 		return f.attach(attachCtx, edgeID)
 	})
 	if err != nil {
