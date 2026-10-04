@@ -19,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/drift"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -73,7 +74,7 @@ const (
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The six modules are declared in dependency order and supervised
+// The seven modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
@@ -125,6 +126,7 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		Modules: []service.Module{
 			{Name: "hub", Leaf: &service.Leaf{Setup: h.setupHub}},
 			{Name: "forwarder", Gate: h.forwarderGate(), Leaf: &service.Leaf{Setup: h.setupForwarder}},
+			{Name: "intake", Leaf: &service.Leaf{Setup: h.setupIntake}},
 			{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
 			{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
 			{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
@@ -344,6 +346,35 @@ func (h *assembly) setupForwarder(ctx context.Context) (service.Attempt, error) 
 	return service.Attempt{Runner: func(ctx context.Context) error {
 		<-ctx.Done()
 		forwarder.Close()
+		return nil
+	}}, nil
+}
+
+// setupIntake moves validated edge records into the central ingestion streams.
+func (h *assembly) setupIntake(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	worker, err := intake.Start(ctx, intake.Config{
+		Hub:           resources.hub,
+		Central:       resources.hub.JetStream(),
+		Logger:        service.Logger(ctx),
+		MeterProvider: service.MeterProvider(ctx),
+	})
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	// See setupHub: the Runner is not guaranteed to run, so an attempt
+	// canceled during Setup would leave intake's follower and consumers behind.
+	if err := ctx.Err(); err != nil {
+		worker.Close()
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		<-ctx.Done()
+		worker.Close()
 		return nil
 	}}, nil
 }

@@ -182,4 +182,3 @@ back from ClickHouse, added in phase 3.
   for their store.
 - Which state-bearing record phase 5 projects first. The candidate is device
   and interface State from the `localnet` collector.
-- Retention per record type and for the evidence stream.
