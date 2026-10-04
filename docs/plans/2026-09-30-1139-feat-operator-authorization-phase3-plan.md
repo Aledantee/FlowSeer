@@ -870,17 +870,40 @@ The run in `deploy/lab/README.md` is done once by hand.
   `PermissionDenied` with `authz/denied`, where it answered `NotFound`
   before enforcement, because no `device:<id>#tenant` tuple exists for it.
   The Requirements do not name this case.
-- From the review, after three fix rounds, still open. The generator of
-  `TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure` draws its
-  booleans from the low bit of a linear congruential generator, which
-  alternates, so all six record-presence bits and the grant bits carry one
-  bit and the test sees two record layouts of 64. A walk-fault world with
-  the target session present and another session absent with a stale tuple
-  is therefore never generated, and `propertyAffected` would report it. The
-  recover interceptor on the edge-facing list
-  (`src/services/device/internal/host/serve.go`) has no test that fails when
-  only that entry is removed. The operator authorization record cites
-  `host/serve.go` line ranges that a later comment shifted by six lines, and
-  `journal/journal.go:1010-1016` where the actor line is `:1017`.
-  `lab_fixtures_test.go` pins the runbook's token step by the absence of
-  three old strings.
+- From the review, after four fix rounds, still open. The recover
+  interceptor on the edge-facing list
+  (`edgeInterceptors` in `src/services/device/internal/host/serve.go`) has
+  no test that fails when only that entry is removed, and none can be
+  written without a production change. `connect.WithRecover`
+  (`connectrpc.com/connect` v1.21.0, `recover.go`) is mounted on the same
+  handlers and sits inside the interceptor list, so it recovers a handler
+  panic first. Only a panic raised in `ValidatingInterceptor`
+  (`src/services/device/internal/host/validation.go`) reaches the entry
+  alone, and that interceptor calls `protovalidate.Validate` with no seam a
+  test can reach. The smallest remedy is an injectable validation function
+  there. The plan owner decides between that seam and accepting the entry
+  as untested defence.
+- From the fourth round's re-review of the tests it changed. None changes
+  behavior.
+  - `TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure` now enumerates
+    the record and grant bits from the world index. `faultTarget` is
+    `index % 6`, which shares parity with `edges[0]`, so a read or write
+    fault never targets the first edge, device, or session while the first
+    edge record is present. The fault is the index block, so each 64-world
+    block holds one grant combination. `registryEdge` is derived from the
+    edge bits, so a registry edge absent beside a present other edge is not
+    generated. The 64-layout literal is global and not per fault, the fault
+    counts count labels and not fired faults, and four of the
+    predicate-signature literals are 1 for any generator. The "edge record"
+    state pair also flips the registry edge.
+  - `TestTheRunbookAuthenticationAndTenantContracts` reads only the token
+    step, so an `export TOKEN=` line in the runbook's setup block or a
+    second recipe appended to the step passes. Its slice is anchored on a
+    hard-wrapped sentence, so reflowing that paragraph fails it.
+    `TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses` passes with one
+    of the two `GetEdge` calls hardcoded.
+  - The record's citations of `captureapi/operator_service.go:127-134`,
+    `edgeapi/admin.go:145-161`, and `actiontrail/interceptor.go:32-45` each
+    hold the described code and a few lines beside it.
+    `TestTheDirectionRecordCitationsAndDecisions` checks only that a range
+    lies inside its file.
