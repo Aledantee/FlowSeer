@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
 var markerRequestFixture = []byte{
@@ -24,6 +25,8 @@ var markerRequestFixture = []byte{
 
 func TestMarkerResponsePreservesWire(t *testing.T) {
 	request := decodeFixture(t, markerRequestFixture)
+	request.Dst = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x03}
+	request.Tags = []vlan.Tag{{TPID: 0x8100, PCP: 7}}
 	src := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02}
 
 	response, err := lacp.MarkerResponse(request, src)
@@ -37,12 +40,6 @@ func TestMarkerResponsePreservesWire(t *testing.T) {
 	if !bytes.Equal(response.Payload, wantPayload) {
 		t.Fatalf("response payload = %x, want %x", response.Payload, wantPayload)
 	}
-	if response.Payload[0] != lacp.SubtypeMarker {
-		t.Errorf("response subtype = 0x%02x, want 0x%02x", response.Payload[0], lacp.SubtypeMarker)
-	}
-	if response.Payload[0] != request.Payload[0] {
-		t.Errorf("response subtype = 0x%02x, want request subtype 0x%02x", response.Payload[0], request.Payload[0])
-	}
 	if response.Dst != lacp.GroupAddress {
 		t.Errorf("response destination = %s, want %s", response.Dst, lacp.GroupAddress)
 	}
@@ -52,8 +49,12 @@ func TestMarkerResponsePreservesWire(t *testing.T) {
 	if response.EtherType != request.EtherType {
 		t.Errorf("response EtherType = %s, want %s", response.EtherType, request.EtherType)
 	}
-	if !reflect.DeepEqual(response.Tags, request.Tags) {
-		t.Errorf("response tags = %+v, want %+v", response.Tags, request.Tags)
+	if !reflect.DeepEqual(response.Tags, []vlan.Tag{{TPID: 0x8100, PCP: 7}}) {
+		t.Errorf("response tags = %+v, want %+v", response.Tags, []vlan.Tag{{TPID: 0x8100, PCP: 7}})
+	}
+	response.Tags[0].PCP = 0
+	if !reflect.DeepEqual(request.Tags, []vlan.Tag{{TPID: 0x8100, PCP: 7}}) {
+		t.Errorf("request tags changed through response = %+v, want %+v", request.Tags, []vlan.Tag{{TPID: 0x8100, PCP: 7}})
 	}
 
 	response.Payload[20] ^= 0xff
@@ -84,6 +85,13 @@ func TestMarkerResponseRefusals(t *testing.T) {
 			},
 		},
 		{
+			name: "empty payload",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				f.Payload = nil
+				return f
+			},
+		},
+		{
 			name: "subtype 0x01",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				f.Payload = bytes.Clone(f.Payload)
@@ -100,10 +108,26 @@ func TestMarkerResponseRefusals(t *testing.T) {
 			},
 		},
 		{
+			name: "Marker TLV type 0x03",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				f.Payload = bytes.Clone(f.Payload)
+				f.Payload[2] = 0x03
+				return f
+			},
+		},
+		{
 			name: "Marker TLV length 15",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				f.Payload = bytes.Clone(f.Payload)
 				f.Payload[3] = 15
+				return f
+			},
+		},
+		{
+			name: "Marker TLV length 17",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				f.Payload = bytes.Clone(f.Payload)
+				f.Payload[3] = 17
 				return f
 			},
 		},
