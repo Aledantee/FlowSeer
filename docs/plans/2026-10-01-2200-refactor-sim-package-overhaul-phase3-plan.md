@@ -581,3 +581,13 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
+- Parked by drive: the review ended `rework` after three fix rounds, with
+  one open behavior finding (an MST port Designated for the CIST and Root
+  for an MSTI sends two frames in one `Receive`) and four findings on a
+  property test that cannot fail. The fixes and the review record are on
+  `parked/sim-p3-review`. Options: run another fix round from that branch
+  (one more review cycle on a narrow, known list) | accept the review with
+  the gaps recorded (unblocks the land, ships the double frame and the weak
+  test) | restart the phase's implementation (discards 1,892 added lines of
+  reviewed fixes). Recommended: another fix round, because three rounds
+  took 23 findings down to seven on one mechanism.
