@@ -97,9 +97,9 @@ The CENTRAL account keeps one file-backed limits stream for each known ingest
 record type. `FLOWSEER_INGEST_SYSLOG` stores
 `flowseer.*.ingest.syslog.*`. `FLOWSEER_INGEST_EVIDENCE` stores
 `flowseer.*.evidence.>`. Both streams discard the oldest record at their byte
-or age limit and deduplicate a message id for ten minutes. The default typed
-stream limit is 256 MiB for 24 hours. The default evidence limit is 64 MiB for
-24 hours.
+or age limit and deduplicate a message id for up to ten minutes, capped by the
+stream's configured maximum age. The default typed stream limit is 256 MiB for
+24 hours. The default evidence limit is 64 MiB for 24 hours.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.

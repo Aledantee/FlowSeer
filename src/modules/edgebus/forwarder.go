@@ -86,7 +86,8 @@ type Forwarder struct {
 }
 
 // StartForwarder attaches to every edge stream present now and to each one
-// attached later, and forwards until Close.
+// attached later, and forwards until the caller's ctx ends or [Forwarder.Close]
+// is called. The returned forwarder must be closed.
 func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwarder, error) {
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")
@@ -134,8 +135,8 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 		cfg: cfg, hub: hub, logger: logger, refused: refused,
 		lastLogged: map[string]time.Time{},
 	}
-	follower, err := FollowEdges(ctx, hub, cfg.DiscoveryInterval, func(edgeID string) (jetstream.ConsumeContext, error) {
-		return f.attach(edgeID)
+	follower, err := FollowEdges(ctx, hub, cfg.DiscoveryInterval, func(attachCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+		return f.attach(attachCtx, edgeID)
 	})
 	if err != nil {
 		return nil, err
@@ -144,8 +145,7 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	return f, nil
 }
 
-func (f *Forwarder) attach(edgeID string) (jetstream.ConsumeContext, error) {
-	ctx := context.Background()
+func (f *Forwarder) attach(ctx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 	stream, err := f.hub.EdgeStream(ctx, edgeID)
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("look up edge stream")

@@ -3,7 +3,9 @@ package intake
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"sync"
 	"testing"
@@ -106,6 +108,70 @@ func TestRedeliveredRecordWithEvidenceCountsOneDuplicate(t *testing.T) {
 
 	if got := metricValue(t, reader, "flowseer.intake.records.duplicate", "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != 1 {
 		t.Fatalf("duplicate count = %d, want 1", got)
+	}
+}
+
+func TestValidatorInfrastructureFailureIsRetried(t *testing.T) {
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	validatorErr := errors.New("validator unavailable")
+	_, reason, err := prepareWithValidator(testTenant, testEdge, edgebus.IngestSubject(testTenant, testEdge, "syslog"), data, func(proto.Message) error {
+		return validatorErr
+	})
+	if reason != "" {
+		t.Fatalf("validation infrastructure failure reason = %q, want no refusal", reason)
+	}
+	if !errors.Is(err, validatorErr) {
+		t.Fatalf("validation infrastructure error = %v, want %v", err, validatorErr)
+	}
+}
+
+func TestIntakeCloseCancelsInFlightPublish(t *testing.T) {
+	publisher := &blockingPublisher{started: make(chan struct{})}
+	system := newTestSystem(t, Config{Central: publisher})
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+
+	done := make(chan struct{})
+	go func() {
+		system.intake.handle(testEdge, msg)
+		close(done)
+	}()
+	select {
+	case <-publisher.started:
+	case <-time.After(time.Second):
+		t.Fatal("publish did not start")
+	}
+	system.intake.Close()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("in-flight publish did not fail after intake close")
+	}
+	if msg.nakDelay != defaultRetryDelay {
+		t.Fatalf("retry delay = %s, want %s", msg.nakDelay, defaultRetryDelay)
+	}
+}
+
+func TestConsumeErrorLogUsesBoundedErrorType(t *testing.T) {
+	var logs bytes.Buffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		handlerCtx: context.Background(),
+	}
+	i.logConsumeError(testEdge, errors.New("unbounded server detail"))
+
+	var record map[string]any
+	if err := json.Unmarshal(logs.Bytes(), &record); err != nil {
+		t.Fatalf("decode log: %v", err)
+	}
+	if got := record["error.type"]; got != "consume_error" {
+		t.Fatalf("error.type = %v, want consume_error", got)
+	}
+	if got := record["flowseer.edge.id"]; got != testEdge {
+		t.Fatalf("edge id = %v, want %s", got, testEdge)
+	}
+	if strings.Contains(logs.String(), "unbounded server detail") {
+		t.Fatal("consume error log included the raw error")
 	}
 }
 
@@ -271,7 +337,6 @@ func TestRawEvidenceIsMovedToTheEvidenceStream(t *testing.T) {
 func TestTypedPublishFailureAfterEvidenceRedelivers(t *testing.T) {
 	publisher := &controlledPublisher{failTyped: 1}
 	system := newTestSystem(t, Config{Central: publisher})
-	publisher.publisher = system.hub.JetStream()
 	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, true)
 	if err := system.leaf.Publish(context.Background(), system.leaf.Subject("ingest.syslog"), data, ""); err != nil {
 		t.Fatalf("publish envelope: %v", err)
@@ -302,7 +367,6 @@ func TestTypedPublishFailureAfterEvidenceRedelivers(t *testing.T) {
 func TestFailedPublishIsRetried(t *testing.T) {
 	publisher := &controlledPublisher{failAll: 2}
 	system := newTestSystem(t, Config{Central: publisher, RetryDelay: time.Millisecond})
-	publisher.publisher = system.hub.JetStream()
 	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
 	if err := system.leaf.Publish(context.Background(), system.leaf.Subject("ingest.syslog"), data, ""); err != nil {
 		t.Fatalf("publish envelope: %v", err)
@@ -321,7 +385,6 @@ func TestFailedPublishIsRetried(t *testing.T) {
 func TestStoredPublishWithLostAckIsNotStoredTwice(t *testing.T) {
 	publisher := &controlledPublisher{loseFirstAck: true}
 	system := newTestSystem(t, Config{Central: publisher, RetryDelay: time.Millisecond})
-	publisher.publisher = system.hub.JetStream()
 	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
 	if err := system.leaf.Publish(context.Background(), system.leaf.Subject("ingest.syslog"), data, ""); err != nil {
 		t.Fatalf("publish envelope: %v", err)
@@ -380,7 +443,6 @@ func TestInstrumentsReportEachOutcome(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	publisher := &controlledPublisher{failAll: 1}
 	system := newTestSystem(t, Config{Central: publisher, MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)), RetryDelay: time.Millisecond})
-	publisher.publisher = system.hub.JetStream()
 	_, firstData := validEnvelope(t, testEdge, testDevice, testRecordID, false)
 	system.intake.handle(testEdge, &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: firstData})
 	system.intake.handle(testEdge, &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: firstData})
@@ -415,6 +477,9 @@ func newTestSystem(t *testing.T, cfg Config) testSystem {
 	leaf := startLeaf(t, hub, testTenant, testEdge)
 	if cfg.Central == nil {
 		cfg.Central = hub.JetStream()
+	}
+	if publisher, ok := cfg.Central.(*controlledPublisher); ok {
+		publisher.setPublisher(hub.JetStream())
 	}
 	intake, err := Start(context.Background(), Config{
 		Hub:               hub,
@@ -595,6 +660,22 @@ func (p *controlledPublisher) Publish(ctx context.Context, subject string, paylo
 		return nil, errors.New("injected lost acknowledgement")
 	}
 	return ack, nil
+}
+
+func (p *controlledPublisher) setPublisher(publisher Publisher) {
+	p.mu.Lock()
+	p.publisher = publisher
+	p.mu.Unlock()
+}
+
+type blockingPublisher struct {
+	started chan struct{}
+}
+
+func (p *blockingPublisher) Publish(ctx context.Context, _ string, _ []byte, _ ...jetstream.PublishOpt) (*jetstream.PubAck, error) {
+	close(p.started)
+	<-ctx.Done()
+	return nil, ctx.Err()
 }
 
 func (p *controlledPublisher) callCount() int {

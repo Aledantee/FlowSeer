@@ -40,11 +40,12 @@ first to `flowseer.<tenant>.evidence.syslog.<device-id>`, then to
 `flowseer.<tenant>.ingest.syslog.<device-id>` after `raw` is cleared. Both
 messages use `<tenant>.<record_id>` as their JetStream message id.
 
-Central delivery is at least once. A publish failure uses `NakWithDelay`, so
-the edge message remains pending. A message from an edge the hub has no tenant
-for is retried the same way, because that says nothing about the record. A
-repeat inside the central stream's ten
-minute duplicate window is acknowledged as a duplicate. A message can still
+Central delivery is at least once. A validation infrastructure error or a
+publish failure uses `NakWithDelay`, so the edge message remains pending. A
+message from an edge the hub has no tenant for is retried the same way, because
+that says nothing about the record. A repeat inside the central stream's
+duplicate window, up to ten minutes and capped by the stream's maximum age, is
+acknowledged as a duplicate. A message can still
 be lost when the edge stream reaches its age or byte bound, because JetStream
 discards its oldest message. The stream and subject definitions live in
 [`src/modules/edgebus/subjects.go`](../../../../modules/edgebus/subjects.go)
@@ -65,4 +66,5 @@ Intake publishes these instruments in the scope
 Refusals emit the named event `flowseer.intake.record.refused` at WARN level.
 The event carries the stream edge, refusal reason, and subject and is limited
 to one event per edge every ten seconds. The full refusal count remains in the
-counter.
+counter. If JetStream stops a consumer, intake logs a WARN with the edge and a
+bounded `error.type`.
