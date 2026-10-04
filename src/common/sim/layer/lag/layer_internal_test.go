@@ -19,7 +19,7 @@ func firstPending(p []pending) *pending {
 }
 
 // TestPendingForEachCause is evidence that Info.pending reports a member for
-// each of the three documented reasons it may still change state on its own.
+// each of the four documented reasons it may still change state on its own.
 func TestPendingForEachCause(t *testing.T) {
 	t.Parallel()
 
@@ -134,6 +134,10 @@ func TestPendingForEachCause(t *testing.T) {
 	})
 }
 
+// TestReceiveRequestsReselectionOnIdentityChange is evidence that Receive
+// unselects a member to reselect when the partner's System, Key, Port, or
+// Aggregation changes, and leaves it untouched when the state bits that do
+// not form the LAG ID change.
 func TestReceiveRequestsReselectionOnIdentityChange(t *testing.T) {
 	t.Parallel()
 
@@ -166,27 +170,27 @@ func TestReceiveRequestsReselectionOnIdentityChange(t *testing.T) {
 			l.LinkChange(t0, "a", true)
 			pdu := lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, SystemPriority: 1, Key: 7, PortID: 9, PortPriority: 1, State: lacp.StateActive | lacp.StateAggregation}}
 			l.Receive(t0, "a", pdu)
+			l.Advance(t0.Add(2 * time.Second))
 			m := l.members["a"]
-			m.needsReselect = false
 			if tc.change != nil {
 				tc.change(&pdu.Actor)
 			}
-			l.Receive(t0.Add(time.Second), "a", pdu)
-			if m.status != Current || m.needsReselect != tc.reselect {
-				t.Fatalf("status = %v, needsReselect = %t, want Current and %t", m.status, m.needsReselect, tc.reselect)
+			l.Receive(t0.Add(3*time.Second), "a", pdu)
+			reselected := m.mux == muxWaiting && !m.attached
+			if m.status != Current || reselected != tc.reselect {
+				t.Fatalf("status = %v, reselected = %t, want Current and %t", m.status, reselected, tc.reselect)
 			}
 			cloned := l.Clone()
-			if cloned.members["a"].needsReselect != tc.reselect {
-				t.Fatalf("clone needsReselect = %t, want %t", cloned.members["a"].needsReselect, tc.reselect)
-			}
-			cloned.members["a"].needsReselect = !tc.reselect
-			if m.needsReselect != tc.reselect {
-				t.Fatalf("clone changed source needsReselect = %t, want %t", m.needsReselect, tc.reselect)
+			if (cloned.members["a"].mux == muxWaiting) != tc.reselect {
+				t.Fatalf("clone mux waiting = %t, want %t", cloned.members["a"].mux == muxWaiting, tc.reselect)
 			}
 		})
 	}
 }
 
+// TestDefaultedRequestsReselectionAfterLearnedPartner is evidence that
+// Defaulted triggers reselection after a learned partner expires, and startup
+// defaulting does not.
 func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	t.Parallel()
 
@@ -202,19 +206,21 @@ func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	t0 := time.Unix(1700000000, 0)
 	l.LinkChange(t0, "a", true)
 	m := l.members["a"]
-	m.needsReselect = false
 	l.Advance(t0.Add(3 * time.Second))
-	if m.status != Defaulted || m.needsReselect {
-		t.Fatalf("startup defaulting: status = %v, needsReselect = %t, want Defaulted and false", m.status, m.needsReselect)
+	if m.status != Defaulted || m.attached {
+		t.Fatalf("startup defaulting: status = %v, attached = %t, want Defaulted and false", m.status, m.attached)
 	}
 	l.Receive(t0.Add(4*time.Second), "a", lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, PortID: 9, State: lacp.StateActive | lacp.StateAggregation}})
-	m.needsReselect = false
+	l.Advance(t0.Add(6 * time.Second))
+	if !m.attached {
+		t.Fatal("learned member did not attach")
+	}
 	l.Advance(t0.Add(7 * time.Second))
-	if m.status != Expired || m.needsReselect {
-		t.Fatalf("expiry: status = %v, needsReselect = %t, want Expired and false", m.status, m.needsReselect)
+	if m.status != Expired {
+		t.Fatalf("expiry: status = %v, want Expired", m.status)
 	}
 	l.Advance(t0.Add(10 * time.Second))
-	if m.status != Defaulted || !m.needsReselect {
-		t.Fatalf("learned partner defaulting: status = %v, needsReselect = %t, want Defaulted and true", m.status, m.needsReselect)
+	if m.status != Defaulted || m.attached || m.selected {
+		t.Fatalf("learned partner defaulting: status = %v, attached = %t, selected = %t, want Defaulted and unselected", m.status, m.attached, m.selected)
 	}
 }

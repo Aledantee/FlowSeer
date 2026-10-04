@@ -1332,7 +1332,7 @@ func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
 	t.Parallel()
 
 	cfg := func() lag.Config {
-		return lag.Config{LAGs: map[string]lag.LAG{"lag1": {UpDelay: 2 * time.Second, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
+		return lag.Config{LAGs: map[string]lag.LAG{"lag1": {UpDelay: 5 * time.Second, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}}}}
 	}
 	a := mustNewLAG(t, cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
 	b := mustNewLAG(t, cfg(), lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0b"))
@@ -1360,8 +1360,23 @@ func TestUpDelayDoesNotHoldTheProtocol(t *testing.T) {
 		fa, fb = a.Advance(now), b.Advance(now)
 		exchangeEmissions(t, now, a, b, fa.Emissions, fb.Emissions)
 	}
+	// At t0+2s aggregate wait has expired, but the 5s up delay holds the member in STANDBY.
+	if info := a.PortInfo("1/1/1"); info.Actor.State&lacp.StateSynchronization != 0 {
+		t.Fatalf("A synchronized at 2s while up delay runs: %+v", info)
+	}
+	if _, ok := selectOK(a, now, "lag1", ethernet.Frame{}, 0); ok {
+		t.Fatal("A selected a member at 2s before the 5s up delay passed")
+	}
+	for s := 3; s <= 5; s++ {
+		now = t0.Add(time.Duration(s) * time.Second)
+		fa, fb = a.Advance(now), b.Advance(now)
+		exchangeEmissions(t, now, a, b, fa.Emissions, fb.Emissions)
+	}
 	if _, ok := selectOK(a, now, "lag1", ethernet.Frame{}, 0); !ok {
-		t.Fatalf("A did not enable its member two seconds after carrier: %+v", a.PortInfo("1/1/1"))
+		t.Fatalf("A did not enable its member five seconds after carrier: %+v", a.PortInfo("1/1/1"))
+	}
+	if info := a.PortInfo("1/1/1"); info.Actor.State&lacp.StateSynchronization == 0 {
+		t.Fatalf("A did not synchronize five seconds after carrier: %+v", info)
 	}
 }
 
@@ -1756,5 +1771,447 @@ func TestRetentionKeyDiffersOnMAC(t *testing.T) {
 	key2 := lag.RetentionKey(cfg, layer.Env{Ports: tbl, MAC: mac2})
 	if key1 == key2 {
 		t.Errorf("RetentionKey did not differ when Env.MAC changed: %q", key1)
+	}
+}
+
+func TestForwardingMemberRemainsForwardingWhenSecondJoins(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+	partner := func(member string, portID uint16, state lacp.State) lacp.PDU {
+		return lacp.PDU{
+			Actor: lacp.Info{
+				SystemPriority: 1,
+				SystemID:       mustMAC(t, peerB),
+				Key:            7,
+				PortPriority:   1,
+				PortID:         portID,
+				State:          state,
+			},
+			Partner: l.PortInfo(member).Actor,
+		}
+	}
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", partner("1/1/1", 9, full))
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("before join: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+
+	// 1/1/2 joins: carrier up, receives LACPDU without sync.
+	l.LinkChange(t0.Add(3*time.Second), "1/1/2", true)
+	first := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 1,
+			SystemID:       mustMAC(t, peerB),
+			Key:            7,
+			PortPriority:   1,
+			PortID:         10,
+			State:          lacp.StateActive | lacp.StateAggregation,
+		},
+	}
+	l.Receive(t0.Add(3*time.Second), "1/1/2", first)
+
+	// Forwarding member 1/1/1 must remain forwarding.
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("after second member joins: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+}
+
+func TestPartnerIdentityChangeDetachesAndClearsSync(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+	partner := func(key uint16) lacp.PDU {
+		return lacp.PDU{
+			Actor: lacp.Info{
+				SystemPriority: 1,
+				SystemID:       mustMAC(t, peerB),
+				Key:            key,
+				PortPriority:   1,
+				PortID:         9,
+				State:          full,
+			},
+			Partner: l.PortInfo("1/1/1").Actor,
+		}
+	}
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", partner(7))
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("before key change: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+
+	// Partner key changes from 7 to 8.
+	fx := l.Receive(t0.Add(3*time.Second), "1/1/1", partner(8))
+	if info := l.Info("lag1"); len(info.Enabled) != 0 || len(info.Attached) != 0 {
+		t.Fatalf("after key change: enabled = %v, attached = %v, want detached and waiting", info.Enabled, info.Attached)
+	}
+
+	// Next emitted LACPDU must have Actor Synchronization clear.
+	if len(fx.Emissions) == 0 {
+		t.Fatal("no LACPDU emitted on key change")
+	}
+	p, err := lacp.Decode(fx.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("lacp.Decode: %v", err)
+	}
+	if p.Actor.State&lacp.StateSynchronization != 0 {
+		t.Fatalf("next LACPDU actor state = %#x, want Synchronization clear", uint8(p.Actor.State))
+	}
+
+	// After aggregate wait expires, member attaches again.
+	l.Advance(t0.Add(5 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("after reselection wait: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+}
+
+func TestCarrierLossIgnoresDownDelayUnderLACP(t *testing.T) {
+	t.Parallel()
+
+	t.Run("converged", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+			DownDelay: time.Second,
+			LACP:      lag.LACPConfig{Mode: lag.Active, Fast: true},
+		}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+		t0 := time.Unix(1700000000, 0)
+		full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+		l.LinkChange(t0, "1/1/1", true)
+		l.Receive(t0, "1/1/1", lacp.PDU{
+			Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, "02:00:00:00:00:0b"), Key: 7, PortPriority: 1, PortID: 9, State: full},
+			Partner: l.PortInfo("1/1/1").Actor,
+		})
+		l.Advance(t0.Add(2 * time.Second))
+		if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+			t.Fatalf("before carrier loss = %v, want [1/1/1]", info.Enabled)
+		}
+
+		l.LinkChange(t0.Add(3*time.Second), "1/1/1", false)
+		if info := l.Info("lag1"); len(info.Enabled) != 0 {
+			t.Fatalf("after carrier loss during down delay = %v, want disabled immediately", info.Enabled)
+		}
+	})
+
+	t.Run("fallback", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+			DownDelay: time.Second,
+			LACP:      lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true},
+		}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+		t0 := time.Unix(1700000000, 0)
+		l.LinkChange(t0, "1/1/1", true)
+		l.LinkChange(t0, "1/1/2", true)
+		l.Advance(t0.Add(3 * time.Second))
+		l.Advance(t0.Add(5 * time.Second))
+		if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+			t.Fatalf("fallback enabled = %v, want [1/1/1]", info.Enabled)
+		}
+
+		// Carrier loss on 1/1/1 must immediately fail over to 1/1/2 without waiting for DownDelay.
+		l.LinkChange(t0.Add(5500*time.Millisecond), "1/1/1", false)
+		if info := l.Info("lag1"); len(info.Enabled) != 0 {
+			t.Fatalf("after 1/1/1 carrier loss = %v, want 1/1/1 disabled immediately", info.Enabled)
+		}
+		// 1/1/2 was selected at 5.5s and completes its 2s aggregate wait at 7.5s (before DownDelay would have enabled it at 8.5s).
+		l.Advance(t0.Add(7500 * time.Millisecond))
+		if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/2"}) {
+			t.Fatalf("at 7.5s: enabled = %v, want [1/1/2]", info.Enabled)
+		}
+	})
+}
+
+func TestZeroSystemPeerDefaultingWithoutFallbackDisables(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	l.LinkChange(t0, "1/1/1", true)
+	// Peer with zero System ID and key 0.
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{PortID: 9, State: lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	// Advance to expiry (3s) and then defaulting (6s).
+	l.Advance(t0.Add(6 * time.Second))
+	if info := l.Info("lag1"); len(info.Enabled) != 0 || len(info.Attached) != 0 {
+		t.Fatalf("after zero peer defaulted with Fallback false: enabled = %v, attached = %v, want empty", info.Enabled, info.Attached)
+	}
+}
+
+func TestFallbackPrimaryPreferenceAfterLearnedPartner(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		Primary: "1/1/2",
+		LACP:    lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+
+	// 1/1/1 learns a partner, then the partner disappears and 1/1/1 defaults into fallback.
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+	l.Advance(t0.Add(9 * time.Second)) // 1/1/1 defaults and is fallback choice.
+
+	// Now 1/1/2 (configured Primary) gains carrier and defaults.
+	l.LinkChange(t0.Add(10*time.Second), "1/1/2", true)
+	l.Advance(t0.Add(13 * time.Second))
+	l.Advance(t0.Add(15 * time.Second)) // 1/1/2 defaults (13s) + 2s aggregate wait = 15s.
+
+	info := l.Info("lag1")
+	if !slices.Equal(info.Enabled, []string{"1/1/2"}) {
+		t.Fatalf("enabled = %v, want primary [1/1/2]", info.Enabled)
+	}
+	if info.PartnerSystemID != (netaddr.MAC{}) || info.PartnerKey != 0 {
+		t.Fatalf("fallback partner info = %v key %d, want zero partner", info.PartnerSystemID, info.PartnerKey)
+	}
+}
+
+func TestMinLinksUnsynchronizedPartner(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		MinLinks: 2,
+		LACP:     lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	syncState := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+	unsyncState := lacp.StateActive | lacp.StateAggregation // Synchronization clear!
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: syncState},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	l.Receive(t0, "1/1/2", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 10, State: unsyncState},
+		Partner: l.PortInfo("1/1/2").Actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+
+	info := l.Info("lag1")
+	if len(info.Enabled) != 0 {
+		t.Fatalf("enabled = %v, want empty with one partner out of sync under MinLinks=2", info.Enabled)
+	}
+}
+
+func TestIndividualPartnerDoesNotAggregateWithGroup(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	// 1/1/1 has Aggregation set.
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 1,
+			SystemID:       mustMAC(t, peerB),
+			Key:            7,
+			PortPriority:   1,
+			PortID:         9,
+			State:          lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization,
+		},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	// 1/1/2 has same system and key but is Individual (StateAggregation clear).
+	l.Receive(t0, "1/1/2", lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 1,
+			SystemID:       mustMAC(t, peerB),
+			Key:            7,
+			PortPriority:   1,
+			PortID:         10,
+			State:          lacp.StateActive | lacp.StateSynchronization,
+		},
+		Partner: l.PortInfo("1/1/2").Actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+
+	info := l.Info("lag1")
+	if !slices.Equal(info.Attached, []string{"1/1/1"}) {
+		t.Fatalf("attached = %v, want [1/1/1] alone (Individual peer must not aggregate)", info.Attached)
+	}
+}
+
+func TestFallbackPrefersConfiguredPrimary(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		Primary: "1/1/2",
+		LACP:    lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	l.Advance(t0.Add(3 * time.Second))
+	l.Advance(t0.Add(5 * time.Second))
+
+	info := l.Info("lag1")
+	if !slices.Equal(info.Enabled, []string{"1/1/2"}) {
+		t.Fatalf("fallback enabled = %v, want primary [1/1/2]", info.Enabled)
+	}
+}
+
+func TestFallbackExcludesMemberWithMismatchedKey(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{
+		LAGs: map[string]lag.LAG{"lag1": {
+			Primary: "1/1/1",
+			LACP:    lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true, Key: 7},
+			Members: map[string]lag.Member{
+				"1/1/1": {Key: 99}, // Mismatched operational key!
+			},
+		}},
+	}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	l.Advance(t0.Add(3 * time.Second))
+	l.Advance(t0.Add(5 * time.Second))
+
+	info := l.Info("lag1")
+	if !slices.Equal(info.Enabled, []string{"1/1/2"}) {
+		t.Fatalf("fallback enabled = %v, want [1/1/2] (1/1/1 has mismatched key)", info.Enabled)
+	}
+}
+
+func TestAllMembersCarrierLossRetainsStoredGroup(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	l.Receive(t0, "1/1/2", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 10, State: full},
+		Partner: l.PortInfo("1/1/2").Actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); len(info.Enabled) != 2 {
+		t.Fatalf("before carrier loss: enabled = %v, want 2 members", info.Enabled)
+	}
+
+	// Both members lose carrier.
+	l.LinkChange(t0.Add(4*time.Second), "1/1/1", false)
+	l.LinkChange(t0.Add(4*time.Second), "1/1/2", false)
+
+	// Carrier returns on 1/1/1, receiving same partner.
+	l.LinkChange(t0.Add(6*time.Second), "1/1/1", true)
+	l.Receive(t0.Add(6*time.Second), "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+
+	// Member must attach immediately at once without waiting for a new aggregate wait.
+	info := l.Info("lag1")
+	if !slices.Equal(info.Attached, []string{"1/1/1"}) {
+		t.Fatalf("after carrier return: attached = %v, want [1/1/1] immediately", info.Attached)
+	}
+}
+
+func TestMuxTransitionToDetachedRequestsTransmit(t *testing.T) {
+	t.Parallel()
+
+	peerB := "02:00:00:00:00:0b"
+	peerC := "02:00:00:00:00:0c"
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+
+	// 1/1/1 enters WAITING.
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 2, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+
+	// Before wait expires, 1/1/2 hears a preferred partner (priority 1), making 1/1/1 unselected.
+	// 1/1/1 transitions from WAITING to DETACHED and must request transmission (NTT).
+	l.LinkChange(t0.Add(500*time.Millisecond), "1/1/2", true)
+	fx := l.Receive(t0.Add(500*time.Millisecond), "1/1/2", lacp.PDU{
+		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerC), Key: 7, PortPriority: 1, PortID: 10, State: full},
+		Partner: l.PortInfo("1/1/2").Actor,
+	})
+
+	var txOn111 bool
+	for _, em := range fx.Emissions {
+		if em.Port == "1/1/1" {
+			txOn111 = true
+			break
+		}
+	}
+	if !txOn111 {
+		t.Fatal("leaving WAITING for DETACHED did not request transmission on 1/1/1")
+	}
+}
+
+func TestReceiveWithoutCarrierLeavesPortDisabled(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+
+	// Member has carrier down (PortDisabled).
+	if status := l.PortInfo("1/1/1").Status; status != lag.PortDisabled {
+		t.Fatalf("initial status = %v, want PortDisabled", status)
+	}
+
+	// Deliver LACPDU without carrier.
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 1,
+			SystemID:       mustMAC(t, "02:00:00:00:00:0b"),
+			Key:            7,
+			PortPriority:   1,
+			PortID:         9,
+			State:          lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization,
+		},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+
+	if status := l.PortInfo("1/1/1").Status; status != lag.PortDisabled {
+		t.Fatalf("status after receive without carrier = %v, want PortDisabled", status)
 	}
 }
