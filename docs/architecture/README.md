@@ -52,6 +52,7 @@ covering port tables and VLAN membership.
 | [Central Ingestion Pipeline](2026-10-02-central-ingestion-pipeline-direction.md) | Accepted direction | Adding an ingestion source, the ingest envelope, central intake, a consumer of ingested records, or choosing where history, current state, or an API read model is stored. |
 | [Central High Availability](2026-10-03-central-high-availability-direction.md) | Proposed direction | Changing how the device service reaches NATS, which listener serves which service, a background module that must run once across replicas, or readiness. |
 | [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Running more than one edge node at a site, the address devices send syslog and traps to, which Edge hosts a device lane, or an agent build for an operating system other than Linux. |
+| [Edge Delivery over Connect](2026-10-04-edge-delivery-over-connect-direction.md) | Proposed direction | Changing how ingest records or the agent's telemetry travel from an edge to central, the edge's local buffer, `AttachBus`, per-edge NATS accounts, or the bus listener an edge dials. |
 | [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
 
 Current source and tests show which parts of a direction have landed. When the
