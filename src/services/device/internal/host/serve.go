@@ -80,6 +80,12 @@ func (panicInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) 
 	}
 }
 
+// mustRepanicAbortHandler preserves the [http.ErrAbortHandler] panic after the
+// interceptor has recovered it. The caller has established the invariant that
+// the panic value is exactly that sentinel, so this function must panic with it
+// again. The net/http server recovers it at the ServeHTTP boundary, aborts the
+// response by closing the connection or resetting the HTTP/2 stream, and
+// suppresses the stack trace it logs for other handler panics.
 func mustRepanicAbortHandler() {
 	panic(http.ErrAbortHandler)
 }
