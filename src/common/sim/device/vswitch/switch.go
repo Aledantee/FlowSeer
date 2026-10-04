@@ -2476,10 +2476,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 			s.lag.BadLACPDU(ingress)
 		}
 		after := s.lag.PortInfo(ingress)
-		dropInput := lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
-		if f.Payload[0] == lacp.SubtypeMarker {
-			dropInput = lag.MarkerDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
-		}
+		dropInput := lag.SlowProtocolsDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -2508,14 +2505,14 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 		if mutate {
 			s.applyLAGEffects(now, marker)
 		}
-		inputs = []trace.Fact{lag.MarkerDecodeFact(f, true, "")}
+		inputs = []trace.Fact{lag.SlowProtocolsDecodeFact(f, true, "")}
 		outputs = []trace.Fact{lag.MarkerResponseFact(f, marker.Emissions[0].Frame)}
 	} else {
 		if mutate {
 			fx := s.lag.Receive(now, ingress, pdu)
 			s.applyLAGEffects(now, fx)
 		}
-		inputs = []trace.Fact{lag.LACPDecodeFact(f, true, "")}
+		inputs = []trace.Fact{lag.SlowProtocolsDecodeFact(f, true, "")}
 		outputs = []trace.Fact{lag.LACPDecisionFact(pdu, before, s.lag.PortInfo(ingress))}
 	}
 
