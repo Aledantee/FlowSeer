@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
@@ -199,6 +201,35 @@ func (p *Projector) attemptSync(ctx context.Context, obj Object, storedTuples []
 }
 
 func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned []authz.Tuple) ([]authz.Tuple, error) {
+	if obj.Type == "capture_session" && obj.Tenant == "" {
+		for _, tuple := range existingOwned {
+			if tuple.Relation == "tenant" && strings.HasPrefix(tuple.User, "tenant:") {
+				obj.Tenant = strings.TrimPrefix(tuple.User, "tenant:")
+				break
+			}
+		}
+	}
+	// Engine object identifiers need not satisfy the stores' record rules.
+	if obj.Tenant != "" && tenant.Validate(obj.Tenant) != nil {
+		return nil, nil
+	}
+	switch obj.Type {
+	case "tenant":
+		if tenant.Validate(obj.ID) != nil {
+			return nil, nil
+		}
+	case "edge", "device", "capture_session", "role":
+		if len(obj.ID) != 36 || uuid.Validate(obj.ID) != nil {
+			return nil, nil
+		}
+	case "platform":
+		if obj.ID != "flowseer" {
+			return nil, nil
+		}
+	default:
+		return nil, nil
+	}
+
 	objectKey := obj.Type + ":" + obj.ID
 	switch obj.Type {
 	case "edge":
@@ -238,14 +269,6 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 
 	case "capture_session":
 		tenantID := obj.Tenant
-		if tenantID == "" {
-			for _, t := range existingOwned {
-				if t.Relation == "tenant" && strings.HasPrefix(t.User, "tenant:") {
-					tenantID = strings.TrimPrefix(t.User, "tenant:")
-					break
-				}
-			}
-		}
 		if tenantID == "" {
 			return nil, nil
 		}
@@ -291,9 +314,6 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 
 	case "tenant":
 		if p.access == nil {
-			return nil, nil
-		}
-		if err := tenant.Validate(obj.ID); err != nil {
 			return nil, nil
 		}
 		committed, err := p.committedTenant(ctx, obj.ID)
@@ -361,7 +381,7 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 		return roleTuples(obj.ID, roles, members), nil
 
 	case "platform":
-		if p.access == nil || obj.ID != "flowseer" {
+		if p.access == nil {
 			return nil, nil
 		}
 		var desired []authz.Tuple
