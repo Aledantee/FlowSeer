@@ -29,14 +29,16 @@ reason in the commit message.
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
 - Every integration runs on an enrolled host that holds the Connect dispatch
-  stream and answers with reports. The host is an edge at a site or an
-  adapter process deployed beside central. Central routes an operation by
+  stream and answers with reports. An Edge is the host at a site and belongs
+  to one Site. An adapter host is a second kind of enrolled host, deployed
+  beside central, and it belongs to no Site. Central routes an operation by
   the host its lane is placed on, and it calls no adapter in its own process
-  and sends no command over NATS. Decided here first, and no record states
-  its shape yet. It replaces "one that runs centrally names no host" in the
+  and sends no command over NATS. Decided here first. No record states its
+  shape or defines the adapter host entity yet. It replaces two statements
+  in the
   [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
-  record, and it widens Edge in [`CONCEPTS.md`](CONCEPTS.md) beyond a
-  process at a site.
+  record: that a kind may be compiled into central, and that an integration
+  run centrally names no host.
 - An observed configuration change, such as an SNMP trap or an integration's
   change event, reaches central over the bus and triggers the drift read at
   once. This protects against drift from changes made outside FlowSeer. The
