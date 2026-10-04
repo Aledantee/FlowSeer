@@ -49,7 +49,8 @@ from a branch other than the current one is unverified. When `start`
 refuses, report it with the parked branch's name. When the answer restarts the phase
 instead, delete the branch with `git branch -D parked/<slug>`.
 
-When the answer to a round-limit question is one more round, the next
-review stage's brief says so: one round, then `rework` when it is not clean
-(`review/references/fix-loop.md`, When to stop). That `rework` parks with
-`plan` or stopping, never with another round.
+A round-limit question never offers another round
+(`review/references/fix-loop.md`, When to stop). A review that resumes from
+a parked branch continues the round count that branch's plan records, and
+the count starts at zero again only when the answer re-planned the work or
+replaced the mechanism the rounds were fixing.
