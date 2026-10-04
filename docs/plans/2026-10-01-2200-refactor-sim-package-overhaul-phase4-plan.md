@@ -91,6 +91,10 @@ stops and the switch's side is planned first.
   gains `PortDisabled`, port numbers are unique in the switch, the member
   subject kind is `lag_member`, `phy.GroupAllocation` carries two
   remainders, and `phy.Diff` drops `resolve_source`.
+- The review's `fixes needed` verdict at the three-round cap is answered
+  with a fourth round. It resumes from `parked/sim-p4-review`, fixes the
+  two tests that cannot fail, and runs the gap pass. (decided by the user,
+  2026-10-04)
 
 ## Requirements
 
@@ -571,13 +575,3 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - Carried to U11: whether `lacpv1.LacpStatus` gains a value for
   `PortDisabled`. Until then `netmodel/export.go:529-538` maps it to the
   unspecified value.
-- Parked by drive: the review ended `fixes needed` at its three-round cap.
-  Every behavior finding is closed. Two tests that cannot fail remain
-  (`layer/lag/layer_test.go:1957` passes with the member left Expired, and
-  `layer/lag/layer_internal_test.go:218` skips the expiry wake-up), and 48
-  gap and convention items wait for the gap pass. The work is on
-  `parked/sim-p4-review`. Options: run a fourth round on the two tests,
-  then the gap pass (one more review cycle on a short list) | accept the
-  review with the gaps recorded (unblocks the land, leaves two tests that
-  guard nothing). Recommended: the fourth round, because what remains is
-  two tests in one package and no behavior defect.
