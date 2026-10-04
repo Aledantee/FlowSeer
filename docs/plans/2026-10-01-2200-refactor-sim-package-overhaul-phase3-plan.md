@@ -5,6 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
@@ -851,6 +852,23 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 ## Open questions
 
+- U3 says `Q2003` 14.4 does not address a BPDU shorter than its Version 3
+  Length claims. Clause 14.4 d) 1) classifies a BPDU of 35 to 101
+  octets as RST. Decide whether to limit U3's refusal to BPDUs of at least
+  102 octets or document a deliberate departure from the cited clause.
+- R9 and U7 T5 conflict when a legacy Root port's hello expires between
+  calls. T5 and the `NextWake` rule defer that expiry to the next call, so a
+  topology change received in that call sends a TCN at once. R9 requires no
+  frame in the receiving call. Decide whether every running hello gets a
+  wake, or amend R9's timing requirement.
+- U4 gates an MSTI proposal on CIST consistency with the previously stored
+  vector. `Q2003` 13.26.14 and `D2009` 13.29.20 do not give the proposal
+  that condition. The first BPDU from a better CIST sender therefore leaves
+  the MSTI port Discarding until a second BPDU. Decide whether to remove
+  U4's gate or record this departure under Limits.
+- A TCN received in PVST mode propagates to every VLAN tree, while a flagged
+  Configuration BPDU reaches VLAN 1 alone (`S/receive.go:220,520`). Decide
+  which propagation rule PVST should use before changing either path.
 - The edition is decided above. Carried: the published IEEE Std 802.1Q-2011
   and IEEE Std 802.1D-2004 are unverified, and with them the forward-delay
   step on an RSTP port (Limits). U6's README marks each `D2009` clause draft.
@@ -890,16 +908,12 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 ## Review gaps
 
-- src/common/sim/layer/stp/receive.go:71: Root-like branch of `recordAgreement` narrowed to the Root role; fails: an Alternate or Backup sender's agreement with a worse vector opens the port
 - src/common/sim/layer/stp/receive.go:96: root or external-cost term dropped from `cistConsistent`; fails: an MSTI agreement whose CIST message names another root or cost is not recorded
 - src/common/sim/layer/stp/receive.go:113: `mp.tcActive` dropped; fails: an inactive MSTI port ignores its record's topology-change flag
-- src/common/sim/layer/stp/receive.go:118: `<< 8` to `<< 12`; fails: a received record priority octet `0x40` gives designated bridge priority `0x4000`
 - src/common/sim/layer/stp/receive.go:150: MSTI record hello floor removed; fails: an MSTI record under Hello Time zero expires after 3 seconds
 - src/common/sim/layer/stp/receive.go:165: Designated-role test dropped from the MSTI and CIST proposal checks (`:560`); fails: a proposal from a Root-role sender syncs nothing
-- src/common/sim/layer/stp/receive.go:48: `syncTree` call removed; fails: a proposal on a Root port returns a forwarding, unagreed Designated port to Discarding
 - src/common/sim/layer/stp/receive.go:478: boundary MSTIs no longer take the CIST's `agreed`; fails: an MSTI Designated port on a boundary forwards on the CIST's agreement
 - src/common/sim/layer/stp/receive.go:509: acknowledgment no longer stops the timer; fails: a Root port in STP mode emits TCN BPDUs at each hello until a Configuration BPDU with the acknowledgment flag arrives, and none after
-- src/common/sim/layer/stp/topology.go:69: `deactivatePort` keeps `tcWhile`; fails: a port that loses its role reports no wake for the timer
 - src/common/sim/layer/stp/roles.go:306: `!link.edge` dropped; fails: an edge port that starts forwarding raises no topology change
 - src/common/sim/layer/stp/advance.go:31: `update(p.tcWhile)` removed; fails: `NextWake` returns the earliest port timer
 - src/common/sim/layer/stp/advance.go:67: held release moved above expiry; fails: a held BPDU released at the instant root information expires names the bridge itself root
@@ -932,20 +946,42 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/net/bpdu/bpdu_test.go:1777: golden frame EtherType is `len(wire) - 3`, the encoder writes `len(wire)`, and only payloads are compared
 - src/common/sim/internal/simtest/stp_cases.go:721: comment keeps `mstid=1`
 - src/common/net/bpdu/bpdu.go:601: `version >= mstProtocolVersion` to `==`; fails: version 4 and 255 frames with a 35-octet body decode as RST
-- src/common/sim/layer/stp/receive.go:222: `l.treeOrder` back to `range l.trees` here, at `:476`, or at `:569`; fails: a TCN through `Receive` on a PVST bridge with five VLANs emits in ascending VLAN order on repeated runs
 - src/common/sim/layer/stp/roles.go:195: boundary branch keeps `agreed` across a role change; fails: an MSTI boundary port that changes role must earn a new agreement
 - src/common/sim/layer/stp/tree_internal_test.go:924: sets `tcActive` on an Alternate port, a state `updatePortStates` never leaves; fails: with reachable state no emission names the expired root
 - src/common/net/bpdu/bpdu_test.go:1584: a second fixture with EtherType `len(Payload) - 3`
-- src/common/sim/layer/stp/receive.go:141: `changes` argument to `recordAgreement` replaced by nil here or at `:167`; fails: an MSTI agreement on a Designated port sends the flagged record on the MSTI's Root port in that call
-- src/common/sim/layer/stp/link.go:108: deferred emission dropped on link down; fails: a Root port goes down and the Alternate that becomes Root and Forwarding sends a flagged frame in that call
 - src/common/sim/layer/stp/tree_internal_test.go:814: `TestMSTTopologyChangeUsesTreeOrderForEmissions` calls `propagateReceivedTC` directly and tests no order; fails: a flagged BPDU through `Receive` on a boundary port gives one frame on the Root port
-- src/common/sim/layer/stp/tree_internal_test.go:957: Root port with `rcvInfoValid` false and an Alternate holding a better root than the tree's, states no call sequence leaves
 - src/common/sim/layer/stp/layer_test.go:4094: no hello is due at the instant checked, so the loop body never runs
-- src/common/sim/layer/stp/transmit.go:33: open behavior finding of round four. A second frame on a budget in one call is held, and the deferred topology-change frame is queued as an agreement or TCN on the CIST port, which `advance.go:196` and `:208` drop at release when that port is Designated for the CIST. On an MST bridge whose port is CIST Designated and becomes Root for an MSTI in a `Receive` that also changes the CIST root, the proposal built in the CIST's turn (`roles.go:91`) names the MSTI port Alternate with no flag, and the owed record waits for the next hello; fails: the flagged record leaves in that call, built from the final role
-- src/common/sim/layer/stp/topology.go:183: open behavior finding of round four. Deferred frames are prepended, so a flagged Designated reply on p1 follows the Root frame on p2, and under PVST a flagged acknowledgment on VLAN 1's p2 follows VLAN 10 to 40 on p1; fails: frames leave in tree order, then port order
-- src/common/sim/layer/stp/transmit.go:81: `markBuilt` skipped for Designated frames, or the hold at `:33` deleted; fails: an MST port Designated for the CIST whose MSTI timers start in the call (the fixture's p2 in Learning, superior BPDU before the ladder ends) sends one frame
-- src/common/sim/layer/stp/topology_change_property_test.go:97: `DesignatedRestartRootReturn` starts no timer and owes nothing, and p1's information expires in the call under test; fails: p2 Designated and Discarding takes an agreement that forwards it and makes it Root, and owes the CIST pair on p2
-- src/common/sim/layer/stp/topology_change_property_test.go:235: no forward-delay timer is due in `ladderEffects` and the TCN comes from the hello; fails: a legacy Root port that finishes the ladder where a hello is due sends one TCN
-- src/common/sim/layer/stp/topology_change_property_test.go:546: `expected` is never read, a TCN skips the role check (`:567`), and a held flag counts as sent with budget to spare (`:634`); fails: `p.role != bpdu.RoleRoot` dropped at `topology.go:162` sends a flagged frame from a Designated port
-- src/common/sim/layer/stp/topology_change_property_test.go:330: the MST Mcheck BPDU is a Configuration BPDU that keeps `ConfigID` and MSTI records, and the MST Receive BPDU (`:34`) raises the external cost under an unchanged regional root, shapes `bpdu.Decode` or a conformant sender never gives; not confirmed by a run
-- src/common/sim/layer/stp/topology.go:162: guards a nil port and link no caller can pass, and `:175` reads the link again
+- src/common/net/bpdu/bpdu.go:621: `>= 41` changed to `>= 39`; fails: a 39-octet payload decodes as RST without an out-of-bounds read
+- src/common/net/bpdu/bpdu.go:575: Configuration minimum raised from 38 to 39 LLC octets; fails: a 35-octet BPDU decodes as Configuration
+- src/common/net/bpdu/bpdu.go:482: `Selector` write and read removed; fails: a nonzero selector survives an encode and decode
+- src/common/sim/layer/stp/portstate.go:144: MSTI request dropped; fails: an MSTI-only change emits an MST BPDU on an internal port in that call
+- src/common/sim/layer/stp/roles.go:96: request restricted to the CIST; fails: an MSTI root change proposes in that call
+- src/common/sim/layer/stp/transmit.go:60: one PVST VLAN 1 pair spends two budget slots; fails: the pair is one transmission at the hold count
+- src/common/sim/layer/stp/portstate.go:132: count reset removed on link down; fails: a held port sends when it comes up
+- src/common/sim/layer/stp/transmit.go:322: RST transmission leaves `tcAck` set; fails: an RST BPDU carries no acknowledgment and a later Configuration BPDU has none pending
+- src/common/sim/layer/stp/receive.go:214: `p.tcActive` dropped; fails: a TCN on an inactive port neither acknowledges nor flushes
+- src/common/sim/layer/stp/receive.go:220: MSTI loop removed; fails: a TCN on an MST bridge propagates to its active MSTIs
+- src/common/sim/layer/stp/receive.go:520: external-link test dropped; fails: an internal CIST topology-change flag with clear MSTI records leaves the MSTIs alone
+- src/common/sim/layer/stp/receive.go:526: `mp.tcActive` dropped; fails: a boundary flag leaves an inactive MSTI alone
+- src/common/sim/layer/stp/receive.go:570: boundary MSTI sync removed; fails: a CIST proposal on a boundary Root port syncs the MSTIs
+- src/common/sim/layer/stp/receive.go:586: MSTI answer dropped; fails: an MSTI-only proposal is answered in that call
+- src/common/sim/layer/stp/receive.go:91: agreement always uses one vector; fails: Designated and Root ports judge agreements against their respective vectors
+- src/common/sim/layer/stp/receive.go:139: agreement on an unstored record dropped; fails: an inferior record can carry an agreement
+- src/common/sim/layer/stp/receive.go:148: one remaining hop rejected; fails: a record with one hop is stored
+- src/common/sim/layer/stp/roles.go:210: PVST exception removed; fails: VLAN 10 keeps its role while VLAN 1 is loop-inconsistent
+- src/common/sim/layer/stp/topology.go:19: legacy timer uses local instead of root times; fails: its duration follows the received Max Age and Forward Delay
+- src/common/sim/layer/stp/info.go:93: CIST mark ignored under MSTP; fails: an MSTI port reports the CIST's loop-inconsistent mark
+- src/common/net/bpdu/bpdu.go:617: comment omits the 102-octet condition of `Q2003` 14.4 e); fails: a shorter frame is classified as RST
+- src/common/net/bpdu/bpdu_test.go:1626: test name claims `Q2003` compliance without an independent capture or edition check; fails: the test's claim matches its evidence
+- src/common/net/bpdu/bpdu_test.go:1826: fixture uses a nonzero CIST system ID extension; fails: the CIST Bridge Identifier has extension zero
+- src/common/net/bpdu/README.md:60: claims a UNH-IOL cross-check absent from the fixtures and attributes the Hello Time floor to RSTP.op.4.3; fails: the stated source supports the claim
+- src/common/sim/device/vswitch/switch_test.go:7364: comment says only CIST roles are exposed and logs MSTI state instead of asserting it; fails: the test checks the MSTI state it depends on
+- src/common/sim/layer/stp/README.md:441: cites only `Q2003` Figure 13-13 for a transmit machine implemented from `D2009` Figure 13-19; fails: the documented rule matches the code's source
+- src/common/sim/layer/stp/README.md:442: omits `D2009` Figure 13-28 and limits detection requests to an RSTP port; fails: the documented request rule matches C2
+- src/common/sim/layer/stp/README.md:445: omits the layer-owned request sites and carried limits required by U7; fails: the emission and limits sections name them
+- src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
+- src/common/sim/layer/stp/transmit.go:164: comment reads `p.sendRSTP` although the field is on the link; fails: the comment names the owner
+- src/common/sim/layer/stp/topology.go:40: comment describes a detecting port with a running timer, an unreachable state; fails: the comment describes a reachable transition
+- src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
+- src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
+- src/common/sim/layer/stp/transmit_test.go:271: per-tree flag test reads fields only after `bpdu.Decode`; fails: the payload indices claimed in C4 are checked on the wire
