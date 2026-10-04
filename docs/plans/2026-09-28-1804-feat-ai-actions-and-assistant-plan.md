@@ -3,7 +3,7 @@ title: AI Actions, Structured Summaries, and the Assistant Panel - Plan
 type: feat
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
+artifact_readiness: needs-decisions
 status: implemented
 execution: code
 amends: docs/plans/2026-09-27-feat-contextual-ai-controls-plan.md
@@ -141,6 +141,14 @@ model and this plan is wrong.
   three fixes, and this is the simplest design that meets Requirement 3.
   Focus may land outside the item the pointer opened the menu on.
   (decided by the user, 2026-10-04)
+
+- **Re-plan before more fixing.** The review ended in `rework` after
+  five fix rounds across three reviews. The next stage is `plan` on the
+  context layer and assistant focus mechanics, started from
+  `parked/aiact-review3`, which holds the fixes and the review record.
+  The re-plan settles whether focus return exempts the assistant prompt
+  on the docked panel. Why: each round left new defects in the same
+  mechanisms. (decided by the user, 2026-10-04)
 
 ### Result shapes and delivery
 
@@ -696,13 +704,3 @@ follow because they share `ui/index.ts`, the harness, and `FleetView.vue`.
   opens the AI menu and loses the native one there.
 - Confidence stays as the words low, medium, and high until a real model
   reports calibrated confidence. The implementer adds no percentages.
-- Parked by drive: the third review ended in `rework` at its one-round
-  limit, with 13 behavior and false-test findings open in that round's
-  own fixes. Its fixes and record are on `parked/aiact-review3`. The
-  focus-return Decision, read by its letter, also takes focus away from
-  the assistant prompt on the docked panel. Options: `plan`, re-planning
-  the context layer and assistant focus mechanics against the record on
-  that branch (slower, and it settles the design before more patching) |
-  stop, leaving the branch as it is (no cost now, and migration phases 5
-  and 6 stay blocked). Recommended: `plan`, because five fix rounds each
-  left new defects in the same mechanisms.
