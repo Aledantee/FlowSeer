@@ -50,7 +50,7 @@ func TestEnforcementAgainstTheRealEngine(t *testing.T) {
 		platformAdmin: storev1.PlatformAdmin_builder{
 			Issuer:                proto.String(iss.URL()),
 			Organization:          proto.String("flowseer-platform"),
-			Subject:               proto.String("platform-admin"),
+			Subjects:              []string{"platform-admin"},
 			OrganizationClaimName: proto.String("org_id"),
 		}.Build(),
 		authzEndpoint: fmt.Sprintf("https://%s", env.endpoint),

@@ -488,9 +488,9 @@ func (c *central) start() {
 platform_admin {
   issuer: %q
   organization: %q
-  subject: %q
+  subjects: %q
   organization_claim_name: %q
-}`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetSubject(), c.platformAdmin.GetOrganizationClaimName())
+}`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetSubjects()[0], c.platformAdmin.GetOrganizationClaimName())
 	}
 
 	body := fmt.Sprintf(`

@@ -1,8 +1,9 @@
 edition = "2024";
 
 // The device service's own deployment configuration, read from an
-// operator-written prototext file at start. Storage, not a boundary, and not
-// an entity: no triad, no ref pair.
+// operator-written prototext file at start. DeviceServiceState and
+// DeviceServiceEvent are deliberately absent because this is storage, not a
+// boundary or an entity: no triad, no ref pair.
 package flowseer.store.device.v1;
 
 import "google/protobuf/duration.proto";
@@ -178,11 +179,14 @@ message PlatformAdmin {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 256
   ];
-  // The subject identifier for the platform administrator. Must be present.
-  string subject = 3 [
-    (buf.validate.field).required = true,
-    (buf.validate.field).string.min_len = 1,
-    (buf.validate.field).string.max_len = 256
+  // The subject identifiers for platform administrators. Must hold one to 16
+  // distinct values, each between 1 and 256 characters.
+  repeated string subjects = 3 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 16,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.string.min_len = 1,
+    (buf.validate.field).repeated.items.string.max_len = 256
   ];
   // The claim name carrying the organization identifier. Must be present.
   string organization_claim_name = 4 [

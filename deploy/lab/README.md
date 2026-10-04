@@ -62,7 +62,7 @@ ALICE_TOKEN=$(lab_token alice)
 ADMIN_TOKEN=$(lab_token admin)
 ```
 
-Read the claims the device service will see. The `sub` of the admin token is the value `platform_admin.subject` takes, because Dex encodes the user and connector in it:
+Read the claims the device service will see. The `sub` of the admin token is one of the values in `platform_admin.subjects`, because Dex encodes the user and connector in it:
 
 ```bash
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
