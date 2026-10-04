@@ -395,3 +395,13 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
 - src/modules/edgebus/README.md:37: "remember message ids for ten minutes", while the window is `AuditDuplicateWindow` capped by the stream's maximum age
 - src/modules/edgebus/README.md:100: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
 - src/services/device/internal/intake/README.md:47: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
+- src/services/device/internal/intake/intake.go:251: key the retry limiter without the edge id; fails: a retry for a second edge inside the window, which must log (`TestRetryLogIsLimitedPerEdge` states per edge and passes, a false test)
+- src/modules/edgebus/follower.go:74: delete the done-context check before an interval pass; fails: `TestFollowerCloseCancelsIntervalAttach` on about half the runs only (a false test)
+- src/services/device/internal/intake/intake.go:239: restore the done-context gate in `logRefusal`; fails: a refusal logged under a done context
+- src/services/device/internal/intake/intake.go:239: delete the limiter check in `logRefusal`; fails: two refusals for one edge inside the window, which must log once
+- src/services/device/internal/intake/intake.go:275: delete the limiter check for a non-terminal consume error; fails: two missed heartbeats for one edge inside the window, which must log once
+- src/services/device/internal/intake/intake.go:131: return the Intake with a nil error when `FollowEdges` fails; fails: a start with one edge whose attach fails
+- src/services/device/internal/intake/intake.go:94: "A delivery between ctx ending and Close is retried", while a refused record in that window is terminated
+- src/modules/edgebus/follower.go:28: the `FollowEdges` comment no longer states the interval default or what a failed first pass returns
+- src/services/device/internal/intake/README.md:69: no statement that retry warnings stop once the lifetime ends, and `consume_error` is called non-terminal although a pending-header parse error stops the consumer under it
+
