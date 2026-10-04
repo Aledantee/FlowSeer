@@ -3,6 +3,7 @@ package edgebus
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -207,52 +208,49 @@ func TestFollowerCloseCancelsIntervalAttach(t *testing.T) {
 		t.Fatalf("attach first edge: %v", err)
 	}
 
-	started := make(chan struct{})
-	canceled := make(chan struct{})
-	var startedOnce sync.Once
-	var canceledOnce sync.Once
-	calls := 0
-	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(ctx context.Context, lifetimeCtx context.Context, _ string) (jetstream.ConsumeContext, error) {
-		calls++
-		if calls == 1 {
-			return newFollowerConsume(lifetimeCtx), nil
-		}
-		startedOnce.Do(func() { close(started) })
-		<-ctx.Done()
-		canceledOnce.Do(func() { close(canceled) })
-		return nil, ctx.Err()
-	})
-	if err != nil {
-		t.Fatalf("follow edges: %v", err)
-	}
+	// Twenty repetitions reduce a near-half pending-tick race's false-pass probability below one in a million.
+	for repetition := 0; repetition < 20; repetition++ {
+		if !t.Run("repetition-"+strconv.Itoa(repetition+1), func(t *testing.T) {
+			lateEdge := "edge-late-" + strconv.Itoa(repetition)
+			started := make(chan struct{})
+			lateAttach := make(chan struct{})
+			lateCalls := 0
+			follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(ctx context.Context, lifetimeCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+				if edgeID != lateEdge {
+					return newFollowerConsume(lifetimeCtx), nil
+				}
+				lateCalls++
+				if lateCalls == 1 {
+					close(started)
+				} else {
+					close(lateAttach)
+				}
+				<-ctx.Done()
+				return nil, ctx.Err()
+			})
+			if err != nil {
+				t.Fatalf("follow edges: %v", err)
+			}
 
-	if err := hub.AttachEdge(context.Background(), DefaultTenant, "edge-b"); err != nil {
-		t.Fatalf("attach second edge: %v", err)
-	}
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("interval attach did not start")
-	}
-	// Wait for the next discovery tick to become pending while attach is blocked.
-	<-time.After(30 * time.Millisecond)
-	done := make(chan struct{})
-	go func() {
-		follower.Close()
-		close(done)
-	}()
-	select {
-	case <-canceled:
-	case <-time.After(time.Second):
-		t.Fatal("interval attach context was not canceled")
-	}
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("follower close did not finish")
-	}
-	if calls != 2 {
-		t.Fatalf("attach calls = %d, want 2 before and during close", calls)
+			if err := hub.AttachEdge(context.Background(), DefaultTenant, lateEdge); err != nil {
+				t.Fatalf("attach later edge: %v", err)
+			}
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatal("interval attach did not start")
+			}
+			// Wait for the next discovery tick to become pending while attach is blocked.
+			time.Sleep(30 * time.Millisecond)
+			follower.Close()
+			select {
+			case <-lateAttach:
+				t.Fatal("interval attach started after Close canceled its context")
+			default:
+			}
+		}) {
+			return
+		}
 	}
 }
 
