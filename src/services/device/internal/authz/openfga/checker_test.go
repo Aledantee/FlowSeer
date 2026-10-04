@@ -603,7 +603,7 @@ func TestVerifyFailedCheckRateLimited(t *testing.T) {
 	}
 
 	harness.fake.mu.Lock()
-	harness.fake.getStoreFunc = func(ctx context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
+	harness.fake.getStoreFunc = func(_ context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
 		timeMu.Lock()
 		curTime = curTime.Add(5 * time.Second)
 		timeMu.Unlock()

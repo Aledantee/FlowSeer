@@ -1092,7 +1092,7 @@ func TestStoreEachSessionContinuesPastUndecodableRecord(t *testing.T) {
 	}
 
 	var seen []string
-	err = store.EachSession(ctx, func(tID string, rec *modelcapturev1.CaptureSessionRecord) error {
+	err = store.EachSession(ctx, func(_ string, rec *modelcapturev1.CaptureSessionRecord) error {
 		seen = append(seen, rec.GetConfig().GetRef().GetCaptureSession().GetId())
 		return nil
 	})
