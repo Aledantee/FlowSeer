@@ -26,11 +26,12 @@ Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 | convention | repository rule broken in code, or a wrong comment or doc | no | a follow-up |
 | hardening | a security concern missing one of the six parts | no | a follow-up |
 
-A security or behavior finding is a blocking finding. A fix to shipped code
-is reviewed because fix workers get fixes wrong often enough to matter: one
-fix covered tenant ids only where every id kind needed it (`bcdf1b9e`). A
-security fix gets the wider review because a wrong one costs the most to
-ship.
+Security and behavior findings hold the verdict and get a reviewed round. A
+blocking false test also holds the verdict, but gets no reviewer round. A fix
+to shipped code is reviewed because fix workers get fixes wrong often enough
+to matter: the projector fix covered tenant ids only for an object no record
+can exist under (`bcdf1b9e`). A security fix gets the wider review because a
+wrong one costs the most to ship.
 
 A false test never gets a reviewer round. The coordinator's rerun of the
 recorded mutation already proves whether the corrected test fails, and one
@@ -57,24 +58,27 @@ A convention finding is a repository rule broken in code (for example, a
 helper with one caller), or a wrong comment or doc (for example, a README
 that names a deleted flag).
 
-The coordinator collects each follow-up as it is settled, from the initial
-review and from every round, in its report: `path:line`, the surviving
-mutation or wrong text, and the case that would fail on it. A gap whose
-only test would restate the implementation (a buffer capacity, a log
+The coordinator collects each follow-up and each blocking false test as it is
+settled, from the initial review and from every round, in its report and
+record: `path:line`, class, the surviving mutation or wrong text, and the
+case that would fail on it. A blocking false-test item also records its
+mutation, `runs: <n>` when it is flaky, and `review-fix-test: yes|no`. A gap
+whose only test would restate the implementation (a buffer capacity, a log
 string) is dropped with that reason in the report and is not recorded.
 
-Follow-ups are written to the record when the verdict is, as `SKILL.md`
-step 5 describes. The pass closes items only from the record, so an item
-kept in the report alone is never rerun, and a session that ends mid-pass
-would lose it. A planless `gaps:` line carries every open item, earlier
-ones included, because the last `gaps:` line wins.
+Follow-ups and blocking false tests are written to the same record when the
+verdict is recorded, as `SKILL.md` step 5 describes. The pass closes items
+only from the record, so an item kept in the report alone is never rerun, and
+a session that ends mid-pass would lose it. A planless `gaps:` line carries
+every open item, earlier ones included, because the last `gaps:` line wins.
 
 ## The follow-up pass
 
 The pass runs once per review, in `SKILL.md` step 6: after the last clean
-round, or at once when the review holds no blocking finding. Step 6 runs on
-the user's answer, or under a stage brief that includes it, as `drive`'s
-does. The initial review stays report-only.
+round, or at once when the review holds no security or behavior finding that
+holds the verdict. A review holding only blocking false tests is included.
+Step 6 runs on the user's answer, or under a stage brief that includes it,
+as `drive`'s does. The initial review stays report-only.
 
 Dispatch one fix worker per file group and run no review after. The pass
 fixes every blocking false test still open and every recorded follow-up.
@@ -93,13 +97,17 @@ or weakened.
 
 The pass changes tests, comments, and docs only. A fix worker that needs a
 change to other source reports the item as a blocker, and the coordinator
-does not merge a pass branch whose diff holds such a change. That item
-stays recorded as a follow-up.
+does not merge a pass branch whose diff holds such a change. A follow-up that
+needs other source stays a follow-up. A blocking false test that needs other
+source stays blocking and the verdict stays `fixes needed`. When the test is
+right and the shipped code is wrong, the item is a behavior finding. It gets
+a round while the scope has one left, and otherwise the verdict is `rework`.
 
 What the pass leaves decides the verdict this way:
 
 | Left open after the pass | Verdict |
 | --- | --- |
+| an open Requirement question | `fixes needed`, taking precedence over the other rows and using the Requirement-question option in `SKILL.md` |
 | nothing | an accept |
 | follow-ups only | an accept, with the items still recorded and listed in the report |
 | a blocking false test | `fixes needed`, with a question offering one more pass or stopping |
@@ -148,9 +156,11 @@ remedy is `review` again.
    argument no input can violate? A wrong invariant is worse than none,
    since the next reader trusts it and stops looking. The brief asks for a
    required "New findings" section, written as `none` when empty, for
-   defects the round's diff introduced. A finding in code the round did not
-   change is reported under "pre-existing" and does not make the round
-   unclean, since the initial review already judged that code.
+   defects the round's diff introduced. A new finding in code the round did
+   not change is reported under "pre-existing" and does not make the round
+   unclean, since the initial review already judged that code. A finding the
+   round was briefed to fix that still holds is not pre-existing, wherever its
+   code is, and makes the round unclean.
 4. When the round fixed a security finding, dispatch one more reviewer over
    the round's changed paths with the brief of a first review (`SKILL.md`
    step 3) and none of the earlier findings. A reviewer handed the findings
@@ -158,24 +168,25 @@ remedy is `review` again.
    introduced elsewhere goes unseen. Settle its findings with the briefed
    reviewer's under `SKILL.md` step 4. A round without a security fix runs
    no second reviewer: the wide second pass raised recall a little and
-   returned mostly follow-ups, and one iterative review agent measured the
-   same trade, 27.0% to 32.8% recall for a signal-to-noise ratio that fell
-   from 5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
+   returned mostly follow-ups, and a benchmark comparing a single-shot review
+   agent with an iterative review agent on the same model measured recall at
+   27.0% and 32.8%, respectively, while its signal-to-noise ratio fell from
+   5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
 
 After the round settles, write the round count beside the verdict
 (`SKILL.md` step 5).
 
 ## When to stop
 
-- A round in which no reviewer returns a blocking finding that holds is
-  clean, and a clean round ends the loop. For example, if a round returns
-  two gaps and one false test on a fix's own test, the loop ends and the
-  follow-up pass starts. Write `accept after fixes` once no security,
-  behavior, or blocking false-test finding is open and no Requirement
-  question is open, directly after the clean round or at the end of the
-  pass. List what remains in the final report and end with the `accept`
-  row's question when the verdict reads an accept. No earlier round writes
-  `accept after fixes`, since the gates read it as passing.
+- A round in which no reviewer returns a security or behavior finding that
+  holds the verdict is clean, and a clean round ends the loop. For example,
+  if a round returns two gaps and one false test on a fix's own test, the loop
+  ends and the follow-up pass starts. Write `accept after fixes` once no
+  security, behavior, or blocking false-test finding is open and no
+  Requirement question is open, directly after the clean round or at the end
+  of the pass. List what remains in the final report and end with the
+  `accept` row's question when the verdict reads an accept. No earlier round
+  writes `accept after fixes`, since the gates read it as passing.
 - A finding that needs a plan Requirement changed blocks an accept and keeps
   the verdict `fixes needed`. It goes under the plan's Open questions in the
   verdict commit, naming the Requirement. The report's question offers taking
@@ -216,9 +227,16 @@ After the round settles, write the round count beside the verdict
   that replaces the mechanism the rounds were fixing. The review that
   starts after such a change records the count as `0`.
 
+  A review that starts with a count of two and has a security or behavior
+  finding is `rework` immediately. The rework options apply, and no option
+  offers another round. A review at count two that holds only blocking false
+  tests is `fixes needed` and may run the follow-up pass, since that pass is
+  not a round.
+
   A second round that is not clean ends the loop with the verdict `rework`.
-  Fix rounds by agents introduce regressions more often as they go on
-  (https://arxiv.org/html/2603.03823v4), and a fourth round on one
+  Agents maintaining a codebase over successive iterations showed regressions
+  becoming more frequent with iteration count in 12 of 20 models in one
+  benchmark (https://arxiv.org/html/2603.03823v4), and a fourth round on one
   mechanism still found two behavior defects in that round's own change
   (`18c7187e`):
   - Both rounds on one mechanism: take the work to `plan` with what the

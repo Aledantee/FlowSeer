@@ -19,7 +19,8 @@ argument-hint: "[base ref | commit | paths | subject]"
 List the changed files. Read the intended behavior from the plan under
 `docs/plans/`, the commit message, or the user's words.
 
-Read the record of open items an earlier review left: the plan's
+Read the record of open follow-ups and blocking false-test items an earlier
+review left: the plan's
 `## Review gaps` section, or for planless work the last `gaps:` line of
 `$(git rev-parse --git-dir)/flowseer-checkpoints`. Read the recorded round
 count beside it: the plan's `review_rounds` field, or the last `rounds:`
@@ -27,7 +28,9 @@ line. A run on a scope with a recorded verdict is a new review that
 continues that count (`references/fix-loop.md`, When to stop, says when it
 starts at zero again). Step 3 carries the record's items into the reviewer
 briefs as the previous round's findings, so a fresh session judges them
-instead of rediscovering them.
+instead of rediscovering them. A recorded blocking false test keeps its class
+and mutation metadata in a later review until the coordinator closes it from
+the record.
 Also read each plan
 Decision ending `decided by the user` that settles a Requirement question.
 Judge that Requirement by the Decision's text, and remove the matching item
@@ -167,6 +170,8 @@ test, gap, convention, or hardening. The class decides whether the finding
 holds the verdict, so a finding without one reads as mandatory. A security
 finding is a behavior finding that names all six parts
 `references/security.md` asks for, and a concern missing one is hardening.
+Security and behavior findings hold the verdict and get a reviewed round.
+Blocking false tests hold the verdict and get no reviewer round.
 
 Once every finding is settled, log how each reviewer's findings fared, so
 `tune` can rank reviewers by what held: one call per reviewer step 4
@@ -195,8 +200,8 @@ it in the report and carry on.
 
 ## 5. Report
 
-Verdict first (accept, fixes needed, rework), then the blocking findings,
-security before behavior before blocking false tests: title, class,
+Verdict first (accept, fixes needed, rework), then the findings that hold the
+verdict. List security before behavior before blocking false tests: title, class,
 `path:line`, what goes wrong and when, and the smallest fix or the
 direction with its unchecked claim (step 4). Then the follow-ups under
 their own heading, whatever the verdict, one item each in the format below:
@@ -210,17 +215,21 @@ item (`references/fix-loop.md`).
 An item is one line:
 
 ```text
-- <path:line>: <mutation or the wrong text>; fails: <the case that would fail>
+- <path:line>: <mutation or the wrong text>; fails: <the case that would fail>; class: <class>
 ```
 
 A gap or false test names the surviving mutation, a convention or hardening
-finding the wrong text.
+finding the wrong text. A blocking false-test item uses this full form:
+
+```text
+- <path:line>: <mutation>; fails: <the case that would fail>; class: false test, blocking; runs: <n> when flaky; review-fix-test: yes|no
+```
 
 | Verdict | When |
 | --- | --- |
 | `accept` | no security, behavior, blocking false-test, or Requirement-change finding is open |
-| `fixes needed` | one of those is open and can be fixed in place |
-| `rework` | a security or behavior finding is too large to fix in place, or the second round was not clean |
+| `fixes needed` | one of those is open and can be fixed in place, or a blocking false test remains after two rounds |
+| `rework` | a security or behavior finding is too large to fix in place, a security or behavior finding is open when the scope's count is two, or the second round was not clean |
 
 Follow-ups never hold the verdict, so a report that holds only follow-ups
 is an `accept` that lists them. Approving a change that improves the code
@@ -236,13 +245,15 @@ When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
 `review: <verdict>` beside `status` in its frontmatter, with
 `review_rounds: <n>` under it once a fix round has run, and write the
-record in the same edit: the open follow-ups under a `## Review gaps`
-section at the end of the plan, deleted with its last item, and for a
-finding that needs a Requirement changed, an item under the plan's Open
-questions that names the Requirement. Commit that with a message naming the
-review and a body that lists the open follow-ups, so they outlive the
-plan's retirement. Then run the verifier on the plan path so the receipt
-post-dates the commit. Planless work runs
+record in the same edit: the open follow-ups and blocking false-test items
+under a `## Review gaps` section at the end of the plan, deleted with the
+last item of either kind, and for a finding that needs a Requirement changed,
+an item under the plan's Open questions that names the Requirement. A
+blocking false-test item keeps its class, mutation, flaky run count when
+applicable, and review-fix-test flag in the record. Commit that with a
+message naming the review and a body that lists the open items, so they
+outlive the plan's retirement. Then run the verifier on the plan path so the
+receipt post-dates the commit. Planless work runs
 `.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
 and needs no commit or run, then writes the record and the round count the
@@ -255,7 +266,8 @@ same way:
 
 Never pass `--replace`, since it rewrites the whole file and drops the
 `implemented:` and `review:` lines. The last `gaps:` line and the last
-`rounds:` line win, so when the last item closes, write `gaps: none`. In
+`rounds:` line win, so when no follow-up or blocking false-test item remains,
+write `gaps: none`. In
 Orca, also append the verdict to the
 worktree comment, keeping what `implement` wrote:
 
@@ -276,13 +288,14 @@ asking the user what happens next (`AGENTS.md`, Agent behavior):
 | --- | --- |
 | accept, no follow-up recorded | run `compound` now; stop here |
 | accept, follow-ups recorded | close the follow-ups in one pass (step 6), then `compound`; run `compound` now and leave them recorded; stop here |
-| fixes needed, findings in one file group | apply the fixes here; fix and review again (step 6); stop |
-| fixes needed, findings across file groups | fix and review again (step 6); apply chosen findings only; stop |
+| fixes needed, a security or behavior finding is open in one file group and a round remains | apply the fixes here; fix and review again (step 6); stop |
+| fixes needed, security or behavior findings are open across file groups and a round remains | fix and review again (step 6); apply chosen findings only; stop |
+| fixes needed, only blocking false tests remain | close them in the follow-up pass (step 6), which is not a round; stop |
 | fixes needed, a blocking false test still open once the pass has run | one more pass (runs `review` again from step 1 with step 6), or stop |
 | fixes needed, a Requirement question is open | take the Requirement to `plan`, or stop |
-| rework | take what the review established to `plan`; stop |
+| rework | use the options in `references/fix-loop.md`, `When to stop` |
 
-A delegated reviewer does not ask. It states each blocking finding and
+A delegated reviewer does not ask. It states each verdict-holding finding and
 each Requirement-change finding as its blocker, and lists the follow-ups
 after them.
 
@@ -303,9 +316,9 @@ an open Requirement question.
 When the user chooses to fix the findings and review again, load
 `references/fix-loop.md`. A round fixes the security and behavior findings
 and is reviewed, and a scope gets at most two rounds. Clean means the
-round's reviewers returned no blocking finding. The follow-up pass then
-runs once, unreviewed, on tests, comments, and docs. The coordinating
-session runs the rounds and the pass through fix workers and never makes
-the fixes itself.
+round's reviewers returned no security or behavior finding that holds the
+verdict. The follow-up pass then runs once, unreviewed, on tests, comments,
+and docs. The coordinating session runs the rounds and the pass through fix
+workers and never makes the fixes itself.
 
 A correction to this procedure is logged as `compound`, Observe describes.

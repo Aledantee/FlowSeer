@@ -138,9 +138,9 @@ End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check in step 1 or a failed
 merge-check in step 3 stops the drive. A turn that ends right after
 announcing the next stage leaves nothing to wake it. Run each stage once:
-the skills' own caps (three verifier rounds on a unit, two fix rounds on a
-review's scope) decide when patching stops, and a parked question is what sends a
-plan back.
+the skills' own caps (three verifier rounds on a unit, two reviewed rounds on
+a review's scope) decide when patching stops, and a parked question is what
+sends a plan back.
 
 ## 3. Drive a parent's phases
 

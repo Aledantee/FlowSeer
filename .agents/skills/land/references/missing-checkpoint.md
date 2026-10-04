@@ -18,13 +18,19 @@ the request in a few words, and asks for the checkpoint:
   `compound` field on its branch, and the merge of that branch brings the
   checkpoint here.
 - Without a plan, the checkpoints file lives in the worker's own git
-  directory, so the worker reports the line (`review: accept`) and this
-  session writes it with
+  directory, so the worker reports the line (`implemented:`, `review:`, or
+  `compound:`) and this session writes it to its own checkpoints file with
   `.claude/skills/verify-change/scripts/ledger.py checkpoint <key> "<value>"`
   after checking the worker's tree as `delegate` describes. A review worker
-  also reports its `gaps:` and `rounds:` lines, and this session writes
-  them the same way with keys `gaps` and `rounds`, since the next review
-  reads its open items and its round count from there.
+  also reports its `gaps:` and `rounds:` lines, and this session writes them
+  the same way with keys `gaps` and `rounds`, since the next review reads its
+  open items and its round count from that file. The brief carries this session's
+  last `gaps:` and `rounds:` lines verbatim. Before `review` step 1, the
+  worker writes those lines to its checkpoints file with the same command so
+  the review resumes the existing open items and round count. This session's
+  `implemented:` write, and the review worker's `gaps:` and `rounds:` writes,
+  never pass `--replace`, since it rewrites the file and drops its earlier
+  lines. An `implement` worker writes its own file as `implement` describes.
 - A question the skill would put to the user comes back as the worker's
   blocker, and this session asks it.
 
