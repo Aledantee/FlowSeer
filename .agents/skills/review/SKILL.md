@@ -293,14 +293,20 @@ asking the user what happens next (`AGENTS.md`, Agent behavior):
 | fixes needed, only blocking false tests remain | close them in the follow-up pass (step 6), which is not a round; stop |
 | fixes needed, a blocking false test still open once the pass has run | one more pass (runs `review` again from step 1 with step 6), or stop |
 | fixes needed, a Requirement question is open | take the Requirement to `plan`, or stop |
-| rework | use the options in `references/fix-loop.md`, `When to stop` |
+| rework | the question `references/fix-loop.md`, When to stop, gives for the case: the round limit, or a finding too large to fix in place |
 
 A delegated reviewer does not ask. It states each verdict-holding finding and
 each Requirement-change finding as its blocker, and lists the follow-ups
 after them.
 
 On "apply the fixes here" and "apply chosen findings only", make the fixes,
-run the verifier on the changed paths, and report what changed. Before it
+run the verifier on the changed paths, and report what changed. When a fix
+answers a security or behavior finding, it is a round: load
+`references/fix-loop.md`, dispatch the reviewers of One round, steps 3 and
+4, over the diff of the fixes, and add one to the round count before any
+verdict is written. A fix to shipped code gets a reviewer whoever made it.
+A first round that is not clean records `fixes needed` with the new count
+and ends with its row's question. Before the coordinator
 writes `accept after fixes`, the coordinator closes each blocking false
 test by the pass's rule (`references/fix-loop.md`, The follow-up pass): it
 reruns the recorded mutation on the merged tree and closes the item only
@@ -309,7 +315,8 @@ deletes a convention item when the corrected lines stand at its
 `path:line`. Then it replaces the recorded verdict with
 `review: accept after fixes`, recorded as above. A security, behavior, or
 blocking false-test finding left unfixed leaves `fixes needed`, and so does
-an open Requirement question.
+an open Requirement question. A round that was not clean is settled as
+`references/fix-loop.md`, When to stop, describes.
 
 ## 6. Fix and re-review, when asked
 

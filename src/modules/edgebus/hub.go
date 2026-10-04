@@ -72,8 +72,14 @@ type HubConfig struct {
 	// OperatorActionMaxPerSubject bounds the operator action stream to at most this many
 	// records per subject. Zero means 10,000.
 	OperatorActionMaxPerSubject int64
+	// OperatorReadMaxBytes bounds the operator read stream within the central budget. Zero
+	// means 16 MiB.
+	OperatorReadMaxBytes int64
+	// OperatorReadMaxPerSubject bounds the operator read stream to at most this many
+	// records per subject. Zero means 1,000.
+	OperatorReadMaxPerSubject int64
 	// AuditDuplicateWindow is the requested duplicate window for the audit,
-	// operator action, typed ingest, and evidence streams; typed ingest and
+	// operator action, operator read, typed ingest, and evidence streams; typed ingest and
 	// evidence cap it at their configured maximum age. A re-delivered record
 	// inside the window is stored once. Zero means ten minutes.
 	AuditDuplicateWindow time.Duration
@@ -147,12 +153,14 @@ const (
 	defaultAuditDedupeWindow         = 10 * time.Minute
 	defaultOperatorActionStreamBytes = 64 << 20
 	defaultOperatorActionMaxPerSubj  = 10000
+	defaultOperatorReadStreamBytes   = 16 << 20
+	defaultOperatorReadMaxPerSubj    = 1000
 	defaultIngestStreamBytes         = 256 << 20
 	defaultIngestStreamMaxAge        = 24 * time.Hour
 	defaultEvidenceBytes             = 64 << 20
 	defaultEvidenceMaxAge            = 24 * time.Hour
 	// defaultCentralBudget reserves the central account's disk for the
-	// journal, the audit stream, the operator action stream, and the typed
+	// journal, the audit stream, the two operator streams, and the typed
 	// ingest and evidence streams; defaultEdgeBudget bounds one edge's
 	// source stream plus margin. They are independent, so telemetry cannot
 	// starve the journal.
@@ -361,7 +369,7 @@ func waitForJetStream(ctx context.Context, js jetstream.JetStream) error {
 }
 
 func (h *Hub) createStores(ctx context.Context) error {
-	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket} {
+	for _, bucket := range []string{LaneBucket, EdgeBucket, CapturesBucket, TenantBucket, AccessBucket} {
 		if _, err := h.centralJS.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 			Bucket:  bucket,
 			Storage: jetstream.FileStorage,
@@ -420,6 +428,27 @@ func (h *Hub) createStores(ctx context.Context) error {
 		Duplicates:        window,
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create operator action stream")
+	}
+
+	opReadBytes := h.cfg.OperatorReadMaxBytes
+	if opReadBytes <= 0 {
+		opReadBytes = defaultOperatorReadStreamBytes
+	}
+	opReadMaxPerSubj := h.cfg.OperatorReadMaxPerSubject
+	if opReadMaxPerSubj <= 0 {
+		opReadMaxPerSubj = defaultOperatorReadMaxPerSubj
+	}
+	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:              OperatorReadStream,
+		Subjects:          []string{"flowseer.*.operator.read.*"},
+		Storage:           jetstream.FileStorage,
+		Retention:         jetstream.LimitsPolicy,
+		Discard:           jetstream.DiscardOld,
+		MaxBytes:          opReadBytes,
+		MaxMsgsPerSubject: opReadMaxPerSubj,
+		Duplicates:        window,
+	}); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Msg("create operator read stream")
 	}
 
 	ingestBytes := h.cfg.IngestMaxBytes

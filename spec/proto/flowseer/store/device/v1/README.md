@@ -3,7 +3,7 @@
 The `flowseer.store.device.v1` package holds the device service's own files:
 the records it writes and the operator-written prototext it reads. The lane
 record per device lives in the `device-lanes` key-value bucket and the edge
-record in the `edges` bucket; the registry and the service's deployment
+record in the `edges` bucket. The registry and the service's deployment
 configuration are files an operator writes and the service reads at start.
 Nothing outside the service reads any of them. They live under `spec/proto`
 because every message FlowSeer persists or parses needs a schema someone can
@@ -20,9 +20,9 @@ Deliberately absent:
 
 - A triad or a ref pair for any message here. A record is written and read
   by one service, and its configuration is read by the one process it
-  configures; nothing observes or configures either from outside.
+  configures. Nothing observes or configures either from outside.
 - Secrets, with one named exception. The registry names credential versions
-  and the lane record holds observations and expectations; the only field
+  and the lane record holds observations and expectations. The only field
   here that can carry one is `ServiceTelemetry.headers`, which says so, and a
   deployment that puts a token there is choosing to treat the configuration
   file as a secret.
@@ -77,15 +77,18 @@ which is how a waiter on another replica learns what the read returned.
 `DeviceRegistry` is one integration, its edge, the devices it serves, and
 the policies their handles resolve to. It is read once at start and
 validated before anything else runs. A policy names credential versions and
-a host-key pin; the credential material itself lives in the mounted files
+a host-key pin. The credential material itself lives in the mounted files
 `flowseer.model.credential.v1` describes, never here.
 
 ## The service configuration
 
 `DeviceServiceConfig` is what one deployment of the service is: the directory
 it owns, the files it reads, the two addresses it binds, what an edge is told
-when it enrolls, and where telemetry goes. Every interval is optional and
-documents the default it falls back to, so a working file is short:
+when it enrolls, the configured platform administrators, and where telemetry
+goes. `PlatformAdmin.subjects` names one to sixteen distinct subject values.
+The projector enrolls each matching principal at startup. Every interval is
+optional and documents the default it falls back to, so a working file is
+short:
 
 ```prototext
 state_dir: "/var/lib/flowseer/device"

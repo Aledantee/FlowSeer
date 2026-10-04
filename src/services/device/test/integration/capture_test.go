@@ -18,11 +18,13 @@ import (
 
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	capturev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
@@ -36,6 +38,7 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/capture"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -156,6 +159,15 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	}
 
 	// The operator creates a capture session.
+	member := identityv1.OperatorRef_builder{Issuer: new(c.issuer.URL()), Subject: new("e2e-operator")}.Build()
+	if _, err := c.tenantAdmin().EnrollMember(ctx, connect.NewRequest(identityapiv1.EnrollMemberRequest_builder{Member: member}.Build())); err != nil {
+		t.Fatalf("enroll capture requester: %v", err)
+	}
+	if _, err := c.tenantAdmin().GrantFullPayload(ctx, connect.NewRequest(identityapiv1.GrantFullPayloadRequest_builder{
+		Member: member, Lifetime: durationpb.New(time.Hour), Reason: new("capture integration test"),
+	}.Build())); err != nil {
+		t.Fatalf("grant full payload: %v", err)
+	}
 	createReq := operatorcapturev1.CreateCaptureSessionRequest_builder{
 		Edge: edgev1.EdgeGlobalRef_builder{
 			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(edgeID)}.Build(),
@@ -177,7 +189,7 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 				Subject: proto.String("zitadel|usr_123"),
 			}.Build(),
 			Reason:               proto.String("integration test"),
-			FullPayloadRequested: proto.Bool(false),
+			FullPayloadRequested: proto.Bool(true),
 		}.Build(),
 	}.Build()
 
@@ -189,6 +201,27 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 	sessionID := sessionRef.GetCaptureSession().GetId()
 	if sessionID == "" {
 		t.Fatal("expected assigned session UUID, got empty")
+	}
+	accessKV, err := c.hub.JetStream().KeyValue(ctx, edgebus.AccessBucket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := accessstore.New(accessKV, time.Now).MutateMember(ctx, c.tenant, member, func(record *identityv1.Member) error {
+		record.GetFullPayload().SetExpiresAt(timestamppb.New(time.Now().Add(-time.Second)))
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, err := c.engine.Check(ctx, authz.Query{Object: "tenant:" + c.tenant, Relation: "full_payload", User: "user:" + c.principalID}); err != nil || !allowed {
+		t.Fatalf("stored full-payload tuple control = %v, %v, want allowed", allowed, err)
+	}
+	beforeDenied := len(c.operatorActionRecords(t))
+	if _, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(createReq)); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("expired full-payload creation = %v, want PermissionDenied", err)
+	}
+	denied := c.operatorActionRecords(t)[beforeDenied:]
+	if len(denied) != 2 || denied[0].Event.GetAttempted() == nil || denied[1].Event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_DENIED || denied[0].Event.GetCallId() != denied[1].Event.GetCallId() {
+		t.Fatalf("expiry trail = %v, want attempt and denied completion under one call id", denied)
 	}
 	if createResp.Msg.GetSession().GetState().GetLifecycle() != modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING {
 		t.Fatalf("got lifecycle %v, want PENDING", createResp.Msg.GetSession().GetState().GetLifecycle())

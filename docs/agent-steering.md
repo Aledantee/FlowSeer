@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-03
+last_updated: 2026-10-04
 ---
 
 # Agent steering
@@ -450,7 +450,9 @@ measure the fix loop and not the size a plan was cut to. As of 2026-10-03 the si
 notes written since hold 2 to 10 units. The 8-unit phase ran in 66 minutes
 and the 10-unit one spanned 21 hours, which does not separate unit count
 from what a review added. The data does not yet support changing the
-trigger.
+trigger. As of 2026-10-04 the notes dated after that check hold 3 to 8
+units, and the longest span is about three hours for an 8-unit phase,
+which says the same.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
@@ -663,6 +665,26 @@ rounds once fixed the coupling between a device index and the management
 lane, and each parked question offered options inside that coupling, when
 nothing required the gate at all. `plan`'s implementer read asks the same
 of a Decision whose reason is where data already lives.
+
+A fix to shipped code is reviewed and counted whoever makes it. `review`
+offers "apply the fixes here" for a finding in one file group, and that
+path once ended in `accept after fixes` with no reviewer and no round
+counted, which made the cap and the reviewer rule optional. It is now a
+round like any other. A finding too
+large to fix in place has its own question under When to stop, since the
+`rework` row pointed at options written only for a second unclean round.
+
+A fix brief is bounded three ways, each after a round that went wrong. The
+class instruction covers code the reviewed change added or modified, and a
+site elsewhere is a note: a worker told to fix every site rewrote readers
+the plan had left alone, and the next round found three behavior defects
+there. A mechanism the coordinator writes into a brief passes the check
+`review` step 4 asks of a reviewer's fix, because two workers carried out
+a prescribed mechanism whose callers the coordinator had not read. The
+file groups of a round are disjoint and a brief carries findings only,
+because two workers that each reworded the same comment lines failed
+`merge-check.py` on merge `f4f121d3`. The checker was left as it is: it compares lines and
+cannot judge two wordings equivalent, and one of them was in fact dropped.
 
 Review gives each finding a class, and the class decides whether it holds
 the verdict (`.claude/skills/review/references/fix-loop.md`). Security and
@@ -1028,10 +1050,25 @@ A still screen is not always a finished turn. A worker waiting for its
 pool's window to reset shows no working hint, so `wait` reported it `idle`
 with no report written. `wait` now prints `limited` when the quiet screen
 names a limit, and `orca.md` routes that outcome. The pattern is broad
-because no CLI's wording of that wait was captured. `stop` accepts an
+because no CLI's wording of that wait was captured. It no longer matches
+the bare word `quota`, which printed `limited` for two finished lanes
+whose reports were about quota code. `stop` accepts an
 unmerged lane whose commits `parked/<slug>` holds, since `drive`'s parking
 keeps a phase's work there and `stop` otherwise refused the lane it had
-just made safe.
+just made safe. The same branch settles a lane whose terminal exited with
+uncommitted files. "Never remove a dirty child" left that lane in place,
+and `stop` refuses a parent while a child remains, so one dead fix lane
+held its finished review lane and the land behind it. The coordinator now
+commits the tree to `parked/<slug>` and stops the lane. The work stays readable on a branch, and a live
+worker's dirty tree is still left alone.
+
+`start` waits a second time when the startup wait times out. Orca's CLI
+guide says a timed-out `terminal wait` prints a normal result with
+`satisfied` false and that a prompt typed into a TUI that is still starting
+is lost (`orca skills get orca-cli`). The script ignored the result, and
+under a wave of concurrent Claude starts the pointer went into terminals
+that were not ready. An empty brief is refused for the same reason a stale
+one is avoided: the worker would start without its task.
 
 ### `verify-change` and the hooks
 

@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
@@ -33,6 +34,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
@@ -107,8 +109,8 @@ func panicError(p any) error {
 // call with the key central registered at enrollment, so EdgeService,
 // DispatchService, AuditService and CaptureEdgeService are verified before
 // Connect decodes anything. An operator holds no edge key, so EdgeAdminService,
-// DeviceService and CaptureService cannot be behind that check — putting them
-// there would refuse every operator. Instead, the operator surface enforces
+// DeviceService, CaptureService, TenantService, and TenantAdminService use
+// the operator chain. It enforces
 // operator authentication, schema validation, relationship-based authorization,
 // and action trail recording.
 //
@@ -118,7 +120,11 @@ func panicError(p any) error {
 // of a capture, which no body-hashing middleware can read, so it authenticates
 // from the stream's own assertions instead. Both are bounded where the
 // middleware's limit would have been.
-func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
+func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
+	access, err := openAccessStore(ctx, resources.hub)
+	if err != nil {
+		return nil, err
+	}
 	recoverPanic := panicRecovery()
 	recoverInterceptor := panicInterceptor{}
 
@@ -130,8 +136,10 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	authnCfg := h.cfg.Authentication()
 	var issuers []authn.IssuerConfig
+	var issuerURLs []string
 	if authnCfg != nil {
 		for _, iss := range authnCfg.GetIssuers() {
+			issuerURLs = append(issuerURLs, iss.GetIssuer())
 			issuers = append(issuers, authn.IssuerConfig{
 				Issuer:                iss.GetIssuer(),
 				Audience:              iss.GetAudience(),
@@ -249,9 +257,18 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 			NotifyChange: captureEdgeService.NotifyStoreChange,
 			EdgeTenant:   resources.edgeTenant,
 			Project:      projectHook,
+			FullPayload:  access.FullPayloadActive,
 		},
 	)
 	mux := http.NewServeMux()
+	tenantPath, tenantHandler := identityv1connect.NewTenantServiceHandler(
+		identityapi.NewTenantService(resources.tenants, resources.projector), operatorInterceptors, recoverPanic,
+	)
+	mux.Handle(tenantPath, tenantHandler)
+	tenantAdminPath, tenantAdminHandler := identityv1connect.NewTenantAdminServiceHandler(
+		identityapi.NewAdminService(resources.tenants, access, issuerURLs, time.Now, resources.projector, log), operatorInterceptors, recoverPanic,
+	)
+	mux.Handle(tenantAdminPath, tenantAdminHandler)
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, edgeInterceptors, recoverPanic)
 	mux.Handle(edgePath, middleware.Wrap(edgeHandler))
 	// Enroll is the one edge call made before central holds a key to verify

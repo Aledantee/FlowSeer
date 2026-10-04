@@ -3,26 +3,52 @@ package projector_test
 import (
 	"context"
 	"errors"
+	"maps"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
+
+	// The capture fixture's interface name rule needs its registered extension.
+	_ "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/key/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/common/tenant"
+	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
+	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
+	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
+
+// nats.go v1.54.0 jetstream/kv.go keyValid also rejects dot boundaries and runs.
+var storeKeyPattern = regexp.MustCompile(`^[-/_=\.a-zA-Z0-9]+$`)
+
+func validateStoreKey(key string) error {
+	if !storeKeyPattern.MatchString(key) || strings.HasPrefix(key, ".") || strings.HasSuffix(key, ".") || strings.Contains(key, "..") {
+		return jetstream.ErrInvalidKey
+	}
+	return nil
+}
 
 type fakeEdgeSource struct {
 	allEdges  map[string]string // edgeID -> tenantID
@@ -42,6 +68,9 @@ func (f *fakeEdgeSource) All(_ context.Context) (map[string]string, error) {
 }
 
 func (f *fakeEdgeSource) TenantForEdge(_ context.Context, edgeID string) (string, error) {
+	if err := validateStoreKey("edge_" + edgeID); err != nil {
+		return "", errs.From(err).Code(edgestore.ErrCodeStore).Msg("read edge index")
+	}
 	if err := f.tenantErr[edgeID]; err != nil {
 		return "", err
 	}
@@ -91,6 +120,131 @@ type fakeCaptureSource struct {
 	sessionSyncErrID string
 }
 
+type fakeTenantSource struct {
+	records []*identityv1.TenantRecord
+	err     error
+}
+
+func (f *fakeTenantSource) List(context.Context) ([]*identityv1.TenantRecord, error) {
+	return f.records, f.err
+}
+
+type fakeAccessSource struct {
+	members  map[string][]*identityv1.Member
+	roles    map[string][]*identityv1.Role
+	partners map[string][]*identityv1.Partner
+	ids      []string
+	err      error
+}
+
+func (f *fakeAccessSource) TenantIDs(context.Context) ([]string, error) {
+	return f.ids, f.err
+}
+
+func (f *fakeAccessSource) Members(_ context.Context, id string) ([]*identityv1.Member, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
+	return f.members[id], f.err
+}
+
+func (f *fakeAccessSource) Roles(_ context.Context, id string) ([]*identityv1.Role, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
+	return f.roles[id], f.err
+}
+
+func (f *fakeAccessSource) Partners(_ context.Context, id string) ([]*identityv1.Partner, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
+	return f.partners[id], f.err
+}
+
+func (f *fakeAccessSource) Member(_ context.Context, id string, operator *identityv1.OperatorRef) (*identityv1.Member, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
+	if f.err != nil {
+		return nil, f.err
+	}
+	for _, member := range f.members[id] {
+		if proto.Equal(member.GetOperator(), operator) {
+			return member, nil
+		}
+	}
+	return nil, nil
+}
+
+func testOperator(subject string) *identityv1.OperatorRef {
+	return identityv1.OperatorRef_builder{Issuer: proto.String("https://auth.example.com"), Subject: proto.String(subject)}.Build()
+}
+
+func testTenant(t *testing.T) *identityv1.TenantRecord {
+	t.Helper()
+	const id = "0192e6a0-0000-7000-8000-0000000000c1"
+	ref := identityv1.TenantGlobalRef_builder{Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(id)}.Build()}.Build()
+	rec := identityv1.TenantRecord_builder{
+		Config: identityv1.TenantConfig_builder{
+			Ref: ref, Issuer: proto.String("https://auth.example.com"),
+			OrganizationClaimName: proto.String("groups"), OrganizationClaimValue: proto.String("acme"),
+		}.Build(),
+		State: identityv1.TenantState_builder{
+			Ref: ref, Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+			CreatedAt: timestamppb.New(time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(rec); err != nil {
+		t.Fatalf("tenant fixture: %v", err)
+	}
+	return rec
+}
+
+func testRole(t *testing.T, id string, relations ...identityv1.TenantRelation) *identityv1.Role {
+	t.Helper()
+	role := identityv1.Role_builder{
+		Ref:  identityv1.RoleGlobalRef_builder{Role: identityv1.RoleLocalRef_builder{Id: proto.String(id)}.Build()}.Build(),
+		Name: proto.String("Operators"), Relations: relations,
+	}.Build()
+	if err := protovalidate.Validate(role); err != nil {
+		t.Fatalf("role fixture: %v", err)
+	}
+	return role
+}
+
+func testMember(t *testing.T, subject string, roles []*identityv1.RoleGlobalRef, expires time.Time) *identityv1.Member {
+	t.Helper()
+	operator := testOperator(subject)
+	member := identityv1.Member_builder{
+		Operator: operator, EnrolledBy: testOperator("admin"),
+		EnrolledAt: timestamppb.New(time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)), Roles: roles,
+	}.Build()
+	if !expires.IsZero() {
+		member.SetFullPayload(identityv1.FullPayloadGrant_builder{
+			ExpiresAt: timestamppb.New(expires), Reason: proto.String("case 42"),
+			GrantedBy: testOperator("admin"), GrantedAt: timestamppb.New(expires.Add(-time.Hour)),
+		}.Build())
+	}
+	if err := protovalidate.Validate(member); err != nil {
+		t.Fatalf("member fixture: %v", err)
+	}
+	return member
+}
+
+func testPartner(t *testing.T, provider string, relations ...identityv1.TenantRelation) *identityv1.Partner {
+	t.Helper()
+	partner := identityv1.Partner_builder{
+		Tenant:    identityv1.TenantGlobalRef_builder{Tenant: identityv1.TenantLocalRef_builder{Id: proto.String(provider)}.Build()}.Build(),
+		Relations: relations, ConnectedAt: timestamppb.New(time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)),
+		ConnectedBy: testOperator("admin"),
+	}.Build()
+	if err := protovalidate.Validate(partner); err != nil {
+		t.Fatalf("partner fixture: %v", err)
+	}
+	return partner
+}
+
 func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -129,6 +283,12 @@ func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID stri
 func (f *fakeCaptureSource) Session(_ context.Context, tenantID, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if err := tenant.Validate(tenantID); err != nil {
+		return nil, 0, errs.From(err).Code(captureapi.ErrCodeBadSession).Msg("validate tenant")
+	}
+	if err := validateStoreKey(tenantID + "." + sessionID); err != nil {
+		return nil, 0, errs.From(err).Code(captureapi.ErrCodeStore).Msg("read capture session record")
+	}
 	if sessionID == f.sessionSyncErrID {
 		return nil, 0, errors.New("simulated session read failure")
 	}
@@ -161,6 +321,25 @@ func buildSessionRecord(sessionID, edgeID, issuer, subject string) *modelcapture
 			}.Build(),
 		}.Build(),
 	}.Build()
+}
+
+func buildValidSessionRecord(t *testing.T, sessionID, edgeID, issuer, subject string) *modelcapturev1.CaptureSessionRecord {
+	t.Helper()
+	rec := buildSessionRecord(sessionID, edgeID, issuer, subject)
+	config := rec.GetConfig()
+	config.SetSource(modelcapturev1.CaptureSource_builder{
+		LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
+	}.Build())
+	config.SetBudget(modelcapturev1.CaptureBudget_builder{MaxPackets: proto.Uint64(100)}.Build())
+	config.GetAuthorization().SetReason("test capture")
+	config.GetAuthorization().SetFullPayloadRequested(false)
+	rec.SetState(modelcapturev1.CaptureSessionState_builder{
+		Ref: config.GetRef(), Lifecycle: modelcapturev1.CaptureLifecycle_CAPTURE_LIFECYCLE_PENDING.Enum(),
+	}.Build())
+	if err := protovalidate.Validate(rec); err != nil {
+		t.Fatalf("capture fixture: %v", err)
+	}
+	return rec
 }
 
 func buildRegistryDevice(deviceID string) *storev1.RegistryDevice {
@@ -204,9 +383,9 @@ func TestProjectorOwnedRelations(t *testing.T) {
 	const (
 		edgeID   = "0192e6a0-0000-7000-8000-0000000000e1"
 		deviceID = "0192e6a0-0000-7000-8000-0000000000d1"
-		session1 = "0192e6a0-0000-7000-8000-0000000000s1"
-		session2 = "0192e6a0-0000-7000-8000-0000000000s2"
-		tenantID = "0192e6a0-0000-7000-8000-0000000000t1"
+		session1 = "0192e6a0-0000-7000-8000-0000000000c2"
+		session2 = "0192e6a0-0000-7000-8000-0000000000c3"
+		tenantID = "0192e6a0-0000-7000-8000-0000000000b1"
 		issuer   = "https://auth.example.com"
 		subject  = "user-123"
 	)
@@ -298,6 +477,625 @@ func TestProjectorOwnedRelations(t *testing.T) {
 			t.Errorf("session2 missing tuple %v", w)
 		}
 	}
+
+	t.Run("access records", func(t *testing.T) {
+		const roleID = "0192e6a0-0000-7000-8000-0000000000a1"
+		const providerID = "0192e6a0-0000-7000-8000-0000000000b1"
+		const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+		const session1 = "0192e6a0-0000-7000-8000-0000000000c2"
+		const session2 = "0192e6a0-0000-7000-8000-0000000000c3"
+		edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: tenantID}}
+		captures := &fakeCaptureSource{sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+			{tenantID: tenantID, sessionID: session1}: buildValidSessionRecord(t, session1, edgeID, issuer, subject),
+			{tenantID: tenantID, sessionID: session2}: buildValidSessionRecord(t, session2, edgeID, "", ""),
+		}}
+		now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+		role := testRole(t, roleID, identityv1.TenantRelation_TENANT_RELATION_ADMIN, identityv1.TenantRelation_TENANT_RELATION_OPERATOR)
+		member := testMember(t, subject, []*identityv1.RoleGlobalRef{role.GetRef()}, now.Add(time.Hour))
+		access := &fakeAccessSource{
+			ids:     []string{tenantID},
+			members: map[string][]*identityv1.Member{tenantID: {member}},
+			roles:   map[string][]*identityv1.Role{tenantID: {role}},
+			partners: map[string][]*identityv1.Partner{
+				tenantID: {testPartner(t, providerID, identityv1.TenantRelation_TENANT_RELATION_CAPTURER, identityv1.TenantRelation_TENANT_RELATION_VIEWER)},
+			},
+		}
+		engine := authztest.New()
+		stale := []authz.Tuple{
+			{Object: "tenant:" + tenantID, Relation: "admin", User: "user:x"},
+			{Object: "edge:" + edgeID, Relation: "capture", User: "user:x"},
+			{Object: "device:" + deviceID, Relation: "view", User: "user:x"},
+		}
+		untouched := authz.Tuple{Object: "tenant:" + tenantID, Relation: "member", User: "user:x"}
+		if err := engine.Write(ctx, append(stale, untouched), nil); err != nil {
+			t.Fatalf("seed tuples: %v", err)
+		}
+		p := projector.New(engine, edges, reg, captures, 0, nil, nil,
+			projector.WithTenantSource(&fakeTenantSource{records: []*identityv1.TenantRecord{testTenant(t)}}),
+			projector.WithAccessSource(access),
+			projector.WithPlatformPrincipals([]string{"platform-admin"}),
+			projector.WithClock(func() time.Time { return now }),
+		)
+		counts, err := p.Reconcile(ctx)
+		if err != nil {
+			t.Fatalf("Reconcile: %v", err)
+		}
+		if counts != (projector.RepairedCounts{Edges: 1, Devices: 1, CaptureSessions: 2, Tenants: 1, Roles: 1, Platforms: 1}) {
+			t.Errorf("counts = %+v, want one repair per access object and original resource repairs", counts)
+		}
+		got := readAllTuples(t, engine)
+		principal := "user:" + authn.ComputePrincipalID(issuer, subject)
+		rows := []struct {
+			name  string
+			tuple authz.Tuple
+		}{
+			{"platform enrollment", authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:platform-admin"}},
+			{"tenant platform", authz.Tuple{Object: "tenant:" + tenantID, Relation: "platform", User: "platform:flowseer"}},
+			{"tenant enrollment", authz.Tuple{Object: "tenant:" + tenantID, Relation: "enrolled", User: principal}},
+			{"tenant partner", authz.Tuple{Object: "tenant:" + tenantID, Relation: "partner", User: "tenant:" + providerID}},
+			{"tenant role admin", authz.Tuple{Object: "tenant:" + tenantID, Relation: "admin", User: "role:" + roleID + "#assignee"}},
+			{"tenant role operator", authz.Tuple{Object: "tenant:" + tenantID, Relation: "operator", User: "role:" + roleID + "#assignee"}},
+			{"tenant partner capturer", authz.Tuple{Object: "tenant:" + tenantID, Relation: "capturer", User: "tenant:" + providerID + "#active_admin"}},
+			{"tenant partner viewer", authz.Tuple{Object: "tenant:" + tenantID, Relation: "viewer", User: "tenant:" + providerID + "#active_admin"}},
+			{"tenant full payload", authz.Tuple{Object: "tenant:" + tenantID, Relation: "full_payload", User: principal}},
+			{"role assignee", authz.Tuple{Object: "role:" + roleID, Relation: "assignee", User: principal}},
+			{"session requester", authz.Tuple{Object: "capture_session:" + session1, Relation: "requester", User: principal}},
+			{"edge tenant", authz.Tuple{Object: "edge:" + edgeID, Relation: "tenant", User: "tenant:" + tenantID}},
+			{"device tenant", authz.Tuple{Object: "device:" + deviceID, Relation: "tenant", User: "tenant:" + tenantID}},
+		}
+		for _, row := range rows {
+			t.Run(row.name, func(t *testing.T) {
+				if !slices.Contains(got, row.tuple) {
+					t.Errorf("tuple missing: %v", row.tuple)
+				}
+			})
+		}
+		for _, row := range []struct {
+			name  string
+			tuple authz.Tuple
+		}{
+			{"tenant admin drift", stale[0]},
+			{"edge grant cleanup", stale[1]},
+			{"device grant cleanup", stale[2]},
+		} {
+			t.Run(row.name, func(t *testing.T) {
+				if slices.Contains(got, row.tuple) {
+					t.Errorf("stale tuple remains: %v", row.tuple)
+				}
+			})
+		}
+		if !slices.Contains(got, untouched) {
+			t.Errorf("unowned member tuple missing: %v", untouched)
+		}
+	})
+}
+
+func TestAccessGrantExpiryAndMissingRole(t *testing.T) {
+	ctx := context.Background()
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const roleID = "0192e6a0-0000-7000-8000-0000000000a1"
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	missingRef := identityv1.RoleGlobalRef_builder{Role: identityv1.RoleLocalRef_builder{Id: proto.String(roleID)}.Build()}.Build()
+	member := testMember(t, "alice", []*identityv1.RoleGlobalRef{missingRef}, now.Add(time.Hour))
+	access := &fakeAccessSource{ids: []string{tenantID}, members: map[string][]*identityv1.Member{tenantID: {member}}}
+	engine := authztest.New()
+	principal := "user:" + authn.ComputePrincipalID(member.GetOperator().GetIssuer(), member.GetOperator().GetSubject())
+	staleRole := authz.Tuple{Object: "role:" + roleID, Relation: "assignee", User: principal}
+	if err := engine.Write(ctx, []authz.Tuple{staleRole}, nil); err != nil {
+		t.Fatalf("seed role tuple: %v", err)
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithTenantSource(&fakeTenantSource{records: []*identityv1.TenantRecord{testTenant(t)}}),
+		projector.WithAccessSource(access), projector.WithClock(func() time.Time { return now }),
+	)
+	if _, err := p.Reconcile(ctx); err != nil {
+		t.Fatalf("first Reconcile: %v", err)
+	}
+	grant := authz.Tuple{Object: "tenant:" + tenantID, Relation: "full_payload", User: principal}
+	got := readAllTuples(t, engine)
+	if !slices.Contains(got, grant) || slices.Contains(got, staleRole) {
+		t.Fatalf("first pass tuples = %v, want active grant and no missing-role assignment", got)
+	}
+	now = now.Add(time.Hour)
+	if _, err := p.Reconcile(ctx); err != nil {
+		t.Fatalf("expiry Reconcile: %v", err)
+	}
+	if got := readAllTuples(t, engine); slices.Contains(got, grant) {
+		t.Errorf("expired grant remains: %v", got)
+	}
+}
+
+func TestSyncRequesterRequiresMembership(t *testing.T) {
+	ctx := context.Background()
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const sessionID = "0192e6a0-0000-7000-8000-0000000000c2"
+	const edgeID = "0192e6a0-0000-7000-8000-0000000000e1"
+	operator := testOperator("alice")
+	principal := "user:" + authn.ComputePrincipalID(operator.GetIssuer(), operator.GetSubject())
+	requester := authz.Tuple{Object: "capture_session:" + sessionID, Relation: "requester", User: principal}
+	captures := &fakeCaptureSource{sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+		{tenantID: tenantID, sessionID: sessionID}: buildValidSessionRecord(t, sessionID, edgeID, operator.GetIssuer(), operator.GetSubject()),
+	}}
+	access := &fakeAccessSource{ids: []string{tenantID}}
+	engine := authztest.New()
+	stored := []authz.Tuple{
+		{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:" + tenantID},
+		{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+		requester,
+	}
+	if err := engine.Write(ctx, stored, nil); err != nil {
+		t.Fatalf("seed session tuples: %v", err)
+	}
+	slices.SortFunc(stored, compareTuples)
+	if got := readAllTuples(t, engine); !slices.Equal(got, stored) {
+		t.Fatalf("session tuples before pass = %v, want %v", got, stored)
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, captures, 0, nil, nil, projector.WithAccessSource(access))
+	if _, err := p.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile without member: %v", err)
+	}
+	want := []authz.Tuple{
+		{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+		{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:" + tenantID},
+	}
+	if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+		t.Fatalf("session tuples without member = %v, want %v", got, want)
+	}
+	access.members = map[string][]*identityv1.Member{tenantID: {testMember(t, "alice", nil, time.Time{})}}
+	if _, err := p.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile after enrollment: %v", err)
+	}
+	if got := readAllTuples(t, engine); !slices.Contains(got, requester) {
+		t.Errorf("requester after enrollment missing: %v", got)
+	}
+	access.members[tenantID] = nil
+	if err := p.SyncRequester(ctx, tenantID, operator); err != nil {
+		t.Fatalf("SyncRequester after removal: %v", err)
+	}
+	if got := readAllTuples(t, engine); slices.Contains(got, requester) {
+		t.Errorf("requester after removal remains: %v", got)
+	}
+}
+
+func TestPartnerAdminRelationIsNotProjected(t *testing.T) {
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const providerID = "0192e6a0-0000-7000-8000-0000000000b1"
+	for _, mode := range []string{"reconcile", "sync"} {
+		for _, tc := range []struct {
+			name     string
+			relation identityv1.TenantRelation
+		}{
+			{"operator", identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+			{"capturer", identityv1.TenantRelation_TENANT_RELATION_CAPTURER},
+			{"viewer", identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+		} {
+			t.Run(mode+"/"+tc.name, func(t *testing.T) {
+				ctx := t.Context()
+				partner := testPartner(t, providerID, tc.relation)
+				partner.SetRelations([]identityv1.TenantRelation{tc.relation, identityv1.TenantRelation_TENANT_RELATION_ADMIN})
+				if err := protovalidate.Validate(partner); err == nil {
+					t.Fatal("partner with ADMIN passes schema validation")
+				}
+				access := &fakeAccessSource{
+					ids: []string{tenantID}, partners: map[string][]*identityv1.Partner{tenantID: {partner}},
+				}
+				engine := authztest.New()
+				p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil, projector.WithAccessSource(access))
+				var err error
+				if mode == "reconcile" {
+					_, err = p.Reconcile(ctx)
+				} else {
+					err = p.SyncTenant(ctx, tenantID)
+				}
+				if err != nil {
+					t.Fatalf("project partner: %v", err)
+				}
+				want := []authz.Tuple{
+					{Object: "tenant:" + tenantID, Relation: "partner", User: "tenant:" + providerID},
+					{Object: "tenant:" + tenantID, Relation: tc.name, User: "tenant:" + providerID + "#active_admin"},
+				}
+				slices.SortFunc(want, compareTuples)
+				if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+					t.Errorf("partner tuples = %v, want %v", got, want)
+				}
+			})
+		}
+	}
+}
+
+func TestReconcilePreservesDefaultTenantRecords(t *testing.T) {
+	const sessionID = "0192e6a0-0000-7000-8000-0000000000c2"
+	const edgeID = "0192e6a0-0000-7000-8000-0000000000e2"
+	for _, object := range []string{"tenant:default", "capture_session:" + sessionID} {
+		t.Run(object, func(t *testing.T) {
+			ctx := t.Context()
+			member := testMember(t, "alice", nil, time.Time{})
+			operator := member.GetOperator()
+			principal := "user:" + authn.ComputePrincipalID(operator.GetIssuer(), operator.GetSubject())
+			access := &fakeAccessSource{
+				ids: []string{"default"}, members: map[string][]*identityv1.Member{"default": {member}},
+			}
+			captures := &fakeCaptureSource{sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+				{tenantID: "default", sessionID: sessionID}: buildValidSessionRecord(t, sessionID, edgeID, operator.GetIssuer(), operator.GetSubject()),
+			}}
+			want := []authz.Tuple{
+				{Object: "tenant:default", Relation: "enrolled", User: principal},
+				{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:default"},
+				{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+				{Object: "capture_session:" + sessionID, Relation: "requester", User: principal},
+			}
+			slices.SortFunc(want, compareTuples)
+			drift := authz.Tuple{Object: object, Relation: "enrolled", User: "user:stale"}
+			if strings.HasPrefix(object, "capture_session:") {
+				drift.Relation = "requester"
+			}
+			stored := append(slices.Clone(want), drift)
+			slices.SortFunc(stored, compareTuples)
+			engine := authztest.New()
+			if err := engine.Write(ctx, stored, nil); err != nil {
+				t.Fatalf("seed default tenant tuples: %v", err)
+			}
+			if got := readAllTuples(t, engine); !slices.Equal(got, stored) {
+				t.Fatalf("tuples before pass = %v, want %v", got, stored)
+			}
+			p := projector.New(engine, &fakeEdgeSource{}, nil, captures, 0, nil, nil, projector.WithAccessSource(access))
+			counts, err := p.Reconcile(ctx)
+			if err != nil {
+				t.Fatalf("Reconcile: %v", err)
+			}
+			if counts.Total() != 1 {
+				t.Errorf("repaired objects = %d, want 1", counts.Total())
+			}
+			if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+				t.Errorf("default tenant tuples after pass = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestSyncTenantCleansDeletedRole(t *testing.T) {
+	ctx := context.Background()
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const roleID = "0192e6a0-0000-7000-8000-0000000000a1"
+	role := testRole(t, roleID, identityv1.TenantRelation_TENANT_RELATION_OPERATOR)
+	member := testMember(t, "alice", []*identityv1.RoleGlobalRef{role.GetRef()}, time.Time{})
+	access := &fakeAccessSource{
+		ids: []string{tenantID}, members: map[string][]*identityv1.Member{tenantID: {member}},
+		roles: map[string][]*identityv1.Role{tenantID: {role}},
+	}
+	engine := authztest.New()
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithTenantSource(&fakeTenantSource{records: []*identityv1.TenantRecord{testTenant(t)}}), projector.WithAccessSource(access))
+	if err := p.SyncTenant(ctx, tenantID); err != nil {
+		t.Fatalf("initial SyncTenant: %v", err)
+	}
+	tenantGrant := authz.Tuple{Object: "tenant:" + tenantID, Relation: "operator", User: "role:" + roleID + "#assignee"}
+	roleGrant := authz.Tuple{Object: "role:" + roleID, Relation: "assignee", User: "user:" + authn.ComputePrincipalID(member.GetOperator().GetIssuer(), member.GetOperator().GetSubject())}
+	if got := readAllTuples(t, engine); !slices.Contains(got, tenantGrant) || !slices.Contains(got, roleGrant) {
+		t.Fatalf("initial grants missing: %v", got)
+	}
+	access.roles[tenantID] = nil
+	if err := p.SyncTenant(ctx, tenantID); err != nil {
+		t.Fatalf("SyncTenant after deletion: %v", err)
+	}
+	if got := readAllTuples(t, engine); slices.Contains(got, tenantGrant) || slices.Contains(got, roleGrant) {
+		t.Errorf("deleted role grants remain: %v", got)
+	}
+	const otherTenant = "0192e6a0-0000-7000-8000-0000000000b1"
+	const otherRoleID = "0192e6a0-0000-7000-8000-0000000000a2"
+	otherRole := testRole(t, otherRoleID, identityv1.TenantRelation_TENANT_RELATION_VIEWER)
+	otherMember := testMember(t, "bob", []*identityv1.RoleGlobalRef{otherRole.GetRef()}, time.Time{})
+	access.ids = []string{tenantID, otherTenant}
+	access.roles[otherTenant] = []*identityv1.Role{otherRole}
+	access.members[otherTenant] = []*identityv1.Member{otherMember}
+	foreignTenantGrant := authz.Tuple{Object: "tenant:" + tenantID, Relation: "viewer", User: "role:" + otherRoleID + "#assignee"}
+	foreignRoleGrant := authz.Tuple{Object: "role:" + otherRoleID, Relation: "assignee", User: "user:" + authn.ComputePrincipalID(otherMember.GetOperator().GetIssuer(), otherMember.GetOperator().GetSubject())}
+	if err := engine.Write(ctx, []authz.Tuple{foreignTenantGrant, foreignRoleGrant}, nil); err != nil {
+		t.Fatalf("seed foreign role: %v", err)
+	}
+	if err := p.SyncTenant(ctx, tenantID); err != nil {
+		t.Fatalf("SyncTenant with foreign role drift: %v", err)
+	}
+	got := readAllTuples(t, engine)
+	if slices.Contains(got, foreignTenantGrant) || !slices.Contains(got, foreignRoleGrant) {
+		t.Errorf("foreign role after tenant sync = %v, want role assignment but no tenant grant", got)
+	}
+}
+
+func TestAccessReconcileSourceFailurePreservesTuples(t *testing.T) {
+	ctx := context.Background()
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const roleID = "0192e6a0-0000-7000-8000-0000000000a1"
+	readErr := errors.New("access records unavailable")
+	for _, tc := range []struct {
+		name      string
+		tenantErr error
+		accessErr error
+	}{
+		{"tenant list", readErr, nil},
+		{"access list", nil, readErr},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := authztest.New()
+			stored := []authz.Tuple{
+				{Object: "tenant:" + tenantID, Relation: "admin", User: "user:x"},
+				{Object: "role:" + roleID, Relation: "assignee", User: "user:x"},
+			}
+			if err := engine.Write(ctx, stored, nil); err != nil {
+				t.Fatalf("seed tuples: %v", err)
+			}
+			p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+				projector.WithTenantSource(&fakeTenantSource{err: tc.tenantErr}),
+				projector.WithAccessSource(&fakeAccessSource{err: tc.accessErr}))
+			if _, err := p.Reconcile(ctx); !errors.Is(err, readErr) {
+				t.Fatalf("Reconcile error = %v, want %v", err, readErr)
+			}
+			got := readAllTuples(t, engine)
+			if len(got) != len(stored) || !slices.Contains(got, stored[0]) || !slices.Contains(got, stored[1]) {
+				t.Errorf("tuples after failed source = %v, want %v", got, stored)
+			}
+		})
+	}
+}
+
+func TestAccessEnrollmentDuringScanKeepsTuple(t *testing.T) {
+	ctx := context.Background()
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	member := testMember(t, "alice", nil, time.Time{})
+	tuple := authz.Tuple{Object: "tenant:" + tenantID, Relation: "enrolled", User: "user:" + authn.ComputePrincipalID(member.GetOperator().GetIssuer(), member.GetOperator().GetSubject())}
+	engine := authztest.New()
+	if err := engine.Write(ctx, []authz.Tuple{{Object: "tenant:" + tenantID, Relation: "platform", User: "platform:flowseer"}}, nil); err != nil {
+		t.Fatalf("seed platform tuple: %v", err)
+	}
+	access := &fakeAccessSource{ids: []string{tenantID}}
+	eng := &raceEngine{Engine: engine, beforeScan: func() {
+		access.members = map[string][]*identityv1.Member{tenantID: {member}}
+		if err := engine.Write(ctx, []authz.Tuple{tuple}, nil); err != nil {
+			t.Fatalf("enrollment write: %v", err)
+		}
+	}}
+	p := projector.New(eng, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithTenantSource(&fakeTenantSource{records: []*identityv1.TenantRecord{testTenant(t)}}), projector.WithAccessSource(access))
+	if _, err := p.Reconcile(ctx); err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if got := readAllTuples(t, engine); !slices.Contains(got, tuple) {
+		t.Errorf("enrollment written during scan missing: %v", got)
+	}
+}
+
+func TestNoAccessSourcePreservesTenantDrift(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+	tuple := authz.Tuple{Object: "tenant:orphan", Relation: "admin", User: "user:x"}
+	if err := engine.Write(ctx, []authz.Tuple{tuple}, nil); err != nil {
+		t.Fatalf("seed tuple: %v", err)
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil)
+	if counts, err := p.Reconcile(ctx); err != nil || counts.Total() != 0 {
+		t.Fatalf("Reconcile = %+v, %v, want no repairs", counts, err)
+	}
+	if got := readAllTuples(t, engine); !slices.Equal(got, []authz.Tuple{tuple}) {
+		t.Errorf("tenant tuple without access source = %v, want [%v]", got, tuple)
+	}
+}
+
+func TestReconcileDeletesOwnedTuplesUnderInvalidObjectID(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+
+	strayTuples := []authz.Tuple{
+		{Object: "tenant:acme", Relation: "admin", User: "user:x"},
+		{Object: "tenant:acme", Relation: "enrolled", User: "user:x"},
+		{Object: "role:not-a-uuid", Relation: "assignee", User: "user:x"},
+		{Object: "capture_session:not-a-uuid", Relation: "tenant", User: "tenant:acme"},
+		{Object: "capture_session:a%b", Relation: "tenant", User: "tenant:0192e6a0-0000-7000-8000-0000000000c1"},
+		{Object: "edge:a%b", Relation: "view", User: "user:x"},
+		{Object: "platform:other", Relation: "enrolled", User: "user:x"},
+	}
+	platformAdmin := authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:platform-admin"}
+	if err := engine.Write(ctx, append(strayTuples, platformAdmin), nil); err != nil {
+		t.Fatalf("seed tuples: %v", err)
+	}
+
+	access := &fakeAccessSource{
+		ids: []string{"0192e6a0-0000-7000-8000-0000000000c1"},
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithAccessSource(access),
+		projector.WithTenantSource(&fakeTenantSource{}),
+		projector.WithPlatformPrincipals([]string{"platform-admin"}),
+	)
+
+	counts, err := p.Reconcile(ctx)
+	if err != nil {
+		t.Fatalf("Reconcile error = %v, want nil", err)
+	}
+	if counts != (projector.RepairedCounts{Edges: 1, Tenants: 1, Roles: 1, CaptureSessions: 2, Platforms: 1}) {
+		t.Errorf("counts = %+v, want repairs for six invalid objects", counts)
+	}
+	got := readAllTuples(t, engine)
+	if want := []authz.Tuple{platformAdmin}; !slices.Equal(got, want) {
+		t.Errorf("tuples after reconcile = %v, want %v", got, want)
+	}
+}
+
+type storedAccessSource struct {
+	*accessstore.Store
+}
+
+func (s storedAccessSource) Members(ctx context.Context, tenantID string) ([]*identityv1.Member, error) {
+	return s.ListMembers(ctx, tenantID)
+}
+
+func (s storedAccessSource) Roles(ctx context.Context, tenantID string) ([]*identityv1.Role, error) {
+	return s.ListRoles(ctx, tenantID)
+}
+
+func (s storedAccessSource) Partners(ctx context.Context, tenantID string) ([]*identityv1.Partner, error) {
+	return s.ListPartners(ctx, tenantID)
+}
+
+func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) {
+	ctx := t.Context()
+	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir: t.TempDir(), FsyncPolicy: service.BusFsyncPeriodic, ListenPort: 0,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	bucket := func(name string) jetstream.KeyValue {
+		t.Helper()
+		kv, err := hub.JetStream().KeyValue(ctx, name)
+		if err != nil {
+			t.Fatalf("open %s bucket: %v", name, err)
+		}
+		return kv
+	}
+	edges := edgestore.New(bucket(edgebus.EdgeBucket))
+	captures, err := captureapi.NewStore(bucket(edgebus.CapturesBucket), t.TempDir(), time.Now)
+	if err != nil {
+		t.Fatalf("open capture store: %v", err)
+	}
+	access := storedAccessSource{accessstore.New(bucket(edgebus.AccessBucket), time.Now)}
+	tenants, err := tenantstore.New(ctx, hub.JetStream(), edgebus.TenantBucket)
+	if err != nil {
+		t.Fatalf("open tenant store: %v", err)
+	}
+
+	const validID = "0192e6a0-0000-7000-8000-0000000000c1"
+	cases := []struct {
+		name     string
+		id       string
+		tenantID string
+	}{
+		{"not_uuid", "not-a-uuid", "acme"},
+		{"invalid_key", "a%b", validID},
+		{"braced_uuid", "{" + validID + "}", validID},
+		{"invalid_tenant", validID, "acme"},
+		{"invalid_uuid_of_36_bytes", validID[:35] + "%", validID},
+		{"uppercase_uuid", strings.ToUpper(validID), strings.ToUpper(validID)},
+	}
+	owned := map[string]map[string]bool{
+		"capture_session": {"tenant": false, "edge": false, "requester": false},
+		"device":          {"tenant": false, "operate": true, "view": true},
+		"edge":            {"tenant": false, "administer": true, "operate": true, "capture": true, "view": true},
+		"platform":        {"enrolled": true},
+		"role":            {"assignee": true},
+		"tenant":          {"platform": true, "enrolled": true, "partner": true, "admin": true, "operator": true, "capturer": true, "viewer": true, "full_payload": true},
+	}
+	gotOwned := projector.OwnedRelations()
+	if len(gotOwned) != len(owned) {
+		t.Errorf("owned object types = %d, want %d", len(gotOwned), len(owned))
+	}
+	for objectType, relations := range owned {
+		if !maps.Equal(gotOwned[objectType], relations) {
+			t.Errorf("owned %s relations = %v, want %v", objectType, gotOwned[objectType], relations)
+		}
+	}
+	objectTypes := make([]string, 0, len(owned))
+	for objectType := range owned {
+		objectTypes = append(objectTypes, objectType)
+	}
+	slices.Sort(objectTypes)
+	generated := make(map[bool]int)
+	// The identity gate decides unreadable edge keys, invalid tenant object IDs,
+	// every capture-session case, and non-flowseer platform IDs. Device and role
+	// lookups, readable edge keys, and the valid tenant ID can also yield no
+	// desired tuples through empty stores without the gate. The valid platform
+	// ID reconciles to the configured principals.
+	for _, objectType := range objectTypes {
+		relations := make([]string, 0, len(owned[objectType]))
+		for relation := range owned[objectType] {
+			relations = append(relations, relation)
+		}
+		slices.Sort(relations)
+		for _, relation := range relations {
+			for _, tc := range cases {
+				for _, withAccess := range []bool{true, false} {
+					if owned[objectType][relation] && !withAccess {
+						continue
+					}
+					generated[withAccess]++
+					mode := "with_access"
+					if !withAccess {
+						mode = "without_access"
+					}
+					t.Run(objectType+"/"+relation+"/"+tc.name+"/"+mode, func(t *testing.T) {
+						id := tc.id
+						if objectType == "platform" && tc.name == "invalid_tenant" {
+							id = "flowseer"
+						}
+						object := objectType + ":" + id
+						stray := authz.Tuple{Object: object, Relation: relation, User: "user:x"}
+						if relation == "tenant" {
+							stray.User = "tenant:" + tc.tenantID
+						}
+						seed := []authz.Tuple{stray}
+						if objectType == "capture_session" && relation != "tenant" {
+							seed = append(seed, authz.Tuple{Object: object, Relation: "tenant", User: "tenant:" + tc.tenantID})
+						}
+						var want []authz.Tuple
+						options := []projector.Option{projector.WithTenantSource(tenants)}
+						if withAccess {
+							options = append(options, projector.WithAccessSource(access),
+								projector.WithPlatformPrincipals([]string{"platform-admin"}))
+							want = []authz.Tuple{{Object: "platform:flowseer", Relation: "enrolled", User: "user:platform-admin"}}
+							seed = append(seed, want...)
+						}
+						engine := authztest.New()
+						if err := engine.Write(ctx, seed, nil); err != nil {
+							t.Fatalf("seed tuples: %v", err)
+						}
+						before := readAllTuples(t, engine)
+						slices.SortFunc(seed, compareTuples)
+						if !slices.Equal(before, seed) {
+							t.Fatalf("tuples before pass = %v, want %v", before, seed)
+						}
+						p := projector.New(engine, edges, &registry.Registry{}, captures, 0, nil, nil, options...)
+						counts, err := p.Reconcile(ctx)
+						if err != nil {
+							t.Fatalf("Reconcile error = %v, want nil", err)
+						}
+						if counts.Total() != 1 {
+							t.Errorf("repaired objects = %d, want 1", counts.Total())
+						}
+						if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+							t.Errorf("tuples after one pass = %v, want %v", got, want)
+						}
+					})
+				}
+			}
+		}
+	}
+	if generated[true] != 126 {
+		t.Errorf("generated %d cases with access, want 126", generated[true])
+	}
+	if generated[false] != 30 {
+		t.Errorf("generated %d cases without access, want 30", generated[false])
+	}
+}
+
+func TestSyncTenantCleansInvalidTenantID(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+	stray := authz.Tuple{Object: "tenant:acme", Relation: "admin", User: "user:x"}
+	if err := engine.Write(ctx, []authz.Tuple{stray}, nil); err != nil {
+		t.Fatalf("seed stray tuple: %v", err)
+	}
+	access := &fakeAccessSource{
+		ids: []string{"0192e6a0-0000-7000-8000-0000000000c1"},
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithAccessSource(access),
+	)
+	if err := p.SyncTenant(ctx, "acme"); err != nil {
+		t.Fatalf("SyncTenant(acme) error = %v, want nil", err)
+	}
+	if got := readAllTuples(t, engine); slices.Contains(got, stray) {
+		t.Errorf("stray tuple after SyncTenant = %v, want removed", got)
+	}
 }
 
 func TestReconcileDriftRestoration(t *testing.T) {
@@ -305,9 +1103,9 @@ func TestReconcileDriftRestoration(t *testing.T) {
 
 	const (
 		edgeE   = "0192e6a0-0000-7000-8000-00000000000e"
-		edgeX   = "0192e6a0-0000-7000-8000-00000000000x"
-		tenantT = "0192e6a0-0000-7000-8000-00000000000t"
-		tenant2 = "0192e6a0-0000-7000-8000-0000000000t2"
+		edgeX   = "0192e6a0-0000-7000-8000-0000000000f1"
+		tenantT = "0192e6a0-0000-7000-8000-0000000000b4"
+		tenant2 = "0192e6a0-0000-7000-8000-0000000000b2"
 	)
 
 	t.Run("edge:E#tenant missing restored", func(t *testing.T) {
@@ -459,8 +1257,8 @@ func TestReconcileRaceCondition(t *testing.T) {
 
 	const (
 		edgeID   = "0192e6a0-0000-7000-8000-00000000000e"
-		sessionS = "0192e6a0-0000-7000-8000-00000000000s"
-		tenantT  = "0192e6a0-0000-7000-8000-00000000000t"
+		sessionS = "0192e6a0-0000-7000-8000-0000000000c4"
+		tenantT  = "0192e6a0-0000-7000-8000-0000000000b4"
 		issuer   = "https://auth.example.com"
 		subject  = "u1"
 	)
@@ -515,8 +1313,8 @@ func TestDeletedSessionSync(t *testing.T) {
 	engine := authztest.New()
 
 	const (
-		sessionID = "0192e6a0-0000-7000-8000-00000000000s"
-		tenantID  = "0192e6a0-0000-7000-8000-00000000000t"
+		sessionID = "0192e6a0-0000-7000-8000-0000000000c4"
+		tenantID  = "0192e6a0-0000-7000-8000-0000000000b4"
 	)
 
 	// Engine holds three session tuples and one grant
@@ -590,7 +1388,7 @@ func TestWriteConflictRetried(t *testing.T) {
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
-	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "tenant-1"}}
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "0192e6a0-0000-7000-8000-0000000000b1"}}
 	p := projector.New(retEngine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
 
 	if err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID}); err != nil {
@@ -623,7 +1421,7 @@ func TestWriteConflictThreeTimesInAll(t *testing.T) {
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
-	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "tenant-1"}}
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "0192e6a0-0000-7000-8000-0000000000b1"}}
 	p := projector.New(retEngine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
 
 	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
@@ -651,7 +1449,7 @@ func TestWriteUnavailableReturnsError(t *testing.T) {
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
-	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "tenant-1"}}
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "0192e6a0-0000-7000-8000-0000000000b1"}}
 	p := projector.New(retEngine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
 
 	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
@@ -755,8 +1553,8 @@ func TestReconcileContinuesPastFailingObjectAndCollectsErrors(t *testing.T) {
 
 	const (
 		edgeE    = "0192e6a0-0000-7000-8000-00000000000e"
-		sessionS = "0192e6a0-0000-7000-8000-00000000000s"
-		tenantT  = "0192e6a0-0000-7000-8000-00000000000t"
+		sessionS = "0192e6a0-0000-7000-8000-0000000000c4"
+		tenantT  = "0192e6a0-0000-7000-8000-0000000000b4"
 	)
 
 	baseEngine := authztest.New()
@@ -993,16 +1791,16 @@ func propertyIDs() (edges, devices, sessions []string) {
 		"0192e6a0-0000-7000-8000-0000000000d2",
 	}
 	sessions = []string{
-		"0192e6a0-0000-7000-8000-0000000000s1",
-		"0192e6a0-0000-7000-8000-0000000000s2",
+		"0192e6a0-0000-7000-8000-0000000000c2",
+		"0192e6a0-0000-7000-8000-0000000000c3",
 	}
 	return edges, devices, sessions
 }
 
 func propertyTenants() []string {
 	return []string{
-		"0192e6a0-0000-7000-8000-0000000000t1",
-		"0192e6a0-0000-7000-8000-0000000000t2",
+		"0192e6a0-0000-7000-8000-0000000000b1",
+		"0192e6a0-0000-7000-8000-0000000000b2",
 	}
 }
 

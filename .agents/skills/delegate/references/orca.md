@@ -37,6 +37,14 @@ Full handoff.
   review is lost, and its Enter opens a hook's detail view, so the start
   fails if the review remains or has no trust option, the update offer
   shows, or the screen asks to restart Codex.
+- Waits up to 90 seconds for the agent's TUI to go idle before it sends
+  anything. A timed-out `orca terminal wait` prints a normal result with
+  `wait.satisfied` false (`orca skills get orca-cli`), and that result gets
+  one more wait of 180 seconds, since a Claude TUI started beside several
+  others can take longer and a pointer sent into a TUI that is still
+  starting is lost. A wait that prints no `satisfied` field is not
+  repeated: it fails that way within seconds for a running `agy` terminal.
+- Refuses an empty brief before it creates the worktree.
 - Copies the brief to `.orca-brief.md` in the child and sends a one-line
   pointer to it. A long paragraph through `orca terminal send` arrives as
   stray characters at the prompt, and the loss is silent at both ends. The
@@ -58,7 +66,8 @@ Full handoff.
   `--until <command>` runs first in the lane checkout. Success prints `done`.
   Without `--until`, a quiet lane without children prints `idle`, or
   `limited` when the last 30 lines of its screen name a rate limit, a usage
-  limit, a quota, or a reset time. A failing
+  limit, an exceeded, exhausted, or reached quota, or a reset time. The word `quota`
+  alone does not match, since a finished report on quota code names it. A failing
   command falls through to `idle` or `limited` without children or to `idle-children
   <names>` after the child-idle clock. The child-idle clock is `--stall`
   seconds, 1200 by default, and restarts when the lane's screen changes or a
@@ -155,14 +164,39 @@ not measured.
   Prompt the worker to write its report to `REPORT.md` in its own
   worktree and reply with the path, read that file, and delete it before
   the merge.
-- `stop` says the checkout is dirty: read what is there and report it; a
-  worker that left files uncommitted is left in place.
+- `stop` says the checkout is dirty: read what is there and report it. A
+  worker whose terminal is live and left files uncommitted is left in
+  place.
+- `stop` says the checkout is dirty and the lane's terminal has exited:
+  nothing will commit that work, and the lane blocks the `stop` of its
+  parent. `wait` printing `exited` or `status` printing `gone` is not
+  proof, since both also follow a failed screen read on a live lane.
+  Confirm it with the `terminal` handle from the lane's state file under
+  `<git common dir>/orca-workers/`, unsandboxed:
+  `orca terminal show --terminal <handle> --json` reads status `exited`.
+  Without that, report the lane and leave it. With it, park the lane. Commit
+  the tree in the child, keep the commit on `parked/<slug>`, grade the lane
+  `blocked`, and stop it. The report names the branch, where the work stays
+  for a person to read. Whether `orca terminal close` succeeds on a
+  terminal that has already exited is unverified. When `stop` then says the
+  terminal close failed, report the lane and leave it.
+
+  ```bash
+  git -C <child> add -A
+  git -C <child> commit -m "wip: uncommitted work of exited lane <slug>"
+  git branch parked/<slug> <lane branch>
+  .claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome blocked --verify none --note "exited dirty; work on parked/<slug>"
+  .claude/skills/delegate/scripts/orca-worker.sh stop <slug>
+  ```
 - `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
   before stopping it.
 - `stop` says the lane has child worktrees: the worker started lanes and
   left them. Each child's branch is merged into the lane (or dropped with
   the user's agreement) and the child removed before the lane is stopped;
-  the ids it printed name them.
+  the ids it printed name them. A child whose terminal exited with a dirty
+  checkout is parked as above, so it does not hold the lane.
+- `start` says the brief is empty: the brief file has no bytes. Write the
+  brief and start the lane again.
 - `start` says the hooks review remains or has no "Trust all and
   continue" option: Codex changed the dialog again. Its screen is in the
   error; update the match in `orca-worker.sh`, or run `codex` in the

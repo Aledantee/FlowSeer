@@ -31,6 +31,10 @@ const (
 	msgOperatorUnauthenticated = "the call is not authenticated"
 )
 
+// ErrCodeFullPayloadExpired identifies a full-payload request without an active
+// member grant, even when its authorization tuple has not yet been reconciled.
+var ErrCodeFullPayloadExpired = errs.NewCode("captureapi/full-payload-expired")
+
 func unauthenticatedOperator(err error) error {
 	if err == nil {
 		err = errs.Msg(msgOperatorUnauthenticated)
@@ -39,21 +43,25 @@ func unauthenticatedOperator(err error) error {
 }
 
 // OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange and
-// Project callbacks are no-ops, and nil Clock uses the wall clock.
+// Project callbacks are no-ops, and nil Clock uses the wall clock. Nil
+// FullPayload refuses full-payload creation with CodeUnavailable. FullPayload
+// reads the authenticated operator's member grant. False means expired or absent,
+// and an error refuses creation with CodeUnavailable.
 type OperatorServiceConfig struct {
 	EdgeTenant   func(ctx context.Context, edgeID string) (string, error)
+	FullPayload  func(ctx context.Context, tenantID string, operator *identityv1.OperatorRef) (bool, error)
 	NotifyChange func()
 	Clock        func() time.Time
 	Project      func(ctx context.Context, objectType, id string)
 }
 
 // OperatorService serves operator capture requests. An OperatorService is safe
-// for concurrent use when its configured EdgeTenant, NotifyChange, Clock, and
-// Project callbacks are safe for concurrent use.
+// for concurrent use when all its configured callbacks are safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
 	edgeTenant   func(ctx context.Context, edgeID string) (string, error)
+	fullPayload  func(ctx context.Context, tenantID string, operator *identityv1.OperatorRef) (bool, error)
 	notifyChange func()
 	clock        func() time.Time
 	project      func(ctx context.Context, objectType, id string)
@@ -80,6 +88,7 @@ func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServ
 		store:        store,
 		broadcaster:  broadcaster,
 		edgeTenant:   cfg.EdgeTenant,
+		fullPayload:  cfg.FullPayload,
 		notifyChange: notify,
 		clock:        clock,
 		project:      project,
@@ -130,6 +139,18 @@ func (s *OperatorService) CreateCaptureSession(
 	if msg.GetAuthorization().GetFullPayloadRequested() {
 		if err := authz.Require(ctx, "full_payload", "tenant", tenantID); err != nil {
 			return nil, err
+		}
+		if s.fullPayload == nil {
+			return nil, connect.NewError(connect.CodeUnavailable, errs.Msg("full payload grant resolver not configured"))
+		}
+		active, err := s.fullPayload(ctx, tenantID, identityv1.OperatorRef_builder{
+			Issuer: new(principal.Issuer), Subject: new(principal.Subject),
+		}.Build())
+		if err != nil {
+			return nil, connecterr.WrapAs(connect.CodeUnavailable, "full payload grant cannot be read", errs.From(err).Code(ErrCodeStore).Msg("read full payload grant"))
+		}
+		if !active {
+			return nil, connecterr.WrapAs(connect.CodePermissionDenied, "full payload grant expired", errs.New().Code(ErrCodeFullPayloadExpired).Msg("full payload grant expired"))
 		}
 	}
 

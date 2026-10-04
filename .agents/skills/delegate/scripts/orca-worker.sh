@@ -63,7 +63,8 @@ working() { grep -q -i -E 'esc( to)? (interrupt|cancel)' <<<"$1"; }
 # which is otherwise the settled state. Each CLI words that wait its own
 # way and none was captured, so the match is broad and the outcome only
 # tells the coordinator to read the screen before treating the lane as done.
-limited() { grep -v -E '^\s*$' <<<"$1" | tail -30 | grep -q -i -E 'rate.?limit|usage limit|limit reached|quota|try again (in|at)|resets? (in|at)'; }
+# A bare "quota" is not matched: a finished report on quota code names it.
+limited() { grep -v -E '^\s*$' <<<"$1" | tail -30 | grep -q -i -E 'rate.?limit|usage limit|limit reached|quota.{0,20}(exceeded|exhausted|reached)|(exceeded|exhausted|reached).{0,20}quota|try again (in|at)|resets? (in|at)'; }
 launch_line() {
   local cli=$1 model=$2 effort=${3:-} line
   case "$cli" in
@@ -161,6 +162,7 @@ case "$cmd" in
     for v in lane cli brief role; do [[ -n "${!v}" ]] || die "--$v is required"; done
     [[ "$lane" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "lane must match [a-z][a-z0-9_-]{0,31}"
     [[ -f "$brief" ]] || die "brief $brief not found"
+    [[ -s "$brief" ]] || die "brief $brief is empty"
     case "$cli" in
       claude|codex) [[ -n $model ]] || die "--model is required for $cli"; [[ -z $agent ]] || die "--agent does not apply to $cli" ;;
       agy) [[ -n $model ]] || die "--model is required for agy"; [[ -z $effort ]] || die "--effort does not apply to agy: it is part of the model id"; [[ -z $agent ]] || die "--agent does not apply to agy" ;;
@@ -228,8 +230,13 @@ case "$cmd" in
     [[ -n $term ]] || undo "terminal create returned no handle: $started"
     # The wait only paces startup: it fails within seconds for an agy
     # terminal that is running. The status check below catches a CLI that
-    # exited.
-    orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json >/dev/null 2>&1
+    # exited. A timed-out wait prints a normal result with `satisfied`
+    # false, and a pointer sent into a TUI that is still starting is lost,
+    # so that result gets one longer wait.
+    waited=$(orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 90000 --json 2>/dev/null)
+    if [[ $(printf '%s' "$waited" | json 'd["result"]["wait"]["satisfied"]') == False ]]; then
+      orca terminal wait --terminal "$term" --for tui-idle --timeout-ms 180000 --json >/dev/null 2>&1
+    fi
 
     # Codex startup dialog: "Hooks need review", shown when a hook in
     # .codex/hooks.json or ~/.codex/hooks.json is new or changed. A prompt

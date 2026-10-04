@@ -476,7 +476,7 @@ func isRefusedRune(r rune) bool {
 }
 
 // isValidTypedID reports whether s is a type:id of at most maxBytes that the
-// engine accepts as an object or a user. It also refuses the id "*", which
+// engine accepts as an object or a direct user. It also refuses the id "*", which
 // the engine reads as a wildcard, and '#', which makes a userset.
 func isValidTypedID(s string, maxBytes int) bool {
 	if len(s) < 2 || len(s) > maxBytes || strings.ContainsFunc(s, isRefusedRune) {
@@ -491,7 +491,21 @@ func isValidObject(s string) bool {
 }
 
 func isValidUser(s string) bool {
-	return isValidTypedID(s, maxUserBytes)
+	if len(s) > maxUserBytes {
+		return false
+	}
+	object, relation, userset := strings.Cut(s, "#")
+	if !isValidTypedID(object, maxUserBytes) {
+		return false
+	}
+	if !userset {
+		return true
+	}
+	if strings.Contains(object, "*") {
+		return false
+	}
+	kind, _, _ := strings.Cut(object, ":")
+	return kind == "role" && relation == "assignee" || kind == "tenant" && relation == "active_admin"
 }
 
 // isValidRelation mirrors tuple.IsValidRelation: a relation also refuses ':'
@@ -516,8 +530,8 @@ func isValidQuery(q authz.Query) bool {
 	return !slices.ContainsFunc(q.ContextualTuples, func(t authz.Tuple) bool { return !isValidTuple(t) })
 }
 
-// Check evaluates a single authorization query. An invalid identifier OpenFGA
-// refuses is answered false without a network call.
+// Check evaluates a single authorization query. An invalid identifier or a
+// userset outside the embedded model is answered false without a network call.
 func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return false, ctxErr
@@ -568,9 +582,6 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return nil, ctxErr
 	}
-	if err := c.verify(ctx); err != nil {
-		return nil, err
-	}
 	results := make([]bool, len(queries))
 	if len(queries) == 0 {
 		return results, nil
@@ -613,6 +624,9 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 
 	if len(pending) == 0 {
 		return results, nil
+	}
+	if err := c.verify(ctx); err != nil {
+		return nil, err
 	}
 
 	for start := 0; start < len(pending); start += maxBatchSize {

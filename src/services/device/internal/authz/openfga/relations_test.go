@@ -196,6 +196,87 @@ func TestModelOneRelationShortRefusesAllMethods(t *testing.T) {
 	}
 }
 
+func TestWriteUsersets(t *testing.T) {
+	for _, tc := range acceptedUsersets {
+		t.Run(tc.name, func(t *testing.T) {
+			harness := newTestServerHarness(t)
+			checker := newChecker(t, harness, nil)
+			tuple := authz.Tuple{Object: "tenant:t1", Relation: "operator", User: tc.user}
+			if err := checker.Write(context.Background(), []authz.Tuple{tuple}, nil); err != nil {
+				t.Fatalf("Write userset: %v", err)
+			}
+			if err := checker.Write(context.Background(), nil, []authz.Tuple{tuple}); err != nil {
+				t.Fatalf("Delete userset: %v", err)
+			}
+			harness.fake.mu.Lock()
+			defer harness.fake.mu.Unlock()
+			requests := harness.fake.recordedWriteReqs
+			if len(requests) != 2 {
+				t.Fatalf("Write calls = %d, want 2", len(requests))
+			}
+			if got := requests[0].GetWrites().GetTupleKeys()[0].GetUser(); got != tc.user {
+				t.Errorf("written user = %q, want %q", got, tc.user)
+			}
+			if got := requests[1].GetDeletes().GetTupleKeys()[0].GetUser(); got != tc.user {
+				t.Errorf("deleted user = %q, want %q", got, tc.user)
+			}
+		})
+	}
+}
+
+func TestWriteMalformedUsersetsMakesNoWrite(t *testing.T) {
+	for _, tc := range refusedUsersets {
+		t.Run(tc.name, func(t *testing.T) {
+			harness := newTestServerHarness(t)
+			checker := newChecker(t, harness, nil)
+			tuple := authz.Tuple{Object: "tenant:t1", Relation: "operator", User: tc.user}
+			wantCode(t, checker.Write(context.Background(), []authz.Tuple{tuple}, nil), openfga.ErrCodeInvalidTuple)
+			wantCode(t, checker.Write(context.Background(), nil, []authz.Tuple{tuple}), openfga.ErrCodeInvalidTuple)
+			if got := harness.fake.writeCallsCount.Load(); got != 0 {
+				t.Errorf("Write calls = %d, want 0", got)
+			}
+		})
+	}
+}
+
+func TestRelationObjectsRefuseUsersets(t *testing.T) {
+	for _, object := range []string{"role:r1#assignee", "tenant:t1#active_admin"} {
+		for _, operation := range []string{"write", "delete", "read"} {
+			t.Run(object+"/"+operation, func(t *testing.T) {
+				ctx := t.Context()
+				harness := newTestServerHarness(t)
+				checker := newChecker(t, harness, nil)
+				if err := checker.Verify(ctx); err != nil {
+					t.Fatalf("Verify: %v", err)
+				}
+				storesBefore := harness.fake.getStoreCallsCount.Load()
+				modelsBefore := harness.fake.readModelCallsCount.Load()
+				tuple := authz.Tuple{Object: object, Relation: "operator", User: "user:u1"}
+				var err error
+				switch operation {
+				case "write":
+					err = checker.Write(ctx, []authz.Tuple{tuple}, nil)
+				case "delete":
+					err = checker.Write(ctx, nil, []authz.Tuple{tuple})
+				case "read":
+					var tuples []authz.Tuple
+					tuples, err = checker.Read(ctx, object)
+					if len(tuples) != 0 {
+						t.Errorf("Read tuples = %v, want none", tuples)
+					}
+				}
+				wantCode(t, err, openfga.ErrCodeInvalidTuple)
+				if got := harness.fake.writeCallsCount.Load() + harness.fake.readCallsCount.Load(); got != 0 {
+					t.Errorf("relationship calls = %d, want 0", got)
+				}
+				if got := harness.fake.getStoreCallsCount.Load() - storesBefore + harness.fake.readModelCallsCount.Load() - modelsBefore; got != 0 {
+					t.Errorf("verification calls = %d, want 0", got)
+				}
+			})
+		}
+	}
+}
+
 func TestWriteRelations(t *testing.T) {
 	t.Run("write of 250 tuples makes calls of 100, 100, and 50 each carrying both options", func(t *testing.T) {
 		harness := newTestServerHarness(t)

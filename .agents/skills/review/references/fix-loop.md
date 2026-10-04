@@ -10,7 +10,7 @@ Contents:
 - One round: dispatch, merge, the briefed reviewer, the unbriefed reviewer
   for a security fix
 - When to stop: a clean round, a Requirement question, a repeated
-  mechanism, the two-round cap
+  mechanism, the two-round cap, an oversized finding
 
 ## Which findings block
 
@@ -123,20 +123,44 @@ remedy is `review` again.
 ## One round
 
 1. Dispatch the fixes as `delegate` describes, one worker per file group.
-   Brief each with its findings' `path:line`, failure scenario, and smallest
-   fix, and with the class `SKILL.md` step 4 named: the mechanism, and the
-   instruction to find and fix every other site that engages it and report
-   the sites it cleared. A fix worker may edit its findings' files, the file
-   in the owning layer where the fix belongs (a helper a test needs goes in
-   that layer, not in the test), every file the fix leaves stale (a Taskfile
-   description, a README), and the files of the other sites it finds, each
-   listed in its report. It never edits a plan Decision marked
-   `decided by the user` (`delegate`, Write the brief, item 6). The review's changed paths do not
-   bound the fix. A fix worker that needs a file outside these categories
-   reports a blocker naming the file and reason. A comment, skipped or
-   weakened test, or partial change is not a fix. When that blocker returns,
-   the coordinator extends the allowed file list and dispatches the worker
-   again.
+   The groups of a round are disjoint. A file two findings share goes to
+   one worker, and each brief names the other workers' files as closed to
+   it. A fix brief carries findings only. Cleanup the review did not report
+   (comment style, plan labels) waits for the follow-up pass, since two
+   workers that reword the same comment lines fail `merge-check.py` with a
+   lost change.
+
+   Brief each worker with:
+   - each finding's `path:line`, failure scenario, the property the fix
+     must hold, and the smallest fix as `SKILL.md` step 4 verified it.
+   - the class `SKILL.md` step 4 named: the mechanism, and the instruction
+     to find every other site that engages it. The worker fixes the sites
+     in code the reviewed change added or modified and reports the sites it
+     cleared. A site in code the change left alone, or in another worker's
+     file, is not edited. It goes in the worker's report as a note for the
+     coordinator, since a rewrite of readers the change never touched
+     brings in defects the review did not look for. The coordinator settles
+     each note under `SKILL.md` step 4 and lists what holds under
+     "pre-existing".
+
+   When the coordinator adds a mechanism of its own to a brief (how to fix,
+   beyond what is wrong), it runs `SKILL.md` step 4's check on it first: it opens the
+   code the mechanism touches and names every caller of that code in the
+   brief. A mechanism it has not checked that way is left to the worker.
+
+   A fix worker may edit its findings' files, the file in the owning layer
+   where the fix belongs (a helper a test needs goes in that layer, not in
+   the test), every file the fix leaves stale (a Taskfile description, a
+   README), and the files of the other sites it fixes, each listed in its
+   report. The owning-layer file and a stale file may lie outside the
+   review's changed paths. A file closed to the worker is not edited under
+   any of these categories, and a stale line there goes in its report as a
+   note. It never edits a plan Decision marked
+   `decided by the user` (`delegate`, Write the brief, item 6). A fix
+   worker that needs a file outside these categories reports a blocker
+   naming the file and reason. A comment, skipped or weakened test, or
+   partial change is not a fix. When that blocker returns, the coordinator
+   extends the allowed file list and dispatches the worker again.
    The coordinating session does not make the fixes itself.
 2. Before each merge, run
    `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
@@ -175,6 +199,14 @@ remedy is `review` again.
 
 After the round settles, write the round count beside the verdict
 (`SKILL.md` step 5).
+
+When the coordinator applied a security or behavior fix itself (`SKILL.md`
+step 5, "apply the fixes here" or "apply chosen findings only"), that is a
+round too. Its own edits and verifier run stand in for steps 1 and 2. Steps
+3 and 4 run over the diff of its fixes, the count rises by one, and When to
+stop decides what a second unclean round means. A first round that is not
+clean records `fixes needed` with the new count and ends with that row's
+question in `SKILL.md` step 5.
 
 ## When to stop
 
@@ -256,6 +288,14 @@ After the round settles, write the round count beside the verdict
   Example: round one reworks an emission mechanism, and round two fixes its
   staging permissions and finds a rollback defect. That is two rounds, the
   verdict is `rework`, and the question offers `plan` first.
+- A security or behavior finding too large to fix in place makes the
+  verdict `rework` at any count, and no round is spent on it. Ask the user
+  (`AGENTS.md`, Agent behavior) whether to take the work to `plan`
+  (recommended, since a fix that does not fit a round needs units of its
+  own), to drop or replace the mechanism the finding is in, naming its
+  simplest design as above, or to stop. A security finding is named first,
+  with its six parts. A delegated worker does not ask: it sets the verdict
+  to `rework` and states the finding as its blocker.
 - Every verdict the loop writes is recorded as `SKILL.md` step 5 records a
   verdict, which also updates the Orca card. The commit that records the
   verdict names the number of fix rounds.
@@ -263,4 +303,9 @@ After the round settles, write the round count beside the verdict
 Before the final report, stop each fix worker's lane: `orca worktree list
 --json` lists no worktree whose `parentWorktreeId` is this one, other than
 those the report names with the reason they stayed. A lane left behind
-blocks the coordinator's `stop` of this worktree.
+blocks the coordinator's `stop` of this worktree. A fix lane whose terminal
+exited with uncommitted files is parked and stopped as
+`delegate/references/orca.md`, When a step fails, describes for a dirty
+checkout. A delegated runner of this loop does not park it, since that is
+a git write outside its own checkout: it names the lane in its report, and
+the coordinator above parks it.

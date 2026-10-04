@@ -15,6 +15,22 @@ TESTCONTAINERS_RYUK_DISABLED=true \
 go test -v -race -tags=authz_integration ./src/services/device/test/integration/
 ```
 
+`TestEnforcementAgainstTheRealEngine` starts central with a configured platform
+admin and creates tenants, members, roles, full-payload grants, and partner
+links through the identity APIs. It reads OpenFGA only to check projection and
+to scan for relationships naming a removed member. Its access setup writes no
+tuples directly. The test proves role access, denial when a token omits the
+tenant claim, full-payload access after an explicit grant, and partner access
+ending when the customer disconnects the provider.
+
+The lab bootstrap uses the same API flow in step 5 of
+[`deploy/lab/README.md`](../../../../../deploy/lab/README.md).
+Run the fixture and runbook checks without Docker:
+
+```bash
+go test -race ./src/services/device/test/integration
+```
+
 `TESTCONTAINERS_RYUK_DISABLED=true` turns off the testcontainers reaper, so
 each test must terminate its own containers. The benchmark does this in a
 cleanup that reports a failure. `TestOpenFGAListObjectsStopsAtTheCap` starts
