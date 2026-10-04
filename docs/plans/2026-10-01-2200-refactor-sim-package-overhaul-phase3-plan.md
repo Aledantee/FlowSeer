@@ -636,3 +636,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/net/bpdu/bpdu.go:511: `Decode` comment keeps legacy versions 0 or 1, fallback above version 3, and the zero Hello Time refusal; `:365`, `:443`, and `src/common/net/bpdu/bpdu_test.go:994` give the 16-bit length as the reason for 64; `:676` says the caller checked 105 octets
 - src/common/net/bpdu/bpdu_test.go:1777: golden frame EtherType is `len(wire) - 3`, the encoder writes `len(wire)`, and only payloads are compared
 - src/common/sim/internal/simtest/stp_cases.go:721: comment keeps `mstid=1`
+- src/common/net/bpdu/bpdu.go:601: `version >= mstProtocolVersion` to `==`; fails: version 4 and 255 frames with a 35-octet body decode as RST
+- src/common/sim/layer/stp/receive.go:222: `l.treeOrder` back to `range l.trees` here, at `:476`, or at `:569`; fails: a TCN through `Receive` on a PVST bridge with five VLANs emits in ascending VLAN order on repeated runs
+- src/common/sim/layer/stp/roles.go:195: boundary branch keeps `agreed` across a role change; fails: an MSTI boundary port that changes role must earn a new agreement
+- src/common/sim/layer/stp/tree_internal_test.go:924: sets `tcActive` on an Alternate port, a state `updatePortStates` never leaves; fails: with reachable state no emission names the expired root
+- src/common/net/bpdu/bpdu_test.go:1584: a second fixture with EtherType `len(Payload) - 3`
