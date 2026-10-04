@@ -27,14 +27,12 @@ both `authentication` and `authorization` sections (`deploy/lab/central.textprot
 An operator obtains a token from the identity provider and configures tenant
 membership before issuing commands, as detailed in [deploy/lab/README.md](../../deploy/lab/README.md).
 
-For the lab setup with Dex, retrieve the token with password grant:
-
-```sh
-export TOKEN=$(curl -sS --cacert secrets/ca.crt \
-  -u "flowseer-device:$(grep flowseer-device credentials.txt | awk '{print $2}')" \
-  -d "grant_type=password&username=alice&password=$(grep alice credentials.txt | awk '{print $2}')&scope=openid profile email groups" \
-  https://127.0.0.1:8445/dex/token | jq -r .access_token)
-```
+For the lab setup with Dex, run step 4, "Request an operator token", in
+[deploy/lab/README.md](../../deploy/lab/README.md) from `deploy/lab`. That step
+reads `secrets/credentials.txt`, uses the `flowseer-lab` client, requests the
+`audience:server:client_id:flowseer-device` scope, and sets `ALICE_TOKEN`. Set
+`TOKEN` to that value in this shell. The README owns the token command and its
+relative paths.
 
 The tenant identifier must be a canonical UUID (`spec/proto/flowseer/model/identity/v1/tenant.proto:13-16`).
 `TENANT=default` is admitted only by the test suite's always-allow engine
@@ -46,7 +44,8 @@ verifier yields `claimed` only when a matching active tenant record exists
 (`src/services/device/internal/authn/verifier.go:452-476`).
 Today, no operator-facing path creates a tenant record: `tenantstore.Store.Create`
 (`src/services/device/internal/tenantstore/store.go:113-126`) has no caller
-outside tests, `TenantService` is not mounted (`src/services/device/internal/host/host_test.go:629-655`),
+outside tests, `TenantService` is not mounted (`TestTenantServiceIsNotMounted` in
+`src/services/device/internal/host/host_test.go`),
 and central's CLI (`src/services/device/cmd/device/main.go:39`) accepts only `--config`.
 Every operator call against a deployment built from `deploy/lab` answers
 `PermissionDenied` until a tenant record is provisioned out of band per
@@ -70,9 +69,8 @@ export CACERT=/var/lib/flowseer/device/tls.crt
 export DEVICE_ID=0192e6a0-0000-7000-8000-0000000000d1
 export INTERFACE="ethernet 1/1/1"
 
-# The change itself, and who is making it.
+# Set TOKEN from step 4 of deploy/lab/README.md before running this block.
 export DESCRIPTION="uplink to core"
-export TOKEN=your-oidc-bearer-token
 export TENANT=0192e6a0-0000-7000-8000-0000000000ac
 export IDEMPOTENCY_KEY=$(uuidgen | tr 'A-Z' 'a-z')
 

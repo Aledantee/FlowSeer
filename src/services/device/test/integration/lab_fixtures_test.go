@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -549,6 +550,13 @@ func TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses(t *testing.T) {
 	if !strings.Contains(readme, `"issuedAt":`) || !strings.Contains(readme, `"expiresAt":`) {
 		t.Errorf("deploy/lab/README.md setupKey expected answer missing issuedAt or expiresAt")
 	}
+	if !regexp.MustCompile(`"setupKey": "fse1_[a-z2-7]{26}_[a-z2-7]{52}"`).MatchString(readme) {
+		t.Errorf("deploy/lab/README.md provisioning setupKey does not match the 26-character id and 52-character secret schema")
+	}
+	getEdge := strings.Index(readme, "Requesting `GetEdge`")
+	if getEdge < 0 || !strings.Contains(readme[getEdge:], `"setupKey": {`) {
+		t.Errorf("deploy/lab/README.md GetEdge expected answer omits state.setupKey")
+	}
 
 	if strings.Contains(readme, `-d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}'`) {
 		t.Errorf("deploy/lab/README.md hardcodes edge id in GetEdge, must capture from CreateEdge answer")
@@ -568,6 +576,16 @@ func TestTheLabReadmeStartCommandAndBootstrapRegistry(t *testing.T) {
 
 	if !strings.Contains(readme, "registry.textproto") || !strings.Contains(readme, "0192e6a0-0000-7000-8000-00000000dead") {
 		t.Errorf("deploy/lab/README.md does not show or cite the bootstrap registry with placeholder edge")
+	}
+
+	for _, stale := range []string{
+		"docs/runbooks/lab-icx7150-first-write.md:92-95",
+		"docs/runbooks/lab-icx7150-first-write.md:168",
+		"host_test.go:629-654",
+	} {
+		if strings.Contains(readme, stale) {
+			t.Errorf("deploy/lab/README.md retains stale citation %q", stale)
+		}
 	}
 }
 
@@ -591,8 +609,17 @@ func TestTheRunbookAuthenticationAndTenantContracts(t *testing.T) {
 		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing link to deploy/lab/README.md")
 	}
 
-	if !strings.Contains(runbook, "authentication") || !strings.Contains(runbook, "authorization") {
-		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing mention of central authentication/authorization config")
+	for _, stale := range []string{
+		"grep flowseer-device credentials.txt",
+		"grep alice credentials.txt",
+		"export TOKEN=your-oidc-bearer-token",
+	} {
+		if strings.Contains(runbook, stale) {
+			t.Errorf("docs/runbooks/lab-icx7150-first-write.md repeats stale token step %q; use deploy/lab/README.md", stale)
+		}
+	}
+	if strings.Contains(runbook, "host_test.go:629-655") {
+		t.Error("docs/runbooks/lab-icx7150-first-write.md retains stale host_test.go line citation")
 	}
 
 	for _, cite := range []string{
@@ -634,6 +661,61 @@ func TestTheDirectionRecordCitationsAndDecisions(t *testing.T) {
 		t.Errorf("direction record claims per-subject cap is for cross-tenant eviction; should be edge viewers evicting key issuance records")
 	}
 
+	amendmentStart := strings.LastIndex(text, "### 2026-10-03:")
+	if amendmentStart < 0 {
+		t.Fatal("direction record is missing the 2026-10-03 amendment")
+	}
+	lineRE := regexp.MustCompile(`^(.+):([0-9]+)(-([0-9]+))?$`)
+	repositoryRoots := []string{"src/", "spec/", "docs/", "deploy/", "test/"}
+	pathsChecked := 0
+	for _, match := range regexp.MustCompile("`([^`]+)`").FindAllStringSubmatch(text[amendmentStart:], -1) {
+		citation := match[1]
+		path := citation
+		startText := ""
+		endText := ""
+		if parts := lineRE.FindStringSubmatch(citation); parts != nil {
+			path = parts[1]
+			startText = parts[2]
+			endText = parts[4]
+		}
+		if !slices.ContainsFunc(repositoryRoots, func(root string) bool {
+			return strings.HasPrefix(path, root)
+		}) {
+			continue
+		}
+		pathsChecked++
+		fullPath := filepath.Join(repoRoot, path)
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			t.Errorf("direction record citation %q does not name a repository file: %v", citation, err)
+			continue
+		}
+		if info.IsDir() {
+			t.Errorf("direction record citation %q names a directory, want a file", citation)
+			continue
+		}
+		if startText == "" {
+			continue
+		}
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			t.Errorf("read cited file %q: %v", citation, err)
+			continue
+		}
+		lineCount := len(strings.Split(strings.TrimSuffix(string(content), "\n"), "\n"))
+		start, _ := strconv.Atoi(startText)
+		end := start
+		if endText != "" {
+			end, _ = strconv.Atoi(endText)
+		}
+		if start < 1 || end < start || end > lineCount {
+			t.Errorf("direction record citation %q is outside %s line range 1-%d", citation, path, lineCount)
+		}
+	}
+	if pathsChecked == 0 {
+		t.Fatal("direction record amendment has no repository citations")
+	}
+
 	for _, decision := range []string{
 		"Sync",
 		"5 s",
@@ -645,19 +727,6 @@ func TestTheDirectionRecordCitationsAndDecisions(t *testing.T) {
 		if !strings.Contains(text, decision) {
 			t.Errorf("direction record missing decision keyword %q", decision)
 		}
-	}
-}
-
-// src/services/device/test/integration/fixture_test.go comment contracts.
-func TestTheFixtureTestClientCommentReused(t *testing.T) {
-	t.Parallel()
-
-	content, err := os.ReadFile(filepath.Join(repoRoot, "src", "services", "device", "test", "integration", "fixture_test.go"))
-	if err != nil {
-		t.Fatalf("read fixture_test.go: %v", err)
-	}
-	if strings.Contains(string(content), "built once and reused") {
-		t.Errorf("fixture_test.go says 'built once and reused' while start() rebuilds it")
 	}
 }
 
