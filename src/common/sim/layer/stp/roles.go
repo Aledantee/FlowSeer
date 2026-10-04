@@ -93,7 +93,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			p := t.ports[name]
 			link := l.links[name]
 			if link.up && p.role == bpdu.RoleDesignated && link.pointToPoint && p.state == StateDiscarding && !p.agreed {
-				l.emit(t, p, now, emissionDesignated, &emissions)
+				l.emit(t, p, now, emissionDesignated, &emissions, changes)
 			}
 		}
 	}

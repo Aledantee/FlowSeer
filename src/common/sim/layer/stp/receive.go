@@ -196,56 +196,57 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 
 	var flushes []layer.FlushTarget
 	changes := newTopologyChangeEmissions()
+	var emissions []layer.Emission
 
-	// An MST BPDU on a PVST bridge is the boundary this layer reports rather
-	// than models: its RST prefix still drives VLAN 1's tree below, but no
-	// other VLAN's tree hears anything from that neighbor.
-	if l.pvst != nil && b.ConfigID != nil {
-		link.pvstBoundary = true
-	}
+	func() {
+		// An MST BPDU on a PVST bridge is the boundary this layer reports rather
+		// than models: its RST prefix still drives VLAN 1's tree below, but no
+		// other VLAN's tree hears anything from that neighbor.
+		if l.pvst != nil && b.ConfigID != nil {
+			link.pvstBoundary = true
+		}
 
-	emissions, done := l.receiveLink(now, port, b, &flushes, changes)
-	if done {
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
-		return layer.Effects{Emissions: emissions, Flush: flushes}
-	}
+		var done bool
+		emissions, done = l.receiveLink(now, port, b, &flushes, changes)
+		if done {
+			return
+		}
 
-	if b.Type == bpdu.TypeTopologyChangeNotification {
-		if p.tcActive {
-			if p.role == bpdu.RoleDesignated {
-				p.tcAck = true
-				l.emit(t, p, now, emissionDesignated, &emissions)
-			}
-			if !p.cfg.RestrictedTCN {
-				p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-				t.topologyChangeCount++
-				t.lastTopologyChange = now
-				l.propagateTopologyChange(t, p.name, now, &flushes, changes)
-				for _, id := range l.treeOrder {
-					mt := l.trees[id]
-					if mt.id == cistID {
-						continue
-					}
-					if mp := mt.ports[port]; mp != nil && mp.tcActive {
-						mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
-						mt.topologyChangeCount++
-						mt.lastTopologyChange = now
-						l.propagateTopologyChange(mt, port, now, &flushes, changes)
+		if b.Type == bpdu.TypeTopologyChangeNotification {
+			if p.tcActive {
+				if p.role == bpdu.RoleDesignated {
+					p.tcAck = true
+					l.emit(t, p, now, emissionDesignated, &emissions, changes)
+				}
+				if !p.cfg.RestrictedTCN {
+					p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+					changes.add(l, t, p.name)
+					t.topologyChangeCount++
+					t.lastTopologyChange = now
+					l.propagateTopologyChange(t, p.name, now, &flushes, changes)
+					for _, id := range l.treeOrder {
+						mt := l.trees[id]
+						if mt.id == cistID {
+							continue
+						}
+						if mp := mt.ports[port]; mp != nil && mp.tcActive {
+							mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
+							changes.add(l, mt, mp.name)
+							mt.topologyChangeCount++
+							mt.lastTopologyChange = now
+							l.propagateTopologyChange(mt, port, now, &flushes, changes)
+						}
 					}
 				}
 			}
+
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+
+			return
 		}
 
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
-
-		return layer.Effects{
-			Emissions: emissions,
-			Flush:     flushes,
-		}
-	}
-
-	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+		emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+	}()
 	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 	return layer.Effects{
@@ -316,77 +317,82 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 
 	var flushes []layer.FlushTarget
 	changes := newTopologyChangeEmissions()
+	var emissions []layer.Emission
+	outcome := SSTPGuarded
 
-	// receiveLink is the link-level half of a receive: BPDU guard, the
-	// loop-guard clear, protocol migration, and auto-edge loss all belong to
-	// the port whatever tree the frame names, so it runs whatever this bridge
-	// goes on to decide about the tree half below.
-	emissions, done := l.receiveLink(now, port, b, &flushes, changes)
+	func() {
+		// receiveLink is the link-level half of a receive: BPDU guard, the
+		// loop-guard clear, protocol migration, and auto-edge loss all belong to
+		// the port whatever tree the frame names, so it runs whatever this bridge
+		// goes on to decide about the tree half below.
+		var done bool
+		emissions, done = l.receiveLink(now, port, b, &flushes, changes)
 
-	// The mark is a statement about the neighbor, not about this frame's
-	// outcome, so it is set whenever this bridge does not run PVST even when
-	// the guard above just fired.
-	if l.pvst == nil {
-		link.pvstBoundary = true
-	}
+		// The mark is a statement about the neighbor, not about this frame's
+		// outcome, so it is set whenever this bridge does not run PVST even when
+		// the guard above just fired.
+		if l.pvst == nil {
+			link.pvstBoundary = true
+		}
 
-	if done {
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPGuarded
-	}
+		if done {
+			return
+		}
 
-	l.armHelloTimers(now)
+		l.armHelloTimers(now)
 
-	if l.pvst == nil {
-		// This bridge's CIST does not run the BPDU's VLAN, so feeding the
-		// vector into it would elect a root from a tree it is not running.
-		// The neighbor relationship still converges, because a PVST+ bridge
-		// sends VLAN 1's tree to the IEEE address as well.
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
+		if l.pvst == nil {
+			// This bridge's CIST does not run the BPDU's VLAN, so feeding the
+			// vector into it would elect a root from a tree it is not running.
+			// The neighbor relationship still converges, because a PVST+ bridge
+			// sends VLAN 1's tree to the IEEE address as well.
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPBoundary
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPBoundary
-	}
+			return
+		}
 
-	if !arrival.Admitted {
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
+		if !arrival.Admitted {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPNotAdmitted
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPNotAdmitted
-	}
+			return
+		}
 
-	t, ok := l.treeFor(arrival.ArrivalVID)
-	if !ok {
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
+		t, ok := l.treeFor(arrival.ArrivalVID)
+		if !ok {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPUntrackedVLAN
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
-	}
+			return
+		}
 
-	p, ok := t.ports[port]
-	if !ok {
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
+		p, ok := t.ports[port]
+		if !ok {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPUntrackedVLAN
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
-	}
+			return
+		}
 
-	// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
-	// VLAN the peer named: the arrival VLAN is the one whose local traffic
-	// would cross a link the two ends disagree about.
-	if arrival.TLVVID != arrival.ArrivalVID {
-		p.pvidInconsistent = true
-		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
-		l.emitTopologyChangeEmissions(now, changes, &emissions)
+		// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
+		// VLAN the peer named: the arrival VLAN is the one whose local traffic
+		// would cross a link the two ends disagree about.
+		if arrival.TLVVID != arrival.ArrivalVID {
+			p.pvidInconsistent = true
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPPVIDInconsistent
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
-	}
-	p.pvidInconsistent = false
+			return
+		}
+		p.pvidInconsistent = false
 
-	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+		emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+		outcome = SSTPApplied
+	}()
 	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
-	return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
+	return layer.Effects{Emissions: emissions, Flush: flushes}, outcome
 }
 
 // applyBPDU applies one received BPDU to one tree: the classification, the
@@ -511,10 +517,10 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	emissions = append(emissions, l.recomputeAll(now, flushes, changes)...)
 
 	if l.answerProposals(t, p, link, b, mstiProposals, now, flushes, changes) {
-		l.emit(t, p, now, emissionAgreement, &emissions)
+		l.emit(t, p, now, emissionAgreement, &emissions, changes)
 	} else if p.role == bpdu.RoleDesignated && !b.Agreement() {
 		if compareVectors(incoming, designatedVector(t, p, link.external)) > 0 {
-			l.emit(t, p, now, emissionDesignated, &emissions)
+			l.emit(t, p, now, emissionDesignated, &emissions, changes)
 		}
 	}
 
