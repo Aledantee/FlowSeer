@@ -406,7 +406,8 @@ type OperatorActionRole_builder struct {
 
 	// The role identity. Must be present.
 	Role *v1.RoleGlobalRef
-	// The role's relations. Must contain one to four distinct, defined
+	// The role's relations. A deletion record names the role and has no
+	// relations. When present, the list contains one to four distinct, defined
 	// relations.
 	Relations []v1.TenantRelation
 }
@@ -1436,10 +1437,10 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\n" +
 	"error_type\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\terrorType:\xa5\x01\xbaH\xa1\x01\x1a\x9e\x01\n" +
-	"4operator_action_completed.error_type_matches_outcome\x129error_type is set if and only if outcome is not succeeded\x1a+has(this.error_type) == (this.outcome != 1)\"\xbc\x01\n" +
+	"4operator_action_completed.error_type_matches_outcome\x129error_type is set if and only if outcome is not succeeded\x1a+has(this.error_type) == (this.outcome != 1)\"\xba\x01\n" +
 	"\x12OperatorActionRole\x12E\n" +
-	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12_\n" +
-	"\trelations\x18\x02 \x03(\x0e2*.flowseer.model.identity.v1.TenantRelationB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x04\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\trelations\"\xae\x01\n" +
+	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12]\n" +
+	"\trelations\x18\x02 \x03(\x0e2*.flowseer.model.identity.v1.TenantRelationB\x13\xbaH\x10\x92\x01\r\x10\x04\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\trelations\"\xae\x01\n" +
 	"\x1cOperatorActionRoleAssignment\x12E\n" +
 	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12G\n" +
 	"\x06member\x18\x02 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\x06member\"\xcd\x02\n" +
