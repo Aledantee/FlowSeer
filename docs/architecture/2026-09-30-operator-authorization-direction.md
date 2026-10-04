@@ -678,13 +678,16 @@ discharge their obligation while failing closed against subsequent responses.
 
 #### Interceptor ordering and startup validation
 
-Operator handlers run behind telemetry, authentication, validation,
-authorization, and action trail interceptors in that order. Running validation
-before authorization guarantees that object identifiers passed to authorization
-rules conform to schema constraints. Placing the action trail innermost ensures
-that it records only calls admitted by authorization. Edge handlers mount
-telemetry and validation only, because edges authenticate through signed edge
-assertions (`src/services/device/README.md`) rather than operator tokens.
+Operator handlers run behind telemetry, panic recovery, authentication,
+validation, authorization, and action trail interceptors in that order
+(`operatorInterceptors` in `src/services/device/internal/host/serve.go:155-162`).
+Running validation before authorization guarantees that object identifiers passed
+to authorization rules conform to schema constraints. Placing the action trail
+innermost ensures that it records only calls admitted by authorization. Edge
+handlers mount telemetry, panic recovery, and validation only
+(`edgeInterceptors` in `src/services/device/internal/host/serve.go:119-123`),
+because edges authenticate through signed edge assertions
+(`src/services/device/README.md`) rather than operator tokens.
 
 `TenantInterceptor` and `DeviceServiceConfig.dev_tenant` are removed, so
 tenancy derives strictly from the `X-FlowSeer-Tenant` request header.
@@ -706,8 +709,8 @@ central boot.
 The relationship projector synchronizes authorization tuples for edges,
 devices, and capture sessions into OpenFGA. Handlers creating edges or sessions
 trigger immediate synchronization hooks, while a background reconciler scans
-storage every 10 minutes (`intervals.relationship_reconcile` in
-`src/services/device/internal/host/serve.go:137`) to heal drift.
+storage every 10 minutes (`RelationshipReconcile` in
+`src/services/device/internal/host/config.go:158-173`) to heal drift.
 
 The projector owns five relations and touches no other tuple:
 
@@ -716,7 +719,7 @@ The projector owns five relations and touches no other tuple:
 | `edge:<id>` | `tenant` | the `edge_<id>` index entry (`src/services/device/internal/edgestore/store.go:169-189`) |
 | `device:<id>` | `tenant` | the registry listing the device, and the index entry of the registry's edge (`src/services/device/internal/deviceapi/service.go:137-162`) |
 | `capture_session:<id>` | `tenant` | the tenant part of the session's key (`src/services/device/internal/captureapi/store.go:88-93`) |
-| `capture_session:<id>` | `edge` | `config.ref.edge.edge.id` (`spec/proto/flowseer/model/capture/v1/session.proto:26`) |
+| `capture_session:<id>` | `edge` | `config.ref.edge.edge.id` (`CaptureSessionGlobalRef` in `spec/proto/flowseer/model/capture/v1/capture_session.proto:30-35`) |
 | `capture_session:<id>` | `requester` | `user:` and `authn.ComputePrincipalID` of `config.authorization.requested_by` (`src/services/device/internal/authn/principal.go`) |
 
 These five relations support the OpenFGA model's `from tenant` and `from edge`
@@ -728,7 +731,7 @@ records. A device has no Key-Value lane record until its first mutation
 from the registry allows initial authorization checks to succeed without
 creating phantom records.
 
-`Sync(object)` (`src/services/device/internal/authz/projector/projector.go:50-100`)
+`Sync(object)` (`src/services/device/internal/projector/projector.go:90-132`)
 is the only code that writes or deletes a relationship. It reads the object's
 stored tuples, then the record, and writes the difference in one call. A
 creating handler writes the record before its tuples, and identifiers are random
@@ -737,7 +740,7 @@ belong to a record that was deleted.
 
 A handler that creates a record projects it before answering (`CreateEdge` in
 `src/services/device/internal/edgeapi/admin.go:194`, `CreateCaptureSession` in
-`src/services/device/internal/captureapi/service.go:87`). A failed projection is
+`src/services/device/internal/captureapi/operator_service.go:180-186`). A failed projection is
 logged while the handler answers anyway. The record in storage is the authority
 and the next reconciliation pass repairs the projection. For example,
 `CreateEdge` returns the single-use setup key (`src/services/device/internal/edgeapi/admin.go:145-161`),
@@ -756,17 +759,18 @@ listener availability.
 #### Operator identity
 
 `OperatorRef` requires both `issuer` and `subject` fields to uniquely identify
-the caller across identity providers. The verifier (`src/services/device/internal/authn/verifier.go:440`)
+the caller across identity providers. The verifier
+(`src/services/device/internal/authn/verifier.go:424-426`)
 refuses a subject longer than 256 characters (the bound `OperatorRef.subject`
-carries in `spec/proto/flowseer/model/identity/v1/operator.proto:18`), so every
+carries in `spec/proto/flowseer/model/identity/v1/operator.proto:12-16`), so every
 admitted principal can be recorded.
 
 Central stamps the authenticated principal onto request payloads, replacing
 caller-supplied values in mutation intents and capture authorizations to prevent
-identity spoofing (`src/services/device/internal/deviceapi/apply.go:30-38`,
-`src/services/device/internal/captureapi/service.go:68-76`). `MutationIntent.actor`
+identity spoofing (`src/services/device/internal/deviceapi/apply.go:25-37`,
+`src/services/device/internal/captureapi/operator_service.go:155-162`). `MutationIntent.actor`
 (`spec/proto/flowseer/model/access/v1/operation.proto:130`) and
-`CaptureAuthorization.requested_by` (`spec/proto/flowseer/model/capture/v1/session.proto:141`)
+`CaptureAuthorization.requested_by` (`spec/proto/flowseer/model/capture/v1/capture_session.proto:109-117`)
 remain on their messages but are no longer required in schema validation. Both
 messages serve as request payloads and stored records simultaneously (journal
 records, audit logs, and edge dispatch requests). Introducing separate
@@ -785,16 +789,16 @@ to isolate idempotency keys across operators (`src/services/device/internal/jour
 #### Operator action trail
 
 The action trail records only the nine procedures in the interceptor table
-(`src/services/device/internal/auditapi/interceptor.go:27-39`): `CreateEdge`,
+(`src/services/device/internal/actiontrail/interceptor.go:32-45`): `CreateEdge`,
 `IssueSetupKey`, `RevokeSetupKey`, `RetireEdge`, `GetEdge`, and `ListEdges` on
 `EdgeAdminService`, along with full-payload `CreateCaptureSession`,
 `TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. Calls
 refused by authentication or authorization interceptors are excluded from the
 trail, preventing unauthenticated or unauthorized callers from polluting audit
 streams. A denial inside the handler (such as the full-payload capture
-authorization check in `src/services/device/internal/captureapi/service.go:78-83`)
+authorization check in `src/services/device/internal/captureapi/operator_service.go:127-134`)
 is recorded with outcome `OPERATOR_ACTION_OUTCOME_DENIED`
-(`src/services/device/internal/auditapi/interceptor.go:138`), because the handler
+(`src/services/device/internal/actiontrail/interceptor.go:87-95`), because the handler
 was reached by an authenticated caller and the attempt was already recorded. The
 completion records the outcome the handler returned.
 

@@ -69,7 +69,8 @@ echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @
 ```
 
 5. Provision the tenant record before writing authorization tuples. The device
-service does not mount `TenantService` (`src/services/device/internal/host/host_test.go:629-654`),
+service does not mount `TenantService` (`TestTenantServiceIsNotMounted` in
+`src/services/device/internal/host/host_test.go`),
 and no file under `deploy/lab` can create the record held by
 `tenantstore.Store.Create` (`src/services/device/internal/tenantstore/store.go:113-126`).
 Create a tenant record out of band with the Dex issuer, organization claim name
@@ -117,7 +118,8 @@ The config points at `/etc/flowseer/registry.textproto` and
 `/etc/flowseer/credentials`, so install or mount those paths before starting.
 The service validates the registry before it binds. Central requires a registry
 at `/etc/flowseer/registry.textproto` with the integration and no devices for
-this first bootstrap start (`docs/runbooks/lab-icx7150-first-write.md:92-95`).
+this first bootstrap start (the "Bringing the deployment up" section of
+`docs/runbooks/lab-icx7150-first-write.md`).
 The integration ref comes from `registry.textproto:13` with a placeholder edge
 UUID:
 
@@ -132,9 +134,9 @@ EOF
 
 After `CreateEdge` returns, `write-registry.sh` renders `registry.textproto` with
 the minted edge identifier to `/etc/flowseer/registry.textproto`
-(`docs/runbooks/lab-icx7150-first-write.md:168`), and central is restarted before
-device procedures can be used. The runbook describes that two-start sequence in
-detail.
+(`deploy/lab/write-registry.sh`), and central is restarted before device
+procedures can be used. The runbook's "Fill the device's two positions in the
+registry template" section describes that two-start sequence in detail.
 
 Expected log entry:
 
@@ -186,7 +188,7 @@ Expected answer:
   },
   "provisioning": {
     "centralUrl": "https://127.0.0.1:8443",
-    "setupKey": "fse1_234567abcdefghijklmnopqrst_234567abcdefghijklmnopqrst234567abcdefghijklmnopqr",
+    "setupKey": "fse1_234567abcdefghijklmnopqrst_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
     "trustAnchors": [
       "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
     ]
@@ -223,7 +225,13 @@ Expected answer:
           "id": "0192e6a0-0000-7000-8000-000000000001"
         }
       },
-      "lifecycle": "EDGE_LIFECYCLE_PENDING"
+      "lifecycle": "EDGE_LIFECYCLE_PENDING",
+      "setupKey": {
+        "id": "234567abcdefghijklmnopqrst",
+        "status": "SETUP_KEY_STATUS_ISSUED",
+        "issuedAt": "2026-10-04T08:00:00Z",
+        "expiresAt": "2027-04-02T08:00:00Z"
+      }
     }
   }
 }
