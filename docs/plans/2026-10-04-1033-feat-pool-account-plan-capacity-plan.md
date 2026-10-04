@@ -4,11 +4,13 @@ type: feat
 date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 ---
 
 # Pool Account Plan and Capacity Slots - Plan
+
+> Implemented. 3 units, 2026-10-04T09:14Z to 2026-10-04T09:19Z.
 
 ## Goal
 
@@ -297,8 +299,9 @@ plan-source table, and says the plan is read natively even on an Orca row.
 85% threshold by "the two lanes a pool may hold under 50%". Both are
 rewritten to the capacity rule and its reason, since a pool can now hold
 six lanes below its limit. The 2026-10-02 `delegate` entry is deleted from
-`docs/agent-observations.md`. The `SKILL.md` body does not grow: the slot
-rule lives in the reference.
+`docs/agent-observations.md`. The slot rule lives in the reference. The
+`SKILL.md` body grew by two lines, since the model drop and the
+unsupported-model rule are new text and only the percent thresholds left.
 Tests: run every command the edited text embeds once, verbatim, from a
 fresh shell, and run `check-prose.py` through the verifier.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .claude/skills/delegate/SKILL.md .claude/skills/delegate/references/pool-rows.md docs/agent-steering.md docs/agent-observations.md`
@@ -320,12 +323,12 @@ writes under `.agents/skills/`.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path.
-- [ ] `pool-rows.md`, the `tune` skill, and `docs/agent-steering.md` describe
+- [x] The verifier is green for every changed path.
+- [x] `pool-rows.md`, the `tune` skill, and `docs/agent-steering.md` describe
       the new row fields in the same change.
-- [ ] The observation entry is deleted.
-- [ ] This plan's `status` is set, with an outcome note under its title.
-- [ ] No plan labels in code.
+- [x] The observation entry is deleted.
+- [x] This plan's `status` is set, with an outcome note under its title.
+- [x] No plan labels in code.
 
 ## Open questions
 
