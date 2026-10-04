@@ -50,6 +50,9 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != "lag.marker.respond" || len(res.Egress) != 0 {
 		t.Fatalf("Marker result = %+v, want consumed without relay egress", res)
 	}
+	if inputs := res.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != "lag.marker_decode" || inputs[0].Canonical() != "ether_type=34825;payload_len=110;valid=true;reason=\"\"" {
+		t.Fatalf("Marker inputs = %+v, want marker_decode input fact", inputs)
+	}
 	if facts := res.Steps[0].Outputs; len(facts) != 1 || facts[0].TypeID() != "lag.marker_response" || facts[0].Canonical() != "requester=00120004961f506a01020304;response_source=\"02:00:00:00:00:14\"" {
 		t.Fatalf("Marker facts = %+v, want requester transaction and response source", facts)
 	}
