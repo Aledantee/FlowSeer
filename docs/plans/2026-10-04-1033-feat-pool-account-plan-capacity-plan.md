@@ -5,7 +5,7 @@ date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: accept after fixes
 execution: mixed
 ---
 
@@ -349,20 +349,3 @@ writes under `.agents/skills/`.
   `claude`, which suggests the system sign-in, and nothing in the tree
   confirms it for `codex`. If they differ, capacity multiplies another
   account's window.
-
-## Review gaps
-
-- .claude/skills/delegate/scripts/pool-usage.sh:275: an Orca Codex row prints `signed_in: true` beside `no ChatGPT subscription sign-in` when `account/read` answers without a ChatGPT account; fails: that row carries Orca windows, `plan: null`, and no `error`
-- .claude/skills/delegate/scripts/pool-usage.sh:566: a Z.ai report without `limits` prints `signed_in: true` where it printed `false` before, an empty `limits` gains an `error`, and unreadable limits drop a readable `planType`; fails: each reply yields the sign-in state and `error` the reader gave before the plan field was added, with `plan` set whenever `metadata.planType` is a string
-- .claude/skills/delegate/scripts/pool-usage.sh:265: an Orca window with a non-numeric `usedPercent` sets an `error` on a row that skipped it before; fails: that window is skipped and the row carries no `error`
-- .claude/skills/delegate/scripts/test_pool_usage.py:387: `models is not None` changed to `False` passes, since the Google malformed-reply case asserts `signed_in: false`; fails: a malformed `/quota` reply with a readable `agy models` yields `signed_in: true`
-- .claude/skills/delegate/scripts/test_pool_usage.py:356: both emits print a `claude` row and the dict keeps the last, so the `inf` row is never asserted; fails: two rows collected as a list, each with capacity 1 and `plan_unlisted: true`
-- .claude/skills/delegate/scripts/test_pool_usage.py:377: `depth += 1` changed to `depth += 0` in `scan_flow` passes, since the case asserts AST calls and a signature; fails: a registry line with two plans, a list, a quoted value holding `, : #`, and a trailing comment reads both capacities
-- .claude/skills/delegate/scripts/pool-usage.sh:273: `codex_read(quota=False)` changed to `codex_read()` passes, since both Orca Codex cases mock `codex_read`; fails: a fake app-server read with no quota request yields the plan, the models, no windows, and no error
-- .claude/skills/delegate/scripts/pool-usage.sh:464: an `error` set on an empty model list passes; fails: the Orca Claude row, the Orca Codex row, the native Codex row with models, and the empty-list row each assert no `error` key
-- .claude/skills/delegate/scripts/pool-usage.sh:435: unverified, an app-server exit during `model/list` on the native path may raise `BrokenPipeError` from `proc.stdin.close()` and stop later rows, and `read_registry` catches `OSError` only, so an undecodable registry raises in `emit`; fails: a fake that exits on `model/list` yields a Codex row with an `error` and no exception, and a registry holding invalid UTF-8 yields an unlisted plan
-- .claude/skills/delegate/scripts/pool-usage.sh:17: "Otherwise, the row carries `windows: null`", and `pool-rows.md:25` "from another source"; fails: both say a failed read leaves an `error`, windows that were read stay, and `windows: null` means none were
-- .claude/skills/delegate/references/pool-rows.md:54: "`true` when the registry does not list the plan"; fails: adds "or lists it without a usable `capacity`"
-- .claude/skills/delegate/references/pool-rows.md:86: "since the probe saw one page"; fails: "since codex-cli 0.160.0 returned one page"
-- .claude/skills/delegate/scripts/pool-usage.sh:299: `plan if isinstance(plan, str) else None` is written at four read sites and again in `pool_capacity`, and `codex_models.error` is a function attribute where `claude_plan` returns a pair; fails: one coercion site and a returned pair
-- .claude/skills/delegate/scripts/test_pool_usage.py:201: real-clock sleeps without a comment naming the timing under test, and `timeout=1` on cases where no timeout is the behavior; fails: the unneeded sleep is gone, the remaining one is commented, and only the timeout case sets a deadline
