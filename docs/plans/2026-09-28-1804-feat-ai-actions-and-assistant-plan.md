@@ -686,3 +686,15 @@ follow because they share `ui/index.ts`, the harness, and `FleetView.vue`.
   opens the AI menu and loses the native one there.
 - Confidence stays as the words low, medium, and high until a real model
   reports calibrated confidence. The implementer adds no percentages.
+- Parked by drive: after the AI menu opens by pointer from an element
+  that cannot take focus (a table cell, a topology node), where does
+  focus go when the menu or its result closes? The second review stopped
+  after two more fix rounds with `review: fixes needed`, and its fixes
+  and record are on `parked/aiact-review2`. Options: back to the element
+  focused before the menu opened, which is Reka's own restore (removes
+  the layer's origin search and close modes, and focus may land outside
+  the item) | to the nearest focusable element in the item (focus stays
+  on the item, and it keeps the mechanism that had defects after each of
+  three fixes). Recommended: Reka's own restore, because the review
+  names it the simplest design and four open findings sit in the code it
+  removes.
