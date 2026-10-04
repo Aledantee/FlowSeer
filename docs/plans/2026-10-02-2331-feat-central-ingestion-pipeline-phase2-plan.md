@@ -118,6 +118,14 @@ record is re-opened first.
   loop, the consumer map, and the drain on close move out of the forwarder
   into one `edgebus` type both callers use. Why: `docs/code-style.md` says
   logic that appears twice is extracted, and intake is the second caller.
+- The follower owns the lifetime of a delivery. `FollowEdges` hands `attach`
+  a context for the pass and a lifetime context that ends when the caller's
+  context ends, on `Close`, and on a failed first pass, each before the
+  drain. An interval pass that fails does not end it. Intake's handler
+  publishes under that lifetime and keeps no cancel of its own. Why: `Close`
+  and the drain are the follower's, so a caller that cancels on its own
+  cannot tell a failed first pass from a failed interval pass. (decided by
+  the user, 2026-10-04)
 - Ruled: a delivery from an edge `Hub.EdgeTenant` reports no tenant for is
   retried after the retry delay, not refused. Why: a refusal is about the
   record, a missing tenant is about the hub's state, and `Term` drops the
