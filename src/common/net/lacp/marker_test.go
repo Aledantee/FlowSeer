@@ -35,7 +35,6 @@ func TestMarkerResponsePreservesWire(t *testing.T) {
 	}
 
 	wantPayload := bytes.Clone(request.Payload)
-	wantPayload[0] = lacp.SubtypeMarker
 	wantPayload[2] = 0x02
 	if !bytes.Equal(response.Payload, wantPayload) {
 		t.Fatalf("response payload = %x, want %x", response.Payload, wantPayload)
@@ -143,5 +142,27 @@ func TestMarkerResponseRefusals(t *testing.T) {
 				t.Errorf("MarkerResponse() error = %v, want errors.Is(err, ErrUnsupported)", err)
 			}
 		})
+	}
+}
+
+func TestMarkerResponseRetainsFinalOctet(t *testing.T) {
+	t.Parallel()
+
+	request := decodeFixture(t, markerRequestFixture)
+	request.Payload = append(bytes.Clone(request.Payload), 0xef)
+	if len(request.Payload) != 111 {
+		t.Fatalf("request payload length = %d, want 111", len(request.Payload))
+	}
+	src := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02}
+
+	response, err := lacp.MarkerResponse(request, src)
+	if err != nil {
+		t.Fatalf("MarkerResponse() failed: %v", err)
+	}
+	if len(response.Payload) != 111 {
+		t.Fatalf("response payload len = %d, want 111", len(response.Payload))
+	}
+	if response.Payload[110] != 0xef {
+		t.Fatalf("response payload final octet = 0x%02x, want 0xef", response.Payload[110])
 	}
 }

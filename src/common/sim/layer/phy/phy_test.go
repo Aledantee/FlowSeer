@@ -1056,7 +1056,7 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 	})
 }
 
-func TestReviewUnknownDemandUsesRemainingMaximum(t *testing.T) {
+func TestUnknownDemandUsesRemainingMaximum(t *testing.T) {
 	tests := []struct {
 		name string
 		pd   phy.PDState
@@ -1093,7 +1093,7 @@ func TestReviewUnknownDemandUsesRemainingMaximum(t *testing.T) {
 	}
 }
 
-func TestReviewDisabledUnknownDoesNotChargeBudget(t *testing.T) {
+func TestDisabledUnknownDoesNotChargeBudget(t *testing.T) {
 	cfg := phy.Config{PoE: &phy.PoE{
 		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
 		Ports: map[string]phy.PsePort{

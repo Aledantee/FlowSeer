@@ -85,12 +85,20 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 			bad := request
 			bad.Payload = tc.payload
 			beforeBad := sw.MemberInfo("1/1/1").BadLACPDUs
-			if peek := sw.Peek(now, "1/1/1", bad); peek.Outcome != trace.Dropped || peek.Reason != lag.ReasonUnsupportedLACPDU || sw.MemberInfo("1/1/1").BadLACPDUs != beforeBad {
+			peek := sw.Peek(now, "1/1/1", bad)
+			if peek.Outcome != trace.Dropped || peek.Reason != lag.ReasonUnsupportedLACPDU || sw.MemberInfo("1/1/1").BadLACPDUs != beforeBad {
 				t.Fatalf("refused Marker Peek = %+v, want unsupported-lacpdu without counter change", peek)
+			}
+			wantFact := lag.MarkerDecodeFact(bad, false, lag.ReasonUnsupportedLACPDU)
+			if inputs := peek.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != "lag.marker_decode" || inputs[0].Canonical() != wantFact.Canonical() {
+				t.Fatalf("refused Marker Peek inputs = %+v, want marker_decode input fact with valid=false and %s", inputs, lag.ReasonUnsupportedLACPDU)
 			}
 			badRes := sw.Forward(now, "1/1/1", bad)
 			if badRes.Outcome != trace.Dropped || badRes.Reason != lag.ReasonUnsupportedLACPDU || len(badRes.Steps) == 0 || badRes.Steps[0].RuleID != lag.RuleLACPDUUnsupported {
 				t.Fatalf("refused Marker = %+v, want unsupported-lacpdu drop", badRes)
+			}
+			if inputs := badRes.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != "lag.marker_decode" || inputs[0].Canonical() != wantFact.Canonical() {
+				t.Fatalf("refused Marker inputs = %+v, want marker_decode input fact with valid=false and %s", inputs, lag.ReasonUnsupportedLACPDU)
 			}
 			if got := sw.MemberInfo("1/1/1").BadLACPDUs; got != beforeBad+1 {
 				t.Fatalf("BadLACPDUs = %d, want %d", got, beforeBad+1)
@@ -99,5 +107,44 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 				t.Fatalf("refused Marker emissions = %+v, want none", emissions)
 			}
 		})
+	}
+}
+
+func TestAdmittedLACPDUTraceInputFact(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{2, 0, 0, 0, 0, 10}
+	system := netaddr.MAC{2, 0, 0, 0, 0, 20}
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{
+		MAC:   mac,
+		Ports: ports,
+		LAG:   &lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Passive, SystemID: system}}}},
+	})
+	now := time.Unix(1700000000, 0)
+	sw.Start(now)
+
+	peerMAC := netaddr.MAC{2, 0, 0, 0, 0, 30}
+	pdu := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 32768,
+			SystemID:       peerMAC,
+			Key:            1,
+			PortPriority:   32768,
+			PortID:         1,
+			State:          lacp.StateActive | lacp.StateAggregation,
+		},
+	}
+	frame := lacp.Encode(pdu, peerMAC)
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != lag.RuleLACPDUAdmit {
+		t.Fatalf("LACPDU Forward = %+v, want Consumed under lag.lacpdu.admit", res)
+	}
+	wantFact := lag.LACPDecodeFact(frame, true, "")
+	if inputs := res.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != wantFact.TypeID() || inputs[0].Canonical() != wantFact.Canonical() {
+		t.Fatalf("LACPDU inputs = %+v, want %s (%s)", inputs, wantFact.TypeID(), wantFact.Canonical())
 	}
 }
