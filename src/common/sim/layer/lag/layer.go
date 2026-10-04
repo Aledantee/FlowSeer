@@ -293,11 +293,12 @@ type Selection struct {
 	Member string
 	OK     bool
 
-	// Bucket and Prior describe a balanced-mode decision; Prior is the
-	// bucket's occupant before this call ("" on CauseFirstUse). Both are
-	// zero for an ActiveBackup decision.
+	// Bucket is zero for an ActiveBackup decision.
 	Bucket uint8
-	Prior  string
+
+	// Prior is the bucket's occupant before this call in a balanced mode
+	// ("" on CauseFirstUse), or the last active member in ActiveBackup.
+	Prior string
 
 	Cause SelectionCause
 

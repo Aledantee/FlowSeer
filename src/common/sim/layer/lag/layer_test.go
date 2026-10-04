@@ -81,14 +81,12 @@ func makeUDPFrame(t *testing.T, srcMAC, dstMAC netaddr.MAC, srcIP, dstIP string,
 	}
 }
 
-func makeARPFrame(srcMAC, dstMAC netaddr.MAC) ethernet.Frame {
-	arpPayload := make([]byte, 28)
-
+func makeARPFrame(srcMAC, dstMAC netaddr.MAC, payload []byte) ethernet.Frame {
 	return ethernet.Frame{
 		Src:       srcMAC,
 		Dst:       dstMAC,
 		EtherType: ethernet.EtherTypeARP,
-		Payload:   arpPayload,
+		Payload:   payload,
 	}
 }
 
@@ -259,9 +257,51 @@ func TestBalanceTCP(t *testing.T) {
 		t.Fatal("Select failed for bad checksum frame")
 	}
 
-	arpFrame := makeARPFrame(srcMAC, dstMAC)
+	ipFrame := makeUDPFrame(t, srcMAC, dstMAC, "10.0.0.1", "10.0.0.2", 40000, 5000, false)
+	arpFrame := makeARPFrame(srcMAC, dstMAC, ipFrame.Payload)
 	if _, ok := selectOK(a, cur, "lag1", arpFrame, 0); !ok {
 		t.Fatal("Select failed for ARP frame")
+	}
+}
+
+func TestStaticLAGActorStateFollowsEnabled(t *testing.T) {
+	t.Parallel()
+
+	for _, minLinks := range []int{0, 2} {
+		t.Run(fmt.Sprintf("MinLinks=%d", minLinks), func(t *testing.T) {
+			t.Parallel()
+
+			cfg := lag.Config{LAGs: map[string]lag.LAG{"lag1": {MinLinks: minLinks}}}
+			l := mustNewLAG(t, cfg, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:01"))
+			now := time.Unix(1700000000, 0)
+			check := func(wantFirst, wantSecond bool) {
+				t.Helper()
+				for i, member := range []string{"1/1/1", "1/1/2"} {
+					wantEnabled := []bool{wantFirst, wantSecond}[i]
+					info := l.PortInfo(member)
+					if info.Enabled != wantEnabled {
+						t.Fatalf("%s Enabled = %t, want %t", member, info.Enabled, wantEnabled)
+					}
+					var wantState lacp.State
+					if wantEnabled {
+						wantState = lacp.StateCollecting | lacp.StateDistributing
+					}
+					if got := info.Actor.State & (lacp.StateCollecting | lacp.StateDistributing); got != wantState {
+						t.Fatalf("%s Actor Collecting/Distributing = %#x, want %#x", member, got, wantState)
+					}
+				}
+			}
+
+			check(false, false)
+			l.LinkChange(now, "1/1/1", true)
+			check(minLinks == 0, false)
+			l.LinkChange(now, "1/1/2", true)
+			check(true, true)
+			l.LinkChange(now, "1/1/2", false)
+			check(minLinks == 0, false)
+			l.LinkChange(now, "1/1/1", false)
+			check(false, false)
+		})
 	}
 }
 

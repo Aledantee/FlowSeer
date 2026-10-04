@@ -210,6 +210,10 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		lag.partnerKey = 0
 		lag.aggregateWait = time.Time{}
 
+		for _, name := range lag.memberNames {
+			l.members[name].updateActorInfo(lag)
+		}
+
 		return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 	}
 
