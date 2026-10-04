@@ -23,7 +23,7 @@ Every operator call carries an OIDC bearer token and a tenant header.
 Central mounts operator services behind authentication and authorization
 middleware that validates the bearer token against the configured identity
 provider and evaluates permissions in OpenFGA. Central configuration requires
-both `authentication` and `authorization` sections (`deploy/lab/central.textproto:32-45`).
+both `authentication` and `authorization` sections (`deploy/lab/central.textproto`).
 An operator obtains a token from the identity provider and configures tenant
 membership before issuing commands, as detailed in [deploy/lab/README.md](../../deploy/lab/README.md).
 
@@ -47,9 +47,10 @@ verifier yields `claimed` only when a matching active tenant record exists
 and `TenantAdminService` on the operator interceptor chain
 (`TestHostMountsServicesOnTheCorrectInterceptorChains` in
 `src/services/device/internal/host/host_test.go`). Configure platform subjects
-before starting central, then use `ADMIN_TOKEN` to create the tenant, define an
-admin role, enroll alice, and assign the role as described in
-[deploy/lab/README.md](../../deploy/lab/README.md). Direct OpenFGA grants are
+before starting central. Follow step 5, "Provision the tenant record", in
+[deploy/lab/README.md](../../deploy/lab/README.md): its `ADMIN_TOKEN` calls run
+`CreateTenant`, `CreateRole`, `EnrollMember`, and `AssignRole`. Use the returned
+`TENANT_ID` as `TENANT` in this shell. Direct OpenFGA grants are
 removed on the next projector pass. A full-payload capture also needs an
 enrolled member's explicit, unexpired grant.
 
@@ -94,7 +95,7 @@ export PROVISIONING=/etc/flowseer/provisioning.textproto
 first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
 targets, and must match the registry. `TOKEN` is an OIDC bearer token issued
 by Dex or another configured identity provider, and `TENANT` is the deployment's
-tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tuple steps).
+tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tenant administration steps).
 
 A call looks like this, and this one is also the check that your shell is set
 up: it asks central what it knows about the device and needs nothing to have
