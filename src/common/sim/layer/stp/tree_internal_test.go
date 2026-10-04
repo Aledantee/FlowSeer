@@ -695,7 +695,7 @@ func TestPVSTDoesNotInheritCISTAgreement(t *testing.T) {
 	}
 	peer.SetRole(bpdu.RoleRoot)
 	peer.SetAgreement(true)
-	l.applyBPDU(l.cist(), l.cist().ports["p1"], now, peer, &[]layer.FlushTarget{}, nil)
+	l.applyBPDU(l.cist(), l.cist().ports["p1"], now, peer, &[]layer.FlushTarget{})
 	if p := l.cist().ports["p1"]; !p.agreed || p.role != bpdu.RoleDesignated {
 		t.Fatalf("VLAN 1 port = role %v, agreed %v, want Designated and agreed", p.role, p.agreed)
 	}
@@ -725,7 +725,7 @@ func TestPVSTDoesNotInheritCISTTopologyChange(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetTopologyChange(true)
 	var flushes []layer.FlushTarget
-	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes, nil)
+	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes)
 
 	if p := l.trees[treeID(10)].ports["p2"]; !p.tcWhile.IsZero() {
 		t.Errorf("VLAN 10 topology-change timer = %v after a VLAN 1 flag, want zero", p.tcWhile)
@@ -750,7 +750,7 @@ func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-	if !l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}, nil) {
+	if !l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}) {
 		t.Fatal("CIST proposal was not answered")
 	}
 
@@ -775,7 +775,7 @@ func TestAgreementClearsOnRoleChangesAndUnknownSenderRoles(t *testing.T) {
 
 	p.agreed = true
 	var flushes []layer.FlushTarget
-	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true, now, &flushes, nil)
+	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true, now, &flushes)
 	if p.agreed {
 		t.Error("unknown sender role left agreed=true, want false")
 	}
@@ -812,10 +812,9 @@ func TestMSTTopologyChangeUsesTreeOrderForEmissions(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetTopologyChange(true)
 	var flushes []layer.FlushTarget
-	changes := newTopologyChangeEmissions()
-	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes, changes)
+	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes)
 	var emissions []layer.Emission
-	l.emitTopologyChangeEmissions(now, changes, &emissions)
+	l.transmit(now, &emissions)
 
 	if len(emissions) != 1 {
 		t.Fatalf("topology-change emissions = %d, want one CIST frame for four MSTIs", len(emissions))
@@ -922,7 +921,7 @@ func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 	mstiFlags.SetTopologyChange(true)
 	flagged.MSTIs[0].Flags = mstiFlags.Flags
 
-	callNow := now.Add(33 * time.Second)
+	callNow := now.Add(36 * time.Second)
 	effects := l.Receive(callNow, "p2", flagged)
 	if got := l.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
 		t.Fatalf("MSTI p1 after flagged receive = %v/%v, want Root/Forwarding", got.Role, got.State)
@@ -931,7 +930,7 @@ func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 		t.Fatalf("MSTI p2 after flagged receive = %v/%v, want Designated/Forwarding", got.Role, got.State)
 	}
 	if afterMSTITimer := l.trees[treeID(1)].ports["p1"].tcWhile; !afterMSTITimer.After(beforeMSTITimer) {
-		t.Fatalf("MSTI p1 topology-change timer = %v, want restart after %v", afterMSTITimer, beforeMSTITimer)
+		t.Fatalf("MSTI p1 topology-change timer = %v, want a new timer after %v", afterMSTITimer, beforeMSTITimer)
 	}
 
 	var rootFrames []layer.Emission
@@ -1005,8 +1004,8 @@ func TestAdvanceBuildsTopologyChangeAfterRecompute(t *testing.T) {
 		if err != nil {
 			t.Fatalf("decode emission: %v", err)
 		}
-		if decoded.TopologyChange() && emission.Port == "p1" {
-			t.Fatalf("topology-change emission remained on p1 after it became Alternate: %+v", emission)
+		if emission.Port == "p1" && decoded.Role() != tree.ports["p1"].role {
+			t.Fatalf("p1 emission role = %v, final role = %v: %+v", decoded.Role(), tree.ports["p1"].role, emission)
 		}
 	}
 }
@@ -1101,13 +1100,13 @@ func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
 	mstiP.state = StateDiscarding
 
 	var flushes []layer.FlushTarget
-	l.recompute(msti, now, &flushes, nil, false)
+	l.recompute(msti, now, &flushes)
 	if mstiP.state != StateForwarding || !mstiP.tcActive || msti.topologyChangeCount != 1 {
 		t.Fatalf("boundary activation state=%v active=%t changes=%d, want Forwarding/true/1", mstiP.state, mstiP.tcActive, msti.topologyChangeCount)
 	}
 
 	cistP.state = StateDiscarding
-	l.recompute(msti, now.Add(time.Second), &flushes, nil, false)
+	l.recompute(msti, now.Add(time.Second), &flushes)
 	if mstiP.state != StateDiscarding || mstiP.tcActive || !mstiP.tcWhile.IsZero() {
 		t.Errorf("boundary deactivation state=%v active=%t timer=%v, want Discarding/false/zero", mstiP.state, mstiP.tcActive, mstiP.tcWhile)
 	}

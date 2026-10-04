@@ -831,8 +831,8 @@ func TestCompatibilityOnLegacyBPDU(t *testing.T) {
 	inferiorConfig.SetRole(bpdu.RoleDesignated)
 
 	rx := l.Receive(t0.Add(4*time.Second), "1/1/1", inferiorConfig)
-	if len(rx.Emissions) != 1 {
-		t.Fatalf("reply emissions count = %d, want 1", len(rx.Emissions))
+	if len(rx.Emissions) != 2 {
+		t.Fatalf("reply emissions count = %d, want one due hello on each active port", len(rx.Emissions))
 	}
 	reply, err := bpdu.Decode(rx.Emissions[0].Frame)
 	if err != nil {
@@ -1299,8 +1299,8 @@ func TestMigratedPortAgreesWithoutTheAgreementBit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reply.Type != bpdu.TypeConfiguration || reply.Agreement() {
-		t.Errorf("reply = type %v agreement %v, want a Configuration BPDU without agreement", reply.Type, reply.Agreement())
+	if reply.Type != bpdu.TypeTopologyChangeNotification || reply.Agreement() {
+		t.Errorf("reply = type %v agreement %v, want a legacy TCN without agreement", reply.Type, reply.Agreement())
 	}
 }
 
@@ -2426,6 +2426,9 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	// though that frame named VLAN 20 and this snapshot is VLAN 20's own.
 	vlan20After := local.VLANPortInfo(20, "l1")
 	vlan20Before.RxBPDUs = vlan20After.RxBPDUs
+	// The one-pass transmit walk also services VLAN 20's due hello even
+	// though the received frame was classified into VLAN 10.
+	vlan20Before.TxBPDUs = vlan20After.TxBPDUs
 	if vlan20After != vlan20Before {
 		t.Errorf("vlan 20 port state on l1 = %+v, want the %+v it held before the BPDU arrived", vlan20After, vlan20Before)
 	}
@@ -2716,8 +2719,8 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 	if outcome != stp.SSTPBoundary {
 		t.Errorf("outcome = %q, want %q", outcome, stp.SSTPBoundary)
 	}
-	if len(fx.Emissions) != 0 || len(fx.Flush) != 0 {
-		t.Errorf("ReceiveSSTP on a non-PVST bridge returned %d emissions and %d flushes, want none",
+	if len(fx.Emissions) != 1 || len(fx.Flush) != 0 {
+		t.Errorf("ReceiveSSTP on a non-PVST bridge returned %d emissions and %d flushes, want one emission and no flush",
 			len(fx.Emissions), len(fx.Flush))
 	}
 	if !local.PVSTBoundary("l1") {
@@ -2735,6 +2738,7 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 		// The received BPDU counter is the one field that must move: the
 		// frame did arrive, it is what the boundary report rests on.
 		before[i].RxBPDUs = after[i].RxBPDUs
+		before[i].TxBPDUs = after[i].TxBPDUs
 		if before[i] != after[i] {
 			t.Errorf("tree %d port state changed: got %+v, want %+v", i, after[i], before[i])
 		}
@@ -3213,8 +3217,8 @@ func TestSpeedOnlyLinkChangeReachesEveryTreesCostWithoutBouncing(t *testing.T) {
 	}
 
 	// Re-describing the same link at the same speed is not a transition.
-	if fx := l.LinkChange(start.Add(3*fwdDelay), "l1", true, true, 1_000_000_000); len(fx.Emissions) != 0 || len(fx.Flush) != 0 {
-		t.Fatalf("re-describing the same link = %+v, want no effects", fx)
+	if fx := l.LinkChange(start.Add(3*fwdDelay), "l1", true, true, 1_000_000_000); len(fx.Flush) != 0 {
+		t.Fatalf("re-describing the same link raised a flush: %+v", fx)
 	}
 
 	l.LinkChange(start.Add(3*fwdDelay+time.Second), "l1", true, true, 10_000_000_000)
@@ -4297,20 +4301,18 @@ func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
 		t.Fatalf("port 1/1/1 role = %v, state = %v, want Designated Forwarding", info.Role, info.State)
 	}
 
+	// Let the forwarding transition's RSTP topology-change timer stop before
+	// the legacy TCN arrives. The legacy timer then starts from that TCN.
+	now = now.Add(3 * time.Second)
+	l.Advance(now)
+
 	// Receive TCN BPDU on Designated port
 	fxTCN := l.Receive(now, "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
-	if len(fxTCN.Emissions) == 0 {
-		t.Fatal("receive TCN produced no emissions")
-	}
-	bAck, err := bpdu.Decode(fxTCN.Emissions[0].Frame)
-	if err != nil {
-		t.Fatalf("decode ack emission: %v", err)
-	}
-	if !bAck.TopologyChangeAck() {
-		t.Errorf("next Configuration BPDU after TCN has TCAck = false, want true")
+	if len(fxTCN.Emissions) != 0 {
+		t.Fatalf("receive TCN produced an immediate frame: %+v", fxTCN.Emissions)
 	}
 
-	// The one after has TCAck clear, but TC flag set for 35s
+	// The next hello carries the acknowledgment and TC flag.
 	now = now.Add(2 * time.Second)
 	fxHello := l.Advance(now)
 	if len(fxHello.Emissions) == 0 {
@@ -4320,15 +4322,15 @@ func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode hello emission: %v", err)
 	}
-	if bHello.TopologyChangeAck() {
-		t.Errorf("subsequent Configuration BPDU still has TCAck = true, want false")
+	if !bHello.TopologyChangeAck() {
+		t.Errorf("next Configuration BPDU has TCAck = false, want true")
 	}
 	if !bHello.TopologyChange() {
 		t.Errorf("subsequent Configuration BPDU has TC = false, want true during 35s window")
 	}
 
-	// At now = t0 + 32s + 34s (34s after TCN), TC flag is still set
-	fx34 := l.Advance(t0.Add(32*time.Second + 34*time.Second))
+	// The following hello clears TCAck while TC remains set.
+	fx34 := l.Advance(now.Add(2 * time.Second))
 	if len(fx34.Emissions) > 0 {
 		b34, err := bpdu.Decode(fx34.Emissions[0].Frame)
 		if err == nil && !b34.TopologyChange() {
@@ -4336,8 +4338,8 @@ func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
 		}
 	}
 
-	// At 36s after TCN (> 35s), TC flag is clear
-	fx36 := l.Advance(t0.Add(32*time.Second + 36*time.Second))
+	// After MaxAge plus ForwardDelay from the TCN, the TC flag is clear.
+	fx36 := l.Advance(now.Add(34 * time.Second))
 	if len(fx36.Emissions) > 0 {
 		b36, err := bpdu.Decode(fx36.Emissions[0].Frame)
 		if err == nil && b36.TopologyChange() {

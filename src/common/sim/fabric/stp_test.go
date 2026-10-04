@@ -947,25 +947,26 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 		t.Fatalf("injected journey %d not found", injID)
 	}
 
-	var replyJourney *fabric.Journey
+	var replyFrame ethernet.Frame
+	foundReply := false
 	for _, j := range fab.Report() {
 		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
 			if j.Injection.At.After(t0.Add(4 * time.Second)) {
-				cp := j
-				replyJourney = &cp
-				break
+				candidate := j.Injection.Frame
+				if len(j.Deliveries) > 0 {
+					candidate = j.Deliveries[0].Frame
+				}
+				decoded, decodeErr := bpdu.Decode(candidate)
+				if decodeErr == nil && decoded.Type == bpdu.TypeConfiguration {
+					replyFrame = candidate
+					foundReply = true
+					break
+				}
 			}
 		}
 	}
-	if replyJourney == nil {
+	if !foundReply {
 		t.Fatal("expected reply journey from sw2 on 1/1/2")
-	}
-
-	var replyFrame ethernet.Frame
-	if len(replyJourney.Deliveries) > 0 {
-		replyFrame = replyJourney.Deliveries[0].Frame
-	} else {
-		replyFrame = replyJourney.Injection.Frame
 	}
 
 	decoded, err := bpdu.Decode(replyFrame)
@@ -1081,7 +1082,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		if !ok {
 			break
 		}
-		if entry.Kind == fabric.EntryWake && entry.Device == "sw2" && entry.At.Equal(t0.Add(5*time.Second)) {
+		if entry.Kind == fabric.EntryWake && entry.Device == "sw2" && !entry.At.Before(t0.Add(5*time.Second)) {
 			break
 		}
 	}
@@ -1092,7 +1093,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected sw2:1/1/2 to take busy clock at t0+5s")
 	}
-	wantBusy := t0.Add(5*time.Second + 672*time.Nanosecond)
+	wantBusy := t0.Add(5*time.Second + 2*672*time.Nanosecond)
 	if !busyUntil.Equal(wantBusy) {
 		t.Errorf("sw2:1/1/2 busy until %v, want %v", busyUntil, wantBusy)
 	}
@@ -1106,11 +1107,11 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 
-	if len(replies) != 2 {
-		t.Fatalf("got %d replies from sw2 on 1/1/2 after t0+4s, want 2 (one before 5s, one at 5s, no third)", len(replies))
+	if len(replies) != 3 {
+		t.Fatalf("got %d replies from sw2 on 1/1/2 after t0+4s, want 3 (a hello, one reply, and the release)", len(replies))
 	}
 
-	wantFirstReplyAt := t0.Add(4100*time.Millisecond + 672*time.Nanosecond)
+	wantFirstReplyAt := t0.Add(4*time.Second + 672*time.Nanosecond)
 	if !replies[0].Injection.At.Equal(wantFirstReplyAt) {
 		t.Errorf("first reply At = %v, want %v", replies[0].Injection.At, wantFirstReplyAt)
 	}
@@ -1118,17 +1119,21 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		t.Errorf("first reply At %v is not before t0+5s", replies[0].Injection.At)
 	}
 
-	if !replies[1].Injection.At.Equal(t0.Add(5 * time.Second)) {
-		t.Errorf("second reply At = %v, want t0+5s (%v)", replies[1].Injection.At, t0.Add(5*time.Second))
+	if !replies[1].Injection.At.Equal(t0.Add(4100*time.Millisecond + 672*time.Nanosecond)) {
+		t.Errorf("second reply At = %v, want t0+4.1s", replies[1].Injection.At)
 	}
 
-	for _, e := range replies[1].Entries {
+	if !replies[2].Injection.At.Equal(t0.Add(5*time.Second + 672*time.Nanosecond)) {
+		t.Errorf("third reply At = %v, want t0+5s", replies[2].Injection.At)
+	}
+
+	for _, e := range replies[2].Entries {
 		if e.Kind == fabric.EntryCrossing {
 			if e.Wait != 0 {
 				t.Errorf("crossing Wait = %v, want 0", e.Wait)
 			}
-			if !e.At.Equal(t0.Add(5 * time.Second)) {
-				t.Errorf("crossing At = %v, want %v", e.At, t0.Add(5*time.Second))
+			if !e.At.Equal(t0.Add(5*time.Second + 2*672*time.Nanosecond)) {
+				t.Errorf("crossing At = %v, want %v", e.At, t0.Add(5*time.Second+2*672*time.Nanosecond))
 			}
 		}
 	}
@@ -1151,8 +1156,8 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 			}
 		}
 	}
-	if repliesAfter != 2 {
-		t.Errorf("replies between t0+4s and t0+6s = %d, want 2 (no third reply)", repliesAfter)
+	if repliesAfter != 3 {
+		t.Errorf("replies between t0+4s and t0+6s = %d, want 3 (one periodic hello plus the held request and its release)", repliesAfter)
 	}
 }
 

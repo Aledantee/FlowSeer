@@ -122,14 +122,14 @@ func TestLinkDownClearsHeldTCNAndAcknowledgment(t *testing.T) {
 		Ports: map[string]Port{"p1": {}},
 	}.Normalize(layer.Env{}))
 	l.LinkChange(now, "p1", true, true, 1_000_000_000)
-	l.cist().helloTimer = time.Time{}
+	l.tx(l.cist(), "p1").helloWhen = time.Time{}
 	tx := l.tx(l.cist(), "p1")
-	tx.pendingTCN = true
+	tx.newInfo = true
 	tx.tick = now.Add(-time.Second)
 	l.cist().ports["p1"].tcAck = true
 
 	l.LinkChange(now.Add(time.Second), "p1", false, true, 0)
-	l.cist().helloTimer = time.Time{}
+	l.tx(l.cist(), "p1").helloWhen = time.Time{}
 
 	if _, ok := l.NextWake(); ok {
 		t.Fatal("NextWake reported a timer after link down cleared a held TCN")
@@ -157,13 +157,13 @@ func TestHeldTCNIsNotReleasedOnAnRSTPPort(t *testing.T) {
 		Ports: map[string]Port{"p1": {}},
 	}.Normalize(layer.Env{}))
 	l.LinkChange(now, "p1", true, true, 1_000_000_000)
-	l.cist().helloTimer = time.Time{}
+	l.tx(l.cist(), "p1").helloWhen = time.Time{}
 	p := l.cist().ports["p1"]
 	p.role = bpdu.RoleRoot
 	p.tcActive = true
 	p.tcWhile = now.Add(time.Minute)
 	tx := l.tx(l.cist(), "p1")
-	tx.pendingTCN = true
+	tx.newInfo = true
 	tx.tick = now
 
 	for _, emission := range l.Advance(now.Add(time.Second)).Emissions {

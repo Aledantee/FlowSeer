@@ -4,7 +4,6 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
@@ -22,188 +21,36 @@ func (l *Layer) tcWhileDuration(t *tree, p *portState) time.Duration {
 	return maxAge + fwdDelay
 }
 
-func (l *Layer) rootTopologyChangeActive(port string, now time.Time) bool {
-	for _, id := range l.treeOrder {
-		if id == cistID {
-			continue
-		}
-		p := l.trees[id].ports[port]
-		if p != nil && p.role == bpdu.RoleRoot && p.tcActive && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
-			return true
-		}
-	}
-
-	return false
-}
-
-type topologyChangeEmissions struct {
-	ports       map[treeID]map[string]struct{}
-	sent        map[treeID]map[string]struct{}
-	transmitted map[treeID]map[string]struct{}
-}
-
-func newTopologyChangeEmissions() *topologyChangeEmissions {
-	return &topologyChangeEmissions{
-		ports:       make(map[treeID]map[string]struct{}),
-		sent:        make(map[treeID]map[string]struct{}),
-		transmitted: make(map[treeID]map[string]struct{}),
-	}
-}
-
-func (c *topologyChangeEmissions) add(t *tree, port string) {
-	if c == nil {
-		return
-	}
-
-	id := t.id
-	ports := c.ports[id]
-	if ports == nil {
-		ports = make(map[string]struct{})
-		c.ports[id] = ports
-	}
-	ports[port] = struct{}{}
-}
-
-func (c *topologyChangeEmissions) wasSent(t *tree, port string) bool {
-	if c == nil {
-		return false
-	}
-
-	_, ok := c.sent[t.id][port]
-
-	return ok
-}
-
-func (c *topologyChangeEmissions) markSent(t treeID, port string) {
-	if c == nil {
-		return
-	}
-
-	ports := c.sent[t]
-	if ports == nil {
-		ports = make(map[string]struct{})
-		c.sent[t] = ports
-	}
-	ports[port] = struct{}{}
-}
-
-func (c *topologyChangeEmissions) wasTransmitted(l *Layer, t *tree, port string) bool {
-	if c == nil {
-		return false
-	}
-
-	id := l.txKeyFor(t, port).tree
-	_, ok := c.transmitted[id][port]
-
-	return ok
-}
-
-func (c *topologyChangeEmissions) markTransmitted(l *Layer, t *tree, port string) {
-	if c == nil {
-		return
-	}
-
-	id := l.txKeyFor(t, port).tree
-	ports := c.transmitted[id]
-	if ports == nil {
-		ports = make(map[string]struct{})
-		c.transmitted[id] = ports
-	}
-	ports[port] = struct{}{}
-}
-
-func (c *topologyChangeEmissions) markBuilt(l *Layer, t *tree, p *portState, b bpdu.BPDU, kind emissionKind) {
-	if c == nil {
-		return
-	}
-	if kind == emissionTCN {
-		if l.pvst == nil {
-			for id, ports := range c.ports {
-				if _, ok := ports[p.name]; ok {
-					c.markSent(id, p.name)
-				}
-			}
-		} else {
-			c.markSent(t.id, p.name)
-		}
-
-		return
-	}
-	if b.TopologyChange() {
-		c.markSent(t.id, p.name)
-	}
-	if l.pvst == nil && t.id == cistID {
-		for _, record := range b.MSTIs {
-			if (bpdu.BPDU{Flags: record.Flags}).TopologyChange() {
-				c.markSent(treeID(record.MSTID), p.name)
-			}
-		}
-	}
-}
-
-func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChangeEmissions, emissions *[]layer.Emission) {
-	if changes == nil {
-		return
-	}
-
-	var topologyEmissions []layer.Emission
-	for _, id := range l.treeOrder {
-		ports := changes.ports[id]
-		if len(ports) == 0 {
-			continue
-		}
-		t := l.trees[id]
-		for _, name := range l.portNames {
-			if _, ok := ports[name]; !ok {
-				continue
-			}
-			p := t.ports[name]
-			link := l.links[name]
-			if p == nil || link == nil || !link.up || p.role != bpdu.RoleRoot || p.tcWhile.IsZero() || !p.tcWhile.After(now) {
-				continue
-			}
-			if changes.wasSent(t, name) {
-				continue
-			}
-
-			emissionTree := t
-			emissionPort := p
-			if l.pvst == nil && t.id != cistID {
-				emissionTree = l.cist()
-				emissionPort = emissionTree.ports[name]
-			}
-			link = l.links[emissionPort.name]
-			if link.sendRSTP {
-				l.emit(emissionTree, emissionPort, now, emissionAgreement, &topologyEmissions, changes)
-			} else {
-				l.emit(emissionTree, emissionPort, now, emissionTCN, &topologyEmissions, changes)
-			}
-		}
-	}
-	if len(topologyEmissions) > 0 {
-		ordered := make([]layer.Emission, 0, len(topologyEmissions)+len(*emissions))
-		ordered = append(ordered, topologyEmissions...)
-		ordered = append(ordered, (*emissions)...)
-		*emissions = ordered
-	}
-}
-
 // initiateTopologyChange marks p active, increments the tree's topology change
-// count, starts p's own tcWhile timer, records the timer restart, and propagates
-// to other active ports on tree t.
-func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
+// count, starts p's own tcWhile timer when it is stopped, and propagates to
+// other active ports on tree t. A running timer is not restarted.
+func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
 	p.tcActive = true
-	t.topologyChangeCount++
-	t.lastTopologyChange = now
-	p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-	changes.add(t, p.name)
-	l.propagateTopologyChange(t, p.name, now, flushes, changes)
+	if !activeAt(p.tcWhile, now) {
+		t.topologyChangeCount++
+		t.lastTopologyChange = now
+		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		if l.links[p.name].sendRSTP {
+			l.requestNewInfo(t, p)
+		}
+		l.propagateTopologyChange(t, p.name, now, flushes)
+	}
 }
 
-// propagateTopologyChange starts tcWhile on every active non-edge port on tree t
-// other than originPort, flushes that port's learned entries, and records each
-// timer restart.
-func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
+// detectTopologyChange records a local forwarding transition. Detection also
+// requests information on the detecting RSTP port when its existing timer is
+// still running. A received notification does not get that extra request.
+func (l *Layer) detectTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
+	l.initiateTopologyChange(t, p, now, flushes)
+	if l.links[p.name].sendRSTP {
+		l.requestNewInfo(t, p)
+	}
+}
+
+// propagateTopologyChange flushes every active non-edge port on tree t other
+// than originPort. It starts a stopped timer and requests a frame only for
+// that start. A running timer is retained for the current topology change.
+func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget) {
 	fids := l.treeVLANs[t.id]
 	for _, name := range l.portNames {
 		if name == originPort {
@@ -217,8 +64,13 @@ func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Tim
 		if link.edge {
 			continue
 		}
-		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-		changes.add(t, p.name)
+		started := !activeAt(p.tcWhile, now)
+		if started {
+			p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		}
+		if link.sendRSTP && started {
+			l.requestNewInfo(t, p)
+		}
 		if flushes != nil {
 			mergeFlushTarget(flushes, name, fids)
 		}

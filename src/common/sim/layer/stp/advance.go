@@ -25,7 +25,6 @@ func (l *Layer) NextWake() (time.Time, bool) {
 
 	for _, id := range l.treeOrder {
 		t := l.trees[id]
-		update(t.helloTimer)
 
 		for _, p := range t.ports {
 			update(p.fwdDelayTimer)
@@ -40,8 +39,14 @@ func (l *Layer) NextWake() (time.Time, bool) {
 				p.state == StateDiscarding && link.pointToPoint && p.proposing {
 				update(link.edgeDelayWhile)
 			}
+			if l.pvst == nil && id != cistID {
+				continue
+			}
 			tx := l.tx(t, p.name)
-			if (tx.pendingAgreement || tx.pendingDesignated || tx.pendingTCN) && !tx.tick.IsZero() {
+			if !tx.helloWhen.IsZero() && l.helloWouldRequest(t, p, tx.helloWhen) {
+				update(tx.helloWhen)
+			}
+			if (tx.newInfo || tx.newInfoMsti) && tx.count >= int(l.txHoldCount) && !tx.tick.IsZero() && l.transmitRequested(p, tx) {
 				update(tx.tick)
 			}
 		}
@@ -55,21 +60,18 @@ func (l *Layer) NextWake() (time.Time, bool) {
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
-	changes := newTopologyChangeEmissions()
 
 	func() {
 		agedOut := l.expireReceivedInfo(now)
 		autoEdgeFired := l.advanceAutoEdge(now, &flushes)
-		stateChanged := l.advanceForwardDelay(now, &flushes, changes)
+		stateChanged := l.advanceForwardDelay(now, &flushes)
 		l.clearExpiredTCWhile(now)
 
 		if agedOut || stateChanged || autoEdgeFired {
-			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			l.recomputeAll(now, &flushes)
 		}
-
-		l.sendDueTransmissions(now, &emissions, changes)
 	}()
-	l.emitTopologyChangeEmissions(now, changes, &emissions)
+	l.transmit(now, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -128,7 +130,7 @@ func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) boo
 	return autoEdgeFired
 }
 
-func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) bool {
+func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget) bool {
 	stateChanged := false
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
@@ -151,7 +153,7 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget,
 					stateChanged = true
 					link := l.links[p.name]
 					if !link.edge {
-						l.initiateTopologyChange(mt, p, now, flushes, changes)
+						l.detectTopologyChange(mt, p, now, flushes)
 					}
 				case StateForwarding:
 				}
@@ -176,55 +178,23 @@ func (l *Layer) clearExpiredTCWhile(now time.Time) {
 	}
 }
 
-func (l *Layer) sendDueTransmissions(now time.Time, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		helloDue := !mt.helloTimer.IsZero() && !mt.helloTimer.After(now)
-		if helloDue {
-			mt.helloTimer = now.Add(l.helloTime)
+func (l *Layer) helloWouldRequest(t *tree, p *portState, at time.Time) bool {
+	if t.id == cistID || (l.pvst != nil && l.links[p.name].sendRSTP) {
+		if p.role == bpdu.RoleDesignated || (p.role == bpdu.RoleRoot && activeAt(p.tcWhile, at)) {
+			return true
 		}
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			if !ok {
+	}
+	if l.pvst == nil && t.id == cistID {
+		for _, id := range l.treeOrder {
+			if id == cistID {
 				continue
 			}
-			tx := l.tx(mt, name)
-			link := l.links[name]
-			if !link.up {
-				continue
-			}
-			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingAgreement {
-				tx.pendingAgreement = false
-				if p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate {
-					l.emit(mt, p, now, emissionAgreement, emissions, changes)
-				}
-			}
-			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingDesignated {
-				tx.pendingDesignated = false
-				if p.role == bpdu.RoleDesignated {
-					l.emit(mt, p, now, emissionDesignated, emissions, changes)
-				}
-			}
-			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingTCN {
-				tx.pendingTCN = false
-				if !link.sendRSTP && p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
-					l.emit(mt, p, now, emissionTCN, emissions, changes)
-				}
-			}
-			if !helloDue || changes.wasTransmitted(l, mt, name) {
-				continue
-			}
-
-			if p.role == bpdu.RoleDesignated {
-				l.emit(mt, p, now, emissionDesignated, emissions, changes)
-			} else if (p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now)) ||
-				(l.mst != nil && l.rootTopologyChangeActive(name, now)) {
-				if link.sendRSTP {
-					l.emit(mt, p, now, emissionAgreement, emissions, changes)
-				} else {
-					l.emit(mt, p, now, emissionTCN, emissions, changes)
-				}
+			mp := l.trees[id].ports[p.name]
+			if (mp.role == bpdu.RoleDesignated || (mp.role == bpdu.RoleRoot && activeAt(mp.tcWhile, at))) && !l.mstiMasterPort(p.name) {
+				return true
 			}
 		}
 	}
+
+	return false
 }
