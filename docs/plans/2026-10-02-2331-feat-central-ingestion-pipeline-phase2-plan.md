@@ -115,6 +115,15 @@ record is re-opened first.
   loop, the consumer map, and the drain on close move out of the forwarder
   into one `edgebus` type both callers use. Why: `docs/code-style.md` says
   logic that appears twice is extracted, and intake is the second caller.
+- Ruled: a delivery from an edge `Hub.EdgeTenant` reports no tenant for is
+  retried after the retry delay, not refused. Why: a refusal is about the
+  record, a missing tenant is about the hub's state, and `Term` drops the
+  record for good. Cost if wrong: the handler's first branch, one test, and
+  one README sentence in `I`.
+- Ruled: `flowseer.intake.records.duplicate` adds one per delivery when any
+  of its publishes reports a duplicate. Why: the unit counts each instrument
+  once per delivery, and a record with evidence makes two publishes. Cost if
+  wrong: the counter's call site and one test in `I`.
 
 ## Requirements
 
