@@ -1946,6 +1946,14 @@ func TestZeroSystemPeerDefaultingWithoutFallbackDisables(t *testing.T) {
 		Actor:   lacp.Info{State: lacp.StateSynchronization | lacp.StateCollecting},
 		Partner: l.PortInfo("1/1/1").Actor,
 	})
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) || !slices.Equal(info.Attached, []string{"1/1/1"}) {
+		t.Fatalf("before zero peer defaulting: enabled = %v, attached = %v, want [1/1/1] for both", info.Enabled, info.Attached)
+	}
+	l.Advance(t0.Add(3 * time.Second))
+	if info := l.PortInfo("1/1/1"); info.Status != lag.Expired || info.Enabled {
+		t.Fatalf("at zero peer expiry: status = %v, enabled = %t, want Expired and disabled", info.Status, info.Enabled)
+	}
 	l.Advance(t0.Add(6 * time.Second))
 	if info := l.Info("lag1"); len(info.Enabled) != 0 || len(info.Attached) != 0 {
 		t.Fatalf("after zero peer defaulted with Fallback false: enabled = %v, attached = %v, want empty", info.Enabled, info.Attached)

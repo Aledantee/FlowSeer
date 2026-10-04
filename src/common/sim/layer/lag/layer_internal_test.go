@@ -188,9 +188,10 @@ func TestReceiveRequestsReselectionOnIdentityChange(t *testing.T) {
 	}
 }
 
-// TestDefaultedRequestsReselectionAfterLearnedPartner proves that learned
-// partner defaulting re-enters fallback through Mux WAITING, while startup
-// defaulting does not request reselection.
+// TestDefaultedRequestsReselectionAfterLearnedPartner proves that a learned
+// Individual Partner equal to the administrative values stays forwarding
+// across defaulting, while a different Partner re-enters fallback through
+// Mux WAITING.
 func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	t.Parallel()
 
@@ -206,24 +207,32 @@ func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	t0 := time.Unix(1700000000, 0)
 	l.LinkChange(t0, "a", true)
 	m := l.members["a"]
-	l.Advance(t0.Add(3 * time.Second))
-	if m.status != Defaulted || m.needsReselect || !m.selected || m.mux != muxWaiting {
-		t.Fatalf("startup defaulting: status = %v, needsReselect = %t, selected = %t, mux = %v, want Defaulted, no reselection, selected, and WAITING", m.status, m.needsReselect, m.selected, m.mux)
+	l.Receive(t0, "a", lacp.PDU{
+		Actor:   lacp.Info{State: lacp.StateSynchronization | lacp.StateCollecting},
+		Partner: m.actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+	if !m.attached || !m.enabled {
+		t.Fatalf("learned zero partner before defaulting: attached = %t, enabled = %t, want attached and enabled", m.attached, m.enabled)
 	}
-	l.Receive(t0.Add(4*time.Second), "a", lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, PortID: 9, State: lacp.StateActive | lacp.StateAggregation}})
 	l.Advance(t0.Add(6 * time.Second))
+	if m.status != Defaulted || !m.attached || !m.enabled || m.mux == muxWaiting {
+		t.Fatalf("zero partner defaulting: status = %v, mux = %v, attached = %t, enabled = %t, want Defaulted and still forwarding", m.status, m.mux, m.attached, m.enabled)
+	}
+	l.Receive(t0.Add(7*time.Second), "a", lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, PortID: 9, State: lacp.StateActive | lacp.StateAggregation}})
+	l.Advance(t0.Add(9 * time.Second))
 	if !m.attached {
 		t.Fatal("learned member did not attach")
 	}
-	l.Advance(t0.Add(7 * time.Second))
+	l.Advance(t0.Add(10 * time.Second))
 	if m.status != Expired {
 		t.Fatalf("expiry: status = %v, want Expired", m.status)
 	}
-	l.Advance(t0.Add(10 * time.Second))
+	l.Advance(t0.Add(13 * time.Second))
 	if m.status != Defaulted || !m.selected || m.mux != muxWaiting || m.attached || m.enabled || m.actor.State&lacp.StateSynchronization != 0 {
 		t.Fatalf("learned partner defaulting: status = %v, selected = %t, mux = %v, attached = %t, enabled = %t, actor state = %#x, want Defaulted in WAITING with synchronization clear", m.status, m.selected, m.mux, m.attached, m.enabled, uint8(m.actor.State))
 	}
-	l.Advance(t0.Add(12 * time.Second))
+	l.Advance(t0.Add(15 * time.Second))
 	if !m.attached || !m.enabled || m.actor.State&lacp.StateSynchronization == 0 {
 		t.Fatalf("fallback after learned partner defaulting: attached = %t, enabled = %t, actor state = %#x, want attached and enabled after aggregate wait", m.attached, m.enabled, uint8(m.actor.State))
 	}
