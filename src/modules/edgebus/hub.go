@@ -52,7 +52,7 @@ type HubConfig struct {
 	// budget at once.
 	MaxStoreBytes int64
 	// EdgeBudgetBytes and CentralBudgetBytes are the per-account disk
-	// ceilings. Zero means 128 MiB per edge account and 512 MiB for
+	// ceilings. Zero means 128 MiB per edge account and 1 GiB for
 	// central: telemetry volume in an edge account cannot starve the
 	// journal in the central account.
 	EdgeBudgetBytes    int64
@@ -72,10 +72,19 @@ type HubConfig struct {
 	// OperatorActionMaxPerSubject bounds the operator action stream to at most this many
 	// records per subject. Zero means 10,000.
 	OperatorActionMaxPerSubject int64
-	// AuditDuplicateWindow is how long the audit stream remembers an event
-	// id; a re-delivered record inside it is stored once. Zero means ten
-	// minutes, longer than any edge re-send.
+	// AuditDuplicateWindow is the requested duplicate window for the audit,
+	// operator action, typed ingest, and evidence streams; typed ingest and
+	// evidence cap it at their configured maximum age. A re-delivered record
+	// inside the window is stored once. Zero means ten minutes.
 	AuditDuplicateWindow time.Duration
+	// IngestMaxBytes and IngestMaxAge bound each typed ingest stream. Zero
+	// means 256 MiB and 24 hours.
+	IngestMaxBytes int64
+	IngestMaxAge   time.Duration
+	// EvidenceMaxBytes and EvidenceMaxAge bound the raw evidence stream. Zero
+	// means 64 MiB and 24 hours.
+	EvidenceMaxBytes int64
+	EvidenceMaxAge   time.Duration
 	// StartupTimeout bounds server readiness. Zero means ten seconds.
 	StartupTimeout time.Duration
 	// Logger receives the embedded server's own warnings and errors, so a
@@ -85,7 +94,7 @@ type HubConfig struct {
 }
 
 // Hub is the running hub. It holds one connection into each data account:
-// central's own for the journal buckets and the audit stream, and an
+// central's own for the journal buckets, audit, and ingest streams, and an
 // edge-account connection for the per-edge source streams the forwarder
 // reads. The two accounts are the security boundary: an edge
 // credential lives in the edge account and cannot address a central stream
@@ -138,11 +147,16 @@ const (
 	defaultAuditDedupeWindow         = 10 * time.Minute
 	defaultOperatorActionStreamBytes = 64 << 20
 	defaultOperatorActionMaxPerSubj  = 10000
+	defaultIngestStreamBytes         = 256 << 20
+	defaultIngestStreamMaxAge        = 24 * time.Hour
+	defaultEvidenceBytes             = 64 << 20
+	defaultEvidenceMaxAge            = 24 * time.Hour
 	// defaultCentralBudget reserves the central account's disk for the
-	// journal, the audit stream, and the operator action stream; defaultEdgeBudget
-	// bounds one edge's source stream plus margin. They are independent, so telemetry
-	// cannot starve the journal.
-	defaultCentralBudget = 512 << 20
+	// journal, the audit stream, the operator action stream, and the typed
+	// ingest and evidence streams; defaultEdgeBudget bounds one edge's
+	// source stream plus margin. They are independent, so telemetry cannot
+	// starve the journal.
+	defaultCentralBudget = 1 << 30
 	defaultEdgeBudget    = 128 << 20
 )
 
@@ -406,6 +420,52 @@ func (h *Hub) createStores(ctx context.Context) error {
 		Duplicates:        window,
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create operator action stream")
+	}
+
+	ingestBytes := h.cfg.IngestMaxBytes
+	if ingestBytes <= 0 {
+		ingestBytes = defaultIngestStreamBytes
+	}
+	ingestAge := h.cfg.IngestMaxAge
+	if ingestAge <= 0 {
+		ingestAge = defaultIngestStreamMaxAge
+	}
+	ingestDuplicates := min(window, ingestAge)
+	for _, recordType := range IngestRecordTypes() {
+		if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+			Name:       IngestStream(recordType),
+			Subjects:   []string{"flowseer.*.ingest." + recordType + ".*"},
+			Storage:    jetstream.FileStorage,
+			Retention:  jetstream.LimitsPolicy,
+			Discard:    jetstream.DiscardOld,
+			MaxBytes:   ingestBytes,
+			MaxAge:     ingestAge,
+			Duplicates: ingestDuplicates,
+		}); err != nil {
+			return errs.From(err).Code(ErrCodeHub).Attr("record_type", recordType).Msg("create ingest stream")
+		}
+	}
+
+	evidenceBytes := h.cfg.EvidenceMaxBytes
+	if evidenceBytes <= 0 {
+		evidenceBytes = defaultEvidenceBytes
+	}
+	evidenceAge := h.cfg.EvidenceMaxAge
+	if evidenceAge <= 0 {
+		evidenceAge = defaultEvidenceMaxAge
+	}
+	evidenceDuplicates := min(window, evidenceAge)
+	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+		Name:       EvidenceStream,
+		Subjects:   []string{"flowseer.*.evidence.>"},
+		Storage:    jetstream.FileStorage,
+		Retention:  jetstream.LimitsPolicy,
+		Discard:    jetstream.DiscardOld,
+		MaxBytes:   evidenceBytes,
+		MaxAge:     evidenceAge,
+		Duplicates: evidenceDuplicates,
+	}); err != nil {
+		return errs.From(err).Code(ErrCodeHub).Msg("create evidence stream")
 	}
 	return nil
 }

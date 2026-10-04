@@ -188,7 +188,7 @@ its own service later changes the host and not the module.
   holds against a query the API builds.
 - Which ClickHouse settings bound an API query so it cannot stall inserts.
   Unverified.
-- Retention per record type, and the age of the evidence stream.
+- Retention per record type.
 - Whether the device service record's per-tenant NATS account is still the
   target. The code isolates per edge account and names the tenant account as
   absent (`src/modules/edgebus/README.md`).
@@ -241,3 +241,40 @@ listing leaves the index as it was.
 A consumer of `IngestRecord` may therefore not assume the lane serves the
 device a record names. A rule that needs a served device checks it against
 the lane, not against the record.
+
+### 2026-10-04: edge records enter central ingestion streams
+
+Landed 2026-10-04: `src/services/device/internal/host/host.go` wires the
+intake module, and `src/services/device/internal/intake/intake.go` follows each
+attached edge stream.
+
+An edge publishes on `flowseer.<tenant>.edge.<edge-id>.ingest.<source>`.
+Intake republishes a typed record to
+`flowseer.<tenant>.ingest.<record-type>.<device-id>` in
+`FLOWSEER_INGEST_<RECORD_TYPE>`. Raw evidence goes to
+`flowseer.<tenant>.evidence.<record-type>.<device-id>` in
+`FLOWSEER_INGEST_EVIDENCE`. These shapes are defined in
+`src/modules/edgebus/subjects.go`. Delivery is at least once. Each publication
+uses `<tenant>.<record_id>` as its message id, and a central stream drops a
+repeat of it inside its ten minute duplicate window. Past that window a
+repeat is stored again, which happens when a hub restart re-sources an edge
+buffer (`src/modules/edgebus/README.md`). Each sink that reads a central
+stream therefore deduplicates on tenant and `record_id` itself.
+
+The evidence stream keeps messages for 24 hours and discards its oldest
+messages at its byte bound, as configured in `src/modules/edgebus/hub.go`. A
+centrally hosted adapter input is not built. The current intake path accepts
+records from edge streams only.
+
+The edge follower in `src/modules/edgebus/follower.go` owns how long a
+delivery may run. It hands each consumer a lifetime context that ends when the
+caller's context ends, on `Close`, and on a failed first discovery pass, each
+before it drains its consumers. A failed interval pass ends nothing. Intake
+publishes under that lifetime and keeps no cancel of its own, so a caller
+never has to tell a failed first pass from a failed interval pass.
+
+Intake refuses a record only for a reason about the record. An edge the hub
+has no tenant for, a validator failure that is not a rule violation, and a
+failed central publish are retried, since a terminated record is gone and a
+retry is bounded by the edge stream's own age and byte limits
+(`src/services/device/internal/intake/README.md`).

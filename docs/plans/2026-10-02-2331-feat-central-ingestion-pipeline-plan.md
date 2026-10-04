@@ -137,7 +137,7 @@ Landed: `341f4cd3..646d080c`
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase2-plan.md
 After: U1
-Landed:
+Landed: `f94b04ea..4e0070b5`
 
 ### U3. ClickHouse history store
 
@@ -182,4 +182,4 @@ back from ClickHouse, added in phase 3.
   for their store.
 - Which state-bearing record phase 5 projects first. The candidate is device
   and interface State from the `localnet` collector.
-- Retention per record type and for the evidence stream.
+- Retention per record type.

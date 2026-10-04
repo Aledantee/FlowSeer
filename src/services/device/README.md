@@ -163,12 +163,12 @@ digest an edge pins. That digest is what every edge is provisioned with, so the
 pair is persisted: a service that generated a fresh key each start would refuse
 every edge in the field.
 
-Seven modules run under the service runtime: the bus hub, the telemetry
-forwarder, the journal's read sweeper, the Connect listener, the drift poll, the
-capture artifact sweeper, and the relationship projector (`internal/projector`),
-supervised `RestForOne` with the hub first. That is not a default: the six
-modules after it hold resources the hub owns, so a hub that is rebuilt must take
-them with it.
+Eight modules run under the service runtime: the bus hub, the telemetry
+forwarder, intake, the journal's read sweeper, the Connect listener, the drift
+poll, the capture artifact sweeper, and the relationship projector
+(`internal/projector`). They are supervised `RestForOne` with the hub first.
+That is not a default: the seven modules after it hold resources the hub owns,
+so a hub that is rebuilt must take them with it.
 
 ## Remote packet capture
 
@@ -216,6 +216,7 @@ the record is what an audit needs, the payload is what an audit is about.
 | `internal/journal` | the lane record, every write to it, and the owed-row derivation |
 | `internal/registry` | the operator-written device registry, read once at start |
 | `internal/edgestore` | the edge records and the setup-key index |
+| `internal/intake` | validation and republishing of edge ingestion records into central streams |
 | `internal/credential` | the mounted credential files |
 | `internal/edge` | the assertion verifier |
 | `internal/edgeapi` | `EdgeService`, `EdgeAdminService`, and the assertion middleware |
