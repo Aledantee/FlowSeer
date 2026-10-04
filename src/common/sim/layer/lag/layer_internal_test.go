@@ -188,10 +188,10 @@ func TestReceiveRequestsReselectionOnIdentityChange(t *testing.T) {
 	}
 }
 
-// TestDefaultedRequestsReselectionAfterLearnedPartner proves that a learned
-// Individual Partner equal to the administrative values stays forwarding
-// across defaulting, while a different Partner re-enters fallback through
-// Mux WAITING.
+// TestDefaultedRequestsReselectionAfterLearnedPartner keeps a learned zero
+// Partner attached, stops forwarding while Expired, and resumes forwarding
+// after defaulting, while a different Partner re-enters fallback through Mux
+// WAITING.
 func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	t.Parallel()
 
@@ -215,9 +215,13 @@ func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
 	if !m.attached || !m.enabled {
 		t.Fatalf("learned zero partner before defaulting: attached = %t, enabled = %t, want attached and enabled", m.attached, m.enabled)
 	}
+	l.Advance(t0.Add(3 * time.Second))
+	if m.status != Expired || !m.attached || m.enabled {
+		t.Fatalf("zero partner expiry: status = %v, attached = %t, enabled = %t, want Expired, attached, and disabled", m.status, m.attached, m.enabled)
+	}
 	l.Advance(t0.Add(6 * time.Second))
 	if m.status != Defaulted || !m.attached || !m.enabled || m.mux == muxWaiting {
-		t.Fatalf("zero partner defaulting: status = %v, mux = %v, attached = %t, enabled = %t, want Defaulted and still forwarding", m.status, m.mux, m.attached, m.enabled)
+		t.Fatalf("zero partner defaulting: status = %v, mux = %v, attached = %t, enabled = %t, want Defaulted, attached, enabled, and not WAITING", m.status, m.mux, m.attached, m.enabled)
 	}
 	l.Receive(t0.Add(7*time.Second), "a", lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, PortID: 9, State: lacp.StateActive | lacp.StateAggregation}})
 	l.Advance(t0.Add(9 * time.Second))
