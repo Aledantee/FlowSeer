@@ -72,9 +72,10 @@ type HubConfig struct {
 	// OperatorActionMaxPerSubject bounds the operator action stream to at most this many
 	// records per subject. Zero means 10,000.
 	OperatorActionMaxPerSubject int64
-	// AuditDuplicateWindow is how long the audit stream remembers an event
-	// id; a re-delivered record inside it is stored once. Zero means ten
-	// minutes, longer than any edge re-send.
+	// AuditDuplicateWindow is the requested duplicate window for the audit,
+	// operator action, typed ingest, and evidence streams; typed ingest and
+	// evidence cap it at their configured maximum age. A re-delivered record
+	// inside the window is stored once. Zero means ten minutes.
 	AuditDuplicateWindow time.Duration
 	// IngestMaxBytes and IngestMaxAge bound each typed ingest stream. Zero
 	// means 256 MiB and 24 hours.
@@ -429,6 +430,7 @@ func (h *Hub) createStores(ctx context.Context) error {
 	if ingestAge <= 0 {
 		ingestAge = defaultIngestStreamMaxAge
 	}
+	ingestDuplicates := min(window, ingestAge)
 	for _, recordType := range IngestRecordTypes() {
 		if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 			Name:       IngestStream(recordType),
@@ -438,7 +440,7 @@ func (h *Hub) createStores(ctx context.Context) error {
 			Discard:    jetstream.DiscardOld,
 			MaxBytes:   ingestBytes,
 			MaxAge:     ingestAge,
-			Duplicates: window,
+			Duplicates: ingestDuplicates,
 		}); err != nil {
 			return errs.From(err).Code(ErrCodeHub).Attr("record_type", recordType).Msg("create ingest stream")
 		}
@@ -452,6 +454,7 @@ func (h *Hub) createStores(ctx context.Context) error {
 	if evidenceAge <= 0 {
 		evidenceAge = defaultEvidenceMaxAge
 	}
+	evidenceDuplicates := min(window, evidenceAge)
 	if _, err := h.centralJS.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:       EvidenceStream,
 		Subjects:   []string{"flowseer.*.evidence.>"},
@@ -460,7 +463,7 @@ func (h *Hub) createStores(ctx context.Context) error {
 		Discard:    jetstream.DiscardOld,
 		MaxBytes:   evidenceBytes,
 		MaxAge:     evidenceAge,
-		Duplicates: window,
+		Duplicates: evidenceDuplicates,
 	}); err != nil {
 		return errs.From(err).Code(ErrCodeHub).Msg("create evidence stream")
 	}

@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -448,25 +449,52 @@ func TestCentralIngestSubjectsDoNotOverlap(t *testing.T) {
 		"flowseer." + tenantID + ".evidence.syslog." + deviceID,
 		"flowseer." + tenantID + ".edge." + edgeID + ".ingest.syslog",
 	}
-	for i, subject := range subjects {
-		if err := hub.Connection().Publish(subject, []byte(fmt.Sprintf("message-%d", i))); err != nil {
+	wantStreams := []string{
+		"FLOWSEER_DEVICE_AUDIT",
+		"FLOWSEER_INGEST_SYSLOG",
+		"FLOWSEER_INGEST_EVIDENCE",
+	}
+	for i, subject := range subjects[:3] {
+		ack, err := hub.JetStream().Publish(context.Background(), subject, []byte(fmt.Sprintf("message-%d", i)))
+		if err != nil {
 			t.Fatalf("publish %s: %v", subject, err)
 		}
+		if ack.Stream != wantStreams[i] {
+			t.Errorf("publish %s stream = %q, want %q", subject, ack.Stream, wantStreams[i])
+		}
 	}
-	if err := hub.Connection().Flush(); err != nil {
-		t.Fatalf("flush: %v", err)
+	if _, err := hub.JetStream().Publish(context.Background(), subjects[3], []byte("edge-shaped")); !errors.Is(err, jetstream.ErrNoStreamResponse) {
+		t.Fatalf("edge-shaped publish error = %v, want %v", err, jetstream.ErrNoStreamResponse)
 	}
+}
+
+func TestCentralIngestDuplicateWindowDoesNotExceedMaxAge(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:             t.TempDir(),
+		FsyncPolicy:          service.BusFsyncPeriodic,
+		AuditDuplicateWindow: 30 * time.Minute,
+		IngestMaxAge:         time.Minute,
+		EvidenceMaxAge:       2 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
 
 	for _, test := range []struct {
-		name   string
-		stream string
+		name string
+		want time.Duration
+		get  func(context.Context) (jetstream.Stream, error)
 	}{
-		{name: "audit", stream: "FLOWSEER_DEVICE_AUDIT"},
-		{name: "typed", stream: "FLOWSEER_INGEST_SYSLOG"},
-		{name: "evidence", stream: "FLOWSEER_INGEST_EVIDENCE"},
+		{name: "typed", want: time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
+			return hub.JetStream().Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+		}},
+		{name: "evidence", want: 2 * time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
+			return hub.JetStream().Stream(ctx, edgebus.EvidenceStream)
+		}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			stream, err := hub.JetStream().Stream(context.Background(), test.stream)
+			stream, err := test.get(context.Background())
 			if err != nil {
 				t.Fatalf("stream: %v", err)
 			}
@@ -474,8 +502,8 @@ func TestCentralIngestSubjectsDoNotOverlap(t *testing.T) {
 			if err != nil {
 				t.Fatalf("stream info: %v", err)
 			}
-			if info.State.Msgs != 1 {
-				t.Errorf("stored messages = %d, want 1", info.State.Msgs)
+			if info.Config.Duplicates != test.want {
+				t.Fatalf("duplicate window = %s, want %s", info.Config.Duplicates, test.want)
 			}
 		})
 	}
