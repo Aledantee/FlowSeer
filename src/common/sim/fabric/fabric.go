@@ -1224,7 +1224,7 @@ func resolveLink(cable Cable, cfg Config) (Link, linkTrust) {
 			return speed >= negotiated.SpeedBPS && cable.reach(speed) == ReachUnknown
 		}) {
 		negotiated = observedLink(ethA, ethB, top)
-		if negotiated.State != phy.LinkResolved {
+		if negotiated.State != phy.LinkResolved && negotiated.State != phy.LinkFailed {
 			return unknown(ReasonReachUnknown, analysis.Incomplete, phy.Link{State: phy.LinkUnknown, Reason: ReasonReachUnknown})
 		}
 	}

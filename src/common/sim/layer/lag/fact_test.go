@@ -190,3 +190,23 @@ func assertCollisionFactDiffers(t *testing.T, layer *lag.Layer, frame ethernet.F
 		t.Fatalf("selection used more than two members: %v", factsByMember)
 	}
 }
+
+func TestMarkerDecodeFact(t *testing.T) {
+	t.Parallel()
+
+	f := ethernet.Frame{EtherType: ethernet.EtherTypeSlowProtocols, Payload: make([]byte, 110)}
+	fact := lag.MarkerDecodeFact(f, true, "")
+	if fact.TypeID() != "lag.marker_decode" {
+		t.Fatalf("TypeID() = %q, want lag.marker_decode", fact.TypeID())
+	}
+	want := `ether_type=34825;payload_len=110;valid=true;reason=""`
+	if fact.Canonical() != want {
+		t.Fatalf("Canonical() = %q, want %q", fact.Canonical(), want)
+	}
+
+	factInvalid := lag.MarkerDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
+	wantInvalid := `ether_type=34825;payload_len=110;valid=false;reason="unsupported-lacpdu"`
+	if factInvalid.Canonical() != wantInvalid {
+		t.Fatalf("Canonical() = %q, want %q", factInvalid.Canonical(), wantInvalid)
+	}
+}

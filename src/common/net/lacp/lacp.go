@@ -1,7 +1,8 @@
-// Package lacp provides an IEEE 802.1AX Link Aggregation Control Protocol Data
-// Unit (LACPDU) codec. Its wire layout matches the Open vSwitch struct lacp_pdu
-// (110 octets), carried directly in an Ethernet frame with EtherType 0x8809
-// (Slow Protocols) to destination 01:80:c2:00:00:02.
+// Package lacp provides an IEEE 802.1AX codec for Link Aggregation Control
+// Protocol data units (LACPDUs) and Marker Protocol data units (Marker PDUs).
+// Its LACPDU wire layout matches the Open vSwitch struct lacp_pdu (110 octets),
+// carried directly in an Ethernet frame with EtherType 0x8809 (Slow Protocols)
+// to destination 01:80:c2:00:00:02.
 package lacp
 
 import (
@@ -71,8 +72,9 @@ type PDU struct {
 // GroupAddress is the Slow Protocols multicast destination address (01:80:c2:00:00:02).
 var GroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x02}
 
-// ErrUnsupported indicates that an Ethernet frame does not carry a supported LACPDU.
-var ErrUnsupported = errs.Msg("unsupported LACPDU")
+// ErrUnsupported indicates that an Ethernet frame does not carry a supported
+// LACPDU or Marker PDU.
+var ErrUnsupported = errs.Msg("unsupported LACPDU or Marker PDU")
 
 const (
 	markerInformationTLVType   uint8 = 0x01
@@ -80,12 +82,14 @@ const (
 	markerInformationTLVLength uint8 = 16
 )
 
-// MarkerResponse returns a response for a Marker Information PDU. It copies the
-// frame payload before changing the response TLV type, preserving every other
-// payload octet and frame property. The returned subtype is [SubtypeMarker]. It
-// returns an error wrapping [ErrUnsupported] for a frame with the wrong
-// EtherType, a payload shorter than 110 octets, a non-Marker subtype, or an
-// unexpected Marker Information TLV.
+// MarkerResponse returns the Marker Response PDU that answers the Marker PDU
+// in f: a copy of f with the TLV type changed to Marker Response Information,
+// [GroupAddress] as destination, and src as source. Every other octet and the
+// tag stack are as received, and the result shares no memory with f. It
+// returns an error wrapping [ErrUnsupported] when f is not a Slow Protocols
+// frame, its payload is shorter than 110 octets, its subtype is not
+// [SubtypeMarker], or its first TLV is not Marker Information (type 0x01,
+// length 16).
 func MarkerResponse(f ethernet.Frame, src netaddr.MAC) (ethernet.Frame, error) {
 	if f.EtherType != ethernet.EtherTypeSlowProtocols {
 		return ethernet.Frame{}, errs.From(ErrUnsupported).
@@ -123,7 +127,6 @@ func MarkerResponse(f ethernet.Frame, src netaddr.MAC) (ethernet.Frame, error) {
 	response.Src = src
 	response.Tags = slices.Clone(f.Tags)
 	response.Payload = bytes.Clone(f.Payload)
-	response.Payload[0] = SubtypeMarker
 	response.Payload[2] = markerResponseTLVType
 
 	return response, nil
@@ -168,9 +171,10 @@ func encodeInfo(dst []byte, tlvType uint8, info Info) {
 // Decode deserializes an LACPDU from an Ethernet frame. It rejects frames with
 // an unexpected EtherType, a payload shorter than 110 octets, an unsupported
 // subtype, or an actor, partner, or collector TLV length other than 20, 20, or
-// 16 respectively. Version, TLV type, reserved fields, and octets from offset
-// 58 onward are accepted unchanged at the receive boundary. Rejections wrap
-// [ErrUnsupported].
+// 16 respectively. AX 6.4.12 forbids a Receive machine from validating the
+// Version Number, TLV_type, and Reserved fields, so Decode reads the Version 1
+// field positions after the length checks and ignores octets from offset 58
+// onward. Rejections wrap [ErrUnsupported].
 func Decode(f ethernet.Frame) (PDU, error) {
 	if f.EtherType != ethernet.EtherTypeSlowProtocols {
 		return PDU{}, errs.From(ErrUnsupported).

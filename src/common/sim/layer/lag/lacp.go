@@ -217,50 +217,89 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 	}
 
-	target, lead := l.selectionTarget(lag)
-	current := selectedMembers(lag, l.members)
-	if !slices.Equal(current, target) {
-		targetSet := make(map[string]struct{}, len(target))
-		for _, name := range target {
-			targetSet[name] = struct{}{}
-		}
-		for _, name := range lag.memberNames {
-			l.members[name].selected = false
-			if _, ok := targetSet[name]; ok {
-				l.members[name].selected = true
-			}
-		}
-		if len(target) > 0 {
-			lag.aggregateWait = l.now.Add(aggregateWaitTime)
-		} else {
-			lag.aggregateWait = time.Time{}
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if m.needsReselect {
+			m.needsReselect = false
+			m.selected = false
+			m.mux = muxDetached
+			m.attached = false
+			m.enabled = false
+			m.aggregateWait = time.Time{}
 		}
 	}
-	if !lag.aggregateWait.IsZero() && !lag.aggregateWait.After(l.now) {
-		lag.aggregateWait = time.Time{}
+
+	target, lead, isRetained := l.selectionTarget(lag)
+	targetSet := make(map[string]struct{}, len(target))
+	for _, name := range target {
+		targetSet[name] = struct{}{}
 	}
 
 	if lead != nil {
 		lag.partnerSysID = lead.partner.SystemID
 		lag.partnerSysPrio = lead.partner.SystemPriority
 		lag.partnerKey = lead.partner.Key
-	} else if len(target) == 0 {
+	} else if !isRetained {
 		lag.partnerSysID = netaddr.MAC{}
 		lag.partnerSysPrio = 0
 		lag.partnerKey = 0
 	}
 
-	waiting := !lag.aggregateWait.IsZero()
+	newWait := time.Time{}
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		m.aggregateWait = lag.aggregateWait
-		m.mux = muxDetached
+		wasSelected := m.selected
+		_, nowSelected := targetSet[name]
+		m.selected = nowSelected
+
+		if !nowSelected {
+			m.mux = muxDetached
+			m.aggregateWait = time.Time{}
+			m.attached = false
+			m.enabled = false
+			continue
+		}
+
+		if !wasSelected {
+			if newWait.IsZero() {
+				newWait = l.now.Add(aggregateWaitTime)
+			}
+			m.mux = muxWaiting
+			m.aggregateWait = newWait
+			m.attached = false
+			m.enabled = false
+		}
+	}
+
+	if !newWait.IsZero() {
+		lag.aggregateWait = newWait
+		for _, name := range lag.memberNames {
+			m := l.members[name]
+			if m.selected && m.mux == muxWaiting {
+				m.aggregateWait = newWait
+			}
+		}
+	} else if !lag.aggregateWait.IsZero() && !lag.aggregateWait.After(l.now) {
+		lag.aggregateWait = time.Time{}
+	}
+
+	for _, name := range lag.memberNames {
+		m := l.members[name]
 		if !m.selected {
 			continue
 		}
+
+		if m.mux == muxWaiting {
+			if !m.aggregateWait.IsZero() && m.aggregateWait.After(l.now) {
+				m.attached = false
+				m.enabled = false
+				continue
+			}
+			m.aggregateWait = time.Time{}
+			m.mux = muxDetached
+		}
+
 		switch {
-		case waiting:
-			m.mux = muxWaiting
 		case !m.carrier:
 			m.mux = muxDetached
 		case !m.linkUp:
@@ -268,12 +307,24 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		default:
 			m.mux = muxAttached
 		}
+		m.attached = m.mux == muxAttached
+	}
+
+	hasWaiting := false
+	for _, name := range lag.memberNames {
+		if l.members[name].mux == muxWaiting {
+			hasWaiting = true
+			break
+		}
+	}
+	if !hasWaiting {
+		lag.aggregateWait = time.Time{}
 	}
 
 	ready := 0
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if m.mux == muxAttached && m.partner.State&lacp.StateSynchronization != 0 {
+		if m.attached && m.partner.State&lacp.StateSynchronization != 0 {
 			ready++
 		}
 	}
@@ -282,7 +333,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	var enabled []string
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if m.mux == muxAttached && m.partner.State&lacp.StateSynchronization != 0 && minLinksMet {
+		if m.attached && m.partner.State&lacp.StateSynchronization != 0 && minLinksMet {
 			m.mux = muxCollectingDistributing
 		}
 		m.attached = m.mux == muxAttached || m.mux == muxCollectingDistributing
@@ -333,7 +384,7 @@ func selectedMembers(lag *lagState, members map[string]*memberState) []string {
 	return selected
 }
 
-func (l *Layer) selectionTarget(lag *lagState) ([]string, *memberState) {
+func (l *Layer) selectionTarget(lag *lagState) ([]string, *memberState, bool) {
 	var lead *memberState
 	for _, name := range lag.memberNames {
 		m := l.members[name]
@@ -361,7 +412,7 @@ func (l *Layer) selectionTarget(lag *lagState) ([]string, *memberState) {
 			target = []string{lead.name}
 		}
 
-		return target, lead
+		return target, lead, false
 	}
 
 	current := selectedMembers(lag, l.members)
@@ -375,40 +426,30 @@ func (l *Layer) selectionTarget(lag *lagState) ([]string, *memberState) {
 				}
 			}
 			if len(retained) > 0 {
-				return retained, nil
-			}
-		} else {
-			var retained []string
-			for _, name := range current {
-				if l.members[name].linkUp {
-					retained = append(retained, name)
-				}
-			}
-			if len(retained) > 0 {
-				return retained, nil
+				return retained, nil, true
 			}
 		}
 	}
 
 	if !lag.cfg.LACP.Fallback {
-		return nil, nil
+		return nil, nil, false
 	}
 	var fallback []string
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if m.linkUp && m.partnerDefaulted && (m.status == Defaulted || m.status == PortDisabled) && l.memberKey(lag, m) == lag.cfg.LACP.Key {
+		if m.carrier && m.partnerDefaulted && m.status == Defaulted && l.memberKey(lag, m) == lag.cfg.LACP.Key {
 			fallback = append(fallback, name)
 		}
 	}
 	if len(fallback) == 0 {
-		return nil, nil
+		return nil, nil, false
 	}
 	chosen := slices.Min(fallback)
 	if lag.cfg.Primary != "" && slices.Contains(fallback, lag.cfg.Primary) {
 		chosen = lag.cfg.Primary
 	}
 
-	return []string{chosen}, nil
+	return []string{chosen}, nil, false
 }
 
 func (l *Layer) selectionCandidate(lag *lagState, m *memberState) bool {
