@@ -85,3 +85,24 @@ as written.
 Suggested change: step 1 bounds the class to code the reviewed change
 added or modified. A site in code the change left alone goes in the
 worker's report as a note for the coordinator and is not edited.
+
+## 2026-10-04 review: a fix brief that prescribed the mechanism carried the coordinator's unchecked claim into the next round
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, One round,
+step 1, and `.claude/skills/review/SKILL.md`, step 4.
+What happened: two fix briefs for central intake told the worker how to fix
+a finding, not only what was wrong. One said to cancel intake's handler
+context when an attach fails. The attach closure also runs on interval
+passes, so one failed attach of a later edge would have ended delivery for
+every edge. The other said to repeat a follower test twenty times against
+one hub. Each repetition attached an edge, the hub reserved every account
+budget against a store ceiling taken from free disk, and the test then
+needed about 4.9 GiB free. Both workers did what the brief said, and both
+defects were found by the next round's reviewers. Step 4 makes a reviewer
+open the code a fix rests on before reporting it as a patch. Nothing asks
+the same of a mechanism the coordinator writes into a brief. The steps were
+followed as written.
+Suggested change: step 1 says a fix brief states the finding, its failure
+scenario, and the property the fix must hold. A mechanism the coordinator
+adds goes through step 4's check first: the code it touches is opened and
+every caller of that code is named in the brief, or the mechanism is left
+to the worker.
