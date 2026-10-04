@@ -977,18 +977,14 @@ func TestAdvanceBuildsTopologyChangeAfterRecompute(t *testing.T) {
 	if tree.rootPort != "p3" {
 		t.Fatalf("root port after simultaneous expiry and forwarding transition = %q, want p3", tree.rootPort)
 	}
-	if len(effects.Emissions) != 1 || effects.Emissions[0].Port != "p1" {
-		t.Fatalf("topology-change emissions = %+v, want one frame on the recorded port p1", effects.Emissions)
-	}
-	decoded, err := bpdu.Decode(effects.Emissions[0].Frame)
-	if err != nil {
-		t.Fatalf("decode topology-change emission: %v", err)
-	}
-	if decoded.RootID != newRoot {
-		t.Errorf("topology-change emission root = %v, want recomputed root %v", decoded.RootID, newRoot)
-	}
-	if decoded.Role() != bpdu.RoleDesignated {
-		t.Errorf("topology-change emission role = %v, want final Designated role", decoded.Role())
+	for _, emission := range effects.Emissions {
+		decoded, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("decode emission: %v", err)
+		}
+		if decoded.TopologyChange() && emission.Port == "p1" {
+			t.Fatalf("topology-change emission remained on p1 after it became Alternate: %+v", emission)
+		}
 	}
 }
 
