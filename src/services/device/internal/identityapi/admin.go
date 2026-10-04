@@ -28,12 +28,17 @@ type AdminService struct {
 	issuers   []string
 	clock     func() time.Time
 	projector Projector
+	log       *slog.Logger
 }
 
 // NewAdminService requires both stores, configured issuer URLs, a central clock,
 // and a projector. The issuer list is copied. Interceptors authorize each call.
-func NewAdminService(tenants *tenantstore.Store, access *accessstore.Store, issuers []string, clock func() time.Time, projector Projector) *AdminService {
-	return &AdminService{tenants: tenants, access: access, issuers: slices.Clone(issuers), clock: clock, projector: projector}
+// A nil logger discards projection warnings.
+func NewAdminService(tenants *tenantstore.Store, access *accessstore.Store, issuers []string, clock func() time.Time, projector Projector, log *slog.Logger) *AdminService {
+	if log == nil {
+		log = slog.New(slog.DiscardHandler)
+	}
+	return &AdminService{tenants: tenants, access: access, issuers: slices.Clone(issuers), clock: clock, projector: projector, log: log}
 }
 
 // EnrollMember preserves an existing enrollment and its grants on retry.
@@ -44,13 +49,13 @@ func (s *AdminService) EnrollMember(ctx context.Context, req *connect.Request[ap
 		return nil, err
 	}
 	if !slices.Contains(s.issuers, req.Msg.GetMember().GetIssuer()) {
-		return nil, connectErr(errs.New().Code(ErrCodeUnknownIssuer).Msg("member issuer is not configured"))
+		return nil, connectErr(ctx, errs.New().Code(ErrCodeUnknownIssuer).Msg("member issuer is not configured"))
 	}
 	member, err := s.access.CreateMember(ctx, tenantID, identityv1.Member_builder{
 		Operator: req.Msg.GetMember(), EnrolledAt: timestamppb.New(s.clock()), EnrolledBy: operatorRef(p),
 	}.Build())
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -66,7 +71,7 @@ func (s *AdminService) RemoveMember(ctx context.Context, req *connect.Request[ap
 		return nil, err
 	}
 	if _, err := s.access.DeleteMember(ctx, tenantID, req.Msg.GetMember()); err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -86,7 +91,7 @@ func (s *AdminService) CreateRole(ctx context.Context, req *connect.Request[apiv
 	}
 	id, err := uuid.NewV7()
 	if err != nil {
-		return nil, connectErr(errs.Wrap(err, "mint role id"))
+		return nil, connectErr(ctx, errs.Wrap(err, "mint role id"))
 	}
 	role := identityv1.Role_builder{
 		Ref:  identityv1.RoleGlobalRef_builder{Role: identityv1.RoleLocalRef_builder{Id: new(id.String())}.Build()}.Build(),
@@ -97,10 +102,10 @@ func (s *AdminService) CreateRole(ctx context.Context, req *connect.Request[apiv
 	}
 	role, err = s.access.CreateRole(ctx, tenantID, role)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
-		slog.WarnContext(ctx, "role projection failed", "error.type", telemetry.ErrorType(err), "flowseer.tenant.id", tenantID, "flowseer.role.id", id.String())
+		s.log.WarnContext(ctx, "role projection failed", "error.type", telemetry.ErrorType(err), "flowseer.tenant.id", tenantID, "flowseer.role.id", id.String())
 	}
 	return connect.NewResponse(apiv1.CreateRoleResponse_builder{Role: role}.Build()), nil
 }
@@ -115,7 +120,7 @@ func (s *AdminService) DeleteRole(ctx context.Context, req *connect.Request[apiv
 		if code, _ := errs.CodeOf(err); code == accessstore.ErrCodeRoleAssigned {
 			err = errs.From(err).Code(ErrCodeRoleAssigned).Msg("role still has assignees")
 		}
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -149,7 +154,7 @@ func (s *AdminService) AssignRole(ctx context.Context, req *connect.Request[apiv
 		return nil
 	})
 	if err != nil {
-		return nil, memberError(err)
+		return nil, memberError(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -171,7 +176,7 @@ func (s *AdminService) UnassignRole(ctx context.Context, req *connect.Request[ap
 		return nil
 	})
 	if code, _ := errs.CodeOf(err); err != nil && code != accessstore.ErrCodeNotFound {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -181,6 +186,7 @@ func (s *AdminService) UnassignRole(ctx context.Context, req *connect.Request[ap
 
 // ConnectPartner requires another committed tenant and excludes admin access.
 // Reconnection replaces relations while preserving the connection provenance.
+// Repeated concurrent disconnections return a retryable Unavailable error.
 func (s *AdminService) ConnectPartner(ctx context.Context, req *connect.Request[apiv1.ConnectPartnerRequest]) (*connect.Response[apiv1.ConnectPartnerResponse], error) {
 	p, tenantID, err := adminRequest(ctx, req.Msg)
 	if err != nil {
@@ -192,22 +198,34 @@ func (s *AdminService) ConnectPartner(ctx context.Context, req *connect.Request[
 	}
 	record, err := s.tenants.Get(ctx, provider)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if record == nil {
-		return nil, connectErr(errs.New().Code(tenantstore.ErrCodeNotFound).Msg("provider has no tenant record"))
+		return nil, connectErr(ctx, errs.New().Code(tenantstore.ErrCodeNotFound).Msg("provider has no tenant record"))
 	}
-	partner, err := s.access.CreatePartner(ctx, tenantID, identityv1.Partner_builder{
+	proposed := identityv1.Partner_builder{
 		Tenant: req.Msg.GetPartner(), Relations: req.Msg.GetRelations(), ConnectedAt: timestamppb.New(s.clock()), ConnectedBy: operatorRef(p),
-	}.Build())
-	if err != nil {
-		return nil, connectErr(err)
-	}
-	if !slices.Equal(partner.GetRelations(), req.Msg.GetRelations()) {
-		partner, err = s.access.UpdatePartner(ctx, tenantID, req.Msg.GetPartner(), req.Msg.GetRelations())
+	}.Build()
+	var partner *identityv1.Partner
+	for range 8 {
+		partner, err = s.access.CreatePartner(ctx, tenantID, proposed)
 		if err != nil {
-			return nil, connectErr(err)
+			return nil, connectErr(ctx, err)
 		}
+		if slices.Equal(partner.GetRelations(), req.Msg.GetRelations()) {
+			break
+		}
+		partner, err = s.access.UpdatePartner(ctx, tenantID, req.Msg.GetPartner(), req.Msg.GetRelations())
+		if code, _ := errs.CodeOf(err); code == accessstore.ErrCodeNotFound {
+			continue
+		}
+		if err != nil {
+			return nil, connectErr(ctx, err)
+		}
+		break
+	}
+	if err != nil {
+		return nil, connectErr(ctx, errs.From(err).Code(accessstore.ErrCodeConflict).Msg("partner connection did not settle"))
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -222,7 +240,7 @@ func (s *AdminService) DisconnectPartner(ctx context.Context, req *connect.Reque
 		return nil, err
 	}
 	if _, err := s.access.DeletePartner(ctx, tenantID, req.Msg.GetPartner()); err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -245,7 +263,7 @@ func (s *AdminService) GrantFullPayload(ctx context.Context, req *connect.Reques
 		return nil
 	})
 	if err != nil {
-		return nil, memberError(err)
+		return nil, memberError(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -261,7 +279,7 @@ func (s *AdminService) RevokeFullPayload(ctx context.Context, req *connect.Reque
 	}
 	_, err = s.access.MutateMember(ctx, tenantID, req.Msg.GetMember(), func(current *identityv1.Member) error { current.ClearFullPayload(); return nil })
 	if code, _ := errs.CodeOf(err); err != nil && code != accessstore.ErrCodeNotFound {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if err := s.projector.SyncTenant(ctx, tenantID); err != nil {
 		return nil, projectionError(err)
@@ -277,7 +295,7 @@ func (s *AdminService) ListMembers(ctx context.Context, req *connect.Request[api
 	}
 	records, err := s.access.ListMembers(ctx, tenantID)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	page, token, err := pageRecords(records, req.Msg.GetPageSize(), req.Msg.GetPageToken(), func(m *identityv1.Member) string {
 		return authn.ComputePrincipalID(m.GetOperator().GetIssuer(), m.GetOperator().GetSubject())
@@ -300,7 +318,7 @@ func (s *AdminService) ListRoles(ctx context.Context, req *connect.Request[apiv1
 	}
 	records, err := s.access.ListRoles(ctx, tenantID)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	page, token, err := pageRecords(records, req.Msg.GetPageSize(), req.Msg.GetPageToken(), func(r *identityv1.Role) string { return r.GetRef().GetRole().GetId() })
 	if err != nil {
@@ -321,7 +339,7 @@ func (s *AdminService) ListPartners(ctx context.Context, req *connect.Request[ap
 	}
 	records, err := s.access.ListPartners(ctx, tenantID)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	page, token, err := pageRecords(records, req.Msg.GetPageSize(), req.Msg.GetPageToken(), func(p *identityv1.Partner) string { return p.GetTenant().GetTenant().GetId() })
 	if err != nil {

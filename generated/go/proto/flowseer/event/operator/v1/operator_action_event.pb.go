@@ -406,8 +406,8 @@ type OperatorActionRole_builder struct {
 
 	// The role identity. Must be present.
 	Role *v1.RoleGlobalRef
-	// The role's relations. Must contain one to four distinct, defined
-	// relations.
+	// The role's relations. Every action except ROLE_DELETE has one to four
+	// distinct, defined relations. A ROLE_DELETE record has none.
 	Relations []v1.TenantRelation
 }
 
@@ -1436,10 +1436,10 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\n" +
 	"error_type\x18\x02 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\x80\x01R\terrorType:\xa5\x01\xbaH\xa1\x01\x1a\x9e\x01\n" +
-	"4operator_action_completed.error_type_matches_outcome\x129error_type is set if and only if outcome is not succeeded\x1a+has(this.error_type) == (this.outcome != 1)\"\xbc\x01\n" +
+	"4operator_action_completed.error_type_matches_outcome\x129error_type is set if and only if outcome is not succeeded\x1a+has(this.error_type) == (this.outcome != 1)\"\xba\x01\n" +
 	"\x12OperatorActionRole\x12E\n" +
-	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12_\n" +
-	"\trelations\x18\x02 \x03(\x0e2*.flowseer.model.identity.v1.TenantRelationB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x04\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\trelations\"\xae\x01\n" +
+	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12]\n" +
+	"\trelations\x18\x02 \x03(\x0e2*.flowseer.model.identity.v1.TenantRelationB\x13\xbaH\x10\x92\x01\r\x10\x04\x18\x01\"\a\x82\x01\x04\x10\x01 \x00R\trelations\"\xae\x01\n" +
 	"\x1cOperatorActionRoleAssignment\x12E\n" +
 	"\x04role\x18\x01 \x01(\v2).flowseer.model.identity.v1.RoleGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x04role\x12G\n" +
 	"\x06member\x18\x02 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\x06member\"\xcd\x02\n" +
@@ -1450,7 +1450,8 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\x1eOperatorActionFullPayloadGrant\x12G\n" +
 	"\x06member\x18\x01 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\x06member\x12A\n" +
 	"\n" +
-	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\x99\t\n" +
+	"expires_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampB\x06\xbaH\x03\xc8\x01\x01R\texpiresAt\"\xe1\n" +
+	"\n" +
 	"\x13OperatorActionEvent\x12&\n" +
 	"\bevent_id\x18\x01 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\aeventId\x12$\n" +
 	"\acall_id\x18\x02 \x01(\tB\v\xbaH\b\xc8\x01\x01r\x03\xb0\x01\x01R\x06callId\x12C\n" +
@@ -1469,7 +1470,8 @@ const file_flowseer_event_operator_v1_operator_action_event_proto_rawDesc = "" +
 	"\apartner\x18\x10 \x01(\v21.flowseer.event.operator.v1.OperatorActionPartnerH\x00R\apartner\x12j\n" +
 	"\x12full_payload_grant\x18\x11 \x01(\v2:.flowseer.event.operator.v1.OperatorActionFullPayloadGrantH\x00R\x10fullPayloadGrant\x12S\n" +
 	"\tattempted\x18\x14 \x01(\v23.flowseer.event.operator.v1.OperatorActionAttemptedH\x01R\tattempted\x12S\n" +
-	"\tcompleted\x18\x15 \x01(\v23.flowseer.event.operator.v1.OperatorActionCompletedH\x01R\tcompletedB\b\n" +
+	"\tcompleted\x18\x15 \x01(\v23.flowseer.event.operator.v1.OperatorActionCompletedH\x01R\tcompleted:\xc5\x01\xbaH\xc1\x01\x1a\xbe\x01\n" +
+	"1operator_action_event.role_relations_match_action\x12=role relations are empty if and only if action is role delete\x1aJ!has(this.role) || (this.action == 14) == (size(this.role.relations) == 0)B\b\n" +
 	"\x06objectB\x0f\n" +
 	"\x06detail\x12\x05\xbaH\x02\b\x01*\x81\x06\n" +
 	"\x0eOperatorAction\x12\x1f\n" +

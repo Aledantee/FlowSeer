@@ -1311,8 +1311,8 @@ func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	ctx := context.Background()
 	// Audit stream default: 256 MiB. Operator action stream default: 64 MiB.
 	// Operator read stream default: 16 MiB. Sum: 336 MiB. A central budget below
-	// the sum of reservations must fail StartHub, and 330 MiB is above the 320 MiB
-	// the sum was before the read stream.
+	// the sum of reservations must fail StartHub, and both budgets tried are
+	// below it.
 	config := edgebus.HubConfig{
 		FsyncPolicy: service.BusFsyncPeriodic,
 	}

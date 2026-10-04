@@ -39,6 +39,7 @@ const casRetries = 8
 // Callers validate record contents before writing them.
 // Bucket failures return ErrCodeStore and are retryable. Encoding failures
 // return ErrCodeDecode, and exhausted CAS retries return ErrCodeConflict.
+// An ended caller context returns its unwrapped error.
 type Store struct {
 	kv  jetstream.KeyValue
 	now func() time.Time
@@ -262,7 +263,7 @@ func readRecord[M proto.Message](ctx context.Context, s *Store, key string, empt
 		return zero, 0, nil
 	}
 	if err != nil {
-		return zero, 0, storeError(err, key, "read access record")
+		return zero, 0, storeError(ctx, err, key, "read access record")
 	}
 	rec := empty()
 	if err := proto.Unmarshal(entry.Value(), rec); err != nil {
@@ -290,7 +291,7 @@ func createRecord[M proto.Message](ctx context.Context, s *Store, key string, pr
 			continue
 		}
 		if err != nil {
-			return zero, storeError(err, key, "create access record")
+			return zero, storeError(ctx, err, key, "create access record")
 		}
 		return proposed, nil
 	}
@@ -319,7 +320,7 @@ func mutateRecord[M proto.Message](ctx context.Context, s *Store, key string, em
 			continue
 		}
 		if err != nil {
-			return zero, storeError(err, key, "update access record")
+			return zero, storeError(ctx, err, key, "update access record")
 		}
 		return current, nil
 	}
@@ -333,14 +334,14 @@ func (s *Store) deleteRecord(ctx context.Context, key string) (bool, error) {
 			return false, nil
 		}
 		if err != nil {
-			return false, storeError(err, key, "read access record for deletion")
+			return false, storeError(ctx, err, key, "read access record for deletion")
 		}
 		err = s.kv.Delete(ctx, key, jetstream.LastRevision(entry.Revision()))
 		if errors.Is(err, jetstream.ErrKeyRevisionMismatch) {
 			continue
 		}
 		if err != nil {
-			return false, storeError(err, key, "delete access record")
+			return false, storeError(ctx, err, key, "delete access record")
 		}
 		return true, nil
 	}
@@ -353,7 +354,7 @@ func (s *Store) keys(ctx context.Context) ([]string, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, storeError(err, "", "list access records")
+		return nil, storeError(ctx, err, "", "list access records")
 	}
 	slices.Sort(keys)
 	return keys, nil
@@ -388,9 +389,9 @@ func encodeRecord(key string, record proto.Message) ([]byte, error) {
 	return data, nil
 }
 
-func storeError(err error, key, message string) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return err
+func storeError(ctx context.Context, err error, key, message string) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
 	}
 	return errs.From(err).Code(ErrCodeStore).Retryable().Attr("key", key).Msg(message)
 }

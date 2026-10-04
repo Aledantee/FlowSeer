@@ -26,23 +26,19 @@ func (c RepairedCounts) Total() int {
 	return c.Edges + c.Devices + c.CaptureSessions + c.Tenants + c.Roles + c.Platforms
 }
 
+// Each value says whether ownership requires the access source.
+var ownedRelations = map[string]map[string]bool{
+	"edge":            {"tenant": false, "administer": true, "operate": true, "capture": true, "view": true},
+	"device":          {"tenant": false, "operate": true, "view": true},
+	"capture_session": {"tenant": false, "edge": false, "requester": false},
+	"tenant":          {"platform": true, "enrolled": true, "partner": true, "admin": true, "operator": true, "capturer": true, "viewer": true, "full_payload": true},
+	"role":            {"assignee": true},
+	"platform":        {"enrolled": true},
+}
+
 func (p *Projector) isOwnedRelation(objType, relation string) bool {
-	switch objType {
-	case "edge":
-		return relation == "tenant" || p.access != nil && (relation == "administer" || relation == "operate" || relation == "capture" || relation == "view")
-	case "device":
-		return relation == "tenant" || p.access != nil && (relation == "operate" || relation == "view")
-	case "capture_session":
-		return relation == "tenant" || relation == "edge" || relation == "requester"
-	case "tenant":
-		return p.access != nil && (relation == "platform" || relation == "enrolled" || relation == "partner" || relation == "admin" || relation == "operator" || relation == "capturer" || relation == "viewer" || relation == "full_payload")
-	case "role":
-		return p.access != nil && relation == "assignee"
-	case "platform":
-		return p.access != nil && relation == "enrolled"
-	default:
-		return false
-	}
+	requiresAccess, owned := ownedRelations[objType][relation]
+	return owned && (!requiresAccess || p.access != nil)
 }
 
 func (p *Projector) filterOwnedTuples(objType string, tuples []authz.Tuple) []authz.Tuple {

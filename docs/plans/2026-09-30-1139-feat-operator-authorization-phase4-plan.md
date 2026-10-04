@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -687,10 +688,6 @@ The tagged run needs Docker and runs the package whole. The run in
 - A deployment that wrote grants or memberships to OpenFGA by hand loses
   them at the first pass after U6. The lab in `deploy/lab` is the only one
   known, and U7 moves it to the API.
-- The 24-hour ceiling on a full-payload grant is this plan's choice. It
-  is one bound in `GrantFullPayloadRequest`.
-- A partner link needs no acceptance by the provider. A provider that must
-  consent first needs a second record on its side.
 - Unmeasured: `SyncTenant` for a tenant with thousands of members, and
   `RemoveMember`, which reads every session of the tenant to find the
   member's.

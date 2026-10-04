@@ -263,6 +263,51 @@ func TestOperatorActionNewObjectArms(t *testing.T) {
 	roleEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
 	roleEvent.Role = role
 
+	deletedRoleEvent := validOperatorActionEvent()
+	deletedRoleEvent.Edge = nil
+	deletedRoleEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_DELETE.Enum()
+	deletedRoleEvent.Role = operatorv1.OperatorActionRole_builder{
+		Role: validAccessRoleRef(),
+	}.Build()
+
+	roleCreateWithoutRelations := validOperatorActionEvent()
+	roleCreateWithoutRelations.Edge = nil
+	roleCreateWithoutRelations.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleCreateWithoutRelations.Role = operatorv1.OperatorActionRole_builder{
+		Role: validAccessRoleRef(),
+	}.Build()
+	roleDeleteWithRelations := validOperatorActionEvent()
+	roleDeleteWithRelations.Edge = nil
+	roleDeleteWithRelations.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_DELETE.Enum()
+	roleDeleteWithRelations.Role = operatorv1.OperatorActionRole_builder{
+		Role:      validAccessRoleRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build()
+	roleWithDuplicateRelations := validOperatorActionEvent()
+	roleWithDuplicateRelations.Edge = nil
+	roleWithDuplicateRelations.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleWithDuplicateRelations.Role = operatorv1.OperatorActionRole_builder{
+		Role: validAccessRoleRef(),
+		Relations: []identityv1.TenantRelation{
+			identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+			identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+		},
+	}.Build()
+	roleWithUndefinedRelation := validOperatorActionEvent()
+	roleWithUndefinedRelation.Edge = nil
+	roleWithUndefinedRelation.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleWithUndefinedRelation.Role = operatorv1.OperatorActionRole_builder{
+		Role:      validAccessRoleRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation(99)},
+	}.Build()
+	roleWithUnspecifiedRelation := validOperatorActionEvent()
+	roleWithUnspecifiedRelation.Edge = nil
+	roleWithUnspecifiedRelation.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
+	roleWithUnspecifiedRelation.Role = operatorv1.OperatorActionRole_builder{
+		Role:      validAccessRoleRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_UNSPECIFIED},
+	}.Build()
+
 	assignmentEvent := validOperatorActionEvent()
 	assignmentEvent.Edge = nil
 	assignmentEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_ASSIGN.Enum()
@@ -272,6 +317,13 @@ func TestOperatorActionNewObjectArms(t *testing.T) {
 	partnerEvent.Edge = nil
 	partnerEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_CONNECT.Enum()
 	partnerEvent.Partner = partner
+	partnerWithAdminRelation := validOperatorActionEvent()
+	partnerWithAdminRelation.Edge = nil
+	partnerWithAdminRelation.Action = operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_CONNECT.Enum()
+	partnerWithAdminRelation.Partner = operatorv1.OperatorActionPartner_builder{
+		Tenant:    validTenantRef(),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_ADMIN},
+	}.Build()
 
 	grantEvent := validOperatorActionEvent()
 	grantEvent.Edge = nil
@@ -307,8 +359,15 @@ func TestOperatorActionNewObjectArms(t *testing.T) {
 		{name: "tenant object arm validates", message: base.Build(), wantValid: true},
 		{name: "member object arm validates", message: member.Build(), wantValid: true},
 		{name: "role object arm validates", message: roleEvent.Build(), wantValid: true},
+		{name: "role deletion object without relations validates", message: deletedRoleEvent.Build(), wantValid: true},
+		{name: "role creation object without relations is rejected", message: roleCreateWithoutRelations.Build()},
+		{name: "role deletion object with relations is rejected", message: roleDeleteWithRelations.Build()},
+		{name: "role object with repeated relation is rejected", message: roleWithDuplicateRelations.Build()},
+		{name: "role object with undefined relation is rejected", message: roleWithUndefinedRelation.Build()},
+		{name: "role object with unspecified relation is rejected", message: roleWithUnspecifiedRelation.Build()},
 		{name: "role assignment object arm validates", message: assignmentEvent.Build(), wantValid: true},
 		{name: "partner object arm validates", message: partnerEvent.Build(), wantValid: true},
+		{name: "partner object with admin relation is rejected", message: partnerWithAdminRelation.Build()},
 		{name: "full payload grant object arm validates", message: grantEvent.Build(), wantValid: true},
 		{name: "role object without a ref is rejected", message: roleWithoutRef.Build()},
 		{name: "role assignment without a member is rejected", message: assignmentWithoutMember.Build()},

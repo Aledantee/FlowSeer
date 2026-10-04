@@ -239,6 +239,44 @@ func TestWriteMalformedUsersetsMakesNoWrite(t *testing.T) {
 	}
 }
 
+func TestRelationObjectsRefuseUsersets(t *testing.T) {
+	for _, object := range []string{"role:r1#assignee", "tenant:t1#active_admin"} {
+		for _, operation := range []string{"write", "delete", "read"} {
+			t.Run(object+"/"+operation, func(t *testing.T) {
+				ctx := t.Context()
+				harness := newTestServerHarness(t)
+				checker := newChecker(t, harness, nil)
+				if err := checker.Verify(ctx); err != nil {
+					t.Fatalf("Verify: %v", err)
+				}
+				storesBefore := harness.fake.getStoreCallsCount.Load()
+				modelsBefore := harness.fake.readModelCallsCount.Load()
+				tuple := authz.Tuple{Object: object, Relation: "operator", User: "user:u1"}
+				var err error
+				switch operation {
+				case "write":
+					err = checker.Write(ctx, []authz.Tuple{tuple}, nil)
+				case "delete":
+					err = checker.Write(ctx, nil, []authz.Tuple{tuple})
+				case "read":
+					var tuples []authz.Tuple
+					tuples, err = checker.Read(ctx, object)
+					if len(tuples) != 0 {
+						t.Errorf("Read tuples = %v, want none", tuples)
+					}
+				}
+				wantCode(t, err, openfga.ErrCodeInvalidTuple)
+				if got := harness.fake.writeCallsCount.Load() + harness.fake.readCallsCount.Load(); got != 0 {
+					t.Errorf("relationship calls = %d, want 0", got)
+				}
+				if got := harness.fake.getStoreCallsCount.Load() - storesBefore + harness.fake.readModelCallsCount.Load() - modelsBefore; got != 0 {
+					t.Errorf("verification calls = %d, want 0", got)
+				}
+			})
+		}
+	}
+}
+
 func TestWriteRelations(t *testing.T) {
 	t.Run("write of 250 tuples makes calls of 100, 100, and 50 each carrying both options", func(t *testing.T) {
 		harness := newTestServerHarness(t)

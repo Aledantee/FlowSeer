@@ -261,6 +261,10 @@ func TestAccessRecordsRules(t *testing.T) {
 
 	roleWithoutRelations := proto.Clone(validRole).(*identityv1.Role)
 	roleWithoutRelations.SetRelations(nil)
+	roleWithoutName := proto.Clone(validRole).(*identityv1.Role)
+	roleWithoutName.SetName("")
+	roleWithLongName := proto.Clone(validRole).(*identityv1.Role)
+	roleWithLongName.SetName(strings.Repeat("n", 129))
 	roleWithRepeatedRelation := proto.Clone(validRole).(*identityv1.Role)
 	roleWithRepeatedRelation.SetRelations([]identityv1.TenantRelation{
 		identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
@@ -268,6 +272,10 @@ func TestAccessRecordsRules(t *testing.T) {
 	})
 	roleWithUndefinedRelation := proto.Clone(validRole).(*identityv1.Role)
 	roleWithUndefinedRelation.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation(99)})
+	grantWithoutReason := proto.Clone(validGrant).(*identityv1.FullPayloadGrant)
+	grantWithoutReason.SetReason("")
+	grantWithLongReason := proto.Clone(validGrant).(*identityv1.FullPayloadGrant)
+	grantWithLongReason.SetReason(strings.Repeat("r", 513))
 	partnerWithAdmin := proto.Clone(validPartner).(*identityv1.Partner)
 	partnerWithAdmin.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_ADMIN})
 	memberWithTooManyRoles := proto.Clone(validAccessMember()).(*identityv1.Member)
@@ -278,9 +286,13 @@ func TestAccessRecordsRules(t *testing.T) {
 		{name: "member record validates", message: validAccessMember(), wantValid: true},
 		{name: "full payload grant validates", message: validGrant, wantValid: true},
 		{name: "partner record validates", message: validPartner, wantValid: true},
+		{name: "role without a name is rejected", message: roleWithoutName},
+		{name: "role with a 129-character name is rejected", message: roleWithLongName},
 		{name: "role without a relation is rejected", message: roleWithoutRelations},
 		{name: "role with a repeated relation is rejected", message: roleWithRepeatedRelation},
 		{name: "role with an undefined relation is rejected", message: roleWithUndefinedRelation},
+		{name: "full payload grant without a reason is rejected", message: grantWithoutReason},
+		{name: "full payload grant with a 513-character reason is rejected", message: grantWithLongReason},
 		{name: "partner with admin is rejected", message: partnerWithAdmin},
 		{name: "member with 65 roles is rejected", message: memberWithTooManyRoles},
 	})

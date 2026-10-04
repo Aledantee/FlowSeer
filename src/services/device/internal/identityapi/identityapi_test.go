@@ -121,7 +121,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{hub: hub, kv: kv, tenants: tenants, projector: &recordingProjector{}, now: testTime}
 	f.access = accessstore.New(kv, func() time.Time { return f.now })
 	f.tenant = identityapi.NewTenantService(tenants, f.projector)
-	f.admin = identityapi.NewAdminService(tenants, f.access, []string{issuer}, func() time.Time { return f.now }, f.projector)
+	f.admin = identityapi.NewAdminService(tenants, f.access, []string{issuer}, func() time.Time { return f.now }, f.projector, nil)
 	for _, id := range []string{tenantA, tenantB} {
 		config := identityv1.TenantConfig_builder{
 			Ref: tenantRef(id), Issuer: new(issuer), OrganizationClaimName: new("groups"), OrganizationClaimValue: new(id),
@@ -314,6 +314,29 @@ func TestCreateTenantRetryRepairsFailedProjection(t *testing.T) {
 	records, err := f.tenants.List(ctx)
 	if err != nil || len(records) != 3 {
 		t.Fatalf("tenants = %d, %v, want 3", len(records), err)
+	}
+}
+
+func TestCreateTenantLeavesOmittedNameUnset(t *testing.T) {
+	f := newFixture(t)
+	ctx := admitted(t, tenantA)
+	req := createRequest()
+	req.ClearName()
+
+	resp, err := f.tenant.CreateTenant(ctx, request(t, req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := f.tenants.LookupByOrg(ctx, issuer, "acme")
+	if err != nil || stored == nil {
+		t.Fatalf("stored tenant = %v, %v", stored, err)
+	}
+	valid(t, stored)
+	if stored.GetConfig().HasName() {
+		t.Fatalf("stored tenant name = %q, want unset", stored.GetConfig().GetName())
+	}
+	if !proto.Equal(resp.Msg.GetTenant(), stored) {
+		t.Fatalf("response tenant = %v, want stored tenant %v", resp.Msg.GetTenant(), stored)
 	}
 }
 
@@ -522,9 +545,7 @@ func TestCreateRoleReturnsStoredRoleAndLogsProjectionFailure(t *testing.T) {
 	f := newFixture(t)
 	f.projector.failTenant = errors.New("private engine diagnostic")
 	var logs bytes.Buffer
-	old := slog.Default()
-	slog.SetDefault(slog.New(slog.NewJSONHandler(&logs, nil)))
-	t.Cleanup(func() { slog.SetDefault(old) })
+	f.admin = identityapi.NewAdminService(f.tenants, f.access, []string{issuer}, func() time.Time { return f.now }, f.projector, slog.New(slog.NewJSONHandler(&logs, nil)))
 	first := createRole(t, f)
 	second := createRole(t, f)
 	if proto.Equal(first.GetRef(), second.GetRef()) {
@@ -537,6 +558,27 @@ func TestCreateRoleReturnsStoredRoleAndLogsProjectionFailure(t *testing.T) {
 	wantCalls(t, f.projector, "tenant:"+tenantA, "tenant:"+tenantA)
 	if strings.Count(logs.String(), "role projection failed") != 2 || strings.Contains(logs.String(), "private engine diagnostic") || !strings.Contains(logs.String(), `"error.type":"unknown"`) {
 		t.Fatalf("projection diagnostics = %s", logs.String())
+	}
+}
+
+func TestCreateRoleLeavesOmittedDescriptionUnset(t *testing.T) {
+	f := newFixture(t)
+	req := request(t, apiv1.CreateRoleRequest_builder{
+		Name:      new("operations"),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build())
+
+	resp, err := f.admin.CreateRole(admitted(t, tenantA), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := f.access.Role(t.Context(), tenantA, resp.Msg.GetRole().GetRef())
+	if err != nil || stored == nil {
+		t.Fatalf("stored role = %v, %v", stored, err)
+	}
+	valid(t, stored)
+	if stored.GetDescription() != "" || stored.HasDescription() {
+		t.Fatalf("stored role description = %q, has description %t, want unset", stored.GetDescription(), stored.HasDescription())
 	}
 }
 
@@ -918,4 +960,196 @@ func TestStoreFailuresAreSanitizedAndRetryable(t *testing.T) {
 	if !errs.Retryable(err) || errorPayload(t, err).GetRetry() != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
 		t.Fatalf("tenant failure = %v, want retryable", err)
 	}
+}
+
+type failingKV struct {
+	jetstream.KeyValue
+	err error
+}
+
+func (kv failingKV) Get(context.Context, string) (jetstream.KeyValueEntry, error) {
+	return nil, kv.err
+}
+
+func (kv failingKV) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	return nil, kv.err
+}
+
+type failingJS struct {
+	jetstream.JetStream
+	err error
+}
+
+func (js failingJS) KeyValue(ctx context.Context, bucket string) (jetstream.KeyValue, error) {
+	kv, err := js.JetStream.KeyValue(ctx, bucket)
+	return failingKV{KeyValue: kv, err: js.err}, err
+}
+
+func TestStoreTimeoutsUseRequestContext(t *testing.T) {
+	f := newFixture(t)
+	for _, state := range []string{"live deadline", "live canceled", "canceled", "expired"} {
+		t.Run(state, func(t *testing.T) {
+			ctx := admitted(t, tenantA)
+			cause := context.DeadlineExceeded
+			switch state {
+			case "live canceled":
+				cause = context.Canceled
+			case "canceled":
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			case "expired":
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithDeadline(ctx, time.Time{})
+				defer cancel()
+				cause = context.Canceled
+			}
+			failure := fmt.Errorf("private transport diagnostic: %w", cause)
+			access := accessstore.New(failingKV{KeyValue: f.kv, err: failure}, func() time.Time { return testTime })
+			tenants, err := tenantstore.New(t.Context(), failingJS{JetStream: f.hub.JetStream(), err: failure}, edgebus.TenantBucket)
+			if err != nil {
+				t.Fatal(err)
+			}
+			admin := identityapi.NewAdminService(tenants, access, []string{issuer}, func() time.Time { return testTime }, f.projector, nil)
+			tenant := identityapi.NewTenantService(tenants, f.projector)
+			for _, tc := range []struct {
+				name, code, message string
+				call                func() error
+			}{
+				{"access read", "accessstore/store", "the access store cannot be reached right now", func() error {
+					_, err := admin.EnrollMember(ctx, request(t, apiv1.EnrollMemberRequest_builder{Member: operator("alice")}.Build()))
+					return err
+				}},
+				{"access list", "accessstore/store", "the access store cannot be reached right now", func() error {
+					_, err := admin.ListMembers(ctx, request(t, &apiv1.ListMembersRequest{}))
+					return err
+				}},
+				{"member mutation", "accessstore/store", "the access store cannot be reached right now", func() error {
+					_, err := admin.GrantFullPayload(ctx, request(t, apiv1.GrantFullPayloadRequest_builder{Member: operator("alice"), Lifetime: durationpb.New(time.Hour), Reason: new("case 42")}.Build()))
+					return err
+				}},
+				{"tenant create", "tenantstore/store", "the tenant store cannot be reached right now", func() error {
+					_, err := tenant.CreateTenant(ctx, request(t, createRequest()))
+					return err
+				}},
+				{"tenant get", "tenantstore/store", "the tenant store cannot be reached right now", func() error {
+					_, err := tenant.GetTenant(ctx, request(t, apiv1.GetTenantRequest_builder{Tenant: tenantRef(tenantA)}.Build()))
+					return err
+				}},
+				{"tenant list", "tenantstore/store", "the tenant store cannot be reached right now", func() error {
+					_, err := tenant.ListTenants(ctx, request(t, &apiv1.ListTenantsRequest{}))
+					return err
+				}},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					err := tc.call()
+					if ctx.Err() != nil {
+						if err != ctx.Err() {
+							t.Fatalf("error = %v, want request error %v", err, ctx.Err())
+						}
+						return
+					}
+					wantError(t, err, connect.CodeUnavailable, tc.code)
+					var ce *connect.Error
+					if !errors.As(err, &ce) || ce.Message() != tc.message || !errs.Retryable(err) || !errors.Is(err, failure) || errorPayload(t, err).GetRetry() != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE {
+						t.Fatalf("error = %v, want sanitized retryable store failure with transport cause", err)
+					}
+				})
+			}
+		})
+	}
+	wantCalls(t, f.projector)
+}
+
+type partnerReadKV struct {
+	jetstream.KeyValue
+	afterRead func(context.Context, string, jetstream.KeyValueEntry, error) error
+}
+
+func (kv partnerReadKV) Get(ctx context.Context, key string) (jetstream.KeyValueEntry, error) {
+	entry, err := kv.KeyValue.Get(ctx, key)
+	if hookErr := kv.afterRead(ctx, key, entry, err); hookErr != nil {
+		return nil, hookErr
+	}
+	return entry, err
+}
+
+func TestPartnerReconnectRetriesConcurrentDisconnect(t *testing.T) {
+	f := newFixture(t)
+	ctx := admitted(t, tenantA)
+	req := request(t, apiv1.ConnectPartnerRequest_builder{Partner: tenantRef(tenantB), Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_CAPTURER}}.Build())
+	if _, err := f.admin.ConnectPartner(ctx, req); err != nil {
+		t.Fatal(err)
+	}
+	f.projector.reset()
+	f.now = testTime.Add(time.Hour)
+	f.projector.onTenant = func(ctx context.Context, id string) error {
+		stored, err := f.access.Partner(ctx, id, tenantRef(tenantB))
+		if err == nil && stored != nil && !slices.Equal(stored.GetRelations(), []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER}) {
+			return errors.New("reconnection was not stored before projection")
+		}
+		return err
+	}
+	disconnects := 0
+	racing := partnerReadKV{KeyValue: f.kv, afterRead: func(ctx context.Context, key string, entry jetstream.KeyValueEntry, err error) error {
+		if key == tenantA+".partner."+tenantB && err == nil && entry != nil && disconnects == 0 {
+			disconnects++
+			_, err := f.admin.DisconnectPartner(ctx, request(t, apiv1.DisconnectPartnerRequest_builder{Partner: tenantRef(tenantB)}.Build()))
+			return err
+		}
+		return nil
+	}}
+	access := accessstore.New(racing, func() time.Time { return f.now })
+	admin := identityapi.NewAdminService(f.tenants, access, []string{issuer}, func() time.Time { return f.now }, f.projector, nil)
+	req.Msg.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER})
+	resp, err := admin.ConnectPartner(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid(t, resp.Msg)
+	stored, err := f.access.Partner(ctx, tenantA, tenantRef(tenantB))
+	if err != nil || !proto.Equal(stored, resp.Msg.GetPartner()) || !slices.Equal(stored.GetRelations(), req.Msg.GetRelations()) || !stored.GetConnectedAt().AsTime().Equal(f.now) || !proto.Equal(stored.GetConnectedBy(), operator("admin")) || disconnects != 1 {
+		t.Fatalf("reconnected partner = %v, %v after %d disconnects, want stored viewer with new connection", stored, err, disconnects)
+	}
+	wantCalls(t, f.projector, "tenant:"+tenantA, "tenant:"+tenantA)
+}
+
+func TestPartnerReconnectBoundsConcurrentDisconnects(t *testing.T) {
+	f := newFixture(t)
+	ctx := admitted(t, tenantA)
+	req := request(t, apiv1.ConnectPartnerRequest_builder{Partner: tenantRef(tenantB), Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_CAPTURER}}.Build())
+	first, err := f.admin.ConnectPartner(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.projector.reset()
+	disconnects := 0
+	racing := partnerReadKV{KeyValue: f.kv, afterRead: func(ctx context.Context, key string, entry jetstream.KeyValueEntry, err error) error {
+		if key != tenantA+".partner."+tenantB {
+			return nil
+		}
+		if err == nil && entry != nil {
+			disconnects++
+			_, err := f.admin.DisconnectPartner(ctx, request(t, apiv1.DisconnectPartnerRequest_builder{Partner: tenantRef(tenantB)}.Build()))
+			return err
+		}
+		if errors.Is(err, jetstream.ErrKeyNotFound) && disconnects < 16 {
+			_, err := f.access.CreatePartner(ctx, tenantA, first.Msg.GetPartner())
+			return err
+		}
+		return nil
+	}}
+	access := accessstore.New(racing, func() time.Time { return f.now })
+	admin := identityapi.NewAdminService(f.tenants, access, []string{issuer}, func() time.Time { return f.now }, f.projector, nil)
+	req.Msg.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER})
+	_, err = admin.ConnectPartner(ctx, req)
+	wantError(t, err, connect.CodeUnavailable, "accessstore/conflict")
+	if !errs.Retryable(err) || errorPayload(t, err).GetRetry() != errsv1.RetryDisposition_RETRY_DISPOSITION_RETRYABLE || disconnects != 8 {
+		t.Fatalf("reconnect = %v after %d disconnects, want retryable conflict after 8", err, disconnects)
+	}
+	stored, err := f.access.Partner(ctx, tenantA, tenantRef(tenantB))
+	if err != nil || !proto.Equal(stored, first.Msg.GetPartner()) {
+		t.Fatalf("contended partner = %v, %v, want competing connection", stored, err)
+	}
+	wantCalls(t, f.projector, slices.Repeat([]string{"tenant:" + tenantA}, 8)...)
 }

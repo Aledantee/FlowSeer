@@ -3,6 +3,7 @@ package accessstore_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"sync/atomic"
 	"testing"
@@ -256,6 +257,9 @@ func TestTenantIDsIncludeEveryRecordKind(t *testing.T) {
 		t.Fatalf("empty tenant IDs = %v, %v", ids, err)
 	}
 	createMember(t, s, tenantA, "alice")
+	if _, err := s.CreateRole(t.Context(), tenantA, role(t, roleA)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.CreateRole(t.Context(), tenantB, role(t, roleA)); err != nil {
 		t.Fatal(err)
 	}
@@ -271,8 +275,15 @@ func TestTenantIDsIncludeEveryRecordKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids, err = s.TenantIDs(t.Context())
-	if err != nil || !slices.Equal(ids, []string{tenantB, "default"}) {
+	if err != nil || !slices.Equal(ids, []string{tenantA, tenantB, "default"}) {
 		t.Fatalf("tenant IDs after deletion = %v, %v", ids, err)
+	}
+	if _, err := s.DeleteRole(t.Context(), tenantA, roleRef(roleA)); err != nil {
+		t.Fatal(err)
+	}
+	ids, err = s.TenantIDs(t.Context())
+	if err != nil || !slices.Equal(ids, []string{tenantB, "default"}) {
+		t.Fatalf("tenant IDs after removing the last record = %v, %v", ids, err)
 	}
 }
 
@@ -579,6 +590,103 @@ func TestClosedConnectionReportsRetryableStoreError(t *testing.T) {
 			err := tt.call()
 			if code, _ := errs.CodeOf(err); code != accessstore.ErrCodeStore || !errs.Retryable(err) {
 				t.Fatalf("error = %v, retryable %v, want retryable accessstore/store", err, errs.Retryable(err))
+			}
+		})
+	}
+}
+
+type failingKV struct {
+	jetstream.KeyValue
+	operation string
+	err       error
+	calls     int
+}
+
+func (kv *failingKV) Get(ctx context.Context, key string) (jetstream.KeyValueEntry, error) {
+	if kv.operation == "get" {
+		kv.calls++
+		return nil, kv.err
+	}
+	return kv.KeyValue.Get(context.WithoutCancel(ctx), key)
+}
+
+func (kv *failingKV) Create(_ context.Context, _ string, _ []byte, _ ...jetstream.KVCreateOpt) (uint64, error) {
+	kv.calls++
+	return 0, kv.err
+}
+
+func (kv *failingKV) Update(_ context.Context, _ string, _ []byte, _ uint64) (uint64, error) {
+	kv.calls++
+	return 0, kv.err
+}
+
+func (kv *failingKV) Delete(_ context.Context, _ string, _ ...jetstream.KVDeleteOpt) error {
+	kv.calls++
+	return kv.err
+}
+
+func (kv *failingKV) Keys(_ context.Context, _ ...jetstream.WatchOpt) ([]string, error) {
+	kv.calls++
+	return nil, kv.err
+}
+
+func TestStoreErrorsUseRequestContext(t *testing.T) {
+	s, kv, _ := newStore(t)
+	createMember(t, s, tenantA, "alice")
+	for _, state := range []string{"live deadline", "live canceled", "canceled", "expired"} {
+		t.Run(state, func(t *testing.T) {
+			ctx := t.Context()
+			cause := context.DeadlineExceeded
+			switch state {
+			case "live canceled":
+				cause = context.Canceled
+			case "canceled":
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			case "expired":
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithDeadline(ctx, time.Time{})
+				defer cancel()
+				cause = context.Canceled
+			}
+			failure := fmt.Errorf("private transport diagnostic: %w", cause)
+			for _, tc := range []struct {
+				name, operation string
+				call            func(*accessstore.Store) error
+			}{
+				{"read", "get", func(s *accessstore.Store) error { _, err := s.Member(ctx, tenantA, operator("alice")); return err }},
+				{"create", "create", func(s *accessstore.Store) error { _, err := s.CreateRole(ctx, tenantA, role(t, roleA)); return err }},
+				{"update", "update", func(s *accessstore.Store) error {
+					_, err := s.MutateMember(ctx, tenantA, operator("alice"), func(*identityv1.Member) error { return nil })
+					return err
+				}},
+				{"delete read", "get", func(s *accessstore.Store) error {
+					_, err := s.DeleteMember(ctx, tenantA, operator("alice"))
+					return err
+				}},
+				{"delete write", "delete", func(s *accessstore.Store) error {
+					_, err := s.DeleteMember(ctx, tenantA, operator("alice"))
+					return err
+				}},
+				{"list", "keys", func(s *accessstore.Store) error { _, err := s.ListMembers(ctx, tenantA); return err }},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					fault := &failingKV{KeyValue: kv, operation: tc.operation, err: failure}
+					err := tc.call(accessstore.New(fault, func() time.Time { return enrolledAt }))
+					if fault.calls != 1 {
+						t.Fatalf("injected failures = %d, want 1", fault.calls)
+					}
+					if ctx.Err() != nil {
+						if err != ctx.Err() {
+							t.Fatalf("error = %v, want request error %v", err, ctx.Err())
+						}
+						return
+					}
+					if code, _ := errs.CodeOf(err); code != accessstore.ErrCodeStore || !errs.Retryable(err) || !errors.Is(err, failure) {
+						t.Fatalf("error = %v, want retryable accessstore/store with transport cause", err)
+					}
+				})
 			}
 		})
 	}
