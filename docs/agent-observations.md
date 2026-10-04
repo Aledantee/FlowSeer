@@ -27,6 +27,16 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-04 delegate: an empty brief can start a worker without a task
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `start` validation.
+What happened: `start` checks that the brief path is a file, but accepts a zero-byte brief and sends it to the worker. A worker can therefore begin without the task that its lane was meant to carry.
+Suggested change: require a non-empty regular file before creating the worktree or launching the worker, and report that the brief is empty.
+
+## 2026-10-04 delegate: a dead child lane blocks parent cleanup
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `stop`, and parent review or fix cleanup.
+What happened: `stop` refuses a parent while a child worktree remains and then refuses a dirty child. A dead fix lane can therefore keep its parent review lane from being released even when the parent has finished.
+Suggested change: add a recovery step to the review fix loop and drive cleanup that inspects and settles dead child lanes before stopping the parent, while preserving dirty work for a person to read.
+
 ## 2026-10-03 review: fix rounds reopened on behavior changes until bounded to tests and records against a fixed mutation set
 Skill or agent: `.claude/skills/review/references/fix-loop.md`, step 1.
 What happened: Fix workers in rounds 4 and 5 introduced production code modifications that produced new edge-case findings during re-review, reopening the review loop. The loop closed in round 6 only after a recorded decision bounded fixes to test assertions and documentation alignments against the fixed list of 13 remaining mutations, freezing production behavior.
