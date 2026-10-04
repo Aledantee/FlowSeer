@@ -4,13 +4,15 @@ type: feat
 date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
 ---
 
 # Central Intake - Plan
+
+> Implemented. 3 units, 2026-10-04T12:14Z to 2026-10-04T13:02Z.
 
 ## Goal
 
@@ -345,14 +347,14 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] `src/modules/edgebus/README.md`, the intake README, and the device
+- [x] Verifier green for every changed path.
+- [x] `src/modules/edgebus/README.md`, the intake README, and the device
       service README describe the streams, subjects, and module.
-- [ ] Both direction records carry their amendment, and the budget solution
+- [x] Both direction records carry their amendment, and the budget solution
       states the new default.
-- [ ] This plan's `status` is set with an outcome note under its title, and
+- [x] This plan's `status` is set with an outcome note under its title, and
       the parent's `Landed:` line for this phase holds the commit range.
-- [ ] No plan labels in code.
+- [x] No plan labels in code.
 
 ## Open questions
 

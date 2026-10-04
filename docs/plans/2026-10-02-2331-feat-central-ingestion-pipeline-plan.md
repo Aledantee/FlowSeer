@@ -137,7 +137,7 @@ Landed: `341f4cd3..646d080c`
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase2-plan.md
 After: U1
-Landed:
+Landed: `f94b04ea..4e0070b5`
 
 ### U3. ClickHouse history store
 
