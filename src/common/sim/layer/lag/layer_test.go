@@ -686,7 +686,7 @@ func TestSelectionRules(t *testing.T) {
 		}}}, func(l *lag.Layer) {
 			t0 := time.Unix(1700000000, 0)
 			l.Receive(t0, "1/1/1", partner(t, l, "1/1/1", 1, 7, lacp.StateSynchronization, 9))
-			l.Receive(t0, "1/1/2", partner(t, l, "1/1/2", 1, 7, lacp.StateSynchronization, 10))
+			l.Receive(t0, "1/1/2", partner(t, l, "1/1/2", 1, 7, lacp.StateSynchronization, 9))
 		})
 		if !slices.Equal(info.Attached, []string{"1/1/1"}) {
 			t.Fatalf("Attached = %v, want one Individual member", info.Attached)
@@ -2342,6 +2342,10 @@ func TestZeroSystemPeerPastBothTimeoutsLeavesNoAttachment(t *testing.T) {
 		Actor:   lacp.Info{State: lacp.StateActive | lacp.StateSynchronization},
 		Partner: l.PortInfo("1/1/1").Actor,
 	})
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("after aggregate wait: attached = %v, enabled = %v, want [1/1/1] for both", info.Attached, info.Enabled)
+	}
 	l.Advance(t0.Add(7 * time.Second))
 
 	portInfo := l.PortInfo("1/1/1")
