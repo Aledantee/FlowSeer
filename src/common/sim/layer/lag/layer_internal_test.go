@@ -18,8 +18,8 @@ func firstPending(p []pending) *pending {
 	return nil
 }
 
-// TestPendingForEachCause is evidence that Info.pending reports a member for
-// each of the four documented reasons it may still change state on its own.
+// TestPendingForEachCause checks all four pending causes: link delay, Expired
+// partner, unsynchronized attachment, and aggregate wait.
 func TestPendingForEachCause(t *testing.T) {
 	t.Parallel()
 
