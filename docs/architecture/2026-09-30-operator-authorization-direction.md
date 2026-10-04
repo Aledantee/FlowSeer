@@ -525,7 +525,7 @@ rule dropped a response only when the handler returned without a check, and
 the table's rows say so now.
 
 A call whose context has ended answers with `ctx.Err()` itself, bare and
-outside `connecterr`, in two places in the interceptor. A checker error returned while
+outside `connecterr`, in two places in authorization. A checker error returned while
 `ctx.Err()` is non-nil yields it in place of `Unavailable`, from the
 interceptor, `Require`, and `Filter` alike. Under a loaded or filtered rule,
 a handler path that ends in an error with no check discharged while
