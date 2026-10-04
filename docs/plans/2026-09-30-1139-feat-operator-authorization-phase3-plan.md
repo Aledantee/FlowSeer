@@ -5,7 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -371,6 +371,10 @@ is `github.com/openfga/openfga@v1.21.0`, `api@` is
   citations, and the runbook token test. The review then records `accept
   after fixes`. Phase 4 follows, and its `TenantService` closes the missing
   tenant-record path. (decided by the user, 2026-10-04)
+- The review is accepted after four fix rounds, with the recover
+  interceptor gap and the re-review's test remarks kept under Open
+  questions. Why: four rounds found no defect in the service's behavior, and
+  the remaining gaps are in tests. (decided by the user, 2026-10-04)
 
 ## Requirements
 
@@ -907,13 +911,3 @@ The run in `deploy/lab/README.md` is done once by hand.
     hold the described code and a few lines beside it.
     `TestTheDirectionRecordCitationsAndDecisions` checks only that a range
     lies inside its file.
-- Parked by drive: the fourth round closed items 1, 3, and 4 and stays
-  `rework`. No test can fail on the edge-facing recover interceptor entry
-  alone without a production seam in the validating interceptor, which
-  that round did not allow, and the re-review left test-coverage remarks
-  with no production finding. Options: accept the phase with these items
-  recorded (no behavior defect is known, and the remarks stay open) | run
-  one round that may add a test seam to the validating interceptor (closes
-  the recover gap at the cost of a production change and more quota) |
-  leave it parked. Recommended: accept with the items recorded, because four
-  rounds found no behavior defect and the remaining gaps are in tests.
