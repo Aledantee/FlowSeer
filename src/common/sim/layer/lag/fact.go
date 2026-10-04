@@ -21,6 +21,19 @@ type lacpDecisionFact string
 func (f lacpDecisionFact) TypeID() string    { return "lag.lacp_decision" }
 func (f lacpDecisionFact) Canonical() string { return string(f) }
 
+type markerResponseFact string
+
+func (f markerResponseFact) TypeID() string    { return "lag.marker_response" }
+func (f markerResponseFact) Canonical() string { return string(f) }
+
+// MarkerResponseFact records the requester identity and transaction echoed by
+// a Marker Responder. The request must carry a valid Marker Information PDU
+// and the response must be its reply.
+func MarkerResponseFact(request, response ethernet.Frame) trace.Fact {
+	return markerResponseFact("requester=" + hex.EncodeToString(request.Payload[4:16]) +
+		";response_source=" + strconv.Quote(response.Src.String()))
+}
+
 // SelectionFact returns an immutable snapshot of a LAG member-selection decision.
 func (l *Layer) SelectionFact(lagName string, f ethernet.Frame, vid vlan.ID, sel Selection) trace.Fact {
 	lagState, ok := l.lags[lagName]

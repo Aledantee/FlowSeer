@@ -229,8 +229,46 @@ Transmission rates use two standard periods:
 - Fast: 1 second.
 - Slow: 30 seconds.
 
-Members transmit periodically and immediately when their actor state changes.
-In Passive mode, transmissions occur only after the partner advertises `StateActive`.
+The Partner's Short timeout selects Fast. Long selects Slow, independently of
+the local `Fast` setting. Figure 6-19 of IEEE P802.1AX-REV/D4.54 defines the
+Periodic machine:
+
+```mermaid
+stateDiagram-v2
+    [*] --> NO_PERIODIC
+    NO_PERIODIC --> FAST_PERIODIC: carrier and either end Active
+    FAST_PERIODIC --> SLOW_PERIODIC: Partner Long
+    SLOW_PERIODIC --> PERIODIC_TX: timer expires or Partner Short
+    FAST_PERIODIC --> PERIODIC_TX: timer expires
+    PERIODIC_TX --> FAST_PERIODIC: Partner Short
+    PERIODIC_TX --> SLOW_PERIODIC: Partner Long
+```
+
+Carrier loss, LACP off, or both ends Passive returns the machine to
+`NO_PERIODIC` and clears the need to transmit. At carrier up, Periodic runs
+before Receive. The administrative Partner's Long timeout selects Slow,
+then Receive's `Expired` state requests Short and causes an immediate LACPDU.
+
+Actor changes and stale echoes also request transmission. `update_NTT` in
+6.4.9 compares the received Partner's identity, Activity, Timeout,
+Synchronization, and Aggregation against the local Actor. Collecting,
+Distributing, Defaulted, and Expired are outside that comparison.
+
+The Transmit machine permits at most three LACPDUs in any one-second window
+(6.4.16). A pending transmission leaves `NextWake` set to the earliest
+available slot. It samples Actor and Partner information when sent, so multiple
+requests collapse into one current PDU. An immediate transmission leaves the
+Periodic timer running. Carrier flaps retain the window's transmission history.
+
+### Marker Responder
+
+`ReceiveMarker` responds on the ingress member even when its Mux is detached
+or LACP is off (6.5.1 and Figure 6-28). The response uses the same source
+address as that member's LACPDUs. `lacp.MarkerResponse` preserves the requester
+port, system, transaction, version, and reserved octets, and changes the TLV
+type to Marker Response. Marker Responses and malformed requests produce no
+emission. The switch consumes requests under `lag.marker.respond` and drops
+refused frames with `unsupported-lacpdu`.
 
 ### Receive machine
 
@@ -346,10 +384,11 @@ retains the runtime layer only when both keys match and rebuilds it otherwise.
 
 ## Sources
 
-The Receive machine uses the unapproved draft
+The LACP machines and Marker Responder use the unapproved draft
 [IEEE P802.1AX-REV/D4.54, 15 October 2014](https://www.ietf.org/lib/dt/documents/LIAISON/liaison-2014-11-08-ieee-8021-rtg-completion-of-8021ax-rev-link-aggregation-to-ietf-routing-area-and-routing-area-wg-attachment-2.pdf),
 read as the reference for IEEE Std 802.1AX-2014. Its clauses 6.4.4 and 6.4.7
-through 6.4.12 define the timers, administrative Partner, and transitions.
+through 6.4.16 define the timers, administrative Partner, and transitions.
+Clause 6.5 defines the Marker Responder.
 The published standard was not read.
 
 Bond hashing and configuration fields use Open vSwitch 3.3 as their reference:

@@ -1043,8 +1043,7 @@ func TestDefaultedPartnerUsesAdministrativeState(t *testing.T) {
 		lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
 	t0 := time.Unix(1700000000, 0)
 	l.LinkChange(t0, "1/1/1", true)
-	l.Advance(t0.Add(3 * time.Second))
-	fx := l.Advance(t0.Add(6 * time.Second))
+	fx := l.Advance(t0.Add(3 * time.Second))
 	info := l.PortInfo("1/1/1")
 	if info.Status != lag.Defaulted || info.Partner != (lacp.Info{State: 0x18}) {
 		t.Fatalf("Defaulted member = %+v, want administrative Partner state 0x18", info)
@@ -1055,6 +1054,15 @@ func TestDefaultedPartnerUsesAdministrativeState(t *testing.T) {
 	pdu, err := lacp.Decode(fx.Emissions[0].Frame)
 	if err != nil || pdu.Partner != (lacp.Info{State: 0x18}) {
 		t.Fatalf("Defaulted PDU Partner = %+v, error = %v, want state 0x18", pdu.Partner, err)
+	}
+	if next, ok := l.NextWake(); !ok || !next.Equal(t0.Add(33*time.Second)) {
+		t.Fatalf("Defaulted NextWake = (%v, %v), want administrative Partner's Long period at t0+33s", next, ok)
+	}
+	if fx := l.Advance(t0.Add(6 * time.Second)); len(fx.Emissions) != 0 {
+		t.Fatalf("Defaulted emissions at t0+6s = %d, want 0", len(fx.Emissions))
+	}
+	if fx := l.Advance(t0.Add(33 * time.Second)); len(fx.Emissions) != 1 {
+		t.Fatalf("Defaulted periodic emissions = %d, want 1", len(fx.Emissions))
 	}
 }
 

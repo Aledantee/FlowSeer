@@ -52,8 +52,6 @@ func (m *memberState) disableReceive() {
 	m.status = PortDisabled
 	m.partner.State &^= lacp.StateSynchronization
 	m.rxTimer = time.Time{}
-	m.txTimer = time.Time{}
-	m.hasTxActor = false
 }
 
 func (m *memberState) expireReceive(now time.Time) {
@@ -71,7 +69,7 @@ func (m *memberState) mayTx(lag *lagState) bool {
 		return true
 	}
 
-	return m.partner.State&lacp.StateActive != 0 && (m.status == Current || m.status == Expired)
+	return m.partner.State&lacp.StateActive != 0
 }
 
 func (m *memberState) updateActorInfo(lag *lagState) {
@@ -107,7 +105,7 @@ func (m *memberState) updateActorInfo(lag *lagState) {
 		prio = defaultPortPriority
 	}
 
-	m.actor = lacp.Info{
+	actor := lacp.Info{
 		SystemPriority: lag.cfg.LACP.SystemPriority,
 		SystemID:       lag.cfg.LACP.SystemID,
 		Key:            key,
@@ -115,6 +113,10 @@ func (m *memberState) updateActorInfo(lag *lagState) {
 		PortID:         m.portID,
 		State:          state,
 	}
+	if m.actor != actor {
+		m.ntt = true
+	}
+	m.actor = actor
 }
 
 func comparePartner(a, b lacp.Info) int {
@@ -292,7 +294,11 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
 
 	for _, name := range lag.memberNames {
-		l.members[name].updateActorInfo(lag)
+		m := l.members[name]
+		m.updateActorInfo(lag)
+		if m.mux != oldMux[name] && (m.mux == muxDetached || m.mux == muxAttached || m.mux == muxCollectingDistributing) {
+			m.ntt = true
+		}
 	}
 
 	return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)

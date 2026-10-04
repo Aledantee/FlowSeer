@@ -26,6 +26,7 @@ const (
 	RuleEgressNoMember    trace.RuleID = "lag.egress.no_member"
 	RuleLACPDUUnsupported trace.RuleID = "lag.lacpdu.unsupported"
 	RuleLACPDUAdmit       trace.RuleID = "lag.lacpdu.admit"
+	RuleMarkerRespond     trace.RuleID = "lag.marker.respond"
 )
 
 // Info summarizes the runtime aggregation status of one link aggregation group.
@@ -146,11 +147,12 @@ type memberState struct {
 	actorExpired     bool
 	partner          lacp.Info
 	actor            lacp.Info
-	lastTxActor      lacp.Info
-	hasTxActor       bool
 	rxTimer          time.Time
-	txTimer          time.Time
-	txPeriod         time.Duration
+	periodic         periodicState
+	periodicTimer    time.Time
+	ntt              bool
+	txTimes          [3]time.Time
+	txCount          int
 	lacpdusTx        uint64
 	lacpdusRx        uint64
 	badLACPDUs       uint64
@@ -214,11 +216,6 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 		}
 		layer.lags[lagName] = ls
 
-		txPeriod := slowPeriod
-		if lagCfg.LACP.Fast {
-			txPeriod = fastPeriod
-		}
-
 		for _, memName := range memNames {
 			mCfg := lagCfg.Members[memName]
 			ms := &memberState{
@@ -226,7 +223,6 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 				lagName:       lagName,
 				cfg:           mCfg,
 				needsReselect: true,
-				txPeriod:      txPeriod,
 				mux:           muxDetached,
 			}
 			ms.recordDefault()
@@ -444,26 +440,12 @@ func (l *Layer) activeBackupSelect(lag *lagState, _ time.Time, commit bool) Sele
 	return Selection{Member: member, OK: true, Prior: prior, Cause: cause}
 }
 
-func (l *Layer) emitLACPDU(m *memberState) layer.Emission {
-	lag := l.lags[m.lagName]
-	pdu := lacp.PDU{
-		Actor:             m.actor,
-		Partner:           m.partner,
-		CollectorMaxDelay: 0,
-	}
-	src := lag.cfg.LACP.SystemID
+func (l *Layer) memberSource(m *memberState) netaddr.MAC {
+	src := l.lags[m.lagName].cfg.LACP.SystemID
 	if src == (netaddr.MAC{}) {
-		src = l.systemID
+		return l.systemID
 	}
-	frame := lacp.Encode(pdu, src)
-	m.lastTxActor = m.actor
-	m.hasTxActor = true
-	m.lacpdusTx++
-
-	return layer.Emission{
-		Port:  m.name,
-		Frame: frame,
-	}
+	return src
 }
 
 // LinkChange informs the layer that a member port's link transitioned up or down.
@@ -535,7 +517,6 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects
 		return layer.Effects{}
 	}
 
-	var emissions []layer.Emission
 	var changed []string
 
 	if !up {
@@ -544,33 +525,20 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects
 			changed = append(changed, lag.name)
 		}
 
-		return layer.Effects{Changed: changed}
+		return layer.Effects{Emissions: l.transmitLag(lag), Changed: changed}
 	}
 
+	// Figure 6-19 reaches SLOW_PERIODIC before EXPIRED requests Short,
+	// so carrier up passes through PERIODIC_TX without waiting a second.
+	m.updatePeriodic(now, lag)
 	m.expireReceive(now)
 
 	if l.updateLag(lag) {
 		changed = append(changed, lag.name)
 	}
 
-	if m.mayTx(lag) {
-		emissions = append(emissions, l.emitLACPDU(m))
-	}
-	m.txTimer = now.Add(m.txPeriod)
-
-	for _, name := range lag.memberNames {
-		mem := l.members[name]
-		if mem.name == m.name {
-			continue
-		}
-		if mem.mayTx(lag) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
-			emissions = append(emissions, l.emitLACPDU(mem))
-			mem.txTimer = now.Add(mem.txPeriod)
-		}
-	}
-
 	return layer.Effects{
-		Emissions: emissions,
+		Emissions: l.transmitLag(lag),
 		Changed:   changed,
 	}
 }
@@ -589,7 +557,7 @@ func (l *Layer) applyLinkChange(m *memberState) layer.Effects {
 		changed = append(changed, lag.name)
 	}
 
-	return layer.Effects{Changed: changed}
+	return layer.Effects{Emissions: l.transmitLag(lag), Changed: changed}
 }
 
 // Receive processes an incoming LACPDU on the named member port.
@@ -622,6 +590,13 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 	if !sameAggregationPort(m.partner, pdu.Actor) {
 		m.needsReselect = true
 	}
+	const echoState = lacp.StateActive | lacp.StateShortTimeout | lacp.StateSynchronization | lacp.StateAggregation
+	actor, echo := m.actor, pdu.Partner
+	actor.State &= echoState
+	echo.State &= echoState
+	if actor != echo {
+		m.ntt = true
+	}
 	m.partner = pdu.Actor
 	m.partner.State &^= lacp.StateSynchronization
 	activelyMaintained := pdu.Actor.State&lacp.StateActive != 0 ||
@@ -648,13 +623,7 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 		if l.updateLag(affected) {
 			changed = append(changed, affected.name)
 		}
-		for _, name := range affected.memberNames {
-			mem := l.members[name]
-			if mem.mayTx(affected) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
-				emissions = append(emissions, l.emitLACPDU(mem))
-				mem.txTimer = now.Add(mem.txPeriod)
-			}
-		}
+		emissions = append(emissions, l.transmitLag(affected)...)
 	}
 
 	return layer.Effects{
@@ -718,31 +687,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			if l.updateLag(lag) {
 				changedMap[lag.name] = struct{}{}
 			}
-			for _, name := range lag.memberNames {
-				mem := l.members[name]
-				if mem.mayTx(lag) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
-					emissions = append(emissions, l.emitLACPDU(mem))
-					mem.txTimer = now.Add(mem.txPeriod)
-				}
-			}
 		}
-	}
-
-	for _, lagName := range sortedKeys(l.lags) {
-		lag := l.lags[lagName]
-		if lag.cfg.LACP.Mode == Off {
-			continue
-		}
-		for _, name := range lag.memberNames {
-			m := l.members[name]
-			if !m.carrier || m.txTimer.IsZero() || m.txTimer.After(now) {
-				continue
-			}
-			if m.mayTx(lag) {
-				emissions = append(emissions, l.emitLACPDU(m))
-			}
-			m.txTimer = now.Add(m.txPeriod)
-		}
+		emissions = append(emissions, l.transmitLag(lag)...)
 	}
 
 	var changed []string
@@ -786,7 +732,10 @@ func (l *Layer) NextWake() (time.Time, bool) {
 			if lag.cfg.LACP.Mode != Off {
 				update(m.rxTimer)
 				if m.mayTx(lag) {
-					update(m.txTimer)
+					update(m.periodicTimer)
+					if m.ntt {
+						update(m.transmitWake(l.now))
+					}
 				}
 			}
 		}
