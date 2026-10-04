@@ -687,6 +687,10 @@ tracks in-flight relationship checks, dropping responses returned while a check
 is in flight with `Internal` and `authz/obligation-violation`. `authz.Abandon`
 allows handlers encountering store errors before relationship checks to
 discharge their obligation while failing closed against subsequent responses.
+A stream remains authorized after a later revocation and runs until the capture
+or artifact ends. The authorization interceptor has no access-change push
+source, and rechecking would change the stream's established behavior
+(`src/services/device/internal/authz/interceptor.go`).
 
 ### 2026-10-03: interceptor chain, projector, identity, and action trail
 
