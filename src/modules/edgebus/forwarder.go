@@ -17,7 +17,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/spawn"
 )
 
 // ErrCodeForwarder identifies a failure starting the forwarder.
@@ -75,15 +74,13 @@ type ForwarderConfig struct {
 // permission change can let one edge speak as another. A Forwarder is safe for
 // concurrent use.
 type Forwarder struct {
-	cfg     ForwarderConfig
-	hub     *Hub
-	logger  *slog.Logger
-	refused metric.Int64Counter
-	cancel  context.CancelFunc
-	done    chan struct{}
+	cfg      ForwarderConfig
+	hub      *Hub
+	logger   *slog.Logger
+	refused  metric.Int64Counter
+	follower *EdgeFollower
 
-	mu         sync.Mutex // guards consumers, dropped, and lastLogged
-	consumers  map[string]jetstream.ConsumeContext
+	mu         sync.Mutex // guards dropped and lastLogged
 	dropped    int
 	lastLogged map[string]time.Time
 }
@@ -133,66 +130,25 @@ func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwar
 	if err != nil {
 		return nil, errs.From(err).Code(ErrCodeForwarder).Msg("build refused-records counter")
 	}
-	runCtx, cancel := context.WithCancel(context.Background())
 	f := &Forwarder{
 		cfg: cfg, hub: hub, logger: logger, refused: refused,
-		cancel: cancel, done: make(chan struct{}),
-		consumers: map[string]jetstream.ConsumeContext{}, lastLogged: map[string]time.Time{},
+		lastLogged: map[string]time.Time{},
 	}
-	if err := f.discover(ctx); err != nil {
-		cancel()
+	follower, err := FollowEdges(ctx, hub, cfg.DiscoveryInterval, func(edgeID string) (jetstream.ConsumeContext, error) {
+		return f.attach(edgeID)
+	})
+	if err != nil {
 		return nil, err
 	}
-	// follow's defer close(f.done) already runs on a panic, since it is
-	// fn's own defer and fires during the panic's unwind before spawn's
-	// recover — Close's <-f.done never hangs. No ReportTo: follow reports
-	// no error to any caller today, so there is nothing for a sink to hand
-	// off; the default log record is the floor.
-	spawn.Go(runCtx, "edgebus.Forwarder.follow", func() {
-		f.follow(runCtx)
-	})
+	f.follower = follower
 	return f, nil
 }
 
-// follow re-runs discovery on the configured interval so an edge attached
-// after the forwarder started gets its consumer.
-func (f *Forwarder) follow(ctx context.Context) {
-	defer close(f.done)
-	ticker := time.NewTicker(f.cfg.DiscoveryInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			_ = f.discover(ctx)
-		}
-	}
-}
-
-// discover attaches a durable consumer to every attached edge that has
-// none. Each edge's source stream lives in that edge's own account, so the
-// forwarder reads it through the hub's per-edge connection rather than one
-// shared context.
-func (f *Forwarder) discover(ctx context.Context) error {
-	for _, edgeID := range f.hub.AttachedEdges() {
-		f.mu.Lock()
-		_, following := f.consumers[edgeID]
-		f.mu.Unlock()
-		if following {
-			continue
-		}
-		if err := f.attach(ctx, edgeID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (f *Forwarder) attach(ctx context.Context, edgeID string) error {
+func (f *Forwarder) attach(edgeID string) (jetstream.ConsumeContext, error) {
+	ctx := context.Background()
 	stream, err := f.hub.EdgeStream(ctx, edgeID)
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("look up edge stream")
+		return nil, errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("look up edge stream")
 	}
 	consumer, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
 		Durable:       "otel_forwarder",
@@ -202,16 +158,13 @@ func (f *Forwarder) attach(ctx context.Context, edgeID string) error {
 		MaxDeliver:    forwarderMaxDeliver,
 	})
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("create forwarder consumer")
+		return nil, errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("create forwarder consumer")
 	}
 	consume, err := consumer.Consume(func(msg jetstream.Msg) { f.forward(edgeID, msg) })
 	if err != nil {
-		return errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("start forwarder consumer")
+		return nil, errs.From(err).Code(ErrCodeForwarder).Attr("edge", edgeID).Msg("start forwarder consumer")
 	}
-	f.mu.Lock()
-	f.consumers[edgeID] = consume
-	f.mu.Unlock()
-	return nil
+	return consume, nil
 }
 
 func (f *Forwarder) forward(edgeID string, msg jetstream.Msg) {
@@ -352,14 +305,5 @@ func (f *Forwarder) Dropped() int {
 // Close stops discovery and drains every consumer, waiting for each to
 // finish, so no consume goroutine outlives the call.
 func (f *Forwarder) Close() {
-	f.cancel()
-	<-f.done
-	f.mu.Lock()
-	consumers := f.consumers
-	f.consumers = map[string]jetstream.ConsumeContext{}
-	f.mu.Unlock()
-	for _, consume := range consumers {
-		consume.Drain()
-		<-consume.Closed()
-	}
+	f.follower.Close()
 }

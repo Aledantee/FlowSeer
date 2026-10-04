@@ -20,6 +20,8 @@ func startStorageTestHub(t *testing.T, edgeStreamMaxBytes int64) *Hub {
 		MaxStoreBytes:      640 << 20,
 		CentralBudgetBytes: 512 << 20,
 		EdgeBudgetBytes:    128 << 20,
+		IngestMaxBytes:     128 << 20,
+		EvidenceMaxBytes:   64 << 20,
 		EdgeStreamMaxBytes: edgeStreamMaxBytes,
 	})
 	if err != nil {

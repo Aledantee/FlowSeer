@@ -383,6 +383,104 @@ func TestAuditStreamStoresADuplicateEventOnce(t *testing.T) {
 	}
 }
 
+func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
+	hub := startHub(t, t.TempDir(), 0)
+	ctx := context.Background()
+
+	for _, test := range []struct {
+		name     string
+		stream   string
+		subject  string
+		maxBytes int64
+	}{
+		{
+			name:     "typed",
+			stream:   "FLOWSEER_INGEST_SYSLOG",
+			subject:  "flowseer.*.ingest.syslog.*",
+			maxBytes: 256 << 20,
+		},
+		{
+			name:     "evidence",
+			stream:   "FLOWSEER_INGEST_EVIDENCE",
+			subject:  "flowseer.*.evidence.>",
+			maxBytes: 64 << 20,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream, err := hub.JetStream().Stream(ctx, test.stream)
+			if err != nil {
+				t.Fatalf("stream: %v", err)
+			}
+			info, err := stream.Info(ctx)
+			if err != nil {
+				t.Fatalf("stream info: %v", err)
+			}
+			if !reflect.DeepEqual(info.Config.Subjects, []string{test.subject}) {
+				t.Errorf("subjects = %v, want [%s]", info.Config.Subjects, test.subject)
+			}
+			if info.Config.MaxAge != 24*time.Hour {
+				t.Errorf("max age = %s, want 24h", info.Config.MaxAge)
+			}
+			if info.Config.MaxBytes != test.maxBytes {
+				t.Errorf("max bytes = %d, want %d", info.Config.MaxBytes, test.maxBytes)
+			}
+			if info.Config.Discard != jetstream.DiscardOld {
+				t.Errorf("discard = %q, want discard old", info.Config.Discard)
+			}
+			if info.Config.Duplicates != 10*time.Minute {
+				t.Errorf("duplicate window = %s, want 10m", info.Config.Duplicates)
+			}
+		})
+	}
+}
+
+func TestCentralIngestSubjectsDoNotOverlap(t *testing.T) {
+	hub := startHub(t, t.TempDir(), 0)
+	const (
+		tenantID = "0198a3c0-0000-7000-8000-0000000000aa"
+		deviceID = "0198a3c0-0000-7000-8000-000000000001"
+		edgeID   = "0198a3c0-0000-7000-8000-0000000000ed"
+	)
+
+	subjects := []string{
+		"flowseer." + tenantID + ".audit.device." + deviceID,
+		"flowseer." + tenantID + ".ingest.syslog." + deviceID,
+		"flowseer." + tenantID + ".evidence.syslog." + deviceID,
+		"flowseer." + tenantID + ".edge." + edgeID + ".ingest.syslog",
+	}
+	for i, subject := range subjects {
+		if err := hub.Connection().Publish(subject, []byte(fmt.Sprintf("message-%d", i))); err != nil {
+			t.Fatalf("publish %s: %v", subject, err)
+		}
+	}
+	if err := hub.Connection().Flush(); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+
+	for _, test := range []struct {
+		name   string
+		stream string
+	}{
+		{name: "audit", stream: "FLOWSEER_DEVICE_AUDIT"},
+		{name: "typed", stream: "FLOWSEER_INGEST_SYSLOG"},
+		{name: "evidence", stream: "FLOWSEER_INGEST_EVIDENCE"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream, err := hub.JetStream().Stream(context.Background(), test.stream)
+			if err != nil {
+				t.Fatalf("stream: %v", err)
+			}
+			info, err := stream.Info(context.Background())
+			if err != nil {
+				t.Fatalf("stream info: %v", err)
+			}
+			if info.State.Msgs != 1 {
+				t.Errorf("stored messages = %d, want 1", info.State.Msgs)
+			}
+		})
+	}
+}
+
 func TestLaneBucketSurvivesRestart(t *testing.T) {
 	dir := t.TempDir()
 	first := startHub(t, dir, 0)
