@@ -3,6 +3,7 @@ package projector_test
 import (
 	"context"
 	"errors"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -617,15 +618,28 @@ func TestSyncRequesterRequiresMembership(t *testing.T) {
 	}}
 	access := &fakeAccessSource{ids: []string{tenantID}}
 	engine := authztest.New()
-	if err := engine.Write(ctx, []authz.Tuple{requester}, nil); err != nil {
-		t.Fatalf("seed requester: %v", err)
+	stored := []authz.Tuple{
+		{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:" + tenantID},
+		{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+		requester,
+	}
+	if err := engine.Write(ctx, stored, nil); err != nil {
+		t.Fatalf("seed session tuples: %v", err)
+	}
+	slices.SortFunc(stored, compareTuples)
+	if got := readAllTuples(t, engine); !slices.Equal(got, stored) {
+		t.Fatalf("session tuples before pass = %v, want %v", got, stored)
 	}
 	p := projector.New(engine, &fakeEdgeSource{}, nil, captures, 0, nil, nil, projector.WithAccessSource(access))
 	if _, err := p.Reconcile(ctx); err != nil {
 		t.Fatalf("Reconcile without member: %v", err)
 	}
-	if got := readAllTuples(t, engine); slices.Contains(got, requester) {
-		t.Fatalf("requester without member remains: %v", got)
+	want := []authz.Tuple{
+		{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+		{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:" + tenantID},
+	}
+	if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+		t.Fatalf("session tuples without member = %v, want %v", got, want)
 	}
 	access.members = map[string][]*identityv1.Member{tenantID: {testMember(t, "alice", nil, time.Time{})}}
 	if _, err := p.Reconcile(ctx); err != nil {
@@ -640,6 +654,102 @@ func TestSyncRequesterRequiresMembership(t *testing.T) {
 	}
 	if got := readAllTuples(t, engine); slices.Contains(got, requester) {
 		t.Errorf("requester after removal remains: %v", got)
+	}
+}
+
+func TestPartnerAdminRelationIsNotProjected(t *testing.T) {
+	const tenantID = "0192e6a0-0000-7000-8000-0000000000c1"
+	const providerID = "0192e6a0-0000-7000-8000-0000000000b1"
+	for _, mode := range []string{"reconcile", "sync"} {
+		for _, tc := range []struct {
+			name     string
+			relation identityv1.TenantRelation
+		}{
+			{"operator", identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+			{"capturer", identityv1.TenantRelation_TENANT_RELATION_CAPTURER},
+			{"viewer", identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+		} {
+			t.Run(mode+"/"+tc.name, func(t *testing.T) {
+				ctx := t.Context()
+				partner := testPartner(t, providerID, tc.relation)
+				partner.SetRelations([]identityv1.TenantRelation{tc.relation, identityv1.TenantRelation_TENANT_RELATION_ADMIN})
+				if err := protovalidate.Validate(partner); err == nil {
+					t.Fatal("partner with ADMIN passes schema validation")
+				}
+				access := &fakeAccessSource{
+					ids: []string{tenantID}, partners: map[string][]*identityv1.Partner{tenantID: {partner}},
+				}
+				engine := authztest.New()
+				p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil, projector.WithAccessSource(access))
+				var err error
+				if mode == "reconcile" {
+					_, err = p.Reconcile(ctx)
+				} else {
+					err = p.SyncTenant(ctx, tenantID)
+				}
+				if err != nil {
+					t.Fatalf("project partner: %v", err)
+				}
+				want := []authz.Tuple{
+					{Object: "tenant:" + tenantID, Relation: "partner", User: "tenant:" + providerID},
+					{Object: "tenant:" + tenantID, Relation: tc.name, User: "tenant:" + providerID + "#active_admin"},
+				}
+				slices.SortFunc(want, compareTuples)
+				if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+					t.Errorf("partner tuples = %v, want %v", got, want)
+				}
+			})
+		}
+	}
+}
+
+func TestReconcilePreservesDefaultTenantRecords(t *testing.T) {
+	const sessionID = "0192e6a0-0000-7000-8000-0000000000c2"
+	const edgeID = "0192e6a0-0000-7000-8000-0000000000e2"
+	for _, object := range []string{"tenant:default", "capture_session:" + sessionID} {
+		t.Run(object, func(t *testing.T) {
+			ctx := t.Context()
+			member := testMember(t, "alice", nil, time.Time{})
+			operator := member.GetOperator()
+			principal := "user:" + authn.ComputePrincipalID(operator.GetIssuer(), operator.GetSubject())
+			access := &fakeAccessSource{
+				ids: []string{"default"}, members: map[string][]*identityv1.Member{"default": {member}},
+			}
+			captures := &fakeCaptureSource{sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+				{tenantID: "default", sessionID: sessionID}: buildValidSessionRecord(t, sessionID, edgeID, operator.GetIssuer(), operator.GetSubject()),
+			}}
+			want := []authz.Tuple{
+				{Object: "tenant:default", Relation: "enrolled", User: principal},
+				{Object: "capture_session:" + sessionID, Relation: "tenant", User: "tenant:default"},
+				{Object: "capture_session:" + sessionID, Relation: "edge", User: "edge:" + edgeID},
+				{Object: "capture_session:" + sessionID, Relation: "requester", User: principal},
+			}
+			slices.SortFunc(want, compareTuples)
+			drift := authz.Tuple{Object: object, Relation: "enrolled", User: "user:stale"}
+			if strings.HasPrefix(object, "capture_session:") {
+				drift.Relation = "requester"
+			}
+			stored := append(slices.Clone(want), drift)
+			slices.SortFunc(stored, compareTuples)
+			engine := authztest.New()
+			if err := engine.Write(ctx, stored, nil); err != nil {
+				t.Fatalf("seed default tenant tuples: %v", err)
+			}
+			if got := readAllTuples(t, engine); !slices.Equal(got, stored) {
+				t.Fatalf("tuples before pass = %v, want %v", got, stored)
+			}
+			p := projector.New(engine, &fakeEdgeSource{}, nil, captures, 0, nil, nil, projector.WithAccessSource(access))
+			counts, err := p.Reconcile(ctx)
+			if err != nil {
+				t.Fatalf("Reconcile: %v", err)
+			}
+			if counts.Total() != 1 {
+				t.Errorf("repaired objects = %d, want 1", counts.Total())
+			}
+			if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+				t.Errorf("default tenant tuples after pass = %v, want %v", got, want)
+			}
+		})
 	}
 }
 
@@ -864,8 +974,26 @@ func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) 
 		{"invalid_key", "a%b", validID},
 		{"braced_uuid", "{" + validID + "}", validID},
 		{"invalid_tenant", validID, "acme"},
+		{"invalid_uuid_of_36_bytes", validID[:35] + "%", validID},
+		{"uppercase_uuid", strings.ToUpper(validID), strings.ToUpper(validID)},
 	}
-	owned := projector.OwnedRelations()
+	owned := map[string]map[string]bool{
+		"capture_session": {"tenant": false, "edge": false, "requester": false},
+		"device":          {"tenant": false, "operate": true, "view": true},
+		"edge":            {"tenant": false, "administer": true, "operate": true, "capture": true, "view": true},
+		"platform":        {"enrolled": true},
+		"role":            {"assignee": true},
+		"tenant":          {"platform": true, "enrolled": true, "partner": true, "admin": true, "operator": true, "capturer": true, "viewer": true, "full_payload": true},
+	}
+	gotOwned := projector.OwnedRelations()
+	if len(gotOwned) != len(owned) {
+		t.Errorf("owned object types = %d, want %d", len(gotOwned), len(owned))
+	}
+	for objectType, relations := range owned {
+		if !maps.Equal(gotOwned[objectType], relations) {
+			t.Errorf("owned %s relations = %v, want %v", objectType, gotOwned[objectType], relations)
+		}
+	}
 	objectTypes := make([]string, 0, len(owned))
 	for objectType := range owned {
 		objectTypes = append(objectTypes, objectType)
@@ -941,11 +1069,11 @@ func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) 
 			}
 		}
 	}
-	if generated[true] != 84 {
-		t.Errorf("generated %d cases with access, want 84", generated[true])
+	if generated[true] != 126 {
+		t.Errorf("generated %d cases with access, want 126", generated[true])
 	}
-	if generated[false] != 20 {
-		t.Errorf("generated %d cases without access, want 20", generated[false])
+	if generated[false] != 30 {
+		t.Errorf("generated %d cases without access, want 30", generated[false])
 	}
 }
 

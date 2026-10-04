@@ -817,6 +817,8 @@ var refusedQueries = []struct {
 	{"object with the wildcard id", authz.Query{Object: "edge:*", Relation: "capture", User: "user:u1"}},
 	{"object of 257 bytes", authz.Query{Object: "edge:" + strings.Repeat("a", 252), Relation: "capture", User: "user:u1"}},
 	{"object with a hash", authz.Query{Object: "edge:e#1", Relation: "capture", User: "user:u1"}},
+	{"object with a role userset", authz.Query{Object: "role:r1#assignee", Relation: "capture", User: "user:u1"}},
+	{"object with a tenant userset", authz.Query{Object: "tenant:t1#active_admin", Relation: "capture", User: "user:u1"}},
 	{"object with a space", authz.Query{Object: "edge:e 1", Relation: "capture", User: "user:u1"}},
 	{"object with a tab", authz.Query{Object: "edge:e\t1", Relation: "capture", User: "user:u1"}},
 	{"object with a line feed", authz.Query{Object: "edge:e\n1", Relation: "capture", User: "user:u1"}},
@@ -833,6 +835,8 @@ var refusedQueries = []struct {
 	{"user with a space", authz.Query{Object: "edge:e1", Relation: "capture", User: "user:a b"}},
 	{"user of 513 bytes", authz.Query{Object: "edge:e1", Relation: "capture", User: "user:" + strings.Repeat("a", 508)}},
 	{"contextual tuple object with a second colon", withTuple(authz.Tuple{Object: "edge:a:b", Relation: "site", User: "site:s1"})},
+	{"contextual tuple object with a role userset", withTuple(authz.Tuple{Object: "role:r1#assignee", Relation: "operator", User: "user:u1"})},
+	{"contextual tuple object with a tenant userset", withTuple(authz.Tuple{Object: "tenant:t1#active_admin", Relation: "operator", User: "user:u1"})},
 	{"contextual tuple object of 257 bytes", withTuple(authz.Tuple{Object: "edge:" + strings.Repeat("a", 252), Relation: "site", User: "site:s1"})},
 	{"contextual tuple relation with an at sign", withTuple(authz.Tuple{Object: "edge:e1", Relation: "si@te", User: "site:s1"})},
 	{"contextual tuple user with the wildcard id", withTuple(authz.Tuple{Object: "edge:e1", Relation: "site", User: "site:*"})},
@@ -866,6 +870,9 @@ var refusedUsersets = []struct {
 	{"second colon", "role:r:1#assignee"},
 	{"empty relation", "role:r1#"},
 	{"unknown relation", "role:r1#unknown"},
+	{"uppercase role type", "Role:r1#assignee"},
+	{"uppercase role relation", "role:r1#ASSIGNEE"},
+	{"uppercase tenant type", "Tenant:t1#active_admin"},
 	{"role with tenant relation", "role:r1#active_admin"},
 	{"tenant with role relation", "tenant:t1#assignee"},
 	{"unknown type", "site:s1#assignee"},
@@ -945,6 +952,8 @@ func TestRefusedIdentifiersMakeNoCall(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			checksBefore := harness.fake.checkCallsCount.Load()
 			batchesBefore := harness.fake.batchCheckCallsCount.Load()
+			storesBefore := harness.fake.getStoreCallsCount.Load()
+			modelsBefore := harness.fake.readModelCallsCount.Load()
 
 			allowed, err := checker.Check(context.Background(), tc.query)
 			if err != nil {
@@ -967,6 +976,9 @@ func TestRefusedIdentifiersMakeNoCall(t *testing.T) {
 			}
 			if got := harness.fake.batchCheckCallsCount.Load() - batchesBefore; got != 0 {
 				t.Errorf("server received %d BatchCheck calls, want 0", got)
+			}
+			if got := harness.fake.getStoreCallsCount.Load() - storesBefore + harness.fake.readModelCallsCount.Load() - modelsBefore; got != 0 {
+				t.Errorf("server received %d verification calls, want 0", got)
 			}
 		})
 	}
