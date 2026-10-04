@@ -5,6 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -571,3 +572,33 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - Carried to U11: whether `lacpv1.LacpStatus` gains a value for
   `PortDisabled`. Until then `netmodel/export.go:529-538` maps it to the
   unspecified value.
+
+## Review gaps
+
+- src/common/net/lacp/lacp_test.go:223: move the Decode length guard after the payload reads; fails: an empty payload must return an error without a panic.
+- src/common/net/lacp/marker_test.go:80: move the Marker length guard after the payload reads; fails: an empty payload must return an error without a panic.
+- src/common/net/lacp/lacp_test.go:186: reject Partner or Collector TLV type 0x07; fails: each type must decode in its own fixture row.
+- src/common/net/lacp/lacp_test.go:190: the Version, Actor type, and later TLV case changes several fields and rewrites bytes already present; fails: each acceptance field needs a distinct fixture row with a literal result.
+- src/common/net/lacp/lacp_test.go:240: replace the three exact TLV length checks with lower bounds; fails: lengths 21, 21, and 17 must be rejected.
+- src/common/net/lacp/marker_test.go:95: accept Marker TLV type 0x03; fails: the unsupported type must be rejected.
+- src/common/net/lacp/marker_test.go:103: accept Marker TLV length 17; fails: the unsupported length must be rejected.
+- src/common/net/lacp/lacp.go:83: the MarkerResponse comment says every frame property is preserved and leaves `src` undefined; fails: the comment must state both address changes and the supported request shape.
+- src/common/net/lacp/README.md:140: `AX` is named without its unapproved draft status; fails: the published standard remains unverified.
+- src/common/net/lacp/lacp.go:74: the package and sentinel comments describe only LACPDUs; fails: Marker responses and refusals need accurate names.
+- src/common/net/lacp/lacp.go:126: write the subtype value already required by the guard; fails: a dead store and redundant assertions remain.
+- src/common/net/lacp/README.md:124: skipped validation is stated without its reason and `Decode` says ignored fields are accepted unchanged; fails: the receiver rule and ignored fields need accurate wording.
+- src/common/sim/layer/phy/poe.go:353: remove the unknown demand clamp or use the initial budget instead of the remaining maximum; fails: after a 30 W allocation in a 50 W group, unknown demand may claim only 20 W.
+- src/common/sim/layer/phy/poe.go:338: charge the budget for a disabled unknown device; fails: a following enabled device must retain the full 30 W budget.
+- src/common/sim/layer/phy/negotiate.go:231: replace the cable ceiling comparison with `>=`; fails: an observation equal to the ceiling must resolve.
+- src/common/sim/layer/phy/negotiate.go:235: treat Unknown observed duplex as stated; fails: Unknown and Full must not report a duplex mismatch.
+- src/common/sim/layer/phy/ethernet.go:184: treat zero observed speed as present without a setting; fails: the source must remain unresolved.
+- src/common/sim/layer/lag/lacp.go:276: count ATTACHED members without Partner Synchronization toward MinLinks; fails: both ends with MinLinks 2 must keep traffic disabled while one partner is out of sync.
+- src/common/sim/layer/lag/lacp.go:441: remove the Individual partner grouping rule; fails: an Individual peer must not share an Aggregator.
+- src/common/sim/layer/lag/lacp.go:407: ignore Primary in fallback selection; fails: two Defaulted members must choose the configured Primary.
+- src/common/sim/layer/lag/lacp.go:399: ignore the member key in fallback selection; fails: a member with a different key must remain unselected.
+- src/common/sim/layer/lag/lacp.go:373: remove stored group retention after carrier loss; fails: a returning selected member with the same partner must keep its selection.
+- src/common/sim/layer/lag/lacp.go:303: omit the Mux transition transmit request; fails: leaving WAITING for DETACHED must request a LACPDU.
+- src/common/sim/layer/lag/layer.go:573: process a LACPDU without carrier; fails: a PortDisabled member must remain PortDisabled.
+- src/common/sim/layer/lag/layer.go:42: the pending comment names three causes after aggregate wait was added, as does layer_internal_test.go:21; fails: the text must name all four causes.
+- src/common/sim/device/vswitch/switch.go:2522: a Marker classification uses the LACP decode fact; fails: the input fact must identify a Marker decode.
+- docs/architecture/2026-09-10-virtual-device-direction.md:833: the emission premise omits Marker responses; fails: the list must include the switch's Marker response emission.
