@@ -7,9 +7,12 @@ argument-hint: "[discover | catalogue | field | calibrate <lane>... | all]"
 # Tune the model registry
 
 The registry holds pools, models with price, context, effort levels and
-refusal posture, and the fit set per role; `delegate` names a role and
+refusal posture, and the fit set per role. `delegate` names a role and
 resolves it here. Every number written carries a source and a date in
-`~/.claude/models/evidence.md`; a number without one does not go in.
+`~/.claude/models/evidence.md`, and a number without one does not go in.
+The one exception is a plan whose page names no ratio: it is listed at
+capacity 1 with "unverified" in `evidence.md`, which routes as an unlisted plan
+does and stops the row reporting it.
 
 | File | Holds | Written by |
 | --- | --- | --- |
@@ -20,14 +23,16 @@ resolves it here. Every number written carries a source and a date in
 
 The effective registry is the machine-wide file with the project file laid
 over it. Under `pools`, `models`, and `roles` a project entry replaces the
-machine-wide entry of the same name and adds the ones it lacks; any other
-top-level key in the project file (`sensitive_paths`, `as_of`) replaces the
-machine-wide key whole. Either file may be absent; with neither, write the
-machine-wide one. With only the project file, create the machine-wide file
-for results that hold on every project. Write a result to the project file only when it holds for
-that project alone, such as its `sensitive_paths` or a fit set the project
-narrows. A project file that carries `as_of` sets the effective date, so a
-run that refreshes the registry also writes today's date there.
+machine-wide entry of the same name whole and adds the ones it lacks, so
+`tune` writes `plans` into every registry file that defines the pool's entry.
+Any other top-level key in the project file (`sensitive_paths`, `as_of`)
+replaces the machine-wide key whole. Either file may be absent. With neither,
+write the machine-wide one. With only the project file, create the
+machine-wide file for results that hold on every project. Write a result to
+the project file only when it holds for that project alone, such as its
+`sensitive_paths` or a fit set the project narrows. A project file that
+carries `as_of` sets the effective date, so a run that refreshes the
+registry also writes today's date there.
 
 Inputs: the effective registry, the network, the installed CLIs.
 Completion: the effective `as_of` is today (the machine-wide one, and the
@@ -71,6 +76,14 @@ mkdir -p ~/.claude/models
 It writes which CLIs exist, which pools are signed in, what Orca can pin
 with `--model`, the synthetic model ids omp serves, and the Claude
 rate-limit windows.
+
+After discovery, compare each row's `plan` with the pool's `plans` table.
+For a row with `plan_unlisted`, fetch the vendor's plan page in that run, add
+the plan with its `capacity`, and record the URL and date in `evidence.md`. For
+a plan name that covers more than one tier, ask the user which tier the
+account holds and record the answer as stated by the user with the date.
+`excludes` is filled only from a quoted CLI error or a vendor page. Write
+`plans` into every registry file that defines the pool's entry.
 
 omp's synthetic catalogue can keep ids Synthetic no longer serves, and a
 request to a retired id may answer without error. Read the served ids and
