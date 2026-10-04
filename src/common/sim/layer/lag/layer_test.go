@@ -1805,7 +1805,7 @@ func TestForwardingMemberRemainsForwardingWhenSecondJoins(t *testing.T) {
 		t.Fatalf("before join: enabled = %v, want [1/1/1]", info.Enabled)
 	}
 
-	// 1/1/2 joins: carrier up, receives LACPDU without sync.
+	// Keep the established member forwarding while the new member is unsynchronized.
 	l.LinkChange(t0.Add(3*time.Second), "1/1/2", true)
 	first := lacp.PDU{
 		Actor: lacp.Info{
@@ -1819,7 +1819,7 @@ func TestForwardingMemberRemainsForwardingWhenSecondJoins(t *testing.T) {
 	}
 	l.Receive(t0.Add(3*time.Second), "1/1/2", first)
 
-	// Forwarding member 1/1/1 must remain forwarding.
+	// A late member must not interrupt an already forwarding member.
 	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
 		t.Fatalf("after second member joins: enabled = %v, want [1/1/1]", info.Enabled)
 	}
@@ -1860,7 +1860,7 @@ func TestPartnerIdentityChangeDetachesAndClearsSync(t *testing.T) {
 		t.Fatalf("after key change: enabled = %v, attached = %v, want detached and waiting", info.Enabled, info.Attached)
 	}
 
-	// Next emitted LACPDU must have Actor Synchronization clear.
+	// A key change must advertise that the member is leaving its previous group.
 	if len(fx.Emissions) == 0 {
 		t.Fatal("no LACPDU emitted on key change")
 	}
@@ -1872,7 +1872,7 @@ func TestPartnerIdentityChangeDetachesAndClearsSync(t *testing.T) {
 		t.Fatalf("next LACPDU actor state = %#x, want Synchronization clear", uint8(p.Actor.State))
 	}
 
-	// After aggregate wait expires, member attaches again.
+	// Reselection becomes eligible only after the shared aggregate wait.
 	l.Advance(t0.Add(5 * time.Second))
 	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
 		t.Fatalf("after reselection wait: enabled = %v, want [1/1/1]", info.Enabled)
@@ -1921,12 +1921,12 @@ func TestCarrierLossIgnoresDownDelayUnderLACP(t *testing.T) {
 			t.Fatalf("fallback enabled = %v, want [1/1/1]", info.Enabled)
 		}
 
-		// Carrier loss on 1/1/1 must immediately fail over to 1/1/2 without waiting for DownDelay.
+		// LACP carrier loss bypasses the static DownDelay.
 		l.LinkChange(t0.Add(5500*time.Millisecond), "1/1/1", false)
 		if info := l.Info("lag1"); len(info.Enabled) != 0 {
 			t.Fatalf("after 1/1/1 carrier loss = %v, want 1/1/1 disabled immediately", info.Enabled)
 		}
-		// 1/1/2 was selected at 5.5s and completes its 2s aggregate wait at 7.5s (before DownDelay would have enabled it at 8.5s).
+		// The replacement member's aggregate wait should beat the static down delay.
 		l.Advance(t0.Add(7500 * time.Millisecond))
 		if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/2"}) {
 			t.Fatalf("at 7.5s: enabled = %v, want [1/1/2]", info.Enabled)
@@ -2012,7 +2012,7 @@ func TestFallbackPrimaryPreferenceAfterLearnedPartner(t *testing.T) {
 	t0 := time.Unix(1700000000, 0)
 	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
 
-	// 1/1/1 learns a partner, then the partner disappears and 1/1/1 defaults into fallback.
+	// A learned member must yield to the configured Primary after defaulting.
 	l.LinkChange(t0, "1/1/1", true)
 	l.Receive(t0, "1/1/1", lacp.PDU{
 		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
@@ -2027,14 +2027,14 @@ func TestFallbackPrimaryPreferenceAfterLearnedPartner(t *testing.T) {
 	if info := l.PortInfo("1/1/1"); info.Status != lag.Defaulted {
 		t.Fatalf("1/1/1 at t0+6s = %+v, want Defaulted", info)
 	}
-	l.Advance(t0.Add(9 * time.Second)) // 1/1/1 is now the fallback choice.
+	l.Advance(t0.Add(9 * time.Second)) // Establish the backup before the Primary returns.
 
 	l.LinkChange(t0.Add(10*time.Second), "1/1/2", true)
 	l.Advance(t0.Add(13 * time.Second))
 	if info := l.PortInfo("1/1/2"); info.Status != lag.Defaulted {
 		t.Fatalf("1/1/2 at t0+13s = %+v, want Defaulted", info)
 	}
-	l.Advance(t0.Add(15 * time.Second)) // 1/1/2 defaults (13s) + 2s aggregate wait = 15s.
+	l.Advance(t0.Add(15 * time.Second)) // The Primary becomes eligible after its aggregate wait.
 
 	info := l.Info("lag1")
 	if !slices.Equal(info.Enabled, []string{"1/1/2"}) {
@@ -2086,7 +2086,7 @@ func TestIndividualPartnerDoesNotAggregateWithGroup(t *testing.T) {
 
 	l.LinkChange(t0, "1/1/1", true)
 	l.LinkChange(t0, "1/1/2", true)
-	// 1/1/1 has Aggregation set.
+	// An aggregated peer and an Individual peer with matching identifiers need different groups.
 	l.Receive(t0, "1/1/1", lacp.PDU{
 		Actor: lacp.Info{
 			SystemPriority: 1,
@@ -2098,7 +2098,7 @@ func TestIndividualPartnerDoesNotAggregateWithGroup(t *testing.T) {
 		},
 		Partner: l.PortInfo("1/1/1").Actor,
 	})
-	// 1/1/2 has same system and key but is Individual (StateAggregation clear).
+	// Clearing Aggregation makes this peer ineligible for the existing group.
 	l.Receive(t0, "1/1/2", lacp.PDU{
 		Actor: lacp.Info{
 			SystemPriority: 1,
@@ -2189,7 +2189,7 @@ func TestAllMembersCarrierLossRetainsStoredGroup(t *testing.T) {
 	l.LinkChange(t0.Add(4*time.Second), "1/1/1", false)
 	l.LinkChange(t0.Add(4*time.Second), "1/1/2", false)
 
-	// Carrier returns on 1/1/1, receiving same partner.
+	// The selected group survives the outage and is ready as soon as the member returns.
 	l.LinkChange(t0.Add(6*time.Second), "1/1/1", true)
 	l.Receive(t0.Add(6*time.Second), "1/1/1", lacp.PDU{
 		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
@@ -2213,15 +2213,14 @@ func TestMuxTransitionToDetachedRequestsTransmit(t *testing.T) {
 	t0 := time.Unix(1700000000, 0)
 	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
 
-	// 1/1/1 enters WAITING.
+	// Establish a WAITING member so a preferred peer can force reselection.
 	l.LinkChange(t0, "1/1/1", true)
 	l.Receive(t0, "1/1/1", lacp.PDU{
 		Actor:   lacp.Info{SystemPriority: 2, SystemID: mustMAC(t, peerB), Key: 7, PortPriority: 1, PortID: 9, State: full},
 		Partner: l.PortInfo("1/1/1").Actor,
 	})
 
-	// Before wait expires, 1/1/2 hears a preferred partner (priority 1), making 1/1/1 unselected.
-	// 1/1/1 transitions from WAITING to DETACHED and must request transmission (NTT).
+	// Reselection before the wait expires must trigger a transmit request for the detached member.
 	l.LinkChange(t0.Add(500*time.Millisecond), "1/1/2", true)
 	fx := l.Receive(t0.Add(500*time.Millisecond), "1/1/2", lacp.PDU{
 		Actor:   lacp.Info{SystemPriority: 1, SystemID: mustMAC(t, peerC), Key: 7, PortPriority: 1, PortID: 10, State: full},
@@ -2237,6 +2236,150 @@ func TestMuxTransitionToDetachedRequestsTransmit(t *testing.T) {
 	}
 	if !txOn111 {
 		t.Fatal("leaving WAITING for DETACHED did not request transmission on 1/1/1")
+	}
+}
+
+func TestPartnerChangeClearsFinishedAggregateWait(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	full := lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization
+	partner := func(member string, key uint16, portID uint16) lacp.PDU {
+		return lacp.PDU{
+			Actor: lacp.Info{
+				SystemPriority: 1,
+				SystemID:       mustMAC(t, "02:00:00:00:00:0b"),
+				Key:            key,
+				PortPriority:   1,
+				PortID:         portID,
+				State:          full,
+			},
+			Partner: l.PortInfo(member).Actor,
+		}
+	}
+
+	l.LinkChange(t0, "1/1/1", true)
+	l.LinkChange(t0, "1/1/2", true)
+	l.Receive(t0, "1/1/1", partner("1/1/1", 7, 9))
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("before second member joins: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+
+	// The new member waits while the established member stays enabled.
+	l.Receive(t0.Add(3*time.Second), "1/1/2", partner("1/1/2", 7, 10))
+	if next, ok := l.NextWake(); !ok || !next.Equal(t0.Add(5*time.Second)) {
+		t.Fatalf("after second member joins: NextWake = (%v, %t), want aggregate wait at t0+5s", next, ok)
+	}
+
+	// Leaving the selected group must discard the waiting member's old deadline.
+	l.Receive(t0.Add(4*time.Second), "1/1/2", partner("1/1/2", 8, 10))
+	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("after waiting member changes group: enabled = %v, want [1/1/1]", info.Enabled)
+	}
+	if next, ok := l.NextWake(); ok && next.Equal(t0.Add(5*time.Second)) {
+		t.Fatalf("after waiting member changes group: NextWake = (%v, %t), want no stale aggregate wait", next, ok)
+	}
+}
+
+func TestSelectedMemberRetainsGroupWithZeroPartnerField(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		systemID netaddr.MAC
+		key      uint16
+	}{
+		{name: "zero system", key: 7},
+		{name: "zero key", systemID: mustMAC(t, "02:00:00:00:00:0b")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+				LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+			}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+			t0 := time.Unix(1700000000, 0)
+			pdu := lacp.PDU{
+				Actor: lacp.Info{
+					SystemPriority: 1,
+					SystemID:       tc.systemID,
+					Key:            tc.key,
+					PortPriority:   1,
+					PortID:         9,
+					State:          lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization,
+				},
+			}
+
+			l.LinkChange(t0, "1/1/1", true)
+			pdu.Partner = l.PortInfo("1/1/1").Actor
+			l.Receive(t0, "1/1/1", pdu)
+			l.Advance(t0.Add(2 * time.Second))
+			if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) {
+				t.Fatalf("before carrier loss: attached = %v, want [1/1/1]", info.Attached)
+			}
+
+			l.LinkChange(t0.Add(3*time.Second), "1/1/1", false)
+			l.LinkChange(t0.Add(4*time.Second), "1/1/1", true)
+			if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) {
+				t.Fatalf("after carrier return: attached = %v, want retained [1/1/1]", info.Attached)
+			}
+		})
+	}
+}
+
+func TestZeroSystemPeerPastBothTimeoutsLeavesNoAttachment(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   lacp.Info{State: lacp.StateActive | lacp.StateSynchronization},
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	l.Advance(t0.Add(7 * time.Second))
+
+	portInfo := l.PortInfo("1/1/1")
+	lagInfo := l.Info("lag1")
+	if portInfo.Status != lag.Defaulted || portInfo.Attached || portInfo.Enabled || len(lagInfo.Attached) != 0 || len(lagInfo.Enabled) != 0 {
+		t.Fatalf("after both receive timeouts: port = %+v, attached = %v, enabled = %v, want Defaulted and no attachment", portInfo, lagInfo.Attached, lagInfo.Enabled)
+	}
+}
+
+func TestDefaultingReselectsWhenAdministrativePartnerDiffers(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name   string
+		change func(*lacp.Info)
+	}{
+		{name: "port", change: func(i *lacp.Info) { i.PortID = 9 }},
+		{name: "port priority", change: func(i *lacp.Info) { i.PortPriority = 1 }},
+		{name: "key", change: func(i *lacp.Info) { i.Key = 7 }},
+		{name: "system priority", change: func(i *lacp.Info) { i.SystemPriority = 1 }},
+		{name: "aggregation", change: func(i *lacp.Info) { i.State |= lacp.StateAggregation }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+				LACP: lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true},
+			}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+			t0 := time.Unix(1700000000, 0)
+			actor := lacp.Info{State: lacp.StateActive | lacp.StateSynchronization}
+			tc.change(&actor)
+			l.LinkChange(t0, "1/1/1", true)
+			l.Receive(t0, "1/1/1", lacp.PDU{Actor: actor, Partner: l.PortInfo("1/1/1").Actor})
+			l.Advance(t0.Add(7 * time.Second))
+
+			if info := l.Info("lag1"); len(info.Attached) != 0 || len(info.Enabled) != 0 {
+				t.Fatalf("after defaulting: attached = %v, enabled = %v, want no selected member", info.Attached, info.Enabled)
+			}
+		})
 	}
 }
 
