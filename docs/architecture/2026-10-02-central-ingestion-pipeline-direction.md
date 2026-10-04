@@ -188,7 +188,7 @@ its own service later changes the host and not the module.
   holds against a query the API builds.
 - Which ClickHouse settings bound an API query so it cannot stall inserts.
   Unverified.
-- Retention per record type, and the age of the evidence stream.
+- Retention per record type.
 - Whether the device service record's per-tenant NATS account is still the
   target. The code isolates per edge account and names the tenant account as
   absent (`src/modules/edgebus/README.md`).
@@ -241,3 +241,24 @@ listing leaves the index as it was.
 A consumer of `IngestRecord` may therefore not assume the lane serves the
 device a record names. A rule that needs a served device checks it against
 the lane, not against the record.
+
+### 2026-10-04: edge records enter central ingestion streams
+
+Landed 2026-10-04: `src/services/device/internal/host/host.go` wires the
+intake module, and `src/services/device/internal/intake/intake.go` follows each
+attached edge stream.
+
+An edge publishes on `flowseer.<tenant>.edge.<edge-id>.ingest.<source>`.
+Intake republishes a typed record to
+`flowseer.<tenant>.ingest.<record-type>.<device-id>` in
+`FLOWSEER_INGEST_<RECORD_TYPE>`. Raw evidence goes to
+`flowseer.<tenant>.evidence.<record-type>.<device-id>` in
+`FLOWSEER_INGEST_EVIDENCE`. These shapes are defined in
+`src/modules/edgebus/subjects.go`. Delivery is at least once. Each publication
+uses `<tenant>.<record_id>` as its message id, so every JetStream sink
+deduplicates that identity within its duplicate window.
+
+The evidence stream keeps messages for 24 hours and discards its oldest
+messages at its byte bound, as configured in `src/modules/edgebus/hub.go`. A
+centrally hosted adapter input is not built. The current intake path accepts
+records from edge streams only.
