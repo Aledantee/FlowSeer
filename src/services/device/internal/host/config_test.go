@@ -202,6 +202,7 @@ func TestLoadConfigRefusals(t *testing.T) {
   endpoint: "https://authz.example.test:8081"
   store_id: "0192e6a0000070008000000000000001"
   model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
 }`,
 			code: host.ErrCodeConfigInvalid,
 		},
@@ -407,6 +408,11 @@ authorization {
 	const (
 		adminIssuer = `platform_admin {
   issuer: "https://auth.example.test"`
+		platformAdminWithoutIssuer = `platform_admin {`
+		platformAdminWithoutClaim  = `platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"`
 		httpAdminIssuer = `platform_admin {
   issuer: "http://auth.example.test"`
 		onlyIssuer = `  issuers {
@@ -423,10 +429,11 @@ authorization {
 `
 	)
 	refusals := []struct {
-		name  string
-		edits []edit
-		field string
-		rule  string
+		name             string
+		edits            []edit
+		field            string
+		rule             string
+		allowMessageRule string
 	}{
 		{
 			name: "http issuer refused",
@@ -482,6 +489,19 @@ authorization {
 			rule: "device_service_config.platform_admin_issuer_configured",
 		},
 		{
+			name:             "platform_admin without issuer refused",
+			edits:            []edit{{adminIssuer, platformAdminWithoutIssuer}},
+			field:            "platform_admin.issuer",
+			rule:             "required",
+			allowMessageRule: "device_service_config.platform_admin_issuer_configured",
+		},
+		{
+			name:  "platform_admin without organization claim name refused",
+			edits: []edit{{adminBlock, platformAdminWithoutClaim + "\n}"}},
+			field: "platform_admin.organization_claim_name",
+			rule:  "required",
+		},
+		{
 			name:  "empty audience refused",
 			edits: []edit{{`audience: "flowseer-device"`, `audience: ""`}},
 			field: "authentication.issuers.audience",
@@ -520,15 +540,16 @@ authorization {
 			if !errors.As(err, &validation) {
 				t.Fatalf("LoadConfig() error = %v, want a schema validation error", err)
 			}
-			// Every violation sits on the one field the case changed, and one of
-			// them is the rule it names. Rules on that field may overlap.
+			// Every violation sits on the one field the case changed, except for
+			// an explicitly allowed cross-field rule. One violation is the rule it
+			// names. Rules on that field may overlap.
 			ruled := false
 			for _, violation := range validation.Violations {
 				var names []string
 				for _, element := range violation.Proto.GetField().GetElements() {
 					names = append(names, element.GetFieldName())
 				}
-				if got := strings.Join(names, "."); got != tc.field {
+				if got := strings.Join(names, "."); got != tc.field && violation.Proto.GetRuleId() != tc.allowMessageRule {
 					t.Errorf("violation %q on %q, want it on %q", violation.Proto.GetRuleId(), got, tc.field)
 				}
 				ruled = ruled || violation.Proto.GetRuleId() == tc.rule

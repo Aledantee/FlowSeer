@@ -228,13 +228,11 @@ func (t *testAuthnInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 type innerRecordingInterceptor struct {
 	checker *fakeChecker
 	entered atomic.Bool
-	queries atomic.Int64
 }
 
 func (i *innerRecordingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 		i.entered.Store(true)
-		i.queries.Store(int64(len(i.checker.Recorded())))
 		return next(ctx, req)
 	}
 }
@@ -246,7 +244,6 @@ func (i *innerRecordingInterceptor) WrapStreamingClient(next connect.StreamingCl
 func (i *innerRecordingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
 		i.entered.Store(true)
-		i.queries.Store(int64(len(i.checker.Recorded())))
 		return next(ctx, conn)
 	}
 }
@@ -2832,6 +2829,52 @@ func TestInFlightRequireDropsResponse(t *testing.T) {
 		}
 		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
 			t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
+		}
+	})
+
+	t.Run("stream handler returning nil while a check is in flight drops the response", func(t *testing.T) {
+		env := setupTestEnv(t)
+
+		blockCh := make(chan struct{})
+		startedCh := make(chan struct{})
+		doneCh := make(chan struct{})
+		var startOnce sync.Once
+		env.checker.fail = func(q authz.Query) error {
+			if q.Object == "edge:"+validEdgeID && q.Relation == "view" {
+				startOnce.Do(func() { close(startedCh) })
+				<-blockCh
+			}
+			return nil
+		}
+
+		env.handlers.SetDownloadCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], _ *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
+			spawn.Go(ctx, "test.stream.unjoined.require", func() {
+				defer close(doneCh)
+				_ = authz.Require(ctx, "view", "edge", validEdgeID)
+			})
+			<-startedCh
+			return nil
+		})
+
+		req := validRequest(t, capturev1.DownloadCaptureSessionRequest_builder{
+			Session: sessionRef(t, validSessionID),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		stream, err := env.captureCli.DownloadCaptureSession(context.Background(), req)
+		if err == nil {
+			if stream.Receive() {
+				t.Fatal("expected the stream response to be dropped")
+			}
+			err = stream.Err()
+		}
+		close(blockCh)
+		<-doneCh
+
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+			t.Fatalf("error code = %q, want %q", got, authz.ErrCodeObligationViolation)
 		}
 	})
 

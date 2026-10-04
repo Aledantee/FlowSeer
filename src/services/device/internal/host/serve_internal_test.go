@@ -102,3 +102,40 @@ func TestAPanicInAnOperatorInterceptorAnswersRatherThanEscaping(t *testing.T) {
 		t.Errorf("error = %q, want the interceptor panic value kept off the wire", err)
 	}
 }
+
+func TestPanicInterceptorsRepanicAbortHandler(t *testing.T) {
+	tests := []struct {
+		name string
+		call func()
+	}{
+		{
+			name: "unary",
+			call: func() {
+				_, _ = panicInterceptor{}.WrapUnary(func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+					panic(http.ErrAbortHandler)
+				})(context.Background(), nil)
+			},
+		},
+		{
+			name: "streaming",
+			call: func() {
+				_ = panicInterceptor{}.WrapStreamingHandler(func(context.Context, connect.StreamingHandlerConn) error {
+					panic(http.ErrAbortHandler)
+				})(context.Background(), nil)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var recovered any
+			func() {
+				defer func() { recovered = recover() }()
+				tc.call()
+			}()
+			if recovered != http.ErrAbortHandler {
+				t.Fatalf("recovered panic = %v, want %v", recovered, http.ErrAbortHandler)
+			}
+		})
+	}
+}

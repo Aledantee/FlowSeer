@@ -22,6 +22,7 @@ import (
 
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
+	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
@@ -269,6 +270,28 @@ func newTestCreateRequest(maxPackets uint64) *operatorcapturev1.CreateCaptureSes
 		}.Build()
 	}
 	return req.Build()
+}
+
+func operatorErrorCode(t *testing.T, err error) string {
+	t.Helper()
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("expected *connect.Error, got %T: %v", err, err)
+	}
+	for _, detail := range connectErr.Details() {
+		msg, detailErr := detail.Value()
+		if detailErr != nil {
+			continue
+		}
+		if payload, ok := msg.(*errsv1.ErrorPayload); ok {
+			return payload.GetCode()
+		}
+	}
+	if code, ok := errs.CodeOf(err); ok {
+		return code.String()
+	}
+	t.Fatalf("error has no code: %v", err)
+	return ""
 }
 
 func TestCreateCaptureSession_BudgetValidationAndCreation(t *testing.T) {
@@ -1570,6 +1593,9 @@ func TestListCaptureSessionsAuthorizationThroughInterceptor(t *testing.T) {
 
 	t.Run("page token at the end still discharges the filter obligation", func(t *testing.T) {
 		h := newOperatorTestHarness(t)
+		if _, err := h.store.CreateSession(context.Background(), testTenantID, newEdgeSessionConfig(t, testEdge1ID, "0192e6a0-0000-7000-8000-000000000001")); err != nil {
+			t.Fatalf("create session: %v", err)
+		}
 		req := connect.NewRequest(operatorcapturev1.ListCaptureSessionsRequest_builder{
 			PageToken: proto.String("ffffffff-ffff-7fff-8fff-ffffffffffff"),
 		}.Build())
@@ -1596,6 +1622,9 @@ func TestListCaptureSessionsAuthorizationThroughInterceptor(t *testing.T) {
 		_, err := h.client.ListCaptureSessions(context.Background(), connect.NewRequest(&operatorcapturev1.ListCaptureSessionsRequest{}))
 		if connect.CodeOf(err) != connect.CodeUnavailable {
 			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeUnavailable)
+		}
+		if got := operatorErrorCode(t, err); got != authz.ErrCodeUnavailable.String() {
+			t.Fatalf("error code = %q, want %q", got, authz.ErrCodeUnavailable)
 		}
 	})
 
@@ -1756,17 +1785,25 @@ func TestCreateAndDeleteCaptureSessionProjectHook(t *testing.T) {
 	}
 
 	// 3. A failed store write does not call the project hook.
-	sessionID := sessionRef.GetCaptureSession().GetId()
-	artifactPath := filepath.Join(h.capturesDir, testTenantID, sessionID+".pcapng")
+	failedSessionID := "0192e6a0-0000-7000-8000-000000000099"
+	failedConfig := newEdgeSessionConfig(t, testEdge1ID, failedSessionID)
+	if _, err := h.store.CreateSession(ctx, testTenantID, failedConfig); err != nil {
+		t.Fatalf("create failed-delete session: %v", err)
+	}
+	failedSessionRef := failedConfig.GetRef()
+	artifactPath := filepath.Join(h.capturesDir, testTenantID, failedSessionID+".pcapng")
 	if err := os.MkdirAll(artifactPath, 0o700); err != nil {
 		t.Fatalf("create artifact directory: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(artifactPath, "busy"), []byte("x"), 0o600); err != nil {
 		t.Fatalf("create artifact marker: %v", err)
 	}
-	_, _ = h.client.DeleteCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DeleteCaptureSessionRequest_builder{
-		Session: sessionRef,
+	_, err = h.client.DeleteCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DeleteCaptureSessionRequest_builder{
+		Session: failedSessionRef,
 	}.Build()))
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("failed DeleteCaptureSession code = %v, want CodeUnavailable (%v)", connect.CodeOf(err), err)
+	}
 	if got := h.projectCount.Load(); got != before+2 {
 		t.Fatalf("projectCount after failed delete = %d, want %d", got, before+2)
 	}
