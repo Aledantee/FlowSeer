@@ -220,7 +220,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 				}
 				if !p.cfg.RestrictedTCN {
 					p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-					changes.add(l, t, p.name)
+					changes.add(t, p.name)
 					t.topologyChangeCount++
 					t.lastTopologyChange = now
 					l.propagateTopologyChange(t, p.name, now, &flushes, changes)
@@ -231,7 +231,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 						}
 						if mp := mt.ports[port]; mp != nil && mp.tcActive {
 							mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
-							changes.add(l, mt, mp.name)
+							changes.add(mt, mp.name)
 							mt.topologyChangeCount++
 							mt.lastTopologyChange = now
 							l.propagateTopologyChange(mt, port, now, &flushes, changes)

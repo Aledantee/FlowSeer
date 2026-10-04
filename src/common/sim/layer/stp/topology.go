@@ -48,15 +48,12 @@ func newTopologyChangeEmissions() *topologyChangeEmissions {
 	}
 }
 
-func (c *topologyChangeEmissions) add(l *Layer, t *tree, port string) {
+func (c *topologyChangeEmissions) add(t *tree, port string) {
 	if c == nil {
 		return
 	}
 
 	id := t.id
-	if l.pvst == nil {
-		id = cistID
-	}
 	ports := c.ports[id]
 	if ports == nil {
 		ports = make(map[string]struct{})
@@ -139,7 +136,7 @@ func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flu
 	t.topologyChangeCount++
 	t.lastTopologyChange = now
 	p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-	changes.add(l, t, p.name)
+	changes.add(t, p.name)
 	l.propagateTopologyChange(t, p.name, now, flushes, changes)
 }
 
@@ -161,7 +158,7 @@ func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Tim
 			continue
 		}
 		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-		changes.add(l, t, p.name)
+		changes.add(t, p.name)
 		if flushes != nil {
 			mergeFlushTarget(flushes, name, fids)
 		}
