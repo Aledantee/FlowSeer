@@ -12,6 +12,7 @@ export interface Shortcut {
 
 export const SHORTCUTS = {
   search: { code: 'KeyK', mod: true },
+  assistant: { code: 'KeyI', mod: true },
   minimize: { code: 'KeyM', alt: true },
   dockPair: { code: 'KeyM', alt: true, shift: true },
   toggleSplit: { code: 'Backslash', mod: true },

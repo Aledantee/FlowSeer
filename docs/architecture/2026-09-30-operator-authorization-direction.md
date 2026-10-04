@@ -886,12 +886,12 @@ oldest change records of other tenants. A stream per tenant bounds that. It
 reserves its bytes per tenant against the central budget, which caps the tenant
 count, and it changes the subject-per-tenant design above.
 
-The two streams reserve 80 MiB of the central account's 512 MiB beside the
-audit stream's 256 MiB
+The two streams reserve 80 MiB of the central account's 1 GiB beside the
+audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
+stream's 64 MiB
 (`github.com/nats-io/nats-server/v2@v2.15.0/server/jetstream.go:2603-2607`). The
 new `access` bucket (`AccessBucket`) makes five key-value buckets, and with no
-byte limit of their own they share the 176 MiB the streams leave, where four
-shared 192 MiB.
+byte limit of their own they share the 368 MiB the streams leave.
 
 A call admitted to no tenant has no tenant to name in the subject. Only
 `CreateTenant` is recorded without one, since it runs under the platform rule of

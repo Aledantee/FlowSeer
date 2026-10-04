@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  PopoverAnchor,
   PopoverContent,
   PopoverPortal,
   PopoverRoot,
@@ -12,6 +13,7 @@ export interface UiPopoverProps {
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
   sideOffset?: number
+  reference?: HTMLElement | { getBoundingClientRect: () => DOMRect } | null
 }
 
 withDefaults(defineProps<UiPopoverProps>(), {
@@ -20,6 +22,7 @@ withDefaults(defineProps<UiPopoverProps>(), {
   side: 'bottom',
   align: 'center',
   sideOffset: 4,
+  reference: undefined,
 })
 
 const emit = defineEmits<{
@@ -37,6 +40,7 @@ const emit = defineEmits<{
     <PopoverTrigger v-if="$slots.trigger" as-child>
       <slot name="trigger" />
     </PopoverTrigger>
+    <PopoverAnchor v-else-if="reference" :reference="reference" />
     <PopoverPortal>
       <PopoverContent
         :side="side"

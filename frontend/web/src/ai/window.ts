@@ -1,4 +1,4 @@
-import type { AiRegistry } from './registry'
+import type { AiRegistry, FeedbackPayload } from './registry'
 import type { AiHandler, AiTarget } from './types'
 
 // The inspectable contract an agent uses in the console or in Storybook.
@@ -9,6 +9,7 @@ export interface FlowSeerAi {
   highlight(id: string): boolean
   clearHighlight(): void
   onRequest(handler: AiHandler): () => void
+  onFeedback(listener: (payload: FeedbackPayload) => void): () => void
 }
 
 declare global {
@@ -26,6 +27,7 @@ export function installAiWindow(
     highlight: (id) => registry.highlight(id),
     clearHighlight: () => registry.clearHighlight(),
     onRequest: (handler) => registry.onRequest(handler),
+    onFeedback: (listener) => registry.onFeedback(listener),
   }
   target.flowseerAi = api
   return () => {

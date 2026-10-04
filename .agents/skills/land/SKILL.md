@@ -77,7 +77,8 @@ run the missing skill now, all missing signals in one question:
 | implementation, or a unit `pending` or `in_progress` | run `implement` on the remaining units; stop |
 | a unit `blocked` | take it back to `plan`; stop. Never `implement` again: the unit already failed three verifier rounds |
 | review verdict | run `review` on the branch now; stop |
-| review verdict is `rework` or `fixes needed` | fix the findings and review again (`review` from step 1, with step 6); stop |
+| review verdict is `fixes needed` | fix the findings and review again (`review` from step 1, with step 6), or stop |
+| review verdict is `rework` | take what the review established to `plan`, or stop |
 | compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`; without Orca, also read

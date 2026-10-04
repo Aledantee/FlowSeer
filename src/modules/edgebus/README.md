@@ -30,11 +30,15 @@ per edge:
 
 - **CENTRAL** holds the `device-lanes`, `edges`, `captures`, `tenants`, and
   `access` key-value buckets, `FLOWSEER_DEVICE_AUDIT`,
-  `FLOWSEER_OPERATOR_ACTIONS`, and `FLOWSEER_OPERATOR_READS`, written through
-  central's own CENTRAL-account connection. The `tenants` stream
-  allows atomic batches so the tenant store writes a record and its organization
-  index together. No edge credential is in this account, so neither a direct
-  publish nor a reflected one from an edge can reach the journal.
+  `FLOWSEER_OPERATOR_ACTIONS`, `FLOWSEER_OPERATOR_READS`, one typed ingest
+  stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The streams are
+  written through central's own CENTRAL-account connection. Typed ingest is
+  bounded to 256 MiB and 24 hours by default. Raw evidence is bounded to 64 MiB
+  and 24 hours. Both ingest streams discard the oldest records first and
+  remember message ids for ten minutes. The `tenants` stream allows atomic
+  batches so the tenant store writes a record and its organization index
+  together. No edge credential is in this account, so neither a direct publish
+  nor a reflected one from an edge can reach the journal.
 - **EDGE_<edge-id>**, created when the edge first attaches, holds that one
   edge's source stream and its minted user; its leaf node joins it. A
   reflection an edge provokes lands in its own account, where the only
@@ -69,6 +73,8 @@ flowseer.<tenant>.edge.<edge-id>.source.>                     the hub's sourcing
 flowseer.<tenant>.audit.device.<device-id>                    central's audit records (CENTRAL)
 flowseer.<tenant>.operator.action.<action>                    central's records of an operator change (CENTRAL)
 flowseer.<tenant>.operator.read.<action>                      central's records of an operator view (CENTRAL)
+flowseer.<tenant>.ingest.<record-type>.<device-id>             typed ingest records (CENTRAL)
+flowseer.<tenant>.evidence.<record-type>.<device-id>           raw ingest evidence (CENTRAL)
 ```
 
 The edge's `EDGE_BUFFER` stream, in JetStream domain `edge-<edge-id>`, holds
@@ -88,6 +94,14 @@ its own account is what keeps a record's edge honest: the stream it sits in,
 not the subject it carries. A stream emptied by its age bound re-sources its
 edge's whole buffer on a hub restart, so the age is set comfortably longer
 than any forwarder outage.
+
+The CENTRAL account keeps one file-backed limits stream for each known ingest
+record type. `FLOWSEER_INGEST_SYSLOG` stores
+`flowseer.*.ingest.syslog.*`. `FLOWSEER_INGEST_EVIDENCE` stores
+`flowseer.*.evidence.>`. Both streams discard the oldest record at their byte
+or age limit and deduplicate a message id for up to ten minutes, capped by the
+stream's configured maximum age. The default typed stream limit is 256 MiB for
+24 hours. The default evidence limit is 64 MiB for 24 hours.
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.
@@ -121,10 +135,10 @@ for a 60-character issuer and a 36-character subject occupy about 410 bytes
 each (`TestOperatorActionRecordFitsTheSizingArithmetic`), so a change subject at
 its cap holds about 4 MiB and the action stream holds about 160,000 records.
 
-The two streams reserve 80 MiB of the central account's 512 MiB beside the
-audit stream's 256 MiB. A key-value bucket sets no byte limit, so the five
-buckets share the 176 MiB the streams leave once they are full, where four
-shared 192 MiB.
+The two streams reserve 80 MiB of the central account's 1 GiB beside the
+audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
+stream's 64 MiB. A key-value bucket sets no byte limit, so the five buckets
+share the 368 MiB the streams leave once they are full.
 
 ## The credential an edge is minted
 

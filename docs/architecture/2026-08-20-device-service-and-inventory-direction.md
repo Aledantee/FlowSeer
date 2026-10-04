@@ -354,8 +354,10 @@ R3 replicas on the hub wait for a deployment plan; a single-node hub with
   proven only by an independent read of the affected state, and a write is
   released only after central has durably acknowledged that verification
   (the [verified device access record](2026-09-05-verified-device-access-direction.md)).
-- **Events** — JetStream on `events.<tenant>.<integration>.>`; multiple
-  consumers (state store, alerting, time-series, replay), durable, buffered
+- **Events** — JetStream on each edge's `ingest.<source>` branch and on
+  central's per-record-type subjects such as
+  `flowseer.<tenant>.ingest.<record-type>.<device-id>`. Multiple consumers
+  (state store, alerting, time-series, replay) remain durable and buffered
   when central is down.
 - **Connect** keeps three jobs: web↔central; the edge's own channel over
   HTTPS (enrollment, rekey, heartbeat, and the operator's edge

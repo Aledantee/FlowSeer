@@ -34,6 +34,10 @@ const (
 	// operator view. Views have their own byte limit so that a flood of them
 	// cannot push a change out of OperatorActionStream.
 	OperatorReadStream = "FLOWSEER_OPERATOR_READS"
+	// EvidenceStream holds raw evidence moved out of ingested records.
+	EvidenceStream = "FLOWSEER_INGEST_EVIDENCE"
+	// IngestRecordTypeSyslog identifies records produced by the syslog source.
+	IngestRecordTypeSyslog = "syslog"
 	// LaneBucket is the key-value bucket the device service's lane records
 	// live in, one key per device.
 	LaneBucket = "device-lanes"
@@ -77,6 +81,26 @@ func OTelSubject(tenant, edgeID string, signal OTelSignal) string {
 // IngestSubject is where an edge publishes records from one ingestion source.
 func IngestSubject(tenant, edgeID, source string) string {
 	return EdgeSubtree(tenant, edgeID) + ".ingest." + source
+}
+
+// IngestRecordTypes returns the record types central stores.
+func IngestRecordTypes() []string {
+	return []string{IngestRecordTypeSyslog}
+}
+
+// CentralIngestSubject is where central stores one typed ingested record.
+func CentralIngestSubject(tenant, recordType, deviceID string) string {
+	return fmt.Sprintf("flowseer.%s.ingest.%s.%s", tenant, recordType, deviceID)
+}
+
+// EvidenceSubject is where central stores raw evidence for one ingested record.
+func EvidenceSubject(tenant, recordType, deviceID string) string {
+	return fmt.Sprintf("flowseer.%s.evidence.%s.%s", tenant, recordType, deviceID)
+}
+
+// IngestStream names the central stream for one ingested record type.
+func IngestStream(recordType string) string {
+	return "FLOWSEER_INGEST_" + strings.ToUpper(recordType)
 }
 
 // EdgePublishSubjects maps the logical names an edge's leaf node knows to the

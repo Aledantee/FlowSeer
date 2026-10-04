@@ -292,4 +292,15 @@ describe('UiDialog', () => {
       document.body.querySelector('button[aria-label="Custom Close"]'),
     ).not.toBeNull()
   })
+
+  it('renders the right-sheet variant on the right edge', async () => {
+    mountDialog({ defaultOpen: true, side: 'right' })
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog).not.toBeNull()
+    expect(dialog?.className).toContain('right-0')
+    expect(dialog?.className).toContain('h-full')
+  })
 })

@@ -5,120 +5,120 @@ The coordinating session runs the rounds. No skill runs them on its own, and
 
 Contents:
 
-- Which findings get a round: the four kinds, and the gap pass
+- Which findings block: the classes, and what each one gets
+- The follow-up pass
 - One round: dispatch, merge, the briefed reviewer, the unbriefed reviewer
+  for a security fix
 - When to stop: a clean round, a Requirement question, a repeated
-  mechanism, the three-round cap and the one round past it
+  mechanism, the two-round cap
 
-## Which findings get a round
+## Which findings block
 
 Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 
-| Kind | What it is | What it gets |
-| --- | --- | --- |
-| behavior | shipped code does the wrong thing for some input, or contradicts a numbered Requirement | a round: steps 1 to 4 |
-| false test | a test fails, errors, or passes only on some runs, or passes with the condition removed that its title, comment, or commit body states | a round: steps 1 to 4 |
-| gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states | collected, closed in the gap pass |
-| convention | repository rule broken in code, or a wrong comment or doc | collected, closed in the gap pass |
+| Class | What it is | Holds the verdict | What it gets |
+| --- | --- | --- | --- |
+| security | a behavior finding that names all six parts `security.md` asks for | yes | a round with both reviewers |
+| behavior | shipped code does the wrong thing for some input, or contradicts a numbered Requirement | yes | a round with the briefed reviewer |
+| false test, blocking | a test fails, errors, or passes only on some runs, or the test of a fix this review made passes with that fix removed | yes | a fix, closed by the coordinator's rerun |
+| false test, other | a test of the reviewed change passes with the condition removed that its title, comment, or commit body states | no | a follow-up |
+| gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states | no | a follow-up |
+| convention | repository rule broken in code, or a wrong comment or doc | no | a follow-up |
+| hardening | a security concern missing one of the six parts | no | a follow-up |
 
-A false test is as serious as a defect, because the suite reports a
-guarantee it does not hold and the next reader trusts it. A gap claims
-nothing. Reviewing gap fixes does not converge: each fix adds tests, and
-every new test is something the next reviewer can mutate.
+Security and behavior findings hold the verdict and get a reviewed round. A
+blocking false test also holds the verdict, but gets no reviewer round. A fix
+to shipped code is reviewed because fix workers get fixes wrong often enough
+to matter: the projector fix covered tenant ids only for an object no record
+can exist under (`bcdf1b9e`). A security fix gets the wider review because a
+wrong one costs the most to ship.
 
-The boundary is what the test states. A broadly named test (`TestValidate`)
-with a surviving edge-case mutation is a false test when the mutation removes
-the specific condition its title, comment, or commit body states (for example,
-a test titled `TestRejectsEmptyID` that passes with the empty-id check
-removed). It is a gap when it removes a branch or boundary none of them states
-(for example, a surviving off-by-one in a branch no test states). When a
-surviving mutation can be read as a false test or as a gap, it is a false
-test, since that side is reviewed.
+A false test never gets a reviewer round. The coordinator's rerun of the
+recorded mutation already proves whether the corrected test fails, and one
+phase ended its third round with no behavior finding and two false tests
+still holding the verdict (`aff8a9fd`). A false test blocks in two cases.
+The suite has to be green on every run, so a failing, erroring, or flaky
+test blocks. A fix this review made has to be held by its test, so that
+test blocks until the mutation fails it.
 
-A convention finding is a repository rule broken in code (for example, a helper
-with one caller), or a wrong comment or doc (for example, a README that names
-a deleted flag).
+A follow-up never holds the verdict. Reviewing follow-up fixes does not
+converge: each fix adds tests, and every new test is something the next
+reviewer can mutate.
 
-The coordinator collects each gap and convention finding as it is settled, from
-the initial review and from every round, in its report: `path:line`, the
-surviving mutation or wrong text, and the case that would fail on it. A gap
+The boundary between a false test and a gap is what the test states. A
+broadly named test (`TestValidate`) with a surviving edge-case mutation is a
+false test when the mutation removes the specific condition its title,
+comment, or commit body states (for example, a test titled
+`TestRejectsEmptyID` that passes with the empty-id check removed). It is a
+gap when it removes a branch or boundary none of them states (for example,
+a surviving off-by-one in a branch no test states). A surviving mutation
+that can be read either way is a false test.
+
+A convention finding is a repository rule broken in code (for example, a
+helper with one caller), or a wrong comment or doc (for example, a README
+that names a deleted flag).
+
+The coordinator collects each follow-up and each blocking false test as it is
+settled, from the initial review and from every round, in its report and
+record: `path:line`, class, the surviving mutation or wrong text, and the
+case that would fail on it. A blocking false-test item also records its
+mutation, `runs: <n>` when it is flaky, and `review-fix-test: yes|no`. A gap
 whose only test would restate the implementation (a buffer capacity, a log
 string) is dropped with that reason in the report and is not recorded.
 
-A gap or convention finding a round returns is written to the record, with
-`fixes needed`, when that round settles and before the pass starts, as
-`SKILL.md` step 5 records a verdict. The pass closes items only from the
-record, so an item kept in the report alone is never rerun, and a session that
-ends mid-pass would lose it. A planless `gaps:` line carries every open item,
-earlier ones included, because the last `gaps:` line wins. For example, the
-initial review finds one behavior defect and no gap, and round one is clean
-and returns two gaps. The plan then holds `## Review gaps` with two items and
-`review: fixes needed`, and the pass reruns both mutations.
+Follow-ups and blocking false tests are written to the same record when the
+verdict is recorded, as `SKILL.md` step 5 describes. The pass closes items
+only from the record, so an item kept in the report alone is never rerun, and
+a session that ends mid-pass would lose it. A planless `gaps:` line carries
+every open item, earlier ones included, because the last `gaps:` line wins.
 
-### The gap pass
+## The follow-up pass
 
-The pass runs in `SKILL.md` step 6, before the accept verdict: after the last
-clean round, or at once when the review holds gaps or convention findings and
-nothing that needs a round. Step 6 runs on the user's answer to fix and review
-again, or under a stage brief that includes it, as `drive`'s does. The initial
-review stays report-only. The other two answers ("apply the fixes here" and
-"apply chosen findings only") reach the accept through `SKILL.md` step 5,
-which says what the coordinator closes first and what keeps `fixes needed`.
+The pass runs once per review, in `SKILL.md` step 6: after the last clean
+round, or at once when the review holds no security or behavior finding that
+holds the verdict. A review holding only blocking false tests is included.
+Step 6 runs on the user's answer, or under a stage brief that includes it,
+as `drive`'s does. The initial review stays report-only.
 
-Run steps 1 and 2 of a round with one fix worker per file group and no review
-after. Each fix's commit body quotes the gap's mutation and its `--- FAIL`
-line (`implement`, step 2.3). The coordinator closes each item from the record
-`SKILL.md` step 5 wrote (plan section `## Review gaps`, or the last `gaps:`
-checkpoint line for planless work): it reruns the recorded mutation on the
-merged tree and deletes the item only when the suite fails. A convention item
-closes when the corrected lines stand at its `path:line`. The coordinator
-closes each gap from its own record instead of trusting worker quotes, because
-checking only mutations a worker quoted accepts a gap the worker skipped or
-weakened.
+Dispatch one fix worker per file group and run no review after. The pass
+fixes every blocking false test still open and every recorded follow-up.
+Each fix's commit body quotes the mutation and its `--- FAIL` line
+(`implement`, step 2.3). Merge as step 2 of a round describes, then run the
+verifier on the changed paths.
 
-The verdict is not an accept while the record holds an item. For example, an
-initial review that finds only one gap records `fixes needed`.
+The coordinator closes each item from the record: it reruns the recorded
+mutation on the merged tree and deletes the item only when the suite fails.
+A flaky test closes when the run count its item names passes on the
+unmutated tree and fails on the mutated one. A convention item closes when
+the corrected lines stand at its `path:line`. The coordinator closes each
+item from its own record instead of trusting worker quotes, because
+checking only mutations a worker quoted accepts an item the worker skipped
+or weakened.
 
-`accept after fixes` is written only when the record is empty, after the
-coordinator reran every recorded mutation and read every corrected line. For
-example, if the pass worker fixes two of three gaps and the third item stays,
-the verdict stays `fixes needed`.
+The pass changes tests, comments, and docs only. A fix worker that needs a
+change to other source reports the item as a blocker, and the coordinator
+does not merge a pass branch whose diff holds such a change. A follow-up that
+needs other source stays a follow-up. A blocking false test that needs other
+source stays blocking and the verdict stays `fixes needed`. When the test is
+right and the shipped code is wrong, the item is a behavior finding. It gets
+a round while the scope has one left, and otherwise the verdict is `rework`.
 
-A pass whose diff changes source outside tests, comments, and docs is a round,
-counts toward the three rounds in total, and runs steps 3 and 4. Items that
-round finds are recorded and not passed again in this review. For example, if
-round one is not clean, round two is clean, and the pass changes a helper,
-that pass is round three, and a behavior finding there ends the loop at the
-cap.
+What the pass leaves decides the verdict this way:
 
-Once the review has run three rounds, the pass changes no source outside
-tests, comments, and docs. A fix worker that needs such a change reports the
-item as a blocker, and the item stays recorded. The coordinator does not merge
-a pass branch whose diff holds such a change, because the worker's duty alone
-does not say what happens when the worker ignores it. For example, rounds one
-and two are not clean, round three is clean, and the one recorded gap needs a
-helper changed. The worker reports it, the item stays, and the verdict is
-`fixes needed` with the question below.
+| Left open after the pass | Verdict |
+| --- | --- |
+| an open Requirement question | `fixes needed`, taking precedence over the other rows and using the Requirement-question option in `SKILL.md` |
+| nothing | an accept |
+| follow-ups only | an accept, with the items still recorded and listed in the report |
+| a blocking false test | `fixes needed`, with a question offering one more pass or stopping |
 
-One review runs one gap pass. Once the loop has ended (When to stop), every
-item still recorded after the pass ends the review at `fixes needed` with a
-question offering one more gap pass or stopping, whether the item survived
-the pass or a later round found it. Until then a pass that became a round
-keeps the loop open like any other round, and its items stay recorded. A
-gap that needs source becomes a round, or after three rounds waits for the
-next review, so no third option exists. When the loop ended at the
-three-round limit with a behavior or false-test finding open, that limit's
-outcome is the review's and the items stay recorded. When a Requirement question is also
-open, the question offers taking the Requirement to `plan`, one more gap pass,
-or stopping. One more gap pass is a new review: `review` runs again from
-step 1, reads the record, and has a fresh round count and one pass, and step 6
-runs in it. A delegated reviewer does not ask: it states each item's
-`path:line` and its mutation or wrong text as its blocker. For example, a plan
-without phases under `drive` parks at `fixes needed`, and the next review
-stage reads the item from the plan's `## Review gaps` section.
+For example, the initial review finds one behavior defect and three gaps.
+Round one is clean. The pass closes two gaps, and the third needs a helper
+changed. The verdict is `accept after fixes`, and the report lists the
+third gap as a follow-up.
 
-A session that ends mid-pass leaves `fixes needed` on disk, which every
-gate refuses, so the remedy is `review` again.
+A session that ends mid-pass leaves the earlier verdict on disk, and the
+remedy is `review` again.
 
 ## One round
 
@@ -146,36 +146,47 @@ gate refuses, so the remedy is `review` again.
    A non-zero result also stops the round. Carry every `missing` block in the
    report, then run the verifier once on the union of the changed paths,
    before anything is reviewed again.
-3. Repeat `SKILL.md` steps 3 and 4 over the branch diff, briefing the
-   reviewer with the previous round's findings and the changed paths, so it
-   judges each fix against its finding instead of rediscovering it. When the
-   previous round's remedy was an executable property (step 4), that
-   artifact is the brief's primary subject: is its enumeration complete
-   against the source it claims to read, does each case fail for the rule it
-   names, and is each exemption an argument no input can violate? A wrong
-   invariant is worse than none, since the next reader trusts it and stops
-   looking. The brief asks for a required "New findings" section, written
-   as `none` when empty, for defects no earlier finding names.
-4. In the same round, dispatch one more reviewer over the round's changed
-   paths with the brief of a first review (`SKILL.md` step 3) and none of
-   the earlier findings. A reviewer handed the findings judges the fixes
-   against them and anchors there, so a defect a fix introduced elsewhere
-   goes unseen. Settle its findings with the briefed reviewer's under
-   `SKILL.md` step 4.
+3. Dispatch one reviewer over the round's diff, the range the fix merges
+   added, not the branch diff. Brief it as `SKILL.md` step 3 describes, with
+   the findings the round fixed, so it judges each fix against its finding
+   instead of rediscovering it. When the previous round's remedy was an
+   executable property (step 4), that artifact is the brief's primary
+   subject: is its enumeration complete against the source it claims to
+   read, does each case fail for the rule it names, and is each exemption an
+   argument no input can violate? A wrong invariant is worse than none,
+   since the next reader trusts it and stops looking. The brief asks for a
+   required "New findings" section, written as `none` when empty, for
+   defects the round's diff introduced. A new finding in code the round did
+   not change is reported under "pre-existing" and does not make the round
+   unclean, since the initial review already judged that code. A finding the
+   round was briefed to fix that still holds is not pre-existing, wherever its
+   code is, and makes the round unclean.
+4. When the round fixed a security finding, dispatch one more reviewer over
+   the round's changed paths with the brief of a first review (`SKILL.md`
+   step 3) and none of the earlier findings. A reviewer handed the findings
+   judges the fixes against them and anchors there, so a defect a fix
+   introduced elsewhere goes unseen. Settle its findings with the briefed
+   reviewer's under `SKILL.md` step 4. A round without a security fix runs
+   no second reviewer: the wide second pass raised recall a little and
+   returned mostly follow-ups, and a benchmark comparing a single-shot review
+   agent with an iterative review agent on the same model measured recall at
+   27.0% and 32.8%, respectively, while its signal-to-noise ratio fell from
+   5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
+
+After the round settles, write the round count beside the verdict
+(`SKILL.md` step 5).
 
 ## When to stop
 
-- A round in which neither reviewer returns a behavior or false-test
-  finding ends the loop. For example, if a round returns two gaps and one
-  convention finding, the loop ends and the gap pass starts. After a clean
-  round, run the gap pass in `SKILL.md` step 6 only when the record holds an
-  item and this review has not run one. Write `accept after fixes` only with
-  an empty record and no Requirement question open, directly after the clean
-  round or at the end of the pass. List what remains in the final report and
-  end with the `accept` row's question when the verdict reads an accept, or
-  with the question the gap pass or the Requirement bullet below describes
-  when it does not. No earlier round writes `accept after fixes`, since the
-  gates read it as passing.
+- A round in which no reviewer returns a security or behavior finding that
+  holds the verdict is clean, and a clean round ends the loop. For example,
+  if a round returns two gaps and one false test on a fix's own test, the loop
+  ends and the follow-up pass starts. Write `accept after fixes` once no
+  security, behavior, or blocking false-test finding is open and no
+  Requirement question is open, directly after the clean round or at the end
+  of the pass. List what remains in the final report and end with the
+  `accept` row's question when the verdict reads an accept. No earlier round
+  writes `accept after fixes`, since the gates read it as passing.
 - A finding that needs a plan Requirement changed blocks an accept and keeps
   the verdict `fixes needed`. It goes under the plan's Open questions in the
   verdict commit, naming the Requirement. The report's question offers taking
@@ -186,15 +197,12 @@ gate refuses, so the remedy is `review` again.
   removes the Open-questions item.
 - The coordinator holds the rounds' history, so it is the one that sees a
   round find a defect in the previous round's fix for the same mechanism.
-  Apply step 4's class rule before the next round, and read how an
-  established implementation solves that mechanism before another patch is
-  briefed: the pinned library's own primitive, a vendored spec, or a
-  `docs/solutions/` entry, cited as `AGENTS.md`, Investigation discipline,
-  defines a source. The next brief names that source, or the work goes to
-  `plan` because none was found.
-- When a second round lands on one mechanism, the report states two things
-  before another round is briefed, since rounds that patch a mechanism never
-  ask whether the work needs it:
+  Apply step 4's class rule, and read how an established implementation
+  solves that mechanism: the pinned library's own primitive, a vendored
+  spec, or a `docs/solutions/` entry, cited as `AGENTS.md`, Investigation
+  discipline, defines a source. The report names that source, and states
+  two things, since rounds that patch a mechanism never ask whether the
+  work needs it:
   - Requirement served: the plan Requirement the mechanism exists for,
     quoted.
   - Simplest design: the least code that meets that Requirement, whatever
@@ -202,38 +210,52 @@ gate refuses, so the remedy is `review` again.
 
   When the simplest design differs from the one being patched (it drops a
   gate, a coupling, or the mechanism), the difference is a plan question. It
-  goes under the plan's Open questions as a Requirement question does, and
-  no round runs until it is answered. For example, a device index resolves a
-  syslog sender only for devices the management lane onboarded. The
-  Requirement is to resolve a sender to a listed device, and the listing
-  already carries every address. The simplest design drops the gate, so the
-  question is whether anything needs it.
-- A review runs at most three rounds in total, whatever each round fixed,
-  and a gap pass that became a round counts as one. A third round that is
-  not clean ends the loop:
-  - All three on one mechanism: take the work to `plan` with what the
+  goes under the plan's Open questions as a Requirement question does. For
+  example, a device index resolves a syslog sender only for devices the
+  management lane onboarded. The Requirement is to resolve a sender to a
+  listed device, and the listing already carries every address. The
+  simplest design drops the gate, so the question is whether anything needs
+  it.
+- A scope gets at most two rounds, whatever each round fixed, and the count
+  carries across reviews. `SKILL.md` step 5 records it, and a review of a
+  scope with a recorded count continues from it. A parked review that
+  resumes therefore has the rounds its earlier run left, since a count that
+  started fresh on every resume let one plan park a second time after two
+  more rounds (`430d1ccc`). The count
+  starts at zero again only when the plan changed since the recorded
+  verdict through `plan`, or gained a Decision ending `decided by the user`
+  that replaces the mechanism the rounds were fixing. The review that
+  starts after such a change records the count as `0`.
+
+  A review that starts with a count of two and has a security or behavior
+  finding is `rework` immediately. The rework options apply, and no option
+  offers another round. A review at count two that holds only blocking false
+  tests is `fixes needed` and may run the follow-up pass, since that pass is
+  not a round.
+
+  A second round that is not clean ends the loop with the verdict `rework`.
+  Agents maintaining a codebase over successive iterations showed regressions
+  becoming more frequent with iteration count in 12 of 20 models in one
+  benchmark (https://arxiv.org/html/2603.03823v4), and a fourth round on one
+  mechanism still found two behavior defects in that round's own change
+  (`18c7187e`):
+  - Both rounds on one mechanism: take the work to `plan` with what the
     rounds established.
   - Rounds on different mechanisms: ask the user (`AGENTS.md`, Agent
     behavior) whether to take the work to `plan` (recommended, since each
     round has surfaced a new defect), to drop or replace the mechanism the
-    last round fixed, naming its simplest design as above, or to run one
-    more round. A delegated worker does not ask: it sets the verdict to
-    `rework` and states the round count as its blocker. Under `drive`, that
-    report names the limit, and `drive` step 4 parks it with the same
-    options.
+    last round fixed, naming its simplest design as above, or to stop.
+  - A security finding open: the question names it first, with its six
+    parts, and offers the same options.
 
-  One more round is a fourth round of this review, run like the others, and
-  the only round past the cap. When it is not clean, the verdict is `rework`
-  and the work goes to `plan` with what the four rounds established. The
-  question then offers `plan` or stopping and no further round, since an
-  extension without a bound ran six rounds on one mechanism. Under `drive`,
-  the answer starts a new review stage whose brief carries that limit: one
-  round, then `rework`.
+  No answer buys a third round on the same plan text. A delegated worker
+  does not ask: it sets the verdict to `rework` and states the round count
+  as its blocker. Under `drive`, that report names the limit, and `drive`
+  step 4 parks it with the same options.
 
-  Example: rounds one and two rework an emission mechanism, and round three
-  fixes its staging permissions and finds a rollback defect. That is three
-  rounds, and the fourth is the user's call. A fourth that finds another
-  defect ends at `rework`.
+  Example: round one reworks an emission mechanism, and round two fixes its
+  staging permissions and finds a rollback defect. That is two rounds, the
+  verdict is `rework`, and the question offers `plan` first.
 - Every verdict the loop writes is recorded as `SKILL.md` step 5 records a
   verdict, which also updates the Orca card. The commit that records the
   verdict names the number of fix rounds.

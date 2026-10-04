@@ -138,9 +138,9 @@ End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check in step 1 or a failed
 merge-check in step 3 stops the drive. A turn that ends right after
 announcing the next stage leaves nothing to wake it. Run each stage once:
-the skills' own caps (three verifier rounds on a unit, three fix rounds in
-a review) decide when patching stops, and a parked question is what sends a
-plan back.
+the skills' own caps (three verifier rounds on a unit, two reviewed rounds on
+a review's scope) decide when patching stops, and a parked question is what
+sends a plan back.
 
 ## 3. Drive a parent's phases
 
@@ -213,10 +213,10 @@ in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
 on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
 surface. A `rework` that names the round limit parks with the options
 `review/references/fix-loop.md`, When to stop, lists: `plan`, dropping or
-replacing the mechanism, or one more round. When every round was on one
-mechanism, it parks with `plan` or stopping. When the stage's brief carried
-the one-round limit, it parks with `plan` or stopping and offers no further
-round. Load `references/parking.md` to park it, and again when the user
+replacing the mechanism, or stopping. When both rounds were on one
+mechanism, it parks with `plan` or stopping. No park offers a further
+round. A review that accepts with follow-ups recorded does not park: its
+report's follow-ups go into the drive's final report. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`
 lines first and asks them before anything else.
 

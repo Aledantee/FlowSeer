@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
@@ -45,6 +46,8 @@ import (
 	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	eventlogv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/log/v1"
+	ingestv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/integration/ingest/v1"
 	capturemodelv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identitymodelv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
@@ -53,6 +56,8 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/secret"
+	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
@@ -1780,4 +1785,107 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 	if matches != 1 {
 		t.Fatalf("found %d log records with msg %q and error.type %q, want one; got log:\n%s", matches, "failed to project object relationship", "authz/engine-unreachable", output)
 	}
+}
+
+func TestIntakeRepublishesAnEdgeRecord(t *testing.T) {
+	hub := startTestService(t, nil).Hub
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, testEdgeID); err != nil {
+		t.Fatalf("attach edge: %v", err)
+	}
+	credentials, err := hub.MintEdgeUser(context.Background(), testEdgeID)
+	if err != nil {
+		t.Fatalf("mint edge credentials: %v", err)
+	}
+	credentialsFile, err := credentials.CredsFile()
+	if err != nil {
+		t.Fatalf("format edge credentials: %v", err)
+	}
+	leaf, err := edgebus.StartLeaf(context.Background(), edgebus.LeafConfig{
+		StateDir:        t.TempDir(),
+		EdgeID:          testEdgeID,
+		Tenant:          edgebus.DefaultTenant,
+		HubURLs:         []string{hub.ListenURL()},
+		CredentialsFile: secret.New(credentialsFile),
+		TLS:             &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // the host generates a self-signed certificate for this loopback test
+		FsyncPolicy:     service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("start edge leaf: %v", err)
+	}
+	t.Cleanup(leaf.Close)
+	waitForHost(t, "edge leaf connection", func() bool {
+		return leaf.HubConnected() && hub.LeafCount() > 0
+	})
+
+	envelope := validIngestRecord(t)
+	data, err := proto.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal ingest record: %v", err)
+	}
+	if err := leaf.Publish(context.Background(), leaf.Subject("ingest.syslog"), data, ""); err != nil {
+		t.Fatalf("publish ingest record: %v", err)
+	}
+
+	stream, err := hub.JetStream().Stream(context.Background(), edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+	if err != nil {
+		t.Fatalf("load central ingest stream: %v", err)
+	}
+	waitForHost(t, "central ingest record", func() bool {
+		info, infoErr := stream.Info(context.Background())
+		return infoErr == nil && info.State.Msgs == 1
+	})
+	msg, err := stream.GetLastMsgForSubject(context.Background(), edgebus.CentralIngestSubject(edgebus.DefaultTenant, edgebus.IngestRecordTypeSyslog, testDeviceID))
+	if err != nil {
+		t.Fatalf("read central ingest record: %v", err)
+	}
+	var got ingestv1.IngestRecord
+	if err := proto.Unmarshal(msg.Data, &got); err != nil {
+		t.Fatalf("decode central ingest record: %v", err)
+	}
+	if !proto.Equal(envelope, &got) {
+		t.Fatalf("central ingest record = %v, want %v", &got, envelope)
+	}
+}
+
+func validIngestRecord(t *testing.T) *ingestv1.IngestRecord {
+	t.Helper()
+	edge := edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+	}.Build()
+	device := inventoryv1.DeviceGlobalRef_builder{
+		Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build(),
+	}.Build()
+	binding := inventoryv1.BindingGlobalRef_builder{
+		Binding: inventoryv1.BindingLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-0000000000b1")}.Build(),
+	}.Build()
+	record := ingestv1.IngestRecord_builder{
+		RecordId: proto.String("0192e6a0-0000-7000-8000-000000000101"),
+		Provenance: inventoryv1.Provenance_builder{
+			Binding:    binding,
+			ObservedAt: timestamppb.New(time.Now().UTC()),
+			Edge:       edge,
+			Log:        inventoryv1.LogProtocol_LOG_PROTOCOL_SYSLOG.Enum(),
+		}.Build(),
+		Syslog: eventlogv1.SyslogRecord_builder{
+			Device:     device,
+			ReceivedAt: timestamppb.New(time.Now().UTC()),
+			Message:    []byte("message"),
+		}.Build(),
+	}.Build()
+	if err := protovalidate.Validate(record); err != nil {
+		t.Fatalf("validate ingest record fixture: %v", err)
+	}
+	return record
+}
+
+func waitForHost(t *testing.T, what string, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", what)
 }

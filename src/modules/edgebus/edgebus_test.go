@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -384,6 +385,131 @@ func TestAuditStreamStoresADuplicateEventOnce(t *testing.T) {
 	}
 	if info.State.Msgs != 1 {
 		t.Fatalf("audit stream holds %d messages, want 1", info.State.Msgs)
+	}
+}
+
+func TestCentralIngestStreamsExistWithTheirLimits(t *testing.T) {
+	hub := startHub(t, t.TempDir(), 0)
+	ctx := context.Background()
+
+	for _, test := range []struct {
+		name     string
+		stream   string
+		subject  string
+		maxBytes int64
+	}{
+		{
+			name:     "typed",
+			stream:   "FLOWSEER_INGEST_SYSLOG",
+			subject:  "flowseer.*.ingest.syslog.*",
+			maxBytes: 256 << 20,
+		},
+		{
+			name:     "evidence",
+			stream:   "FLOWSEER_INGEST_EVIDENCE",
+			subject:  "flowseer.*.evidence.>",
+			maxBytes: 64 << 20,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream, err := hub.JetStream().Stream(ctx, test.stream)
+			if err != nil {
+				t.Fatalf("stream: %v", err)
+			}
+			info, err := stream.Info(ctx)
+			if err != nil {
+				t.Fatalf("stream info: %v", err)
+			}
+			if !reflect.DeepEqual(info.Config.Subjects, []string{test.subject}) {
+				t.Errorf("subjects = %v, want [%s]", info.Config.Subjects, test.subject)
+			}
+			if info.Config.MaxAge != 24*time.Hour {
+				t.Errorf("max age = %s, want 24h", info.Config.MaxAge)
+			}
+			if info.Config.MaxBytes != test.maxBytes {
+				t.Errorf("max bytes = %d, want %d", info.Config.MaxBytes, test.maxBytes)
+			}
+			if info.Config.Discard != jetstream.DiscardOld {
+				t.Errorf("discard = %q, want discard old", info.Config.Discard)
+			}
+			if info.Config.Duplicates != 10*time.Minute {
+				t.Errorf("duplicate window = %s, want 10m", info.Config.Duplicates)
+			}
+		})
+	}
+}
+
+func TestCentralIngestSubjectsDoNotOverlap(t *testing.T) {
+	hub := startHub(t, t.TempDir(), 0)
+	const (
+		tenantID = "0198a3c0-0000-7000-8000-0000000000aa"
+		deviceID = "0198a3c0-0000-7000-8000-000000000001"
+		edgeID   = "0198a3c0-0000-7000-8000-0000000000ed"
+	)
+
+	subjects := []string{
+		"flowseer." + tenantID + ".audit.device." + deviceID,
+		"flowseer." + tenantID + ".ingest.syslog." + deviceID,
+		"flowseer." + tenantID + ".evidence.syslog." + deviceID,
+		"flowseer." + tenantID + ".edge." + edgeID + ".ingest.syslog",
+	}
+	wantStreams := []string{
+		"FLOWSEER_DEVICE_AUDIT",
+		"FLOWSEER_INGEST_SYSLOG",
+		"FLOWSEER_INGEST_EVIDENCE",
+	}
+	for i, subject := range subjects[:3] {
+		ack, err := hub.JetStream().Publish(context.Background(), subject, []byte(fmt.Sprintf("message-%d", i)))
+		if err != nil {
+			t.Fatalf("publish %s: %v", subject, err)
+		}
+		if ack.Stream != wantStreams[i] {
+			t.Errorf("publish %s stream = %q, want %q", subject, ack.Stream, wantStreams[i])
+		}
+	}
+	if _, err := hub.JetStream().Publish(context.Background(), subjects[3], []byte("edge-shaped")); !errors.Is(err, jetstream.ErrNoStreamResponse) {
+		t.Fatalf("edge-shaped publish error = %v, want %v", err, jetstream.ErrNoStreamResponse)
+	}
+}
+
+func TestCentralIngestDuplicateWindowDoesNotExceedMaxAge(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:             t.TempDir(),
+		FsyncPolicy:          service.BusFsyncPeriodic,
+		AuditDuplicateWindow: 30 * time.Minute,
+		IngestMaxAge:         time.Minute,
+		EvidenceMaxAge:       2 * time.Minute,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+
+	for _, test := range []struct {
+		name string
+		want time.Duration
+		get  func(context.Context) (jetstream.Stream, error)
+	}{
+		{name: "typed", want: time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
+			return hub.JetStream().Stream(ctx, edgebus.IngestStream(edgebus.IngestRecordTypeSyslog))
+		}},
+		{name: "evidence", want: 2 * time.Minute, get: func(ctx context.Context) (jetstream.Stream, error) {
+			return hub.JetStream().Stream(ctx, edgebus.EvidenceStream)
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			stream, err := test.get(context.Background())
+			if err != nil {
+				t.Fatalf("stream: %v", err)
+			}
+			info, err := stream.Info(context.Background())
+			if err != nil {
+				t.Fatalf("stream info: %v", err)
+			}
+			if info.Config.Duplicates != test.want {
+				t.Fatalf("duplicate window = %s, want %s", info.Config.Duplicates, test.want)
+			}
+		})
 	}
 }
 
@@ -1309,14 +1435,14 @@ func TestOperatorReadStreamLimitsComeFromTheConfiguration(t *testing.T) {
 
 func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	ctx := context.Background()
-	// Audit stream default: 256 MiB. Operator action stream default: 64 MiB.
-	// Operator read stream default: 16 MiB. Sum: 336 MiB. A central budget below
-	// the sum of reservations must fail StartHub, and both budgets tried are
-	// below it.
+	// Defaults: audit stream 256 MiB, operator action stream 64 MiB, operator
+	// read stream 16 MiB, typed ingest stream 256 MiB, evidence stream 64 MiB.
+	// Sum: 656 MiB. A central budget below the sum of reservations must fail
+	// StartHub, and both budgets tried are below it.
 	config := edgebus.HubConfig{
 		FsyncPolicy: service.BusFsyncPeriodic,
 	}
-	for _, budget := range []int64{300 << 20, 330 << 20} {
+	for _, budget := range []int64{600 << 20, 650 << 20} {
 		config.StateDir = t.TempDir()
 		config.CentralBudgetBytes = budget
 		_, err := edgebus.StartHub(ctx, config)
@@ -1329,7 +1455,7 @@ func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	}
 
 	config.StateDir = t.TempDir()
-	config.CentralBudgetBytes = 512 << 20
+	config.CentralBudgetBytes = 768 << 20
 	hub, err := edgebus.StartHub(ctx, config)
 	if err != nil {
 		t.Fatalf("StartHub with sufficient central budget: %v", err)

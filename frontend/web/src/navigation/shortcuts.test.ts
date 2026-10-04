@@ -67,6 +67,8 @@ describe('workspace shortcuts', () => {
     expect(keysOf(SHORTCUTS.dockPair, false)).toEqual(['Alt', 'Shift', 'M'])
     expect(keysOf(dockTabShortcut(3, true), true)).toEqual(['⌥', '⇧', '3'])
     expect(keysOf(SHORTCUTS.toggleSplit, true)).toEqual(['⌘', '\\'])
+    expect(keysOf(SHORTCUTS.assistant, true)).toEqual(['⌘', 'I'])
+    expect(keysOf(SHORTCUTS.assistant, false)).toEqual(['Ctrl', 'I'])
   })
 })
 
