@@ -4,7 +4,6 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
@@ -23,20 +22,35 @@ func (l *Layer) tcWhileDuration(t *tree, p *portState) time.Duration {
 }
 
 // initiateTopologyChange marks p active, increments the tree's topology change
-// count, starts p's own tcWhile timer, emits on p if p is the root port, and
-// propagates to other active ports on tree t.
-func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+// count, starts p's own tcWhile timer when it is stopped, and propagates to
+// other active ports on tree t. A running timer is not restarted.
+func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
 	p.tcActive = true
-	t.topologyChangeCount++
-	t.lastTopologyChange = now
-	p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-	l.propagateTopologyChange(t, p.name, now, flushes, emissions)
+	if !activeAt(p.tcWhile, now) {
+		t.topologyChangeCount++
+		t.lastTopologyChange = now
+		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		if l.links[p.name].sendRSTP {
+			l.requestNewInfo(t, p)
+		}
+		l.propagateTopologyChange(t, p.name, now, flushes)
+	}
 }
 
-// propagateTopologyChange starts tcWhile on every active non-edge port on tree t
-// other than originPort, flushes that port's learned entries, and emits on it if
-// it is the root port.
-func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+// detectTopologyChange records a local forwarding transition. Detection also
+// requests information on the detecting RSTP port when its existing timer is
+// still running. A received notification does not get that extra request.
+func (l *Layer) detectTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
+	l.initiateTopologyChange(t, p, now, flushes)
+	if l.links[p.name].sendRSTP {
+		l.requestNewInfo(t, p)
+	}
+}
+
+// propagateTopologyChange flushes every active non-edge port on tree t other
+// than originPort. It starts a stopped timer and requests a frame only for
+// that start. A running timer is retained for the current topology change.
+func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget) {
 	fids := l.treeVLANs[t.id]
 	for _, name := range l.portNames {
 		if name == originPort {
@@ -50,12 +64,15 @@ func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Tim
 		if link.edge {
 			continue
 		}
-		p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		started := !activeAt(p.tcWhile, now)
+		if started {
+			p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+		}
+		if link.sendRSTP && started {
+			l.requestNewInfo(t, p)
+		}
 		if flushes != nil {
 			mergeFlushTarget(flushes, name, fids)
-		}
-		if p.role == bpdu.RoleRoot && emissions != nil {
-			l.emitRootTC(t, p, now, emissions)
 		}
 	}
 }

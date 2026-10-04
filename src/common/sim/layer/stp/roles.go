@@ -38,7 +38,7 @@ func (l *Layer) boundary(name string) bool {
 }
 
 // armHelloTimers starts the periodic hello on every tree that drives its own
-// emission: the CIST alone outside PVST mode, since an MSTI's information
+// transmission: the CIST alone outside PVST mode, since an MSTI's information
 // rides the CIST's BPDU, and every VLAN's tree inside it. A tree whose hello
 // timer stays zero never reaches Advance's hello loop, which is what keeps that
 // loop's walk over every tree behavior-neutral for RSTP and MSTP.
@@ -47,58 +47,57 @@ func (l *Layer) armHelloTimers(now time.Time) {
 		if l.pvst == nil && id != cistID {
 			continue
 		}
-		if t := l.trees[id]; t.helloTimer.IsZero() {
-			t.helloTimer = now.Add(l.helloTime)
+		t := l.trees[id]
+		for _, name := range l.portNames {
+			if !l.links[name].up {
+				continue
+			}
+			tx := l.tx(t, name)
+			if tx.helloWhen.IsZero() {
+				tx.helloWhen = now.Add(l.helloTime)
+			}
 		}
 	}
 }
 
 // recomputeAll runs recompute for every tree in deterministic order, the CIST
-// first and then the other trees ascending, and aggregates the emissions.
-// Under MSTP only the CIST emits: an MSTI's recompute is told not to, so the
+// first and then the other trees ascending. The later transmit pass owns
+// frame construction. Under MSTP only the CIST transmits, so the
 // per-port transmit budget is spent once per port rather than once per
 // instance, and the MSTI records ride the CIST's own BPDU. Under PVST every
-// tree emits, because each VLAN's BPDU is a frame of its own metered against
-// that tree's own budget.
-func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
-	var emissions []layer.Emission
-
+// tree transmits, because each VLAN's BPDU is a frame of its own metered
+// against that tree's own budget.
+func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) {
 	for _, id := range l.treeOrder {
-		emissions = append(emissions, l.recompute(l.trees[id], now, flushes, l.pvst != nil || id == cistID)...)
+		l.recompute(l.trees[id], now, flushes)
 	}
-
-	return emissions
 }
 
 // recompute runs one tree's root election and role and state assignment. On
 // a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
 // and state outright rather than computing its own, which is the boundary
 // role rule (netsim reports the CIST's Root where the standard would say
-// Master; no separate Role value exists for it). emit gates the proposal
-// emissions a root change triggers: only the CIST emits, so an MSTI's caller
-// passes false and recompute returns no emissions for it.
-func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, emit bool) []layer.Emission {
-	var emissions []layer.Emission
-
+// Master; no separate Role value exists for it). A root change requests new
+// information on eligible designated ports. The later transmit pass decides
+// whether that information is carried by the CIST or by an MSTI record.
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget) {
 	oldRootID := t.rootID
 	oldRootCost := t.rootPathCost
 	oldRootPort := t.rootPort
 
 	l.electRoot(t, now)
 	l.assignRoles(t, now)
-	l.updatePortStates(t, now, flushes, &emissions)
+	l.updatePortStates(t, now, flushes)
 
-	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
+	if t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort {
 		for _, name := range l.portNames {
 			p := t.ports[name]
 			link := l.links[name]
 			if link.up && p.role == bpdu.RoleDesignated && link.pointToPoint && p.state == StateDiscarding && !p.agreed {
-				l.emit(t, p, now, emissionDesignated, &emissions)
+				l.requestNewInfo(t, p)
 			}
 		}
 	}
-
-	return emissions
 }
 
 func (l *Layer) electRoot(t *tree, now time.Time) {
@@ -192,7 +191,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 			}
 			oldRole := p.role
 			p.role = cistP.role
-			if p.role != oldRole && p.role != bpdu.RoleDesignated {
+			if p.role != oldRole {
 				p.agreed = false
 			}
 
@@ -224,10 +223,9 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 		default:
 			p.role = l.designatedOrBlocked(t, p, now)
 		}
-		// An agreement belongs to the Designated role that earned it; a port
-		// that leaves the role and comes back must propose again, or it would
-		// forward without a handshake on a link whose peer never agreed.
-		if p.role != oldRole && p.role != bpdu.RoleDesignated {
+		// An agreement belongs to the role that earned it; any role change
+		// requires a fresh handshake before the port can forward.
+		if p.role != oldRole {
 			p.agreed = false
 		}
 		// The edge delay counts from the moment the port could become an
@@ -239,7 +237,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 	}
 }
 
-func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget) {
 	_, _, fwdDelay := l.times(t)
 
 	for _, name := range l.portNames {
@@ -263,6 +261,11 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			p.fwdDelayTimer = time.Time{}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
+				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
+					l.detectTopologyChange(t, p, now, flushes)
+				}
+			} else if oldState == StateForwarding && p.state != StateForwarding {
+				l.deactivatePort(t, p, flushes)
 			}
 
 			continue
@@ -304,7 +307,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
 			if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
-				l.initiateTopologyChange(t, p, now, flushes, emissions)
+				l.detectTopologyChange(t, p, now, flushes)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
 			l.deactivatePort(t, p, flushes)

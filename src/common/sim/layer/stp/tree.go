@@ -53,8 +53,6 @@ type tree struct {
 	regionalRootID       bpdu.BridgeID
 	internalRootPathCost uint32
 
-	helloTimer time.Time
-
 	topologyChangeCount uint64
 	lastTopologyChange  time.Time
 

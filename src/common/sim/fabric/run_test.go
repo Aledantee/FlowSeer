@@ -1069,6 +1069,13 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 				},
 			},
 		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		},
+		Cables: []fabric.Cable{{
+			A: fabric.Endpoint{Node: "h1"},
+			B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		}},
 	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -1139,6 +1146,13 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 				},
 			},
 		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		},
+		Cables: []fabric.Cable{{
+			A: fabric.Endpoint{Node: "h1"},
+			B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		}},
 	}))
 	if err != nil {
 		t.Fatalf("New: %v", err)

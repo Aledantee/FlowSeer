@@ -13,7 +13,7 @@ import (
 // at representative scale (8 nodes of 32 ports, 16 VLANs, 64 routes and 64 neighbors
 // per node, 64 hosts, 2048 learned forwarding entries, and 4096 queued arrivals).
 // Measured on 2026-09-23.
-const forkAllocationBaseline = 16815
+const forkAllocationBaseline = 16829
 
 // forkAllocationFixedFloor is the measured heap allocation count of Fabric.Fork
 // at representative scale with zero queued arrivals. Measured on 2026-09-23.

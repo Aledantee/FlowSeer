@@ -259,8 +259,27 @@ classified its BPDUs per VLAN, which it does not.
 
 ### Emission
 
+State transitions do not build frames. `Receive`, `ReceiveSSTP`, `Advance`,
+`LinkChange`, and `Mcheck` settle all tree state first, then run one Port
+Transmit pass. That pass visits `treeOrder` and then `portNames`, so each
+emission is built from the final state of every tree that was changed by the
+event.
+
+Each tree and port keeps pending new information, a held transmit count and
+tick, and its next hello time. Outside PVST, only the CIST owns a hello timer.
+MSTI information is pending on the CIST port and rides its BPDU as an MSTI
+record. In PVST, each VLAN tree owns its timer and its transmit budget.
+
+RSTP and MSTP transmit pending information regardless of the port role. Legacy
+STP sends a Topology Change Notification from a Root port and a Configuration
+BPDU from a Designated port. A legacy non-CIST PVST tree keeps pending
+information without sending a frame. RSTP and MSTP transmission clears both
+CIST and MSTI pending information. A legacy Configuration BPDU or TCN clears
+only CIST information. A legacy TCN acknowledgment is included in the next
+Configuration BPDU rather than emitted immediately.
+
 Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
-`layer.Emission.VID`; VLAN 1's tree sends a second, IEEE-addressed and naming no
+`layer.Emission.VID`. VLAN 1's tree sends a second, IEEE-addressed and naming no
 VLAN. The two are one transmission and spend one budget slot between them. The
 layer never builds a VLAN tag: a non-zero `layer.Emission.VID` tells the switch to
 put the frame through the port's ordinary egress rules, which is where the
@@ -270,7 +289,7 @@ A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
 alone, because SSTP has no legacy form: `bpdu.EncodeSSTP` forces a version of at
 least 2 and `bpdu.DecodeSSTP` refuses anything else, so a version-2 wrapper around
 a legacy BPDU would be a frame whose header contradicts its content. A
-non-CIST tree on such a port builds and meters nothing; VLAN 1's tree still
+non-CIST tree on such a port builds and meters nothing. VLAN 1's tree still
 builds its legacy Configuration BPDU but sends only the IEEE-addressed copy,
 dropping the SSTP one.
 
@@ -280,7 +299,7 @@ dropping the SSTP one.
 bridge cannot simulate: an MST BPDU seen by a PVST bridge, or an SSTP BPDU
 seen by a bridge that is not one. The second withholds only the priority
 vector, because its CIST does not run that VLAN's tree and feeding the vector
-in would elect a root from a tree it is not running; the link half of the
+in would elect a root from a tree it is not running. The link half of the
 receive, BPDU guard among it, still runs, the same as for any other BPDU the
 port hears. The mark lives on the CIST port state and clears on a link down,
 since only that can replace the neighbor.
@@ -419,8 +438,8 @@ The implementation structures its logic around the standard state machines:
 - Port Role Selection (PRS): IEEE 802.1Q-2003 clauses 13.9, 13.10, 13.11, and 13.24. Compares the six-part priority vector (Root ID, External Path Cost, Regional Root ID, Internal Path Cost, Designated Bridge ID, Designated Port ID) to elect the root and assign port roles.
 - Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
 - Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20. Computes proposal and agreement handshakes and steps the forward delay ladder.
-- Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Transmits periodic hellos on designated ports and root ports during active topology changes, bounded by txHoldCount.
-- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19 and 13.29.11. Generates topology change notifications when a non-edge port moves to Forwarding, arms tcWhile for HelloTime + 1 second, and propagates the change away from the receiving port.
+- Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Settles state before one deterministic tree-then-port transmit pass, sends periodic hellos from each tree's timer, and bounds each port and tree by txHoldCount.
+- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19 and 13.29.11. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting RSTP port, starts tcWhile only when stopped, and propagates the change to active non-edge ports while flushing their tree VLANs. RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 ### Limits

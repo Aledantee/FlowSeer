@@ -261,8 +261,8 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 	if res.Stop == StopConverged {
 		t.Errorf("res.Stop = StopConverged, want convergence blocked by pending journey")
 	}
-	if res.Pending.Journeys != 1 {
-		t.Errorf("res.Pending.Journeys = %d, want 1", res.Pending.Journeys)
+	if res.Pending.Journeys != 2 {
+		t.Errorf("res.Pending.Journeys = %d, want 2", res.Pending.Journeys)
 	}
 }
 

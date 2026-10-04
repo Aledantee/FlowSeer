@@ -615,7 +615,7 @@ func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 		`port="l1";vid=10;state={tree_kind="MSTI";tree_id=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=200000;designated_root="32769/02:00:00:00:04:01";designated="32769/02:00:00:00:04:01";`+
 			`designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;`+
-			`tx_bpdus=0;rx_bpdus=164;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+			`tx_bpdus=0;rx_bpdus=196;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
@@ -724,7 +724,7 @@ func caseTopologyShadowingMSTRegionBoundary() Case {
 		`port="l2";vid=10;state={tree_kind="MSTI";tree_id=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=20000;designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";`+
 			`designated_port=0;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;`+
-			`tx_bpdus=0;rx_bpdus=166;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
+			`tx_bpdus=0;rx_bpdus=198;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
 
 	expectedSteps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
@@ -1043,7 +1043,7 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 var stpCaseBPDUGuardGate = stpCaseGateFact(
 	`{tree_kind="CIST";tree_id=0;role="Disabled";state="Discarding";block_reason="bpdu-guard";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
-		`designated_cost=0;point_to_point=true;edge=true;forward_transitions=1;tx_bpdus=0;rx_bpdus=1;` +
+		`designated_cost=0;point_to_point=true;edge=true;forward_transitions=1;tx_bpdus=1;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
 
 // caseTroubleshootingLoopGuardUnidirectionalLink returns the case evaluating
@@ -1114,7 +1114,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 var stpCaseLoopGuardGate = stpCaseGateFact(
 	`{tree_kind="CIST";tree_id=0;role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
-		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=1;rx_bpdus=1;` +
+		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=2;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
 
 // stpPVSTTrees returns the per-VLAN trees the PVST corpus case gives a

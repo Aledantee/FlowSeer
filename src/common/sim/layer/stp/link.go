@@ -20,26 +20,17 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 	link.mdelayWhile = now.Add(migrateTime)
 
 	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
+	func() {
+		l.recomputeAll(now, &flushes)
 
-	emissions := l.recomputeAll(now, &flushes)
-
-	t := l.cist()
-	p := t.ports[port]
-	if p != nil && p.role == bpdu.RoleDesignated && link.up {
-		alreadyEmitted := false
-		for _, e := range emissions {
-			// Under PVST every tree can emit on this port; only a match on
-			// this tree's own VID is evidence that this call's own recompute
-			// already sent the CIST's proposal, not some other VLAN's.
-			if e.Port == p.name && e.VID == t.vid {
-				alreadyEmitted = true
-				break
-			}
+		t := l.cist()
+		p := t.ports[port]
+		if p != nil && p.role == bpdu.RoleDesignated && link.up {
+			l.requestNewInfo(t, p)
 		}
-		if !alreadyEmitted && !l.tx(t, p.name).pendingDesignated {
-			l.emit(t, p, now, emissionDesignated, &emissions)
-		}
-	}
+	}()
+	l.transmit(now, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -64,131 +55,117 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 	l.armHelloTimers(now)
 
-	if !up {
-		if !link.up {
-			return layer.Effects{}
+	func() {
+		if !up {
+			if !link.up {
+				return
+			}
+			link.up = false
+			link.bpduGuardDisabled = false
+			link.pvstBoundary = false
+			link.edgeDelayWhile = time.Time{}
+			link.mdelayWhile = time.Time{}
+			l.clearTransmit(port)
+
+			for _, id := range l.treeOrder {
+				tp := l.trees[id].ports[port]
+				if tp == nil {
+					continue
+				}
+				tp.role = bpdu.RoleDisabled
+				tp.state = StateDiscarding
+				tp.rcvInfoValid = false
+				tp.agreed = false
+				tp.tcAck = false
+				tp.proposing = false
+				tp.fwdDelayTimer = time.Time{}
+				tp.pvidInconsistent = false
+				tp.loopInconsistent = false
+			}
+
+			// The entries learned on the dead port are the ones certainly stale
+			// whatever tree they belong to; the topology change below flushes
+			// every other port by its own tree's VLANs.
+			flushes = append(flushes, layer.FlushTarget{Port: port})
+			for _, id := range l.treeOrder {
+				if tp, ok := l.trees[id].ports[port]; ok {
+					l.deactivatePort(l.trees[id], tp, &flushes)
+				}
+			}
+
+			l.recomputeAll(now, &flushes)
+
+			return
 		}
-		link.up = false
-		link.bpduGuardDisabled = false
-		link.pvstBoundary = false
-		link.edgeDelayWhile = time.Time{}
-		link.mdelayWhile = time.Time{}
-		l.clearPending(port)
+
+		p2p := pointToPoint
+		switch p.cfg.PointToPoint {
+		case PointToPointForceTrue:
+			p2p = true
+		case PointToPointForceFalse:
+			p2p = false
+		}
+		linkCost := p.cfg.PathCost
+		if linkCost == 0 {
+			linkCost = defaultPathCost(speedBPS)
+		}
+
+		// A port already up with unchanged point-to-point status does not restart its
+		// handshake; a speed change updates pathCost on every unfixed tree and recomputes.
+		if link.up && link.pointToPoint == p2p {
+			if link.linkPathCost != linkCost {
+				link.linkPathCost = linkCost
+				for _, id := range l.treeOrder {
+					tp := l.trees[id].ports[port]
+					if tp != nil && !tp.pathCostFixed {
+						tp.pathCost = linkCost
+					}
+				}
+				l.recomputeAll(now, &flushes)
+			}
+
+			return
+		}
+
+		link.linkPathCost = linkCost
+		link.up = true
+		link.pointToPoint = p2p
+		link.sendRSTP = true
+		link.mdelayWhile = now.Add(migrateTime)
+		link.edge = link.adminEdge
+		link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 
 		for _, id := range l.treeOrder {
 			tp := l.trees[id].ports[port]
 			if tp == nil {
 				continue
 			}
-			tp.role = bpdu.RoleDisabled
-			tp.state = StateDiscarding
-			tp.rcvInfoValid = false
-			tp.agreed = false
-			tp.proposing = false
+			l.deactivatePort(l.trees[id], tp, &flushes)
 			tp.fwdDelayTimer = time.Time{}
-			tp.pvidInconsistent = false
-			tp.loopInconsistent = false
-		}
-
-		// The entries learned on the dead port are the ones certainly stale
-		// whatever tree they belong to; the topology change below flushes
-		// every other port by its own tree's VLANs.
-		flushes = append(flushes, layer.FlushTarget{Port: port})
-		for _, id := range l.treeOrder {
-			if tp, ok := l.trees[id].ports[port]; ok {
-				l.deactivatePort(l.trees[id], tp, &flushes)
+			if !tp.pathCostFixed {
+				tp.pathCost = linkCost
 			}
-		}
-
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
-
-		return layer.Effects{
-			Emissions: emissions,
-			Flush:     flushes,
-		}
-	}
-
-	p2p := pointToPoint
-	switch p.cfg.PointToPoint {
-	case PointToPointForceTrue:
-		p2p = true
-	case PointToPointForceFalse:
-		p2p = false
-	}
-	linkCost := p.cfg.PathCost
-	if linkCost == 0 {
-		linkCost = defaultPathCost(speedBPS)
-	}
-
-	// A port already up with unchanged point-to-point status does not restart its
-	// handshake; a speed change updates pathCost on every unfixed tree and recomputes.
-	if link.up && link.pointToPoint == p2p {
-		if link.linkPathCost != linkCost {
-			link.linkPathCost = linkCost
-			for _, id := range l.treeOrder {
-				tp := l.trees[id].ports[port]
-				if tp != nil && !tp.pathCostFixed {
-					tp.pathCost = linkCost
+			tp.role = bpdu.RoleDesignated
+			tp.agreed = false
+			tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
+			if link.edge {
+				tp.state = StateForwarding
+				tp.forwardTransitions++
+			} else {
+				tp.state = StateDiscarding
+				if !link.pointToPoint {
+					_, _, fwdDelay := l.times(l.trees[id])
+					tp.fwdDelayTimer = now.Add(fwdDelay)
 				}
 			}
-			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
 		}
 
-		return layer.Effects{
-			Emissions: emissions,
-			Flush:     flushes,
-		}
-	}
+		l.armHelloTimers(now)
+		l.recomputeAll(now, &flushes)
 
-	link.linkPathCost = linkCost
-	link.up = true
-	link.pointToPoint = p2p
-	link.sendRSTP = true
-	link.mdelayWhile = now.Add(migrateTime)
-	link.edge = link.adminEdge
-	link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
-
-	for _, id := range l.treeOrder {
-		tp := l.trees[id].ports[port]
-		if tp == nil {
-			continue
-		}
-		if !tp.pathCostFixed {
-			tp.pathCost = linkCost
-		}
-		tp.role = bpdu.RoleDesignated
-		tp.agreed = false
-		tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
-		if link.edge {
-			tp.state = StateForwarding
-			tp.forwardTransitions++
-		} else {
-			tp.state = StateDiscarding
-			if !link.pointToPoint {
-				_, _, fwdDelay := l.times(l.trees[id])
-				tp.fwdDelayTimer = now.Add(fwdDelay)
-			}
-		}
-	}
-
-	emissions = append(emissions, l.recomputeAll(now, &flushes)...)
-
-	if link.pointToPoint && !link.edge && p.role == bpdu.RoleDesignated && p.state == StateDiscarding {
-		alreadyEmitted := false
-		for _, e := range emissions {
-			// Under PVST every tree can emit on this port; only a match on
-			// this tree's own VID is evidence that this call's own recompute
-			// already sent the CIST's proposal, not some other VLAN's.
-			if e.Port == p.name && e.VID == t.vid {
-				alreadyEmitted = true
-
-				break
-			}
-		}
-		if !alreadyEmitted && !l.tx(t, p.name).pendingDesignated {
-			l.emit(t, p, now, emissionDesignated, &emissions)
-		}
-	}
+		l.requestNewInfo(t, p)
+	}()
+	l.transmit(now, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -202,7 +179,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 // status. It runs once per received frame whatever tree the frame belongs to.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
-func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
+func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (done bool) {
 	t := l.cist()
 	p := t.ports[port]
 	link := l.links[port]
@@ -212,7 +189,8 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	// runs before the BPDU guard checks below: a frame that trips or is held
 	// by BPDU guard is still such evidence, and guard and loop guard clear on
 	// independent events.
-	for _, tr := range l.trees {
+	for _, id := range l.treeOrder {
+		tr := l.trees[id]
 		if tp, ok := tr.ports[port]; ok {
 			tp.loopInconsistent = false
 		}
@@ -223,11 +201,13 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	// before anything reads the BPDU. Only a link down and up brings it back.
 	if p.cfg.BPDUGuard && !link.bpduGuardDisabled {
 		link.bpduGuardDisabled = true
-		l.clearPending(port)
-		for _, tr := range l.trees {
+		l.clearTransmit(port)
+		for _, id := range l.treeOrder {
+			tr := l.trees[id]
 			if tp, ok := tr.ports[port]; ok {
 				tp.rcvInfoValid = false
 				tp.agreed = false
+				tp.tcAck = false
 				tp.proposing = false
 				tp.fwdDelayTimer = time.Time{}
 			}
@@ -240,10 +220,12 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 		// event twice.
 		*flushes = append(*flushes, layer.FlushTarget{Port: port})
 
-		return l.recomputeAll(now, flushes), true
+		l.recomputeAll(now, flushes)
+
+		return true
 	}
 	if link.bpduGuardDisabled {
-		return nil, true
+		return true
 	}
 
 	if (b.Type == bpdu.TypeConfiguration || b.Type == bpdu.TypeTopologyChangeNotification) && link.sendRSTP && !link.mdelayWhile.After(now) {
@@ -272,5 +254,5 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 		}
 	}
 
-	return nil, false
+	return false
 }

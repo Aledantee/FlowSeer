@@ -84,11 +84,11 @@ type txKey struct {
 // PVST mode it is metered per VLAN's tree as well, which is what txKey's
 // tree component addresses.
 type portTx struct {
-	count             int
-	tick              time.Time
-	pendingDesignated bool
-	pendingAgreement  bool
-	pendingTCN        bool
+	newInfo     bool
+	newInfoMsti bool
+	count       int
+	tick        time.Time
+	helloWhen   time.Time
 }
 
 func (tx *portTx) clone() *portTx {
@@ -121,13 +121,28 @@ func (l *Layer) tx(t *tree, name string) *portTx {
 	return l.portTx[l.txKeyFor(t, name)]
 }
 
-// clearPending drops every tree's held transmission on the named port. A port
-// whose link just went down, or that BPDU guard just disabled, must not
+// clearTransmit drops every pending transmission and timer on the named port.
+// A port whose link just went down, or that BPDU guard just disabled, must not
 // release a BPDU it was holding when the budget next frees up.
-func (l *Layer) clearPending(name string) {
+func (l *Layer) clearTransmit(name string) {
 	for _, id := range l.treeOrder {
 		tx := l.tx(l.trees[id], name)
-		tx.pendingDesignated = false
-		tx.pendingAgreement = false
+		tx.newInfo = false
+		tx.newInfoMsti = false
+		tx.count = 0
+		tx.tick = time.Time{}
+		tx.helloWhen = time.Time{}
 	}
+}
+
+// requestNewInfo records that tree t has information to transmit on p. MSTP
+// shares one frame for the CIST and its instance records, while PVST gives
+// every VLAN tree its own frame and budget.
+func (l *Layer) requestNewInfo(t *tree, p *portState) {
+	tx := l.tx(t, p.name)
+	if l.pvst == nil && t.id != cistID {
+		tx.newInfoMsti = true
+		return
+	}
+	tx.newInfo = true
 }
