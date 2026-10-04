@@ -13,10 +13,13 @@ import (
 	"path/filepath"
 	"time"
 
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
@@ -342,6 +345,30 @@ func (b *busResources) edgeTenant(ctx context.Context, edgeID string) (string, e
 	return t, nil
 }
 
+func openAccessStore(ctx context.Context, hub *edgebus.Hub) (*accessstore.Store, error) {
+	kv, err := hub.JetStream().KeyValue(ctx, edgebus.AccessBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the access bucket")
+	}
+	return accessstore.New(kv, time.Now), nil
+}
+
+type projectorAccess struct {
+	*accessstore.Store
+}
+
+func (a projectorAccess) Members(ctx context.Context, tenantID string) ([]*identityv1.Member, error) {
+	return a.ListMembers(ctx, tenantID)
+}
+
+func (a projectorAccess) Roles(ctx context.Context, tenantID string) ([]*identityv1.Role, error) {
+	return a.ListRoles(ctx, tenantID)
+}
+
+func (a projectorAccess) Partners(ctx context.Context, tenantID string) ([]*identityv1.Partner, error) {
+	return a.ListPartners(ctx, tenantID)
+}
+
 func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *slog.Logger) (*busResources, error) {
 	lanes, err := hub.JetStream().KeyValue(ctx, edgebus.LaneBucket)
 	if err != nil {
@@ -372,6 +399,16 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		return nil, errs.From(err).Code(ErrCodeStart).Msg("open tenant store")
 	}
 
+	access, err := openAccessStore(ctx, hub)
+	if err != nil {
+		return nil, err
+	}
+	var platformPrincipals []string
+	if platform := h.cfg.PlatformAdmin(); platform != nil {
+		for _, subject := range platform.GetSubjects() {
+			platformPrincipals = append(platformPrincipals, authn.ComputePrincipalID(platform.GetIssuer(), subject))
+		}
+	}
 	proj := projector.New(
 		h.engine,
 		edgeStore,
@@ -380,6 +417,10 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		h.cfg.Intervals().RelationshipReconcile,
 		log,
 		h.opts.Reconciled,
+		projector.WithTenantSource(tenants),
+		projector.WithAccessSource(projectorAccess{access}),
+		projector.WithPlatformPrincipals(platformPrincipals),
+		projector.WithClock(time.Now),
 	)
 
 	res := &busResources{
@@ -503,7 +544,7 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 
-	handler, err := h.mux(resources, service.Logger(ctx), view)
+	handler, err := h.mux(ctx, resources, service.Logger(ctx), view)
 	if err != nil {
 		return service.Attempt{}, err
 	}
