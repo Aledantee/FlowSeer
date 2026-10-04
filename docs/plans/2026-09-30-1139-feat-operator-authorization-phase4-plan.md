@@ -4,13 +4,21 @@ type: feat
 date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
 ---
 
 # Operator Authorization Phase 4, Tenancy Admin Surfaces and the Action Trail - Plan
+
+> Implemented. U1 through U7 passed from `54dfbd98` through `8a95245a`. U7
+> also changed `src/services/device/internal/authz/openfga/checker.go`,
+> `checker_test.go`, and `relations_test.go`, which were not named by the
+> original U7 `Files:` line. The existing adapter rejected the usersets that
+> the projector emits for role assignees and partner active admins, so the
+> tagged OpenFGA run could not pass until those two model-defined shapes were
+> accepted while malformed usersets remained fail-closed.
 
 ## Goal
 
