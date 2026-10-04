@@ -423,9 +423,10 @@ speeds when an end forces one, otherwise the speeds both ends report.
   `ReachUnknown`, both ends are `Unknown` with `reach-unknown`. A 2 m cable of
   unspecified medium between two gigabit ends is `Unknown`, never
   `reach-exceeded`.
-- When both ends report the same nonzero observed speed, the observed rule in
-  `phy` resolves the link anyway. `Delay` sets timing only and never resolves
-  reach.
+- When both ends report the same nonzero observed speed at or below the cable
+  ceiling, the observed rule in `phy` resolves the link. Equal observed speeds over
+  the cable ceiling remain `Down` with `speed-mismatch` rather than resolving.
+  `Delay` sets timing only and never resolves reach.
 
 An unspecified medium has no velocity factor, so a link that runs over one on
 observations alone propagates in zero time unless the cable states `Delay`.

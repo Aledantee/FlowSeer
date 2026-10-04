@@ -5,6 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -580,3 +581,10 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - Carried to U11: whether `lacpv1.LacpStatus` gains a value for
   `PortDisabled`. Until then `netmodel/export.go:529-538` maps it to the
   unspecified value.
+
+## Review gaps
+
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:559: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels. Not fixable without rewriting landed history, so it stays as recorded.
+- src/common/sim/device/vswitch/switch.go:2479: replace `lag.SlowProtocolsDecodeFact` with `lag.MarkerDecodeFact` at the refusal site; fails: `TestLACPDUHandlingAtSwitch` must assert that a refused LACPDU carries the invalid LACP decode input on Peek and Forward (`V/switch_test.go:5771`, `:5779`). The choice inside `lag.SlowProtocolsDecodeFact` is tested in `L/fact_test.go:216`.
+- src/common/sim/layer/lag/fact_test.go:231: the expected facts come from `lag.LACPDecodeFact` and `lag.MarkerDecodeFact`, the functions the selector calls; fails: the wants must be literal type ids and canonical text, as at `L/fact_test.go:201`.
+- src/common/sim/layer/lag/README.md:368: the README does not say where `Aggregate_Wait_Time` starts when one `Advance` call crosses a receive timeout late; fails: `L/lacp.go:265` counts the wait from the call's time while `L/layer.go:672` expires the receive timer at its due time, and the text must state that base or the code must use the due time.

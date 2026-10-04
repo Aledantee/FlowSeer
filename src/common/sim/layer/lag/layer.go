@@ -39,10 +39,9 @@ type Info struct {
 	PartnerKey            uint16
 	Up                    bool
 
-	// pending names member ports that may still change state on their own
-	// (a running link delay, an Expired partner, or an attached partner
-	// without synchronization) and when. A pending member changes no other
-	// field of Info; the answer above is definite as of now.
+	// pending names member ports that may still change state on their own. Each
+	// entry names the cause and the time at which it may change. A pending member
+	// changes no other field of Info. The answer above is definite as of now.
 	pending []pending
 }
 

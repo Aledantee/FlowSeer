@@ -26,6 +26,11 @@ type markerResponseFact string
 func (f markerResponseFact) TypeID() string    { return "lag.marker_response" }
 func (f markerResponseFact) Canonical() string { return string(f) }
 
+type markerDecodeFact string
+
+func (f markerDecodeFact) TypeID() string    { return "lag.marker_decode" }
+func (f markerDecodeFact) Canonical() string { return string(f) }
+
 // MarkerResponseFact records the requester identity and transaction echoed by
 // a Marker Responder. The request must carry a valid Marker Information PDU
 // and the response must be its reply.
@@ -121,9 +126,28 @@ func LACPDecisionFact(pdu lacp.PDU, before, after MemberInfo) trace.Fact {
 		";after=" + memberInfoSnapshot(after))
 }
 
+// SlowProtocolsDecodeFact returns the decode fact for the Slow Protocols subtype in f.
+// An empty payload is treated as an LACPDU for callers that classify the frame before
+// its payload has been validated.
+func SlowProtocolsDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fact {
+	if len(f.Payload) > 0 && f.Payload[0] == lacp.SubtypeMarker {
+		return MarkerDecodeFact(f, valid, reason)
+	}
+
+	return LACPDecodeFact(f, valid, reason)
+}
+
 // LACPDecodeFact returns an immutable snapshot of a LACP frame decode decision.
 func LACPDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fact {
 	return lacpDecisionFact("ether_type=" + strconv.FormatUint(uint64(f.EtherType), 10) +
+		";payload_len=" + strconv.Itoa(len(f.Payload)) +
+		";valid=" + strconv.FormatBool(valid) +
+		";reason=" + strconv.Quote(string(reason)))
+}
+
+// MarkerDecodeFact returns an immutable snapshot of a Marker frame decode decision.
+func MarkerDecodeFact(f ethernet.Frame, valid bool, reason trace.Reason) trace.Fact {
+	return markerDecodeFact("ether_type=" + strconv.FormatUint(uint64(f.EtherType), 10) +
 		";payload_len=" + strconv.Itoa(len(f.Payload)) +
 		";valid=" + strconv.FormatBool(valid) +
 		";reason=" + strconv.Quote(string(reason)))

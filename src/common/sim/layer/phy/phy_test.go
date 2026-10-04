@@ -228,6 +228,15 @@ func TestUnresolvedLinkDown(t *testing.T) {
 			t.Errorf("Resolve() = %+v, want zero speed with source %q", got, phy.SourceUnresolved)
 		}
 	})
+
+	t.Run("zero observation without a setting is unresolved", func(t *testing.T) {
+		e := phy.Ethernet{Observed: &phy.Observed{SpeedBPS: 0, Duplex: phy.Full}}
+		got := e.Resolve()
+		want := phy.Resolved{Source: phy.SourceUnresolved}
+		if got != want {
+			t.Errorf("Resolve() = %+v, want %+v", got, want)
+		}
+	})
 }
 
 func TestConfigResolve(t *testing.T) {
@@ -1045,4 +1054,66 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
 	})
+}
+
+func TestUnknownDemandUsesRemainingMaximum(t *testing.T) {
+	tests := []struct {
+		name string
+		pd   phy.PDState
+	}{
+		{name: "attached device with unknown class", pd: phy.PDAttached},
+		{name: "unknown device state", pd: phy.PDUnknown},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerNanowatts: 50_000_000_000}},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", Priority: phy.PriorityCritical, Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
+					"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 4, PD: tc.pd},
+				},
+			}}
+			alloc := cfg.Allocate()
+			if got, want := alloc.Ports["1/1/1"], (phy.PortAllocation{State: phy.PowerDelivered, MinNanowatts: 30_000_000_000, MaxNanowatts: 30_000_000_000}); got != want {
+				t.Errorf("first port = %+v, want %+v", got, want)
+			}
+			if got, want := alloc.Ports["1/1/2"], (phy.PortAllocation{State: phy.PowerUnknown, MaxNanowatts: 20_000_000_000}); got != want {
+				t.Errorf("unknown demand = %+v, want %+v", got, want)
+			}
+			if got, want := alloc.Groups["1"], (phy.GroupAllocation{
+				BudgetNanowatts:       50_000_000_000,
+				AllocatedNanowatts:    30_000_000_000,
+				RemainderMinNanowatts: 0,
+				RemainderMaxNanowatts: 20_000_000_000,
+			}); got != want {
+				t.Errorf("group = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestDisabledUnknownDoesNotChargeBudget(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
+		Ports: map[string]phy.PsePort{
+			"1/1/1": {Group: "1", Priority: phy.PriorityCritical, Enabled: false, MaxClass: 4, PD: phy.PDUnknown},
+			"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
+		},
+	}}
+	alloc := cfg.Allocate()
+	if got, want := alloc.Ports["1/1/1"], (phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonDisabled}); got != want {
+		t.Errorf("disabled port = %+v, want %+v", got, want)
+	}
+	if got, want := alloc.Ports["1/1/2"], (phy.PortAllocation{State: phy.PowerDelivered, MinNanowatts: 30_000_000_000, MaxNanowatts: 30_000_000_000}); got != want {
+		t.Errorf("enabled port = %+v, want %+v", got, want)
+	}
+	if got, want := alloc.Groups["1"], (phy.GroupAllocation{
+		BudgetNanowatts:       30_000_000_000,
+		AllocatedNanowatts:    30_000_000_000,
+		RemainderMinNanowatts: 0,
+		RemainderMaxNanowatts: 0,
+	}); got != want {
+		t.Errorf("group = %+v, want %+v", got, want)
+	}
 }

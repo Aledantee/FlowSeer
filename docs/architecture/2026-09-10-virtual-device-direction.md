@@ -830,9 +830,10 @@ bounded equivalence under a resource contract:
   timed-out one reports them dropped with `neighbor-miss`. `Emission`
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
-  BPDU, an LACPDU, or a loop-protect probe, and the fabric seam that injects
-  emissions needs to tell a held user frame apart from a frame the switch
-  originated.
+  BPDU, an LACPDU, a Marker response emitted by the switch, or a loop-protect
+  probe, and the fabric
+  seam that injects emissions needs to tell a held user frame apart from a frame
+  the switch originated.
 
 ### Semantic traces and producer-owned facts
 
