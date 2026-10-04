@@ -514,9 +514,10 @@ func putMSTBody(payload []byte, b BPDU) {
 //   - Topology Change Notification BPDUs (clause 9.3.2): version 0 or 1, wire type 0x80,
 //     requiring at least 7 payload octets.
 //   - Rapid Spanning Tree BPDUs (clause 9.3.3): version 2 or greater, wire type 0x02,
-//     requiring at least 39 payload octets.
+//     requiring at least 39 payload octets for version 2 and at least 38 for later
+//     versions.
 //
-// A version 3 RST-shaped BPDU whose payload holds at least 105 octets is read as an
+// A version 3 or later RST-shaped BPDU whose payload holds at least 105 octets is read as an
 // IEEE 802.1Q MST BPDU: [BPDU.ConfigID], [BPDU.RegionalRootID],
 // [BPDU.InternalRootPathCost], [BPDU.RemainingHops], and [BPDU.MSTIs] are filled from
 // the MST body that follows the RST prefix. A version 3 payload too short to hold that
@@ -597,10 +598,14 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 				Attr("version", version).
 				Msgf("unsupported BPDU version %d, want at least 2", version)
 		}
-		if len(f.Payload) < 39 {
+		minPayloadLength := 39
+		if version >= mstProtocolVersion {
+			minPayloadLength = 38
+		}
+		if len(f.Payload) < minPayloadLength {
 			return BPDU{}, errs.From(ErrUnsupported).
 				Attr("have", len(f.Payload)).
-				Attr("min", 39).
+				Attr("min", minPayloadLength).
 				Msgf("BPDU payload length %d is too short", len(f.Payload))
 		}
 

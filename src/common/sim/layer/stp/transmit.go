@@ -17,22 +17,7 @@ const (
 	emissionTCN
 )
 
-func (l *Layer) emitRootTC(t *tree, p *portState, now time.Time, emissions *[]layer.Emission) {
-	if l.pvst == nil && t.id != cistID {
-		return
-	}
-	link := l.links[p.name]
-	if !link.up {
-		return
-	}
-	if link.sendRSTP {
-		l.emit(t, p, now, emissionAgreement, emissions)
-	} else {
-		l.emit(t, p, now, emissionTCN, emissions)
-	}
-}
-
-func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
+func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
 	link := l.links[p.name]
 
 	// SSTP has no legacy shape: bpdu.EncodeSSTP forces a version of at least 2 and
@@ -45,6 +30,18 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 	}
 
 	tx := l.tx(t, p.name)
+	if changes.wasTransmitted(l, t, p.name) {
+		switch kind {
+		case emissionDesignated:
+			tx.pendingDesignated = true
+		case emissionAgreement:
+			tx.pendingAgreement = true
+		case emissionTCN:
+			tx.pendingTCN = true
+		}
+
+		return
+	}
 
 	for tx.count > 0 && !tx.tick.After(now) {
 		tx.count--
@@ -78,6 +75,10 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 
 		for _, f := range built {
 			*emissions = append(*emissions, layer.Emission{Port: p.name, VID: f.vid, Frame: f.frame})
+		}
+		if len(built) > 0 {
+			changes.markTransmitted(l, t, p.name)
+			changes.markBuilt(l, t, p, msg, kind)
 		}
 		p.txBPDUs++
 		wasZero := tx.count == 0
