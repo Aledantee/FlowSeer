@@ -14,7 +14,6 @@ message OperatorRef {
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 256
   ];
-
   // The identity provider's issuer URL. Must be present.
   string issuer = 2 [
     (buf.validate.field).required = true,

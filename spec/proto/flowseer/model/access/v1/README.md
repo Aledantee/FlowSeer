@@ -16,8 +16,8 @@ An operator sets the description of `ethernet 1/1/1` on an ICX7150. The
 messages that exist at each step:
 
 1. The client builds a `MutationIntent`: the device ref, a fresh UUID as
-   `idempotency_key`, an `Actor` with the operator's subject, the
-   `AccessPolicyHandle` from the device's config, the firmware fingerprint
+   `idempotency_key`, an `Actor` with the authenticated operator's issuer and
+   subject, the `AccessPolicyHandle` from the device's config, the firmware fingerprint
    the client last saw, and an `interface_description` arm:
 
    ```prototext

@@ -107,16 +107,17 @@ authentication {
   }
 }
 authorization {
-  endpoint: "http://openfga.example.test:8080"
+  endpoint: "https://openfga.example.test:8081"
   store_id: "01H00000000000000000000000"
   model_id: "01H00000000000000000000001"
+  preshared_key_file: "/etc/flowseer/secrets/openfga.key"
 }
 telemetry { endpoint: "https://collector.example.test" }
 ```
 
 That file names no certificate, so the service generates a self-signed pair
-into `state_dir` on first start — creating the directory if it is not there
-— and prints the digest an edge pins. A deployment with its own chain names
+into `state_dir` on first start, creating the directory if it is not there,
+and prints the digest an edge pins. A deployment with its own chain names
 `certificate_file` and `private_key_file` instead, and the two are named
 together or not at all.
 

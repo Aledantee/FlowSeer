@@ -19,13 +19,11 @@ those without a client. Central serves no reflection, so the schema comes from
 this repository; it serves a certificate it generated for itself, so that
 certificate is what you trust.
 
-There is no credential in any of these calls, and that is worth meeting here
-rather than later. `DeviceService` and `EdgeAdminService` are mounted without
-the assertion middleware — an operator holds no edge key, so a check that
-verified one would refuse every operator call. The convenience of a call that
-needs no authentication and the hazard of step 6 are the same fact: anyone who
-reaches this port can make these calls, which is why the port does not leave
-the host.
+Every operator call carries an OIDC bearer token and a tenant header.
+Central mounts operator services behind authentication and authorization
+middleware that validates the bearer token against the configured identity
+provider and evaluates permissions in OpenFGA. An operator obtains a token
+from their identity provider before issuing commands.
 
 **Every command block below is one of three kinds**, and the difference
 matters because two of them are run in different places:
@@ -47,7 +45,8 @@ export INTERFACE="ethernet 1/1/1"
 
 # The change itself, and who is making it.
 export DESCRIPTION="uplink to core"
-export OPERATOR=your-identity-provider-subject
+export TOKEN=your-oidc-bearer-token
+export TENANT=default
 export IDEMPOTENCY_KEY=$(uuidgen | tr 'A-Z' 'a-z')
 
 # The access policy the registry pins for this device. These must match the
@@ -66,14 +65,16 @@ export PROVISIONING=/etc/flowseer/provisioning.textproto
 
 `CACERT` is the certificate central generated into its state directory on
 first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
-targets, and must match the registry.
+targets, and must match the registry. `TOKEN` is an OIDC bearer token issued
+by the configured identity provider, and `TENANT` selects the tenant context.
 
 A call looks like this, and this one is also the check that your shell is set
-up — it asks central what it knows about the device and needs nothing to have
+up: it asks central what it knows about the device and needs nothing to have
 happened first:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
 ```
@@ -119,6 +120,7 @@ ship with it, and the setup key inside is shown exactly once:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data '{"name":"lab"}' \
   "$CENTRAL/flowseer.api.edge.v1.EdgeAdminService/CreateEdge" > "$RUN/created.json"
 export EDGE_ID=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' "$RUN/created.json" | head -1)
@@ -391,14 +393,12 @@ property of the code rather than a promise: the FastIron adapter's
 The device service's API listener must not be reachable beyond the host for
 the duration of this run.
 
-This is a step rather than a caveat. `DeviceService` and `EdgeAdminService`
-are served with no authorization check — accepted deliberately, with the
-deployment's network boundary standing in until OpenFGA lands. This run puts
-real switch credentials into central's registry, and the port that serves the
-operator API is the port that yields them: a caller that reaches it can retire
-the edge, issue itself a setup key, enroll as that edge, and read the
-device's credential material. The boundary is protecting device credentials,
-not an operator convenience.
+This is a step rather than a caveat. While `DeviceService` and `EdgeAdminService`
+enforce authentication and authorization, keeping the listener restricted to the
+host during lab runs provides defense in depth. This run puts real switch
+credentials into central's registry, and administrative endpoints allow issuing
+setup keys and enrolling edges. Restricting listener exposure protects device
+credentials during testing.
 
 ## Step 7: read the fingerprint the intent must carry
 
@@ -408,6 +408,7 @@ from the edge when the edge onboards the device:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
 ```
@@ -426,6 +427,7 @@ Export it, and everything below uses it:
 
 ```sh
 export FINGERPRINT=$(buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus" \
   | sed -n 's/.*"firmwareFingerprint": *"\([^"]*\)".*/\1/p' | head -1)
@@ -462,6 +464,7 @@ nothing; the response carries no mutation state.
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"validateOnly\":true,\"intent\":{
     \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
     \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
@@ -501,6 +504,7 @@ Send the same intent without `validate_only`. This is the irreversible step.
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"intent\":{
     \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},
     \"idempotencyKey\":\"$IDEMPOTENCY_KEY\",
@@ -517,6 +521,7 @@ interface row carrying the new description:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}}}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/GetDeviceAccessStatus"
 ```
@@ -574,6 +579,7 @@ first, and it needs the sequence from the apply's answer:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\"}" \
   "$CENTRAL/flowseer.api.device.v1.DeviceService/AbandonMutation"
 ```
@@ -595,6 +601,7 @@ what you want and will refuse you:
 
 ```sh
 buf curl --schema "$FLOWSEER_REPO/spec/proto" --cacert "$CACERT" \
+  -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: $TENANT" \
   --data "{\"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},\"sequence\":\"$SEQUENCE\",
     \"replace\":{
       \"device\":{\"device\":{\"id\":\"$DEVICE_ID\"}},

@@ -61,8 +61,9 @@ message OperatorActionCompleted {
   ];
 }
 
-// One durable audit record for an operator action. Delivered before the state
-// it records is released.
+// One durable audit record for an operator action. An attempted event is
+// delivered before the handler runs. A completed event is delivered after the
+// handler returns.
 message OperatorActionEvent {
   // FlowSeer-assigned event identifier, unique for deduplication. Must be present.
   string event_id = 1 [
@@ -87,7 +88,8 @@ message OperatorActionEvent {
     }
   ];
 
-  // Optional target object of the action.
+  // Optional target object of the action. Unset when the action has no target
+  // or when a target created by the action is not known yet.
   oneof object {
     flowseer.model.edge.v1.EdgeGlobalRef edge = 10;
     flowseer.model.capture.v1.CaptureSessionGlobalRef capture_session = 11;

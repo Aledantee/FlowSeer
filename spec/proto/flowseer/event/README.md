@@ -9,11 +9,11 @@ to durable message streams.
 ## Admission
 
 A package belongs in `event/` if it defines standalone, durable stream records
-rather than an entity's Config/State/Event lifecycle. `event/access/v1` and
-`event/log/v1` pass because `DeviceOperationEvent` is an audit row across nine
-operational kinds and `SyslogRecord` is a received log line, delivered as
-stream records rather than declared as queryable entities. An entity transition
-like `TagEvent` fails admission and belongs beside its triad in `model/inventory`.
+rather than an entity's Config/State/Event lifecycle. `event/access/v1`,
+`event/log/v1`, and `event/operator/v1` pass because they define audit rows or
+received log lines that are delivered as stream records rather than declared as
+queryable entities. An entity transition like `TagEvent` fails admission and
+belongs beside its triad in `model/inventory`.
 
 ## Boundaries
 
