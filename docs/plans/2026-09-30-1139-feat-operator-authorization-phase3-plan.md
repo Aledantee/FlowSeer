@@ -365,6 +365,12 @@ is `github.com/openfga/openfga@v1.21.0`, `api@` is
   and a container per test is not a default-tier cost. `internal/host` is
   importable only inside the device service, and `cmd/device` passes no
   options.
+- After the third fix round, one more round changes tests and documentation
+  and no production behavior: the property test's generator, a failing test
+  for the edge-facing recover interceptor entry, the record's line
+  citations, and the runbook token test. The review then records `accept
+  after fixes`. Phase 4 follows, and its `TenantService` closes the missing
+  tenant-record path. (decided by the user, 2026-10-04)
 
 ## Requirements
 
@@ -878,15 +884,3 @@ The run in `deploy/lab/README.md` is done once by hand.
   `journal/journal.go:1010-1016` where the actor line is `:1017`.
   `lab_fixtures_test.go` pins the runbook's token step by the absence of
   three old strings.
-- Parked by drive: the review ended in `rework` at its three-round limit
-  with no known defect in the service's behavior. Left are a property test
-  generator that covers two record layouts of 64, an untested recover
-  interceptor entry, stale line citations in the record, a weak runbook
-  test, and the two owner questions above (no tenant-record path, and an
-  unlisted device answering `PermissionDenied`). Options: accept the phase
-  with these items recorded (phase 4 serves `TenantService`, which closes
-  the tenant-record path, at the cost of known test gaps) | run one more
-  test-and-documentation round that changes no production behavior
-  (closes the gaps, at the cost of another round of worker quota) | stop
-  here. Recommended: one more test-and-documentation round, because the
-  generator gap leaves the reconcile rule's property test mostly unexercised.
