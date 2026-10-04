@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"buf.build/go/protovalidate"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -72,6 +73,24 @@ func newTestStoreDir(t *testing.T, clock func() time.Time) (*captureapi.Store, s
 		t.Fatalf("new store: %v", err)
 	}
 	return store, capturesDir
+}
+
+type eachSessionKV struct {
+	jetstream.KeyValue
+	keys     []string
+	getErr   error
+	getCalls *int
+}
+
+func (k *eachSessionKV) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	return k.keys, nil
+}
+
+func (k *eachSessionKV) Get(context.Context, string) (jetstream.KeyValueEntry, error) {
+	if k.getCalls != nil {
+		*k.getCalls++
+	}
+	return nil, k.getErr
 }
 
 func newSessionConfig(t *testing.T, sessionID string) *modelcapturev1.CaptureSessionConfig {
@@ -1101,5 +1120,65 @@ func TestStoreEachSessionContinuesPastUndecodableRecord(t *testing.T) {
 	}
 	if len(seen) != 1 || seen[0] != validSessionID {
 		t.Fatalf("EachSession saw %v, want [%s]", seen, validSessionID)
+	}
+}
+
+func TestStoreEachSessionStopsOnStoreError(t *testing.T) {
+	getCalls := 0
+	kv := &eachSessionKV{
+		keys: []string{
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000001",
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000002",
+		},
+		getErr:   errors.New("simulated store read failure"),
+		getCalls: &getCalls,
+	}
+	store, err := captureapi.NewStore(kv, t.TempDir(), time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	seen := 0
+	err = store.EachSession(context.Background(), func(string, *modelcapturev1.CaptureSessionRecord) error {
+		seen++
+		return nil
+	})
+	if err == nil {
+		t.Fatal("EachSession returned nil error, want store failure")
+	}
+	if getCalls != 1 {
+		t.Fatalf("EachSession called Get %d times after a store error, want 1", getCalls)
+	}
+	if seen != 0 {
+		t.Fatalf("EachSession invoked callback %d times after a store error, want 0", seen)
+	}
+}
+
+func TestStoreEachSessionStopsOnCanceledContext(t *testing.T) {
+	getCalls := 0
+	kv := &eachSessionKV{
+		keys: []string{
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000001",
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000002",
+		},
+		getErr:   context.Canceled,
+		getCalls: &getCalls,
+	}
+	store, err := captureapi.NewStore(kv, t.TempDir(), time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = store.EachSession(ctx, func(string, *modelcapturev1.CaptureSessionRecord) error {
+		t.Fatal("EachSession invoked callback after context cancellation")
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("EachSession error = %v, want context.Canceled", err)
+	}
+	if getCalls != 1 {
+		t.Fatalf("EachSession called Get %d times after context cancellation, want 1", getCalls)
 	}
 }

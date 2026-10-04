@@ -746,9 +746,10 @@ func (s *Store) SweepExpired(ctx context.Context) (int, error) {
 }
 
 // EachSession walks every session record in the store across all tenants, invoking fn for each.
-// Undecodable records are reported after the walk, but a store or context error
-// ends the walk immediately. If fn returns an error, EachSession terminates and
-// returns that error.
+// Undecodable records are reported after the walk because the key list remains
+// usable, but a store or context error ends the walk immediately because the
+// remaining records cannot be trusted to have been visited. If fn returns an
+// error, EachSession terminates and returns that error.
 func (s *Store) EachSession(ctx context.Context, fn func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error) error {
 	keys, err := s.kv.Keys(ctx)
 	if errors.Is(err, jetstream.ErrNoKeysFound) {
