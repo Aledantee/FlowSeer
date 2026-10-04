@@ -29,6 +29,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
@@ -54,6 +55,9 @@ func (panicInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 	return func(ctx context.Context, req connect.AnyRequest) (resp connect.AnyResponse, err error) {
 		defer func() {
 			if p := recover(); p != nil {
+				if p == http.ErrAbortHandler {
+					mustRepanicAbortHandler()
+				}
 				err = panicError(p)
 				resp = nil
 			}
@@ -66,6 +70,9 @@ func (panicInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) 
 	return func(ctx context.Context, conn connect.StreamingHandlerConn) (err error) {
 		defer func() {
 			if p := recover(); p != nil {
+				if p == http.ErrAbortHandler {
+					mustRepanicAbortHandler()
+				}
 				err = panicError(p)
 			}
 		}()
@@ -73,12 +80,16 @@ func (panicInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) 
 	}
 }
 
+func mustRepanicAbortHandler() {
+	panic(http.ErrAbortHandler)
+}
+
 func (panicInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }
 
 func panicError(p any) error {
-	return connect.NewError(connect.CodeInternal, errs.New().Code(ErrCodePanic).
+	return connecterr.WrapAs(connect.CodeInternal, "handler panicked", errs.New().Code(ErrCodePanic).
 		Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
 }
 
@@ -107,6 +118,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	edgeInterceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
+		recoverInterceptor,
 		ValidatingInterceptor(),
 	)
 

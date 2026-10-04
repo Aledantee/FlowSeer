@@ -169,8 +169,8 @@ func Filter(ctx context.Context, relation, objectType string, ids []string) (_ [
 //
 // If ctx was not prepared by the interceptor or lacks an admitted tenant, or if
 // err is nil, Abandon returns an Internal error. Otherwise, Abandon marks the
-// obligation discharged, records a failed check so that any response returned
-// after it is dropped, and returns err.
+// obligation discharged and records a failed check, so that any response
+// returned after it is dropped, then returns err.
 func Abandon(ctx context.Context, err error) error {
 	tracker := trackerFromContext(ctx)
 	if tracker != nil {

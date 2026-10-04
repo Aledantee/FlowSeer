@@ -233,7 +233,8 @@ type Options struct {
 	// When unset, Run constructs an openfga adapter from the configuration.
 	Engine authz.Engine
 
-	// Reconciled is called after each completed relationship reconciliation pass.
+	// Reconciled is called after each relationship reconciliation pass that
+	// completes without error.
 	// Nil means nobody is watching.
 	Reconciled func()
 

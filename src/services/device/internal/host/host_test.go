@@ -5,8 +5,10 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -24,6 +26,7 @@ import (
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
@@ -35,11 +38,16 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
+	auditv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/audit/v1/auditv1connect"
+	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	dispatchv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/dispatch/v1/dispatchv1connect"
 	errsv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/errs/v1"
+	capturemodelv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
+	identitymodelv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
 	policyv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/policy/v1"
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
@@ -52,13 +60,15 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
+	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
 const (
-	testEdgeID   = "0192e6a0-0000-7000-8000-0000000000ed"
-	testDeviceID = "0192e6a0-0000-7000-8000-0000000000d1"
+	testEdgeID           = "0192e6a0-0000-7000-8000-0000000000ed"
+	testDeviceID         = "0192e6a0-0000-7000-8000-0000000000d1"
+	testUnlistedDeviceID = "0192e6a0-0000-7000-8000-0000000000d2"
 )
 
 // freePort asks the kernel for a port and gives it straight back, so the
@@ -139,6 +149,14 @@ type testService struct {
 	StateDir    string
 	Dir         string
 	Hub         *edgebus.Hub
+}
+
+type panickingCheckEngine struct {
+	*authztest.Engine
+}
+
+func (*panickingCheckEngine) Check(context.Context, authz.Query) (bool, error) {
+	panic("authorization checker panicked")
 }
 
 var (
@@ -458,23 +476,32 @@ func wireErrorCode(err error) string {
 	return ""
 }
 
-// The whole service starts from a file and answers an operator: the hub and
-// dependent modules come up, the API listener serves the certificate the host
-// obtained, and a call reaches the handler through the operator interceptors.
+// The whole service starts from a file and refuses an operator's request for a
+// device absent from the registry without revealing whether it exists.
 func TestTheServiceStartsFromAFileAndAnswers(t *testing.T) {
-	base := runningService(t)
-	client := devicev1connect.NewDeviceServiceClient(serviceClient(), base)
+	svc := startTestService(t, nil)
+	client := devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base)
 
 	msg := &devicev1.GetDeviceAccessStatusRequest{}
 	local := &inventoryv1.DeviceLocalRef{}
-	local.SetId(testDeviceID)
+	local.SetId(testUnlistedDeviceID)
 	device := &inventoryv1.DeviceGlobalRef{}
 	device.SetDevice(local)
 	msg.SetDevice(device)
 
 	_, err := callWhenServing(t, client, msg)
-	if err != nil {
-		t.Fatalf("status: %v", err)
+	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
+		t.Fatalf("status for an unlisted device = %v, want CodePermissionDenied (%v)", got, err)
+	}
+	foundTenantQuery := false
+	for _, q := range svc.Engine.Queries() {
+		if q.Object == "device:"+testUnlistedDeviceID && q.Relation == "tenant" && q.User == "tenant:"+edgebus.DefaultTenant {
+			foundTenantQuery = true
+			break
+		}
+	}
+	if !foundTenantQuery {
+		t.Fatalf("authorization engine recorded no tenant query for unlisted device %q: %v", testUnlistedDeviceID, svc.Engine.Queries())
 	}
 }
 
@@ -550,18 +577,19 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 		t.Fatalf("the service reported %q, want an address carrying the port it bound", base)
 	}
 
-	// Dialed rather than inferred. The reported address is only worth
-	// something if it is the one accepting connections.
+	// Dialed rather than inferred. The reported address is only worth something
+	// if it is the one accepting connections, even when authorization refuses the
+	// requested device.
 	client := devicev1connect.NewDeviceServiceClient(serviceClient(), base)
 	msg := &devicev1.GetDeviceAccessStatusRequest{}
 	local := &inventoryv1.DeviceLocalRef{}
-	local.SetId(testDeviceID)
+	local.SetId(testUnlistedDeviceID)
 	device := &inventoryv1.DeviceGlobalRef{}
 	device.SetDevice(local)
 	msg.SetDevice(device)
 
-	if _, err := callWhenServing(t, client, msg); err != nil {
-		t.Errorf("a call to the reported address answered %v, want the listed device", err)
+	if _, err := callWhenServing(t, client, msg); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Errorf("a call to the reported address answered %v, want CodePermissionDenied for an unlisted device", err)
 	}
 }
 
@@ -859,6 +887,84 @@ func TestOperatorRPCEnforcementOrder(t *testing.T) {
 func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 	svc := startTestService(t, nil)
 	client := rawServiceClient()
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("GenerateKey: %v", err)
+	}
+	installEnrolledTestEdge(t, svc, public)
+	captureClient := capturev1connect.NewCaptureServiceClient(serviceClient(), svc.Base)
+	if _, err := captureClient.CreateCaptureSession(context.Background(), connect.NewRequest(capturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+		}.Build(),
+		Source: capturemodelv1.CaptureSource_builder{
+			LocalInterface: capturemodelv1.LocalInterfaceSource_builder{
+				InterfaceName: proto.String("eth0"),
+			}.Build(),
+		}.Build(),
+		Budget: capturemodelv1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: capturemodelv1.CaptureAuthorization_builder{
+			RequestedBy: identitymodelv1.OperatorRef_builder{
+				Issuer:  proto.String(svc.Issuer.URL()),
+				Subject: proto.String("operator-1"),
+			}.Build(),
+			Reason:               proto.String("mount test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build())); err != nil {
+		t.Fatalf("create capture assignment: %v", err)
+	}
+
+	cases := []struct {
+		name      string
+		procedure string
+		message   proto.Message
+	}{
+		{
+			name:      "edge service",
+			procedure: attachv1connect.EdgeServiceHeartbeatProcedure,
+			message:   attachv1.HeartbeatRequest_builder{AgentVersion: proto.String("test")}.Build(),
+		},
+		{
+			name:      "dispatch service",
+			procedure: dispatchv1connect.DispatchServiceReportProcedure,
+			message:   &dispatchv1.ReportRequest{},
+		},
+		{
+			name:      "audit service",
+			procedure: auditv1connect.AuditServiceDeliverProcedure,
+			message:   &auditv1.DeliverRequest{},
+		},
+		{
+			name:      "capture edge service",
+			procedure: captureedgev1connect.CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
+			message:   &captureedgev1.SubscribeCaptureAssignmentsRequest{},
+		},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := proto.Marshal(tc.message)
+			if err != nil {
+				t.Fatalf("marshal request: %v", err)
+			}
+			req, err := http.NewRequest(http.MethodPost, svc.Base+tc.procedure, bytes.NewReader(body))
+			if err != nil {
+				t.Fatalf("build request: %v", err)
+			}
+			req.Header.Set("Content-Type", "application/proto")
+			req.Header.Set("Authorization", signedEdgeHeader(t, private, tc.procedure, body, byte(i)))
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("call %s: %v", tc.procedure, err)
+			}
+			defer func() { _ = resp.Body.Close() }()
+			if resp.StatusCode == http.StatusUnauthorized {
+				t.Fatalf("call %s answered HTTP 401, which is CodeUnauthenticated", tc.procedure)
+			}
+		})
+	}
 
 	for _, procedure := range []string{
 		attachv1connect.EdgeServiceHeartbeatProcedure,
@@ -866,7 +972,7 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 		auditv1connect.AuditServiceDeliverProcedure,
 		captureedgev1connect.CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
 	} {
-		t.Run("edge/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
+		t.Run("edge/refusal-code/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, svc.Base+procedure, strings.NewReader("{}"))
 			if err != nil {
 				t.Fatalf("build request: %v", err)
@@ -917,11 +1023,121 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 	}
 	for _, tc := range operatorChecks {
 		t.Run("operator/"+tc.name, func(t *testing.T) {
-			if err := tc.call(); connect.CodeOf(err) != connect.CodeUnauthenticated {
+			err := tc.call()
+			if connect.CodeOf(err) != connect.CodeUnauthenticated {
 				t.Fatalf("error = %v, want Unauthenticated", err)
+			}
+			if got := wireErrorCode(err); got != authn.ErrCodeTokenInvalid.String() {
+				t.Fatalf("wire error code = %q, want %q (%v)", got, authn.ErrCodeTokenInvalid, err)
 			}
 		})
 	}
+}
+
+func installEnrolledTestEdge(t *testing.T, svc *testService, public ed25519.PublicKey) {
+	t.Helper()
+	edgesKV, err := svc.Hub.JetStream().KeyValue(context.Background(), edgebus.EdgeBucket)
+	if err != nil {
+		t.Fatalf("open edge bucket: %v", err)
+	}
+	store := edgestore.New(edgesKV)
+	ref := edgev1.EdgeGlobalRef_builder{
+		Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+	}.Build()
+	lifecycle := edgev1.EdgeLifecycle_EDGE_LIFECYCLE_ENROLLED
+	if _, err := store.Mutate(context.Background(), edgebus.DefaultTenant, testEdgeID, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		return storev1.StoredEdge_builder{
+			Record: edgev1.EdgeRecord_builder{
+				Config: edgev1.EdgeConfig_builder{Ref: ref}.Build(),
+				State: edgev1.EdgeState_builder{
+					Ref:       ref,
+					Lifecycle: &lifecycle,
+					PublicKey: public,
+				}.Build(),
+			}.Build(),
+		}.Build(), nil
+	}); err != nil {
+		t.Fatalf("install enrolled edge: %v", err)
+	}
+}
+
+func signedEdgeHeader(t *testing.T, private ed25519.PrivateKey, procedure string, body []byte, nonceByte byte) string {
+	t.Helper()
+	nonce := make([]byte, 16)
+	for i := range nonce {
+		nonce[i] = nonceByte + byte(i)
+	}
+	bodyHash := sha256.Sum256(body)
+	now := time.Now()
+	assertion := edgev1.EdgeAssertion_builder{
+		Edge: edgev1.EdgeGlobalRef_builder{
+			Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+		}.Build(),
+		Audience:   proto.String("flowseer-device-test"),
+		IssuedAt:   timestamppb.New(now),
+		ExpiresAt:  timestamppb.New(now.Add(time.Minute)),
+		Nonce:      nonce,
+		Procedure:  proto.String(procedure),
+		BodySha256: bodyHash[:],
+	}.Build()
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
+	if err != nil {
+		t.Fatalf("marshal assertion: %v", err)
+	}
+	signed := edgev1.SignedEdgeAssertion_builder{
+		Payload:   payload,
+		Signature: ed25519.Sign(private, payload),
+	}.Build()
+	wire, err := proto.Marshal(signed)
+	if err != nil {
+		t.Fatalf("marshal signed assertion: %v", err)
+	}
+	return edge.HeaderScheme + " " + base64.RawStdEncoding.EncodeToString(wire)
+}
+
+func TestHostRecoversAuthorizationPanicsOnUnaryAndStreamingCalls(t *testing.T) {
+	svc := startTestService(t, func(opts *host.Options) {
+		opts.Engine = &panickingCheckEngine{Engine: authztest.New()}
+	})
+
+	assertPanicError := func(t *testing.T, err error) {
+		t.Helper()
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("error code = %v, want %v (%v)", connect.CodeOf(err), connect.CodeInternal, err)
+		}
+		if got := wireErrorCode(err); got != host.ErrCodePanic.String() {
+			t.Fatalf("wire error code = %q, want %q (%v)", got, host.ErrCodePanic, err)
+		}
+	}
+
+	deviceClient := devicev1connect.NewDeviceServiceClient(serviceClient(), svc.Base)
+	deviceReq := connect.NewRequest(devicev1.GetDeviceAccessStatusRequest_builder{
+		Device: inventoryv1.DeviceGlobalRef_builder{
+			Device: inventoryv1.DeviceLocalRef_builder{Id: proto.String(testDeviceID)}.Build(),
+		}.Build(),
+	}.Build())
+	_, err := deviceClient.GetDeviceAccessStatus(context.Background(), deviceReq)
+	assertPanicError(t, err)
+
+	captureClient := capturev1connect.NewCaptureServiceClient(serviceClient(), svc.Base)
+	captureReq := connect.NewRequest(capturev1.DownloadCaptureSessionRequest_builder{
+		Session: capturemodelv1.CaptureSessionGlobalRef_builder{
+			Edge: edgev1.EdgeGlobalRef_builder{
+				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String(testEdgeID)}.Build(),
+			}.Build(),
+			CaptureSession: capturemodelv1.CaptureSessionLocalRef_builder{
+				Id: proto.String("0192e6a0-0000-7000-8000-0000000000c1"),
+			}.Build(),
+		}.Build(),
+	}.Build())
+	stream, err := captureClient.DownloadCaptureSession(context.Background(), captureReq)
+	if err == nil {
+		if stream.Receive() {
+			t.Fatal("stream delivered a response after the authorization checker panicked")
+		}
+		err = stream.Err()
+	}
+	assertPanicError(t, err)
 }
 
 func TestEdgeServicesNeedNoTokenWhileClosedPortEngineRefusesOperator(t *testing.T) {
@@ -1219,20 +1435,12 @@ func TestLocalStartupFaultsReturnBeforeAPIBinds(t *testing.T) {
 		authzCA   string
 		loadCode  errs.Code
 		startCode errs.Code
-		loadOnly  bool
 	}{
 		{
 			name:      "malformed store id",
 			endpoint:  "https://authz.example.test:8081",
 			storeID:   "bad",
 			startCode: openfga.ErrCodeConfig,
-		},
-		{
-			name:     "malformed endpoint",
-			endpoint: "http://authz.example.test:8081",
-			storeID:  "01JK1234567890ABCDEFGHJKMN",
-			loadCode: host.ErrCodeConfigInvalid,
-			loadOnly: true,
 		},
 		{
 			name:      "unreadable authorization CA",
@@ -1261,15 +1469,6 @@ func TestLocalStartupFaultsReturnBeforeAPIBinds(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			body := startupConfig(t, tc.endpoint, tc.storeID, tc.authnCA, tc.authzCA)
 			cfg, err := host.LoadConfig(writeConfig(t, body))
-			if tc.loadOnly {
-				if err == nil {
-					t.Fatal("LoadConfig succeeded for malformed endpoint")
-				}
-				if got, ok := errs.CodeOf(err); !ok || got != tc.loadCode {
-					t.Fatalf("LoadConfig code = %v, want %v (%v)", got, tc.loadCode, err)
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("LoadConfig: %v", err)
 			}

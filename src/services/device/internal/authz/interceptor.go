@@ -153,49 +153,46 @@ type authzStreamingConn struct {
 
 func (c *authzStreamingConn) Receive(msg any) error {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.checked {
 		err := c.checkErr
-		c.mu.Unlock()
 		if err != nil {
 			return err
 		}
 		return c.StreamingHandlerConn.Receive(msg)
 	}
 	c.checked = true
-	c.mu.Unlock()
-
-	finish := func(err error) error {
-		c.mu.Lock()
-		c.checkErr = err
-		c.mu.Unlock()
-		return err
-	}
 
 	if err := c.StreamingHandlerConn.Receive(msg); err != nil {
-		return finish(err)
+		c.checkErr = err
+		return err
 	}
 
 	protoMsg, ok := msg.(proto.Message)
 	if !ok || protoMsg == nil {
-		return finish(permissionDenied(errs.New().Code(ErrCodeNoObjectID).
-			Msg("request is not a proto message")))
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeNoObjectID).
+			Msg("request is not a proto message"))
+		return c.checkErr
 	}
 
 	objectID, err := extractObjectID(protoMsg, c.rule.GetObjectIdPath())
 	if err != nil || objectID == "" {
-		return finish(permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
-			Msg("request rule yielded no id")))
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
+			Msg("request rule yielded no id"))
+		return c.checkErr
 	}
 
 	allowed, err := checkObjects(c.ctx, c.interceptor.checker, c.principal, c.admittedTenant, c.rule.GetObjectType(), c.rule.GetRelation(), []string{objectID})
 	if err != nil {
-		return finish(err)
+		c.checkErr = err
+		return err
 	}
 	if len(allowed) == 0 {
-		return finish(permissionDenied(errs.New().Code(ErrCodeDenied).
-			Msg("permission denied")))
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeDenied).
+			Msg("permission denied"))
+		return c.checkErr
 	}
-	return finish(nil)
+	return nil
 }
 
 // WrapUnary enforces authorization rules, caller identity, and relationship
