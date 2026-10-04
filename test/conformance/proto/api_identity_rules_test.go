@@ -61,8 +61,14 @@ func validCreateRoleRequest() *apiidentityv1.CreateRoleRequest {
 func TestCreateRoleRequestRules(t *testing.T) {
 	noName := validCreateRoleRequest()
 	noName.ClearName()
+	emptyName := validCreateRoleRequest()
+	emptyName.SetName("")
 	longName := validCreateRoleRequest()
 	longName.SetName(strings.Repeat("n", 129))
+	emptyDescription := validCreateRoleRequest()
+	emptyDescription.SetDescription("")
+	longDescription := validCreateRoleRequest()
+	longDescription.SetDescription(strings.Repeat("d", 2049))
 	noRelations := validCreateRoleRequest()
 	noRelations.SetRelations(nil)
 	repeatedRelation := validCreateRoleRequest()
@@ -76,10 +82,25 @@ func TestCreateRoleRequestRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
 		{name: "valid create role request validates", message: validCreateRoleRequest(), wantValid: true},
 		{name: "create role request without a name is rejected", message: noName},
+		{name: "create role request with an empty name is rejected", message: emptyName},
 		{name: "create role request with a 129-character name is rejected", message: longName},
+		{name: "create role request with an empty description is rejected", message: emptyDescription},
+		{name: "create role request with a 2049-character description is rejected", message: longDescription},
 		{name: "create role request without relations is rejected", message: noRelations},
 		{name: "create role request with a repeated relation is rejected", message: repeatedRelation},
 		{name: "create role request with an undefined relation is rejected", message: undefinedRelation},
+	})
+}
+
+func TestGrantFullPayloadReasonBounds(t *testing.T) {
+	empty := validGrantFullPayloadRequest()
+	empty.SetReason("")
+	long := validGrantFullPayloadRequest()
+	long.SetReason(strings.Repeat("r", 513))
+
+	runValidationCases(t, []validationCase{
+		{name: "empty full-payload reason is rejected", message: empty},
+		{name: "513-character full-payload reason is rejected", message: long},
 	})
 }
 
