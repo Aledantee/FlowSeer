@@ -234,7 +234,8 @@ report, then run the verifier once, sandbox disabled, on the union of changed
 paths; for a worker on `agy` or `omp`, load
 `references/hookless-merge.md` after the merge, before the verifier. A child whose branch did not land stays,
 and the report names it with the reason. Never remove a child with a dirty
-tree; say what is there.
+tree; say what is there. When that child's terminal has exited, park its
+work first (`references/orca.md`, When a step fails).
 
 ## Write the brief
 
@@ -287,9 +288,10 @@ order:
    `drive` stage) runs the verifier its skill names, since `ledger.py`
    passes a unit only on a receipt in the worker's own git directory. A
    review stage is a stage worker and runs the verifier `review` names.
-   Every other lane that returns a report runs no verifier and starts no
-   background task: `wait` reads a lane that waits on one as idle, with no
-   report written. No lint or race
+   Every other lane that returns a report runs no verifier. No lane ends
+   its turn while a command it started still runs: `wait` reads that lane
+   as idle before its report or commit exists. A stage worker reads its
+   verifier's last line before it commits or reports. No lint or race
    run over all of `generated/go/yang` (it exhausts host memory; lint two
    or three sample packages); no git write outside the worker's own
    checkout (the coordinator merges). Scratch files and set-aside work go

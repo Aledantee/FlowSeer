@@ -113,6 +113,10 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
         print(json.dumps({{"result": {{"wait": {{"status": "exited"}}}}}}))
     elif failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
+    elif failure == "terminal-wait-unsatisfied":
+        # Orca prints the result, then exits 1, for an unsatisfied wait.
+        print(json.dumps({{"result": {{"wait": {{"status": "timeout", "satisfied": False}}}}}}))
+        sys.exit(1)
     else:
         print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
@@ -403,6 +407,30 @@ else:
         self.assertTrue((self.root / "child-l1").exists())
         self.assertTrue((self.state_dir / "l1.json").exists())
         self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_waits_once_more_when_the_startup_wait_is_unsatisfied(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-wait-unsatisfied"
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.orca_calls()
+        self.assertEqual(calls.count("terminal wait --terminal term-1"), 2)
+        self.assertLess(calls.index("--timeout-ms 180000"), calls.index("--text Read .orca-brief.md"))
+
+    def test_start_waits_once_when_the_startup_wait_is_satisfied(self):
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal wait --terminal term-1"), 1)
+
+    def test_start_refuses_an_empty_brief_before_worktree_create(self):
+        brief = self.repo / "brief.md"
+        brief.write_text("")
+        result = self.command(
+            "start", "--lane", "l1", "--cli", "codex", "--model", "gpt-6-sol",
+            "--role", "execute", "--brief", str(brief),
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is empty", result.stderr)
+        self.assertNotIn("worktree create", self.orca_calls())
 
     def test_start_state_directory_failure_closes_run(self):
         self.state_dir.rmdir()
@@ -765,6 +793,18 @@ else:
         self.env["ORCA_STUB_SCREEN"] = "You've hit your usage limit. Try again at 3pm."
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
         self.assert_wait(result, ["limited", "You've hit your usage limit. Try again at 3pm."], 5)
+
+    def test_wait_reports_idle_for_a_finished_report_that_names_a_quota(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Report: Lite quota 2K credits; no Orca quota request"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["idle", "Report: Lite quota 2K credits; no Orca quota request"], 5)
+
+    def test_wait_reports_limited_for_an_exhausted_quota(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Quota exceeded for this model."
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "Quota exceeded for this model."], 5)
 
     def test_wait_reports_limited_when_blank_rows_follow_the_limit_line(self):
         self.live_lane()
