@@ -28,6 +28,14 @@ reason in the commit message.
 - A typed change reaches a device through the local-network lane, and an
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
+- An observed configuration change, such as an SNMP trap or an integration's
+  change event, reaches central over the bus and triggers the drift read at
+  once. This protects against drift from changes made outside FlowSeer. The
+  poll in `src/services/device/internal/drift` stays as the backstop for a
+  lost notification. A trap says that a change happened and not what
+  changed (`snTrapRunningConfigChanged` in
+  `spec/mib/ruckus/icx/FOUNDRY-SN-NOTIFICATION-MIB`), so the read still does
+  the comparison. No record decides its shape yet.
 - The operator and admin API surfaces are authenticated with OIDC tokens and
   authorized through a Zanzibar-style relationship engine, for more than one
   tenant.
