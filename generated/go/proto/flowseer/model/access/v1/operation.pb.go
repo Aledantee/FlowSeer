@@ -761,9 +761,9 @@ type MutationIntent_builder struct {
 	// Client-generated key that makes a retried submission the same intent.
 	// Must be present.
 	IdempotencyKey *string
-	// Who asked. Set centrally from the authenticated caller, or from central's
-	// own reason for an intent it admits itself; replaces a value a request
-	// carries.
+	// Who asked. Set centrally from the authenticated caller, or to a
+	// SystemActor when central admits the intent itself. It replaces any value a
+	// request carries. Unset means no actor was recorded.
 	Actor *Actor
 	// The policy version the intent is admitted under; a later policy edit
 	// does not change an intent in flight. Must be present.

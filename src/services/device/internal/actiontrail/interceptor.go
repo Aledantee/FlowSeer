@@ -24,12 +24,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
-// EdgeAdminProcedureActions maps EdgeAdminService procedures to their recorded operator actions.
-var EdgeAdminProcedureActions = map[string]operatorv1.OperatorAction{
+// edgeAdminProcedureActions maps EdgeAdminService procedures to their recorded operator actions.
+var edgeAdminProcedureActions = map[string]operatorv1.OperatorAction{
 	edgev1connect.EdgeAdminServiceCreateEdgeProcedure:     operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_CREATE,
 	edgev1connect.EdgeAdminServiceIssueSetupKeyProcedure:  operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE,
 	edgev1connect.EdgeAdminServiceRevokeSetupKeyProcedure: operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_REVOKE,
@@ -44,6 +45,7 @@ var streamingCaptureProcedureActions = map[string]operatorv1.OperatorAction{
 }
 
 // Interceptor records operator action events for admitted Connect RPC procedures.
+// An Interceptor is safe for concurrent use.
 type Interceptor struct {
 	pub   Publisher
 	clock func() time.Time
@@ -72,8 +74,12 @@ func actionToken(action operatorv1.OperatorAction) string {
 }
 
 func truncateErrorType(s string) string {
-	if len(s) > 128 {
-		return s[:128]
+	n := 0
+	for i := range s {
+		if n == 128 {
+			return s[:i]
+		}
+		n++
 	}
 	return s
 }
@@ -87,6 +93,14 @@ func outcomeOf(handlerErr error) (operatorv1.OperatorActionOutcome, string) {
 	default:
 		return operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_FAILED, truncateErrorType(telemetry.ErrorType(handlerErr))
 	}
+}
+
+func abandon(ctx context.Context, err error) error {
+	aErr := authz.Abandon(ctx, err)
+	if code, ok := errs.CodeOf(aErr); ok && code == authz.ErrCodeObligationViolation {
+		return err
+	}
+	return aErr
 }
 
 // WrapUnary records operator actions for configured unary procedures.
@@ -110,7 +124,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 				action = operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE
 				attemptEdge = createReq.GetEdge()
 			}
-		} else if act, ok := EdgeAdminProcedureActions[proc]; ok {
+		} else if act, ok := edgeAdminProcedureActions[proc]; ok {
 			record = true
 			action = act
 			switch proc {
@@ -141,12 +155,12 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		principal, ok := authn.FromContext(ctx)
 		tenantID, err := tenant.FromContext(ctx)
-		if !ok || principal.ID == "" || err != nil || tenantID == "" {
-			return nil, connecterr.WrapAs(
+		if !ok || principal.ID == "" || err != nil || tenantID == "" || tenant.Validate(tenantID) != nil {
+			return nil, abandon(ctx, connecterr.WrapAs(
 				connect.CodeInternal,
 				"action trail unprepared",
 				errs.New().Code(ErrCodeUnprepared).Msg("principal or tenant missing from context"),
-			)
+			))
 		}
 
 		opRef := &identityv1.OperatorRef{}
@@ -172,19 +186,19 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		attemptData, err := proto.Marshal(attemptEvent)
 		if err != nil {
-			return nil, connecterr.WrapAs(
-				connect.CodeInternal,
-				"action trail attempt marshal",
+			return nil, abandon(ctx, connecterr.WrapAs(
+				connect.CodeUnavailable,
+				"action trail unavailable",
 				errs.From(err).Code(ErrCodeUnavailable).Msg("marshal attempt event"),
-			)
+			))
 		}
 
 		if err := i.pub.Publish(ctx, subject, attemptData, attemptEventID); err != nil {
-			return nil, connecterr.WrapAs(
+			return nil, abandon(ctx, connecterr.WrapAs(
 				connect.CodeUnavailable,
 				"action trail unavailable",
 				errs.New().Code(ErrCodeUnavailable).Cause(err).Msg("failed to publish action attempt"),
-			)
+			))
 		}
 
 		resp, handlerErr := next(ctx, req)
@@ -268,7 +282,7 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 
 		principal, authOk := authn.FromContext(ctx)
 		tenantID, tenantErr := tenant.FromContext(ctx)
-		if !authOk || principal.ID == "" || tenantErr != nil || tenantID == "" {
+		if !authOk || principal.ID == "" || tenantErr != nil || tenantID == "" || tenant.Validate(tenantID) != nil {
 			return connecterr.WrapAs(
 				connect.CodeInternal,
 				"action trail unprepared",

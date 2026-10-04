@@ -225,6 +225,28 @@ func (t *testAuthnInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 	}
 }
 
+type innerRecordingInterceptor struct {
+	entered atomic.Bool
+}
+
+func (i *innerRecordingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+		i.entered.Store(true)
+		return next(ctx, req)
+	}
+}
+
+func (i *innerRecordingInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func (i *innerRecordingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
+		i.entered.Store(true)
+		return next(ctx, conn)
+	}
+}
+
 func edgeRef(t *testing.T) *edgemodelv1.EdgeGlobalRef {
 	t.Helper()
 	ref := edgemodelv1.EdgeGlobalRef_builder{
@@ -644,6 +666,7 @@ type testEnv struct {
 	mode99Cli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
 	loadedCli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
 	noRuleCli        *connect.Client[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse]
+	inner            *innerRecordingInterceptor
 	setLoadedFn      func(fn func(ctx context.Context, req *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error))
 }
 
@@ -652,6 +675,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	checker := &fakeChecker{}
 	handlers := newTestHandlers(t)
+	inner := &innerRecordingInterceptor{}
 	authzInterceptor := authz.NewInterceptor(checker)
 	outerInterceptor := &cancellableOuterInterceptor{}
 	authnInterceptor := &testAuthnInterceptor{
@@ -663,7 +687,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 	}
 
 	opts := []connect.HandlerOption{
-		connect.WithInterceptors(authnInterceptor, outerInterceptor, authzInterceptor),
+		connect.WithInterceptors(authnInterceptor, outerInterceptor, authzInterceptor, inner),
 	}
 
 	mux := http.NewServeMux()
@@ -776,6 +800,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 		edgeAttachCli:    attachv1connect.NewEdgeServiceClient(client, server.URL),
 		interceptor:      authzInterceptor,
 		outerInterceptor: outerInterceptor,
+		inner:            inner,
 		unspecifiedCli:   connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+unspecifiedProc),
 		mode99Cli:        connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+mode99Proc),
 		loadedCli:        connect.NewClient[edgev1.GetEdgeRequest, edgev1.GetEdgeResponse](client, server.URL+loadedProc),
@@ -2439,6 +2464,9 @@ func TestStreamingCallAuthorization(t *testing.T) {
 		if env.handlers.DidRun("DownloadCaptureSession") {
 			t.Error("handler ran, want not run")
 		}
+		if env.inner.entered.Load() {
+			t.Error("inner handler interceptor ran before membership was admitted")
+		}
 	})
 
 	t.Run("denied download relation", func(t *testing.T) {
@@ -2531,6 +2559,10 @@ func TestStreamingCallAuthorization(t *testing.T) {
 			err = stream.Err()
 		}
 
+		recorded := env.checker.Recorded()
+		if len(recorded) != 3 {
+			t.Fatalf("recorded queries count = %d, want 3", len(recorded))
+		}
 		if connect.CodeOf(err) != connect.CodeUnavailable {
 			t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodeUnavailable)
 		}
@@ -2629,6 +2661,77 @@ func TestStreamingCallAuthorization(t *testing.T) {
 			t.Error("handler ran, want not run")
 		}
 	})
+
+	t.Run("handler returning nil after a failed check yields Internal", func(t *testing.T) {
+		env := setupTestEnv(t)
+		env.checker.deny = func(q authz.Query) bool {
+			return q.Object == "edge:"+validEdgeID && q.Relation == "view"
+		}
+		env.handlers.SetDownloadCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], _ *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
+			_ = authz.Require(ctx, "view", "edge", validEdgeID)
+			return nil
+		})
+
+		req := validRequest(t, capturev1.DownloadCaptureSessionRequest_builder{
+			Session: sessionRef(t, validSessionID),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		stream, err := env.captureCli.DownloadCaptureSession(context.Background(), req)
+		if err == nil {
+			if stream.Receive() {
+				t.Fatal("expected stream to fail, got item")
+			}
+			err = stream.Err()
+		}
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+			t.Fatalf("error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+		}
+	})
+
+	t.Run("handler error wins over an in-flight check", func(t *testing.T) {
+		env := setupTestEnv(t)
+		started := make(chan struct{})
+		unblock := make(chan struct{})
+		done := make(chan struct{})
+		env.checker.fail = func(q authz.Query) error {
+			if q.Object == "edge:"+validEdgeID && q.Relation == "view" {
+				close(started)
+				<-unblock
+			}
+			return nil
+		}
+		env.handlers.SetDownloadCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], _ *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
+			spawn.Go(ctx, "test.stream.inflight.require", func() {
+				defer close(done)
+				_ = authz.Require(ctx, "view", "edge", validEdgeID)
+			})
+			<-started
+			return connect.NewError(connect.CodeFailedPrecondition, errors.New("handler sentinel"))
+		})
+
+		req := validRequest(t, capturev1.DownloadCaptureSessionRequest_builder{
+			Session: sessionRef(t, validSessionID),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		stream, err := env.captureCli.DownloadCaptureSession(context.Background(), req)
+		if err == nil {
+			if stream.Receive() {
+				t.Fatal("expected stream to fail, got item")
+			}
+			err = stream.Err()
+		}
+		close(unblock)
+		<-done
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeFailedPrecondition)
+		}
+		if !strings.Contains(err.Error(), "handler sentinel") {
+			t.Fatalf("error = %v, want handler sentinel", err)
+		}
+	})
 }
 
 func TestClientStreamRefused(t *testing.T) {
@@ -2669,6 +2772,9 @@ func TestClientStreamRefused(t *testing.T) {
 	stream.RequestHeader().Set("Authorization", "Bearer test")
 
 	_, err := stream.CloseAndReceive()
+	if got := len(checker.Recorded()); got != 0 {
+		t.Fatalf("recorded queries count = %d, want 0", got)
+	}
 	if connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("got code %v, want %v", connect.CodeOf(err), connect.CodePermissionDenied)
 	}
@@ -2725,6 +2831,52 @@ func TestInFlightRequireDropsResponse(t *testing.T) {
 		}
 	})
 
+	t.Run("stream handler returning nil while a check is in flight drops the response", func(t *testing.T) {
+		env := setupTestEnv(t)
+
+		blockCh := make(chan struct{})
+		startedCh := make(chan struct{})
+		doneCh := make(chan struct{})
+		var startOnce sync.Once
+		env.checker.fail = func(q authz.Query) error {
+			if q.Object == "edge:"+validEdgeID && q.Relation == "view" {
+				startOnce.Do(func() { close(startedCh) })
+				<-blockCh
+			}
+			return nil
+		}
+
+		env.handlers.SetDownloadCaptureFn(func(ctx context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], _ *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
+			spawn.Go(ctx, "test.stream.unjoined.require", func() {
+				defer close(doneCh)
+				_ = authz.Require(ctx, "view", "edge", validEdgeID)
+			})
+			<-startedCh
+			return nil
+		})
+
+		req := validRequest(t, capturev1.DownloadCaptureSessionRequest_builder{
+			Session: sessionRef(t, validSessionID),
+		}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		stream, err := env.captureCli.DownloadCaptureSession(context.Background(), req)
+		if err == nil {
+			if stream.Receive() {
+				t.Fatal("expected the stream response to be dropped")
+			}
+			err = stream.Err()
+		}
+		close(blockCh)
+		<-doneCh
+
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+			t.Fatalf("error code = %q, want %q", got, authz.ErrCodeObligationViolation)
+		}
+	})
+
 	t.Run("joined check returns response successfully", func(t *testing.T) {
 		env := setupTestEnv(t)
 
@@ -2755,6 +2907,44 @@ func TestInFlightRequireDropsResponse(t *testing.T) {
 		}
 		if resp == nil {
 			t.Fatal("expected non-nil response, got nil")
+		}
+	})
+
+	t.Run("unjoined check preserves a handler error", func(t *testing.T) {
+		env := setupTestEnv(t)
+		blockCh := make(chan struct{})
+		startedCh := make(chan struct{})
+		doneCh := make(chan struct{})
+		var startOnce sync.Once
+		env.checker.fail = func(q authz.Query) error {
+			if q.Object == "edge:"+validEdgeID && q.Relation == "view" {
+				startOnce.Do(func() { close(startedCh) })
+				<-blockCh
+			}
+			return nil
+		}
+		env.setLoadedFn(func(ctx context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
+			spawn.Go(ctx, "test.unjoined.require.error", func() {
+				defer close(doneCh)
+				_ = authz.Require(ctx, "view", "edge", validEdgeID)
+			})
+			<-startedCh
+			return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("handler sentinel"))
+		})
+
+		req := validRequest(t, edgev1.GetEdgeRequest_builder{Edge: edgeRef(t)}.Build())
+		req.Header().Set("X-FlowSeer-Tenant", validTenantID)
+		resp, err := env.loadedCli.CallUnary(context.Background(), req)
+		close(blockCh)
+		<-doneCh
+		if resp != nil {
+			t.Errorf("got response %v, want nil", resp)
+		}
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeFailedPrecondition)
+		}
+		if !strings.Contains(err.Error(), "handler sentinel") {
+			t.Fatalf("error = %v, want handler sentinel", err)
 		}
 	})
 }
@@ -2806,6 +2996,25 @@ func TestAbandonObligation(t *testing.T) {
 		}
 		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
 			t.Errorf("got error code %q, want %q", got, authz.ErrCodeObligationViolation)
+		}
+	})
+
+	t.Run("ignored Abandon under a platform rule yields Internal", func(t *testing.T) {
+		env := setupTestEnv(t)
+		env.handlers.SetListTenantsFn(func(ctx context.Context, _ *connect.Request[identityv1.ListTenantsRequest]) (*connect.Response[identityv1.ListTenantsResponse], error) {
+			_ = authz.Abandon(ctx, errors.New("early platform store error"))
+			return validResponse(t, identityv1.ListTenantsResponse_builder{}.Build()), nil
+		})
+
+		resp, err := env.tenantCli.ListTenants(context.Background(), validRequest(t, identityv1.ListTenantsRequest_builder{}.Build()))
+		if resp != nil {
+			t.Errorf("got response %v, want nil", resp)
+		}
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("code = %v, want %v", connect.CodeOf(err), connect.CodeInternal)
+		}
+		if got := errCodeOf(t, err); got != authz.ErrCodeObligationViolation.String() {
+			t.Fatalf("error code = %q, want %q", got, authz.ErrCodeObligationViolation)
 		}
 	})
 

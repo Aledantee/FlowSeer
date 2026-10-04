@@ -4,11 +4,8 @@ package integration_test
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
-	"net/http"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -22,142 +19,61 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
-	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
 func TestEnforcementAgainstTheRealEngine(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
 	env := startOpenFGAEnv(t, nil)
 	iss := authntest.New(t)
-	caPath := iss.WriteCACertFile(t)
 	keyFile := writeTempKeyFile(t, testPresharedKey)
 
 	dir := t.TempDir()
-	stateDir := filepath.Join(dir, "central-state")
-	credDir := filepath.Join(dir, "credentials")
-	regDir := filepath.Join(dir, "registry.textproto")
-	cfgDir := filepath.Join(dir, "central.textproto")
-	writeCredentials(t, credDir)
-	writeRegistry(t, regDir, "0192e6a0-0000-7000-8000-00000000dead", 0)
-	apiPort := freePort(t)
-	busPort := freePort(t)
-	baseURL := fmt.Sprintf("https://127.0.0.1:%d", apiPort)
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+	regDir := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
 
-	body := fmt.Sprintf(`
-state_dir: %q
-registry_path: %q
-credential_root: %q
-listeners {
-  api: "127.0.0.1:%d"
-  bus: "127.0.0.1:%d"
-}
-edges {
-  central_url: %q
-  assertion_audience: "flowseer-real-engine"
-  cluster_urls: "ws://127.0.0.1:%d"
-}
-intervals {
-  dispatch_resend { seconds: 1 }
-  drift { seconds: 3600 }
-  relationship_reconcile { seconds: 600 }
-}
-platform_admin {
-  issuer: %q
-  organization: "flowseer-platform"
-  subject: "platform-admin"
-  organization_claim_name: "org_id"
-}
-authentication {
-  issuers {
-    issuer: %q
-    audience: "flowseer-real-engine"
-    organization_claim_name: "org_id"
-  }
-  ca_file: %q
-}
-authorization {
-  endpoint: "https://%s"
-  store_id: %q
-  model_id: %q
-  preshared_key_file: %q
-  ca_file: %q
-}
-`, stateDir, regDir, credDir, apiPort, busPort, baseURL, busPort,
-		iss.URL(), iss.URL(), caPath,
-		env.endpoint, env.storeID, env.modelID, keyFile, env.certPath)
-
-	cfg, err := centralhost.LoadConfig(writeFile(t, cfgDir, []byte(body)))
-	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
+	c := &central{
+		t:         t,
+		dir:       dir,
+		configDir: dir,
+		registry:  regDir,
+		apiPort:   freePort(t),
+		busPort:   freePort(t),
+		issuer:    iss,
+		audience:  "flowseer-real-engine",
+		platformAdmin: storev1.PlatformAdmin_builder{
+			Issuer:                proto.String(iss.URL()),
+			Organization:          proto.String("flowseer-platform"),
+			Subject:               proto.String("platform-admin"),
+			OrganizationClaimName: proto.String("org_id"),
+		}.Build(),
+		authzEndpoint: fmt.Sprintf("https://%s", env.endpoint),
+		authzStoreID:  env.storeID,
+		authzModelID:  env.modelID,
+		authzKeyFile:  keyFile,
+		authzCAFile:   env.certPath,
 	}
+	c.start()
+	defer c.shutdown()
 
-	bound := make(chan string, 1)
-	reconciled := make(chan struct{}, 1)
-	var hubMu sync.Mutex
-	var centralHub *edgebus.Hub
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	done := make(chan error, 1)
-	go func() {
-		done <- centralhost.Run(ctx, cfg, "real-engine", centralhost.Options{
-			Bound: func(addr string) { bound <- addr },
-			Reconciled: func() {
-				select {
-				case reconciled <- struct{}{}:
-				default:
-				}
-			},
-			Hub: func(h *edgebus.Hub) {
-				hubMu.Lock()
-				centralHub = h
-				hubMu.Unlock()
-			},
-		})
-	}()
-	t.Cleanup(func() {
-		cancel()
-		select {
-		case <-done:
-		case <-time.After(10 * time.Second):
-			t.Error("central shutdown timed out")
-		}
-	})
-
-	select {
-	case <-bound:
-	case err := <-done:
-		t.Fatalf("central stopped early: %v", err)
-	case <-time.After(15 * time.Second):
-		t.Fatal("timed out waiting for central to bind")
-	}
-
-	select {
-	case <-reconciled:
-	case <-time.After(15 * time.Second):
-		t.Fatal("timed out waiting for central initial reconcile")
-	}
-
-	hubMu.Lock()
-	hub := centralHub
-	hubMu.Unlock()
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
 	if hub == nil {
 		t.Fatal("centralHub is nil")
 	}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
-		},
-		Timeout: 30 * time.Second,
-	}
+	client := authClient(filepath.Join(c.dir, "central-state", "tls.crt"), "", "")
 	t.Cleanup(client.CloseIdleConnections)
 
-	edgeAdminClient := edgev1connect.NewEdgeAdminServiceClient(client, baseURL)
-	captureClient := capturev1connect.NewCaptureServiceClient(client, baseURL)
+	edgeAdminClient := edgev1connect.NewEdgeAdminServiceClient(client, c.baseURL())
+	captureClient := capturev1connect.NewCaptureServiceClient(client, c.baseURL())
 
 	js := hub.JetStream()
 	ts, err := tenantstore.New(ctx, js, edgebus.TenantBucket)
@@ -196,7 +112,6 @@ authorization {
 		t.Fatalf("Create tenant B: %v", err)
 	}
 
-	// 1. Requirement 9 first sentence:
 	// Admin creates an edge and reads it back, which needs edge:<id>#tenant in the engine
 	// and admin from tenant in the model.
 	adminSub := "admin-a"
@@ -241,7 +156,6 @@ authorization {
 		t.Fatalf("got edge name %q, want real-edge-1", getResp.Msg.GetEdge().GetConfig().GetName())
 	}
 
-	// 2. Requirement 12 part 1:
 	// A token whose organization claim omits tenant A gets CodePermissionDenied on GetEdge
 	// in A while tenant:A#enrolled still holds.
 	aliceSub := "alice"
@@ -273,7 +187,6 @@ authorization {
 		t.Fatalf("alice GetEdge in tenant A: code = %v, want CodePermissionDenied (%v)", got, err)
 	}
 
-	// 3. Requirement 12 part 2:
 	// A platform admin gets GetEdge in a tenant it is not enrolled in, and CodePermissionDenied
 	// on a full-payload CreateCaptureSession until tenant:A#full_payload is written.
 	platSub := "platform-admin"
@@ -409,5 +322,27 @@ authorization {
 	}
 	if gotS2 {
 		t.Errorf("ListCaptureSessions: session on E2 (%s) must NOT be visible to capturer with E1-only grant", session2ID)
+	}
+
+	// Positive control: admin lists both sessions
+	adminListReq := connect.NewRequest(&apicapturev1.ListCaptureSessionsRequest{})
+	adminListReq.Header().Set("Authorization", "Bearer "+adminToken)
+	adminListReq.Header().Set("X-FlowSeer-Tenant", tenantA)
+	adminListResp, err := captureClient.ListCaptureSessions(ctx, adminListReq)
+	if err != nil {
+		t.Fatalf("ListCaptureSessions as admin: %v", err)
+	}
+	var adminGotS1, adminGotS2 bool
+	for _, sess := range adminListResp.Msg.GetSessions() {
+		sid := sess.GetConfig().GetRef().GetCaptureSession().GetId()
+		if sid == session1ID {
+			adminGotS1 = true
+		}
+		if sid == session2ID {
+			adminGotS2 = true
+		}
+	}
+	if !adminGotS1 || !adminGotS2 {
+		t.Errorf("ListCaptureSessions as admin: got s1=%v, s2=%v; want both visible", adminGotS1, adminGotS2)
 	}
 }

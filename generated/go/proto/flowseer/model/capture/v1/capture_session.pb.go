@@ -1022,9 +1022,9 @@ func (x *CaptureAuthorization) ClearFullPayloadRequested() {
 type CaptureAuthorization_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The person who requested this capture. Set centrally from the
-	// authenticated caller, or from central's own reason for an intent it admits
-	// itself; replaces a value a request carries.
+	// The operator who requested this capture. Set centrally from the
+	// authenticated caller and replaces any value a request carries. Unset
+	// means no operator was recorded for the stored capture.
 	RequestedBy *v12.OperatorRef
 	// Free-text explanation of why this capture was requested. Must be
 	// present.

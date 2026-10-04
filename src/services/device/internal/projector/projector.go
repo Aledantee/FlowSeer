@@ -13,7 +13,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
@@ -52,6 +51,7 @@ type Projector struct {
 	interval   time.Duration
 	log        *slog.Logger
 	reconciled func()
+	wait       func(ctx context.Context, d time.Duration) error
 }
 
 const (
@@ -97,14 +97,14 @@ func (p *Projector) syncObject(ctx context.Context, obj Object) (bool, error) {
 	for attempt := 0; attempt < maxSyncAttempts; attempt++ {
 		repaired, err := p.attemptSync(ctx, obj)
 		if err != nil {
-			if code, ok := errs.CodeOf(err); ok && code == openfga.ErrCodeConflict {
+			if code, ok := errs.CodeOf(err); ok && code == authz.ErrCodeConflict {
 				continue
 			}
 			return false, err
 		}
 		return repaired, nil
 	}
-	return false, errs.New().Code(openfga.ErrCodeConflict).Attr("type", obj.Type).Attr("id", obj.ID).Msg("relationship write did not settle")
+	return false, errs.New().Code(authz.ErrCodeConflict).Attr("type", obj.Type).Attr("id", obj.ID).Msg("relationship write did not settle")
 }
 
 func (p *Projector) attemptSync(ctx context.Context, obj Object) (bool, error) {
@@ -219,7 +219,8 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 	}
 }
 
-// Run executes periodic reconciliation passes until ctx is canceled.
+// Run executes periodic reconciliation passes until ctx is canceled. It calls
+// the Reconciled callback only after a pass returns no error.
 func (p *Projector) Run(ctx context.Context) error {
 	nextWait := time.Duration(0)
 	retryDelay := initialRetry
@@ -229,10 +230,16 @@ func (p *Projector) Run(ctx context.Context) error {
 
 	for {
 		if nextWait > 0 {
-			select {
-			case <-ctx.Done():
-				return nil
-			case <-time.After(nextWait):
+			if p.wait != nil {
+				if err := p.wait(ctx, nextWait); err != nil {
+					return nil
+				}
+			} else {
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(nextWait):
+				}
 			}
 		} else if ctx.Err() != nil {
 			return nil

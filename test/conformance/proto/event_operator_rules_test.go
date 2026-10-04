@@ -82,6 +82,9 @@ func TestOperatorActionEventRules(t *testing.T) {
 	unspecifiedAction := validOperatorActionEvent()
 	unspecifiedAction.Action = operatorv1.OperatorAction_OPERATOR_ACTION_UNSPECIFIED.Enum()
 
+	undefinedAction := validOperatorActionEvent()
+	undefinedAction.Action = operatorv1.OperatorAction(99).Enum()
+
 	noDetail := validOperatorActionEvent()
 	noDetail.Attempted = nil
 
@@ -129,6 +132,7 @@ func TestOperatorActionEventRules(t *testing.T) {
 		{name: "missing operator is rejected", message: noOperator.Build(), wantValid: false},
 		{name: "missing action is rejected", message: noAction.Build(), wantValid: false},
 		{name: "unspecified action is rejected", message: unspecifiedAction.Build(), wantValid: false},
+		{name: "undefined action is rejected", message: undefinedAction.Build(), wantValid: false},
 		{name: "missing detail is rejected", message: noDetail.Build(), wantValid: false},
 	}
 
@@ -185,13 +189,24 @@ func TestOperatorActionCompletedRules(t *testing.T) {
 		{
 			name: "unspecified outcome is rejected",
 			message: operatorv1.OperatorActionCompleted_builder{
-				Outcome: operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_UNSPECIFIED.Enum(),
+				Outcome:   operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_UNSPECIFIED.Enum(),
+				ErrorType: proto.String("some/error"),
 			}.Build(),
 			wantValid: false,
 		},
 		{
-			name:      "missing outcome is rejected",
-			message:   operatorv1.OperatorActionCompleted_builder{}.Build(),
+			name: "missing outcome is rejected",
+			message: operatorv1.OperatorActionCompleted_builder{
+				ErrorType: proto.String("some/error"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "undefined outcome is rejected",
+			message: operatorv1.OperatorActionCompleted_builder{
+				Outcome:   operatorv1.OperatorActionOutcome(99).Enum(),
+				ErrorType: proto.String("some/error"),
+			}.Build(),
 			wantValid: false,
 		},
 		{

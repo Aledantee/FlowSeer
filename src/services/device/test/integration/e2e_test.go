@@ -33,9 +33,7 @@ import (
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
-	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 
 	"google.golang.org/protobuf/proto"
@@ -865,115 +863,6 @@ func accessGoroutines() string {
 	return strings.Join(kept, "\n\n")
 }
 
-func startCentralWithDevTenant(t *testing.T, c *central, devTenant string) {
-	t.Helper()
-	caPath := c.issuer.WriteCACertFile(t)
-	keyPath := filepath.Join(c.dir, "authz.key")
-	if err := os.WriteFile(keyPath, []byte("e2e-authz-key"), 0o600); err != nil {
-		t.Fatalf("write authz key: %v", err)
-	}
-
-	body := fmt.Sprintf(`
-state_dir: %q
-registry_path: %q
-credential_root: %q
-listeners {
-  api: "127.0.0.1:%d"
-  bus: "127.0.0.1:%d"
-}
-edges {
-  central_url: %q
-  assertion_audience: "flowseer-e2e"
-  cluster_urls: "ws://127.0.0.1:%d"
-}
-intervals {
-  dispatch_resend { seconds: 1 }
-  drift { seconds: 3600 }%s
-}
-authentication {
-  issuers {
-    issuer: %q
-    audience: "flowseer-e2e"
-    organization_claim_name: "org_id"
-  }
-  ca_file: %q
-}
-authorization {
-  endpoint: "https://authz.example.test:8081"
-  store_id: "01JK1234567890ABCDEFGHJKMN"
-  model_id: "01JK1234567890ABCDEFGHJKMM"
-  preshared_key_file: %q
-}
-`, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep),
-		c.issuer.URL(), caPath, keyPath)
-
-	cfg, err := centralhost.LoadConfig(writeFile(t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
-	if err != nil {
-		t.Fatalf("central LoadConfig: %v", err)
-	}
-
-	c.tenant = devTenant
-	if err := c.engine.Write(context.Background(), []authz.Tuple{
-		{Object: "tenant:" + devTenant, Relation: "member", User: "user:" + c.principalID},
-		{Object: "tenant:" + devTenant, Relation: "admin", User: "user:" + c.principalID},
-	}, nil); err != nil {
-		t.Fatalf("seed tenant tuples: %v", err)
-	}
-
-	bound := make(chan string, 1)
-	reconciled := make(chan struct{}, 1)
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
-			Bound: func(api string) {
-				select {
-				case bound <- api:
-				default:
-				}
-			},
-			Hub: func(hub *edgebus.Hub) {
-				c.mu.Lock()
-				c.hub = hub
-				c.mu.Unlock()
-			},
-			Engine: c.engine,
-			Reconciled: func() {
-				select {
-				case reconciled <- struct{}{}:
-				default:
-				}
-			},
-		})
-	}()
-
-	select {
-	case api := <-bound:
-		if want := fmt.Sprintf("127.0.0.1:%d", c.apiPort); api != want {
-			t.Fatalf("central bound %q, want %q", api, want)
-		}
-	case err := <-done:
-		t.Fatalf("central stopped before it bound its listener: %v", err)
-	case <-time.After(60 * time.Second):
-		cancel()
-		t.Fatal("central did not bind its listener within a minute")
-	}
-
-	select {
-	case <-reconciled:
-	case err := <-done:
-		t.Fatalf("central stopped before reconciliation: %v", err)
-	case <-time.After(60 * time.Second):
-		cancel()
-		t.Fatal("central did not complete initial reconciliation within a minute")
-	}
-
-	c.mu.Lock()
-	c.stop, c.stopped = cancel, done
-	c.mu.Unlock()
-}
-
 func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	dir := t.TempDir()
 	writeCredentials(t, filepath.Join(dir, "credentials"))
@@ -984,7 +873,7 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
 	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
 
-	startCentralWithDevTenant(t, c, tenantA)
+	c.startWithTenant(tenantA)
 	defer c.shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1252,23 +1141,23 @@ func TestMultiTenantIsolationAndEdgeBusPartitioning(t *testing.T) {
 		t.Fatalf("GetCaptureSession returned session ID = %q, want %q", getCapResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId(), sessionID)
 	}
 
-	// 6. Restart central with dev_tenant = UUID B over the same state dir
+	// 6. Restart central under tenant B over the same state dir
 	c.shutdown()
-	startCentralWithDevTenant(t, c, tenantB)
+	c.startWithTenant(tenantB)
 
-	// 7. Assert GetEdge and GetCaptureSession for A's IDs return NotFound under tenant B
+	// 7. Assert GetEdge and GetCaptureSession for A's IDs return PermissionDenied under tenant B
 	_, err = c.admin().GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{
 		Edge: edgeRef,
 	}.Build()))
-	if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
-		t.Fatalf("GetEdge under tenant B got code %v, want CodePermissionDenied or CodeNotFound", code)
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied {
+		t.Fatalf("GetEdge under tenant B got code %v, want CodePermissionDenied", code)
 	}
 
 	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(apicapturev1.GetCaptureSessionRequest_builder{
 		Session: captureRef,
 	}.Build()))
-	if code := connect.CodeOf(err); code != connect.CodePermissionDenied && code != connect.CodeNotFound {
-		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodePermissionDenied or CodeNotFound", code)
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied {
+		t.Fatalf("GetCaptureSession under tenant B got code %v, want CodePermissionDenied", code)
 	}
 }
 
@@ -1308,8 +1197,16 @@ func TestOperatorActionTrailRecordsIssueSetupKey(t *testing.T) {
 		t.Fatalf("got %d new operator action records, want 2", len(newRecords))
 	}
 
-	attempt := newRecords[0]
-	completed := newRecords[1]
+	attempt := newRecords[0].Event
+	completed := newRecords[1].Event
+
+	wantSubject := "flowseer." + c.tenant + ".operator.action.setup_key_issue"
+	if newRecords[0].Subject != wantSubject {
+		t.Errorf("attempt subject = %q, want %q", newRecords[0].Subject, wantSubject)
+	}
+	if newRecords[1].Subject != wantSubject {
+		t.Errorf("completed subject = %q, want %q", newRecords[1].Subject, wantSubject)
+	}
 
 	if attempt.GetCallId() == "" || attempt.GetCallId() != completed.GetCallId() {
 		t.Fatalf("call_id mismatch: attempt=%q, completed=%q", attempt.GetCallId(), completed.GetCallId())

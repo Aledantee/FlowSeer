@@ -204,6 +204,14 @@ func TestModelIdentityRules(t *testing.T) {
 			wantValid: false,
 		},
 		{
+			name: "operator ref with 2048-character issuer validates",
+			message: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://idp.example.com/" + strings.Repeat("a", 2048-len("https://idp.example.com/"))),
+				Subject: proto.String("user-1"),
+			}.Build(),
+			wantValid: true,
+		},
+		{
 			name: "operator ref with 2049-character issuer fails",
 			message: identityv1.OperatorRef_builder{
 				Issuer:  proto.String("https://idp.example.com/" + strings.Repeat("a", 2049-len("https://idp.example.com/"))),

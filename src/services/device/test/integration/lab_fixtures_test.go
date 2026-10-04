@@ -1,15 +1,20 @@
 package integration_test
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
 	"buf.build/go/protovalidate"
+
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
@@ -18,6 +23,7 @@ import (
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
@@ -412,5 +418,337 @@ func TestTheLabStoreScriptKeepsTheKeyOutOfCurlArguments(t *testing.T) {
 		if strings.Contains(line, "-H") && strings.Contains(line, "PSK") {
 			t.Errorf("curl is given the preshared key as an argument: %q", strings.TrimSpace(line))
 		}
+	}
+}
+
+// The README's principal-id pipeline extracts the subject without quotes
+// and matches authn.ComputePrincipalID.
+func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
+	t.Parallel()
+
+	for _, tool := range []string{"jq", "shasum"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s is not on PATH: %v", tool, err)
+		}
+	}
+
+	readme := labScript(t, "README.md")
+	var subLine, idLine string
+	for line := range strings.SplitSeq(readme, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "ALICE_SUB=") {
+			subLine = trimmed
+		}
+		if strings.HasPrefix(trimmed, "ALICE_ID=") {
+			idLine = trimmed
+		}
+	}
+	if subLine == "" || idLine == "" {
+		t.Fatalf("extract principal pipeline from deploy/lab/README.md: ALICE_SUB=%q, ALICE_ID=%q", subLine, idLine)
+	}
+
+	issuer := "https://127.0.0.1:8445/dex"
+	subject := "alice-subject-123"
+	wantID := authn.ComputePrincipalID(issuer, subject)
+
+	header := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"` + subject + `"}`))
+	token := header + "." + payload + ".dummy-sig"
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf(`
+set -eu
+ALICE_TOKEN=%q
+%s
+%s
+printf '%%s' "${ALICE_ID}"
+`, token, subLine, idLine))
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run principal pipeline from README: %v\n%s", err, out)
+	}
+
+	gotID := string(out)
+	if gotID != wantID {
+		t.Errorf("computed principal ID = %q, want %q", gotID, wantID)
+	}
+}
+
+// The sample DeviceServiceConfig in spec/proto/flowseer/store/device/v1/README.md
+// is valid and passes host.LoadConfig.
+func TestTheStoreDeviceReadmeSampleLoads(t *testing.T) {
+	t.Parallel()
+
+	readmePath := filepath.Join(repoRoot, "spec", "proto", "flowseer", "store", "device", "v1", "README.md")
+	content, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read store/device/v1/README.md: %v", err)
+	}
+
+	const section = "## The service configuration"
+	secIdx := strings.Index(string(content), section)
+	if secIdx < 0 {
+		t.Fatalf("no %q section in %s", section, readmePath)
+	}
+
+	const marker = "```prototext\n"
+	start := strings.Index(string(content)[secIdx:], marker)
+	if start < 0 {
+		t.Fatalf("no %s block under %q in %s", marker, section, readmePath)
+	}
+	start += secIdx + len(marker)
+	end := strings.Index(string(content)[start:], "\n```")
+	if end < 0 {
+		t.Fatalf("unclosed prototext block in %s", readmePath)
+	}
+	body := string(content)[start : start+end]
+
+	tmp := filepath.Join(t.TempDir(), "device.textproto")
+	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
+		t.Fatalf("write temp config: %v", err)
+	}
+
+	cfg, err := host.LoadConfig(tmp)
+	if err != nil {
+		t.Fatalf("host.LoadConfig(%s): %v", readmePath, err)
+	}
+	if cfg.StateDir() != "/var/lib/flowseer/device" {
+		t.Errorf("StateDir = %q, want /var/lib/flowseer/device", cfg.StateDir())
+	}
+}
+
+// deploy/lab/README.md prints accurate expected answers for OpenFGA preshared key
+// checks and edge administration.
+func TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+
+	if strings.Contains(readme, "grpc-status: 16") {
+		t.Errorf("deploy/lab/README.md contains 'grpc-status: 16', want 1010 and 1500")
+	}
+	if !strings.Contains(readme, "grpc-status: 1010") {
+		t.Errorf("deploy/lab/README.md missing expected 'grpc-status: 1010'")
+	}
+	if !strings.Contains(readme, "grpc-status: 1500") {
+		t.Errorf("deploy/lab/README.md missing expected 'grpc-status: 1500'")
+	}
+
+	if strings.Contains(readme, `"Bearer token is missing"`) {
+		t.Errorf("deploy/lab/README.md contains '\"Bearer token is missing\"', want 'missing bearer token'")
+	}
+	if strings.Contains(readme, `"Unauthorized"`) {
+		t.Errorf("deploy/lab/README.md contains '\"Unauthorized\"', want 'unauthenticated'")
+	}
+	if !strings.Contains(readme, `"missing bearer token"`) {
+		t.Errorf("deploy/lab/README.md missing '\"missing bearer token\"'")
+	}
+
+	if strings.Contains(readme, `"edgeId":`) {
+		t.Errorf("deploy/lab/README.md contains '\"edgeId\":' under provisioning, which EdgeProvisioning lacks")
+	}
+	if !strings.Contains(readme, `"issuedAt":`) || !strings.Contains(readme, `"expiresAt":`) {
+		t.Errorf("deploy/lab/README.md setupKey expected answer missing issuedAt or expiresAt")
+	}
+	if !regexp.MustCompile(`"setupKey": "fse1_[a-z2-7]{26}_[a-z2-7]{52}"`).MatchString(readme) {
+		t.Errorf("deploy/lab/README.md provisioning setupKey does not match the 26-character id and 52-character secret schema")
+	}
+	getEdge := strings.Index(readme, "Requesting `GetEdge`")
+	if getEdge < 0 || !strings.Contains(readme[getEdge:], `"setupKey": {`) {
+		t.Errorf("deploy/lab/README.md GetEdge expected answer omits state.setupKey")
+	}
+
+	if strings.Contains(readme, `-d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}'`) {
+		t.Errorf("deploy/lab/README.md hardcodes edge id in GetEdge, must capture from CreateEdge answer")
+	}
+}
+
+// deploy/lab/README.md uses directory-relative path for starting device service and
+// explains bootstrap registry creation.
+func TestTheLabReadmeStartCommandAndBootstrapRegistry(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+
+	if strings.Contains(readme, "go run ./src/services/device/cmd/device") {
+		t.Errorf("deploy/lab/README.md start command uses ./src/services/device/cmd/device, should use ../../src/services/device/cmd/device")
+	}
+
+	if !strings.Contains(readme, "registry.textproto") || !strings.Contains(readme, "0192e6a0-0000-7000-8000-00000000dead") {
+		t.Errorf("deploy/lab/README.md does not show or cite the bootstrap registry with placeholder edge")
+	}
+
+	for _, stale := range []string{
+		"docs/runbooks/lab-icx7150-first-write.md:92-95",
+		"docs/runbooks/lab-icx7150-first-write.md:168",
+		"host_test.go:629-654",
+	} {
+		if strings.Contains(readme, stale) {
+			t.Errorf("deploy/lab/README.md retains stale citation %q", stale)
+		}
+	}
+}
+
+// docs/runbooks/lab-icx7150-first-write.md contracts: tenant id is deployment UUID,
+// links to lab README, requires authentication/authorization config, and states
+// tenant-record limits.
+func TestTheRunbookAuthenticationAndTenantContracts(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(repoRoot, "docs", "runbooks", "lab-icx7150-first-write.md"))
+	if err != nil {
+		t.Fatalf("read runbook: %v", err)
+	}
+	runbook := string(content)
+
+	if strings.Contains(runbook, "export TENANT=default\n") {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md contains 'export TENANT=default', want deployment's tenant UUID")
+	}
+
+	if !strings.Contains(runbook, "deploy/lab/README.md") {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing link to deploy/lab/README.md")
+	}
+
+	for _, stale := range []string{
+		"grep flowseer-device credentials.txt",
+		"grep alice credentials.txt",
+		"export TOKEN=your-oidc-bearer-token",
+	} {
+		if strings.Contains(runbook, stale) {
+			t.Errorf("docs/runbooks/lab-icx7150-first-write.md repeats stale token step %q; use deploy/lab/README.md", stale)
+		}
+	}
+	if strings.Contains(runbook, "host_test.go:629-655") {
+		t.Error("docs/runbooks/lab-icx7150-first-write.md retains stale host_test.go line citation")
+	}
+
+	for _, cite := range []string{
+		"tenantstore",
+		"TenantService",
+		"verifier.go",
+		"model.json",
+	} {
+		if !strings.Contains(runbook, cite) {
+			t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing citation of %s for tenant record limit", cite)
+		}
+	}
+}
+
+// docs/architecture/2026-09-30-operator-authorization-direction.md contracts:
+// correct citations and inclusion of plan decisions.
+func TestTheDirectionRecordCitationsAndDecisions(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(repoRoot, "docs", "architecture", "2026-09-30-operator-authorization-direction.md"))
+	if err != nil {
+		t.Fatalf("read direction record: %v", err)
+	}
+	text := string(content)
+
+	if strings.Contains(text, "src/modules/edgebus/hub.go:42") {
+		t.Errorf("direction record cites src/modules/edgebus/hub.go:42, should cite subjects.go and hub.go:400")
+	}
+
+	if strings.Contains(text, "mutual TLS") {
+		t.Errorf("direction record claims edges authenticate through mutual TLS, want signed assertions citing src/services/device/README.md")
+	}
+
+	if strings.Contains(text, "the plan table") {
+		t.Errorf("direction record cites 'the plan table' without path")
+	}
+
+	if strings.Contains(text, "cannot evict setup key issuance records from another tenant") {
+		t.Errorf("direction record claims per-subject cap is for cross-tenant eviction; should be edge viewers evicting key issuance records")
+	}
+
+	amendmentStart := strings.LastIndex(text, "### 2026-10-03:")
+	if amendmentStart < 0 {
+		t.Fatal("direction record is missing the 2026-10-03 amendment")
+	}
+	lineRE := regexp.MustCompile(`^(.+):([0-9]+)(-([0-9]+))?$`)
+	repositoryRoots := []string{"src/", "spec/", "docs/", "deploy/", "test/"}
+	pathsChecked := 0
+	for _, match := range regexp.MustCompile("`([^`]+)`").FindAllStringSubmatch(text[amendmentStart:], -1) {
+		citation := match[1]
+		path := citation
+		startText := ""
+		endText := ""
+		if parts := lineRE.FindStringSubmatch(citation); parts != nil {
+			path = parts[1]
+			startText = parts[2]
+			endText = parts[4]
+		}
+		if !slices.ContainsFunc(repositoryRoots, func(root string) bool {
+			return strings.HasPrefix(path, root)
+		}) {
+			continue
+		}
+		pathsChecked++
+		fullPath := filepath.Join(repoRoot, path)
+		info, err := os.Stat(fullPath)
+		if err != nil {
+			t.Errorf("direction record citation %q does not name a repository file: %v", citation, err)
+			continue
+		}
+		if info.IsDir() {
+			t.Errorf("direction record citation %q names a directory, want a file", citation)
+			continue
+		}
+		if startText == "" {
+			continue
+		}
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			t.Errorf("read cited file %q: %v", citation, err)
+			continue
+		}
+		lineCount := len(strings.Split(strings.TrimSuffix(string(content), "\n"), "\n"))
+		start, _ := strconv.Atoi(startText)
+		end := start
+		if endText != "" {
+			end, _ = strconv.Atoi(endText)
+		}
+		if start < 1 || end < start || end > lineCount {
+			t.Errorf("direction record citation %q is outside %s line range 1-%d", citation, path, lineCount)
+		}
+	}
+	if pathsChecked == 0 {
+		t.Fatal("direction record amendment has no repository citations")
+	}
+
+	for _, decision := range []string{
+		"Sync",
+		"5 s",
+		"Reconciled",
+		"256",
+		"AbandonMutationRequest",
+		"OPERATOR_ACTION_OUTCOME_DENIED",
+	} {
+		if !strings.Contains(text, decision) {
+			t.Errorf("direction record missing decision keyword %q", decision)
+		}
+	}
+}
+
+// spec/proto README contracts: no semicolons in operator event README and central
+// sets Actor in access model README.
+func TestTheAccessAndEventReadmes(t *testing.T) {
+	t.Parallel()
+
+	eventReadme, err := os.ReadFile(filepath.Join(repoRoot, "spec", "proto", "flowseer", "event", "operator", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read event README: %v", err)
+	}
+	if strings.Contains(string(eventReadme), ";") {
+		t.Errorf("spec/proto/flowseer/event/operator/v1/README.md contains semicolons")
+	}
+
+	accessReadme, err := os.ReadFile(filepath.Join(repoRoot, "spec", "proto", "flowseer", "model", "access", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read access README: %v", err)
+	}
+	if strings.Contains(string(accessReadme), "The client builds a `MutationIntent`: the device ref, a fresh UUID as\n   `idempotency_key`, an `Actor`") ||
+		strings.Contains(string(accessReadme), "The client builds a `MutationIntent`: the device ref, a fresh UUID as `idempotency_key`, an `Actor`") {
+		t.Errorf("spec/proto/flowseer/model/access/v1/README.md claims client builds Actor")
 	}
 }

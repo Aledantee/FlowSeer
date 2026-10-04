@@ -257,7 +257,7 @@ export CACERT=%q
 export DEVICE_ID=%q
 export INTERFACE=%q
 export TOKEN=%q
-buf() { if [ "$1" = "curl" ]; then shift; command buf curl -H "Authorization: Bearer $TOKEN" -H "X-FlowSeer-Tenant: default" "$@"; else command buf "$@"; fi; }
+export TENANT=default
 `, template, repo, run,
 		filepath.Join(dir, "device.textproto"),
 		filepath.Join(dir, "agent.textproto"),

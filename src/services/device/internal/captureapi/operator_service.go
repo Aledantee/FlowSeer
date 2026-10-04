@@ -38,8 +38,8 @@ func unauthenticatedOperator(err error) error {
 	return connecterr.WrapRefused(msgOperatorUnauthenticated, err)
 }
 
-// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
-// no-op, and nil Clock uses the wall clock.
+// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange and
+// Project callbacks are no-ops, and nil Clock uses the wall clock.
 type OperatorServiceConfig struct {
 	EdgeTenant   func(ctx context.Context, edgeID string) (string, error)
 	NotifyChange func()
@@ -48,8 +48,8 @@ type OperatorServiceConfig struct {
 }
 
 // OperatorService serves operator capture requests. An OperatorService is safe
-// for concurrent use when both its configured NotifyChange and Clock callbacks
-// are safe for concurrent use.
+// for concurrent use when its configured EdgeTenant, NotifyChange, Clock, and
+// Project callbacks are safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
@@ -271,7 +271,7 @@ func (s *OperatorService) ListCaptureSessions(
 ) (*connect.Response[operatorcapturev1.ListCaptureSessionsResponse], error) {
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
-		return nil, unauthenticatedOperator(err)
+		return nil, authz.Abandon(ctx, unauthenticatedOperator(err))
 	}
 
 	all, err := s.store.ListSessions(ctx, tenantID)
@@ -333,7 +333,7 @@ func (s *OperatorService) ListCaptureSessions(
 
 		allowedEdges, err := authz.Filter(ctx, "capture", "edge", distinctEdges)
 		if err != nil {
-			return nil, connectErr(err)
+			return nil, err
 		}
 		allowedEdgeSet := make(map[string]bool, len(allowedEdges))
 		for _, edgeID := range allowedEdges {
@@ -351,6 +351,11 @@ func (s *OperatorService) ListCaptureSessions(
 				pageFilled = true
 				break
 			}
+		}
+	}
+	if examined == 0 {
+		if _, err := authz.Filter(ctx, "capture", "edge", nil); err != nil {
+			return nil, err
 		}
 	}
 

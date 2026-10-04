@@ -7,12 +7,13 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	connect "connectrpc.com/connect"
-	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 
 	capturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
@@ -24,12 +25,11 @@ import (
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	modeledgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/tenant"
-	"go.aledante.io/FlowSeer/src/modules/edgebus"
 	"go.aledante.io/FlowSeer/src/services/device/internal/actiontrail"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
 
@@ -55,6 +55,8 @@ func codeOf(t *testing.T, err error) string {
 	return ""
 }
 
+const testTenant = "00000000-0000-0000-0000-000000000001"
+
 func TestEveryEdgeAdminProcedureIsRecorded(t *testing.T) {
 	const wantProcedures = 6
 
@@ -62,14 +64,30 @@ func TestEveryEdgeAdminProcedureIsRecorded(t *testing.T) {
 	if methods.Len() != wantProcedures {
 		t.Fatalf("EdgeAdminService has %d methods, want %d", methods.Len(), wantProcedures)
 	}
-	if len(actiontrail.EdgeAdminProcedureActions) != wantProcedures {
-		t.Fatalf("EdgeAdminProcedureActions has %d entries, want %d", len(actiontrail.EdgeAdminProcedureActions), wantProcedures)
-	}
+	ctx := context.Background()
 	for i := 0; i < methods.Len(); i++ {
 		m := methods.Get(i)
 		proc := fmt.Sprintf("/%s/%s", m.Parent().FullName(), m.Name())
-		if _, ok := actiontrail.EdgeAdminProcedureActions[proc]; !ok {
-			t.Errorf("procedure %q missing from EdgeAdminProcedureActions", proc)
+		h := newTestHarness(t, time.Now())
+		switch m.Name() {
+		case "CreateEdge":
+			_, _ = h.adminClient.CreateEdge(ctx, connect.NewRequest(&edgev1.CreateEdgeRequest{}))
+		case "IssueSetupKey":
+			_, _ = h.adminClient.IssueSetupKey(ctx, connect.NewRequest(&edgev1.IssueSetupKeyRequest{}))
+		case "RevokeSetupKey":
+			_, _ = h.adminClient.RevokeSetupKey(ctx, connect.NewRequest(&edgev1.RevokeSetupKeyRequest{}))
+		case "RetireEdge":
+			_, _ = h.adminClient.RetireEdge(ctx, connect.NewRequest(&edgev1.RetireEdgeRequest{}))
+		case "GetEdge":
+			_, _ = h.adminClient.GetEdge(ctx, connect.NewRequest(&edgev1.GetEdgeRequest{}))
+		case "ListEdges":
+			_, _ = h.adminClient.ListEdges(ctx, connect.NewRequest(&edgev1.ListEdgesRequest{}))
+		default:
+			t.Fatalf("unhandled descriptor method %s", m.Name())
+		}
+		events := h.pub.getEvents()
+		if len(events) == 0 {
+			t.Errorf("procedure %q was not recorded by interceptor", proc)
 		}
 	}
 }
@@ -89,9 +107,13 @@ type fakePublisher struct {
 	failErr        error
 }
 
-func (p *fakePublisher) Publish(_ context.Context, subject string, data []byte, msgID string) error {
+func (p *fakePublisher) Publish(ctx context.Context, subject string, data []byte, msgID string) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 
 	event := &operatorv1.OperatorActionEvent{}
 	if err := proto.Unmarshal(data, event); err != nil {
@@ -310,7 +332,7 @@ func newTestHarness(t *testing.T, fixedTime time.Time) *testHarness {
 			Issuer:  "https://issuer.example.com",
 			Subject: "operator-42",
 		},
-		tenantID:        "tenant-alpha",
+		tenantID:        testTenant,
 		injectPrincipal: true,
 		injectTenant:    true,
 	}
@@ -361,7 +383,7 @@ func sessionGlobalRef(sessionID string) *modelcapturev1.CaptureSessionGlobalRef 
 	return ref
 }
 
-func TestRequirement10IssueSetupKeyTrail(t *testing.T) {
+func TestIssueSetupKeyTrailAttemptAndCompletion(t *testing.T) {
 	ctx := context.Background()
 	fixedTime := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	h := newTestHarness(t, fixedTime)
@@ -393,7 +415,7 @@ func TestRequirement10IssueSetupKeyTrail(t *testing.T) {
 		t.Fatalf("published %d events, want 2", len(events))
 	}
 
-	wantSubject := "flowseer.tenant-alpha.operator.action.setup_key_issue"
+	wantSubject := "flowseer." + testTenant + ".operator.action.setup_key_issue"
 	for idx, rec := range events {
 		if rec.subject != wantSubject {
 			t.Errorf("event %d subject = %q, want %q", idx, rec.subject, wantSubject)
@@ -661,7 +683,7 @@ func TestCreateCaptureSession(t *testing.T) {
 			t.Fatalf("published %d events for full-payload, want 2", len(events))
 		}
 
-		wantSubj := "flowseer.tenant-alpha.operator.action.capture_full_payload_create"
+		wantSubj := "flowseer." + testTenant + ".operator.action.capture_full_payload_create"
 		if events[0].subject != wantSubj || events[1].subject != wantSubj {
 			t.Errorf("subject mismatch: %q, %q, want %q", events[0].subject, events[1].subject, wantSubj)
 		}
@@ -852,77 +874,453 @@ func TestUnpreparedContext(t *testing.T) {
 			t.Fatalf("handler calls = %d, want 0", h.edgeHandler.issueSetupKeyCalls)
 		}
 	})
+
+	t.Run("invalid tenant in context", func(t *testing.T) {
+		h := newTestHarness(t, time.Now())
+		h.injector.tenantID = "invalid.tenant"
+
+		h.edgeHandler.issueSetupKeyFunc = func(_ context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
+			t.Fatal("handler should not run when unprepared")
+			return nil, nil
+		}
+
+		req := &edgev1.IssueSetupKeyRequest{}
+		req.SetEdge(edgeGlobalRef("edge-1"))
+		_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
+		if err == nil {
+			t.Fatal("expected error, got nil")
+		}
+		if connect.CodeOf(err) != connect.CodeInternal {
+			t.Fatalf("got connect code %v, want CodeInternal", connect.CodeOf(err))
+		}
+		if got := codeOf(t, err); got != actiontrail.ErrCodeUnprepared.String() {
+			t.Fatalf("got errs code %q, want %q", got, actiontrail.ErrCodeUnprepared)
+		}
+		if h.edgeHandler.issueSetupKeyCalls != 0 {
+			t.Fatalf("handler calls = %d, want 0", h.edgeHandler.issueSetupKeyCalls)
+		}
+	})
 }
 
-func TestOperatorActionStreamRetentionFromOutsideModule(t *testing.T) {
-	ctx := context.Background()
-	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
-		StateDir:                    t.TempDir(),
-		FsyncPolicy:                 service.BusFsyncPeriodic,
-		OperatorActionMaxPerSubject: 2,
-	})
-	if err != nil {
-		t.Fatalf("start hub: %v", err)
+func TestUnpreparedStreamingContext(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		injectTenant bool
+		tenantID     string
+	}{
+		{name: "no tenant", injectTenant: false, tenantID: testTenant},
+		{name: "invalid tenant", injectTenant: true, tenantID: "invalid.tenant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestHarness(t, time.Now())
+			h.injector.injectTenant = tc.injectTenant
+			h.injector.tenantID = tc.tenantID
+			h.capHandler.tailSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.TailCaptureSessionRequest], _ *connect.ServerStream[capturev1.TailCaptureSessionResponse]) error {
+				t.Fatal("handler should not run when unprepared")
+				return nil
+			}
+
+			req := &capturev1.TailCaptureSessionRequest{}
+			req.SetSession(sessionGlobalRef("session-1"))
+			stream, err := h.captureClient.TailCaptureSession(context.Background(), connect.NewRequest(req))
+			if err == nil {
+				for stream.Receive() {
+				}
+				err = stream.Err()
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if connect.CodeOf(err) != connect.CodeInternal {
+				t.Fatalf("got connect code %v, want CodeInternal", connect.CodeOf(err))
+			}
+			if got := codeOf(t, err); got != actiontrail.ErrCodeUnprepared.String() {
+				t.Fatalf("got errs code %q, want %q", got, actiontrail.ErrCodeUnprepared)
+			}
+			if h.capHandler.tailSessionCalls != 0 {
+				t.Fatalf("handler calls = %d, want 0", h.capHandler.tailSessionCalls)
+			}
+		})
 	}
-	defer hub.Close()
+}
 
-	const tenantID = "tenant-outside"
-	subj1 := edgebus.OperatorActionSubject(tenantID, "setup_key_issue")
-	subj2 := edgebus.OperatorActionSubject(tenantID, "edge_create")
+func TestTruncateErrorTypeRuneBoundary(t *testing.T) {
+	// A 50-rune string of 3-byte runes is 150 bytes (> 128 bytes).
+	// The schema bound is 128 characters, so 50 runes must not be truncated.
+	fiftyRunes := strings.Repeat("日", 50)
+	if got := actiontrail.TruncateErrorType(fiftyRunes); got != fiftyRunes {
+		t.Fatalf("TruncateErrorType(50 runes) = %q (len %d), want full string (len %d)", got, len(got), len(fiftyRunes))
+	}
 
-	// Publish three records on subj1.
-	for i, body := range []string{"outside-rec-1", "outside-rec-2", "outside-rec-3"} {
-		if _, err := hub.JetStream().Publish(ctx, subj1, []byte(body), jetstream.WithMsgID(fmt.Sprintf("outside-s1-%d", i))); err != nil {
-			t.Fatalf("publish on subj1: %v", err)
+	// A 130-rune string of 3-byte runes must be truncated to 128 runes on a rune boundary.
+	manyRunes := strings.Repeat("日", 130)
+	got := actiontrail.TruncateErrorType(manyRunes)
+	if !utf8.ValidString(got) {
+		t.Fatalf("TruncateErrorType produced invalid UTF-8 string: %x", got)
+	}
+	if runeCount := utf8.RuneCountInString(got); runeCount != 128 {
+		t.Fatalf("TruncateErrorType rune count = %d, want 128", runeCount)
+	}
+}
+
+func TestListEdgesAttemptPublishFailureWithAuthzInterceptor(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+	engine.Grant("user:principal-1", "member", "tenant")
+	authzInt := authz.NewInterceptor(engine)
+
+	pub := &fakePublisher{failAttempt: true}
+	trailInt := actiontrail.NewInterceptor(pub, time.Now, nil)
+
+	const tid = "00000000-0000-0000-0000-000000000001"
+	p := authn.Principal{
+		ID:      "principal-1",
+		Issuer:  "https://issuer.example.com",
+		Subject: "operator-42",
+		Tenants: []string{tid},
+	}
+	injector := &contextInjector{
+		principal:       p,
+		tenantID:        tid,
+		injectPrincipal: true,
+		injectTenant:    true,
+	}
+
+	handler := &fakeEdgeAdminHandler{}
+	mux := http.NewServeMux()
+	path, h := edgev1connect.NewEdgeAdminServiceHandler(handler, connect.WithInterceptors(injector, authzInt, trailInt))
+	mux.Handle(path, h)
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := edgev1connect.NewEdgeAdminServiceClient(http.DefaultClient, server.URL)
+
+	req := connect.NewRequest(&edgev1.ListEdgesRequest{})
+	req.Header().Set("X-FlowSeer-Tenant", tid)
+
+	_, err := client.ListEdges(ctx, req)
+	if err == nil {
+		t.Fatal("ListEdges succeeded, want error")
+	}
+	if connect.CodeOf(err) != connect.CodeUnavailable {
+		t.Fatalf("got connect code %v, want CodeUnavailable", connect.CodeOf(err))
+	}
+	if got := codeOf(t, err); got != actiontrail.ErrCodeUnavailable.String() {
+		t.Fatalf("got errs code %q, want %q", got, actiontrail.ErrCodeUnavailable)
+	}
+}
+
+func TestOperatorActionTrailTable(t *testing.T) {
+	ctx := context.Background()
+
+	type objectSpec struct {
+		isEdge    bool
+		isSession bool
+		id        string
+	}
+
+	tests := []struct {
+		name         string
+		setupHandler func(h *testHarness)
+		invoke       func(ctx context.Context, h *testHarness) error
+		wantSubject  string
+		wantAction   operatorv1.OperatorAction
+		wantAttempt  objectSpec
+		wantComplete objectSpec
+	}{
+		{
+			name: "EdgeAdminService.CreateEdge",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.createEdgeFunc = func(_ context.Context, _ *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
+					resp := &edgev1.CreateEdgeResponse{}
+					resp.SetEdge(&modeledgev1.EdgeRecord{})
+					resp.GetEdge().SetConfig(&modeledgev1.EdgeConfig{})
+					resp.GetEdge().GetConfig().SetRef(edgeGlobalRef("edge-created-1"))
+					return connect.NewResponse(resp), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				_, err := h.adminClient.CreateEdge(ctx, connect.NewRequest(&edgev1.CreateEdgeRequest{}))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_create",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_CREATE,
+			wantAttempt:  objectSpec{},
+			wantComplete: objectSpec{isEdge: true, id: "edge-created-1"},
+		},
+		{
+			name: "EdgeAdminService.IssueSetupKey",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.issueSetupKeyFunc = func(_ context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
+					return connect.NewResponse(&edgev1.IssueSetupKeyResponse{}), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &edgev1.IssueSetupKeyRequest{}
+				req.SetEdge(edgeGlobalRef("edge-1"))
+				_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.setup_key_issue",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE,
+			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
+			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+		},
+		{
+			name: "EdgeAdminService.RevokeSetupKey",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.revokeSetupKeyFunc = func(_ context.Context, _ *connect.Request[edgev1.RevokeSetupKeyRequest]) (*connect.Response[edgev1.RevokeSetupKeyResponse], error) {
+					return connect.NewResponse(&edgev1.RevokeSetupKeyResponse{}), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &edgev1.RevokeSetupKeyRequest{}
+				req.SetEdge(edgeGlobalRef("edge-1"))
+				_, err := h.adminClient.RevokeSetupKey(ctx, connect.NewRequest(req))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.setup_key_revoke",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_REVOKE,
+			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
+			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+		},
+		{
+			name: "EdgeAdminService.RetireEdge",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.retireEdgeFunc = func(_ context.Context, _ *connect.Request[edgev1.RetireEdgeRequest]) (*connect.Response[edgev1.RetireEdgeResponse], error) {
+					return connect.NewResponse(&edgev1.RetireEdgeResponse{}), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &edgev1.RetireEdgeRequest{}
+				req.SetEdge(edgeGlobalRef("edge-1"))
+				_, err := h.adminClient.RetireEdge(ctx, connect.NewRequest(req))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_retire",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_RETIRE,
+			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
+			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+		},
+		{
+			name: "EdgeAdminService.GetEdge",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.getEdgeFunc = func(_ context.Context, _ *connect.Request[edgev1.GetEdgeRequest]) (*connect.Response[edgev1.GetEdgeResponse], error) {
+					return connect.NewResponse(&edgev1.GetEdgeResponse{}), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &edgev1.GetEdgeRequest{}
+				req.SetEdge(edgeGlobalRef("edge-1"))
+				_, err := h.adminClient.GetEdge(ctx, connect.NewRequest(req))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_get",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_GET,
+			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
+			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+		},
+		{
+			name: "EdgeAdminService.ListEdges",
+			setupHandler: func(h *testHarness) {
+				h.edgeHandler.listEdgesFunc = func(_ context.Context, _ *connect.Request[edgev1.ListEdgesRequest]) (*connect.Response[edgev1.ListEdgesResponse], error) {
+					return connect.NewResponse(&edgev1.ListEdgesResponse{}), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				_, err := h.adminClient.ListEdges(ctx, connect.NewRequest(&edgev1.ListEdgesRequest{}))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_list",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_LIST,
+			wantAttempt:  objectSpec{},
+			wantComplete: objectSpec{},
+		},
+		{
+			name: "CaptureService.CreateCaptureSession_FullPayload",
+			setupHandler: func(h *testHarness) {
+				h.capHandler.createSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.CreateCaptureSessionRequest]) (*connect.Response[capturev1.CreateCaptureSessionResponse], error) {
+					resp := &capturev1.CreateCaptureSessionResponse{}
+					resp.SetSession(&modelcapturev1.CaptureSessionRecord{})
+					resp.GetSession().SetConfig(&modelcapturev1.CaptureSessionConfig{})
+					resp.GetSession().GetConfig().SetRef(sessionGlobalRef("sess-created-1"))
+					return connect.NewResponse(resp), nil
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &capturev1.CreateCaptureSessionRequest{}
+				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetAuthorization(&modelcapturev1.CaptureAuthorization{})
+				req.GetAuthorization().SetFullPayloadRequested(true)
+				_, err := h.captureClient.CreateCaptureSession(ctx, connect.NewRequest(req))
+				return err
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_full_payload_create",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE,
+			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
+			wantComplete: objectSpec{isSession: true, id: "sess-created-1"},
+		},
+		{
+			name: "CaptureService.TailCaptureSession",
+			setupHandler: func(h *testHarness) {
+				h.capHandler.tailSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.TailCaptureSessionRequest], stream *connect.ServerStream[capturev1.TailCaptureSessionResponse]) error {
+					return stream.Send(&capturev1.TailCaptureSessionResponse{})
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &capturev1.TailCaptureSessionRequest{}
+				req.SetSession(sessionGlobalRef("sess-tail-1"))
+				stream, err := h.captureClient.TailCaptureSession(ctx, connect.NewRequest(req))
+				if err != nil {
+					return err
+				}
+				for stream.Receive() {
+				}
+				return stream.Err()
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_tail",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_TAIL,
+			wantAttempt:  objectSpec{isSession: true, id: "sess-tail-1"},
+			wantComplete: objectSpec{isSession: true, id: "sess-tail-1"},
+		},
+		{
+			name: "CaptureService.DownloadCaptureSession",
+			setupHandler: func(h *testHarness) {
+				h.capHandler.downloadSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], stream *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
+					return stream.Send(&capturev1.DownloadCaptureSessionResponse{})
+				}
+			},
+			invoke: func(ctx context.Context, h *testHarness) error {
+				req := &capturev1.DownloadCaptureSessionRequest{}
+				req.SetSession(sessionGlobalRef("sess-down-1"))
+				stream, err := h.captureClient.DownloadCaptureSession(ctx, connect.NewRequest(req))
+				if err != nil {
+					return err
+				}
+				for stream.Receive() {
+				}
+				return stream.Err()
+			},
+			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_download",
+			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_DOWNLOAD,
+			wantAttempt:  objectSpec{isSession: true, id: "sess-down-1"},
+			wantComplete: objectSpec{isSession: true, id: "sess-down-1"},
+		},
+	}
+
+	assertObject := func(t *testing.T, stage string, ev *operatorv1.OperatorActionEvent, want objectSpec) {
+		t.Helper()
+		switch {
+		case want.isEdge:
+			if ev.WhichObject() != operatorv1.OperatorActionEvent_Edge_case {
+				t.Fatalf("%s: which object = %v, want Edge_case", stage, ev.WhichObject())
+			}
+			if got := ev.GetEdge().GetEdge().GetId(); got != want.id {
+				t.Fatalf("%s: edge ID = %q, want %q", stage, got, want.id)
+			}
+		case want.isSession:
+			if ev.WhichObject() != operatorv1.OperatorActionEvent_CaptureSession_case {
+				t.Fatalf("%s: which object = %v, want CaptureSession_case", stage, ev.WhichObject())
+			}
+			if got := ev.GetCaptureSession().GetCaptureSession().GetId(); got != want.id {
+				t.Fatalf("%s: session ID = %q, want %q", stage, got, want.id)
+			}
+		default:
+			if ev.WhichObject() != 0 {
+				t.Fatalf("%s: which object = %v, want 0 (none)", stage, ev.WhichObject())
+			}
 		}
 	}
-	// Publish one record on subj2.
-	if _, err := hub.JetStream().Publish(ctx, subj2, []byte("outside-rec-4"), jetstream.WithMsgID("outside-s2-0")); err != nil {
-		t.Fatalf("publish on subj2: %v", err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestHarness(t, time.Now())
+			if tc.setupHandler != nil {
+				tc.setupHandler(h)
+			}
+
+			if err := tc.invoke(ctx, h); err != nil {
+				t.Fatalf("invoke failed: %v", err)
+			}
+
+			events := h.pub.getEvents()
+			if len(events) != 2 {
+				t.Fatalf("published %d events, want 2", len(events))
+			}
+
+			attempt := events[0]
+			complete := events[1]
+
+			if attempt.subject != tc.wantSubject {
+				t.Errorf("attempt subject = %q, want %q", attempt.subject, tc.wantSubject)
+			}
+			if complete.subject != tc.wantSubject {
+				t.Errorf("completion subject = %q, want %q", complete.subject, tc.wantSubject)
+			}
+
+			if attempt.event.GetAction() != tc.wantAction {
+				t.Errorf("attempt action = %v, want %v", attempt.event.GetAction(), tc.wantAction)
+			}
+			if complete.event.GetAction() != tc.wantAction {
+				t.Errorf("completion action = %v, want %v", complete.event.GetAction(), tc.wantAction)
+			}
+
+			assertObject(t, "attempt", attempt.event, tc.wantAttempt)
+			assertObject(t, "completion", complete.event, tc.wantComplete)
+
+			if attempt.event.WhichDetail() != operatorv1.OperatorActionEvent_Attempted_case {
+				t.Errorf("attempt detail = %v, want Attempted_case", attempt.event.WhichDetail())
+			}
+			if complete.event.WhichDetail() != operatorv1.OperatorActionEvent_Completed_case {
+				t.Errorf("completion detail = %v, want Completed_case", complete.event.WhichDetail())
+			}
+			if complete.event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+				t.Errorf("outcome = %v, want SUCCEEDED", complete.event.GetCompleted().GetOutcome())
+			}
+		})
+	}
+}
+
+func TestCompletionPublishedWhenCallerContextCancelled(t *testing.T) {
+	h := newTestHarness(t, time.Now())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	h.edgeHandler.issueSetupKeyFunc = func(handlerCtx context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
+		cancel()
+		<-handlerCtx.Done()
+		resp := &edgev1.IssueSetupKeyResponse{}
+		prov := &modeledgev1.EdgeProvisioning{}
+		prov.SetSetupKey("setup-key-ok")
+		resp.SetProvisioning(prov)
+		return connect.NewResponse(resp), nil
 	}
 
-	stream, err := hub.JetStream().Stream(ctx, edgebus.OperatorActionStream)
-	if err != nil {
-		t.Fatalf("get stream: %v", err)
-	}
+	req := &edgev1.IssueSetupKeyRequest{}
+	req.SetEdge(edgeGlobalRef("edge-1"))
+	_, _ = h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 
-	cons1, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		FilterSubject: subj1,
-		DeliverPolicy: jetstream.DeliverAllPolicy,
-	})
-	if err != nil {
-		t.Fatalf("create consumer 1: %v", err)
+	deadline := time.NewTimer(time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	var events []recordedEvent
+waitForCompletion:
+	for {
+		events = h.pub.getEvents()
+		if len(events) == 2 {
+			break
+		}
+		select {
+		case <-deadline.C:
+			break waitForCompletion
+		case <-ticker.C:
+		}
 	}
-	batch1, err := cons1.Fetch(10, jetstream.FetchMaxWait(2*time.Second))
-	if err != nil {
-		t.Fatalf("fetch 1: %v", err)
+	if len(events) != 2 {
+		t.Fatalf("published %d events, want 2 (completion published via detached context)", len(events))
 	}
-	var got1 []string
-	for msg := range batch1.Messages() {
-		got1 = append(got1, string(msg.Data()))
-		_ = msg.Ack()
-	}
-	if len(got1) != 2 || got1[0] != "outside-rec-2" || got1[1] != "outside-rec-3" {
-		t.Fatalf("subj1 messages = %v, want [outside-rec-2 outside-rec-3]", got1)
-	}
-
-	cons2, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
-		FilterSubject: subj2,
-		DeliverPolicy: jetstream.DeliverAllPolicy,
-	})
-	if err != nil {
-		t.Fatalf("create consumer 2: %v", err)
-	}
-	batch2, err := cons2.Fetch(10, jetstream.FetchMaxWait(2*time.Second))
-	if err != nil {
-		t.Fatalf("fetch 2: %v", err)
-	}
-	var got2 []string
-	for msg := range batch2.Messages() {
-		got2 = append(got2, string(msg.Data()))
-		_ = msg.Ack()
-	}
-	if len(got2) != 1 || got2[0] != "outside-rec-4" {
-		t.Fatalf("subj2 messages = %v, want [outside-rec-4]", got2)
+	if events[1].event.WhichDetail() != operatorv1.OperatorActionEvent_Completed_case {
+		t.Errorf("completion detail = %v, want Completed", events[1].event.WhichDetail())
 	}
 }

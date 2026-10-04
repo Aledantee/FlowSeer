@@ -2,7 +2,9 @@ package projector_test
 
 import (
 	"context"
+	"errors"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,15 +21,19 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 )
 
 type fakeEdgeSource struct {
-	allEdges map[string]string // edgeID -> tenantID
+	allEdges  map[string]string // edgeID -> tenantID
+	allErr    error
+	tenantErr map[string]error
 }
 
 func (f *fakeEdgeSource) All(_ context.Context) (map[string]string, error) {
+	if f.allErr != nil {
+		return nil, f.allErr
+	}
 	edges := make(map[string]string, len(f.allEdges))
 	for k, v := range f.allEdges {
 		edges[k] = v
@@ -36,12 +42,16 @@ func (f *fakeEdgeSource) All(_ context.Context) (map[string]string, error) {
 }
 
 func (f *fakeEdgeSource) TenantForEdge(_ context.Context, edgeID string) (string, error) {
+	if err := f.tenantErr[edgeID]; err != nil {
+		return "", err
+	}
 	return f.allEdges[edgeID], nil
 }
 
 type fakeRegistrySource struct {
-	edgeID  string
-	devices map[string]*storev1.RegistryDevice
+	edgeID     string
+	devices    map[string]*storev1.RegistryDevice
+	devicesErr error
 }
 
 func (f *fakeRegistrySource) EdgeID() string {
@@ -54,6 +64,9 @@ func (f *fakeRegistrySource) Device(deviceID string) (*storev1.RegistryDevice, b
 }
 
 func (f *fakeRegistrySource) Devices(_ context.Context, edgeID string) ([]string, error) {
+	if f.devicesErr != nil {
+		return nil, f.devicesErr
+	}
 	if edgeID != f.edgeID {
 		return nil, nil
 	}
@@ -71,16 +84,43 @@ type sessionKey struct {
 }
 
 type fakeCaptureSource struct {
-	mu       sync.Mutex
-	sessions map[sessionKey]*modelcapturev1.CaptureSessionRecord
+	mu               sync.Mutex
+	sessions         map[sessionKey]*modelcapturev1.CaptureSessionRecord
+	eachErr          error
+	sessionWalkErrID string
+	sessionSyncErrID string
 }
 
 func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for k, rec := range f.sessions {
+	if f.eachErr != nil {
+		return f.eachErr
+	}
+	keys := make([]sessionKey, 0, len(f.sessions))
+	for k := range f.sessions {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b sessionKey) int {
+		if a.tenantID != b.tenantID {
+			return strings.Compare(a.tenantID, b.tenantID)
+		}
+		return strings.Compare(a.sessionID, b.sessionID)
+	})
+	for _, k := range keys {
+		rec := f.sessions[k]
+		if k.sessionID == f.sessionWalkErrID {
+			continue
+		}
 		if err := fn(k.tenantID, rec); err != nil {
 			return err
+		}
+	}
+	if f.sessionWalkErrID != "" {
+		for k := range f.sessions {
+			if k.sessionID == f.sessionWalkErrID {
+				return errors.New("simulated session walk failure")
+			}
 		}
 	}
 	return nil
@@ -89,6 +129,9 @@ func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID stri
 func (f *fakeCaptureSource) Session(_ context.Context, tenantID, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if sessionID == f.sessionSyncErrID {
+		return nil, 0, errors.New("simulated session read failure")
+	}
 	rec := f.sessions[sessionKey{tenantID: tenantID, sessionID: sessionID}]
 	return rec, 1, nil
 }
@@ -154,7 +197,7 @@ func readAllTuples(t *testing.T, engine authz.Relations) []authz.Tuple {
 	return all
 }
 
-func TestDecisionsTable(t *testing.T) {
+func TestProjectorOwnedRelations(t *testing.T) {
 	ctx := context.Background()
 	engine := authztest.New()
 
@@ -257,7 +300,7 @@ func TestDecisionsTable(t *testing.T) {
 	}
 }
 
-func TestRequirement9DriftCases(t *testing.T) {
+func TestReconcileDriftRestoration(t *testing.T) {
 	ctx := context.Background()
 
 	const (
@@ -331,17 +374,18 @@ func TestRequirement9DriftCases(t *testing.T) {
 		engine := authztest.New()
 		trueTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "tenant", User: "tenant:" + tenantT}
 		staleTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "tenant", User: "tenant:" + tenant2}
-		if err := engine.Write(ctx, []authz.Tuple{trueTuple, staleTuple}, nil); err != nil {
+		grantTuple := authz.Tuple{Object: "edge:" + edgeE, Relation: "capture", User: "user:u"}
+		if err := engine.Write(ctx, []authz.Tuple{trueTuple, staleTuple, grantTuple}, nil); err != nil {
 			t.Fatalf("Write: %v", err)
 		}
 
 		edges := &fakeEdgeSource{allEdges: map[string]string{edgeE: tenantT}}
 		p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
 
-		// Assert before: holds both
+		// Assert before: holds all 3
 		before := readAllTuples(t, engine)
-		if len(before) != 2 {
-			t.Fatalf("engine before pass = %v, want 2 tuples", before)
+		if len(before) != 3 {
+			t.Fatalf("engine before pass = %v, want 3 tuples", before)
 		}
 
 		counts, err := p.Reconcile(ctx)
@@ -352,9 +396,9 @@ func TestRequirement9DriftCases(t *testing.T) {
 			t.Fatalf("counts.Edges = %d, want 1", counts.Edges)
 		}
 
-		// Assert after: staleTuple deleted, trueTuple preserved
+		// Assert after: staleTuple deleted, trueTuple and grantTuple preserved
 		after := readAllTuples(t, engine)
-		want := []authz.Tuple{trueTuple}
+		want := []authz.Tuple{grantTuple, trueTuple}
 		if !slices.Equal(after, want) {
 			t.Fatalf("engine after pass = %v, want %v", after, want)
 		}
@@ -451,7 +495,7 @@ func TestReconcileRaceCondition(t *testing.T) {
 		t.Fatalf("Reconcile: %v", err)
 	}
 
-	// Edge was added by snapshot reconcile
+	// Session created during scan was not modified by reconcile
 	if counts.CaptureSessions != 0 {
 		t.Fatalf("CaptureSessions repaired = %d, want 0", counts.CaptureSessions)
 	}
@@ -511,7 +555,16 @@ type retryEngine struct {
 	*authztest.Engine
 	mu         sync.Mutex
 	writeCount int
+	readCount  int
 	failCode   errs.Code
+	alwaysFail bool
+}
+
+func (r *retryEngine) Read(ctx context.Context, object string) ([]authz.Tuple, error) {
+	r.mu.Lock()
+	r.readCount++
+	r.mu.Unlock()
+	return r.Engine.Read(ctx, object)
 }
 
 func (r *retryEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
@@ -519,9 +572,10 @@ func (r *retryEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) 
 	r.writeCount++
 	count := r.writeCount
 	code := r.failCode
+	always := r.alwaysFail
 	r.mu.Unlock()
 
-	if count == 1 && code != "" {
+	if (always || count == 1) && code != "" {
 		return errs.New().Code(code).Msg("simulated write failure")
 	}
 	return r.Engine.Write(ctx, writes, deletes)
@@ -532,7 +586,7 @@ func TestWriteConflictRetried(t *testing.T) {
 	baseEngine := authztest.New()
 	retEngine := &retryEngine{
 		Engine:   baseEngine,
-		failCode: openfga.ErrCodeConflict,
+		failCode: authz.ErrCodeConflict,
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
@@ -546,6 +600,9 @@ func TestWriteConflictRetried(t *testing.T) {
 	if retEngine.writeCount != 2 {
 		t.Fatalf("writeCount = %d, want 2 (1 retry)", retEngine.writeCount)
 	}
+	if retEngine.readCount != 2 {
+		t.Fatalf("readCount = %d, want 2 (re-read before retry)", retEngine.readCount)
+	}
 
 	tuples, err := baseEngine.Read(ctx, "edge:"+edgeID)
 	if err != nil {
@@ -556,12 +613,13 @@ func TestWriteConflictRetried(t *testing.T) {
 	}
 }
 
-func TestWriteUnreachableReturnsError(t *testing.T) {
+func TestWriteConflictThreeTimesInAll(t *testing.T) {
 	ctx := context.Background()
 	baseEngine := authztest.New()
 	retEngine := &retryEngine{
-		Engine:   baseEngine,
-		failCode: openfga.ErrCodeUnreachable,
+		Engine:     baseEngine,
+		failCode:   authz.ErrCodeConflict,
+		alwaysFail: true,
 	}
 
 	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
@@ -570,22 +628,55 @@ func TestWriteUnreachableReturnsError(t *testing.T) {
 
 	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
 	if err == nil {
-		t.Fatal("Sync succeeded, want ErrCodeUnreachable")
+		t.Fatal("Sync succeeded, want ErrCodeConflict")
 	}
 	code, ok := errs.CodeOf(err)
-	if !ok || code != openfga.ErrCodeUnreachable {
-		t.Fatalf("err code = %v, want %v", code, openfga.ErrCodeUnreachable)
+	if !ok || code != authz.ErrCodeConflict {
+		t.Fatalf("err code = %v, want %v", code, authz.ErrCodeConflict)
+	}
+	if retEngine.writeCount != 3 {
+		t.Fatalf("writeCount = %d, want 3 (initial attempt plus 2 retries)", retEngine.writeCount)
+	}
+	if retEngine.readCount != 3 {
+		t.Fatalf("readCount = %d, want 3", retEngine.readCount)
+	}
+}
+
+func TestWriteUnavailableReturnsError(t *testing.T) {
+	ctx := context.Background()
+	baseEngine := authztest.New()
+	retEngine := &retryEngine{
+		Engine:   baseEngine,
+		failCode: authz.ErrCodeUnavailable,
+	}
+
+	const edgeID = "0192e6a0-0000-7000-8000-00000000000e"
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeID: "tenant-1"}}
+	p := projector.New(retEngine, edges, nil, &fakeCaptureSource{}, 0, nil, nil)
+
+	err := p.Sync(ctx, projector.Object{Type: "edge", ID: edgeID})
+	if err == nil {
+		t.Fatal("Sync succeeded, want ErrCodeUnavailable")
+	}
+	code, ok := errs.CodeOf(err)
+	if !ok || code != authz.ErrCodeUnavailable {
+		t.Fatalf("err code = %v, want %v", code, authz.ErrCodeUnavailable)
 	}
 }
 
 func TestRunLifecycle(t *testing.T) {
 	engine := authztest.New()
-	// Initially fail with unreachable
-	engine.Fail(errs.New().Code(openfga.ErrCodeUnreachable).Msg("engine unavailable"))
+	engine.Fail(errs.New().Code(authz.ErrCodeUnavailable).Msg("engine unavailable"))
 
 	edges := &fakeEdgeSource{allEdges: map[string]string{}}
 	reconciledCh := make(chan struct{}, 5)
-	p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 20*time.Millisecond, nil, func() {
+	var waitMu sync.Mutex
+	var waits []time.Duration
+	var reconciledAtWaits []int
+	p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 15*time.Second, nil, func() {
+		waitMu.Lock()
+		reconciledAtWaits = append(reconciledAtWaits, len(waits))
+		waitMu.Unlock()
 		select {
 		case reconciledCh <- struct{}{}:
 		default:
@@ -595,30 +686,32 @@ func TestRunLifecycle(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	p.SetWaitHook(func(waitCtx context.Context, d time.Duration) error {
+		waitMu.Lock()
+		waits = append(waits, d)
+		count := len(waits)
+		waitMu.Unlock()
+
+		if count == 3 {
+			engine.Fail(nil)
+		}
+		if count > 3 {
+			cancel()
+			return waitCtx.Err()
+		}
+		return nil
+	})
+
 	runErrCh := make(chan error, 1)
 	spawn.Go(ctx, "test projector Run", func() {
 		runErrCh <- p.Run(ctx)
 	})
 
-	// Wait briefly while failing - reconciled should not be called
-	time.Sleep(50 * time.Millisecond)
 	select {
 	case <-reconciledCh:
-		t.Fatal("reconciled called while engine failing")
-	default:
-	}
-
-	// Now clear failure; projector should keep going, succeed, and call reconciled
-	engine.Fail(nil)
-
-	select {
-	case <-reconciledCh:
-		// Succeeded!
 	case <-time.After(2 * time.Second):
 		t.Fatal("reconciled was not called after engine recovered")
 	}
-
-	cancel()
 
 	select {
 	case err := <-runErrCh:
@@ -627,5 +720,821 @@ func TestRunLifecycle(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run did not exit on context cancellation")
+	}
+
+	waitMu.Lock()
+	gotWaits := slices.Clone(waits)
+	gotReconciledAtWaits := slices.Clone(reconciledAtWaits)
+	waitMu.Unlock()
+
+	wantWaits := []time.Duration{5 * time.Second, 10 * time.Second, 15 * time.Second, 15 * time.Second}
+	if !slices.Equal(gotWaits, wantWaits) {
+		t.Fatalf("waits = %v, want %v", gotWaits, wantWaits)
+	}
+	if want := []int{3}; !slices.Equal(gotReconciledAtWaits, want) {
+		t.Fatalf("reconciled callbacks occurred after waits %v, want %v", gotReconciledAtWaits, want)
+	}
+}
+
+type objectFailingEngine struct {
+	*authztest.Engine
+	failPrefix string
+}
+
+func (o *objectFailingEngine) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
+	for _, w := range writes {
+		if strings.HasPrefix(w.Object, o.failPrefix) {
+			return errors.New("simulated object write failure")
+		}
+	}
+	return o.Engine.Write(ctx, writes, deletes)
+}
+
+func TestReconcileContinuesPastFailingObjectAndCollectsErrors(t *testing.T) {
+	ctx := context.Background()
+
+	const (
+		edgeE    = "0192e6a0-0000-7000-8000-00000000000e"
+		sessionS = "0192e6a0-0000-7000-8000-00000000000s"
+		tenantT  = "0192e6a0-0000-7000-8000-00000000000t"
+	)
+
+	baseEngine := authztest.New()
+	failEngine := &objectFailingEngine{
+		Engine:     baseEngine,
+		failPrefix: "capture_session:",
+	}
+
+	edges := &fakeEdgeSource{allEdges: map[string]string{edgeE: tenantT}}
+	captures := &fakeCaptureSource{
+		sessions: map[sessionKey]*modelcapturev1.CaptureSessionRecord{
+			{tenantID: tenantT, sessionID: sessionS}: buildSessionRecord(sessionS, edgeE, "", ""),
+		},
+	}
+
+	p := projector.New(failEngine, edges, nil, captures, 0, nil, nil)
+
+	counts, err := p.Reconcile(ctx)
+	if err == nil {
+		t.Fatal("Reconcile returned nil error, want joined error from failing session")
+	}
+
+	// Session fails, but Edge must still be repaired despite sorting after capture_session
+	if counts.Edges != 1 {
+		t.Fatalf("counts.Edges = %d, want 1", counts.Edges)
+	}
+
+	edgeTuples, err := baseEngine.Read(ctx, "edge:"+edgeE)
+	if err != nil {
+		t.Fatalf("Read edge tuples: %v", err)
+	}
+	if len(edgeTuples) != 1 {
+		t.Fatalf("got %d edge tuples, want 1", len(edgeTuples))
+	}
+}
+
+type propertyTupleState uint8
+
+const (
+	propertyTupleAbsent propertyTupleState = iota
+	propertyTuplePresent
+	propertyTupleWrong
+)
+
+type propertyFault uint8
+
+const (
+	propertyNoFault propertyFault = iota
+	propertySessionWalkFault
+	propertyAllFault
+	propertyTenantFault
+	propertyDevicesFault
+	propertyEachSessionFault
+	propertySessionSyncFault
+	propertyReadFault
+	propertyScanFault
+	propertyWriteFault
+)
+
+const (
+	propertyWorldCount = 512
+)
+
+var propertyFaultNames = [...]string{
+	"none",
+	"session walk",
+	"all",
+	"tenant for edge",
+	"devices",
+	"each session",
+	"session",
+	"read",
+	"scan",
+	"write",
+}
+
+type propertyWorld struct {
+	edges         [2]bool
+	devices       [2]bool
+	sessions      [2]bool
+	edgeTuples    [2]propertyTupleState
+	deviceTuples  [2]propertyTupleState
+	sessionTuples [2][3]propertyTupleState
+	grants        [3]bool
+	registryEdge  int
+	sessionEdges  [2]int
+	fault         propertyFault
+	faultTarget   int
+}
+
+type propertyRNG struct {
+	state uint64
+}
+
+func (r *propertyRNG) next() uint64 {
+	r.state = r.state*6364136223846793005 + 1442695040888963407
+	return r.state
+}
+
+func (r *propertyRNG) bool() bool {
+	return r.next()&1 == 0
+}
+
+func (r *propertyRNG) intn(n int) int {
+	return int((r.next() >> 32) % uint64(n))
+}
+
+func (r *propertyRNG) tupleState() propertyTupleState {
+	return propertyTupleState(r.intn(3))
+}
+
+type propertyRelations struct {
+	*authztest.Engine
+	readObject  string
+	scanErr     error
+	scanAfter   int
+	writeObject string
+	writes      []authz.Tuple
+	deletes     []authz.Tuple
+}
+
+func (r *propertyRelations) Read(ctx context.Context, object string) ([]authz.Tuple, error) {
+	if object == r.readObject {
+		return nil, errors.New("simulated relationship read failure")
+	}
+	return r.Engine.Read(ctx, object)
+}
+
+func (r *propertyRelations) Scan(ctx context.Context, fn func(authz.Tuple) error) error {
+	if r.scanErr != nil {
+		seen := 0
+		err := r.Engine.Scan(ctx, func(tuple authz.Tuple) error {
+			if seen == r.scanAfter {
+				return r.scanErr
+			}
+			seen++
+			return fn(tuple)
+		})
+		if err != nil {
+			return err
+		}
+		return r.scanErr
+	}
+	return r.Engine.Scan(ctx, fn)
+}
+
+func (r *propertyRelations) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
+	for _, tuple := range append(slices.Clone(writes), deletes...) {
+		if strings.HasPrefix(tuple.Object, r.writeObject) && r.writeObject != "" {
+			return errors.New("simulated relationship write failure")
+		}
+	}
+	r.writes = append(r.writes, writes...)
+	r.deletes = append(r.deletes, deletes...)
+	return r.Engine.Write(ctx, writes, deletes)
+}
+
+func propertyWorldAt(index int) propertyWorld {
+	// The fixed-seed stream draws each world dimension independently. The
+	// property test asserts 512 distinct worlds and the literal count for each
+	// fault kind.
+	const seed = uint64(0x4d595df4d0f33173)
+	rng := propertyRNG{state: seed + uint64(index+1)*0x9e3779b97f4a7c15}
+	var w propertyWorld
+	for i := range w.edges {
+		w.edges[i] = rng.bool()
+		w.edgeTuples[i] = rng.tupleState()
+	}
+	for i := range w.devices {
+		w.devices[i] = rng.bool()
+		w.deviceTuples[i] = rng.tupleState()
+	}
+	for i := range w.sessions {
+		w.sessions[i] = rng.bool()
+		for relation := range w.sessionTuples[i] {
+			w.sessionTuples[i][relation] = rng.tupleState()
+		}
+	}
+	for i := range w.grants {
+		w.grants[i] = rng.bool()
+	}
+	w.registryEdge = rng.intn(2)
+	for i := range w.sessionEdges {
+		w.sessionEdges[i] = rng.intn(2)
+	}
+	w.fault = propertyFault(rng.intn(len(propertyFaultNames)))
+	w.faultTarget = rng.intn(6)
+	return w
+}
+
+func propertyIDs() (edges, devices, sessions []string) {
+	edges = []string{
+		"0192e6a0-0000-7000-8000-0000000000e1",
+		"0192e6a0-0000-7000-8000-0000000000e2",
+	}
+	devices = []string{
+		"0192e6a0-0000-7000-8000-0000000000d1",
+		"0192e6a0-0000-7000-8000-0000000000d2",
+	}
+	sessions = []string{
+		"0192e6a0-0000-7000-8000-0000000000s1",
+		"0192e6a0-0000-7000-8000-0000000000s2",
+	}
+	return edges, devices, sessions
+}
+
+func propertyTenants() []string {
+	return []string{
+		"0192e6a0-0000-7000-8000-0000000000t1",
+		"0192e6a0-0000-7000-8000-0000000000t2",
+	}
+}
+
+func propertyOwnedTuple(state propertyTupleState, desired, wrong authz.Tuple) []authz.Tuple {
+	switch state {
+	case propertyTuplePresent:
+		return []authz.Tuple{desired}
+	case propertyTupleWrong:
+		return []authz.Tuple{wrong}
+	default:
+		return nil
+	}
+}
+
+func propertyInitialTuples(w propertyWorld) []authz.Tuple {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	var tuples []authz.Tuple
+	for i, id := range edgeIDs {
+		tuples = append(tuples, propertyOwnedTuple(w.edgeTuples[i],
+			authz.Tuple{Object: "edge:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			authz.Tuple{Object: "edge:" + id, Relation: "tenant", User: "tenant:wrong"})...)
+	}
+	for i, id := range deviceIDs {
+		tuples = append(tuples, propertyOwnedTuple(w.deviceTuples[i],
+			authz.Tuple{Object: "device:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[w.registryEdge]},
+			authz.Tuple{Object: "device:" + id, Relation: "tenant", User: "tenant:wrong"})...)
+	}
+	for i, id := range sessionIDs {
+		object := "capture_session:" + id
+		principalID := authn.ComputePrincipalID("https://auth.example.com", "subject-"+id)
+		desired := []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			{Object: object, Relation: "edge", User: "edge:" + edgeIDs[w.sessionEdges[i]]},
+			{Object: object, Relation: "requester", User: "user:" + principalID},
+		}
+		wrong := []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:wrong"},
+			{Object: object, Relation: "edge", User: "edge:wrong"},
+			{Object: object, Relation: "requester", User: "user:wrong"},
+		}
+		for relation := range desired {
+			tuples = append(tuples, propertyOwnedTuple(w.sessionTuples[i][relation], desired[relation], wrong[relation])...)
+		}
+	}
+	tuples = append(tuples, propertyInitialUnowned(w)...)
+	return tuples
+}
+
+func propertyDesiredTuples(w propertyWorld) map[string][]authz.Tuple {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	desired := make(map[string][]authz.Tuple)
+	for i, id := range edgeIDs {
+		if w.edges[i] {
+			desired["edge:"+id] = []authz.Tuple{{Object: "edge:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[i]}}
+		}
+	}
+	for i, id := range deviceIDs {
+		if w.devices[i] && w.edges[w.registryEdge] {
+			desired["device:"+id] = []authz.Tuple{{Object: "device:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[w.registryEdge]}}
+		}
+	}
+	for i, id := range sessionIDs {
+		if !w.sessions[i] {
+			continue
+		}
+		object := "capture_session:" + id
+		principalID := authn.ComputePrincipalID("https://auth.example.com", "subject-"+id)
+		desired[object] = []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			{Object: object, Relation: "edge", User: "edge:" + edgeIDs[w.sessionEdges[i]]},
+			{Object: object, Relation: "requester", User: "user:" + principalID},
+		}
+	}
+	for object := range desired {
+		slices.SortFunc(desired[object], compareTuples)
+	}
+	return desired
+}
+
+func propertyIsOwnedTuple(tuple authz.Tuple) bool {
+	objType, _, ok := strings.Cut(tuple.Object, ":")
+	return ok && (((objType == "edge" || objType == "device") && tuple.Relation == "tenant") ||
+		(objType == "capture_session" && (tuple.Relation == "tenant" || tuple.Relation == "edge" || tuple.Relation == "requester")))
+}
+
+func propertyOwned(tuples []authz.Tuple) map[string][]authz.Tuple {
+	owned := make(map[string][]authz.Tuple)
+	for _, tuple := range tuples {
+		if propertyIsOwnedTuple(tuple) {
+			owned[tuple.Object] = append(owned[tuple.Object], tuple)
+		}
+	}
+	for object := range owned {
+		slices.SortFunc(owned[object], func(a, b authz.Tuple) int {
+			if a.Relation != b.Relation {
+				return strings.Compare(a.Relation, b.Relation)
+			}
+			return strings.Compare(a.User, b.User)
+		})
+	}
+	return owned
+}
+
+func propertyExpectedObjects() []string {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	objects := make([]string, 0, len(edgeIDs)+len(deviceIDs)+len(sessionIDs))
+	for _, id := range edgeIDs {
+		objects = append(objects, "edge:"+id)
+	}
+	for _, id := range deviceIDs {
+		objects = append(objects, "device:"+id)
+	}
+	for _, id := range sessionIDs {
+		objects = append(objects, "capture_session:"+id)
+	}
+	return objects
+}
+
+func propertySources(w propertyWorld) (*fakeEdgeSource, *fakeRegistrySource, *fakeCaptureSource) {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	edges := &fakeEdgeSource{allEdges: make(map[string]string)}
+	for i, id := range edgeIDs {
+		if w.edges[i] {
+			edges.allEdges[id] = tenantIDs[i]
+		}
+	}
+	registry := &fakeRegistrySource{edgeID: edgeIDs[w.registryEdge], devices: make(map[string]*storev1.RegistryDevice)}
+	for i, id := range deviceIDs {
+		if w.devices[i] {
+			registry.devices[id] = buildRegistryDevice(id)
+		}
+	}
+	captures := &fakeCaptureSource{sessions: make(map[sessionKey]*modelcapturev1.CaptureSessionRecord)}
+	for i, id := range sessionIDs {
+		if w.sessions[i] {
+			captures.sessions[sessionKey{tenantID: tenantIDs[i], sessionID: id}] = buildSessionRecord(id, edgeIDs[w.sessionEdges[i]], "https://auth.example.com", "subject-"+id)
+		}
+	}
+	switch w.fault {
+	case propertyAllFault:
+		edges.allErr = errors.New("simulated edge listing failure")
+	case propertyTenantFault:
+		edges.tenantErr = map[string]error{edgeIDs[w.faultTarget%len(edgeIDs)]: errors.New("simulated edge tenant read failure")}
+	case propertyDevicesFault:
+		registry.devicesErr = errors.New("simulated device listing failure")
+	case propertyEachSessionFault:
+		captures.eachErr = errors.New("simulated session listing failure")
+	case propertySessionWalkFault:
+		if w.sessions[w.faultTarget%len(sessionIDs)] {
+			captures.sessionWalkErrID = sessionIDs[w.faultTarget%len(sessionIDs)]
+		}
+	case propertySessionSyncFault:
+		if w.sessions[w.faultTarget%len(sessionIDs)] {
+			captures.sessionSyncErrID = sessionIDs[w.faultTarget%len(sessionIDs)]
+		}
+	case propertyReadFault:
+		// The relationship wrapper carries this fault.
+	case propertyScanFault:
+		// The relationship wrapper carries this fault.
+	case propertyWriteFault:
+		// The relationship wrapper carries this fault.
+	}
+	return edges, registry, captures
+}
+
+func propertySetup(t *testing.T, w propertyWorld, reconciled func()) (*projector.Projector, *propertyRelations, *authztest.Engine) {
+	t.Helper()
+	base := authztest.New()
+	if err := base.Write(context.Background(), propertyInitialTuples(w), nil); err != nil {
+		t.Fatalf("seed property world: %v", err)
+	}
+	relations := &propertyRelations{Engine: base}
+	edges, registry, captures := propertySources(w)
+	switch w.fault {
+	case propertyReadFault:
+		relations.readObject = propertyExpectedObjects()[w.faultTarget]
+	case propertyScanFault:
+		relations.scanErr = errors.New("simulated relationship scan failure")
+		relations.scanAfter = 1 + w.faultTarget%3
+	case propertyWriteFault:
+		relations.writeObject = propertyExpectedObjects()[w.faultTarget]
+	}
+	return projector.New(relations, edges, registry, captures, 0, nil, reconciled), relations, base
+}
+
+func propertyRun(t *testing.T, w propertyWorld) propertyRunResult {
+	t.Helper()
+	reconciledCalls := 0
+	p, relations, base := propertySetup(t, w, func() {
+		reconciledCalls++
+	})
+	counts, err := p.Reconcile(context.Background())
+	return propertyRunResult{
+		errorPresent:    err != nil,
+		counts:          counts,
+		tuples:          readAllTuples(t, base),
+		writes:          slices.Clone(relations.writes),
+		deletes:         slices.Clone(relations.deletes),
+		reconciledCalls: reconciledCalls,
+	}
+}
+
+type propertyRunResult struct {
+	errorPresent    bool
+	counts          projector.RepairedCounts
+	tuples          []authz.Tuple
+	writes          []authz.Tuple
+	deletes         []authz.Tuple
+	reconciledCalls int
+}
+
+func propertySameResult(a, b propertyRunResult) bool {
+	return a.errorPresent == b.errorPresent && a.counts == b.counts && slices.Equal(a.tuples, b.tuples) && slices.Equal(a.writes, b.writes) && slices.Equal(a.deletes, b.deletes) && a.reconciledCalls == b.reconciledCalls
+}
+
+func propertyRecordKnown(w propertyWorld, object string) bool {
+	objType, objID, _ := strings.Cut(object, ":")
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	switch w.fault {
+	case propertyAllFault:
+		return objType != "edge"
+	case propertyTenantFault:
+		if objType == "edge" && objID == edgeIDs[w.faultTarget%2] {
+			return false
+		}
+		if objType == "device" && w.registryEdge == w.faultTarget%2 {
+			for i, id := range deviceIDs {
+				if id == objID {
+					return !w.devices[i]
+				}
+			}
+		}
+		return true
+	case propertyDevicesFault:
+		return objType != "device"
+	case propertyEachSessionFault:
+		return objType != "capture_session"
+	case propertySessionWalkFault:
+		return objType != "capture_session" || !w.sessions[w.faultTarget%2] || objID != sessionIDs[w.faultTarget%2]
+	case propertySessionSyncFault:
+		return objType != "capture_session" || !w.sessions[w.faultTarget%2] || objID != sessionIDs[w.faultTarget%2]
+	default:
+		return true
+	}
+}
+
+func propertyAffected(w propertyWorld, object string) bool {
+	objType, objID, _ := strings.Cut(object, ":")
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	switch w.fault {
+	case propertyAllFault:
+		return objType == "edge"
+	case propertyTenantFault:
+		if objType == "edge" {
+			return objID == edgeIDs[w.faultTarget%2]
+		}
+		if objType != "device" || w.registryEdge != w.faultTarget%2 {
+			return false
+		}
+		for i, id := range deviceIDs {
+			if id == objID {
+				return w.devices[i]
+			}
+		}
+		return false
+	case propertyDevicesFault:
+		return objType == "device"
+	case propertyEachSessionFault:
+		return objType == "capture_session"
+	case propertySessionWalkFault:
+		return objType == "capture_session" && w.sessions[w.faultTarget%2] && objID == sessionIDs[w.faultTarget%2]
+	case propertySessionSyncFault:
+		return objType == "capture_session" && w.sessions[w.faultTarget%2] && objID == sessionIDs[w.faultTarget%2]
+	case propertyReadFault, propertyWriteFault:
+		return object == propertyExpectedObjects()[w.faultTarget]
+	case propertyScanFault:
+		switch objType {
+		case "edge":
+			for i, id := range edgeIDs {
+				if id == objID {
+					return !w.edges[i]
+				}
+			}
+		case "device":
+			for i, id := range deviceIDs {
+				if id == objID {
+					return !w.devices[i] || !w.edges[w.registryEdge]
+				}
+			}
+		case "capture_session":
+			for i, id := range sessionIDs {
+				if id == objID {
+					return !w.sessions[i]
+				}
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+func propertyAssert(t *testing.T, w propertyWorld, result propertyRunResult) {
+	t.Helper()
+	desired := propertyDesiredTuples(w)
+	before := propertyOwned(propertyInitialTuples(w))
+	after := propertyOwned(result.tuples)
+	for object, tuples := range before {
+		for _, tuple := range tuples {
+			if slices.Contains(after[object], tuple) {
+				continue
+			}
+			if !propertyRecordKnown(w, object) {
+				t.Errorf("fault %s deleted %v after an unknown record read", propertyFaultNames[w.fault], tuple)
+			}
+			if slices.Contains(desired[object], tuple) {
+				t.Errorf("fault %s deleted desired tuple %v", propertyFaultNames[w.fault], tuple)
+			}
+		}
+	}
+
+	gotUnowned := propertyUnowned(result.tuples)
+	wantUnowned := propertyInitialUnowned(w)
+	if !slices.Equal(gotUnowned, wantUnowned) {
+		t.Errorf("fault %s changed unowned tuples: got %v, want %v", propertyFaultNames[w.fault], gotUnowned, wantUnowned)
+	}
+
+	if !result.errorPresent {
+		want := propertyInitialUnowned(w)
+		for _, tuples := range desired {
+			want = append(want, tuples...)
+		}
+		slices.SortFunc(want, compareTuples)
+		if !slices.Equal(result.tuples, want) {
+			t.Errorf("no-failure pass tuples = %v, want %v", result.tuples, want)
+		}
+		if result.reconciledCalls != 0 {
+			t.Errorf("successful direct pass called Reconciled %d times, want 0", result.reconciledCalls)
+		}
+		return
+	}
+	if result.reconciledCalls != 0 {
+		t.Errorf("fault %s called Reconciled %d times, want 0", propertyFaultNames[w.fault], result.reconciledCalls)
+	}
+	for _, object := range propertyExpectedObjects() {
+		if propertyAffected(w, object) {
+			continue
+		}
+		if !slices.Equal(after[object], desired[object]) {
+			t.Errorf("fault %s left unaffected %s = %v, want %v", propertyFaultNames[w.fault], object, after[object], desired[object])
+		}
+	}
+}
+
+func propertyUnowned(tuples []authz.Tuple) []authz.Tuple {
+	var unowned []authz.Tuple
+	for _, tuple := range tuples {
+		if !propertyIsOwnedTuple(tuple) {
+			unowned = append(unowned, tuple)
+		}
+	}
+	slices.SortFunc(unowned, compareTuples)
+	return unowned
+}
+
+func propertyInitialUnowned(w propertyWorld) []authz.Tuple {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	objects := []authz.Tuple{
+		{Object: "edge:" + edgeIDs[0], Relation: "capture", User: "user:edge-grant"},
+		{Object: "device:" + deviceIDs[0], Relation: "capture", User: "user:device-grant"},
+		{Object: "capture_session:" + sessionIDs[0], Relation: "capture", User: "user:session-grant"},
+	}
+	var grants []authz.Tuple
+	for i, tuple := range objects {
+		if w.grants[i] {
+			grants = append(grants, tuple)
+		}
+	}
+	slices.SortFunc(grants, compareTuples)
+	return grants
+}
+
+func compareTuples(a, b authz.Tuple) int {
+	if a.Object != b.Object {
+		return strings.Compare(a.Object, b.Object)
+	}
+	if a.Relation != b.Relation {
+		return strings.Compare(a.Relation, b.Relation)
+	}
+	return strings.Compare(a.User, b.User)
+}
+
+func propertyFaultProbe(fault propertyFault) propertyWorld {
+	w := propertyWorld{
+		edges:        [2]bool{false, true},
+		devices:      [2]bool{true, true},
+		sessions:     [2]bool{true, true},
+		edgeTuples:   [2]propertyTupleState{propertyTupleWrong, propertyTupleWrong},
+		deviceTuples: [2]propertyTupleState{propertyTupleWrong, propertyTupleWrong},
+		grants:       [3]bool{true, true, true},
+		registryEdge: 0,
+		sessionEdges: [2]int{0, 1},
+		fault:        fault,
+	}
+	for i := range w.sessionTuples {
+		w.sessionTuples[i] = [3]propertyTupleState{propertyTupleWrong, propertyTupleWrong, propertyTupleWrong}
+	}
+	if fault == propertySessionWalkFault {
+		w.faultTarget = 1
+		w.sessionTuples[1] = [3]propertyTupleState{propertyTupleAbsent, propertyTuplePresent, propertyTuplePresent}
+	}
+	return w
+}
+
+func TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure(t *testing.T) {
+	runCount := 0
+	run := func(w propertyWorld) propertyRunResult {
+		runCount++
+		result := propertyRun(t, w)
+		propertyAssert(t, w, result)
+		return result
+	}
+
+	seenFaults := make(map[propertyFault]bool)
+	seenWorlds := make(map[propertyWorld]struct{}, propertyWorldCount)
+	faultCounts := [len(propertyFaultNames)]int{}
+	faultTargets := [len(propertyFaultNames)][6]bool{}
+	for index := 0; index < propertyWorldCount; index++ {
+		world := propertyWorldAt(index)
+		seenWorlds[world] = struct{}{}
+		faultCounts[world.fault]++
+		faultTargets[world.fault][world.faultTarget] = true
+		seenFaults[world.fault] = true
+		run(world)
+	}
+	if len(seenWorlds) != propertyWorldCount {
+		t.Fatalf("generated %d distinct worlds, want %d", len(seenWorlds), propertyWorldCount)
+	}
+	wantFaultCounts := [len(propertyFaultNames)]int{56, 49, 55, 47, 50, 55, 45, 57, 50, 48}
+	if faultCounts != wantFaultCounts {
+		t.Fatalf("fault counts = %v, want %v", faultCounts, wantFaultCounts)
+	}
+	for _, fault := range []propertyFault{propertyReadFault, propertyWriteFault} {
+		for target, seen := range faultTargets[fault] {
+			if !seen {
+				t.Errorf("fault %s did not target object %d", propertyFaultNames[fault], target)
+			}
+		}
+	}
+	for fault := propertySessionWalkFault; fault <= propertyWriteFault; fault++ {
+		if !seenFaults[fault] {
+			t.Errorf("generated worlds did not exercise fault %s", propertyFaultNames[fault])
+		}
+	}
+
+	for _, fault := range []propertyFault{
+		propertySessionWalkFault,
+		propertyAllFault,
+		propertyTenantFault,
+		propertyDevicesFault,
+		propertyEachSessionFault,
+		propertySessionSyncFault,
+		propertyReadFault,
+		propertyScanFault,
+		propertyWriteFault,
+	} {
+		base := propertyFaultProbe(propertyNoFault)
+		variant := propertyFaultProbe(fault)
+		baseResult := run(base)
+		variantResult := run(variant)
+		if propertySameResult(baseResult, variantResult) {
+			t.Errorf("fault dimension %s did not change behavior", propertyFaultNames[fault])
+		}
+	}
+
+	statePairs := []struct {
+		name    string
+		base    propertyWorld
+		variant propertyWorld
+	}{
+		{
+			name:    "edge record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "device record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "session record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "owned tuple",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "unowned grant",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+	}
+	statePairs[0].base.edges[0] = false
+	statePairs[0].variant.edges[0] = true
+	statePairs[1].base.edges[0] = true
+	statePairs[1].variant.edges[0] = true
+	statePairs[1].base.devices[0] = false
+	statePairs[1].variant.devices[0] = true
+	statePairs[2].base.sessions[0] = false
+	statePairs[2].variant.sessions[0] = true
+	statePairs[3].base.edges[0] = true
+	statePairs[3].variant.edges[0] = true
+	statePairs[3].base.edgeTuples[0] = propertyTupleAbsent
+	statePairs[3].variant.edgeTuples[0] = propertyTupleWrong
+	statePairs[4].base.grants[0] = false
+	statePairs[4].variant.grants[0] = true
+	for _, pair := range statePairs {
+		baseResult := run(pair.base)
+		variantResult := run(pair.variant)
+		sameWrites := slices.Equal(baseResult.writes, variantResult.writes)
+		sameDeletes := slices.Equal(baseResult.deletes, variantResult.deletes)
+		sameCounts := baseResult.counts == variantResult.counts
+		sameErrors := baseResult.errorPresent == variantResult.errorPresent
+		sameTuples := slices.Equal(baseResult.tuples, variantResult.tuples)
+		if pair.name == "unowned grant" {
+			if !sameWrites || !sameDeletes || !sameCounts || !sameErrors || sameTuples {
+				t.Errorf("state dimension %s changed more than the seeded grant: writes equal %v, deletes equal %v, counts equal %v, errors equal %v, tuples equal %v", pair.name, sameWrites, sameDeletes, sameCounts, sameErrors, sameTuples)
+			}
+			continue
+		}
+		if pair.name == "owned tuple" {
+			if !sameWrites || sameDeletes || !sameCounts || !sameErrors || !sameTuples {
+				t.Errorf("state dimension %s produced writes equal %v, deletes equal %v, counts equal %v, errors equal %v, tuples equal %v", pair.name, sameWrites, sameDeletes, sameCounts, sameErrors, sameTuples)
+			}
+			continue
+		}
+		if propertySameResult(baseResult, variantResult) {
+			t.Errorf("state dimension %s did not change writes, deletes, counts, error, or final tuples", pair.name)
+		}
+	}
+
+	if runCount != 540 {
+		t.Fatalf("ran %d worlds, want 540", runCount)
+	}
+}
+
+func TestReconciledStaysSilentForFailedPropertyPass(t *testing.T) {
+	reconciledCalls := 0
+	p, _, _ := propertySetup(t, propertyFaultProbe(propertyScanFault), func() {
+		reconciledCalls++
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	p.SetWaitHook(func(waitCtx context.Context, _ time.Duration) error {
+		cancel()
+		return waitCtx.Err()
+	})
+	if err := p.Run(ctx); err != nil {
+		t.Fatalf("Run returned error after cancellation: %v", err)
+	}
+	if reconciledCalls != 0 {
+		t.Fatalf("Reconciled called %d times after a failed pass, want 0", reconciledCalls)
 	}
 }

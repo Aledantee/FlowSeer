@@ -212,7 +212,7 @@ func (s *Store) Keys(ctx context.Context, tenantID string) ([]string, error) {
 	return edges, nil
 }
 
-// All returns every stored edge ID mapped to its tenant ID across all tenants.
+// All returns every indexed edge ID mapped to its tenant ID across all tenants.
 // An empty bucket returns a nil map and no error.
 func (s *Store) All(ctx context.Context) (map[string]string, error) {
 	keys, err := s.kv.Keys(ctx)
@@ -224,10 +224,20 @@ func (s *Store) All(ctx context.Context) (map[string]string, error) {
 	}
 	edges := make(map[string]string)
 	for _, key := range keys {
-		parts := strings.SplitN(key, ".", 2)
-		if len(parts) == 2 {
-			tenantID, edgeID := parts[0], parts[1]
-			if tenant.Validate(tenantID) == nil && edgeID != "" {
+		if strings.HasPrefix(key, edgeIndexPrefix) {
+			edgeID := strings.TrimPrefix(key, edgeIndexPrefix)
+			if edgeID == "" {
+				continue
+			}
+			entry, err := s.kv.Get(ctx, key)
+			if err != nil {
+				if errors.Is(err, jetstream.ErrKeyNotFound) {
+					continue
+				}
+				return nil, errs.From(err).Code(ErrCodeStore).Attr("edge", edgeID).Msg("read edge index")
+			}
+			tenantID := string(entry.Value())
+			if tenant.Validate(tenantID) == nil {
 				edges[edgeID] = tenantID
 			}
 		}

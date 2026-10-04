@@ -261,10 +261,10 @@ wrong-sequence responses, malformed records, and retry exhaustion.
 
 Tenant ids are canonical lowercase UUIDs for tenant entities, in store keys,
 bus subjects, and capture paths. `src/common/tenant/tenant.go` also accepts
-`DefaultTenant = "default"`, and operator calls run as `default` when
-`dev_tenant` is unset (`src/services/device/README.md:181`). The bus carries the
-id in tenant subjects and central audit streams use a wildcard in the tenant
-position ([edgebus/subjects.go](../../src/modules/edgebus/subjects.go),
+`DefaultTenant = "default"`. Operator calls must supply the tenant in the
+`X-FlowSeer-Tenant` request header (`src/services/device/internal/authz/interceptor.go:46-51`).
+The bus carries the id in tenant subjects and central audit streams use a wildcard
+in the tenant position ([edgebus/subjects.go](../../src/modules/edgebus/subjects.go),
 [edgebus/hub.go](../../src/modules/edgebus/hub.go)).
 
 Central's stores are partitioned by tenant: every key in the `device-lanes`,
@@ -466,13 +466,13 @@ did not measure the exclusion variant comparably.
 
 ### The operator action trail ships with authorization
 
-Nothing records today who created an edge or minted a setup key
-(`src/services/device/README.md`). Authorization adds global admins and
-cross-tenant grants, so each admin-surface change, each full-payload
-grant, and every capture download is recorded with its authenticated
-`OperatorRef`, tenant, object, action, and outcome in the same change that
-turns authorization on. That event goes to a per-tenant operator stream
-rather than the device-scoped audit stream.
+The operator action trail records who created an edge, minted a setup key, or
+downloaded a capture. Authorization adds global admins and cross-tenant grants,
+so each recorded operator action is emitted with its authenticated
+`OperatorRef`, object, action, and outcome in the same change that turns
+authorization on. That event goes to a single stream using
+`flowseer.<tenant>.operator.action.<action>` subjects (subject pattern in
+`src/modules/edgebus/subjects.go:86-88`, stream binding in `src/modules/edgebus/hub.go:400`).
 
 ## Consequences
 
@@ -660,7 +660,7 @@ keys.
 `AuthorizationEngine` configures the OpenFGA connection through opaque bounded
 strings (`store_id` and `model_id`) rather than naming engine internals in the
 protobuf schema. The service adapter validates the engine identifier format and
-verifies that the remote model matches the embedded model at startup.
+verifies that the remote model matches the embedded model before first use.
 
 ### 2026-10-03: server-streaming authorization, in-flight checks, and abandon
 
@@ -676,32 +676,146 @@ discharge their obligation while failing closed against subsequent responses.
 
 ### 2026-10-03: interceptor chain, projector, identity, and action trail
 
-The operator and edge services enforce authorization through distinct
-interceptor stacks and background reconciliation:
+#### Interceptor ordering and startup validation
 
-- **Interceptors and start**: Operator handlers run behind telemetry,
-  authentication, validation, authorization, and action trail interceptors in
-  that order. Edge-facing handlers mount telemetry and validation only.
-  `TenantInterceptor` and `DeviceServiceConfig.dev_tenant` are removed, and
-  tenancy derives strictly from `X-FlowSeer-Tenant`. Service configuration
-  requires `authentication` and `authorization` sections. Offline-detectable
-  configuration failures abort startup before binding listeners, whereas
-  runtime engine unreachability serves edge calls while operator calls answer
-  `CodeUnavailable`.
-- **Relationship projector**: A dedicated module (`internal/projector`)
-  synchronizes tuples for `edge:<id>#tenant`, `device:<id>#tenant`,
-  `capture_session:<id>#tenant`, `capture_session:<id>#edge`, and
-  `capture_session:<id>#requester` into OpenFGA. Handlers for edge creation and
-  capture sessions trigger immediate synchronization hooks, and a periodic
-  reconciler scans storage every 10 minutes (`intervals.relationship_reconcile`)
-  to heal drift.
-- **Identity**: `OperatorRef` carries required `issuer` and `subject` fields.
-  Central overrides request-supplied actor identities in mutation intents and
-  capture authorizations with the authenticated principal. Idempotency digests
-  incorporate the principal as `operator:<issuer>\x00<subject>`.
-- **Operator action trail**: Admitted calls on `EdgeAdminService` and
-  `CaptureService` publish attempted and completed records to
-  `FLOWSEER_OPERATOR_ACTIONS` on subject
-  `flowseer.<tenant>.operator.action.<action>`. Attempt publication failures
-  halt execution and return `CodeUnavailable` with `actiontrail/unavailable`.
-  Completion failures are logged while returning the response.
+Operator handlers run behind telemetry, panic recovery, authentication,
+validation, authorization, and action trail interceptors in that order
+(`operatorInterceptors` in `src/services/device/internal/host/serve.go:155-162`).
+Running validation before authorization guarantees that object identifiers passed
+to authorization rules conform to schema constraints. Placing the action trail
+innermost ensures that it records only calls admitted by authorization. Edge
+handlers mount telemetry, panic recovery, and validation only
+(`edgeInterceptors` in `src/services/device/internal/host/serve.go:119-123`),
+because edges authenticate through signed edge assertions
+(`src/services/device/README.md`) rather than operator tokens.
+
+`TenantInterceptor` and `DeviceServiceConfig.dev_tenant` are removed, so
+tenancy derives strictly from the `X-FlowSeer-Tenant` request header.
+Service configuration requires both `authentication` and `authorization` sections
+because the service cannot safely process operator requests without them.
+Offline configuration errors abort startup before listeners bind. Network
+unreachability of the authorization engine leaves the service running, so edge
+traffic continues uninterrupted while operator calls fail closed with
+`CodeUnavailable`.
+
+The OpenFGA adapter validates store and model identifier syntax offline, but
+verifies the remote model against the embedded model before first use rather
+than during service initialization. Verifying lazily avoids supervisor crash
+loops when OpenFGA starts slowly or experiences transient outages during
+central boot.
+
+#### Relationship projector
+
+The relationship projector synchronizes authorization tuples for edges,
+devices, and capture sessions into OpenFGA. Handlers creating edges or sessions
+trigger immediate synchronization hooks, while a background reconciler scans
+storage every 10 minutes (`RelationshipReconcile` in
+`src/services/device/internal/host/config.go:158-173`) to heal drift.
+
+The projector owns five relations and touches no other tuple:
+
+| Object | Relation | Derived from |
+| --- | --- | --- |
+| `edge:<id>` | `tenant` | the `edge_<id>` index entry (`src/services/device/internal/edgestore/store.go:169-189`) |
+| `device:<id>` | `tenant` | the registry listing the device, and the index entry of the registry's edge (`src/services/device/internal/deviceapi/service.go:137-162`) |
+| `capture_session:<id>` | `tenant` | the tenant part of the session's key (`src/services/device/internal/captureapi/store.go:88-93`) |
+| `capture_session:<id>` | `edge` | `config.ref.edge.edge.id` (`CaptureSessionGlobalRef` in `spec/proto/flowseer/model/capture/v1/capture_session.proto:30-35`) |
+| `capture_session:<id>` | `requester` | `user:` and `authn.ComputePrincipalID` of `config.authorization.requested_by` (`src/services/device/internal/authn/principal.go`) |
+
+These five relations support the OpenFGA model's `from tenant` and `from edge`
+terms and the interceptor's tenant check. A session stored with no issuer in
+`requested_by` gets no `requester` tuple. A device relationship derives from the
+registry listing and the hosting edge's index entry rather than Key-Value
+records. A device has no Key-Value lane record until its first mutation
+(`src/services/device/internal/journal/journal.go:175-176`), so deriving tenancy
+from the registry allows initial authorization checks to succeed without
+creating phantom records.
+
+`Sync(object)` (`src/services/device/internal/projector/projector.go:90-132`)
+is the only code that writes or deletes a relationship. It reads the object's
+stored tuples, then the record, and writes the difference in one call. A
+creating handler writes the record before its tuples, and identifiers are random
+UUIDs that are never reused. Tuples whose record is absent when read afterwards
+belong to a record that was deleted.
+
+A handler that creates a record projects it before answering (`CreateEdge` in
+`src/services/device/internal/edgeapi/admin.go:194`, `CreateCaptureSession` in
+`src/services/device/internal/captureapi/operator_service.go:180-186`). A failed projection is
+logged while the handler answers anyway. The record in storage is the authority
+and the next reconciliation pass repairs the projection. For example,
+`CreateEdge` returns the single-use setup key (`src/services/device/internal/edgeapi/admin.go:145-161`),
+and failing the call would cause a retrying caller to mint a second edge.
+
+A reconcile pass runs at start and then every 10 minutes (`intervals.relationship_reconcile`).
+A failed pass is retried after 5 s, doubling on consecutive failures up to the
+configured interval. The projector module is declared last in supervision so its
+restart restarts nothing else. A device listed in the registry is authorized
+once the first pass after start has run, because the registry is read once at
+start (`src/services/device/internal/host/host.go:102`). `host.Options.Reconciled`
+fires after each completed pass with no error, allowing tests and supervisory
+callers to wait on initial projection completion just as `Bound` signals
+listener availability.
+
+#### Operator identity
+
+`OperatorRef` requires both `issuer` and `subject` fields to uniquely identify
+the caller across identity providers. The verifier
+(`src/services/device/internal/authn/verifier.go:424-426`)
+refuses a subject longer than 256 characters (the bound `OperatorRef.subject`
+carries in `spec/proto/flowseer/model/identity/v1/operator.proto:12-16`), so every
+admitted principal can be recorded.
+
+Central stamps the authenticated principal onto request payloads, replacing
+caller-supplied values in mutation intents and capture authorizations to prevent
+identity spoofing (`src/services/device/internal/deviceapi/apply.go:25-37`,
+`src/services/device/internal/captureapi/operator_service.go:155-162`). `MutationIntent.actor`
+(`spec/proto/flowseer/model/access/v1/operation.proto:130`) and
+`CaptureAuthorization.requested_by` (`spec/proto/flowseer/model/capture/v1/capture_session.proto:109-117`)
+remain on their messages but are no longer required in schema validation. Both
+messages serve as request payloads and stored records simultaneously (journal
+records, audit logs, and edge dispatch requests). Introducing separate
+request-only messages would require widespread breaking API changes where central
+stamping prevents identity spoofing.
+
+`AbandonMutationRequest.actor` and `ResolveDesynchronizationRequest.actor`
+(`spec/proto/flowseer/api/device/v1/device_service.proto`) were removed and their
+field numbers and names reserved. Neither handler ever read them
+(`src/services/device/internal/deviceapi/resolve.go`), eliminating client-supplied
+identity that was never verified or recorded.
+
+Idempotency digests incorporate the principal as `operator:<issuer>\x00<subject>`
+to isolate idempotency keys across operators (`src/services/device/internal/journal/journal.go:1010-1016`).
+
+#### Operator action trail
+
+The action trail records only the nine procedures in the interceptor table
+(`src/services/device/internal/actiontrail/interceptor.go:32-45`): `CreateEdge`,
+`IssueSetupKey`, `RevokeSetupKey`, `RetireEdge`, `GetEdge`, and `ListEdges` on
+`EdgeAdminService`, along with full-payload `CreateCaptureSession`,
+`TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. Calls
+refused by authentication or authorization interceptors are excluded from the
+trail, preventing unauthenticated or unauthorized callers from polluting audit
+streams. A denial inside the handler (such as the full-payload capture
+authorization check in `src/services/device/internal/captureapi/operator_service.go:127-134`)
+is recorded with outcome `OPERATOR_ACTION_OUTCOME_DENIED`
+(`src/services/device/internal/actiontrail/interceptor.go:87-95`), because the handler
+was reached by an authenticated caller and the attempt was already recorded. The
+completion records the outcome the handler returned.
+
+The `OperatorActionEvent` schema omits a dedicated tenant field because tenancy
+is ambient and encoded directly into the NATS subject token
+`flowseer.<tenant>.operator.action.<action>`. Records are stored in a single
+JetStream stream `FLOWSEER_OPERATOR_ACTIONS` configured with file storage, a 64
+MiB total budget, and a limit of 10,000 records per subject with oldest records
+discarded first. Reads are recorded too, and a caller who may only view edges
+could otherwise push the record of who minted a setup key out of a shared limit.
+With a subject per tenant and action (`flowseer.<tenant>.operator.action.<action>`),
+high-volume read operations under one action cannot evict setup key issuance
+records, and a flood evicts only records of its own action.
+
+A recorded call publishes an attempt event before the handler executes,
+ensuring durable recording before any state change is made. If attempt
+publication fails, execution halts and returns `CodeUnavailable` with
+`actiontrail/unavailable`. If completion publication fails, the failure is
+logged while the handler response returns to the caller, because the operation
+has already taken effect and cannot be rolled back.

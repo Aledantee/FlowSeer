@@ -29,6 +29,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edge"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
@@ -44,9 +45,58 @@ import (
 // than a transport reset. The panic value itself is not put on the wire.
 func panicRecovery() connect.HandlerOption {
 	return connect.WithRecover(func(_ context.Context, _ connect.Spec, _ http.Header, p any) error {
-		return connect.NewError(connect.CodeInternal, errs.New().Code(ErrCodePanic).
-			Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
+		return panicError(p)
 	})
+}
+
+type panicInterceptor struct{}
+
+func (panicInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
+	return func(ctx context.Context, req connect.AnyRequest) (resp connect.AnyResponse, err error) {
+		defer func() {
+			if p := recover(); p != nil {
+				if p == http.ErrAbortHandler {
+					mustRepanicAbortHandler()
+				}
+				err = panicError(p)
+				resp = nil
+			}
+		}()
+		return next(ctx, req)
+	}
+}
+
+func (panicInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return func(ctx context.Context, conn connect.StreamingHandlerConn) (err error) {
+		defer func() {
+			if p := recover(); p != nil {
+				if p == http.ErrAbortHandler {
+					mustRepanicAbortHandler()
+				}
+				err = panicError(p)
+			}
+		}()
+		return next(ctx, conn)
+	}
+}
+
+// mustRepanicAbortHandler preserves the [http.ErrAbortHandler] panic after the
+// interceptor has recovered it. The caller has established the invariant that
+// the panic value is exactly that sentinel, so this function must panic with it
+// again. The net/http server recovers it at the ServeHTTP boundary, aborts the
+// response by closing the connection or resetting the HTTP/2 stream, and
+// suppresses the stack trace it logs for other handler panics.
+func mustRepanicAbortHandler() {
+	panic(http.ErrAbortHandler)
+}
+
+func (panicInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
+func panicError(p any) error {
+	return connecterr.WrapAs(connect.CodeInternal, "handler panicked", errs.New().Code(ErrCodePanic).
+		Attr("panic", fmt.Sprintf("%T", p)).Msg("handler panicked"))
 }
 
 // mux builds the served surface: the edge-facing services behind the
@@ -70,9 +120,11 @@ func panicRecovery() connect.HandlerOption {
 // middleware's limit would have been.
 func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetry.View) (http.Handler, error) {
 	recoverPanic := panicRecovery()
+	recoverInterceptor := panicInterceptor{}
 
 	edgeInterceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
+		recoverInterceptor,
 		ValidatingInterceptor(),
 	)
 
@@ -108,6 +160,7 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 
 	operatorInterceptors := connect.WithInterceptors(
 		TelemetryInterceptor(log, view),
+		recoverInterceptor,
 		authn.NewInterceptor(tokenVerifier),
 		OperatorValidatingInterceptor(),
 		authz.NewInterceptor(h.engine),
@@ -126,8 +179,8 @@ func (h *assembly) mux(resources *busResources, log *slog.Logger, view *telemetr
 			Tenant: t,
 		}); err != nil {
 			log.ErrorContext(ctx, "failed to project object relationship",
-				slog.String("object_type", objectType),
-				slog.String("object_id", id),
+				slog.String("flowseer.authz.object.type", objectType),
+				slog.String("flowseer.authz.object.id", id),
 				slog.String("error.type", telemetry.ErrorType(err)),
 			)
 		}

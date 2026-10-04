@@ -49,7 +49,7 @@ var (
 	// ErrCodeProtocol indicates an unexpected engine response or protocol failure.
 	ErrCodeProtocol = errs.NewCode("authz/engine-protocol")
 	// ErrCodeConflict indicates a concurrent write conflict on the engine.
-	ErrCodeConflict = errs.NewCode("authz/engine-conflict")
+	ErrCodeConflict = authz.ErrCodeConflict
 	// ErrCodeInvalidTuple indicates an invalid tuple that fails identifier validation.
 	ErrCodeInvalidTuple = errs.NewCode("authz/engine-invalid-tuple")
 )
@@ -70,6 +70,8 @@ const (
 // errCallTimeout is the cause of a call context that ran out of the Checker's
 // own timeout, which tells it apart from a caller's cancel or deadline.
 var errCallTimeout = errs.New().Code(ErrCodeUnreachable).Retryable().Msg("engine call timed out")
+
+type callerContextKey struct{}
 
 // Options configures an OpenFGA authorization Checker.
 type Options struct {
@@ -98,6 +100,7 @@ type Checker struct {
 	client     openfgav1.OpenFGAServiceClient
 
 	verifyMu       sync.Mutex
+	verifyFlight   chan struct{}
 	verified       bool
 	lastVerifyErr  error
 	lastVerifyTime time.Time
@@ -143,8 +146,9 @@ func (m metadataCarrier) Keys() []string {
 	return keys
 }
 
-// New constructs a Checker connected to OpenFGA, verifies the configured store
-// and authorization model against the engine, and returns the ready Checker.
+// New constructs a Checker connected to OpenFGA without issuing network calls.
+// The configured store and authorization model are verified lazily on first use
+// or explicitly via [Checker.Verify].
 func New(_ context.Context, opts Options) (*Checker, error) {
 	req := &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: opts.StoreID,
@@ -242,42 +246,66 @@ func (c *Checker) Verify(ctx context.Context) error {
 }
 
 func (c *Checker) verify(ctx context.Context) error {
-	c.verifyMu.Lock()
-	defer c.verifyMu.Unlock()
+	for {
+		c.verifyMu.Lock()
+		if c.verified {
+			c.verifyMu.Unlock()
+			return nil
+		}
 
-	if c.verified {
-		return nil
+		if !c.lastVerifyTime.IsZero() && c.clock().Sub(c.lastVerifyTime) < 5*time.Second {
+			err := c.lastVerifyErr
+			c.verifyMu.Unlock()
+			return err
+		}
+
+		if ch := c.verifyFlight; ch != nil {
+			c.verifyMu.Unlock()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-ch:
+				continue
+			}
+		}
+
+		flight := make(chan struct{})
+		c.verifyFlight = flight
+		c.verifyMu.Unlock()
+
+		err := c.doVerify(ctx)
+
+		c.verifyMu.Lock()
+		c.verifyFlight = nil
+		close(flight)
+
+		if err == nil {
+			c.verified = true
+			c.lastVerifyErr = nil
+			c.lastVerifyTime = time.Time{}
+			c.verifyMu.Unlock()
+			return nil
+		}
+
+		if ctxErr := contextError(ctx); ctxErr != nil {
+			c.verifyMu.Unlock()
+			return ctxErr
+		}
+
+		c.lastVerifyErr = err
+		c.lastVerifyTime = c.clock()
+		c.verifyMu.Unlock()
+		return err
 	}
-
-	now := c.clock()
-	if !c.lastVerifyTime.IsZero() && now.Sub(c.lastVerifyTime) < 5*time.Second {
-		return c.lastVerifyErr
-	}
-
-	err := c.doVerify(ctx)
-	if err == nil {
-		c.verified = true
-		c.lastVerifyErr = nil
-		c.lastVerifyTime = time.Time{}
-		return nil
-	}
-
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-
-	c.lastVerifyErr = err
-	c.lastVerifyTime = now
-	return err
 }
 
 func (c *Checker) doVerify(ctx context.Context) error {
-	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel := c.callContext(ctx)
 	storeResp, err := c.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: c.storeID})
 	cancel()
 	if err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if ctxErr := contextError(ctx); ctxErr != nil {
+			return ctxErr
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 5002 || st.Code() == 5 /* codes.NotFound */ {
@@ -289,15 +317,15 @@ func (c *Checker) doVerify(ctx context.Context) error {
 		return errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
 	}
 
-	callCtx, cancel = context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel = c.callContext(ctx)
 	modelResp, err := c.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: c.storeID,
 		Id:      c.modelID,
 	})
 	cancel()
 	if err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if ctxErr := contextError(ctx); ctxErr != nil {
+			return ctxErr
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 2001 || st.Code() == 5 /* codes.NotFound */ {
@@ -371,13 +399,36 @@ func (c *Checker) unaryClientInterceptor(
 
 // callErrorType is the bounded error.type of a failed engine call. A call
 // that ended because its caller canceled or ran out of its own deadline is the
-// caller's outcome, not the engine's, so it takes the context cause. The
-// Checker's own timeout reaches classifyError as the engine being unreachable.
+// caller's outcome, not the engine's, so it takes the caller context and its
+// wall-clock deadline. The Checker's own timeout reaches classifyError as the
+// engine being unreachable.
 func (c *Checker) callErrorType(callCtx context.Context, err error) string {
+	callerCtx := callCtx
+	if original, ok := callCtx.Value(callerContextKey{}).(context.Context); ok {
+		callerCtx = original
+	}
+	if ctxErr := contextError(callerCtx); ctxErr != nil {
+		return telemetry.ErrorType(ctxErr)
+	}
 	if ctxErr := callCtx.Err(); ctxErr != nil && !errors.Is(context.Cause(callCtx), errCallTimeout) {
 		return telemetry.ErrorType(ctxErr)
 	}
 	return telemetry.ErrorType(c.classifyError(err))
+}
+
+func (c *Checker) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	return context.WithValue(callCtx, callerContextKey{}, ctx), cancel
+}
+
+func contextError(ctx context.Context) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
+	return nil
 }
 
 func (c *Checker) classifyError(err error) error {
@@ -411,8 +462,8 @@ func (c *Checker) classifyError(err error) error {
 }
 
 func (c *Checker) handleError(callerCtx context.Context, err error) error {
-	if callerCtx.Err() != nil {
-		return callerCtx.Err()
+	if ctxErr := contextError(callerCtx); ctxErr != nil {
+		return ctxErr
 	}
 	return c.classifyError(err)
 }
@@ -501,7 +552,7 @@ func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 		}
 	}
 
-	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel := c.callContext(ctx)
 	resp, err := c.client.Check(callCtx, req)
 	cancel()
 	if err != nil {
@@ -585,7 +636,7 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 			Checks:               checks,
 		}
 
-		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+		callCtx, cancel := c.callContext(ctx)
 		resp, err := c.client.BatchCheck(callCtx, req)
 		cancel()
 		if err != nil {

@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: rework
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -849,3 +850,31 @@ The run in `deploy/lab/README.md` is done once by hand.
 - Unverified, for the implementer: a real `Aborted` from two concurrent
   writes of one tuple, and the duration of a pass at the benchmark
   fixture's size.
+- No operator-facing path creates a tenant record. `tenantstore.Store.Create`
+  has no caller outside tests, and `TenantService` is not mounted
+  (`TestTenantServiceIsNotMounted` in
+  `src/services/device/internal/host/host_test.go`). `member` needs
+  `claimed`, which the verifier yields only from such a record
+  (`src/services/device/internal/authn/verifier.go`), so the lab run in
+  `deploy/lab/README.md` and the runbook cannot reach an admitted operator
+  call on a fresh deployment. U8 asks the lab run for "a tenant". Both
+  documents state the limit. Whether phase 3 gains a seed path or phase 4's
+  `TenantService` closes it is the plan owner's call.
+- An operator call that names a device the registry does not list answers
+  `PermissionDenied` with `authz/denied`, where it answered `NotFound`
+  before enforcement, because no `device:<id>#tenant` tuple exists for it.
+  The Requirements do not name this case.
+- From the review, after three fix rounds, still open. The generator of
+  `TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure` draws its
+  booleans from the low bit of a linear congruential generator, which
+  alternates, so all six record-presence bits and the grant bits carry one
+  bit and the test sees two record layouts of 64. A walk-fault world with
+  the target session present and another session absent with a stale tuple
+  is therefore never generated, and `propertyAffected` would report it. The
+  recover interceptor on the edge-facing list
+  (`src/services/device/internal/host/serve.go`) has no test that fails when
+  only that entry is removed. The operator authorization record cites
+  `host/serve.go` line ranges that a later comment shifted by six lines, and
+  `journal/journal.go:1010-1016` where the actor line is `:1017`.
+  `lab_fixtures_test.go` pins the runbook's token step by the absence of
+  three old strings.

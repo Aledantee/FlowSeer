@@ -43,7 +43,7 @@ docker compose up -d --wait
 ./write-openfga-store.sh
 ```
 
-The script prints an `authorization` block. Paste it over the `authorization` section of `central.textproto`, which replaces the placeholder ids and the key path. The block's `ca_file` is the lab CA. The `authentication` section needs the same file as its own `ca_file`, because Dex serves a certificate the system trust store does not know.
+The script prints an `authorization` block. Paste it over the `authorization` section of `central.textproto`, which replaces the placeholder ids and the key path. Central validates the store and model identifiers at startup (`src/services/device/internal/authz/openfga/checker.go:153`) and refuses to start while `PLACEHOLDER_STORE_ID` or `PLACEHOLDER_MODEL_ID` remains. The block's `ca_file` is the lab CA. The `authentication` section needs the same file as its own `ca_file`, because Dex serves a certificate the system trust store does not know.
 
 4. Request an operator token for each lab user by password grant, with the cross-client audience scope. `alice` belongs to the groups `acme` and `globex`, and `admin` to `flowseer-platform`:
 
@@ -68,10 +68,23 @@ Read the claims the device service will see. The `sub` of the admin token is the
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
 ```
 
-5. Write authorization tuples for the lab user in OpenFGA. Until `TenantService` lands in phase 4, a deployment writes `enrolled` and role tuples directly to OpenFGA. Compute the principal identifier from the token issuer and subject:
+5. Provision the tenant record before writing authorization tuples. The device
+service does not mount `TenantService` (`TestTenantServiceIsNotMounted` in
+`src/services/device/internal/host/host_test.go`),
+and no file under `deploy/lab` can create the record held by
+`tenantstore.Store.Create` (`src/services/device/internal/tenantstore/store.go:113-126`).
+Create a tenant record out of band with the Dex issuer, organization claim name
+`groups`, and claim value `acme`. Use a canonical UUID for its tenant id. This
+is a deployment blocker today. Do not treat the OpenFGA write below as tenant
+creation. The verifier supplies `claimed` from that tenant record at request
+time (`src/services/device/internal/authn/verifier.go:452-476`).
+
+After the tenant record exists, write the lab user's enrollment and role tuples
+in OpenFGA. Compute the principal identifier from the token issuer and subject:
 
 ```bash
-ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
+TENANT_ID=0192e6a0-0000-7000-8000-0000000000ac
+ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -r -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
 ALICE_ID=$(printf '%s\0%s' "https://127.0.0.1:8445/dex" "${ALICE_SUB}" | shasum -a 256 | awk '{print $1}')
 STORE_ID=$(grep -E '^\s*store_id:' central.textproto | awk '{print $2}' | tr -d '"')
 
@@ -82,33 +95,167 @@ curl -sS --cacert secrets/ca.crt \
   -d '{
     "writes": {
       "tuple_keys": [
-        {"user": "user:'"${ALICE_ID}"'", "relation": "enrolled", "object": "tenant:default"},
-        {"user": "user:'"${ALICE_ID}"'", "relation": "admin", "object": "tenant:default"}
+        {"user": "user:'"${ALICE_ID}"'", "relation": "enrolled", "object": "tenant:'"${TENANT_ID}"'"},
+        {"user": "user:'"${ALICE_ID}"'", "relation": "admin", "object": "tenant:'"${TENANT_ID}"'"}
       ]
     }
   }'
 ```
 
-6. Call an operator procedure. Requesting `GetEdge` with the bearer token and tenant header:
+Expected answer:
+
+```json
+{}
+```
+
+6. Start the device service:
 
 ```bash
-buf curl --cacert secrets/ca.crt \
+go run ../../src/services/device/cmd/device --config central.textproto
+```
+
+The config points at `/etc/flowseer/registry.textproto` and
+`/etc/flowseer/credentials`, so install or mount those paths before starting.
+The service validates the registry before it binds. Central requires a registry
+at `/etc/flowseer/registry.textproto` with the integration and no devices for
+this first bootstrap start (the "Bringing the deployment up" section of
+`docs/runbooks/lab-icx7150-first-write.md`).
+The integration ref comes from `registry.textproto:13` with a placeholder edge
+UUID:
+
+```bash
+cat << 'EOF' > /etc/flowseer/registry.textproto
+integration {
+  ref { integration { id: "0192e6a0-0000-7000-8000-0000000000c1" } }
+  edge { edge { id: "0192e6a0-0000-7000-8000-00000000dead" } }
+}
+EOF
+```
+
+After `CreateEdge` returns, `write-registry.sh` renders `registry.textproto` with
+the minted edge identifier to `/etc/flowseer/registry.textproto`
+(`deploy/lab/write-registry.sh`), and central is restarted before device
+procedures can be used. The runbook's "Fill the device's two positions in the
+registry template" section describes that two-start sequence in detail.
+
+Expected log entry:
+
+```text
+device api listening
+```
+
+Central generates its certificate into `/var/lib/flowseer/device/tls.crt` on first start. Operator calls trust this certificate rather than `secrets/ca.crt`.
+
+7. Call an operator procedure. Central serves no reflection, so calls provide `--schema ../../spec/proto`. Create an edge first, because the bootstrap registry has no devices:
+
+```bash
+buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
   -H "Authorization: Bearer ${ALICE_TOKEN}" \
-  -H "X-FlowSeer-Tenant: default" \
-  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
+  -d '{"name":"lab"}' \
+  https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/CreateEdge > created.json
+EDGE_ID=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' created.json | head -1)
+cat created.json
+```
+
+Expected answer:
+
+```json
+{
+  "edge": {
+    "config": {
+      "ref": {
+        "edge": {
+          "id": "0192e6a0-0000-7000-8000-000000000001"
+        }
+      },
+      "name": "lab"
+    },
+    "state": {
+      "ref": {
+        "edge": {
+          "id": "0192e6a0-0000-7000-8000-000000000001"
+        }
+      },
+      "lifecycle": "EDGE_LIFECYCLE_PENDING",
+      "setupKey": {
+        "id": "234567abcdefghijklmnopqrst",
+        "status": "SETUP_KEY_STATUS_ISSUED",
+        "issuedAt": "2026-10-04T08:00:00Z",
+        "expiresAt": "2027-04-02T08:00:00Z"
+      }
+    }
+  },
+  "provisioning": {
+    "centralUrl": "https://127.0.0.1:8443",
+    "setupKey": "fse1_234567abcdefghijklmnopqrst_abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz",
+    "trustAnchors": [
+      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    ]
+  }
+}
+```
+
+Requesting `GetEdge` with the bearer token and tenant header:
+
+```bash
+buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
+  -H "Authorization: Bearer ${ALICE_TOKEN}" \
+  -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
+  -d "{\"edge\":{\"edge\":{\"id\":\"${EDGE_ID}\"}}}" \
   https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
+```
+
+Expected answer:
+
+```json
+{
+  "edge": {
+    "config": {
+      "ref": {
+        "edge": {
+          "id": "0192e6a0-0000-7000-8000-000000000001"
+        }
+      },
+      "name": "lab"
+    },
+    "state": {
+      "ref": {
+        "edge": {
+          "id": "0192e6a0-0000-7000-8000-000000000001"
+        }
+      },
+      "lifecycle": "EDGE_LIFECYCLE_PENDING",
+      "setupKey": {
+        "id": "234567abcdefghijklmnopqrst",
+        "status": "SETUP_KEY_STATUS_ISSUED",
+        "issuedAt": "2026-10-04T08:00:00Z",
+        "expiresAt": "2027-04-02T08:00:00Z"
+      }
+    }
+  }
+}
 ```
 
 The same call without the header answers `InvalidArgument`:
 
 ```bash
-buf curl --cacert secrets/ca.crt \
+buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
   -H "Authorization: Bearer ${ALICE_TOKEN}" \
-  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  -d "{\"edge\":{\"edge\":{\"id\":\"${EDGE_ID}\"}}}" \
   https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
 ```
 
-7. Verify OpenFGA preshared key enforcement on both listeners.
+Expected answer:
+
+```json
+{
+  "code": "invalid_argument",
+  "message": "no tenant named"
+}
+```
+
+8. Verify OpenFGA preshared key enforcement on both listeners.
 
 On the HTTP listener, a request with no `Authorization` header returns HTTP 401 with `bearer_token_missing`:
 
@@ -116,10 +263,24 @@ On the HTTP listener, a request with no `Authorization` header returns HTTP 401 
 curl -i --cacert secrets/ca.crt https://127.0.0.1:8080/stores
 ```
 
+Expected answer (read from source in `github.com/openfga/openfga@v1.21.0/internal/authn/authn.go:17` and `pkg/server/errors/encoded_errors.go:125-130`):
+
+```text
+HTTP/2 401
+{"code":"bearer_token_missing","message":"missing bearer token"}
+```
+
 A request with a wrong preshared key returns HTTP 401 with `unauthenticated`:
 
 ```bash
 curl -i --cacert secrets/ca.crt -H "Authorization: Bearer wrong-key" https://127.0.0.1:8080/stores
+```
+
+Expected answer (read from source in `github.com/openfga/openfga@v1.21.0/internal/authn/authn.go:16` and `pkg/server/errors/encoded_errors.go:125-130`):
+
+```text
+HTTP/2 401
+{"code":"unauthenticated","message":"unauthenticated"}
 ```
 
 Over gRPC, `ListStores` without `authorization` metadata fails with status 1010:
@@ -130,6 +291,12 @@ printf '\0\0\0\0\0' | curl -sS -i --http2 --cacert secrets/ca.crt \
   https://127.0.0.1:8081/openfga.v1.OpenFGAService/ListStores | grep -a -i '^grpc-status'
 ```
 
+Expected answer:
+
+```text
+grpc-status: 1010
+```
+
 With a wrong key it fails with status 1500:
 
 ```bash
@@ -138,7 +305,13 @@ printf '\0\0\0\0\0' | curl -sS -i --http2 --cacert secrets/ca.crt \
   https://127.0.0.1:8081/openfga.v1.OpenFGAService/ListStores | grep -a -i '^grpc-status'
 ```
 
-8. Stop the containers and drop their state:
+Expected answer:
+
+```text
+grpc-status: 1500
+```
+
+9. Stop the containers and drop their state:
 
 ```bash
 docker compose down -v

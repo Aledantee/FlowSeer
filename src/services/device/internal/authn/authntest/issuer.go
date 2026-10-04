@@ -35,7 +35,6 @@ type Issuer struct {
 	KeysErr             atomic.Bool
 
 	mu            sync.Mutex
-	keyHandler    http.HandlerFunc
 	customKeyResp *customResponse
 }
 
@@ -77,17 +76,6 @@ func mustRSASign(priv *rsa.PrivateKey, digest []byte) []byte {
 	return sig
 }
 
-func mustECDSASign(priv *ecdsa.PrivateKey, digest []byte) []byte {
-	r, s, err := ecdsa.Sign(rand.Reader, priv, digest)
-	if err != nil {
-		panic(err)
-	}
-	sigBytes := make([]byte, 64)
-	r.FillBytes(sigBytes[:32])
-	s.FillBytes(sigBytes[32:])
-	return sigBytes
-}
-
 // New creates and starts a new TLS OIDC test issuer, registering server cleanup
 // on the provided testing.TB.
 func New(t testing.TB) *Issuer {
@@ -122,18 +110,13 @@ func New(t testing.TB) *Issuer {
 		})
 	})
 
-	mux.HandleFunc("/keys", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/keys", func(w http.ResponseWriter, _ *http.Request) {
 		iss.KeyFetchCount.Add(1)
 
 		iss.mu.Lock()
-		kh := iss.keyHandler
 		resp := iss.customKeyResp
 		iss.mu.Unlock()
 
-		if kh != nil {
-			kh(w, r)
-			return
-		}
 		if resp != nil {
 			if resp.contentType != "" {
 				w.Header().Set("Content-Type", resp.contentType)
@@ -214,11 +197,6 @@ func (iss *Issuer) SetDiscoveryError(err bool) {
 	iss.DiscoveryErr.Store(err)
 }
 
-// SetKeysError toggles simulated 500 error responses on the /keys endpoint.
-func (iss *Issuer) SetKeysError(err bool) {
-	iss.KeysErr.Store(err)
-}
-
 // SetKeyResponse configures a custom HTTP response to be returned by the /keys endpoint.
 func (iss *Issuer) SetKeyResponse(statusCode int, contentType string, body []byte) {
 	iss.mu.Lock()
@@ -228,22 +206,6 @@ func (iss *Issuer) SetKeyResponse(statusCode int, contentType string, body []byt
 		contentType: contentType,
 		body:        body,
 	}
-}
-
-// SetKeyHandler overrides the /keys endpoint with a custom HTTP handler.
-func (iss *Issuer) SetKeyHandler(h http.HandlerFunc) {
-	iss.mu.Lock()
-	defer iss.mu.Unlock()
-	iss.keyHandler = h
-}
-
-// ResetKeyEndpoint clears any custom key response, custom handler, or error state.
-func (iss *Issuer) ResetKeyEndpoint() {
-	iss.mu.Lock()
-	defer iss.mu.Unlock()
-	iss.customKeyResp = nil
-	iss.keyHandler = nil
-	iss.KeysErr.Store(false)
 }
 
 // Sign signs the given claims map as a JWT using the issuer's RSA key and key ID.
@@ -260,37 +222,4 @@ func (iss *Issuer) SignWithKey(priv *rsa.PrivateKey, kid string, claims map[stri
 	digest := sha256.Sum256([]byte(signingInput))
 	sig := mustRSASign(priv, digest[:])
 	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig)
-}
-
-// SignECDSA signs the given claims map as a JWT using the issuer's ECDSA key and key ID.
-func (iss *Issuer) SignECDSA(claims map[string]any) string {
-	return iss.SignECDSAWithKey(iss.ECKey, iss.ECKID, claims)
-}
-
-// SignECDSAWithKey signs the given claims map as a JWT using the specified ECDSA key and key ID.
-func (iss *Issuer) SignECDSAWithKey(priv *ecdsa.PrivateKey, kid string, claims map[string]any) string {
-	header := map[string]any{"alg": "ES256", "typ": "JWT", "kid": kid}
-	hJSON := mustMarshalJSON(header)
-	cJSON := mustMarshalJSON(claims)
-	signingInput := base64.RawURLEncoding.EncodeToString(hJSON) + "." + base64.RawURLEncoding.EncodeToString(cJSON)
-	digest := sha256.Sum256([]byte(signingInput))
-	sig := mustECDSASign(priv, digest[:])
-	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sig)
-}
-
-// BadSigner returns a newly generated RSA private key not registered in the issuer's key set.
-func (iss *Issuer) BadSigner() *rsa.PrivateKey {
-	return mustGenerateRSAKey()
-}
-
-// SignBad signs the given claims map with an unregistered key.
-func (iss *Issuer) SignBad(claims map[string]any) string {
-	return iss.SignWithKey(iss.BadSigner(), "unregistered-kid", claims)
-}
-
-// UnsignedToken constructs an unsigned JWT string from the provided header and claims maps.
-func UnsignedToken(header, claims map[string]any) string {
-	hJSON := mustMarshalJSON(header)
-	cJSON := mustMarshalJSON(claims)
-	return base64.RawURLEncoding.EncodeToString(hJSON) + "." + base64.RawURLEncoding.EncodeToString(cJSON) + "."
 }

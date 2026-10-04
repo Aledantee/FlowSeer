@@ -12,17 +12,17 @@ Imported by: nothing FlowSeer-owned
 Deliberately absent:
 
 - `OperatorActionConfig` and `OperatorActionState`. This package is a pure
-  event stream; there is nothing here to configure and nothing to query as
+  event stream. There is nothing here to configure and nothing to query as
   current state.
-- A tenant. Tenancy is ambient; the tenant is a token in the message subject.
+- A tenant. Tenancy is ambient: the tenant is a token in the message subject.
 
 ## Structure
 
-Every event carries the same envelope — the event identifier, the call
+Every event carries the same envelope: the event identifier, the call
 identifier joining attempt and completion, when it occurred, the operator, the
 action enum, and an optional object (`EdgeGlobalRef` or
-`CaptureSessionGlobalRef`) — plus exactly one detail: `OperatorActionAttempted` or
-`OperatorActionCompleted`.
+`CaptureSessionGlobalRef`). It also carries exactly one detail:
+`OperatorActionAttempted` or `OperatorActionCompleted`.
 
 `OperatorActionAttempted` carries no fields of its own.
 

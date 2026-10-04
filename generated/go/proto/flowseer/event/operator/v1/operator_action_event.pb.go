@@ -301,8 +301,9 @@ func (b0 OperatorActionCompleted_builder) Build() *OperatorActionCompleted {
 	return m0
 }
 
-// One durable audit record for an operator action. Delivered before the state
-// it records is released.
+// One durable audit record for an operator action. An attempted event is
+// delivered before the handler runs. A completed event is delivered after the
+// handler returns.
 type OperatorActionEvent struct {
 	state                  protoimpl.MessageState       `protogen:"opaque.v1"`
 	xxx_hidden_EventId     *string                      `protobuf:"bytes,1,opt,name=event_id,json=eventId"`
@@ -662,7 +663,8 @@ type OperatorActionEvent_builder struct {
 	Operator *v1.OperatorRef
 	// The action being performed. Must be present; the zero value is rejected.
 	Action *OperatorAction
-	// Optional target object of the action.
+	// Optional target object of the action. Unset when the action has no target
+	// or when a target created by the action is not known yet.
 
 	// Fields of oneof xxx_hidden_Object:
 	Edge           *v11.EdgeGlobalRef

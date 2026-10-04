@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -201,28 +202,43 @@ func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) str
 }
 
 type authTransport struct {
-	base    http.RoundTripper
-	central *central
+	base   http.RoundTripper
+	token  string
+	tenant string
 }
 
 func (a *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	clone := req.Clone(req.Context())
-	if clone.Header.Get("Authorization") == "" && a.central.token != "" {
-		clone.Header.Set("Authorization", "Bearer "+a.central.token)
+	if clone.Header.Get("Authorization") == "" && a.token != "" {
+		clone.Header.Set("Authorization", "Bearer "+a.token)
 	}
-	if clone.Header.Get("X-FlowSeer-Tenant") == "" && a.central.tenant != "" {
-		clone.Header.Set("X-FlowSeer-Tenant", a.central.tenant)
+	if clone.Header.Get("X-FlowSeer-Tenant") == "" && a.tenant != "" {
+		clone.Header.Set("X-FlowSeer-Tenant", a.tenant)
 	}
 	return a.base.RoundTrip(clone)
 }
 
-func insecureAuthClient(c *central) *http.Client {
+func authClient(caFile, token, tenant string) *http.Client {
+	var rootCAs *x509.CertPool
+	if caFile != "" {
+		pem, err := os.ReadFile(caFile)
+		if err != nil {
+			panic(fmt.Sprintf("read ca file %q: %v", caFile, err))
+		}
+		rootCAs = x509.NewCertPool()
+		if !rootCAs.AppendCertsFromPEM(pem) {
+			panic(fmt.Sprintf("failed to parse root cert from %q", caFile))
+		}
+	}
 	return &http.Client{
 		Transport: &authTransport{
 			base: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+				TLSClientConfig: &tls.Config{
+					RootCAs: rootCAs,
+				},
 			},
-			central: c,
+			token:  token,
+			tenant: tenant,
 		},
 		Timeout: 30 * time.Second,
 	}
@@ -242,10 +258,11 @@ type central struct {
 	// the field out so the host applies its one-minute default.
 	captureSweep time.Duration
 
-	// client is built once and reused. A fresh http.Transport per call keeps
-	// its own idle pool with no IdleConnTimeout, and the status polls run at
-	// 50ms for minutes, so a per-call transport leaks thousands of
-	// connections and their goroutines on both sides of this process.
+	// client is built on each start and reused across calls. A fresh
+	// http.Transport per call keeps its own idle pool with no
+	// IdleConnTimeout, and the status polls run at 50ms for minutes, so a
+	// per-call transport leaks thousands of connections and their
+	// goroutines on both sides of this process.
 	client *http.Client
 
 	mu      sync.Mutex
@@ -258,6 +275,15 @@ type central struct {
 	principalID string
 	tenant      string
 	engine      *authztest.Engine
+
+	// Config overrides
+	audience      string
+	platformAdmin *storev1.PlatformAdmin
+	authzEndpoint string
+	authzStoreID  string
+	authzModelID  string
+	authzKeyFile  string
+	authzCAFile   string
 }
 
 // auditRecords reads the whole audit stream in the order the stream holds it.
@@ -307,7 +333,12 @@ func (c *central) auditRecords(t *testing.T) []*accessv1.DeviceOperationEvent {
 	return records
 }
 
-func (c *central) operatorActionRecords(t *testing.T) []*operatorv1.OperatorActionEvent {
+type operatorActionRecord struct {
+	Subject string
+	Event   *operatorv1.OperatorActionEvent
+}
+
+func (c *central) operatorActionRecords(t *testing.T) []operatorActionRecord {
 	t.Helper()
 	c.mu.Lock()
 	hub := c.hub
@@ -328,7 +359,7 @@ func (c *central) operatorActionRecords(t *testing.T) []*operatorv1.OperatorActi
 		t.Fatalf("operator action stream info: %v", err)
 	}
 
-	var records []*operatorv1.OperatorActionEvent
+	var records []operatorActionRecord
 	for seq := info.State.FirstSeq; seq <= info.State.LastSeq; seq++ {
 		msg, err := stream.GetMsg(ctx, seq)
 		if err != nil {
@@ -338,7 +369,10 @@ func (c *central) operatorActionRecords(t *testing.T) []*operatorv1.OperatorActi
 		if err := proto.Unmarshal(msg.Data, event); err != nil {
 			t.Fatalf("operator action record at sequence %d does not decode: %v", seq, err)
 		}
-		records = append(records, event)
+		records = append(records, operatorActionRecord{
+			Subject: msg.Subject,
+			Event:   event,
+		})
 	}
 	return records
 }
@@ -385,8 +419,6 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 		tenant:      edgebus.DefaultTenant,
 		engine:      eng,
 	}
-	c.client = insecureAuthClient(c)
-	t.Cleanup(c.client.CloseIdleConnections)
 	return c
 }
 
@@ -401,15 +433,64 @@ func captureSweepLine(d time.Duration) string {
 	return fmt.Sprintf("\n  capture_sweep { nanos: %d }", d.Nanoseconds())
 }
 
-// start brings central up and returns once its API listener is bound, which
-// Options.Bound reports. Waiting on that rather than retrying a call is what
-// keeps the rest of this file free of readiness loops.
+func (c *central) startWithTenant(tenant string) {
+	c.t.Helper()
+	c.tenant = tenant
+	if c.engine != nil {
+		if err := c.engine.Write(context.Background(), []authz.Tuple{
+			{Object: "tenant:" + tenant, Relation: "member", User: "user:" + c.principalID},
+			{Object: "tenant:" + tenant, Relation: "admin", User: "user:" + c.principalID},
+		}, nil); err != nil {
+			c.t.Fatalf("seed tenant tuples: %v", err)
+		}
+	}
+	c.start()
+}
+
+// start brings central up and returns once its API listener is bound and
+// reconciliation has completed.
 func (c *central) start() {
 	c.t.Helper()
 	caPath := c.issuer.WriteCACertFile(c.t)
-	keyPath := filepath.Join(c.dir, "authz.key")
-	if err := os.WriteFile(keyPath, []byte("e2e-authz-key"), 0o600); err != nil {
-		c.t.Fatalf("write authz key: %v", err)
+
+	audience := c.audience
+	if audience == "" {
+		audience = "flowseer-e2e"
+	}
+
+	authzEndpoint := c.authzEndpoint
+	authzStoreID := c.authzStoreID
+	authzModelID := c.authzModelID
+	authzKeyFile := c.authzKeyFile
+	if authzEndpoint == "" {
+		authzEndpoint = "https://authz.example.test:8081"
+		authzStoreID = "01JK1234567890ABCDEFGHJKMN"
+		authzModelID = "01JK1234567890ABCDEFGHJKMM"
+		authzKeyFile = filepath.Join(c.dir, "authz.key")
+		if err := os.WriteFile(authzKeyFile, []byte("e2e-authz-key"), 0o600); err != nil {
+			c.t.Fatalf("write authz key: %v", err)
+		}
+	}
+
+	authzBlock := fmt.Sprintf(`authorization {
+  endpoint: %q
+  store_id: %q
+  model_id: %q
+  preshared_key_file: %q`, authzEndpoint, authzStoreID, authzModelID, authzKeyFile)
+	if c.authzCAFile != "" {
+		authzBlock += fmt.Sprintf("\n  ca_file: %q", c.authzCAFile)
+	}
+	authzBlock += "\n}"
+
+	var platformAdminBlock string
+	if c.platformAdmin != nil {
+		platformAdminBlock = fmt.Sprintf(`
+platform_admin {
+  issuer: %q
+  organization: %q
+  subject: %q
+  organization_claim_name: %q
+}`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetSubject(), c.platformAdmin.GetOrganizationClaimName())
 	}
 
 	body := fmt.Sprintf(`
@@ -422,30 +503,26 @@ listeners {
 }
 edges {
   central_url: %q
-  assertion_audience: "flowseer-e2e"
+  assertion_audience: %q
   cluster_urls: "ws://127.0.0.1:%d"
 }
 intervals {
   dispatch_resend { seconds: 1 }
   drift { seconds: 3600 }%s
-}
+}%s
 authentication {
   issuers {
     issuer: %q
-    audience: "flowseer-e2e"
+    audience: %q
     organization_claim_name: "org_id"
   }
   ca_file: %q
 }
-authorization {
-  endpoint: "https://authz.example.test:8081"
-  store_id: "01JK1234567890ABCDEFGHJKMN"
-  model_id: "01JK1234567890ABCDEFGHJKMM"
-  preshared_key_file: %q
-}
+%s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep),
-		c.issuer.URL(), caPath, keyPath)
+		c.apiPort, c.busPort, c.baseURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
+		platformAdminBlock,
+		c.issuer.URL(), audience, caPath, authzBlock)
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {
@@ -456,27 +533,34 @@ authorization {
 	reconciled := make(chan struct{}, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
+	runOpts := centralhost.Options{
+		Bound: func(api string) {
+			select {
+			case bound <- api:
+			default:
+			}
+		},
+		Hub: func(hub *edgebus.Hub) {
+			c.mu.Lock()
+			// Replaced rather than kept, because the handle dies with the
+			// attempt that produced it: a hub rebuilt under RestForOne
+			// invalidates the last one, and reading the stream through a
+			// closed server is the failure its doc warns about.
+			c.hub = hub
+			c.mu.Unlock()
+		},
+		Reconciled: func() {
+			select {
+			case reconciled <- struct{}{}:
+			default:
+			}
+		},
+	}
+	if c.engine != nil {
+		runOpts.Engine = c.engine
+	}
 	go func() {
-		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
-			Bound: func(api string) {
-				select {
-				case bound <- api:
-				default:
-				}
-			},
-			Hub: func(hub *edgebus.Hub) {
-				c.mu.Lock()
-				c.hub = hub
-				c.mu.Unlock()
-			},
-			Engine: c.engine,
-			Reconciled: func() {
-				select {
-				case reconciled <- struct{}{}:
-				default:
-				}
-			},
-		})
+		done <- centralhost.Run(ctx, cfg, "e2e", runOpts)
 	}()
 
 	select {
@@ -493,6 +577,8 @@ authorization {
 
 	select {
 	case <-reconciled:
+	case err := <-done:
+		c.t.Fatalf("central stopped before reconciliation: %v", err)
 	case <-time.After(30 * time.Second):
 		cancel()
 		c.t.Fatal("central projector did not complete initial reconciliation pass within 30s")
@@ -501,6 +587,7 @@ authorization {
 	c.mu.Lock()
 	c.stop, c.stopped = cancel, done
 	c.mu.Unlock()
+	c.client = authClient(filepath.Join(c.dir, "central-state", "tls.crt"), c.token, c.tenant)
 	c.t.Cleanup(c.shutdown)
 }
 
@@ -518,7 +605,9 @@ func (c *central) shutdown() {
 	// The client outlives this run and the next start reuses the same port, so
 	// a pooled keep-alive connection to the process being stopped could be
 	// handed to the first request after the restart.
-	c.client.CloseIdleConnections()
+	if c.client != nil {
+		c.client.CloseIdleConnections()
+	}
 	select {
 	case err := <-stopped:
 		if err != nil {

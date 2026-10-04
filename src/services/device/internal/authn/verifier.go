@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 
@@ -421,7 +422,7 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (Principal, erro
 	}
 
 	sub := idToken.Subject
-	if sub == "" || len(sub) > 256 || strings.Contains(sub, "\x00") {
+	if sub == "" || utf8.RuneCountInString(sub) > 256 || strings.Contains(sub, "\x00") {
 		return Principal{}, errs.New().Code(ErrCodeTokenInvalid).Msg("token subject is empty, exceeds 256 characters, or contains null byte")
 	}
 

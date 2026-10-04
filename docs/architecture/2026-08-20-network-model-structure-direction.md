@@ -107,10 +107,10 @@ net/packet ← net/switching
 {net/addr, net/packet} ← net/filter
 {net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/phy, net/switching, net/ip, net/filter} ← net/interface
-model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
+model/edge ← {api/capture, api/edge, edge/attach, edge/capture, event/operator, model/access, model/capture, model/inventory, store/device}
 model/policy ← {edge/attach, model/access, model/inventory, store/device}
 model/credential ← edge/attach
-model/identity ← {model/access, model/capture}
+model/identity ← {event/operator, model/access, model/capture}
 {model/edge, model/identity, net/capture} ← model/capture
 {model/edge, model/policy, model/credential, net/addr} ← edge/attach
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
@@ -123,7 +123,7 @@ model/inventory ← event/access
 errs ← {edge/dispatch, store/device}
 authz ← {api/capture, api/device, api/edge, api/identity}
 event/access ← edge/audit
-event/operator ← {model/identity, model/edge, model/capture}
+{model/identity, model/edge, model/capture} ← event/operator
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 

@@ -148,6 +148,10 @@ func TestLoadConfigRefusals(t *testing.T) {
 		code errs.Code
 	}{
 		"not prototext": {body: "{{{", code: host.ErrCodeConfigLoad},
+		"unknown field": {
+			body: strings.Replace(validConfig, "authentication {\n", "authentication {\n  ca_fle: \"/etc/ssl/certs/ca.pem\"\n", 1),
+			code: host.ErrCodeConfigLoad,
+		},
 		"no state dir": {
 			body: strings.Replace(validConfig, `state_dir: "/var/lib/flowseer/device"`, "", 1),
 			code: host.ErrCodeConfigInvalid,
@@ -198,6 +202,7 @@ func TestLoadConfigRefusals(t *testing.T) {
   endpoint: "https://authz.example.test:8081"
   store_id: "0192e6a0000070008000000000000001"
   model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
 }`,
 			code: host.ErrCodeConfigInvalid,
 		},
@@ -291,7 +296,7 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 	}
 }
 
-func TestPlatformAdminAndDevTenant(t *testing.T) {
+func TestPlatformAdminConfigurationIgnoresReservedDevTenant(t *testing.T) {
 	withAdmin := validConfig + `
 platform_admin {
   issuer: "https://auth.example.test"
@@ -321,60 +326,6 @@ dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
 	}
 	if admin.GetOrganizationClaimName() != "org_id" {
 		t.Errorf("organization_claim_name = %q, want org_id", admin.GetOrganizationClaimName())
-	}
-
-	// Missing authentication fails validation
-	badNoAuthn := baseConfig + `
-authorization {
-  endpoint: "https://authz.example.test:8081"
-  store_id: "0192e6a0000070008000000000000001"
-  model_id: "0192e6a0000070008000000000000002"
-  preshared_key_file: "/etc/flowseer/authz.key"
-}
-`
-	_, err = host.LoadConfig(writeConfig(t, badNoAuthn))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for missing authentication, got %v", err)
-	}
-
-	// Missing authorization fails validation
-	badNoAuthz := baseConfig + `
-authentication {
-  issuers {
-    issuer: "https://auth.example.test"
-    audience: "flowseer-device"
-  }
-}
-`
-	_, err = host.LoadConfig(writeConfig(t, badNoAuthz))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for missing authorization, got %v", err)
-	}
-
-	// Missing issuer in platform_admin fails validation
-	badAdmin := validConfig + `
-platform_admin {
-  organization: "org_alpha"
-  subject: "admin@example.test"
-  organization_claim_name: "org_id"
-}
-`
-	_, err = host.LoadConfig(writeConfig(t, badAdmin))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing issuer, got %v", err)
-	}
-
-	// Missing organization_claim_name in platform_admin fails validation
-	badAdminMissingClaim := validConfig + `
-platform_admin {
-  issuer: "https://auth.example.test"
-  organization: "org_alpha"
-  subject: "admin@example.test"
-}
-`
-	_, err = host.LoadConfig(writeConfig(t, badAdminMissingClaim))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing organization_claim_name, got %v", err)
 	}
 }
 
@@ -457,6 +408,11 @@ authorization {
 	const (
 		adminIssuer = `platform_admin {
   issuer: "https://auth.example.test"`
+		platformAdminWithoutIssuer = `platform_admin {`
+		platformAdminWithoutClaim  = `platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subject: "admin@example.test"`
 		httpAdminIssuer = `platform_admin {
   issuer: "http://auth.example.test"`
 		onlyIssuer = `  issuers {
@@ -473,10 +429,11 @@ authorization {
 `
 	)
 	refusals := []struct {
-		name  string
-		edits []edit
-		field string
-		rule  string
+		name             string
+		edits            []edit
+		field            string
+		rule             string
+		allowMessageRule string
 	}{
 		{
 			name: "http issuer refused",
@@ -532,6 +489,19 @@ authorization {
 			rule: "device_service_config.platform_admin_issuer_configured",
 		},
 		{
+			name:             "platform_admin without issuer refused",
+			edits:            []edit{{adminIssuer, platformAdminWithoutIssuer}},
+			field:            "platform_admin.issuer",
+			rule:             "required",
+			allowMessageRule: "device_service_config.platform_admin_issuer_configured",
+		},
+		{
+			name:  "platform_admin without organization claim name refused",
+			edits: []edit{{adminBlock, platformAdminWithoutClaim + "\n}"}},
+			field: "platform_admin.organization_claim_name",
+			rule:  "required",
+		},
+		{
 			name:  "empty audience refused",
 			edits: []edit{{`audience: "flowseer-device"`, `audience: ""`}},
 			field: "authentication.issuers.audience",
@@ -570,15 +540,16 @@ authorization {
 			if !errors.As(err, &validation) {
 				t.Fatalf("LoadConfig() error = %v, want a schema validation error", err)
 			}
-			// Every violation sits on the one field the case changed, and one of
-			// them is the rule it names. Rules on that field may overlap.
+			// Every violation sits on the one field the case changed, except for
+			// an explicitly allowed cross-field rule. One violation is the rule it
+			// names. Rules on that field may overlap.
 			ruled := false
 			for _, violation := range validation.Violations {
 				var names []string
 				for _, element := range violation.Proto.GetField().GetElements() {
 					names = append(names, element.GetFieldName())
 				}
-				if got := strings.Join(names, "."); got != tc.field {
+				if got := strings.Join(names, "."); got != tc.field && violation.Proto.GetRuleId() != tc.allowMessageRule {
 					t.Errorf("violation %q on %q, want it on %q", violation.Proto.GetRuleId(), got, tc.field)
 				}
 				ruled = ruled || violation.Proto.GetRuleId() == tc.rule

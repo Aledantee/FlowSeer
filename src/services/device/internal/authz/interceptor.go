@@ -125,7 +125,7 @@ func (i *Interceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) co
 		err = next(admittedCtx, wrapped)
 		if tracker != nil {
 			_, checkFailed, inFlight := tracker.flags()
-			if inFlight > 0 {
+			if err == nil && inFlight > 0 {
 				return internalError(errs.New().Code(ErrCodeObligationViolation).
 					Msg("handler returned while an authorization check was in flight"))
 			}
@@ -146,42 +146,51 @@ type authzStreamingConn struct {
 	principal      authn.Principal
 	admittedTenant string
 
-	mu      sync.Mutex
-	checked bool
+	mu       sync.Mutex
+	checked  bool
+	checkErr error
 }
 
 func (c *authzStreamingConn) Receive(msg any) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.checked {
+		err := c.checkErr
+		if err != nil {
+			return err
+		}
+		return c.StreamingHandlerConn.Receive(msg)
+	}
+	c.checked = true
+
 	if err := c.StreamingHandlerConn.Receive(msg); err != nil {
+		c.checkErr = err
 		return err
 	}
 
-	c.mu.Lock()
-	if c.checked {
-		c.mu.Unlock()
-		return nil
-	}
-	c.checked = true
-	c.mu.Unlock()
-
 	protoMsg, ok := msg.(proto.Message)
 	if !ok || protoMsg == nil {
-		return permissionDenied(errs.New().Code(ErrCodeNoObjectID).
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeNoObjectID).
 			Msg("request is not a proto message"))
+		return c.checkErr
 	}
 
 	objectID, err := extractObjectID(protoMsg, c.rule.GetObjectIdPath())
 	if err != nil || objectID == "" {
-		return permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeNoObjectID).Cause(err).
 			Msg("request rule yielded no id"))
+		return c.checkErr
 	}
 
 	allowed, err := checkObjects(c.ctx, c.interceptor.checker, c.principal, c.admittedTenant, c.rule.GetObjectType(), c.rule.GetRelation(), []string{objectID})
 	if err != nil {
+		c.checkErr = err
 		return err
 	}
 	if len(allowed) == 0 {
-		return permissionDenied(errs.New().Code(ErrCodeDenied).
+		c.checkErr = permissionDenied(errs.New().Code(ErrCodeDenied).
 			Msg("permission denied"))
+		return c.checkErr
 	}
 	return nil
 }
@@ -315,7 +324,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 				Msg("handler returned without fulfilling authorization obligation"))
 		}
-		if inFlight > 0 {
+		if err == nil && inFlight > 0 {
 			return nil, internalError(errs.New().Code(ErrCodeObligationViolation).
 				Msg("handler returned while an authorization check was in flight"))
 		}
