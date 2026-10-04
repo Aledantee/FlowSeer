@@ -57,7 +57,7 @@ func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time
 	}
 }
 
-func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	if !link.pointToPoint || !link.sendRSTP || !agreement {
 		p.agreed = false
 		return
@@ -138,7 +138,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 		if !sameSource && !isSuperior {
 			if cistConsistent {
-				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil, changes)
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, changes)
 			} else {
 				mp.agreed = false
 			}
@@ -164,7 +164,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		mp.rcvTime = now
 
 		if cistConsistent {
-			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil, changes)
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, changes)
 			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
 				proposals = append(proposals, rec.MSTID)
 			}
@@ -483,7 +483,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes, changes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, &emissions, changes)
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, changes)
 	if l.mst != nil && link.external {
 		for _, id := range l.treeOrder {
 			mt := l.trees[id]
