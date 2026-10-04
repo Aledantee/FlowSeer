@@ -1121,6 +1121,32 @@ func TestReceiveAdvancePastBothTimeouts(t *testing.T) {
 	}
 }
 
+func TestDefaultingRetainsEnabledFallbackMember(t *testing.T) {
+	t.Parallel()
+
+	l := mustNewLAG(t, lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+		LACP: lag.LACPConfig{Mode: lag.Active, Fast: true, Fallback: true},
+	}}}, lagTwoPortTable(t), mustMAC(t, "02:00:00:00:00:0a"))
+	t0 := time.Unix(1700000000, 0)
+	admin := lacp.Info{State: lacp.StateSynchronization | lacp.StateCollecting}
+	l.LinkChange(t0, "1/1/1", true)
+	l.Receive(t0, "1/1/1", lacp.PDU{
+		Actor:   admin,
+		Partner: l.PortInfo("1/1/1").Actor,
+	})
+	l.Advance(t0.Add(2 * time.Second))
+	if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("before both receive timeouts: attached = %v, enabled = %v, want [1/1/1] for both", info.Attached, info.Enabled)
+	}
+
+	l.Advance(t0.Add(7 * time.Second))
+	portInfo := l.PortInfo("1/1/1")
+	info := l.Info("lag1")
+	if portInfo.Status != lag.Defaulted || !portInfo.Attached || !portInfo.Enabled || !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("after both receive timeouts: port = %+v, attached = %v, enabled = %v, want Defaulted and [1/1/1] attached and enabled without WAITING", portInfo, info.Attached, info.Enabled)
+	}
+}
+
 func TestPassive(t *testing.T) {
 	t.Parallel()
 
@@ -1872,7 +1898,7 @@ func TestPartnerIdentityChangeDetachesAndClearsSync(t *testing.T) {
 		t.Fatalf("next LACPDU actor state = %#x, want Synchronization clear", uint8(p.Actor.State))
 	}
 
-	// Reselection becomes eligible only after the shared aggregate wait.
+	// Receive redoes selection immediately, while attachment waits for the shared aggregate wait.
 	l.Advance(t0.Add(5 * time.Second))
 	if info := l.Info("lag1"); !slices.Equal(info.Enabled, []string{"1/1/1"}) {
 		t.Fatalf("after reselection wait: enabled = %v, want [1/1/1]", info.Enabled)
@@ -2027,7 +2053,10 @@ func TestFallbackPrimaryPreferenceAfterLearnedPartner(t *testing.T) {
 	if info := l.PortInfo("1/1/1"); info.Status != lag.Defaulted {
 		t.Fatalf("1/1/1 at t0+6s = %+v, want Defaulted", info)
 	}
-	l.Advance(t0.Add(9 * time.Second)) // Establish the backup before the Primary returns.
+	l.Advance(t0.Add(9 * time.Second)) // Establish the fallback choice before the Primary first gains carrier.
+	if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+		t.Fatalf("fallback before Primary gains carrier: attached = %v, enabled = %v, want [1/1/1] for both", info.Attached, info.Enabled)
+	}
 
 	l.LinkChange(t0.Add(10*time.Second), "1/1/2", true)
 	l.Advance(t0.Add(13 * time.Second))
@@ -2378,10 +2407,30 @@ func TestDefaultingReselectsWhenAdministrativePartnerDiffers(t *testing.T) {
 			tc.change(&actor)
 			l.LinkChange(t0, "1/1/1", true)
 			l.Receive(t0, "1/1/1", lacp.PDU{Actor: actor, Partner: l.PortInfo("1/1/1").Actor})
-			l.Advance(t0.Add(7 * time.Second))
 
-			if info := l.Info("lag1"); len(info.Attached) != 0 || len(info.Enabled) != 0 {
-				t.Fatalf("after defaulting: attached = %v, enabled = %v, want no selected member", info.Attached, info.Enabled)
+			l.Advance(t0.Add(2 * time.Second))
+			if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+				t.Fatalf("before receive timeouts: attached = %v, enabled = %v, want [1/1/1] for both", info.Attached, info.Enabled)
+			}
+
+			l.Advance(t0.Add(3 * time.Second))
+			if portInfo := l.PortInfo("1/1/1"); portInfo.Status != lag.Expired {
+				t.Fatalf("at first receive timeout: status = %v, want Expired", portInfo.Status)
+			}
+
+			l.Advance(t0.Add(7 * time.Second))
+			portInfo := l.PortInfo("1/1/1")
+			info := l.Info("lag1")
+			if portInfo.Status != lag.Defaulted || portInfo.Attached || portInfo.Enabled || len(info.Attached) != 0 || len(info.Enabled) != 0 {
+				t.Fatalf("after second receive timeout: port = %+v, attached = %v, enabled = %v, want Defaulted and detached while the reselected member waits", portInfo, info.Attached, info.Enabled)
+			}
+			if next, ok := l.NextWake(); !ok || !next.Equal(t0.Add(9*time.Second)) {
+				t.Fatalf("after reselect: NextWake = (%v, %t), want aggregate wait at t0+9s", next, ok)
+			}
+
+			l.Advance(t0.Add(9 * time.Second))
+			if info := l.Info("lag1"); !slices.Equal(info.Attached, []string{"1/1/1"}) || !slices.Equal(info.Enabled, []string{"1/1/1"}) {
+				t.Fatalf("after reselected aggregate wait: attached = %v, enabled = %v, want [1/1/1] for both", info.Attached, info.Enabled)
 			}
 		})
 	}

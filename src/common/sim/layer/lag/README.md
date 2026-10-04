@@ -376,7 +376,9 @@ two peers with the same constraint can still negotiate.
 ```mermaid
 stateDiagram-v2
     [*] --> DETACHED
-    DETACHED --> WAITING: selected
+    DETACHED --> WAITING: newly selected
+    DETACHED --> STANDBY: selection kept, carrier returns, up delay running
+    DETACHED --> ATTACHED: selection kept, carrier returns, link ready
     WAITING --> STANDBY: wait done, up delay running
     WAITING --> ATTACHED: wait done, link ready
     WAITING --> DETACHED: wait done without carrier, reselection, or group leave
@@ -403,7 +405,8 @@ Partner after defaulting. The layer adopts the fallback switch in `OVS`
 With `Fallback` enabled and no learned group available, the layer selects one
 defaulted member for active-backup forwarding. The administrative Partner is
 Individual (`AX` 6.3.6.1), so it cannot share its Aggregator (6.4.14.1 h).
-`Primary` wins when the configured member has carrier and is `Defaulted`.
+`Primary` wins when the configured member has carrier, matches the LAG's key,
+and is `Defaulted`.
 Otherwise the lowest-named member wins. The selection still waits for
 `Aggregate_Wait_Time`, and `MinLinks`
 can leave the selected member
