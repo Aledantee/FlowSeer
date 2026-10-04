@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
 parent: docs/plans/2026-09-30-1139-feat-operator-authorization-plan.md
@@ -687,13 +688,33 @@ The tagged run needs Docker and runs the package whole. The run in
 - A deployment that wrote grants or memberships to OpenFGA by hand loses
   them at the first pass after U6. The lab in `deploy/lab` is the only one
   known, and U7 moves it to the API.
-- The 24-hour ceiling on a full-payload grant is this plan's choice. It
-  is one bound in `GrantFullPayloadRequest`.
-- A partner link needs no acceptance by the provider. A provider that must
-  consent first needs a second record on its side.
 - Unmeasured: `SyncTenant` for a tenant with thousands of members, and
   `RemoveMember`, which reads every session of the tenant to find the
   member's.
 - Unverified, carried from phase 3 for the implementer: a real `Aborted`
   from two concurrent writes of one tuple, and the duration of a pass at
   the benchmark fixture's size.
+
+## Review gaps
+
+- `src/services/device/internal/projector/reconcile.go:226`: replace the membership condition on the pass's requester tuple with `true`; fails: a session whose `tenant`, `edge`, and `requester` tuples are all stored keeps `requester` after a pass once the requester has no member record
+- `src/services/device/internal/projector/projector.go:436`: drop `&& name != "admin"`; fails: a stored `Partner` holding `ADMIN` yields no `tenant#admin@tenant:<provider>#active_admin`
+- `src/services/device/internal/projector/reconcile.go:38`: drop `relation == "partner"`, `relation == "platform"`, or `relation == "capturer"`; fails: a pass deletes a stored `tenant#partner`, `tenant#platform`, and `tenant#capturer` tuple no record explains
+- `src/services/device/internal/authz/openfga/checker.go:490`: `isValidObject` returns `len(s) <= maxObjectBytes && isValidUser(s)`; fails: `Check`, a contextual tuple, and `Write` with object `role:r1#assignee` make no engine call
+- `src/services/device/internal/authz/openfga/checker.go:508`: `strings.EqualFold(kind, "role")`; fails: user `Role:r1#assignee` is refused without a call
+- `spec/proto/flowseer/api/identity/v1/tenant_admin_service.proto:138`: delete every rule on `CreateRoleRequest.name` and `relations`, or the `page_size` bounds at `:258`, `:281`, `:304`; fails: a request with no name, a 129-character name, no relation, a repeated relation, an undefined relation, or `page_size` 501 is refused
+- `spec/proto/flowseer/model/identity/v1/access.proto:43`: drop `min_len` or `max_len` on `Role.name`, or on `FullPayloadGrant.reason` at `:69`; fails: an empty or 129-character name and an empty or 513-character reason are refused
+- `spec/proto/flowseer/store/device/v1/service_config.proto:189`: drop the item `min_len` or `max_len` on `PlatformAdmin.subjects`; fails: an empty subject and a 257-character subject are refused
+- `spec/proto/flowseer/event/operator/v1/operator_action_event.proto:103`: delete the `operator_action_partner.relations_exclude_admin` rule; fails: an `OperatorActionPartner` holding `ADMIN` is refused
+- `src/services/device/internal/accessstore/store.go:244`: `return ids, nil`; fails: `TenantIDs` names a tenant holding two records once
+- `src/services/device/internal/identityapi/admin.go:95`: set the description unconditionally, or the name at `tenant.go:49`; fails: `CreateRole` and `CreateTenant` without the optional field store a record that passes validation
+- `src/services/device/internal/identityapi/errors.go:62`: keep only `tenantstore.ErrCodeStore` in the switch; fails: `accessstore/conflict` and `tenantstore/conflict` answer retryable
+- `src/services/device/internal/connecterr/consistency_test.go:31`: map `tenant.ErrCodeNoTenant` to `CodeInvalidArgument` in `identityapi.ClientErrors`; fails: `TestNoCodeAnswersTwoDifferentThings` reads the identity table
+- `spec/proto/flowseer/store/device/v1/service_config.proto:184`: `repeated string subjects = 3` reuses the number of the removed `subject`; fails: `docs/code-style-proto.md`, Evolution, "Never reuse or renumber a field"
+- `spec/proto/flowseer/event/operator/v1/README.md:26`: "Role, partner, and full-payload objects carry the relations"; fails: a `ROLE_DELETE` record carries the role ref and no relations
+- `spec/proto/flowseer/store/device/v1/README.md:88`: "sixteen distinct subject values;"; fails: `docs/doc-style.md`, no semicolons in prose
+- `src/modules/edgebus/edgebus_test.go:1314`: "330 MiB is above the 320 MiB the sum was before the read stream"; fails: `docs/code-style.md`, a comment describes the code as it is
+- `docs/architecture/2026-09-30-operator-authorization-direction.md:755`: cites `projector.go:90-132` for `Sync`; fails: those lines hold the `Projector` struct and `New`, and `Sync` is at `projector.go:147-198`
+- `docs/architecture/2026-09-30-operator-authorization-direction.md:642`: the record names no user shape the adapter accepts; fails: it states that the adapter accepts `type:id`, `role:<id>#assignee`, and `tenant:<id>#active_admin`, and answers false without a call for every other user
+- `src/services/device/internal/identityapi/admin.go:103`: `slog.WarnContext` writes to the process default logger; fails: `docs/conventions/observability.md`, the record goes to the service logger the host passes
+- `deploy/lab/README.md:411`: step `9.` follows step `7.`; fails: the steps count 1 through 8
