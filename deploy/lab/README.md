@@ -408,7 +408,7 @@ Expected answer:
 grpc-status: 1500
 ```
 
-9. Stop the containers and drop their state:
+8. Stop the containers and drop their state:
 
 ```bash
 docker compose down -v

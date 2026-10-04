@@ -525,7 +525,7 @@ rule dropped a response only when the handler returned without a check, and
 the table's rows say so now.
 
 A call whose context has ended answers with `ctx.Err()` itself, bare and
-outside `connecterr`, in two places. A checker error returned while
+outside `connecterr`, in two places in the interceptor. A checker error returned while
 `ctx.Err()` is non-nil yields it in place of `Unavailable`, from the
 interceptor, `Require`, and `Filter` alike. Under a loaded or filtered rule,
 a handler path that ends in an error with no check discharged while
@@ -752,7 +752,8 @@ records. A device has no Key-Value lane record until its first mutation
 from the registry allows initial authorization checks to succeed without
 creating phantom records.
 
-`Sync(object)` (`src/services/device/internal/projector/projector.go:90-132`)
+`Sync(object)` (`Sync` through `attemptSync` in
+`src/services/device/internal/projector/projector.go:151-201`)
 is the only code that writes or deletes a relationship. It reads the object's
 stored tuples, then the record, and writes the difference in one call. A
 creating handler writes the record before its tuples, and identifiers are random
@@ -942,6 +943,11 @@ no provider consent, admits only `operator`, `capturer`, and `viewer`, and
 never administers customer membership. A missing role grants nothing even if
 a member still names it.
 
+The identity handlers and the access store answer the caller's own context
+error once the request context has ended (`connectErr` in
+`src/services/device/internal/identityapi/errors.go:52-66`, `storeError` in
+`src/services/device/internal/accessstore/store.go:392-397`).
+
 With the access source configured, the projector owns each relation below
 whole, whatever user a stored tuple names
 (`src/services/device/internal/projector/projector.go`,
@@ -960,6 +966,12 @@ whole, whatever user a stored tuple names
 | `capture_session:<id>` | `requester` | requester while its member record exists in that tenant |
 | `edge:<id>` | `administer`, `operate`, `capture`, `view` | none, no record grants on a single edge |
 | `device:<id>` | `operate`, `view` | none, no record grants on a single device |
+
+The engine adapter accepts as a user only a `type:id` and the two usersets the
+embedded model holds, `role:<id>#assignee` and `tenant:<id>#active_admin`
+(`isValidUser` in `src/services/device/internal/authz/openfga/checker.go:493-509`),
+and answers false or refuses without an engine call for every other user. The
+projector writes those two shapes for role assignees and partner active admins.
 
 The projector retains its object-parent relations. A tuple no record explains
 would grant access no list shows, so the next pass deletes it. Deployments
