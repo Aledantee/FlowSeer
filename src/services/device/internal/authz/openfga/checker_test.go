@@ -549,12 +549,16 @@ func TestNewCallerCanceledContext(t *testing.T) {
 	harness := newTestServerHarness(t)
 
 	cancelCalled := make(chan struct{})
-	var cancel context.CancelFunc
+	var cancelOnce sync.Once
+	type cancelHolder struct {
+		fn context.CancelFunc
+	}
+	var activeCancel atomic.Pointer[cancelHolder]
 	harness.fake.mu.Lock()
 	harness.fake.getStoreFunc = func(ctx context.Context, _ *openfgav1.GetStoreRequest) (*openfgav1.GetStoreResponse, error) {
-		if cancel != nil {
-			cancel()
-			close(cancelCalled)
+		if holder := activeCancel.Load(); holder != nil {
+			holder.fn()
+			cancelOnce.Do(func() { close(cancelCalled) })
 			<-ctx.Done()
 			return nil, ctx.Err()
 		}
@@ -575,7 +579,9 @@ func TestNewCallerCanceledContext(t *testing.T) {
 	defer func() { _ = checker.Close() }()
 
 	var ctx context.Context
+	var cancel context.CancelFunc
 	ctx, cancel = context.WithCancel(context.Background())
+	activeCancel.Store(&cancelHolder{fn: cancel})
 
 	err = checker.Verify(ctx)
 	if !errors.Is(err, context.Canceled) {
@@ -584,7 +590,7 @@ func TestNewCallerCanceledContext(t *testing.T) {
 	<-cancelCalled
 
 	// Canceled caller must not cache a failure for subsequent callers.
-	cancel = nil
+	activeCancel.Store(nil)
 	if err := checker.Verify(context.Background()); err != nil {
 		t.Fatalf("follow-up Verify: %v, want nil", err)
 	}
@@ -1451,7 +1457,7 @@ func TestEngineCallFailureTelemetryAndErrors(t *testing.T) {
 			checkErr: bare(context.DeadlineExceeded),
 		},
 		"checker timeout passes": {
-			timeout:  50 * time.Millisecond,
+			timeout:  250 * time.Millisecond,
 			engine:   blockUntilDone,
 			wantType: "authz/engine-unreachable",
 			checkErr: func(t *testing.T, err error) {
@@ -1468,6 +1474,9 @@ func TestEngineCallFailureTelemetryAndErrors(t *testing.T) {
 		for _, call := range engineCalls {
 			t.Run(name+"/"+call.name, func(t *testing.T) {
 				o := newObservedChecker(t, tc.timeout)
+				if err := o.Verify(context.Background()); err != nil {
+					t.Fatalf("Verify: %v", err)
+				}
 
 				started := make(chan struct{})
 				var once sync.Once
@@ -1518,5 +1527,42 @@ func TestEngineCallFailureTelemetryAndErrors(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+type pastDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (c pastDeadlineContext) Deadline() (time.Time, bool) { return c.deadline, true }
+func (pastDeadlineContext) Done() <-chan struct{}         { return nil }
+func (pastDeadlineContext) Err() error                    { return nil }
+
+func TestCallerDeadlineWinsBeforeContextTimerFires(t *testing.T) {
+	for _, call := range engineCalls {
+		t.Run(call.name, func(t *testing.T) {
+			o := newObservedChecker(t, 0)
+			if err := o.Verify(context.Background()); err != nil {
+				t.Fatalf("Verify: %v", err)
+			}
+
+			ctx := pastDeadlineContext{
+				Context:  context.Background(),
+				deadline: time.Now().Add(-time.Second),
+			}
+			err := call.run(ctx, o.Checker)
+			if !errors.Is(err, context.DeadlineExceeded) {
+				t.Fatalf("call error = %v, want context.DeadlineExceeded", err)
+			}
+			span := o.endedSpan(t, call.method)
+			if got := spanAttributes(span)["error.type"]; got != "context.deadline_exceeded" {
+				t.Errorf("span error.type = %q, want context.deadline_exceeded", got)
+			}
+			point := o.durationPoint(t, call.method)
+			if got, ok := point.Attributes.Value("error.type"); !ok || got.AsString() != "context.deadline_exceeded" {
+				t.Errorf("metric error.type = %q (present=%v), want context.deadline_exceeded", got.AsString(), ok)
+			}
+		})
 	}
 }

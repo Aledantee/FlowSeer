@@ -121,7 +121,7 @@ func (c *Checker) Write(ctx context.Context, writes, deletes []authz.Tuple) erro
 			}
 		}
 
-		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+		callCtx, cancel := c.callContext(ctx)
 		_, err := c.client.Write(callCtx, req)
 		cancel()
 		if err != nil {
@@ -163,7 +163,7 @@ func (c *Checker) Read(ctx context.Context, object string) ([]authz.Tuple, error
 			Consistency:       openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY,
 		}
 
-		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+		callCtx, cancel := c.callContext(ctx)
 		resp, err := c.client.Read(callCtx, req)
 		cancel()
 		if err != nil {
@@ -214,7 +214,7 @@ func (c *Checker) Scan(ctx context.Context, fn func(authz.Tuple) error) error {
 			Consistency:       openfgav1.ConsistencyPreference_HIGHER_CONSISTENCY,
 		}
 
-		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+		callCtx, cancel := c.callContext(ctx)
 		resp, err := c.client.Read(callCtx, req)
 		cancel()
 		if err != nil {

@@ -219,7 +219,8 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 	}
 }
 
-// Run executes periodic reconciliation passes until ctx is canceled.
+// Run executes periodic reconciliation passes until ctx is canceled. It calls
+// the Reconciled callback only after a pass returns no error.
 func (p *Projector) Run(ctx context.Context) error {
 	nextWait := time.Duration(0)
 	retryDelay := initialRetry

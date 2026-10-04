@@ -79,14 +79,44 @@ func sameTuples(a, b []authz.Tuple) bool {
 	return true
 }
 
-// Reconcile performs a single reconciliation pass against the engine.
+// Reconcile performs a single reconciliation pass against the engine. It
+// continues independent repairs after an object or source fails and returns
+// the collected errors. The [Projector]'s Reconciled callback fires only when
+// this method returns no error.
 func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 	var counts RepairedCounts
 	var reconcileErrs []error
+	appendError := func(err error) bool {
+		if err == nil {
+			return false
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			reconcileErrs = append(reconcileErrs, ctxErr)
+			return true
+		}
+		reconcileErrs = append(reconcileErrs, err)
+		return false
+	}
+	checkContext := func() bool {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			reconcileErrs = append(reconcileErrs, ctxErr)
+			return true
+		}
+		return false
+	}
 
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
+	}
 	edgeMap, err := p.edges.All(ctx)
 	if err != nil {
-		return counts, err
+		if appendError(err) {
+			return counts, errors.Join(reconcileErrs...)
+		}
+	}
+	edgesComplete := err == nil
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
 	}
 
 	type sessionInfo struct {
@@ -94,7 +124,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		tuples   []authz.Tuple
 	}
 	sessionSnapshot := make(map[string]sessionInfo)
-	if err := p.captures.EachSession(ctx, func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error {
+	sessionErr := p.captures.EachSession(ctx, func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error {
 		sessionID := rec.GetConfig().GetRef().GetCaptureSession().GetId()
 		objectKey := "capture_session:" + sessionID
 		tuples := []authz.Tuple{
@@ -121,28 +151,48 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			tuples:   tuples,
 		}
 		return nil
-	}); err != nil {
-		reconcileErrs = append(reconcileErrs, err)
+	})
+	if sessionErr != nil {
+		if appendError(sessionErr) {
+			return counts, errors.Join(reconcileErrs...)
+		}
+	}
+	sessionsComplete := sessionErr == nil
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
 	}
 
 	deviceSnapshot := make(map[string]string)
+	deviceUnsafe := make(map[string]bool)
+	devicesComplete := false
 	if p.registry != nil {
 		regEdgeID := p.registry.EdgeID()
 		if regEdgeID != "" {
 			deviceIDs, err := p.registry.Devices(ctx, regEdgeID)
 			if err != nil {
-				return counts, err
+				if appendError(err) {
+					return counts, errors.Join(reconcileErrs...)
+				}
+			} else {
+				devicesComplete = true
+				for _, id := range deviceIDs {
+					deviceSnapshot[id] = regEdgeID
+				}
 			}
-			for _, id := range deviceIDs {
-				deviceSnapshot[id] = regEdgeID
-			}
+		} else {
+			devicesComplete = true
 		}
+	}
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
 	}
 
 	expectedPerObject := make(map[string][]authz.Tuple)
-	for edgeID, tenantID := range edgeMap {
-		expectedPerObject["edge:"+edgeID] = []authz.Tuple{
-			{Object: "edge:" + edgeID, Relation: "tenant", User: "tenant:" + tenantID},
+	if edgesComplete {
+		for edgeID, tenantID := range edgeMap {
+			expectedPerObject["edge:"+edgeID] = []authz.Tuple{
+				{Object: "edge:" + edgeID, Relation: "tenant", User: "tenant:" + tenantID},
+			}
 		}
 	}
 	for devID, edgeID := range deviceSnapshot {
@@ -150,7 +200,11 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		if tenantID == "" {
 			tenantID, err = p.edges.TenantForEdge(ctx, edgeID)
 			if err != nil {
-				return counts, err
+				deviceUnsafe[devID] = true
+				if appendError(err) {
+					return counts, errors.Join(reconcileErrs...)
+				}
+				continue
 			}
 		}
 		if tenantID != "" {
@@ -175,7 +229,13 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		return nil
 	})
 	if err != nil {
-		return counts, err
+		if appendError(err) {
+			return counts, errors.Join(reconcileErrs...)
+		}
+	}
+	scanComplete := err == nil
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
 	}
 
 	objectsToSync := make(map[string]Object)
@@ -196,9 +256,26 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		if _, already := objectsToSync[objKey]; already {
 			continue
 		}
+		if !scanComplete {
+			continue
+		}
 		expTuples, inSnapshot := expectedPerObject[objKey]
+		objType, objID, _ := strings.Cut(objKey, ":")
+		switch objType {
+		case "edge":
+			if !edgesComplete {
+				continue
+			}
+		case "device":
+			if !devicesComplete || deviceUnsafe[objID] {
+				continue
+			}
+		case "capture_session":
+			if !sessionsComplete {
+				continue
+			}
+		}
 		if !inSnapshot || !sameTuples(expTuples, scanTuples) {
-			objType, objID, _ := strings.Cut(objKey, ":")
 			var tenant string
 			if objType == "capture_session" {
 				tenant = sessionSnapshot[objID].tenantID
@@ -214,6 +291,9 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 	slices.Sort(keys)
 
 	for _, k := range keys {
+		if checkContext() {
+			return counts, errors.Join(reconcileErrs...)
+		}
 		obj := objectsToSync[k]
 		repaired, err := p.syncObject(ctx, obj)
 		if err != nil {
