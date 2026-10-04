@@ -37,14 +37,16 @@ func (l *Layer) rootTopologyChangeActive(port string, now time.Time) bool {
 }
 
 type topologyChangeEmissions struct {
-	ports map[treeID]map[string]struct{}
-	sent  map[treeID]map[string]struct{}
+	ports       map[treeID]map[string]struct{}
+	sent        map[treeID]map[string]struct{}
+	transmitted map[treeID]map[string]struct{}
 }
 
 func newTopologyChangeEmissions() *topologyChangeEmissions {
 	return &topologyChangeEmissions{
-		ports: make(map[treeID]map[string]struct{}),
-		sent:  make(map[treeID]map[string]struct{}),
+		ports:       make(map[treeID]map[string]struct{}),
+		sent:        make(map[treeID]map[string]struct{}),
+		transmitted: make(map[treeID]map[string]struct{}),
 	}
 }
 
@@ -62,35 +64,81 @@ func (c *topologyChangeEmissions) add(t *tree, port string) {
 	ports[port] = struct{}{}
 }
 
-func (c *topologyChangeEmissions) wasSent(l *Layer, t *tree, port string) bool {
+func (c *topologyChangeEmissions) wasSent(t *tree, port string) bool {
 	if c == nil {
 		return false
 	}
 
-	id := t.id
-	if l.pvst == nil {
-		id = cistID
-	}
-	_, ok := c.sent[id][port]
+	_, ok := c.sent[t.id][port]
 
 	return ok
 }
 
-func (c *topologyChangeEmissions) markSent(l *Layer, t *tree, port string) {
+func (c *topologyChangeEmissions) markSent(t treeID, port string) {
 	if c == nil {
 		return
 	}
 
-	id := t.id
-	if l.pvst == nil {
-		id = cistID
-	}
-	ports := c.sent[id]
+	ports := c.sent[t]
 	if ports == nil {
 		ports = make(map[string]struct{})
-		c.sent[id] = ports
+		c.sent[t] = ports
 	}
 	ports[port] = struct{}{}
+}
+
+func (c *topologyChangeEmissions) wasTransmitted(l *Layer, t *tree, port string) bool {
+	if c == nil {
+		return false
+	}
+
+	id := l.txKeyFor(t, port).tree
+	_, ok := c.transmitted[id][port]
+
+	return ok
+}
+
+func (c *topologyChangeEmissions) markTransmitted(l *Layer, t *tree, port string) {
+	if c == nil {
+		return
+	}
+
+	id := l.txKeyFor(t, port).tree
+	ports := c.transmitted[id]
+	if ports == nil {
+		ports = make(map[string]struct{})
+		c.transmitted[id] = ports
+	}
+	ports[port] = struct{}{}
+}
+
+func (c *topologyChangeEmissions) markBuilt(l *Layer, t *tree, p *portState, b bpdu.BPDU, kind emissionKind) {
+	if c == nil {
+		return
+	}
+	if kind == emissionTCN {
+		if l.pvst == nil {
+			for id, ports := range c.ports {
+				if _, ok := ports[p.name]; ok {
+					c.markSent(id, p.name)
+				}
+			}
+		} else {
+			c.markSent(t.id, p.name)
+		}
+
+		return
+	}
+	if b.TopologyChange() {
+		c.markSent(t.id, p.name)
+	}
+	if l.pvst == nil && t.id == cistID {
+		for _, record := range b.MSTIs {
+			if (bpdu.BPDU{Flags: record.Flags}).TopologyChange() {
+				c.markSent(treeID(record.MSTID), p.name)
+			}
+		}
+	}
 }
 
 func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChangeEmissions, emissions *[]layer.Emission) {
@@ -98,6 +146,7 @@ func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChan
 		return
 	}
 
+	var topologyEmissions []layer.Emission
 	for _, id := range l.treeOrder {
 		ports := changes.ports[id]
 		if len(ports) == 0 {
@@ -113,7 +162,7 @@ func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChan
 			if p == nil || link == nil || !link.up || p.role != bpdu.RoleRoot || p.tcWhile.IsZero() || !p.tcWhile.After(now) {
 				continue
 			}
-			if changes.wasSent(l, t, name) {
+			if changes.wasSent(t, name) {
 				continue
 			}
 
@@ -123,8 +172,19 @@ func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChan
 				emissionTree = l.cist()
 				emissionPort = emissionTree.ports[name]
 			}
-			l.emitRootTC(emissionTree, emissionPort, now, emissions, changes)
+			link = l.links[emissionPort.name]
+			if link.sendRSTP {
+				l.emit(emissionTree, emissionPort, now, emissionAgreement, &topologyEmissions, changes)
+			} else {
+				l.emit(emissionTree, emissionPort, now, emissionTCN, &topologyEmissions, changes)
+			}
 		}
+	}
+	if len(topologyEmissions) > 0 {
+		ordered := make([]layer.Emission, 0, len(topologyEmissions)+len(*emissions))
+		ordered = append(ordered, topologyEmissions...)
+		ordered = append(ordered, (*emissions)...)
+		*emissions = ordered
 	}
 }
 

@@ -67,8 +67,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
 		}
 
-		l.releaseHeldTransmissions(now, &emissions, changes)
-		l.sendDueHellos(now, &emissions, changes)
+		l.sendDueTransmissions(now, &emissions, changes)
 	}()
 	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
@@ -177,9 +176,13 @@ func (l *Layer) clearExpiredTCWhile(now time.Time) {
 	}
 }
 
-func (l *Layer) releaseHeldTransmissions(now time.Time, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
+func (l *Layer) sendDueTransmissions(now time.Time, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
+		helloDue := !mt.helloTimer.IsZero() && !mt.helloTimer.After(now)
+		if helloDue {
+			mt.helloTimer = now.Add(l.helloTime)
+		}
 		for _, name := range l.portNames {
 			p, ok := mt.ports[name]
 			if !ok {
@@ -187,44 +190,31 @@ func (l *Layer) releaseHeldTransmissions(now time.Time, emissions *[]layer.Emiss
 			}
 			tx := l.tx(mt, name)
 			link := l.links[name]
-			if !link.up || tx.tick.IsZero() || tx.tick.After(now) {
+			if !link.up {
 				continue
 			}
-			if tx.pendingAgreement {
+			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingAgreement {
 				tx.pendingAgreement = false
 				if p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate {
 					l.emit(mt, p, now, emissionAgreement, emissions, changes)
 				}
 			}
-			if tx.pendingDesignated {
+			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingDesignated {
 				tx.pendingDesignated = false
 				if p.role == bpdu.RoleDesignated {
 					l.emit(mt, p, now, emissionDesignated, emissions, changes)
 				}
 			}
-			if tx.pendingTCN {
+			if !tx.tick.IsZero() && !tx.tick.After(now) && tx.pendingTCN {
 				tx.pendingTCN = false
 				if !link.sendRSTP && p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
 					l.emit(mt, p, now, emissionTCN, emissions, changes)
 				}
 			}
-		}
-	}
-}
-
-func (l *Layer) sendDueHellos(now time.Time, emissions *[]layer.Emission, changes *topologyChangeEmissions) {
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		if mt.helloTimer.IsZero() || mt.helloTimer.After(now) {
-			continue
-		}
-		mt.helloTimer = now.Add(l.helloTime)
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			link := l.links[name]
-			if !ok || !link.up {
+			if !helloDue || changes.wasTransmitted(l, mt, name) {
 				continue
 			}
+
 			if p.role == bpdu.RoleDesignated {
 				l.emit(mt, p, now, emissionDesignated, emissions, changes)
 			} else if (p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now)) ||
