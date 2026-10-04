@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Print, as one YAML flow map per line, the sign-in state and used percent of
-# every window of the prepaid pools (claude, codex, google, synthetic, zai). Each pool is read from the source
+# Print, as one YAML flow map per line, the sign-in state, plan, capacity,
+# plan_unlisted, models, slots, and used percent of every window of the prepaid pools
+# (claude, codex, google, synthetic, zai). Each pool is read from the source
 # that owns its numbers, because no single tool sees them all:
 #
 #   claude, codex  orca account list --json      (rateLimits), falling back
@@ -24,13 +25,18 @@
 #
 # Run unsandboxed: orca uses a local socket, agy the network and the keyring,
 # and the synthetic read needs the network.
+# The effective registry is ~/.claude/models/registry.yaml overlaid by
+# .claude/models/registry.yaml in the working directory.
 
 set -uo pipefail
 
 python3 - <<'PY'
 import datetime
+import ast
 import json
+import math
 import os
+import re
 import shutil
 import selectors
 import time
@@ -52,13 +58,184 @@ def run(cmd, timeout=90, ok_codes=(0,), cwd=None):
     return p.stdout, None
 
 
-def emit(pool, signed_in, source, windows=None, resets=None, error=None):
-    row = {"signed_in": signed_in, "windows": windows}
+def without_comment(text):
+    quote = None
+    escaped = False
+    for index, char in enumerate(text):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "#":
+            return text[:index]
+    return text
+
+
+def split_flow(text, delimiter=","):
+    parts, start, depth, quote, escaped = [], 0, 0, None, False
+    for index, char in enumerate(text):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char in "[{":
+            depth += 1
+        elif char in "]}":
+            depth -= 1
+        elif char == delimiter and depth == 0:
+            parts.append(text[start:index])
+            start = index + 1
+    parts.append(text[start:])
+    return parts
+
+
+def split_flow_pair(text):
+    depth, quote, escaped = 0, None, False
+    for index, char in enumerate(text):
+        if quote:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char in "[{":
+            depth += 1
+        elif char in "]}":
+            depth -= 1
+        elif char == ":" and depth == 0:
+            return text[:index], text[index + 1:]
+    return text, ""
+
+
+def flow_value(text):
+    text = without_comment(text).strip()
+    if text.startswith("{") and text.endswith("}"):
+        value = {}
+        for part in split_flow(text[1:-1]):
+            if not part.strip():
+                continue
+            key, item = split_flow_pair(part)
+            value[str(flow_value(key))] = flow_value(item)
+        return value
+    if text.startswith("[") and text.endswith("]"):
+        return [flow_value(part) for part in split_flow(text[1:-1]) if part.strip()]
+    if text in ("null", "Null", "NULL", "~"):
+        return None
+    if text in ("true", "True", "TRUE"):
+        return True
+    if text in ("false", "False", "FALSE"):
+        return False
+    if len(text) >= 2 and text[0] in ("'", '"') and text[-1] == text[0]:
+        try:
+            return ast.literal_eval(text)
+        except (SyntaxError, ValueError):
+            return text[1:-1]
+    try:
+        return int(text)
+    except ValueError:
+        try:
+            return float(text)
+        except ValueError:
+            return text
+
+
+def read_registry(path):
+    try:
+        with open(path) as registry:
+            lines = registry.readlines()
+    except OSError:
+        return {}
+    pools = {}
+    in_pools = False
+    for raw in lines:
+        line = without_comment(raw.rstrip())
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip())
+        stripped = line.strip()
+        if indent == 0:
+            in_pools = stripped == "pools:"
+            continue
+        if in_pools and indent == 2:
+            match = re.match(r"([^:]+):\s*(\{.*\})\s*$", stripped)
+            if match:
+                pools[match.group(1).strip()] = flow_value(match.group(2))
+    return pools
+
+
+def registry_pools():
+    pools = {}
+    paths = [os.path.expanduser("~/.claude/models/registry.yaml"),
+             os.path.join(os.getcwd(), ".claude/models/registry.yaml")]
+    for path in paths:
+        pools.update(read_registry(path))
+    return pools
+
+
+def valid_capacity(value):
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return True
+    return isinstance(value, dict) and all(
+        isinstance(item, (int, float)) and not isinstance(item, bool)
+        for item in value.values())
+
+
+def pool_capacity(pool, plan):
+    config = registry_pools().get(pool) or {}
+    limit = config.get("usable_below", 85)
+    if not isinstance(limit, (int, float)) or isinstance(limit, bool):
+        limit = 85
+    capacity, plan_unlisted = 1, False
+    if plan is not None:
+        plans = config.get("plans") or {}
+        entry = plans.get(plan) if isinstance(plans, dict) else None
+        candidate = entry.get("capacity") if isinstance(entry, dict) else None
+        if valid_capacity(candidate):
+            capacity = candidate
+        else:
+            plan_unlisted = True
+    return capacity, limit, plan_unlisted
+
+
+def slots_for(windows, capacity, limit):
+    slots = {}
+    for name, used in windows.items():
+        value = capacity.get(name, 1) if isinstance(capacity, dict) else capacity
+        if used >= limit:
+            slots[name] = 0
+            continue
+        slots[name] = min(6, max(1, math.ceil(value * (100 - used) / 50)))
+    return slots
+
+
+def emit(pool, signed_in, source, windows=None, resets=None, error=None, *, plan=None,
+         models=None):
+    capacity, limit, plan_unlisted = pool_capacity(pool, plan)
+    row = {"signed_in": signed_in, "windows": windows, "plan": plan,
+           "capacity": capacity}
+    if plan_unlisted:
+        row["plan_unlisted"] = True
+    if models is not None:
+        row["models"] = models
     if windows:
         worst = max(windows, key=windows.get)
         row["worst"] = {"window": worst, "used": windows[worst]}
         if resets and resets.get(worst):
             row["worst"]["resets"] = resets[worst]
+    row["slots"] = None if windows is None else slots_for(windows, capacity, limit)
     row["source"] = source
     if error:
         row["error"] = error
@@ -89,24 +266,46 @@ def orca_pools():
                     if w.get("resetsAt"):
                         resets[name] = iso(w["resetsAt"])
         if windows:
-            emit(pool, True, "orca", windows, resets, rl.get("error"))
+            if pool == "claude":
+                emit(pool, True, "orca", windows, resets, rl.get("error"),
+                     plan=claude_plan())
+            else:
+                info = codex_read(quota=False)
+                emit(pool, True, "orca", windows, resets, rl.get("error"),
+                     plan=info["plan"], models=info["models"])
         else:
             native()
+
+
+def claude_auth():
+    if not shutil.which("claude"):
+        return None
+    out, _ = run(["claude", "auth", "status"], ok_codes=(0, 1))
+    try:
+        auth = json.loads(out)
+        if not isinstance(auth.get("loggedIn"), bool):
+            raise ValueError("unreadable sign-in state")
+        return auth
+    except (AttributeError, TypeError, ValueError, KeyError):
+        return None
+
+
+def claude_plan():
+    auth = claude_auth()
+    if not auth or not auth.get("loggedIn"):
+        return None
+    return auth.get("subscriptionType")
 
 
 def claude_pool():
     if not shutil.which("claude"):
         emit("claude", None, "claude-cli", error="claude not installed")
         return
-    out, _ = run(["claude", "auth", "status"], ok_codes=(0, 1))
-    try:
-        auth = json.loads(out)
-        signed_in = auth["loggedIn"]
-        if not isinstance(signed_in, bool):
-            raise ValueError("unreadable sign-in state")
-    except (TypeError, ValueError, KeyError):
+    auth = claude_auth()
+    if auth is None:
         emit("claude", None, "claude-cli", error="unreadable claude auth status")
         return
+    signed_in = auth["loggedIn"]
     if not signed_in or auth.get("authMethod") not in ("claude.ai", "oauth_token"):
         emit("claude", False, "claude-cli", error="no claude.ai subscription sign-in")
         return
@@ -138,17 +337,20 @@ def claude_pool():
                 if limit.get("resets_at"):
                     resets[name] = limit["resets_at"]
     except (AttributeError, TypeError, ValueError, KeyError, StopIteration):
-        emit("claude", True, "claude-cli", error="unreadable claude /usage report")
+        emit("claude", True, "claude-cli", error="unreadable claude /usage report",
+             plan=auth.get("subscriptionType"))
         return
     emit("claude", True, "claude-cli", windows or None, resets,
-         None if windows else "claude /usage returned no quota windows")
+         None if windows else "claude /usage returned no quota windows",
+         plan=auth.get("subscriptionType"))
 
 
-def codex_pool():
+def codex_read(timeout=30, quota=True):
+    info = {"signed_in": None, "plan": None, "models": None,
+            "windows": None, "resets": {}, "error": None}
     if not shutil.which("codex"):
-        emit("codex", None, "codex-app-server", error="codex not installed")
-        return
-    signed_in = None
+        info["error"] = "codex not installed"
+        return info
     proc = None
     selector = selectors.DefaultSelector()
     try:
@@ -164,12 +366,14 @@ def codex_pool():
                 message["params"] = params
             proc.stdin.write((json.dumps(message) + "\n").encode())
             proc.stdin.flush()
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + timeout
             while True:
                 while b"\n" in buffer:
                     line, buffer = buffer.split(b"\n", 1)
                     reply = json.loads(line)
                     if reply.get("id") == rid:
+                        if "error" in reply:
+                            raise ValueError(reply["error"].get("message", "request failed"))
                         return reply["result"]
                 remaining = deadline - time.monotonic()
                 if remaining <= 0 or not selector.select(remaining):
@@ -183,13 +387,17 @@ def codex_pool():
         proc.stdin.write(b'{"method":"initialized","params":{}}\n')
         proc.stdin.flush()
         account = request(2, "account/read", {"refreshToken": False})["account"]
-        signed_in = isinstance(account, dict) and account.get("type") == "chatgpt"
-        if not signed_in:
-            emit("codex", False, "codex-app-server", error="no ChatGPT subscription sign-in")
-            return
-        quota = request(3, "account/rateLimits/read")
-        buckets = quota.get("rateLimitsByLimitId") or {}
-        snapshot = buckets.get("codex") or quota["rateLimits"]
+        info["signed_in"] = isinstance(account, dict) and account.get("type") == "chatgpt"
+        if not info["signed_in"]:
+            info["error"] = "no ChatGPT subscription sign-in"
+            return info
+        info["plan"] = account.get("planType")
+        info["models"] = codex_models(request)
+        if not quota:
+            return info
+        quota_reply = request(100, "account/rateLimits/read")
+        buckets = quota_reply.get("rateLimitsByLimitId") or {}
+        snapshot = buckets.get("codex") or quota_reply["rateLimits"]
         windows, resets = {}, {}
         for key in ("primary", "secondary"):
             w = snapshot.get(key)
@@ -201,10 +409,12 @@ def codex_pool():
             windows[name] = w["usedPercent"]
             if w.get("resetsAt"):
                 resets[name] = iso(w["resetsAt"] * 1000)
-        emit("codex", True, "codex-app-server", windows or None, resets,
-             None if windows else "codex returned no quota windows")
-    except (OSError, TypeError, ValueError, KeyError, AttributeError):
-        emit("codex", signed_in, "codex-app-server", error="unreadable codex app-server quota")
+        info["windows"] = windows or None
+        info["resets"] = resets
+        if not windows:
+            info["error"] = "codex returned no quota windows"
+    except (OSError, TypeError, ValueError, KeyError, AttributeError, TimeoutError):
+        info["error"] = "unreadable codex app-server quota"
     finally:
         selector.close()
         if proc is not None:
@@ -216,6 +426,37 @@ def codex_pool():
                 proc.wait()
             proc.stdin.close()
             proc.stdout.close()
+    return info
+
+
+def codex_models(request):
+    models = []
+    cursor = None
+    request_id = 3
+    while True:
+        params = {} if cursor is None else {"cursor": cursor}
+        try:
+            result = request(request_id, "model/list", params)
+        except (OSError, TypeError, ValueError, KeyError, AttributeError, TimeoutError):
+            return None
+        request_id += 1
+        if not isinstance(result, dict) or not isinstance(result.get("data"), list):
+            return None
+        for model in result["data"]:
+            if not isinstance(model, dict) or not isinstance(model.get("id"), str):
+                return None
+            models.append(model["id"])
+        cursor = result.get("nextCursor")
+        if cursor is None:
+            return models or None
+        if not isinstance(cursor, str):
+            return None
+
+
+def codex_pool(timeout=30):
+    info = codex_read(timeout=timeout)
+    emit("codex", info["signed_in"], "codex-app-server", info["windows"],
+         info["resets"], info["error"], plan=info["plan"], models=info["models"])
 
 
 def google_pool():
@@ -310,7 +551,8 @@ def zai_pool():
         r = lim.get("window", {}).get("resetsAt")
         if r:
             resets[key] = iso(r)
-    emit("zai", True, "omp", windows or None, resets)
+    emit("zai", True, "omp", windows or None, resets,
+         plan=(report.get("metadata") or {}).get("planType"))
 
 
 orca_pools()
