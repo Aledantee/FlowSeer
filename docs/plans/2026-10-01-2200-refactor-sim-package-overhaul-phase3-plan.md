@@ -108,6 +108,29 @@ under Inventory, Sources.
 - `Effects.Emissions` lists frames by tree, then by port. Why: the standard
   orders nothing between ports, and the layer's walks are already fixed as
   `treeOrder` and `portNames` (`S/layer.go:44-62`).
+- A Version 3 or later BPDU of type 2 with 35 to 101 octets decodes as RST
+  whatever its length fields say, and one with more octets than its Version
+  3 Length names decodes as MST (`Q2003` 14.4 d) 1) and e)). One of 103
+  octets or more whose Version 3 Length names records that are absent is
+  refused, as the layer's own rule, since 14.4 gives no reading for them.
+  (decided by the user, 2026-10-04)
+- R9 stands. An overdue hello is settled before the call's event is
+  applied: it sets no flag and advances by whole HelloTimes from the
+  instant it was due. `NextWake` gains no wake for it. (decided by the
+  user, 2026-10-04)
+- An MSTI record's Proposal flag is recorded with no CIST condition. Its
+  Agreement flag is tested against the CIST vector the port holds after
+  that BPDU's CIST information is stored (`Q2003` 13.26.10 a) and 13.26.14,
+  `D2009` 13.29.16 and 13.29.20). (decided by the user, 2026-10-04)
+- Under PVST an IEEE-addressed BPDU of any type belongs to VLAN 1's tree,
+  so a TCN BPDU starts a change there alone. The layer also models a TCN
+  per VLAN at the SSTP address, so a change on another VLAN crosses a link
+  in STP mode. Cisco's pages do not document that TCN, so it is modelled
+  on observation. (decided by the user, 2026-10-04)
+- U6 holds as written: a tree's loop-guard mark clears on a BPDU applied
+  to that tree or a link down. A PVID-inconsistent SSTP frame is applied
+  to no tree and clears nothing. The test of Correctness 11 changes to
+  match. (decided by the user, 2026-10-04)
 
 ## Requirements
 
@@ -949,13 +972,3 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/sim/layer/stp/topology_change_property_test.go:546: `expected` is never read, a TCN skips the role check (`:567`), and a held flag counts as sent with budget to spare (`:634`); fails: `p.role != bpdu.RoleRoot` dropped at `topology.go:162` sends a flagged frame from a Designated port
 - src/common/sim/layer/stp/topology_change_property_test.go:330: the MST Mcheck BPDU is a Configuration BPDU that keeps `ConfigID` and MSTI records, and the MST Receive BPDU (`:34`) raises the external cost under an unchanged regional root, shapes `bpdu.Decode` or a conformant sender never gives; not confirmed by a run
 - src/common/sim/layer/stp/topology.go:162: guards a nil port and link no caller can pass, and `:175` reads the link again
-- Parked by drive: the review of the phase with U7 recorded `fixes needed`
-  and ran no fix round, because five findings need a plan decision. They
-  are the short Version 3 BPDU (U3 against `Q2003` 14.4), the legacy Root
-  port's hello (R9 against U7's T5), the MSTI proposal gate (U4 against
-  both sources), TCN propagation under PVST, and the loop-guard clear (U6
-  against Correctness 11). The record is on `parked/sim-p3-review`.
-  Options: answer the five, then run the fix loop (the review continues on
-  settled text) | record all five under Limits and fix only the rest
-  (faster, leaves five known departures). Recommended: answer the five,
-  because two of them are the review's High findings.
