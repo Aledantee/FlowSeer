@@ -16,9 +16,9 @@ An operator sets the description of `ethernet 1/1/1` on an ICX7150. The
 messages that exist at each step:
 
 1. The client builds a `MutationIntent`: the device ref, a fresh UUID as
-   `idempotency_key`, an `Actor` with the authenticated operator's issuer and
-   subject, the `AccessPolicyHandle` from the device's config, the firmware fingerprint
-   the client last saw, and an `interface_description` arm:
+   `idempotency_key`, the `AccessPolicyHandle` from the device's config, the firmware
+   fingerprint the client last saw, and an `interface_description` arm. Central
+   sets `Actor` from the authenticated caller (`operation.proto:127-129`):
 
    ```prototext
    interface_name: "ethernet 1/1/1"
@@ -44,7 +44,7 @@ If step 4 had returned an observation that did not match, or none at all,
 the state would move to `RECOVERING` with `block_reason: INDETERMINATE`. The
 edge observes again before any retry. An authorized cancellation ends that
 with phase `ABANDONED`, `disposition: INDETERMINATE_ABANDONED`, and
-`block_reason: RECOVERY_HOLD`; the lane stays blocked until an operator
+`block_reason: RECOVERY_HOLD`. The lane stays blocked until an operator
 accepts or restores the observed state, or a reconciliation intent
 replaces it. Abandoned work is never resumed.
 
@@ -57,11 +57,11 @@ replaces it. Abandoned work is never resumed.
 - An intent pins the policy version and the expected fingerprint. A device
   that reports another fingerprint blocks the intent before any write.
 - A description is printable ASCII of at most 64 characters. An empty
-  string is a valid intent and clears the description; control characters
+  string is a valid intent and clears the description. Control characters
   are rejected at the schema so no adapter has to decide what a terminal
   would do with them.
 - An observation with `completeness: PARTIAL` is evidence for routing and
-  nothing else; only a complete observation can verify.
+  nothing else. Only a complete observation can verify.
 
 ## Typed reads
 
@@ -88,7 +88,7 @@ Deliberately absent:
 
 - Secrets, sessions, and transcripts. A `Provenance` names a binding, an
   edge, and a protocol, never a credential or a session identifier.
-- A protocol path or raw command. The intent is the typed change; how a
+- A protocol path or raw command. The intent is the typed change: how a
   route expresses it belongs to the adapter behind the edge.
 - An audit event. The durable `DeviceOperationEvent` lands in its own
   package so the audit stream's contract can evolve without touching the

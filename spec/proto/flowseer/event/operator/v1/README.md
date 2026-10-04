@@ -12,9 +12,9 @@ Imported by: nothing FlowSeer-owned
 Deliberately absent:
 
 - `OperatorActionConfig` and `OperatorActionState`. This package is a pure
-  event stream; there is nothing here to configure and nothing to query as
+  event stream. There is nothing here to configure and nothing to query as
   current state.
-- A tenant. Tenancy is ambient; the tenant is a token in the message subject.
+- A tenant. Tenancy is ambient: the tenant is a token in the message subject.
 
 ## Structure
 

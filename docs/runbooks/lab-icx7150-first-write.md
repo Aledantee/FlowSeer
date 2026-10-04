@@ -6,7 +6,7 @@ description on one lab switch and reads it back.
 Everything up to the write has been proven against fixtures: an agent enrolls,
 attaches, onboards a device from central's registry, and an operator's change
 travels down and comes back as an observation. What no fixture proves is the
-device — the SSH prompts, the SNMP answers, the time the switch takes to make
+device: the SSH prompts, the SNMP answers, the time the switch takes to make
 a change visible. That is what this run is for, and it is why the assembled
 end-to-end came first: it found two defects that would have reached the switch
 as an interface changed on real hardware with the system unable to say whether
@@ -16,23 +16,50 @@ it had changed.
 
 Everything an operator does to central is a Connect RPC, and `buf curl` makes
 those without a client. Central serves no reflection, so the schema comes from
-this repository; it serves a certificate it generated for itself, so that
+this repository. It serves a certificate it generated for itself, so that
 certificate is what you trust.
 
 Every operator call carries an OIDC bearer token and a tenant header.
 Central mounts operator services behind authentication and authorization
 middleware that validates the bearer token against the configured identity
-provider and evaluates permissions in OpenFGA. An operator obtains a token
-from their identity provider before issuing commands.
+provider and evaluates permissions in OpenFGA. Central configuration requires
+both `authentication` and `authorization` sections (`deploy/lab/central.textproto:32-45`).
+An operator obtains a token from the identity provider and configures tenant
+membership before issuing commands, as detailed in [deploy/lab/README.md](../../deploy/lab/README.md).
+
+For the lab setup with Dex, retrieve the token with password grant:
+
+```sh
+export TOKEN=$(curl -sS --cacert secrets/ca.crt \
+  -u "flowseer-device:$(grep flowseer-device credentials.txt | awk '{print $2}')" \
+  -d "grant_type=password&username=alice&password=$(grep alice credentials.txt | awk '{print $2}')&scope=openid profile email groups" \
+  https://127.0.0.1:8445/dex/token | jq -r .access_token)
+```
+
+The tenant identifier must be a canonical UUID (`spec/proto/flowseer/model/identity/v1/tenant.proto:13-16`).
+`TENANT=default` is admitted only by the test suite's always-allow engine
+(`src/services/device/test/integration/bootstrap_env_test.go:66-78`,
+`src/services/device/test/integration/fixture_test.go:391-394`).
+Against the real authorization model, `member` requires `claimed`
+(`src/services/device/internal/authz/openfga/model.json:133-151`), and the
+verifier yields `claimed` only when a matching active tenant record exists
+(`src/services/device/internal/authn/verifier.go:452-476`).
+Today, no operator-facing path creates a tenant record: `tenantstore.Store.Create`
+(`src/services/device/internal/tenantstore/store.go:113-126`) has no caller
+outside tests, `TenantService` is not mounted (`src/services/device/internal/host/host_test.go:629-655`),
+and central's CLI (`src/services/device/cmd/device/main.go:39`) accepts only `--config`.
+Every operator call against a deployment built from `deploy/lab` answers
+`PermissionDenied` until a tenant record is provisioned out of band per
+[deploy/lab/README.md](../../deploy/lab/README.md).
 
 **Every command block below is one of three kinds**, and the difference
 matters because two of them are run in different places:
 
-- `sh` — run on the host where central runs. These are executed by the
+- `sh`: run on the host where central runs. These are executed by the
   repository's test suite exactly as printed, so a command here has been run.
-- `cli` — typed at the switch's own command line, over SSH. These the suite
-  cannot run; they need the switch.
-- `text` — output and illustrations, not commands.
+- `cli`: typed at the switch's own command line, over SSH. These the suite
+  cannot run, because they need the switch.
+- `text`: output and illustrations, not commands.
 
 Set these once, in the shell you will use throughout:
 
@@ -46,7 +73,7 @@ export INTERFACE="ethernet 1/1/1"
 # The change itself, and who is making it.
 export DESCRIPTION="uplink to core"
 export TOKEN=your-oidc-bearer-token
-export TENANT=default
+export TENANT=0192e6a0-0000-7000-8000-0000000000ac
 export IDEMPOTENCY_KEY=$(uuidgen | tr 'A-Z' 'a-z')
 
 # The access policy the registry pins for this device. These must match the
@@ -66,7 +93,8 @@ export PROVISIONING=/etc/flowseer/provisioning.textproto
 `CACERT` is the certificate central generated into its state directory on
 first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
 targets, and must match the registry. `TOKEN` is an OIDC bearer token issued
-by the configured identity provider, and `TENANT` selects the tenant context.
+by Dex or another configured identity provider, and `TENANT` is the deployment's
+tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tuple steps).
 
 A call looks like this, and this one is also the check that your shell is set
 up: it asks central what it knows about the device and needs nothing to have
