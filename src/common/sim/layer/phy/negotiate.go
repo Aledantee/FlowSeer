@@ -81,9 +81,10 @@ type Link struct {
 //     common speed exists, negotiation fails with [LinkFailed] and [ReasonSpeedMismatch].
 //   - Two auto-negotiating ends where either end lacks reported supported speeds
 //     yield [LinkUnknown] with [ReasonCapabilityUnknown].
-//   - Two forced ends agree on speed if both speeds are identical and at or below top.
-//     If both ends state different duplexes, [ReasonDuplexMismatch] is set. If speeds
-//     differ or exceed top, negotiation fails with [LinkFailed] and [ReasonSpeedMismatch].
+//   - Two forced ends agree on speed if both speeds are identical and at or below top,
+//     resolving with [SourceSetting]. If both ends state different duplexes,
+//     [ReasonDuplexMismatch] is set. If speeds differ or exceed top, negotiation fails
+//     with [LinkFailed] and [ReasonSpeedMismatch].
 //   - A forced end at or below 100 Mb/s against an auto-negotiating end with known
 //     speeds resolves at the forced speed if supported by the auto end and within top.
 //     The forced end keeps its configured duplex, while the auto end resolves to [Half]
@@ -95,7 +96,9 @@ type Link struct {
 //     with [ReasonForcedAgainstAutoUnmodeled].
 //   - When the truth table yields [LinkUnknown], the observed rule resolves the link
 //     to [LinkResolved] with [SourceObserved] if both ends report identical non-zero
-//     observed speeds.
+//     observed speeds at or below top. If both ends state different duplexes,
+//     [ReasonDuplexMismatch] is set. If the observed speed exceeds top, negotiation
+//     fails with [LinkFailed] and [ReasonSpeedMismatch].
 func Negotiate(a, b Ethernet, top uint64) Link {
 	if a.Setting != nil && a.Setting.AutoNegotiation && a.AutoNegotiationSupported == CapabilityUnsupported {
 		return Link{State: LinkFailed, Reason: ReasonSpeedMismatch}
@@ -109,7 +112,7 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 	}
 
 	if isUnreported(a) || isUnreported(b) {
-		if link, ok := checkObserved(a, b); ok {
+		if link, ok := checkObserved(a, b, top); ok {
 			return link
 		}
 
@@ -121,7 +124,7 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 
 	if aAuto && bAuto {
 		if len(a.SupportedSpeedsBPS) == 0 || len(b.SupportedSpeedsBPS) == 0 {
-			if link, ok := checkObserved(a, b); ok {
+			if link, ok := checkObserved(a, b, top); ok {
 				return link
 			}
 
@@ -166,7 +169,7 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 			SpeedBPS: sa,
 			DuplexA:  a.Setting.Duplex,
 			DuplexB:  b.Setting.Duplex,
-			Source:   SourceNegotiated,
+			Source:   SourceSetting,
 			Reason:   reason,
 		}
 	}
@@ -185,7 +188,7 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 	}
 
 	if len(auto.SupportedSpeedsBPS) == 0 {
-		if link, ok := checkObserved(a, b); ok {
+		if link, ok := checkObserved(a, b, top); ok {
 			return link
 		}
 
@@ -222,15 +225,26 @@ func Negotiate(a, b Ethernet, top uint64) Link {
 	}
 }
 
-func checkObserved(a, b Ethernet) (Link, bool) {
+func checkObserved(a, b Ethernet, top uint64) (Link, bool) {
 	if a.Observed != nil && b.Observed != nil &&
 		a.Observed.SpeedBPS > 0 && a.Observed.SpeedBPS == b.Observed.SpeedBPS {
+		if top != 0 && a.Observed.SpeedBPS > top {
+			return Link{State: LinkFailed, Reason: ReasonSpeedMismatch}, true
+		}
+
+		stated := func(d Duplex) bool { return d != "" && d != Unknown }
+		var reason trace.Reason
+		if stated(a.Observed.Duplex) && stated(b.Observed.Duplex) && a.Observed.Duplex != b.Observed.Duplex {
+			reason = ReasonDuplexMismatch
+		}
+
 		return Link{
 			State:    LinkResolved,
 			SpeedBPS: a.Observed.SpeedBPS,
 			DuplexA:  a.Observed.Duplex,
 			DuplexB:  b.Observed.Duplex,
 			Source:   SourceObserved,
+			Reason:   reason,
 		}, true
 	}
 

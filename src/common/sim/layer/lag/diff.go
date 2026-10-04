@@ -324,7 +324,7 @@ func Diff(a, b Config) []trace.Change {
 		for _, memName := range sortedKeys(aLag.Members) {
 			am := aLag.Members[memName]
 			bm, memExists := bLag.Members[memName]
-			subject := trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)}
+			subject := trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)}
 			if !memExists {
 				changes = append(changes, trace.Change{
 					Layer:   lyr,
@@ -362,7 +362,7 @@ func Diff(a, b Config) []trace.Change {
 			if _, memExists := aLag.Members[memName]; !memExists {
 				changes = append(changes, trace.Change{
 					Layer:   lyr,
-					Subject: trace.Subject{Kind: "port", Key: memberSubjectKey(lagName, memName)},
+					Subject: trace.Subject{Kind: "lag_member", Key: memberSubjectKey(lagName, memName)},
 					Field:   "",
 					From:    nil,
 					To:      bLag.Members[memName],

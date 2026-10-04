@@ -926,9 +926,9 @@ The following areas remain outside the foundation established here:
   conflicting, or unmanaged LLDP and CDP neighbor records.
 - **Protocol depth**: IGMP/MLD querier election, dynamic IP routing (BGP and
   OSPF), and transport protocol behavior. Spanning tree runs in `stp`, whose
-  README lists what it does not model. LACP runs in `lag` as Open vSwitch
-  runs it, without the marker protocol, load-driven rebalancing, or members
-  on two switches.
+  README lists what it does not model. LACP runs in `lag` as a Version 1
+  implementation with the Marker Responder. Its remaining gaps are the
+  [LAG Limits](../../src/common/sim/layer/lag/README.md#limits).
 - **Neighbor solicitation and unreachability detection**: the switch observes
   ARP and NDP traffic but never sends a solicitation of its own, and a stale
   or incomplete neighbor entry never moves through `Delay` or `Probe` toward
@@ -1008,3 +1008,16 @@ its capability packages to `layer/`, `vswitch/port` to `port`, and
 [simulation package shape record](2026-10-01-simulation-package-shape-direction.md)
 gives the tree and the reasons. The Decision's package list omits three
 packages that exist: `layer/filter`, `layer/loopprotect`, and `stream`.
+
+### 2026-10-04: LACP follows the 2014 machines
+
+The LACP implementation in `src/common/sim/layer/lag` follows IEEE Std
+802.1AX-2014 as read from `AX`, the unapproved IEEE P802.1AX-REV/D4.54 draft
+named in the [LAG sources](../../src/common/sim/layer/lag/README.md#sources).
+It implements Version 1 with the Marker Responder (`AX` 5.3 a to d).
+The remaining protocol gaps are the
+[documented Limits](../../src/common/sim/layer/lag/README.md#limits), including
+Marker generation and reception and preserving frame order across a detached
+link's conversations. Open vSwitch supplies the distribution and fallback
+choices that the README identifies. Equivalence to the published standard
+remains unverified because that text was not read.

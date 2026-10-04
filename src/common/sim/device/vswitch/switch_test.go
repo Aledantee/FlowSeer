@@ -5724,6 +5724,9 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 			State:          lacp.StateActive | lacp.StateAggregation,
 		},
 	}
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Expired || info.Actor.State&lacp.StateExpired == 0 {
+		t.Fatalf("member after Start = %+v, want Expired", info)
+	}
 	validFrame := lacp.Encode(pdu, macB)
 
 	// Peek first: counts do not change
@@ -5791,6 +5794,19 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 	if resNonMember.Reason != bridge.ReasonReservedAddress {
 		t.Errorf("resNonMember.Reason = %s, want %s", resNonMember.Reason, bridge.ReasonReservedAddress)
+	}
+
+	sw.Wake(now.Add(90*time.Second - time.Nanosecond))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Current {
+		t.Fatalf("member before slow receive timeout = %+v, want Current despite peer Short timeout", info)
+	}
+	sw.Wake(now.Add(90 * time.Second))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Expired || info.Enabled || info.Actor.State&lacp.StateExpired == 0 {
+		t.Fatalf("member at slow receive timeout = %+v, want Expired and disabled", info)
+	}
+	sw.Wake(now.Add(93 * time.Second))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Partner != (lacp.Info{State: 0x18}) || info.Actor.State&0xc0 != 0x40 {
+		t.Fatalf("member after Expired timeout = %+v, want Defaulted with administrative Partner", info)
 	}
 }
 

@@ -191,7 +191,7 @@ func TestNegotiate(t *testing.T) {
 				SpeedBPS: 1_000_000_000,
 				DuplexA:  phy.Full,
 				DuplexB:  phy.Full,
-				Source:   phy.SourceNegotiated,
+				Source:   phy.SourceSetting,
 			},
 		},
 		{
@@ -207,7 +207,7 @@ func TestNegotiate(t *testing.T) {
 				SpeedBPS: 100_000_000,
 				DuplexA:  phy.Half,
 				DuplexB:  phy.Half,
-				Source:   phy.SourceNegotiated,
+				Source:   phy.SourceSetting,
 			},
 		},
 		{
@@ -223,7 +223,7 @@ func TestNegotiate(t *testing.T) {
 				SpeedBPS: 1_000_000_000,
 				DuplexA:  phy.Full,
 				DuplexB:  phy.Half,
-				Source:   phy.SourceNegotiated,
+				Source:   phy.SourceSetting,
 				Reason:   phy.ReasonDuplexMismatch,
 			},
 		},
@@ -240,7 +240,7 @@ func TestNegotiate(t *testing.T) {
 				SpeedBPS: 1_000_000_000,
 				DuplexA:  phy.Unknown,
 				DuplexB:  phy.Full,
-				Source:   phy.SourceNegotiated,
+				Source:   phy.SourceSetting,
 			},
 		},
 		{
@@ -424,7 +424,7 @@ func TestNegotiate(t *testing.T) {
 
 		// Observed rule
 		{
-			name: "observed rule resolves unknown link when both ends carry identical observed speed",
+			name: "observed rule with different stated duplex resolves with duplex-mismatch",
 			a: phy.Ethernet{
 				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
 			},
@@ -437,7 +437,35 @@ func TestNegotiate(t *testing.T) {
 				DuplexA:  phy.Full,
 				DuplexB:  phy.Half,
 				Source:   phy.SourceObserved,
+				Reason:   phy.ReasonDuplexMismatch,
 			},
+		},
+		{
+			name: "observed rule resolves unknown link when both ends carry identical observed speed and duplex",
+			a: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+			},
+			b: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+			},
+			want: phy.Link{
+				State:    phy.LinkResolved,
+				SpeedBPS: 1_000_000_000,
+				DuplexA:  phy.Full,
+				DuplexB:  phy.Full,
+				Source:   phy.SourceObserved,
+			},
+		},
+		{
+			name: "two ends observed at 10 Gb/s over 100 Mb/s cable fail with speed-mismatch",
+			a: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 10_000_000_000, Duplex: phy.Full},
+			},
+			b: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 10_000_000_000, Duplex: phy.Full},
+			},
+			top:  100_000_000,
+			want: phy.Link{State: phy.LinkFailed, Reason: phy.ReasonSpeedMismatch},
 		},
 		{
 			name: "observed rule does not resolve unknown link when observed speeds differ",

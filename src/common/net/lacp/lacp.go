@@ -5,7 +5,9 @@
 package lacp
 
 import (
+	"bytes"
 	"encoding/binary"
+	"slices"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -14,6 +16,14 @@ import (
 
 // State represents the 8-bit LACP state bitfield from the LACPDU.
 type State uint8
+
+const (
+	// SubtypeLACP identifies a Link Aggregation Control Protocol data unit.
+	SubtypeLACP uint8 = 0x01
+
+	// SubtypeMarker identifies a Marker Protocol data unit.
+	SubtypeMarker uint8 = 0x02
+)
 
 const (
 	// StateActive indicates the port is active LACP (lacpActivity).
@@ -64,11 +74,66 @@ var GroupAddress = netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x02}
 // ErrUnsupported indicates that an Ethernet frame does not carry a supported LACPDU.
 var ErrUnsupported = errs.Msg("unsupported LACPDU")
 
+const (
+	markerInformationTLVType   uint8 = 0x01
+	markerResponseTLVType      uint8 = 0x02
+	markerInformationTLVLength uint8 = 16
+)
+
+// MarkerResponse returns a response for a Marker Information PDU. It copies the
+// frame payload before changing the response TLV type, preserving every other
+// payload octet and frame property. The returned subtype is [SubtypeMarker]. It
+// returns an error wrapping [ErrUnsupported] for a frame with the wrong
+// EtherType, a payload shorter than 110 octets, a non-Marker subtype, or an
+// unexpected Marker Information TLV.
+func MarkerResponse(f ethernet.Frame, src netaddr.MAC) (ethernet.Frame, error) {
+	if f.EtherType != ethernet.EtherTypeSlowProtocols {
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
+			Attr("ethertype", f.EtherType).
+			Msg("unexpected EtherType for Marker PDU")
+	}
+
+	if len(f.Payload) < 110 {
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
+			Attr("length", len(f.Payload)).
+			Attr("min", 110).
+			Msg("Marker PDU payload is shorter than 110 octets")
+	}
+
+	if f.Payload[0] != SubtypeMarker {
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
+			Attr("subtype", f.Payload[0]).
+			Msg("unsupported Marker PDU subtype")
+	}
+
+	if f.Payload[2] != markerInformationTLVType {
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
+			Attr("tlv_type", f.Payload[2]).
+			Msg("unsupported Marker TLV type")
+	}
+
+	if f.Payload[3] != markerInformationTLVLength {
+		return ethernet.Frame{}, errs.From(ErrUnsupported).
+			Attr("tlv_length", f.Payload[3]).
+			Msg("unsupported Marker TLV length")
+	}
+
+	response := f
+	response.Dst = GroupAddress
+	response.Src = src
+	response.Tags = slices.Clone(f.Tags)
+	response.Payload = bytes.Clone(f.Payload)
+	response.Payload[0] = SubtypeMarker
+	response.Payload[2] = markerResponseTLVType
+
+	return response, nil
+}
+
 // Encode serializes p into an Ethernet II frame carrying a 110-octet LACPDU payload.
 func Encode(p PDU, src netaddr.MAC) ethernet.Frame {
 	payload := make([]byte, 110)
 
-	payload[0] = 1
+	payload[0] = SubtypeLACP
 	payload[1] = 1
 
 	encodeInfo(payload[2:22], 1, p.Actor)
@@ -100,9 +165,12 @@ func encodeInfo(dst []byte, tlvType uint8, info Info) {
 	dst[16] = byte(info.State)
 }
 
-// Decode deserializes an LACPDU from an Ethernet frame. It rejects frames with an
-// unexpected EtherType, truncated payload, unsupported subtype, version, or TLV
-// structure, returning an error wrapping [ErrUnsupported].
+// Decode deserializes an LACPDU from an Ethernet frame. It rejects frames with
+// an unexpected EtherType, a payload shorter than 110 octets, an unsupported
+// subtype, or an actor, partner, or collector TLV length other than 20, 20, or
+// 16 respectively. Version, TLV type, reserved fields, and octets from offset
+// 58 onward are accepted unchanged at the receive boundary. Rejections wrap
+// [ErrUnsupported].
 func Decode(f ethernet.Frame) (PDU, error) {
 	if f.EtherType != ethernet.EtherTypeSlowProtocols {
 		return PDU{}, errs.From(ErrUnsupported).
@@ -118,24 +186,10 @@ func Decode(f ethernet.Frame) (PDU, error) {
 	}
 
 	subtype := f.Payload[0]
-	if subtype != 1 {
+	if subtype != SubtypeLACP {
 		return PDU{}, errs.From(ErrUnsupported).
 			Attr("subtype", subtype).
 			Msg("unsupported LACPDU subtype")
-	}
-
-	version := f.Payload[1]
-	if version != 1 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("version", version).
-			Msg("unsupported LACPDU version")
-	}
-
-	actorType := f.Payload[2]
-	if actorType != 1 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("actor_type", actorType).
-			Msg("unsupported actor TLV type")
 	}
 
 	actorLen := f.Payload[3]
@@ -145,13 +199,6 @@ func Decode(f ethernet.Frame) (PDU, error) {
 			Msg("unsupported actor TLV length")
 	}
 
-	partnerType := f.Payload[22]
-	if partnerType != 2 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("partner_type", partnerType).
-			Msg("unsupported partner TLV type")
-	}
-
 	partnerLen := f.Payload[23]
 	if partnerLen != 20 {
 		return PDU{}, errs.From(ErrUnsupported).
@@ -159,32 +206,11 @@ func Decode(f ethernet.Frame) (PDU, error) {
 			Msg("unsupported partner TLV length")
 	}
 
-	collectorType := f.Payload[42]
-	if collectorType != 3 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("collector_type", collectorType).
-			Msg("unsupported collector TLV type")
-	}
-
 	collectorLen := f.Payload[43]
 	if collectorLen != 16 {
 		return PDU{}, errs.From(ErrUnsupported).
 			Attr("collector_length", collectorLen).
 			Msg("unsupported collector TLV length")
-	}
-
-	termType := f.Payload[58]
-	if termType != 0 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("terminator_type", termType).
-			Msg("unsupported terminator TLV type")
-	}
-
-	termLen := f.Payload[59]
-	if termLen != 0 {
-		return PDU{}, errs.From(ErrUnsupported).
-			Attr("terminator_length", termLen).
-			Msg("unsupported terminator TLV length")
 	}
 
 	return PDU{

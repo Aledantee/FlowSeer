@@ -180,9 +180,10 @@ func baseSnapshotForTest() Snapshot {
 						},
 						Groups: map[string]phy.GroupAllocation{
 							"g1": {
-								BudgetNanowatts:    30_000_000_000,
-								AllocatedNanowatts: 5_000_000_000,
-								RemainderNanowatts: 25_000_000_000,
+								BudgetNanowatts:       30_000_000_000,
+								AllocatedNanowatts:    5_000_000_000,
+								RemainderMinNanowatts: 25_000_000_000,
+								RemainderMaxNanowatts: 25_000_000_000,
 							},
 						},
 					},
@@ -606,11 +607,21 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			},
 		},
 		{
-			name: "power_group_remainder",
+			name: "power_group_remainder_min",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				ga := dev.Power.Groups["g1"]
-				ga.RemainderNanowatts = 20_000_000_000
+				ga.RemainderMinNanowatts = 20_000_000_000
+				dev.Power.Groups["g1"] = ga
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "power_group_remainder_max",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				ga := dev.Power.Groups["g1"]
+				ga.RemainderMaxNanowatts = 20_000_000_000
 				dev.Power.Groups["g1"] = ga
 				s.Devices["sw1"] = dev
 			},

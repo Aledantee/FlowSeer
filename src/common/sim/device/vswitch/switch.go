@@ -1130,7 +1130,8 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return res
 	}
 
-	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
+	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 &&
+		(f.Payload[0] == lacp.SubtypeLACP || f.Payload[0] == lacp.SubtypeMarker) {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
 			res := s.interceptLACP(now, ingress, f, mutate)
@@ -2457,8 +2458,18 @@ func (s *Switch) aggregatorScope(name string) analysis.Scope {
 
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	before := s.lag.PortInfo(ingress)
-	pdu, err := lacp.Decode(f)
-	if err != nil {
+	var pdu lacp.PDU
+	var marker layer.Effects
+	var unsupported bool
+	if f.Payload[0] == lacp.SubtypeMarker {
+		marker = s.lag.ReceiveMarker(now, ingress, f)
+		unsupported = len(marker.Emissions) == 0
+	} else {
+		var err error
+		pdu, err = lacp.Decode(f)
+		unsupported = err != nil
+	}
+	if unsupported {
 		if mutate {
 			s.lag.BadLACPDU(ingress)
 		}
@@ -2483,11 +2494,21 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 		}
 	}
 
-	if mutate {
-		fx := s.lag.Receive(now, ingress, pdu)
-		s.applyLAGEffects(now, fx)
+	rule := lag.RuleLACPDUAdmit
+	var outputs []trace.Fact
+	if len(marker.Emissions) > 0 {
+		rule = lag.RuleMarkerRespond
+		if mutate {
+			s.applyLAGEffects(now, marker)
+		}
+		outputs = []trace.Fact{lag.MarkerResponseFact(f, marker.Emissions[0].Frame)}
+	} else {
+		if mutate {
+			fx := s.lag.Receive(now, ingress, pdu)
+			s.applyLAGEffects(now, fx)
+		}
+		outputs = []trace.Fact{lag.LACPDecisionFact(pdu, before, s.lag.PortInfo(ingress))}
 	}
-	after := s.lag.PortInfo(ingress)
 
 	return bridge.Result{
 		Trace: trace.Trace{
@@ -2496,10 +2517,10 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 				{
 					Layer:   lag.LayerName,
 					Op:      trace.OpClassify,
-					RuleID:  lag.RuleLACPDUAdmit,
+					RuleID:  rule,
 					Subject: trace.Subject{Kind: "port", Key: ingress},
 					Inputs:  []trace.Fact{lag.LACPDecodeFact(f, true, "")},
-					Outputs: []trace.Fact{lag.LACPDecisionFact(pdu, before, after)},
+					Outputs: outputs,
 				},
 			},
 		},

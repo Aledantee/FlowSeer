@@ -10,11 +10,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func findPending(p []pending, member string) *pending {
-	for i := range p {
-		if p[i].Member == member {
-			return &p[i]
-		}
+func firstPending(p []pending) *pending {
+	if len(p) > 0 {
+		return &p[0]
 	}
 
 	return nil
@@ -50,7 +48,7 @@ func TestPendingForEachCause(t *testing.T) {
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		l.LinkChange(t0, "1/1/1", true)
 
-		found := findPending(l.Info("lag1").pending, "1/1/1")
+		found := firstPending(l.Info("lag1").pending)
 		if found == nil || found.Cause != pendingLinkDelay || !found.At.Equal(t0.Add(2*time.Second)) {
 			t.Fatalf("pending = %+v, want link-delay at %v", found, t0.Add(2*time.Second))
 		}
@@ -67,11 +65,11 @@ func TestPendingForEachCause(t *testing.T) {
 		}
 		t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 		l.LinkChange(t0, "1/1/1", true)
-		l.Advance(t0.Add(3 * time.Second))
+		l.Advance(t0.Add(2 * time.Second))
 
-		found := findPending(l.Info("lag1").pending, "1/1/1")
-		if found == nil || found.Cause != pendingPartnerExpired || !found.At.After(t0.Add(3*time.Second)) {
-			t.Fatalf("pending = %+v, want partner-expired after t0+3s", found)
+		found := firstPending(l.Info("lag1").pending)
+		if found == nil || found.Cause != pendingPartnerExpired || !found.At.Equal(t0.Add(3*time.Second)) {
+			t.Fatalf("pending = %+v, want partner-expired at t0+3s", found)
 		}
 	})
 
@@ -96,9 +94,10 @@ func TestPendingForEachCause(t *testing.T) {
 			State:          lacp.StateAggregation, // no StateSynchronization
 		}
 		l.Receive(t0, "1/1/1", lacp.PDU{Actor: partner})
+		l.Advance(t0.Add(2 * time.Second))
 
 		info := l.Info("lag1")
-		found := findPending(info.pending, "1/1/1")
+		found := firstPending(info.pending)
 		if found == nil || found.Cause != pendingUnsynchronized {
 			t.Fatalf("pending = %+v, want unsynchronized", found)
 		}
@@ -106,4 +105,116 @@ func TestPendingForEachCause(t *testing.T) {
 			t.Fatalf("Attached = %v, Enabled = %v, want attached and not enabled", info.Attached, info.Enabled)
 		}
 	})
+
+	t.Run("aggregate wait", func(t *testing.T) {
+		t.Parallel()
+		tbl := twoPortTable(t)
+		cfg := Config{LAGs: map[string]LAG{"lag1": {LACP: LACPConfig{Mode: Active}}}}
+		l, err := New(cfg, layer.Env{Ports: tbl, MAC: netaddr.MAC{2, 0, 0, 0, 0, 10}})
+		if err != nil {
+			t.Fatalf("lag.New: %v", err)
+		}
+		t0 := time.Unix(1700000000, 0)
+		l.LinkChange(t0, "1/1/1", true)
+		l.Receive(t0, "1/1/1", lacp.PDU{Actor: lacp.Info{
+			SystemPriority: 1,
+			SystemID:       netaddr.MAC{2, 0, 0, 0, 0, 11},
+			Key:            1,
+			PortID:         9,
+			State:          lacp.StateActive | lacp.StateAggregation | lacp.StateSynchronization,
+		}, Partner: l.PortInfo("1/1/1").Actor})
+
+		found := firstPending(l.Info("lag1").pending)
+		if found == nil || found.Cause != pendingAggregateWait || !found.At.Equal(t0.Add(2*time.Second)) {
+			t.Fatalf("pending = %+v, want aggregate-wait at t0+2s", found)
+		}
+		if next, ok := l.NextWake(); !ok || !next.Equal(t0.Add(2*time.Second)) {
+			t.Fatalf("NextWake = (%v, %v), want t0+2s", next, ok)
+		}
+	})
+}
+
+func TestReceiveRequestsReselectionOnIdentityChange(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		change   func(*lacp.Info)
+		reselect bool
+	}{
+		{name: "same identity"},
+		{name: "system", change: func(i *lacp.Info) { i.SystemID[5]++ }, reselect: true},
+		{name: "system priority", change: func(i *lacp.Info) { i.SystemPriority++ }, reselect: true},
+		{name: "key", change: func(i *lacp.Info) { i.Key++ }, reselect: true},
+		{name: "port", change: func(i *lacp.Info) { i.PortID++ }, reselect: true},
+		{name: "port priority", change: func(i *lacp.Info) { i.PortPriority++ }, reselect: true},
+		{name: "aggregation", change: func(i *lacp.Info) { i.State &^= lacp.StateAggregation }, reselect: true},
+		{name: "other state bits", change: func(i *lacp.Info) { i.State ^= lacp.StateActive | lacp.StateShortTimeout | lacp.StateSynchronization }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			tbl, err := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG}).
+				Add(port.Port{Name: "a", Kind: port.Physical, LagParent: "lag1"}).Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			l, err := New(Config{LAGs: map[string]LAG{"lag1": {LACP: LACPConfig{Mode: Active, Fast: true}}}}, layer.Env{Ports: tbl})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t0 := time.Unix(1700000000, 0)
+			l.LinkChange(t0, "a", true)
+			pdu := lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, SystemPriority: 1, Key: 7, PortID: 9, PortPriority: 1, State: lacp.StateActive | lacp.StateAggregation}}
+			l.Receive(t0, "a", pdu)
+			m := l.members["a"]
+			m.needsReselect = false
+			if tc.change != nil {
+				tc.change(&pdu.Actor)
+			}
+			l.Receive(t0.Add(time.Second), "a", pdu)
+			if m.status != Current || m.needsReselect != tc.reselect {
+				t.Fatalf("status = %v, needsReselect = %t, want Current and %t", m.status, m.needsReselect, tc.reselect)
+			}
+			cloned := l.Clone()
+			if cloned.members["a"].needsReselect != tc.reselect {
+				t.Fatalf("clone needsReselect = %t, want %t", cloned.members["a"].needsReselect, tc.reselect)
+			}
+			cloned.members["a"].needsReselect = !tc.reselect
+			if m.needsReselect != tc.reselect {
+				t.Fatalf("clone changed source needsReselect = %t, want %t", m.needsReselect, tc.reselect)
+			}
+		})
+	}
+}
+
+func TestDefaultedRequestsReselectionAfterLearnedPartner(t *testing.T) {
+	t.Parallel()
+
+	tbl, err := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG}).
+		Add(port.Port{Name: "a", Kind: port.Physical, LagParent: "lag1"}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, err := New(Config{LAGs: map[string]LAG{"lag1": {LACP: LACPConfig{Mode: Active, Fast: true}}}}, layer.Env{Ports: tbl})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Unix(1700000000, 0)
+	l.LinkChange(t0, "a", true)
+	m := l.members["a"]
+	m.needsReselect = false
+	l.Advance(t0.Add(3 * time.Second))
+	if m.status != Defaulted || m.needsReselect {
+		t.Fatalf("startup defaulting: status = %v, needsReselect = %t, want Defaulted and false", m.status, m.needsReselect)
+	}
+	l.Receive(t0.Add(4*time.Second), "a", lacp.PDU{Actor: lacp.Info{SystemID: netaddr.MAC{2, 0, 0, 0, 0, 1}, PortID: 9, State: lacp.StateActive | lacp.StateAggregation}})
+	m.needsReselect = false
+	l.Advance(t0.Add(7 * time.Second))
+	if m.status != Expired || m.needsReselect {
+		t.Fatalf("expiry: status = %v, needsReselect = %t, want Expired and false", m.status, m.needsReselect)
+	}
+	l.Advance(t0.Add(10 * time.Second))
+	if m.status != Defaulted || !m.needsReselect {
+		t.Fatalf("learned partner defaulting: status = %v, needsReselect = %t, want Defaulted and true", m.status, m.needsReselect)
+	}
 }
