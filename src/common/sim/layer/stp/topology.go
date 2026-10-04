@@ -36,21 +36,136 @@ func (l *Layer) rootTopologyChangeActive(port string, now time.Time) bool {
 	return false
 }
 
+type topologyChangeEmissions struct {
+	ports map[treeID]map[string]struct{}
+}
+
+func topologyChangeTimerActive(p *portState, now time.Time) bool {
+	return !p.tcWhile.IsZero() && p.tcWhile.After(now)
+}
+
+func newTopologyChangeEmissions() *topologyChangeEmissions {
+	return &topologyChangeEmissions{ports: make(map[treeID]map[string]struct{})}
+}
+
+func (c *topologyChangeEmissions) add(l *Layer, t *tree, port string) {
+	if c == nil {
+		return
+	}
+
+	id := t.id
+	if l.pvst == nil {
+		id = cistID
+	}
+	ports := c.ports[id]
+	if ports == nil {
+		ports = make(map[string]struct{})
+		c.ports[id] = ports
+	}
+	ports[port] = struct{}{}
+}
+
+func (l *Layer) emitTopologyChangeEmissions(now time.Time, changes *topologyChangeEmissions, emissions *[]layer.Emission) {
+	if changes == nil {
+		return
+	}
+
+	for _, id := range l.treeOrder {
+		ports := changes.ports[id]
+		if len(ports) == 0 {
+			continue
+		}
+		t := l.trees[id]
+		for _, name := range l.portNames {
+			if _, ok := ports[name]; !ok {
+				continue
+			}
+			p := t.ports[name]
+			if p == nil {
+				continue
+			}
+			alreadyEmitted := false
+			for _, emission := range *emissions {
+				if l.emissionCoversTopologyChange(t, p, now, emission) {
+					alreadyEmitted = true
+					break
+				}
+			}
+			if alreadyEmitted {
+				continue
+			}
+			l.emitRootTC(t, p, now, emissions)
+		}
+	}
+}
+
+func (l *Layer) emissionCoversTopologyChange(t *tree, p *portState, now time.Time, emission layer.Emission) bool {
+	if emission.Port != p.name {
+		return false
+	}
+	if l.pvst == nil && emission.VID != 0 || l.pvst != nil && emission.VID != t.vid {
+		return false
+	}
+
+	var b bpdu.BPDU
+	var err error
+	if l.pvst != nil {
+		b, _, err = bpdu.DecodeSSTP(emission.Frame)
+	} else {
+		b, err = bpdu.Decode(emission.Frame)
+	}
+	if err != nil {
+		return false
+	}
+	if b.Type == bpdu.TypeTopologyChangeNotification {
+		return true
+	}
+	if b.TopologyChange() != topologyChangeTimerActive(p, now) {
+		return false
+	}
+	if l.mst == nil || t.id != cistID {
+		return true
+	}
+
+	for _, id := range l.treeOrder {
+		if id == cistID {
+			continue
+		}
+		mp := l.trees[id].ports[p.name]
+		want := topologyChangeTimerActive(mp, now)
+		got := false
+		for _, record := range b.MSTIs {
+			if treeID(record.MSTID) == id {
+				got = (bpdu.BPDU{Flags: record.Flags}).TopologyChange()
+				break
+			}
+		}
+		if got != want {
+			return false
+		}
+	}
+
+	return true
+}
+
 // initiateTopologyChange marks p active, increments the tree's topology change
-// count, starts p's own tcWhile timer, emits on p if p is the root port, and
-// propagates to other active ports on tree t.
-func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+// count, starts p's own tcWhile timer, records a root-port emission when needed,
+// and propagates to other active ports on tree t.
+func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	p.tcActive = true
 	t.topologyChangeCount++
 	t.lastTopologyChange = now
 	p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-	l.propagateTopologyChange(t, p.name, now, flushes, emissions)
+	if p.role == bpdu.RoleRoot && l.links[p.name].up {
+		changes.add(l, t, p.name)
+	}
+	l.propagateTopologyChange(t, p.name, now, flushes, changes)
 }
 
 // propagateTopologyChange starts tcWhile on every active non-edge port on tree t
-// other than originPort, flushes that port's learned entries, and emits toward
-// the root when the port is the root port.
-func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+// other than originPort, flushes that port's learned entries, and records an
+// emission obligation when the port is the root port.
+func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	fids := l.treeVLANs[t.id]
 	for _, name := range l.portNames {
 		if name == originPort {
@@ -68,8 +183,8 @@ func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Tim
 		if flushes != nil {
 			mergeFlushTarget(flushes, name, fids)
 		}
-		if p.role == bpdu.RoleRoot && emissions != nil {
-			l.emitRootTC(t, p, now, emissions)
+		if p.role == bpdu.RoleRoot && link.up {
+			changes.add(l, t, p.name)
 		}
 	}
 }

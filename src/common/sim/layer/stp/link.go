@@ -20,8 +20,9 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 	link.mdelayWhile = now.Add(migrateTime)
 
 	var flushes []layer.FlushTarget
+	changes := newTopologyChangeEmissions()
 
-	emissions := l.recomputeAll(now, &flushes)
+	emissions := l.recomputeAll(now, &flushes, changes)
 
 	t := l.cist()
 	p := t.ports[port]
@@ -40,6 +41,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
+	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -61,11 +63,13 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
+	changes := newTopologyChangeEmissions()
 
 	l.armHelloTimers(now)
 
 	if !up {
 		if !link.up {
+			l.emitTopologyChangeEmissions(now, changes, &emissions)
 			return layer.Effects{}
 		}
 		link.up = false
@@ -101,7 +105,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			}
 		}
 
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+		l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 		return layer.Effects{
 			Emissions: emissions,
@@ -132,7 +137,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 					tp.pathCost = linkCost
 				}
 			}
-			emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			l.emitTopologyChangeEmissions(now, changes, &emissions)
 		}
 
 		return layer.Effects{
@@ -174,7 +180,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 	}
 
-	emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+	emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
 
 	if link.pointToPoint && !link.edge && p.role == bpdu.RoleDesignated && p.state == StateDiscarding {
 		alreadyEmitted := false
@@ -192,6 +198,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			l.emit(t, p, now, emissionDesignated, &emissions)
 		}
 	}
+	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -205,7 +212,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 // status. It runs once per received frame whatever tree the frame belongs to.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
-func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (emissions []layer.Emission, done bool) {
+func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) (emissions []layer.Emission, done bool) {
 	t := l.cist()
 	p := t.ports[port]
 	link := l.links[port]
@@ -246,7 +253,7 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 		// event twice.
 		*flushes = append(*flushes, layer.FlushTarget{Port: port})
 
-		return l.recomputeAll(now, flushes), true
+		return l.recomputeAll(now, flushes, changes), true
 	}
 	if link.bpduGuardDisabled {
 		return nil, true
