@@ -907,3 +907,13 @@ The run in `deploy/lab/README.md` is done once by hand.
     hold the described code and a few lines beside it.
     `TestTheDirectionRecordCitationsAndDecisions` checks only that a range
     lies inside its file.
+- Parked by drive: the fourth round closed items 1, 3, and 4 and stays
+  `rework`. No test can fail on the edge-facing recover interceptor entry
+  alone without a production seam in the validating interceptor, which
+  that round did not allow, and the re-review left test-coverage remarks
+  with no production finding. Options: accept the phase with these items
+  recorded (no behavior defect is known, and the remarks stay open) | run
+  one round that may add a test seam to the validating interceptor (closes
+  the recover gap at the cost of a production change and more quota) |
+  leave it parked. Recommended: accept with the items recorded, because four
+  rounds found no behavior defect and the remaining gaps are in tests.
