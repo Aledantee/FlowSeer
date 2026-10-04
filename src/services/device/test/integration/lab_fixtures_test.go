@@ -23,7 +23,6 @@ import (
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
@@ -129,6 +128,28 @@ func TestTheLabCentralConfigLoads(t *testing.T) {
 
 	if _, err := host.LoadConfig(labFixturePath("central.textproto")); err != nil {
 		t.Fatalf("host.LoadConfig(deploy/lab/central.textproto): %v", err)
+	}
+}
+
+func TestTheLabPlatformAdminMatchesDex(t *testing.T) {
+	t.Parallel()
+
+	cfg := &storev1.DeviceServiceConfig{}
+	if err := prototext.Unmarshal(labFixture(t, "central.textproto"), cfg); err != nil {
+		t.Fatal(err)
+	}
+	admin := cfg.GetPlatformAdmin()
+	if admin == nil {
+		t.Fatal("central.textproto has no platform_admin for the Dex admin")
+	}
+	if admin.GetIssuer() != "https://127.0.0.1:8445/dex" || admin.GetOrganizationClaimName() != "groups" || admin.GetOrganization() != "flowseer-platform" {
+		t.Fatalf("platform_admin = %v, want the Dex platform group", admin)
+	}
+	// Dex v2.45.1 server/internal/types.proto and codec.go encode user_id and
+	// conn_id as an unpadded URL-base64 protobuf IDTokenSubject.
+	want := "CiQwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDISBWxvY2Fs"
+	if !slices.Equal(admin.GetSubjects(), []string{want}) {
+		t.Fatalf("platform_admin subjects = %q, want [%q]", admin.GetSubjects(), want)
 	}
 }
 
@@ -421,35 +442,28 @@ func TestTheLabStoreScriptKeepsTheKeyOutOfCurlArguments(t *testing.T) {
 	}
 }
 
-// The README's principal-id pipeline extracts the subject without quotes
-// and matches authn.ComputePrincipalID.
-func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
+func TestTheLabReadmeMemberSubjectMatchesToken(t *testing.T) {
 	t.Parallel()
 
-	for _, tool := range []string{"jq", "shasum"} {
+	for _, tool := range []string{"jq"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			t.Skipf("%s is not on PATH: %v", tool, err)
 		}
 	}
 
 	readme := labScript(t, "README.md")
-	var subLine, idLine string
+	var subLine string
 	for line := range strings.SplitSeq(readme, "\n") {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "ALICE_SUB=") {
 			subLine = trimmed
 		}
-		if strings.HasPrefix(trimmed, "ALICE_ID=") {
-			idLine = trimmed
-		}
 	}
-	if subLine == "" || idLine == "" {
-		t.Fatalf("extract principal pipeline from deploy/lab/README.md: ALICE_SUB=%q, ALICE_ID=%q", subLine, idLine)
+	if subLine == "" {
+		t.Fatal("deploy/lab/README.md has no ALICE_SUB extraction")
 	}
 
-	issuer := "https://127.0.0.1:8445/dex"
 	subject := "alice-subject-123"
-	wantID := authn.ComputePrincipalID(issuer, subject)
 
 	header := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
 	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"` + subject + `"}`))
@@ -459,18 +473,53 @@ func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
 set -eu
 ALICE_TOKEN=%q
 %s
-%s
-printf '%%s' "${ALICE_ID}"
-`, token, subLine, idLine))
+printf '%%s' "${ALICE_SUB}"
+`, token, subLine))
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("run principal pipeline from README: %v\n%s", err, out)
+		t.Fatalf("run subject extraction from README: %v\n%s", err, out)
 	}
 
-	gotID := string(out)
-	if gotID != wantID {
-		t.Errorf("computed principal ID = %q, want %q", gotID, wantID)
+	if got := string(out); got != subject {
+		t.Errorf("member subject = %q, want %q", got, subject)
+	}
+}
+
+func TestTheLabTenantBootstrapUsesTheAPI(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+	start := strings.Index(readme, "5. Provision the tenant record")
+	end := strings.Index(readme, "6. Call an operator procedure")
+	if start < 0 || end <= start {
+		t.Fatal("lab README has no tenant bootstrap before operator calls")
+	}
+	section := readme[start:end]
+	if strings.Contains(section, "/stores/") || strings.Contains(section, "tuple_keys") || strings.Contains(section, "ALICE_ID=") {
+		t.Error("tenant bootstrap writes OpenFGA tuples or computes a principal ID")
+	}
+	for _, method := range []string{"TenantService/CreateTenant", "TenantAdminService/CreateRole", "TenantAdminService/EnrollMember", "TenantAdminService/AssignRole"} {
+		if !strings.Contains(section, "/flowseer.api.identity.v1."+method) {
+			t.Errorf("tenant bootstrap missing API call %s", method)
+		}
+	}
+	if got := strings.Count(section, `-H "Authorization: Bearer ${ADMIN_TOKEN}"`); got != 4 {
+		t.Errorf("bootstrap ADMIN_TOKEN calls = %d, want 4", got)
+	}
+	if got := strings.Count(section, `-H "X-FlowSeer-Tenant: ${TENANT_ID}"`); got != 3 {
+		t.Errorf("bootstrap tenant headers = %d, want 3", got)
+	}
+	if got := strings.Count(section, "Expected answer"); got != 4 {
+		t.Errorf("bootstrap expected answers = %d, want 4", got)
+	}
+	for _, part := range []string{"TENANT_ID=$(jq -er .tenant.config.ref.tenant.id", "ROLE_ID=$(jq -er .role.ref.role.id", "TENANT_RELATION_ADMIN", `\"subject\":\"${ALICE_SUB}\"`, `\"role\":{\"role\":{\"id\":\"${ROLE_ID}\"}}`} {
+		if !strings.Contains(section, part) {
+			t.Errorf("tenant bootstrap missing %q", part)
+		}
+	}
+	if strings.Index(section, "go run ../../src/services/device/cmd/device") > strings.Index(section, "/flowseer.api.identity.v1.TenantService/CreateTenant") {
+		t.Error("central starts after CreateTenant")
 	}
 }
 
