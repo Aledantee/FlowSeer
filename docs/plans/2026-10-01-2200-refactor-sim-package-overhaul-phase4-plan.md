@@ -615,3 +615,9 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - src/common/net/lacp/marker_test.go:38: expected payload writes the subtype value already cloned from the request; fails: the redundant assertion setup must be removed.
 - src/common/sim/layer/lag/README.md:404: Primary is said to win when it has carrier and defaulted; fails: the sentence must say the member is Defaulted.
 - docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:555: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels.
+- src/common/sim/device/vswitch/switch.go:2479: record a Marker decode fact for every refused Slow Protocols frame; fails: a refused LACPDU must carry an invalid LACP decode input on Peek and Forward.
+- src/common/sim/layer/lag/lacp.go:320: clear aggregate wait only when no member is selected; fails: a waiting member that changes partner group must leave no stale aggregate deadline while another member stays enabled.
+- src/common/sim/layer/lag/lacp.go:420: use only the stored Partner system ID to retain a group; fails: a zero system ID with nonzero key must retain selection after all carriers drop.
+- src/common/sim/layer/lag/lacp.go:420: use only the stored Partner key to retain a group; fails: a nonzero system ID with zero key must retain selection after all carriers drop.
+- src/common/sim/layer/lag/README.md:382: STANDBY has only an ATTACHED exit and WAITING has no deadline exit after carrier loss; fails: the diagram must show their DETACHED, WAITING, and ATTACHED transitions as the code makes them.
+- src/common/sim/layer/lag/layer_test.go:1808: comments at 1808, 2068, and 2171 restate their next lines; fails: each comment must explain a reason or be removed.
