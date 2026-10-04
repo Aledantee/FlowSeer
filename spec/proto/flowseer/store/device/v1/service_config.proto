@@ -181,7 +181,7 @@ message PlatformAdmin {
   ];
   // The subject identifiers for platform administrators. Must hold one to 16
   // distinct values, each between 1 and 256 characters.
-  repeated string subjects = 3 [
+  repeated string subjects = 5 [
     (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 16,
     (buf.validate.field).repeated.unique = true,

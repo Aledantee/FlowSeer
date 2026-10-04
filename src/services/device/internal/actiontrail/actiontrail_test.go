@@ -13,6 +13,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"buf.build/go/protovalidate"
 	connect "connectrpc.com/connect"
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
@@ -65,7 +66,16 @@ func codeOf(t *testing.T, err error) string {
 	return ""
 }
 
-const testTenant = "00000000-0000-0000-0000-000000000001"
+const (
+	testTenant              = "00000000-0000-0000-0000-000000000001"
+	testEdgeID              = "11111111-1111-4111-8111-111111111111"
+	testCreatedEdgeID       = "22222222-2222-4222-8222-222222222222"
+	testCreatedSessionID    = "33333333-3333-4333-8333-333333333333"
+	testTailSessionID       = "44444444-4444-4444-8444-444444444444"
+	testDownloadSessionID   = "55555555-5555-4555-8555-555555555555"
+	testFailedSessionID     = "66666666-6666-4666-8666-666666666666"
+	testUnpreparedSessionID = "77777777-7777-4777-8777-777777777777"
+)
 
 func TestEveryEdgeAdminProcedureIsRecorded(t *testing.T) {
 	const wantProcedures = 6
@@ -127,6 +137,9 @@ func (p *fakePublisher) Publish(ctx context.Context, subject string, data []byte
 
 	event := &operatorv1.OperatorActionEvent{}
 	if err := proto.Unmarshal(data, event); err != nil {
+		return err
+	}
+	if err := protovalidate.Validate(event); err != nil {
 		return err
 	}
 
@@ -522,7 +535,7 @@ func edgeGlobalRef(edgeID string) *modeledgev1.EdgeGlobalRef {
 
 func sessionGlobalRef(sessionID string) *modelcapturev1.CaptureSessionGlobalRef {
 	ref := &modelcapturev1.CaptureSessionGlobalRef{}
-	ref.SetEdge(edgeGlobalRef("edge-1"))
+	ref.SetEdge(edgeGlobalRef(testEdgeID))
 	sessLocal := &modelcapturev1.CaptureSessionLocalRef{}
 	sessLocal.SetId(sessionID)
 	ref.SetCaptureSession(sessLocal)
@@ -557,7 +570,7 @@ func TestIssueSetupKeyTrailAttemptAndCompletion(t *testing.T) {
 	fixedTime := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
 	h := newTestHarness(t, fixedTime)
 
-	targetEdge := edgeGlobalRef("edge-1")
+	targetEdge := edgeGlobalRef(testEdgeID)
 	h.edgeHandler.issueSetupKeyFunc = func(_ context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
 		resp := &edgev1.IssueSetupKeyResponse{}
 		prov := &modeledgev1.EdgeProvisioning{}
@@ -598,8 +611,8 @@ func TestIssueSetupKeyTrailAttemptAndCompletion(t *testing.T) {
 		if rec.event.GetOperator().GetSubject() != "operator-42" {
 			t.Errorf("event %d operator subject = %q, want operator-42", idx, rec.event.GetOperator().GetSubject())
 		}
-		if rec.event.GetEdge().GetEdge().GetId() != "edge-1" {
-			t.Errorf("event %d edge id = %q, want edge-1", idx, rec.event.GetEdge().GetEdge().GetId())
+		if rec.event.GetEdge().GetEdge().GetId() != testEdgeID {
+			t.Errorf("event %d edge id = %q, want %s", idx, rec.event.GetEdge().GetEdge().GetId(), testEdgeID)
 		}
 		if rec.event.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE {
 			t.Errorf("event %d action = %v, want SETUP_KEY_ISSUE", idx, rec.event.GetAction())
@@ -640,7 +653,7 @@ func TestPublisherFailsAttempt(t *testing.T) {
 	}
 
 	req := &edgev1.IssueSetupKeyRequest{}
-	req.SetEdge(edgeGlobalRef("edge-1"))
+	req.SetEdge(edgeGlobalRef(testEdgeID))
 	_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -674,7 +687,7 @@ func TestPublisherFailsCompletion(t *testing.T) {
 	}
 
 	req := &edgev1.IssueSetupKeyRequest{}
-	req.SetEdge(edgeGlobalRef("edge-1"))
+	req.SetEdge(edgeGlobalRef(testEdgeID))
 	resp, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 	if err != nil {
 		t.Fatalf("IssueSetupKey failed: %v", err)
@@ -722,7 +735,7 @@ func TestHandlerError(t *testing.T) {
 	}
 
 	req := &edgev1.IssueSetupKeyRequest{}
-	req.SetEdge(edgeGlobalRef("edge-1"))
+	req.SetEdge(edgeGlobalRef(testEdgeID))
 	_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -751,7 +764,7 @@ func TestHandlerPermissionDenied(t *testing.T) {
 	}
 
 	req := &edgev1.IssueSetupKeyRequest{}
-	req.SetEdge(edgeGlobalRef("edge-1"))
+	req.SetEdge(edgeGlobalRef(testEdgeID))
 	_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -775,7 +788,7 @@ func TestCreateEdgeCompletionNamesEdge(t *testing.T) {
 	ctx := context.Background()
 	h := newTestHarness(t, time.Now())
 
-	createdEdgeRef := edgeGlobalRef("edge-created-99")
+	createdEdgeRef := edgeGlobalRef(testCreatedEdgeID)
 	h.edgeHandler.createEdgeFunc = func(_ context.Context, _ *connect.Request[edgev1.CreateEdgeRequest]) (*connect.Response[edgev1.CreateEdgeResponse], error) {
 		resp := &edgev1.CreateEdgeResponse{}
 		resp.SetEdge(&modeledgev1.EdgeRecord{})
@@ -803,8 +816,8 @@ func TestCreateEdgeCompletionNamesEdge(t *testing.T) {
 	if events[1].event.WhichObject() != operatorv1.OperatorActionEvent_Edge_case {
 		t.Fatalf("completion object is %v, want Edge_case", events[1].event.WhichObject())
 	}
-	if events[1].event.GetEdge().GetEdge().GetId() != "edge-created-99" {
-		t.Fatalf("completion edge ID = %q, want edge-created-99", events[1].event.GetEdge().GetEdge().GetId())
+	if events[1].event.GetEdge().GetEdge().GetId() != testCreatedEdgeID {
+		t.Fatalf("completion edge ID = %q, want %s", events[1].event.GetEdge().GetEdge().GetId(), testCreatedEdgeID)
 	}
 }
 
@@ -812,7 +825,7 @@ func TestCreateCaptureSession(t *testing.T) {
 	ctx := context.Background()
 	h := newTestHarness(t, time.Now())
 
-	createdSessionRef := sessionGlobalRef("sess-555")
+	createdSessionRef := sessionGlobalRef(testCreatedSessionID)
 	h.capHandler.createSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.CreateCaptureSessionRequest]) (*connect.Response[capturev1.CreateCaptureSessionResponse], error) {
 		resp := &capturev1.CreateCaptureSessionResponse{}
 		resp.SetSession(&modelcapturev1.CaptureSessionRecord{})
@@ -823,7 +836,7 @@ func TestCreateCaptureSession(t *testing.T) {
 
 	t.Run("headers-only writes none", func(t *testing.T) {
 		req := &capturev1.CreateCaptureSessionRequest{}
-		req.SetEdge(edgeGlobalRef("edge-1"))
+		req.SetEdge(edgeGlobalRef(testEdgeID))
 		req.SetAuthorization(&modelcapturev1.CaptureAuthorization{})
 		req.GetAuthorization().SetFullPayloadRequested(false)
 
@@ -838,7 +851,7 @@ func TestCreateCaptureSession(t *testing.T) {
 
 	t.Run("full-payload writes attempt with edge and completion with session", func(t *testing.T) {
 		req := &capturev1.CreateCaptureSessionRequest{}
-		req.SetEdge(edgeGlobalRef("edge-1"))
+		req.SetEdge(edgeGlobalRef(testEdgeID))
 		req.SetAuthorization(&modelcapturev1.CaptureAuthorization{})
 		req.GetAuthorization().SetFullPayloadRequested(true)
 
@@ -860,15 +873,15 @@ func TestCreateCaptureSession(t *testing.T) {
 		if events[0].event.WhichObject() != operatorv1.OperatorActionEvent_Edge_case {
 			t.Fatalf("attempt object = %v, want Edge_case", events[0].event.WhichObject())
 		}
-		if events[0].event.GetEdge().GetEdge().GetId() != "edge-1" {
-			t.Fatalf("attempt edge ID = %q, want edge-1", events[0].event.GetEdge().GetEdge().GetId())
+		if events[0].event.GetEdge().GetEdge().GetId() != testEdgeID {
+			t.Fatalf("attempt edge ID = %q, want %s", events[0].event.GetEdge().GetEdge().GetId(), testEdgeID)
 		}
 
 		if events[1].event.WhichObject() != operatorv1.OperatorActionEvent_CaptureSession_case {
 			t.Fatalf("completion object = %v, want CaptureSession_case", events[1].event.WhichObject())
 		}
-		if events[1].event.GetCaptureSession().GetCaptureSession().GetId() != "sess-555" {
-			t.Fatalf("completion session ID = %q, want sess-555", events[1].event.GetCaptureSession().GetCaptureSession().GetId())
+		if events[1].event.GetCaptureSession().GetCaptureSession().GetId() != testCreatedSessionID {
+			t.Fatalf("completion session ID = %q, want %s", events[1].event.GetCaptureSession().GetCaptureSession().GetId(), testCreatedSessionID)
 		}
 	})
 }
@@ -878,7 +891,7 @@ func TestStreamingCaptureProcedures(t *testing.T) {
 
 	t.Run("TailCaptureSession attempt published before Send", func(t *testing.T) {
 		h := newTestHarness(t, time.Now())
-		sessRef := sessionGlobalRef("sess-tail-1")
+		sessRef := sessionGlobalRef(testTailSessionID)
 
 		h.capHandler.tailSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.TailCaptureSessionRequest], stream *connect.ServerStream[capturev1.TailCaptureSessionResponse]) error {
 			events := h.pub.getEvents()
@@ -914,11 +927,11 @@ func TestStreamingCaptureProcedures(t *testing.T) {
 		if events[1].event.WhichDetail() != operatorv1.OperatorActionEvent_Completed_case {
 			t.Errorf("event 1 detail = %v, want Completed", events[1].event.WhichDetail())
 		}
-		if events[0].event.GetCaptureSession().GetCaptureSession().GetId() != "sess-tail-1" {
-			t.Errorf("attempt session ID = %q, want sess-tail-1", events[0].event.GetCaptureSession().GetCaptureSession().GetId())
+		if events[0].event.GetCaptureSession().GetCaptureSession().GetId() != testTailSessionID {
+			t.Errorf("attempt session ID = %q, want %s", events[0].event.GetCaptureSession().GetCaptureSession().GetId(), testTailSessionID)
 		}
-		if events[1].event.GetCaptureSession().GetCaptureSession().GetId() != "sess-tail-1" {
-			t.Errorf("completion session ID = %q, want sess-tail-1", events[1].event.GetCaptureSession().GetCaptureSession().GetId())
+		if events[1].event.GetCaptureSession().GetCaptureSession().GetId() != testTailSessionID {
+			t.Errorf("completion session ID = %q, want %s", events[1].event.GetCaptureSession().GetCaptureSession().GetId(), testTailSessionID)
 		}
 		if events[1].event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
 			t.Errorf("completion outcome = %v, want SUCCEEDED", events[1].event.GetCompleted().GetOutcome())
@@ -927,7 +940,7 @@ func TestStreamingCaptureProcedures(t *testing.T) {
 
 	t.Run("DownloadCaptureSession attempt published before Send", func(t *testing.T) {
 		h := newTestHarness(t, time.Now())
-		sessRef := sessionGlobalRef("sess-down-1")
+		sessRef := sessionGlobalRef(testDownloadSessionID)
 
 		h.capHandler.downloadSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.DownloadCaptureSessionRequest], stream *connect.ServerStream[capturev1.DownloadCaptureSessionResponse]) error {
 			events := h.pub.getEvents()
@@ -962,7 +975,7 @@ func TestStreamingCaptureProcedures(t *testing.T) {
 	t.Run("Stream publisher fails attempt", func(t *testing.T) {
 		h := newTestHarness(t, time.Now())
 		h.pub.failAttempt = true
-		sessRef := sessionGlobalRef("sess-fail-1")
+		sessRef := sessionGlobalRef(testFailedSessionID)
 
 		h.capHandler.tailSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.TailCaptureSessionRequest], _ *connect.ServerStream[capturev1.TailCaptureSessionResponse]) error {
 			t.Fatal("handler should not run when attempt publish fails")
@@ -1002,7 +1015,7 @@ func TestUnpreparedContext(t *testing.T) {
 		}
 
 		req := &edgev1.IssueSetupKeyRequest{}
-		req.SetEdge(edgeGlobalRef("edge-1"))
+		req.SetEdge(edgeGlobalRef(testEdgeID))
 		_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -1028,7 +1041,7 @@ func TestUnpreparedContext(t *testing.T) {
 		}
 
 		req := &edgev1.IssueSetupKeyRequest{}
-		req.SetEdge(edgeGlobalRef("edge-1"))
+		req.SetEdge(edgeGlobalRef(testEdgeID))
 		_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -1054,7 +1067,7 @@ func TestUnpreparedContext(t *testing.T) {
 		}
 
 		req := &edgev1.IssueSetupKeyRequest{}
-		req.SetEdge(edgeGlobalRef("edge-1"))
+		req.SetEdge(edgeGlobalRef(testEdgeID))
 		_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 		if err == nil {
 			t.Fatal("expected error, got nil")
@@ -1090,7 +1103,7 @@ func TestUnpreparedStreamingContext(t *testing.T) {
 			}
 
 			req := &capturev1.TailCaptureSessionRequest{}
-			req.SetSession(sessionGlobalRef("session-1"))
+			req.SetSession(sessionGlobalRef(testUnpreparedSessionID))
 			stream, err := h.captureClient.TailCaptureSession(context.Background(), connect.NewRequest(req))
 			if err == nil {
 				for stream.Receive() {
@@ -1311,7 +1324,7 @@ func TestOperatorActionTrailTable(t *testing.T) {
 					resp := &edgev1.CreateEdgeResponse{}
 					resp.SetEdge(&modeledgev1.EdgeRecord{})
 					resp.GetEdge().SetConfig(&modeledgev1.EdgeConfig{})
-					resp.GetEdge().GetConfig().SetRef(edgeGlobalRef("edge-created-1"))
+					resp.GetEdge().GetConfig().SetRef(edgeGlobalRef(testCreatedEdgeID))
 					return connect.NewResponse(resp), nil
 				}
 			},
@@ -1322,7 +1335,7 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_create",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_CREATE,
 			wantAttempt:  objectSpec{},
-			wantComplete: objectSpec{isEdge: true, id: "edge-created-1"},
+			wantComplete: objectSpec{isEdge: true, id: testCreatedEdgeID},
 		},
 		{
 			name: "EdgeAdminService.IssueSetupKey",
@@ -1333,14 +1346,14 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &edgev1.IssueSetupKeyRequest{}
-				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetEdge(edgeGlobalRef(testEdgeID))
 				_, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 				return err
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.setup_key_issue",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_ISSUE,
-			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
-			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+			wantAttempt:  objectSpec{isEdge: true, id: testEdgeID},
+			wantComplete: objectSpec{isEdge: true, id: testEdgeID},
 		},
 		{
 			name: "EdgeAdminService.RevokeSetupKey",
@@ -1351,14 +1364,14 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &edgev1.RevokeSetupKeyRequest{}
-				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetEdge(edgeGlobalRef(testEdgeID))
 				_, err := h.adminClient.RevokeSetupKey(ctx, connect.NewRequest(req))
 				return err
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.setup_key_revoke",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_SETUP_KEY_REVOKE,
-			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
-			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+			wantAttempt:  objectSpec{isEdge: true, id: testEdgeID},
+			wantComplete: objectSpec{isEdge: true, id: testEdgeID},
 		},
 		{
 			name: "EdgeAdminService.RetireEdge",
@@ -1369,14 +1382,14 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &edgev1.RetireEdgeRequest{}
-				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetEdge(edgeGlobalRef(testEdgeID))
 				_, err := h.adminClient.RetireEdge(ctx, connect.NewRequest(req))
 				return err
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.edge_retire",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_RETIRE,
-			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
-			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+			wantAttempt:  objectSpec{isEdge: true, id: testEdgeID},
+			wantComplete: objectSpec{isEdge: true, id: testEdgeID},
 		},
 		{
 			name: "EdgeAdminService.GetEdge",
@@ -1387,14 +1400,14 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &edgev1.GetEdgeRequest{}
-				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetEdge(edgeGlobalRef(testEdgeID))
 				_, err := h.adminClient.GetEdge(ctx, connect.NewRequest(req))
 				return err
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.read.edge_get",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_GET,
-			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
-			wantComplete: objectSpec{isEdge: true, id: "edge-1"},
+			wantAttempt:  objectSpec{isEdge: true, id: testEdgeID},
+			wantComplete: objectSpec{isEdge: true, id: testEdgeID},
 		},
 		{
 			name: "EdgeAdminService.ListEdges",
@@ -1419,13 +1432,13 @@ func TestOperatorActionTrailTable(t *testing.T) {
 					resp := &capturev1.CreateCaptureSessionResponse{}
 					resp.SetSession(&modelcapturev1.CaptureSessionRecord{})
 					resp.GetSession().SetConfig(&modelcapturev1.CaptureSessionConfig{})
-					resp.GetSession().GetConfig().SetRef(sessionGlobalRef("sess-created-1"))
+					resp.GetSession().GetConfig().SetRef(sessionGlobalRef(testCreatedSessionID))
 					return connect.NewResponse(resp), nil
 				}
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &capturev1.CreateCaptureSessionRequest{}
-				req.SetEdge(edgeGlobalRef("edge-1"))
+				req.SetEdge(edgeGlobalRef(testEdgeID))
 				req.SetAuthorization(&modelcapturev1.CaptureAuthorization{})
 				req.GetAuthorization().SetFullPayloadRequested(true)
 				_, err := h.captureClient.CreateCaptureSession(ctx, connect.NewRequest(req))
@@ -1433,8 +1446,8 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_full_payload_create",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE,
-			wantAttempt:  objectSpec{isEdge: true, id: "edge-1"},
-			wantComplete: objectSpec{isSession: true, id: "sess-created-1"},
+			wantAttempt:  objectSpec{isEdge: true, id: testEdgeID},
+			wantComplete: objectSpec{isSession: true, id: testCreatedSessionID},
 		},
 		{
 			name: "CaptureService.TailCaptureSession",
@@ -1445,7 +1458,7 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &capturev1.TailCaptureSessionRequest{}
-				req.SetSession(sessionGlobalRef("sess-tail-1"))
+				req.SetSession(sessionGlobalRef(testTailSessionID))
 				stream, err := h.captureClient.TailCaptureSession(ctx, connect.NewRequest(req))
 				if err != nil {
 					return err
@@ -1456,8 +1469,8 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_tail",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_TAIL,
-			wantAttempt:  objectSpec{isSession: true, id: "sess-tail-1"},
-			wantComplete: objectSpec{isSession: true, id: "sess-tail-1"},
+			wantAttempt:  objectSpec{isSession: true, id: testTailSessionID},
+			wantComplete: objectSpec{isSession: true, id: testTailSessionID},
 		},
 		{
 			name: "CaptureService.DownloadCaptureSession",
@@ -1468,7 +1481,7 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			invoke: func(ctx context.Context, h *testHarness) error {
 				req := &capturev1.DownloadCaptureSessionRequest{}
-				req.SetSession(sessionGlobalRef("sess-down-1"))
+				req.SetSession(sessionGlobalRef(testDownloadSessionID))
 				stream, err := h.captureClient.DownloadCaptureSession(ctx, connect.NewRequest(req))
 				if err != nil {
 					return err
@@ -1479,8 +1492,8 @@ func TestOperatorActionTrailTable(t *testing.T) {
 			},
 			wantSubject:  "flowseer." + testTenant + ".operator.action.capture_download",
 			wantAction:   operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_DOWNLOAD,
-			wantAttempt:  objectSpec{isSession: true, id: "sess-down-1"},
-			wantComplete: objectSpec{isSession: true, id: "sess-down-1"},
+			wantAttempt:  objectSpec{isSession: true, id: testDownloadSessionID},
+			wantComplete: objectSpec{isSession: true, id: testDownloadSessionID},
 		},
 		{
 			name:       "TenantService.CreateTenant",
@@ -1771,7 +1784,7 @@ func TestCompletionPublishedWhenCallerContextCancelled(t *testing.T) {
 	}
 
 	req := &edgev1.IssueSetupKeyRequest{}
-	req.SetEdge(edgeGlobalRef("edge-1"))
+	req.SetEdge(edgeGlobalRef(testEdgeID))
 	_, _ = h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 
 	deadline := time.NewTimer(time.Second)
@@ -2063,7 +2076,7 @@ func TestAViewFloodCannotEvictAChangeRecord(t *testing.T) {
 	}
 
 	issue := &edgev1.IssueSetupKeyRequest{}
-	issue.SetEdge(edgeGlobalRef("edge-1"))
+	issue.SetEdge(edgeGlobalRef(testEdgeID))
 	if _, err := h.adminClient.IssueSetupKey(ctx, connect.NewRequest(issue)); err != nil {
 		t.Fatalf("IssueSetupKey: %v", err)
 	}
@@ -2072,7 +2085,7 @@ func TestAViewFloodCannotEvictAChangeRecord(t *testing.T) {
 		tenantID := fmt.Sprintf("00000000-0000-0000-0000-%012d", i+1)
 		for range callsPerTenant {
 			get := &edgev1.GetEdgeRequest{}
-			get.SetEdge(edgeGlobalRef("edge-1"))
+			get.SetEdge(edgeGlobalRef(testEdgeID))
 			req := connect.NewRequest(get)
 			req.Header().Set(testTenantHeader, tenantID)
 			if _, err := h.adminClient.GetEdge(ctx, req); err != nil {

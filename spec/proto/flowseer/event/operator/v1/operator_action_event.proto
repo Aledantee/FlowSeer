@@ -78,10 +78,10 @@ message OperatorActionCompleted {
 message OperatorActionRole {
   // The role identity. Must be present.
   flowseer.model.identity.v1.RoleGlobalRef role = 1 [(buf.validate.field).required = true];
-  // The role's relations. Must contain one to four distinct, defined
+  // The role's relations. A deletion record names the role and has no
+  // relations. When present, the list contains one to four distinct, defined
   // relations.
   repeated flowseer.model.identity.v1.TenantRelation relations = 2 [
-    (buf.validate.field).repeated.min_items = 1,
     (buf.validate.field).repeated.max_items = 4,
     (buf.validate.field).repeated.unique = true,
     (buf.validate.field).repeated.items.enum.defined_only = true,

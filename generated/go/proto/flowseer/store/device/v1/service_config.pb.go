@@ -944,7 +944,7 @@ type PlatformAdmin struct {
 	state                            protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Issuer                *string                `protobuf:"bytes,1,opt,name=issuer"`
 	xxx_hidden_Organization          *string                `protobuf:"bytes,2,opt,name=organization"`
-	xxx_hidden_Subjects              []string               `protobuf:"bytes,3,rep,name=subjects"`
+	xxx_hidden_Subjects              []string               `protobuf:"bytes,5,rep,name=subjects"`
 	xxx_hidden_OrganizationClaimName *string                `protobuf:"bytes,4,opt,name=organization_claim_name,json=organizationClaimName"`
 	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
 	XXX_presence                     [1]uint32
@@ -1906,7 +1906,7 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\x06issuer\x18\x01 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuer\x121\n" +
 	"\forganization\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\forganization\x121\n" +
-	"\bsubjects\x18\x03 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\ar\x05\x10\x01\x18\x80\x02R\bsubjects\x12E\n" +
+	"\bsubjects\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\ar\x05\x10\x01\x18\x80\x02R\bsubjects\x12E\n" +
 	"\x17organization_claim_name\x18\x04 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\x88\x03\n" +
 	"\x10ServiceListeners\x120\n" +

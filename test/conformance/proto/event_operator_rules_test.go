@@ -263,6 +263,13 @@ func TestOperatorActionNewObjectArms(t *testing.T) {
 	roleEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE.Enum()
 	roleEvent.Role = role
 
+	deletedRoleEvent := validOperatorActionEvent()
+	deletedRoleEvent.Edge = nil
+	deletedRoleEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_DELETE.Enum()
+	deletedRoleEvent.Role = operatorv1.OperatorActionRole_builder{
+		Role: validAccessRoleRef(),
+	}.Build()
+
 	assignmentEvent := validOperatorActionEvent()
 	assignmentEvent.Edge = nil
 	assignmentEvent.Action = operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_ASSIGN.Enum()
@@ -307,6 +314,7 @@ func TestOperatorActionNewObjectArms(t *testing.T) {
 		{name: "tenant object arm validates", message: base.Build(), wantValid: true},
 		{name: "member object arm validates", message: member.Build(), wantValid: true},
 		{name: "role object arm validates", message: roleEvent.Build(), wantValid: true},
+		{name: "role deletion object without relations validates", message: deletedRoleEvent.Build(), wantValid: true},
 		{name: "role assignment object arm validates", message: assignmentEvent.Build(), wantValid: true},
 		{name: "partner object arm validates", message: partnerEvent.Build(), wantValid: true},
 		{name: "full payload grant object arm validates", message: grantEvent.Build(), wantValid: true},
