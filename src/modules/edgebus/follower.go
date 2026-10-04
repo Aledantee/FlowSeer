@@ -2,7 +2,6 @@ package edgebus
 
 import (
 	"context"
-	"sort"
 	"sync"
 	"time"
 
@@ -26,13 +25,13 @@ type EdgeFollower struct {
 	closeDone chan struct{}
 }
 
-// FollowEdges starts discovery of attached edge streams. The first discovery
-// pass runs under ctx. Later passes run at interval, which defaults to ten
-// seconds, and stop when ctx ends or [EdgeFollower.Close] is called. The
-// returned follower must be closed. attach receives the pass context, the
-// follower lifetime context, and the edge id. The pass context bounds the
-// attach operation. The lifetime ends when ctx ends, Close is called, or the
-// first discovery pass fails. An interval pass failure leaves it live.
+// FollowEdges starts discovery of attached edge streams. Discovery ends when
+// ctx ends or [EdgeFollower.Close] is called. Delivery lifetime ends when ctx
+// ends, Close is called, or the first discovery pass fails, before the drain.
+// Consumers stay attached after ctx ends until Close. The returned follower
+// must be closed. attach receives the pass context, the follower lifetime
+// context, and the edge id. The pass context bounds the attach operation. An
+// interval pass failure leaves the delivery lifetime live.
 func FollowEdges(ctx context.Context, hub *Hub, interval time.Duration, attach func(context.Context, context.Context, string) (jetstream.ConsumeContext, error)) (*EdgeFollower, error) {
 	if interval <= 0 {
 		interval = 10 * time.Second
@@ -82,8 +81,6 @@ func (f *EdgeFollower) follow(ctx context.Context) {
 
 func (f *EdgeFollower) discover(ctx, lifetime context.Context) error {
 	edges := f.hub.AttachedEdges()
-	// Stable order makes a pass with one intentional attach failure reproducible.
-	sort.Strings(edges)
 	for _, edgeID := range edges {
 		f.mu.Lock()
 		_, following := f.consumers[edgeID]

@@ -42,6 +42,9 @@ const (
 	reasonForeignProvenance = "foreign_provenance"
 
 	refusalLogInterval = 10 * time.Second
+	refusalLogKey      = "refusal"
+	retryLogKey        = "retry"
+	consumeLogKey      = "consume_error"
 )
 
 // Publisher is the central JetStream publishing operation intake uses.
@@ -61,7 +64,8 @@ type Config struct {
 	// DiscoveryInterval is how often newly attached edges are discovered. Zero
 	// means ten seconds.
 	DiscoveryInterval time.Duration
-	// Logger receives rate-limited refusal warnings. Nil discards them.
+	// Logger receives refusal events, retry warnings, and consumer error
+	// messages. Nil discards them.
 	Logger *slog.Logger
 	// MeterProvider backs intake's counters and histograms. Nil records
 	// nothing.
@@ -80,16 +84,16 @@ type Intake struct {
 	follower   *edgebus.EdgeFollower
 	validator  func(proto.Message) error
 
-	mu                sync.Mutex
-	lastLogged        map[string]time.Time
-	lastConsumeLogged map[string]time.Time
+	mu         sync.Mutex // guards lastLogged
+	lastLogged map[string]time.Time
 }
 
-// Start uses ctx to bound each discovery attach call. The follower lifetime
-// ends when ctx ends, Close is called, or the first discovery pass fails.
-// Attached consumers use that lifetime for delivery and consume error logging.
-// Discovery ends when ctx ends or Close is called. An interval attach failure
-// does not end the lifetime. The returned Intake must be closed.
+// Start starts intake for every attached edge stream and republishes valid
+// records to central. Discovery ends when ctx ends or [Intake.Close] is called.
+// Delivery uses a lifetime that ends when ctx ends, [Intake.Close] is called,
+// or the first discovery pass fails, before the drain. A delivery between ctx
+// ending and [Intake.Close] is retried. An interval attach failure does not end
+// the lifetime. The returned Intake must be closed.
 func Start(ctx context.Context, cfg Config) (*Intake, error) {
 	if cfg.Hub == nil {
 		return nil, errs.New().Code(ErrCodeStart).Msg("intake needs a hub")
@@ -119,7 +123,7 @@ func Start(ctx context.Context, cfg Config) (*Intake, error) {
 		hub: cfg.Hub, central: cfg.Central, retryDelay: cfg.RetryDelay,
 		logger: logger, metrics: metrics,
 		validator:  func(msg proto.Message) error { return protovalidate.Validate(msg) },
-		lastLogged: map[string]time.Time{}, lastConsumeLogged: map[string]time.Time{},
+		lastLogged: map[string]time.Time{},
 	}
 	follower, err := edgebus.FollowEdges(ctx, cfg.Hub, cfg.DiscoveryInterval, func(attachCtx, lifetime context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 		return i.attach(attachCtx, lifetime, edgeID)
@@ -174,10 +178,10 @@ func (i *Intake) handle(ctx context.Context, edgeID string, msg jetstream.Msg) {
 		i.retry(ctx, msg, started)
 		return
 	}
-	publications, reason, err := prepareWithValidator(tenantID, edgeID, msg.Subject(), msg.Data(), i.validator)
-	if err != nil {
+	publications, reason, retryType := prepare(tenantID, edgeID, msg.Subject(), msg.Data(), i.validator)
+	if retryType != "" {
 		i.retry(ctx, msg, started)
-		i.logRetry(ctx, edgeID, msg.Subject(), prepareErrorType(err))
+		i.logRetry(ctx, edgeID, msg.Subject(), retryType)
 		return
 	}
 	if reason != "" {
@@ -232,7 +236,7 @@ func (i *Intake) recordAge(ctx context.Context, msg jetstream.Msg, deliveredAt t
 }
 
 func (i *Intake) logRefusal(ctx context.Context, edgeID, subject, reason string) {
-	if ctx.Err() != nil || !i.allowRecordLog(edgeID) {
+	if !i.allowLog(edgeID + ":" + refusalLogKey) {
 		return
 	}
 	i.logger.WarnContext(ctx, "record refused",
@@ -244,7 +248,7 @@ func (i *Intake) logRefusal(ctx context.Context, edgeID, subject, reason string)
 }
 
 func (i *Intake) logRetry(ctx context.Context, edgeID, subject, errorType string) {
-	if ctx.Err() != nil || !i.allowRecordLog(edgeID) {
+	if ctx.Err() != nil || !i.allowLog(edgeID+":"+retryLogKey) {
 		return
 	}
 	i.logger.WarnContext(ctx, "record retry scheduled",
@@ -254,23 +258,23 @@ func (i *Intake) logRetry(ctx context.Context, edgeID, subject, errorType string
 	)
 }
 
-func (i *Intake) allowRecordLog(edgeID string) bool {
+func (i *Intake) allowLog(key string) bool {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 	now := time.Now()
-	previous := i.lastLogged[edgeID]
+	previous := i.lastLogged[key]
 	if now.Sub(previous) < refusalLogInterval {
 		return false
 	}
-	i.lastLogged[edgeID] = now
+	i.lastLogged[key] = now
 	return true
 }
 
 func (i *Intake) logConsumeError(ctx context.Context, edgeID string, err error) {
-	if ctx.Err() != nil || !i.allowConsumeLog(edgeID) {
+	errorType, terminal := consumeErrorType(err)
+	if ctx.Err() != nil || (!terminal && !i.allowLog(edgeID+":"+consumeLogKey)) {
 		return
 	}
-	errorType, terminal := consumeErrorType(err)
 	message := "intake consumer error"
 	if terminal {
 		message = "intake consumer stopped"
@@ -279,18 +283,6 @@ func (i *Intake) logConsumeError(ctx context.Context, edgeID string, err error) 
 		slog.String("flowseer.edge.id", edgeID),
 		slog.String(string(semconv.ErrorTypeKey), errorType),
 	)
-}
-
-func (i *Intake) allowConsumeLog(edgeID string) bool {
-	i.mu.Lock()
-	defer i.mu.Unlock()
-	now := time.Now()
-	previous := i.lastConsumeLogged[edgeID]
-	if now.Sub(previous) < refusalLogInterval {
-		return false
-	}
-	i.lastConsumeLogged[edgeID] = now
-	return true
 }
 
 func consumeErrorType(err error) (string, bool) {
@@ -303,8 +295,6 @@ func consumeErrorType(err error) (string, bool) {
 		return "connection_closed", true
 	case errors.Is(err, jetstream.ErrNoHeartbeat):
 		return "no_heartbeat", false
-	case strings.HasPrefix(err.Error(), "nats: invalid format of Nats-Pending-"):
-		return "consume_error", true
 	}
 	return "consume_error", false
 }
@@ -317,32 +307,32 @@ type publication struct {
 	evidence   bool
 }
 
-// prepareWithValidator checks and converts one edge delivery without depending on
-// JetStream. It returns the evidence publication first when raw bytes are
-// attached, so a redelivery after the typed publication fails is duplicate
-// safe in both central streams.
-func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validate func(proto.Message) error) ([]publication, string, error) {
+// prepare checks and converts one edge delivery without depending on JetStream.
+// It returns the evidence publication first when raw bytes are attached, so a
+// redelivery after the typed publication fails is duplicate safe in both central
+// streams.
+func prepare(tenantID, edgeID, subject string, data []byte, validate func(proto.Message) error) ([]publication, string, string) {
 	if !strings.HasPrefix(subject, edgebus.EdgeSubtree(tenantID, edgeID)+".ingest.") {
-		return nil, reasonForeignSubject, nil
+		return nil, reasonForeignSubject, ""
 	}
 	record := &ingestv1.IngestRecord{}
 	if err := proto.Unmarshal(data, record); err != nil {
-		return nil, reasonMalformed, nil
+		return nil, reasonMalformed, ""
 	}
 	if err := validate(record); err != nil {
 		var validationErr *protovalidate.ValidationError
 		if !errors.As(err, &validationErr) {
-			return nil, "", &prepareError{errorType: "validation", err: err}
+			return nil, "", "validation"
 		}
-		return nil, reasonInvalid, nil
+		return nil, reasonInvalid, ""
 	}
 	if record.GetProvenance().GetEdge().GetEdge().GetId() != edgeID {
-		return nil, reasonForeignProvenance, nil
+		return nil, reasonForeignProvenance, ""
 	}
 
 	recordType, deviceID := recordTypeAndDevice(record)
 	if recordType == "" || deviceID == "" {
-		return nil, reasonInvalid, nil
+		return nil, reasonInvalid, ""
 	}
 	messageID := tenantID + "." + record.GetRecordId()
 	typed := data
@@ -356,7 +346,7 @@ func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validat
 		withoutRaw.ClearRaw()
 		encoded, err := proto.Marshal(withoutRaw)
 		if err != nil {
-			return nil, "", &prepareError{errorType: "marshal", err: err}
+			return nil, "", "marshal"
 		}
 		typed = encoded
 	}
@@ -364,24 +354,7 @@ func prepareWithValidator(tenantID, edgeID, subject string, data []byte, validat
 		subject: edgebus.CentralIngestSubject(tenantID, recordType, deviceID), data: typed,
 		messageID: messageID, recordType: recordType,
 	})
-	return publications, "", nil
-}
-
-type prepareError struct {
-	errorType string
-	err       error
-}
-
-func (e *prepareError) Error() string { return e.err.Error() }
-
-func (e *prepareError) Unwrap() error { return e.err }
-
-func prepareErrorType(err error) string {
-	var prepareErr *prepareError
-	if errors.As(err, &prepareErr) {
-		return prepareErr.errorType
-	}
-	return "prepare_error"
+	return publications, "", ""
 }
 
 func recordTypeAndDevice(record *ingestv1.IngestRecord) (string, string) {

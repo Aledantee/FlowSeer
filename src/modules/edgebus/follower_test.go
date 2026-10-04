@@ -23,9 +23,13 @@ func TestFollowerAttachesAnEdgeAttachedLater(t *testing.T) {
 	t.Cleanup(hub.Close)
 
 	attached := make(chan string, 1)
-	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(_ context.Context, _ context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+	var laterLifetime context.Context
+	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(_ context.Context, lifetimeCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+		if edgeID == "edge-later" {
+			laterLifetime = lifetimeCtx
+		}
 		attached <- edgeID
-		return newFollowerConsume(), nil
+		return newFollowerConsume(lifetimeCtx), nil
 	})
 	if err != nil {
 		t.Fatalf("follow edges: %v", err)
@@ -43,6 +47,12 @@ func TestFollowerAttachesAnEdgeAttachedLater(t *testing.T) {
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("follower did not attach the later edge")
+	}
+	follower.Close()
+	select {
+	case <-laterLifetime.Done():
+	case <-time.After(time.Second):
+		t.Fatal("later edge lifetime did not end after close")
 	}
 }
 
@@ -113,8 +123,8 @@ func TestFollowerCloseDrainsEveryConsumer(t *testing.T) {
 
 	var mu sync.Mutex
 	consumers := map[string]*followerConsume{}
-	follower, err := FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, _ context.Context, edgeID string) (jetstream.ConsumeContext, error) {
-		consumer := newFollowerConsume()
+	follower, err := FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, lifetimeCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
+		consumer := newFollowerConsume(lifetimeCtx)
 		mu.Lock()
 		consumers[edgeID] = consumer
 		mu.Unlock()
@@ -157,9 +167,9 @@ func TestFollowerFirstDiscoveryFailureDrainsAttachedConsumers(t *testing.T) {
 
 	attached := make(chan *followerConsume, 1)
 	calls := 0
-	_, err = FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, _ context.Context, _ string) (jetstream.ConsumeContext, error) {
+	_, err = FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, lifetimeCtx context.Context, _ string) (jetstream.ConsumeContext, error) {
 		calls++
-		consumer := newFollowerConsume()
+		consumer := newFollowerConsume(lifetimeCtx)
 		select {
 		case attached <- consumer:
 		default:
@@ -202,10 +212,10 @@ func TestFollowerCloseCancelsIntervalAttach(t *testing.T) {
 	var startedOnce sync.Once
 	var canceledOnce sync.Once
 	calls := 0
-	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(ctx context.Context, _ context.Context, _ string) (jetstream.ConsumeContext, error) {
+	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(ctx context.Context, lifetimeCtx context.Context, _ string) (jetstream.ConsumeContext, error) {
 		calls++
 		if calls == 1 {
-			return newFollowerConsume(), nil
+			return newFollowerConsume(lifetimeCtx), nil
 		}
 		startedOnce.Do(func() { close(started) })
 		<-ctx.Done()
@@ -260,14 +270,19 @@ func TestFollowerIntervalAttachFailureKeepsLifetime(t *testing.T) {
 	}
 
 	var lifetime context.Context
+	var firstConsumer *followerConsume
 	failed := make(chan struct{})
-	var failedOnce sync.Once
+	failedCalls := 0
 	follower, err := FollowEdges(context.Background(), hub, 10*time.Millisecond, func(_ context.Context, lifetimeCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
 		if edgeID == "edge-a" {
 			lifetime = lifetimeCtx
-			return newFollowerConsume(), nil
+			firstConsumer = newFollowerConsume(lifetimeCtx)
+			return firstConsumer, nil
 		}
-		failedOnce.Do(func() { close(failed) })
+		failedCalls++
+		if failedCalls == 2 {
+			close(failed)
+		}
 		return nil, errors.New("injected interval discovery failure")
 	})
 	if err != nil {
@@ -290,6 +305,11 @@ func TestFollowerIntervalAttachFailureKeepsLifetime(t *testing.T) {
 		t.Fatal("interval attach failure canceled follower lifetime")
 	default:
 	}
+	select {
+	case <-firstConsumer.closed:
+		t.Fatal("interval attach failure drained the first edge consumer")
+	default:
+	}
 }
 
 func TestFollowerLifetimeEndsAfterClose(t *testing.T) {
@@ -306,9 +326,11 @@ func TestFollowerLifetimeEndsAfterClose(t *testing.T) {
 	}
 
 	var lifetime context.Context
+	var consumer *followerConsume
 	follower, err := FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, lifetimeCtx context.Context, _ string) (jetstream.ConsumeContext, error) {
 		lifetime = lifetimeCtx
-		return newFollowerConsume(), nil
+		consumer = newFollowerConsume(lifetimeCtx)
+		return consumer, nil
 	})
 	if err != nil {
 		t.Fatalf("follow edges: %v", err)
@@ -321,6 +343,9 @@ func TestFollowerLifetimeEndsAfterClose(t *testing.T) {
 	case <-lifetime.Done():
 	case <-time.After(time.Second):
 		t.Fatal("follower lifetime did not end after close")
+	}
+	if !consumer.drainedAfterLifetime {
+		t.Fatal("consumer drained before follower lifetime ended")
 	}
 }
 
@@ -340,10 +365,14 @@ func TestFollowerLifetimeEndsAfterFirstDiscoveryFailure(t *testing.T) {
 	}
 
 	var lifetime context.Context
-	_, err = FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, lifetimeCtx context.Context, edgeID string) (jetstream.ConsumeContext, error) {
-		lifetime = lifetimeCtx
-		if edgeID == "edge-a" {
-			return newFollowerConsume(), nil
+	var firstConsumer *followerConsume
+	calls := 0
+	_, err = FollowEdges(context.Background(), hub, time.Hour, func(_ context.Context, lifetimeCtx context.Context, _ string) (jetstream.ConsumeContext, error) {
+		calls++
+		if calls == 1 {
+			lifetime = lifetimeCtx
+			firstConsumer = newFollowerConsume(lifetimeCtx)
+			return firstConsumer, nil
 		}
 		return nil, errors.New("injected first discovery failure")
 	})
@@ -358,21 +387,29 @@ func TestFollowerLifetimeEndsAfterFirstDiscoveryFailure(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("follower lifetime did not end after first discovery failure")
 	}
+	if !firstConsumer.drainedAfterLifetime {
+		t.Fatal("consumer drained before follower lifetime ended")
+	}
 }
 
 type followerConsume struct {
-	closed chan struct{}
-	once   sync.Once
+	closed               chan struct{}
+	lifetime             context.Context
+	drainedAfterLifetime bool
+	once                 sync.Once
 }
 
-func newFollowerConsume() *followerConsume {
-	return &followerConsume{closed: make(chan struct{})}
+func newFollowerConsume(lifetime context.Context) *followerConsume {
+	return &followerConsume{closed: make(chan struct{}), lifetime: lifetime}
 }
 
 func (*followerConsume) Stop() {}
 
 func (c *followerConsume) Drain() {
-	c.once.Do(func() { close(c.closed) })
+	c.once.Do(func() {
+		c.drainedAfterLifetime = c.lifetime.Err() != nil
+		close(c.closed)
+	})
 }
 
 func (c *followerConsume) Closed() <-chan struct{} { return c.closed }
