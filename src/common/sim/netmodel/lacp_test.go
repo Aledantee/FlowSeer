@@ -342,11 +342,49 @@ func TestLacpExport_Converged(t *testing.T) {
 		if !ps.GetEnabled() {
 			t.Errorf("port %s enabled = false, want true", ps.GetInterfaceName())
 		}
+		wantActorState := []lacpv1.LacpStateBit{
+			lacpv1.LacpStateBit_LACP_STATE_BIT_ACTIVITY,
+			lacpv1.LacpStateBit_LACP_STATE_BIT_TIMEOUT,
+			lacpv1.LacpStateBit_LACP_STATE_BIT_AGGREGATION,
+			lacpv1.LacpStateBit_LACP_STATE_BIT_SYNCHRONIZATION,
+			lacpv1.LacpStateBit_LACP_STATE_BIT_COLLECTING,
+			lacpv1.LacpStateBit_LACP_STATE_BIT_DISTRIBUTING,
+		}
+		if got := ps.GetActor().GetState(); !slices.Equal(got, wantActorState) {
+			t.Errorf("port %s actor state = %v, want %v", ps.GetInterfaceName(), got, wantActorState)
+		}
 		if ps.GetPartner() == nil || ps.GetPartner().GetSystemId() == nil {
 			t.Fatalf("port %s partner or partner system_id is nil", ps.GetInterfaceName())
 		}
 		if !bytes.Equal(ps.GetPartner().GetSystemId().GetOctets(), macB[:]) {
 			t.Errorf("port %s partner system_id = %x, want %x", ps.GetInterfaceName(), ps.GetPartner().GetSystemId().GetOctets(), macB[:])
+		}
+	}
+
+	clock := fab.Snapshot().Clock
+	swA.Wake(clock.Add(3 * time.Second))
+	_, expiredPorts := netmodel.Lacp(swA)
+	for _, ps := range expiredPorts {
+		if err := protovalidate.Validate(ps); err != nil {
+			t.Fatalf("expired port %s: %v", ps.GetInterfaceName(), err)
+		}
+		state := ps.GetActor().GetState()
+		if ps.GetEnabled() || !slices.Contains(state, lacpv1.LacpStateBit_LACP_STATE_BIT_EXPIRED) ||
+			slices.Contains(state, lacpv1.LacpStateBit_LACP_STATE_BIT_COLLECTING) || slices.Contains(state, lacpv1.LacpStateBit_LACP_STATE_BIT_DISTRIBUTING) {
+			t.Errorf("expired port %s enabled = %t, state = %v, want Expired without Collecting or Distributing", ps.GetInterfaceName(), ps.GetEnabled(), state)
+		}
+	}
+	swA.Wake(clock.Add(6 * time.Second))
+	_, defaultedPorts := netmodel.Lacp(swA)
+	for _, ps := range defaultedPorts {
+		if err := protovalidate.Validate(ps); err != nil {
+			t.Fatalf("defaulted port %s: %v", ps.GetInterfaceName(), err)
+		}
+		state := ps.GetActor().GetState()
+		wantPartnerState := []lacpv1.LacpStateBit{lacpv1.LacpStateBit_LACP_STATE_BIT_SYNCHRONIZATION, lacpv1.LacpStateBit_LACP_STATE_BIT_COLLECTING}
+		if !slices.Contains(state, lacpv1.LacpStateBit_LACP_STATE_BIT_DEFAULTED) || slices.Contains(state, lacpv1.LacpStateBit_LACP_STATE_BIT_EXPIRED) ||
+			!slices.Equal(ps.GetPartner().GetState(), wantPartnerState) {
+			t.Errorf("defaulted port %s actor state = %v, partner state = %v, want Defaulted with administrative Partner", ps.GetInterfaceName(), state, ps.GetPartner().GetState())
 		}
 	}
 }

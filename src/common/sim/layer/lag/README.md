@@ -206,7 +206,8 @@ Each member maintains an actor `lacp.Info`:
 - `SystemID`: Switch system MAC address.
 - `Key`: Operational aggregation key (default follows the LAG's position and shifts when one is added).
 - `PortPriority`: Member administrative priority (default 32768).
-- `PortID`: 1-based index of the member in the LAG's sorted member list.
+- `PortID`: 1-based index among all of the layer's member ports, sorted by name
+  (IEEE P802.1AX-REV/D4.54, 6.3.4).
 - `State`: Bitmask containing:
   - `StateActive` (0x01): Set when LACP mode is Active.
   - `StateShortTimeout` (0x02): Set when `Fast` is true.
@@ -215,9 +216,10 @@ Each member maintains an actor `lacp.Info`:
   - `StateCollecting` (0x10): Set when enabled.
   - `StateDistributing` (0x20): Set when enabled.
   - `StateDefaulted` (0x40): Set while partner information is defaulted.
-  - `StateExpired` (0x80): Set while the receive timer is in the expired state.
+  - `StateExpired` (0x80): Set on entry to `Expired` and cleared by `Current`,
+    `Defaulted`, or initialization.
 
-### Transmit and receive machine
+### Transmission
 
 Transmission rates use two standard periods:
 - Fast: 1 second.
@@ -226,30 +228,63 @@ Transmission rates use two standard periods:
 Members transmit periodically and immediately when their actor state changes.
 In Passive mode, transmissions occur only after the partner advertises `StateActive`.
 
-At link up, a member enters status `Current` and arms its receive timer for 3 times
-the LAG's rate (3 seconds fast, 90 seconds slow). When `Receive` accepts an LACPDU,
-it records the partner info, resets status to `Current`, and rearms the receive
-timer to 3 times the partner's advertised timeout.
+### Receive machine
 
-If the receive timer expires, status transitions to `Expired` and the timer rearms
-for three more periods. If it expires a second time without receiving an LACPDU, status
-transitions to `Defaulted`, restoring zeroed partner parameters.
+The Receive machine follows IEEE P802.1AX-REV/D4.54, Figure 6-18 and 6.4.9.
+For example, a slow member that last received a LACPDU at 10s stays `Current`
+until 100s, then `Expired` until 103s, then `Defaulted`. The peer's advertised
+timeout does not change those deadlines. A member that hears no peer defaults
+3 seconds after carrier-up, at either rate (`TestReceiveTimeoutUsesActorRate`
+and `TestExpiredHoldsForThreeSeconds` in `layer_test.go`).
+
+```mermaid
+stateDiagram-v2
+    [*] --> PortDisabled
+    PortDisabled --> Expired: carrier up
+    Expired --> Current: LACPDU
+    Current --> Current: LACPDU
+    Current --> Expired: Actor timeout (3s or 90s)
+    Expired --> Defaulted: 3s without LACPDU
+    Defaulted --> Current: LACPDU
+    Current --> PortDisabled: carrier down
+    Expired --> PortDisabled: carrier down
+    Defaulted --> PortDisabled: carrier down
+```
+
+`Fast` selects the Actor's Short timeout (3 seconds). Otherwise it uses Long
+(90 seconds), as 6.4.4 and 6.4.10 specify. `Expired` clears the Partner's
+Synchronization, requests its Short timeout, and sets the Actor's Expired bit.
+The member stops collecting and distributing while that bit is set.
+
+The administrative Partner has zero identity fields and is Individual, with
+Synchronization and Collecting set (`0x18`, 6.4.7 and `recordDefault` in 6.4.9).
+`Defaulted` records it, sets the Actor's Defaulted bit, and clears Expired.
+`PortDisabled` clears the Partner's Synchronization and keeps its remaining
+fields and the Actor's Defaulted and Expired bits. Initialization records the
+administrative Partner before entering `PortDisabled`, so its Partner state
+is `0x10`. A disabled member whose peer system and port appear on another member
+resets to these initial values (`port_moved`, 6.4.8).
+
+`Receive` accepts Partner synchronization only when the peer claims it and
+the PDU's Partner identity and Aggregation bit match the local Actor, or when
+the peer is Individual. The peer must also be Active, or acknowledge the local
+Actor's Active bit while that Actor is Active (`recordPDU`, 6.4.9).
 
 ### Aggregator attachment and selection
 
 To determine attached members:
-1. The lead member is chosen from members whose status is not `Defaulted`, selecting
-   the partner with the lowest system priority and system ID.
-2. A member attaches when its status is not `Defaulted` and its partner system ID
-   and operational key match the lead member's partner.
-3. An attached member is enabled when its partner advertises `StateSynchronization`
+1. The lead member is chosen from members with learned Partner information whose
+   status is `Current` or `Expired`, selecting the lowest Partner identifier.
+2. A member attaches when it has learned Partner information, its status is
+   `Current` or `Expired`, and its Partner system ID and key match the lead's.
+3. An attached member is enabled when its Partner's validated Synchronization is set
    and its carrier delay has expired.
 4. If `MinLinks` is configured and the count of enabled members is below that
    minimum, all members in the LAG are disabled.
 
 ### Fallback
 
-When `Fallback` is enabled and every member port in the LAG has defaulted, the layer
+When `Fallback` is enabled and every member is `Defaulted` or `PortDisabled`, the layer
 enables active-backup forwarding over whichever members have carrier up. This allows
 traffic to pass to non-LACP endpoints before aggregation negotiation completes.
 
@@ -278,8 +313,13 @@ retains the runtime layer only when both keys match and rebuilds it otherwise.
 
 ## Sources
 
-The state machine, bond hashing, and configuration fields replicate the behavior
-of Open vSwitch 3.3:
+The Receive machine uses the unapproved draft
+[IEEE P802.1AX-REV/D4.54, 15 October 2014](https://www.ietf.org/lib/dt/documents/LIAISON/liaison-2014-11-08-ieee-8021-rtg-completion-of-8021ax-rev-link-aggregation-to-ietf-routing-area-and-routing-area-wg-attachment-2.pdf),
+read as the reference for IEEE Std 802.1AX-2014. Its clauses 6.4.4 and 6.4.7
+through 6.4.12 define the timers, administrative Partner, and transitions.
+The published standard was not read.
+
+Bond hashing and configuration fields use Open vSwitch 3.3 as their reference:
 
 - `ofproto/bond.c`: Bond modes, hash basis, delays, and bucket distribution.
 - `lib/lacp.c`: Actor and partner state transitions, attached selection, and transmission timers.

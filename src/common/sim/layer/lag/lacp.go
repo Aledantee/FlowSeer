@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"slices"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -13,15 +14,42 @@ import (
 type Status string
 
 const (
+	// PortDisabled indicates carrier is absent and learned partner identity is retained.
+	PortDisabled Status = "PortDisabled"
+
 	// Current indicates partner information is up to date.
 	Current Status = "Current"
 
-	// Expired indicates the receive timer has expired and partner information is aged.
+	// Expired indicates the member is waiting three seconds for fresh partner information.
 	Expired Status = "Expired"
 
 	// Defaulted indicates partner information is defaulted.
 	Defaulted Status = "Defaulted"
 )
+
+func sameAggregationPort(a, b lacp.Info) bool {
+	return comparePartner(a, b) == 0 && a.State&lacp.StateAggregation == b.State&lacp.StateAggregation
+}
+
+func (m *memberState) recordDefault() {
+	m.partner = lacp.Info{State: lacp.StateSynchronization | lacp.StateCollecting}
+	m.partnerDefaulted = true
+}
+
+func (m *memberState) disableReceive() {
+	m.status = PortDisabled
+	m.partner.State &^= lacp.StateSynchronization
+	m.rxTimer = time.Time{}
+	m.txTimer = time.Time{}
+	m.hasTxActor = false
+}
+
+func (m *memberState) expireReceive(now time.Time) {
+	m.status = Expired
+	m.partner.State = m.partner.State&^lacp.StateSynchronization | lacp.StateShortTimeout
+	m.actorExpired = true
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * fastPeriod)
+}
 
 func (m *memberState) mayTx(lag *lagState) bool {
 	if !m.carrier || lag.cfg.LACP.Mode == Off {
@@ -54,7 +82,7 @@ func (m *memberState) updateActorInfo(lag *lagState) {
 	if m.status == Defaulted || m.partnerDefaulted {
 		state |= lacp.StateDefaulted
 	}
-	if m.status == Expired {
+	if m.actorExpired {
 		state |= lacp.StateExpired
 	}
 
@@ -156,7 +184,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 	var lead *memberState
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if !m.linkUp || m.status == Defaulted || m.partnerDefaulted {
+		if !m.linkUp || m.status == PortDisabled || m.status == Defaulted || m.partnerDefaulted {
 			continue
 		}
 		if lead == nil || comparePartner(m.partner, lead.partner) < 0 || (comparePartner(m.partner, lead.partner) == 0 && m.name < lead.name) {
@@ -173,7 +201,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		allDefaulted := true
 		for _, name := range lag.memberNames {
 			m := l.members[name]
-			if m.status != Defaulted {
+			if m.status != Defaulted && m.status != PortDisabled {
 				allDefaulted = false
 				break
 			}
@@ -184,7 +212,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 			var upMembers []string
 			for _, name := range lag.memberNames {
 				m := l.members[name]
-				if m.linkUp {
+				if m.linkUp && m.partner.State&lacp.StateSynchronization != 0 {
 					upMembers = append(upMembers, name)
 				}
 			}
@@ -233,7 +261,7 @@ func (l *Layer) updateLag(lag *lagState) bool {
 
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if m.linkUp && m.status != Defaulted && !m.partnerDefaulted &&
+		if m.linkUp && m.status != PortDisabled && m.status != Defaulted && !m.partnerDefaulted &&
 			m.partner.SystemID == leadPartner.SystemID && m.partner.Key == leadPartner.Key {
 			m.attached = true
 			attached = append(attached, name)
