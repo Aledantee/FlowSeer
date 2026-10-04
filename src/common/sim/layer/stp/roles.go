@@ -60,11 +60,11 @@ func (l *Layer) armHelloTimers(now time.Time) {
 // instance, and the MSTI records ride the CIST's own BPDU. Under PVST every
 // tree emits, because each VLAN's BPDU is a frame of its own metered against
 // that tree's own budget.
-func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
+func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) []layer.Emission {
 	var emissions []layer.Emission
 
 	for _, id := range l.treeOrder {
-		emissions = append(emissions, l.recompute(l.trees[id], now, flushes, l.pvst != nil || id == cistID)...)
+		emissions = append(emissions, l.recompute(l.trees[id], now, flushes, changes, l.pvst != nil || id == cistID)...)
 	}
 
 	return emissions
@@ -77,7 +77,7 @@ func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []laye
 // Master; no separate Role value exists for it). emit gates the proposal
 // emissions a root change triggers: only the CIST emits, so an MSTI's caller
 // passes false and recompute returns no emissions for it.
-func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, emit bool) []layer.Emission {
+func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions, emit bool) []layer.Emission {
 	var emissions []layer.Emission
 
 	oldRootID := t.rootID
@@ -86,7 +86,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 	l.electRoot(t, now)
 	l.assignRoles(t, now)
-	l.updatePortStates(t, now, flushes, &emissions)
+	l.updatePortStates(t, now, flushes, changes)
 
 	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
 		for _, name := range l.portNames {
@@ -238,7 +238,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 	}
 }
 
-func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	_, _, fwdDelay := l.times(t)
 
 	for _, name := range l.portNames {
@@ -263,7 +263,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
 				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
-					l.initiateTopologyChange(t, p, now, flushes, emissions)
+					l.initiateTopologyChange(t, p, now, flushes, changes)
 				}
 			} else if oldState == StateForwarding && p.state != StateForwarding {
 				l.deactivatePort(t, p, flushes)
@@ -308,7 +308,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
 			if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
-				l.initiateTopologyChange(t, p, now, flushes, emissions)
+				l.initiateTopologyChange(t, p, now, flushes, changes)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
 			l.deactivatePort(t, p, flushes)

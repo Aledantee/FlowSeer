@@ -787,6 +787,14 @@ func TestMSTIUsesCISTForwardDelayForItsLadder(t *testing.T) {
 	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
 		t.Errorf("MSTI 1 p2 state after 2s = %v, want Discarding with the CIST's 4s forward delay", got)
 	}
+
+	l.Advance(t0.Add(4 * time.Second))
+	if got := l.PortInfo("p2").State; got != stp.StateLearning {
+		t.Errorf("CIST p2 state after 4s = %v, want Learning", got)
+	}
+	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateLearning {
+		t.Errorf("MSTI 1 p2 state after 4s = %v, want Learning", got)
+	}
 }
 
 // TestCompatibilityOnLegacyBPDU is evidence that a port hearing an inferior
@@ -3996,6 +4004,9 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 	// The Root port's own topology-change timer expires before the downstream
 	// change. Its hello at the expiration boundary must not carry the flag.
 	fxExpired := b.Advance(t0.Add(3 * time.Second))
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role at t0+3s = %v, want Root", info.Role)
+	}
 	for _, e := range fxExpired.Emissions {
 		if e.Port != "1/1/1" {
 			continue
@@ -4007,6 +4018,13 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 		if dec.TopologyChange() {
 			t.Fatalf("Root-port frame at t0+3s has TC flag, want the 3s timer expired: %v", e)
 		}
+	}
+
+	rootRefresh := rootBPDU
+	rootRefresh.SetProposal(false)
+	b.Receive(t0.Add(4*time.Second), "1/1/1", rootRefresh)
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role after root information refresh = %v, want Root", info.Role)
 	}
 
 	// A later agreement on downstream port 1/1/2 starts a new timer and emits
@@ -4030,6 +4048,9 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 	if info := b.PortInfo("1/1/2"); info.State != stp.StateForwarding {
 		t.Fatalf("port 1/1/2 state=%v, want Forwarding", info.State)
 	}
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role after downstream agreement = %v, want Root", info.Role)
+	}
 
 	foundRootTC := false
 	for _, e := range fxAgr.Emissions {
@@ -4050,6 +4071,9 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 	// While tcWhile runs (helloTime + 1s = 3s), the hello loop emits a BPDU on Root port with TC set.
 	now = now.Add(2 * time.Second)
 	fxHello1 := b.Advance(now)
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role at flagged hello = %v, want Root", info.Role)
+	}
 	foundRootHello1 := false
 	for _, e := range fxHello1.Emissions {
 		if e.Port == "1/1/1" {
@@ -4069,6 +4093,9 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 	// At t0+7s, exactly 3s after the later agreement, tcWhile has expired.
 	now = t0.Add(7 * time.Second)
 	fxAtExpiry := b.Advance(now)
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role at timer expiry = %v, want Root", info.Role)
+	}
 	for _, e := range fxAtExpiry.Emissions {
 		if e.Port != "1/1/1" {
 			continue
@@ -4082,18 +4109,15 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 		}
 	}
 
-	// A later hello remains unflagged.
+	// A Root port does not send a periodic BPDU after its topology-change timer expires.
 	now = t0.Add(8 * time.Second)
 	fxHello2 := b.Advance(now)
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role after tcWhile expired = %v, want Root", info.Role)
+	}
 	for _, e := range fxHello2.Emissions {
 		if e.Port == "1/1/1" {
-			dec, err := bpdu.Decode(e.Frame)
-			if err != nil {
-				t.Fatalf("decode Root-port frame after tcWhile expired: %v", err)
-			}
-			if dec.TopologyChange() {
-				t.Errorf("Root port 1/1/1 emitted flagged BPDU after tcWhile expired: %v", e)
-			}
+			t.Errorf("Root port 1/1/1 emitted a BPDU after tcWhile expired: %v", e)
 		}
 	}
 
@@ -4101,6 +4125,9 @@ func TestTopologyChangeNotificationOnRootPort(t *testing.T) {
 	flaggedBPDU := rootBPDU
 	flaggedBPDU.SetTopologyChange(true)
 	flaggedBPDU.SetProposal(false)
+	if info := b.PortInfo("1/1/1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("port 1/1/1 role before flagged receive = %v, want Root", info.Role)
+	}
 	fxFlagged := b.Receive(now, "1/1/1", flaggedBPDU)
 	for _, e := range fxFlagged.Emissions {
 		if e.Port == "1/1/1" {

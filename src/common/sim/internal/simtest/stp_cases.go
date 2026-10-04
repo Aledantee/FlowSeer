@@ -1114,7 +1114,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 var stpCaseLoopGuardGate = stpCaseGateFact(
 	`{tree_kind="CIST";tree_id=0;role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
-		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=1;rx_bpdus=1;` +
+		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=2;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
 
 // stpPVSTTrees returns the per-VLAN trees the PVST corpus case gives a

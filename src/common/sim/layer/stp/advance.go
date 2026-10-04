@@ -55,32 +55,20 @@ func (l *Layer) NextWake() (time.Time, bool) {
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
+	changes := newTopologyChangeEmissions()
 
 	agedOut := l.expireReceivedInfo(now)
 	autoEdgeFired := l.advanceAutoEdge(now, &flushes)
-	stateChanged, topologyChangeTrees := l.advanceForwardDelay(now, &flushes)
+	stateChanged := l.advanceForwardDelay(now, &flushes, changes)
 	l.clearExpiredTCWhile(now)
 
 	if agedOut || stateChanged || autoEdgeFired {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
-	}
-	for _, id := range l.treeOrder {
-		if _, ok := topologyChangeTrees[id]; !ok {
-			continue
-		}
-		mt := l.trees[id]
-		if mt.rootPort == "" {
-			continue
-		}
-		p := mt.ports[mt.rootPort]
-		if p == nil || !p.tcActive || p.tcWhile.IsZero() || !p.tcWhile.After(now) {
-			continue
-		}
-		l.emitRootTC(mt, p, now, &emissions)
+		emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
 	}
 
 	l.releaseHeldTransmissions(now, &emissions)
 	l.sendDueHellos(now, &emissions)
+	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -139,9 +127,8 @@ func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) boo
 	return autoEdgeFired
 }
 
-func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget) (bool, map[treeID]struct{}) {
+func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) bool {
 	stateChanged := false
-	topologyChangeTrees := make(map[treeID]struct{})
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
 		_, _, fwdDelay := l.times(mt)
@@ -163,8 +150,7 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget)
 					stateChanged = true
 					link := l.links[p.name]
 					if !link.edge {
-						l.initiateTopologyChange(mt, p, now, flushes, nil)
-						topologyChangeTrees[id] = struct{}{}
+						l.initiateTopologyChange(mt, p, now, flushes, changes)
 					}
 				case StateForwarding:
 				}
@@ -173,7 +159,7 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget)
 		}
 	}
 
-	return stateChanged, topologyChangeTrees
+	return stateChanged
 }
 
 func (l *Layer) clearExpiredTCWhile(now time.Time) {
