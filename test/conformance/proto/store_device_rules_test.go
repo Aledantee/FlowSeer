@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -302,6 +303,10 @@ func validPlatformAdmin() *storev1.PlatformAdmin {
 func TestPlatformAdminSubjectsRules(t *testing.T) {
 	noSubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
 	noSubject.SetSubjects(nil)
+	emptySubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
+	emptySubject.SetSubjects([]string{""})
+	longSubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
+	longSubject.SetSubjects([]string{strings.Repeat("s", 257)})
 	tooManySubjects := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
 	tooManySubjects.SetSubjects(make([]string, 17))
 	repeatedSubject := proto.Clone(validPlatformAdmin()).(*storev1.PlatformAdmin)
@@ -310,6 +315,8 @@ func TestPlatformAdminSubjectsRules(t *testing.T) {
 	runValidationCases(t, []validationCase{
 		{name: "one platform subject validates", message: validPlatformAdmin(), wantValid: true},
 		{name: "platform admin without a subject is rejected", message: noSubject},
+		{name: "platform admin with an empty subject is rejected", message: emptySubject},
+		{name: "platform admin with a 257-character subject is rejected", message: longSubject},
 		{name: "platform admin with 17 subjects is rejected", message: tooManySubjects},
 		{name: "platform admin with a repeated subject is rejected", message: repeatedSubject},
 	})

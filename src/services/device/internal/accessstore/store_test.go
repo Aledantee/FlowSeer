@@ -257,6 +257,9 @@ func TestTenantIDsIncludeEveryRecordKind(t *testing.T) {
 		t.Fatalf("empty tenant IDs = %v, %v", ids, err)
 	}
 	createMember(t, s, tenantA, "alice")
+	if _, err := s.CreateRole(t.Context(), tenantA, role(t, roleA)); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.CreateRole(t.Context(), tenantB, role(t, roleA)); err != nil {
 		t.Fatal(err)
 	}
@@ -272,8 +275,15 @@ func TestTenantIDsIncludeEveryRecordKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids, err = s.TenantIDs(t.Context())
-	if err != nil || !slices.Equal(ids, []string{tenantB, "default"}) {
+	if err != nil || !slices.Equal(ids, []string{tenantA, tenantB, "default"}) {
 		t.Fatalf("tenant IDs after deletion = %v, %v", ids, err)
+	}
+	if _, err := s.DeleteRole(t.Context(), tenantA, roleRef(roleA)); err != nil {
+		t.Fatal(err)
+	}
+	ids, err = s.TenantIDs(t.Context())
+	if err != nil || !slices.Equal(ids, []string{tenantB, "default"}) {
+		t.Fatalf("tenant IDs after removing the last record = %v, %v", ids, err)
 	}
 }
 

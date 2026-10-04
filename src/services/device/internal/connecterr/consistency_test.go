@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/services/device/internal/deviceapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgeapi"
+	"go.aledante.io/FlowSeer/src/services/device/internal/identityapi"
 )
 
 // A code two services both return has to answer the same thing in both, or a
@@ -29,6 +30,7 @@ func TestNoCodeAnswersTwoDifferentThings(t *testing.T) {
 		"deviceapi":   deviceapi.ClientErrors,
 		"dispatchapi": dispatchapi.ClientErrors,
 		"edgeapi":     edgeapi.ClientErrors,
+		"identityapi": identityapi.ClientErrors,
 	}) {
 		t.Error(conflict)
 	}
