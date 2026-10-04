@@ -226,7 +226,6 @@ func (t *testAuthnInterceptor) WrapStreamingHandler(next connect.StreamingHandle
 }
 
 type innerRecordingInterceptor struct {
-	checker *fakeChecker
 	entered atomic.Bool
 }
 
@@ -676,7 +675,7 @@ func setupTestEnv(t *testing.T) *testEnv {
 
 	checker := &fakeChecker{}
 	handlers := newTestHandlers(t)
-	inner := &innerRecordingInterceptor{checker: checker}
+	inner := &innerRecordingInterceptor{}
 	authzInterceptor := authz.NewInterceptor(checker)
 	outerInterceptor := &cancellableOuterInterceptor{}
 	authnInterceptor := &testAuthnInterceptor{

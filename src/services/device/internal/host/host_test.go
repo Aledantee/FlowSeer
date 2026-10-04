@@ -438,6 +438,27 @@ func (a *authRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) 
 	return a.base.RoundTrip(clone)
 }
 
+type edgeSigningRoundTripper struct {
+	base    http.RoundTripper
+	private ed25519.PrivateKey
+	t       *testing.T
+}
+
+func (s *edgeSigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read request body: %w", err)
+	}
+	if err := req.Body.Close(); err != nil {
+		return nil, fmt.Errorf("close request body: %w", err)
+	}
+	clone := req.Clone(req.Context())
+	clone.Body = io.NopCloser(bytes.NewReader(body))
+	clone.ContentLength = int64(len(body))
+	clone.Header.Set("Authorization", signedEdgeHeader(s.t, s.private, req.URL.Path, body, 0x40))
+	return s.base.RoundTrip(clone)
+}
+
 // serviceClient trusts the certificate generated for the target service and
 // automatically sets the test token and tenant headers if not already specified.
 func serviceClient() *http.Client {
@@ -492,6 +513,9 @@ func TestTheServiceStartsFromAFileAndAnswers(t *testing.T) {
 	_, err := callWhenServing(t, client, msg)
 	if got := connect.CodeOf(err); got != connect.CodePermissionDenied {
 		t.Fatalf("status for an unlisted device = %v, want CodePermissionDenied (%v)", got, err)
+	}
+	if got := wireErrorCode(err); got != authz.ErrCodeDenied.String() {
+		t.Fatalf("wire error code for an unlisted device = %q, want %q (%v)", got, authz.ErrCodeDenied, err)
 	}
 	foundTenantQuery := false
 	for _, q := range svc.Engine.Queries() {
@@ -588,8 +612,12 @@ func TestTheServiceReportsThePortItWasGiven(t *testing.T) {
 	device.SetDevice(local)
 	msg.SetDevice(device)
 
-	if _, err := callWhenServing(t, client, msg); connect.CodeOf(err) != connect.CodePermissionDenied {
+	_, err := callWhenServing(t, client, msg)
+	if connect.CodeOf(err) != connect.CodePermissionDenied {
 		t.Errorf("a call to the reported address answered %v, want CodePermissionDenied for an unlisted device", err)
+	}
+	if got := wireErrorCode(err); got != authz.ErrCodeDenied.String() {
+		t.Errorf("wire error code for an unlisted device = %q, want %q (%v)", got, authz.ErrCodeDenied, err)
 	}
 }
 
@@ -937,11 +965,6 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 			procedure: auditv1connect.AuditServiceDeliverProcedure,
 			message:   &auditv1.DeliverRequest{},
 		},
-		{
-			name:      "capture edge service",
-			procedure: captureedgev1connect.CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
-			message:   &captureedgev1.SubscribeCaptureAssignmentsRequest{},
-		},
 	}
 	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -966,11 +989,42 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 		})
 	}
 
+	t.Run("capture edge service", func(t *testing.T) {
+		client := &http.Client{
+			Transport: &edgeSigningRoundTripper{
+				base:    serviceTransport,
+				private: private,
+				t:       t,
+			},
+			Timeout: 10 * time.Second,
+		}
+		captureEdgeClient := captureedgev1connect.NewCaptureEdgeServiceClient(client, svc.Base)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		stream, err := captureEdgeClient.SubscribeCaptureAssignments(
+			ctx, connect.NewRequest(&captureedgev1.SubscribeCaptureAssignmentsRequest{}),
+		)
+		if err != nil {
+			if got := connect.CodeOf(err); got == connect.CodeUnauthenticated {
+				t.Fatalf("stream open answered %v, want an edge interceptor result", err)
+			}
+			t.Fatalf("open stream: %v", err)
+		}
+		t.Cleanup(func() { _ = stream.Close() })
+		if stream.Receive() {
+			cancel()
+			for stream.Receive() {
+			}
+		}
+		if got := connect.CodeOf(stream.Err()); got == connect.CodeUnauthenticated {
+			t.Fatalf("stream answered %v, want an edge interceptor result", stream.Err())
+		}
+	})
+
 	for _, procedure := range []string{
 		attachv1connect.EdgeServiceHeartbeatProcedure,
 		dispatchv1connect.DispatchServiceReportProcedure,
 		auditv1connect.AuditServiceDeliverProcedure,
-		captureedgev1connect.CaptureEdgeServiceSubscribeCaptureAssignmentsProcedure,
 	} {
 		t.Run("edge/refusal-code/"+procedure[strings.LastIndexByte(procedure, '/')+1:], func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPost, svc.Base+procedure, strings.NewReader("{}"))
@@ -1138,6 +1192,80 @@ func TestHostRecoversAuthorizationPanicsOnUnaryAndStreamingCalls(t *testing.T) {
 		err = stream.Err()
 	}
 	assertPanicError(t, err)
+}
+
+// The writer panics from the real edge Enroll handler after it logs a wrong
+// public key for a consumed setup key. Host recovery must keep that panic on
+// the ordinary RPC error path so telemetry records the handler-panic error.
+func TestHostRecoversAnEdgeHandlerPanicBeforeTelemetry(t *testing.T) {
+	var logWriter panicOnceLogWriter
+	svc := startTestService(t, func(opts *host.Options) {
+		opts.LogWriter = &logWriter
+	})
+
+	if err := svc.Engine.Write(context.Background(), []authz.Tuple{
+		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + svc.PrincipalID},
+		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "admin", User: "user:" + svc.PrincipalID},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	svc.Engine.Grant("user:"+svc.PrincipalID, "manage", "edge")
+
+	adminClient := edgev1connect.NewEdgeAdminServiceClient(serviceClient(), svc.Base)
+	created, err := adminClient.CreateEdge(context.Background(), connect.NewRequest(
+		apiedgev1.CreateEdgeRequest_builder{Name: proto.String("panic-recovery-edge")}.Build(),
+	))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	setupKey := created.Msg.GetProvisioning().GetSetupKey()
+	if setupKey == "" {
+		t.Fatal("CreateEdge returned no setup key")
+	}
+	keyID := setupKey[len("fse1_") : len("fse1_")+26]
+
+	enrollRequest := func(t *testing.T, setupKey string, keyID string, public ed25519.PublicKey, private ed25519.PrivateKey) *connect.Request[attachv1.EnrollRequest] {
+		t.Helper()
+		payload := edgev1.KeyProofPayload_builder{
+			PublicKey:  public,
+			SetupKeyId: proto.String(keyID),
+		}.Build()
+		payloadWire, err := proto.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal key proof payload: %v", err)
+		}
+		return connect.NewRequest(attachv1.EnrollRequest_builder{
+			SetupKey: proto.String(setupKey),
+			Proof: edgev1.KeyProof_builder{
+				Payload:   payloadWire,
+				Signature: ed25519.Sign(private, payloadWire),
+			}.Build(),
+		}.Build())
+	}
+
+	firstPublic, firstPrivate, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate first edge key: %v", err)
+	}
+	edgeClient := attachv1connect.NewEdgeServiceClient(serviceClient(), svc.Base)
+	if _, err := edgeClient.Enroll(context.Background(), enrollRequest(t, setupKey, keyID, firstPublic, firstPrivate)); err != nil {
+		t.Fatalf("first Enroll: %v", err)
+	}
+
+	secondPublic, secondPrivate, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generate second edge key: %v", err)
+	}
+	_, err = edgeClient.Enroll(context.Background(), enrollRequest(t, setupKey, keyID, secondPublic, secondPrivate))
+	if got := connect.CodeOf(err); got != connect.CodeInternal {
+		t.Fatalf("second Enroll code = %v, want CodeInternal (%v)", got, err)
+	}
+	if got := wireErrorCode(err); got != host.ErrCodePanic.String() {
+		t.Fatalf("second Enroll wire error code = %q, want %q (%v)", got, host.ErrCodePanic, err)
+	}
+	if !strings.Contains(logWriter.String(), `"error.type":"host/handler-panic"`) {
+		t.Fatalf("telemetry did not record the recovered edge panic: %s", logWriter.String())
+	}
 }
 
 func TestEdgeServicesNeedNoTokenWhileClosedPortEngineRefusesOperator(t *testing.T) {
@@ -1433,7 +1561,6 @@ func TestLocalStartupFaultsReturnBeforeAPIBinds(t *testing.T) {
 		storeID   string
 		authnCA   string
 		authzCA   string
-		loadCode  errs.Code
 		startCode errs.Code
 	}{
 		{
@@ -1522,6 +1649,28 @@ func (f *failWriteEngine) SetFailWrite(err error) {
 type syncBuffer struct {
 	mu  sync.Mutex
 	buf bytes.Buffer
+}
+
+type panicOnceLogWriter struct {
+	mu       sync.Mutex
+	buf      bytes.Buffer
+	panicked bool
+}
+
+func (w *panicOnceLogWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if !w.panicked && bytes.Contains(p, []byte(`"msg":"setup key presented with another key"`)) {
+		w.panicked = true
+		panic("edge handler log writer panicked")
+	}
+	return w.buf.Write(p)
+}
+
+func (w *panicOnceLogWriter) String() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.buf.String()
 }
 
 func (b *syncBuffer) Write(p []byte) (n int, err error) {
