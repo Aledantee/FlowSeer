@@ -95,6 +95,11 @@ stops and the switch's side is planned first.
   with a fourth round. It resumes from `parked/sim-p4-review`, fixes the
   two tests that cannot fail, and runs the gap pass. (decided by the user,
   2026-10-04)
+- The fourth round's verdict is answered with a closing round on the nine
+  items in Review gaps. The review is then accepted unless its re-review
+  finds a behavior defect or a test that cannot fail. A new comment or
+  convention item is recorded and does not hold the verdict. (decided by
+  the user, 2026-10-04)
 
 ## Requirements
 
@@ -575,14 +580,3 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - Carried to U11: whether `lacpv1.LacpStatus` gains a value for
   `PortDisabled`. Until then `netmodel/export.go:529-538` maps it to the
   unspecified value.
-- Parked by drive: the fourth round closed both false tests and 46 of the
-  48 gap items, and its re-review found no behavior or false-test finding.
-  The verdict stays `fixes needed` on nine gap and convention items (test
-  assertions, comments, the Mux diagram, one line in `device/vswitch`).
-  The work is on `parked/sim-p4-review`. Options: close the nine, then
-  accept unless the re-review finds a behavior defect or a false test
-  (ends the loop, later convention items are recorded and not fixed) | run
-  a fifth round under the unchanged rule (each round so far added new
-  minor items) | accept now with the nine recorded (fastest, leaves them
-  open). Recommended: close the nine then accept, because the last
-  re-review found nothing that changes behavior.
