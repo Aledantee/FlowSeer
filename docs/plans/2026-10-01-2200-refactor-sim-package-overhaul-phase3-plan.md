@@ -5,7 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: rework
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
@@ -646,3 +646,10 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/sim/layer/stp/tree_internal_test.go:814: `TestMSTTopologyChangeUsesTreeOrderForEmissions` calls `propagateReceivedTC` directly and tests no order; fails: a flagged BPDU through `Receive` on a boundary port gives one frame on the Root port
 - src/common/sim/layer/stp/tree_internal_test.go:957: Root port with `rcvInfoValid` false and an Alternate holding a better root than the tree's, states no call sequence leaves
 - src/common/sim/layer/stp/layer_test.go:4094: no hello is due at the instant checked, so the loop body never runs
+- src/common/sim/layer/stp/transmit.go:79: open behavior finding of round three. Only non-Designated frames mark a port as sent, so on an MST bridge whose port is Designated for the CIST and Root for an MSTI, the Designated reply that already carries the MSTI's flagged record is followed by a second CIST frame in the same `Receive`; fails: one frame on that port per call
+- src/common/sim/layer/stp/topology_change_property_test.go:29: the Receive and Mcheck cases owe no frame and the Advance case's frame comes from the hello, so the deferred emit deleted at `link.go:47` or `advance.go:73` leaves the suite green; fails: each case states a literal, non-empty set of owed tree and port pairs
+- src/common/sim/layer/stp/topology_change_property_test.go:129: the PVST legacy case passes because VLAN 10 to 40 information expires in the call under test; fails: with every VLAN refreshed the ports stay Root, and the helper needs the stated exemption for a non-VLAN-1 tree on a port that does not send RSTP
+- src/common/sim/layer/stp/topology_change_property_test.go:292: root prerequisite compares the tree's root with itself, the Advance case asserts no state before the call, `pvstCopies` accepts two SSTP copies, and repeats are checked only for owed keys (`:454`, `:461`)
+- src/common/sim/layer/stp/topology_change_property_test.go:506: unflagged frames are dropped, so an unflagged Alternate agreement frame on a port that lost the Root role passes; no case has a port Designated at restart and Root at return; no PVST legacy Root port finishes the ladder where a hello is due
+- src/common/sim/layer/stp/transmit.go:21: `emitRootTC` has one caller that already checks the link, and `topology.go:113` guards a nil port and link no caller can pass
+- src/common/sim/layer/stp/advance.go:193: a held agreement released and a hello due in one `Advance` give two frames on one port, the released one ahead of tree order; not checked against `a8a26462`
