@@ -214,7 +214,7 @@ Carrier state changes pass to `LinkChange(now, member, up)`.
   `STANDBY` and leaves Actor Synchronization clear until the delayed link is ready
   (`AX` 6.4.14.1 k). Under LACP, carrier loss removes collection and distribution
   immediately (`AX` 6.3.12 and Figure 6-18). A down delay retains the delayed
-  link state for fallback and static LAG selection.
+  link state for static LAG selection.
 
 ## LACP protocol machine
 
@@ -363,9 +363,10 @@ itself. A member whose carrier is down retains its selection while its Partner
 still belongs to the group. If two members of one LAG are cabled to each other,
 the lower-named member is the candidate.
 
-A changed selection enters the Mux `WAITING` state for the two-second
-`Aggregate_Wait_Time`. All members selected for that Aggregator share the same
-deadline, so a member learned one second later does not attach early.
+A newly selected member enters the Mux `WAITING` state for the two-second
+`Aggregate_Wait_Time`. Members waiting to attach to that Aggregator share the
+same deadline, so a member learned one second later does not attach early, while
+already-attached members remain forwarding.
 
 Mux uses the coupled control diagram (`AX` 6.4.15, Figure 6-22), because one
 `enabled` flag controls both collection and distribution. `MinLinks` gates
@@ -381,8 +382,9 @@ stateDiagram-v2
     STANDBY --> ATTACHED: up delay done
     ATTACHED --> COLLECTING_DISTRIBUTING: synchronized and MinLinks met
     COLLECTING_DISTRIBUTING --> ATTACHED: synchronization or MinLinks lost
-    ATTACHED --> DETACHED: carrier loss
-    COLLECTING_DISTRIBUTING --> DETACHED: carrier loss
+    WAITING --> DETACHED: reselection or group leave
+    ATTACHED --> DETACHED: reselection or group leave or carrier loss
+    COLLECTING_DISTRIBUTING --> DETACHED: reselection or group leave or carrier loss
 ```
 
 `Info.Attached` lists members in `ATTACHED` or `COLLECTING_DISTRIBUTING`.
@@ -400,7 +402,7 @@ Partner after defaulting. The layer adopts the fallback switch in `OVS`
 With `Fallback` enabled and no learned group available, the layer selects one
 defaulted member for active-backup forwarding. The administrative Partner is
 Individual (`AX` 6.3.6.1), so it cannot share its Aggregator (6.4.14.1 h).
-`Primary` wins when it has the delayed link state. Otherwise the lowest-named
+`Primary` wins when it has carrier and is Defaulted. Otherwise the lowest-named
 member wins. The selection still waits for `Aggregate_Wait_Time`, and `MinLinks`
 can leave the selected member
 disabled. This allows traffic to pass to a non-LACP endpoint before aggregation

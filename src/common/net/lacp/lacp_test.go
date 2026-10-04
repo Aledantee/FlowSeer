@@ -146,7 +146,6 @@ func TestDecodeCAPFixtureAndEncodeOffsets(t *testing.T) {
 	if !bytes.Equal(encoded.Payload, capLACPFixture[14:]) {
 		t.Fatalf("Encode(CAP) payload = %x, want fixture payload %x", encoded.Payload, capLACPFixture[14:])
 	}
-	assertEncodedFields(t, encoded.Payload, capLACPFixture[14:])
 }
 
 func TestDecodeSecondFixtureAndEncodeOffsets(t *testing.T) {
@@ -180,28 +179,93 @@ func TestDecodeSecondFixtureAndEncodeOffsets(t *testing.T) {
 	}
 
 	encoded := lacp.Encode(decoded, frame.Src)
-	assertEncodedFields(t, encoded.Payload, secondLACPFixture[14:])
+	fields := []struct {
+		name   string
+		offset int
+		length int
+	}{
+		{name: "actor system priority", offset: 4, length: 2},
+		{name: "actor system", offset: 6, length: 6},
+		{name: "actor key", offset: 12, length: 2},
+		{name: "actor port priority", offset: 14, length: 2},
+		{name: "actor port", offset: 16, length: 2},
+		{name: "actor state", offset: 18, length: 1},
+		{name: "partner system priority", offset: 24, length: 2},
+		{name: "partner system", offset: 26, length: 6},
+		{name: "partner key", offset: 32, length: 2},
+		{name: "partner port priority", offset: 34, length: 2},
+		{name: "partner port", offset: 36, length: 2},
+		{name: "partner state", offset: 38, length: 1},
+		{name: "collector max delay", offset: 44, length: 2},
+	}
+	for _, field := range fields {
+		if !bytes.Equal(encoded.Payload[field.offset:field.offset+field.length], secondLACPFixture[14+field.offset:14+field.offset+field.length]) {
+			t.Errorf("encoded %s at payload[%d:%d] = %x, want fixture %x", field.name, field.offset, field.offset+field.length, encoded.Payload[field.offset:field.offset+field.length], secondLACPFixture[14+field.offset:14+field.offset+field.length])
+		}
+	}
 }
 
 func TestDecodeAcceptsVersionTwoAndAdditionalTLV(t *testing.T) {
-	wire := bytes.Clone(secondLACPFixture)
-	wire[15] = 2
-	wire[16] = 0x07
-	wire[72] = 0x04
-	wire[73] = 0x06
-
-	frame := decodeFixture(t, wire)
-	got, err := lacp.Decode(frame)
-	if err != nil {
-		t.Fatalf("Decode(future LACPDU) failed: %v", err)
+	tests := []struct {
+		name   string
+		modify func([]byte)
+	}{
+		{
+			name: "version 2",
+			modify: func(wire []byte) {
+				wire[15] = 2
+			},
+		},
+		{
+			name: "actor TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[16] = 0x07
+			},
+		},
+		{
+			name: "partner TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[36] = 0x07
+			},
+		},
+		{
+			name: "collector TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[56] = 0x07
+			},
+		},
+		{
+			name: "later TLV type 0x04 length 0x06",
+			modify: func(wire []byte) {
+				wire[72] = 0x04
+				wire[73] = 0x06
+			},
+		},
+	}
+	want := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 0x91f4,
+			SystemID:       netaddr.MAC{0x00, 0x04, 0x96, 0x1f, 0x50, 0x6a},
+			Key:            0x8000,
+			PortID:         0x0012,
+			State:          0x47,
+		},
+		Partner:           lacp.Info{State: 0x3b},
+		CollectorMaxDelay: 2,
 	}
 
-	want, err := lacp.Decode(decodeFixture(t, secondLACPFixture))
-	if err != nil {
-		t.Fatalf("Decode(second fixture) failed: %v", err)
-	}
-	if got != want {
-		t.Fatalf("Decode(future LACPDU) = %+v, want %+v", got, want)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			wire := bytes.Clone(capLACPFixture)
+			tc.modify(wire)
+			got, err := lacp.Decode(decodeFixture(t, wire))
+			if err != nil {
+				t.Fatalf("Decode(modified CAP fixture) failed: %v", err)
+			}
+			if got != want {
+				t.Fatalf("Decode(modified CAP fixture) = %+v, want %+v", got, want)
+			}
+		})
 	}
 }
 
@@ -228,6 +292,13 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
+			name: "empty payload",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				f.Payload = nil
+				return f
+			},
+		},
+		{
 			name: "subtype 0x02",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
@@ -246,6 +317,15 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
+			name: "actor TLV length 21",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				p := bytes.Clone(f.Payload)
+				p[3] = 21
+				f.Payload = p
+				return f
+			},
+		},
+		{
 			name: "partner TLV length 19",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
@@ -255,10 +335,28 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
+			name: "partner TLV length 21",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				p := bytes.Clone(f.Payload)
+				p[23] = 21
+				f.Payload = p
+				return f
+			},
+		},
+		{
 			name: "collector TLV length 15",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
 				p[43] = 15
+				f.Payload = p
+				return f
+			},
+		},
+		{
+			name: "collector TLV length 17",
+			modify: func(f ethernet.Frame) ethernet.Frame {
+				p := bytes.Clone(f.Payload)
+				p[43] = 17
 				f.Payload = p
 				return f
 			},
@@ -287,33 +385,4 @@ func decodeFixture(t *testing.T, wire []byte) ethernet.Frame {
 		t.Fatalf("ethernet.Decode(fixture) failed: %v", err)
 	}
 	return frame
-}
-
-func assertEncodedFields(t *testing.T, got, want []byte) {
-	t.Helper()
-
-	fields := []struct {
-		name   string
-		offset int
-		length int
-	}{
-		{name: "actor system priority", offset: 4, length: 2},
-		{name: "actor system", offset: 6, length: 6},
-		{name: "actor key", offset: 12, length: 2},
-		{name: "actor port priority", offset: 14, length: 2},
-		{name: "actor port", offset: 16, length: 2},
-		{name: "actor state", offset: 18, length: 1},
-		{name: "partner system priority", offset: 24, length: 2},
-		{name: "partner system", offset: 26, length: 6},
-		{name: "partner key", offset: 32, length: 2},
-		{name: "partner port priority", offset: 34, length: 2},
-		{name: "partner port", offset: 36, length: 2},
-		{name: "partner state", offset: 38, length: 1},
-		{name: "collector max delay", offset: 44, length: 2},
-	}
-	for _, field := range fields {
-		if !bytes.Equal(got[field.offset:field.offset+field.length], want[field.offset:field.offset+field.length]) {
-			t.Errorf("encoded %s at payload[%d:%d] = %x, want fixture %x", field.name, field.offset, field.offset+field.length, got[field.offset:field.offset+field.length], want[field.offset:field.offset+field.length])
-		}
-	}
 }

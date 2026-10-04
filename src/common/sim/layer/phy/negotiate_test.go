@@ -457,6 +457,55 @@ func TestNegotiate(t *testing.T) {
 			},
 		},
 		{
+			name: "observed speed equal to cable top resolves with SourceObserved",
+			a: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full},
+			},
+			b: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full},
+			},
+			top: 100_000_000,
+			want: phy.Link{
+				State:    phy.LinkResolved,
+				SpeedBPS: 100_000_000,
+				DuplexA:  phy.Full,
+				DuplexB:  phy.Full,
+				Source:   phy.SourceObserved,
+			},
+		},
+		{
+			name: "observed Unknown and Full duplex are not a mismatch",
+			a: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Unknown},
+			},
+			b: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+			},
+			want: phy.Link{
+				State:    phy.LinkResolved,
+				SpeedBPS: 1_000_000_000,
+				DuplexA:  phy.Unknown,
+				DuplexB:  phy.Full,
+				Source:   phy.SourceObserved,
+			},
+		},
+		{
+			name: "observed Full and Unknown duplex are not a mismatch",
+			a: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+			},
+			b: phy.Ethernet{
+				Observed: &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Unknown},
+			},
+			want: phy.Link{
+				State:    phy.LinkResolved,
+				SpeedBPS: 1_000_000_000,
+				DuplexA:  phy.Full,
+				DuplexB:  phy.Unknown,
+				Source:   phy.SourceObserved,
+			},
+		},
+		{
 			name: "two ends observed at 10 Gb/s over 100 Mb/s cable fail with speed-mismatch",
 			a: phy.Ethernet{
 				Observed: &phy.Observed{SpeedBPS: 10_000_000_000, Duplex: phy.Full},

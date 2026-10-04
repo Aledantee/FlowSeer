@@ -1,12 +1,13 @@
-# LACPDU Codec
+# LACPDU and Marker PDU Codec
 
 Package `lacp` provides encoding and decoding for IEEE 802.1AX Link Aggregation
-Control Protocol Data Units (LACPDUs). Frames are exchanged over IEEE 802.3
-Slow Protocols (EtherType `0x8809`) using the standard multicast destination
-address `01:80:c2:00:00:02`.
+Control Protocol Data Units (LACPDUs) and Marker Protocol Data Units (Marker
+PDUs). Frames are exchanged over IEEE 802.3 Slow Protocols (EtherType `0x8809`)
+using the standard multicast destination address `01:80:c2:00:00:02`.
 
 The codec operates on plain Go structures and produces `ethernet.Frame` values
-with a fixed 110-octet payload layout.
+with a fixed 110-octet LACPDU payload layout. `MarkerResponse` preserves the
+received Marker PDU payload while changing its response type and addresses.
 
 ## Example
 
@@ -119,26 +120,34 @@ State flags map to the `LacpState` textual convention in `IEEE8023-LAG-MIB`:
 - Subtype differs from `SubtypeLACP` (`0x01`).
 - Actor, Partner, or Collector TLV length differs from 20, 20, or 16.
 
-Rejections return an error wrapping the package sentinel `ErrUnsupported`. Callers
-inspect the cause with `errors.Is(err, lacp.ErrUnsupported)` and retrieve the
-offending field names from the error attributes. Version, TLV types, reserved
-fields, and payload octets from offset 58 onward are not validated. The decoder
-still reads the Version 1 actor, partner, and collector fields at their fixed
-offsets after the length checks pass.
+Rejections return an error wrapping the package sentinel `ErrUnsupported`.
+Callers inspect the cause with `errors.Is(err, lacp.ErrUnsupported)` and
+retrieve the offending field names from the error attributes. `AX` 6.4.12
+forbids a Receive machine from validating the Version Number, TLV_type, and
+Reserved fields. It permits validation of the Actor, Partner, Collector, and
+Terminator lengths. `Decode` validates the Actor, Partner, and Collector
+lengths, then reads the Version 1 actor, partner, and collector fields at their
+fixed offsets. It ignores payload octets from offset 58 onward.
 
-## Marker responses
+## Marker PDU responses
 
 `MarkerResponse` accepts a Slow Protocols frame with subtype `SubtypeMarker`
 (`0x02`), a Marker Information TLV type `0x01`, and length 16. It requires at
 least 110 payload octets. The response copies the payload, changes the Marker
 TLV type to `0x02`, sets the destination to `GroupAddress`, and sets the source
 to the supplied address. The Version, port, system, transaction, pad,
-terminator, reserved octets, tags, and EtherType remain unchanged.
+terminator, reserved octets, tags, and EtherType remain unchanged. `AX` 6.5.4.2
+leaves Version, Pad, and Reserved fields unvalidated. `AX` 6.5.3.3 permits the
+response to reflect the ignored pad and reserved octets. `GroupAddress` is the
+default `Protocol_DA` in the vendored
+`spec/mib/ieee/IEEE8021-AX-MIB-202005290000Z.mib:2158`.
 
 ## Sources
 
-- AX: IEEE P802.1AX-REV/D4.54, clauses 6.4.2, 6.4.12, 6.5.3.3, and Figures
-  6-27 and 6-28:
+- AX: IEEE P802.1AX-REV/D4.54, clauses 6.4.2, 6.4.12, 6.5.3.3, 6.5.4.2,
+  and Figures 6-27 and 6-28. This unapproved draft is the reference for IEEE
+  Std 802.1AX-2014. The published standard was not read, so equivalence is
+  unverified:
   https://www.ietf.org/lib/dt/documents/LIAISON/liaison-2014-11-08-ieee-8021-rtg-completion-of-8021ax-rev-link-aggregation-to-ietf-routing-area-and-routing-area-wg-attachment-2.pdf.
 - WS: Wireshark `packet-lacp.c` and `packet-marker.c`, fetched 2026-10-03:
   https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-lacp.c
