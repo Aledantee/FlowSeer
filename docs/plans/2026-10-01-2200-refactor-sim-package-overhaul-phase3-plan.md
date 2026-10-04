@@ -133,8 +133,9 @@ R5. BPDU encoding is checked against bytes from a second source, including
 an MST BPDU with at least one MSTI record whose bridge and port priority are
 not the defaults.
 
-R6. A port transmits at most once in a call, after every tree has finished
-its transitions, and the frame says what the port is at that instant.
+R6. A port transmits at most once in a call, and under PVST once for each
+tree, after every tree has finished its transitions. The frame says what
+the port is at that instant.
 Example: an MST bridge holds p1 as Root for the CIST and for MSTI 1, and p2
 as Designated and Discarding for the CIST and Alternate for MSTI 1. A BPDU
 on p1 names a better CIST root and an MSTI 1 record worse than the one p2
@@ -142,13 +143,15 @@ holds, so p2 becomes Root and Forwarding for MSTI 1 and p1 Alternate. p2
 emits one frame in that call. It names the Designated role with a proposal
 for the CIST, and the Root role with the topology-change flag for MSTI 1.
 
-R7. A topology change leaves at once on every port that sends RSTP and
-whose timer it starts, and each such port flags two frames in all. Example:
-a settled non-root bridge has p1 Root and p2 and p3 Designated, all
-Forwarding and none an edge. An RST BPDU with the Root role and the flag
-arrives on p3 half a second before p2's hello is due. p1 and p2 each emit
-one flagged frame in that call and one more a HelloTime later. No frame
-after those carries the flag, and p3 never sends one that does.
+R7. A topology change requests a frame at once on every port that sends
+RSTP and whose timer it starts, and every frame the port sends while the
+timer runs carries the flag. With a count below the limit and no other
+request, that is two flagged frames. Example: a settled non-root bridge
+with stopped timers has p1 Root and p2 and p3 Designated, all Forwarding
+and none an edge. An RST BPDU with the Root role and the flag arrives on p3
+half a second before p2's hello is due. p1 and p2 each emit one flagged
+frame in that call and one more a HelloTime later. No frame after those
+carries the flag, and p3 never sends one that does.
 
 R8. A transmission held at the hold count is a request, and its frame is
 built when it is released. Example: with a hold count of 1, an MST port
@@ -157,10 +160,11 @@ a change on MSTI 1 reaches it. When the count falls, with no hello due, it
 emits one frame whose MSTI 1 record carries the flag.
 
 R9. A port that does not send RSTP reports a change that reaches it at its
-hello. Example: a Root port has migrated to STP, and a flagged RST BPDU
-arrives on another port. The Root port emits nothing in that call, a TCN
-BPDU at its next hello, and one at each hello until 35 seconds have passed
-at default timers.
+hello. Example: a Root port has migrated to STP and receives a
+Configuration BPDU every two seconds, and a flagged RST BPDU arrives on
+another port. The Root port emits nothing in that call, a TCN BPDU at its
+next hello, and one at each hello until 35 seconds have passed at default
+timers.
 
 ## Out of scope
 
@@ -623,11 +627,13 @@ the test that fails without it.
 Transmit rules:
 
 - T1, one pass. Every tree finishes its transitions before a frame is
-  built, and a record transmits at most once in a call. Source: `D2009`
-  Figure 13-19 qualifies every transition but UCT by `allTransmitReady`,
-  which 13.28.3 defines as `selected && !updtInfo` for all trees on the
-  port. `Q2003` 13.30 NOTE 1 recommends processing a BPDU whole before
-  encoding. Test `TestTransmitOnceFromFinalState`: the R6 example.
+  built. Nothing sets a flag once the pass has begun, so a record transmits
+  at most once in a call. Source: `D2009` Figure 13-19 qualifies every
+  transition but UCT by `allTransmitReady`, which 13.28.3 defines as
+  `selected && !updtInfo` for all trees on the port. `Q2003` 13.30 NOTE 1
+  recommends processing a BPDU whole before encoding. Running the pass
+  last is how the layer meets both. Test `TestTransmitOnceFromFinalState`:
+  the R6 example.
 - T2, built at that instant. A port that sends RSTP sends an RST BPDU, or
   an MST BPDU under MSTP, whatever its roles. A port that does not answers
   its CIST flag with a TCN BPDU when it is Root for the CIST, with a
@@ -641,7 +647,7 @@ Transmit rules:
   (`S/transmit.go:12-99,308-334`) go. Source: `D2009` Figure 13-19 (the
   three transitions out of IDLE), 13.29.28 to 13.29.30. `Q2003` 14.5. Test
   `TestHeldRequestIsBuiltAtRelease`: the R8 example. A Root port that holds
-  a request and migrates to STP before the count falls releases one TCN
+  the CIST flag and migrates to STP before the count falls releases one TCN
   BPDU. A port that is Alternate for the CIST and Root for MSTI 1 answers a
   change on MSTI 1 with one MST BPDU naming both roles.
 - T3, which flag sends. The CIST flag sends on any port. The MSTI flag
@@ -652,9 +658,11 @@ Transmit rules:
   !mstiMasterPort))` and the assignments of the three transmit states),
   13.28.14. `Q2003` 13.30 NOTE 2. Test
   `TestMSTIFlagAloneSendsOnlyInsideTheRegion`: a change on MSTI 1 alone
-  reaches three Forwarding ports of an MST bridge. The internal port emits
-  one MST BPDU in that call. The port migrated to STP and the boundary
-  Root port emit nothing in that call.
+  reaches two Forwarding ports of an MST bridge. The internal port emits
+  one MST BPDU in that call, and the boundary Root port nothing. A port
+  that is Alternate for the CIST holds the MSTI flag at the hold count and
+  migrates to STP before the count falls. It emits nothing when the count
+  falls, and one MST BPDU in the `Mcheck` that returns it to RSTP.
 - T4, count. A transmission needs a count below `TxHoldCount` and adds one
   to it, and the count falls by one a second, with the arithmetic of
   `S/transmit.go:46-54,83-88`. Under PVST the two frames of VLAN 1 are one
@@ -710,8 +718,11 @@ Topology change rules:
   RSTP.op.4.5 Part A expects exactly two flagged RST BPDUs from the Root
   port and from a Designated port. Test
   `TestTopologyChangeLeavesAtOnceAndTwice`: the R7 example. A second
-  flagged BPDU one second after the first emits nothing, and no frame
-  carries the flag later than HelloTime plus one second after the first.
+  flagged BPDU one second after the first emits nothing on p1 or p2, and
+  no frame carries the flag later than HelloTime plus one second after the
+  first. Under PVST the same BPDU for VLAN 10 through `ReceiveSSTP` gives,
+  in that call, one flagged frame for VLAN 10 on the Root port and none for
+  VLAN 1.
 - C2, detection. A port that detects a change (U5) also sets its tree's
   flag itself, whether or not its timer ran and whether or not it sends
   RSTP. Source: `D2009` Figure 13-28 (DETECTED: `newTcWhile()`,
@@ -732,7 +743,9 @@ Topology change rules:
   port. Source: `D2009` 13.29.28, 13.29.29. `Q2003` 14.6 a), 14.6.1 a).
   Test `TestTopologyChangeFlagIsPerTree`: a change on MSTI 1 of an MST
   bridge gives a frame whose MSTI 1 record has bit 1 set, while octet 5 and
-  the MSTI 2 record have it clear, read from the payload.
+  the MSTI 2 record have it clear, read from the payload. Octet 5 of the
+  BPDU is index 7 of the frame's payload, after the LLC header
+  (`B/bpdu.go:373-386`).
 - C5, acknowledgment. Bit 8 of octet 5 is set only in a Configuration
   BPDU, from `tcAck`. A Configuration, RST, or MST BPDU clears `tcAck`, and
   a TCN BPDU leaves it, where `S/transmit.go:283-286` sets the bit in any
@@ -745,7 +758,9 @@ Topology change rules:
   Designated port under STP emits nothing on it in that call. Its next
   hello is a Configuration BPDU with bits 8 and 1 set, and the one after
   has bit 8 clear and bit 1 set. A TCN BPDU on a Designated port within
-  MigrateTime of an `Mcheck` emits one RST BPDU with bit 8 clear.
+  MigrateTime of an `Mcheck` emits one RST BPDU with bit 8 clear. When a
+  Configuration BPDU migrates that port to STP once MigrateTime has
+  passed, its next Configuration BPDU has bit 8 clear too.
 
 A role transition requests a frame where it does today. It sets the flag
 of its tree in place of building a frame: the CIST flag for the CIST, the
@@ -756,10 +771,13 @@ MSTI flag for an MSTI. The request sites:
   `emit` gate that kept this to the CIST (`S/roles.go:63-71`) goes, since
   T1 spends the count once. `D2009` Figure 13-25 (DESIGNATED_PROPOSE).
 - A proposal answered on a Root or Alternate port (`S/receive.go:519-520`).
-  `D2009` Figures 13-24 and 13-26 (ROOT_AGREED, ALTERNATE_AGREED).
-- Inferior information from a Designated sender without the Agreement
-  flag, on a Designated port (`S/receive.go:521-524`). The layer's own. It
-  stands in for the dispute path of `D2009` Figure 13-20
+  `answerProposals` (`S/receive.go:581-607`) returns one boolean for all
+  trees today, and reports which tree answered after this unit. `D2009`
+  Figures 13-24 and 13-26 (ROOT_AGREED, ALTERNATE_AGREED).
+- A BPDU without the Agreement flag whose information is worse than the
+  port's own, on a Designated port, when no proposal was answered
+  (`S/receive.go:521-524`). The sender's role is not tested. The layer's
+  own. It stands in for the dispute path of `D2009` Figure 13-20
   (INFERIOR_DESIGNATED), which the layer does not have (Limits).
 - `Mcheck` on a port Designated for the CIST (`S/link.go:29-45`). The
   layer's own. `D2009` Figure 13-17 assigns only `mcheck`, `sendRSTP`, and
@@ -786,18 +804,25 @@ and `TestHeldTCNIsNotReleasedOnAnRSTPPort`
 (`S/link_state_internal_test.go:117,152`),
 `TestPVSTDoesNotInheritCISTAgreement`,
 `TestPVSTDoesNotInheritCISTTopologyChange`,
-`TestAgreementClearsOnRoleChangesAndUnknownSenderRoles`,
-`TestMSTTopologyChangeUsesTreeOrderForEmissions`, and
-`TestTransmitBudgetKeyingFollowsTheMode`
-(`S/tree_internal_test.go:678,708,762,784,1161`) set fields or call
-helpers that go. Each keeps its assertion through the calls that remain,
-or is deleted where a test above makes the same one. Three kinds of
+`TestAgreementClearsOnRoleChangesAndUnknownSenderRoles`, and
+`TestMSTTopologyChangeUsesTreeOrderForEmissions`
+(`S/tree_internal_test.go:678,708,762,784`) set fields or call helpers
+that go. Each keeps its assertion, set up through what remains, and none
+is deleted: the tests above repeat only the ordering half of the last.
+`TestHeldTCNIsNotReleasedOnAnRSTPPort` also asserts the RST BPDU that is
+released, since it passes today when nothing is.
+`TestTransmitBudgetKeyingFollowsTheMode` (`S/tree_internal_test.go:1161`)
+keeps its assertion on the record that replaces `portTx`. Three kinds of
 existing test take new values. One that pins a hello instant takes the
 port's own, HelloTime after its last frame. One that counts the frames of
 a call takes T1, T6, and C1. One that expects a frame in the call that
 receives a TCN BPDU takes C5, as `TestLegacyTCNHandshakeAndTimer`
-(`S/layer_test.go:4273`) does. Nothing in this unit compares a frame with
-the published IEEE Std 802.1Q-2011, or with a device capture.
+(`S/layer_test.go:4273`) does. That fixture also delivers its TCN BPDU at
+the instant the port starts forwarding (`:4288-4301`), while the timer
+detection started is running, so by C1 the flag ends three seconds later.
+The TCN BPDU moves to after that timer has stopped. Nothing in this unit
+compares a frame with the published IEEE Std 802.1Q-2011, or with a device
+capture.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
 Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7
