@@ -602,3 +602,16 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - src/common/sim/layer/lag/layer.go:42: the pending comment names three causes after aggregate wait was added, as does layer_internal_test.go:21; fails: the text must name all four causes.
 - src/common/sim/device/vswitch/switch.go:2522: a Marker classification uses the LACP decode fact; fails: the input fact must identify a Marker decode.
 - docs/architecture/2026-09-10-virtual-device-direction.md:833: the emission premise omits Marker responses; fails: the list must include the switch's Marker response emission.
+- src/common/sim/layer/lag/lacp.go:440: replace carrier with the delayed link in fallback selection; fails: a Defaulted member under up delay must select from carrier and wait before enabling.
+- src/common/sim/layer/lag/lacp.go:320: retain the aggregate deadline after no member waits; fails: NextWake must omit a finished aggregate wait after the only waiting member loses carrier.
+- src/common/net/lacp/lacp.go:129: clone only 110 Marker payload octets; fails: a 111-octet request must retain its last octet in the response.
+- src/common/sim/device/vswitch/switch.go:2513: use a Marker input fact for an admitted LACPDU; fails: its classification trace must carry an LACP decode input fact.
+- src/common/sim/device/vswitch/switch.go:2489: a refused Marker PDU uses an LACP decode input and leaves the invalid Marker fact form without a caller; fails: a bad Marker TLV must produce a Marker decode fact with a declared refusal reason.
+- src/common/sim/device/vswitch/switch.go:166: the Protocol comment omits Marker responses from its PCP account; fails: the text must distinguish a response preserving request tags from emissions with priority zero.
+- src/common/sim/fabric/README.md:426: the observed rule is said to resolve every matching speed under uncertain reach; fails: an over-ceiling observation is Down with speed-mismatch.
+- src/common/sim/layer/lag/README.md:385: the Mux diagram names carrier loss as the only path to DETACHED; fails: reselection and leaving the group must appear, including from WAITING.
+- src/common/sim/layer/phy/phy_test.go:1059: two TestReview names describe the review process; fails: each test name must state its power-allocation behavior.
+- src/common/sim/layer/lag/layer_test.go:1977: new comments narrate actions or restate the next line; fails: comments must state a reason or be removed.
+- src/common/net/lacp/marker_test.go:38: expected payload writes the subtype value already cloned from the request; fails: the redundant assertion setup must be removed.
+- src/common/sim/layer/lag/README.md:404: Primary is said to win when it has carrier and defaulted; fails: the sentence must say the member is Defaulted.
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:555: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels.
