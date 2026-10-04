@@ -145,6 +145,21 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceObserved,
 		},
 		{
+			name: "both ends observed at 10 Gb/s over 100 Mb/s cable of unstated medium does not resolve",
+			ethA: func() phy.Ethernet {
+				e := autoEthernet(m100)
+				e.Observed = &phy.Observed{SpeedBPS: g10, Duplex: phy.Full}
+				return e
+			}(),
+			ethB: func() phy.Ethernet {
+				e := autoEthernet(m100)
+				e.Observed = &phy.Observed{SpeedBPS: g10, Duplex: phy.Full}
+				return e
+			}(),
+			cable:    fabric.Cable{LengthMeters: 2, TopSpeedBPS: m100},
+			wantOper: port.Unknown, wantReason: fabric.ReasonReachUnknown,
+		},
+		{
 			name: "no candidate leaves negotiation to decide",
 			ethA: phy.Ethernet{}, ethB: autoEthernet(g1),
 			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.TwistedPair},

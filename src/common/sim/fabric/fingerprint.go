@@ -231,7 +231,9 @@ func (s Snapshot) Fingerprint() string {
 				b.WriteString(",")
 				b.WriteString(strconv.FormatUint(ga.AllocatedNanowatts, 10))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(ga.RemainderNanowatts, 10))
+				b.WriteString(strconv.FormatUint(ga.RemainderMinNanowatts, 10))
+				b.WriteString(",")
+				b.WriteString(strconv.FormatUint(ga.RemainderMaxNanowatts, 10))
 			}
 			b.WriteString("}")
 		}

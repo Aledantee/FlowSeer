@@ -72,7 +72,7 @@ func (c Config) Validate(env layer.Env) error {
 		}
 
 		fixed := e.Setting != nil && !e.Setting.AutoNegotiation && e.Setting.SpeedBPS != 0
-		if fixed && !slices.Contains(e.SupportedSpeedsBPS, e.Setting.SpeedBPS) {
+		if fixed && len(e.SupportedSpeedsBPS) > 0 && !slices.Contains(e.SupportedSpeedsBPS, e.Setting.SpeedBPS) {
 			return errs.New().
 				Attr("field", "ethernet."+name+".speed_bps").
 				Attr("port", name).

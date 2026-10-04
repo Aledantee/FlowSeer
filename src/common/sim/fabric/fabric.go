@@ -1223,7 +1223,7 @@ func resolveLink(cable Cable, cfg Config) (Link, linkTrust) {
 		slices.ContainsFunc(remaining, func(speed uint64) bool {
 			return speed >= negotiated.SpeedBPS && cable.reach(speed) == ReachUnknown
 		}) {
-		negotiated = observedLink(ethA, ethB)
+		negotiated = observedLink(ethA, ethB, top)
 		if negotiated.State != phy.LinkResolved {
 			return unknown(ReasonReachUnknown, analysis.Incomplete, phy.Link{State: phy.LinkUnknown, Reason: ReasonReachUnknown})
 		}
@@ -1303,10 +1303,10 @@ func negotiableSpeeds(a, b phy.Ethernet, top uint64) []uint64 {
 // observedLink applies phy's observed rule on its own. phy owns the rule and
 // reaches it only through ends whose mode is unreported, so the settings are
 // dropped here.
-func observedLink(a, b phy.Ethernet) phy.Link {
+func observedLink(a, b phy.Ethernet, top uint64) phy.Link {
 	a.Setting, b.Setting = nil, nil
 
-	return phy.Negotiate(a, b, 0)
+	return phy.Negotiate(a, b, top)
 }
 
 func (c Cable) reach(speedBPS uint64) ReachState {
