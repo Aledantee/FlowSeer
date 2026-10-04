@@ -29,9 +29,9 @@ Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 Security and behavior findings hold the verdict and get a reviewed round. A
 blocking false test also holds the verdict, but gets no reviewer round. A fix
 to shipped code is reviewed because fix workers get fixes wrong often enough
-to matter: one fix covered tenant ids only where every id kind needed it
-(`bcdf1b9e`). A security fix gets the wider review because a wrong one costs
-the most to ship.
+to matter: the projector fix covered tenant ids only for an object no record
+can exist under (`bcdf1b9e`). A security fix gets the wider review because a
+wrong one costs the most to ship.
 
 A false test never gets a reviewer round. The coordinator's rerun of the
 recorded mutation already proves whether the corrected test fails, and one
@@ -168,9 +168,10 @@ remedy is `review` again.
    introduced elsewhere goes unseen. Settle its findings with the briefed
    reviewer's under `SKILL.md` step 4. A round without a security fix runs
    no second reviewer: the wide second pass raised recall a little and
-   returned mostly follow-ups, and one iterative review agent measured the
-   same trade, 27.0% to 32.8% recall for a signal-to-noise ratio that fell
-   from 5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
+   returned mostly follow-ups, and a benchmark comparing a single-shot review
+   agent with an iterative review agent on the same model measured recall at
+   27.0% and 32.8%, respectively, while its signal-to-noise ratio fell from
+   5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
 
 After the round settles, write the round count beside the verdict
 (`SKILL.md` step 5).
@@ -233,8 +234,9 @@ After the round settles, write the round count beside the verdict
   not a round.
 
   A second round that is not clean ends the loop with the verdict `rework`.
-  Fix rounds by agents introduce regressions more often as they go on
-  (https://arxiv.org/html/2603.03823v4), and a fourth round on one
+  Agents maintaining a codebase over successive iterations showed regressions
+  becoming more frequent with iteration count in 12 of 20 models in one
+  benchmark (https://arxiv.org/html/2603.03823v4), and a fourth round on one
   mechanism still found two behavior defects in that round's own change
   (`18c7187e`):
   - Both rounds on one mechanism: take the work to `plan` with what the
