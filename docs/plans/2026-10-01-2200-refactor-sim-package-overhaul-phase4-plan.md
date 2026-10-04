@@ -621,3 +621,5 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 - src/common/sim/layer/lag/lacp.go:420: use only the stored Partner key to retain a group; fails: a nonzero system ID with zero key must retain selection after all carriers drop.
 - src/common/sim/layer/lag/README.md:382: STANDBY has only an ATTACHED exit and WAITING has no deadline exit after carrier loss; fails: the diagram must show their DETACHED, WAITING, and ATTACHED transitions as the code makes them.
 - src/common/sim/layer/lag/layer_test.go:1808: comments at 1808, 2068, and 2171 restate their next lines; fails: each comment must explain a reason or be removed.
+- src/common/sim/layer/lag/lacp.go:420: retain a zero stored group for Fallback false while the member is still enabled; fails: a zero-System peer advanced in one call past both receive timeouts must leave nothing attached.
+- src/common/sim/layer/lag/layer.go:676: compare only the Partner System ID with administrative values when defaulting; fails: differences in port, port priority, key, System priority, or Aggregation must request reselection.
