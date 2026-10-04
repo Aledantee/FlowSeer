@@ -16,28 +16,39 @@ type RepairedCounts struct {
 	Edges           int
 	Devices         int
 	CaptureSessions int
+	Tenants         int
+	Roles           int
+	Platforms       int
 }
 
 // Total returns the total number of objects repaired.
 func (c RepairedCounts) Total() int {
-	return c.Edges + c.Devices + c.CaptureSessions
+	return c.Edges + c.Devices + c.CaptureSessions + c.Tenants + c.Roles + c.Platforms
 }
 
-func isOwnedRelation(objType, relation string) bool {
+func (p *Projector) isOwnedRelation(objType, relation string) bool {
 	switch objType {
-	case "edge", "device":
-		return relation == "tenant"
+	case "edge":
+		return relation == "tenant" || p.access != nil && (relation == "administer" || relation == "operate" || relation == "capture" || relation == "view")
+	case "device":
+		return relation == "tenant" || p.access != nil && (relation == "operate" || relation == "view")
 	case "capture_session":
 		return relation == "tenant" || relation == "edge" || relation == "requester"
+	case "tenant":
+		return p.access != nil && (relation == "platform" || relation == "enrolled" || relation == "partner" || relation == "admin" || relation == "operator" || relation == "capturer" || relation == "viewer" || relation == "full_payload")
+	case "role":
+		return p.access != nil && relation == "assignee"
+	case "platform":
+		return p.access != nil && relation == "enrolled"
 	default:
 		return false
 	}
 }
 
-func filterOwnedTuples(objType string, tuples []authz.Tuple) []authz.Tuple {
+func (p *Projector) filterOwnedTuples(objType string, tuples []authz.Tuple) []authz.Tuple {
 	var filtered []authz.Tuple
 	for _, t := range tuples {
-		if isOwnedRelation(objType, t.Relation) {
+		if p.isOwnedRelation(objType, t.Relation) {
 			filtered = append(filtered, t)
 		}
 	}
@@ -79,6 +90,65 @@ func sameTuples(a, b []authz.Tuple) bool {
 	return true
 }
 
+type accessSnapshot struct {
+	tuples  map[string][]authz.Tuple
+	members map[string]map[string]bool
+	roles   map[string]string
+}
+
+func (p *Projector) snapshotAccess(ctx context.Context) (accessSnapshot, error) {
+	snapshot := accessSnapshot{
+		tuples:  make(map[string][]authz.Tuple),
+		members: make(map[string]map[string]bool),
+		roles:   make(map[string]string),
+	}
+	committed := make(map[string]bool)
+	if p.tenants != nil {
+		records, err := p.tenants.List(ctx)
+		if err != nil {
+			return accessSnapshot{}, err
+		}
+		for _, rec := range records {
+			committed[rec.GetConfig().GetRef().GetTenant().GetId()] = true
+		}
+	}
+	ids, err := p.access.TenantIDs(ctx)
+	if err != nil {
+		return accessSnapshot{}, err
+	}
+	for _, id := range ids {
+		if _, ok := committed[id]; !ok {
+			committed[id] = false
+		}
+	}
+	for id, hasRecord := range committed {
+		members, err := p.access.Members(ctx, id)
+		if err != nil {
+			return accessSnapshot{}, err
+		}
+		roles, err := p.access.Roles(ctx, id)
+		if err != nil {
+			return accessSnapshot{}, err
+		}
+		partners, err := p.access.Partners(ctx, id)
+		if err != nil {
+			return accessSnapshot{}, err
+		}
+		snapshot.tuples["tenant:"+id] = tenantTuples(id, hasRecord, members, roles, partners, p.now())
+		snapshot.members[id] = make(map[string]bool, len(members))
+		for _, member := range members {
+			operator := member.GetOperator()
+			snapshot.members[id][authn.ComputePrincipalID(operator.GetIssuer(), operator.GetSubject())] = true
+		}
+		for _, role := range roles {
+			roleID := role.GetRef().GetRole().GetId()
+			snapshot.roles[roleID] = id
+			snapshot.tuples["role:"+roleID] = roleTuples(roleID, roles, members)
+		}
+	}
+	return snapshot, nil
+}
+
 // Reconcile performs a single reconciliation pass against the engine. It
 // continues independent repairs after an object or source fails and returns
 // the collected errors. The [Projector]'s Reconciled callback fires only when
@@ -118,6 +188,21 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 	if checkContext() {
 		return counts, errors.Join(reconcileErrs...)
 	}
+	var access accessSnapshot
+	accessComplete := p.access == nil
+	if p.access != nil {
+		access, err = p.snapshotAccess(ctx)
+		if err != nil {
+			if appendError(err) {
+				return counts, errors.Join(reconcileErrs...)
+			}
+		} else {
+			accessComplete = true
+		}
+	}
+	if checkContext() {
+		return counts, errors.Join(reconcileErrs...)
+	}
 
 	type sessionInfo struct {
 		tenantID string
@@ -138,7 +223,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			})
 		}
 		reqBy := rec.GetConfig().GetAuthorization().GetRequestedBy()
-		if reqBy != nil && reqBy.GetIssuer() != "" {
+		if reqBy != nil && reqBy.GetIssuer() != "" && (p.access == nil || access.members[tenantID][authn.ComputePrincipalID(reqBy.GetIssuer(), reqBy.GetSubject())]) {
 			principalID := authn.ComputePrincipalID(reqBy.GetIssuer(), reqBy.GetSubject())
 			tuples = append(tuples, authz.Tuple{
 				Object:   objectKey,
@@ -157,7 +242,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			return counts, errors.Join(reconcileErrs...)
 		}
 	}
-	sessionsComplete := sessionErr == nil
+	sessionsComplete := sessionErr == nil && accessComplete
 	if checkContext() {
 		return counts, errors.Join(reconcileErrs...)
 	}
@@ -213,8 +298,22 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			}
 		}
 	}
-	for sessionID, sInfo := range sessionSnapshot {
-		expectedPerObject["capture_session:"+sessionID] = sInfo.tuples
+	if accessComplete {
+		for sessionID, sInfo := range sessionSnapshot {
+			expectedPerObject["capture_session:"+sessionID] = sInfo.tuples
+		}
+	}
+	if p.access != nil && accessComplete {
+		for object, tuples := range access.tuples {
+			expectedPerObject[object] = tuples
+		}
+	}
+	if p.access != nil {
+		var platform []authz.Tuple
+		for _, id := range p.platformPrincipals {
+			platform = append(platform, authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:" + id})
+		}
+		expectedPerObject["platform:flowseer"] = platform
 	}
 
 	scannedOwned := make(map[string][]authz.Tuple)
@@ -223,7 +322,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		if !hasSep {
 			return nil
 		}
-		if isOwnedRelation(objType, t.Relation) {
+		if p.isOwnedRelation(objType, t.Relation) {
 			scannedOwned[t.Object] = append(scannedOwned[t.Object], t)
 		}
 		return nil
@@ -245,8 +344,11 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 		if !sameTuples(expTuples, scanTuples) {
 			objType, objID, _ := strings.Cut(objKey, ":")
 			var tenant string
-			if objType == "capture_session" {
+			switch objType {
+			case "capture_session":
 				tenant = sessionSnapshot[objID].tenantID
+			case "role":
+				tenant = access.roles[objID]
 			}
 			objectsToSync[objKey] = Object{Type: objType, ID: objID, Tenant: tenant}
 		}
@@ -274,11 +376,18 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			if !sessionsComplete {
 				continue
 			}
+		case "tenant", "role":
+			if !accessComplete {
+				continue
+			}
 		}
 		if !inSnapshot || !sameTuples(expTuples, scanTuples) {
 			var tenant string
-			if objType == "capture_session" {
+			switch objType {
+			case "capture_session":
 				tenant = sessionSnapshot[objID].tenantID
+			case "role":
+				tenant = access.roles[objID]
 			}
 			objectsToSync[objKey] = Object{Type: objType, ID: objID, Tenant: tenant}
 		}
@@ -308,6 +417,12 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 				counts.Devices++
 			case "capture_session":
 				counts.CaptureSessions++
+			case "tenant":
+				counts.Tenants++
+			case "role":
+				counts.Roles++
+			case "platform":
+				counts.Platforms++
 			}
 		}
 	}
