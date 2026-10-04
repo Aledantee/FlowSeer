@@ -697,22 +697,24 @@ The tagged run needs Docker and runs the package whole. The run in
 
 ## Review gaps
 
-- `src/services/device/internal/projector/reconcile.go:226`: replace the membership condition on the pass's requester tuple with `true`; fails: a session whose `tenant`, `edge`, and `requester` tuples are all stored keeps `requester` after a pass once the requester has no member record
-- `src/services/device/internal/projector/projector.go:436`: drop `&& name != "admin"`; fails: a stored `Partner` holding `ADMIN` yields no `tenant#admin@tenant:<provider>#active_admin`
-- `src/services/device/internal/projector/reconcile.go:38`: drop `relation == "partner"`, `relation == "platform"`, or `relation == "capturer"`; fails: a pass deletes a stored `tenant#partner`, `tenant#platform`, and `tenant#capturer` tuple no record explains
+- `src/services/device/internal/projector/reconcile.go:222`: replace the membership condition on the pass's requester tuple with `true`; fails: a session whose `tenant`, `edge`, and `requester` tuples are all stored keeps `requester` after a pass once the requester has no member record
+- `src/services/device/internal/projector/projector.go:460`: drop `&& name != "admin"`; fails: a stored `Partner` holding `ADMIN` yields no `tenant#admin@tenant:<provider>#active_admin`
+- `src/services/device/internal/projector/reconcile.go:34`: drop `"partner"`, `"platform"`, or `"capturer"` from the tenant row of `ownedRelations`; fails: a pass deletes a stored `tenant#partner`, `tenant#platform`, and `tenant#capturer` tuple that names a readable tenant and that no record explains
 - `src/services/device/internal/authz/openfga/checker.go:490`: `isValidObject` returns `len(s) <= maxObjectBytes && isValidUser(s)`; fails: `Check`, a contextual tuple, and `Write` with object `role:r1#assignee` make no engine call
 - `src/services/device/internal/authz/openfga/checker.go:508`: `strings.EqualFold(kind, "role")`; fails: user `Role:r1#assignee` is refused without a call
 - `spec/proto/flowseer/api/identity/v1/tenant_admin_service.proto:138`: delete every rule on `CreateRoleRequest.name` and `relations`, or the `page_size` bounds at `:258`, `:281`, `:304`; fails: a request with no name, a 129-character name, no relation, a repeated relation, an undefined relation, or `page_size` 501 is refused
 - `spec/proto/flowseer/model/identity/v1/access.proto:43`: drop `min_len` or `max_len` on `Role.name`, or on `FullPayloadGrant.reason` at `:69`; fails: an empty or 129-character name and an empty or 513-character reason are refused
 - `spec/proto/flowseer/store/device/v1/service_config.proto:189`: drop the item `min_len` or `max_len` on `PlatformAdmin.subjects`; fails: an empty subject and a 257-character subject are refused
-- `spec/proto/flowseer/event/operator/v1/operator_action_event.proto:103`: delete the `operator_action_partner.relations_exclude_admin` rule; fails: an `OperatorActionPartner` holding `ADMIN` is refused
-- `src/services/device/internal/accessstore/store.go:244`: `return ids, nil`; fails: `TenantIDs` names a tenant holding two records once
-- `src/services/device/internal/identityapi/admin.go:95`: set the description unconditionally, or the name at `tenant.go:49`; fails: `CreateRole` and `CreateTenant` without the optional field store a record that passes validation
+- `src/services/device/internal/accessstore/store.go:245`: `return ids, nil`; fails: `TenantIDs` names a tenant holding two records once
+- `src/services/device/internal/identityapi/admin.go:100`: set the description unconditionally, or the name at `tenant.go:49`; fails: `CreateRole` and `CreateTenant` without the optional field store a record that passes validation
 - `src/services/device/internal/identityapi/errors.go:62`: keep only `tenantstore.ErrCodeStore` in the switch; fails: `accessstore/conflict` and `tenantstore/conflict` answer retryable
 - `src/services/device/internal/connecterr/consistency_test.go:31`: map `tenant.ErrCodeNoTenant` to `CodeInvalidArgument` in `identityapi.ClientErrors`; fails: `TestNoCodeAnswersTwoDifferentThings` reads the identity table
 - `spec/proto/flowseer/store/device/v1/README.md:88`: "sixteen distinct subject values;"; fails: `docs/doc-style.md`, no semicolons in prose
-- `src/modules/edgebus/edgebus_test.go:1314`: "330 MiB is above the 320 MiB the sum was before the read stream"; fails: `docs/code-style.md`, a comment describes the code as it is
+- `src/modules/edgebus/edgebus_test.go:1315`: "330 MiB is above the 320 MiB the sum was before the read stream"; fails: `docs/code-style.md`, a comment describes the code as it is
 - `docs/architecture/2026-09-30-operator-authorization-direction.md:755`: cites `projector.go:90-132` for `Sync`; fails: those lines hold the `Projector` struct and `New`, and `Sync` is at `projector.go:147-198`
 - `docs/architecture/2026-09-30-operator-authorization-direction.md:642`: the record names no user shape the adapter accepts; fails: it states that the adapter accepts `type:id`, `role:<id>#assignee`, and `tenant:<id>#active_admin`, and answers false without a call for every other user
 - `deploy/lab/README.md:411`: step `9.` follows step `7.`; fails: the steps count 1 through 8
 - `docs/architecture/2026-09-30-operator-authorization-direction.md:528`: a call whose context has ended answers `ctx.Err()` bare "in two places"; fails: `identityapi/errors.go` (`connectErr`) and `accessstore/store.go` (`storeError`) answer it too, and the 2026-10-04 amendment says so
+- `src/services/device/internal/projector/projector.go:222`: drop `uuid.Validate(obj.ID) != nil` and keep the length check; fails: a stored `edge:<35 hex and dash characters>%#tenant` tuple is deleted by a pass that returns no error
+- `src/services/device/internal/projector/reconcile.go:31`: rename `"administer"` or `"operate"` in `ownedRelations`; fails: the test compares the table to a literal list of the 21 owned pairs
+- `src/services/device/internal/projector/projector.go:213`: `uuid.Validate(obj.Tenant)` in place of `tenant.Validate(obj.Tenant)`, or `tenant` folded into the UUID arm at `:221`; fails: an uppercase tenant id is deleted without error, and tuples on `tenant:default` and its sessions survive a pass
