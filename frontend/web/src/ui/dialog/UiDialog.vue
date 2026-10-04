@@ -20,6 +20,8 @@ export interface UiDialogProps {
   title?: string
   description?: string
   size?: 'sm' | 'md' | 'lg'
+  side?: 'right'
+  contentClass?: string
   fallbackTitle?: string
   fallbackDescription?: string
   closeLabel?: string
@@ -31,6 +33,8 @@ const props = withDefaults(defineProps<UiDialogProps>(), {
   title: undefined,
   description: undefined,
   size: 'md',
+  side: undefined,
+  contentClass: undefined,
   fallbackTitle: undefined,
   fallbackDescription: undefined,
   closeLabel: undefined,
@@ -53,8 +57,14 @@ const emit = defineEmits<{
 }>()
 
 const dialogVariants = tv({
-  base: 'bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
+  base: 'bg-popover text-foreground border border-border shadow-lg z-(--z-overlay) focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
   variants: {
+    side: {
+      center:
+        'rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 p-6 w-full',
+      right:
+        'fixed inset-y-0 right-0 h-full border-l border-y-0 border-r-0 rounded-none p-6 w-full overflow-y-auto',
+    },
     size: {
       sm: 'max-w-sm',
       md: 'max-w-lg',
@@ -62,6 +72,7 @@ const dialogVariants = tv({
     },
   },
   defaultVariants: {
+    side: 'center',
     size: 'md',
   },
 })
@@ -81,7 +92,10 @@ const dialogVariants = tv({
         class="bg-overlay fixed inset-0 z-(--z-overlay) backdrop-blur-xs data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out"
       />
       <DialogContent
-        :class="dialogVariants({ size })"
+        :class="[
+          dialogVariants({ side: side ?? 'center', size }),
+          contentClass,
+        ]"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <VisuallyHidden v-if="!title && !$slots.title" as-child>

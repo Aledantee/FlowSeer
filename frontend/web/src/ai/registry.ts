@@ -1,10 +1,14 @@
+import { validateAiResult } from './validate'
 import type {
   AiHandler,
   AiRequest,
-  AiRequestKind,
+  AiResult,
+  AiRun,
   AiTarget,
   AiTargetSegment,
+  AiTargetSnapshot,
   AiTargetView,
+  AiTurn,
 } from './types'
 
 // One registry per document. The directive writes into it as elements mount
@@ -40,8 +44,15 @@ export class AiStaleError extends Error {
 }
 
 export interface AiRequestOptions {
-  kind: AiRequestKind
+  action: string
   prompt?: string
+  history?: AiTurn[]
+  bound?: boolean
+}
+
+export interface FeedbackPayload {
+  requestId: string
+  rating: 'up' | 'down'
 }
 
 export interface AiRegistry {
@@ -55,7 +66,12 @@ export interface AiRegistry {
   selection(): AiTargetView | undefined
   onRequest(handler: AiHandler): () => void
   hasHandler(): boolean
-  request(target: AiTarget, options: AiRequestOptions): Promise<string>
+  request(
+    targets: AiTarget | AiTarget[] | AiTargetSnapshot | AiTargetSnapshot[],
+    options: AiRequestOptions,
+  ): AiRun
+  feedback(requestId: string, rating: 'up' | 'down'): void
+  onFeedback(listener: (payload: FeedbackPayload) => void): () => void
   subscribe(listener: () => void): () => void
   // Re-evaluate the highlighted target after the viewport changed.
   refresh(): void
@@ -97,10 +113,18 @@ function sameTarget(a: AiTarget, b: AiTarget): boolean {
   if (
     a.id !== b.id ||
     a.kind !== b.kind ||
+    a.view !== b.view ||
     a.label !== b.label ||
     a.segment !== b.segment
   )
     return false
+  if (
+    a.entity?.kind !== b.entity?.kind ||
+    a.entity?.id !== b.entity?.id ||
+    a.entity?.label !== b.entity?.label
+  ) {
+    return false
+  }
   const aKeys = Object.keys(a.context)
   const bKeys = Object.keys(b.context)
   return (
@@ -120,6 +144,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
   const byId = new Map<string, Registration>()
   const byElement = new Map<HTMLElement, string>()
   const listeners = new Set<() => void>()
+  const feedbackListeners = new Set<(payload: FeedbackPayload) => void>()
   let handler: AiHandler | undefined
   let highlighted: string | undefined
 
@@ -159,8 +184,10 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
       )
       return
     }
-    if (existing && sameTarget(existing.target, target)) {
+    if (existing && existing.element === element) {
+      const changed = !sameTarget(existing.target, target)
       existing.target = target
+      if (changed) notify()
       return
     }
     byId.set(target.id, { element, target })
@@ -234,35 +261,203 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     }
   }
 
-  function request(
-    target: AiTarget,
-    requestOptions: AiRequestOptions,
-  ): Promise<string> {
-    const registration = byId.get(target.id)
-    if (!registration || !isVisible(registration))
-      return Promise.reject(new AiStaleError())
-    if (!handler) return Promise.reject(new AiUnavailableError())
-    const snapshot: AiRequest = {
-      requestId: nextRequestId(target.id),
-      kind: requestOptions.kind,
-      targetId: registration.target.id,
-      label: registration.target.label,
-      context: { ...registration.target.context },
-      ...(requestOptions.prompt !== undefined
-        ? { prompt: requestOptions.prompt }
-        : {}),
+  function feedback(requestId: string, rating: 'up' | 'down') {
+    const payload: FeedbackPayload = { requestId, rating }
+    for (const listener of [...feedbackListeners]) {
+      listener(payload)
     }
-    const active = handler
-    return Promise.resolve(active(snapshot)).then((answer) => {
-      if (byId.get(target.id) !== registration || !isVisible(registration))
-        throw new AiStaleError()
-      return answer
-    })
+  }
+
+  function onFeedback(
+    listener: (payload: FeedbackPayload) => void,
+  ): () => void {
+    feedbackListeners.add(listener)
+    return () => {
+      feedbackListeners.delete(listener)
+    }
   }
 
   function subscribe(listener: () => void): () => void {
     listeners.add(listener)
     return () => listeners.delete(listener)
+  }
+
+  function request(
+    targets: AiTarget | AiTarget[] | AiTargetSnapshot | AiTargetSnapshot[],
+    requestOptions: AiRequestOptions,
+  ): AiRun {
+    const targetList = Array.isArray(targets) ? targets : [targets]
+    const isBound = requestOptions.bound ?? false
+    const boundElements: HTMLElement[] = []
+
+    if (isBound) {
+      for (const t of targetList) {
+        const reg = byId.get(t.id)
+        if (!reg || !isVisible(reg)) {
+          throw new AiStaleError()
+        }
+        boundElements.push(reg.element)
+      }
+    }
+
+    if (!handler) {
+      throw new AiUnavailableError()
+    }
+
+    const primaryId = targetList[0]?.id ?? 'request'
+    const requestId = nextRequestId(primaryId)
+    const activeHandler = handler
+
+    const targetSnapshots: AiTargetSnapshot[] = targetList.map((t) => ({
+      id: t.id,
+      kind: t.kind,
+      view: t.view ?? '',
+      label: t.label,
+      context: { ...t.context },
+      ...(t.entity ? { entity: { ...t.entity } } : {}),
+    }))
+
+    const frozenTargets = Object.freeze(
+      targetSnapshots.map((t) =>
+        Object.freeze({
+          ...t,
+          context: Object.freeze({ ...t.context }),
+          ...(t.entity ? { entity: Object.freeze({ ...t.entity }) } : {}),
+        }),
+      ),
+    )
+
+    const frozenRequest: Omit<AiRequest, 'signal'> = Object.freeze({
+      requestId,
+      action: requestOptions.action,
+      kind:
+        requestOptions.action === 'ask'
+          ? 'ask'
+          : requestOptions.action === 'summary'
+            ? 'summary'
+            : undefined,
+      targetId: targetSnapshots[0]?.id,
+      context: targetSnapshots[0]?.context,
+      targets: frozenTargets,
+      history: Object.freeze([...(requestOptions.history ?? [])]),
+      ...(requestOptions.prompt !== undefined
+        ? { prompt: requestOptions.prompt }
+        : {}),
+    }) as unknown as Omit<AiRequest, 'signal'>
+
+    const controller = new AbortController()
+    const fullRequest: AiRequest = {
+      ...frozenRequest,
+      signal: controller.signal,
+    }
+
+    const result = activeHandler(fullRequest)
+
+    function isStale(): boolean {
+      if (!isBound) return false
+      for (let i = 0; i < targetList.length; i++) {
+        const t = targetList[i]!
+        const boundEl = boundElements[i]!
+        const reg = byId.get(t.id)
+        if (!reg || reg.element !== boundEl || !isVisible(reg)) {
+          return true
+        }
+      }
+      return false
+    }
+
+    async function* generateSnapshots(): AsyncGenerator<AiResult> {
+      if (isStale()) {
+        throw new AiStaleError()
+      }
+
+      let rejectStale: ((err: AiStaleError) => void) | undefined
+      const stalePromise = new Promise<never>((_, reject) => {
+        rejectStale = reject
+      })
+      const unsubscribeStale = isBound
+        ? subscribe(() => {
+            if (isStale()) {
+              rejectStale?.(new AiStaleError())
+            }
+          })
+        : undefined
+
+      try {
+        if (result != null && Symbol.asyncIterator in (result as object)) {
+          const iterator = (result as AsyncIterable<AiResult>)[
+            Symbol.asyncIterator
+          ]()
+          try {
+            while (true) {
+              if (controller.signal.aborted) {
+                return
+              }
+              if (isStale()) {
+                throw new AiStaleError()
+              }
+              const nextPromise = iterator.next()
+              const { value, done } = await (isBound
+                ? Promise.race([nextPromise, stalePromise])
+                : nextPromise)
+              if (done) {
+                return
+              }
+              if (isStale()) {
+                throw new AiStaleError()
+              }
+              if (controller.signal.aborted) {
+                return
+              }
+              let snapshot: unknown = value
+              if (typeof snapshot === 'string') {
+                snapshot = { type: 'answer', text: snapshot, refs: [] }
+              }
+              validateAiResult(snapshot)
+              yield snapshot as AiResult
+            }
+          } finally {
+            if (typeof iterator.return === 'function') {
+              try {
+                await iterator.return()
+              } catch {
+                // Ignore return error
+              }
+            }
+          }
+        } else {
+          const valuePromise = Promise.resolve(
+            result as Promise<AiResult | string>,
+          )
+          const value = await (isBound
+            ? Promise.race([valuePromise, stalePromise])
+            : valuePromise)
+          if (isStale()) {
+            throw new AiStaleError()
+          }
+          if (controller.signal.aborted) {
+            return
+          }
+          let snapshot: unknown = value
+          if (typeof snapshot === 'string') {
+            snapshot = { type: 'answer', text: snapshot, refs: [] }
+          }
+          validateAiResult(snapshot)
+          yield snapshot as AiResult
+        }
+      } finally {
+        unsubscribeStale?.()
+      }
+    }
+
+    return {
+      requestId,
+      request: frozenRequest,
+      snapshots: generateSnapshots(),
+      stop: () => {
+        controller.abort()
+      },
+    }
   }
 
   return {
@@ -277,6 +472,8 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     onRequest,
     hasHandler: () => handler !== undefined,
     request,
+    feedback,
+    onFeedback,
     subscribe,
     refresh() {
       if (highlighted !== undefined) selection()

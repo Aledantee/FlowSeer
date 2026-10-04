@@ -1,6 +1,6 @@
 import { inject } from 'vue'
 import type { InjectionKey } from 'vue'
-import type { AiTarget, AiTargetSegment } from './types'
+import type { AiEntityRef, AiTarget, AiTargetSegment } from './types'
 
 // Every page mounts in a physical pane slot (`a` or `b`). The slot, not the
 // pane's main/side role, is what stays stable across a swap, so it qualifies
@@ -37,13 +37,44 @@ export function aiTargetId(input: {
   return parts.join(':')
 }
 
+export function resolveTargetEntity(
+  kind: string,
+  entityId: string,
+  label: string,
+): AiEntityRef | undefined {
+  if (
+    kind === 'device' ||
+    kind === 'attention-device' ||
+    kind === 'role-device' ||
+    kind === 'downlink'
+  ) {
+    return { kind: 'device', id: entityId, label }
+  }
+  if (kind === 'client') {
+    return { kind: 'client', id: entityId, label }
+  }
+  if (kind === 'site') {
+    return { kind: 'site', id: entityId, label }
+  }
+  if (kind === 'link') {
+    return { kind: 'link', id: entityId, label }
+  }
+  if (kind === 'chart') {
+    return { kind: 'chart', id: entityId, label }
+  }
+  return undefined
+}
+
 export function aiTarget(input: AiTargetInput): AiTarget {
   const { slot, view, kind, entityId, label, context, segment } = input
+  const entity = resolveTargetEntity(kind, entityId, label)
   return {
     id: aiTargetId({ slot, view, kind, entityId, segment }),
     kind,
+    view,
     label,
     context,
+    ...(entity ? { entity } : {}),
     ...(segment ? { segment } : {}),
   }
 }

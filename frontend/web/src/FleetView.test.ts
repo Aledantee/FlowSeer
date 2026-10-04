@@ -723,4 +723,101 @@ describe('AI target coverage', () => {
     expect(listIds()).toContain('a:sites:view:sites')
     expect(listIds()).toContain('b:sites:view:sites')
   })
+
+  describe('assistant panel', () => {
+    it('starts closed', async () => {
+      const { host } = await mountAt('/devices')
+      expect(host.querySelector('[data-ai-assistant]')).toBeNull()
+    })
+
+    it('opens and closes via top-bar button and shortcut', async () => {
+      const { host } = await mountAt('/devices')
+      expect(host.querySelector('[data-ai-assistant]')).toBeNull()
+
+      const toggleBtn = host.querySelector(
+        '[data-ai-assistant-toggle]',
+      ) as HTMLButtonElement
+      expect(toggleBtn).toBeTruthy()
+      toggleBtn.click()
+      await settle()
+
+      expect(host.querySelector('[data-ai-assistant]')).not.toBeNull()
+
+      // Shortcut toggles it closed
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'i',
+          code: 'KeyI',
+          bubbles: true,
+          cancelable: true,
+          ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
+        }),
+      )
+      await settle()
+      expect(host.querySelector('[data-ai-assistant]')).toBeNull()
+
+      // Shortcut toggles it open
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'i',
+          code: 'KeyI',
+          bubbles: true,
+          cancelable: true,
+          ...(isMac() ? { metaKey: true } : { ctrlKey: true }),
+        }),
+      )
+      await settle()
+      expect(host.querySelector('[data-ai-assistant]')).not.toBeNull()
+    })
+
+    it('opens seeded when continue event is emitted', async () => {
+      const { host } = await mountAt('/devices')
+      expect(host.querySelector('[data-ai-assistant]')).toBeNull()
+
+      const targetView = registry.view('a:devices:device:desktop:dev-16')
+      expect(targetView).toBeDefined()
+      const row = targetView!.element
+
+      row.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 100,
+          clientY: 100,
+        }),
+      )
+      await settle()
+
+      const menuItems = [
+        ...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+      ]
+      const askItem = menuItems.find((el) =>
+        el.textContent?.includes('Ask about this…'),
+      )
+      expect(askItem).toBeDefined()
+      askItem?.click()
+      await settle()
+
+      const assistant = host.querySelector('[data-ai-assistant]')
+      expect(assistant).not.toBeNull()
+      expect(assistant?.textContent).toContain('cologne-ap-02')
+    })
+
+    it('persists the pane split classes while open', async () => {
+      const { host } = await mountAt('/devices')
+      window.dispatchEvent(workspaceShortcut())
+      await settle()
+
+      expect(host.querySelector('.panes.split')).not.toBeNull()
+
+      const toggleBtn = host.querySelector(
+        '[data-ai-assistant-toggle]',
+      ) as HTMLButtonElement
+      toggleBtn.click()
+      await settle()
+
+      expect(host.querySelector('.panes.split')).not.toBeNull()
+      expect(host.querySelector('[data-ai-assistant]')).not.toBeNull()
+    })
+  })
 })
