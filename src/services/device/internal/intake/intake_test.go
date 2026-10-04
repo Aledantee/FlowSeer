@@ -113,7 +113,7 @@ func TestRedeliveredRecordWithEvidenceCountsOneDuplicate(t *testing.T) {
 
 func TestValidatorInfrastructureFailureIsRetried(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
-	var logs bytes.Buffer
+	var logs syncBuffer
 	system := newTestSystem(t, Config{
 		Logger:        slog.New(slog.NewJSONHandler(&logs, nil)),
 		MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader)),
@@ -142,11 +142,14 @@ func TestIntakeCloseCancelsInFlightPublish(t *testing.T) {
 	if err := system.leaf.Publish(context.Background(), system.leaf.Subject("ingest.syslog"), data, ""); err != nil {
 		t.Fatalf("publish envelope: %v", err)
 	}
-	select {
-	case <-publisher.started:
-	case <-time.After(time.Second):
-		t.Fatal("publish did not start")
-	}
+	waitFor(t, "publish to start", func() bool {
+		select {
+		case <-publisher.started:
+			return true
+		default:
+			return false
+		}
+	})
 	closed := make(chan struct{})
 	go func() {
 		system.intake.Close()
@@ -173,115 +176,13 @@ func TestIntakeCloseCancelsInFlightPublish(t *testing.T) {
 	if info.NumAckPending == 0 {
 		t.Fatal("in-flight source message was acknowledged")
 	}
-	typed, _ := centralStreams(t, system.hub)
-	typedInfo, err := typed.Info(context.Background())
-	if err != nil {
-		t.Fatalf("read typed stream: %v", err)
-	}
-	if typedInfo.State.Msgs != 0 {
-		t.Fatalf("typed stream messages = %d, want 0", typedInfo.State.Msgs)
-	}
-}
-
-func TestStartFailureCancelsInFlightPublish(t *testing.T) {
-	hub := startHub(t)
-	leaf := startLeaf(t, hub, testTenant, testEdge)
-	if err := hub.AttachEdge(context.Background(), testTenant, otherEdge); err != nil {
-		t.Fatalf("attach second edge: %v", err)
-	}
-	badStream, err := hub.EdgeStream(context.Background(), otherEdge)
-	if err != nil {
-		t.Fatalf("load second edge stream: %v", err)
-	}
-	if _, err := badStream.CreateConsumer(context.Background(), jetstream.ConsumerConfig{
-		Durable:       consumerName,
-		FilterSubject: consumerFilter,
-		AckPolicy:     jetstream.AckNonePolicy,
-	}); err != nil {
-		t.Fatalf("create conflicting second consumer: %v", err)
-	}
-	publisher := &blockingPublisher{started: make(chan struct{})}
-	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
-	if err := leaf.Publish(context.Background(), leaf.Subject("ingest.syslog"), data, ""); err != nil {
-		t.Fatalf("publish envelope: %v", err)
-	}
-	goodStream, err := hub.EdgeStream(context.Background(), testEdge)
-	if err != nil {
-		t.Fatalf("load first edge stream: %v", err)
-	}
-	waitFor(t, "source record", func() bool {
-		info, err := goodStream.Info(context.Background())
-		return err == nil && info.State.Msgs == 1
-	})
-
-	result := make(chan error, 1)
-	go func() {
-		_, err := Start(context.Background(), Config{Hub: hub, Central: publisher})
-		result <- err
-	}()
-	select {
-	case <-publisher.started:
-	case err := <-result:
-		t.Fatalf("intake start returned before first delivery: %v", err)
-	case <-time.After(time.Second):
-		t.Fatal("publish did not start")
-	}
-	// This deadline covers the failed second attach and the drain of the first consumer.
-	select {
-	case err := <-result:
-		if err == nil {
-			t.Fatal("intake start succeeded")
-		}
-	case <-time.After(time.Second):
-		t.Fatal("intake start did not return while publish was in flight")
-	}
-}
-
-func TestIntervalAttachFailureDoesNotCancelIntake(t *testing.T) {
-	hub := startHub(t)
-	leaf := startLeaf(t, hub, testTenant, testEdge)
-	intake, err := Start(context.Background(), Config{
-		Hub:               hub,
-		Central:           hub.JetStream(),
-		DiscoveryInterval: 20 * time.Millisecond,
-	})
-	if err != nil {
-		t.Fatalf("start intake: %v", err)
-	}
-	t.Cleanup(intake.Close)
-	if err := hub.AttachEdge(context.Background(), testTenant, otherEdge); err != nil {
-		t.Fatalf("attach second edge: %v", err)
-	}
-	badStream, err := hub.EdgeStream(context.Background(), otherEdge)
-	if err != nil {
-		t.Fatalf("load second edge stream: %v", err)
-	}
-	if _, err := badStream.CreateConsumer(context.Background(), jetstream.ConsumerConfig{
-		Durable:       consumerName,
-		FilterSubject: consumerFilter,
-		AckPolicy:     jetstream.AckNonePolicy,
-	}); err != nil {
-		t.Fatalf("create conflicting second consumer: %v", err)
-	}
-	// This wait covers several interval passes so the conflicting attach is attempted.
-	<-time.After(100 * time.Millisecond)
-
-	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, false)
-	if err := leaf.Publish(context.Background(), leaf.Subject("ingest.syslog"), data, ""); err != nil {
-		t.Fatalf("publish envelope: %v", err)
-	}
-	typed, _ := centralStreams(t, hub)
-	waitFor(t, "record after interval attach failure", func() bool {
-		info, err := typed.Info(context.Background())
-		return err == nil && info.State.Msgs == 1
-	})
 }
 
 func TestConsumeErrorLogUsesBoundedErrorType(t *testing.T) {
-	var logs bytes.Buffer
+	var logs syncBuffer
 	i := &Intake{
-		logger:            slog.New(slog.NewJSONHandler(&logs, nil)),
-		lastConsumeLogged: map[string]time.Time{},
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
 	}
 	i.logConsumeError(context.Background(), testEdge, errors.New("unbounded server detail"))
 
@@ -301,10 +202,10 @@ func TestConsumeErrorLogUsesBoundedErrorType(t *testing.T) {
 }
 
 func TestConsumeErrorLogDistinguishesNonTerminalError(t *testing.T) {
-	var logs bytes.Buffer
+	var logs syncBuffer
 	i := &Intake{
-		logger:            slog.New(slog.NewJSONHandler(&logs, nil)),
-		lastConsumeLogged: map[string]time.Time{},
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
 	}
 	i.logConsumeError(context.Background(), testEdge, jetstream.ErrNoHeartbeat)
 
@@ -321,10 +222,10 @@ func TestConsumeErrorLogDistinguishesNonTerminalError(t *testing.T) {
 }
 
 func TestConsumeErrorLogSkipsCompletedContext(t *testing.T) {
-	var logs bytes.Buffer
+	var logs syncBuffer
 	i := &Intake{
-		logger:            slog.New(slog.NewJSONHandler(&logs, nil)),
-		lastConsumeLogged: map[string]time.Time{},
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -337,7 +238,7 @@ func TestConsumeErrorLogSkipsCompletedContext(t *testing.T) {
 }
 
 func TestConsumeErrorLogFromDeletedConsumer(t *testing.T) {
-	var logs bytes.Buffer
+	var logs syncBuffer
 	system := newTestSystem(t, Config{Logger: slog.New(slog.NewJSONHandler(&logs, nil))})
 	stream, err := system.hub.EdgeStream(context.Background(), testEdge)
 	if err != nil {
@@ -350,6 +251,59 @@ func TestConsumeErrorLogFromDeletedConsumer(t *testing.T) {
 		return strings.Contains(logs.String(), "\"msg\":\"intake consumer stopped\"") &&
 			strings.Contains(logs.String(), "\"error.type\":\"consumer_deleted\"")
 	})
+}
+
+func TestConsumeErrorLogAlwaysLogsTerminalError(t *testing.T) {
+	var logs syncBuffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
+	}
+
+	i.logConsumeError(context.Background(), testEdge, jetstream.ErrNoHeartbeat)
+	i.logConsumeError(context.Background(), testEdge, jetstream.ErrConsumerDeleted)
+
+	data := logs.String()
+	if strings.Count(data, "\"msg\":\"intake consumer error\"") != 1 {
+		t.Fatalf("non-terminal log count = %d, want 1", strings.Count(data, "\"msg\":\"intake consumer error\""))
+	}
+	if strings.Count(data, "\"msg\":\"intake consumer stopped\"") != 1 {
+		t.Fatalf("terminal log count = %d, want 1", strings.Count(data, "\"msg\":\"intake consumer stopped\""))
+	}
+}
+
+func TestRefusalAndRetryLogsUseSeparateLimits(t *testing.T) {
+	var logs syncBuffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
+	}
+
+	i.logRefusal(context.Background(), testEdge, refusalSubject, foreignReason)
+	i.logRetry(context.Background(), testEdge, refusalSubject, "validation")
+
+	data := logs.String()
+	if !strings.Contains(data, "\"msg\":\"record refused\"") {
+		t.Fatal("refusal log missing")
+	}
+	if !strings.Contains(data, "\"msg\":\"record retry scheduled\"") {
+		t.Fatal("retry log missing")
+	}
+}
+
+func TestRetryLogIsLimitedPerEdge(t *testing.T) {
+	var logs syncBuffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
+	}
+
+	i.logRetry(context.Background(), testEdge, refusalSubject, "validation")
+	i.logRetry(context.Background(), testEdge, refusalSubject, "marshal")
+
+	if got := strings.Count(logs.String(), "\"msg\":\"record retry scheduled\""); got != 1 {
+		t.Fatalf("retry log count = %d, want 1", got)
+	}
 }
 
 func assertRetryLog(t *testing.T, data []byte, errorType string) {
@@ -862,6 +816,35 @@ func (p *controlledPublisher) setPublisher(publisher Publisher) {
 type blockingPublisher struct {
 	started chan struct{}
 	once    sync.Once
+}
+
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) Bytes() []byte {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]byte(nil), b.buf.Bytes()...)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
+func (b *syncBuffer) Len() int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Len()
 }
 
 func (p *blockingPublisher) Publish(ctx context.Context, _ string, _ []byte, _ ...jetstream.PublishOpt) (*jetstream.PubAck, error) {

@@ -85,10 +85,10 @@ type Forwarder struct {
 	lastLogged map[string]time.Time
 }
 
-// StartForwarder uses the caller's ctx to bound discovery attach calls. The
-// follower lifetime ends when ctx ends, Close is called, or the first
-// discovery pass fails. Attached consumers forward until [Forwarder.Close]
-// is called. The returned forwarder must be closed.
+// StartForwarder starts discovery and forwards each attached edge's OTLP
+// records to the configured collector. Discovery ends when ctx ends or
+// [Forwarder.Close] is called. Delivery ends when [Forwarder.Close] is called.
+// The returned forwarder must be closed.
 func StartForwarder(ctx context.Context, hub *Hub, cfg ForwarderConfig) (*Forwarder, error) {
 	if cfg.Endpoint == "" {
 		return nil, errs.New().Code(ErrCodeConfig).Msg("forwarder needs the collector endpoint")

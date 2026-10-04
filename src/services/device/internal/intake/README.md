@@ -64,9 +64,16 @@ Intake publishes these instruments in the scope
   delivery
 
 Refusals emit the named event `flowseer.intake.record.refused` at WARN level.
-The event carries the stream edge, refusal reason, and subject and is limited
-to one event per edge every ten seconds. The full refusal count remains in the
-counter. Intake logs terminal consumer errors as `intake consumer stopped` and
-non-terminal consumer errors as `intake consumer error`. Both messages carry
-the edge and a bounded `error.type`, and neither is logged after the handler
-context ends.
+The event carries the stream edge, refusal reason, and subject. It is limited to
+one event per edge every ten seconds, and remains owed after the delivery
+lifetime ends. Retry warnings carry `error.type` `validation` or `marshal` and
+are limited separately to one warning per edge every ten seconds. The refusal
+event and retry warning therefore do not hide each other. The full refusal
+count remains in the counter.
+
+Intake logs terminal consumer errors as `intake consumer stopped` with
+`error.type` `consumer_deleted`, `bad_request`, or `connection_closed`.
+Terminal messages are not limited. Non-terminal errors use
+`intake consumer error` with `error.type` `no_heartbeat` or `consume_error` and
+are limited to one message per edge every ten seconds. Consumer messages are
+skipped after the delivery lifetime ends.
