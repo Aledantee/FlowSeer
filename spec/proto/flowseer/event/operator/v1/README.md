@@ -23,8 +23,9 @@ identifier joining attempt and completion, when it occurred, the operator, the
 action enum, and an optional object. Objects name an edge, capture session,
 tenant, member, role, role assignment, partner, or full-payload grant. Role,
 partner, and full-payload objects carry the relations or expiry that would be
-lost when the record changes. A deletion record names the role alone because
-the delete request has no relations. The event also carries exactly one detail:
+lost when the record changes. A role object carries one to four relations for
+every action except `ROLE_DELETE`, which names the role alone. The event also
+carries exactly one detail:
 `OperatorActionAttempted` or `OperatorActionCompleted`.
 
 `OperatorActionAttempted` carries no fields of its own.
