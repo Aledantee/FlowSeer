@@ -124,11 +124,52 @@ central detecting itself.
 
 ## Deployment
 
-The operator surface (`DeviceService`, `EdgeAdminService`, and `CaptureService`)
+The operator surface (`DeviceService`, `EdgeAdminService`, `CaptureService`,
+`TenantService`, and `TenantAdminService`)
 enforces authentication and authorization on every call. Each request carries a
 bearer token verified against configured OIDC issuers (`internal/authn`) and a
 tenant identifier in the `X-FlowSeer-Tenant` header. Calls are checked against
 OpenFGA (`internal/authz`, `internal/authz/openfga`) per the service options.
+`TenantService` uses the platform rule and needs no tenant header. Both identity
+services use the operator interceptor chain (`internal/host/serve.go`).
+
+Bootstrap starts with configured platform subjects. For an issuer `I` and
+subject `P`, configure `platform_admin.subjects: "P"` and the platform
+organization claim. P's token must carry that claim. The projector enrolls
+`user:<ComputePrincipalID(I, P)>` on `platform:flowseer`.
+
+```mermaid
+flowchart LR
+    C[Configure platform subjects] --> T[CreateTenant]
+    T --> R[CreateRole with ADMIN]
+    R --> E[EnrollMember]
+    E --> A[AssignRole]
+```
+
+`CreateTenant` binds the issuer and organization to a new tenant UUID. For
+example, `{issuer: I, organization_claim_name: "groups",
+organization_claim_value: "acme", name: "Acme"}` creates the tenant once.
+An equal retry returns its id. Admin role assignments grant tenant access to
+enrolled members whose token claims that organization. Access records live in
+the `access` bucket (`internal/accessstore`), and the projector derives tenant,
+role, and platform relationships from records and configuration. A direct
+OpenFGA grant on a tenant, edge, or device is removed on the next pass.
+
+`RemoveMember` deletes the member and its grants, then projects the tenant,
+roles, and requested sessions before answering success. Projection failure is
+retryable `Unavailable`. Retrying an absent member projects again.
+Full-payload creation requires both `tenant#full_payload` and an active member
+grant. `GrantFullPayload` takes a reason and a lifetime greater than zero and
+at most 24 hours. The handler refuses at `expires_at` exactly, even while the
+tuple remains stored, with `PermissionDenied` and
+`captureapi/full-payload-expired`. An unreadable or unset grant resolver yields
+`Unavailable` (`internal/captureapi/operator_service.go`). Running captures keep
+their budget when a grant expires.
+
+An unknown device and a device of another tenant both answer `PermissionDenied`
+with `authz/denied`. Authorization checks precede the handler, so the answer
+reveals no record existence (`TestTheServiceStartsFromAFileAndAnswers` in
+`internal/host/host_test.go`).
 
 The operator request body is unbounded: Connect decodes it before any
 interceptor runs, so an unauthenticated caller can send a large body.
@@ -157,11 +198,11 @@ and `TenantAdminService`: `CreateTenant`, `EnrollMember`, `RemoveMember`,
 `DisconnectPartner`, `GrantFullPayload`, and `RevokeFullPayload`. A call admitted
 to no tenant, which only `CreateTenant` is, publishes on
 `flowseer.platform.operator.action.tenant_create`. Any other recorded call
-without a tenant answers `actiontrail/unprepared`. The host does not serve
-either service, so no call reaches those entries.
+without a tenant answers `actiontrail/unprepared`.
 
 An unauthenticated or unauthorized call leaves no action trail entry, avoiding
-trail pollution by unverified callers.
+trail pollution by unverified callers. A full-payload expiry refusal after
+admission records a denied completion.
 
 The edge-facing services (`EdgeService`, `DispatchService`, `AuditService`,
 `CaptureEdgeService`) are verified: every call carries a fresh assertion signed

@@ -286,15 +286,18 @@ An edge's tenant has one authority, its `edge_<edge_id>` index in `edges`
 (`src/services/device/internal/edgestore/store.go:180`).
 A device lane is keyed by its hosting edge's tenant
 (`src/services/device/internal/journal/journal.go:100`,
-`src/services/device/internal/host/serve.go:349-364`), and a
-caller of another tenant gets `NotFound`
-(`src/services/device/internal/deviceapi/service.go:159-162`,
-`src/services/device/internal/deviceapi/errors.go:28`).
+`edgeLaneRecords.Record` in `src/services/device/internal/host/serve.go`), and a
+caller naming an unknown device or a device of another tenant gets
+`PermissionDenied` with `authz/denied` before the handler. The same refusal
+reveals no record existence (`TestTheServiceStartsFromAFileAndAnswers` in
+`src/services/device/internal/host/host_test.go`). A caller that reaches
+the handler can receive `NotFound`
+(`src/services/device/internal/deviceapi/errors.go:28`).
 Nothing substitutes a default tenant for one it could not resolve
-(`src/services/device/internal/host/host.go:334-343`).
+(`edgeTenant` in `src/services/device/internal/host/host.go`).
 
 The platform admin configuration names its issuer, organization claim name and
-value, and subject. The host validates those fields before it serves the
+value, and subjects. The host validates those fields before it serves the
 operator APIs
 (`parseConfig`, `protovalidate.Validate`, in
 `src/services/device/internal/host/config.go`, and `PlatformAdmin` in
@@ -302,8 +305,8 @@ operator APIs
 entity replaces the unused keyless inventory tenant shape, so
 the tenant store is the source of existence and organization ownership.
 
-`TenantService` is defined but not served until callers are authenticated.
-Tests and development create tenants through the tenant store, so an
+`TenantService` is served behind operator authentication and platform
+authorization (`src/services/device/internal/host/serve.go`), so an
 unauthenticated caller cannot create a tenant or claim an organization. State
 written before the tenant change is not read: unprefixed keys, capture files
 directly under `<StateDir>/captures/`, and edge accounts without a persisted
@@ -698,12 +701,12 @@ source, and rechecking would change the stream's established behavior
 
 Operator handlers run behind telemetry, panic recovery, authentication,
 validation, authorization, and action trail interceptors in that order
-(`operatorInterceptors` in `src/services/device/internal/host/serve.go:161-168`).
+(`operatorInterceptors` in `src/services/device/internal/host/serve.go`).
 Running validation before authorization guarantees that object identifiers passed
 to authorization rules conform to schema constraints. Placing the action trail
 innermost ensures that it records only calls admitted by authorization. Edge
 handlers mount telemetry, panic recovery, and validation only
-(`edgeInterceptors` in `src/services/device/internal/host/serve.go:125-129`),
+(`edgeInterceptors` in `src/services/device/internal/host/serve.go`),
 because edges authenticate through signed edge assertions
 (`src/services/device/README.md`) rather than operator tokens.
 
@@ -769,7 +772,7 @@ A failed pass is retried after 5 s, doubling on consecutive failures up to the
 configured interval. The projector module is declared last in supervision so its
 restart restarts nothing else. A device listed in the registry is authorized
 once the first pass after start has run, because the registry is read once at
-start (`src/services/device/internal/host/host.go:102`). `host.Options.Reconciled`
+start (`Run` in `src/services/device/internal/host/host.go`). `host.Options.Reconciled`
 fires after each completed pass with no error, allowing tests and supervisory
 callers to wait on initial projection completion just as `Bound` signals
 listener availability.
@@ -910,3 +913,94 @@ grant. A removed record is deleted, so the trail is the only history of what a
 role, a link, or a grant held. The get and list procedures of both services are
 not recorded, since a list of members discloses nothing a setup key or a
 payload does.
+
+### 2026-10-04: tenant administration, access records, and full-payload expiry
+
+The host serves `TenantService` and `TenantAdminService` on the operator
+interceptor chain (`src/services/device/internal/host/serve.go`). An
+unauthenticated `CreateTenant` answers `Unauthenticated`
+(`TestTenantServiceIsMountedAndRequiresAuthentication` in
+`src/services/device/internal/host/host_test.go`). Configuration names one to
+16 distinct `platform_admin.subjects`. Each subject's issuer-derived principal
+is enrolled on `platform:flowseer`, and its token must carry the configured
+platform organization claim. No RPC adds a platform admin.
+
+The host opens the `access` bucket and supplies the tenant store, access store,
+configured platform principal ids, and `time.Now` to the projector
+(`src/services/device/internal/host/host.go`). Three record kinds hold tenant
+access intent (`spec/proto/flowseer/model/identity/v1/access.proto`):
+
+| Record | Key in `access` | Holds |
+| --- | --- | --- |
+| Member | `<tenant>.member.<principal id>` | enrollment, role refs, full-payload grant |
+| Role | `<tenant>.role.<role id>` | name, description, tenant-wide relations |
+| Partner | `<tenant>.partner.<provider tenant id>` | provider ref, relations, connection provenance |
+
+Role names may repeat because the UUID is the identity. Role assignments and
+full-payload grants require a member record. A customer's partner link needs
+no provider consent, admits only `operator`, `capturer`, and `viewer`, and
+never administers customer membership. A missing role grants nothing even if
+a member still names it.
+
+With the access source configured, the projector owns each relation below
+whole, whatever user a stored tuple names
+(`src/services/device/internal/projector/projector.go`,
+`src/services/device/internal/projector/reconcile.go`):
+
+| Object | Relation | User derived from records |
+| --- | --- | --- |
+| `platform:flowseer` | `enrolled` | configured `user:<principal id>` |
+| `tenant:<id>` | `platform` | `platform:flowseer` for a committed tenant |
+| `tenant:<id>` | `enrolled` | each member's user |
+| `tenant:<id>` | `partner` | each linked provider tenant |
+| `tenant:<id>` | `admin`, `operator`, `capturer`, `viewer` | `role:<id>#assignee` for each role relation |
+| `tenant:<id>` | `operator`, `capturer`, `viewer` | `tenant:<provider>#active_admin` for each partner relation |
+| `tenant:<id>` | `full_payload` | each member with a grant expiring after now |
+| `role:<id>` | `assignee` | each member naming an existing role |
+| `capture_session:<id>` | `requester` | requester while its member record exists in that tenant |
+| `edge:<id>` | `administer`, `operate`, `capture`, `view` | none, no record grants on a single edge |
+| `device:<id>` | `operate`, `view` | none, no record grants on a single device |
+
+The projector retains its object-parent relations. A tuple no record explains
+would grant access no list shows, so the next pass deletes it. Deployments
+that wrote tenant or resource grants directly into OpenFGA must enroll members
+and assign roles through `TenantAdminService`.
+
+Removal commits the member delete before projection because projecting first
+would recreate the deleted user's grants
+(`src/services/device/internal/identityapi/admin.go`):
+
+```mermaid
+flowchart LR
+    D[Delete member and grants] --> T[SyncTenant and roles]
+    T --> S[SyncRequester sessions]
+    S --> A[Answer success]
+    T -->|failure| U[Unavailable, retryable]
+    S -->|failure| U
+    U -->|retry, record already absent| T
+```
+
+Between the delete and projection, access can persist for one engine round
+trip. A retry projects even when the member is absent, and a pass repairs a
+call that nobody retries. Every change projects before answering, including
+its idempotent path. `CreateRole` alone logs projection failure and returns
+the minted role because retrying would create a second role.
+
+Full-payload grants expire by their member record. `GrantFullPayload` requires
+a reason and a lifetime greater than zero and at most 24 hours. Central stamps
+`expires_at` from its own clock, and another grant replaces it. A platform or
+partner admin enrolls before receiving a grant. Full-payload capture creation
+first checks `tenant#full_payload`, then reads `FullPayloadActive`. At
+`expires_at` exactly it answers `PermissionDenied` with
+`captureapi/full-payload-expired`, even while the tuple remains stored. An
+unset or failing resolver answers `Unavailable`
+(`src/services/device/internal/captureapi/operator_service.go`,
+`src/services/device/internal/accessstore/store.go`). The trail records the
+expiry refusal as `OPERATOR_ACTION_OUTCOME_DENIED`. The next pass deletes the
+expired tuple. No OpenFGA condition carries expiry, and an already running
+capture continues within its budget.
+
+The default running-service tests prove record projection and trail contents
+with a fake engine that evaluates no model
+(`src/services/device/test/integration/e2e_test.go`). Role and partner access
+through the authorization model require the tagged OpenFGA tier.

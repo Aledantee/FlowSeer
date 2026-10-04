@@ -68,19 +68,21 @@ Read the claims the device service will see. The `sub` of the admin token is one
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
 ```
 
-5. Provision the tenant record before writing authorization tuples. The device
-service does not mount `TenantService` (`TestTenantServiceIsNotMounted` in
-`src/services/device/internal/host/host_test.go`),
-and no file under `deploy/lab` can create the record held by
+5. Provision the tenant record through `TenantService.CreateTenant` after central
+starts with the platform admin subjects configured. The host serves both
+identity services on the operator interceptor chain
+(`TestHostMountsServicesOnTheCorrectInterceptorChains` in
+`src/services/device/internal/host/host_test.go`). Use `ADMIN_TOKEN` to create
+the tenant with the Dex issuer, organization claim name `groups`, and claim
+value `acme`. `CreateTenant` returns its UUID and writes the record through
 `tenantstore.Store.Create` (`src/services/device/internal/tenantstore/store.go:113-126`).
-Create a tenant record out of band with the Dex issuer, organization claim name
-`groups`, and claim value `acme`. Use a canonical UUID for its tenant id. This
-is a deployment blocker today. Do not treat the OpenFGA write below as tenant
-creation. The verifier supplies `claimed` from that tenant record at request
+Use `TenantAdminService.CreateRole`, `EnrollMember`, and `AssignRole` to give
+alice an admin role. The verifier supplies `claimed` from the tenant record at request
 time (`src/services/device/internal/authn/verifier.go:452-476`).
 
-After the tenant record exists, write the lab user's enrollment and role tuples
-in OpenFGA. Compute the principal identifier from the token issuer and subject:
+The direct OpenFGA write below cannot bootstrap durable access. The projector
+removes these tuples on its next pass because no access record explains them.
+Enrollment and role assignments must use `TenantAdminService`.
 
 ```bash
 TENANT_ID=0192e6a0-0000-7000-8000-0000000000ac

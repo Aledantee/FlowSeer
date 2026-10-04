@@ -577,8 +577,8 @@ func TestTheLabReadmeStartCommandAndBootstrapRegistry(t *testing.T) {
 		t.Errorf("deploy/lab/README.md does not show or cite the bootstrap registry with placeholder edge")
 	}
 
-	if !regexp.MustCompile("`TestTenantServiceIsNotMounted`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(readme) {
-		t.Errorf("deploy/lab/README.md missing positive citation of TestTenantServiceIsNotMounted in host_test.go")
+	if !regexp.MustCompile("`TestHostMountsServicesOnTheCorrectInterceptorChains`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(readme) {
+		t.Errorf("deploy/lab/README.md missing positive citation of TestHostMountsServicesOnTheCorrectInterceptorChains in host_test.go")
 	}
 	if !regexp.MustCompile(`"Bringing the deployment up" section of\s+` + "`docs/runbooks/lab-icx7150-first-write\\.md`").MatchString(readme) {
 		t.Errorf("deploy/lab/README.md missing positive citation to Bringing the deployment up section of runbook")
@@ -650,8 +650,8 @@ func TestTheRunbookAuthenticationAndTenantContracts(t *testing.T) {
 		t.Errorf("deploy/lab/README.md section 4 missing ALICE_TOKEN assignment")
 	}
 
-	if !regexp.MustCompile("`TestTenantServiceIsNotMounted`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(runbook) {
-		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing positive citation of TestTenantServiceIsNotMounted in host_test.go")
+	if !regexp.MustCompile("`TestHostMountsServicesOnTheCorrectInterceptorChains`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(runbook) {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing positive citation of TestHostMountsServicesOnTheCorrectInterceptorChains in host_test.go")
 	}
 
 	for _, cite := range []string{
@@ -755,6 +755,13 @@ func TestTheDirectionRecordCitationsAndDecisions(t *testing.T) {
 		"256",
 		"AbandonMutationRequest",
 		"OPERATOR_ACTION_OUTCOME_DENIED",
+		"tenant administration, access records, and full-payload expiry",
+		"platform_admin.subjects",
+		"FullPayloadActive",
+		"captureapi/full-payload-expired",
+		"SyncRequester",
+		"<tenant>.member.<principal id>",
+		"no record grants on a single device",
 	} {
 		if !strings.Contains(text, decision) {
 			t.Errorf("direction record missing decision keyword %q", decision)

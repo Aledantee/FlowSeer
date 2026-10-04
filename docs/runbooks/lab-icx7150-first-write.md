@@ -37,19 +37,21 @@ relative paths.
 The tenant identifier must be a canonical UUID (`spec/proto/flowseer/model/identity/v1/tenant.proto:13-16`).
 `TENANT=default` is admitted only by the test suite's always-allow engine
 (`src/services/device/test/integration/bootstrap_env_test.go:66-78`,
-`src/services/device/test/integration/fixture_test.go:391-394`).
+`newCentral` in `src/services/device/test/integration/fixture_test.go`).
 Against the real authorization model, `member` requires `claimed`
 (`src/services/device/internal/authz/openfga/model.json:133-151`), and the
 verifier yields `claimed` only when a matching active tenant record exists
 (`src/services/device/internal/authn/verifier.go:452-476`).
-Today, no operator-facing path creates a tenant record: `tenantstore.Store.Create`
-(`src/services/device/internal/tenantstore/store.go:113-126`) has no caller
-outside tests, `TenantService` is not mounted (`TestTenantServiceIsNotMounted` in
-`src/services/device/internal/host/host_test.go`),
-and central's CLI (`src/services/device/cmd/device/main.go:39`) accepts only `--config`.
-Every operator call against a deployment built from `deploy/lab` answers
-`PermissionDenied` until a tenant record is provisioned out of band per
-[deploy/lab/README.md](../../deploy/lab/README.md).
+`TenantService.CreateTenant` writes the tenant through `tenantstore.Store.Create`
+(`src/services/device/internal/tenantstore/store.go:113-126`). The host mounts it
+and `TenantAdminService` on the operator interceptor chain
+(`TestHostMountsServicesOnTheCorrectInterceptorChains` in
+`src/services/device/internal/host/host_test.go`). Configure platform subjects
+before starting central, then use `ADMIN_TOKEN` to create the tenant, define an
+admin role, enroll alice, and assign the role as described in
+[deploy/lab/README.md](../../deploy/lab/README.md). Direct OpenFGA grants are
+removed on the next projector pass. A full-payload capture also needs an
+enrolled member's explicit, unexpired grant.
 
 **Every command block below is one of three kinds**, and the difference
 matters because two of them are run in different places:

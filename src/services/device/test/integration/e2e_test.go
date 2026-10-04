@@ -18,8 +18,12 @@ import (
 	jwt "github.com/nats-io/jwt/v2"
 
 	apicapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
@@ -33,6 +37,8 @@ import (
 	netcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/capture/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 
@@ -1241,5 +1247,226 @@ func TestOperatorActionTrailRecordsIssueSetupKey(t *testing.T) {
 	}
 	if completed.GetCompleted() == nil || completed.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
 		t.Errorf("second record outcome = %v, want SUCCEEDED", completed.GetCompleted().GetOutcome())
+	}
+}
+
+func newPlatformCentral(t *testing.T) *central {
+	t.Helper()
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+	registry := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registry)
+	c.platformAdmin = storev1.PlatformAdmin_builder{
+		Issuer: new(c.issuer.URL()), Organization: new("flowseer-platform"),
+		OrganizationClaimName: new("org_id"), Subjects: []string{"e2e-operator", "support-admin"},
+	}.Build()
+	c.token = c.issuer.Sign(map[string]any{
+		"iss": c.issuer.URL(), "sub": "e2e-operator", "aud": "flowseer-e2e",
+		"exp": time.Now().Add(time.Hour).Unix(), "org_id": []string{"flowseer-platform", "acme"},
+	})
+	c.engine.Grant("user:"+c.principalID, "admin", "platform")
+	c.engine.Grant("user:"+c.principalID, "member", "tenant")
+	return c
+}
+
+func TestPlatformPrincipalsAndOwnedRelationsReconcile(t *testing.T) {
+	ctx := context.Background()
+	c := newPlatformCentral(t)
+	strayPlatform := authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:unconfigured"}
+	if err := c.engine.Write(ctx, []authz.Tuple{strayPlatform}, nil); err != nil {
+		t.Fatal(err)
+	}
+	c.start()
+	platform, err := c.engine.Read(ctx, "platform:flowseer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, subject := range []string{"e2e-operator", "support-admin"} {
+		want := authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:" + authn.ComputePrincipalID(c.issuer.URL(), subject)}
+		if !slices.Contains(platform, want) {
+			t.Errorf("platform tuples = %v, want %v", platform, want)
+		}
+	}
+	if len(platform) != 2 {
+		t.Fatalf("platform tuples = %v, want exactly two configured principals", platform)
+	}
+	created, err := identityv1connect.NewTenantServiceClient(c.client, c.baseURL()).CreateTenant(ctx, connect.NewRequest(identityapiv1.CreateTenantRequest_builder{
+		Issuer: new(c.issuer.URL()), OrganizationClaimName: new("org_id"), OrganizationClaimValue: new("acme"), Name: new("Acme"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateTenant: %v", err)
+	}
+	c.tenant = created.Msg.GetTenant().GetConfig().GetRef().GetTenant().GetId()
+	c.client.CloseIdleConnections()
+	c.client = authClient(filepath.Join(c.dir, "central-state", "tls.crt"), c.token, c.tenant)
+	tenantTuples, err := c.engine.Read(ctx, "tenant:"+c.tenant)
+	if err != nil || !slices.Contains(tenantTuples, authz.Tuple{Object: "tenant:" + c.tenant, Relation: "platform", User: "platform:flowseer"}) {
+		t.Fatalf("tenant tuples = %v, %v, want platform relationship", tenantTuples, err)
+	}
+	edge, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	edgeID := edge.Msg.GetEdge().GetConfig().GetRef().GetEdge().GetId()
+	member := identityv1.OperatorRef_builder{Issuer: new(c.issuer.URL()), Subject: new("recorded-member")}.Build()
+	if _, err := c.tenantAdmin().EnrollMember(ctx, connect.NewRequest(identityapiv1.EnrollMemberRequest_builder{Member: member}.Build())); err != nil {
+		t.Fatal(err)
+	}
+	c.shutdown()
+	strays := []authz.Tuple{
+		{Object: "tenant:" + c.tenant, Relation: "admin", User: "user:unrecorded"},
+		{Object: "edge:" + edgeID, Relation: "capture", User: "user:unrecorded"},
+	}
+	if err := c.engine.Write(ctx, strays, nil); err != nil {
+		t.Fatal(err)
+	}
+	for _, stray := range strays {
+		stored, err := c.engine.Read(ctx, stray.Object)
+		if err != nil || !slices.Contains(stored, stray) {
+			t.Fatalf("drift control = %v, %v, want %v", stored, err, stray)
+		}
+	}
+	c.start()
+	for _, stray := range strays {
+		stored, err := c.engine.Read(ctx, stray.Object)
+		if err != nil || slices.Contains(stored, stray) {
+			t.Errorf("reconciled tuples = %v, %v, want %v removed", stored, err, stray)
+		}
+	}
+	edgeTuples, err := c.engine.Read(ctx, "edge:"+edgeID)
+	if err != nil || !slices.Contains(edgeTuples, authz.Tuple{Object: "edge:" + edgeID, Relation: "tenant", User: "tenant:" + c.tenant}) {
+		t.Fatalf("edge tuples = %v, %v, want tenant relationship retained", edgeTuples, err)
+	}
+	tenantTuples, err = c.engine.Read(ctx, "tenant:"+c.tenant)
+	if err != nil || !slices.Contains(tenantTuples, authz.Tuple{Object: "tenant:" + c.tenant, Relation: "enrolled", User: "user:" + authn.ComputePrincipalID(c.issuer.URL(), "recorded-member")}) {
+		t.Fatalf("tenant tuples = %v, %v, want recorded member retained", tenantTuples, err)
+	}
+}
+
+func TestTenantAdministrationChangesReachTheActionTrail(t *testing.T) {
+	ctx := context.Background()
+	c := newPlatformCentral(t)
+	c.start()
+	created, err := identityv1connect.NewTenantServiceClient(c.client, c.baseURL()).CreateTenant(ctx, connect.NewRequest(identityapiv1.CreateTenantRequest_builder{
+		Issuer: new(c.issuer.URL()), OrganizationClaimName: new("org_id"), OrganizationClaimValue: new("acme"), Name: new("Acme"),
+	}.Build()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.tenant = created.Msg.GetTenant().GetConfig().GetRef().GetTenant().GetId()
+	createRecords := c.operatorActionRecords(t)
+	if len(createRecords) != 2 {
+		t.Fatalf("CreateTenant records = %d, want two", len(createRecords))
+	}
+	if createRecords[0].Event.GetAttempted() == nil || createRecords[1].Event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED || createRecords[1].Event.GetTenant().GetTenant().GetId() != c.tenant {
+		t.Fatalf("CreateTenant trail = %v, want attempt and successful completion naming %s", createRecords, c.tenant)
+	}
+	c.client.CloseIdleConnections()
+	c.client = authClient(filepath.Join(c.dir, "central-state", "tls.crt"), c.token, c.tenant)
+	member := identityv1.OperatorRef_builder{Issuer: new(c.issuer.URL()), Subject: new("alice")}.Build()
+	enrolled, err := c.tenantAdmin().EnrollMember(ctx, connect.NewRequest(identityapiv1.EnrollMemberRequest_builder{Member: member}.Build()))
+	if err != nil || !proto.Equal(enrolled.Msg.GetMember().GetOperator(), member) {
+		t.Fatalf("EnrollMember = %v, %v, want alice", enrolled, err)
+	}
+	records := c.operatorActionRecords(t)
+	if len(records) != 4 {
+		t.Fatalf("administration records = %d, want four", len(records))
+	}
+	for i, pair := range [][]operatorActionRecord{records[:2], records[2:]} {
+		wantSubject := "flowseer.platform.operator.action.tenant_create"
+		wantAction := operatorv1.OperatorAction_OPERATOR_ACTION_TENANT_CREATE
+		if i == 1 {
+			wantSubject = "flowseer." + c.tenant + ".operator.action.member_enroll"
+			wantAction = operatorv1.OperatorAction_OPERATOR_ACTION_MEMBER_ENROLL
+		}
+		if pair[0].Event.GetCallId() == "" || pair[0].Event.GetCallId() != pair[1].Event.GetCallId() {
+			t.Fatalf("call ids = %q, %q, want one nonempty call id", pair[0].Event.GetCallId(), pair[1].Event.GetCallId())
+		}
+		for _, record := range pair {
+			if record.Subject != wantSubject || record.Event.GetAction() != wantAction || record.Event.GetOperator().GetIssuer() != c.issuer.URL() || record.Event.GetOperator().GetSubject() != "e2e-operator" {
+				t.Errorf("trail = %v, want %s by configured issuer and subject", record, wantSubject)
+			}
+			if i == 1 && !proto.Equal(record.Event.GetMember(), member) {
+				t.Errorf("trail member = %v, want %v", record.Event.GetMember(), member)
+			}
+		}
+	}
+	if records[2].Event.GetAttempted() == nil || records[3].Event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+		t.Fatal("EnrollMember trail lacks attempt or successful completion")
+	}
+	listed, err := c.tenantAdmin().ListMembers(ctx, connect.NewRequest(&identityapiv1.ListMembersRequest{}))
+	if err != nil || len(listed.Msg.GetMembers()) != 1 {
+		t.Fatalf("ListMembers = %v, %v, want one member", listed, err)
+	}
+	if after := c.operatorActionRecords(t); len(after) != len(records) {
+		t.Fatalf("records after ListMembers = %d, want %d", len(after), len(records))
+	}
+}
+
+func TestRemoveMemberProjectsEnrollmentRoleAndRequesterAway(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+	registry := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registry)
+	c.start()
+	edge, err := c.admin().CreateEdge(ctx, connect.NewRequest(&apiedgev1.CreateEdgeRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	edgeRef := edge.Msg.GetEdge().GetConfig().GetRef()
+	member := identityv1.OperatorRef_builder{Issuer: new(c.issuer.URL()), Subject: new("removed-member")}.Build()
+	user := "user:" + authn.ComputePrincipalID(c.issuer.URL(), "removed-member")
+	c.engine.Grant(user, "member", "tenant")
+	c.engine.Grant(user, "capture", "edge")
+	if _, err := c.tenantAdmin().EnrollMember(ctx, connect.NewRequest(identityapiv1.EnrollMemberRequest_builder{Member: member}.Build())); err != nil {
+		t.Fatal(err)
+	}
+	role, err := c.tenantAdmin().CreateRole(ctx, connect.NewRequest(identityapiv1.CreateRoleRequest_builder{
+		Name: new("viewer"), Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_VIEWER},
+	}.Build()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	roleRef := role.Msg.GetRole().GetRef()
+	if _, err := c.tenantAdmin().AssignRole(ctx, connect.NewRequest(identityapiv1.AssignRoleRequest_builder{Member: member, Role: roleRef}.Build())); err != nil {
+		t.Fatal(err)
+	}
+	token := c.issuer.Sign(map[string]any{"iss": c.issuer.URL(), "sub": "removed-member", "aud": "flowseer-e2e", "exp": time.Now().Add(time.Hour).Unix()})
+	memberClient := authClient(filepath.Join(dir, "central-state", "tls.crt"), token, c.tenant)
+	t.Cleanup(memberClient.CloseIdleConnections)
+	session, err := capturev1connect.NewCaptureServiceClient(memberClient, c.baseURL()).CreateCaptureSession(ctx, connect.NewRequest(apicapturev1.CreateCaptureSessionRequest_builder{
+		Edge:          edgeRef,
+		Source:        modelcapturev1.CaptureSource_builder{LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: new("eth0")}.Build()}.Build(),
+		Budget:        modelcapturev1.CaptureBudget_builder{MaxPackets: new(uint64(10))}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{RequestedBy: member, Reason: new("requester removal test"), FullPayloadRequested: new(false)}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tuple := range []authz.Tuple{
+		{Object: "tenant:" + c.tenant, Relation: "enrolled", User: user},
+		{Object: "tenant:" + c.tenant, Relation: "viewer", User: "role:" + roleRef.GetRole().GetId() + "#assignee"},
+		{Object: "role:" + roleRef.GetRole().GetId(), Relation: "assignee", User: user},
+		{Object: "capture_session:" + session.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId(), Relation: "requester", User: user},
+	} {
+		stored, err := c.engine.Read(ctx, tuple.Object)
+		if err != nil || !slices.Contains(stored, tuple) {
+			t.Fatalf("removal control = %v, %v, want %v", stored, err, tuple)
+		}
+	}
+	if _, err := c.tenantAdmin().RemoveMember(ctx, connect.NewRequest(identityapiv1.RemoveMemberRequest_builder{Member: member}.Build())); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.engine.Scan(ctx, func(tuple authz.Tuple) error {
+		if tuple.User == user {
+			t.Errorf("tuple still names removed user: %v", tuple)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := edgev1connect.NewEdgeAdminServiceClient(memberClient, c.baseURL()).GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: edgeRef}.Build())); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("removed member GetEdge error = %v, want PermissionDenied", err)
 	}
 }

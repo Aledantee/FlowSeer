@@ -21,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
 	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
@@ -391,10 +392,10 @@ func newCentral(t *testing.T, dir, registryPath string) *central {
 	eng := authztest.New()
 	if err := eng.Write(context.Background(), []authz.Tuple{
 		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + principalID},
-		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "admin", User: "user:" + principalID},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
+	eng.Grant("user:"+principalID, "admin", "tenant")
 	eng.Grant("user:"+principalID, "view", "device")
 	eng.Grant("user:"+principalID, "operate", "device")
 	eng.Grant("user:"+principalID, "view", "edge")
@@ -439,10 +440,10 @@ func (c *central) startWithTenant(tenant string) {
 	if c.engine != nil {
 		if err := c.engine.Write(context.Background(), []authz.Tuple{
 			{Object: "tenant:" + tenant, Relation: "member", User: "user:" + c.principalID},
-			{Object: "tenant:" + tenant, Relation: "admin", User: "user:" + c.principalID},
 		}, nil); err != nil {
 			c.t.Fatalf("seed tenant tuples: %v", err)
 		}
+		c.engine.Grant("user:"+c.principalID, "admin", "tenant")
 	}
 	c.start()
 }
@@ -488,9 +489,11 @@ func (c *central) start() {
 platform_admin {
   issuer: %q
   organization: %q
-  subjects: %q
-  organization_claim_name: %q
-}`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetSubjects()[0], c.platformAdmin.GetOrganizationClaimName())
+  organization_claim_name: %q`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetOrganizationClaimName())
+		for _, subject := range c.platformAdmin.GetSubjects() {
+			platformAdminBlock += fmt.Sprintf("\n  subjects: %q", subject)
+		}
+		platformAdminBlock += "\n}"
 	}
 
 	body := fmt.Sprintf(`
@@ -628,6 +631,10 @@ func (c *central) devices() devicev1connect.DeviceServiceClient {
 
 func (c *central) captures() capturev1connect.CaptureServiceClient {
 	return capturev1connect.NewCaptureServiceClient(c.client, c.baseURL())
+}
+
+func (c *central) tenantAdmin() identityv1connect.TenantAdminServiceClient {
+	return identityv1connect.NewTenantAdminServiceClient(c.client, c.baseURL())
 }
 
 func (c *central) edgeCaptures() captureedgev1connect.CaptureEdgeServiceClient {
