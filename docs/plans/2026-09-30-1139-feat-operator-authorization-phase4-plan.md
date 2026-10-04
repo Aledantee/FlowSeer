@@ -5,6 +5,7 @@ date: 2026-09-30
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+compound: docs/solutions/conventions/a-degrade-contract-is-tested-against-the-refusing-side.md
 review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-30-operator-authorization-direction.md
