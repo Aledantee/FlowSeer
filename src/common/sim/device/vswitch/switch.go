@@ -168,9 +168,10 @@ type Emission struct {
 	// priority 0 by [bridge.Layer.OriginateFrame].
 	PCP vlan.PCP
 
-	// Protocol reports whether the frame is a BPDU, LACPDU, loop-protect
-	// probe, or other frame the switch generated for a protocol of its own,
-	// as opposed to a held user frame released once its next hop resolved.
+	// Protocol reports whether the frame is a BPDU, LACPDU, Marker response,
+	// loop-protect probe, or other frame the switch generated for a protocol
+	// of its own, as opposed to a held user frame released once its next hop
+	// resolved.
 	// [Fabric.injectEmission] reads it instead of assuming every emission
 	// is a protocol frame.
 	Protocol bool
@@ -2495,18 +2496,21 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 	}
 
 	rule := lag.RuleLACPDUAdmit
+	var inputs []trace.Fact
 	var outputs []trace.Fact
 	if len(marker.Emissions) > 0 {
 		rule = lag.RuleMarkerRespond
 		if mutate {
 			s.applyLAGEffects(now, marker)
 		}
+		inputs = []trace.Fact{lag.MarkerDecodeFact(f, true, "")}
 		outputs = []trace.Fact{lag.MarkerResponseFact(f, marker.Emissions[0].Frame)}
 	} else {
 		if mutate {
 			fx := s.lag.Receive(now, ingress, pdu)
 			s.applyLAGEffects(now, fx)
 		}
+		inputs = []trace.Fact{lag.LACPDecodeFact(f, true, "")}
 		outputs = []trace.Fact{lag.LACPDecisionFact(pdu, before, s.lag.PortInfo(ingress))}
 	}
 
@@ -2519,7 +2523,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 					Op:      trace.OpClassify,
 					RuleID:  rule,
 					Subject: trace.Subject{Kind: "port", Key: ingress},
-					Inputs:  []trace.Fact{lag.LACPDecodeFact(f, true, "")},
+					Inputs:  inputs,
 					Outputs: outputs,
 				},
 			},
