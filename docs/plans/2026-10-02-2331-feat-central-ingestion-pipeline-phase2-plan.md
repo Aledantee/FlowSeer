@@ -381,3 +381,9 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
 - docs/solutions/architecture-patterns/per-account-jetstream-disk-budgets-reserve-against-the-server-store-ceiling.md:160: a 512 MiB central budget with default stream limits, which reserve 640 MiB and fail hub start, and `hub.go` line cites the merge shifted
 - src/services/device/internal/intake/README.md:29: the diagram draws the evidence and typed publishes as alternatives, while the code publishes evidence and then the typed record
 - src/services/device/internal/host/host_test.go:1793: `//nolint:gosec`, a new suppression for a linter that is not enabled
+- src/modules/edgebus/follower.go:37: derive the run context from `context.Background()`; fails: a caller context that ends after a successful start, with an edge attached later that must get no consumer
+- src/modules/edgebus/follower.go:14: the `EdgeFollower` doc comment states no concurrency contract and `mu` names no guarded field
+- src/modules/edgebus/hub.go:75: a semicolon joins two sentences in the `AuditDuplicateWindow` comment
+- src/modules/edgebus/README.md:37: "remember message ids for ten minutes", while the window is `AuditDuplicateWindow` capped by the stream's maximum age
+- src/modules/edgebus/README.md:100: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
+- src/services/device/internal/intake/README.md:47: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
