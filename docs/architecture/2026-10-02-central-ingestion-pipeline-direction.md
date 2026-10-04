@@ -255,8 +255,11 @@ Intake republishes a typed record to
 `flowseer.<tenant>.evidence.<record-type>.<device-id>` in
 `FLOWSEER_INGEST_EVIDENCE`. These shapes are defined in
 `src/modules/edgebus/subjects.go`. Delivery is at least once. Each publication
-uses `<tenant>.<record_id>` as its message id, so every JetStream sink
-deduplicates that identity within its duplicate window.
+uses `<tenant>.<record_id>` as its message id, and a central stream drops a
+repeat of it inside its ten minute duplicate window. Past that window a
+repeat is stored again, which happens when a hub restart re-sources an edge
+buffer (`src/modules/edgebus/README.md`). Each sink that reads a central
+stream therefore deduplicates on tenant and `record_id` itself.
 
 The evidence stream keeps messages for 24 hours and discards its oldest
 messages at its byte bound, as configured in `src/modules/edgebus/hub.go`. A
