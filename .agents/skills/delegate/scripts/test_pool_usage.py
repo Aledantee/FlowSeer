@@ -1,7 +1,6 @@
 import ast
 import contextlib
 import io
-import inspect
 import json
 import os
 from pathlib import Path
@@ -50,6 +49,7 @@ class PoolUsageTest(unittest.TestCase):
             row = self.row("orca_pools")["claude"]
         self.assertEqual(row["plan"], "max")
         self.assertEqual(row["source"], "orca")
+        self.assertNotIn("error", row)
 
     def test_claude_orca_row_reports_unreadable_plan_source(self):
         reply = {"result": {"rateLimits": {
@@ -70,7 +70,7 @@ class PoolUsageTest(unittest.TestCase):
         reply = {"result": {"rateLimits": {
             "codex": {"status": "ok", "session": {"usedPercent": 0}},
         }}}
-        info = {"plan": None, "models": None,
+        info = {"signed_in": None, "plan": None, "models": None,
                 "error": "unreadable codex app-server account"}
         with mock.patch.object(POOL["shutil"], "which", return_value="orca"), \
                 mock.patch.dict(POOL, {
@@ -88,7 +88,8 @@ class PoolUsageTest(unittest.TestCase):
         reply = {"result": {"rateLimits": {
             "codex": {"status": "ok", "session": {"usedPercent": 0}},
         }}}
-        info = {"plan": "prolite", "models": ["gpt-6-sol"], "error": None}
+        info = {"signed_in": True, "plan": "prolite", "models": ["gpt-6-sol"],
+                "error": None}
         with mock.patch.object(POOL["shutil"], "which", return_value="orca"), \
                 mock.patch.dict(POOL, {
                     "run": mock.Mock(return_value=(json.dumps(reply), None)),
@@ -99,6 +100,35 @@ class PoolUsageTest(unittest.TestCase):
         self.assertEqual(row["plan"], "prolite")
         self.assertEqual(row["models"], ["gpt-6-sol"])
         self.assertEqual(row["source"], "orca")
+        self.assertNotIn("error", row)
+
+    def test_codex_orca_row_without_chatgpt_account_has_no_error(self):
+        for account in (None, {"type": "apiKey"}):
+            with self.subTest(account=account):
+                row = self.codex_row(account, orca_windows={"session": 0})
+            self.assertTrue(row["signed_in"])
+            self.assertEqual(row["windows"], {"session": 0})
+            self.assertEqual(row["source"], "orca")
+            self.assertIsNone(row["plan"])
+            self.assertNotIn("models", row)
+            self.assertNotIn("error", row)
+
+    def test_orca_skips_non_numeric_windows_without_an_error(self):
+        reply = {"result": {"rateLimits": {
+            "claude": {"status": "ok", "session": {"usedPercent": 0},
+                       "weekly": {"usedPercent": "unknown", "resetsAt": "unknown"}},
+        }}}
+        auth = {"loggedIn": True, "authMethod": "claude.ai", "subscriptionType": "max"}
+        with mock.patch.object(POOL["shutil"], "which", return_value="orca"), \
+                mock.patch.dict(POOL, {
+                    "run": mock.Mock(side_effect=[(json.dumps(reply), None),
+                                                  (json.dumps(auth), None)]),
+                    "codex_pool": mock.Mock(),
+                }):
+            row = self.row("orca_pools")["claude"]
+        self.assertEqual(row["windows"], {"session": 0})
+        self.assertEqual(row["plan"], "max")
+        self.assertNotIn("error", row)
 
     def test_zai_plan_is_read_from_usage_metadata(self):
         usage = {"reports": [{"provider": "zai", "metadata": {"planType": "lite"},
@@ -172,7 +202,7 @@ class PoolUsageTest(unittest.TestCase):
             self.assertIn("error", row)
 
     def codex_row(self, account, quota=None, quota_error=False, model_pages=None,
-                  timeout=30, requests_path=None, read_quota=True):
+                  timeout=30, requests_path=None, read_quota=True, orca_windows=None):
         with tempfile.TemporaryDirectory() as directory:
             cli = Path(directory) / "codex"
             cli.write_text("#!/usr/bin/env python3\n" +
@@ -198,10 +228,12 @@ for line in sys.stdin:
             with open(requests_path, 'a') as seen:
                 seen.write(json.dumps(msg) + '\\n')
         if model_pages == 'timeout':
-            __import__('time').sleep(1)
             continue
+        if model_pages == 'exit':
+            sys.exit(0)
         if model_pages == 'repeat':
             if model_page >= 2:
+                # Bound the reply rate after a repeated cursor if the client keeps requesting.
                 __import__('time').sleep(1)
             result = {'data': [{'id': 'gpt-6-sol'}], 'nextCursor': 'same'}
             model_page += 1
@@ -213,6 +245,9 @@ for line in sys.stdin:
             result = model_pages[model_page]
             model_page += 1
     elif method == 'account/rateLimits/read':
+        if requests_path:
+            with open(requests_path, 'a') as seen:
+                seen.write(json.dumps(msg) + '\\n')
         if quota_error:
             print(json.dumps({'id': msg['id'], 'error': {'message': 'sentinel-private-error'}}), flush=True)
             continue
@@ -228,10 +263,26 @@ for line in sys.stdin:
             with mock.patch.dict(os.environ, {"PATH": directory + os.pathsep + os.environ["PATH"]}):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
-                    if read_quota:
+                    if orca_windows is not None:
+                        reply = {"result": {"rateLimits": {
+                            "codex": {"status": "ok", **{
+                                name: {"usedPercent": used}
+                                for name, used in orca_windows.items()
+                            }},
+                        }}}
+                        with mock.patch.object(POOL["shutil"], "which", return_value=True), \
+                                mock.patch.dict(POOL, {
+                                    "run": mock.Mock(return_value=(json.dumps(reply), None)),
+                                    "claude_pool": mock.Mock(),
+                                }):
+                            POOL["orca_pools"]()
+                    elif read_quota:
                         POOL["codex_pool"](timeout=timeout)
                     else:
-                        return POOL["codex_read"](timeout=timeout, quota=False)
+                        info = POOL["codex_read"](timeout=timeout, quota=False)
+                        POOL["emit"]("codex", info["signed_in"], "codex-app-server",
+                                     info["windows"], info["resets"], info["error"],
+                                     plan=info["plan"], models=info["models"])
                 return json.loads(output.getvalue().split(": ", 1)[1])
 
     def test_codex_primary_weekly_uses_duration_and_multibucket_view(self):
@@ -265,9 +316,37 @@ for line in sys.stdin:
         self.assertNotIn("sentinel-private-error", json.dumps(row))
 
     def test_codex_account_read_error_does_not_claim_quota_was_read(self):
-        info = self.codex_row("malformed", timeout=1, read_quota=False)
-        self.assertEqual(info["error"], "unreadable codex app-server account")
-        self.assertNotIn("quota", info["error"])
+        row = self.codex_row("malformed", read_quota=False)
+        self.assertEqual(row["error"], "unreadable codex app-server account")
+        self.assertNotIn("quota", row["error"])
+
+    def test_codex_exit_during_model_list_still_prints_a_row(self):
+        row = self.codex_row({"type": "chatgpt"}, model_pages="exit")
+        self.assertTrue(row["signed_in"])
+        self.assertIsNone(row["windows"])
+        self.assertEqual(row["error"], "unreadable codex app-server quota")
+
+    def test_codex_orca_read_lists_models_without_reading_quota(self):
+        account = {"type": "chatgpt", "planType": "prolite"}
+        pages = [{"data": [{"id": "gpt-6-sol"}], "nextCursor": None}]
+        with tempfile.NamedTemporaryFile() as seen:
+            row = self.codex_row(account, model_pages=pages, requests_path=seen.name,
+                                 read_quota=False)
+            self.assertEqual(row["plan"], "prolite")
+            self.assertEqual(row["models"], ["gpt-6-sol"])
+            self.assertIsNone(row["windows"])
+            self.assertNotIn("error", row)
+            row = self.codex_row(account, model_pages=pages, requests_path=seen.name,
+                                 orca_windows={"session": 0})
+            self.assertEqual(row["plan"], "prolite")
+            self.assertEqual(row["models"], ["gpt-6-sol"])
+            self.assertEqual(row["windows"], {"session": 0})
+            self.assertEqual(row["source"], "orca")
+            self.assertNotIn("error", row)
+            seen.seek(0)
+            requests = [json.loads(line) for line in seen]
+        self.assertEqual([request["method"] for request in requests],
+                         ["model/list", "model/list"])
 
     def test_codex_model_list_is_reported_and_omitted_when_unreadable(self):
         quota = {"rateLimits": {"primary": {"usedPercent": 0}}}
@@ -277,17 +356,21 @@ for line in sys.stdin:
                           "nextCursor": None}],
         )
         self.assertEqual(row["models"], ["gpt-6-sol", "gpt-6-luna"])
+        self.assertNotIn("error", row)
 
         for pages in ([{"data": [], "nextCursor": None}],
                       [{"account": {}}], "timeout"):
             with self.subTest(pages=pages):
                 row = self.codex_row({"type": "chatgpt"}, quota,
-                                     model_pages=pages, timeout=1)
+                                     model_pages=pages,
+                                     **({"timeout": 1} if pages == "timeout" else {}))
                 self.assertTrue(row["signed_in"])
                 self.assertEqual(row["windows"], {"primary": 0})
                 self.assertNotIn("models", row)
                 if pages != [{"data": [], "nextCursor": None}]:
                     self.assertIn("error", row)
+                else:
+                    self.assertNotIn("error", row)
 
     def test_codex_model_list_follows_cursor(self):
         quota = {"rateLimits": {"primary": {"usedPercent": 0}}}
@@ -300,7 +383,8 @@ for line in sys.stdin:
             )
             self.assertEqual(row["models"], ["gpt-6-sol", "gpt-6-luna"])
             seen.seek(0)
-            requests = [json.loads(line) for line in seen]
+            requests = [request for line in seen
+                        if (request := json.loads(line))["method"] == "model/list"]
         self.assertEqual(requests[0]["params"], {})
         # The cursor parameter is unverified because codex-cli 0.160.0 returned one page.
         self.assertEqual(requests[1]["params"], {"cursor": "page-2"})
@@ -309,13 +393,14 @@ for line in sys.stdin:
         quota = {"rateLimits": {"primary": {"usedPercent": 0}}}
         with tempfile.NamedTemporaryFile() as seen:
             row = self.codex_row({"type": "chatgpt"}, quota,
-                                 model_pages="repeat", timeout=1,
+                                 model_pages="repeat",
                                  requests_path=seen.name)
             self.assertTrue(row["signed_in"])
             self.assertEqual(row["windows"], {"primary": 0})
             self.assertNotIn("models", row)
             seen.seek(0)
-            requests = [json.loads(line) for line in seen]
+            requests = [request for line in seen
+                        if (request := json.loads(line))["method"] == "model/list"]
         self.assertEqual(len(requests), 2)
 
     def test_non_string_plans_are_read_as_null(self):
@@ -331,6 +416,13 @@ for line in sys.stdin:
                                side_effect=lambda name: name in ("orca", "claude")), \
                 mock.patch.dict(POOL, {"run": runner, "codex_pool": mock.Mock()}):
             claude = self.row("orca_pools")["claude"]
+        with mock.patch.object(POOL["shutil"], "which", return_value="claude"), \
+                mock.patch.dict(POOL, {"run": mock.Mock(side_effect=[
+                    (json.dumps({"loggedIn": True, "authMethod": "claude.ai",
+                                 "subscriptionType": {"name": "max"}}), None),
+                    (None, "timeout"),
+                ])}):
+            native_claude = self.row("claude_pool")["claude"]
         codex = self.codex_row({"type": "chatgpt", "planType": ["prolite"]},
                                {"rateLimits": {"primary": {"usedPercent": 0}}})
         usage = {"reports": [{"provider": "zai", "metadata": {"planType": {"name": "lite"}},
@@ -339,7 +431,11 @@ for line in sys.stdin:
         with mock.patch.object(POOL["shutil"], "which", return_value="omp"), \
                 mock.patch.dict(POOL, {"run": mock.Mock(return_value=(json.dumps(usage), None))}):
             zai = self.row("zai_pool")["zai"]
-        for row in (claude, codex, zai):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            POOL["emit"]("codex", True, "test", plan=["prolite"])
+        emitted = json.loads(output.getvalue().split(": ", 1)[1])
+        for row in (claude, native_claude, codex, zai, emitted):
             self.assertIsNone(row["plan"])
             self.assertEqual(row["capacity"], 1)
             self.assertNotIn("plan_unlisted", row)
@@ -353,9 +449,10 @@ for line in sys.stdin:
             with contextlib.redirect_stdout(output):
                 POOL["emit"]("claude", True, "test", {"session": 0}, plan="inf")
                 POOL["emit"]("claude", True, "test", {"session": 0}, plan="nan")
-        rows = {pool: json.loads(row) for pool, row in
-                (line.split(": ", 1) for line in output.getvalue().splitlines())}
-        for row in rows.values():
+        rows = [json.loads(line.split(": ", 1)[1])
+                for line in output.getvalue().splitlines()]
+        self.assertEqual(len(rows), 2)
+        for row in rows:
             self.assertEqual(row["capacity"], 1)
             self.assertTrue(row["plan_unlisted"])
 
@@ -374,38 +471,69 @@ for line in sys.stdin:
         self.assertEqual(rows[1]["capacity"], 1)
         self.assertTrue(rows[1]["plan_unlisted"])
 
-    def test_flow_parsers_share_one_scanner_without_custom_delimiters(self):
-        functions = {node.name: node for node in tree.body
-                     if isinstance(node, ast.FunctionDef)}
-        for name in ("without_comment", "split_flow", "split_flow_pair"):
-            self.assertTrue(any(isinstance(node, ast.Call)
-                                and isinstance(node.func, ast.Name)
-                                and node.func.id == "scan_flow"
-                                for node in ast.walk(functions[name])))
-        self.assertEqual(list(inspect.signature(POOL["split_flow"]).parameters), ["text"])
+    def test_registry_nested_plans_lists_quotes_and_comments_read_both_capacities(self):
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "registry.yaml"
+            registry.write_text(
+                'pools:\n'
+                '  codex: {cli: codex, plans: {prolite: {capacity: 5, excludes: [a, b]}, '
+                'plus: {capacity: 2}}, note: "x, y: #z"}  # c {d, e}\n'
+            )
+            with mock.patch.dict(POOL, {
+                    "registry_pools": lambda: POOL["read_registry"](registry)}):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    POOL["emit"]("codex", True, "test", plan="prolite")
+                    POOL["emit"]("codex", True, "test", plan="plus")
+        rows = [json.loads(line.split(": ", 1)[1])
+                for line in output.getvalue().splitlines()]
+        self.assertEqual(len(rows), 2)
+        self.assertEqual([row["capacity"] for row in rows], [5, 2])
+        for row in rows:
+            self.assertNotIn("plan_unlisted", row)
 
-    def test_google_malformed_quota_reply_is_reported(self):
-        malformed = {"command": {"data": {"groups": [{
-            "buckets": [{"id": "5h", "remaining_fraction": {}}],
-        }]}}}
+    def test_google_unreadable_quota_keeps_readable_model_sign_in(self):
         with mock.patch.object(POOL["shutil"], "which", return_value="agy"), \
                 mock.patch.dict(POOL, {"run": mock.Mock(side_effect=[
-                    (json.dumps(malformed), None), (None, "not signed in")])}):
+                    ("not json", None), ("gemini", None)])}):
             row = self.row("google_pool")["google"]
-        self.assertIs(row["signed_in"], False)
+        self.assertIs(row["signed_in"], True)
         self.assertIsNone(row["windows"])
         self.assertIn("unreadable /quota reply", row["error"])
 
-    def test_zai_malformed_limit_is_reported(self):
-        malformed = {"reports": [{"provider": "zai", "limits": [{
-            "window": {"id": "5h"}, "amount": {"usedFraction": {}},
-        }]}]}
+    def test_zai_empty_limits_keep_the_plan_without_an_error(self):
+        usage = {"reports": [{"provider": "zai", "metadata": {"planType": "lite"},
+                               "limits": []}]}
         with mock.patch.object(POOL["shutil"], "which", return_value="omp"), \
-                mock.patch.dict(POOL, {"run": mock.Mock(return_value=(json.dumps(malformed), None))}):
+                mock.patch.dict(POOL, {"run": mock.Mock(return_value=(json.dumps(usage), None))}):
             row = self.row("zai_pool")["zai"]
         self.assertIs(row["signed_in"], True)
+        self.assertEqual(row["plan"], "lite")
         self.assertIsNone(row["windows"])
-        self.assertIn("unreadable zai usage reply", row["error"])
+        self.assertNotIn("error", row)
+
+    def test_zai_missing_limits_keep_the_plan_and_signed_out_result(self):
+        usage = {"reports": [{"provider": "zai", "metadata": {"planType": "lite"}}]}
+        with mock.patch.object(POOL["shutil"], "which", return_value="omp"), \
+                mock.patch.dict(POOL, {"run": mock.Mock(return_value=(json.dumps(usage), None))}):
+            row = self.row("zai_pool")["zai"]
+        self.assertIs(row["signed_in"], False)
+        self.assertEqual(row["plan"], "lite")
+        self.assertIsNone(row["windows"])
+        self.assertEqual(row["error"], "no zai account in omp")
+
+    def test_invalid_utf8_registry_leaves_a_named_plan_unlisted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            registry = Path(directory) / "registry.yaml"
+            registry.write_bytes(b"pools:\n  codex: \xff\n")
+            with mock.patch.dict(POOL, {
+                    "registry_pools": lambda: POOL["read_registry"](registry)}):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    POOL["emit"]("codex", True, "test", plan="prolite")
+        row = json.loads(output.getvalue().split(": ", 1)[1])
+        self.assertEqual(row["capacity"], 1)
+        self.assertTrue(row["plan_unlisted"])
 
     def test_registry_plan_capacity_and_trailing_comments_are_numeric(self):
         with tempfile.TemporaryDirectory() as directory:
