@@ -278,9 +278,14 @@ service.
 
 ## Open questions
 
-- How one tenant with several issuers maps to organization claims. The
-  phase 2 plan's Decisions answer it: a tenant binds one issuer, and a
-  second issuer's users reach it through `partner` or `platform`.
-- Which OIDC issuer the lab deployment runs. The phase 2 plan surveys
-  eleven, recommends Dex, and holds the question open for the user. All of
-  them pass the vendor rule.
+- Phase 4 needs an operator-facing path that creates a tenant record and its
+  `org_` index before a deployment can admit its first tenant. `TenantService`
+  is defined but not mounted, and `tenantstore.Store.Create` has no caller
+  outside tests (`src/services/device/internal/host/host_test.go`,
+  `src/services/device/internal/tenantstore/store.go`). (2026-10-03)
+- Phase 4 needs a retryable order for a revoking removal that deletes its
+  record and then synchronizes OpenFGA. It also adds the `tenant#platform` and
+  `tenant#partner` relations to the projector's owned set. (2026-10-03)
+- Phase 4 needs to size the shared 64 MiB operator-action stream when tenant
+  administration expands its use. Per-subject limits isolate action floods,
+  while the total budget is shared by all tenants. (2026-10-03)

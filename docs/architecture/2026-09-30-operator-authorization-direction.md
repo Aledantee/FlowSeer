@@ -662,6 +662,20 @@ strings (`store_id` and `model_id`) rather than naming engine internals in the
 protobuf schema. The service adapter validates the engine identifier format and
 verifies that the remote model matches the embedded model before first use.
 
+#### Authentication and lab dependencies
+
+Operator token verification uses `github.com/coreos/go-oidc/v3` v3.21.0. The
+OpenFGA adapter uses the upstream `github.com/openfga/api/proto` module for its
+gRPC client and protobuf messages. The dependency statements record the pinned
+versions, approval dates, and reasons for keeping both modules
+(`docs/dependencies/statements/go/github.com/coreos/go-oidc/v3.md`,
+`docs/dependencies/statements/go/github.com/openfga/api/proto.md`).
+
+The lab issuer is Dex v2.45.1. Its `groups` claim supplies the organization
+values that the lab's tenant bindings resolve
+(`deploy/lab/compose.yaml`, `deploy/lab/dex/config.yaml`). The lab uses the
+same OpenFGA v1.21.0 service version as the model and adapter tests.
+
 ### 2026-10-03: server-streaming authorization, in-flight checks, and abandon
 
 Server-streaming RPCs under a request rule (`TailCaptureSession` and
@@ -673,6 +687,10 @@ tracks in-flight relationship checks, dropping responses returned while a check
 is in flight with `Internal` and `authz/obligation-violation`. `authz.Abandon`
 allows handlers encountering store errors before relationship checks to
 discharge their obligation while failing closed against subsequent responses.
+A stream remains authorized after a later revocation and runs until the capture
+or artifact ends. The authorization interceptor has no access-change push
+source, and rechecking would change the stream's established behavior
+(`src/services/device/internal/authz/interceptor.go`).
 
 ### 2026-10-03: interceptor chain, projector, identity, and action trail
 
