@@ -73,6 +73,9 @@ under Inventory, Sources.
 - R3's example is a port that starts forwarding, not one that goes down,
   since the sources above raise no topology change when a port leaves
   Forwarding. (decided by the user, 2026-10-03)
+- The review's `rework` verdict after three fix rounds is answered with a
+  fourth round. It resumes from `parked/sim-p3-review` and is limited to
+  the seven findings that verdict lists. (decided by the user, 2026-10-04)
 
 ## Requirements
 
@@ -581,13 +584,3 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
-- Parked by drive: the review ended `rework` after three fix rounds, with
-  one open behavior finding (an MST port Designated for the CIST and Root
-  for an MSTI sends two frames in one `Receive`) and four findings on a
-  property test that cannot fail. The fixes and the review record are on
-  `parked/sim-p3-review`. Options: run another fix round from that branch
-  (one more review cycle on a narrow, known list) | accept the review with
-  the gaps recorded (unblocks the land, ships the double frame and the weak
-  test) | restart the phase's implementation (discards 1,892 added lines of
-  reviewed fixes). Recommended: another fix round, because three rounds
-  took 23 findings down to seven on one mechanism.
