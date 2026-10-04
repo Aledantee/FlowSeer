@@ -225,6 +225,12 @@ func TestSlowProtocolsDecodeFactSelectsSubtype(t *testing.T) {
 		EtherType: ethernet.EtherTypeSlowProtocols,
 		Payload:   []byte{lacp.SubtypeMarker},
 	}
+	emptyFrame := ethernet.Frame{EtherType: ethernet.EtherTypeSlowProtocols}
+
+	emptyFact := lag.SlowProtocolsDecodeFact(emptyFrame, false, reason)
+	if !trace.EqualFact(emptyFact, lag.LACPDecodeFact(emptyFrame, false, reason)) {
+		t.Fatalf("SlowProtocolsDecodeFact() for empty payload = %#v, want LACP decode fact", emptyFact)
+	}
 
 	lacpFact := lag.SlowProtocolsDecodeFact(lacpFrame, false, reason)
 	if !trace.EqualFact(lacpFact, lag.LACPDecodeFact(lacpFrame, false, reason)) {
