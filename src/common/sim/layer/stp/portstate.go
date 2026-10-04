@@ -129,5 +129,6 @@ func (l *Layer) clearPending(name string) {
 		tx := l.tx(l.trees[id], name)
 		tx.pendingDesignated = false
 		tx.pendingAgreement = false
+		tx.pendingTCN = false
 	}
 }

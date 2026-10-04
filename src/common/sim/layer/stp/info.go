@@ -165,6 +165,10 @@ func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 
 // times returns the timers in force for one tree.
 func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
+	if l.pvst == nil && t.id != cistID {
+		return l.times(l.cist())
+	}
+
 	if t.rootPort != "" {
 		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
 			return rp.rcvMaxAge, l.helloTime, rp.rcvForwardDelay
