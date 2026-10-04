@@ -286,12 +286,12 @@ An edge's tenant has one authority, its `edge_<edge_id>` index in `edges`
 (`src/services/device/internal/edgestore/store.go:180`).
 A device lane is keyed by its hosting edge's tenant
 (`src/services/device/internal/journal/journal.go:100`,
-`src/services/device/internal/host/serve.go:245`), and a
+`src/services/device/internal/host/serve.go:349-364`), and a
 caller of another tenant gets `NotFound`
-(`src/services/device/internal/deviceapi/service.go:157`,
-`src/services/device/internal/deviceapi/errors.go:27`).
+(`src/services/device/internal/deviceapi/service.go:159-162`,
+`src/services/device/internal/deviceapi/errors.go:28`).
 Nothing substitutes a default tenant for one it could not resolve
-(`src/services/device/internal/host/host.go:265`).
+(`src/services/device/internal/host/host.go:334-343`).
 
 The platform admin configuration names its issuer, organization claim name and
 value, and subject. The host validates those fields before it serves the
@@ -680,12 +680,12 @@ discharge their obligation while failing closed against subsequent responses.
 
 Operator handlers run behind telemetry, panic recovery, authentication,
 validation, authorization, and action trail interceptors in that order
-(`operatorInterceptors` in `src/services/device/internal/host/serve.go:155-162`).
+(`operatorInterceptors` in `src/services/device/internal/host/serve.go:161-168`).
 Running validation before authorization guarantees that object identifiers passed
 to authorization rules conform to schema constraints. Placing the action trail
 innermost ensures that it records only calls admitted by authorization. Edge
 handlers mount telemetry, panic recovery, and validation only
-(`edgeInterceptors` in `src/services/device/internal/host/serve.go:119-123`),
+(`edgeInterceptors` in `src/services/device/internal/host/serve.go:125-129`),
 because edges authenticate through signed edge assertions
 (`src/services/device/README.md`) rather than operator tokens.
 
@@ -784,7 +784,7 @@ field numbers and names reserved. Neither handler ever read them
 identity that was never verified or recorded.
 
 Idempotency digests incorporate the principal as `operator:<issuer>\x00<subject>`
-to isolate idempotency keys across operators (`src/services/device/internal/journal/journal.go:1010-1016`).
+to isolate idempotency keys across operators (`src/services/device/internal/journal/journal.go:1017-1037`).
 
 #### Operator action trail
 
