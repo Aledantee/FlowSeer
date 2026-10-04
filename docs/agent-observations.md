@@ -26,6 +26,21 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-04 review: coordinator fixes can bypass review rounds
+Skill or agent: `.claude/skills/review/SKILL.md`, steps 5 and 6.
+What happened: The `apply the fixes here` and `apply chosen findings only` options allow coordinator edits to a security or behavior finding, followed by `accept after fixes`, without a delegated reviewer or an incremented round count. The review loop's reviewer and round-cap rules can therefore be bypassed by choosing the coordinator path.
+Suggested change: Require the same reviewed round, or a separately recorded review and round count, before accepting coordinator-applied security or behavior fixes.
+
+## 2026-10-04 review: the rework row has no option for an oversized fix
+Skill or agent: `.claude/skills/review/SKILL.md`, step 6, and `references/fix-loop.md`, When to stop.
+What happened: `rework` includes a security or behavior finding too large to fix in place, including at round zero or one, but step 6 points only to When to stop. That section gives choices for a second round that is not clean, not for this oversized finding, so the coordinator has no specified next action.
+Suggested change: State the plan, drop-or-replace, and stop options for an oversized security or behavior finding in the `rework` row, including the security case.
+
+## 2026-10-04 land: planless checkpoint recovery leaves replace semantics incomplete
+Skill or agent: `.claude/skills/land/references/missing-checkpoint.md`, planless checkpoint handoff.
+What happened: The text forbids `--replace` for this session's `implemented:` write and the review worker's `gaps:` and `rounds:` writes, but omits this session's `review:` and `compound:` writes. Replacing the file during either recovery can erase other checkpoints and leave land with an incomplete record.
+Suggested change: State one append-only rule for every coordinator and worker checkpoint write in this flow, with `--replace` reserved for the implement writer that initializes the file.
+
 ## 2026-10-04 delegate: an empty brief can start a worker without a task
 Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `start` validation.
 What happened: `start` checks that the brief path is a file, but accepts a zero-byte brief and sends it to the worker. A worker can therefore begin without the task that its lane was meant to carry.
