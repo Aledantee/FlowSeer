@@ -534,14 +534,13 @@ func TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses(t *testing.T) {
 		t.Errorf("deploy/lab/README.md missing expected 'grpc-status: 1500'")
 	}
 
-	if strings.Contains(readme, `"Bearer token is missing"`) {
-		t.Errorf("deploy/lab/README.md contains '\"Bearer token is missing\"', want 'missing bearer token'")
+	wantMissingToken := `{"code":"bearer_token_missing","message":"missing bearer token"}`
+	if !strings.Contains(readme, wantMissingToken) {
+		t.Errorf("deploy/lab/README.md missing %s", wantMissingToken)
 	}
-	if strings.Contains(readme, `"Unauthorized"`) {
-		t.Errorf("deploy/lab/README.md contains '\"Unauthorized\"', want 'unauthenticated'")
-	}
-	if !strings.Contains(readme, `"missing bearer token"`) {
-		t.Errorf("deploy/lab/README.md missing '\"missing bearer token\"'")
+	wantUnauthenticated := `{"code":"unauthenticated","message":"unauthenticated"}`
+	if !strings.Contains(readme, wantUnauthenticated) {
+		t.Errorf("deploy/lab/README.md missing %s", wantUnauthenticated)
 	}
 
 	if strings.Contains(readme, `"edgeId":`) {
@@ -558,8 +557,8 @@ func TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses(t *testing.T) {
 		t.Errorf("deploy/lab/README.md GetEdge expected answer omits state.setupKey")
 	}
 
-	if strings.Contains(readme, `-d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}'`) {
-		t.Errorf("deploy/lab/README.md hardcodes edge id in GetEdge, must capture from CreateEdge answer")
+	if !strings.Contains(readme, `-d "{\"edge\":{\"edge\":{\"id\":\"${EDGE_ID}\"}}}"`) {
+		t.Errorf("deploy/lab/README.md GetEdge must use captured ${EDGE_ID}")
 	}
 }
 
@@ -570,22 +569,19 @@ func TestTheLabReadmeStartCommandAndBootstrapRegistry(t *testing.T) {
 
 	readme := labScript(t, "README.md")
 
-	if strings.Contains(readme, "go run ./src/services/device/cmd/device") {
-		t.Errorf("deploy/lab/README.md start command uses ./src/services/device/cmd/device, should use ../../src/services/device/cmd/device")
+	if !strings.Contains(readme, "go run ../../src/services/device/cmd/device") {
+		t.Errorf("deploy/lab/README.md start command missing directory-relative path '../../src/services/device/cmd/device'")
 	}
 
 	if !strings.Contains(readme, "registry.textproto") || !strings.Contains(readme, "0192e6a0-0000-7000-8000-00000000dead") {
 		t.Errorf("deploy/lab/README.md does not show or cite the bootstrap registry with placeholder edge")
 	}
 
-	for _, stale := range []string{
-		"docs/runbooks/lab-icx7150-first-write.md:92-95",
-		"docs/runbooks/lab-icx7150-first-write.md:168",
-		"host_test.go:629-654",
-	} {
-		if strings.Contains(readme, stale) {
-			t.Errorf("deploy/lab/README.md retains stale citation %q", stale)
-		}
+	if !regexp.MustCompile("`TestTenantServiceIsNotMounted`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(readme) {
+		t.Errorf("deploy/lab/README.md missing positive citation of TestTenantServiceIsNotMounted in host_test.go")
+	}
+	if !regexp.MustCompile(`"Bringing the deployment up" section of\s+` + "`docs/runbooks/lab-icx7150-first-write\\.md`").MatchString(readme) {
+		t.Errorf("deploy/lab/README.md missing positive citation to Bringing the deployment up section of runbook")
 	}
 }
 
@@ -601,25 +597,61 @@ func TestTheRunbookAuthenticationAndTenantContracts(t *testing.T) {
 	}
 	runbook := string(content)
 
-	if strings.Contains(runbook, "export TENANT=default\n") {
-		t.Errorf("docs/runbooks/lab-icx7150-first-write.md contains 'export TENANT=default', want deployment's tenant UUID")
+	if !regexp.MustCompile(`(?m)^export TENANT=[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).MatchString(runbook) {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing export TENANT=<canonical-uuid>")
 	}
 
 	if !strings.Contains(runbook, "deploy/lab/README.md") {
 		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing link to deploy/lab/README.md")
 	}
 
-	for _, stale := range []string{
-		"grep flowseer-device credentials.txt",
-		"grep alice credentials.txt",
-		"export TOKEN=your-oidc-bearer-token",
-	} {
-		if strings.Contains(runbook, stale) {
-			t.Errorf("docs/runbooks/lab-icx7150-first-write.md repeats stale token step %q; use deploy/lab/README.md", stale)
-		}
+	beforeMarker := "An operator obtains a token from the identity provider and configures tenant\nmembership before issuing commands, as detailed in [deploy/lab/README.md](../../deploy/lab/README.md)."
+	afterMarker := "The tenant identifier must be a canonical UUID"
+	bIdx := strings.Index(runbook, beforeMarker)
+	aIdx := strings.Index(runbook, afterMarker)
+	if bIdx < 0 || aIdx < 0 || bIdx >= aIdx {
+		t.Fatalf("docs/runbooks/lab-icx7150-first-write.md missing token step context boundaries")
 	}
-	if strings.Contains(runbook, "host_test.go:629-655") {
-		t.Error("docs/runbooks/lab-icx7150-first-write.md retains stale host_test.go line citation")
+	tokenStep := strings.TrimSpace(runbook[bIdx+len(beforeMarker) : aIdx])
+	if tokenStep == "" {
+		t.Fatalf("docs/runbooks/lab-icx7150-first-write.md token step is empty; want delegation to deploy/lab/README.md step 4")
+	}
+
+	if !strings.Contains(tokenStep, "[deploy/lab/README.md](../../deploy/lab/README.md)") {
+		t.Errorf("runbook token step missing link to [deploy/lab/README.md](../../deploy/lab/README.md)")
+	}
+	if !strings.Contains(tokenStep, `step 4, "Request an operator token"`) {
+		t.Errorf("runbook token step missing reference to step 4, \"Request an operator token\"")
+	}
+	if !strings.Contains(tokenStep, "ALICE_TOKEN") {
+		t.Errorf("runbook token step missing reference to ALICE_TOKEN")
+	}
+	if !regexp.MustCompile(`[Ss]et\s+` + "`TOKEN`" + `\s+to\s+that\s+value`).MatchString(tokenStep) {
+		t.Errorf("runbook token step missing instruction to set TOKEN to ALICE_TOKEN")
+	}
+
+	readme := labScript(t, "README.md")
+	section4Header := "4. Request an operator token"
+	sec4Idx := strings.Index(readme, section4Header)
+	if sec4Idx < 0 {
+		t.Fatalf("deploy/lab/README.md missing section %q", section4Header)
+	}
+	sec5Header := "5. Provision the tenant record"
+	sec5Idx := strings.Index(readme[sec4Idx:], sec5Header)
+	if sec5Idx < 0 {
+		t.Fatalf("deploy/lab/README.md missing section %q after section 4", sec5Header)
+	}
+	readmeTokenSection := readme[sec4Idx : sec4Idx+sec5Idx]
+
+	if !strings.Contains(readmeTokenSection, "lab_token()") || !strings.Contains(readmeTokenSection, "https://127.0.0.1:8445/dex/token") {
+		t.Errorf("deploy/lab/README.md section 4 missing lab_token command issuing token via Dex")
+	}
+	if !strings.Contains(readmeTokenSection, "ALICE_TOKEN=$(lab_token alice)") {
+		t.Errorf("deploy/lab/README.md section 4 missing ALICE_TOKEN assignment")
+	}
+
+	if !regexp.MustCompile("`TestTenantServiceIsNotMounted`\\s+in\\s+`src/services/device/internal/host/host_test\\.go`").MatchString(runbook) {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing positive citation of TestTenantServiceIsNotMounted in host_test.go")
 	}
 
 	for _, cite := range []string{
