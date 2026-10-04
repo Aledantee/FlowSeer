@@ -674,3 +674,22 @@ follow because they share `ui/index.ts`, the harness, and `FleetView.vue`.
   opens the AI menu and loses the native one there.
 - Confidence stays as the words low, medium, and high until a real model
   reports calibrated confidence. The implementer adds no percentages.
+- Parked by drive: should a touch or pen long-press open the AI menu?
+  The review stopped after one fix round with `review: fixes needed`, and
+  its fixes and record are on `parked/aiact-review`. Options: no, turn
+  Reka's long-press path off and leave touch to the browser's own
+  `contextmenu` event (least code, and a touch browser that fires no such
+  event gets no AI menu) | yes, long-press on a registered item opens it
+  (touch parity, and the layer must own touch handling, where round 1's
+  attempt left a defect). Recommended: no, because Requirement 1 names
+  only right-click and the keyboard.
+- Parked by drive: does the Menu key in a field inside a registered item
+  open the AI menu? Options: fields stay native, links and other
+  focusable elements open the AI menu (Requirement 2 holds for a device
+  row, whose only tab stops are links, and fields keep paste and
+  spelling) | every focusable element opens it (what the code does now,
+  and fields lose the native menu) | links and fields both stay native
+  (matches the click path, and a device row has no keyboard path, so
+  Requirement 2 fails). Recommended: fields stay native, because it is
+  the only option that keeps both Requirement 2 and the native menu where
+  text is edited.
