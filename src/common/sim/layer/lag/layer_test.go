@@ -1955,8 +1955,10 @@ func TestZeroSystemPeerDefaultingWithoutFallbackDisables(t *testing.T) {
 		t.Fatalf("at zero peer expiry: status = %v, enabled = %t, want Expired and disabled", info.Status, info.Enabled)
 	}
 	l.Advance(t0.Add(6 * time.Second))
-	if info := l.Info("lag1"); len(info.Enabled) != 0 || len(info.Attached) != 0 {
-		t.Fatalf("after zero peer defaulted with Fallback false: enabled = %v, attached = %v, want empty", info.Enabled, info.Attached)
+	portInfo := l.PortInfo("1/1/1")
+	lagInfo := l.Info("lag1")
+	if portInfo.Status != lag.Defaulted || portInfo.Actor.State&lacp.StateDefaulted == 0 || portInfo.Actor.State&lacp.StateExpired != 0 || len(lagInfo.Enabled) != 0 || len(lagInfo.Attached) != 0 {
+		t.Fatalf("after zero peer defaulting with Fallback false: port = %+v, enabled = %v, attached = %v, want Defaulted with the Defaulted actor bit and without Expired, and empty lists", portInfo, lagInfo.Enabled, lagInfo.Attached)
 	}
 }
 
@@ -2017,10 +2019,21 @@ func TestFallbackPrimaryPreferenceAfterLearnedPartner(t *testing.T) {
 		Partner: l.PortInfo("1/1/1").Actor,
 	})
 	l.Advance(t0.Add(2 * time.Second))
-	l.Advance(t0.Add(9 * time.Second)) // 1/1/1 defaults and is fallback choice.
+	l.Advance(t0.Add(3 * time.Second))
+	if info := l.PortInfo("1/1/1"); info.Status != lag.Expired {
+		t.Fatalf("1/1/1 at t0+3s = %+v, want Expired", info)
+	}
+	l.Advance(t0.Add(6 * time.Second))
+	if info := l.PortInfo("1/1/1"); info.Status != lag.Defaulted {
+		t.Fatalf("1/1/1 at t0+6s = %+v, want Defaulted", info)
+	}
+	l.Advance(t0.Add(9 * time.Second)) // 1/1/1 is now the fallback choice.
 
 	l.LinkChange(t0.Add(10*time.Second), "1/1/2", true)
 	l.Advance(t0.Add(13 * time.Second))
+	if info := l.PortInfo("1/1/2"); info.Status != lag.Defaulted {
+		t.Fatalf("1/1/2 at t0+13s = %+v, want Defaulted", info)
+	}
 	l.Advance(t0.Add(15 * time.Second)) // 1/1/2 defaults (13s) + 2s aggregate wait = 15s.
 
 	info := l.Info("lag1")
