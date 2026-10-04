@@ -18,13 +18,14 @@ the request in a few words, and asks for the checkpoint:
   `compound` field on its branch, and the merge of that branch brings the
   checkpoint here.
 - Without a plan, the checkpoints file lives in the worker's own git
-  directory, so the worker reports the line (`review: accept`) and this
-  session writes it with
+  directory. The brief carries this session's last `gaps:` and `rounds:`
+  lines verbatim. Before `review` step 1, the worker writes those lines to
+  its checkpoints file with
   `.claude/skills/verify-change/scripts/ledger.py checkpoint <key> "<value>"`
-  after checking the worker's tree as `delegate` describes. A review worker
-  also reports its `gaps:` and `rounds:` lines, and this session writes
-  them the same way with keys `gaps` and `rounds`, since the next review
-  reads its open items and its round count from there.
+  so the review resumes the existing open items and round count. After
+  checking the worker's tree as `delegate` describes, this session writes the
+  worker's `review`, `gaps`, and `rounds` lines with the same command. Never
+  use `--replace`.
 - A question the skill would put to the user comes back as the worker's
   blocker, and this session asks it.
 
