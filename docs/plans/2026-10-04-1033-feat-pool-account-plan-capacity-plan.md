@@ -5,6 +5,7 @@ date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 ---
 
@@ -348,3 +349,15 @@ writes under `.agents/skills/`.
   `claude`, which suggests the system sign-in, and nothing in the tree
   confirms it for `codex`. If they differ, capacity multiplies another
   account's window.
+
+## Review gaps
+
+- .claude/skills/delegate/scripts/pool-usage.sh:270: an Orca row prints `plan: null` and no `error` when `claude auth status` or the Codex app-server read fails; fails: a row with Orca windows and an unreadable plan source carries an `error` naming the failed read
+- .claude/skills/delegate/scripts/test_pool_usage.py:221: `return models or None` changed to `return models` passes, since the three subcases run at a 0.01 s deadline and assert only the absent key; fails: an empty `data` and a wrong-shape `result` at the default deadline yield `signed_in: true`, the windows, and no `models` key
+- .claude/skills/delegate/scripts/pool-usage.sh:432: a `model/list` reply that keeps returning a string `nextCursor` loops without end and no later row prints; fails: a fake that repeats one cursor yields a row with no `models` key
+- .claude/skills/delegate/scripts/pool-usage.sh:204: a plan value that is an object or array raises `TypeError` in `emit`, and a registry `capacity: inf` raises in `math.ceil`; fails: each yields a row with capacity 1 and the remaining pools still print
+- .claude/skills/delegate/scripts/pool-usage.sh:274: `plan=None, models=None` on the Orca Codex row passes; fails: Orca windows for `codex` with an app-server answering `planType` and `model/list` yield that plan and those models with `source: orca`
+- .claude/skills/delegate/scripts/pool-usage.sh:202: `if plan is not None:` changed to `if True:` passes; fails: a null plan yields capacity 1 and no `plan_unlisted` key, and plan `plus` against a table listing `prolite` yields `plan_unlisted: true`
+- .claude/skills/delegate/scripts/pool-usage.sh:79: the quote and depth scanner is written three times and `split_flow` takes a `delimiter` no caller passes; fails: one scanner shared by the three functions, no `delimiter` parameter
+- .claude/skills/delegate/scripts/test_pool_usage.py:235: "The cursor parameter follows the app-server shape assumed by the plan."; fails: a comment stating that `params.cursor` is unverified because codex-cli 0.160.0 returned one page
+- .claude/skills/delegate/SKILL.md:48: "Drop a model that the row's `models` does not list"; fails: "Drop a model that a row carrying `models` does not list", so a row without the key drops nothing
