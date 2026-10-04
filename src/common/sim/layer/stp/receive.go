@@ -65,10 +65,13 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 
 	portVec := designatedVector(t, p, link.external)
 	cmp := compareVectors(incoming, portVec)
-	if role == bpdu.RoleDesignated {
+	switch role {
+	case bpdu.RoleDesignated:
 		p.agreed = cmp <= 0
-	} else {
+	case bpdu.RoleRoot, bpdu.RoleAlternate, bpdu.RoleBackup:
 		p.agreed = cmp >= 0
+	default:
+		p.agreed = false
 	}
 	if p.agreed {
 		p.proposing = false
@@ -206,27 +209,27 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	}
 
 	if b.Type == bpdu.TypeTopologyChangeNotification {
-		if !p.tcActive {
-			return layer.Effects{Emissions: emissions, Flush: flushes}
-		}
-		if p.role == bpdu.RoleDesignated {
-			p.tcAck = true
-			l.emit(t, p, now, emissionDesignated, &emissions)
-		}
-		if !p.cfg.RestrictedTCN {
-			p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-			t.topologyChangeCount++
-			t.lastTopologyChange = now
-			l.propagateTopologyChange(t, p.name, now, &flushes, &emissions)
-			for _, mt := range l.trees {
-				if mt.id == cistID {
-					continue
-				}
-				if mp := mt.ports[port]; mp != nil && mp.tcActive {
-					mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
-					mt.topologyChangeCount++
-					mt.lastTopologyChange = now
-					l.propagateTopologyChange(mt, port, now, &flushes, &emissions)
+		if p.tcActive {
+			if p.role == bpdu.RoleDesignated {
+				p.tcAck = true
+				l.emit(t, p, now, emissionDesignated, &emissions)
+			}
+			if !p.cfg.RestrictedTCN {
+				p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+				t.topologyChangeCount++
+				t.lastTopologyChange = now
+				l.propagateTopologyChange(t, p.name, now, &flushes, &emissions)
+				for _, id := range l.treeOrder {
+					mt := l.trees[id]
+					if mt.id == cistID {
+						continue
+					}
+					if mp := mt.ports[port]; mp != nil && mp.tcActive {
+						mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
+						mt.topologyChangeCount++
+						mt.lastTopologyChange = now
+						l.propagateTopologyChange(mt, port, now, &flushes, &emissions)
+					}
 				}
 			}
 		}
@@ -469,8 +472,9 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, &emissions)
-	if link.external {
-		for _, mt := range l.trees {
+	if l.mst != nil && link.external {
+		for _, id := range l.treeOrder {
+			mt := l.trees[id]
 			if mt.id == cistID {
 				continue
 			}
@@ -511,8 +515,9 @@ func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b b
 	}
 	if b.TopologyChange() && !p.cfg.RestrictedTCN && p.tcActive {
 		l.propagateTopologyChange(t, p.name, now, flushes, emissions)
-		if link.external {
-			for _, mt := range l.trees {
+		if l.mst != nil && link.external {
+			for _, id := range l.treeOrder {
+				mt := l.trees[id]
 				if mt.id == cistID {
 					continue
 				}
@@ -560,8 +565,9 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
 		answered = true
 		l.handleProposal(t, p, link, now, flushes)
-		if link.external {
-			for _, mt := range l.trees {
+		if l.mst != nil && link.external {
+			for _, id := range l.treeOrder {
+				mt := l.trees[id]
 				if mt.id == cistID {
 					continue
 				}

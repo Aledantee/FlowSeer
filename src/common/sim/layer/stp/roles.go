@@ -192,7 +192,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 			}
 			oldRole := p.role
 			p.role = cistP.role
-			if p.role != oldRole && p.role != bpdu.RoleDesignated {
+			if p.role != oldRole {
 				p.agreed = false
 			}
 
@@ -224,10 +224,9 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 		default:
 			p.role = l.designatedOrBlocked(t, p, now)
 		}
-		// An agreement belongs to the Designated role that earned it; a port
-		// that leaves the role and comes back must propose again, or it would
-		// forward without a handshake on a link whose peer never agreed.
-		if p.role != oldRole && p.role != bpdu.RoleDesignated {
+		// An agreement belongs to the role that earned it; any role change
+		// requires a fresh handshake before the port can forward.
+		if p.role != oldRole {
 			p.agreed = false
 		}
 		// The edge delay counts from the moment the port could become an
@@ -263,6 +262,11 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			p.fwdDelayTimer = time.Time{}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
+				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
+					l.initiateTopologyChange(t, p, now, flushes, emissions)
+				}
+			} else if oldState == StateForwarding && p.state != StateForwarding {
+				l.deactivatePort(t, p, flushes)
 			}
 
 			continue

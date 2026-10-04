@@ -673,6 +673,283 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	}
 }
 
+func TestPVSTDoesNotInheritCISTAgreement(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+
+	peer := bpdu.BPDU{
+		RootID:       l.cist().bridgeID,
+		BridgeID:     bpdu.BridgeID{Priority: 61440},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	peer.SetRole(bpdu.RoleRoot)
+	peer.SetAgreement(true)
+	l.applyBPDU(l.cist(), l.cist().ports["p1"], now, peer, &[]layer.FlushTarget{})
+	if p := l.cist().ports["p1"]; !p.agreed || p.role != bpdu.RoleDesignated {
+		t.Fatalf("VLAN 1 port = role %v, agreed %v, want Designated and agreed", p.role, p.agreed)
+	}
+
+	if got := l.trees[treeID(10)].ports["p1"].state; got != StateDiscarding {
+		t.Errorf("VLAN 10 state after a VLAN 1 agreement = %v, want Discarding", got)
+	}
+}
+
+func TestPVSTDoesNotInheritCISTTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}, "p2": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	for _, id := range l.treeOrder {
+		tr := l.trees[id]
+		tr.ports["p1"].tcActive = true
+		tr.ports["p2"].tcActive = true
+	}
+
+	b := bpdu.BPDU{}
+	b.SetTopologyChange(true)
+	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
+	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes, &emissions)
+
+	if p := l.trees[treeID(10)].ports["p2"]; !p.tcWhile.IsZero() {
+		t.Errorf("VLAN 10 topology-change timer = %v after a VLAN 1 flag, want zero", p.tcWhile)
+	}
+}
+
+func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	l.cist().ports["p1"].role = bpdu.RoleRoot
+	l.trees[treeID(10)].ports["p1"].role = bpdu.RoleRoot
+	l.cist().ports["p1"].state = StateDiscarding
+	l.trees[treeID(10)].ports["p1"].state = StateDiscarding
+
+	b := bpdu.BPDU{}
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
+	if !l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}) {
+		t.Fatal("CIST proposal was not answered")
+	}
+
+	if got := l.trees[treeID(10)].ports["p1"].state; got != StateDiscarding {
+		t.Errorf("VLAN 10 state after a VLAN 1 proposal = %v, want Discarding", got)
+	}
+}
+
+func TestAgreementClearsOnRoleChangesAndUnknownSenderRoles(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	p := l.cist().ports["p1"]
+	p.role = bpdu.RoleRoot
+	p.agreed = true
+	l.assignRoles(l.cist(), now)
+	if p.role != bpdu.RoleDesignated || p.agreed {
+		t.Fatalf("role change to Designated left role=%v agreed=%t, want Designated/false", p.role, p.agreed)
+	}
+
+	p.agreed = true
+	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
+	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true, now, &flushes, &emissions)
+	if p.agreed {
+		t.Error("unknown sender role left agreed=true, want false")
+	}
+}
+
+func TestMSTTopologyChangeUsesTreeOrderForEmissions(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	region := MST{Instances: map[bpdu.MSTID]Instance{
+		1: {VLANs: []vlan.ID{10}},
+		2: {VLANs: []vlan.ID{20}},
+		3: {VLANs: []vlan.ID{30}},
+		4: {VLANs: []vlan.ID{40}},
+	}}
+
+	for run := 0; run < 40; run++ {
+		l := newLayer(Config{
+			Ports: map[string]Port{"p1": {}, "p2": {}},
+			MST:   &region,
+		}.Normalize(layer.Env{}))
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		l.LinkChange(now, "p2", true, true, 1_000_000_000)
+		l.links["p1"].external = true
+		for _, id := range l.treeOrder {
+			tr := l.trees[id]
+			tr.ports["p1"].role = bpdu.RoleDesignated
+			tr.ports["p2"].role = bpdu.RoleRoot
+			tr.ports["p1"].state = StateForwarding
+			tr.ports["p2"].state = StateForwarding
+			tr.ports["p1"].tcActive = true
+			tr.ports["p2"].tcActive = true
+		}
+
+		b := bpdu.BPDU{}
+		b.SetTopologyChange(true)
+		var flushes []layer.FlushTarget
+		var emissions []layer.Emission
+		l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes, &emissions)
+
+		if len(emissions) != 5 {
+			t.Fatalf("run %d emitted %d topology-change BPDUs, want 5", run, len(emissions))
+		}
+		for i, emission := range emissions {
+			decoded, err := bpdu.Decode(emission.Frame)
+			if err != nil {
+				t.Fatalf("run %d emission %d: %v", run, i, err)
+			}
+			for j, record := range decoded.MSTIs {
+				wantFlagged := j < i
+				gotFlagged := (bpdu.BPDU{Flags: record.Flags}).TopologyChange()
+				if gotFlagged != wantFlagged {
+					t.Errorf("run %d emission %d MSTI %d flagged=%t, want %t", run, i, record.MSTID, gotFlagged, wantFlagged)
+				}
+				if record.MSTID != bpdu.MSTID(j+1) {
+					t.Errorf("run %d emission %d MSTI index %d = %d, want %d", run, i, j, record.MSTID, j+1)
+				}
+			}
+		}
+	}
+}
+
+func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	region := MST{Instances: map[bpdu.MSTID]Instance{1: {VLANs: []vlan.ID{10}}}}
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}, "p2": {}},
+		MST:   &region,
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+	cistP1 := l.cist().ports["p1"]
+	msti := l.trees[treeID(1)]
+	mstiP1 := msti.ports["p1"]
+	mstiP2 := msti.ports["p2"]
+	cistP1.role = bpdu.RoleAlternate
+	cistP1.state = StateDiscarding
+	mstiP1.role = bpdu.RoleRoot
+	mstiP1.state = StateForwarding
+	mstiP1.tcActive = true
+	mstiP2.role = bpdu.RoleDesignated
+	mstiP2.state = StateForwarding
+	mstiP2.tcActive = true
+
+	var flushes []layer.FlushTarget
+	var emissions []layer.Emission
+	l.propagateTopologyChange(msti, "p2", now, &flushes, &emissions)
+	if len(emissions) != 1 {
+		t.Fatalf("MSTI topology change emitted %d frames, want one CIST frame", len(emissions))
+	}
+	decoded, err := bpdu.Decode(emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode CIST topology-change frame: %v", err)
+	}
+	if len(decoded.MSTIs) != 1 || !(bpdu.BPDU{Flags: decoded.MSTIs[0].Flags}).TopologyChange() {
+		t.Fatalf("CIST frame MSTI records = %+v, want MSTI 1 flagged", decoded.MSTIs)
+	}
+
+	l.cist().helloTimer = now
+	emissions = nil
+	l.sendDueHellos(now, &emissions)
+	var rootHello []layer.Emission
+	for _, emission := range emissions {
+		if emission.Port == "p1" {
+			rootHello = append(rootHello, emission)
+		}
+	}
+	if len(rootHello) != 1 {
+		t.Fatalf("hello with an MSTI root timer emitted %d frames on p1, want one CIST frame", len(rootHello))
+	}
+	decoded, err = bpdu.Decode(rootHello[0].Frame)
+	if err != nil {
+		t.Fatalf("decode periodic CIST topology-change frame: %v", err)
+	}
+	if !(bpdu.BPDU{Flags: decoded.MSTIs[0].Flags}).TopologyChange() {
+		t.Error("periodic CIST frame did not carry MSTI topology-change flag")
+	}
+}
+
+func TestAdvanceBuildsTopologyChangeAfterRecompute(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{Ports: map[string]Port{"p1": {}, "p2": {}, "p3": {}}}.Normalize(layer.Env{}))
+	for _, name := range []string{"p1", "p2", "p3"} {
+		l.LinkChange(now, name, true, true, 1_000_000_000)
+	}
+
+	oldRoot := bpdu.BridgeID{Priority: 4096}
+	newRoot := bpdu.BridgeID{Priority: 2048}
+	tree := l.cist()
+	tree.rootID = oldRoot
+	tree.rootPort = "p1"
+	tree.rootPathCost = 100
+	p1 := tree.ports["p1"]
+	p1.role = bpdu.RoleRoot
+	p1.state = StateForwarding
+	p1.tcActive = true
+	p1.rcvInfoValid = false
+	p3 := tree.ports["p3"]
+	p3.role = bpdu.RoleAlternate
+	p3.state = StateDiscarding
+	p3.tcActive = true
+	p3.rcvInfoValid = true
+	p3.rcvRootID = newRoot
+	p3.rcvRootPathCost = 0
+	p3.rcvBridgeID = newRoot
+	p3.rcvPortID = 1
+	p3.rcvHelloTime = 2 * time.Second
+	p3.rcvTime = now
+	p2 := tree.ports["p2"]
+	p2.role = bpdu.RoleDesignated
+	p2.state = StateLearning
+	p2.fwdDelayTimer = now
+
+	effects := l.Advance(now)
+	if tree.rootPort != "p3" {
+		t.Fatalf("root port after simultaneous expiry and forwarding transition = %q, want p3", tree.rootPort)
+	}
+	if len(effects.Emissions) != 1 || effects.Emissions[0].Port != "p3" {
+		t.Fatalf("topology-change emissions = %+v, want one frame on recomputed root port p3", effects.Emissions)
+	}
+	decoded, err := bpdu.Decode(effects.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode topology-change emission: %v", err)
+	}
+	if decoded.RootID != newRoot {
+		t.Errorf("topology-change emission root = %v, want recomputed root %v", decoded.RootID, newRoot)
+	}
+}
+
 // TestBoundaryFlipClearsAStaleForwardDelayTimer pins that a port flipping
 // from internal to boundary clears any live fwdDelayTimer an MSTI's own
 // ladder was running, at the same recompute that mirrors its role and state
@@ -740,6 +1017,38 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	}
 	if !mstiPort.fwdDelayTimer.IsZero() {
 		t.Errorf("MSTI 1's forward delay timer = %v, want to stay cleared on a boundary port", mstiPort.fwdDelayTimer)
+	}
+}
+
+func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	region := MST{Instances: map[bpdu.MSTID]Instance{1: {VLANs: []vlan.ID{10}}}}
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		MST:   &region,
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	cistP := l.cist().ports["p1"]
+	msti := l.trees[treeID(1)]
+	mstiP := msti.ports["p1"]
+	cistP.role = bpdu.RoleDesignated
+	cistP.state = StateForwarding
+	mstiP.role = bpdu.RoleDesignated
+	mstiP.state = StateDiscarding
+
+	var flushes []layer.FlushTarget
+	l.recompute(msti, now, &flushes, false)
+	if mstiP.state != StateForwarding || !mstiP.tcActive || msti.topologyChangeCount != 1 {
+		t.Fatalf("boundary activation state=%v active=%t changes=%d, want Forwarding/true/1", mstiP.state, mstiP.tcActive, msti.topologyChangeCount)
+	}
+
+	cistP.state = StateDiscarding
+	l.recompute(msti, now.Add(time.Second), &flushes, false)
+	if mstiP.state != StateDiscarding || mstiP.tcActive || !mstiP.tcWhile.IsZero() {
+		t.Errorf("boundary deactivation state=%v active=%t timer=%v, want Discarding/false/zero", mstiP.state, mstiP.tcActive, mstiP.tcWhile)
 	}
 }
 

@@ -23,7 +23,8 @@ func (l *Layer) NextWake() (time.Time, bool) {
 		}
 	}
 
-	for _, t := range l.trees {
+	for _, id := range l.treeOrder {
+		t := l.trees[id]
 		update(t.helloTimer)
 
 		for _, p := range t.ports {
@@ -57,11 +58,25 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 
 	agedOut := l.expireReceivedInfo(now)
 	autoEdgeFired := l.advanceAutoEdge(now, &flushes)
-	stateChanged := l.advanceForwardDelay(now, &flushes, &emissions)
+	stateChanged, topologyChangeTrees := l.advanceForwardDelay(now, &flushes)
 	l.clearExpiredTCWhile(now)
 
 	if agedOut || stateChanged || autoEdgeFired {
 		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+	}
+	for _, id := range l.treeOrder {
+		if _, ok := topologyChangeTrees[id]; !ok {
+			continue
+		}
+		mt := l.trees[id]
+		if mt.rootPort == "" {
+			continue
+		}
+		p := mt.ports[mt.rootPort]
+		if p == nil || !p.tcActive || p.tcWhile.IsZero() || !p.tcWhile.After(now) {
+			continue
+		}
+		l.emitRootTC(mt, p, now, &emissions)
 	}
 
 	l.releaseHeldTransmissions(now, &emissions)
@@ -124,8 +139,9 @@ func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) boo
 	return autoEdgeFired
 }
 
-func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) bool {
+func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget) (bool, map[treeID]struct{}) {
 	stateChanged := false
+	topologyChangeTrees := make(map[treeID]struct{})
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
 		_, _, fwdDelay := l.times(mt)
@@ -147,7 +163,8 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget,
 					stateChanged = true
 					link := l.links[p.name]
 					if !link.edge {
-						l.initiateTopologyChange(mt, p, now, flushes, emissions)
+						l.initiateTopologyChange(mt, p, now, flushes, nil)
+						topologyChangeTrees[id] = struct{}{}
 					}
 				case StateForwarding:
 				}
@@ -156,7 +173,7 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget,
 		}
 	}
 
-	return stateChanged
+	return stateChanged, topologyChangeTrees
 }
 
 func (l *Layer) clearExpiredTCWhile(now time.Time) {
@@ -199,7 +216,7 @@ func (l *Layer) releaseHeldTransmissions(now time.Time, emissions *[]layer.Emiss
 			}
 			if tx.pendingTCN {
 				tx.pendingTCN = false
-				if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+				if !link.sendRSTP && p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
 					l.emit(mt, p, now, emissionTCN, emissions)
 				}
 			}
@@ -222,7 +239,8 @@ func (l *Layer) sendDueHellos(now time.Time, emissions *[]layer.Emission) {
 			}
 			if p.role == bpdu.RoleDesignated {
 				l.emit(mt, p, now, emissionDesignated, emissions)
-			} else if p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+			} else if (p.role == bpdu.RoleRoot && !p.tcWhile.IsZero() && p.tcWhile.After(now)) ||
+				(l.mst != nil && l.rootTopologyChangeActive(name, now)) {
 				if link.sendRSTP {
 					l.emit(mt, p, now, emissionAgreement, emissions)
 				} else {
