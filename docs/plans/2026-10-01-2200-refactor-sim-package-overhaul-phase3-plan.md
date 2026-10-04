@@ -949,3 +949,13 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/sim/layer/stp/topology_change_property_test.go:546: `expected` is never read, a TCN skips the role check (`:567`), and a held flag counts as sent with budget to spare (`:634`); fails: `p.role != bpdu.RoleRoot` dropped at `topology.go:162` sends a flagged frame from a Designated port
 - src/common/sim/layer/stp/topology_change_property_test.go:330: the MST Mcheck BPDU is a Configuration BPDU that keeps `ConfigID` and MSTI records, and the MST Receive BPDU (`:34`) raises the external cost under an unchanged regional root, shapes `bpdu.Decode` or a conformant sender never gives; not confirmed by a run
 - src/common/sim/layer/stp/topology.go:162: guards a nil port and link no caller can pass, and `:175` reads the link again
+- Parked by drive: the review of the phase with U7 recorded `fixes needed`
+  and ran no fix round, because five findings need a plan decision. They
+  are the short Version 3 BPDU (U3 against `Q2003` 14.4), the legacy Root
+  port's hello (R9 against U7's T5), the MSTI proposal gate (U4 against
+  both sources), TCN propagation under PVST, and the loop-guard clear (U6
+  against Correctness 11). The record is on `parked/sim-p3-review`.
+  Options: answer the five, then run the fix loop (the review continues on
+  settled text) | record all five under Limits and fix only the rest
+  (faster, leaves five known departures). Recommended: answer the five,
+  because two of them are the review's High findings.
