@@ -18,8 +18,16 @@ const (
 )
 
 func (l *Layer) emitRootTC(t *tree, p *portState, now time.Time, emissions *[]layer.Emission) {
+	// MSTI topology changes ride the CIST BPDU. The CIST builder still reads
+	// each MSTI port's own timer when it creates the records.
 	if l.pvst == nil && t.id != cistID {
-		return
+		cist := l.cist()
+		cistPort, ok := cist.ports[p.name]
+		if !ok {
+			return
+		}
+		t = cist
+		p = cistPort
 	}
 	link := l.links[p.name]
 	if !link.up {

@@ -114,6 +114,100 @@ func TestLinkDownClearsHandshakeStateAndTimersOnEveryTree(t *testing.T) {
 	}
 }
 
+func TestLinkDownClearsHeldTCNAndAcknowledgment(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.cist().helloTimer = time.Time{}
+	tx := l.tx(l.cist(), "p1")
+	tx.pendingTCN = true
+	tx.tick = now.Add(-time.Second)
+	l.cist().ports["p1"].tcAck = true
+
+	l.LinkChange(now.Add(time.Second), "p1", false, true, 0)
+	l.cist().helloTimer = time.Time{}
+
+	if _, ok := l.NextWake(); ok {
+		t.Fatal("NextWake reported a timer after link down cleared a held TCN")
+	}
+	if l.cist().ports["p1"].tcAck {
+		t.Error("link down left a pending topology-change acknowledgment")
+	}
+
+	guarded := newLayer(Config{
+		Ports: map[string]Port{"p1": {BPDUGuard: true}},
+	}.Normalize(layer.Env{}))
+	guarded.LinkChange(now, "p1", true, true, 1_000_000_000)
+	guarded.cist().ports["p1"].tcAck = true
+	guarded.Receive(now.Add(4*time.Second), "p1", bpdu.BPDU{})
+	if guarded.cist().ports["p1"].tcAck {
+		t.Error("BPDU-guard disable left a pending topology-change acknowledgment")
+	}
+}
+
+func TestHeldTCNIsNotReleasedOnAnRSTPPort(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.cist().helloTimer = time.Time{}
+	p := l.cist().ports["p1"]
+	p.role = bpdu.RoleRoot
+	p.tcActive = true
+	p.tcWhile = now.Add(time.Minute)
+	tx := l.tx(l.cist(), "p1")
+	tx.pendingTCN = true
+	tx.tick = now
+
+	for _, emission := range l.Advance(now.Add(time.Second)).Emissions {
+		decoded, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("decode emission: %v", err)
+		}
+		if decoded.Type == bpdu.TypeTopologyChangeNotification {
+			t.Errorf("held TCN was released on an RSTP port: %+v", decoded)
+		}
+	}
+}
+
+func TestPointToPointChangeDeactivatesAnActivePort(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	p := l.cist().ports["p1"]
+	p.state = StateForwarding
+	p.tcActive = true
+	p.tcWhile = now.Add(time.Minute)
+
+	fx := l.LinkChange(now.Add(time.Second), "p1", true, false, 1_000_000_000)
+	if p.tcActive || !p.tcWhile.IsZero() {
+		t.Errorf("point-to-point change left topology state active=%t timer=%v", p.tcActive, p.tcWhile)
+	}
+	if p.state != StateDiscarding {
+		t.Errorf("point-to-point change state = %v, want Discarding", p.state)
+	}
+	flushed := false
+	for _, target := range fx.Flush {
+		if target.Port == "p1" {
+			flushed = true
+		}
+	}
+	if !flushed {
+		t.Errorf("point-to-point change flushes = %v, want p1", fx.Flush)
+	}
+}
+
 // TestCloneLinkRecordIsIndependent verifies that mutating a clone's linkRecord
 // does not affect the source Layer's linkRecord.
 func TestCloneLinkRecordIsIndependent(t *testing.T) {

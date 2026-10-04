@@ -84,6 +84,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			tp.state = StateDiscarding
 			tp.rcvInfoValid = false
 			tp.agreed = false
+			tp.tcAck = false
 			tp.proposing = false
 			tp.fwdDelayTimer = time.Time{}
 			tp.pvidInconsistent = false
@@ -153,6 +154,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		if tp == nil {
 			continue
 		}
+		l.deactivatePort(l.trees[id], tp, &flushes)
+		tp.fwdDelayTimer = time.Time{}
 		if !tp.pathCostFixed {
 			tp.pathCost = linkCost
 		}
@@ -212,7 +215,8 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	// runs before the BPDU guard checks below: a frame that trips or is held
 	// by BPDU guard is still such evidence, and guard and loop guard clear on
 	// independent events.
-	for _, tr := range l.trees {
+	for _, id := range l.treeOrder {
+		tr := l.trees[id]
 		if tp, ok := tr.ports[port]; ok {
 			tp.loopInconsistent = false
 		}
@@ -224,10 +228,12 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	if p.cfg.BPDUGuard && !link.bpduGuardDisabled {
 		link.bpduGuardDisabled = true
 		l.clearPending(port)
-		for _, tr := range l.trees {
+		for _, id := range l.treeOrder {
+			tr := l.trees[id]
 			if tp, ok := tr.ports[port]; ok {
 				tp.rcvInfoValid = false
 				tp.agreed = false
+				tp.tcAck = false
 				tp.proposing = false
 				tp.fwdDelayTimer = time.Time{}
 			}

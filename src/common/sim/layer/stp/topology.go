@@ -22,6 +22,20 @@ func (l *Layer) tcWhileDuration(t *tree, p *portState) time.Duration {
 	return maxAge + fwdDelay
 }
 
+func (l *Layer) rootTopologyChangeActive(port string, now time.Time) bool {
+	for _, id := range l.treeOrder {
+		if id == cistID {
+			continue
+		}
+		p := l.trees[id].ports[port]
+		if p != nil && p.role == bpdu.RoleRoot && p.tcActive && !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // initiateTopologyChange marks p active, increments the tree's topology change
 // count, starts p's own tcWhile timer, emits on p if p is the root port, and
 // propagates to other active ports on tree t.
@@ -34,8 +48,8 @@ func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flu
 }
 
 // propagateTopologyChange starts tcWhile on every active non-edge port on tree t
-// other than originPort, flushes that port's learned entries, and emits on it if
-// it is the root port.
+// other than originPort, flushes that port's learned entries, and emits toward
+// the root when the port is the root port.
 func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
 	fids := l.treeVLANs[t.id]
 	for _, name := range l.portNames {
