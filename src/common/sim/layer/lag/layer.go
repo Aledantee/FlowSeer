@@ -72,6 +72,10 @@ const (
 	// pendingUnsynchronized marks a member attached to the lead partner that has
 	// not yet advertised synchronization.
 	pendingUnsynchronized pendingCause = "unsynchronized"
+
+	// pendingAggregateWait marks a selected member waiting for the aggregator
+	// selection window to close.
+	pendingAggregateWait pendingCause = "aggregate-wait"
 )
 
 // pending names one member port that may still change state on its own, and
@@ -103,6 +107,7 @@ type lagState struct {
 	partnerSysID    netaddr.MAC
 	partnerSysPrio  uint16
 	partnerKey      uint16
+	aggregateWait   time.Time
 
 	// lastActive is the active-backup member last chosen on a committing
 	// call, kept so active-backup does not fail back once its member
@@ -132,10 +137,12 @@ type memberState struct {
 	hasPendingLink   bool
 	pendingLinkUp    bool
 	linkDelayTimer   time.Time
+	aggregateWait    time.Time
 	attached         bool
 	enabled          bool
 	status           Status
 	partnerDefaulted bool
+	partnerLearned   bool
 	actorExpired     bool
 	partner          lacp.Info
 	actor            lacp.Info
@@ -150,6 +157,8 @@ type memberState struct {
 
 	// needsReselect records a Partner identity change for Selection Logic.
 	needsReselect bool
+	selected      bool
+	mux           muxState
 }
 
 func (m *memberState) clone() *memberState {
@@ -218,6 +227,7 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 				cfg:           mCfg,
 				needsReselect: true,
 				txPeriod:      txPeriod,
+				mux:           muxDetached,
 			}
 			ms.recordDefault()
 			ms.disableReceive()
@@ -601,6 +611,7 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 		if other.name != m.name && other.status == PortDisabled &&
 			other.partner.SystemID == pdu.Actor.SystemID && other.partner.PortID == pdu.Actor.PortID {
 			other.needsReselect = true
+			other.partnerLearned = false
 			other.recordDefault()
 			other.actorExpired = false
 			other.disableReceive()
@@ -620,6 +631,7 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 		m.partner.State |= lacp.StateSynchronization
 	}
 	m.partnerDefaulted = false
+	m.partnerLearned = true
 	m.status = Current
 	m.actorExpired = false
 
@@ -676,6 +688,9 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			continue
 		}
 		lagNeedsUpdate := false
+		if !lag.aggregateWait.IsZero() && !lag.aggregateWait.After(now) {
+			lagNeedsUpdate = true
+		}
 		for _, name := range lag.memberNames {
 			m := l.members[name]
 			if !m.carrier {
@@ -776,6 +791,11 @@ func (l *Layer) NextWake() (time.Time, bool) {
 			}
 		}
 	}
+	for _, lag := range l.lags {
+		if lag.cfg.LACP.Mode != Off {
+			update(lag.aggregateWait)
+		}
+	}
 
 	return next, hasTimer
 }
@@ -812,6 +832,8 @@ func (l *Layer) Info(lagName string) Info {
 // member.
 func pendingEntry(m *memberState) (pending, bool) {
 	switch {
+	case m.mux == muxWaiting:
+		return pending{Member: m.name, Cause: pendingAggregateWait, At: m.aggregateWait}, true
 	case m.hasPendingLink:
 		return pending{Member: m.name, Cause: pendingLinkDelay, At: m.linkDelayTimer}, true
 	case m.status == Expired:

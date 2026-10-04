@@ -10,6 +10,18 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 
+const aggregateWaitTime = 2 * time.Second
+
+type muxState string
+
+const (
+	muxDetached               muxState = "DETACHED"
+	muxWaiting                muxState = "WAITING"
+	muxAttached               muxState = "ATTACHED"
+	muxCollectingDistributing muxState = "COLLECTING_DISTRIBUTING"
+	muxStandby                muxState = "STANDBY"
+)
+
 // Status represents the LACP receive state of a member port.
 type Status string
 
@@ -158,11 +170,24 @@ func updateEnabledOrder(order, target []string) []string {
 
 func (l *Layer) updateLag(lag *lagState) bool {
 	oldEnabled := slices.Clone(lag.enabledOrder)
+	oldAttached := slices.Clone(lag.attachedMembers)
+	oldActors := make(map[string]lacp.Info, len(lag.memberNames))
+	oldSelected := make(map[string]bool, len(lag.memberNames))
+	oldMux := make(map[string]muxState, len(lag.memberNames))
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		oldActors[name] = m.actor
+		oldSelected[name] = m.selected
+		oldMux[name] = m.mux
+	}
 
 	if lag.cfg.LACP.Mode == Off {
 		var enabled []string
 		for _, name := range lag.memberNames {
 			m := l.members[name]
+			m.selected = false
+			m.mux = muxDetached
+			m.aggregateWait = time.Time{}
 			m.attached = false
 			m.enabled = m.linkUp
 			if m.enabled {
@@ -170,115 +195,99 @@ func (l *Layer) updateLag(lag *lagState) bool {
 			}
 		}
 
-		enabled = l.applyMinLinks(lag, enabled)
-
-		lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
-		lag.attachedMembers = nil
-		lag.partnerSysID = netaddr.MAC{}
-		lag.partnerSysPrio = 0
-		lag.partnerKey = 0
-
-		return !slices.Equal(oldEnabled, lag.enabledOrder)
-	}
-
-	var lead *memberState
-	for _, name := range lag.memberNames {
-		m := l.members[name]
-		if !m.linkUp || m.status == PortDisabled || m.status == Defaulted || m.partnerDefaulted {
-			continue
-		}
-		if lead == nil || comparePartner(m.partner, lead.partner) < 0 || (comparePartner(m.partner, lead.partner) == 0 && m.name < lead.name) {
-			lead = m
-		}
-	}
-
-	if lead == nil {
-		lag.attachedMembers = nil
-		lag.partnerSysID = netaddr.MAC{}
-		lag.partnerSysPrio = 0
-		lag.partnerKey = 0
-
-		allDefaulted := true
-		for _, name := range lag.memberNames {
-			m := l.members[name]
-			if m.status != Defaulted && m.status != PortDisabled {
-				allDefaulted = false
-				break
-			}
-		}
-
-		var enabled []string
-		if lag.cfg.LACP.Fallback && allDefaulted {
-			var upMembers []string
+		if lag.cfg.MinLinks != 0 && len(enabled) < lag.cfg.MinLinks {
+			enabled = nil
 			for _, name := range lag.memberNames {
-				m := l.members[name]
-				if m.linkUp && m.partner.State&lacp.StateSynchronization != 0 {
-					upMembers = append(upMembers, name)
-				}
-			}
-			if len(upMembers) > 0 {
-				primary := lag.cfg.Primary
-				chosen := upMembers[0]
-				if primary != "" && slices.Contains(upMembers, primary) {
-					chosen = primary
-				}
-				for _, name := range lag.memberNames {
-					l.members[name].attached = false
-					l.members[name].enabled = (name == chosen)
-				}
-				enabled = append(enabled, chosen)
-			} else {
-				for _, name := range lag.memberNames {
-					l.members[name].attached = false
-					l.members[name].enabled = false
-				}
-			}
-		} else {
-			for _, name := range lag.memberNames {
-				l.members[name].attached = false
 				l.members[name].enabled = false
 			}
 		}
-
-		enabled = l.applyMinLinks(lag, enabled)
-
 		lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
+		lag.attachedMembers = nil
+		lag.partnerSysID = netaddr.MAC{}
+		lag.partnerSysPrio = 0
+		lag.partnerKey = 0
+		lag.aggregateWait = time.Time{}
 
-		for _, name := range lag.memberNames {
-			l.members[name].updateActorInfo(lag)
-		}
-
-		return !slices.Equal(oldEnabled, lag.enabledOrder)
+		return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 	}
 
-	leadPartner := lead.partner
-	lag.partnerSysID = leadPartner.SystemID
-	lag.partnerSysPrio = leadPartner.SystemPriority
-	lag.partnerKey = leadPartner.Key
+	target, lead := l.selectionTarget(lag)
+	current := selectedMembers(lag, l.members)
+	if !slices.Equal(current, target) {
+		targetSet := make(map[string]struct{}, len(target))
+		for _, name := range target {
+			targetSet[name] = struct{}{}
+		}
+		for _, name := range lag.memberNames {
+			l.members[name].selected = false
+			if _, ok := targetSet[name]; ok {
+				l.members[name].selected = true
+			}
+		}
+		if len(target) > 0 {
+			lag.aggregateWait = l.now.Add(aggregateWaitTime)
+		} else {
+			lag.aggregateWait = time.Time{}
+		}
+	}
+	if !lag.aggregateWait.IsZero() && !lag.aggregateWait.After(l.now) {
+		lag.aggregateWait = time.Time{}
+	}
 
-	var attached []string
-	var enabled []string
+	if lead != nil {
+		lag.partnerSysID = lead.partner.SystemID
+		lag.partnerSysPrio = lead.partner.SystemPriority
+		lag.partnerKey = lead.partner.Key
+	} else if len(target) == 0 {
+		lag.partnerSysID = netaddr.MAC{}
+		lag.partnerSysPrio = 0
+		lag.partnerKey = 0
+	}
 
+	waiting := !lag.aggregateWait.IsZero()
 	for _, name := range lag.memberNames {
 		m := l.members[name]
-		if m.linkUp && m.status != PortDisabled && m.status != Defaulted && !m.partnerDefaulted &&
-			m.partner.SystemID == leadPartner.SystemID && m.partner.Key == leadPartner.Key {
-			m.attached = true
-			attached = append(attached, name)
-			if (m.partner.State & lacp.StateSynchronization) != 0 {
-				m.enabled = true
-				enabled = append(enabled, name)
-			} else {
-				m.enabled = false
-			}
-		} else {
-			m.attached = false
-			m.enabled = false
+		m.aggregateWait = lag.aggregateWait
+		m.mux = muxDetached
+		if !m.selected {
+			continue
+		}
+		switch {
+		case waiting:
+			m.mux = muxWaiting
+		case !m.carrier:
+			m.mux = muxDetached
+		case !m.linkUp:
+			m.mux = muxStandby
+		default:
+			m.mux = muxAttached
 		}
 	}
 
-	enabled = l.applyMinLinks(lag, enabled)
-
+	ready := 0
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if m.mux == muxAttached && m.partner.State&lacp.StateSynchronization != 0 {
+			ready++
+		}
+	}
+	minLinksMet := lag.cfg.MinLinks == 0 || ready >= lag.cfg.MinLinks
+	var attached []string
+	var enabled []string
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if m.mux == muxAttached && m.partner.State&lacp.StateSynchronization != 0 && minLinksMet {
+			m.mux = muxCollectingDistributing
+		}
+		m.attached = m.mux == muxAttached || m.mux == muxCollectingDistributing
+		m.enabled = m.mux == muxCollectingDistributing
+		if m.attached {
+			attached = append(attached, name)
+		}
+		if m.enabled {
+			enabled = append(enabled, name)
+		}
+	}
 	lag.attachedMembers = attached
 	lag.enabledOrder = updateEnabledOrder(lag.enabledOrder, enabled)
 
@@ -286,18 +295,146 @@ func (l *Layer) updateLag(lag *lagState) bool {
 		l.members[name].updateActorInfo(lag)
 	}
 
-	return !slices.Equal(oldEnabled, lag.enabledOrder)
+	return l.lagChanged(lag, oldEnabled, oldAttached, oldActors, oldSelected, oldMux)
 }
 
-// applyMinLinks disables every enabled member when fewer than the minimum
-// are enabled, since a LAG below its minimum carries nothing.
-func (l *Layer) applyMinLinks(lag *lagState, enabled []string) []string {
-	if lag.cfg.MinLinks == 0 || len(enabled) >= lag.cfg.MinLinks {
-		return enabled
+func (l *Layer) lagChanged(lag *lagState, oldEnabled, oldAttached []string, oldActors map[string]lacp.Info, oldSelected map[string]bool, oldMux map[string]muxState) bool {
+	if !slices.Equal(oldEnabled, lag.enabledOrder) || !slices.Equal(oldAttached, lag.attachedMembers) {
+		return true
 	}
-	for _, name := range enabled {
-		l.members[name].enabled = false
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if m.actor != oldActors[name] || m.selected != oldSelected[name] || m.mux != oldMux[name] {
+			return true
+		}
 	}
 
-	return nil
+	return false
+}
+
+func selectedMembers(lag *lagState, members map[string]*memberState) []string {
+	var selected []string
+	for _, name := range lag.memberNames {
+		if members[name].selected {
+			selected = append(selected, name)
+		}
+	}
+
+	return selected
+}
+
+func (l *Layer) selectionTarget(lag *lagState) ([]string, *memberState) {
+	var lead *memberState
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if !l.selectionCandidate(lag, m) {
+			continue
+		}
+		if lead == nil || comparePartner(m.partner, lead.partner) < 0 ||
+			(comparePartner(m.partner, lead.partner) == 0 && m.name < lead.name) {
+			lead = m
+		}
+	}
+	if lead != nil {
+		var target []string
+		for _, name := range lag.memberNames {
+			m := l.members[name]
+			if l.selectionCandidate(lag, m) && l.partnerInGroup(m.partner, lead.partner) {
+				target = append(target, name)
+				continue
+			}
+			if !m.carrier && m.selected && l.partnerInGroup(m.partner, lead.partner) {
+				target = append(target, name)
+			}
+		}
+		if lead.partner.State&lacp.StateAggregation == 0 {
+			target = []string{lead.name}
+		}
+
+		return target, lead
+	}
+
+	current := selectedMembers(lag, l.members)
+	if len(current) > 0 {
+		if lag.partnerSysID != (netaddr.MAC{}) || lag.partnerKey != 0 {
+			var retained []string
+			for _, name := range current {
+				m := l.members[name]
+				if l.partnerMatchesStoredGroup(m.partner, lag) {
+					retained = append(retained, name)
+				}
+			}
+			if len(retained) > 0 {
+				return retained, nil
+			}
+		} else {
+			var retained []string
+			for _, name := range current {
+				if l.members[name].linkUp {
+					retained = append(retained, name)
+				}
+			}
+			if len(retained) > 0 {
+				return retained, nil
+			}
+		}
+	}
+
+	if !lag.cfg.LACP.Fallback {
+		return nil, nil
+	}
+	var fallback []string
+	for _, name := range lag.memberNames {
+		m := l.members[name]
+		if m.linkUp && m.partnerDefaulted && (m.status == Defaulted || m.status == PortDisabled) && l.memberKey(lag, m) == lag.cfg.LACP.Key {
+			fallback = append(fallback, name)
+		}
+	}
+	if len(fallback) == 0 {
+		return nil, nil
+	}
+	chosen := slices.Min(fallback)
+	if lag.cfg.Primary != "" && slices.Contains(fallback, lag.cfg.Primary) {
+		chosen = lag.cfg.Primary
+	}
+
+	return []string{chosen}, nil
+}
+
+func (l *Layer) selectionCandidate(lag *lagState, m *memberState) bool {
+	if !m.carrier || !m.partnerLearned || m.partnerDefaulted || (m.status != Current && m.status != Expired) || l.memberKey(lag, m) != lag.cfg.LACP.Key {
+		return false
+	}
+	if m.partner.SystemID != m.actor.SystemID {
+		return true
+	}
+	for _, name := range lag.memberNames {
+		peer := l.members[name]
+		if peer == m || peer.actor.PortID != m.partner.PortID {
+			continue
+		}
+
+		return m.name < peer.name
+	}
+
+	return true
+}
+
+func (l *Layer) memberKey(lag *lagState, m *memberState) uint16 {
+	if m.cfg.Key != 0 {
+		return m.cfg.Key
+	}
+	return lag.cfg.LACP.Key
+}
+
+func (l *Layer) partnerInGroup(a, b lacp.Info) bool {
+	if a.State&lacp.StateAggregation == 0 || b.State&lacp.StateAggregation == 0 {
+		return a == b
+	}
+
+	return a.SystemPriority == b.SystemPriority && a.SystemID == b.SystemID && a.Key == b.Key
+}
+
+func (l *Layer) partnerMatchesStoredGroup(info lacp.Info, lag *lagState) bool {
+	return info.SystemPriority == lag.partnerSysPrio && info.SystemID == lag.partnerSysID && info.Key == lag.partnerKey
 }

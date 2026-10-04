@@ -389,6 +389,63 @@ func TestLacpExport_Converged(t *testing.T) {
 	}
 }
 
+func TestLacpExport_SelectedMembersFollowAttachment(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
+	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}
+	macB := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0b}
+	config := func(mac netaddr.MAC, mismatch bool) *lag.Config {
+		members := map[string]lag.Member{}
+		if mismatch {
+			members["1/1/2"] = lag.Member{Key: 2}
+		}
+		return &lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+			MinLinks: 2,
+			LACP: lag.LACPConfig{
+				Mode:           lag.Active,
+				Fast:           true,
+				SystemID:       mac,
+				SystemPriority: 32768,
+				Key:            1,
+			},
+			Members: members,
+		}}}
+	}
+	fab := newLacpFabric(t, t0, macA, macB, config(macA, false), config(macB, true))
+	target := t0.Add(5 * time.Second)
+	for {
+		snap := fab.Snapshot()
+		if !snap.Clock.Before(target) && len(snap.Queue) == 0 {
+			break
+		}
+		if snap.Clock.After(target) {
+			break
+		}
+		if _, ok := fab.Step(); !ok {
+			break
+		}
+	}
+
+	aggs, states := netmodel.Lacp(fab.Switch("A"))
+	if len(aggs) != 1 {
+		t.Fatalf("got %d aggregators, want 1", len(aggs))
+	}
+	if !slices.Equal(aggs[0].GetSelectedMembers(), []string{"1/1/1"}) {
+		t.Fatalf("aggregator selected_members = %v, want [1/1/1]", aggs[0].GetSelectedMembers())
+	}
+	for _, state := range states {
+		switch state.GetInterfaceName() {
+		case "1/1/1":
+			if !state.GetAttached() || state.GetEnabled() {
+				t.Errorf("member 1/1/1 attached=%v enabled=%v, want true/false", state.GetAttached(), state.GetEnabled())
+			}
+		case "1/1/2":
+			if state.GetAttached() {
+				t.Errorf("member 1/1/2 attached=true, want false")
+			}
+		}
+	}
+}
+
 func TestLacp_RoundTrip(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
 	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}

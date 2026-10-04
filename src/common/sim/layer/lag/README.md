@@ -192,6 +192,10 @@ Carrier state changes pass to `LinkChange(now, member, up)`.
 - If the configured delay is greater than zero, the transition is deferred.
   `LinkChange` arms a timer at `now + delay`. `NextWake` reports the timer, and
   the subsequent call to `Advance` applies the transition once the timer expires.
+- LACP starts from the carrier transition. An up delay keeps a selected member in
+  `STANDBY` and leaves Actor Synchronization clear until the delayed link is ready.
+  A carrier loss removes collection and distribution immediately. A down delay
+  retains the delayed link state for fallback and static LAG selection.
 
 ## LACP protocol machine
 
@@ -272,21 +276,48 @@ Actor's Active bit while that Actor is Active (`recordPDU`, 6.4.9).
 
 ### Aggregator attachment and selection
 
-To determine attached members:
-1. The lead member is chosen from members with learned Partner information whose
-   status is `Current` or `Expired`, selecting the lowest Partner identifier.
-2. A member attaches when it has learned Partner information, its status is
-   `Current` or `Expired`, and its Partner system ID and key match the lead's.
-3. An attached member is enabled when its Partner's validated Synchronization is set
-   and its carrier delay has expired.
-4. If `MinLinks` is configured and the count of enabled members is below that
-   minimum, all members in the LAG are disabled.
+Selection gives one group the LAG's Aggregator. A candidate has carrier, the
+LAG's operational key, and learned Partner information in `Current` or `Expired`.
+The lead is the candidate whose Partner identifier compares first. The identifier
+includes Partner system priority, system ID, key, port priority, and port ID.
+
+An Aggregated lead selects candidates with the same Partner system priority,
+system ID, and key whose Partner has Aggregation set. An Individual lead selects
+itself. A member whose carrier is down retains its selection while its Partner
+still belongs to the group. If two members of one LAG are cabled to each other,
+the lower-named member is the candidate.
+
+A changed selection enters the Mux `WAITING` state for the two-second
+`Aggregate_Wait_Time`. All members selected for that Aggregator share the same
+deadline, so a member learned one second later does not attach early.
+
+```mermaid
+stateDiagram-v2
+    [*] --> DETACHED
+    DETACHED --> WAITING: selected
+    WAITING --> STANDBY: wait done, up delay running
+    WAITING --> ATTACHED: wait done, link ready
+    STANDBY --> ATTACHED: up delay done
+    ATTACHED --> COLLECTING_DISTRIBUTING: synchronized and MinLinks met
+    COLLECTING_DISTRIBUTING --> ATTACHED: synchronization or MinLinks lost
+    ATTACHED --> DETACHED: carrier loss
+    COLLECTING_DISTRIBUTING --> DETACHED: carrier loss
+```
+
+`Info.Attached` lists members in `ATTACHED` or `COLLECTING_DISTRIBUTING`.
+`Info.Enabled` lists only members in `COLLECTING_DISTRIBUTING`. Actor
+Synchronization follows `Attached`. Actor Collecting and Distributing follow
+`Enabled`. `MinLinks` gates the transition to `COLLECTING_DISTRIBUTING`, so a
+group may be attached while every member remains disabled.
 
 ### Fallback
 
 When `Fallback` is enabled and every member is `Defaulted` or `PortDisabled`, the layer
-enables active-backup forwarding over whichever members have carrier up. This allows
-traffic to pass to non-LACP endpoints before aggregation negotiation completes.
+selects one member for active-backup forwarding. `Primary` wins when it has the
+delayed link state. Otherwise the lowest-named member wins. The selection still
+waits for `Aggregate_Wait_Time`, and `MinLinks` can leave the selected member
+disabled. This allows traffic to pass to a non-LACP endpoint before aggregation
+negotiation completes without treating the LAG as a multi-member aggregator.
 
 ## Convergence evidence: pending members
 
@@ -297,10 +328,12 @@ learn when the layer next changes state by itself. A pending member does not
 downgrade `Info`'s other fields or a `Select` result: the answer as of now is
 definite. A member reports at most one cause, the first one that applies:
 
-1. `link-delay`: its up or down delay timer is running (`At` is when it fires).
-2. `partner-expired`: its partner information is `Expired` (`At` is when the
+1. `aggregate-wait`: it is in Mux `WAITING` (`At` is the shared aggregator
+   selection deadline).
+2. `link-delay`: its up or down delay timer is running (`At` is when it fires).
+3. `partner-expired`: its partner information is `Expired` (`At` is when the
    receive timer elapses, moving it to `Defaulted`).
-3. `unsynchronized`: it is attached to the lead partner but that partner has
+4. `unsynchronized`: it is attached to the lead partner but that partner has
    not advertised `StateSynchronization` (`At` is its next receive timeout).
 
 ## State retention

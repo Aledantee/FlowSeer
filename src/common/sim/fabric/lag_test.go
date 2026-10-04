@@ -580,11 +580,20 @@ func TestLACPConvergence(t *testing.T) {
 			},
 		}
 	}
+	lagMinLinksCfg := func() *lag.Config {
+		cfg := lagCfg()
+		lagConfig := cfg.LAGs["lag1"].Clone()
+		lagConfig.MinLinks = 2
+		cfg.LAGs["lag1"] = lagConfig
 
-	fab, _, _ := newLagTopology(t, t0, lagCfg(), lagCfg())
+		return cfg
+	}
 
-	// Run fabric to t0 + 3s.
-	target := t0.Add(3 * time.Second)
+	fab, _, _ := newLagTopology(t, t0, lagMinLinksCfg(), lagMinLinksCfg())
+
+	// Run fabric to t0 + 5s so both ends pass the aggregate wait and exchange
+	// synchronized actor state with MinLinks=2.
+	target := t0.Add(5 * time.Second)
 	for {
 		snap := fab.Snapshot()
 		if targetSettled(snap, target) {
@@ -694,7 +703,8 @@ func TestFallback(t *testing.T) {
 		Payload: []byte("fallback-test"),
 	}
 
-	// A slow LAG without a partner defaults at 3s and uses one fallback member.
+	// A slow LAG without a partner defaults at 3s, then waits two seconds before
+	// using one fallback member.
 	lagAFallback := &lag.Config{
 		LAGs: map[string]lag.LAG{
 			"lag1": {
@@ -708,7 +718,7 @@ func TestFallback(t *testing.T) {
 	}
 	fabWithFallback, _, _ := newLagTopology(t, t0, lagAFallback, nil)
 
-	targetWith := t0.Add(3 * time.Second)
+	targetWith := t0.Add(5 * time.Second)
 	for {
 		snap := fabWithFallback.Snapshot()
 		if targetSettled(snap, targetWith) {
@@ -720,11 +730,11 @@ func TestFallback(t *testing.T) {
 	}
 
 	if info := fabWithFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
-		t.Fatalf("fallback member at 3s = %+v, want Defaulted and enabled without Expired", info)
+		t.Fatalf("fallback member at 5s = %+v, want Defaulted and enabled without Expired", info)
 	}
 
 	fidWith, err := fabWithFallback.Inject(fabric.Injection{
-		At:     t0.Add(3*time.Second + 10*time.Millisecond),
+		At:     t0.Add(5*time.Second + 10*time.Millisecond),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  f,
 	})
