@@ -856,10 +856,6 @@ func (r *propertyRNG) next() uint64 {
 	return r.state
 }
 
-func (r *propertyRNG) bool() bool {
-	return r.next()&1 == 0
-}
-
 func (r *propertyRNG) intn(n int) int {
 	return int((r.next() >> 32) % uint64(n))
 }
@@ -915,35 +911,75 @@ func (r *propertyRelations) Write(ctx context.Context, writes, deletes []authz.T
 }
 
 func propertyWorldAt(index int) propertyWorld {
-	// The fixed-seed stream draws each world dimension independently. The
-	// property test asserts 512 distinct worlds and the literal count for each
-	// fault kind.
+	// Enumerate the boolean dimensions so every record layout and grant
+	// combination appears. The fixed-seed stream draws the remaining dimensions.
 	const seed = uint64(0x4d595df4d0f33173)
 	rng := propertyRNG{state: seed + uint64(index+1)*0x9e3779b97f4a7c15}
+	bit := func(offset int) bool { return index&(1<<offset) != 0 }
 	var w propertyWorld
 	for i := range w.edges {
-		w.edges[i] = rng.bool()
+		w.edges[i] = bit(i)
 		w.edgeTuples[i] = rng.tupleState()
 	}
 	for i := range w.devices {
-		w.devices[i] = rng.bool()
+		w.devices[i] = bit(len(w.edges) + i)
 		w.deviceTuples[i] = rng.tupleState()
 	}
 	for i := range w.sessions {
-		w.sessions[i] = rng.bool()
+		w.sessions[i] = bit(len(w.edges) + len(w.devices) + i)
 		for relation := range w.sessionTuples[i] {
 			w.sessionTuples[i][relation] = rng.tupleState()
 		}
 	}
 	for i := range w.grants {
-		w.grants[i] = rng.bool()
+		w.grants[i] = bit(len(w.edges) + len(w.devices) + len(w.sessions) + i)
 	}
-	w.registryEdge = rng.intn(2)
+	if w.edges[0] || !w.edges[1] {
+		w.registryEdge = 0
+	} else {
+		w.registryEdge = 1
+	}
 	for i := range w.sessionEdges {
 		w.sessionEdges[i] = rng.intn(2)
 	}
-	w.fault = propertyFault(rng.intn(len(propertyFaultNames)))
-	w.faultTarget = rng.intn(6)
+	// Give every record-sensitive fault one full layout block. The remaining
+	// worlds cover the other fault kinds in fixed-size blocks.
+	const layoutCount = 1 << 6
+	switch {
+	case index < layoutCount:
+		w.fault = propertySessionWalkFault
+	case index < 2*layoutCount:
+		w.fault = propertyTenantFault
+	case index < 3*layoutCount:
+		w.fault = propertySessionSyncFault
+	case index < 4*layoutCount:
+		w.fault = propertyScanFault
+	default:
+		remaining := (index - 4*layoutCount) / 42
+		switch remaining {
+		case 0:
+			w.fault = propertyNoFault
+		case 1:
+			w.fault = propertyAllFault
+		case 2:
+			w.fault = propertyDevicesFault
+		case 3:
+			w.fault = propertyEachSessionFault
+		case 4:
+			w.fault = propertyReadFault
+		default:
+			w.fault = propertyWriteFault
+		}
+	}
+	if w.fault == propertyTenantFault {
+		if w.sessions[0] {
+			w.faultTarget = 1 - w.registryEdge
+		} else {
+			w.faultTarget = w.registryEdge
+		}
+	} else {
+		w.faultTarget = index % 6
+	}
 	return w
 }
 
@@ -1208,7 +1244,15 @@ func propertyRecordKnown(w propertyWorld, object string) bool {
 	case propertyEachSessionFault:
 		return objType != "capture_session"
 	case propertySessionWalkFault:
-		return objType != "capture_session" || !w.sessions[w.faultTarget%2] || objID != sessionIDs[w.faultTarget%2]
+		if objType != "capture_session" || !w.sessions[w.faultTarget%len(sessionIDs)] {
+			return true
+		}
+		for i, id := range sessionIDs {
+			if id == objID {
+				return i != w.faultTarget%len(sessionIDs) && w.sessions[i]
+			}
+		}
+		return true
 	case propertySessionSyncFault:
 		return objType != "capture_session" || !w.sessions[w.faultTarget%2] || objID != sessionIDs[w.faultTarget%2]
 	default:
@@ -1240,7 +1284,15 @@ func propertyAffected(w propertyWorld, object string) bool {
 	case propertyEachSessionFault:
 		return objType == "capture_session"
 	case propertySessionWalkFault:
-		return objType == "capture_session" && w.sessions[w.faultTarget%2] && objID == sessionIDs[w.faultTarget%2]
+		if objType != "capture_session" || !w.sessions[w.faultTarget%len(sessionIDs)] {
+			return false
+		}
+		for i, id := range sessionIDs {
+			if id == objID {
+				return i == w.faultTarget%len(sessionIDs) || !w.sessions[i]
+			}
+		}
+		return false
 	case propertySessionSyncFault:
 		return objType == "capture_session" && w.sessions[w.faultTarget%2] && objID == sessionIDs[w.faultTarget%2]
 	case propertyReadFault, propertyWriteFault:
@@ -1270,6 +1322,20 @@ func propertyAffected(w propertyWorld, object string) bool {
 	default:
 		return false
 	}
+}
+
+type propertyPredicateSignature struct {
+	affected [6]bool
+	known    [6]bool
+}
+
+func propertyPredicateSignatureAt(w propertyWorld, objects []string) propertyPredicateSignature {
+	var signature propertyPredicateSignature
+	for i, object := range objects {
+		signature.affected[i] = propertyAffected(w, object)
+		signature.known[i] = propertyRecordKnown(w, object)
+	}
+	return signature
 }
 
 func propertyAssert(t *testing.T, w propertyWorld, result propertyRunResult) {
@@ -1395,11 +1461,48 @@ func TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure(t *testing.T) {
 
 	seenFaults := make(map[propertyFault]bool)
 	seenWorlds := make(map[propertyWorld]struct{}, propertyWorldCount)
+	seenRecordLayouts := make(map[uint8]bool, 1<<6)
+	predicateSignatures := [len(propertyFaultNames)]map[propertyPredicateSignature]struct{}{}
+	for fault := range predicateSignatures {
+		predicateSignatures[fault] = make(map[propertyPredicateSignature]struct{})
+	}
+	objects := propertyExpectedObjects()
+	walkFaultWorldSeen := false
 	faultCounts := [len(propertyFaultNames)]int{}
 	faultTargets := [len(propertyFaultNames)][6]bool{}
 	for index := 0; index < propertyWorldCount; index++ {
 		world := propertyWorldAt(index)
 		seenWorlds[world] = struct{}{}
+		var recordLayout uint8
+		for i, present := range world.edges {
+			if present {
+				recordLayout |= 1 << i
+			}
+		}
+		for i, present := range world.devices {
+			if present {
+				recordLayout |= 1 << (len(world.edges) + i)
+			}
+		}
+		for i, present := range world.sessions {
+			if present {
+				recordLayout |= 1 << (len(world.edges) + len(world.devices) + i)
+			}
+		}
+		seenRecordLayouts[recordLayout] = true
+		predicateSignatures[world.fault][propertyPredicateSignatureAt(world, objects)] = struct{}{}
+		if world.fault == propertySessionWalkFault {
+			target := world.faultTarget % len(world.sessions)
+			other := (target + 1) % len(world.sessions)
+			if world.sessions[target] && !world.sessions[other] {
+				for _, state := range world.sessionTuples[other] {
+					if state == propertyTuplePresent || state == propertyTupleWrong {
+						walkFaultWorldSeen = true
+						break
+					}
+				}
+			}
+		}
 		faultCounts[world.fault]++
 		faultTargets[world.fault][world.faultTarget] = true
 		seenFaults[world.fault] = true
@@ -1408,9 +1511,21 @@ func TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure(t *testing.T) {
 	if len(seenWorlds) != propertyWorldCount {
 		t.Fatalf("generated %d distinct worlds, want %d", len(seenWorlds), propertyWorldCount)
 	}
-	wantFaultCounts := [len(propertyFaultNames)]int{56, 49, 55, 47, 50, 55, 45, 57, 50, 48}
+	if len(seenRecordLayouts) != 64 {
+		t.Fatalf("generated %d record layouts, want 64", len(seenRecordLayouts))
+	}
+	if !walkFaultWorldSeen {
+		t.Fatal("generated no session walk fault with a present target, absent other session, and stale other-session tuple")
+	}
+	wantFaultCounts := [len(propertyFaultNames)]int{42, 64, 42, 64, 42, 42, 64, 42, 64, 46}
 	if faultCounts != wantFaultCounts {
 		t.Fatalf("fault counts = %v, want %v", faultCounts, wantFaultCounts)
+	}
+	wantPredicateSignatureCounts := [len(propertyFaultNames)]int{1, 4, 1, 8, 1, 1, 3, 6, 52, 6}
+	for fault, want := range wantPredicateSignatureCounts {
+		if got := len(predicateSignatures[fault]); got != want {
+			t.Fatalf("fault %s predicate signatures = %d, want %d", propertyFaultNames[fault], got, want)
+		}
 	}
 	for _, fault := range []propertyFault{propertyReadFault, propertyWriteFault} {
 		for target, seen := range faultTargets[fault] {
