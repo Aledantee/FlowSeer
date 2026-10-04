@@ -379,10 +379,11 @@ stateDiagram-v2
     DETACHED --> WAITING: selected
     WAITING --> STANDBY: wait done, up delay running
     WAITING --> ATTACHED: wait done, link ready
+    WAITING --> DETACHED: carrier loss, reselection, or group leave
     STANDBY --> ATTACHED: up delay done
+    STANDBY --> DETACHED: carrier loss, reselection, or group leave
     ATTACHED --> COLLECTING_DISTRIBUTING: synchronized and MinLinks met
     COLLECTING_DISTRIBUTING --> ATTACHED: synchronization or MinLinks lost
-    WAITING --> DETACHED: reselection or group leave
     ATTACHED --> DETACHED: reselection or group leave or carrier loss
     COLLECTING_DISTRIBUTING --> DETACHED: reselection or group leave or carrier loss
 ```
