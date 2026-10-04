@@ -71,6 +71,8 @@ const (
 // own timeout, which tells it apart from a caller's cancel or deadline.
 var errCallTimeout = errs.New().Code(ErrCodeUnreachable).Retryable().Msg("engine call timed out")
 
+type callerContextKey struct{}
+
 // Options configures an OpenFGA authorization Checker.
 type Options struct {
 	Endpoint       string
@@ -285,9 +287,9 @@ func (c *Checker) verify(ctx context.Context) error {
 			return nil
 		}
 
-		if ctx.Err() != nil {
+		if ctxErr := contextError(ctx); ctxErr != nil {
 			c.verifyMu.Unlock()
-			return ctx.Err()
+			return ctxErr
 		}
 
 		c.lastVerifyErr = err
@@ -298,12 +300,12 @@ func (c *Checker) verify(ctx context.Context) error {
 }
 
 func (c *Checker) doVerify(ctx context.Context) error {
-	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel := c.callContext(ctx)
 	storeResp, err := c.client.GetStore(callCtx, &openfgav1.GetStoreRequest{StoreId: c.storeID})
 	cancel()
 	if err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if ctxErr := contextError(ctx); ctxErr != nil {
+			return ctxErr
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 5002 || st.Code() == 5 /* codes.NotFound */ {
@@ -315,15 +317,15 @@ func (c *Checker) doVerify(ctx context.Context) error {
 		return errs.New().Code(ErrCodeStoreMismatch).Msg("store id mismatch")
 	}
 
-	callCtx, cancel = context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel = c.callContext(ctx)
 	modelResp, err := c.client.ReadAuthorizationModel(callCtx, &openfgav1.ReadAuthorizationModelRequest{
 		StoreId: c.storeID,
 		Id:      c.modelID,
 	})
 	cancel()
 	if err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if ctxErr := contextError(ctx); ctxErr != nil {
+			return ctxErr
 		}
 		st, _ := grpcstatus.FromError(err)
 		if st.Code() == 2001 || st.Code() == 5 /* codes.NotFound */ {
@@ -397,13 +399,36 @@ func (c *Checker) unaryClientInterceptor(
 
 // callErrorType is the bounded error.type of a failed engine call. A call
 // that ended because its caller canceled or ran out of its own deadline is the
-// caller's outcome, not the engine's, so it takes the context cause. The
-// Checker's own timeout reaches classifyError as the engine being unreachable.
+// caller's outcome, not the engine's, so it takes the caller context and its
+// wall-clock deadline. The Checker's own timeout reaches classifyError as the
+// engine being unreachable.
 func (c *Checker) callErrorType(callCtx context.Context, err error) string {
+	callerCtx := callCtx
+	if original, ok := callCtx.Value(callerContextKey{}).(context.Context); ok {
+		callerCtx = original
+	}
+	if ctxErr := contextError(callerCtx); ctxErr != nil {
+		return telemetry.ErrorType(ctxErr)
+	}
 	if ctxErr := callCtx.Err(); ctxErr != nil && !errors.Is(context.Cause(callCtx), errCallTimeout) {
 		return telemetry.ErrorType(ctxErr)
 	}
 	return telemetry.ErrorType(c.classifyError(err))
+}
+
+func (c *Checker) callContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	return context.WithValue(callCtx, callerContextKey{}, ctx), cancel
+}
+
+func contextError(ctx context.Context) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
+	return nil
 }
 
 func (c *Checker) classifyError(err error) error {
@@ -437,8 +462,8 @@ func (c *Checker) classifyError(err error) error {
 }
 
 func (c *Checker) handleError(callerCtx context.Context, err error) error {
-	if callerCtx.Err() != nil {
-		return callerCtx.Err()
+	if ctxErr := contextError(callerCtx); ctxErr != nil {
+		return ctxErr
 	}
 	return c.classifyError(err)
 }
@@ -527,7 +552,7 @@ func (c *Checker) Check(ctx context.Context, q authz.Query) (bool, error) {
 		}
 	}
 
-	callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+	callCtx, cancel := c.callContext(ctx)
 	resp, err := c.client.Check(callCtx, req)
 	cancel()
 	if err != nil {
@@ -611,7 +636,7 @@ func (c *Checker) BatchCheck(ctx context.Context, queries []authz.Query) ([]bool
 			Checks:               checks,
 		}
 
-		callCtx, cancel := context.WithTimeoutCause(ctx, c.timeout, errCallTimeout)
+		callCtx, cancel := c.callContext(ctx)
 		resp, err := c.client.BatchCheck(callCtx, req)
 		cancel()
 		if err != nil {

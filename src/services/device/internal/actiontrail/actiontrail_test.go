@@ -902,6 +902,48 @@ func TestUnpreparedContext(t *testing.T) {
 	})
 }
 
+func TestUnpreparedStreamingContext(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		injectTenant bool
+		tenantID     string
+	}{
+		{name: "no tenant", injectTenant: false, tenantID: testTenant},
+		{name: "invalid tenant", injectTenant: true, tenantID: "invalid.tenant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newTestHarness(t, time.Now())
+			h.injector.injectTenant = tc.injectTenant
+			h.injector.tenantID = tc.tenantID
+			h.capHandler.tailSessionFunc = func(_ context.Context, _ *connect.Request[capturev1.TailCaptureSessionRequest], _ *connect.ServerStream[capturev1.TailCaptureSessionResponse]) error {
+				t.Fatal("handler should not run when unprepared")
+				return nil
+			}
+
+			req := &capturev1.TailCaptureSessionRequest{}
+			req.SetSession(sessionGlobalRef("session-1"))
+			stream, err := h.captureClient.TailCaptureSession(context.Background(), connect.NewRequest(req))
+			if err == nil {
+				for stream.Receive() {
+				}
+				err = stream.Err()
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if connect.CodeOf(err) != connect.CodeInternal {
+				t.Fatalf("got connect code %v, want CodeInternal", connect.CodeOf(err))
+			}
+			if got := codeOf(t, err); got != actiontrail.ErrCodeUnprepared.String() {
+				t.Fatalf("got errs code %q, want %q", got, actiontrail.ErrCodeUnprepared)
+			}
+			if h.capHandler.tailSessionCalls != 0 {
+				t.Fatalf("handler calls = %d, want 0", h.capHandler.tailSessionCalls)
+			}
+		})
+	}
+}
+
 func TestTruncateErrorTypeRuneBoundary(t *testing.T) {
 	// A 50-rune string of 3-byte runes is 150 bytes (> 128 bytes).
 	// The schema bound is 128 characters, so 50 runes must not be truncated.
@@ -1244,8 +1286,9 @@ func TestCompletionPublishedWhenCallerContextCancelled(t *testing.T) {
 	h := newTestHarness(t, time.Now())
 
 	ctx, cancel := context.WithCancel(context.Background())
-	h.edgeHandler.issueSetupKeyFunc = func(_ context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
+	h.edgeHandler.issueSetupKeyFunc = func(handlerCtx context.Context, _ *connect.Request[edgev1.IssueSetupKeyRequest]) (*connect.Response[edgev1.IssueSetupKeyResponse], error) {
 		cancel()
+		<-handlerCtx.Done()
 		resp := &edgev1.IssueSetupKeyResponse{}
 		prov := &modeledgev1.EdgeProvisioning{}
 		prov.SetSetupKey("setup-key-ok")
@@ -1257,7 +1300,23 @@ func TestCompletionPublishedWhenCallerContextCancelled(t *testing.T) {
 	req.SetEdge(edgeGlobalRef("edge-1"))
 	_, _ = h.adminClient.IssueSetupKey(ctx, connect.NewRequest(req))
 
-	events := h.pub.getEvents()
+	deadline := time.NewTimer(time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	var events []recordedEvent
+waitForCompletion:
+	for {
+		events = h.pub.getEvents()
+		if len(events) == 2 {
+			break
+		}
+		select {
+		case <-deadline.C:
+			break waitForCompletion
+		case <-ticker.C:
+		}
+	}
 	if len(events) != 2 {
 		t.Fatalf("published %d events, want 2 (completion published via detached context)", len(events))
 	}

@@ -1150,15 +1150,24 @@ func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	ctx := context.Background()
 	// Audit stream default: 256 MiB. Operator action stream default: 64 MiB. Sum: 320 MiB.
 	// A central budget of 300 MiB is below the sum of reservations and must fail StartHub.
-	_, err := edgebus.StartHub(ctx, edgebus.HubConfig{
-		StateDir:           t.TempDir(),
-		FsyncPolicy:        service.BusFsyncPeriodic,
-		CentralBudgetBytes: 300 << 20,
-	})
+	config := edgebus.HubConfig{
+		FsyncPolicy: service.BusFsyncPeriodic,
+	}
+	config.StateDir = t.TempDir()
+	config.CentralBudgetBytes = 300 << 20
+	_, err := edgebus.StartHub(ctx, config)
 	if err == nil {
 		t.Fatal("StartHub with central budget below stream sum succeeded, want error")
 	}
 	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
 		t.Fatalf("StartHub err=%v, code=%q, want code %q", err, code, edgebus.ErrCodeHub)
 	}
+
+	config.StateDir = t.TempDir()
+	config.CentralBudgetBytes = 512 << 20
+	hub, err := edgebus.StartHub(ctx, config)
+	if err != nil {
+		t.Fatalf("StartHub with sufficient central budget: %v", err)
+	}
+	hub.Close()
 }

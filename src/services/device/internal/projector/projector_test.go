@@ -25,10 +25,15 @@ import (
 )
 
 type fakeEdgeSource struct {
-	allEdges map[string]string // edgeID -> tenantID
+	allEdges  map[string]string // edgeID -> tenantID
+	allErr    error
+	tenantErr map[string]error
 }
 
 func (f *fakeEdgeSource) All(_ context.Context) (map[string]string, error) {
+	if f.allErr != nil {
+		return nil, f.allErr
+	}
 	edges := make(map[string]string, len(f.allEdges))
 	for k, v := range f.allEdges {
 		edges[k] = v
@@ -37,12 +42,16 @@ func (f *fakeEdgeSource) All(_ context.Context) (map[string]string, error) {
 }
 
 func (f *fakeEdgeSource) TenantForEdge(_ context.Context, edgeID string) (string, error) {
+	if err := f.tenantErr[edgeID]; err != nil {
+		return "", err
+	}
 	return f.allEdges[edgeID], nil
 }
 
 type fakeRegistrySource struct {
-	edgeID  string
-	devices map[string]*storev1.RegistryDevice
+	edgeID     string
+	devices    map[string]*storev1.RegistryDevice
+	devicesErr error
 }
 
 func (f *fakeRegistrySource) EdgeID() string {
@@ -55,6 +64,9 @@ func (f *fakeRegistrySource) Device(deviceID string) (*storev1.RegistryDevice, b
 }
 
 func (f *fakeRegistrySource) Devices(_ context.Context, edgeID string) ([]string, error) {
+	if f.devicesErr != nil {
+		return nil, f.devicesErr
+	}
 	if edgeID != f.edgeID {
 		return nil, nil
 	}
@@ -72,14 +84,34 @@ type sessionKey struct {
 }
 
 type fakeCaptureSource struct {
-	mu       sync.Mutex
-	sessions map[sessionKey]*modelcapturev1.CaptureSessionRecord
+	mu               sync.Mutex
+	sessions         map[sessionKey]*modelcapturev1.CaptureSessionRecord
+	eachErr          error
+	sessionWalkErrID string
+	sessionSyncErrID string
 }
 
 func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID string, rec *modelcapturev1.CaptureSessionRecord) error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	for k, rec := range f.sessions {
+	if f.eachErr != nil {
+		return f.eachErr
+	}
+	keys := make([]sessionKey, 0, len(f.sessions))
+	for k := range f.sessions {
+		keys = append(keys, k)
+	}
+	slices.SortFunc(keys, func(a, b sessionKey) int {
+		if a.tenantID != b.tenantID {
+			return strings.Compare(a.tenantID, b.tenantID)
+		}
+		return strings.Compare(a.sessionID, b.sessionID)
+	})
+	for _, k := range keys {
+		rec := f.sessions[k]
+		if k.sessionID == f.sessionWalkErrID {
+			return errors.New("simulated session walk failure")
+		}
 		if err := fn(k.tenantID, rec); err != nil {
 			return err
 		}
@@ -90,6 +122,9 @@ func (f *fakeCaptureSource) EachSession(_ context.Context, fn func(tenantID stri
 func (f *fakeCaptureSource) Session(_ context.Context, tenantID, sessionID string) (*modelcapturev1.CaptureSessionRecord, uint64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if sessionID == f.sessionSyncErrID {
+		return nil, 0, errors.New("simulated session read failure")
+	}
 	rec := f.sessions[sessionKey{tenantID: tenantID, sessionID: sessionID}]
 	return rec, 1, nil
 }
@@ -628,7 +663,13 @@ func TestRunLifecycle(t *testing.T) {
 
 	edges := &fakeEdgeSource{allEdges: map[string]string{}}
 	reconciledCh := make(chan struct{}, 5)
+	var waitMu sync.Mutex
+	var waits []time.Duration
+	var reconciledAtWaits []int
 	p := projector.New(engine, edges, nil, &fakeCaptureSource{}, 15*time.Second, nil, func() {
+		waitMu.Lock()
+		reconciledAtWaits = append(reconciledAtWaits, len(waits))
+		waitMu.Unlock()
 		select {
 		case reconciledCh <- struct{}{}:
 		default:
@@ -637,9 +678,6 @@ func TestRunLifecycle(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	var waitMu sync.Mutex
-	var waits []time.Duration
 
 	p.SetWaitHook(func(waitCtx context.Context, d time.Duration) error {
 		waitMu.Lock()
@@ -679,11 +717,15 @@ func TestRunLifecycle(t *testing.T) {
 
 	waitMu.Lock()
 	gotWaits := slices.Clone(waits)
+	gotReconciledAtWaits := slices.Clone(reconciledAtWaits)
 	waitMu.Unlock()
 
 	wantWaits := []time.Duration{5 * time.Second, 10 * time.Second, 15 * time.Second, 15 * time.Second}
 	if !slices.Equal(gotWaits, wantWaits) {
 		t.Fatalf("waits = %v, want %v", gotWaits, wantWaits)
+	}
+	if want := []int{3}; !slices.Equal(gotReconciledAtWaits, want) {
+		t.Fatalf("reconciled callbacks occurred after waits %v, want %v", gotReconciledAtWaits, want)
 	}
 }
 
@@ -723,10 +765,7 @@ func TestReconcileContinuesPastFailingObjectAndCollectsErrors(t *testing.T) {
 		},
 	}
 
-	var reconciledCalled bool
-	p := projector.New(failEngine, edges, nil, captures, 0, nil, func() {
-		reconciledCalled = true
-	})
+	p := projector.New(failEngine, edges, nil, captures, 0, nil, nil)
 
 	counts, err := p.Reconcile(ctx)
 	if err == nil {
@@ -745,8 +784,581 @@ func TestReconcileContinuesPastFailingObjectAndCollectsErrors(t *testing.T) {
 	if len(edgeTuples) != 1 {
 		t.Fatalf("got %d edge tuples, want 1", len(edgeTuples))
 	}
+}
 
-	if reconciledCalled {
-		t.Fatal("reconciled must not be called when Reconcile returns errors")
+type propertyTupleState uint8
+
+const (
+	propertyTupleAbsent propertyTupleState = iota
+	propertyTuplePresent
+	propertyTupleWrong
+)
+
+type propertyFault uint8
+
+const (
+	propertyNoFault propertyFault = iota
+	propertySessionWalkFault
+	propertyAllFault
+	propertyTenantFault
+	propertyDevicesFault
+	propertyEachSessionFault
+	propertySessionSyncFault
+	propertyReadFault
+	propertyScanFault
+	propertyWriteFault
+)
+
+const (
+	propertyWorldCount = 512
+	propertyProbeCount = 540
+)
+
+var propertyFaultNames = [...]string{
+	"none",
+	"session walk",
+	"all",
+	"tenant for edge",
+	"devices",
+	"each session",
+	"session",
+	"read",
+	"scan",
+	"write",
+}
+
+type propertyWorld struct {
+	index         int
+	edges         [2]bool
+	devices       [2]bool
+	sessions      [2]bool
+	edgeTuples    [2]propertyTupleState
+	deviceTuples  [2]propertyTupleState
+	sessionTuples [2][3]propertyTupleState
+	grant         bool
+	fault         propertyFault
+}
+
+type propertyRelations struct {
+	*authztest.Engine
+	readObject  string
+	scanErr     error
+	writeObject string
+	writes      []authz.Tuple
+	deletes     []authz.Tuple
+}
+
+func (r *propertyRelations) Read(ctx context.Context, object string) ([]authz.Tuple, error) {
+	if object == r.readObject {
+		return nil, errors.New("simulated relationship read failure")
+	}
+	return r.Engine.Read(ctx, object)
+}
+
+func (r *propertyRelations) Scan(ctx context.Context, fn func(authz.Tuple) error) error {
+	if r.scanErr != nil {
+		return r.scanErr
+	}
+	return r.Engine.Scan(ctx, fn)
+}
+
+func (r *propertyRelations) Write(ctx context.Context, writes, deletes []authz.Tuple) error {
+	for _, tuple := range append(slices.Clone(writes), deletes...) {
+		if strings.HasPrefix(tuple.Object, r.writeObject) && r.writeObject != "" {
+			return errors.New("simulated relationship write failure")
+		}
+	}
+	r.writes = append(r.writes, writes...)
+	r.deletes = append(r.deletes, deletes...)
+	return r.Engine.Write(ctx, writes, deletes)
+}
+
+func propertyWorldAt(index int) propertyWorld {
+	w := propertyWorld{
+		index: index,
+		fault: propertyFault(index % len(propertyFaultNames)),
+		grant: index%2 == 0,
+	}
+	for i := range w.edges {
+		w.edges[i] = (index+i)%2 == 0
+		w.edgeTuples[i] = propertyTupleState((index + i) % 3)
+	}
+	for i := range w.devices {
+		w.devices[i] = (index+i+1)%2 == 0
+		w.deviceTuples[i] = propertyTupleState((index + i + 1) % 3)
+	}
+	for i := range w.sessions {
+		w.sessions[i] = (index+i)%2 == 1
+		base := (index/2 + i) % 3
+		w.sessionTuples[i] = [3]propertyTupleState{
+			propertyTupleState(base),
+			propertyTupleState((base + 1) % 3),
+			propertyTupleState((base + 1) % 3),
+		}
+	}
+
+	switch w.fault {
+	case propertySessionWalkFault:
+		w.sessions[0] = true
+		w.sessionTuples[0] = [3]propertyTupleState{propertyTupleAbsent, propertyTuplePresent, propertyTuplePresent}
+	case propertyTenantFault:
+		w.edges[0] = false
+		w.devices[0] = true
+	case propertySessionSyncFault:
+		w.sessions[0] = true
+		w.sessionTuples[0][0] = propertyTupleWrong
+	case propertyReadFault, propertyWriteFault:
+		w.edgeTuples[0] = propertyTupleWrong
+	}
+	return w
+}
+
+func propertyIDs() (edges, devices, sessions []string) {
+	edges = []string{
+		"0192e6a0-0000-7000-8000-0000000000e1",
+		"0192e6a0-0000-7000-8000-0000000000e2",
+	}
+	devices = []string{
+		"0192e6a0-0000-7000-8000-0000000000d1",
+		"0192e6a0-0000-7000-8000-0000000000d2",
+	}
+	sessions = []string{
+		"0192e6a0-0000-7000-8000-0000000000s1",
+		"0192e6a0-0000-7000-8000-0000000000s2",
+	}
+	return edges, devices, sessions
+}
+
+func propertyTenants() []string {
+	return []string{
+		"0192e6a0-0000-7000-8000-0000000000t1",
+		"0192e6a0-0000-7000-8000-0000000000t2",
+	}
+}
+
+func propertyOwnedTuple(state propertyTupleState, desired, wrong authz.Tuple) []authz.Tuple {
+	switch state {
+	case propertyTuplePresent:
+		return []authz.Tuple{desired}
+	case propertyTupleWrong:
+		return []authz.Tuple{wrong}
+	default:
+		return nil
+	}
+}
+
+func propertyInitialTuples(w propertyWorld) []authz.Tuple {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	var tuples []authz.Tuple
+	for i, id := range edgeIDs {
+		tuples = append(tuples, propertyOwnedTuple(w.edgeTuples[i],
+			authz.Tuple{Object: "edge:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			authz.Tuple{Object: "edge:" + id, Relation: "tenant", User: "tenant:wrong"})...)
+	}
+	for i, id := range deviceIDs {
+		tuples = append(tuples, propertyOwnedTuple(w.deviceTuples[i],
+			authz.Tuple{Object: "device:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[0]},
+			authz.Tuple{Object: "device:" + id, Relation: "tenant", User: "tenant:wrong"})...)
+	}
+	for i, id := range sessionIDs {
+		object := "capture_session:" + id
+		principalID := authn.ComputePrincipalID("https://auth.example.com", "subject-"+id)
+		desired := []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			{Object: object, Relation: "edge", User: "edge:" + edgeIDs[0]},
+			{Object: object, Relation: "requester", User: "user:" + principalID},
+		}
+		wrong := []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:wrong"},
+			{Object: object, Relation: "edge", User: "edge:wrong"},
+			{Object: object, Relation: "requester", User: "user:wrong"},
+		}
+		for relation := range desired {
+			tuples = append(tuples, propertyOwnedTuple(w.sessionTuples[i][relation], desired[relation], wrong[relation])...)
+		}
+	}
+	if w.grant {
+		tuples = append(tuples, authz.Tuple{Object: "edge:" + edgeIDs[0], Relation: "capture", User: "user:grant"})
+	}
+	return tuples
+}
+
+func propertyDesiredTuples(w propertyWorld) map[string][]authz.Tuple {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	desired := make(map[string][]authz.Tuple)
+	for i, id := range edgeIDs {
+		if w.edges[i] {
+			desired["edge:"+id] = []authz.Tuple{{Object: "edge:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[i]}}
+		}
+	}
+	for i, id := range deviceIDs {
+		if w.devices[i] && w.edges[0] {
+			desired["device:"+id] = []authz.Tuple{{Object: "device:" + id, Relation: "tenant", User: "tenant:" + tenantIDs[0]}}
+		}
+	}
+	for i, id := range sessionIDs {
+		if !w.sessions[i] {
+			continue
+		}
+		object := "capture_session:" + id
+		principalID := authn.ComputePrincipalID("https://auth.example.com", "subject-"+id)
+		desired[object] = []authz.Tuple{
+			{Object: object, Relation: "tenant", User: "tenant:" + tenantIDs[i]},
+			{Object: object, Relation: "edge", User: "edge:" + edgeIDs[0]},
+			{Object: object, Relation: "requester", User: "user:" + principalID},
+		}
+	}
+	for object := range desired {
+		slices.SortFunc(desired[object], compareTuples)
+	}
+	return desired
+}
+
+func propertyOwned(tuples []authz.Tuple) map[string][]authz.Tuple {
+	owned := make(map[string][]authz.Tuple)
+	for _, tuple := range tuples {
+		objType, _, ok := strings.Cut(tuple.Object, ":")
+		if ok && ((objType == "edge" || objType == "device") && tuple.Relation == "tenant" || objType == "capture_session" && (tuple.Relation == "tenant" || tuple.Relation == "edge" || tuple.Relation == "requester")) {
+			owned[tuple.Object] = append(owned[tuple.Object], tuple)
+		}
+	}
+	for object := range owned {
+		slices.SortFunc(owned[object], func(a, b authz.Tuple) int {
+			if a.Relation != b.Relation {
+				return strings.Compare(a.Relation, b.Relation)
+			}
+			return strings.Compare(a.User, b.User)
+		})
+	}
+	return owned
+}
+
+func propertyExpectedObjects() []string {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	objects := make([]string, 0, len(edgeIDs)+len(deviceIDs)+len(sessionIDs))
+	for _, id := range edgeIDs {
+		objects = append(objects, "edge:"+id)
+	}
+	for _, id := range deviceIDs {
+		objects = append(objects, "device:"+id)
+	}
+	for _, id := range sessionIDs {
+		objects = append(objects, "capture_session:"+id)
+	}
+	return objects
+}
+
+func propertySources(w propertyWorld) (*fakeEdgeSource, *fakeRegistrySource, *fakeCaptureSource) {
+	edgeIDs, deviceIDs, sessionIDs := propertyIDs()
+	tenantIDs := propertyTenants()
+	edges := &fakeEdgeSource{allEdges: make(map[string]string)}
+	for i, id := range edgeIDs {
+		if w.edges[i] {
+			edges.allEdges[id] = tenantIDs[i]
+		}
+	}
+	registry := &fakeRegistrySource{edgeID: edgeIDs[0], devices: make(map[string]*storev1.RegistryDevice)}
+	for i, id := range deviceIDs {
+		if w.devices[i] {
+			registry.devices[id] = buildRegistryDevice(id)
+		}
+	}
+	captures := &fakeCaptureSource{sessions: make(map[sessionKey]*modelcapturev1.CaptureSessionRecord)}
+	for i, id := range sessionIDs {
+		if w.sessions[i] {
+			captures.sessions[sessionKey{tenantID: tenantIDs[i], sessionID: id}] = buildSessionRecord(id, edgeIDs[0], "https://auth.example.com", "subject-"+id)
+		}
+	}
+	switch w.fault {
+	case propertyAllFault:
+		edges.allErr = errors.New("simulated edge listing failure")
+	case propertyTenantFault:
+		edges.tenantErr = map[string]error{edgeIDs[0]: errors.New("simulated edge tenant read failure")}
+	case propertyDevicesFault:
+		registry.devicesErr = errors.New("simulated device listing failure")
+	case propertyEachSessionFault:
+		captures.eachErr = errors.New("simulated session listing failure")
+	case propertySessionWalkFault:
+		captures.sessionWalkErrID = sessionIDs[0]
+	case propertySessionSyncFault:
+		captures.sessionSyncErrID = sessionIDs[0]
+	case propertyReadFault:
+		// The relationship wrapper carries this fault.
+	case propertyScanFault:
+		// The relationship wrapper carries this fault.
+	case propertyWriteFault:
+		// The relationship wrapper carries this fault.
+	}
+	return edges, registry, captures
+}
+
+func propertyRun(t *testing.T, w propertyWorld) propertyRunResult {
+	t.Helper()
+	base := authztest.New()
+	if err := base.Write(context.Background(), propertyInitialTuples(w), nil); err != nil {
+		t.Fatalf("seed property world: %v", err)
+	}
+	relations := &propertyRelations{Engine: base}
+	edges, registry, captures := propertySources(w)
+	edgeIDs, _, _ := propertyIDs()
+	switch w.fault {
+	case propertyReadFault:
+		relations.readObject = "edge:" + edgeIDs[0]
+	case propertyScanFault:
+		relations.scanErr = errors.New("simulated relationship scan failure")
+	case propertyWriteFault:
+		relations.writeObject = "edge:" + edgeIDs[0]
+	}
+	p := projector.New(relations, edges, registry, captures, 0, nil, nil)
+	counts, err := p.Reconcile(context.Background())
+	return propertyRunResult{
+		errorPresent: err != nil,
+		counts:       counts,
+		tuples:       readAllTuples(t, base),
+		writes:       slices.Clone(relations.writes),
+		deletes:      slices.Clone(relations.deletes),
+	}
+}
+
+type propertyRunResult struct {
+	errorPresent bool
+	counts       projector.RepairedCounts
+	tuples       []authz.Tuple
+	writes       []authz.Tuple
+	deletes      []authz.Tuple
+}
+
+func propertySameResult(a, b propertyRunResult) bool {
+	return a.errorPresent == b.errorPresent && a.counts == b.counts && slices.Equal(a.tuples, b.tuples) && slices.Equal(a.writes, b.writes) && slices.Equal(a.deletes, b.deletes)
+}
+
+func propertyRecordKnown(w propertyWorld, object string) bool {
+	objType, objID, _ := strings.Cut(object, ":")
+	_, deviceIDs, sessionIDs := propertyIDs()
+	switch w.fault {
+	case propertyAllFault:
+		return objType != "edge"
+	case propertyTenantFault:
+		if objType != "device" {
+			return true
+		}
+		for i, id := range deviceIDs {
+			if id == objID {
+				return !w.devices[i]
+			}
+		}
+		return false
+	case propertyDevicesFault:
+		return objType != "device"
+	case propertyEachSessionFault, propertySessionWalkFault:
+		return objType != "capture_session"
+	case propertySessionSyncFault:
+		return objType != "capture_session" || objID != sessionIDs[0]
+	default:
+		return true
+	}
+}
+
+func propertyAffected(w propertyWorld, object string) bool {
+	objType, objID, _ := strings.Cut(object, ":")
+	edgeIDs, _, sessionIDs := propertyIDs()
+	switch w.fault {
+	case propertyAllFault:
+		return objType == "edge" || objType == "device"
+	case propertyTenantFault:
+		return (objType == "edge" && objID == edgeIDs[0]) || objType == "device"
+	case propertyDevicesFault:
+		return objType == "device"
+	case propertyEachSessionFault, propertySessionWalkFault:
+		return objType == "capture_session"
+	case propertySessionSyncFault:
+		return objType == "capture_session" && objID == sessionIDs[0]
+	case propertyReadFault, propertyWriteFault:
+		return objType == "edge" && objID == edgeIDs[0]
+	case propertyScanFault:
+		return true
+	default:
+		return false
+	}
+}
+
+func propertyAssert(t *testing.T, w propertyWorld, result propertyRunResult) {
+	t.Helper()
+	desired := propertyDesiredTuples(w)
+	before := propertyOwned(propertyInitialTuples(w))
+	after := propertyOwned(result.tuples)
+	for object, tuples := range before {
+		for _, tuple := range tuples {
+			if slices.Contains(after[object], tuple) {
+				continue
+			}
+			if !propertyRecordKnown(w, object) {
+				t.Errorf("world %d fault %s deleted %v after an unknown record read", w.index, propertyFaultNames[w.fault], tuple)
+			}
+			if slices.Contains(desired[object], tuple) {
+				t.Errorf("world %d fault %s deleted desired tuple %v", w.index, propertyFaultNames[w.fault], tuple)
+			}
+		}
+	}
+
+	if w.grant {
+		edgeIDs, _, _ := propertyIDs()
+		grant := authz.Tuple{Object: "edge:" + edgeIDs[0], Relation: "capture", User: "user:grant"}
+		if !slices.Contains(result.tuples, grant) {
+			t.Errorf("world %d fault %s changed unowned grant", w.index, propertyFaultNames[w.fault])
+		}
+	}
+
+	if w.fault == propertyNoFault {
+		want := propertyInitialUnowned(w)
+		for _, tuples := range desired {
+			want = append(want, tuples...)
+		}
+		slices.SortFunc(want, compareTuples)
+		if !slices.Equal(result.tuples, want) {
+			t.Errorf("world %d no-failure pass tuples = %v, want %v", w.index, result.tuples, want)
+		}
+		return
+	}
+	if !result.errorPresent {
+		t.Fatalf("world %d fault %s returned nil error", w.index, propertyFaultNames[w.fault])
+	}
+	for _, object := range propertyExpectedObjects() {
+		if propertyAffected(w, object) {
+			continue
+		}
+		if !slices.Equal(after[object], desired[object]) {
+			t.Errorf("world %d fault %s left unaffected %s = %v, want %v", w.index, propertyFaultNames[w.fault], object, after[object], desired[object])
+		}
+	}
+}
+
+func propertyInitialUnowned(w propertyWorld) []authz.Tuple {
+	if !w.grant {
+		return nil
+	}
+	edgeIDs, _, _ := propertyIDs()
+	return []authz.Tuple{{Object: "edge:" + edgeIDs[0], Relation: "capture", User: "user:grant"}}
+}
+
+func compareTuples(a, b authz.Tuple) int {
+	if a.Object != b.Object {
+		return strings.Compare(a.Object, b.Object)
+	}
+	if a.Relation != b.Relation {
+		return strings.Compare(a.Relation, b.Relation)
+	}
+	return strings.Compare(a.User, b.User)
+}
+
+func propertyFaultProbe(fault propertyFault) propertyWorld {
+	w := propertyWorldAt(0)
+	w.fault = fault
+	w.edges[0] = true
+	w.devices[0] = true
+	w.sessions[0] = true
+	w.edgeTuples[0] = propertyTupleWrong
+	w.deviceTuples[0] = propertyTupleWrong
+	w.sessionTuples[0] = [3]propertyTupleState{propertyTupleWrong, propertyTupleWrong, propertyTupleWrong}
+	if fault == propertyTenantFault {
+		w.edges[0] = false
+	}
+	return w
+}
+
+func TestReconcileGeneratedWorldsPreserveTuplesOnReadFailure(t *testing.T) {
+	runCount := 0
+	run := func(w propertyWorld) propertyRunResult {
+		runCount++
+		result := propertyRun(t, w)
+		propertyAssert(t, w, result)
+		return result
+	}
+
+	seenFaults := make(map[propertyFault]bool)
+	for index := 0; index < propertyWorldCount; index++ {
+		world := propertyWorldAt(index)
+		seenFaults[world.fault] = true
+		run(world)
+	}
+	for fault := propertySessionWalkFault; fault <= propertyWriteFault; fault++ {
+		if !seenFaults[fault] {
+			t.Errorf("generated worlds did not exercise fault %s", propertyFaultNames[fault])
+		}
+	}
+
+	for _, fault := range []propertyFault{
+		propertySessionWalkFault,
+		propertyAllFault,
+		propertyTenantFault,
+		propertyDevicesFault,
+		propertyEachSessionFault,
+		propertySessionSyncFault,
+		propertyReadFault,
+		propertyScanFault,
+		propertyWriteFault,
+	} {
+		base := propertyFaultProbe(propertyNoFault)
+		variant := propertyFaultProbe(fault)
+		baseResult := run(base)
+		variantResult := run(variant)
+		if propertySameResult(baseResult, variantResult) {
+			t.Errorf("fault dimension %s did not change behavior", propertyFaultNames[fault])
+		}
+	}
+
+	statePairs := []struct {
+		name    string
+		base    propertyWorld
+		variant propertyWorld
+	}{
+		{
+			name:    "edge record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "device record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "session record",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "owned tuple",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+		{
+			name:    "unowned grant",
+			base:    propertyFaultProbe(propertyNoFault),
+			variant: propertyFaultProbe(propertyNoFault),
+		},
+	}
+	statePairs[0].base.edges[0] = false
+	statePairs[0].variant.edges[0] = true
+	statePairs[1].base.devices[0] = false
+	statePairs[1].variant.devices[0] = true
+	statePairs[2].base.sessions[0] = false
+	statePairs[2].variant.sessions[0] = true
+	statePairs[3].base.edgeTuples[0] = propertyTupleAbsent
+	statePairs[3].variant.edgeTuples[0] = propertyTupleWrong
+	statePairs[4].base.grant = false
+	statePairs[4].variant.grant = true
+	for _, pair := range statePairs {
+		baseResult := run(pair.base)
+		variantResult := run(pair.variant)
+		if propertySameResult(baseResult, variantResult) {
+			t.Errorf("state dimension %s did not change behavior", pair.name)
+		}
+	}
+
+	if runCount != propertyProbeCount {
+		t.Fatalf("ran %d worlds, want %d", runCount, propertyProbeCount)
 	}
 }
