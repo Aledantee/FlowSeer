@@ -298,11 +298,75 @@ func TestRetryLogIsLimitedPerEdge(t *testing.T) {
 		lastLogged: map[string]time.Time{},
 	}
 
-	i.logRetry(context.Background(), testEdge, refusalSubject, "validation")
-	i.logRetry(context.Background(), testEdge, refusalSubject, "marshal")
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		subject := edgebus.IngestSubject(testTenant, edgeID, "syslog")
+		i.logRetry(context.Background(), edgeID, subject, "validation")
+		i.logRetry(context.Background(), edgeID, subject, "marshal")
+	}
 
-	if got := strings.Count(logs.String(), "\"msg\":\"record retry scheduled\""); got != 1 {
-		t.Fatalf("retry log count = %d, want 1", got)
+	assertLogEdges(t, logs.Bytes(), "record retry scheduled", testEdge, otherEdge)
+}
+
+func TestRefusalLogIsLimitedPerEdge(t *testing.T) {
+	var logs syncBuffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
+	}
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		i.logRefusal(context.Background(), edgeID, refusalSubject, foreignReason)
+		i.logRefusal(context.Background(), edgeID, refusalSubject, malformedReason)
+	}
+
+	assertLogEdges(t, logs.Bytes(), "record refused", testEdge, otherEdge)
+}
+
+func TestConsumeErrorLogIsLimitedPerEdge(t *testing.T) {
+	var logs syncBuffer
+	i := &Intake{
+		logger:     slog.New(slog.NewJSONHandler(&logs, nil)),
+		lastLogged: map[string]time.Time{},
+	}
+
+	for _, edgeID := range []string{testEdge, otherEdge} {
+		i.logConsumeError(context.Background(), edgeID, jetstream.ErrNoHeartbeat)
+		i.logConsumeError(context.Background(), edgeID, jetstream.ErrNoHeartbeat)
+	}
+
+	assertLogEdges(t, logs.Bytes(), "intake consumer error", testEdge, otherEdge)
+}
+
+func assertLogEdges(t *testing.T, data []byte, message string, want ...string) {
+	t.Helper()
+	lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+	if len(lines) != len(want) {
+		t.Fatalf("log line count = %d, want %d", len(lines), len(want))
+	}
+	wantCounts := make(map[string]int, len(want))
+	for _, edgeID := range want {
+		wantCounts[edgeID]++
+	}
+	gotCounts := make(map[string]int, len(lines))
+	for _, line := range lines {
+		var record map[string]any
+		if err := json.Unmarshal([]byte(line), &record); err != nil {
+			t.Fatalf("decode log: %v", err)
+		}
+		if got := record["msg"]; got != message {
+			t.Errorf("log message = %v, want %s", got, message)
+		}
+		edgeID, ok := record["flowseer.edge.id"].(string)
+		if !ok {
+			t.Errorf("log edge id = %v, want one of %v", record["flowseer.edge.id"], want)
+			continue
+		}
+		gotCounts[edgeID]++
+	}
+	for edgeID, wantCount := range wantCounts {
+		if got := gotCounts[edgeID]; got != wantCount {
+			t.Errorf("log count for edge %s = %d, want %d", edgeID, got, wantCount)
+		}
 	}
 }
 
