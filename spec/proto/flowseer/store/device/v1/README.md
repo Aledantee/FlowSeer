@@ -85,8 +85,8 @@ a host-key pin. The credential material itself lives in the mounted files
 `DeviceServiceConfig` is what one deployment of the service is: the directory
 it owns, the files it reads, the two addresses it binds, what an edge is told
 when it enrolls, the configured platform administrators, and where telemetry
-goes. `PlatformAdmin.subjects` names one to sixteen distinct subject values;
-the projector enrolls each matching principal at startup. Every interval is
+goes. `PlatformAdmin.subjects` names one to sixteen distinct subject values.
+The projector enrolls each matching principal at startup. Every interval is
 optional and documents the default it falls back to, so a working file is
 short:
 

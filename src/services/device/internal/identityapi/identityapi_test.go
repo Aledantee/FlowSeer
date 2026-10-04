@@ -317,6 +317,29 @@ func TestCreateTenantRetryRepairsFailedProjection(t *testing.T) {
 	}
 }
 
+func TestCreateTenantLeavesOmittedNameUnset(t *testing.T) {
+	f := newFixture(t)
+	ctx := admitted(t, tenantA)
+	req := createRequest()
+	req.ClearName()
+
+	resp, err := f.tenant.CreateTenant(ctx, request(t, req))
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := f.tenants.LookupByOrg(ctx, issuer, "acme")
+	if err != nil || stored == nil {
+		t.Fatalf("stored tenant = %v, %v", stored, err)
+	}
+	valid(t, stored)
+	if stored.GetConfig().HasName() {
+		t.Fatalf("stored tenant name = %q, want unset", stored.GetConfig().GetName())
+	}
+	if !proto.Equal(resp.Msg.GetTenant(), stored) {
+		t.Fatalf("response tenant = %v, want stored tenant %v", resp.Msg.GetTenant(), stored)
+	}
+}
+
 func TestEnrollmentPreservesProvenanceAndProjectsOnRetry(t *testing.T) {
 	f := newFixture(t)
 	first := enroll(t, f, "alice")
@@ -535,6 +558,27 @@ func TestCreateRoleReturnsStoredRoleAndLogsProjectionFailure(t *testing.T) {
 	wantCalls(t, f.projector, "tenant:"+tenantA, "tenant:"+tenantA)
 	if strings.Count(logs.String(), "role projection failed") != 2 || strings.Contains(logs.String(), "private engine diagnostic") || !strings.Contains(logs.String(), `"error.type":"unknown"`) {
 		t.Fatalf("projection diagnostics = %s", logs.String())
+	}
+}
+
+func TestCreateRoleLeavesOmittedDescriptionUnset(t *testing.T) {
+	f := newFixture(t)
+	req := request(t, apiv1.CreateRoleRequest_builder{
+		Name:      new("operations"),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build())
+
+	resp, err := f.admin.CreateRole(admitted(t, tenantA), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := f.access.Role(t.Context(), tenantA, resp.Msg.GetRole().GetRef())
+	if err != nil || stored == nil {
+		t.Fatalf("stored role = %v, %v", stored, err)
+	}
+	valid(t, stored)
+	if stored.GetDescription() != "" || stored.HasDescription() {
+		t.Fatalf("stored role description = %q, has description %t, want unset", stored.GetDescription(), stored.HasDescription())
 	}
 }
 

@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -48,6 +49,49 @@ func TestTenantAdminRequestRefsAreRequired(t *testing.T) {
 	}
 
 	runValidationCases(t, cases)
+}
+
+func validCreateRoleRequest() *apiidentityv1.CreateRoleRequest {
+	return apiidentityv1.CreateRoleRequest_builder{
+		Name:      proto.String("capture operator"),
+		Relations: []identityv1.TenantRelation{identityv1.TenantRelation_TENANT_RELATION_OPERATOR},
+	}.Build()
+}
+
+func TestCreateRoleRequestRules(t *testing.T) {
+	noName := validCreateRoleRequest()
+	noName.ClearName()
+	longName := validCreateRoleRequest()
+	longName.SetName(strings.Repeat("n", 129))
+	noRelations := validCreateRoleRequest()
+	noRelations.SetRelations(nil)
+	repeatedRelation := validCreateRoleRequest()
+	repeatedRelation.SetRelations([]identityv1.TenantRelation{
+		identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+		identityv1.TenantRelation_TENANT_RELATION_OPERATOR,
+	})
+	undefinedRelation := validCreateRoleRequest()
+	undefinedRelation.SetRelations([]identityv1.TenantRelation{identityv1.TenantRelation(99)})
+
+	runValidationCases(t, []validationCase{
+		{name: "valid create role request validates", message: validCreateRoleRequest(), wantValid: true},
+		{name: "create role request without a name is rejected", message: noName},
+		{name: "create role request with a 129-character name is rejected", message: longName},
+		{name: "create role request without relations is rejected", message: noRelations},
+		{name: "create role request with a repeated relation is rejected", message: repeatedRelation},
+		{name: "create role request with an undefined relation is rejected", message: undefinedRelation},
+	})
+}
+
+func TestTenantAdminListPageSizeBounds(t *testing.T) {
+	runValidationCases(t, []validationCase{
+		{name: "members page size 500 validates", message: apiidentityv1.ListMembersRequest_builder{PageSize: proto.Uint32(500)}.Build(), wantValid: true},
+		{name: "members page size 501 is rejected", message: apiidentityv1.ListMembersRequest_builder{PageSize: proto.Uint32(501)}.Build()},
+		{name: "roles page size 500 validates", message: apiidentityv1.ListRolesRequest_builder{PageSize: proto.Uint32(500)}.Build(), wantValid: true},
+		{name: "roles page size 501 is rejected", message: apiidentityv1.ListRolesRequest_builder{PageSize: proto.Uint32(501)}.Build()},
+		{name: "partners page size 500 validates", message: apiidentityv1.ListPartnersRequest_builder{PageSize: proto.Uint32(500)}.Build(), wantValid: true},
+		{name: "partners page size 501 is rejected", message: apiidentityv1.ListPartnersRequest_builder{PageSize: proto.Uint32(501)}.Build()},
+	})
 }
 
 func TestGrantFullPayloadLifetimeBounds(t *testing.T) {
