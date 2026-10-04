@@ -120,6 +120,18 @@ model and this plan is wrong.
   second, native one. With Alt+A gone, the app's own handler is the only
   keyboard route that works on the developer's platform.
 
+- **A long-press opens the AI menu.** A touch or pen long-press on a
+  registered item opens its verbs, as a right-click does. A long-press
+  elsewhere keeps the browser's behavior. Why: touch parity with the
+  mouse path. (decided by the user, 2026-10-04)
+- **The Menu key stays native in a field.** The Menu key or Shift+F10 in
+  a text field inside a registered item keeps the native menu. On a link
+  or any other focusable element inside the item it opens the AI menu.
+  Why: a device row's only tab stops are links, so Requirement 2 needs
+  them, and a field needs paste and spelling. This narrows the keyboard
+  Decision's "resolves the target the same way" for links.
+  (decided by the user, 2026-10-04)
+
 ### Result shapes and delivery
 
 - **Results are typed data rendered with `Ui` components.** They are
@@ -674,22 +686,3 @@ follow because they share `ui/index.ts`, the harness, and `FleetView.vue`.
   opens the AI menu and loses the native one there.
 - Confidence stays as the words low, medium, and high until a real model
   reports calibrated confidence. The implementer adds no percentages.
-- Parked by drive: should a touch or pen long-press open the AI menu?
-  The review stopped after one fix round with `review: fixes needed`, and
-  its fixes and record are on `parked/aiact-review`. Options: no, turn
-  Reka's long-press path off and leave touch to the browser's own
-  `contextmenu` event (least code, and a touch browser that fires no such
-  event gets no AI menu) | yes, long-press on a registered item opens it
-  (touch parity, and the layer must own touch handling, where round 1's
-  attempt left a defect). Recommended: no, because Requirement 1 names
-  only right-click and the keyboard.
-- Parked by drive: does the Menu key in a field inside a registered item
-  open the AI menu? Options: fields stay native, links and other
-  focusable elements open the AI menu (Requirement 2 holds for a device
-  row, whose only tab stops are links, and fields keep paste and
-  spelling) | every focusable element opens it (what the code does now,
-  and fields lose the native menu) | links and fields both stay native
-  (matches the click path, and a device row has no keyboard path, so
-  Requirement 2 fails). Recommended: fields stay native, because it is
-  the only option that keeps both Requirement 2 and the native menu where
-  text is edited.
