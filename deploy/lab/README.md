@@ -62,57 +62,19 @@ ALICE_TOKEN=$(lab_token alice)
 ADMIN_TOKEN=$(lab_token admin)
 ```
 
-Read the claims the device service will see. The `sub` of the admin token is the value `platform_admin.subject` takes, because Dex encodes the user and connector in it:
+Read the claims the device service will see. The `platform_admin` block in
+`central.textproto` names the encoded subject of the Dex `admin` user in
+`dex/config.yaml`. Dex v2.45.1 combines the user ID and connector ID in
+[`genSubject`](https://github.com/dexidp/dex/blob/v2.45.1/server/oauth2.go),
+then encodes the protobuf as unpadded URL-base64 in
+[`server/internal/codec.go`](https://github.com/dexidp/dex/blob/v2.45.1/server/internal/codec.go).
+Confirm that the token's `sub` matches `platform_admin.subjects`:
 
 ```bash
 echo "${ADMIN_TOKEN}" | jq -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | {iss, sub, aud, groups}'
 ```
 
-5. Provision the tenant record before writing authorization tuples. The device
-service does not mount `TenantService` (`TestTenantServiceIsNotMounted` in
-`src/services/device/internal/host/host_test.go`),
-and no file under `deploy/lab` can create the record held by
-`tenantstore.Store.Create` (`src/services/device/internal/tenantstore/store.go:113-126`).
-Create a tenant record out of band with the Dex issuer, organization claim name
-`groups`, and claim value `acme`. Use a canonical UUID for its tenant id. This
-is a deployment blocker today. Do not treat the OpenFGA write below as tenant
-creation. The verifier supplies `claimed` from that tenant record at request
-time (`src/services/device/internal/authn/verifier.go:452-476`).
-
-After the tenant record exists, write the lab user's enrollment and role tuples
-in OpenFGA. Compute the principal identifier from the token issuer and subject:
-
-```bash
-TENANT_ID=0192e6a0-0000-7000-8000-0000000000ac
-ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -r -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
-ALICE_ID=$(printf '%s\0%s' "https://127.0.0.1:8445/dex" "${ALICE_SUB}" | shasum -a 256 | awk '{print $1}')
-STORE_ID=$(grep -E '^\s*store_id:' central.textproto | awk '{print $2}' | tr -d '"')
-
-curl -sS --cacert secrets/ca.crt \
-  -H "Authorization: Bearer $(cat secrets/openfga.key)" \
-  -H "Content-Type: application/json" \
-  -X POST "https://127.0.0.1:8080/stores/${STORE_ID}/write" \
-  -d '{
-    "writes": {
-      "tuple_keys": [
-        {"user": "user:'"${ALICE_ID}"'", "relation": "enrolled", "object": "tenant:'"${TENANT_ID}"'"},
-        {"user": "user:'"${ALICE_ID}"'", "relation": "admin", "object": "tenant:'"${TENANT_ID}"'"}
-      ]
-    }
-  }'
-```
-
-Expected answer:
-
-```json
-{}
-```
-
-6. Start the device service:
-
-```bash
-go run ../../src/services/device/cmd/device --config central.textproto
-```
+5. Provision the tenant record and alice's admin role. Start central first.
 
 The config points at `/etc/flowseer/registry.textproto` and
 `/etc/flowseer/credentials`, so install or mount those paths before starting.
@@ -138,6 +100,12 @@ the minted edge identifier to `/etc/flowseer/registry.textproto`
 procedures can be used. The runbook's "Fill the device's two positions in the
 registry template" section describes that two-start sequence in detail.
 
+Run central in a separate terminal from this directory:
+
+```bash
+go run ../../src/services/device/cmd/device --config central.textproto
+```
+
 Expected log entry:
 
 ```text
@@ -146,7 +114,136 @@ device api listening
 
 Central generates its certificate into `/var/lib/flowseer/device/tls.crt` on first start. Operator calls trust this certificate rather than `secrets/ca.crt`.
 
-7. Call an operator procedure. Central serves no reflection, so calls provide `--schema ../../spec/proto`. Create an edge first, because the bootstrap registry has no devices:
+The host serves both identity services on the operator interceptor chain
+(`TestHostMountsServicesOnTheCorrectInterceptorChains` in
+`src/services/device/internal/host/host_test.go`). These calls use
+`ADMIN_TOKEN`. The projector derives access from stored records and removes
+direct OpenFGA grants that no record explains
+(`src/services/device/internal/projector/projector.go`).
+
+```mermaid
+flowchart LR
+    T[CreateTenant] --> R[CreateRole admin]
+    R --> E[EnrollMember alice]
+    E --> A[AssignRole]
+    A --> G[GetEdge as alice]
+```
+
+### Create the tenant
+
+`CreateTenant` returns its UUID and writes the record through
+`tenantstore.Store.Create` (`src/services/device/internal/identityapi/tenant.go`).
+The UUIDs in the expected answers are examples. Use the returned identifiers.
+
+```bash
+curl -fsS --cacert /var/lib/flowseer/device/tls.crt \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"issuer":"https://127.0.0.1:8445/dex","organizationClaimName":"groups","organizationClaimValue":"acme","name":"Acme"}' \
+  https://127.0.0.1:8443/flowseer.api.identity.v1.TenantService/CreateTenant > tenant.json
+TENANT_ID=$(jq -er .tenant.config.ref.tenant.id tenant.json)
+jq '{tenant: {config: .tenant.config}}' tenant.json
+```
+
+Expected answer (configuration fields):
+
+```json
+{
+  "tenant": {
+    "config": {
+      "ref": {"tenant": {"id": "0192e6a0-0000-7000-8000-0000000000ac"}},
+      "issuer": "https://127.0.0.1:8445/dex",
+      "organizationClaimName": "groups",
+      "organizationClaimValue": "acme",
+      "name": "Acme"
+    }
+  }
+}
+```
+
+### Create an admin role
+
+```bash
+curl -fsS --cacert /var/lib/flowseer/device/tls.crt \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"admin","relations":["TENANT_RELATION_ADMIN"]}' \
+  https://127.0.0.1:8443/flowseer.api.identity.v1.TenantAdminService/CreateRole > role.json
+ROLE_ID=$(jq -er .role.ref.role.id role.json)
+cat role.json
+```
+
+Expected answer:
+
+```json
+{
+  "role": {
+    "ref": {"role": {"id": "0192e6a0-0000-7000-8000-0000000000ad"}},
+    "name": "admin",
+    "relations": ["TENANT_RELATION_ADMIN"]
+  }
+}
+```
+
+### Enroll alice
+
+The verifier supplies `claimed` from the tenant record at request time
+(`src/services/device/internal/authn/verifier.go:452-476`). Alice's token
+claims `acme`, and enrollment supplies the other half of membership.
+
+```bash
+ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -r -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
+curl -fsS --cacert /var/lib/flowseer/device/tls.crt \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
+  -H "Content-Type: application/json" \
+  -d "{\"member\":{\"issuer\":\"https://127.0.0.1:8445/dex\",\"subject\":\"${ALICE_SUB}\"}}" \
+  https://127.0.0.1:8443/flowseer.api.identity.v1.TenantAdminService/EnrollMember \
+  | jq '{member: {operator: .member.operator, roles: (.member.roles // [])}}'
+```
+
+Expected answer (identity and roles):
+
+```json
+{
+  "member": {
+    "operator": {
+      "issuer": "https://127.0.0.1:8445/dex",
+      "subject": "CiQwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDESBWxvY2Fs"
+    },
+    "roles": []
+  }
+}
+```
+
+### Assign the role
+
+```bash
+curl -fsS --cacert /var/lib/flowseer/device/tls.crt \
+  -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+  -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
+  -H "Content-Type: application/json" \
+  -d "{\"member\":{\"issuer\":\"https://127.0.0.1:8445/dex\",\"subject\":\"${ALICE_SUB}\"},\"role\":{\"role\":{\"id\":\"${ROLE_ID}\"}}}" \
+  https://127.0.0.1:8443/flowseer.api.identity.v1.TenantAdminService/AssignRole \
+  | jq '{member: {operator: .member.operator, roles: .member.roles}}'
+```
+
+Expected answer (identity and roles):
+
+```json
+{
+  "member": {
+    "operator": {
+      "issuer": "https://127.0.0.1:8445/dex",
+      "subject": "CiQwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDESBWxvY2Fs"
+    },
+    "roles": [{"role": {"id": "0192e6a0-0000-7000-8000-0000000000ad"}}]
+  }
+}
+```
+
+6. Call an operator procedure. Central serves no reflection, so calls provide `--schema ../../spec/proto`. Create an edge first, because the bootstrap registry has no devices:
 
 ```bash
 buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
@@ -255,7 +352,7 @@ Expected answer:
 }
 ```
 
-8. Verify OpenFGA preshared key enforcement on both listeners.
+7. Verify OpenFGA preshared key enforcement on both listeners.
 
 On the HTTP listener, a request with no `Authorization` header returns HTTP 401 with `bearer_token_missing`:
 
@@ -311,7 +408,7 @@ Expected answer:
 grpc-status: 1500
 ```
 
-9. Stop the containers and drop their state:
+8. Stop the containers and drop their state:
 
 ```bash
 docker compose down -v

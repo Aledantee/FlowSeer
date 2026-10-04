@@ -687,14 +687,12 @@ func waitUntilServing(t *testing.T, client *http.Client, base string) {
 	}
 }
 
-// TenantService is not mounted on the device service mux, so requests to its
-// procedure paths are refused with HTTP 404 and Connect Unimplemented.
-func TestTenantServiceIsNotMounted(t *testing.T) {
+func TestTenantServiceIsMountedAndRequiresAuthentication(t *testing.T) {
 	base := runningService(t)
-	client := serviceClient()
+	client := rawServiceClient()
 	waitUntilServing(t, client, base)
 
-	req, err := http.NewRequest(http.MethodPost, base+identityv1connect.TenantServiceCreateTenantProcedure, bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequest(http.MethodPost, base+identityv1connect.TenantServiceCreateTenantProcedure, bytes.NewReader(nil))
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
@@ -704,14 +702,14 @@ func TestTenantServiceIsNotMounted(t *testing.T) {
 		t.Fatalf("post to CreateTenant: %v", err)
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNotFound {
-		t.Errorf("status = %d, want %d (HTTP 404)", resp.StatusCode, http.StatusNotFound)
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusUnauthorized)
 	}
 
 	tenantClient := identityv1connect.NewTenantServiceClient(client, base)
 	_, err = tenantClient.CreateTenant(context.Background(), connect.NewRequest(&identityv1.CreateTenantRequest{}))
-	if got := connect.CodeOf(err); got != connect.CodeUnimplemented {
-		t.Errorf("code = %v, want %v (Connect Unimplemented)", got, connect.CodeUnimplemented)
+	if got := connect.CodeOf(err); got != connect.CodeUnauthenticated {
+		t.Errorf("code = %v, want %v", got, connect.CodeUnauthenticated)
 	}
 }
 
@@ -1053,6 +1051,24 @@ func TestHostMountsServicesOnTheCorrectInterceptorChains(t *testing.T) {
 		call func() error
 	}{
 		{
+			name: "tenant",
+			call: func() error {
+				_, err := identityv1connect.NewTenantServiceClient(client, svc.Base).CreateTenant(
+					context.Background(), connect.NewRequest(&identityv1.CreateTenantRequest{}),
+				)
+				return err
+			},
+		},
+		{
+			name: "tenant admin",
+			call: func() error {
+				_, err := identityv1connect.NewTenantAdminServiceClient(client, svc.Base).ListMembers(
+					context.Background(), connect.NewRequest(&identityv1.ListMembersRequest{}),
+				)
+				return err
+			},
+		},
+		{
 			name: "edge admin",
 			call: func() error {
 				_, err := edgev1connect.NewEdgeAdminServiceClient(client, svc.Base).GetEdge(
@@ -1210,10 +1226,10 @@ func TestHostRecoversAnEdgeHandlerPanicBeforeTelemetry(t *testing.T) {
 
 	if err := svc.Engine.Write(context.Background(), []authz.Tuple{
 		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + svc.PrincipalID},
-		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "admin", User: "user:" + svc.PrincipalID},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
+	svc.Engine.Grant("user:"+svc.PrincipalID, "admin", "tenant")
 	svc.Engine.Grant("user:"+svc.PrincipalID, "manage", "edge")
 
 	adminClient := edgev1connect.NewEdgeAdminServiceClient(serviceClient(), svc.Base)
@@ -1709,10 +1725,10 @@ func TestCreateEdgeSucceedsAndLogsWhenEngineWriteFails(t *testing.T) {
 
 	if err := engine.Write(context.Background(), []authz.Tuple{
 		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + svc.PrincipalID},
-		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "admin", User: "user:" + svc.PrincipalID},
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
+	engine.Grant("user:"+svc.PrincipalID, "admin", "tenant")
 	engine.Grant("user:"+svc.PrincipalID, "manage", "edge")
 
 	engine.SetFailWrite(errs.New().Code(openfga.ErrCodeUnreachable).Msg("engine write unreachable"))

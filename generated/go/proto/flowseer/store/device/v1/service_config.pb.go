@@ -5,8 +5,9 @@
 // source: flowseer/store/device/v1/service_config.proto
 
 // The device service's own deployment configuration, read from an
-// operator-written prototext file at start. Storage, not a boundary, and not
-// an entity: no triad, no ref pair.
+// operator-written prototext file at start. DeviceServiceState and
+// DeviceServiceEvent are deliberately absent because this is storage, not a
+// boundary or an entity: no triad, no ref pair.
 
 package devicev1
 
@@ -943,7 +944,7 @@ type PlatformAdmin struct {
 	state                            protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Issuer                *string                `protobuf:"bytes,1,opt,name=issuer"`
 	xxx_hidden_Organization          *string                `protobuf:"bytes,2,opt,name=organization"`
-	xxx_hidden_Subject               *string                `protobuf:"bytes,3,opt,name=subject"`
+	xxx_hidden_Subjects              []string               `protobuf:"bytes,5,rep,name=subjects"`
 	xxx_hidden_OrganizationClaimName *string                `protobuf:"bytes,4,opt,name=organization_claim_name,json=organizationClaimName"`
 	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
 	XXX_presence                     [1]uint32
@@ -996,14 +997,11 @@ func (x *PlatformAdmin) GetOrganization() string {
 	return ""
 }
 
-func (x *PlatformAdmin) GetSubject() string {
+func (x *PlatformAdmin) GetSubjects() []string {
 	if x != nil {
-		if x.xxx_hidden_Subject != nil {
-			return *x.xxx_hidden_Subject
-		}
-		return ""
+		return x.xxx_hidden_Subjects
 	}
-	return ""
+	return nil
 }
 
 func (x *PlatformAdmin) GetOrganizationClaimName() string {
@@ -1026,9 +1024,8 @@ func (x *PlatformAdmin) SetOrganization(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *PlatformAdmin) SetSubject(v string) {
-	x.xxx_hidden_Subject = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+func (x *PlatformAdmin) SetSubjects(v []string) {
+	x.xxx_hidden_Subjects = v
 }
 
 func (x *PlatformAdmin) SetOrganizationClaimName(v string) {
@@ -1050,13 +1047,6 @@ func (x *PlatformAdmin) HasOrganization() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *PlatformAdmin) HasSubject() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
 func (x *PlatformAdmin) HasOrganizationClaimName() bool {
 	if x == nil {
 		return false
@@ -1074,11 +1064,6 @@ func (x *PlatformAdmin) ClearOrganization() {
 	x.xxx_hidden_Organization = nil
 }
 
-func (x *PlatformAdmin) ClearSubject() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Subject = nil
-}
-
 func (x *PlatformAdmin) ClearOrganizationClaimName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_OrganizationClaimName = nil
@@ -1091,8 +1076,9 @@ type PlatformAdmin_builder struct {
 	Issuer *string
 	// The organization identifier or claim value. Must be present.
 	Organization *string
-	// The subject identifier for the platform administrator. Must be present.
-	Subject *string
+	// The subject identifiers for platform administrators. Must hold one to 16
+	// distinct values, each between 1 and 256 characters.
+	Subjects []string
 	// The claim name carrying the organization identifier. Must be present.
 	OrganizationClaimName *string
 }
@@ -1109,10 +1095,7 @@ func (b0 PlatformAdmin_builder) Build() *PlatformAdmin {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_Organization = b.Organization
 	}
-	if b.Subject != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
-		x.xxx_hidden_Subject = b.Subject
-	}
+	x.xxx_hidden_Subjects = b.Subjects
 	if b.OrganizationClaimName != nil {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_OrganizationClaimName = b.OrganizationClaimName
@@ -1918,13 +1901,12 @@ const file_flowseer_store_device_v1_service_config_proto_rawDesc = "" +
 	"\bstore_id\x18\x02 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\astoreId\x12'\n" +
 	"\bmodel_id\x18\x03 \x01(\tB\f\xbaH\t\xc8\x01\x01r\x04\x10\x01\x18@R\amodelId\x12=\n" +
 	"\x12preshared_key_file\x18\x04 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\x10presharedKeyFile\x12%\n" +
-	"\aca_file\x18\x05 \x01(\tB\f\xbaH\tr\a\x18\x80 2\x02^/R\x06caFile\"\xdc\x01\n" +
+	"\aca_file\x18\x05 \x01(\tB\f\xbaH\tr\a\x18\x80 2\x02^/R\x06caFile\"\xe6\x01\n" +
 	"\rPlatformAdmin\x12(\n" +
 	"\x06issuer\x18\x01 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuer\x121\n" +
 	"\forganization\x18\x02 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\forganization\x12'\n" +
-	"\asubject\x18\x03 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\x12E\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\forganization\x121\n" +
+	"\bsubjects\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\b\x01\x10\x10\x18\x01\"\ar\x05\x10\x01\x18\x80\x02R\bsubjects\x12E\n" +
 	"\x17organization_claim_name\x18\x04 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x01R\x15organizationClaimName\"\x88\x03\n" +
 	"\x10ServiceListeners\x120\n" +

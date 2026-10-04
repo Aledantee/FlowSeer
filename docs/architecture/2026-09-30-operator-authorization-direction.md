@@ -241,6 +241,13 @@ consistency token that must survive a restart is opaque bytes owned by the
 adapter. Changing engines therefore changes the adapter and its configuration,
 not the protobuf contract.
 
+While the device service is the only host of operator RPCs, authorization
+enforcement and OIDC identity stay in
+`src/services/device/internal/authn` and `src/services/device/internal/authz`.
+`src/common/README.md` requires two unrelated import trees before a package
+moves into that shared layer. A second host serving operator RPCs requires
+reconsidering that boundary before the enforcement code is shared.
+
 ### Tenants, as landed
 
 The tenant is a UUID-identified entity in `flowseer.model.identity.v1`, beside
@@ -286,15 +293,18 @@ An edge's tenant has one authority, its `edge_<edge_id>` index in `edges`
 (`src/services/device/internal/edgestore/store.go:180`).
 A device lane is keyed by its hosting edge's tenant
 (`src/services/device/internal/journal/journal.go:100`,
-`src/services/device/internal/host/serve.go:349-364`), and a
-caller of another tenant gets `NotFound`
-(`src/services/device/internal/deviceapi/service.go:159-162`,
-`src/services/device/internal/deviceapi/errors.go:28`).
+`edgeLaneRecords.Record` in `src/services/device/internal/host/serve.go`), and a
+caller naming an unknown device or a device of another tenant gets
+`PermissionDenied` with `authz/denied` before the handler. The same refusal
+reveals no record existence (`TestTheServiceStartsFromAFileAndAnswers` in
+`src/services/device/internal/host/host_test.go`). A caller that reaches
+the handler can receive `NotFound`
+(`src/services/device/internal/deviceapi/errors.go:28`).
 Nothing substitutes a default tenant for one it could not resolve
-(`src/services/device/internal/host/host.go:334-343`).
+(`edgeTenant` in `src/services/device/internal/host/host.go`).
 
 The platform admin configuration names its issuer, organization claim name and
-value, and subject. The host validates those fields before it serves the
+value, and subjects. The host validates those fields before it serves the
 operator APIs
 (`parseConfig`, `protovalidate.Validate`, in
 `src/services/device/internal/host/config.go`, and `PlatformAdmin` in
@@ -302,8 +312,8 @@ operator APIs
 entity replaces the unused keyless inventory tenant shape, so
 the tenant store is the source of existence and organization ownership.
 
-`TenantService` is defined but not served until callers are authenticated.
-Tests and development create tenants through the tenant store, so an
+`TenantService` is served behind operator authentication and platform
+authorization (`src/services/device/internal/host/serve.go`), so an
 unauthenticated caller cannot create a tenant or claim an organization. State
 written before the tenant change is not read: unprefixed keys, capture files
 directly under `<StateDir>/captures/`, and edge accounts without a persisted
@@ -470,9 +480,9 @@ The operator action trail records who created an edge, minted a setup key, or
 downloaded a capture. Authorization adds global admins and cross-tenant grants,
 so each recorded operator action is emitted with its authenticated
 `OperatorRef`, object, action, and outcome in the same change that turns
-authorization on. That event goes to a single stream using
+authorization on. That event goes to a stream using
 `flowseer.<tenant>.operator.action.<action>` subjects (subject pattern in
-`src/modules/edgebus/subjects.go:86-88`, stream binding in `src/modules/edgebus/hub.go:400`).
+`src/modules/edgebus/subjects.go:103-105`, stream binding in `src/modules/edgebus/hub.go:408`).
 
 ## Consequences
 
@@ -522,7 +532,7 @@ rule dropped a response only when the handler returned without a check, and
 the table's rows say so now.
 
 A call whose context has ended answers with `ctx.Err()` itself, bare and
-outside `connecterr`, in two places. A checker error returned while
+outside `connecterr`, in two places in authorization. A checker error returned while
 `ctx.Err()` is non-nil yields it in place of `Unavailable`, from the
 interceptor, `Require`, and `Filter` alike. Under a loaded or filtered rule,
 a handler path that ends in an error with no check discharged while
@@ -609,9 +619,14 @@ cross-tenant roles:
 - `platform#admin` is `claimed and enrolled`, so a contextual token claim and a
   stored platform assignment must both hold. A platform administrator loses
   reach when the token stops carrying the claim.
-- Grants on `edge` and `device` are direct assignees or inherited from tenant
-  roles. Direct grants support fine-grained permissions on individual devices
-  or edges without site or tag infrastructure.
+- The model reserves direct assignees and role usersets on `edge` and `device`,
+  but the current access records grant only tenant-wide relations. When the
+  access source is configured, the projector owns those resource grant
+  relations as empty and deletes tuples that no record explains
+  (`src/services/device/internal/projector/projector.go`,
+  `src/services/device/internal/projector/reconcile.go`). Edge- and
+  device-scoped role grants remain a separate design because
+  `model/identity` does not own resource lifecycle.
 - `tenant#active_admin` is a grantee on `tenant#operator`, `tenant#capturer`,
   and `tenant#viewer`, so a partner administrator can hold an operational role
   in a customer tenant.
@@ -698,12 +713,12 @@ source, and rechecking would change the stream's established behavior
 
 Operator handlers run behind telemetry, panic recovery, authentication,
 validation, authorization, and action trail interceptors in that order
-(`operatorInterceptors` in `src/services/device/internal/host/serve.go:161-168`).
+(`operatorInterceptors` in `src/services/device/internal/host/serve.go`).
 Running validation before authorization guarantees that object identifiers passed
 to authorization rules conform to schema constraints. Placing the action trail
 innermost ensures that it records only calls admitted by authorization. Edge
 handlers mount telemetry, panic recovery, and validation only
-(`edgeInterceptors` in `src/services/device/internal/host/serve.go:125-129`),
+(`edgeInterceptors` in `src/services/device/internal/host/serve.go`),
 because edges authenticate through signed edge assertions
 (`src/services/device/README.md`) rather than operator tokens.
 
@@ -749,7 +764,8 @@ records. A device has no Key-Value lane record until its first mutation
 from the registry allows initial authorization checks to succeed without
 creating phantom records.
 
-`Sync(object)` (`src/services/device/internal/projector/projector.go:90-132`)
+`Sync(object)` (`Sync` through `attemptSync` in
+`src/services/device/internal/projector/projector.go:151-201`)
 is the only code that writes or deletes a relationship. It reads the object's
 stored tuples, then the record, and writes the difference in one call. A
 creating handler writes the record before its tuples, and identifiers are random
@@ -769,7 +785,7 @@ A failed pass is retried after 5 s, doubling on consecutive failures up to the
 configured interval. The projector module is declared last in supervision so its
 restart restarts nothing else. A device listed in the registry is authorized
 once the first pass after start has run, because the registry is read once at
-start (`src/services/device/internal/host/host.go:102`). `host.Options.Reconciled`
+start (`Run` in `src/services/device/internal/host/host.go`). `host.Options.Reconciled`
 fires after each completed pass with no error, allowing tests and supervisory
 callers to wait on initial projection completion just as `Bound` signals
 listener availability.
@@ -806,17 +822,18 @@ to isolate idempotency keys across operators (`src/services/device/internal/jour
 
 #### Operator action trail
 
-The action trail records only the nine procedures in the interceptor table
-(`src/services/device/internal/actiontrail/interceptor.go:32-45`): `CreateEdge`,
+The action trail records only the nine procedures in the interceptor tables
+(`src/services/device/internal/actiontrail/interceptor.go:35-42` and `:240-243`): `CreateEdge`,
 `IssueSetupKey`, `RevokeSetupKey`, `RetireEdge`, `GetEdge`, and `ListEdges` on
 `EdgeAdminService`, along with full-payload `CreateCaptureSession`,
-`TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. Calls
+`TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. The
+2026-10-04 amendment adds eleven. Calls
 refused by authentication or authorization interceptors are excluded from the
 trail, preventing unauthenticated or unauthorized callers from polluting audit
 streams. A denial inside the handler (such as the full-payload capture
 authorization check in `src/services/device/internal/captureapi/operator_service.go:127-134`)
 is recorded with outcome `OPERATOR_ACTION_OUTCOME_DENIED`
-(`src/services/device/internal/actiontrail/interceptor.go:87-95`), because the handler
+(`src/services/device/internal/actiontrail/interceptor.go:285-294`), because the handler
 was reached by an authenticated caller and the attempt was already recorded. The
 completion records the outcome the handler returned.
 
@@ -837,3 +854,214 @@ publication fails, execution halts and returns `CodeUnavailable` with
 `actiontrail/unavailable`. If completion publication fails, the failure is
 logged while the handler response returns to the caller, because the operation
 has already taken effect and cannot be rolled back.
+
+### 2026-10-04: operator trail streams, platform actions, and administration actions
+
+Views and changes go to two streams, so that a flood of views cannot evict the
+record of a change.
+
+| Stream | Subject | Holds | Bytes | Per subject |
+| --- | --- | --- | --- | --- |
+| `FLOWSEER_OPERATOR_ACTIONS` | `flowseer.<tenant>.operator.action.<action>` | every recorded change | 64 MiB | 10,000 |
+| `FLOWSEER_OPERATOR_READS` | `flowseer.<tenant>.operator.read.<action>` | `GetEdge` and `ListEdges` | 16 MiB | 1,000 |
+
+`OperatorReadSubject` builds the read subject
+(`src/modules/edgebus/subjects.go:108-110`) and the hub creates the read stream
+beside the action stream (`src/modules/edgebus/hub.go:419-438`). The
+interceptor sends the two view actions to it
+(`src/services/device/internal/actiontrail/interceptor.go:233-238`). Both limits
+are `HubConfig` fields with no deployment setting, as `DeviceServiceConfig`
+keeps the bus's storage bounds out until a deployment needs one
+(`spec/proto/flowseer/store/device/v1/service_config.proto:19-24`).
+
+The 2026-10-03 sentence that a flood evicts only records of its own action holds
+only below the stream's byte limit, and it is corrected in place. A stored
+record is 34 bytes plus its subject, header, and payload
+(`github.com/nats-io/nats-server/v2@v2.15.0/server/filestore.go:10055-10062`),
+and an `IssueSetupKey` attempt or completion occupies about 410 bytes
+(`TestOperatorActionRecordFitsTheSizingArithmetic` in
+`src/modules/edgebus/edgebus_test.go`). A subject at its cap of 10,000 holds
+about 4 MiB. Every viewer may call the two view actions, so one tenant's two
+view subjects hold about 8 MiB when full, and the views of nine tenants outgrow
+64 MiB. From then on each write removes the oldest record in the stream whatever
+its subject, which would be the rare change the trail exists for. After the
+split a change competes only with changes. The 64 MiB action stream holds about
+160,000 records, or 80,000 change calls, and
+`TestAViewFloodCannotEvictAChangeRecord` in
+`src/services/device/internal/actiontrail/actiontrail_test.go` fills the read
+stream past its limit and finds an earlier setup key record still in the action
+stream.
+
+The change stream is still shared by every tenant. A tenant admin who repeats
+changes can fill 18 change subjects at their cap, about 70 MiB, and push out the
+oldest change records of other tenants. A stream per tenant bounds that. It
+reserves its bytes per tenant against the central budget, which caps the tenant
+count, and it changes the subject-per-tenant design above.
+
+The two streams reserve 80 MiB of the central account's 1 GiB beside the
+audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
+stream's 64 MiB
+(`github.com/nats-io/nats-server/v2@v2.15.0/server/jetstream.go:2603-2607`). The
+new `access` bucket (`AccessBucket`) makes five key-value buckets, and with no
+byte limit of their own they share the 368 MiB the streams leave.
+
+A call admitted to no tenant has no tenant to name in the subject. Only
+`CreateTenant` is recorded without one, since it runs under the platform rule of
+the 2026-10-02 amendment, and its records go to
+`flowseer.platform.operator.action.tenant_create`. `platform` can never be a
+tenant id (`src/common/tenant/tenant.go:41-51`), and the action stream's binding
+already matches it. The interceptor takes the token for that procedure alone
+(`src/services/device/internal/actiontrail/interceptor.go:361-366`). Any other
+recorded call with no tenant still answers `actiontrail/unprepared`.
+
+The trail records eleven more procedures
+(`src/services/device/internal/actiontrail/interceptor.go:70-154`):
+`CreateTenant` on `TenantService`, and `EnrollMember`, `RemoveMember`,
+`CreateRole`, `DeleteRole`, `AssignRole`, `UnassignRole`, `ConnectPartner`,
+`DisconnectPartner`, `GrantFullPayload`, and `RevokeFullPayload` on
+`TenantAdminService`. The attempt names the object the request carries. The
+completion fills it from the response where the request cannot: the created
+tenant, the created role with its relations, and the expiry of a full-payload
+grant. A removed record is deleted, so the trail is the only history of what a
+role, a link, or a grant held. The get and list procedures of both services are
+not recorded, since a list of members discloses nothing a setup key or a
+payload does.
+
+### 2026-10-04: tenant administration, access records, and full-payload expiry
+
+The host serves `TenantService` and `TenantAdminService` on the operator
+interceptor chain (`src/services/device/internal/host/serve.go`). An
+unauthenticated `CreateTenant` answers `Unauthenticated`
+(`TestTenantServiceIsMountedAndRequiresAuthentication` in
+`src/services/device/internal/host/host_test.go`). Configuration names one to
+16 distinct `platform_admin.subjects`. Each subject's issuer-derived principal
+is enrolled on `platform:flowseer`, and its token must carry the configured
+platform organization claim. No RPC adds a platform admin.
+
+The host opens the `access` bucket and supplies the tenant store, access store,
+configured platform principal ids, and `time.Now` to the projector
+(`src/services/device/internal/host/host.go`). Three record kinds hold tenant
+access intent (`spec/proto/flowseer/model/identity/v1/access.proto`):
+
+| Record | Key in `access` | Holds |
+| --- | --- | --- |
+| Member | `<tenant>.member.<principal id>` | enrollment, role refs, full-payload grant |
+| Role | `<tenant>.role.<role id>` | name, description, tenant-wide relations |
+| Partner | `<tenant>.partner.<provider tenant id>` | provider ref, relations, connection provenance |
+
+Role names may repeat because the UUID is the identity. Role assignments and
+full-payload grants require a member record. A customer's partner link needs
+no provider consent, admits only `operator`, `capturer`, and `viewer`, and
+never administers customer membership. A missing role grants nothing even if
+a member still names it.
+
+The identity handlers and the access store answer the caller's own context
+error once the request context has ended (`connectErr` in
+`src/services/device/internal/identityapi/errors.go:52-66`, `storeError` in
+`src/services/device/internal/accessstore/store.go:392-397`).
+
+With the access source configured, the projector owns each relation below
+whole, whatever user a stored tuple names
+(`src/services/device/internal/projector/projector.go`,
+`src/services/device/internal/projector/reconcile.go`):
+
+| Object | Relation | User derived from records |
+| --- | --- | --- |
+| `platform:flowseer` | `enrolled` | configured `user:<principal id>` |
+| `tenant:<id>` | `platform` | `platform:flowseer` for a committed tenant |
+| `tenant:<id>` | `enrolled` | each member's user |
+| `tenant:<id>` | `partner` | each linked provider tenant |
+| `tenant:<id>` | `admin`, `operator`, `capturer`, `viewer` | `role:<id>#assignee` for each role relation |
+| `tenant:<id>` | `operator`, `capturer`, `viewer` | `tenant:<provider>#active_admin` for each partner relation |
+| `tenant:<id>` | `full_payload` | each member with a grant expiring after now |
+| `role:<id>` | `assignee` | each member naming an existing role |
+| `capture_session:<id>` | `requester` | requester while its member record exists in that tenant |
+| `edge:<id>` | `administer`, `operate`, `capture`, `view` | none, no record grants on a single edge |
+| `device:<id>` | `operate`, `view` | none, no record grants on a single device |
+
+The engine adapter accepts as a user only a `type:id` and the two usersets the
+embedded model holds, `role:<id>#assignee` and `tenant:<id>#active_admin`
+(`isValidUser` in `src/services/device/internal/authz/openfga/checker.go:493-509`),
+and answers false or refuses without an engine call for every other user. The
+projector writes those two shapes for role assignees and partner active admins.
+
+The projector retains its object-parent relations. A tuple no record explains
+would grant access no list shows, so the next pass deletes it. Deployments
+that wrote tenant or resource grants directly into OpenFGA must enroll members
+and assign roles through `TenantAdminService`.
+
+Removal commits the member delete before projection because projecting first
+would recreate the deleted user's grants
+(`src/services/device/internal/identityapi/admin.go`):
+
+```mermaid
+flowchart LR
+    D[Delete member and grants] --> T[SyncTenant and roles]
+    T --> S[SyncRequester sessions]
+    S --> A[Answer success]
+    T -->|failure| U[Unavailable, retryable]
+    S -->|failure| U
+    U -->|retry, record already absent| T
+```
+
+Between the delete and projection, access can persist for one engine round
+trip. A retry projects even when the member is absent, and a pass repairs a
+call that nobody retries. Every change projects before answering, including
+its idempotent path. `CreateRole` alone logs projection failure and returns
+the minted role because retrying would create a second role.
+
+Full-payload grants expire by their member record. `GrantFullPayload` requires
+a reason and a lifetime greater than zero and at most 24 hours. Central stamps
+`expires_at` from its own clock, and another grant replaces it. A platform or
+partner admin enrolls before receiving a grant. Full-payload capture creation
+first checks `tenant#full_payload`, then reads `FullPayloadActive`. At
+`expires_at` exactly it answers `PermissionDenied` with
+`captureapi/full-payload-expired`, even while the tuple remains stored. An
+unset or failing resolver answers `Unavailable`
+(`src/services/device/internal/captureapi/operator_service.go`,
+`src/services/device/internal/accessstore/store.go`). The trail records the
+expiry refusal as `OPERATOR_ACTION_OUTCOME_DENIED`. The next pass deletes the
+expired tuple. No OpenFGA condition carries expiry, and an already running
+capture continues within its budget.
+
+The default running-service tests prove record projection and trail contents
+with a fake engine that evaluates no model
+(`src/services/device/test/integration/e2e_test.go`). Role and partner access
+through the authorization model require the tagged OpenFGA tier.
+
+### 2026-10-04: implementation boundary and retained questions
+
+The landed tenancy administration work keeps authorization enforcement and
+identity in the device service while it remains the only operator-RPC host.
+It also confirms that the access source owns tenant-wide grants only. Direct
+resource grants remain reserved in the model until a design owns their
+resource lifecycle.
+
+## Open questions
+
+- Whether change records need one JetStream stream per tenant remains open.
+  `FLOWSEER_OPERATOR_ACTIONS` is still shared, so a tenant that fills its
+  change subjects can evict older changes from other tenants
+  (`src/services/device/internal/actiontrail/interceptor.go`,
+  `src/modules/edgebus/hub.go`). A per-tenant stream would reserve bytes per
+  tenant, cap the tenant count, and change the current subject and stream
+  design.
+- Whether a role can grant access on one edge or device remains open. The
+  current access records and projector grant only tenant-wide relations, while
+  the model reserves direct user and userset shapes on resource objects
+  (`src/services/device/internal/authz/openfga/model.json`,
+  `src/services/device/internal/projector/projector.go`). A future design
+  needs ownership and cleanup for the lifecycle of an individual resource.
+- The cost of `SyncTenant` for a tenant with thousands of members and the
+  cost of `RemoveMember`, which scans the tenant's sessions, remain
+  unmeasured (`src/services/device/internal/projector/projector.go`,
+  `src/services/device/internal/identityapi/admin.go`).
+- Whether OpenFGA v1.21.0 returns `Aborted` for two concurrent writes of one
+  tuple remains unverified. The adapter handles conflict responses and writes
+  idempotently, but no tagged integration test exercises that engine race
+  (`src/services/device/internal/authz/openfga/checker.go`,
+  `src/services/device/internal/authz/openfga/relations.go`).
+- The duration of a reconciliation pass at the benchmark fixture's size
+  remains unverified. Projector tests cover ownership and repair behavior, but
+  the current tree has no benchmark for that workload
+  (`src/services/device/internal/projector/projector_test.go`).

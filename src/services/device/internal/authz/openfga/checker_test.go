@@ -817,6 +817,8 @@ var refusedQueries = []struct {
 	{"object with the wildcard id", authz.Query{Object: "edge:*", Relation: "capture", User: "user:u1"}},
 	{"object of 257 bytes", authz.Query{Object: "edge:" + strings.Repeat("a", 252), Relation: "capture", User: "user:u1"}},
 	{"object with a hash", authz.Query{Object: "edge:e#1", Relation: "capture", User: "user:u1"}},
+	{"object with a role userset", authz.Query{Object: "role:r1#assignee", Relation: "capture", User: "user:u1"}},
+	{"object with a tenant userset", authz.Query{Object: "tenant:t1#active_admin", Relation: "capture", User: "user:u1"}},
 	{"object with a space", authz.Query{Object: "edge:e 1", Relation: "capture", User: "user:u1"}},
 	{"object with a tab", authz.Query{Object: "edge:e\t1", Relation: "capture", User: "user:u1"}},
 	{"object with a line feed", authz.Query{Object: "edge:e\n1", Relation: "capture", User: "user:u1"}},
@@ -833,12 +835,113 @@ var refusedQueries = []struct {
 	{"user with a space", authz.Query{Object: "edge:e1", Relation: "capture", User: "user:a b"}},
 	{"user of 513 bytes", authz.Query{Object: "edge:e1", Relation: "capture", User: "user:" + strings.Repeat("a", 508)}},
 	{"contextual tuple object with a second colon", withTuple(authz.Tuple{Object: "edge:a:b", Relation: "site", User: "site:s1"})},
+	{"contextual tuple object with a role userset", withTuple(authz.Tuple{Object: "role:r1#assignee", Relation: "operator", User: "user:u1"})},
+	{"contextual tuple object with a tenant userset", withTuple(authz.Tuple{Object: "tenant:t1#active_admin", Relation: "operator", User: "user:u1"})},
 	{"contextual tuple object of 257 bytes", withTuple(authz.Tuple{Object: "edge:" + strings.Repeat("a", 252), Relation: "site", User: "site:s1"})},
 	{"contextual tuple relation with an at sign", withTuple(authz.Tuple{Object: "edge:e1", Relation: "si@te", User: "site:s1"})},
 	{"contextual tuple user with the wildcard id", withTuple(authz.Tuple{Object: "edge:e1", Relation: "site", User: "site:*"})},
 	{"contextual tuple user that is a userset", withTuple(authz.Tuple{Object: "edge:e1", Relation: "site", User: "site:a#b"})},
 	{"contextual tuple user with a second colon", withTuple(authz.Tuple{Object: "edge:e1", Relation: "site", User: "site:a:b"})},
 	{"contextual tuple user of 513 bytes", withTuple(authz.Tuple{Object: "edge:e1", Relation: "site", User: "site:" + strings.Repeat("a", 508)})},
+}
+
+var acceptedUsersets = []struct {
+	name string
+	user string
+}{
+	{"role assignee", "role:r1#assignee"},
+	{"partner active admin", "tenant:t1#active_admin"},
+	{"role userset of 512 bytes", "role:" + strings.Repeat("r", 498) + "#assignee"},
+	{"tenant userset of 512 bytes", "tenant:" + strings.Repeat("t", 492) + "#active_admin"},
+}
+
+var refusedUsersets = []struct {
+	name string
+	user string
+}{
+	{"empty type", ":r1#assignee"},
+	{"missing colon", "roler1#assignee"},
+	{"empty role id", "role:#assignee"},
+	{"empty tenant id", "tenant:#active_admin"},
+	{"wildcard role id", "role:*#assignee"},
+	{"wildcard tenant id", "tenant:*#active_admin"},
+	{"star in role id", "role:r*1#assignee"},
+	{"star in tenant id", "tenant:t*1#active_admin"},
+	{"second colon", "role:r:1#assignee"},
+	{"empty relation", "role:r1#"},
+	{"unknown relation", "role:r1#unknown"},
+	{"uppercase role type", "Role:r1#assignee"},
+	{"uppercase role relation", "role:r1#ASSIGNEE"},
+	{"uppercase tenant type", "Tenant:t1#active_admin"},
+	{"role with tenant relation", "role:r1#active_admin"},
+	{"tenant with role relation", "tenant:t1#assignee"},
+	{"unknown type", "site:s1#assignee"},
+	{"user type", "user:u1#assignee"},
+	{"second hash", "role:r1#assignee#assignee"},
+	{"space in id", "role:r 1#assignee"},
+	{"control character in id", "role:r\x001#assignee"},
+	{"space in type", "ro le:r1#assignee"},
+	{"colon in relation", "role:r1#assignee:x"},
+	{"at sign in relation", "role:r1#assignee@x"},
+	{"wildcard relation", "role:r1#*"},
+	{"relation of 51 bytes", "role:r1#" + strings.Repeat("r", 51)},
+	{"role userset of 513 bytes", "role:" + strings.Repeat("r", 499) + "#assignee"},
+	{"tenant userset of 513 bytes", "tenant:" + strings.Repeat("t", 493) + "#active_admin"},
+}
+
+func TestUsersetUsersReachTheEngine(t *testing.T) {
+	for _, tc := range acceptedUsersets {
+		for _, position := range []string{"user", "contextual"} {
+			t.Run(tc.name+"/"+position, func(t *testing.T) {
+				harness := newTestServerHarness(t)
+				checker := newChecker(t, harness, nil)
+				query := authz.Query{Object: "tenant:t1", Relation: "operator", User: tc.user}
+				if position == "contextual" {
+					query = withTuple(authz.Tuple{Object: "tenant:t1", Relation: "operator", User: tc.user})
+				}
+				allowed, err := checker.Check(context.Background(), query)
+				if err != nil || !allowed {
+					t.Fatalf("Check = %v, %v, want true", allowed, err)
+				}
+				results, err := checker.BatchCheck(context.Background(), []authz.Query{query})
+				if err != nil || len(results) != 1 || !results[0] {
+					t.Fatalf("BatchCheck = %v, %v, want [true]", results, err)
+				}
+				if got := harness.fake.checkCallsCount.Load(); got != 1 {
+					t.Errorf("Check calls = %d, want 1", got)
+				}
+				if got := harness.fake.batchCheckCallsCount.Load(); got != 1 {
+					t.Errorf("BatchCheck calls = %d, want 1", got)
+				}
+			})
+		}
+	}
+}
+
+func TestMalformedUsersetsMakeNoCall(t *testing.T) {
+	for _, tc := range refusedUsersets {
+		for _, position := range []string{"user", "contextual"} {
+			t.Run(tc.name+"/"+position, func(t *testing.T) {
+				harness := newTestServerHarness(t)
+				checker := newChecker(t, harness, nil)
+				query := authz.Query{Object: "tenant:t1", Relation: "operator", User: tc.user}
+				if position == "contextual" {
+					query = withTuple(authz.Tuple{Object: "tenant:t1", Relation: "operator", User: tc.user})
+				}
+				allowed, err := checker.Check(context.Background(), query)
+				if err != nil || allowed {
+					t.Errorf("Check = %v, %v, want false", allowed, err)
+				}
+				results, err := checker.BatchCheck(context.Background(), []authz.Query{query})
+				if err != nil || len(results) != 1 || results[0] {
+					t.Errorf("BatchCheck = %v, %v, want [false]", results, err)
+				}
+				if got := harness.fake.checkCallsCount.Load() + harness.fake.batchCheckCallsCount.Load() + harness.fake.getStoreCallsCount.Load() + harness.fake.readModelCallsCount.Load(); got != 0 {
+					t.Errorf("engine calls = %d, want 0", got)
+				}
+			})
+		}
+	}
 }
 
 func TestRefusedIdentifiersMakeNoCall(t *testing.T) {
@@ -849,6 +952,8 @@ func TestRefusedIdentifiersMakeNoCall(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			checksBefore := harness.fake.checkCallsCount.Load()
 			batchesBefore := harness.fake.batchCheckCallsCount.Load()
+			storesBefore := harness.fake.getStoreCallsCount.Load()
+			modelsBefore := harness.fake.readModelCallsCount.Load()
 
 			allowed, err := checker.Check(context.Background(), tc.query)
 			if err != nil {
@@ -871,6 +976,9 @@ func TestRefusedIdentifiersMakeNoCall(t *testing.T) {
 			}
 			if got := harness.fake.batchCheckCallsCount.Load() - batchesBefore; got != 0 {
 				t.Errorf("server received %d BatchCheck calls, want 0", got)
+			}
+			if got := harness.fake.getStoreCallsCount.Load() - storesBefore + harness.fake.readModelCallsCount.Load() - modelsBefore; got != 0 {
+				t.Errorf("server received %d verification calls, want 0", got)
 			}
 		})
 	}

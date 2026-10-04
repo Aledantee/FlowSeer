@@ -37,6 +37,13 @@ authentication {
   }
 }
 
+platform_admin {
+  issuer: "https://127.0.0.1:8445/dex"
+  organization: "flowseer-platform"
+  organization_claim_name: "groups"
+  subjects: "CiQwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDISBWxvY2Fs"
+}
+
 authorization {
   endpoint: "https://127.0.0.1:8081"
   store_id: "PLACEHOLDER_STORE_ID"

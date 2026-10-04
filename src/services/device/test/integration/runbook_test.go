@@ -24,6 +24,24 @@ var runbookPath = filepath.Join("..", "..", "..", "..", "..", "docs", "runbooks"
 // repoRoot is what the runbook calls FLOWSEER_REPO.
 var repoRoot = filepath.Join("..", "..", "..", "..", "..")
 
+func TestTheRunbookUsesTheLabTenantBootstrap(t *testing.T) {
+	t.Parallel()
+
+	body, err := os.ReadFile(runbookPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(body)
+	for _, part := range []string{`step 5, "Provision the tenant record"`, "ADMIN_TOKEN", "CreateTenant", "CreateRole", "EnrollMember", "AssignRole", "TENANT_ID"} {
+		if !strings.Contains(text, part) {
+			t.Errorf("runbook tenant setup missing %q", part)
+		}
+	}
+	if strings.Contains(text, "token and tuple steps") {
+		t.Error("runbook still directs operators to tuple writes")
+	}
+}
+
 // block is one fenced block in the runbook, with the line its fence opened on
 // so a failure can name where to look.
 type block struct {

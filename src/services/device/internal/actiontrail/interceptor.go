@@ -16,6 +16,8 @@ import (
 	capturev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	edgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
+	identityapiv1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	modeledgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
@@ -37,6 +39,202 @@ var edgeAdminProcedureActions = map[string]operatorv1.OperatorAction{
 	edgev1connect.EdgeAdminServiceRetireEdgeProcedure:     operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_RETIRE,
 	edgev1connect.EdgeAdminServiceGetEdgeProcedure:        operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_GET,
 	edgev1connect.EdgeAdminServiceListEdgesProcedure:      operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_LIST,
+}
+
+// platformToken stands in for the tenant in the subject of a record whose call
+// was admitted to no tenant. tenant.Validate refuses it as a tenant id.
+const platformToken = "platform"
+
+// readActions are the recorded views. Their records go to the read stream so
+// that a flood of views cannot evict a record of a change.
+var readActions = map[operatorv1.OperatorAction]bool{
+	operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_GET:  true,
+	operatorv1.OperatorAction_OPERATOR_ACTION_EDGE_LIST: true,
+}
+
+// objectSetter names the object of an event.
+type objectSetter func(*operatorv1.OperatorActionEvent)
+
+// identityTrail is the trail entry of one identity procedure. A nil attempt
+// names no object before the handler runs. A completion repeats the attempt's
+// object unless complete names one from the response.
+type identityTrail struct {
+	action   operatorv1.OperatorAction
+	attempt  func(req any) objectSetter
+	complete func(req, resp any) objectSetter
+}
+
+// identityProcedures maps the recorded procedures of TenantService and
+// TenantAdminService to their trail entries. The two services' reads are not
+// recorded: a list of members discloses nothing a setup key or a payload does.
+var identityProcedures = map[string]identityTrail{
+	identityapiv1connect.TenantServiceCreateTenantProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_TENANT_CREATE,
+		complete: func(_, resp any) objectSetter {
+			r, _ := resp.(*identityapiv1.CreateTenantResponse)
+			return tenantObject(r.GetTenant().GetConfig().GetRef())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceEnrollMemberProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_MEMBER_ENROLL,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.EnrollMemberRequest)
+			return memberObject(r.GetMember())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceRemoveMemberProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_MEMBER_REMOVE,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.RemoveMemberRequest)
+			return memberObject(r.GetMember())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceCreateRoleProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_CREATE,
+		complete: func(_, resp any) objectSetter {
+			r, _ := resp.(*identityapiv1.CreateRoleResponse)
+			return roleObject(r.GetRole().GetRef(), r.GetRole().GetRelations())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceDeleteRoleProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_DELETE,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.DeleteRoleRequest)
+			return roleObject(r.GetRole(), nil)
+		},
+	},
+	identityapiv1connect.TenantAdminServiceAssignRoleProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_ASSIGN,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.AssignRoleRequest)
+			return roleAssignmentObject(r.GetRole(), r.GetMember())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceUnassignRoleProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_ROLE_UNASSIGN,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.UnassignRoleRequest)
+			return roleAssignmentObject(r.GetRole(), r.GetMember())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceConnectPartnerProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_CONNECT,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.ConnectPartnerRequest)
+			return partnerObject(r.GetPartner(), r.GetRelations())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceDisconnectPartnerProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_PARTNER_DISCONNECT,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.DisconnectPartnerRequest)
+			return tenantObject(r.GetPartner())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceGrantFullPayloadProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_GRANT,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.GrantFullPayloadRequest)
+			return memberObject(r.GetMember())
+		},
+		// The expiry is central's clock, known only once the handler stored it.
+		complete: func(req, resp any) objectSetter {
+			r, _ := req.(*identityapiv1.GrantFullPayloadRequest)
+			g, _ := resp.(*identityapiv1.GrantFullPayloadResponse)
+			return fullPayloadGrantObject(r.GetMember(), g.GetMember().GetFullPayload().GetExpiresAt())
+		},
+	},
+	identityapiv1connect.TenantAdminServiceRevokeFullPayloadProcedure: {
+		action: operatorv1.OperatorAction_OPERATOR_ACTION_FULL_PAYLOAD_REVOKE,
+		attempt: func(req any) objectSetter {
+			r, _ := req.(*identityapiv1.RevokeFullPayloadRequest)
+			return memberObject(r.GetMember())
+		},
+	},
+}
+
+func edgeObject(ref *modeledgev1.EdgeGlobalRef) objectSetter {
+	if ref == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) { e.SetEdge(ref) }
+}
+
+func captureSessionObject(ref *modelcapturev1.CaptureSessionGlobalRef) objectSetter {
+	if ref == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) { e.SetCaptureSession(ref) }
+}
+
+func tenantObject(ref *identityv1.TenantGlobalRef) objectSetter {
+	if ref == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) { e.SetTenant(ref) }
+}
+
+func memberObject(member *identityv1.OperatorRef) objectSetter {
+	if member == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) { e.SetMember(member) }
+}
+
+func roleObject(ref *identityv1.RoleGlobalRef, relations []identityv1.TenantRelation) objectSetter {
+	if ref == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) {
+		role := &operatorv1.OperatorActionRole{}
+		role.SetRole(ref)
+		role.SetRelations(relations)
+		e.SetRole(role)
+	}
+}
+
+func roleAssignmentObject(role *identityv1.RoleGlobalRef, member *identityv1.OperatorRef) objectSetter {
+	if role == nil || member == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) {
+		assignment := &operatorv1.OperatorActionRoleAssignment{}
+		assignment.SetRole(role)
+		assignment.SetMember(member)
+		e.SetRoleAssignment(assignment)
+	}
+}
+
+func partnerObject(provider *identityv1.TenantGlobalRef, relations []identityv1.TenantRelation) objectSetter {
+	if provider == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) {
+		partner := &operatorv1.OperatorActionPartner{}
+		partner.SetTenant(provider)
+		partner.SetRelations(relations)
+		e.SetPartner(partner)
+	}
+}
+
+func fullPayloadGrantObject(member *identityv1.OperatorRef, expiresAt *timestamppb.Timestamp) objectSetter {
+	if member == nil || expiresAt == nil {
+		return nil
+	}
+	return func(e *operatorv1.OperatorActionEvent) {
+		grant := &operatorv1.OperatorActionFullPayloadGrant{}
+		grant.SetMember(member)
+		grant.SetExpiresAt(expiresAt)
+		e.SetFullPayloadGrant(grant)
+	}
+}
+
+// subjectOf is where the record of an action by one tenant's operator goes.
+func subjectOf(action operatorv1.OperatorAction, tenantID string) string {
+	if readActions[action] {
+		return edgebus.OperatorReadSubject(tenantID, actionToken(action))
+	}
+	return edgebus.OperatorActionSubject(tenantID, actionToken(action))
 }
 
 var streamingCaptureProcedureActions = map[string]operatorv1.OperatorAction{
@@ -112,9 +310,9 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 
 		proc := req.Spec().Procedure
 		var (
-			action      operatorv1.OperatorAction
-			attemptEdge *modeledgev1.EdgeGlobalRef
-			record      bool
+			action        operatorv1.OperatorAction
+			attemptObject objectSetter
+			record        bool
 		)
 
 		if proc == capturev1connect.CaptureServiceCreateCaptureSessionProcedure {
@@ -122,7 +320,7 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 			if ok && createReq != nil && createReq.GetAuthorization().GetFullPayloadRequested() {
 				record = true
 				action = operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE
-				attemptEdge = createReq.GetEdge()
+				attemptObject = edgeObject(createReq.GetEdge())
 			}
 		} else if act, ok := edgeAdminProcedureActions[proc]; ok {
 			record = true
@@ -132,20 +330,26 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 				// no attempt object
 			case edgev1connect.EdgeAdminServiceIssueSetupKeyProcedure:
 				if r, ok := req.Any().(*edgev1.IssueSetupKeyRequest); ok && r != nil {
-					attemptEdge = r.GetEdge()
+					attemptObject = edgeObject(r.GetEdge())
 				}
 			case edgev1connect.EdgeAdminServiceRevokeSetupKeyProcedure:
 				if r, ok := req.Any().(*edgev1.RevokeSetupKeyRequest); ok && r != nil {
-					attemptEdge = r.GetEdge()
+					attemptObject = edgeObject(r.GetEdge())
 				}
 			case edgev1connect.EdgeAdminServiceRetireEdgeProcedure:
 				if r, ok := req.Any().(*edgev1.RetireEdgeRequest); ok && r != nil {
-					attemptEdge = r.GetEdge()
+					attemptObject = edgeObject(r.GetEdge())
 				}
 			case edgev1connect.EdgeAdminServiceGetEdgeProcedure:
 				if r, ok := req.Any().(*edgev1.GetEdgeRequest); ok && r != nil {
-					attemptEdge = r.GetEdge()
+					attemptObject = edgeObject(r.GetEdge())
 				}
+			}
+		} else if trail, ok := identityProcedures[proc]; ok {
+			record = true
+			action = trail.action
+			if trail.attempt != nil {
+				attemptObject = trail.attempt(req.Any())
 			}
 		}
 
@@ -154,8 +358,13 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		}
 
 		principal, ok := authn.FromContext(ctx)
-		tenantID, err := tenant.FromContext(ctx)
-		if !ok || principal.ID == "" || err != nil || tenantID == "" || tenant.Validate(tenantID) != nil {
+		tenantID, tenantErr := tenant.FromContext(ctx)
+		if tenantErr != nil && proc == identityapiv1connect.TenantServiceCreateTenantProcedure {
+			tenantID, tenantErr = platformToken, nil
+		} else if tenantErr == nil {
+			tenantErr = tenant.Validate(tenantID)
+		}
+		if !ok || principal.ID == "" || tenantErr != nil {
 			return nil, abandon(ctx, connecterr.WrapAs(
 				connect.CodeInternal,
 				"action trail unprepared",
@@ -176,13 +385,13 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		attemptEvent.SetOccurredAt(timestamppb.New(i.clock()))
 		attemptEvent.SetOperator(opRef)
 		attemptEvent.SetAction(action)
-		if attemptEdge != nil {
-			attemptEvent.SetEdge(attemptEdge)
+		if attemptObject != nil {
+			attemptObject(attemptEvent)
 		}
 		attemptEvent.SetAttempted(&operatorv1.OperatorActionAttempted{})
 
 		actToken := actionToken(action)
-		subject := edgebus.OperatorActionSubject(tenantID, actToken)
+		subject := subjectOf(action, tenantID)
 
 		attemptData, err := proto.Marshal(attemptEvent)
 		if err != nil {
@@ -221,31 +430,33 @@ func (i *Interceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
 		completionEvent.SetOperator(opRef)
 		completionEvent.SetAction(action)
 
+		var completionObject objectSetter
 		switch proc {
 		case edgev1connect.EdgeAdminServiceCreateEdgeProcedure:
 			if resp != nil {
 				if r, ok := resp.Any().(*edgev1.CreateEdgeResponse); ok && r != nil {
-					if edgeRef := r.GetEdge().GetConfig().GetRef(); edgeRef != nil {
-						completionEvent.SetEdge(edgeRef)
-					}
+					completionObject = edgeObject(r.GetEdge().GetConfig().GetRef())
 				}
 			}
 		case capturev1connect.CaptureServiceCreateCaptureSessionProcedure:
-			var sessionRef *modelcapturev1.CaptureSessionGlobalRef
 			if resp != nil {
 				if r, ok := resp.Any().(*capturev1.CreateCaptureSessionResponse); ok && r != nil {
-					sessionRef = r.GetSession().GetConfig().GetRef()
+					completionObject = captureSessionObject(r.GetSession().GetConfig().GetRef())
 				}
 			}
-			if sessionRef != nil {
-				completionEvent.SetCaptureSession(sessionRef)
-			} else if attemptEdge != nil {
-				completionEvent.SetEdge(attemptEdge)
+			if completionObject == nil {
+				completionObject = attemptObject
 			}
 		default:
-			if attemptEdge != nil {
-				completionEvent.SetEdge(attemptEdge)
+			if trail, ok := identityProcedures[proc]; ok && trail.complete != nil && resp != nil {
+				completionObject = trail.complete(req.Any(), resp.Any())
 			}
+			if completionObject == nil {
+				completionObject = attemptObject
+			}
+		}
+		if completionObject != nil {
+			completionObject(completionEvent)
 		}
 		completionEvent.SetCompleted(completedDetail)
 

@@ -27,8 +27,13 @@ const (
 	HubEdgeStreamPrefix = "FLOWSEER_EDGE_"
 	// AuditStream holds every DeviceOperationEvent central writes.
 	AuditStream = "FLOWSEER_DEVICE_AUDIT"
-	// OperatorActionStream holds every OperatorActionEvent central writes.
+	// OperatorActionStream holds every OperatorActionEvent central writes for
+	// an operator change.
 	OperatorActionStream = "FLOWSEER_OPERATOR_ACTIONS"
+	// OperatorReadStream holds every OperatorActionEvent central writes for an
+	// operator view. Views have their own byte limit so that a flood of them
+	// cannot push a change out of OperatorActionStream.
+	OperatorReadStream = "FLOWSEER_OPERATOR_READS"
 	// EvidenceStream holds raw evidence moved out of ingested records.
 	EvidenceStream = "FLOWSEER_INGEST_EVIDENCE"
 	// IngestRecordTypeSyslog identifies records produced by the syslog source.
@@ -44,6 +49,9 @@ const (
 	CapturesBucket = "captures"
 	// TenantBucket is the key-value bucket central keeps tenant records in.
 	TenantBucket = "tenants"
+	// AccessBucket is the key-value bucket central keeps member, role, and
+	// partner records in. Every key starts with its tenant id.
+	AccessBucket = "access"
 	// HubDomain is the hub's JetStream domain. An edge's leaf runs its own
 	// domain; a leaf without one silently extends the hub's.
 	HubDomain = "hub"
@@ -113,9 +121,16 @@ func AuditSubject(tenant, deviceID string) string {
 	return fmt.Sprintf("flowseer.%s.audit.device.%s", tenant, deviceID)
 }
 
-// OperatorActionSubject is where central writes the audit record of one operator action.
+// OperatorActionSubject is where central writes the audit record of one operator
+// change. A call with no admitted tenant passes the token platform, which no
+// tenant id can equal.
 func OperatorActionSubject(tenant, action string) string {
 	return fmt.Sprintf("flowseer.%s.operator.action.%s", tenant, action)
+}
+
+// OperatorReadSubject is where central writes the audit record of one operator view.
+func OperatorReadSubject(tenant, action string) string {
+	return fmt.Sprintf("flowseer.%s.operator.read.%s", tenant, action)
 }
 
 // HubEdgeStream names the hub stream that sources one edge's buffer.

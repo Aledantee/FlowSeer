@@ -1,0 +1,117 @@
+edition = "2024";
+
+// Tenant-scoped access records: members, roles, full-payload grants, and
+// customer links to service-provider tenants. These records have no Config,
+// State, or Event siblings because the access service owns their current
+// values and the operator event stream carries their changes.
+package flowseer.model.identity.v1;
+
+import "flowseer/model/identity/v1/operator.proto";
+import "flowseer/model/identity/v1/tenant.proto";
+import "google/protobuf/timestamp.proto";
+import option "buf/validate/validate.proto";
+
+// A relation a tenant can grant through a role or a partner link.
+enum TenantRelation {
+  TENANT_RELATION_UNSPECIFIED = 0;
+  TENANT_RELATION_ADMIN = 1;
+  TENANT_RELATION_OPERATOR = 2;
+  TENANT_RELATION_CAPTURER = 3;
+  TENANT_RELATION_VIEWER = 4;
+}
+
+// The local reference to a role.
+message RoleLocalRef {
+  // FlowSeer-assigned role identifier. Must be present.
+  string id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+}
+
+// The global reference to a role.
+message RoleGlobalRef {
+  // The role's own key. Must be present.
+  RoleLocalRef role = 1 [(buf.validate.field).required = true];
+}
+
+// A tenant role and the relations it grants to each assignee.
+message Role {
+  // The role's identity. Must be present.
+  RoleGlobalRef ref = 1 [(buf.validate.field).required = true];
+  // The operator-facing role name. Must be present.
+  string name = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text explanation of the role. Unset means none was provided.
+  string description = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Relations granted to each member assigned to this role. Must contain one
+  // to four distinct, defined relations.
+  repeated TenantRelation relations = 4 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 4,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+}
+
+// A time-bounded grant to read captured packet payload.
+message FullPayloadGrant {
+  // When the grant stops being active. Must be present.
+  google.protobuf.Timestamp expires_at = 1 [(buf.validate.field).required = true];
+  // Why the grant was issued. Must be present.
+  string reason = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 512
+  ];
+  // The operator who issued the grant. Must be present.
+  OperatorRef granted_by = 3 [(buf.validate.field).required = true];
+  // When the grant was issued. Must be present.
+  google.protobuf.Timestamp granted_at = 4 [(buf.validate.field).required = true];
+}
+
+// A tenant member and all access records assigned directly to that member.
+message Member {
+  // The external identity enrolled in the tenant. Must be present.
+  OperatorRef operator = 1 [(buf.validate.field).required = true];
+  // When the member was enrolled. Must be present.
+  google.protobuf.Timestamp enrolled_at = 2 [(buf.validate.field).required = true];
+  // The operator who enrolled the member. Must be present.
+  OperatorRef enrolled_by = 3 [(buf.validate.field).required = true];
+  // Roles assigned to the member. At most 64 roles may be assigned.
+  repeated RoleGlobalRef roles = 4 [(buf.validate.field).repeated.max_items = 64];
+  // The member's optional full-payload grant.
+  FullPayloadGrant full_payload = 5;
+}
+
+// A customer's link to a service-provider tenant.
+message Partner {
+  option (buf.validate.message).cel = {
+    id: "partner.relations_exclude_admin"
+    message: "partner relations must not include admin"
+    expression: "this.relations.all(r, int(r) != 1)"
+  };
+
+  // The provider tenant. Must be present.
+  TenantGlobalRef tenant = 1 [(buf.validate.field).required = true];
+  // Relations the provider's active administrators receive in this tenant.
+  // Must contain one to three distinct, defined non-admin relations.
+  repeated TenantRelation relations = 2 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 3,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+  // When the link was created. Must be present.
+  google.protobuf.Timestamp connected_at = 3 [(buf.validate.field).required = true];
+  // The operator who created the link. Must be present.
+  OperatorRef connected_by = 4 [(buf.validate.field).required = true];
+}

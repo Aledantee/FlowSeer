@@ -23,7 +23,7 @@ Every operator call carries an OIDC bearer token and a tenant header.
 Central mounts operator services behind authentication and authorization
 middleware that validates the bearer token against the configured identity
 provider and evaluates permissions in OpenFGA. Central configuration requires
-both `authentication` and `authorization` sections (`deploy/lab/central.textproto:32-45`).
+both `authentication` and `authorization` sections (`deploy/lab/central.textproto`).
 An operator obtains a token from the identity provider and configures tenant
 membership before issuing commands, as detailed in [deploy/lab/README.md](../../deploy/lab/README.md).
 
@@ -37,19 +37,22 @@ relative paths.
 The tenant identifier must be a canonical UUID (`spec/proto/flowseer/model/identity/v1/tenant.proto:13-16`).
 `TENANT=default` is admitted only by the test suite's always-allow engine
 (`src/services/device/test/integration/bootstrap_env_test.go:66-78`,
-`src/services/device/test/integration/fixture_test.go:391-394`).
+`newCentral` in `src/services/device/test/integration/fixture_test.go`).
 Against the real authorization model, `member` requires `claimed`
 (`src/services/device/internal/authz/openfga/model.json:133-151`), and the
 verifier yields `claimed` only when a matching active tenant record exists
 (`src/services/device/internal/authn/verifier.go:452-476`).
-Today, no operator-facing path creates a tenant record: `tenantstore.Store.Create`
-(`src/services/device/internal/tenantstore/store.go:113-126`) has no caller
-outside tests, `TenantService` is not mounted (`TestTenantServiceIsNotMounted` in
-`src/services/device/internal/host/host_test.go`),
-and central's CLI (`src/services/device/cmd/device/main.go:39`) accepts only `--config`.
-Every operator call against a deployment built from `deploy/lab` answers
-`PermissionDenied` until a tenant record is provisioned out of band per
-[deploy/lab/README.md](../../deploy/lab/README.md).
+`TenantService.CreateTenant` writes the tenant through `tenantstore.Store.Create`
+(`src/services/device/internal/tenantstore/store.go:113-126`). The host mounts it
+and `TenantAdminService` on the operator interceptor chain
+(`TestHostMountsServicesOnTheCorrectInterceptorChains` in
+`src/services/device/internal/host/host_test.go`). Configure platform subjects
+before starting central. Follow step 5, "Provision the tenant record", in
+[deploy/lab/README.md](../../deploy/lab/README.md): its `ADMIN_TOKEN` calls run
+`CreateTenant`, `CreateRole`, `EnrollMember`, and `AssignRole`. Use the returned
+`TENANT_ID` as `TENANT` in this shell. Direct OpenFGA grants are
+removed on the next projector pass. A full-payload capture also needs an
+enrolled member's explicit, unexpired grant.
 
 **Every command block below is one of three kinds**, and the difference
 matters because two of them are run in different places:
@@ -92,7 +95,7 @@ export PROVISIONING=/etc/flowseer/provisioning.textproto
 first start. `DEVICE_ID` and `INTERFACE` are the device and port this run
 targets, and must match the registry. `TOKEN` is an OIDC bearer token issued
 by Dex or another configured identity provider, and `TENANT` is the deployment's
-tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tuple steps).
+tenant UUID (see [deploy/lab/README.md](../../deploy/lab/README.md) for token and tenant administration steps).
 
 A call looks like this, and this one is also the check that your shell is set
 up: it asks central what it knows about the device and needs nothing to have

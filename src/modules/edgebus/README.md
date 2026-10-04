@@ -28,13 +28,14 @@ reaches only subjects in the account it was provoked in.
 The hub therefore runs the system account, a CENTRAL account, and one account
 per edge:
 
-- **CENTRAL** holds the `device-lanes`, `edges`, `captures`, and `tenants`
-  key-value buckets, `FLOWSEER_DEVICE_AUDIT`, `FLOWSEER_OPERATOR_ACTIONS`, one
-  typed ingest stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The
-  streams are written through central's own CENTRAL-account connection. Typed
-  ingest is bounded to 256 MiB and 24 hours by default. Raw evidence is bounded
-  to 64 MiB and 24 hours. Both ingest streams discard the oldest records first
-  and remember message ids for ten minutes. The `tenants` stream allows atomic
+- **CENTRAL** holds the `device-lanes`, `edges`, `captures`, `tenants`, and
+  `access` key-value buckets, `FLOWSEER_DEVICE_AUDIT`,
+  `FLOWSEER_OPERATOR_ACTIONS`, `FLOWSEER_OPERATOR_READS`, one typed ingest
+  stream per record type, and `FLOWSEER_INGEST_EVIDENCE`. The streams are
+  written through central's own CENTRAL-account connection. Typed ingest is
+  bounded to 256 MiB and 24 hours by default. Raw evidence is bounded to 64 MiB
+  and 24 hours. Both ingest streams discard the oldest records first and
+  remember message ids for ten minutes. The `tenants` stream allows atomic
   batches so the tenant store writes a record and its organization index
   together. No edge credential is in this account, so neither a direct publish
   nor a reflected one from an edge can reach the journal.
@@ -70,7 +71,8 @@ flowseer.<tenant>.edge.<edge-id>.otel.{logs,metrics,traces}   the agent's OTLP b
 flowseer.<tenant>.edge.<edge-id>.ingest.syslog                syslog records
 flowseer.<tenant>.edge.<edge-id>.source.>                     the hub's sourcing deliveries
 flowseer.<tenant>.audit.device.<device-id>                    central's audit records (CENTRAL)
-flowseer.<tenant>.operator.action.<action>                    central's operator action audit records (CENTRAL)
+flowseer.<tenant>.operator.action.<action>                    central's records of an operator change (CENTRAL)
+flowseer.<tenant>.operator.read.<action>                      central's records of an operator view (CENTRAL)
 flowseer.<tenant>.ingest.<record-type>.<device-id>             typed ingest records (CENTRAL)
 flowseer.<tenant>.evidence.<record-type>.<device-id>           raw ingest evidence (CENTRAL)
 ```
@@ -103,6 +105,40 @@ stream's configured maximum age. The default typed stream limit is 256 MiB for
 
 A leaf without a distinct domain silently extends the hub's; `EdgeDomain` is
 the guard.
+
+## The operator trail's two streams
+
+Central records what each operator did in two CENTRAL streams. Both discard the
+oldest record first and keep a cap per subject, and both limits are `HubConfig`
+fields with no deployment setting.
+
+| Stream | Subject | Holds | Bytes | Per subject |
+| --- | --- | --- | --- | --- |
+| `FLOWSEER_OPERATOR_ACTIONS` | `flowseer.<tenant>.operator.action.<action>` | every change, and every capture stream or full-payload capture | 64 MiB | 10,000 |
+| `FLOWSEER_OPERATOR_READS` | `flowseer.<tenant>.operator.read.<action>` | `GetEdge` and `ListEdges` | 16 MiB | 1,000 |
+
+A call admitted to no tenant, which only `CreateTenant` is, takes the token
+`platform` in the tenant position. `tenant.Validate` refuses it as a tenant id,
+so no tenant can write there.
+
+The cap per subject bounds one subject, not the stream. Once the stream holds
+more than its byte limit, the server removes the oldest record in the stream
+whatever its subject (`enforceBytesLimit` in nats-server
+`server/filestore.go`). A flood on many subjects therefore evicts the records
+of other actions. Views are the flood the trail expects, since every viewer may
+call them, so they have a stream of their own and a change competes only with
+changes.
+
+A stored record costs 34 bytes plus its subject, header, and payload
+(`fileStoreMsgSizeRaw`, same file). An `IssueSetupKey` attempt and completion
+for a 60-character issuer and a 36-character subject occupy about 410 bytes
+each (`TestOperatorActionRecordFitsTheSizingArithmetic`), so a change subject at
+its cap holds about 4 MiB and the action stream holds about 160,000 records.
+
+The two streams reserve 80 MiB of the central account's 1 GiB beside the
+audit stream's 256 MiB, the syslog ingest stream's 256 MiB, and the evidence
+stream's 64 MiB. A key-value bucket sets no byte limit, so the five buckets
+share the 368 MiB the streams leave once they are full.
 
 ## The credential an edge is minted
 

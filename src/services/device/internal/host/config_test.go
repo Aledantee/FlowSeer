@@ -301,7 +301,7 @@ func TestPlatformAdminConfigurationIgnoresReservedDevTenant(t *testing.T) {
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"
+  subjects: "admin@example.test"
   organization_claim_name: "org_id"
 }
 dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
@@ -321,8 +321,8 @@ dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
 	if admin.GetOrganization() != "org_alpha" {
 		t.Errorf("organization = %q, want org_alpha", admin.GetOrganization())
 	}
-	if admin.GetSubject() != "admin@example.test" {
-		t.Errorf("subject = %q, want admin@example.test", admin.GetSubject())
+	if got := admin.GetSubjects(); len(got) != 1 || got[0] != "admin@example.test" {
+		t.Errorf("subjects = %q, want [admin@example.test]", got)
 	}
 	if admin.GetOrganizationClaimName() != "org_id" {
 		t.Errorf("organization_claim_name = %q, want org_id", admin.GetOrganizationClaimName())
@@ -334,7 +334,7 @@ func TestOperatorAuthenticationAndAuthorization(t *testing.T) {
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"
+  subjects: "admin@example.test"
   organization_claim_name: "org_id"
 }
 authentication {
@@ -412,7 +412,7 @@ authorization {
 		platformAdminWithoutClaim  = `platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"`
+  subjects: "admin@example.test"`
 		httpAdminIssuer = `platform_admin {
   issuer: "http://auth.example.test"`
 		onlyIssuer = `  issuers {
@@ -423,7 +423,7 @@ authorization {
 		adminBlock = `platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"
+  subjects: "admin@example.test"
   organization_claim_name: "org_id"
 }
 `

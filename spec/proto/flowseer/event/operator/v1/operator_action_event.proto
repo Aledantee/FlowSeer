@@ -8,7 +8,9 @@ package flowseer.event.operator.v1;
 
 import "flowseer/model/capture/v1/capture_session.proto";
 import "flowseer/model/edge/v1/edge.proto";
+import "flowseer/model/identity/v1/access.proto";
 import "flowseer/model/identity/v1/operator.proto";
+import "flowseer/model/identity/v1/tenant.proto";
 import "google/protobuf/timestamp.proto";
 import option "buf/validate/validate.proto";
 
@@ -24,6 +26,17 @@ enum OperatorAction {
   OPERATOR_ACTION_CAPTURE_FULL_PAYLOAD_CREATE = 7;
   OPERATOR_ACTION_CAPTURE_TAIL = 8;
   OPERATOR_ACTION_CAPTURE_DOWNLOAD = 9;
+  OPERATOR_ACTION_TENANT_CREATE = 10;
+  OPERATOR_ACTION_MEMBER_ENROLL = 11;
+  OPERATOR_ACTION_MEMBER_REMOVE = 12;
+  OPERATOR_ACTION_ROLE_CREATE = 13;
+  OPERATOR_ACTION_ROLE_DELETE = 14;
+  OPERATOR_ACTION_ROLE_ASSIGN = 15;
+  OPERATOR_ACTION_ROLE_UNASSIGN = 16;
+  OPERATOR_ACTION_PARTNER_CONNECT = 17;
+  OPERATOR_ACTION_PARTNER_DISCONNECT = 18;
+  OPERATOR_ACTION_FULL_PAYLOAD_GRANT = 19;
+  OPERATOR_ACTION_FULL_PAYLOAD_REVOKE = 20;
 }
 
 // The outcome of an attempted operator action.
@@ -61,10 +74,67 @@ message OperatorActionCompleted {
   ];
 }
 
+// A role and the relations included in an operator action object.
+message OperatorActionRole {
+  // The role identity. Must be present.
+  flowseer.model.identity.v1.RoleGlobalRef role = 1 [(buf.validate.field).required = true];
+  // The role's relations. Every action except ROLE_DELETE has one to four
+  // distinct, defined relations. A ROLE_DELETE record has none.
+  repeated flowseer.model.identity.v1.TenantRelation relations = 2 [
+    (buf.validate.field).repeated.max_items = 4,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+}
+
+// A role assignment included in an operator action object.
+message OperatorActionRoleAssignment {
+  // The role assigned. Must be present.
+  flowseer.model.identity.v1.RoleGlobalRef role = 1 [(buf.validate.field).required = true];
+  // The member assigned. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 2 [(buf.validate.field).required = true];
+}
+
+// A partner link and the relations included in an operator action object.
+message OperatorActionPartner {
+  option (buf.validate.message).cel = {
+    id: "operator_action_partner.relations_exclude_admin"
+    message: "partner relations must not include admin"
+    expression: "this.relations.all(r, int(r) != 1)"
+  };
+
+  // The provider tenant. Must be present.
+  flowseer.model.identity.v1.TenantGlobalRef tenant = 1 [(buf.validate.field).required = true];
+  // The relations granted to the provider. Must contain one to three
+  // distinct, defined non-admin relations.
+  repeated flowseer.model.identity.v1.TenantRelation relations = 2 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 3,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+}
+
+// A full-payload grant included in an operator action object.
+message OperatorActionFullPayloadGrant {
+  // The member granted access. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+  // When the grant expires. Must be present.
+  google.protobuf.Timestamp expires_at = 2 [(buf.validate.field).required = true];
+}
+
 // One durable audit record for an operator action. An attempted event is
 // delivered before the handler runs. A completed event is delivered after the
 // handler returns.
 message OperatorActionEvent {
+  option (buf.validate.message).cel = {
+    id: "operator_action_event.role_relations_match_action"
+    message: "role relations are empty if and only if action is role delete"
+    expression: "!has(this.role) || (this.action == 14) == (size(this.role.relations) == 0)"
+  };
+
   // FlowSeer-assigned event identifier, unique for deduplication. Must be present.
   string event_id = 1 [
     (buf.validate.field).required = true,
@@ -93,6 +163,12 @@ message OperatorActionEvent {
   oneof object {
     flowseer.model.edge.v1.EdgeGlobalRef edge = 10;
     flowseer.model.capture.v1.CaptureSessionGlobalRef capture_session = 11;
+    flowseer.model.identity.v1.TenantGlobalRef tenant = 12;
+    flowseer.model.identity.v1.OperatorRef member = 13;
+    OperatorActionRole role = 14;
+    OperatorActionRoleAssignment role_assignment = 15;
+    OperatorActionPartner partner = 16;
+    OperatorActionFullPayloadGrant full_payload_grant = 17;
   }
 
   // Exactly one detail kind.
