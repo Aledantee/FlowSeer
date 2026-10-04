@@ -62,6 +62,14 @@ A reference to one entity whose kind is decided at runtime, as a kind plus an id
 
 A logical 802.11 network defined by its SSID, security settings, and broadcast state. A WLAN is UUID-identified and managed as a full Config/State/Event triad: an SSID can be configured without being broadcast by any radio, and its broadcast state tracks which radio components and BSSIDs currently beacon it.
 
+### Ingest Record
+
+The envelope carrying observation data from an edge or centrally hosted adapter to central. An ingest record holds a UUID record id used as the bus message id for deduplication, the observation's provenance, a typed payload arm, and optional raw evidence.
+
+### Raw Evidence
+
+The raw bytes of an unparsed datagram, or of any record in an open raw window, attached to an ingest record with the reason and a count of failures suppressed since the last kept failure.
+
 ### Syslog Record
 
 One received log line tied to its device, captured as an append-only timeline
@@ -165,7 +173,7 @@ Every physical quantity has one canonical unit, named in the field suffix, in in
 
 ### Virtual Device
 
-A device the simulator under `src/common/netsim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
+A device the simulator under `src/common/sim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
 
 ### Endpoint
 

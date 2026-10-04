@@ -10,7 +10,7 @@ approved: 2026-10-01
 
 ## Why it is required
 
-`frontend/web/src/main.ts:12` imports `@fontsource-variable/dm-sans` so the
+`frontend/web/src/main.ts:13` imports `@fontsource-variable/dm-sans` so the
 application loads the DM Sans variable font. `frontend/web/package.json:22`
 pins the direct requirement at `5.3.0`.
 

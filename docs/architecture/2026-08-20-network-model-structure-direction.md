@@ -77,7 +77,8 @@ spec/proto/flowseer/
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
     operator/v1/        OperatorActionEvent, the durable audit record of operator actions
-  integration/          holds only a README; fabric contract reserved
+  integration/
+    ingest/v1/          IngestRecord, the envelope an edge or central adapter publishes to the ingestion pipeline
   runtime/v1/           process-local runtime messages and durable mailbox contracts
   store/
     device/v1/          the device service's persisted records; imported by nothing
@@ -86,8 +87,8 @@ spec/proto/flowseer/
 
 This tree uses current names for landed packages. `wlan/v1` and protocol
 families beyond those present in the repository remain reserved locations.
-`integration/` holds only a README, with its own fabric contract (announce,
-kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
+`integration/` holds `ingest/v1`, with the rest of its fabric contract
+(announce, kind descriptor, event subjects) reserved. `flowseer.runtime.v1` names the
 process-local service runtime contract; it must not be treated as a
 ConnectRPC API package by inference.
 
@@ -1032,3 +1033,28 @@ by issuer and subject.
 `OperatorActionEvent` lives in `event/operator/v1`, an event-only family that
 records what an operator attempted and completed. It imports `model/identity/v1`,
 `model/edge/v1`, and `model/capture/v1`.
+
+### 2026-10-03 — a removal before the first stable release leaves no `reserved` line
+
+Before the first stable release, a deleted field number or enum value leaves
+no `reserved` line, for the number or for the name, and is still never reused.
+This replaces the last clause of convention 10, "Deleted numbers are
+`reserved`, never reused", and the cost the `IpAddress` zone paragraph names
+for removing a field, "a permanent `reserved`". Nothing outside this
+repository reads the schemas, so a tombstone protects no consumer. From the
+first stable release on, a removal is `reserved` by number and by name as
+before.
+
+Breaking checks are suspended for the module (`buf.yaml`), so nothing checks
+that a number is not reused. Review holds the rule, as
+[`docs/code-style-proto.md`](../code-style-proto.md), Evolution, says of the
+others. The `reserved` lines earlier removals left stay.
+
+### 2026-10-03 — `integration/ingest/v1` is the first package under `integration/`
+
+`integration/ingest/v1` holds `IngestRecord` and `RawEvidence`, the envelope
+the [central ingestion pipeline record](2026-10-02-central-ingestion-pipeline-direction.md)
+specifies. It imports `event/log` and `model/inventory` and nothing imports it.
+The 2026-09-18 amendment's "leaving `integration/` holding only a README"
+described the tree at that date. The announcement, kind descriptor, and event
+subject contracts stay reserved.

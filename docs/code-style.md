@@ -471,6 +471,17 @@ spec/          # protobuf, MIB, and YANG sources of truth
   produced five more, none of them a negative-only assertion, so the check
   is the reversal itself: a new test is evidence once its failure against
   the defect has been quoted.
+- An expected value comes from somewhere other than the code under test: a
+  literal worked by hand, an example from the spec, a capture. A `want`
+  computed with the helper or the formula the code uses agrees with it by
+  construction and cannot fail when both are wrong.
+- A test waits for the condition it needs, not for a duration: a channel
+  receive, a `sync.WaitGroup`, a poll with a deadline, or a
+  `testing/synctest` bubble for concurrent code that reads the clock. A
+  `time.Sleep` on the real clock that passes on an idle machine can fail
+  under `-race` and load. One that stays carries a comment naming the
+  timing behavior under test. Inside a `synctest` bubble the clock is fake
+  and a sleep is deterministic, so the rule does not reach it.
 - A self-authored fake peer produces only the sequence the client was coded
   to expect. Seed it with leftover state ahead of the call under test: a
   banner, a retained buffer, an out-of-order message.
@@ -555,6 +566,15 @@ non-negotiable and checkable. (See sources below for the empirical basis.)
   if nothing equivalent exists.
 - Do not copy-paste logic; if it appears twice, extract a function.
 - Do not re-implement what the stdlib or an existing dependency already provides.
+- Never implement a cryptographic primitive (cipher, hash, HMAC, cipher mode,
+  constant-time compare). Use `crypto/*` first, and a well-known tested library
+  only where the stdlib lacks one. Composing stdlib primitives into a protocol
+  (SNMPv3 USM key localization, IV and salt layout) is serialization, not new
+  cryptography; prove it with independently sourced test vectors (Net-SNMP,
+  pysnmp), never vectors the same code derived.
+- Take a pointer to a value with `new(expr)` (`new(uint64(42))`, `new("Gi1/0/1")`),
+  not a `ptr[T]` helper or a `&local`. Generated proto enums keep their `.Enum()`
+  accessor. The `ptr` helpers left in older tests are not a pattern to extend.
 
 **Surgical changes**
 - Touch only the lines the task requires. Do not reformat or restructure adjacent

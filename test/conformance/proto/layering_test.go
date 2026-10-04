@@ -172,6 +172,9 @@ var importOrder = map[string][]string{
 	// session directly.
 	"event/operator": {"model/identity", "model/edge", "model/capture"},
 
+	// The envelope that carries ingested observation data from adapters to central.
+	"integration/ingest": {"model/inventory", "event/log"},
+
 	// The device service's own files: the records it writes to its stores and
 	// the operator-written prototext it reads at start. One process owns both,
 	// so this root sits above every boundary it embeds and is imported by

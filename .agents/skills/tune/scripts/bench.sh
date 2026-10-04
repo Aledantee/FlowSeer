@@ -76,8 +76,11 @@ cost = error = None
 # served: the model ids the CLI reports actually ran the lane, so a silent
 # downgrade (a safety reroute to another model, a fallback tier) is visible
 # against the requested `model`. refused: the CLI declined the work rather
-# than doing it, which a zero-usage exit-0 lane can hide.
-served, refused, refuse_reason = set(), False, None
+# than doing it, which a zero-usage exit-0 lane can hide. denied: the tool
+# calls the lane was denied, kept apart from refused because this
+# repository's own hooks deny edits too, and a repo guard is not the model
+# declining.
+served, refused, refuse_reason, denied = set(), False, None, None
 REFUSAL_TEXT = re.compile(r"could not be submitted|sensitive words|prohibited|I can't help|I cannot help|I won't", re.I)
 
 def add(k, v):
@@ -107,6 +110,10 @@ else:
                     served.add(mu["canonicalModel"])
             if d.get("stop_reason") == "refusal" or d.get("subtype") == "refusal":
                 refused, refuse_reason = True, "stop_reason=refusal"
+            # Whether a hook's deny lands in `permission_denials` is
+            # unverified, so a denial is recorded, not graded as a refusal.
+            if d.get("permission_denials"):
+                denied = sorted({p.get("tool_name", "?") for p in d["permission_denials"]})
         except json.JSONDecodeError:
             pass
     elif cli == "codex":
@@ -190,7 +197,8 @@ if cli in ("claude", "codex", "agy") and served_list:
 result = {"lane": lane, "cli": cli, "model": model, "effort": effort or None,
           "wall_s": int(wall), "exit": int(code), "usage": usage, "cost_usd_reported": cost,
           "served_model": served_list or None, "served_foreign": served_foreign,
-          "downgraded": downgraded, "refused": refused, "refuse_reason": refuse_reason}
+          "downgraded": downgraded, "refused": refused, "refuse_reason": refuse_reason,
+          "denied_tools": denied}
 if error is not None:
     result["error"] = error
 json.dump(result, open(out, "w"), indent=1)

@@ -9,15 +9,19 @@ import {
   watch,
   watchEffect,
 } from 'vue'
-import type { Ref } from 'vue'
+import type { ComponentPublicInstance, Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { useMotionFeedback } from './motion/useMotionFeedback'
 import AppIcon from './components/AppIcon.vue'
 import AccountMenu from './components/AccountMenu.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
 import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
-import GlobalSearch from './components/GlobalSearch.vue'
+import LocaleSwitcher from './components/LocaleSwitcher.vue'
+import GlobalSearch, {
+  type SearchPage,
+  type TextPart,
+} from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
@@ -31,7 +35,9 @@ import {
   UiBreadcrumbSeparator,
   UiAiActionLayer,
   UiDropdownMenuItem,
+  UiMotion,
   UiTooltip,
+  useMotionFeedback,
 } from './ui'
 import {
   SHORTCUTS,
@@ -62,7 +68,7 @@ import {
 } from './navigation/page'
 import type { PageContext, PageLocation, PageTarget } from './navigation/page'
 import { workspaceContext } from './navigation/workspace'
-import type { PaneId } from './navigation/workspace'
+import type { NoticeKey, PaneId } from './navigation/workspace'
 import {
   DOCK_KEY,
   isLocation,
@@ -73,22 +79,40 @@ import {
   saveDock,
 } from './navigation/dock'
 import type { DockTab, Panes } from './navigation/dock'
+import { useLabels } from './i18n/labels'
+import { BRAND } from './brand'
+const NAV_ITEMS = [
+  'dashboard',
+  'devices',
+  'topology',
+  'clients',
+  'sites',
+] as const
+const SEARCH_VIEWS = [
+  'dashboard',
+  'devices',
+  'clients',
+  'sites',
+  'topology',
+] as const
 
-const { play, cancel } = useMotionFeedback()
-const sidebar = ref<HTMLElement>()
-const navigation = ref<HTMLElement>()
-const mainShell = ref<HTMLElement>()
+const { t, n } = useI18n({ useScope: 'global' })
+const labels = useLabels()
+const { play, reduced } = useMotionFeedback()
+const sidebar = ref<ComponentPublicInstance | null>(null)
+const navigation = ref<ComponentPublicInstance | null>(null)
+const mainShell = ref<ComponentPublicInstance | null>(null)
 const topbar = ref<HTMLElement>()
 const topbarHeight = ref(54)
+const layoutDependency = ref(0)
 let topbarObserver: ResizeObserver | undefined
 onMounted(() => {
   topbarObserver = new ResizeObserver(() => {
     if (!topbar.value) return
     topbarHeight.value = topbar.value.offsetHeight
-    mainShell.value?.style.setProperty(
-      '--topbar-height',
-      `${topbarHeight.value}px`,
-    )
+    const shell = mainShell.value?.$el
+    if (shell instanceof HTMLElement)
+      shell.style.setProperty('--topbar-height', `${topbarHeight.value}px`)
   })
   if (topbar.value) topbarObserver.observe(topbar.value)
 })
@@ -98,17 +122,19 @@ const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
-const message = ref('')
+const message = ref<NoticeKey | ''>('')
 
 function siteName(id: string) {
-  return sites.find((site) => site.id === id)?.name || 'Unknown site'
+  return (
+    sites.find((site) => site.id === id)?.name || t('view.common.unknownSite')
+  )
 }
 function tenantName(siteId: string) {
   return (
     tenants.find(
       (tenant) =>
         tenant.id === sites.find((site) => site.id === siteId)?.tenantId,
-    )?.name || 'Unknown tenant'
+    )?.name || t('view.common.unknownTenant')
   )
 }
 export interface Move {
@@ -152,9 +178,8 @@ function reassign(deviceId: string, destination: string, reverted = false) {
       if (move.value?.deviceId === updated.id) move.value.observed = true
       void nextTick(() => refocus(updated.id))
     }, 1200)
-  } catch (error: unknown) {
-    message.value =
-      error instanceof Error ? error.message : 'Could not assign site.'
+  } catch {
+    message.value = 'view.fleet.assignFailed'
   }
 }
 
@@ -246,7 +271,7 @@ async function navigateMain(location: PageLocation) {
   try {
     await panes.navigateMain(location)
   } catch {
-    message.value = 'Could not open that page. Try again.'
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Opening a page on the right keeps the page already there by docking it.
@@ -296,7 +321,7 @@ async function follow(
   try {
     await page.go(target)
   } catch {
-    message.value = 'Could not open that page. Try again.'
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Links outside the panes, such as the sidebar, belong to the main pane.
@@ -333,17 +358,10 @@ const activeSection = computed(() => {
 const selected = computed(() =>
   fleet.value.find((device) => device.id === mainPage.deviceId.value),
 )
-const VIEW_TITLES: Record<string, string> = {
-  dashboard: 'Dashboard',
-  devices: 'Devices',
-  clients: 'Clients',
-  sites: 'Sites',
-  topology: 'Topology',
-}
 const title = computed(() =>
   view.value === 'device'
-    ? (selected.value?.name ?? 'Unknown device')
-    : (VIEW_TITLES[view.value] ?? 'Dashboard'),
+    ? (selected.value?.name ?? t('view.common.unknownDevice'))
+    : labels.page(view.value),
 )
 const scope = computed(() =>
   filterDevices(fleet.value, query('tenant'), query('site'), '', ''),
@@ -351,57 +369,27 @@ const scope = computed(() =>
 const scopedSites = computed(() =>
   sites.filter((site) => tenantIds(query('tenant')).includes(site.tenantId)),
 )
-watch(section, async (page) => {
-  const previous = navigation.value
-    ?.querySelector('.active')
-    ?.getBoundingClientRect()
-  await nextTick()
-  if (section.value !== page || !previous) return
-  const highlight =
-    navigation.value?.querySelector<HTMLElement>('.nav-highlight')
-  if (!highlight || !highlight.getClientRects().length) return
-  const current = highlight.getBoundingClientRect()
-  play(
-    highlight,
-    {
-      transform: [
-        `translate(${previous.left - current.left}px, ${previous.top - current.top}px)`,
-        'none',
-      ],
-      width: [`${previous.width}px`, `${current.width}px`],
-    },
-    0.14,
-  )
-})
 watch(
   () => [mainPage.query('tenant'), mainPage.query('site')],
-  () =>
-    play(
-      document.querySelector<HTMLElement>('.main-pane .pane-scroll') ??
-        undefined,
-      { opacity: [0.85, 1] },
-      0.12,
-    ),
+  () => {
+    const shell = mainShell.value?.$el
+    const pane =
+      shell instanceof HTMLElement
+        ? shell.querySelector<HTMLElement>('.main-pane .pane-scroll')
+        : undefined
+    play(pane ?? undefined, { opacity: [0.85, 1] }, 0.12)
+  },
   { flush: 'post' },
 )
-async function toggleSidebar() {
-  if (!sidebar.value || !mainShell.value) return
-  cancel(sidebar.value)
-  cancel(mainShell.value)
-  const width = getComputedStyle(sidebar.value).width
-  const margin = getComputedStyle(mainShell.value).marginLeft
+function toggleSidebar() {
+  if (!(sidebar.value?.$el instanceof HTMLElement)) return
   sidebarCollapsed.value = !sidebarCollapsed.value
-  await nextTick()
   if (window.matchMedia('(min-width: 801px)').matches) {
-    play(sidebar.value, {
-      width: [width, getComputedStyle(sidebar.value).width],
-    })
-    play(mainShell.value, {
-      marginLeft: [margin, getComputedStyle(mainShell.value).marginLeft],
-    })
+    if (!reduced.value) layoutDependency.value++
   } else if (!sidebarCollapsed.value) {
+    const nav = navigation.value?.$el
     play(
-      sidebar.value.querySelector('nav') ?? undefined,
+      nav instanceof HTMLElement ? nav : undefined,
       { opacity: [0.6, 1] },
       0.1,
     )
@@ -423,7 +411,7 @@ async function setQuery(key: string, value: string) {
       { replace: true },
     )
   } catch {
-    message.value = 'Could not update this view. Try again.'
+    message.value = 'view.common.updateFailed'
   }
 }
 // A site without its tenant in the URL would leave the breadcrumb reading
@@ -451,7 +439,11 @@ const deviceOptions = computed(() =>
       : []),
   ]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((device) => ({ value: device.id, label: device.name })),
+    .map((device) => ({
+      value: device.id,
+      label: device.name,
+      identifier: true,
+    })),
 )
 async function openDevice(id: string) {
   await follow(mainPage, {
@@ -656,22 +648,28 @@ function describe(location: PageLocation) {
   return {
     label:
       pageView === 'device'
-        ? (device?.name ?? 'Unknown device')
-        : (VIEW_TITLES[pageView] ?? 'Dashboard'),
+        ? (device?.name ?? t('view.common.unknownDevice'))
+        : labels.page(pageView),
     detail: device
       ? siteName(device.siteId)
-      : (site?.name ?? tenant?.name ?? 'All sites'),
+      : (site?.name ?? tenant?.name ?? t('view.common.allSites')),
     icon: VIEW_ICONS[pageView] ?? 'dashboard',
     health: device?.health,
     attention: attention || undefined,
+    labelName: pageView === 'device' && Boolean(device?.name),
+    detailName: Boolean(
+      device
+        ? sites.some((s) => s.id === device.siteId)
+        : (site?.name ?? tenant?.name),
+    ),
   }
 }
 function tabTitle(tab: DockTab) {
   const first = describe(tab.location)
-  if (!tab.beside) return first
+  if (!tab.beside) return { ...first, pair: undefined }
   const second = describe(tab.beside)
   return {
-    label: `${first.label} + ${second.label}`,
+    label: t('view.common.pair', { first: first.label, second: second.label }),
     detail: first.detail,
     icon: 'split',
     health:
@@ -680,26 +678,38 @@ function tabTitle(tab: DockTab) {
       first.health ??
       second.health,
     attention: (first.attention ?? 0) + (second.attention ?? 0) || undefined,
+    labelName: false,
+    detailName: first.detailName,
+    pair: {
+      first: { label: first.label, name: first.labelName },
+      second: { label: second.label, name: second.labelName },
+    },
   }
 }
 const sideTitle = computed(() =>
   side.value ? describe(side.value) : undefined,
 )
 
-const searchPages = computed(() => [
-  ...Object.entries(VIEW_TITLES).map(([name, label]) => ({
+const searchPages = computed<SearchPage[]>(() => [
+  ...SEARCH_VIEWS.map((name) => ({
     id: `view:${name}`,
-    title: label,
-    detail: 'Page',
+    title: labels.page(name),
     icon: VIEW_ICONS[name] ?? 'dashboard',
+    parts: [{ text: t('view.fleet.searchPage') }],
   })),
   ...tabs.value.map((tab) => {
     const described = tabTitle(tab)
+    const parts: TextPart[] = [
+      { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
+      { text: described.detail, identifier: described.detailName },
+    ]
     return {
       id: `tab:${tab.id}`,
       title: described.label,
-      detail: `${tab.beside ? 'Docked pair' : 'Docked'} · ${described.detail}`,
       icon: described.icon,
+      identifier: described.labelName,
+      pair: described.pair,
+      parts,
     }
   }),
 ])
@@ -805,9 +815,15 @@ function workspaceKey(event: KeyboardEvent) {
 }
 // The browser tab names the pages on screen.
 watchEffect(() => {
-  const names = [describe(mainPage.location.value).label]
-  if (showSplit.value && side.value) names.push(describe(side.value).label)
-  document.title = `${names.join(' + ')} · FlowSeer`
+  const first = describe(mainPage.location.value).label
+  const pages =
+    showSplit.value && side.value
+      ? t('view.common.pair', {
+          first,
+          second: describe(side.value).label,
+        })
+      : first
+  document.title = t('view.fleet.documentTitle', { pages, brand: BRAND })
 })
 onMounted(() => window.addEventListener('keydown', workspaceKey))
 onUnmounted(() => window.removeEventListener('keydown', workspaceKey))
@@ -834,17 +850,24 @@ onUnmounted(() => clearInterval(timer))
     class="shell max-[800px]:flex-col"
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
   >
-    <a class="skip-link" href="#main">Skip to main content</a>
-    <aside
+    <a class="skip-link" href="#main">{{ t('view.fleet.skipToMain') }}</a>
+    <UiMotion
       id="workspace-sidebar"
       ref="sidebar"
+      as="aside"
+      layout
+      :layout-dependency="layoutDependency"
       class="sidebar brand-glow max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
     >
-      <div
+      <UiMotion
+        as="div"
+        layout="position"
+        :layout-dependency="layoutDependency"
         class="product-brand"
         role="img"
-        aria-label="FlowSeer"
-        title="FlowSeer"
+        translate="no"
+        :aria-label="BRAND"
+        :title="BRAND"
       >
         <svg
           class="flowseer-mark"
@@ -879,32 +902,35 @@ onUnmounted(() => clearInterval(timer))
             />
           </g>
         </svg>
-        <span>FlowSeer</span>
-      </div>
-      <div
+        <span>{{ BRAND }}</span>
+      </UiMotion>
+      <UiMotion
+        as="div"
+        layout="position"
+        :layout-dependency="layoutDependency"
         class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
       >
-        WORKSPACE
-      </div>
-      <nav
+        {{ t('view.fleet.workspace') }}
+      </UiMotion>
+      <UiMotion
         ref="navigation"
-        aria-label="Main navigation"
+        as="nav"
+        layout="position"
+        :layout-dependency="layoutDependency"
+        :aria-label="t('view.fleet.mainNavigation')"
         class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
         :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
       >
         <AppLink
-          v-for="item in [
-            'dashboard',
-            'devices',
-            'topology',
-            'clients',
-            'sites',
-          ]"
+          v-for="item in NAV_ITEMS"
           :key="item"
           :aria-label="
-            item.charAt(0).toUpperCase() +
-            item.slice(1) +
-            (item === 'devices' ? `, ${scope.length} in scope` : '')
+            item === 'devices'
+              ? t('view.fleet.devicesLink', {
+                  page: labels.page(item),
+                  count: n(scope.length, 'integer'),
+                })
+              : labels.page(item)
           "
           :to="{ path: `/${item}`, query: mainScope }"
           class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
@@ -914,33 +940,45 @@ onUnmounted(() => clearInterval(timer))
           }"
           :aria-current="mainView === item ? 'page' : undefined"
         >
-          <span
+          <UiMotion
             v-if="section === item"
+            as="span"
+            layout-id="nav-highlight"
+            :layout-dependency="section"
             class="nav-highlight absolute inset-0 -z-10 rounded-[inherit] bg-chrome-surface/48 backdrop-blur-md pointer-events-none after:content-[''] after:absolute after:top-1.5 after:bottom-1.5 after:right-0 after:w-0.5 after:rounded-l after:bg-chrome-ring max-[800px]:after:top-auto max-[800px]:after:bottom-0 max-[800px]:after:left-2.5 max-[800px]:after:right-2.5 max-[800px]:after:w-auto max-[800px]:after:h-0.5 max-[800px]:after:rounded-xs"
             aria-hidden="true"
-          ></span>
+          />
           <AppIcon :name="item" />
-          <span class="nav-text">{{
-            item.charAt(0).toUpperCase() + item.slice(1)
-          }}</span>
+          <span class="nav-text">{{ labels.page(item) }}</span>
           <span
             v-if="item === 'devices'"
             class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
           >
-            {{ scope.length }}
+            {{ n(scope.length, 'integer') }}
           </span>
         </AppLink>
-      </nav>
+      </UiMotion>
       <UiTooltip
-        :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :label="
+          sidebarCollapsed
+            ? t('view.fleet.expandSidebar')
+            : t('view.fleet.collapseSidebar')
+        "
         side="right"
       >
-        <button
+        <UiMotion
+          as="button"
+          layout="position"
+          :layout-dependency="layoutDependency"
           class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
           type="button"
           aria-controls="workspace-sidebar"
           :aria-expanded="!sidebarCollapsed"
-          :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          :aria-label="
+            sidebarCollapsed
+              ? t('view.fleet.expandSidebar')
+              : t('view.fleet.collapseSidebar')
+          "
           @click="toggleSidebar"
         >
           <svg
@@ -952,10 +990,16 @@ onUnmounted(() => clearInterval(timer))
           >
             <path d="m10 4-4 4 4 4" />
           </svg>
-        </button>
+        </UiMotion>
       </UiTooltip>
-    </aside>
-    <div ref="mainShell" class="main-shell">
+    </UiMotion>
+    <UiMotion
+      ref="mainShell"
+      as="div"
+      layout="position"
+      :layout-dependency="layoutDependency"
+      class="main-shell"
+    >
       <span class="main-notch brand-glow" aria-hidden="true"></span>
       <header
         ref="topbar"
@@ -984,14 +1028,15 @@ onUnmounted(() => clearInterval(timer))
                 class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
               >
                 <ScopeSwitcher
-                  label="Site scope"
-                  placeholder="Search sites…"
+                  :label="t('view.fleet.siteScope')"
+                  :placeholder="t('view.fleet.searchSites')"
                   :selected="query('site')"
                   :options="[
-                    { value: '', label: 'All sites' },
+                    { value: '', label: t('view.common.allSites') },
                     ...scopedSites.map((site) => ({
                       value: site.id,
                       label: site.name,
+                      identifier: true,
                     })),
                   ]"
                   @change="setQuery('site', $event)"
@@ -1008,7 +1053,7 @@ onUnmounted(() => clearInterval(timer))
                             class="w-full"
                             :to="{ path: '/devices', query: mainScope }"
                           >
-                            Devices
+                            {{ labels.page('devices') }}
                           </AppLink>
                         </UiDropdownMenuItem>
                       </template>
@@ -1022,7 +1067,7 @@ onUnmounted(() => clearInterval(timer))
                       <AppLink
                         class="breadcrumb-link"
                         :to="{ path: '/devices', query: mainScope }"
-                        >Devices</AppLink
+                        >{{ labels.page('devices') }}</AppLink
                       >
                     </UiBreadcrumbLink>
                   </UiBreadcrumbItem>
@@ -1034,8 +1079,8 @@ onUnmounted(() => clearInterval(timer))
                 class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
               >
                 <ScopeSwitcher
-                  label="Device"
-                  placeholder="Search devices…"
+                  :label="t('view.fleet.deviceSwitcher')"
+                  :placeholder="t('view.fleet.searchDevices')"
                   :selected="selected.id"
                   :options="deviceOptions"
                   @change="openDevice($event)"
@@ -1047,13 +1092,13 @@ onUnmounted(() => clearInterval(timer))
             </UiBreadcrumbList>
           </UiBreadcrumb>
           <UiTooltip
-            label="Minimize to dock"
-            hint="The shortcut minimizes whichever pane is focused."
+            :label="t('view.fleet.minimizeToDock')"
+            :hint="t('view.fleet.minimizeHint')"
             :shortcut="SHORTCUTS.minimize"
           >
             <button
               class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
-              aria-label="Minimize this page to the dock"
+              :aria-label="t('view.fleet.minimizeMain')"
               @click="minimizePane('main')"
             >
               <AppIcon name="to-dock" />
@@ -1071,6 +1116,7 @@ onUnmounted(() => clearInterval(timer))
             @dock="dockResult"
           />
           <ThemeSwitcher />
+          <LocaleSwitcher />
           <HelpButton />
           <ReportBugButton />
           <AccountMenu />
@@ -1084,15 +1130,15 @@ onUnmounted(() => clearInterval(timer))
       >
         <UiTooltip
           v-if="showSplit"
-          label="Drag to resize"
-          hint="Double-click to reset to half and half."
+          :label="t('view.fleet.dragToResize')"
+          :hint="t('view.fleet.resizeHint')"
           side="right"
         >
           <div
             class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize split view"
+            :aria-label="t('view.fleet.resizeSplit')"
             :aria-valuenow="Math.round(splitRatio * 100)"
             aria-valuemin="30"
             aria-valuemax="70"
@@ -1141,7 +1187,10 @@ onUnmounted(() => clearInterval(timer))
                 <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
                 <span
                   class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
-                  ><strong>{{ sideTitle.label }}</strong></span
+                  ><strong
+                    :translate="sideTitle.labelName ? 'no' : undefined"
+                    >{{ sideTitle.label }}</strong
+                  ></span
                 >
                 <div
                   class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
@@ -1160,14 +1209,18 @@ onUnmounted(() => clearInterval(timer))
                       </template>
                       <UiBreadcrumbItem>
                         <ScopeSwitcher
-                          label="Side page site"
-                          placeholder="Search sites…"
+                          :label="t('view.fleet.sideSiteScope')"
+                          :placeholder="t('view.fleet.searchSites')"
                           :selected="sidePage.query('site')"
                           :options="[
-                            { value: '', label: 'All sites' },
+                            {
+                              value: '',
+                              label: t('view.common.allSites'),
+                            },
                             ...sideScopedSites.map((site) => ({
                               value: site.id,
                               label: site.name,
+                              identifier: true,
                             })),
                           ]"
                           @change="setSideScope('site', $event)"
@@ -1179,20 +1232,22 @@ onUnmounted(() => clearInterval(timer))
                 <div
                   class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
                   role="toolbar"
-                  aria-label="Split view"
+                  :aria-label="t('view.fleet.splitView')"
                 >
                   <UiTooltip
                     :label="
                       linkClicks
-                        ? 'Links on the left open here'
-                        : 'Open links from the left here'
+                        ? t('view.fleet.linkClicksOn')
+                        : t('view.fleet.linkClicksOff')
                     "
-                    :hint="linkClicks ? 'On' : undefined"
+                    :hint="
+                      linkClicks ? t('view.fleet.linkClicksHint') : undefined
+                    "
                     :shortcut="SHORTCUTS.linkClicks"
                   >
                     <button
                       :aria-pressed="linkClicks"
-                      aria-label="Open links from the main page in the side page"
+                      :aria-label="t('view.fleet.linkClicksLabel')"
                       class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                       @click="linkClicks = !linkClicks"
                     >
@@ -1203,9 +1258,12 @@ onUnmounted(() => clearInterval(timer))
                     class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
                     aria-hidden="true"
                   ></span>
-                  <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
+                  <UiTooltip
+                    :label="t('view.fleet.swapSides')"
+                    :shortcut="SHORTCUTS.swap"
+                  >
                     <button
-                      aria-label="Swap the two pages"
+                      :aria-label="t('view.fleet.swapPages')"
                       class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                       @click="swapPanes"
                     >
@@ -1213,11 +1271,11 @@ onUnmounted(() => clearInterval(timer))
                     </button>
                   </UiTooltip>
                   <UiTooltip
-                    label="Dock both as a pair"
+                    :label="t('view.fleet.dockPair')"
                     :shortcut="SHORTCUTS.dockPair"
                   >
                     <button
-                      aria-label="Dock both pages as a pair"
+                      :aria-label="t('view.fleet.dockPairLabel')"
                       class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                       @click="dockPair"
                     >
@@ -1225,11 +1283,11 @@ onUnmounted(() => clearInterval(timer))
                     </button>
                   </UiTooltip>
                   <UiTooltip
-                    label="Minimize to dock"
+                    :label="t('view.fleet.minimizeToDock')"
                     :shortcut="SHORTCUTS.toggleSplit"
                   >
                     <button
-                      aria-label="Minimize the side page to the dock"
+                      :aria-label="t('view.fleet.minimizeSide')"
                       class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                       @click="minimizePane('side')"
                     >
@@ -1237,11 +1295,11 @@ onUnmounted(() => clearInterval(timer))
                     </button>
                   </UiTooltip>
                   <UiTooltip
-                    label="Close side page"
+                    :label="t('view.fleet.closeSide')"
                     :shortcut="SHORTCUTS.closeSide"
                   >
                     <button
-                      aria-label="Close the side page"
+                      :aria-label="t('view.fleet.closeSideLabel')"
                       class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
                       @click="closeSide"
                     >
@@ -1262,7 +1320,7 @@ onUnmounted(() => clearInterval(timer))
         @split="openDockTabBeside"
         @close="closeTab"
       />
-    </div>
+    </UiMotion>
   </div>
 </template>
 

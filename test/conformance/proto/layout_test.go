@@ -54,7 +54,8 @@ func TestProtoPathPolicy(t *testing.T) {
 	}{
 		{name: "schema", path: "flowseer/net/addr/v1/ip.proto", valid: true},
 		{name: "package readme", path: "flowseer/net/addr/v1/README.md", valid: true},
-		{name: "dotfile placeholder", path: "flowseer/api/switching/v1/.gitkeep", valid: true},
+		{name: "dotfile placeholder", path: "flowseer/api/switching/v1/.gitkeep"},
+		{name: "hidden script", path: "flowseer/api/switching/v1/.audit.sh"},
 		{name: "Go test", path: "addr_rules_test.go"},
 		{name: "source inventory", path: "flowseer/SOURCES.md"},
 		{name: "fixture directory", path: "flowseer/net/addr/_test_fixtures", isDir: true},
@@ -83,14 +84,11 @@ func protoPathViolation(path string, isDir bool) string {
 	if isDir {
 		return ""
 	}
-	base := filepath.Base(path)
-	// Dotfiles cover .gitkeep placeholders and the .DS_Store files Finder
-	// leaves behind; both are ignored by git and neither is schema content.
-	if base == "README.md" || strings.HasPrefix(base, ".") || filepath.Ext(path) == ".proto" {
+	if filepath.Base(path) == "README.md" || filepath.Ext(path) == ".proto" {
 		return ""
 	}
 
-	return "spec/proto contains only .proto schemas, package-boundary README.md files, and dotfiles"
+	return "spec/proto contains only .proto schemas and package-boundary README.md files"
 }
 
 func repoRoot(t *testing.T) string {
@@ -133,9 +131,10 @@ func TestProtoReadmeCoverage(t *testing.T) {
 	t.Run("synthetic", func(t *testing.T) {
 		tmp := t.TempDir()
 		writeFixture(t, filepath.Join(tmp, "x", "v1", "a.proto"), "syntax = \"proto3\";\n")
-		// A version directory holding only a placeholder has no schema to
-		// describe, and TestProtoPathPolicy blesses the placeholder.
-		writeFixture(t, filepath.Join(tmp, "y", "v1", ".gitkeep"), "")
+		// A version directory holding no schema has nothing to describe.
+		if err := os.MkdirAll(filepath.Join(tmp, "y", "v1"), 0o755); err != nil {
+			t.Fatal(err)
+		}
 
 		got, err := missingProtoReadmes(tmp, tmp)
 		if err != nil {
@@ -199,10 +198,7 @@ func missingProtoReadmes(baseDir, startDir string) ([]string, error) {
 
 		// A bare version holder is a directory whose children are all version
 		// directories; the packages under it state their own identity. A
-		// version directory holding no schema has no identity to state either:
-		// TestProtoPathPolicy blesses a placeholder there, and demanding a
-		// README of a directory whose only file is a .gitkeep would contradict
-		// it.
+		// version directory holding no schema has no identity to state either.
 		if bareVersionHolder(subdirs) || (versionSegment.MatchString(d.Name()) && !hasSchema) {
 			return nil
 		}

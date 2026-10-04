@@ -1,5 +1,5 @@
 import type { Device } from './fleet'
-import { sites, tenantIds, tenants } from './fleet'
+import { sites, tenants } from './fleet'
 import { clientsOf } from './clients'
 import { portsOf } from './telemetry'
 
@@ -12,8 +12,9 @@ export interface SearchResult {
   id: string
   // Set only on interface results.
   port?: string
+  // A name the data supplies. Display text beyond it is built where the
+  // result renders, so it follows the locale.
   title: string
-  detail: string
 }
 
 const PER_KIND = 6
@@ -44,24 +45,18 @@ function top<T>(items: T[], score: (item: T) => number): T[] {
 export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
   const query = raw.trim().toLowerCase()
   if (!query) return []
-  const siteName = (id: string) =>
-    sites.find((site) => site.id === id)?.name ?? 'Unknown site'
   const deviceName = (id: string) =>
-    fleet.find((device) => device.id === id)?.name ?? 'Unknown device'
+    fleet.find((device) => device.id === id)?.name ?? ''
   const interfaces = fleet.flatMap((device) =>
     portsOf(fleet, device).map((port) => ({ device, port })),
   )
   return [
     ...top(tenants, (tenant) => rank(query, [tenant.name, tenant.id])).map(
-      (tenant): SearchResult => {
-        const scope = tenantIds(tenant.id)
-        return {
-          kind: 'tenant',
-          id: tenant.id,
-          title: tenant.name,
-          detail: `${sites.filter((site) => scope.includes(site.tenantId)).length} sites`,
-        }
-      },
+      (tenant): SearchResult => ({
+        kind: 'tenant',
+        id: tenant.id,
+        title: tenant.name,
+      }),
     ),
     ...top(sites, (site) =>
       rank(query, [site.name, site.location, site.id]),
@@ -69,7 +64,6 @@ export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
       kind: 'site',
       id: site.id,
       title: site.name,
-      detail: site.location,
     })),
     ...top(fleet, (device) =>
       rank(query, [device.name, device.address, device.kind]),
@@ -77,7 +71,6 @@ export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
       kind: 'device',
       id: device.id,
       title: device.name,
-      detail: `${device.kind} · ${device.address} · ${siteName(device.siteId)}`,
     })),
     ...top(clientsOf(fleet), (client) =>
       rank(query, [client.hostname, client.address, client.mac]),
@@ -85,7 +78,6 @@ export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
       kind: 'client',
       id: client.id,
       title: client.hostname,
-      detail: `${client.address} · ${client.mac} · via ${deviceName(client.deviceId)}`,
     })),
     ...top(interfaces, ({ device, port }) =>
       rank(query, [
@@ -99,12 +91,6 @@ export function searchAll(raw: string, fleet: Device[]): SearchResult[] {
       id: device.id,
       port: port.name,
       title: `${device.name} ${port.name}`,
-      detail: [
-        port.status,
-        port.neighborId ? `to ${deviceName(port.neighborId)}` : port.endpoint,
-      ]
-        .filter(Boolean)
-        .join(' · '),
     })),
   ]
 }

@@ -3,9 +3,9 @@ title: An Untagged Frame's VLAN Is Local to Each End, So Two Ends' VLAN Ids Neve
 date: 2026-09-16
 last_verified: 2026-09-16
 category: architecture-patterns
-module: src/common/netsim/vswitch
+module: src/common/sim/device/vswitch
 problem_type: bug
-component: netsim
+component: sim
 severity: medium
 symptoms:
   - "A check that compares the VLAN a frame was sent on against the VLAN it was received on fires on a configuration where nothing joined the two VLANs"
@@ -53,7 +53,7 @@ two PVIDs" is not. Vendors ship the gap as a named feature, asymmetric VLAN:
 tenant ports stay isolated behind their own PVIDs while one uplink port is an
 untagged member of every tenant VLAN, so every tenant reaches one router that
 never sees a tag. `bridge.Switchport.Untagged` is a plain `[]vlan.ID` with no
-cardinality limit (`src/common/netsim/vswitch/bridge/config.go:100`), so
+cardinality limit (`src/common/sim/layer/bridge/config.go:100`), so
 netsim admits it.
 
 On such a port a probe leaves untagged on VLAN 20 and returns classified into
@@ -76,11 +76,11 @@ not import one another — so the switch decides and the layer records what it
 is told. That is why `Receive` takes a value rather than a bare VLAN id:
 
 ```go
-// src/common/netsim/vswitch/loopprotect/layer.go:230
+// src/common/sim/layer/loopprotect/layer.go:230
 ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
 ```
 
-with `Switch.sameUntaggedDomain` (`src/common/netsim/vswitch/switch.go:2135`)
+with `Switch.sameUntaggedDomain` (`src/common/sim/device/vswitch/switch.go:2135`)
 reading the sending port's untagged set and filling the field.
 
 ## Why the usual safety nets miss it
@@ -104,14 +104,14 @@ reading the sending port's untagged set and filling the field.
   `dot1qPvid` (`:1371`), read on 2026-09-16.
 - The pair of tests that bound the rule from both sides:
   `TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN`
-  (`src/common/netsim/vswitch/switch_test.go:2554`), which fails with
+  (`src/common/sim/device/vswitch/switch_test.go:2554`), which fails with
   `after={action="Block";inter_vlan=true` against the unconditional
   comparison, and `TestLoopProtectCrossVLANReturnedProbeIsInterVLAN` (`:2498`),
   which fails if a future change satisfies the first by suppressing the
   finding outright.
 - The predicate that ended the duplicated rule:
   `func (s Switchport) CarriesVID(vid vlan.ID) bool`
-  (`src/common/netsim/vswitch/bridge/config.go:112`), called by
+  (`src/common/sim/layer/bridge/config.go:112`), called by
   `buildEgressFrame` and by the loop-protection branch of
   `vswitch.Config.Validate`.
 - Vendors documenting the feature and its shared-uplink use case:

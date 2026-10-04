@@ -19,6 +19,17 @@ argument-hint: "[base ref | commit | paths | subject]"
 List the changed files. Read the intended behavior from the plan under
 `docs/plans/`, the commit message, or the user's words.
 
+Read the record of open items an earlier review left: the plan's
+`## Review gaps` section, or for planless work the last `gaps:` line of
+`$(git rev-parse --git-dir)/flowseer-checkpoints`. A run on a scope with a
+recorded verdict is a new review with a fresh round count. Step 3 carries
+the record's items into the reviewer briefs as the previous round's
+findings, so a fresh session judges them instead of rediscovering them.
+Also read each plan
+Decision ending `decided by the user` that settles a Requirement question.
+Judge that Requirement by the Decision's text, and remove the matching item
+from the plan's Open questions.
+
 When the scope is a subject, load `references/subject-review.md` now; it
 resolves units and seams and changes steps 3, 4, and 5 for that scope.
 
@@ -41,7 +52,8 @@ the file list, the plan path, the intended behavior as a specification, the
 convention paths, the matched solutions, and the pinned version of every
 external convention or library a finding could cite (`go.mod`, `buf.lock`,
 the semantic-convention version `docs/conventions/observability.md` names),
-so the reviewer checks rather than recalls. When the plan's `status` is
+so the reviewer checks rather than recalls, and the items of the record
+(step 1) as the previous round's findings. When the plan's `status` is
 still `planned` because work is mid-flight, say so in the brief. State
 whose input the change reads and whether that author is trusted, quoting
 the plan's Out of scope (`plan`, step 3). Without one, files contributors
@@ -49,7 +61,9 @@ and agents write in this repository are trusted, and input from a network
 peer, a device, or a runtime user is not. A way to defeat the change that
 needs a hostile author of trusted input is a note, not a finding: a
 checker for honest mistakes (`docs/conventions/guarantees.md`) is not
-reworked for crafted files. Ask for findings that affect correctness, the stated requirements, or a
+reworked for crafted files. When the change handles input from one of
+those untrusted authors, load `references/security.md` and put its
+finding table in the brief. Ask for findings that affect correctness, the stated requirements, or a
 repository rule, ordered by severity, each with path and line, the failure
 scenario, and the smallest safe fix, or, when the fix rests on a claim about
 code the reviewer did not open, a direction and the claim left unchecked.
@@ -69,12 +83,23 @@ each hunk's code before the comment above it, decide what the code does,
 then compare, since a comment stating intent primes a reader to see that
 intent in code doing the opposite. Ask:
 
+- With a plan: what is the verdict on each numbered Requirement, taken one
+  at a time? `implemented` names the line that enforces it. `partial` holds
+  on the tested path and fails on another. `contradicted` and `absent` are
+  findings, and `absent` lists the paths and patterns searched, since
+  enforcement often lives in a caller the search did not reach. `stronger`
+  is a constraint the plan does not state, and `undecidable` is a finding
+  against the plan's wording. Passing tests are not a verdict.
 - Does every behavior change have a test that would fail without it, and
   would that test still fail if the check moved to the wrong place? Commit
   bodies carry a mutation and a quoted `--- FAIL` line per new test
-  (`implement`, step 2.3). For a new test without one, load
-  `references/mutation-check.md` and run the mutation yourself. A test that
-  passes against the defect is a correctness finding.
+  (`implement`, step 2.3). For each behavior change, load
+  `references/mutation-check.md` and run one mutation of your own choosing
+  against it, whether or not its commit quotes a failure, since the
+  author's mutation shows only the fault the author thought of. A test that
+  passes against the defect it names is a false test. A surviving mutation
+  no test states is a gap (`references/fix-loop.md`, which decides the
+  boundary between the two).
 - Does any comment narrate process, cite history, or carry a plan label?
 - For each line the verifier printed under `Test changes to account for:`,
   does the implementer's reason hold against the diff, and does the suite
@@ -125,8 +150,8 @@ Four findings need more than a re-read:
   stop patching: state the property the mechanism must hold and make it
   executable (a generated state space, an invariant assertion the suite can
   fail on) instead of reviewing the next rewrite. See
-  [references/fix-loop.md](references/fix-loop.md) for the two-round limit
-  and who notices this across rounds.
+  [references/fix-loop.md](references/fix-loop.md) for the round limit and
+  who notices this across rounds.
 
 When the smallest fix rests on a claim about the code ("nothing else
 produces this", "no caller does that", "this path is unreachable"), open the
@@ -160,45 +185,100 @@ it in the report and carry on.
 
 ## 5. Report
 
-Verdict first (accept, accept after fixes, rework), then findings, most
-severe first: title, `path:line`, what goes wrong and when, and the smallest
-fix or the direction with its unchecked claim (step 4). Then the residual
-testing gap.
+Verdict first (accept, fixes needed, rework), then findings, most severe
+first: title, `path:line`, what goes wrong and when, and the smallest fix or
+the direction with its unchecked claim (step 4). Then the gaps and
+convention findings the review found, whatever the verdict, one item each in
+the format below. The reviewer's residual testing note, what its mutations
+and tests did not reach, follows as its own paragraph. It is not a gap and
+is not recorded. A gap dropped as restating the implementation is reported
+with that reason and is not an item (`references/fix-loop.md`).
+
+An item is one line:
+
+```text
+- <path:line>: <mutation or the wrong text>; fails: <the case that would fail>
+```
+
+A gap names the surviving mutation, a convention finding the wrong text.
+
+| Verdict | When |
+| --- | --- |
+| `accept` | the record is empty and no behavior, false-test, or Requirement-change finding is open |
+| `fixes needed` | a gap or convention finding is open, a behavior or false-test finding is open, or a finding needs a Requirement changed |
+| `rework` | a behavior or false-test finding is too large to fix in place |
+
+`accept after fixes` is never the verdict of a review's initial report, and a
+report that holds only gaps is `fixes needed`, never `accept`. `accept after
+fixes` is written only once the fixes exist, the coordinator has rerun every
+recorded mutation and read every corrected line, and the record is empty,
+since `land`, `drive`, and `next` all read it as passing.
 
 When the scope is this branch's work (the working tree, the branch, or its
 plan's paths), record the verdict where `land` reads it (`land`, step 1). With a plan, add
-`review: <verdict>` beside `status` in its frontmatter, commit that with a
-message naming the review, then run the verifier on the plan path so the
-receipt post-dates the commit. Planless work runs
-`.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
+`review: <verdict>` beside `status` in its frontmatter and write the record
+in the same edit: the items under a `## Review gaps` section at the end of
+the plan, deleted with its last item, and for a finding that needs a
+Requirement changed, an item under the plan's Open questions that names the
+Requirement. Commit that with a message naming the review, then run the
+verifier on the plan path so the receipt post-dates the commit. Planless work
+runs `.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
-and needs no commit or run. In Orca, also append the verdict to the worktree
-comment, keeping what `implement` wrote:
+and needs no commit or run, then writes the record the same way:
+
+```bash
+.claude/skills/verify-change/scripts/ledger.py checkpoint gaps "<item> | <item>"
+```
+
+Never pass `--replace`, since it rewrites the whole file and drops the
+`implemented:` and `review:` lines. The last `gaps:` line wins, so when the
+last item closes, write `gaps: none`. In Orca, also append the verdict to the
+worktree comment, keeping what `implement` wrote:
 
 ```bash
 orca worktree set --worktree active --comment "<existing>; review: rework" --json
 ```
 
-A commit or path review of other work records nothing, since `land` reads a
-`review:` entry as a verdict on this branch.
+A commit or path review of other work, and a subject review, record neither
+a verdict nor items, since `land` reads a `review:` entry as a verdict on
+this branch and a `gaps:` line written for other work would be read as this
+branch's. No gate reads the record, and only `review` does. The verdict is
+the one field the gates read, and while an item is recorded it is not an
+accept.
 
-The review itself changes nothing. End the report by asking the user what
-happens next (`AGENTS.md`, Agent behavior):
+The review itself changes nothing beyond that record. End the report by
+asking the user what happens next (`AGENTS.md`, Agent behavior):
 
 | Verdict | Options, recommended first |
 | --- | --- |
 | accept | run `compound` now; stop here |
-| accept after fixes or rework, findings in one file group | apply the fixes here; fix and review again until clean (step 6); stop |
-| accept after fixes or rework, findings across file groups | fix and review again until clean (step 6); apply chosen findings only; stop |
+| fixes needed or rework, findings in one file group | apply the fixes here; fix and review again until clean, gaps included (step 6); stop |
+| fixes needed or rework, findings across file groups | fix and review again until clean, gaps included (step 6); apply chosen findings only; stop |
+| fixes needed, an item still recorded once the pass has run | one more gap pass (runs `review` again from step 1 with step 6), or stop |
+| fixes needed, a Requirement question is open | take the Requirement to `plan`, or stop |
 | rework too large to fix in place | take what the review established to `plan`; stop |
 
-On "apply the fixes", make them, run the verifier on the changed paths,
-report what changed, and set the verdict to `review: accept after fixes`.
+A delegated reviewer does not ask. It states a Requirement-change finding,
+and each item's `path:line` and its mutation or wrong text, as its blocker.
+
+On "apply the fixes here" and "apply chosen findings only", make the fixes,
+run the verifier on the changed paths, and report what changed. Before it
+writes `accept after fixes`, the coordinator closes each recorded item by
+the gap pass's rule (`references/fix-loop.md`, The gap pass): it reruns the
+recorded mutation on the merged tree and deletes the item only when the
+suite fails, and it deletes a convention item when the corrected lines
+stand at its `path:line`. Then it replaces the recorded verdict with
+`review: accept after fixes`, recorded as above. An item still recorded
+leaves `fixes needed`, and so does a behavior or false-test finding left
+unfixed, or an open Requirement question.
 
 ## 6. Fix and re-review, when asked
 
 When the user chooses to fix the findings and review again until clean,
-load `references/fix-loop.md`. The coordinating session runs the rounds
-through fix workers and never makes the fixes itself.
+load `references/fix-loop.md`. Clean means no behavior defect and no false
+test. The gap pass follows before the accept verdict, inside this review.
+A pass that changes source outside tests, comments, and docs is a round,
+as `references/fix-loop.md` describes. The coordinating session runs the
+rounds and the pass through fix workers and never makes the fixes itself.
 
 A correction to this procedure is logged as `compound`, Observe describes.

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   TooltipContent,
   TooltipPortal,
@@ -9,32 +9,97 @@ import {
 import UiKbd from '../kbd/UiKbd.vue'
 import type { Shortcut } from '../../navigation/shortcuts'
 import { keysOf } from '../../navigation/shortcuts'
+import { useI18n } from 'vue-i18n'
 
 export interface UiTooltipProps {
   label: string
   hint?: string
   shortcut?: Shortcut | string[]
+  keyLabel?: (key: string) => string
   side?: 'top' | 'right' | 'bottom' | 'left'
   inline?: boolean
   delayDuration?: number
   defaultOpen?: boolean
   open?: boolean
+  // The label or hint names an identifier (a device, site, or language
+  // name). The visible text marks names through the label and hint slots.
+  // Reka prints the accessible text as one hidden node built from the
+  // props, which no slot reaches, so that whole node is kept from browser
+  // translation; its message words are already localized.
+  identifier?: boolean
 }
 
 const props = withDefaults(defineProps<UiTooltipProps>(), {
   hint: undefined,
   shortcut: undefined,
+  keyLabel: undefined,
   side: 'bottom',
   inline: false,
   delayDuration: undefined,
   defaultOpen: undefined,
   open: undefined,
+  identifier: false,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+
+const defaultKeyMap: Record<string, string> = {
+  Ctrl: 'ui.tooltip.control',
+  Alt: 'ui.tooltip.alt',
+  Shift: 'ui.tooltip.shift',
+  Esc: 'ui.tooltip.escape',
+  '⌥': 'ui.tooltip.optionMark',
+  '⇧': 'ui.tooltip.shiftMark',
+  '⌘': 'ui.tooltip.commandMark',
+  '\\': 'ui.tooltip.backslashMark',
+  '←': 'ui.tooltip.leftMark',
+  '→': 'ui.tooltip.rightMark',
+  '↑': 'ui.tooltip.upMark',
+  '↓': 'ui.tooltip.downMark',
+  '↵': 'ui.tooltip.enterMark',
+}
+
+function resolveKey(key: string): string {
+  if (props.keyLabel) {
+    return props.keyLabel(key)
+  }
+  if (Object.hasOwn(defaultKeyMap, key)) {
+    return t(defaultKeyMap[key])
+  }
+  return key
+}
 
 const shortcutKeys = computed<string[]>(() => {
   if (!props.shortcut) return []
-  if (Array.isArray(props.shortcut)) return props.shortcut
-  return keysOf(props.shortcut)
+  if (Array.isArray(props.shortcut)) {
+    return props.shortcut
+  }
+  return keysOf(props.shortcut).map(resolveKey)
+})
+
+// Reka derives the hidden tooltip text from the rendered element's
+// textContent once, so it keeps the previous locale's keys. An explicit
+// label tracks the translated keys.
+const tooltipAriaLabel = computed(() =>
+  [props.label, props.hint, shortcutKeys.value.join(' ')]
+    .filter(Boolean)
+    .join(' '),
+)
+
+// Reka renders the hidden node beside the label span, inside the content.
+const labelSpan = ref<HTMLElement | null>(null)
+
+function markHiddenText() {
+  const hidden = labelSpan.value?.parentElement?.querySelector(
+    ':scope > [role="tooltip"]',
+  )
+  if (!hidden) return
+  if (props.identifier) hidden.setAttribute('translate', 'no')
+  else hidden.removeAttribute('translate')
+}
+
+watch([labelSpan, () => props.identifier], () => nextTick(markHiddenText), {
+  flush: 'post',
 })
 </script>
 
@@ -50,13 +115,18 @@ const shortcutKeys = computed<string[]>(() => {
     </TooltipTrigger>
     <TooltipPortal :disabled="inline">
       <TooltipContent
+        :aria-label="tooltipAriaLabel"
         :side="side"
         :side-offset="6"
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex items-center gap-2 select-none"
+        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
-        <span class="font-medium">{{ label }}</span>
-        <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>
+        <span ref="labelSpan" class="font-medium"
+          ><slot name="label">{{ label }}</slot></span
+        >
+        <span v-if="hint || $slots.hint" class="text-muted-foreground"
+          ><slot name="hint">{{ hint }}</slot></span
+        >
         <span v-if="shortcutKeys.length" class="inline-flex items-center gap-1">
           <UiKbd v-for="key in shortcutKeys" :key="key">{{ key }}</UiKbd>
         </span>

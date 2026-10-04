@@ -19,7 +19,7 @@ belongs beside its triad in `model/inventory`.
 
 Imports: model/access, model/capture, model/edge, model/identity, model/inventory, net/addr, net/log
 
-Imported by: edge/audit
+Imported by: edge/audit, integration/ingest
 
 Packages under `event/` may import `model/` entities and handles, `net/`
 primitives, and `errs/`. `event/` holds records that a delivering service

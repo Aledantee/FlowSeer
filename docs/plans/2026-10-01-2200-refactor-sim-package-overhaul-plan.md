@@ -126,16 +126,16 @@ unless a comment at its head states why it is one unit. Example:
 ### U1. Move the tree to `src/common/sim`
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase1-plan.md
 After: none
-Landed:
+Landed: `d2c52250..bd684278`
 Change: every package sits at its final path and every doc names it. No
 behaviour changes.
 Tests: the existing suites pass at the new paths.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase1-plan.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim src/edge/simload`
 
 ### U2. Capability contract and surface trim
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md
 After: U1
-Landed:
+Landed: `414ffd79..6a2ea03a`
 Change: `sim/layer` holds the shared contract types, every capability
 package has the contract's shape, rule identifiers belong to their
 producers, fact types and dead exports are gone, and the BPDU codec lives

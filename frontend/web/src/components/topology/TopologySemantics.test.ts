@@ -1,18 +1,39 @@
 // @vitest-environment happy-dom
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { computed, createApp, defineComponent, h, provide, ref } from 'vue'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  computed,
+  createApp,
+  defineComponent,
+  h,
+  nextTick,
+  provide,
+  ref,
+} from 'vue'
 import type { Component } from 'vue'
 import { Position } from '@vue-flow/core'
-import { devices, linksOf } from '../../domain/fleet'
+import { devices, linksOf, sites, tenants } from '../../domain/fleet'
 import type { Device, Link } from '../../domain/fleet'
+import {
+  linkDetailsOf,
+  portDetailsOf,
+  telemetryOf,
+} from '../../domain/telemetry'
+import { pageContext, pageFor } from '../../navigation/page'
+import { workspaceContext, type NoticeKey } from '../../navigation/workspace'
 import { topologyLive } from './live'
 import type { Selection } from './live'
 import { createAiRegistry, createAiTargetDirective } from '../../ai'
 import type { AiRegistry } from '../../ai'
+import TopologyInspector from './TopologyInspector.vue'
 import TopologyLink from './TopologyLink.vue'
 import TopologyNode from './TopologyNode.vue'
+import TopologySiteNode from './TopologySiteNode.vue'
+import en from '../../i18n/locales/en.json'
+import { createWebI18n, type WebLocale } from '../../i18n'
+import { i18nWarnings, unmarkedIdentifiers } from '../../i18n/testing'
+import { fixtureIdentifiers } from '../../domain/testing'
 
 vi.mock('@vue-flow/core', async () => {
   const vue = await import('vue')
@@ -40,20 +61,65 @@ vi.mock('@vue-flow/core', async () => {
 
 let dispose = () => {}
 let registry: AiRegistry
+let i18n: ReturnType<typeof createWebI18n>
+let warn: ReturnType<typeof vi.spyOn>
+
+beforeEach(() => {
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
 
 afterEach(() => {
   dispose()
   dispose = () => {}
   document.body.replaceChildren()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
-function mount(component: Component, props: Record<string, unknown>) {
+function siteName(id: string): string {
+  return sites.find((site) => site.id === id)?.name ?? ''
+}
+
+interface MountOptions {
+  locale?: WebLocale
+  selection?: Selection
+  fleet?: Device[]
+}
+
+function mount(
+  component: Component,
+  props: Record<string, unknown>,
+  options: MountOptions = {},
+) {
   const host = document.createElement('div')
   document.body.append(host)
-  const fleet = computed(() => devices)
-  const links = linksOf(devices)
-  const selection = ref<Selection>()
+  const currentDevices = options.fleet ?? devices
+  const fleet = computed(() => currentDevices)
+  const links = linksOf(currentDevices)
+  const selection = ref<Selection | undefined>(options.selection)
   const hovered = ref<string>()
+  const location = computed(() => ({ path: '/topology', query: {} }))
+  const page = pageFor(
+    location,
+    () => true,
+    async () => {},
+  )
+  const workspace = {
+    fleet: ref(currentDevices),
+    message: ref<NoticeKey | ''>(''),
+    reassign: () => {},
+    move: ref(undefined),
+    undoMove: () => {},
+    dismissNotice: () => {},
+    siteName,
+    tenantName: (siteId: string) =>
+      tenants.find((t) => t.id === sites.find((s) => s.id === siteId)?.tenantId)
+        ?.name ?? '',
+    follow: async () => {},
+    activePane: ref('main' as const),
+    peek: ref([]),
+    sideDeviceId: computed(() => undefined),
+  }
   const select = vi.fn((next: Selection | undefined) => {
     selection.value = next
   })
@@ -76,6 +142,10 @@ function mount(component: Component, props: Record<string, unknown>) {
     }),
   )
   registry = createAiRegistry()
+  i18n = createWebI18n(options.locale)
+  app.use(i18n)
+  app.provide(pageContext, page)
+  app.provide(workspaceContext, workspace)
   app.directive('ai-target', createAiTargetDirective(registry))
   app.mount(host)
   dispose = () => app.unmount()
@@ -132,9 +202,232 @@ describe('topology assumption semantics', () => {
     )?.[1]
 
     expect(graph).toMatch(
-      /class="topology-assumption"[^>]*>[\s\S]*Assumed link, not yet discovered/,
+      /class="topology-assumption"[^>]*>[\s\S]*t\('view\.topology\.assumption'\)/,
     )
+    expect(en.view.topology.assumption).toBe('Assumed link, not yet discovered')
     expect(baseRule).toContain('stroke-dasharray: 4 5')
+  })
+})
+
+const RELATIVE = { numeric: 'auto', style: 'short' } as const
+
+function linkProps(link: Link) {
+  return {
+    id: link.id,
+    sourceX: 0,
+    sourceY: 0,
+    targetX: 10,
+    targetY: 10,
+    sourcePosition: Position.Bottom,
+    targetPosition: Position.Top,
+    data: { linkId: link.id },
+  }
+}
+
+// Locates the fixtures each case selects.
+function fixtures() {
+  const ap = devices.find(
+    (device) => device.role === 'access-point' && device.health !== 'Offline',
+  )
+  const core = linksOf(devices).find(
+    (link) => link.capacity === 10_000 && link.health === 'Healthy',
+  )
+  const degraded = devices.find((device) => device.health === 'Degraded')
+  const owner = devices.find((device) => device.id === core?.sourceId)
+  const portName = core
+    ? linkDetailsOf(devices, core).sourcePort?.name
+    : undefined
+  if (!ap || !core || !degraded || !owner || !portName) {
+    throw new Error('Missing topology fixtures')
+  }
+  return { ap, core, degraded, owner, portName }
+}
+
+describe('topology in German', () => {
+  it('labels a node in the active locale', () => {
+    const { degraded } = fixtures()
+
+    const host = mount(
+      TopologyNode,
+      { data: { deviceId: degraded.id } },
+      { locale: 'de' },
+    )
+
+    expect(
+      host.querySelector('.topology-node')?.getAttribute('aria-label'),
+    ).toBe(`${degraded.name}, ${degraded.kind}, Beeinträchtigt`)
+    expect(
+      host.querySelector('strong')?.closest('[translate="no"]'),
+    ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('marks identifiers in a site node', () => {
+    const site = sites[0]
+    const host = mount(
+      TopologySiteNode,
+      {
+        data: { siteId: site.id },
+        sites,
+        tenantName: () => 'Aurora Hospitality',
+      },
+      { locale: 'de' },
+    )
+
+    expect(host.querySelector('strong')?.textContent).toBe(site.name)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('states the assumption in German on a link label', () => {
+    const { core } = fixtures()
+
+    const host = mount(TopologyLink, linkProps(core), { locale: 'de' })
+
+    const label = host
+      .querySelector('.topology-link-label')
+      ?.getAttribute('aria-label')
+    expect(label).toMatch(
+      /^Angenommene Verbindung, noch nicht ermittelt\. .+ zu .+, 10G, .+Mbit\/s, Gesund$/,
+    )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('localizes the inspector for a device selection', () => {
+    const { ap } = fixtures()
+    const booted = telemetryOf(ap).bootedAt ?? 0
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(booted + (3 * 1440 + 4 * 60 + 5) * 60_000)
+
+    const host = mount(
+      TopologyInspector,
+      { history: { [ap.id]: [1, 2, 3, 4, 5] }, siteName },
+      { locale: 'de', selection: { kind: 'device', id: ap.id } },
+    )
+
+    const text = host.textContent ?? ''
+    for (const field of [
+      'Betriebszeit',
+      'IP-Adresse',
+      'Datenverkehr',
+      'Modell',
+      'Ressourcen',
+      'Arbeitsspeicher',
+      'Funkmodule',
+      'Kanal',
+      'Gerät öffnen',
+    ]) {
+      expect(text).toContain(field)
+    }
+    expect(text).toContain('3 T. 4 Std.')
+    expect(text).toMatch(/\d\s+Mbit\/s/)
+    expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
+      `Details zu ${ap.name}`,
+    )
+    expect(host.innerHTML).toContain('Datenverkehr der letzten 5 Messungen')
+    expect(
+      host.querySelector('header strong')?.closest('[translate="no"]'),
+    ).not.toBeNull()
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('localizes the inspector for a link selection', () => {
+    const { core } = fixtures()
+
+    const host = mount(
+      TopologyInspector,
+      { history: {}, siteName },
+      { locale: 'de', selection: { kind: 'link', id: core.id } },
+    )
+
+    const text = host.textContent ?? ''
+    for (const field of [
+      'Geschwindigkeit',
+      'Downstream',
+      'Upstream',
+      'Latenz',
+      'CRC-Fehler',
+      'Glasfaser',
+      'Auslastung',
+    ]) {
+      expect(text).toContain(field)
+    }
+    expect(text).toMatch(/10\s+Gbit\/s\s+·\s+Vollduplex/)
+    expect(text).toMatch(/von\s+10\.000\s+Mbit\/s/)
+    expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
+      'Verbindungsdetails',
+    )
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('localizes the inspector for a port selection', () => {
+    const { owner, portName } = fixtures()
+    const changed = portDetailsOf(devices, owner, portName)?.lastChange ?? 0
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(changed + 38.5 * 60_000)
+
+    const host = mount(
+      TopologyInspector,
+      { history: {}, siteName },
+      {
+        locale: 'de',
+        selection: { kind: 'port', id: owner.id, port: portName },
+      },
+    )
+
+    const text = host.textContent ?? ''
+    expect(host.querySelector('dl .port-state')?.textContent).toBe('Verbunden')
+    for (const field of [
+      'Port-Modus Trunk',
+      'Empfangen',
+      'Gesendet',
+      'Letzte Änderung',
+      'Verbunden mit',
+    ]) {
+      expect(text).toContain(field)
+    }
+    expect(text).toMatch(/10\s+Gbit\/s\s+·\s+Vollduplex/)
+    expect(text).toContain(
+      new Intl.RelativeTimeFormat('de', RELATIVE).format(-38, 'minute'),
+    )
+    expect(
+      [...host.querySelectorAll('dd.mono')].every(
+        (cell) => cell.closest('[translate="no"]') !== null,
+      ),
+    ).toBe(true)
+    expect(unmarkedIdentifiers(host, fixtureIdentifiers())).toEqual([])
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('follows a locale switch on the inspector', async () => {
+    const { ap } = fixtures()
+
+    const host = mount(
+      TopologyInspector,
+      { history: {}, siteName },
+      { selection: { kind: 'device', id: ap.id } },
+    )
+    expect(host.textContent).toContain('Uptime')
+    expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
+      `${ap.name} details`,
+    )
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+    expect(host.textContent).toContain('Betriebszeit')
+    expect(host.textContent).not.toContain('Uptime')
+    expect(host.querySelector('aside')?.getAttribute('aria-label')).toBe(
+      `Details zu ${ap.name}`,
+    )
+
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(host.textContent).toContain('Uptime')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })
 
@@ -143,16 +436,28 @@ describe('topology AI targets', () => {
     const device = devices.find((item) => item.role === 'access-point')
     if (!device) throw new Error('Missing device fixture')
 
-    mount(TopologyNode, { data: { deviceId: device.id } })
+    const customDevice: Device = {
+      ...device,
+      id: 'dev-custom',
+      name: 'custom-dev',
+      clients: 1250,
+    }
 
-    const node = registry.view(`standalone:topology:device:${device.id}`)
+    mount(
+      TopologyNode,
+      { data: { deviceId: customDevice.id } },
+      { locale: 'de', fleet: [customDevice] },
+    )
+
+    const node = registry.view(`standalone:topology:device:${customDevice.id}`)
     expect(node?.target.kind).toBe('device')
-    expect(node?.target.label).toBe(device.name)
+    expect(node?.target.label).toBe(customDevice.name)
     expect(node?.target.context).toMatchObject({
-      name: device.name,
-      role: device.role,
-      health: device.health,
-      address: device.address,
+      name: customDevice.name,
+      role: customDevice.role,
+      health: customDevice.health,
+      address: customDevice.address,
+      clients: '1.250',
     })
   })
 

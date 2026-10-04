@@ -1,6 +1,6 @@
 ---
 name: drive
-description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan (when re-planning is needed), implement, review with its fix loop, and compound in worker sessions, merging and verifying between them; drives a parent plan's phases in dependency order. Parks a plan that needs the user, continues with independent ones, resumes from the plan files. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing on main (`land`).
+description: Takes a FlowSeer plan to ready-to-land without the user starting each step. Runs plan, implement, review with its fix loop, and compound in worker sessions, drives a parent plan's phases in dependency order, and lands each finished phase. Use to drive a plan, when `next` offers it, or to continue a drive. Not for picking work (`next`), planless work, or landing a plan without phases (`land`).
 argument-hint: "[plan or parent plan path]"
 ---
 
@@ -23,11 +23,15 @@ python3 .claude/skills/drive/scripts/plan-state.py <plan>
 ```
 
 - A parent plan: it prints, per phase, the next stage (`plan`, `implement`,
-  `review`, `compound`), or done on this branch, on `main`, or waiting for
-  other phases; its last line names the phases that can run now. Run step 2
-  once per phase, in step 3's order.
+  `review`, `compound`, `land`), or done (landed here, fast-forward
+  pending), on `main`, or waiting for other phases; its last line names the
+  phases owed a land and, after `after`, the phases holding it, or else the
+  phases that can run now. Run step 2 once
+  per phase, in step 3's order.
 - "not a parent plan": drive it by step 2, its stages read off its own
   frontmatter.
+- "not a plan file" for a parent that a `docs(plans): retire <slug>` commit
+  deleted: its last phase landed; go to step 5.
 - With `status` as the request, report that output and stop.
 
 Before the first dispatch:
@@ -47,7 +51,9 @@ Before the first dispatch:
 Run the stages in order from the first whose "done when" the files do not
 already show. Each stage is one worker in a child worktree branched from
 this branch's `HEAD`, started with `orca-worker.sh start` with the table's
-`--role`, `--plan <path>`, and the stage name as `--unit`.
+`--role`, `--plan <path>`, and the stage name as `--unit`. A phase resumed
+from a parked branch starts with `--base parked/<slug>` instead
+(`references/parking.md`, Answer).
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
@@ -125,8 +131,8 @@ After each stage:
    `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
 6. Remove the child worktree: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
 7. Read the stage's "done when" off the merged files. A stage that reports
-   success and leaves the field unset parks the plan with that as its
-   question; do not run it again.
+   success and leaves the field unset, or set to a value other than an
+   accept, parks the plan with that as its question; do not run it again.
 
 End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check in step 1 or a failed
@@ -147,18 +153,35 @@ twice. A round takes the phases its last line names that are not parked, in
 its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
-one phase: it says which run at once, how they split the cap, and how to
-set the parent's `status` when the last phases land together.
+one phase that can run (not a `next: land` line): it says which run at once, how they split the cap, and how to
+set the parent's `status` when the last phases land together. For a merge
+conflict outside the parent's `Landed:` lines it points to
+`.claude/skills/implement/references/workers.md`; read that file whole
+when one occurs.
 
 A landed phase fills its `Landed:` line, which records implementation only:
 a phase named in another's `After:` releases that dependent once its review
 and compound stages also read done. The parent has no stage; its `status`
 follows its last phase, as `implement` writes it.
 
+When the state command's last line reads `next: land <phases>`, land them
+before any new stage, as `land` describes for multi-phase plans. `land`
+stops while a lane is live and gates every plan this branch carries past
+`main`. From then on start no phase whose implement has not merged here.
+The phases the line names after `after` have merged their implement: a
+round takes those and runs their review and compound stages to done or
+parks. Once the line reads `next: land <phases>` with no `after` and no
+lane is live, run `land` once in this session on the phases owed. A phase that parks after its implement merged holds that
+land until its question is answered, so the drive goes to step 5. A
+fast-forward the harness refuses goes into step 5's
+report and the drive continues. Any other stop in `land` stops the drive.
+A pending fast-forward can outlive this session, so step 5 reads it off
+the branch rather than from memory.
+
 A Claude coordinator hands off to a successor between phases when four
 conditions hold:
 
-1. A phase's last stage reads done.
+1. A phase's `land` has run.
 2. The state command still names a phase that can run.
 3. No lane of this session is live.
 4. No plan in scope holds a `Parked by drive:` line.
@@ -187,9 +210,13 @@ runtime does not hand off.
 Park a plan when its worker stops on a decision that is the user's (a ruling
 that changes other units, the wire, or an accepted record; a design question
 in a re-plan; a direction record awaiting acceptance), on a `blocked` unit,
-on a review that ends in `rework` after its loop, or on a change to a policy
-surface. A `rework` that names the round limit parks with another round as
-an option. Load `references/parking.md` to park it, and again when the user
+on a review that ends in `rework` or `fixes needed` after its loop, or on a change to a policy
+surface. A `rework` that names the round limit parks with the options
+`review/references/fix-loop.md`, When to stop, lists: `plan`, dropping or
+replacing the mechanism, or one more round. When every round was on one
+mechanism, it parks with `plan` or stopping. When the stage's brief carried
+the one-round limit, it parks with `plan` or stopping and offers no further
+round. Load `references/parking.md` to park it, and again when the user
 answers a parked question. A resumed drive reads the `Parked by drive:`
 lines first and asks them before anything else.
 
@@ -197,21 +224,34 @@ lines first and asks them before anything else.
 
 Stop when every plan in scope has its three fields set, when only parked or
 waiting plans remain, when no pool is usable, or when the verifier is red on
-a merged union. Landing stays with `land`, started by the user from the
-question below, since a merge into `main` lands for every worktree; a
-policy-surface change stays a parked question.
+a merged union. Asking `drive` to run a parent is the user's answer for its
+phase lands (step 3). A plan without phases lands only from the question
+below, since a merge into `main` lands for every worktree; a policy-surface
+change stays a parked question.
 
 Report, outcome first: plans landed with their commit ranges, review
 verdicts, and per-unit ledger result; plans parked with the question each
 waits on; phases still waiting and on what; which phases ran at once and the
 cap each round read; the pools used and left idle; the commands run with
-results; the child worktrees that remain, with the reason.
+results; the fast-forward `land` left for the person; the child worktrees
+and `parked/` branches that remain, with the reason.
+
+A phase land ends on its retire commit, so the newest one `main` lacks is
+the commit to fast-forward to. Each later one descends from the earlier, so
+that single command covers every phase landed here, whichever session ran
+the land:
+
+```bash
+git log -1 --format=%H --grep '^docs(plans): retire' main..HEAD
+```
+
+Print the result in `land`'s fast-forward command (`land`, step 5).
 
 Then ask the user (`AGENTS.md`, Agent behavior), in one call:
 
 - every parked question, with its options and the recommendation;
-- when everything in scope landed: run `land` now (recommended), or stop
-  here;
+- when a plan without phases has its three fields set: run `land` now
+  (recommended), or stop here;
 - when plans remain and a question was answered: continue the drive now, or
   stop here.
 

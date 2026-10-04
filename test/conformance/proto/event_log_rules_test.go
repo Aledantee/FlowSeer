@@ -15,7 +15,6 @@ import (
 func TestSyslogRecordPresence(t *testing.T) {
 	validRecord := eventlogv1.SyslogRecord_builder{
 		Device:     deviceRef(deviceID),
-		RecordId:   proto.String("0192e6a0-0000-7000-8000-000000000001"),
 		ReceivedAt: timestamppb.Now(),
 		Severity:   netlogv1.SyslogSeverity_SYSLOG_SEVERITY_EMERGENCY.Enum(),
 		Facility:   netlogv1.SyslogFacility_SYSLOG_FACILITY_KERN.Enum(),
@@ -31,7 +30,6 @@ func TestSyslogRecordPresence(t *testing.T) {
 	baseRecord := func() eventlogv1.SyslogRecord_builder {
 		return eventlogv1.SyslogRecord_builder{
 			Device:     deviceRef(deviceID),
-			RecordId:   proto.String("0192e6a0-0000-7000-8000-000000000001"),
 			ReceivedAt: timestamppb.Now(),
 			Severity:   netlogv1.SyslogSeverity_SYSLOG_SEVERITY_EMERGENCY.Enum(),
 			Facility:   netlogv1.SyslogFacility_SYSLOG_FACILITY_KERN.Enum(),
@@ -44,24 +42,20 @@ func TestSyslogRecordPresence(t *testing.T) {
 			message: validRecord,
 		},
 		{
-			name: "severity absent fails",
+			name: "severity absent passes",
 			message: func() *eventlogv1.SyslogRecord {
 				b := baseRecord()
 				b.Severity = nil
 				return b.Build()
 			}(),
-			wantField: "severity",
-			wantText:  "value is required",
 		},
 		{
-			name: "facility absent fails",
+			name: "facility absent passes",
 			message: func() *eventlogv1.SyslogRecord {
 				b := baseRecord()
 				b.Facility = nil
 				return b.Build()
 			}(),
-			wantField: "facility",
-			wantText:  "value is required",
 		},
 		{
 			name: "severity 8 fails defined_only",
@@ -92,7 +86,6 @@ func TestSyslogRecordRules(t *testing.T) {
 	baseRecord := func() eventlogv1.SyslogRecord_builder {
 		return eventlogv1.SyslogRecord_builder{
 			Device:     deviceRef(deviceID),
-			RecordId:   proto.String("0192e6a0-0000-7000-8000-000000000001"),
 			ReceivedAt: timestamppb.Now(),
 			Severity:   netlogv1.SyslogSeverity_SYSLOG_SEVERITY_INFORMATIONAL.Enum(),
 			Facility:   netlogv1.SyslogFacility_SYSLOG_FACILITY_LOCAL0.Enum(),
@@ -157,22 +150,6 @@ func TestSyslogRecordRules(t *testing.T) {
 			}),
 			wantField: "device",
 			wantText:  "value is required",
-		},
-		{
-			name: "missing record_id fails",
-			message: recordWith(func(b *eventlogv1.SyslogRecord_builder) {
-				b.RecordId = nil
-			}),
-			wantField: "record_id",
-			wantText:  "value is required",
-		},
-		{
-			name: "non-uuid record_id fails",
-			message: recordWith(func(b *eventlogv1.SyslogRecord_builder) {
-				b.RecordId = proto.String("not-a-uuid")
-			}),
-			wantField: "record_id",
-			wantText:  "must be a valid UUID",
 		},
 		{
 			name: "missing received_at fails",

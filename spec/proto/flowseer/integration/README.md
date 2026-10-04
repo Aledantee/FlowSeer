@@ -5,8 +5,8 @@
 The `integration/` root is reserved for the integration fabric contract the
 [device service direction record's "Transport" section](../../../../docs/architecture/2026-08-20-device-service-and-inventory-direction.md#transport-nats-as-the-integration-fabric)
 names: what a distributed integration and central exchange over NATS to
-announce itself, describe its kind, and publish events. The root holds only
-this README.
+announce itself, describe its kind, and publish events. The root holds this
+README and one package per contract; `ingest/v1` is the first.
 
 ## Admission
 
@@ -20,10 +20,10 @@ before one exists.
 
 ## Boundaries
 
-Imports: nothing FlowSeer-owned
+Imports: event/log, model/inventory
 
 Imported by: nothing
 
 ## Packages
 
-None yet; the root is reserved for the fabric contract above.
+- `ingest/v1`: IngestRecord envelope carrying typed payload and raw evidence.

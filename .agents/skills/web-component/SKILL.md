@@ -1,6 +1,7 @@
 ---
 name: web-component
 description: Build, change, or review a FlowSeer web UI component under frontend/web/src/ui/ or frontend/web/src/components/ (a Ui* primitive, a composite, an overlay, an animated or AI surface) so it meets the web component contract and passes the story, accessibility, i18n, token, and verifier gates. Use before writing, restyling, or reviewing a Vue component in frontend/web. Not for view logic, domain code, or backend work.
+argument-hint: "[component path or name]"
 ---
 
 # Build a FlowSeer web component
@@ -123,8 +124,16 @@ Views never import `reka-ui`; only files under `src/ui/` do.
   - Dispatch `cancelable: true` events and await a tick before reading
     `defaultPrevented`.
   - Query portalled content from `document.body`.
-  - Stub `matchMedia` to reduced motion in any test that triggers
-    `useMotionFeedback`. Do not mock the animation library.
+  - In tests that exercise reduced motion on a mounted `UiMotion`, stub
+    `matchMedia` before the first mount. The element fixes its choice at mount
+    from motion-dom's one-time read of `(prefers-reduced-motion)`, so a stub
+    installed later cannot select the path
+    (`frontend/web/node_modules/.pnpm/motion-dom@13.4.5/node_modules/motion-dom/dist/es/render/VisualElement.mjs:205-216`).
+    `UiMotionConfig` reads no query. A file that holds both modes changes the
+    composable's `(prefers-reduced-motion: reduce)` query instead, which
+    `useMotionFeedback` re-reads per mount and a `change` event reaches. No
+    stub is needed to avoid a throw. Do not mock the animation library or add
+    an `offsetParent` stub.
   - Leave layout, stacking, and motion to step 4.
 
 Run the audit alone while iterating, from `frontend/web`:

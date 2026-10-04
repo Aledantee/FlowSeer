@@ -41,7 +41,7 @@ func readObservation(t *testing.T, l *access.Lane) (description string, protocol
 		t.Fatalf("Submit() error: %v", err)
 	}
 	obs := result.GetObservation()
-	return obs.GetDescription(), obs.GetProvenance().GetProtocol()
+	return obs.GetDescription(), obs.GetProvenance().GetManagement()
 }
 
 // A read the SNMP route answers does not open the device's shell.

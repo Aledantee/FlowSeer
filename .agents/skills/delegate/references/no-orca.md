@@ -7,6 +7,10 @@ report `runtime.reachable: true`.
   a Claude model a native subagent can be pinned to gets no independent
   reviewer. The coordinator's own reading in `review` is its pass, and the
   report says so.
+- A `lookup`, `research`, or `judge` lane whose resolved model is not a
+  Claude model runs native on the first Claude model in the role's `fit`
+  that steps 1 and 2 of "Pick the role" leave. With none left, the
+  coordinator does the lane's work itself, and the report says so.
 - Editing work goes to a `general-purpose` subagent with
   `isolation: worktree`, pinned to a Claude model, only when the role's fit
   set holds one; a Claude model outside the fit set is not calibrated for

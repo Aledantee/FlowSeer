@@ -359,3 +359,28 @@ above conflicts with this section, this section wins.
   do not animate on entry. The command dialog gets an exit fade so it
   does not vanish mid-frame. Tooltips do not animate at all, which is
   simpler than animating only the first tooltip of a group.
+
+### 2026-10-01: motion-v ownership and reduced-motion behavior
+
+This amendment narrows the motion-v ownership described above.
+
+- `useMotionFeedback` lives under `frontend/web/src/ui/motion`.
+- Views import motion surfaces from the `src/ui` barrel.
+- `UiMotion` is a re-export of motion-v's component and has no story of its own.
+- Reduced motion keeps only fades in the composable. Layout animations end
+  immediately with no fade.
+
+### 2026-10-03: the app's locale and identifiers in kit text
+
+This amendment extends the vue-i18n section above. It records the view
+migration that landed on 2026-10-03.
+
+- The running app chooses its locale from a saved choice under
+  `flowseer.locale`, then the first of `navigator.languages` that is `en`
+  or `de`, then `en`. A language switch beside the theme switch changes
+  it, and `<html lang>` follows the active locale.
+- The `translate="no"` rule covers identifiers a kit component renders
+  from its own text props. `UiTooltip` takes an `identifier` prop for a
+  label or hint that names one, because Reka prints the tooltip's
+  accessible text as one hidden node that no slot reaches. That node is
+  marked as a whole, and the visible message words stay translatable.

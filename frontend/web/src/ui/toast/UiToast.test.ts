@@ -5,23 +5,39 @@ import { ToastProvider, ToastViewport } from 'reka-ui'
 import UiToast from './UiToast.vue'
 import UiToastProvider from './UiToastProvider.vue'
 import { useToast } from './useToast'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
-  dispose()
-  const { toasts } = useToast()
-  toasts.value = []
-  document.body.replaceChildren()
+  try {
+    dispose()
+  } finally {
+    dispose = () => {}
+    const { toasts } = useToast()
+    toasts.value = []
+    document.body.replaceChildren()
+  }
 })
 
-function mountApp(renderFn: () => unknown) {
+function mountApp(
+  renderFn: () => unknown,
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: renderFn,
   })
-  app.mount(host)
+  app.config.errorHandler = (err) => {
+    throw err
+  }
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   dispose = () => app.unmount()
+  app.mount(host)
   return host
 }
 
@@ -274,5 +290,360 @@ describe('UiToast', () => {
     open.value = false
     await nextTick()
     expect(closedCount).toBe(2)
+  })
+
+  it('renders English default accessible names for viewport, close button, and announcement prefix', async () => {
+    mountApp(() => h(UiToastProvider), 'en')
+
+    const viewport = document.body.querySelector('div[role="region"]')
+    expect(viewport?.getAttribute('aria-label')).toBe('Notifications (F8)')
+
+    const { toast } = useToast()
+    toast({
+      title: 'English Toast',
+      description: 'Operation completed successfully.',
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const closeBtn = document.body.querySelector('button[aria-label="Close"]')
+    expect(closeBtn).not.toBeNull()
+
+    expect(document.body.textContent).toContain('Notification ')
+  })
+
+  it('asserts German accessible names through the DOM and German announcement prefix', async () => {
+    mountApp(() => h(UiToastProvider), 'de')
+
+    const viewport = document.body.querySelector('div[role="region"]')
+    expect(viewport?.getAttribute('aria-label')).toBe('Benachrichtigungen (F8)')
+
+    const { toast } = useToast()
+    toast({
+      title: 'German Toast',
+      description: 'Vorgang erfolgreich abgeschlossen.',
+      action: {
+        label: 'Aktion',
+        onClick: () => {},
+      },
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const closeBtn = document.body.querySelector(
+      'button[aria-label="Schließen"]',
+    )
+    expect(closeBtn).not.toBeNull()
+
+    expect(document.body.textContent).toContain('Benachrichtigung ')
+  })
+
+  it('preserves explicit announcementLabel and viewportLabel overrides on UiToastProvider', async () => {
+    mountApp(
+      () =>
+        h(UiToastProvider, {
+          announcementLabel: 'System Alert',
+          viewportLabel: 'System Notifications ({hotkey})',
+        }),
+      'de',
+    )
+
+    const viewport = document.body.querySelector('div[role="region"]')
+    expect(viewport?.getAttribute('aria-label')).toBe(
+      'System Notifications (F8)',
+    )
+
+    const { toast } = useToast()
+    toast({
+      title: 'Alert Title',
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(document.body.textContent).toContain('System Alert ')
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(UiToastProvider, {
+          viewportLabel: (hotkey: string) => `Overlay: ${hotkey}`,
+        }),
+      'de',
+    )
+
+    const funcViewport = document.body.querySelector('div[role="region"]')
+    expect(funcViewport?.getAttribute('aria-label')).toBe('Overlay: F8')
+  })
+
+  it('preserves explicit closeLabel and actionAltText overrides on UiToast', async () => {
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Custom Labels',
+            actionText: 'Retry',
+            actionAltText: 'Retry Operation',
+            closeLabel: 'Dismiss Alert',
+          }),
+          h(ToastViewport),
+        ]),
+      'de',
+    )
+    await nextTick()
+
+    const closeBtn = document.body.querySelector(
+      'button[aria-label="Dismiss Alert"]',
+    )
+    expect(closeBtn).not.toBeNull()
+
+    const actionEl = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Retry Operation',
+    )
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Empty Close Label',
+            closeLabel: '',
+          }),
+          h(ToastViewport),
+        ]),
+      'de',
+    )
+    await nextTick()
+
+    const emptyCloseBtn = document.body.querySelector('button[aria-label=""]')
+    expect(emptyCloseBtn).not.toBeNull()
+  })
+
+  it('renders default actionAltText on UiToast in en and de', async () => {
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Default Action Alt Text',
+            actionText: 'Retry',
+          }),
+          h(ToastViewport),
+        ]),
+      'en',
+    )
+    await nextTick()
+
+    const actionEn = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEn?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Action',
+    )
+
+    dispose()
+    document.body.replaceChildren()
+
+    mountApp(
+      () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            title: 'Standard-Aktion Alt-Text',
+            actionText: 'Wiederholen',
+          }),
+          h(ToastViewport),
+        ]),
+      'de',
+    )
+    await nextTick()
+
+    const actionDe = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionDe?.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Aktion',
+    )
+  })
+
+  it('falls back to action label when dispatched with empty altText', async () => {
+    mountApp(() => h(UiToastProvider))
+    const { toast } = useToast()
+    toast({
+      title: 'Action with empty altText',
+      action: {
+        label: 'Undo',
+        altText: '',
+        onClick: () => {},
+      },
+    })
+
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const actionEl = document.body.querySelector(
+      '[data-reka-toast-announce-alt]',
+    )
+    expect(actionEl).not.toBeNull()
+    expect(actionEl?.textContent?.trim()).toBe('Undo')
+    expect(actionEl?.getAttribute('data-reka-toast-announce-alt')).toBe('Undo')
+  })
+
+  it('updates toast and provider defaults on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    mountApp(
+      () =>
+        h('div', [
+          h(UiToastProvider, null, () => [
+            h(UiToast, {
+              open: true,
+              title: 'Live Toast',
+              actionText: 'Retry',
+            }),
+          ]),
+          h(
+            UiToastProvider,
+            {
+              viewportLabel: (hotkey: string) => `Fn Viewport (${hotkey})`,
+              announcementLabel: 'Custom Notice',
+            },
+            () => [
+              h(UiToast, {
+                open: true,
+                title: 'Custom Toast',
+                actionText: 'Action',
+                actionAltText: 'Explicit Alt',
+                closeLabel: 'Explicit Close',
+              }),
+            ],
+          ),
+        ]),
+      i18n,
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const viewports = document.body.querySelectorAll('div[role="region"]')
+    const defaultViewport = viewports[0]
+    const customViewport = viewports[1]
+    if (!defaultViewport || !customViewport) {
+      throw new Error('Expected both toast viewports')
+    }
+
+    expect(defaultViewport.getAttribute('aria-label')).toBe(
+      'Notifications (F8)',
+    )
+    expect(document.body.textContent).toContain('Notification ')
+    expect(
+      document.body.querySelector('button[aria-label="Close"]'),
+    ).not.toBeNull()
+
+    const actionEls = document.body.querySelectorAll(
+      '[data-reka-toast-announce-alt]',
+    )
+    const defaultAction = actionEls[0]
+    const customAction = actionEls[1]
+    if (!defaultAction || !customAction) {
+      throw new Error('Expected both toast action elements')
+    }
+
+    expect(defaultAction.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Action',
+    )
+    expect(customViewport.getAttribute('aria-label')).toBe('Fn Viewport (F8)')
+    expect(document.body.textContent).toContain('Custom Notice ')
+    expect(
+      document.body.querySelector('button[aria-label="Explicit Close"]'),
+    ).not.toBeNull()
+    expect(customAction.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Explicit Alt',
+    )
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultViewport.getAttribute('aria-label')).toBe(
+      'Benachrichtigungen (F8)',
+    )
+    expect(document.body.textContent).toContain('Benachrichtigung ')
+    expect(
+      document.body.querySelector('button[aria-label="Schließen"]'),
+    ).not.toBeNull()
+    expect(defaultAction.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Aktion',
+    )
+
+    expect(customViewport.getAttribute('aria-label')).toBe('Fn Viewport (F8)')
+    expect(document.body.textContent).toContain('Custom Notice ')
+    expect(
+      document.body.querySelector('button[aria-label="Explicit Close"]'),
+    ).not.toBeNull()
+    expect(customAction.getAttribute('data-reka-toast-announce-alt')).toBe(
+      'Explicit Alt',
+    )
+  })
+
+  it("asserts Reka rejects actionAltText: '' for an action", async () => {
+    let capturedError: unknown = null
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render: () =>
+        h(ToastProvider, null, () => [
+          h(UiToast, {
+            open: true,
+            actionText: 'Action',
+            actionAltText: '',
+          }),
+          h(ToastViewport),
+        ]),
+    })
+    app.config.errorHandler = (err) => {
+      capturedError = err
+    }
+    app.use(createWebI18n())
+    app.mount(host)
+    dispose = () => app.unmount()
+
+    await nextTick()
+    if (!(capturedError instanceof Error)) {
+      throw new Error('Expected capturedError to be an Error')
+    }
+    expect(capturedError.message).toMatch(/altText/i)
+  })
+
+  it('asserts Reka rejects a whitespace-only announcementLabel', async () => {
+    let capturedError: unknown = null
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render: () =>
+        h(UiToastProvider, {
+          announcementLabel: '   ',
+        }),
+    })
+    app.config.errorHandler = (err) => {
+      capturedError = err
+    }
+    app.use(createWebI18n())
+    app.mount(host)
+    dispose = () => app.unmount()
+
+    await nextTick()
+    if (!(capturedError instanceof Error)) {
+      throw new Error('Expected capturedError to be an Error')
+    }
+    expect(capturedError.message).toMatch(/non-empty `string`/i)
   })
 })

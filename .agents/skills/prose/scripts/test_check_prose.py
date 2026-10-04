@@ -119,6 +119,49 @@ KEPT = [
 ]
 
 
+# (text, label) per STYLE entry that states a contrast, a saying, a closer,
+# or an answer to nobody. Each case matches one alternative of its entry.
+STYLE_FLAGGED = [
+    ("It's not a cache, it's a ledger.", "negative parallelism"),
+    ("This is not a retry, this is a second request.", "negative parallelism"),
+    ("The cap holds. That distinction matters.", "closer"),
+    ("At its core the pump is a queue.", "staged saying"),
+    ("The real question is whether the edge reconnects.", "staged saying"),
+    ("Retries hide brief outages. That is the real win.", "closer"),
+    ("The lock is held across the call. Let that sink in.", "closer"),
+    ("A tempting approach would be to restart the service.", "answers an objection nobody raised"),
+    ("This is not to say the cache is wrong.", "answers an objection nobody raised"),
+]
+
+# Plain statements near those patterns that must stay quiet.
+STYLE_KEPT = [
+    "It is not set when the device omits the field.",
+    "This is not supported, and the call returns an error.",
+    "That does not mean much without the capture.",
+    "The core of the pump is a queue.",
+    "The question is whether the edge reconnects.",
+    "That is the point where the session closes.",
+    "If it is not ready, it is dropped.",
+    "When it is not set, it is omitted.",
+    "Unless this is not present, this is an error.",
+    "That distinction matters because the kernel reorders packets.",
+]
+
+
+class StyleTest(unittest.TestCase):
+    def test_flags_each_pattern_with_its_label(self):
+        for text, label in STYLE_FLAGGED:
+            with self.subTest(text=text):
+                found = warnings(text)
+                self.assertEqual(len(found), 1, found)
+                self.assertIn(f": {label}", found[0])
+
+    def test_keeps_plain_statements(self):
+        for text in STYLE_KEPT:
+            with self.subTest(text=text):
+                self.assertEqual(warnings(text), [], text)
+
+
 class ProvenanceTest(unittest.TestCase):
     def test_flags_each_marker_with_its_label(self):
         for text, label in FLAGGED:

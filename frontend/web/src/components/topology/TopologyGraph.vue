@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { UiTooltip } from '../../ui'
 import {
   computed,
@@ -24,6 +25,7 @@ import '@vue-flow/minimap/dist/style.css'
 import type { Device, Site } from '../../domain/fleet'
 import { linksOf } from '../../domain/fleet'
 import { aiTarget, useAiSlot } from '../../ai'
+import { useLabels } from '../../i18n/labels'
 import { layoutTopology } from './layout'
 import { topologyLive } from './live'
 import type { Selection } from './live'
@@ -40,6 +42,8 @@ const props = defineProps<{
   // "deviceId~port" of an interface to open selected, e.g. from search.
   focus?: string
 }>()
+const { t, n } = useI18n({ useScope: 'global' })
+const labels = useLabels()
 const slot = useAiSlot()
 const viewTarget = computed(() =>
   aiTarget({
@@ -47,10 +51,10 @@ const viewTarget = computed(() =>
     view: 'topology',
     kind: 'view',
     entityId: 'graph',
-    label: 'Topology',
+    label: labels.page('topology'),
     context: {
-      sites: String(props.sites.length),
-      devices: String(members.value.length),
+      sites: n(props.sites.length, 'integer'),
+      devices: n(members.value.length, 'integer'),
       focus: props.focus ?? '',
     },
   }),
@@ -380,8 +384,11 @@ function edgesChanged(changes: EdgeChange[]) {
         :show-fit-view="false"
         position="bottom-left"
       >
-        <UiTooltip label="Fit to view" side="right">
-          <ControlButton aria-label="Fit view" @click="frameGraph(true)">
+        <UiTooltip :label="t('view.topology.fitToView')" side="right">
+          <ControlButton
+            :aria-label="t('view.topology.fitView')"
+            @click="frameGraph(true)"
+          >
             <AppIcon name="expand" />
           </ControlButton>
         </UiTooltip>
@@ -403,11 +410,11 @@ function edgesChanged(changes: EdgeChange[]) {
     </VueFlow>
     <p class="topology-assumption">
       <i aria-hidden="true"></i>
-      Assumed link, not yet discovered
+      {{ t('view.topology.assumption') }}
     </p>
     <TopologyInspector :history="history" :site-name="siteName" />
     <p v-if="failed" class="topology-error" role="alert">
-      The topology could not be laid out. Reload to try again.
+      {{ t('view.topology.layoutError') }}
     </p>
   </div>
 </template>

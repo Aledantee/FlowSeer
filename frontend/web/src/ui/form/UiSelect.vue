@@ -20,12 +20,15 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
 import { useFormReset } from './useFormReset'
 
 export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  // The label is a name from the data, which a page translator leaves alone.
+  identifier?: boolean
 }
 
 export interface UiSelectProps {
@@ -44,7 +47,7 @@ export interface UiSelectProps {
 const props = withDefaults(defineProps<UiSelectProps>(), {
   modelValue: undefined,
   options: () => [],
-  placeholder: 'Select an option...',
+  placeholder: undefined,
   disabled: false,
   name: undefined,
   required: false,
@@ -53,6 +56,11 @@ const props = withDefaults(defineProps<UiSelectProps>(), {
   ariaLabel: undefined,
   defaultOpen: false,
 })
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedPlaceholder = computed(
+  () => props.placeholder ?? t('ui.select.placeholder'),
+)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
@@ -110,9 +118,11 @@ const currentValue = computed<string>(() =>
   props.modelValue !== undefined ? props.modelValue : internalValue.value,
 )
 
-const selectedLabel = computed(
-  () => props.options.find((opt) => opt.value === currentValue.value)?.label,
+const selectedOption = computed(() =>
+  props.options.find((opt) => opt.value === currentValue.value),
 )
+
+const selectedLabel = computed(() => selectedOption.value?.label)
 
 let initialValue = ''
 onMounted(() => {
@@ -152,8 +162,10 @@ function handleUpdate(val: string | null | undefined) {
       :aria-describedby="ariaDescribedBy"
       :class="selectTriggerVariants({ invalid: isInvalid })"
     >
-      <SelectValue :placeholder="placeholder">
-        {{ selectedLabel || placeholder }}
+      <SelectValue :placeholder="resolvedPlaceholder">
+        <span :translate="selectedOption?.identifier ? 'no' : undefined">{{
+          selectedLabel || resolvedPlaceholder
+        }}</span>
       </SelectValue>
       <svg
         class="h-4 w-4 opacity-50 shrink-0"
@@ -204,7 +216,11 @@ function handleUpdate(val: string | null | undefined) {
                 </svg>
               </SelectItemIndicator>
             </span>
-            <SelectItemText>{{ opt.label }}</SelectItemText>
+            <SelectItemText>
+              <span :translate="opt.identifier ? 'no' : undefined">{{
+                opt.label
+              }}</span>
+            </SelectItemText>
           </SelectItem>
         </SelectViewport>
       </SelectContent>

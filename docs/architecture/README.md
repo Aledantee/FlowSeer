@@ -18,7 +18,7 @@ its work lands, so a record names landed work by the date it landed and its
 scope, with the packages or schema paths it touched:
 
 ```markdown
-Landed 2026-09-18: exact state comparison in `src/common/netsim/compare`,
+Landed 2026-09-18: exact state comparison in `src/common/sim/compare`,
 covering port tables and VLAN membership.
 ```
 
@@ -35,20 +35,24 @@ covering port tables and VLAN membership.
 | [Verified Device Access](2026-09-05-verified-device-access-direction.md) | Accepted direction | Planning or implementing device reads and writes through the local-network integration: routing, the device lane, the mutation journal and barrier, credential delivery, or the device-access boundary packages. |
 | [Secret Material Carrying](2026-09-06-secret-material-carrying-direction.md) | Proposed direction | Adding a field, option, or config that carries a password, passphrase, or private key, or deciding how a value is kept out of logs and errors. |
 | [Mutation Shadow Projection](2026-09-09-mutation-shadow-projection-direction.md) | Proposed direction, deferred | Gating a Mutation Intent before apply once the Interface triad and a full-network view exist; shaping typed effects in the device-access schemas so a projection can apply them later. |
-| [Network Simulation Prior Art Research](2026-09-10-network-simulation-prior-art-research.md) | Supporting research | Checking what Packet Tracer, Batfish, ns-3, INET, bmv2, the Linux bridge, and the 802.1Q YANG model do that `src/common/netsim` borrows or rejects. |
-| [Virtual Device](2026-09-10-virtual-device-direction.md) | Proposed direction | Building or consuming a simulated device or network: the port table, capability packages under `src/common/netsim`, frame forwarding over a typed configuration, links and hosts in a fabric, or comparing a current and an expected state. |
+| [Network Simulation Prior Art Research](2026-09-10-network-simulation-prior-art-research.md) | Supporting research | Checking what Packet Tracer, Batfish, ns-3, INET, bmv2, the Linux bridge, and the 802.1Q YANG model do that `src/common/sim` borrows or rejects. |
+| [Virtual Device](2026-09-10-virtual-device-direction.md) | Proposed direction | Building or consuming a simulated device or network: the port table, capability packages under `src/common/sim`, frame forwarding over a typed configuration, links and hosts in a fabric, or comparing a current and an expected state. |
 | [Streaming Frame Transport](2026-09-09-streaming-frame-transport-direction.md) | Proposed direction | Adding a streaming RPC, a chunked payload, or a producer that can outrun its consumer, or deciding how a long-lived edge stream stays authorized. |
 | [Operator Authorization](2026-09-30-operator-authorization-direction.md) | Accepted direction | Authenticating operators, authorizing an operator or admin RPC, adding an RPC to a service under `spec/proto/flowseer/api/`, tenancy and membership, or choosing the authorization engine. |
 | [Remote Packet Capture](2026-09-09-remote-packet-capture-direction.md) | Proposed direction | Working on packet capture, mirrored traffic, ERSPAN or other mirror encapsulations, capture filters, or the handling of captured payload. |
 | [Supervised Goroutine Spawn](2026-09-15-supervised-goroutine-spawn-direction.md) | Proposed direction | Writing a `go` statement in non-test `src/`, or deciding where a panic in a spawned goroutine is recovered, reported, and attributed. |
 | [Operator Authorization](2026-09-28-operator-authorization-direction.md) | Superseded by the 2026-09-30 record | Historical identity, tenancy, relationship, and operator-action direction. |
-| [Local Network Analysis](2026-09-16-local-network-analysis-direction.md) | Proposed direction | Adding packet filtering, a routed sub-interface, or an endpoint that reacts to traffic under `src/common/netsim`, or deciding how a stateful firewall or an mDNS reflector is simulated. |
+| [Local Network Analysis](2026-09-16-local-network-analysis-direction.md) | Proposed direction | Adding packet filtering, a routed sub-interface, or an endpoint that reacts to traffic under `src/common/sim`, or deciding how a stateful firewall or an mDNS reflector is simulated. |
 | [Offered-Load Streams](2026-09-18-offered-load-streams-direction.md) | Proposed direction | Stating traffic load in a simulation: streams, field variation and seeds, egress buffers and tail drop, journey retention and per-flow statistics, a capture file as a source, or an on-wire transmitter that runs the same stream. |
 | [Simulation Package Shape](2026-10-01-simulation-package-shape-direction.md) | Accepted direction | Adding, moving, or importing a package under the simulator tree: the `sim` root, capability layers, the device and medium seams, the capability contract, or protocol conformance. |
 | [Web Design System](2026-09-26-web-design-system-direction.md) | Accepted direction | Styling, theming, or adding a component in `frontend/web/`: design tokens, Tailwind, Reka UI primitives, or Storybook stories. |
 | [Web Component Contract](2026-09-28-web-component-contract-direction.md) | Accepted direction | Adding or changing any component in `frontend/web/`: composition, i18n and locale files, the `ai` prop and generative UI catalog, overlays (portals, stacking, dismissal, focus), or animation. |
 | [Schema Building Blocks](2026-09-25-schema-building-blocks-direction.md) | Accepted direction | Adding any FlowSeer-owned protobuf package or message: canonical units, key rules, the network-instance key, facet and table naming, protocol packages, and the Endpoint, Wlan, and Alarm entities. |
 | [Dependency Admission](2026-10-01-dependency-admission-direction.md) | Proposed direction | Adding, upgrading, or removing a Go module, npm package, container image, buf module or plugin, or toolchain pin, or reviewing a dependency version. |
+| [Central Ingestion Pipeline](2026-10-02-central-ingestion-pipeline-direction.md) | Accepted direction | Adding an ingestion source, the ingest envelope, central intake, a consumer of ingested records, or choosing where history, current state, or an API read model is stored. |
+| [Central High Availability](2026-10-03-central-high-availability-direction.md) | Proposed direction | Changing how the device service reaches NATS, which listener serves which service, a background module that must run once across replicas, or readiness. |
+| [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Running more than one edge node at a site, the address devices send syslog and traps to, which Edge hosts a device lane, or an agent build for an operating system other than Linux. |
+| [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or

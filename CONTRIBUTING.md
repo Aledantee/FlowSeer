@@ -84,9 +84,9 @@ Some boundaries are enforced by hooks and tests rather than by review:
   direction of dependency pointing away from them.
 - Do not add an exclusion, ignore, suppression, or hook exception so that your
   own change passes. Propose the policy change separately, on its own merits.
-- `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-  `.codex/hooks.json`, and the merge-gate configuration are policy surfaces.
-  Changing one is its own review.
+- The policy surfaces `AGENTS.md`, Hard boundaries, names (the instruction
+  file, the hooks, the lint and merge-gate configuration, the verifier's
+  scripts) are changed in a review of their own.
 
 ## Check it before you hand it over
 

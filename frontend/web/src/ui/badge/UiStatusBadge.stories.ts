@@ -13,6 +13,9 @@ const meta: Meta<typeof UiStatusBadge> = {
       control: 'select',
       options: ['sm', 'md'],
     },
+    label: {
+      control: 'text',
+    },
   },
 }
 
@@ -41,5 +44,13 @@ export const Small: Story = {
   args: {
     status: 'Healthy',
     size: 'sm',
+  },
+}
+
+export const LongText: Story = {
+  args: {
+    status: 'Healthy',
+    label:
+      'Cluster operational status verified across all primary and secondary regional nodes',
   },
 }

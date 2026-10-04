@@ -5,16 +5,23 @@
 # and it is in no fit set. `refusal_cyber` is the tune skill's measured
 # or reported likelihood that a safety classifier declines security tooling
 # work; `null` means no source reports it. `pool_context` is the context the
-# pool serves where it is below the vendor's `context`. Sources and dates
-# live in `evidence.md` beside this file.
+# pool serves where it is below the vendor's `context`. `pools.<pool>.plans`
+# lists account plans with their capacity relative to the pool's standard paid
+# plan (1). `capacity` is a number covering every window, or a map from window
+# name to number where an unnamed window is 1. Sources and dates live in
+# `evidence.md` beside this file.
 as_of: 2026-09-30
 
+# A unit whose changed path matches one of these globs routes
+# `execute-sensitive` (delegate's `references/sensitive.md`).
+sensitive_paths: ["src/edge/netpen/**"]
+
 pools:
-  claude: {cli: claude, pin: orca-model, meter: requests, usable_below: 95}  # usable_below: the window percent a lane must stay under; 95 for claude on the user's direction 2026-10-01, every other pool the default 85
-  codex: {cli: codex, pin: orca-model, meter: requests}
+  claude: {cli: claude, pin: orca-model, meter: requests, usable_below: 95, plans: {max: {capacity: {session: 20}}}}  # usable_below: the window percent a lane must stay under; 95 for claude on the user's direction 2026-10-01, every other pool the default 85
+  codex: {cli: codex, pin: orca-model, meter: requests, plans: {prolite: {capacity: 1}}}
   google: {cli: agy, pin: launch-flag, meter: requests}
   synthetic: {cli: omp, pin: launch-flag, meter: requests}  # served via omp since 2026-09-29: opencode stalled headless on the sensitive lanes (curl 52 after ~40 min), omp pins the model with --model, sets effort with --thinking, and reports cost inline. rolling five-hour request limit and weekly credit limit, both read from GET api.synthetic.new/v2/quotas
-  zai: {cli: omp, pin: launch-flag, meter: credits}  # Z.ai GLM subscription (plan Lite) added to omp 2026-09-30 as the fallback pool for security-sensitive work: omp pins zai/<model> via --model, effort via --thinking (efforts vary per model, see evidence). Lite quota 2K credits/5h + 10K/week via `omp usage`. GLM models do NOT refuse or downgrade netpen work, unlike the Claude 5.x pool
+  zai: {cli: omp, pin: launch-flag, meter: credits, plans: {lite: {capacity: 1}}}  # Z.ai GLM subscription (plan Lite) added to omp 2026-09-30 as the fallback pool for security-sensitive work: omp pins zai/<model> via --model, effort via --thinking (efforts vary per model, see evidence). Lite quota 2K credits/5h + 10K/week via `omp usage`. GLM models do NOT refuse or downgrade netpen work, unlike the Claude 5.x pool
 
 models:
   claude-fable-5-1: {pool: claude, vendor: anthropic, price: [10, 50], context: 1000000, effort: [low, medium, high, xhigh, max], refusal_cyber: high, local: {execute: {xhigh: {runs: 1, base: bd9e0862, pass: 7/7, wall_s: 524, cost_usd: 3.87}}, review-unit: {xhigh: {runs: 1, base: 30c8da74, found_known_bug: true, extra_valid: 1, wall_s: 418, cost_usd: 2.99, note: rated it medium and unsure it breaks the contract}}}}

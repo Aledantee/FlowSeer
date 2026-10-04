@@ -18,7 +18,7 @@ spec/proto/flowseer/
   event/         Durable stream records that are not an entity's own transition
   api/           Northbound Connect services for operators, the web app, and workflows
   edge/          Connect services between central and an enrolled edge, in either direction
-  integration/   Reserved for the integration fabric contract; holds only a README
+  integration/   Ingest envelopes and fabric contracts for external data
   store/         Private records one process writes or reads at start
   runtime/       Process-local bus contracts and durable mailboxes
 ```

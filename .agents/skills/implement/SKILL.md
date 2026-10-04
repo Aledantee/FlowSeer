@@ -1,6 +1,6 @@
 ---
 name: implement
-description: Implements a FlowSeer plan from docs/plans/ or a concrete, already-decided build request end to end, unit by unit, with the repository verifier run on every changed path. Use when asked to implement, build, execute, or work a plan. Not for open-ended bugs or for requests that still need design choices.
+description: Implements a FlowSeer plan from docs/plans/ or a concrete, already-decided build request end to end, unit by unit, with the repository verifier run on every changed path. Use when asked to implement, build, execute, or work a plan. Not for open-ended bugs (`diagnose`) or for requests that still need design choices.
 argument-hint: "[plan path]"
 ---
 
@@ -15,9 +15,13 @@ argument-hint: "[plan path]"
 ## 1. Orient
 
 Read the plan's Goal, Decisions, and Units; the rest when a unit cites it.
-A plan whose `artifact_readiness` is `needs-decisions`, or whose Units name
-other plan files, is not executable: say why and ask the user whether to run
-`plan` to settle it (recommended) or stop here. Check the plan's `status`
+A plan whose `artifact_readiness` is `needs-decisions` is not executable:
+say why and ask the user whether to run `plan` to settle it (recommended)
+or stop here. A parent plan, whose Units name other plan files, is not
+executable here either: ask whether to run `drive` on it (recommended,
+since it lands each phase before the next starts), implement its ready
+phase plan, naming the path, or stop here. Offer `plan` only when no phase
+plan is ready and the next one needs re-planning. Check the plan's `status`
 against the current tree; the tree wins about what exists. Record a mismatch
 in the plan's Open questions before touching code.
 
@@ -38,6 +42,23 @@ Read tool; never write it by hand.
 .claude/skills/verify-change/scripts/ledger.py init <plan> U1 U2 U3
 ```
 
+A unit added to the plan after the ledger exists has no entry, and `set`
+refuses a unit the ledger does not list. Copy each `passed` unit's
+`commit` and `verified_at` from `show` first, then start the ledger over
+with every unit in plan order and mark the landed ones again:
+
+```bash
+.claude/skills/verify-change/scripts/ledger.py init --force <plan> U1 U2 U3 U4
+.claude/skills/verify-change/scripts/ledger.py set U1 passed --commit <commit> --verified-at <verified_at>
+```
+
+Carry each unit's `--note` over the same way, and mark each `blocked` unit
+again with `ledger.py set <unit> blocked --note <note>`, since a fresh
+ledger would otherwise name it as the unit to resume. Do this between units, with
+none `in_progress`: a unit marked `in_progress` again takes the current
+`HEAD` as its base, and `passed` then no longer counts the commits it made
+before.
+
 Read the `docs/architecture/` record for the area, the `CONCEPTS.md` entries
 the plan uses, and the conventions for the files you touch: `docs/code-style.md`
 for Go and its Testing section for every test, `docs/code-style-proto.md` and
@@ -53,7 +74,8 @@ Group the units into waves from their `After` lines: a wave is every unit
 whose prerequisites have landed. A wave of two or more units runs in workers,
 as many at once as `delegate`'s Wave size allows (or the budget a `drive`
 brief names). Load `references/workers.md` before the first such wave, and for
-any plan with a `parent:` field. A wave of one unit runs here. Running
+any plan with a `parent:` field. A wave of one unit runs here, except in a
+plan with a `parent:` field, which runs it in a worker as well. Running
 independent units serially needs a reason in the report, such as no pool with
 headroom.
 
@@ -147,26 +169,30 @@ when the session runs in Orca.
 1. Read the final diff against the plan's Definition of done and
    `docs/code-style.md`, Rules for coding agents. Remove process narration,
    history references, and planning identifiers from comments.
-2. Record the outcome in the plan (and the reference's records), read from
-   the ledger, and amend it into the last unit's commit; leave the ledger in
-   place for `land`. Every unit landed:
+2. Record the outcome in the reference's records. Planless work stops at
+   that and has no plan to edit. With a plan, also record it in the plan,
+   read from the ledger, and commit it on its own after the last unit's
+   commit. Never amend it into that commit, which would replace the SHA the
+   ledger and a parent's `Landed:` range name with one that is no ancestor
+   of `HEAD`. The range's last SHA is the last unit's commit, the one the
+   ledger records. Leave the ledger in place for `land`. Every unit landed:
    `status: implemented` and `> Implemented.` under the title. Otherwise
    `status: partially-implemented` and `> Partially implemented: <units>.` with
    the reason. The note carries the unit count and the span of the ledger's
    `verified_at` values:
    `> Implemented. 6 units, 2026-09-11T10:02Z to 2026-09-11T16:40Z.`
-3. Rewrite the last unit's ledger `commit` with `ledger.py set <unit> passed`,
-   which reads `HEAD` again.
-4. Run the verifier as the last action of the task, sandbox disabled, since
+3. Run the verifier as the last action of the task, sandbox disabled, since
    `land` refuses a receipt older than the last commit: `--base main -- <paths>`
    when the worktree holds unrelated changes, `--base main` alone otherwise.
    Never against `HEAD`, whose diff after the commit is empty and hides tests
    deleted units ago. When `$(git rev-parse --git-dir)/flowseer-verification-dirty`
    still holds the `<Bash mutation; verify with --full>` line after the
-   `--base main` run, run `--full`. Quote the run's last line; anything other
+   `--base main` run, or the run stops on a `.golangci.yml` change and asks
+   for `--full`, run `--full`. Quote the run's last line; anything other
    than `FlowSeer verification passed.` blocks the report.
-5. Read the deviations off the tree, not from memory (any edit this prompts
-   goes back to item 1):
+4. With a plan, read the deviations off the tree, not from memory (any edit
+   this prompts goes back to item 1). Planless work has no units to compare
+   and skips this item:
 
    ```bash
    .claude/skills/implement/scripts/plan-deviations.py <plan> main -- <paths>

@@ -68,6 +68,9 @@ message AgentConfig {
   AgentBuffer buffer = 4;
   // How much the agent logs locally. Unset is INFO.
   AgentLogLevel log_level = 5;
+  // Where the agent listens for syslog and how it handles failures. Unset
+  // means the agent runs no syslog source.
+  AgentSyslog syslog = 6;
 }
 
 // How often the agent's background work runs. Every field is optional and
@@ -128,4 +131,67 @@ enum AgentLogLevel {
   AGENT_LOG_LEVEL_WARN = 3;
   // An owned operation failed and was abandoned.
   AGENT_LOG_LEVEL_ERROR = 4;
+}
+
+// Where the agent listens for syslog, how it samples raw failure evidence,
+// and how many listeners it binds.
+message AgentSyslog {
+  // Listeners the syslog source binds. At least one and at most eight.
+  repeated AgentSyslogListener listeners = 1 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 8
+  }];
+  // Number of raw-bearing parse failures kept per device per minute before
+  // sampling. Unset means 20.
+  uint32 raw_failures_per_minute = 2 [(buf.validate.field).uint32.gte = 1];
+  // Sampling rate for raw-bearing failures after the per-minute limit: 1 in N.
+  // Unset means 100.
+  uint32 raw_sample_every = 3 [(buf.validate.field).uint32.gte = 1];
+}
+
+// One local listener the syslog source binds.
+message AgentSyslogListener {
+  option (buf.validate.message).cel = {
+    id: "agent_syslog_listener.tcp_framing_only"
+    message: "framing is permitted only on TCP listeners"
+    expression: "int(this.framing) == 0 || int(this.transport) == 2"
+  };
+
+  // The local host:port address to bind. Must be present, and must name a port:
+  // a bare host or a bare port is refused here rather than at bind time.
+  string address = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.host_and_port = true,
+    (buf.validate.field).string.max_len = 255
+  ];
+  // Transport protocol. Unset means UDP.
+  AgentSyslogTransport transport = 2 [(buf.validate.field).enum.defined_only = true];
+  // Stream framing mode. Permitted only on TCP listeners. Unset means auto.
+  AgentSyslogFraming framing = 3 [(buf.validate.field).enum.defined_only = true];
+}
+
+// Socket transport for syslog listeners.
+enum AgentSyslogTransport {
+  // Unset. Treated as AGENT_SYSLOG_TRANSPORT_UDP.
+  AGENT_SYSLOG_TRANSPORT_UNSPECIFIED = 0;
+  // UDP datagram transport. Each datagram is one syslog message.
+  AGENT_SYSLOG_TRANSPORT_UDP = 1;
+  // TCP stream transport with framing.
+  AGENT_SYSLOG_TRANSPORT_TCP = 2;
+}
+
+// Stream framing mode for TCP syslog listeners.
+enum AgentSyslogFraming {
+  // Unset. Treated as AGENT_SYSLOG_FRAMING_AUTO.
+  AGENT_SYSLOG_FRAMING_UNSPECIFIED = 0;
+  // Automatic framing detection: octet counting or LF-delimited starting with '<'.
+  AGENT_SYSLOG_FRAMING_AUTO = 1;
+  // RFC 6587 octet counting prefix.
+  AGENT_SYSLOG_FRAMING_OCTET_COUNTING = 2;
+  // Line-feed delimiter.
+  AGENT_SYSLOG_FRAMING_LF = 3;
+  // Carriage return and line feed delimiter.
+  AGENT_SYSLOG_FRAMING_CRLF = 4;
+  // NUL-byte delimiter.
+  AGENT_SYSLOG_FRAMING_NUL = 5;
 }

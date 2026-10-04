@@ -21,6 +21,7 @@ transport, and the orderings between them.
 | `internal/report` | The re-send queue for dispatch reports, and the blocking deliverer for audit records |
 | `internal/lanehost` | Contact with central and the freeze it drives, the device listing and what it onboards, and the per-operation device session factories |
 | `internal/capture` | The capture assignment stream loop, active session registry, engine runner, and chunk upload client |
+| `internal/syslogsource` | Sockets, mapping, and raw payload suppression for syslog ingestion from hosted network devices |
 
 ## Which devices this edge serves
 
@@ -39,17 +40,20 @@ last told, which is stale by construction and the point: one operation runs
 against one consistent set of facts rather than a set that can change under
 it.
 
-A device already onboarded is left alone rather than re-added — a second
-`AddDevice` replaces that device's whole lane state, orphaning its queue and
-any drainer working through it — so a device whose listing has changed keeps
-the values it started with until the agent restarts. That is a real gap and
-it is recorded rather than passed over: a re-listing that differs from what
-a device was onboarded with names each field and both values, because an
-operator who measures a horizon centrally and watches mutations go on being
-refused has otherwise nothing anywhere connecting the two facts.
+A device already onboarded is left alone rather than re-added to the lane. A
+second `AddDevice` for an already-registered device is refused by the lane.
+The lane session therefore stays on the onboarded address until the attempt
+restarts, while the device index follows the listing immediately, so datagrams
+from an address a device left are not attributed to it. A held device whose listing changed
+is served by a lane session that no longer matches it, which is a real gap for
+lane operations, and it is recorded rather than passed over: a re-listing that
+differs from what a device was onboarded with names each field and both
+values, because an operator who measures a horizon centrally and watches
+mutations go on being refused has otherwise nothing anywhere connecting the
+two facts.
 
 A device listed without a measured horizon is onboarded all the same and
-read as usual; the lane refuses a mutation on it.
+read as usual, and the lane refuses a mutation on it.
 
 Onboarding one device is bounded. It runs before every attempt to open the
 dispatch stream, and adding a device probes it — a device that is powered off
@@ -196,3 +200,32 @@ Stream contact metrics are exported under `flowseer.edge.capture.connections`,
 `.failures`, and `.messages`. No packet payload byte is ever written to a log
 record: what the runner logs about a chunk is its first sequence, its packet
 count, and whether it is final.
+
+## Syslog ingestion
+
+When configured with listeners, `host.Run` includes the `"syslog"` module
+gated on listener presence. It binds UDP and TCP listeners, admits syslog
+datagrams and frames up to 65,535 bytes, maps them to `SyslogRecord` payloads,
+and publishes them to the local edge buffer on `flowseer.<tenant>.edge.<edge-id>.ingest.syslog`.
+
+Incoming datagrams are accepted only from management addresses resolved by
+`lanehost.DeviceIndex`, which follows the device listing and nothing else. An
+address resolves to a device when exactly one listed device claims it, whether
+or not the lane onboarded that device: a UDP source address is spoofable
+either way, and a gate on onboarding would drop syslog from a listed device
+whose management session is down. A device id listed at two addresses resolves
+from both, each with its own row's binding. Each successful sync replaces the
+index's claims with the listing before onboarding starts, so a device the
+listing omits or moves stops resolving at the old address, and a failed
+listing leaves the index as it was. When two or more listed devices claim an
+address, datagrams from it resolve to no device and are dropped with reason
+`ambiguous_source`. Senders from addresses no listed device claims are dropped
+and counted on `flowseer.edge.syslog.dropped` with reason `unknown_source`. A
+lane restart keeps the last listing, while a process restart starts with an
+empty index until the first listing.
+
+When a record fails parsing or exceeds field length bounds, `RawPolicy`
+evaluates whether to attach the raw payload. The first 20 failures per device
+per minute retain raw bytes under reason `RAW_REASON_PARSE_FAILURE`, and 1 in
+100 thereafter, recording the suppressed count. Oversized messages beyond 65,527
+bytes are truncated and marked with `message_truncated`.

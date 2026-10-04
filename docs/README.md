@@ -73,6 +73,7 @@ removes it after the merge.
 | [`research/`](research/README.md) | Indexed evidence gathered before a design decision. |
 | [`dependencies/`](dependencies/README.md) | Direct dependency statements and the statement gate. |
 | [`benchmarks/`](benchmarks/) | Reproducible performance results and their test conditions. |
+| [`runbooks/`](runbooks/) | Procedures for live devices and production systems. |
 | [`attic/`](attic/) | Superseded material kept only for historical reference. |
 
 Specifications document their own provenance and update procedures under

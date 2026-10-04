@@ -56,8 +56,10 @@ Full handoff.
   or "esc to cancel" hint and the same screen. It keeps waiting while a child
   works or its screen changes. When the lane is quiet and no child works,
   `--until <command>` runs first in the lane checkout. Success prints `done`.
-  Without `--until`, a quiet lane without children prints `idle`. A failing
-  command falls through to `idle` without children or to `idle-children
+  Without `--until`, a quiet lane without children prints `idle`, or
+  `limited` when the last 30 lines of its screen name a rate limit, a usage
+  limit, a quota, or a reset time. A failing
+  command falls through to `idle` or `limited` without children or to `idle-children
   <names>` after the child-idle clock. The child-idle clock is `--stall`
   seconds, 1200 by default, and restarts when the lane's screen changes or a
   child works. A child without a state file is named by its raw worktree id. A
@@ -80,8 +82,9 @@ Full handoff.
   and succeed. `grade --outcome accepted` and `amended` repeats the same
   check before writing the grade. A failed check is graded `rejected`, left
   unmerged, and dispatched again under the model-switch rule.
-- `keys` sends at most 200 characters without Enter, for dialog answers;
-  longer text arrives with only its tail. `tell` copies a file into the
+- `keys` sends at most 200 characters without Enter, for dialog answers. A
+  message the worker must act on goes through `tell`, which submits it.
+  Longer text through `keys` arrives with only its tail. `tell` copies a file into the
   checkout as `.orca-note.md` and submits a pointer to it, as `start` does
   with the brief, and fails when no new pointer reaches the screen.
 - `grade` appends a `grade` event (`accepted`, `amended`, `rejected`, or
@@ -114,6 +117,16 @@ not measured.
 - `wait` prints `idle` and the screen shows a dialog: a permission prompt
   the brief anticipated is answered with `keys <slug> <text>`; anything
   else is reported to the user with the screen text.
+- `wait` prints `limited`: the lane is quiet and its screen names a limit.
+  Read the screen. A worker waiting for its pool's window to reset has not
+  finished: read the pool's row with `pool-usage.sh` and wait again with
+  `--max` past the reset, or grade the lane `blocked` and dispatch the work
+  on another pool. A finished report that only mentions a limit is handled
+  as `idle`. The match is a broad pattern, since no CLI's wording of that
+  wait was captured (unverified).
+- `stop` says a branch has commits that are not merged or kept on
+  `parked/<slug>`: merge the branch, or park it as
+  `drive/references/parking.md` describes, then run `stop` again.
 - `wait` prints `idle-children <names>`: read the parent lane and each named
   child, then `tell` a lane that stopped waiting to continue. A state-file
   name is a lane slug and can be passed to `read`. A child without a state

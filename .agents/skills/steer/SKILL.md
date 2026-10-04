@@ -1,6 +1,6 @@
 ---
 name: steer
-description: Works the queue in docs/agent-observations.md: verifies each entry against the current skill, agent, or hook, decides whether the fix is prose, a skill step, or enforcement, applies it to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits whether every enforced rule has a registered hook or verifier check, and retires landed plans that `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
+description: Works the queue in docs/agent-observations.md. Verifies each entry against the current skill, agent, or hook, applies the fix to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits hook enforcement and retires landed plans `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
 argument-hint: "[audit | entry title | the skill to tune]"
 ---
 
@@ -42,7 +42,17 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
 "Steering surfaces" puts it:
 
 - The step was skipped or misread: reword or reorder the step in the skill
-  or agent. Add one example when the wording could be read two ways.
+  or agent. Add one example when the wording could be read two ways. Fit
+  the wording to what went wrong:
+
+  | What went wrong | Form of the fix |
+  | --- | --- |
+  | The output had the wrong shape: a buried verdict, a restated brief | State what the output is, its parts in order |
+  | A required element was left out of something the step already produces | A named slot in the template or report list |
+  | The behavior should depend on a condition | A conditional on something the reader has already observed |
+  | The rule was known and skipped | A plain prohibition with its reason |
+
+  An exception is its own conditional, never a clause appended to the rule.
 - The step was followed as written and still failed, or the same rule was
   violated more than once: the fix is enforcement, a hook under
   `tools/hooks/` or a check in the verifier, and the prose only names it.
@@ -51,7 +61,9 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
   and has several conditional steps; otherwise add a step to an existing
   skill. Its `description` says when it applies and when to skip it, and it
   ends by running the verifier and by pointing corrections to `compound`,
-  Observe, like the others.
+  Observe, like the others. A script it ships is made executable with
+  `chmod +x <path>`, sandbox disabled, since the sandbox denies writes
+  under the skills directory and the file otherwise lands as mode 100644.
 - A rule every task needs: `AGENTS.md`, staged, not applied.
 
 Before editing, grep `AGENTS.md`, `docs/agent-steering.md`,
@@ -66,8 +78,8 @@ episodic material to a `references/` file whose pointer states when to load
 it. Before saving, run every command embedded in the edited text once,
 verbatim, from a fresh shell in the scratchpad directory.
 
-`tools/hooks/`, `.claude/settings.json`, `.codex/hooks.json`, and `AGENTS.md`
-are policy surfaces: write the change, including the matching assertion in
+The policy surfaces are the paths `AGENTS.md`, Hard boundaries, names. For
+one of them, write the change, including the matching assertion in
 `tools/hooks/tests/run.sh` and the registration in both runtime configs, run
 the verifier, then stop with the diff for the user's guardrail review. Do
 not commit it and do not mark the entry applied. A hook change without the

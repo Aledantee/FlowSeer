@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-01
+last_updated: 2026-10-03
 ---
 
 # Agent steering
@@ -122,9 +122,15 @@ no tool reports. A second task skill, `prose`, checks Markdown against
 `docs/doc-style.md` with `scripts/check-prose.py`. `verify-change` runs it
 on every changed `.md` file. A provenance finding (prose that cites an
 agent run) fails the gate, and style findings are warnings because most
-existing files predate the rules. The decisions below were taken against
+existing files predate the rules. A third, `diagnose`, covers the work
+`plan` and `implement` both decline: a bug whose cause is not known. It
+puts a command that goes red on the symptom ahead of any hypothesis, since
+`AGENTS.md` asks for a discriminating test and no skill said how to build
+one. The decisions below were taken against
 published measurements and the research listed at the end of this
 document. Revisit them when that evidence changes.
+
+### The skill set and how skills are written
 
 Keep only the workflows the project uses. Each installed skill costs
 listing tokens on every turn whether or not it fires, so the set holds
@@ -147,55 +153,6 @@ the skill by path. `.claude/settings.json` still disables the plugin for
 Claude, from before either existed, and `tune`'s bench disables it
 because the plugin's own review stretched a timed run past 100 minutes.
 
-Gate the merge on evidence, not on the conversation. `land` is the one
-skill whose action reaches every other worktree, and a session cannot see
-which skills ran before it, so `implement`, `review`, and `compound` each
-leave a checkpoint that `land` reads: the plan's `status`, `review`, and
-`compound` fields, the verifier receipt under the git dir, and in Orca the
-card's status and comment. Work that skipped the plan has no frontmatter,
-so the same three lines go to a `flowseer-checkpoints` file beside the
-receipt, with the commit range standing in for the plan. Every checkpoint
-is on disk because an answer given in the conversation is unreadable to
-a later session or a re-run, so `land` stops on a verdict it cannot read
-from a file rather than asking for one.
-A missing checkpoint pauses the merge, and `land` asks whether to run
-the missing skill now; on yes it dispatches the skill to a worker in a
-child worktree, or to a subagent with worktree isolation where no runtime
-is reachable, merges that branch, and re-reads the checkpoint from disk.
-The gate is still the file and not the answer, the closing session's
-context stays on the merge, and the review is read by a session that did
-not watch the work. The skill
-leaves the worktree ready for
-`orca worktree rm` and stops there: that command kills the terminal that
-issues it and discards the workspace's terminal history, so it stays a
-person's action taken after reading the report. Child worktrees a session
-created for its workers are the opposite case, and `delegate` has the
-coordinator remove each one in the turn its branch lands.
-`worker-release` closes only the agent terminal, so without that step a
-merged child keeps its terminals open and its branch listed as live work
-after the coordinator has read everything it held.
-
-Merge from the worktree, and leave `main` one fast-forward away. Claude
-Code refuses a worktree-isolated session every git command that names
-another checkout, reads included; the refusal is the harness's, not the
-repository guard's, which is passive for Bash in a linked worktree, and
-disabling the sandbox does not lift it. So `land` merges `main` into the
-branch inside the worktree, where the tests and the verifier already are,
-verifies the union with `--base main`, and emits the primary checkout's
-`git merge --ff-only <branch>` for the person; `--ff-only` lands exactly
-the verified commit and refuses if `main` moved again. The sandbox's deny
-of writes under `.claude/skills/` and its link target `.agents/skills/`
-also covers git replaying a committed change, so that merge needs the
-bypass whenever `main` touched `.claude/` or `.agents/`;
-that deny list, like the isolation guard, is Claude Code's own and not a
-repository policy surface, which is why the owner's direction that a
-session may merge in both directions and remove its own worktrees is met
-by the skill's shape rather than by a hook change: the repository already
-permits it, the merge half is met by merging in the worktree, and the
-removal half stays with the person because the harness refuses a
-`git worktree remove` naming another checkout and the repository cannot
-lift that; the report carries the command.
-
 Keep each skill short and specific to this repository. Anthropic's authoring
 guidance caps a `SKILL.md` body at 500 lines and says a skill that restates
 what the model does by default adds context without value. Measured evidence
@@ -208,8 +165,12 @@ file layout, and the repository rules an agent cannot infer from the tree;
 episodic material goes to `references/` files behind a triggered pointer.
 The skills follow Anthropic's
 [skill authoring best practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices): third-person descriptions that say what and when,
-references one level deep behind a pointer that names its trigger, no
-dated history in a body, and every command kept verbatim. The `SKILL.md`
+references one level deep behind a pointer that names its trigger, a
+contents list at the top of a reference over 100 lines, no dated history in
+a body, and every command kept verbatim. A reference that points into
+another skill's reference is named in the owning `SKILL.md` as well, since
+that page warns that a file reached through another reference may be read
+only in part. The `SKILL.md`
 bodies stay near 150 lines. The ones over 150 lines keep
 material every invocation reads: `plan`
 its file template, which scripts parse, `land` its merge gate, `implement`
@@ -220,21 +181,29 @@ a condition the reader has already checked. An "in Orca" test defined only
 inside the file it gates, or a pool trigger naming a row that does not
 exist, cannot be evaluated at the point the reader decides to load.
 
-A brief names the checks already run and the findings already settled.
-Without that, a reviewer re-runs the coordinator's race tests and a fix
-worker re-diagnoses what the review decided. A sub-worker writes to
-`$TMPDIR`, never to `/tmp`, which the sandbox denies. A coordinator that
-announces a unit starts it in the same turn.
+The skill frontmatter uses two Claude Code fields outside the portable
+Agent Skills key set, `argument-hint` and `user-invocable`. Anthropic's
+`skill-creator` validator flags them; Claude Code documents them and Codex
+ignores unknown keys, so they stay. Two documented fields stay unset, checked against
+[Extend Claude with skills](https://code.claude.com/docs/en/skills) on
+2026-10-03. `disable-model-invocation` blocks the Skill tool call and takes
+the description out of the listing, so setting it on `land` would stop
+`drive` from landing a parent's phases. `land` and `drive` stay invocable on
+the owner's decision of 2026-10-03: the merge rule holds through the
+checkpoints `land` reads from disk and the fast-forward left to the person.
+`paths` stays off `web-component` because the page says such a skill loads
+"only when working with files matching the patterns" and does not say
+whether it is listed before a match, and the skill has to load before the
+first component file is written.
 
-Use one reviewer per file group, never a persona panel. A panel fans out
-to one subagent per persona per call, and each reviewer spends its
-context on the whole diff before it reports. Anthropic's research-system
-report puts a multi-agent run at about 15 times the tokens of a chat turn,
-which a review after every implementation does not earn back. `review`
-dispatches one `independent-reviewer` for a diff of about 1,500 lines or
-one subsystem. Larger diffs keep the subsystem split even when quota leaves
-only one eligible model: that model reviews the groups in rounds, and the
-coordinator reads the seams and verifies every finding.
+Keep a description to what the skill does and when it applies. The listing
+budget is 1% of the context window in characters, 8,000 as the fallback,
+and descriptions are dropped from the least-invoked skill up when it
+overflows (the skills page and
+[Environment variables](https://code.claude.com/docs/en/env-vars), checked
+2026-10-03). The fourteen project descriptions total about 5,700 characters, so
+ordering detail and gate lists live in the body. `skillListingBudgetFraction`
+in `.claude/settings.json` raises the budget and is a policy surface.
 
 Skip ceremony when the work is small. Anthropic's best-practices guide says
 to plan when the approach is uncertain or the change spans files and to skip
@@ -244,6 +213,150 @@ rule, `implement` offers a review and runs none on its own, and
 `compound` opens with a
 gate that refuses one-off or derivable lessons, so that `docs/solutions/`
 stays a set of lessons rather than a log of every session.
+
+Drop what the repository cannot use. There is no remote, so pull-request,
+CI-watching, and push skills are inert here. Cross-model review would send
+diffs to an external CLI by default. The skills rely on `git`, `go`, `buf`,
+and the existing agents only.
+
+One artifact format each. Every plan under `docs/plans/` carries
+`artifact_contract: flowseer-plan/v1` and the `artifact_readiness` field that
+`docs/README.md` documents. Every solution carries `applies_when` frontmatter
+and a row in `docs/solutions/README.md`. The skills describe these formats
+and nothing else.
+
+`AGENTS.md`, Investigation discipline, states once what counts as a source
+for a claim about external behavior. Each stage names only its own action.
+`plan` cites a source per Decision and checks citations and second-source
+fixtures in its review reads. `delegate` hands every worker the pinned
+versions and `spec/` paths, not only reviewers. `implement` reads the source
+or files a ruling before code relies on behavior the plan did not cite.
+`review` asks the question of every change, not only of findings. The rule
+is placed at every stage because the plan step to read sources already
+existed and was skipped. The OSPF checksum (`f11f0589`), AF_PACKET VLAN tag
+(`15fb3e32`), LLDP-MIB bits (`86dd52aa`), and UniFi BSSID (`02c0abda`)
+fixes each corrected a fact stated from memory that the vendored spec or
+pinned module already contradicted. No check can tell a cited claim from
+an uncited one, so enforcement stops at the review gates.
+
+End a report with a question, not with an offer. A report that ends on
+an open statement ("the verifier passed, nothing is committed", "say the
+word") makes the reader type the obvious next step by hand, and a
+question asked in prose gets answered with a bare number. An agent uses
+the question tool where a skill names it. So the rule sits once in
+`AGENTS.md`, and each skill's last step names the options its outcome
+leaves, the recommended one first: `plan` offers implementation or a
+fresh session, `implement` offers `review`, `review` offers `compound` or
+the fix loop by verdict, `compound` offers `land`, and `land` offers to
+run a missing checkpoint's skill. Nothing runs on its own: a step that
+runs itself after every other step produces work nobody asked for, and
+a reader sometimes redirects instead of accepting, so each question
+keeps a "stop here" option. A delegated
+worker never asks, because a worker waiting on an answer looks like one
+that is working. Each option states its tradeoff, not only the
+recommended one its reason, because a choice offered as bare names
+cannot be made without asking what each costs.
+
+Write hot-path text as procedure, and keep the story here. A pass over
+the skills and agent definitions against Anthropic's skill, subagent, and
+memory guidance and the Claude 5 prompting guides found no emphasis
+markers, no over-verification scaffolding, and descriptions inside the
+length limit. What it changed was shape: a rule buried in the middle of a
+paragraph became a numbered step or a table row, an output contract
+stated at the top and the bottom of an agent definition became one
+section at the end, and a story became its one-clause reason. In
+`verify-change` the gate list is closed because a list restated from
+memory drops gates, and the script is the last command of a background
+invocation because a trailing `tail` supplies its own exit code over a
+log that holds `FAIL` lines. Dates stay out of skills and agent
+definitions except in format examples. This document keeps them where
+they say when published evidence was last checked.
+
+Report outcome first. Each skill's report step leads with the verdict or
+result and keeps the rest to a short ordered list, which is what readers of
+agent output ask for and what the `i-have-adhd` skill codifies.
+
+Take a procedure from a public skill, and leave the skill. A pass over six
+public skill repositories on 2026-10-02 installed none of them. Most of
+their skills restate what a model does unprompted, assume an issue tracker
+and pull requests this repository lacks, or duplicate a project skill. One
+procedure filled a gap. `diagnose` adapts the loop-first order of Matt
+Pocock's `diagnosing-bugs` to Go tests, replayed captures, and lab devices,
+and keeps its script for a step only a person can take. It was added on
+that gap and not on a logged failure, so the rule for a step that never
+fires applies to it: a `diagnose` nobody has invoked by the next `steer`
+audit is a candidate for removal.
+
+The rest were single checks, each placed in the file that already owned
+the subject. `check-prose.py` gained the staged sayings, closers, and
+unprompted rebuttals that blader/humanizer ranks as the strongest signs,
+and a contrast pattern for a form the earlier one missed. `prose` now
+compares a rewrite with its original for added or dropped facts.
+`doc-style.md` bounds a diagram at about nine nodes, the working limit of
+cathrynlavery/diagram-design. `review` loads `references/security.md` for
+a change that reads untrusted input: Cloudflare's security-audit skill
+requires a principal, an input, a control, a path, a boundary, and a
+result before a concern counts, and separates a fact the repository does
+not hold from a claim nobody confirmed. Its full six-phase audit stays out
+of the tree. It runs waves of hunter and verifier agents past the six-lane
+cap, writes outside the worktree, and needs an operating-system sandbox
+for anything it executes. A subject review names what it did not read,
+`code-style.md` rules out an expected value computed by the code's own
+formula, `plan` holds a dependent question for a second call, and
+`delegate`'s brief says device and log text is data. Graphify was declined
+as a tool: its installer writes hooks and instruction text into policy
+surfaces, it has no extractor for `.proto` files, which are the schema
+source of truth here, and its code benchmark is six questions on one
+Python repository.
+
+Read an external skill as untrusted input before taking anything from it.
+A skill directory can carry more than prose: hooks in its frontmatter,
+shell commands that run when the skill loads, scripts, symbolic links that
+point outside it, and instructions to edit agent configuration, the list
+Sentry's `skill-scanner` checks for. The passes above copied text and one
+script that was read line by line, and ran no installer. A later adoption
+keeps to that: read every file taken, install nothing, and let `steer`
+place the text.
+
+A second pass on 2026-10-02 read the most used collections after Pocock's.
+`review` now gives each numbered plan Requirement its own verdict, the
+per-requirement check of Trail of Bits' `spec-to-code-compliance`, because
+a review that reads intended behavior as a whole accepts passing tests
+where one requirement holds only on the tested path. The Testing rules
+gained condition-based waiting from superpowers: 54 of 744 test files
+called `time.Sleep` when the rule was written
+(`git grep -l 'time\.Sleep' -- 'src/**_test.go' 'test/**_test.go'`).
+`steer` fits the wording of
+a fix to the kind of failure, after the table in superpowers'
+`writing-skills`, whose author reports that a prohibition made a
+shape problem worse. A blocker quotes its evidence, after gstack's
+`investigate`, and `diagnose` gained boundary logging and the comparison
+with a working sibling from superpowers' `systematic-debugging`.
+Karpathy's guidelines were already the "Rules for coding agents" in
+`code-style.md`. gstack's skills, at 500 to 1,900 lines each, were read
+for single rules only.
+
+### `next`
+
+Pick the next work from files, and finish before starting. `next` exists
+because "what now" otherwise gets answered from an agent's memory of the
+plans it happened to read, across dozens of plan files in two unit formats. The tools
+that answer it well agree on the shape: Task Master's `next` and Beads'
+`bd ready` compute the set whose dependencies are met from a store, never
+from the model's recall, and rank inside it; both ship the listing as a
+command because a model re-reading every file is slow and drifts. So
+`plan-queue.py` reads frontmatter, a parent's `After:` and `Landed:`
+lines, the ledger, and the unmerged branches that touch a plan, and the
+skill reads its output. Work in progress outranks ready work, the Kanban
+rule of limiting what is open; a plan another branch already changes is
+flagged, since two worktrees can otherwise implement the same phase. The
+prior art has no answer for "nothing is planned": none of the surveyed
+tools compares plans with stated goals, and that comparison is where an
+agent invents a roadmap. `GOALS.md` is the guard: one line per decided
+goal with its record, no status, and `next` proposes a gap only for a
+goal that file states.
+
+### `plan`
 
 Promote lasting decisions out of the plan, from the plan. A plan under
 `docs/plans/` is the planning artifact and goes stale once the work lands,
@@ -256,126 +369,6 @@ accepted record, or has been decided before) and drafts a record with
 agent-drafted record captures what was decided and tends to invent why.
 `compound` refuses to carry a decision in a solution for the same reason a
 solution never restates a convention.
-
-Delete a plan once its work lands. By 2026-09-28 `docs/plans/` held 120
-plans, 116 of them implemented, and nothing removed them; agents grepping
-`docs/` kept landing in plans that described intent rather than the tree.
-Spec-driven tools split the same way: OpenSpec folds a finished change
-into its living specs and archives the change folder, and a survey of
-Kiro, spec-kit, and Tessl names "spec-first" workflows whose spec is
-deleted after the change
-(<https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html>).
-`land` retires each plan it lands (`land/references/retire-plan.md`): it
-runs the promotion test again against what was built, drafts or amends a
-direction record where a decision outlives the work, rewrites links to
-the plan, and deletes it, with the outcome note and checkpoints copied
-into the commit body. Deleting beats an archive folder because an archive
-still turns up in every search. A record names landed work by date and
-scope rather than by plan path; records written before this rule still
-link plans, and the retire step rewrites each link as it deletes the plan.
-`steer` sweeps the plans `land` missed, and `next` counts them.
-
-Keep plan labels out of code. Commit `7b0c5cd8` stripped plan identifiers
-that earlier tooling had told the implementer to cite in comments. `plan`
-and `implement` both state the rule; `docs/code-style.md` enforces it in
-review.
-
-Leave policy surfaces to people. Earlier tooling edited `AGENTS.md`,
-`CLAUDE.md`, and `CONCEPTS.md` after a chat consent. `compound` proposes
-vocabulary and never edits an instruction file.
-
-Enforce with the verifier, not with prose. Every skill ends by running
-`verify-change` on the changed paths. Anthropic's guidance is explicit that
-an instruction in a skill is a request and a hook is a guarantee.
-
-Verify once, on the integrated result, at the scope the change can reach.
-When every worker and then the coordinator run the verifier, and the
-verifier races the whole module for any Go path, two small tests cost
-three module-wide race runs of about ten minutes each. The verifier
-therefore vets, tests, and lints the changed packages and their importers (a
-fixpoint over `go list` dependency and test-import data) and keeps the
-module-wide scope for `--full`; workers run their package's focused tests
-and the coordinator runs the verifier once after merging.
-
-Make a gate's silence impossible to read as a pass. The verifier has
-reported success for reasons unrelated to the code: a directory argument
-selecting no gate, a no-gate exit clearing its own marker, a cached corpus
-pass, a `--path` naming a file the baseline lacks, and a background wrapper
-whose `tail` replaced the script's exit code. Each was fixed in the script
-rather than in prose, since a rule that was read and broken wants
-enforcement: a directory expands to its files, a no-gate run exits non-zero
-before touching the receipt, the corpus tier carries `-count=1`,
-`buf breaking` targets only files `main` holds, and the last line of every
-run names the verdict. A `--full` run could also block forever on a
-Docker daemon that had stopped answering, with a verdict line that did
-not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
-verdict line names the gate that was running. The two invariant packages (`src/common/errs`,
-`test/conformance/proto`) run on every targeted root-module run for the
-same reason: a per-package gate cannot see a repository-wide namespace,
-and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
-the diff cannot cause teaches its readers to discount it. Three more
-failures of that kind live in the script rather than in prose: the lint
-gate passes `--allow-serial-runners`, because `golangci-lint` holds one
-lock per machine and would otherwise die on any concurrent run; the
-script searches `$(go env GOPATH)/bin` and checks every tool the selected
-gates need before the first gate, because a session's PATH must not
-decide whether the tree verifies and a late tool failure reads as a gate
-result; and a passing run prints the dirty-marker lines it could not
-clear, because a targeted run rewrites the marker in the same second as
-the receipt and a silent survivor reads as an artifact, so `land` takes
-the marker's content as its remedy. A web path now selects the web
-workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
-marked path absent from both the tree and an explicit base clears like
-one whose bytes match the base. An argument spelled through the
-`.claude/skills` link is rewritten to the path git tracks: git lists
-nothing beyond a link, so the directory form stopped the run before any
-gate, and the marker holds git's spelling, so the file form left its line
-behind. The marker hook itself was the last
-of these. It guessed from a Bash command's text whether the command wrote
-a file, and the pattern missed a Python rewrite of a document and any
-`cp` or `tee`, while it flagged `git log | grep patch` and a redirect to a scratch `.json`; each false
-flag asked for a module-wide race run. The hook now reads what changed off
-the tree, by content hash of the dirty paths against the listing stored
-after the previous Bash call, and marks those paths like editor edits;
-only a change under `generated/` or to the module graph keeps the
-`--full` line. It needs no snapshot before the command, which two
-parallel Bash calls would have raced on, and the verifier rewrites the
-listing after a pass so verified content is not marked again.
-
-Watch a test fail against the defect. A test can read as proof and
-assert nothing, which only reverting the fix reveals. Two sharper rules
-follow: a test asserts what the fix causes rather than what it prevents, and
-asserts the state it depends on before the outcome. `implement` states
-them at the test step, with the undo as a file copy after a reversal's
-`git checkout` took an unfinished unit with it. The rules stay prose
-because a reversal is a judgment about which line carries the property;
-what can be enforced, the fixture validity of wire messages, names
-`protovalidate.Validate` instead. Citing the rule in a brief does not keep
-it, and a "changes behavior" exemption lets new code land tests that pass
-against a broken decoder. A conformance gate for negative-only assertions
-was considered and not built: the vacuous tests this rule targets take
-other shapes (a fixture missing the capability, an assertion behind an
-admin-down port, a helper returning one value for two states), and only a
-reversal finds them. So the reversal became an artifact
-instead of an instruction: `implement` writes a mutation and the quoted
-`--- FAIL` line per new test into the unit's commit body, the one place a
-later reviewer can read, and the coordinator or `review` runs the
-mutation itself for any new test whose commit lacks one. A quoted failure
-can be checked by the next reader; "I watched it fail" cannot.
-
-Hand the class across the seam, and judge the remedy. A rule held inside
-one step gets lost at the handoff to the next. A fix briefed with the
-instance misses the class the review named. A verified finding can carry
-an unchecked proposed fix. A review that asks for an executable property
-and then reads the code instead of the property skips rules. A stop rule
-that does not read as covering an unachievable requirement lets a worker
-weaken the requirement and report success. Each fix puts the rule at the handoff:
-the fix brief carries the mechanism, a fix resting on a claim about the
-code is verified or reported as a direction, the next round's primary
-subject is the new invariant, and a brief quotes plan requirements as not
-the worker's to restate. A ruling in `implement` is provisional until its
-unit lands, for the same reason: a comment written from a ruling that is
-later falsified cites it as though it were the source.
 
 Split large plans into phases and carry progress in a ledger, not in the
 conversation. Long-horizon coding degrades measurably: SWE-Bench Pro
@@ -419,112 +412,45 @@ deliverable, which sequential units avoid. The six-unit trigger is a
 starting value from community reports of three to five phases per plan;
 no controlled study varies wave size.
 
-Drop what the repository cannot use. There is no remote, so pull-request,
-CI-watching, and push skills are inert here. Cross-model review would send
-diffs to an external CLI by default. The skills rely on `git`, `go`, `buf`,
-and the existing agents only.
+Keep the plan explicit and keep re-reading it. An analysis of 21,120
+SWE-agent trajectories found that an explicit plan raises resolution, that
+periodic reminders of the plan cut violations, and that a poor plan hurts
+more than none. `plan` therefore ends with an implementer's read and an
+independent review, and `implement` re-reads each unit before starting it.
+Units carry an `After` line so that `implement` can run independent units
+in parallel without guessing.
 
-One artifact format each. Every plan under `docs/plans/` carries
-`artifact_contract: flowseer-plan/v1` and the `artifact_readiness` field that
-`docs/README.md` documents. Every solution carries `applies_when` frontmatter
-and a row in `docs/solutions/README.md`. The skills describe these formats
-and nothing else.
+Send every plan with more than one unit, and every schema change, to an
+independent reviewer. The planner's own three reads are self-review, which
+rarely catches the planner's own mistakes without outside feedback (Huang
+et al. 2023, https://arxiv.org/abs/2310.01798, and Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). Two units already carry an `After` edge
+and a split of files that a fresh reader can find wrong, and a reviewer run
+costs less than an implement pass built on that mistake.
 
-Name the model for every delegate. `repo-researcher` is pinned to Sonnet and
-`independent-reviewer` to Opus, `delegate` sends pure lookups to `Explore`
-on Haiku and resolves editing workers from the registry's fit set, taking
-the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
-may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku
-for read-only exploration; its research-system report measured an Opus lead
-with Sonnet workers beating a single Opus agent by 90.2% on its internal
-eval, while a multi-agent run costs about 15 times a chat turn; ProgRouter
-arrives at the same shape by routing each workflow step to the cheapest
-model that still makes progress. Users describe the failure mode from the
-other side: a task that spawned seven subagents on the session model and
-exhausted a budget before one of them finished, cured by naming a smaller
-model for them. `delegate` therefore sizes each wave from measured
-headroom rather than from how much work is ready: a pool holds two lanes
-under 50% used, one up to 85%, none above, and the coordinator caps the
-sum at six.
+Hand a multi-wave plan to a fresh session and re-ground after
+compaction. Claude Code issue #24686, a plan denied after compaction
+while its file sits on disk, was closed as not planned, and users of the
+compound-engineering and GSD workflows clear context between planning
+and execution by hand. `plan` says so at handoff and `implement` re-reads
+the plan and the ledger before trusting a summary.
 
-Grade each Orca lane before stopping it. A merged branch cannot tell whether
-the coordinator accepted the work as written or repaired it, and an unmerged
-branch cannot distinguish rejection from a worker that stopped on a blocker.
-The event log records that judgment while the lane still exists. `tune`
-joins it to CLI transcripts to compare models on this repository's actual
-tasks. Field results may reorder calibrated fit-set members, or support a
-removal proposal, once the sample threshold is met. They cannot add a model:
-entry still needs a calibration result on the fixed task so a busy week of
-easy work does not establish fitness for the role.
-
-Send editing workers to an Orca worker when Orca's runtime is reachable.
-The asynchronous-agent study behind CAID found that isolated workspaces, a
-central integrator, and test-based verification at merge improved paper
-reproduction by 25.6 points and library development by 14.7. An Orca
-worker provides that: a child worktree per worker, a named model per
-launch, and a report the coordinator waits on. Herdr held this place from
-2026-09-10 to 2026-09-19 because it answered four of the Orca failures
-`docs/research/herdr-trial-2026-09-10.md` lists (items 4 to 7), all of
-them about `orca orchestration`: `worker-start` pins Claude, Codex, and
-Cursor ids only and a dispatch into an `agy` or `opencode` terminal sat
-unsubmitted, `check --wait` is re-armed by every heartbeat, a dispatch
-carries a capability token a context compaction can lose, and a card's
-status lags the dispatch queue. `delegate/scripts/orca-worker.sh` meets
-the first three without orchestration: `orca terminal create --command` takes
-any CLI's launch line with the model on it, the wait is confirmed against
-the worker's screen, and a lane is a terminal and a branch with no token.
-`references/orca.md` says which lanes its described behavior was measured
-on. Read-only
-delegates stay native subagents, which load their definition and nothing
-else, where a runtime worker is a full agent session. The exception is a
-unit reviewer on the executor's vendor: a reviewer from the same vendor
-shares the executor's blind spots, and a seam worker that spawns its own
-subagents reviews with its own model, so `delegate` sends such a
-reviewer to another pool's CLI. Without Orca, `delegate` falls back to a native
-subagent with worktree isolation only when the role's fit set holds a
-Claude model. Otherwise the coordinator works the units itself. A native
-subagent runs only on Claude, and a role whose fit set holds no Claude
-model would send editing work to a model with no calibration for it.
-Sequential work is the safer fallback. A stage of `land` or `drive` needs a
-session of its own that commits a checkpoint, so it runs in a native
-subagent with worktree isolation, on a Claude model from the stage role's
-fit set, for a review stage one other than the change's author. Stopping the stage for the user
-left a drive waiting on a person for work a subagent could do. The Orca command surface is
-version-matched and served by the binary (`orca skills get orca-cli`,
-`orca skills get orchestration`), so the skills show the shape of the loop
-and defer to that guide for flags.
-Two facts about the Orca CLI shape the skill's wording: the CLI reaches the
-app over a local socket that Claude's Bash sandbox blocks, so a sandboxed
-`orca status` reports the app as not running from inside an Orca terminal;
-and `orca account list` reports which providers are signed in and how much
-of each rate-limit window is used, which is why `delegate` discovers the
-worker agent and provider per session instead of assuming Claude and picks
-the provider for each wave by remaining quota. The 85% threshold is a
-starting point chosen so that the two lanes a pool may hold under 50%
-cannot push a window over its limit mid-run; tune it when a wave gets cut off or when quota sits
-idle.
-
-Orca reads usage only for the providers it has credentials for.
-`orca account list` can show a pool such as `antigravity` or `opencodeGo`
-as `unavailable` while it is signed in and nearly idle: the status
-describes Orca's view, not the pool. `delegate/scripts/pool-usage.sh` therefore reads each pool from its
-own source (`agy -p /quota` answers from the quota service without a model
-turn, and opencode's database records the dollar cost of every `opencode-go`
-message), and the skill forbids dropping a pool on Orca's word alone.
-
-`AGENTS.md`, Investigation discipline, states once what counts as a source
-for a claim about external behavior. Each stage names only its own action.
-`plan` cites a source per Decision and checks citations and second-source
-fixtures in its review reads. `delegate` hands every worker the pinned
-versions and `spec/` paths, not only reviewers. `implement` reads the source
-or files a ruling before code relies on behavior the plan did not cite.
-`review` asks the question of every change, not only of findings. The rule
-is placed at every stage because the plan step to read sources already
-existed and was skipped. The OSPF checksum (`f11f0589`), AF_PACKET VLAN tag
-(`15fb3e32`), LLDP-MIB bits (`86dd52aa`), and UniFi BSSID (`02c0abda`)
-fixes each corrected a fact stated from memory that the vendored spec or
-pinned module already contradicted. No check can tell a cited claim from
-an uncited one, so enforcement stops at the review gates.
+Tune the phase size from data. The six-unit trigger came from community
+reports; each outcome note `implement` writes now carries the unit count
+and the span of the ledger's `verified_at` values, and `steer`'s audit
+reads them before the trigger changes. As of 2026-09-27 most notes show
+phases of three to six units with short verification spans. Several two-unit
+phases were scoped by dependencies, and the longer spans do not establish
+that unit count caused a phase to outlast one session. The data does not yet
+support changing the trigger. As of 2026-10-01 three notes exceed it, with
+8, 9, and 13 units and spans of 6 to 36 hours (the retire commits on
+`main` hold the notes). The 9- and 13-unit plans
+were planned within the trigger and grew by units a review added, so they
+measure the fix loop and not the size a plan was cut to. As of 2026-10-03 the six
+notes written since hold 2 to 10 units. The 8-unit phase ran in 66 minutes
+and the 10-unit one spanned 21 hours, which does not separate unit count
+from what a review added. The data does not yet support changing the
+trigger.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
@@ -544,47 +470,33 @@ research agents is fabricated citations (3 to 13 percent of URLs even with
 web search), which the plan skill's rule to fetch every cited URL addresses
 more cheaply than a procedure would.
 
-The skill frontmatter uses two Claude Code fields outside the portable
-Agent Skills key set, `argument-hint` and `user-invocable`. Anthropic's
-`skill-creator` validator flags them; Claude Code documents them and Codex
-ignores unknown keys, so they stay.
+### `implement`
 
-Brief the reviewer without the author's claims. A study of confirmation bias
-in LLM code review found that framing a diff as bug-free cut detection
-sharply, and that redacting such metadata plus an explicit neutral
-instruction restored it in every affected case. Anthropic's best-practices
-guide adds that a reviewer asked for gaps reports some even when the work is
-sound, so `independent-reviewer` is told to report only what affects
-correctness, the stated requirements, or a repository rule.
+Keep plan labels out of code. Commit `7b0c5cd8` stripped plan identifiers
+that earlier tooling had told the implementer to cite in comments. `plan`
+and `implement` both state the rule; `docs/code-style.md` enforces it in
+review.
 
-Keep the plan explicit and keep re-reading it. An analysis of 21,120
-SWE-agent trajectories found that an explicit plan raises resolution, that
-periodic reminders of the plan cut violations, and that a poor plan hurts
-more than none. `plan` therefore ends with an implementer's read and an
-independent review, and `implement` re-reads each unit before starting it.
-Units carry an `After` line so that `implement` can run independent units
-in parallel without guessing.
-
-Log process corrections in one place, apply them on request. Task Observer,
-a widely used meta-skill, keeps an observation log of corrections and skill
-gaps that a person reviews on a schedule, and runs as an always-on monitor
-from the first tool call. FlowSeer takes the log and the review and leaves
-the monitor: `compound`'s Observe mode appends to
-`docs/agent-observations.md` when a workflow skill ends with a process
-correction, and `steer` works the queue when a maintainer asks, applying
-the change process below to one entry at a time. An always-on observer
-would spend context on every session for a signal that appears at the end
-of a few. `steer` edits skills, agents, and this document in place and
-stages hook, hook-registration, and `AGENTS.md` changes for a person, the
-policy-surface line that `compound` also keeps. It is subject to its own
-queue: an observation about `steer` is worked by `steer`. Two of Task
-Observer's signals carry over as its decision rule: a step that was
-followed as written and still failed wants a hook or a verifier check, not
-louder prose, and a step that never fires is removed rather than kept in
-case. Its audit step closes the gap the hook tests leave: those pin each
-runtime's registrations but cannot say whether a rule in `AGENTS.md` has
-an enforcer at all, or whether a hook added for Claude was also registered
-for Codex.
+Watch a test fail against the defect. A test can read as proof and
+assert nothing, which only reverting the fix reveals. Two sharper rules
+follow: a test asserts what the fix causes rather than what it prevents, and
+asserts the state it depends on before the outcome. `implement` states
+them at the test step, with the undo as a file copy after a reversal's
+`git checkout` took an unfinished unit with it. The rules stay prose
+because a reversal is a judgment about which line carries the property;
+what can be enforced, the fixture validity of wire messages, names
+`protovalidate.Validate` instead. Citing the rule in a brief does not keep
+it, and a "changes behavior" exemption lets new code land tests that pass
+against a broken decoder. A conformance gate for negative-only assertions
+was considered and not built: the vacuous tests this rule targets take
+other shapes (a fixture missing the capability, an assertion behind an
+admin-down port, a helper returning one value for two states), and only a
+reversal finds them. So the reversal became an artifact
+instead of an instruction: `implement` writes a mutation and the quoted
+`--- FAIL` line per new test into the unit's commit body, the one place a
+later reviewer can read, and the coordinator or `review` runs the
+mutation itself for any new test whose commit lacks one. A quoted failure
+can be checked by the next reader; "I watched it fail" cannot.
 
 Ask before ruling on what other units depend on; rule and record the rest.
 HiL-Bench measured the gap that matters here: given full information,
@@ -639,16 +551,6 @@ workers through a coordinator that merges and verifies; `plan` writes
 `After` for real dependencies only, lists the waves, and lets disjoint
 phases run in separate worktrees.
 
-Widen a wave when the pools are idle. A fixed cap runs independent
-phases in turn while prepaid pools stay idle and are paid for anyway.
-The cap follows the pool rows `delegate` reads before each wave, and
-only independent work widens with it: the Co-Coder result that gives
-parallelism its gain is the same one that makes naive splitting cost
-more, so dependent units still chain. Six is the ceiling because every
-lane still passes through one coordinator's tree check, merge, and
-verifier, and the verifier runs one at a time; it is a starting value,
-to be raised if merges keep pace and lowered if a wave's merges back up.
-
 Prove a phase's prerequisites are in the tree. Two worktrees forked from
 different points of `main` can each re-plan "against the landed tree",
 find the same phase absent, and implement it twice.
@@ -666,41 +568,259 @@ holding-side tests, and degraded paths moved to the Testing section of
 `docs/code-style.md`, which `review` reads as well; the skill keeps the
 procedure and the reversal rule.
 
-Hand a multi-wave plan to a fresh session and re-ground after
-compaction. Claude Code issue #24686, a plan denied after compaction
-while its file sits on disk, was closed as not planned, and users of the
-compound-engineering and GSD workflows clear context between planning
-and execution by hand. `plan` says so at handoff and `implement` re-reads
-the plan and the ledger before trusting a summary.
+### `review`
 
-Tune the phase size from data. The six-unit trigger came from community
-reports; each outcome note `implement` writes now carries the unit count
-and the span of the ledger's `verified_at` values, and `steer`'s audit
-reads them before the trigger changes. As of 2026-09-27 most notes show
-phases of three to six units with short verification spans. Several two-unit
-phases were scoped by dependencies, and the longer spans do not establish
-that unit count caused a phase to outlast one session. The data does not yet
-support changing the trigger. As of 2026-10-01 three notes exceed it, with
-8, 9, and 13 units and spans of 6 to 36 hours (the retire commits on
-`main` hold the notes). The 9- and 13-unit plans
-were planned within the trigger and grew by units a review added, so they
-measure the fix loop and not the size a plan was cut to.
+Use one reviewer per file group, never a persona panel. A panel fans out
+to one subagent per persona per call, and each reviewer spends its
+context on the whole diff before it reports. Anthropic's research-system
+report puts a multi-agent run at about 15 times the tokens of a chat turn,
+which a review after every implementation does not earn back. `review`
+dispatches one `independent-reviewer` for a diff of about 1,500 lines or
+one subsystem. Larger diffs keep the subsystem split even when quota leaves
+only one eligible model: that model reviews the groups in rounds, and the
+coordinator reads the seams and verifies every finding.
+
+Brief the reviewer without the author's claims. A study of confirmation bias
+in LLM code review found that framing a diff as bug-free cut detection
+sharply, and that redacting such metadata plus an explicit neutral
+instruction restored it in every affected case. Anthropic's best-practices
+guide adds that a reviewer asked for gaps reports some even when the work is
+sound, so `independent-reviewer` is told to report only what affects
+correctness, the stated requirements, or a repository rule.
+
+Have the reviewer run a mutation of its own for every behavior change.
+The author's mutation shows the test catches the fault the author had in
+mind, which is the fault the author already guarded against. Meta's
+mutation-guided test generation (Foster et al. 2025,
+https://arxiv.org/abs/2501.12862) aims tests at faults the existing suite
+does not detect and reports engineers accepting 73% of the tests it
+produced. So `review`'s own reading picks one fault per behavior change
+and runs it, a quoted `--- FAIL` in the commit or not.
+
+Hand the class across the seam, and judge the remedy. A rule held inside
+one step gets lost at the handoff to the next. A fix briefed with the
+instance misses the class the review named. A verified finding can carry
+an unchecked proposed fix. A review that asks for an executable property
+and then reads the code instead of the property skips rules. A stop rule
+that does not read as covering an unachievable requirement lets a worker
+weaken the requirement and report success. Each fix puts the rule at the handoff:
+the fix brief carries the mechanism, a fix resting on a claim about the
+code is verified or reported as a direction, the next round's primary
+subject is the new invariant, and a brief quotes plan requirements as not
+the worker's to restate. A ruling in `implement` is provisional until its
+unit lands, for the same reason: a comment written from a ruling that is
+later falsified cites it as though it were the source.
+
+Give every fix-loop round a reviewer that has not seen the findings, and
+record `accept after fixes` only once the fixes exist. A model checking
+work against its own earlier judgment rarely corrects it and sometimes
+makes it worse (Huang et al. 2023, "Large Language Models Cannot
+Self-Correct Reasoning Yet", https://arxiv.org/abs/2310.01798), and a
+survey of self-correction finds it works with reliable external feedback
+and not with feedback from a prompted model (Kamoi et al. 2024,
+https://arxiv.org/abs/2406.01297). A reviewer briefed with the previous
+findings judges each fix against them, so `fix-loop.md` adds a required
+"New findings" section to that brief and runs one more reviewer over the
+changed paths without them. A verdict written before the fixes reads as
+passing to `land`, `drive`, and `next`, so a review that wants fixes
+records `fixes needed`, which none of them accepts, and so does one that
+holds only gaps.
 
 Fix-and-re-review rounds belong to the coordinator. `review` carries the
 loop as a step the user asks for, because the coordinator is the only
 party that holds the rounds' history and so the only one that can see a
 round undo the previous round's fix: fixes are dispatched through
-`delegate`, the verifier runs on the union before each review round, the
-loop stops at a round with no correctness findings, and after three
-rounds on one mechanism the work goes to `plan`, the cap `implement` puts
-on a red unit. The count covers every round, whatever it fixed: a cap
-counted per mechanism let a loop run a fourth round because each round
-had found a different defect, so three rounds on different mechanisms now
-stop at a question to the user. A second defect in one mechanism also
-sends the coordinator to prior art before the next patch. Five rounds of
-local fixes to a multi-key uniqueness claim ended only when a re-plan
-replaced the protocol with the store's atomic batch
-(`docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`).
+`delegate`, the verifier runs on the union before each review round, and a
+review runs at most three rounds in total. After three rounds on one
+mechanism the work goes to `plan`, the cap `implement` puts on a red unit.
+The count covers every round, whatever it fixed: a cap counted per
+mechanism let a loop run a fourth round because each round had found a
+different defect, so three rounds on different mechanisms now stop at a
+question to the user. One more round on that answer is the only round past
+the cap, and a fourth round that is not clean ends at `rework`: an extension
+with no bound ran six rounds on one mechanism. A second defect
+in one mechanism also sends the coordinator to prior art before the next
+patch. Five rounds of local fixes to a multi-key uniqueness claim ended
+only when a re-plan replaced the protocol with the store's atomic batch
+(`docs/solutions/architecture-patterns/a-multi-key-uniqueness-claim-needs-one-conditional-batch.md`). A second round on one mechanism also makes the report state the
+Requirement the mechanism serves and the simplest design that meets it. Six
+rounds once fixed the coupling between a device index and the management
+lane, and each parked question offered options inside that coupling, when
+nothing required the gate at all. `plan`'s implementer read asks the same
+of a Decision whose reason is where data already lives.
+
+Review sorts each finding into one of four kinds: behavior, false test,
+gap, or convention (`.claude/skills/review/references/fix-loop.md`). A
+behavior defect and a false test hold the loop open. A false test fails,
+errors, passes only on some runs, or passes with the condition removed
+that its title, comment, or commit body states, and it is fixed in a
+reviewed round because the suite reports a guarantee it does not hold. A
+gap is a surviving mutation in a branch or boundary no test's title,
+comment, or commit body states, and a convention finding is a repository
+rule broken in code or a wrong comment or doc. A gap and a convention
+finding do not hold the loop open, so a round with no behavior defect and
+no false test ends it.
+
+The coordinator closes gaps in one unreviewed pass inside the same review,
+before the accept verdict. It reruns each recorded mutation on the merged
+tree and drops the item only when the suite fails, and a pass whose diff
+changes source outside tests, comments, and docs is a round and counts
+toward the three. After three rounds the pass changes no source outside
+tests, comments, and docs. An item it leaves recorded ends the review at
+`fixes needed` with a question offering one more gap pass or stopping, and
+one more gap pass is a new review: `review` runs again from step 1, reads
+the record, and has a fresh round count and one pass. The verdict is
+`accept after fixes` only once every recorded item is closed, and it stays
+`fixes needed` until then.
+
+Open gap and convention findings are recorded, and only `review` reads
+that record. With a plan it is a `## Review gaps` section at the end of
+the plan, and planless work keeps a `gaps:` line in the checkpoints file.
+No gate reads it because the verdict is the one field every gate reads,
+and while the record holds an item the verdict is not an accept. A gap
+carried across skills had to be known by `land`, `drive`, `next`, and plan
+retirement, and each fix round to that design found another reader it
+missed (`c65f3804`, `e83b1305`). A session that ends
+mid-pass leaves `fixes needed` on disk and the remedy is `review` again.
+
+The loop used to stop at a round with no correctness finding, and a gap
+counted as one. Each fix round then added tests for the next reviewer to
+mutate, so rounds kept finding gaps in the previous round's tests. One
+phase reached the three-round cap on test coverage alone (`fb724477`).
+Google's mutation-testing practice makes the same split:
+surviving mutants are advisory findings in review,
+and tests written for unproductive ones are brittle
+(https://arxiv.org/abs/2102.11378). Gaps close per phase and not in a last
+phase of the parent, because cleanup deferred past the change that exposed
+it tends not to happen
+(https://google.github.io/eng-practices/review/reviewer/pushback.html).
+
+Trim narration, not evidence. Anthropic's Opus 5 guide says the model's
+responses run longer than earlier Opus models', that effort does not
+shorten them, and that an explicit instruction placed near the end of the
+prompt does; `independent-reviewer` runs on Opus, so its definition ends
+with one. The instruction names the parts to leave out (preamble, a
+restatement of the brief, a closing summary) rather than asking for
+brevity, for two reasons. Giskard's Phare study found that "answer briefly"
+instructions cut hallucination resistance by up to 20%: models keep the
+claim and drop the explanation, which for a reviewer means the failure
+scenario. And the Opus 5 and Sonnet 5 guides both warn that a review prompt
+saying "be conservative" is followed literally and lowers recall; the
+reviewer already filters to correctness, and a length cap would compound
+that filter. The rule stays out of `AGENTS.md` because the Fable 5.1 guide
+says the coordinating model already writes too few progress updates and
+that instructions to keep that text brief should be removed.
+
+### `compound` and `steer`
+
+Log process corrections in one place, apply them on request. Task Observer,
+a widely used meta-skill, keeps an observation log of corrections and skill
+gaps that a person reviews on a schedule, and runs as an always-on monitor
+from the first tool call. FlowSeer takes the log and the review and leaves
+the monitor: `compound`'s Observe mode appends to
+`docs/agent-observations.md` when a workflow skill ends with a process
+correction, and `steer` works the queue when a maintainer asks, applying
+the change process below to one entry at a time. An always-on observer
+would spend context on every session for a signal that appears at the end
+of a few. `steer` edits skills, agents, and this document in place and
+stages hook, hook-registration, and `AGENTS.md` changes for a person, the
+policy-surface line that `compound` also keeps. It is subject to its own
+queue: an observation about `steer` is worked by `steer`. Two of Task
+Observer's signals carry over as its decision rule: a step that was
+followed as written and still failed wants a hook or a verifier check, not
+louder prose, and a step that never fires is removed rather than kept in
+case. Its audit step closes the gap the hook tests leave: those pin each
+runtime's registrations but cannot say whether a rule in `AGENTS.md` has
+an enforcer at all, or whether a hook added for Claude was also registered
+for Codex.
+
+Leave policy surfaces to people. Earlier tooling edited `AGENTS.md`,
+`CLAUDE.md`, and `CONCEPTS.md` after a chat consent. `compound` proposes
+vocabulary and never edits an instruction file.
+
+### `land`
+
+Gate the merge on evidence, not on the conversation. `land` is the one
+skill whose action reaches every other worktree, and a session cannot see
+which skills ran before it, so `implement`, `review`, and `compound` each
+leave a checkpoint that `land` reads: the plan's `status`, `review`, and
+`compound` fields, the verifier receipt under the git dir, and in Orca the
+card's status and comment. Work that skipped the plan has no frontmatter,
+so the same three lines go to a `flowseer-checkpoints` file beside the
+receipt, with the commit range standing in for the plan. Every checkpoint
+is on disk because an answer given in the conversation is unreadable to
+a later session or a re-run, so `land` stops on a verdict it cannot read
+from a file rather than asking for one.
+A missing checkpoint pauses the merge, and `land` asks whether to run
+the missing skill now; on yes it dispatches the skill to a worker in a
+child worktree, or to a subagent with worktree isolation where no runtime
+is reachable, merges that branch, and re-reads the checkpoint from disk.
+The gate is still the file and not the answer, the closing session's
+context stays on the merge, and the review is read by a session that did
+not watch the work. The skill
+leaves the worktree ready for
+`orca worktree rm` and stops there: that command kills the terminal that
+issues it and discards the workspace's terminal history, so it stays a
+person's action taken after reading the report. Child worktrees a session
+created for its workers are the opposite case, and `delegate` has the
+coordinator remove each one in the turn its branch lands.
+`worker-release` closes only the agent terminal, so without that step a
+merged child keeps its terminals open and its branch listed as live work
+after the coordinator has read everything it held.
+
+Merge from the worktree, and leave `main` one fast-forward away. Claude
+Code refuses a worktree-isolated session every git command that names
+another checkout, reads included; the refusal is the harness's, not the
+repository guard's, which is passive for Bash in a linked worktree, and
+disabling the sandbox does not lift it. So `land` merges `main` into the
+branch inside the worktree, where the tests and the verifier already are,
+verifies the union with `--base main`, and emits the primary checkout's
+`git merge --ff-only <sha>` for the person, naming the verified commit
+rather than a branch that may move on. `--ff-only` lands exactly that
+commit and refuses if `main` no longer leads to it. The sandbox's deny
+of writes under `.claude/skills/` and its link target `.agents/skills/`
+also covers git replaying a committed change, so that merge needs the
+bypass whenever `main` touched `.claude/` or `.agents/`;
+that deny list, like the isolation guard, is Claude Code's own and not a
+repository policy surface, which is why the owner's direction that a
+session may merge in both directions and remove its own worktrees is met
+by the skill's shape rather than by a hook change: the repository already
+permits it, the merge half is met by merging in the worktree, and the
+removal half stays with the person because the harness refuses a
+`git worktree remove` naming another checkout and the repository cannot
+lift that; the report carries the command.
+
+Delete a plan once its work lands. By 2026-09-28 `docs/plans/` held 120
+plans, 116 of them implemented, and nothing removed them; agents grepping
+`docs/` kept landing in plans that described intent rather than the tree.
+Spec-driven tools split the same way: OpenSpec folds a finished change
+into its living specs and archives the change folder, and a survey of
+Kiro, spec-kit, and Tessl names "spec-first" workflows whose spec is
+deleted after the change
+(<https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html>).
+`land` retires each plan it lands (`land/references/retire-plan.md`): it
+runs the promotion test again against what was built, drafts or amends a
+direction record where a decision outlives the work, rewrites links to
+the plan, and deletes it, with the outcome note and checkpoints copied
+into the commit body. Deleting beats an archive folder because an archive
+still turns up in every search. A record names landed work by date and
+scope rather than by plan path; records written before this rule still
+link plans, and the retire step rewrites each link as it deletes the plan.
+`steer` sweeps the plans `land` missed, and `next` counts them.
+
+Check the landing branch's merges, not the ones `main` already holds.
+`land` ran `merge-check.py ORIG_HEAD..HEAD` after merging `main` into the
+branch, a range that holds every merge commit `main` brought in. Merge
+`cd07426d` on `main` took one parent's `pool-usage.sh` whole, on purpose:
+`2b02d559` had replaced the other parent's change with a native reader
+(`orca_pools` in `pool-usage.sh`, "Native fallback for Claude and Codex"
+in `delegate/references/pool-rows.md`). The check read that as a lost
+change and would have stopped every later landing. `land` now checks
+`main..HEAD`, which is the branch's own merges. The other callers keep
+`ORIG_HEAD..HEAD`, since they merge a worker's branch and its commits are
+theirs to check.
+
+### `drive`
 
 Sequence a parent plan's stages from the files, in a skill that owns only
 the order. A plan, implement, review, compound loop per phase, with each
@@ -718,47 +838,9 @@ its place without it. A phase whose last commit is on `main` needs no stage, sin
 `compound` fields. A dependent phase waits until its predecessor's review
 and compound are done: a `Landed:` range records implementation only, and
 starting the dependent then lets the predecessor's review fix loop rewrite
-files both phases own. The skill stops before `land`, which stays a person's
-request like every other merge into `main`.
-
-The integration branch is `main`. `--base master` and `master..HEAD` fail
-in this repository.
-
-End a report with a question, not with an offer. A report that ends on
-an open statement ("the verifier passed, nothing is committed", "say the
-word") makes the reader type the obvious next step by hand, and a
-question asked in prose gets answered with a bare number. An agent uses
-the question tool where a skill names it. So the rule sits once in
-`AGENTS.md`, and each skill's last step names the options its outcome
-leaves, the recommended one first: `plan` offers implementation or a
-fresh session, `implement` offers `review`, `review` offers `compound` or
-the fix loop by verdict, `compound` offers `land`, and `land` offers to
-run a missing checkpoint's skill. Nothing runs on its own: a step that
-runs itself after every other step produces work nobody asked for, and
-a reader sometimes redirects instead of accepting, so each question
-keeps a "stop here" option. A delegated
-worker never asks, because a worker waiting on an answer looks like one
-that is working. Each option states its tradeoff, not only the
-recommended one its reason, because a choice offered as bare names
-cannot be made without asking what each costs.
-
-Pick the next work from files, and finish before starting. `next` exists
-because "what now" otherwise gets answered from an agent's memory of the
-plans it happened to read, across dozens of plan files in two unit formats. The tools
-that answer it well agree on the shape: Task Master's `next` and Beads'
-`bd ready` compute the set whose dependencies are met from a store, never
-from the model's recall, and rank inside it; both ship the listing as a
-command because a model re-reading every file is slow and drifts. So
-`plan-queue.py` reads frontmatter, a parent's `After:` and `Landed:`
-lines, the ledger, and the unmerged branches that touch a plan, and the
-skill reads its output. Work in progress outranks ready work, the Kanban
-rule of limiting what is open; a plan another branch already changes is
-flagged, since two worktrees can otherwise implement the same phase. The
-prior art has no answer for "nothing is planned": none of the surveyed
-tools compares plans with stated goals, and that comparison is where an
-agent invents a roadmap. `GOALS.md` is the guard: one line per decided
-goal with its record, no status, and `next` proposes a gap only for a
-goal that file states.
+files both phases own. A plan without phases stops before `land`, which
+stays a person's request like every other merge into `main`. A parent's
+phases land as each finishes, below.
 
 Run each stage of a drive in a session of its own, and drive a plan
 without phases the same way. `drive` first sequenced a parent's phases
@@ -778,40 +860,220 @@ the cap leaves every one of them at least one worker; the parent's
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 
-Write hot-path text as procedure, and keep the story here. A pass over
-the skills and agent definitions against Anthropic's skill, subagent, and
-memory guidance and the Claude 5 prompting guides found no emphasis
-markers, no over-verification scaffolding, and descriptions inside the
-length limit. What it changed was shape: a rule buried in the middle of a
-paragraph became a numbered step or a table row, an output contract
-stated at the top and the bottom of an agent definition became one
-section at the end, and a story became its one-clause reason. In
-`verify-change` the gate list is closed because a list restated from
-memory drops gates, and the script is the last command of a background
-invocation because a trailing `tail` supplies its own exit code over a
-log that holds `FAIL` lines. Dates stay out of skills and agent
-definitions except in format examples. This document keeps them where
-they say when published evidence was last checked.
+Land a multi-phase plan phase by phase, the small-batch practice DORA's
+[working in small batches](https://dora.dev/capabilities/working-in-small-batches/)
+and [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)
+describe. `land` states the rule and `drive` runs it for each finished
+phase, so the rule holds whether a person or a drive works the phases.
+`land` gates every plan the branch carries past `main`. A drive therefore
+starts no new phase while one is owed a land, lets phases already
+implemented here finish first, and parks partial work on a branch of its
+own. `plan-state.py` prints the owed land as a stage so a resumed drive
+finds it. A worktree-isolated session cannot move `main`, so the
+fast-forward of each phase may wait for the person. It names the verified
+commit, so running it late still lands only finished phases.
 
-Report outcome first. Each skill's report step leads with the verdict or
-result and keeps the rest to a short ordered list, which is what readers of
-agent output ask for and what the `i-have-adhd` skill codifies.
+### `delegate` and `tune`
 
-Trim narration, not evidence. Anthropic's Opus 5 guide says the model's
-responses run longer than earlier Opus models', that effort does not
-shorten them, and that an explicit instruction placed near the end of the
-prompt does; `independent-reviewer` runs on Opus, so its definition ends
-with one. The instruction names the parts to leave out (preamble, a
-restatement of the brief, a closing summary) rather than asking for
-brevity, for two reasons. Giskard's Phare study found that "answer briefly"
-instructions cut hallucination resistance by up to 20%: models keep the
-claim and drop the explanation, which for a reviewer means the failure
-scenario. And the Opus 5 and Sonnet 5 guides both warn that a review prompt
-saying "be conservative" is followed literally and lowers recall; the
-reviewer already filters to correctness, and a length cap would compound
-that filter. The rule stays out of `AGENTS.md` because the Fable 5.1 guide
-says the coordinating model already writes too few progress updates and
-that instructions to keep that text brief should be removed.
+Name the model for every delegate. `repo-researcher` and
+`independent-reviewer` run on `claude-opus-5-5` at `xhigh`, the level the
+registry gives that model in `research` and `review-unit`. The Agent tool
+takes a model and no effort, so the agent frontmatter carries the level.
+The frontmatter names the full id because the `opus` alias resolves to the
+session's own model whenever the session already runs an Opus model, and
+it accepts `xhigh` among `low` to `max`
+([Create custom subagents](https://code.claude.com/docs/en/sub-agents),
+checked 2026-10-02).
+`delegate` sends pure lookups to `Explore`
+on Haiku and resolves editing workers from the registry's fit set, taking
+the first model in its best-first order whose pool has room, and no agent uses `inherit` any more: the coordinating session
+may run the most expensive model, and none of the delegated work needs it. Anthropic's subagent guide recommends Haiku
+for read-only exploration; its research-system report measured an Opus lead
+with Sonnet workers beating a single Opus agent by 90.2% on its internal
+eval, while a multi-agent run costs about 15 times a chat turn; ProgRouter
+arrives at the same shape by routing each workflow step to the cheapest
+model that still makes progress. Users describe the failure mode from the
+other side: a task that spawned seven subagents on the session model and
+exhausted a budget before one of them finished, cured by naming a smaller
+model for them. `delegate` therefore sizes each wave from measured
+headroom rather than from how much work is ready: each pool row states its
+slots per window, the account plan's capacity times the unused share of
+the window counted in halves of a standard plan's window, at least one
+below the pool's limit and none at or above it, and the coordinator caps
+the sum at six. The percent alone read a small plan at 0% as the same
+headroom as a large plan at 50%, and a wave sized that way lost four lanes
+to a pool whose account did not serve the models it was given.
+
+A brief names the checks already run and the findings already settled.
+Without that, a reviewer re-runs the coordinator's race tests and a fix
+worker re-diagnoses what the review decided. A sub-worker writes to
+`$TMPDIR`, never to `/tmp`, which the sandbox denies. A coordinator that
+announces a unit starts it in the same turn.
+
+Grade each Orca lane before stopping it. A merged branch cannot tell whether
+the coordinator accepted the work as written or repaired it, and an unmerged
+branch cannot distinguish rejection from a worker that stopped on a blocker.
+The event log records that judgment while the lane still exists. `tune`
+joins it to CLI transcripts to compare models on this repository's actual
+tasks. Field results may reorder calibrated fit-set members, or support a
+removal proposal, once the sample threshold is met. They cannot add a model:
+entry still needs a calibration result on the fixed task so a busy week of
+easy work does not establish fitness for the role.
+
+Send editing workers to an Orca worker when Orca's runtime is reachable.
+The asynchronous-agent study behind CAID found that isolated workspaces, a
+central integrator, and test-based verification at merge improved paper
+reproduction by 25.6 points and library development by 14.7. An Orca
+worker provides that: a child worktree per worker, a named model per
+launch, and a report the coordinator waits on. Herdr held this place from
+2026-09-10 to 2026-09-19 because it answered four of the Orca failures
+`docs/research/herdr-trial-2026-09-10.md` lists (items 4 to 7), all of
+them about `orca orchestration`: `worker-start` pins Claude, Codex, and
+Cursor ids only and a dispatch into an `agy` or `opencode` terminal sat
+unsubmitted, `check --wait` is re-armed by every heartbeat, a dispatch
+carries a capability token a context compaction can lose, and a card's
+status lags the dispatch queue. `delegate/scripts/orca-worker.sh` meets
+the first three without orchestration: `orca terminal create --command` takes
+any CLI's launch line with the model on it, the wait is confirmed against
+the worker's screen, and a lane is a terminal and a branch with no token.
+`references/orca.md` says which lanes its described behavior was measured
+on. A read-only
+delegate that resolves to a Claude model stays a native subagent, which
+loads its definition and nothing else, where a runtime worker is a full
+agent session. One that resolves to another vendor's model goes to that
+pool's CLI, since a native subagent runs only on Claude. That covers the
+unit reviewer kept off the executor's vendor: a reviewer from the same
+vendor shares the executor's blind spots, and a seam worker that spawns
+its own subagents reviews with its own model. Without Orca, `delegate` falls back to a native
+subagent with worktree isolation only when the role's fit set holds a
+Claude model. Otherwise the coordinator works the units itself. A native
+subagent runs only on Claude, and a role whose fit set holds no Claude
+model would send editing work to a model with no calibration for it.
+Sequential work is the safer fallback. A stage of `land` or `drive` needs a
+session of its own that commits a checkpoint, so it runs in a native
+subagent with worktree isolation, on a Claude model from the stage role's
+fit set, for a review stage one other than the change's author. Stopping the stage for the user
+left a drive waiting on a person for work a subagent could do. The Orca command surface is
+version-matched and served by the binary (`orca skills get orca-cli`,
+`orca skills get orchestration`), so the skills show the shape of the loop
+and defer to that guide for flags.
+Two facts about the Orca CLI shape the skill's wording: the CLI reaches the
+app over a local socket that Claude's Bash sandbox blocks, so a sandboxed
+`orca status` reports the app as not running from inside an Orca terminal;
+and `orca account list` reports which providers are signed in and how much
+of each rate-limit window is used, which is why `delegate` discovers the
+worker agent and provider per session instead of assuming Claude and picks
+the provider for each wave by remaining quota. The 85% threshold is a
+starting point chosen so that the lanes a pool holds below it cannot push
+a window over its limit mid-run. It guards the percent whatever the plan's
+capacity, since a large plan can hold six lanes just under it. Tune it
+when a wave gets cut off or when quota sits idle.
+
+Orca reads usage only for the providers it has credentials for. Its
+`unavailable` status describes its view, not the pool. The
+[`pool-usage.sh`](../.agents/skills/delegate/scripts/pool-usage.sh) reader uses
+each pool's own source. When Orca is absent or cannot supply Claude or Codex
+windows, native CLI queries read subscription usage through the CLI's own
+sign-in. This prevents an absent runtime from excluding installed, signed-in
+CLIs or hiding their exhausted windows. The
+[pool-row reference](../.agents/skills/delegate/references/pool-rows.md) names
+the interfaces and failure states.
+
+Widen a wave when the pools are idle. A fixed cap runs independent
+phases in turn while prepaid pools stay idle and are paid for anyway.
+The cap follows the pool rows `delegate` reads before each wave, and
+only independent work widens with it: the Co-Coder result that gives
+parallelism its gain is the same one that makes naive splitting cost
+more, so dependent units still chain. Six is the ceiling because every
+lane still passes through one coordinator's tree check, merge, and
+verifier, and the verifier runs one at a time; it is a starting value,
+to be raised if merges keep pace and lowered if a wave's merges back up.
+
+A report a worker prints is only as long as its terminal keeps. A review
+lane's six findings came back as three, because `orca-worker.sh read`
+returns the last screens. `delegate`'s brief now gives a report-only lane
+a scratchpad file to write. The path was measured on `agy`. Whether a
+Codex worker's sandbox lets it write there is unverified.
+
+A still screen is not always a finished turn. A worker waiting for its
+pool's window to reset shows no working hint, so `wait` reported it `idle`
+with no report written. `wait` now prints `limited` when the quiet screen
+names a limit, and `orca.md` routes that outcome. The pattern is broad
+because no CLI's wording of that wait was captured. `stop` accepts an
+unmerged lane whose commits `parked/<slug>` holds, since `drive`'s parking
+keeps a phase's work there and `stop` otherwise refused the lane it had
+just made safe.
+
+### `verify-change` and the hooks
+
+Enforce with the verifier, not with prose. Every skill ends by running
+`verify-change` on the changed paths. Anthropic's guidance is explicit that
+an instruction in a skill is a request and a hook is a guarantee.
+
+Verify once, on the integrated result, at the scope the change can reach.
+When every worker and then the coordinator run the verifier, and the
+verifier races the whole module for any Go path, two small tests cost
+three module-wide race runs of about ten minutes each. The verifier
+therefore vets, tests, and lints the changed packages and their importers (a
+fixpoint over `go list` dependency and test-import data) and keeps the
+module-wide scope for `--full`; workers run their package's focused tests
+and the coordinator runs the verifier once after merging.
+
+Make a gate's silence impossible to read as a pass. The verifier has
+reported success for reasons unrelated to the code: a directory argument
+selecting no gate, a no-gate exit clearing its own marker, a cached corpus
+pass, a `--path` naming a file the baseline lacks, and a background wrapper
+whose `tail` replaced the script's exit code. Each was fixed in the script
+rather than in prose, since a rule that was read and broken wants
+enforcement: a directory expands to its files, a no-gate run exits non-zero
+before touching the receipt, the corpus tier carries `-count=1`,
+`buf breaking` targets only files `main` holds, and the last line of every
+run names the verdict. A `--full` run could also block forever on a
+Docker daemon that had stopped answering, with a verdict line that did
+not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
+verdict line names the gate that was running. The invariant packages (`src/common/errs` and
+everything under `test/conformance/`) run once on every targeted run that
+selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
+and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
+the diff cannot cause teaches its readers to discount it. Three more
+failures of that kind live in the script rather than in prose: the lint
+gate passes `--allow-serial-runners`, because `golangci-lint` holds one
+lock per machine and would otherwise die on any concurrent run; the
+script searches `$(go env GOPATH)/bin` and checks every tool the selected
+gates need before the first gate, because a session's PATH must not
+decide whether the tree verifies and a late tool failure reads as a gate
+result; and a passing run prints the dirty-marker lines it could not
+clear, because a targeted run rewrites the marker in the same second as
+the receipt and a silent survivor reads as an artifact, so `land` takes
+the marker's content as its remedy. A web path now selects the web
+workspace's typecheck, build, ESLint, Stylelint, Prettier, and Vitest gates; a
+marked path absent from both the tree and an explicit base clears like
+one whose bytes match the base. An argument spelled through the
+`.claude/skills` link is rewritten to the path git tracks: git lists
+nothing beyond a link, so the directory form stopped the run before any
+gate, and the marker holds git's spelling, so the file form left its line
+behind. The marker hook itself was the last
+of these. It guessed from a Bash command's text whether the command wrote
+a file, and the pattern missed a Python rewrite of a document and any
+`cp` or `tee`, while it flagged `git log | grep patch` and a redirect to a scratch `.json`; each false
+flag asked for a module-wide race run. The hook now reads what changed off
+the tree, by content hash of the dirty paths against the listing stored
+after the previous Bash call, and marks those paths like editor edits;
+only a change under `generated/` or to the module graph keeps the
+`--full` line. It needs no snapshot before the command, which two
+parallel Bash calls would have raced on, and the verifier rewrites the
+listing after a pass so verified content is not marked again.
+
+The Stop gate ran in 20 seconds on an empty Go build cache and 3 on a warm
+one on 2026-10-03 (`tools/hooks/stop-check.sh` fed `{"cwd":"<root>"}` on
+standard input, with `GOCACHE` set to an empty directory), against the 30-second `timeout` both runtime configs
+set. A command hook cancelled at its timeout has its output discarded and
+renders no decision ([Hooks](https://code.claude.com/docs/en/hooks), checked
+2026-10-03), so a run past the timeout would read as a pass. Measure again
+when a conformance package is added.
+
+The integration branch is `main`. `--base master` and `master..HEAD` fail
+in this repository.
 
 ## Change and review process
 
@@ -1053,6 +1315,59 @@ Sources checked on 2026-09-18 for the wording pass:
   fare worse in multi-instruction prompts, and earlier positions do better.
   The same check could not confirm the 30 to 50% figure this document
   takes from "The Instruction Gap"; treat that number as unverified.
+
+Sources checked on 2026-10-02 for `diagnose` and the borrowed checks:
+
+- [mattpocock/skills](https://github.com/mattpocock/skills):
+  `diagnosing-bugs` (a red-capable loop before any hypothesis, a minimised
+  reproduction, ranked falsifiable hypotheses, tagged debug lines),
+  `grilling` (a question that depends on an open one waits a round), and
+  `tdd` (the tautological test).
+- [cloudflare/security-audit-skill](https://github.com/cloudflare/security-audit-skill):
+  the candidate gate in `HUNTING.md`, the `needs_validation` state, and the
+  disciplines in `PROTOCOLS-RPC-AND-MESSAGING.md` and
+  `DATA-ISOLATION-AND-LIFECYCLE.md`.
+- [blader/humanizer](https://github.com/blader/humanizer): 26 patterns
+  ordered by strength, and a check that a rewrite added or dropped no fact.
+- [cathrynlavery/diagram-design](https://github.com/cathrynlavery/diagram-design):
+  a complexity budget of 9 nodes and 12 arrows per diagram.
+- [addyosmani/agent-skills](https://github.com/addyosmani/agent-skills):
+  error output treated as untrusted data in
+  `debugging-and-error-recovery`.
+- [Graphify-Labs/graphify](https://github.com/Graphify-Labs/graphify):
+  `BENCHMARKS.md` reports the code result on ERPNext with n=6, and
+  `graphify/extractors/` holds one extractor per supported language, none
+  for protobuf.
+
+Sources checked on 2026-10-02 for the second pass:
+
+- [obra/superpowers](https://github.com/obra/superpowers):
+  `systematic-debugging` with `condition-based-waiting.md`, and the
+  "Match the Form to the Failure" table in `writing-skills`.
+- [trailofbits/skills](https://github.com/trailofbits/skills):
+  `spec-to-code-compliance` (six verdicts per requirement, an `absent`
+  verdict resting on its search record) and `fp-check`.
+- [getsentry/skills](https://github.com/getsentry/skills): `skill-scanner`,
+  the structural checks on a skill directory.
+- [garrytan/gstack](https://github.com/garrytan/gstack): "Claimed
+  Limitations Need Evidence" in `investigate`.
+- [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills):
+  `karpathy-guidelines`, four rules this repository already held.
+- [skills.sh](https://skills.sh/): the install leaderboard used to pick
+  what to read.
+
+Sources checked on 2026-10-03 for the frontmatter and listing decisions:
+
+- [Anthropic, "Extend Claude with skills"](https://code.claude.com/docs/en/skills):
+  the listing budget and what overflow drops, `disable-model-invocation`,
+  and `paths`.
+- [Anthropic, "Environment variables"](https://code.claude.com/docs/en/env-vars):
+  the 8,000-character fallback of the listing budget.
+- [Anthropic, "Hooks"](https://code.claude.com/docs/en/hooks): a command
+  hook cancelled at its `timeout` has its output discarded.
+- [Anthropic, "Skill authoring best practices"](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices):
+  references one level deep, and a contents list for a reference file over
+  100 lines.
 
 The common recommendation is progressive disclosure. The inference for
 FlowSeer is to keep `AGENTS.md` near its current size, add scoped steering only

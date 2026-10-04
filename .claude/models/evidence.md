@@ -262,3 +262,9 @@ lanes sol61-out/, graded 2026-09-30. Not placed in a fit set pending the user's
 decision.
 gpt-6.1-sol — integration @xhigh base 26a03756: 5/5 (matches gpt-6-sol). review-seam @high base 26a03756: found the two-pass clock-reversal known bug, 2 valid extras, 406 s. bench.sh lanes sol61-out/ + sol61-integ.grade — 2026-09-30
 roles.{research,plan,review-unit,execute} — gpt-6.1-sol added ahead of gpt-6-sol on the user's approval 2026-09-30 (review-unit found at every level 3-4 extras; execute 7/7 + integration 5/5, pinned @xhigh). roles.review-seam — added AFTER gpt-6-sol instead: on the seam task it scored fewer extras and was slower, so the evidence orders it behind. registry.yaml roles — 2026-09-30
+
+## Pool account plans 2026-10-04
+
+- pools.claude.plans.max (capacity: {session: 20}): Account is Max 20x, stated by the user, 2026-10-04. Ratio and its session scope: "Max 20x includes 20 times the Pro plan's per-session usage allowance", <https://support.claude.com/en/articles/11049741-what-is-the-max-plan>, fetched 2026-10-04.
+- pools.codex.plans.prolite (capacity: 1): Unverified. <https://learn.chatgpt.com/docs/pricing> (fetched 2026-10-04) names Pro at $100, $200, and $500, no "Pro Lite", and no ratio to Plus.
+- pools.zai.plans.lite (capacity: 1): <https://docs.z.ai/devpack/overview> (fetched 2026-10-04) lists Lite at 2,000 five-hour and 10,000 weekly credits, the lowest tier. `omp usage` reports the same two limits.

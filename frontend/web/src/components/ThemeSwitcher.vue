@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { UiTooltip } from '../ui'
-import { onMounted, onUnmounted, ref, watch } from 'vue'
-import { useMotionFeedback } from '../motion/useMotionFeedback'
+import { UiTooltip, useMotionFeedback } from '../ui'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppIcon from './AppIcon.vue'
 
+const { t } = useI18n({ useScope: 'global' })
 const { play } = useMotionFeedback()
 const sun = ref<HTMLElement>()
 const moon = ref<HTMLElement>()
@@ -24,7 +25,18 @@ const theme = ref<Theme>(
       ? 'dark'
       : 'light',
 )
-const announcement = ref('')
+// The last change as a state, not as text, so the status follows a locale
+// switch.
+const changed = ref<Theme | 'unsaved' | ''>('')
+const announcement = computed(() =>
+  changed.value === 'dark'
+    ? t('view.themeSwitcher.enabledDark')
+    : changed.value === 'light'
+      ? t('view.themeSwitcher.enabledLight')
+      : changed.value === 'unsaved'
+        ? t('view.themeSwitcher.unsaved')
+        : '',
+)
 function applyTheme(value: Theme) {
   theme.value = value
   document.documentElement.dataset.theme = value
@@ -35,10 +47,9 @@ function toggleTheme() {
   applyTheme(theme.value === 'dark' ? 'light' : 'dark')
   try {
     localStorage.setItem('flowseer.theme', theme.value)
-    announcement.value = `${theme.value === 'dark' ? 'Dark' : 'Light'} mode enabled.`
+    changed.value = theme.value
   } catch {
-    announcement.value =
-      'Theme changed for this page. Your browser could not save the preference.'
+    changed.value = 'unsaved'
   }
 }
 watch(
@@ -49,9 +60,8 @@ watch(
       sun.value,
       {
         opacity: dark ? [1, 0] : [0, 1],
-        transform: dark
-          ? ['rotate(0deg) scale(1)', 'rotate(45deg) scale(0.65)']
-          : ['rotate(-45deg) scale(0.65)', 'rotate(0deg) scale(1)'],
+        rotate: dark ? [0, 45] : [-45, 0],
+        scale: dark ? [1, 0.65] : [0.65, 1],
       },
       0.16,
     )
@@ -59,9 +69,8 @@ watch(
       moon.value,
       {
         opacity: dark ? [0, 1] : [1, 0],
-        transform: dark
-          ? ['rotate(-35deg) scale(0.65)', 'rotate(0deg) scale(1)']
-          : ['rotate(0deg) scale(1)', 'rotate(35deg) scale(0.65)'],
+        rotate: dark ? [-35, 0] : [0, 35],
+        scale: dark ? [0.65, 1] : [1, 0.65],
       },
       0.16,
     )
@@ -76,12 +85,18 @@ onUnmounted(() => systemTheme.removeEventListener('change', syncSystemTheme))
 </script>
 
 <template>
-  <UiTooltip :label="`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`">
+  <UiTooltip
+    :label="
+      theme === 'dark'
+        ? t('view.themeSwitcher.switchToLight')
+        : t('view.themeSwitcher.switchToDark')
+    "
+  >
     <button
       class="theme-switcher relative grid place-items-center w-11 h-11 p-0 bg-transparent text-chrome-foreground border-0 rounded hover:bg-chrome-hover cursor-pointer"
       type="button"
       role="switch"
-      aria-label="Dark mode"
+      :aria-label="t('view.themeSwitcher.label')"
       :aria-checked="theme === 'dark'"
       @click="toggleTheme"
     >

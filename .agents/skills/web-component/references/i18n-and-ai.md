@@ -1,44 +1,111 @@
 # i18n and the AI contract
 
 Both are decided in
-`docs/architecture/2026-09-28-web-component-contract-direction.md`. Both
-land through a migration plan, so first check what exists:
+`docs/architecture/2026-09-28-web-component-contract-direction.md`. AI
+registration lands through a migration plan, so first check what exists:
 
 ```bash
-ls frontend/web/src/i18n frontend/web/src/ai/catalog.ts 2>&1
+ls frontend/web/src/ai/catalog.ts 2>&1
 ```
 
-## While the migration has not landed
+## While the AI migration has not landed
 
-When `src/i18n/` or `useAiTarget` does not exist yet:
+When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
 
-- **Strings.** Collect every user-visible string of the component in one
-  `const` object at the top of the script, and expose each through a prop
-  that has that default. The migration then moves them mechanically.
 - **AI registration.** Register with `v-ai-target` on the root element,
   through `aiTarget()`. See the README's "AI targets" section.
-- **Report.** Say that the component awaits the migration.
+- **Report.** Say that generative AI catalog integration awaits the AI
+  migration.
 
-Do not install `vue-i18n` yourself. The approval covers the migration
-plan, not incidental use.
-
-## i18n, once `src/i18n/` exists
+## i18n
 
 - Messages live in `src/i18n/locales/en.json` and `de.json`, under the
-  key `ui.<component>.<key>`. Views use `view.<view>.<key>`.
-- The component calls `const { t, n, d } = useI18n()`. Each visible
-  string is a prop whose default is `t('ui.<component>.<key>')`, so a
-  caller can override it.
-- Plurals use vue-i18n plural messages, never `count === 1 ? … : …`.
+  key `ui.<owner>.<suffix>`. Views use `view.<view>.<key>`.
+- The component calls `const { t, n, d } = useI18n({ useScope: 'global' })`.
+- Optional text props resolve as `props.text ?? t('ui.<owner>.<suffix>')`
+  in computed state or the template so translations react to locale changes.
+  Never call `t` in a hoisted `withDefaults` default: Vue's
+  `checkInvalidScopeReference` rejects it and a one-time translation freezes
+  the locale. Structural defaults stay in `withDefaults`.
+- Plurals use vue-i18n plural messages, never ternary expressions.
 - Numbers use `n()`, and dates and times use `d()` with a named format.
-  Relative times, lists, and units use the matching `Intl` API for the
-  active locale.
+  Relative times use the matching `Intl` API for the active locale, while
+  unit labels and the list separator are messages.
 - Never build a sentence from fragments. Word order differs between
   English and German. Use one message with named interpolation.
-- German runs about 30% longer. The `LongText` story renders the German
-  locale, and the layout must hold.
+- German runs about 30% longer. LongText stories supply long content and
+  leave story-level `locale` unset in globals. The automated audit mounts
+  every story in both English and German, and browser checks inspect the
+  layout with the German toolbar selection.
 - Add every key to both locale files in the same change. A test fails on
   a key that is missing from one of them.
+
+### Working example
+
+`src/ui/command/UiCommandEmpty.vue` resolves its optional text prop
+reactively while exposing a default message and a customization slot:
+
+```vue
+<script setup lang="ts">
+import { computed } from 'vue'
+import { ComboboxEmpty } from 'reka-ui'
+import { useI18n } from 'vue-i18n'
+
+export interface UiCommandEmptyProps {
+  text?: string
+}
+
+const props = defineProps<UiCommandEmptyProps>()
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
+</script>
+
+<template>
+  <ComboboxEmpty class="py-6 text-center text-sm text-muted-foreground">
+    <slot>{{ resolvedText }}</slot>
+  </ComboboxEmpty>
+</template>
+```
+
+### View rules
+
+These apply to files under `src/*.vue`, `src/components/`, and
+`src/navigation/`. The README's "View messages" section has a worked example
+from `src/components/DevicePorts.vue`.
+
+- **Owner naming.** A message is `view.<owner>.<key>`, with one owner per
+  view or component (`workspace`, `devicePorts`, `topologyInspector`). A
+  word that two owners render lives in `view.common`, so it cannot drift.
+  Keys are camelCase.
+- **Composables.** Format through `useFormat()` (`src/i18n/format.ts`) and
+  name identifiers through `useLabels()` (`src/i18n/labels.ts`). A view
+  never calls `toLocaleString`, never calls `toUpperCase` on translated
+  text, or an English plural ternary, and never keeps a unit or an
+  identifier word in a script constant.
+- **Fixture data.** A fixture value typed `string` renders verbatim. A value
+  typed as a union of literals is an identifier, and its text is a message.
+  Names, addresses, serials, port names, and models carry `translate="no"`.
+- **The frozen-constant trap.** A `t()` call in a top-level `const` runs
+  once and keeps the locale it saw. Make the table a `computed` or move it
+  into the template. A view test that switches the locale on a mounted app
+  is the only check that catches it.
+- **Check.** `src/i18n/templates.test.ts` fails on a literal text node or a
+  static label attribute in any `.vue` file its globs match, so a new file
+  under those directories is covered without an edit. It does not read
+  `<script>` or bound expressions. Read the script of every file you
+  migrate for quoted capitalized words, template literals with English
+  text, and ternaries that choose between two plural forms.
+- **Executable identifier property.** `unmarkedIdentifiers(root, identifiers)`
+  in `src/i18n/testing.ts` verifies that rendered text nodes containing fixture
+  identifiers sit inside `translate="no"` elements. The fixture set in
+  `src/domain/testing.ts` covers device names, addresses, client hostnames,
+  MACs, sites, tenants, serials, models, firmware versions, port names, and
+  the brand. The property checks text nodes only, so `aria-label` and `title`
+  sit outside it. Tooltips sit inside the property: `UiTooltip` exposes
+  `label` and `hint` slots so callers can mark identifier spans with
+  `translate="no"` while leaving message text unmarked. Each new surface
+  requires an explicit test call.
 
 ## AI contract, once `useAiTarget` exists
 
@@ -63,8 +130,9 @@ plan, not incidental use.
 
 ## Tests
 
-- **i18n:** the component renders with the `de` locale, and the
-  missing-key test passes.
+- **i18n:** the story audit mounts each story in `en` and `de`. The audit
+  asserts zero missing-key, fallback, and parent-scope warnings. German
+  pagination renders `Zurück` and `Weiter`.
 - **AI:** with an `ai` prop, `registry.list()` includes the target, and
   `highlight(id)` sets `data-ai-selected`. Without the prop, nothing
   registers.

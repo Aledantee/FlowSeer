@@ -2,7 +2,7 @@
 title: A State Fingerprint Used as a Convergence Oracle Lies When It Omits a Resolution Axis or Keeps a Timer
 date: 2026-09-18
 category: conventions
-module: src/common/netsim/fabric
+module: src/common/sim/fabric
 problem_type: convention
 component: convergence
 severity: high
@@ -28,18 +28,18 @@ not build failures: the suite was green each time.
 spanning-tree roles per VLAN through `configuredVLANs`, but under MST the CIST
 was never sampled: the PVST branch seeded `seen[1]` and the MST branch did not,
 so no VLAN mapped to the common tree and the CIST's port state never entered the
-fingerprint (`src/common/netsim/vswitch/switch.go:3291`, the fix). A CIST-only
+fingerprint (`src/common/sim/device/vswitch/switch.go:3291`, the fix). A CIST-only
 transition then changed nothing the oracle could see. The neighbor table had the
 same shape: `Device.Neighbors` was excluded, so a fabric still resolving ARP/ND
 fingerprinted identically to a resolved one. Both are now included — per-VLAN
 tree roles, and neighbor resolution state with hold depth
-(`src/common/netsim/fabric/fingerprint.go:242`).
+(`src/common/sim/fabric/fingerprint.go:242`).
 
 **Kept timer field → convergence never fires.** The counters, the clock, the
 arrival queue, and the per-hello BPDU counters (`TxBPDUs`, `RxBPDUs`,
 `ForwardTransitions`) and neighbor expiry timestamps all advance without the
 network being unsettled, so every one is excluded. `TestFingerprintTimerInsensitive`
-(`src/common/netsim/fabric/fingerprint_test.go:770`) and the neighbor test
+(`src/common/sim/fabric/fingerprint_test.go:770`) and the neighbor test
 (`:1324`, resolution state changes the fingerprint, an expiry-only advance does
 not) are the evidence.
 
@@ -60,7 +60,7 @@ nothing; the encoder was hand-written, so a field could be marked `included` and
 silently never encoded. Close that gap by asserting each included field *changes
 the output*: perturb it and require the fingerprint to differ
 (`TestFingerprintIncludedFieldsAffectFingerprint`,
-`src/common/netsim/fabric/fingerprint_test.go:963`). This is the same
+`src/common/sim/fabric/fingerprint_test.go:963`). This is the same
 "the table nothing reads is inert" failure as
 [a reflection perturbation gate that copies structs by field](./a-perturbation-gate-that-copies-structs-by-field-passes-vacuously.md)
 and [a slot that carries two roles](../architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md);

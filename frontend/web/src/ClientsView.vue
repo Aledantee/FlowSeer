@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
 import { scopeOf, usePage } from './navigation/page'
 import type { Device } from './domain/fleet'
@@ -8,6 +9,8 @@ import { clientsOf, signalQuality } from './domain/clients'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget } from './ai'
 import AppIcon from './components/AppIcon.vue'
+import { useFormat } from './i18n/format'
+import { useLabels } from './i18n/labels'
 import {
   UiEmptyState,
   UiInput,
@@ -28,18 +31,30 @@ const props = defineProps<{
 }>()
 const navPage = usePage()
 const slot = useAiSlot()
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
+
+// The reading and its quality word as one message, shown to an operator and
+// carried in an AI target's context.
+function signalReading(client: Client) {
+  return t('view.common.signalReading', {
+    reading: format.quantity(client.signal, 'dbm'),
+    quality: labels.signal(signalQuality(client.signal)),
+  })
+}
 const viewTarget = computed(() =>
   aiTarget({
     slot,
     view: 'clients',
     kind: 'view',
     entityId: accessPoint.value ? accessPoint.value.id : 'all',
-    label: 'Connected clients',
+    label: t('view.common.connectedClients'),
     context: {
-      count: String(all.value.length),
-      matching: String(filtered.value.length),
-      accessPoint: accessPoint.value?.name ?? 'All access points',
-      search: search.value || 'none',
+      count: n(all.value.length, 'integer'),
+      matching: n(filtered.value.length, 'integer'),
+      accessPoint: accessPoint.value?.name ?? t('view.clients.allAccessPoints'),
+      search: search.value || t('view.common.noSearch'),
       band: band.value || 'all',
     },
   }),
@@ -56,8 +71,10 @@ function clientTarget(client: Client): AiTarget {
       address: client.address,
       mac: client.mac,
       band: client.band,
-      signal: `${client.signal} dBm (${signalQuality(client.signal)})`,
-      accessPoint: devicesById.value.get(client.deviceId)?.name ?? 'Unknown',
+      signal: signalReading(client),
+      accessPoint:
+        devicesById.value.get(client.deviceId)?.name ??
+        t('view.common.unknownDevice'),
     },
   })
 }
@@ -69,12 +86,11 @@ watch(
   (q) => (search.value = q),
 )
 const band = ref<Band | ''>('')
-const bandOptions = [
-  { value: 'all', label: 'All bands' },
-  { value: '2.4 GHz', label: '2.4 GHz' },
-  { value: '5 GHz', label: '5 GHz' },
-  { value: '6 GHz', label: '6 GHz' },
-]
+const BANDS: Band[] = ['2.4 GHz', '5 GHz', '6 GHz']
+const bandOptions = computed(() => [
+  { value: 'all', label: t('view.clients.allBands') },
+  ...BANDS.map((value) => ({ value, label: labels.band(value) })),
+])
 const accessPoint = computed(() =>
   props.scope.find((device) => device.id === navPage.query('ap')),
 )
@@ -99,7 +115,7 @@ const paginated = computed(() =>
 )
 watch([search, band, accessPoint], () => (page.value = 1))
 function isBand(value: string): value is Band {
-  return value === '2.4 GHz' || value === '5 GHz' || value === '6 GHz'
+  return BANDS.some((item) => item === value)
 }
 function setBand(value: string) {
   band.value = isBand(value) ? value : ''
@@ -122,11 +138,11 @@ function clearAccessPoint() {
       class="px-6 py-5 pb-4 flex items-center justify-between gap-3 max-[560px]:p-[18px_14px]"
     >
       <h2 id="clients-title" class="text-base font-semibold text-foreground">
-        Connected clients
+        {{ t('view.common.connectedClients') }}
         <span
           class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
         >
-          {{ all.length }}
+          {{ n(all.length, 'integer') }}
         </span>
       </h2>
     </div>
@@ -140,8 +156,8 @@ function clearAccessPoint() {
         />
         <UiInput
           v-model="search"
-          placeholder="Search hostname, IP, or MAC address…"
-          aria-label="Search clients"
+          :placeholder="t('view.clients.searchPlaceholder')"
+          :aria-label="t('view.clients.search')"
           class="pl-8"
         />
       </div>
@@ -149,34 +165,37 @@ function clearAccessPoint() {
         <UiSelect
           :model-value="band || 'all'"
           :options="bandOptions"
-          aria-label="Filter by band"
+          :aria-label="t('view.clients.filterBand')"
           @update:model-value="setBand($event)"
         />
       </div>
       <button
         v-if="accessPoint"
         class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-control bg-subtle text-foreground hover:bg-hover border border-border cursor-pointer"
-        :aria-label="`Stop filtering by ${accessPoint.name}`"
+        :aria-label="
+          t('view.clients.stopFiltering', { name: accessPoint.name })
+        "
         @click="clearAccessPoint"
       >
-        {{ accessPoint.name
-        }}<AppIcon name="close" class="w-3 h-3 text-muted-foreground" />
+        <span translate="no">{{ accessPoint.name }}</span
+        ><AppIcon name="close" class="w-3 h-3 text-muted-foreground" />
       </button>
       <span class="ml-auto text-xs text-muted-foreground">
-        {{ filtered.length }}
-        {{ filtered.length === 1 ? 'result' : 'results' }}
+        {{ format.counted('view.common.results', filtered.length) }}
       </span>
     </div>
     <UiScrollArea axis="x" viewport-class="table-scroll">
       <UiTable>
         <UiTableHeader>
           <UiTableRow>
-            <UiTableHead>Client</UiTableHead>
-            <UiTableHead>MAC address</UiTableHead>
-            <UiTableHead>Access point</UiTableHead>
-            <UiTableHead>Band</UiTableHead>
-            <UiTableHead>Signal</UiTableHead>
-            <UiTableHead align="numeric">Traffic</UiTableHead>
+            <UiTableHead>{{ t('view.clients.client') }}</UiTableHead>
+            <UiTableHead>{{ t('view.common.macAddress') }}</UiTableHead>
+            <UiTableHead>{{ t('view.clients.accessPoint') }}</UiTableHead>
+            <UiTableHead>{{ t('view.clients.band') }}</UiTableHead>
+            <UiTableHead>{{ t('view.clients.signal') }}</UiTableHead>
+            <UiTableHead align="numeric">{{
+              t('view.common.columns.traffic')
+            }}</UiTableHead>
           </UiTableRow>
         </UiTableHeader>
         <UiTableBody>
@@ -186,16 +205,23 @@ function clearAccessPoint() {
             v-ai-target="clientTarget(client)"
           >
             <UiTableCell>
-              <strong class="font-medium text-foreground block text-xs">
+              <strong
+                translate="no"
+                class="font-medium text-foreground block text-xs"
+              >
                 {{ client.hostname }}
               </strong>
-              <small class="font-mono text-2xs text-muted-foreground block">
+              <small
+                translate="no"
+                class="font-mono text-2xs text-muted-foreground block"
+              >
                 {{ client.address }}
               </small>
             </UiTableCell>
-            <UiTableCell mono>{{ client.mac }}</UiTableCell>
+            <UiTableCell mono translate="no">{{ client.mac }}</UiTableCell>
             <UiTableCell>
               <AppLink
+                translate="no"
                 class="text-accent-foreground hover:underline"
                 :to="{
                   path: `/devices/${client.deviceId}`,
@@ -204,11 +230,14 @@ function clearAccessPoint() {
               >
                 {{ devicesById.get(client.deviceId)?.name }}
               </AppLink>
-              <small class="text-2xs text-muted-foreground block">
+              <small
+                translate="no"
+                class="text-2xs text-muted-foreground block"
+              >
                 {{ siteName(devicesById.get(client.deviceId)?.siteId ?? '') }}
               </small>
             </UiTableCell>
-            <UiTableCell>{{ client.band }}</UiTableCell>
+            <UiTableCell>{{ labels.band(client.band) }}</UiTableCell>
             <UiTableCell>
               <span
                 class="inline-flex items-center gap-1.5 text-xs"
@@ -221,23 +250,31 @@ function clearAccessPoint() {
                     signalQuality(client.signal) === 'Weak',
                 }"
               >
-                {{ signalQuality(client.signal) }}
+                {{ labels.signal(signalQuality(client.signal)) }}
                 <small class="text-2xs text-muted-foreground">
-                  {{ client.signal }} dBm
+                  {{ format.quantity(client.signal, 'dbm') }}
                 </small>
               </span>
             </UiTableCell>
             <UiTableCell align="numeric">
-              {{ client.throughput }}
-              <span class="text-2xs text-muted-foreground">Mbps</span>
+              <I18nT scope="global" keypath="view.common.valueWithUnit">
+                <template #value>{{
+                  n(client.throughput, 'decimal')
+                }}</template>
+                <template #unit>
+                  <span class="text-2xs text-muted-foreground">{{
+                    t('view.common.units.mbps')
+                  }}</span>
+                </template>
+              </I18nT>
             </UiTableCell>
           </UiTableRow>
         </UiTableBody>
       </UiTable>
       <UiEmptyState
         v-if="!filtered.length"
-        title="No clients match this view"
-        description="Try a different search or band."
+        :title="t('view.clients.emptyTitle')"
+        :description="t('view.clients.emptyDescription')"
       >
         <template #icon>
           <AppIcon name="search" />

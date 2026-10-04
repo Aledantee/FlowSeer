@@ -1171,3 +1171,97 @@ func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
 	}
 	hub.Close()
 }
+
+func TestLeafIngestSyslogRecordArrivesInHubEdgeStream(t *testing.T) {
+	hub := startHub(t, t.TempDir(), -1)
+	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
+		t.Fatalf("add edge source: %v", err)
+	}
+
+	subject := leaf.Subject("ingest.syslog")
+	wantSubject := edgebus.IngestSubject(edgebus.DefaultTenant, edgeID, "syslog")
+	if subject != wantSubject {
+		t.Fatalf("leaf subject = %q, want %q", subject, wantSubject)
+	}
+
+	payload := []byte("syslog-record-payload")
+	if err := leaf.Publish(context.Background(), subject, payload, ""); err != nil {
+		t.Fatalf("publish: %v", err)
+	}
+	stream, err := hub.EdgeStream(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("edge stream: %v", err)
+	}
+	waitFor(t, "sourced record", 10*time.Second, func() bool {
+		info, err := stream.Info(context.Background())
+		return err == nil && info.State.Msgs >= 1
+	})
+	msg, err := stream.GetLastMsgForSubject(context.Background(), wantSubject)
+	if err != nil {
+		t.Fatalf("read sourced record: %v", err)
+	}
+	if !bytes.Equal(msg.Data, payload) {
+		t.Fatalf("sourced record = %q, want %q", msg.Data, payload)
+	}
+}
+
+func TestEdgePublishSubjectsHoldsFourEntriesPassingTenant(t *testing.T) {
+	subjects := edgebus.EdgePublishSubjects(edgebus.DefaultTenant, edgeID)
+	if len(subjects) != 4 {
+		t.Fatalf("EdgePublishSubjects() length = %d, want 4", len(subjects))
+	}
+	wantSyslog := edgebus.IngestSubject(edgebus.DefaultTenant, edgeID, "syslog")
+	if got := subjects["ingest.syslog"]; got != wantSyslog {
+		t.Fatalf("subjects[%q] = %q, want %q", "ingest.syslog", got, wantSyslog)
+	}
+	gotTenant, err := edgebus.TenantFromSubjects(edgeID, subjects)
+	if err != nil {
+		t.Fatalf("TenantFromSubjects() error = %v", err)
+	}
+	if gotTenant != edgebus.DefaultTenant {
+		t.Errorf("TenantFromSubjects() = %q, want %q", gotTenant, edgebus.DefaultTenant)
+	}
+}
+
+func TestLeafIngestSyslogDuplicateMessageStoredOnceInHubEdgeStream(t *testing.T) {
+	hub := startHub(t, t.TempDir(), -1)
+	leaf := startLeaf(t, t.TempDir(), hub, edgeID)
+	waitFor(t, "leaf link", 10*time.Second, func() bool { return hub.LeafCount() == 1 && leaf.HubConnected() })
+
+	if err := hub.AttachEdge(context.Background(), edgebus.DefaultTenant, edgeID); err != nil {
+		t.Fatalf("add edge source: %v", err)
+	}
+
+	subject := leaf.Subject("ingest.syslog")
+	payload := []byte("syslog-duplicate-payload")
+	const msgID = "record-msg-1"
+	for range 2 {
+		if err := leaf.Publish(context.Background(), subject, payload, msgID); err != nil {
+			t.Fatalf("publish: %v", err)
+		}
+	}
+	// The sentinel follows the duplicates on the same subject, so once the
+	// stream holds it, a stored second copy would already be there too.
+	sentinel := []byte("syslog-sentinel-payload")
+	if err := leaf.Publish(context.Background(), subject, sentinel, "record-msg-2"); err != nil {
+		t.Fatalf("publish sentinel: %v", err)
+	}
+	stream, err := hub.EdgeStream(context.Background(), edgeID)
+	if err != nil {
+		t.Fatalf("edge stream: %v", err)
+	}
+	waitFor(t, "sourced sentinel", 10*time.Second, func() bool {
+		msg, err := stream.GetLastMsgForSubject(context.Background(), subject)
+		return err == nil && bytes.Equal(msg.Data, sentinel)
+	})
+	info, err := stream.Info(context.Background())
+	if err != nil {
+		t.Fatalf("stream info: %v", err)
+	}
+	if info.State.Msgs != 2 {
+		t.Fatalf("edge stream holds %d messages, want 2 (one record, one sentinel)", info.State.Msgs)
+	}
+}

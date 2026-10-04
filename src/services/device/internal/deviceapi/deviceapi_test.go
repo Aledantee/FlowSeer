@@ -208,7 +208,7 @@ func observation(description string) *accessv1.InterfaceObservation {
 	provenance := &inventoryv1.Provenance{}
 	provenance.SetBinding(bindingRef)
 	provenance.SetObservedAt(timestamppb.New(time.Now()))
-	provenance.SetProtocol(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
+	provenance.SetManagement(inventoryv1.ManagementProtocol_MANAGEMENT_PROTOCOL_SSH)
 	provenance.SetEdge(edge)
 	provenance.SetFirmwareFingerprint(fingerling)
 

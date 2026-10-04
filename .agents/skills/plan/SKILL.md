@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Scopes and plans bounded FlowSeer work into a decision record under docs/plans/ before implementation. Use when asked to plan, brainstorm, scope, or break down a change, or when a request is too large or too open to implement directly. Not for diagnosing bugs, and not for changes that need no design choice.
+description: Scopes and plans bounded FlowSeer work into a decision record under docs/plans/ before implementation. Use when asked to plan, brainstorm, scope, or break down a change, or when a request is too large or too open to implement directly. Not for diagnosing bugs (`diagnose`), and not for changes that need no design choice.
 argument-hint: "[request or path of an existing plan]"
 ---
 
@@ -26,7 +26,9 @@ plan, so code and record change together.
 
 Ask only questions whose answer changes the design, at most three, in one
 call of the question tool (`AGENTS.md`, Agent behavior), each with a
-recommended answer. When the user cannot answer, take the recommendation,
+recommended answer. A question whose options depend on an answer still
+open waits for a second call. A fact the tree, a vendored spec, or a
+command can supply is looked up, never asked. When the user cannot answer, take the recommendation,
 mark the decision "unconfirmed", and repeat it under Open questions. A
 decision the user answered ends with `(decided by the user, <YYYY-MM-DD>)`,
 which no worker may edit (`delegate`, Write the brief, item 6). Every
@@ -188,7 +190,11 @@ Three reads, in this order; fix the plan after each.
 
 1. As the implementer: can each unit start without a question? Every claim
    about external behavior carries its source as step 2 requires, or reads
-   "unverified" and appears under Open questions.
+   "unverified" and appears under Open questions. For each Decision whose
+   reason is where data already lives (a host that holds the address, a
+   store that has the row), ask whether the Requirement needs that coupling
+   or only the data. A coupling the Requirement does not need is removed or
+   becomes an Open question.
 2. Each unit's Tests line against the risks the plan itself names for that
    unit, in its Decisions, Open questions, and Change. A risk the plan calls
    unverifiable, or one a symmetric test cannot see, gets a test that pins
@@ -202,7 +208,7 @@ Three reads, in this order; fix the plan after each.
    matching rule (anchor scope, tie-break) against the value and against
    every sibling it must not also match.
 
-For more than three units or a schema change, then dispatch one
+For more than one unit or a schema change, then dispatch one
 `independent-reviewer` as `delegate` describes, with the plan path and the
 question "what would block or mislead an implementer, what does the plan
 contradict in `docs/architecture/` or the conventions, and which cited
@@ -225,6 +231,11 @@ the options that fit:
   in a fresh session (recommended, since after a compaction the implementer
   would work from a summary of this session's research); implement now
   anyway; revise the plan.
+- A parent plan with phase plans: run `drive` on the parent (recommended,
+  since it takes each phase through implement, review, and compound and
+  lands it before the next); implement the ready phase plan, naming its
+  path, in a fresh session; stop here. `implement` does not run a parent
+  plan, whose units are plan files.
 - `artifact_readiness: needs-decisions`: ask the unresolved design questions
   instead; do not offer the plan for implementation until they are
   answered. Open questions alone do not block the offer: name them in the

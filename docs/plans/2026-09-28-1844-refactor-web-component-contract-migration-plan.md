@@ -91,19 +91,19 @@ Landed: `f35884bb..102193b1`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`
 After: U1
-Landed:
+Landed: `7c101257..0a89dc0e`
 
 ### U3. i18n foundation and Ui component strings
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase3-plan.md`
 After: U1
-Landed:
+Landed: `51c253f5..0bdbc4d9`
 
 ### U4. View strings and locale formatting
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md`
 After: U3
-Landed:
+Landed: `014ceda3..ea17148b`
 
 ### U5. The ai prop and shared highlight
 

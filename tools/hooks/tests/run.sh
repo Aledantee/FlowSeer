@@ -273,7 +273,9 @@ sibling_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/generate
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_input"
 ok "Edit leaves a path outside every checkout to the sandbox and holds another checkout to policy"
 
-for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go; do
+mkdir -p "$fixture/.agents/skills/verify-change/scripts" "$fixture/.agents/skills/prose/scripts" "$fixture/.claude"
+[ -e "$fixture/.claude/skills" ] || ln -s ../.agents/skills "$fixture/.claude/skills"
+for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/ledger.py .agents/skills/prose/scripts/check-prose.py; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
@@ -367,8 +369,11 @@ ok "Edit allows absolute paths outside the repository"
 dotfile_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/flowseer/api/v1/.gitkeep" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
 mkdir -p "$fixture/spec/proto/flowseer/api/v1"
-assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$dotfile_input"
-ok "Edit allows dotfile placeholders under spec/proto"
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$dotfile_input"
+hidden_script_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/flowseer/api/v1/.audit.sh" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$hidden_script_input"
+ok "Edit denies dotfiles under spec/proto"
 
 stray_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/notes.txt" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')

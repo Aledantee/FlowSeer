@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, nextTick, ref } from 'vue'
+import { createApp, h, nextTick, ref } from 'vue'
 import UiSelect from './UiSelect.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -18,12 +19,18 @@ const options = [
 function mountSelect(
   props: Record<string, unknown> = {},
   parentContainer?: HTMLElement,
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
 ) {
   const host = parentContainer ?? document.createElement('div')
   if (!parentContainer) {
     document.body.append(host)
   }
   const app = createApp(UiSelect, props)
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -197,5 +204,129 @@ describe('UiSelect', () => {
     expect(emittedEvent).not.toBeNull()
     expect(document.activeElement).toBe(customButton)
     customButton.remove()
+  })
+
+  it('renders default placeholder in en and de', async () => {
+    const hostEn = mountSelect({ options }, undefined, 'en')
+    const triggerEn = hostEn.querySelector('button')
+    expect(triggerEn?.textContent).toContain('Select an option...')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostDe = mountSelect({ options }, undefined, 'de')
+    const triggerDe = hostDe.querySelector('button')
+    expect(triggerDe?.textContent).toContain('Option auswählen...')
+  })
+
+  it('preserves explicit placeholder overrides across locales, including empty strings', async () => {
+    const hostEmpty = mountSelect({ options, placeholder: '' }, undefined, 'de')
+    const triggerEmpty = hostEmpty.querySelector('button')
+    expect(triggerEmpty?.textContent?.trim()).toBe('')
+    expect(triggerEmpty?.textContent).not.toContain('Option auswählen...')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const hostCustom = mountSelect(
+      { options, placeholder: 'Custom Site Selection' },
+      undefined,
+      'de',
+    )
+    const triggerCustom = hostCustom.querySelector('button')
+    expect(triggerCustom?.textContent).toContain('Custom Site Selection')
+  })
+
+  it('updates select placeholder on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiSelect, { options }),
+          h(UiSelect, { options, placeholder: 'Custom Site Selection' }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => {
+      app.unmount()
+      dispose = () => {}
+    }
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const triggers = host.querySelectorAll('button')
+    const defaultTrigger = triggers[0]
+    const customTrigger = triggers[1]
+    if (!defaultTrigger || !customTrigger) {
+      throw new Error(
+        'Expected both default and custom triggers to be rendered',
+      )
+    }
+
+    expect(defaultTrigger.textContent).toContain('Select an option...')
+    expect(customTrigger.textContent).toContain('Custom Site Selection')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultTrigger.textContent).toContain('Option auswählen...')
+    expect(customTrigger.textContent).toContain('Custom Site Selection')
+  })
+
+  it('marks identifier option label with translate="no"', async () => {
+    const identOptions = [
+      { value: 'ham', label: 'Hamburg Site', identifier: true },
+      { value: 'plain', label: 'Plain Option' },
+    ]
+    const host = mountSelect({
+      modelValue: 'ham',
+      options: identOptions,
+      defaultOpen: true,
+    })
+    await nextTick()
+
+    const triggerLabel = host.querySelector('button [translate="no"]')
+    expect(triggerLabel?.textContent?.trim()).toBe('Hamburg Site')
+
+    const optionsInDom = document.querySelectorAll('[role="option"]')
+    expect(optionsInDom.length).toBe(2)
+    const identOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Hamburg Site'),
+    )
+    expect(
+      identOption?.querySelector('[translate="no"]')?.textContent?.trim(),
+    ).toBe('Hamburg Site')
+
+    const plainOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Plain Option'),
+    )
+    expect(plainOption?.querySelector('[translate="no"]')).toBeNull()
+  })
+
+  it('does not mark trigger with [translate] when showing plain option or placeholder', async () => {
+    const identOptions = [
+      { value: 'ham', label: 'Hamburg Site', identifier: true },
+      { value: 'plain', label: 'Plain Option' },
+    ]
+    const placeholderHost = mountSelect({
+      options: identOptions,
+      placeholder: 'Select a site...',
+    })
+    const placeholderTrigger = placeholderHost.querySelector('button')
+    if (!placeholderTrigger)
+      throw new Error('Missing placeholder trigger button')
+    expect(placeholderTrigger.querySelector('[translate]')).toBeNull()
+
+    const plainHost = mountSelect({
+      modelValue: 'plain',
+      options: identOptions,
+    })
+    const plainTrigger = plainHost.querySelector('button')
+    if (!plainTrigger) throw new Error('Missing plain trigger button')
+    expect(plainTrigger.querySelector('[translate]')).toBeNull()
   })
 })

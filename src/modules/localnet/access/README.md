@@ -255,9 +255,9 @@ Not yet wired, defined but never called from production code: the
 `flowseer.device.route.selections` metric, and the
 `flowseer.device.route` span. The route dimension itself is already
 available: `interfaces.Read` sets the winning observation's
-`Provenance.protocol` to the route that actually answered, `SelectRoute`
+`Provenance` `management` arm to the route that actually answered, `SelectRoute`
 returns the SSH route only from its own fallback branch (so
-`protocol == MANAGEMENT_PROTOCOL_SSH` from a route-independent read is
+the `management` arm being `MANAGEMENT_PROTOCOL_SSH` from a route-independent read is
 exactly the fall-through case), and `Lane.recordEvidence` already reads
 that same provenance. What is missing is a signal on the SUBMIT path
 (`Machine.Execute` never observes a route the way a read does) and on a

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import UiDropdownMenu from '../dropdown-menu/UiDropdownMenu.vue'
 import UiDropdownMenuItem from '../dropdown-menu/UiDropdownMenuItem.vue'
 
@@ -10,9 +12,15 @@ export interface BreadcrumbEllipsisItem {
 
 export interface UiBreadcrumbEllipsisProps {
   items?: BreadcrumbEllipsisItem[]
+  toggleLabel?: string
 }
 
-defineProps<UiBreadcrumbEllipsisProps>()
+const props = defineProps<UiBreadcrumbEllipsisProps>()
+
+const { t } = useI18n({ useScope: 'global' })
+const resolvedToggleLabel = computed(
+  () => props.toggleLabel ?? t('ui.breadcrumbEllipsis.toggleLabel'),
+)
 </script>
 
 <template>
@@ -20,7 +28,7 @@ defineProps<UiBreadcrumbEllipsisProps>()
     <template #trigger>
       <button
         type="button"
-        aria-label="Toggle collapsed breadcrumbs"
+        :aria-label="resolvedToggleLabel"
         class="flex h-9 w-9 items-center justify-center rounded-control hover:bg-hover text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <span

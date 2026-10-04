@@ -87,6 +87,114 @@ func (x AgentLogLevel) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// Socket transport for syslog listeners.
+type AgentSyslogTransport int32
+
+const (
+	// Unset. Treated as AGENT_SYSLOG_TRANSPORT_UDP.
+	AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_UNSPECIFIED AgentSyslogTransport = 0
+	// UDP datagram transport. Each datagram is one syslog message.
+	AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_UDP AgentSyslogTransport = 1
+	// TCP stream transport with framing.
+	AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_TCP AgentSyslogTransport = 2
+)
+
+// Enum value maps for AgentSyslogTransport.
+var (
+	AgentSyslogTransport_name = map[int32]string{
+		0: "AGENT_SYSLOG_TRANSPORT_UNSPECIFIED",
+		1: "AGENT_SYSLOG_TRANSPORT_UDP",
+		2: "AGENT_SYSLOG_TRANSPORT_TCP",
+	}
+	AgentSyslogTransport_value = map[string]int32{
+		"AGENT_SYSLOG_TRANSPORT_UNSPECIFIED": 0,
+		"AGENT_SYSLOG_TRANSPORT_UDP":         1,
+		"AGENT_SYSLOG_TRANSPORT_TCP":         2,
+	}
+)
+
+func (x AgentSyslogTransport) Enum() *AgentSyslogTransport {
+	p := new(AgentSyslogTransport)
+	*p = x
+	return p
+}
+
+func (x AgentSyslogTransport) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AgentSyslogTransport) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_store_agent_v1_agent_config_proto_enumTypes[1].Descriptor()
+}
+
+func (AgentSyslogTransport) Type() protoreflect.EnumType {
+	return &file_flowseer_store_agent_v1_agent_config_proto_enumTypes[1]
+}
+
+func (x AgentSyslogTransport) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Stream framing mode for TCP syslog listeners.
+type AgentSyslogFraming int32
+
+const (
+	// Unset. Treated as AGENT_SYSLOG_FRAMING_AUTO.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_UNSPECIFIED AgentSyslogFraming = 0
+	// Automatic framing detection: octet counting or LF-delimited starting with '<'.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_AUTO AgentSyslogFraming = 1
+	// RFC 6587 octet counting prefix.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_OCTET_COUNTING AgentSyslogFraming = 2
+	// Line-feed delimiter.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_LF AgentSyslogFraming = 3
+	// Carriage return and line feed delimiter.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_CRLF AgentSyslogFraming = 4
+	// NUL-byte delimiter.
+	AgentSyslogFraming_AGENT_SYSLOG_FRAMING_NUL AgentSyslogFraming = 5
+)
+
+// Enum value maps for AgentSyslogFraming.
+var (
+	AgentSyslogFraming_name = map[int32]string{
+		0: "AGENT_SYSLOG_FRAMING_UNSPECIFIED",
+		1: "AGENT_SYSLOG_FRAMING_AUTO",
+		2: "AGENT_SYSLOG_FRAMING_OCTET_COUNTING",
+		3: "AGENT_SYSLOG_FRAMING_LF",
+		4: "AGENT_SYSLOG_FRAMING_CRLF",
+		5: "AGENT_SYSLOG_FRAMING_NUL",
+	}
+	AgentSyslogFraming_value = map[string]int32{
+		"AGENT_SYSLOG_FRAMING_UNSPECIFIED":    0,
+		"AGENT_SYSLOG_FRAMING_AUTO":           1,
+		"AGENT_SYSLOG_FRAMING_OCTET_COUNTING": 2,
+		"AGENT_SYSLOG_FRAMING_LF":             3,
+		"AGENT_SYSLOG_FRAMING_CRLF":           4,
+		"AGENT_SYSLOG_FRAMING_NUL":            5,
+	}
+)
+
+func (x AgentSyslogFraming) Enum() *AgentSyslogFraming {
+	p := new(AgentSyslogFraming)
+	*p = x
+	return p
+}
+
+func (x AgentSyslogFraming) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AgentSyslogFraming) Descriptor() protoreflect.EnumDescriptor {
+	return file_flowseer_store_agent_v1_agent_config_proto_enumTypes[2].Descriptor()
+}
+
+func (AgentSyslogFraming) Type() protoreflect.EnumType {
+	return &file_flowseer_store_agent_v1_agent_config_proto_enumTypes[2]
+}
+
+func (x AgentSyslogFraming) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // Everything the agent needs to assemble itself that its provisioning does
 // not already say: where its state lives, how often its background work runs,
 // how much it may buffer, and how much it logs.
@@ -118,6 +226,7 @@ type AgentConfig struct {
 	xxx_hidden_Intervals        *AgentIntervals        `protobuf:"bytes,3,opt,name=intervals"`
 	xxx_hidden_Buffer           *AgentBuffer           `protobuf:"bytes,4,opt,name=buffer"`
 	xxx_hidden_LogLevel         AgentLogLevel          `protobuf:"varint,5,opt,name=log_level,json=logLevel,enum=flowseer.store.agent.v1.AgentLogLevel"`
+	xxx_hidden_Syslog           *AgentSyslog           `protobuf:"bytes,6,opt,name=syslog"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -192,14 +301,21 @@ func (x *AgentConfig) GetLogLevel() AgentLogLevel {
 	return AgentLogLevel_AGENT_LOG_LEVEL_UNSPECIFIED
 }
 
+func (x *AgentConfig) GetSyslog() *AgentSyslog {
+	if x != nil {
+		return x.xxx_hidden_Syslog
+	}
+	return nil
+}
+
 func (x *AgentConfig) SetStateDir(v string) {
 	x.xxx_hidden_StateDir = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *AgentConfig) SetProvisioningPath(v string) {
 	x.xxx_hidden_ProvisioningPath = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *AgentConfig) SetIntervals(v *AgentIntervals) {
@@ -212,7 +328,11 @@ func (x *AgentConfig) SetBuffer(v *AgentBuffer) {
 
 func (x *AgentConfig) SetLogLevel(v AgentLogLevel) {
 	x.xxx_hidden_LogLevel = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *AgentConfig) SetSyslog(v *AgentSyslog) {
+	x.xxx_hidden_Syslog = v
 }
 
 func (x *AgentConfig) HasStateDir() bool {
@@ -250,6 +370,13 @@ func (x *AgentConfig) HasLogLevel() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *AgentConfig) HasSyslog() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Syslog != nil
+}
+
 func (x *AgentConfig) ClearStateDir() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_StateDir = nil
@@ -271,6 +398,10 @@ func (x *AgentConfig) ClearBuffer() {
 func (x *AgentConfig) ClearLogLevel() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
 	x.xxx_hidden_LogLevel = AgentLogLevel_AGENT_LOG_LEVEL_UNSPECIFIED
+}
+
+func (x *AgentConfig) ClearSyslog() {
+	x.xxx_hidden_Syslog = nil
 }
 
 type AgentConfig_builder struct {
@@ -302,6 +433,9 @@ type AgentConfig_builder struct {
 	Buffer *AgentBuffer
 	// How much the agent logs locally. Unset is INFO.
 	LogLevel *AgentLogLevel
+	// Where the agent listens for syslog and how it handles failures. Unset
+	// means the agent runs no syslog source.
+	Syslog *AgentSyslog
 }
 
 func (b0 AgentConfig_builder) Build() *AgentConfig {
@@ -309,19 +443,20 @@ func (b0 AgentConfig_builder) Build() *AgentConfig {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.StateDir != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_StateDir = b.StateDir
 	}
 	if b.ProvisioningPath != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_ProvisioningPath = b.ProvisioningPath
 	}
 	x.xxx_hidden_Intervals = b.Intervals
 	x.xxx_hidden_Buffer = b.Buffer
 	if b.LogLevel != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_LogLevel = *b.LogLevel
 	}
+	x.xxx_hidden_Syslog = b.Syslog
 	return m0
 }
 
@@ -566,18 +701,294 @@ func (b0 AgentBuffer_builder) Build() *AgentBuffer {
 	return m0
 }
 
+// Where the agent listens for syslog, how it samples raw failure evidence,
+// and how many listeners it binds.
+type AgentSyslog struct {
+	state                           protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Listeners            *[]*AgentSyslogListener `protobuf:"bytes,1,rep,name=listeners"`
+	xxx_hidden_RawFailuresPerMinute uint32                  `protobuf:"varint,2,opt,name=raw_failures_per_minute,json=rawFailuresPerMinute"`
+	xxx_hidden_RawSampleEvery       uint32                  `protobuf:"varint,3,opt,name=raw_sample_every,json=rawSampleEvery"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
+}
+
+func (x *AgentSyslog) Reset() {
+	*x = AgentSyslog{}
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentSyslog) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentSyslog) ProtoMessage() {}
+
+func (x *AgentSyslog) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentSyslog) GetListeners() []*AgentSyslogListener {
+	if x != nil {
+		if x.xxx_hidden_Listeners != nil {
+			return *x.xxx_hidden_Listeners
+		}
+	}
+	return nil
+}
+
+func (x *AgentSyslog) GetRawFailuresPerMinute() uint32 {
+	if x != nil {
+		return x.xxx_hidden_RawFailuresPerMinute
+	}
+	return 0
+}
+
+func (x *AgentSyslog) GetRawSampleEvery() uint32 {
+	if x != nil {
+		return x.xxx_hidden_RawSampleEvery
+	}
+	return 0
+}
+
+func (x *AgentSyslog) SetListeners(v []*AgentSyslogListener) {
+	x.xxx_hidden_Listeners = &v
+}
+
+func (x *AgentSyslog) SetRawFailuresPerMinute(v uint32) {
+	x.xxx_hidden_RawFailuresPerMinute = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *AgentSyslog) SetRawSampleEvery(v uint32) {
+	x.xxx_hidden_RawSampleEvery = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *AgentSyslog) HasRawFailuresPerMinute() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *AgentSyslog) HasRawSampleEvery() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *AgentSyslog) ClearRawFailuresPerMinute() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_RawFailuresPerMinute = 0
+}
+
+func (x *AgentSyslog) ClearRawSampleEvery() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_RawSampleEvery = 0
+}
+
+type AgentSyslog_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Listeners the syslog source binds. At least one and at most eight.
+	Listeners []*AgentSyslogListener
+	// Number of raw-bearing parse failures kept per device per minute before
+	// sampling. Unset means 20.
+	RawFailuresPerMinute *uint32
+	// Sampling rate for raw-bearing failures after the per-minute limit: 1 in N.
+	// Unset means 100.
+	RawSampleEvery *uint32
+}
+
+func (b0 AgentSyslog_builder) Build() *AgentSyslog {
+	m0 := &AgentSyslog{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Listeners = &b.Listeners
+	if b.RawFailuresPerMinute != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_RawFailuresPerMinute = *b.RawFailuresPerMinute
+	}
+	if b.RawSampleEvery != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_RawSampleEvery = *b.RawSampleEvery
+	}
+	return m0
+}
+
+// One local listener the syslog source binds.
+type AgentSyslogListener struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Address     *string                `protobuf:"bytes,1,opt,name=address"`
+	xxx_hidden_Transport   AgentSyslogTransport   `protobuf:"varint,2,opt,name=transport,enum=flowseer.store.agent.v1.AgentSyslogTransport"`
+	xxx_hidden_Framing     AgentSyslogFraming     `protobuf:"varint,3,opt,name=framing,enum=flowseer.store.agent.v1.AgentSyslogFraming"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *AgentSyslogListener) Reset() {
+	*x = AgentSyslogListener{}
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentSyslogListener) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentSyslogListener) ProtoMessage() {}
+
+func (x *AgentSyslogListener) ProtoReflect() protoreflect.Message {
+	mi := &file_flowseer_store_agent_v1_agent_config_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AgentSyslogListener) GetAddress() string {
+	if x != nil {
+		if x.xxx_hidden_Address != nil {
+			return *x.xxx_hidden_Address
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AgentSyslogListener) GetTransport() AgentSyslogTransport {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			return x.xxx_hidden_Transport
+		}
+	}
+	return AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_UNSPECIFIED
+}
+
+func (x *AgentSyslogListener) GetFraming() AgentSyslogFraming {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_Framing
+		}
+	}
+	return AgentSyslogFraming_AGENT_SYSLOG_FRAMING_UNSPECIFIED
+}
+
+func (x *AgentSyslogListener) SetAddress(v string) {
+	x.xxx_hidden_Address = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *AgentSyslogListener) SetTransport(v AgentSyslogTransport) {
+	x.xxx_hidden_Transport = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *AgentSyslogListener) SetFraming(v AgentSyslogFraming) {
+	x.xxx_hidden_Framing = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *AgentSyslogListener) HasAddress() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *AgentSyslogListener) HasTransport() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *AgentSyslogListener) HasFraming() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *AgentSyslogListener) ClearAddress() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Address = nil
+}
+
+func (x *AgentSyslogListener) ClearTransport() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Transport = AgentSyslogTransport_AGENT_SYSLOG_TRANSPORT_UNSPECIFIED
+}
+
+func (x *AgentSyslogListener) ClearFraming() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Framing = AgentSyslogFraming_AGENT_SYSLOG_FRAMING_UNSPECIFIED
+}
+
+type AgentSyslogListener_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The local host:port address to bind. Must be present, and must name a port:
+	// a bare host or a bare port is refused here rather than at bind time.
+	Address *string
+	// Transport protocol. Unset means UDP.
+	Transport *AgentSyslogTransport
+	// Stream framing mode. Permitted only on TCP listeners. Unset means auto.
+	Framing *AgentSyslogFraming
+}
+
+func (b0 AgentSyslogListener_builder) Build() *AgentSyslogListener {
+	m0 := &AgentSyslogListener{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Address != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Address = b.Address
+	}
+	if b.Transport != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Transport = *b.Transport
+	}
+	if b.Framing != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Framing = *b.Framing
+	}
+	return m0
+}
+
 var File_flowseer_store_agent_v1_agent_config_proto protoreflect.FileDescriptor
 
 const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\n" +
-	"*flowseer/store/agent/v1/agent_config.proto\x12\x17flowseer.store.agent.v1\x1a\x1egoogle/protobuf/duration.proto\"\xc1\x02\n" +
+	"*flowseer/store/agent/v1/agent_config.proto\x12\x17flowseer.store.agent.v1\x1a\x1egoogle/protobuf/duration.proto\"\xff\x02\n" +
 	"\vAgentConfig\x12,\n" +
 	"\tstate_dir\x18\x01 \x01(\tB\x0f\xbaH\f\xc8\x01\x01r\a\x18\x80 2\x02^/R\bstateDir\x12:\n" +
 	"\x11provisioning_path\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80 R\x10provisioningPath\x12E\n" +
 	"\tintervals\x18\x03 \x01(\v2'.flowseer.store.agent.v1.AgentIntervalsR\tintervals\x12<\n" +
 	"\x06buffer\x18\x04 \x01(\v2$.flowseer.store.agent.v1.AgentBufferR\x06buffer\x12C\n" +
-	"\tlog_level\x18\x05 \x01(\x0e2&.flowseer.store.agent.v1.AgentLogLevelR\blogLevel\"\xef\x03\n" +
+	"\tlog_level\x18\x05 \x01(\x0e2&.flowseer.store.agent.v1.AgentLogLevelR\blogLevel\x12<\n" +
+	"\x06syslog\x18\x06 \x01(\v2$.flowseer.store.agent.v1.AgentSyslogR\x06syslog\"\xef\x03\n" +
 	"\x0eAgentIntervals\x12C\n" +
 	"\theartbeat\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\n" +
 	"\xbaH\a\xaa\x01\x042\x02\b\x01R\theartbeat\x12W\n" +
@@ -589,37 +1000,66 @@ const file_flowseer_store_agent_v1_agent_config_proto_rawDesc = "" +
 	"\vAgentBuffer\x12$\n" +
 	"\tmax_bytes\x18\x01 \x01(\x03B\a\xbaH\x04\"\x02(\x01R\bmaxBytes\x12>\n" +
 	"\amax_age\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\n" +
-	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x06maxAge*\x9a\x01\n" +
+	"\xbaH\a\xaa\x01\x042\x02\b\x01R\x06maxAge\"\xd8\x01\n" +
+	"\vAgentSyslog\x12V\n" +
+	"\tlisteners\x18\x01 \x03(\v2,.flowseer.store.agent.v1.AgentSyslogListenerB\n" +
+	"\xbaH\a\x92\x01\x04\b\x01\x10\bR\tlisteners\x12>\n" +
+	"\x17raw_failures_per_minute\x18\x02 \x01(\rB\a\xbaH\x04*\x02(\x01R\x14rawFailuresPerMinute\x121\n" +
+	"\x10raw_sample_every\x18\x03 \x01(\rB\a\xbaH\x04*\x02(\x01R\x0erawSampleEvery\"\xf9\x02\n" +
+	"\x13AgentSyslogListener\x12(\n" +
+	"\aaddress\x18\x01 \x01(\tB\x0e\xbaH\v\xc8\x01\x01r\x06\x18\xff\x01\x80\x02\x01R\aaddress\x12U\n" +
+	"\ttransport\x18\x02 \x01(\x0e2-.flowseer.store.agent.v1.AgentSyslogTransportB\b\xbaH\x05\x82\x01\x02\x10\x01R\ttransport\x12O\n" +
+	"\aframing\x18\x03 \x01(\x0e2+.flowseer.store.agent.v1.AgentSyslogFramingB\b\xbaH\x05\x82\x01\x02\x10\x01R\aframing:\x8f\x01\xbaH\x8b\x01\x1a\x88\x01\n" +
+	"&agent_syslog_listener.tcp_framing_only\x12*framing is permitted only on TCP listeners\x1a2int(this.framing) == 0 || int(this.transport) == 2*\x9a\x01\n" +
 	"\rAgentLogLevel\x12\x1f\n" +
 	"\x1bAGENT_LOG_LEVEL_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15AGENT_LOG_LEVEL_DEBUG\x10\x01\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_INFO\x10\x02\x12\x18\n" +
 	"\x14AGENT_LOG_LEVEL_WARN\x10\x03\x12\x19\n" +
-	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04B\xf8\x01\n" +
+	"\x15AGENT_LOG_LEVEL_ERROR\x10\x04*~\n" +
+	"\x14AgentSyslogTransport\x12&\n" +
+	"\"AGENT_SYSLOG_TRANSPORT_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aAGENT_SYSLOG_TRANSPORT_UDP\x10\x01\x12\x1e\n" +
+	"\x1aAGENT_SYSLOG_TRANSPORT_TCP\x10\x02*\xdc\x01\n" +
+	"\x12AgentSyslogFraming\x12$\n" +
+	" AGENT_SYSLOG_FRAMING_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19AGENT_SYSLOG_FRAMING_AUTO\x10\x01\x12'\n" +
+	"#AGENT_SYSLOG_FRAMING_OCTET_COUNTING\x10\x02\x12\x1b\n" +
+	"\x17AGENT_SYSLOG_FRAMING_LF\x10\x03\x12\x1d\n" +
+	"\x19AGENT_SYSLOG_FRAMING_CRLF\x10\x04\x12\x1c\n" +
+	"\x18AGENT_SYSLOG_FRAMING_NUL\x10\x05B\xf8\x01\n" +
 	"\x1bcom.flowseer.store.agent.v1B\x10AgentConfigProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1;agentv1\xa2\x02\x03FSA\xaa\x02\x17Flowseer.Store.Agent.V1\xca\x02\x17Flowseer\\Store\\Agent\\V1\xe2\x02#Flowseer\\Store\\Agent\\V1\\GPBMetadata\xea\x02\x1aFlowseer::Store::Agent::V1b\beditionsp\xe9\a"
 
-var file_flowseer_store_agent_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_flowseer_store_agent_v1_agent_config_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_flowseer_store_agent_v1_agent_config_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_flowseer_store_agent_v1_agent_config_proto_goTypes = []any{
 	(AgentLogLevel)(0),          // 0: flowseer.store.agent.v1.AgentLogLevel
-	(*AgentConfig)(nil),         // 1: flowseer.store.agent.v1.AgentConfig
-	(*AgentIntervals)(nil),      // 2: flowseer.store.agent.v1.AgentIntervals
-	(*AgentBuffer)(nil),         // 3: flowseer.store.agent.v1.AgentBuffer
-	(*durationpb.Duration)(nil), // 4: google.protobuf.Duration
+	(AgentSyslogTransport)(0),   // 1: flowseer.store.agent.v1.AgentSyslogTransport
+	(AgentSyslogFraming)(0),     // 2: flowseer.store.agent.v1.AgentSyslogFraming
+	(*AgentConfig)(nil),         // 3: flowseer.store.agent.v1.AgentConfig
+	(*AgentIntervals)(nil),      // 4: flowseer.store.agent.v1.AgentIntervals
+	(*AgentBuffer)(nil),         // 5: flowseer.store.agent.v1.AgentBuffer
+	(*AgentSyslog)(nil),         // 6: flowseer.store.agent.v1.AgentSyslog
+	(*AgentSyslogListener)(nil), // 7: flowseer.store.agent.v1.AgentSyslogListener
+	(*durationpb.Duration)(nil), // 8: google.protobuf.Duration
 }
 var file_flowseer_store_agent_v1_agent_config_proto_depIdxs = []int32{
-	2, // 0: flowseer.store.agent.v1.AgentConfig.intervals:type_name -> flowseer.store.agent.v1.AgentIntervals
-	3, // 1: flowseer.store.agent.v1.AgentConfig.buffer:type_name -> flowseer.store.agent.v1.AgentBuffer
-	0, // 2: flowseer.store.agent.v1.AgentConfig.log_level:type_name -> flowseer.store.agent.v1.AgentLogLevel
-	4, // 3: flowseer.store.agent.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
-	4, // 4: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
-	4, // 5: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
-	4, // 6: flowseer.store.agent.v1.AgentBuffer.max_age:type_name -> google.protobuf.Duration
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	4,  // 0: flowseer.store.agent.v1.AgentConfig.intervals:type_name -> flowseer.store.agent.v1.AgentIntervals
+	5,  // 1: flowseer.store.agent.v1.AgentConfig.buffer:type_name -> flowseer.store.agent.v1.AgentBuffer
+	0,  // 2: flowseer.store.agent.v1.AgentConfig.log_level:type_name -> flowseer.store.agent.v1.AgentLogLevel
+	6,  // 3: flowseer.store.agent.v1.AgentConfig.syslog:type_name -> flowseer.store.agent.v1.AgentSyslog
+	8,  // 4: flowseer.store.agent.v1.AgentIntervals.heartbeat:type_name -> google.protobuf.Duration
+	8,  // 5: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_min:type_name -> google.protobuf.Duration
+	8,  // 6: flowseer.store.agent.v1.AgentIntervals.dispatch_backoff_max:type_name -> google.protobuf.Duration
+	8,  // 7: flowseer.store.agent.v1.AgentBuffer.max_age:type_name -> google.protobuf.Duration
+	7,  // 8: flowseer.store.agent.v1.AgentSyslog.listeners:type_name -> flowseer.store.agent.v1.AgentSyslogListener
+	1,  // 9: flowseer.store.agent.v1.AgentSyslogListener.transport:type_name -> flowseer.store.agent.v1.AgentSyslogTransport
+	2,  // 10: flowseer.store.agent.v1.AgentSyslogListener.framing:type_name -> flowseer.store.agent.v1.AgentSyslogFraming
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_store_agent_v1_agent_config_proto_init() }
@@ -632,8 +1072,8 @@ func file_flowseer_store_agent_v1_agent_config_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_flowseer_store_agent_v1_agent_config_proto_rawDesc), len(file_flowseer_store_agent_v1_agent_config_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   3,
+			NumEnums:      3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

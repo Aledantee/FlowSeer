@@ -7,28 +7,36 @@ argument-hint: "[discover | catalogue | field | calibrate <lane>... | all]"
 # Tune the model registry
 
 The registry holds pools, models with price, context, effort levels and
-refusal posture, and the fit set per role; `delegate` names a role and
+refusal posture, and the fit set per role. `delegate` names a role and
 resolves it here. Every number written carries a source and a date in
-`~/.claude/models/evidence.md`; a number without one does not go in.
+`~/.claude/models/evidence.md`, and a number without one does not go in.
+The one exception is a plan whose page names no ratio: it is listed at
+capacity 1 with "unverified" in `evidence.md`, which routes as an unlisted plan
+does and stops the row reporting it.
 
 | File | Holds | Written by |
 | --- | --- | --- |
 | `~/.claude/models/registry.yaml` | The registry every project on this machine reads | this skill |
 | `~/.claude/models/evidence.md` | Source and date per registry number | this skill |
-| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, `pool-usage.sh` refreshes |
-| `.claude/models/registry.yaml` in a project | Overrides for that project, committed | a person, or this skill on request |
+| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `discover-host.sh` (`pool-usage.sh` prints fresh rows and writes no file) |
+| `.claude/models/registry.yaml` in a project | What that project lays over the machine-wide file, committed. In this repository it is the full registry with its calibration records, beside its own `evidence.md` | a person, or this skill on request |
 
 The effective registry is the machine-wide file with the project file laid
 over it. Under `pools`, `models`, and `roles` a project entry replaces the
-machine-wide entry of the same name and adds the ones it lacks; any other
-top-level key in the project file (`sensitive_paths`, `as_of`) replaces the
-machine-wide key whole. Either file may be absent; with neither, write the
-machine-wide one. Write a result to the project file only when it holds for
-that project alone, such as its `sensitive_paths` or a fit set the project
-narrows.
+machine-wide entry of the same name whole and adds the ones it lacks, so
+`tune` writes `plans` into every registry file that defines the pool's entry.
+Any other top-level key in the project file (`sensitive_paths`, `as_of`)
+replaces the machine-wide key whole. Either file may be absent. With neither,
+write the machine-wide one. With only the project file, create the
+machine-wide file for results that hold on every project. Write a result to
+the project file only when it holds for that project alone, such as its
+`sensitive_paths` or a fit set the project narrows. A project file that
+carries `as_of` sets the effective date, so a run that refreshes the
+registry also writes today's date there.
 
 Inputs: the effective registry, the network, the installed CLIs.
-Completion: the machine-wide `as_of` is today, `host.yaml` is regenerated,
+Completion: the effective `as_of` is today (the machine-wide one, and the
+project one when that file carries it), `host.yaml` is regenerated,
 and the report names every changed field with its evidence and the file it
 changed in. Failure: a step that cannot reach its source says so and leaves
 the previous value with its old date; never guess.
@@ -69,6 +77,14 @@ It writes which CLIs exist, which pools are signed in, what Orca can pin
 with `--model`, the synthetic model ids omp serves, and the Claude
 rate-limit windows.
 
+After discovery, compare each row's `plan` with the pool's `plans` table.
+For a row with `plan_unlisted`, fetch the vendor's plan page in that run, add
+the plan with its `capacity`, and record the URL and date in `evidence.md`. For
+a plan name that covers more than one tier, ask the user which tier the
+account holds and record the answer as stated by the user with the date.
+`excludes` is filled only from a quoted CLI error or a vendor page. Write
+`plans` into every registry file that defines the pool's entry.
+
 omp's synthetic catalogue can keep ids Synthetic no longer serves, and a
 request to a retired id may answer without error. Read the served ids and
 their context from `GET https://api.synthetic.new/openai/v1/models` with the
@@ -82,8 +98,9 @@ python3 .claude/skills/tune/scripts/catalogue.py ~/.claude/models/registry.yaml 
 ```
 
 It reads models.dev and OpenRouter, prints per registry model the vendor
-price and context beside the registry's, and lists ids on either feed that
-the registry lacks. Vendor price wins over broker price; where they differ
+price and context beside the registry's, and lists OpenRouter ids from the
+last 60 days, of vendors the registry already names, that the registry
+lacks. A new id that only models.dev carries does not show there. Vendor price wins over broker price; where they differ
 by more than 20%, report both and write the vendor's. An id missing from the
 vendor feed means the model is gone: mark it `retired: <date>` and do not
 delete it, since a plan ledger may name it.
@@ -95,8 +112,8 @@ pass for: the vendor's launch note, the effort levels the vendor documents
 and what each changes (thinking budget, default level, levels a CLI does
 not expose), Terminal-Bench 2.1 and SWE-bench Verified with the harness and
 effort level named, and refusal reports for security tooling. The model's
-`effort` list holds the levels its CLI accepts, checked against the vendor. Append to `evidence.md` as `model — claim —
-source URL — date`. Record conflicting numbers as conflicting. Do not
+`effort` list holds the levels its CLI accepts, checked against the vendor.
+Append to `evidence.md` as `model — claim — source URL — date`. Record conflicting numbers as conflicting. Do not
 compare benchmarks run on different harnesses in the registry; fill `terminal_bench` only
 from a run whose harness is named.
 
@@ -149,7 +166,10 @@ registry prices, and ask the user which lanes to run. A prepaid pool still
 consumes its window. Calibrate models flagged by field runs as missing a
 result first. Load `references/calibration.md` before running a lane: it
 holds the fixed tasks, the `bench.sh` command, grading, and the `local`
-record to write.
+record to write. The brief a lane's worker receives is a file under
+`references/calibration/` (`brief*.md` per tier, `review-brief*.md` for the
+review tasks), named in that file's task table; read the lane's brief whole
+before dispatching it.
 
 A full run sweeps effort. Every model a signed-in pool serves runs the
 calibration ladder (the simple, medium, complex, integration, and sensitive
@@ -173,7 +193,9 @@ than collapsing it to one verdict.
 
 ## 5. Write and report
 
-Update the machine-wide registry: `as_of`, changed fields, fit sets.
+Update the machine-wide registry: `as_of`, changed fields, fit sets. When
+the project file carries its own `as_of`, set that one too, since it
+replaces the machine-wide date (the overlay rule above).
 `delegate` takes the first fitting entry of a role's `fit` list after
 filtering hot and busy pools, so order decides routing. Build each list in
 two passes.

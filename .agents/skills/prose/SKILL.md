@@ -76,3 +76,6 @@ and change only wording. Per file:
 2. Cut restatement and signposting the checker missed.
 3. Leave quoted source text, command output, and captured device transcripts
    verbatim. They are evidence.
+4. Compare the rewrite with the original before saving: every number, name,
+   path, citation, and condition is still there, and none was added. A
+   merged list or a cut hedge is where one goes missing.

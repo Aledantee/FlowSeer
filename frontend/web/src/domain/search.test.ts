@@ -33,10 +33,18 @@ describe('global search', () => {
   it('returns nothing for an empty query', () => {
     expect(searchAll('   ', devices)).toEqual([])
   })
-  it('counts descendant sites for a parent tenant', () => {
-    const tenant = searchAll('aurora', devices).find(
-      (item) => item.kind === 'tenant' && item.id === 'aurora',
-    )
-    expect(tenant?.detail).toBe('2 sites')
+  it('returns only what identifies and titles a result', () => {
+    const kinds = new Set<string>()
+    for (const query of ['aurora', 'hamburg', 'berlin-sw-01', 'ge-0/0/1']) {
+      for (const result of searchAll(query, devices)) {
+        kinds.add(result.kind)
+        expect(Object.keys(result).sort()).toEqual(
+          result.kind === 'interface'
+            ? ['id', 'kind', 'port', 'title']
+            : ['id', 'kind', 'title'],
+        )
+      }
+    }
+    expect([...kinds].sort()).toEqual(['device', 'interface', 'site', 'tenant'])
   })
 })

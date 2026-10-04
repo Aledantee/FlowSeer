@@ -1,17 +1,18 @@
 ---
 title: A Refusal Test Needs an Input Only the Refusal Rejects
 date: 2026-09-16
-last_verified: 2026-09-17
+last_verified: 2026-10-03
 category: conventions
 module: src/common/net/udp
 problem_type: convention
-component: netsim
+component: sim
 severity: high
 applies_when:
   - "Writing a test that asserts a function refuses, returning false, nil, or an error, where the function has more than one way to produce that outcome"
   - "Choosing a test input by running the function under test until it returns the wanted result"
   - "Reviewing a codec or a validator whose tests are refusals, or judging whether a passing suite would notice a guard being deleted"
   - "Adding a rule to a gate that already refuses, such as a second condition in a layering or validation table, where the cases you write may be ones the old rule rejects anyway"
+  - "Writing a table-driven refusal gate where each row names a fixture and a test drops each row to prove it is needed"
 related_components: [codec, packet_capture, conformance-gates]
 tags: [testing, codec, refusal, mutation-testing, conformance-gate]
 ---
@@ -98,8 +99,34 @@ Delete the guard the test names and run the package. If it stays green, the test
 does not hold that guard. This is what mutation testing automates, and it is the
 only cheap check that distinguishes a test which passes from a test which would
 fail. Three review rounds over this one package each found another test that
-passed for the wrong reason; the ones that survived a deleted guard were found
+passed for the wrong reason. The ones that survived a deleted guard were found
 by trying it, not by reading.
+
+## Dropping a table row proves it is needed, not that its guard is pinned
+
+When a refusal gate holds its rules in a table and pairs each row with a fixture
+(`test/conformance/sim/layer_contract_test.go:70-90`), a test may drop each row
+in turn (`slices.DeleteFunc`) and require zero findings without it
+(`layer_contract_test.go:274-283`). That proves the row is necessary to reject
+that fixture. It does not prove the row's predicate or scope is pinned.
+
+If the fixture is overdetermined, a mutated or weakened guard still matches.
+In `test/conformance/sim`, five rows required contract members on any layer
+package. Each was tested against a stateful layer fixture. When the checker was
+mutated to require those members on stateful packages only, every fixture still
+failed with the exact expected finding string, and dropping each row still
+cleared the finding. The gate passed with every member unheld for stateless
+packages until stateless fixtures were added add-only (`1b6ff63b`).
+Similarly, `import_device` refuses imports below `sim/device`, but its fixture
+imports `sim/device/vswitch` (`testdata/import_device/fixture.go:4`). Mutating the
+guard root to `sim/device/vswitch` still triggers the fixture and passes the
+drop check (`2db760b7`), leaving `sim/device` unpinned.
+
+A row-dropping test checks only whether a row was dead code on its fixture. To pin
+table guards, fixtures must be minimal along each classification axis the gate
+divides, and guard predicates must be mutated directly. Editing existing fixtures
+in place risks silently dropping existing pins (`03246c8e` lost three pins that
+`3247dcf7` had to restore).
 
 ## Evidence
 
@@ -120,6 +147,19 @@ Mutations run on 2026-09-16, darwin, against
   (`udp_test.go:159-170`): while the test chose its payload by calling `Encode`
   and breaking on a `0xffff` result, changing the substitution guard from
   `sum == 0` to `sum == 1` left the package green.
+
+Mutations run on 2026-10-03, darwin, against
+`go test -count=1 ./test/conformance/sim/`:
+
+- In `test/conformance/sim/layer_contract_test.go:70-90`, requiring members only on
+  stateful packages left all tests green until stateless fixtures were added
+  (`1b6ff63b`).
+- Mutating `import_device` (`layer_contract_test.go:88`) from `simImportPath + "/device"`
+  to `simImportPath + "/device/vswitch"` leaves the gate green because
+  `testdata/import_device/fixture.go:4` imports `sim/device/vswitch` (`2db760b7`).
+- Mutating `stateful_retention_key` (`layer_contract_test.go:79`) to require the full
+  signature of `retention_key` leaves the gate green because its fixture declares
+  the contract's `RetentionKey`.
 
 ## What this does not cover
 

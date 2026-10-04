@@ -44,9 +44,11 @@ Binding on humans and agents equally; each doc states its own scope.
   files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
-- `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-  `.codex/hooks.json`, and merge-gate configuration are policy surfaces; changes
-  require explicit guardrail review.
+- `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
+  `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
+  verifier's scripts (`.agents/skills/verify-change/scripts/`,
+  `.agents/skills/prose/scripts/`), and merge-gate configuration are policy
+  surfaces; changes require explicit guardrail review.
 
 ## Isolation
 
@@ -79,18 +81,19 @@ no remote. The Claude worktree hook defaults to the sibling
   `land`, `drive`, and `steer` under `.claude/skills/` carry the
   multi-step workflows; each says when it applies and when to skip it.
   `next` picks the work, and `drive` takes a plan through `implement`,
-  `review`, and `compound` in worker sessions. `land` merges into `main`
-  only after `implement`, `review`, and `compound` have left their
-  checkpoints and leaves the worktree ready for removal; removing it is a
-  person's action. `steer` works the queue in `docs/agent-observations.md`
+  `review`, and `compound` in worker sessions, landing a parent's phases
+  one by one. `land` merges into `main` only after `implement`, `review`,
+  and `compound` have left their checkpoints, a multi-phase plan once per
+  phase, and leaves the worktree ready for removal after the last one;
+  removing it is a person's action. `steer` works the queue in `docs/agent-observations.md`
   on request and stops at a staged diff for any policy surface.
   `docs/agent-steering.md` records why they are shaped this way. Where a
   project skill covers the work, it wins over a globally installed plugin
   or skill of the same kind (compound-engineering's `ce-work` or
   `ce-code-review`, for example); an external one is for work no project
   skill covers.
-- Auto-memory is personal and fallible; promote durable team facts per
-  `docs/agent-knowledge.md`.
+- Auto-memory is off. Record a durable fact in the repository, in the place
+  `docs/agent-knowledge.md` names for it.
 - FlowSeer is still building its building blocks and nothing external consumes
   them. Make a breaking change whenever it improves the overall design, in
   schemas, Go APIs, and service contracts alike. Do not add a compatibility

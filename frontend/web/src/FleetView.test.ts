@@ -8,12 +8,15 @@ import { isMac } from './navigation/shortcuts'
 import { createAiRegistry, createAiTargetDirective } from './ai'
 import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
+import { createWebI18n } from './i18n'
+import * as clientsDomain from './domain/clients'
+import type { Band } from './domain/clients'
 
 let dispose = () => {}
 let registry: AiRegistry
 
-// happy-dom has no Web Animations API, so the view runs as it does for a
-// user who asked for reduced motion.
+// Reduced motion lets these cases assert the static end state without
+// waiting on animation while keeping desktop media queries matched.
 beforeEach(() =>
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('reduce') || query.includes('min-width'),
@@ -27,12 +30,35 @@ beforeEach(() =>
   })),
 )
 
+beforeEach(() =>
+  vi
+    .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+    .mockImplementation(function (this: HTMLElement) {
+      const collapsed =
+        this instanceof HTMLElement &&
+        this.closest('.shell')?.classList.contains('sidebar-collapsed')
+      const width = collapsed ? 64 : 204
+      return {
+        bottom: 64,
+        height: 64,
+        left: 0,
+        right: width,
+        top: 0,
+        width,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect
+    }),
+)
+
 afterEach(() => {
   dispose()
   dispose = () => {}
   localStorage.clear()
   sessionStorage.clear()
   document.body.replaceChildren()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
@@ -61,6 +87,7 @@ async function mountAt(path: string) {
     },
   })
   await router.push(path)
+  app.use(createWebI18n())
   app.use(router)
   app.directive('ai-target', createAiTargetDirective(registry))
   app.provide(aiRegistryKey, registry)
@@ -265,6 +292,45 @@ describe('FleetView split resizing', () => {
   })
 })
 
+describe('FleetView motion layout', () => {
+  it('keeps the collapsed sidebar accessible and moves its highlight', async () => {
+    const { host, router } = await mountAt('/dashboard')
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    expect(toggle?.classList).toContain('sidebar-toggle')
+
+    toggle?.click()
+    await settle()
+
+    expect(host.querySelector('.shell')?.classList).toContain(
+      'sidebar-collapsed',
+    )
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+    expect(host.querySelector<HTMLElement>('.sidebar')?.style.transform).toBe(
+      '',
+    )
+    expect(
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+    ).toBe('')
+
+    await router.push('/devices')
+    await settle()
+
+    expect(host.querySelectorAll('.nav-highlight')).toHaveLength(1)
+    expect(
+      host
+        .querySelector('.nav-highlight')
+        ?.closest('a')
+        ?.getAttribute('aria-current'),
+    ).toBe('page')
+
+    expect(document.body.textContent).not.toContain('Expand sidebar')
+    toggle?.dispatchEvent(new FocusEvent('focus', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 400))
+    await nextTick()
+    expect(document.body.textContent).toContain('Expand sidebar')
+  })
+})
+
 describe('fleet view', () => {
   it('reports an unknown site as an error instead of a healthy empty scope', async () => {
     const { host } = await mountAt('/dashboard?site=nowhere')
@@ -279,7 +345,7 @@ describe('fleet view', () => {
     const { host } = await mountAt('/devices?search=cologne-ap-02')
     const cell = host.querySelector('tbody .traffic')
     expect(cell?.textContent).toContain('—')
-    expect(cell?.textContent).not.toContain('Mbps')
+    expect(cell?.textContent).not.toContain('Mbit/s')
   })
 
   it('clears search and status but keeps the tenant and site', async () => {
@@ -399,8 +465,29 @@ describe('fleet view', () => {
     const first = host.querySelector('tbody tr')
     expect(first?.querySelector('strong')?.textContent).toBe('cologne-ap-02')
     expect(first?.querySelector('.seen')?.textContent?.trim()).toBe(
-      '38 min ago',
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
     )
+  })
+
+  it('renders a single sort indicator in sorted table headers without duplicate arrow spans', async () => {
+    const { host } = await mountAt('/devices')
+    const labels = ['Device name', 'Status', 'Last answered', 'Site / tenant']
+    for (const label of labels) {
+      const header = [...host.querySelectorAll('th button')].find((item) =>
+        item.textContent?.includes(label),
+      ) as HTMLButtonElement | undefined
+      if (!header) throw new Error(`Missing sort header for ${label}`)
+      header.click()
+      await nextTick()
+      const th = header.closest('th')
+      if (!th) throw new Error(`Missing th for ${label}`)
+      expect(th.textContent).toContain('↑')
+      const count = (th.textContent?.match(/[↑↓]/g) ?? []).length
+      expect(count).toBe(1)
+    }
   })
 
   it('lets a phone device card announce its health, site, and age', async () => {
@@ -409,7 +496,12 @@ describe('fleet view', () => {
     expect(card?.getAttribute('aria-label')).toBeNull()
     expect(card?.textContent).toContain('Offline')
     expect(card?.textContent).toContain('Cologne Central')
-    expect(card?.textContent).toContain('38 min ago')
+    expect(card?.textContent).toContain(
+      new Intl.RelativeTimeFormat('en', {
+        numeric: 'auto',
+        style: 'short',
+      }).format(-38, 'minute'),
+    )
   })
 })
 
@@ -554,44 +646,73 @@ describe('AI target coverage', () => {
   })
 
   it('updates the clients view context when the band filter changes', async () => {
-    const { host } = await mountAt('/clients')
-    const id = 'a:clients:view:all'
-    const before = registry.view(id)?.target.context
-    expect(before).toMatchObject({ band: 'all', matching: before?.count })
-
-    const trigger = host.querySelector<HTMLButtonElement>(
-      '[aria-label="Filter by band"]',
-    )
-    expect(trigger).not.toBeNull()
-    trigger?.dispatchEvent(
-      new PointerEvent('pointerdown', {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
+    const fakeClients: clientsDomain.Client[] = Array.from(
+      { length: 1000 },
+      (_, i) => ({
+        id: `client-${i}`,
+        hostname: `host-${i}`,
+        mac: `00:11:22:33:44:${(i % 256).toString(16).padStart(2, '0')}`,
+        address: `10.0.0.${i % 250}`,
+        deviceId: 'dev-1',
+        band: (i % 4 === 0 ? '2.4 GHz' : '5 GHz') as Band,
+        signal: -50,
+        throughput: 10,
       }),
     )
-    trigger?.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
-    )
-    await settle()
-    const option = [
-      ...document.querySelectorAll<HTMLElement>('[role="option"]'),
-    ].find((item) => item.textContent?.includes('2.4 GHz'))
-    expect(option).toBeDefined()
-    option?.focus()
-    option?.dispatchEvent(
-      new KeyboardEvent('keydown', {
-        key: 'Enter',
-        bubbles: true,
-        cancelable: true,
-      }),
-    )
-    await settle()
+    const spy = vi
+      .spyOn(clientsDomain, 'clientsOf')
+      .mockReturnValue(fakeClients)
+    try {
+      const { host } = await mountAt('/clients')
+      const id = 'a:clients:view:all'
+      const before = registry.view(id)?.target.context
+      // The context reads as the screen does, so counts carry the locale's
+      // grouping, the same text the heading badge shows.
+      expect(before).toMatchObject({
+        band: 'all',
+        count: '1,000',
+        matching: '1,000',
+      })
+      expect(
+        host.querySelector('#clients-title span')?.textContent?.trim(),
+      ).toBe(before?.count)
 
-    const after = registry.view(id)?.target.context
-    expect(after?.band).toBe('2.4 GHz')
-    expect(Number(after?.matching)).toBeLessThan(Number(after?.count))
-    expect(registry.view(id)?.target.id).toBe(id)
+      const trigger = host.querySelector<HTMLButtonElement>(
+        '[aria-label="Filter by band"]',
+      )
+      expect(trigger).not.toBeNull()
+      trigger?.dispatchEvent(
+        new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          button: 0,
+        }),
+      )
+      trigger?.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      )
+      await settle()
+      const option = [
+        ...document.querySelectorAll<HTMLElement>('[role="option"]'),
+      ].find((item) => item.textContent?.includes('2.4 GHz'))
+      expect(option).toBeDefined()
+      option?.focus()
+      option?.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+      await settle()
+
+      const after = registry.view(id)?.target.context
+      expect(after?.band).toBe('2.4 GHz')
+      expect(after).toMatchObject({ count: '1,000', matching: '250' })
+      expect(registry.view(id)?.target.id).toBe(id)
+    } finally {
+      spy.mockRestore()
+    }
   })
 
   it('qualifies a view root by physical slot in each pane', async () => {

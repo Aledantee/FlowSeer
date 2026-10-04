@@ -1,0 +1,589 @@
+{
+  "ui": {
+    "alertDialog": {
+      "cancelText": "Abbrechen",
+      "confirmText": "Bestätigen"
+    },
+    "aiActionLayer": {
+      "ai": "KI",
+      "ask": "Fragen",
+      "askAbout": "Frage zu {label} stellen",
+      "asking": "Frage wird gesendet…",
+      "cancel": "Abbrechen",
+      "error": "Etwas ist schiefgelaufen.",
+      "heading": "Frage zu {label}",
+      "questionLabel": "Frage",
+      "questionPlaceholder": "Warum ist dieses Gerät offline?",
+      "unavailable": "KI ist nicht verfügbar"
+    },
+    "aiSummary": {
+      "error": "Etwas ist schiefgelaufen.",
+      "generate": "Zusammenfassung erstellen",
+      "generating": "Zusammenfassung wird erstellt…",
+      "retry": "Wiederholen",
+      "summaryLabel": "KI-Zusammenfassung für {label}",
+      "unavailable": "KI ist nicht verfügbar"
+    },
+    "breadcrumb": {
+      "ariaLabel": "Brotkrümelnavigation"
+    },
+    "breadcrumbEllipsis": {
+      "toggleLabel": "Eingeklappte Brotkrümel umschalten"
+    },
+    "breadcrumbSeparator": {
+      "separator": "/"
+    },
+    "combobox": {
+      "emptyText": "Keine Ergebnisse gefunden.",
+      "placeholder": "Suchen..."
+    },
+    "commandDialog": {
+      "description": "Such- und Befehlspalette",
+      "title": "Befehlspalette"
+    },
+    "commandEmpty": {
+      "text": "Keine Ergebnisse gefunden."
+    },
+    "commandInput": {
+      "label": "Befehle durchsuchen",
+      "placeholder": "Befehl eingeben oder suchen..."
+    },
+    "commandList": {
+      "label": "Befehle"
+    },
+    "dialog": {
+      "closeLabel": "Schließen",
+      "fallbackDescription": "Dialogbeschreibung",
+      "fallbackTitle": "Dialog"
+    },
+    "field": {
+      "requiredMark": "*"
+    },
+    "meter": {
+      "detailSeparator": " · ",
+      "unit": "%",
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "metricCard": {
+      "valueWithUnit": "{value}\u00a0{unit}"
+    },
+    "pagination": {
+      "ellipsis": "…",
+      "firstLabel": "Erste Seite",
+      "firstMark": "«",
+      "lastLabel": "Letzte Seite",
+      "lastMark": "»",
+      "nextLabel": "Weiter zur nächsten Seite",
+      "nextMark": "›",
+      "nextText": "Weiter",
+      "pageLabel": "Seite {page}",
+      "previousLabel": "Zurück zur vorherigen Seite",
+      "previousMark": "‹",
+      "previousText": "Zurück"
+    },
+    "progress": {
+      "ariaLabel": "Fortschritt"
+    },
+    "segmentedMeter": {
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "offline": "Offline",
+      "segmentText": "{count} {label}"
+    },
+    "select": {
+      "placeholder": "Option auswählen..."
+    },
+    "statusBadge": {
+      "degraded": "Beeinträchtigt",
+      "healthy": "Gesund",
+      "offline": "Offline"
+    },
+    "tableHead": {
+      "ascendingMark": "↑",
+      "descendingMark": "↓"
+    },
+    "toast": {
+      "actionAltText": "Aktion",
+      "closeLabel": "Schließen"
+    },
+    "toastProvider": {
+      "announcementLabel": "Benachrichtigung",
+      "viewportLabel": "Benachrichtigungen ({hotkey})"
+    },
+    "tooltip": {
+      "alt": "Alt",
+      "backslashMark": "\\",
+      "commandMark": "⌘",
+      "control": "Strg",
+      "downMark": "↓",
+      "enterMark": "↵",
+      "escape": "Esc",
+      "leftMark": "←",
+      "optionMark": "⌥",
+      "rightMark": "→",
+      "shift": "Umschalt",
+      "shiftMark": "⇧",
+      "upMark": "↑"
+    }
+  },
+  "view": {
+    "accountMenu": {
+      "initials": "OP",
+      "label": "Operatorkonto",
+      "logout": "Abmelden",
+      "logoutUnavailable": "Abmelden ist erst möglich, wenn die Anmeldung angebunden ist",
+      "operator": "Operator"
+    },
+    "clients": {
+      "accessPoint": "Zugangspunkt",
+      "allAccessPoints": "Alle Zugangspunkte",
+      "allBands": "Alle Bänder",
+      "band": "Band",
+      "client": "Client",
+      "emptyDescription": "Eine andere Suche oder ein anderes Band versuchen.",
+      "emptyTitle": "Keine Clients passen zu dieser Ansicht",
+      "filterBand": "Nach Band filtern",
+      "search": "Clients suchen",
+      "searchPlaceholder": "Nach Hostname, IP- oder MAC-Adresse suchen…",
+      "signal": "Signal",
+      "stopFiltering": "Filter nach {name} aufheben"
+    },
+    "common": {
+      "allSites": "Alle Standorte",
+      "allTenants": "Alle Mandanten",
+      "band": {
+        "ghz2": "2,4 GHz",
+        "ghz5": "5 GHz",
+        "ghz6": "6 GHz"
+      },
+      "clients": "{count} Client | {count} Clients",
+      "columns": {
+        "clients": "Clients",
+        "devices": "Geräte",
+        "health": "Zustand",
+        "site": "Standort",
+        "traffic": "Datenverkehr"
+      },
+      "connectedClients": "Verbundene Clients",
+      "devices": "{count} Gerät | {count} Geräte",
+      "duplex": {
+        "full": "Vollduplex",
+        "half": "Halbduplex"
+      },
+      "factSeparator": " · ",
+      "health": {
+        "degraded": "Beeinträchtigt",
+        "healthy": "Gesund",
+        "offline": "Offline"
+      },
+      "healthLine": {
+        "allHealthy": "Alles gesund",
+        "degraded": "{count} beeinträchtigt",
+        "offline": "{count} offline"
+      },
+      "ipAddress": "IP-Adresse",
+      "lifecycle": {
+        "active": "Aktiv",
+        "retired": "Ausgemustert"
+      },
+      "macAddress": "MAC-Adresse",
+      "medium": {
+        "copper": "Kupfer",
+        "fiber": "Glasfaser"
+      },
+      "mode": {
+        "access": "Zugang",
+        "routed": "Geroutet",
+        "trunk": "Trunk"
+      },
+      "needAttention": "{count} mit Handlungsbedarf",
+      "needsAttention": "Handlungsbedarf",
+      "noReading": "—",
+      "noSearch": "keine",
+      "openBeside": "Nebeneinander öffnen",
+      "openBesideLabel": "{label} nebeneinander öffnen",
+      "openNamed": "{name} öffnen",
+      "pages": {
+        "clients": "Clients",
+        "dashboard": "Dashboard",
+        "device": "Gerät",
+        "devices": "Geräte",
+        "sites": "Standorte",
+        "topology": "Topologie"
+      },
+      "pair": "{first} + {second}",
+      "portStatus": {
+        "disabled": "Deaktiviert",
+        "down": "Getrennt",
+        "up": "Verbunden"
+      },
+      "reachability": {
+        "reachable": "Erreichbar",
+        "unreachable": "Nicht erreichbar"
+      },
+      "results": "{count} Ergebnis | {count} Ergebnisse",
+      "severity": {
+        "critical": "Kritisch",
+        "info": "Info",
+        "warning": "Warnung"
+      },
+      "signal": {
+        "fair": "Mäßig",
+        "strong": "Stark",
+        "weak": "Schwach"
+      },
+      "signalReading": "{reading} ({quality})",
+      "sites": "{count} Standort | {count} Standorte",
+      "speed": {
+        "gigabit": "{value}G",
+        "megabit": "{value}M"
+      },
+      "status": "Status",
+      "units": {
+        "celsius": "°C",
+        "dbm": "dBm",
+        "gb": "GB",
+        "gbps": "Gbit/s",
+        "mbps": "Mbit/s",
+        "ms": "ms",
+        "w": "W"
+      },
+      "updateFailed": "Diese Ansicht konnte nicht aktualisiert werden. Erneut versuchen.",
+      "unknownDevice": "Unbekanntes Gerät",
+      "unknownSite": "Unbekannter Standort",
+      "unknownTenant": "Unbekannter Mandant",
+      "valueWithUnit": "{value} {unit}"
+    },
+    "dashboard": {
+      "aiSummary": "KI-Zusammenfassung",
+      "allHealthy": "Alle Geräte in diesem Bereich sind gesund.",
+      "attentionCount": "{count} von {total} Gerät | {count} von {total} Geräten",
+      "attentionItem": "{name} ({health})",
+      "chartLabelAll": "Stündlicher Gesamtdatenverkehr aller Standorte im Bereich",
+      "chartLabelSite": "Stündlicher Gesamtdatenverkehr für {site}",
+      "events": "Letzte Ereignisse",
+      "eventsNone": "Keine Ereignisse in den letzten 24 Stunden.",
+      "eventsPeriod": "Letzte 24 Stunden in diesem Bereich",
+      "healthAcross": "Zustand im gesamten Bereich",
+      "lastAnswered": "zuletzt geantwortet {age}",
+      "listSeparator": ", ",
+      "noDevices": "Keine Geräte in diesem Bereich.",
+      "noEventExplains": "Noch kein Ereignis erklärt dies",
+      "peakContext": "{rate} um {time}",
+      "peakSummary": "Gesamtdurchsatz der Geräte · Spitze {rate} um {time}",
+      "scopeSite": "{name}, {location}",
+      "selectSite": "Einen Standort auswählen, um das Dashboard darauf zu fokussieren.",
+      "summaryForAll": "Zustand, Handlungsbedarf und Datenverkehr für alle Standorte",
+      "summaryForSite": "Zustand, Handlungsbedarf und Datenverkehr für {site}",
+      "targetLabel": "Dashboard · {site}",
+      "targetLabelAll": "Dashboard · alle Standorte",
+      "trafficTitle": "Datenverkehr der letzten 24 Stunden"
+    },
+    "device": {
+      "allDevices": "Alle Geräte",
+      "checked": "geprüft {age}",
+      "clientsNoneAccessPoint": "Derzeit sind keine Clients verbunden.",
+      "clientsNoneOther": "Clients verbinden sich über Zugangspunkte, nicht über dieses Gerät.",
+      "copied": "Zusammenfassung kopiert. In das Ticket oder die Nachricht einfügen.",
+      "copyEscalation": "Eskalationszusammenfassung kopieren",
+      "copyFailed": "Kopieren war nicht möglich. Die Zusammenfassung unten auswählen.",
+      "downlinks": "Downlinks",
+      "downlinksNone": "Über dieses Gerät verbindet sich nichts.",
+      "escalation": {
+        "bindingReachable": "- {name}: erreichbar, geprüft {age}",
+        "bindingUnreachable": "- {name}: nicht erreichbar, geprüft {age}",
+        "headline": {
+          "degraded": "{name} ({kind}, {address}) ist beeinträchtigt.",
+          "healthy": "{name} ({kind}, {address}) ist gesund.",
+          "offline": "{name} ({kind}, {address}) ist offline."
+        },
+        "issue": "- {summary} ({age})",
+        "neighbours": "{answering} von {total} weiterem Gerät am Standort antwortet. | {answering} von {total} weiteren Geräten am Standort antworten.",
+        "site": "Standort: {site}, {tenant}."
+      },
+      "issuesHealthy": "Jeder Pfad zu diesem Gerät hat die letzte Abfrage beantwortet.",
+      "issuesNoEvent": "Noch kein Ereignis erklärt diesen Status.",
+      "issuesTitle": "Warum Handlungsbedarf besteht",
+      "issuesTitleHealthy": "Keine offenen Probleme",
+      "lastAnswered": "Zuletzt geantwortet {age}",
+      "lifecycle": "Lebenszyklus",
+      "moveButton": "Gerät verschieben",
+      "moveField": "Standort innerhalb dieses Mandanten",
+      "moveIntro": "Ein Gerät gehört zu einem Standort. Die Verschiebung ersetzt die bisherige Zuordnung.",
+      "moveNoSite": "Für {tenant} gibt es keinen anderen Standort, an den dieses Gerät verschoben werden könnte.",
+      "moveSummary": "Zu einem anderen Standort verschieben",
+      "neighbours": {
+        "all": "Das einzige andere Gerät bei {site} antwortet, daher liegt der Fehler wahrscheinlich an diesem Gerät oder seiner Verbindung. | Die anderen {count} Geräte bei {site} antworten, daher liegt der Fehler wahrscheinlich an diesem Gerät oder seiner Verbindung.",
+        "none": "Kein anderes Gerät bei {site} antwortet, der gesamte Standort könnte ausgefallen sein.",
+        "some": "{answering} von {count} weiteren Geräten bei {site} antworten."
+      },
+      "openDashboard": "Dashboard von {site} öffnen",
+      "paths": {
+        "reachableAll": "Alle Pfade sind erreichbar.",
+        "reachableOne": "Der Pfad ist erreichbar.",
+        "unreachableAll": "Alle {total} Pfade sind nicht erreichbar.",
+        "unreachableBoth": "Beide Pfade sind nicht erreichbar.",
+        "unreachableOnly": "Der einzige Pfad ist nicht erreichbar.",
+        "unreachableSome": "{down} von {total} Pfaden sind nicht erreichbar."
+      },
+      "pathsTitle": "Wie {brand} es erreicht",
+      "poll": "Jetzt abfragen",
+      "pollAnswered": {
+        "degraded": "Gerade eben geantwortet. Weiterhin beeinträchtigt.",
+        "healthy": "Gerade eben geantwortet. Weiterhin gesund.",
+        "offline": "Gerade eben geantwortet. Weiterhin offline."
+      },
+      "pollUnanswered": "Weiterhin keine Antwort. {paths} (Letzte Antwort {age})",
+      "polling": "Abfrage läuft…",
+      "siteEdge": "Standortrand",
+      "uplink": "Uplink",
+      "viewAll": "Alle anzeigen"
+    },
+    "devicePorts": {
+      "poe": "{power} PoE",
+      "ports": "{count} Port | {count} Ports",
+      "summary": "{active} von {total} verbunden"
+    },
+    "devices": {
+      "allStatuses": "Alle Status",
+      "answered": "geantwortet {age}",
+      "clearFilters": "Suche und Status zurücksetzen",
+      "details": "Details",
+      "detailsFor": "Details zu {name}",
+      "deviceName": "Gerätename",
+      "deviceStatus": "Gerätestatus",
+      "emptyDescription": "Eine andere Suche, einen anderen Status oder Standort versuchen.",
+      "emptyTitle": "Keine Geräte passen zu dieser Ansicht",
+      "filterStatus": "Nach Status filtern",
+      "inventory": "Geräteinventar",
+      "lastAnswered": "Zuletzt geantwortet",
+      "needsAttentionOption": "{label} ({count})",
+      "peekAt": "{name} neben dieser Liste ansehen",
+      "peekBeside": "Daneben ansehen",
+      "peekHint": "Dasselbe gelingt mit Umschalt-Klick auf einen Namen. ↑ ↓ wechseln in der Liste, Esc schließt.",
+      "search": "Geräte suchen",
+      "searchPlaceholder": "Nach Name, Typ oder IP-Adresse suchen…",
+      "showing": "{shown} von {total} Gerät angezeigt | {shown} von {total} Geräten angezeigt",
+      "siteTenant": "Standort / Mandant",
+      "viewStatus": "Status ansehen"
+    },
+    "dock": {
+      "close": "{label} schließen",
+      "minimizedPages": "Minimierte Seiten",
+      "remove": "Aus dem Dock entfernen",
+      "shiftHint": "Umschalt-Klick öffnet nebeneinander"
+    },
+    "fleet": {
+      "assignFailed": "Der Standort konnte nicht zugewiesen werden.",
+      "closeSide": "Zweite Seite schließen",
+      "closeSideLabel": "Die zweite Seite schließen",
+      "collapseSidebar": "Seitenleiste ausblenden",
+      "deviceSwitcher": "Gerät",
+      "devicesLink": "{page}, {count} im Bereich",
+      "dockPair": "Beide als Paar im Dock ablegen",
+      "dockPairLabel": "Beide Seiten als Paar im Dock ablegen",
+      "docked": "Im Dock",
+      "dockedPair": "Paar im Dock",
+      "documentTitle": "{pages} · {brand}",
+      "dragToResize": "Ziehen zum Anpassen der Größe",
+      "expandSidebar": "Seitenleiste einblenden",
+      "linkClicksHint": "An",
+      "linkClicksLabel": "Links der Hauptseite in der zweiten Seite öffnen",
+      "linkClicksOff": "Links der linken Seite hier öffnen",
+      "linkClicksOn": "Links der linken Seite werden hier geöffnet",
+      "mainNavigation": "Hauptnavigation",
+      "minimizeHint": "Die Tastenkombination minimiert die Seite mit Fokus.",
+      "minimizeMain": "Diese Seite in das Dock minimieren",
+      "minimizeSide": "Die zweite Seite in das Dock minimieren",
+      "minimizeToDock": "In das Dock minimieren",
+      "openFailed": "Die Seite konnte nicht geöffnet werden. Erneut versuchen.",
+      "page": "Seite",
+      "resizeHint": "Doppelklick stellt die Aufteilung auf je die Hälfte zurück.",
+      "resizeSplit": "Größe der geteilten Ansicht anpassen",
+      "searchDevices": "Geräte suchen…",
+      "searchPage": "Seite",
+      "searchSites": "Standorte suchen…",
+      "sideSiteScope": "Standort der zweiten Seite",
+      "siteScope": "Standortbereich",
+      "skipToMain": "Zum Hauptinhalt springen",
+      "splitView": "Geteilte Ansicht",
+      "swapPages": "Beide Seiten tauschen",
+      "swapSides": "Seiten tauschen",
+      "workspace": "ARBEITSBEREICH"
+    },
+    "help": {
+      "findBody": "Geräte mit Handlungsbedarf stehen zuerst in der Liste. Die Suche nach Name, Typ oder IP-Adresse und der Statusfilter grenzen sie ein. Ein ausgewähltes Gerät zeigt, warum es Handlungsbedarf hat und wie {brand} es erreicht.",
+      "findHeading": "Gerät finden",
+      "moveBody": "In den Gerätedetails „Zu einem anderen Standort verschieben“ aufklappen und einen Standort innerhalb des Mandanten des Geräts wählen. Die Verschiebung ersetzt die bisherige Zuordnung, sobald sie beobachtet wird, und die Meldung bietet „Rückgängig“ an.",
+      "moveHeading": "Gerät verschieben",
+      "scopeBody": "Mit den Auswahlfeldern für Mandant und Standort in der Brotkrumennavigation oben auf der Seite lässt sich die Ansicht auf einen Kunden oder Standort eingrenzen.",
+      "scopeHeading": "Bereich wählen",
+      "title": "Hilfe zum Arbeitsbereich",
+      "trigger": "Hilfe"
+    },
+    "localeSwitcher": {
+      "changed": "Sprache auf {language} umgestellt.",
+      "label": "Sprache auf {language} umstellen",
+      "unsaved": "Sprache für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
+    },
+    "reportBug": {
+      "copied": "Bericht kopiert. An das Support-Team weitergeben.",
+      "copy": "Bericht kopieren",
+      "copyUnavailable": "Kopieren war nicht möglich. Den Bericht unten auswählen und kopieren.",
+      "description": "Was ist passiert?",
+      "descriptionPlaceholder": "Schritte zur Reproduktion und das erwartete Verhalten",
+      "intro": "Das Problem beschreiben, dann den Bericht kopieren und an das Support-Team weitergeben.",
+      "pageLine": "Seite: {page}",
+      "report": "{summary}\n\nSeite: {page}\n\n{description}",
+      "reportText": "Berichtstext",
+      "summary": "Zusammenfassung",
+      "title": "Fehler melden",
+      "trigger": "Fehler melden",
+      "triggerLabel": "Fehler melden"
+    },
+    "scopeSwitcher": {
+      "searchPlaceholder": "Suchen…",
+      "triggerLabel": "{label}: {name}",
+      "unavailable": "Auswahl nicht verfügbar"
+    },
+    "search": {
+      "clear": "Leeren",
+      "clientDetail": "{address} · {mac} · über {device}",
+      "emptyHint": "Name, IP-Adresse, MAC-Adresse oder Port eingeben.",
+      "groups": {
+        "client": "Clients",
+        "device": "Geräte",
+        "interface": "Schnittstellen",
+        "page": "Seiten",
+        "site": "Standorte",
+        "tenant": "Mandanten"
+      },
+      "hints": {
+        "close": "schließen",
+        "move": "navigieren",
+        "open": "öffnen",
+        "sideBySide": "nebeneinander",
+        "toDock": "in das Dock"
+      },
+      "interfaceFarEnd": "zu {device}",
+      "keys": {
+        "alt": "⌥",
+        "down": "↓",
+        "enter": "↵",
+        "escape": "Esc",
+        "shift": "⇧",
+        "up": "↑"
+      },
+      "label": "Mandanten, Standorte, Geräte, Clients und Schnittstellen suchen",
+      "noMatch": "Keine Treffer für „{query}“.",
+      "placeholder": "Mandanten, Standorte, Geräte, Clients, Schnittstellen suchen…",
+      "recent": "Zuletzt",
+      "resultsLabel": "Suchergebnisse",
+      "sendToDock": "In das Dock legen",
+      "sendToDockLabel": "{title} in das Dock legen",
+      "trigger": "Suchen"
+    },
+    "sites": {
+      "devicesAtSite": "Geräte an diesem Standort",
+      "none": "Keine",
+      "openIssue": "Offenes Problem"
+    },
+    "tenantSwitcher": {
+      "none": "Keine Mandanten verfügbar",
+      "scopeLabel": "Mandantenbereich",
+      "searchPlaceholder": "Mandanten suchen…"
+    },
+    "themeSwitcher": {
+      "enabledDark": "Dunkler Modus aktiviert.",
+      "enabledLight": "Heller Modus aktiviert.",
+      "label": "Dunkler Modus",
+      "switchToDark": "Zum dunklen Modus wechseln",
+      "switchToLight": "Zum hellen Modus wechseln",
+      "unsaved": "Darstellung für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern."
+    },
+    "topology": {
+      "assumption": "Angenommene Verbindung, noch nicht ermittelt",
+      "fitToView": "Ansicht einpassen",
+      "fitView": "Ansicht einpassen",
+      "layoutError": "Die Topologie konnte nicht angeordnet werden. Zum erneuten Versuch neu laden.",
+      "linkLabel": "{assumption}. {source} zu {target}, {speed}, {throughput}, {health}",
+      "linkTarget": "{speed}-Verbindung",
+      "nodeLabel": "{name}, {kind}, {health}",
+      "portLabel": "Port {name}",
+      "siteDevices": "Geräte bei {site}"
+    },
+    "topologyInspector": {
+      "back": "Zurück zu {name}",
+      "capacityDetail": "von {capacity}",
+      "channel": "Kanal {channel}",
+      "close": "Details schließen",
+      "deviceLabel": "Details zu {name}",
+      "duration": {
+        "daysHours": "{days} T. {hours} Std.",
+        "hoursMinutes": "{hours} Std. {minutes} Min."
+      },
+      "fields": {
+        "connectedTo": "Verbunden mit",
+        "crcErrors": "CRC-Fehler",
+        "downstream": "Downstream",
+        "errors": "Fehler",
+        "firmware": "Firmware",
+        "lastChange": "Letzte Änderung",
+        "latency": "Latenz",
+        "medium": "Medium",
+        "model": "Modell",
+        "mtu": "MTU",
+        "poe": "PoE",
+        "received": "Empfangen",
+        "sent": "Gesendet",
+        "speed": "Geschwindigkeit",
+        "upstream": "Upstream",
+        "uptime": "Betriebszeit",
+        "vlans": "VLANs"
+      },
+      "linkEnds": "{source} → {target}",
+      "linkLabel": "Verbindungsdetails",
+      "meters": {
+        "cpu": "CPU",
+        "memory": "Arbeitsspeicher",
+        "utilization": "Auslastung"
+      },
+      "nothing": "Nichts",
+      "off": "Aus",
+      "openDevice": "Gerät öffnen",
+      "portLabel": "Details zu {device} {port}",
+      "portMode": "Port-Modus {mode}",
+      "sections": {
+        "ports": "Ports",
+        "radios": "Funkmodule",
+        "resources": "Ressourcen",
+        "trafficLive": "Datenverkehr, live"
+      },
+      "serial": "Seriennummer {serial}",
+      "trafficSamples": "Datenverkehr der letzten Messung | Datenverkehr der letzten {count} Messungen",
+      "uptimeDown": "Ausgefallen"
+    },
+    "trafficChart": {
+      "describe": "{label}. Stundenwerte mit den Pfeiltasten lesen.",
+      "hour": "Stunde",
+      "now": "Jetzt",
+      "traffic": "Datenverkehr ({unit})"
+    },
+    "workspace": {
+      "asOf": "Stand {time}",
+      "backToDevices": "Zurück zu Geräten",
+      "clearSiteFilter": "Standortfilter zurücksetzen",
+      "deviceMissingDescription": "Es wurde möglicherweise aus der Flotte entfernt.",
+      "deviceMissingTitle": "Dieses Gerät existiert nicht",
+      "dismissNotification": "Benachrichtigung schließen",
+      "moveReverted": "Verschiebung rückgängig gemacht. {name} ist wieder an {to}.",
+      "moved": "{name} ist jetzt an {to} (vorher {from}).",
+      "moving": "{name} wird von {from} nach {to} verschoben…",
+      "resetFailed": "Die Filter konnten nicht zurückgesetzt werden. Erneut versuchen.",
+      "scopeAcrossAll": "{count} Standort über alle Mandanten | {count} Standorte über alle Mandanten",
+      "scopeAcrossTenant": "{count} Standort bei {tenant} | {count} Standorte bei {tenant}",
+      "scopeNotFound": "Bereich nicht gefunden: „{site}“. Er wurde möglicherweise entfernt oder gehört zu einem anderen Mandanten.",
+      "undo": "Rückgängig"
+    }
+  }
+}

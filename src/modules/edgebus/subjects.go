@@ -66,15 +66,21 @@ func OTelSubject(tenant, edgeID string, signal OTelSignal) string {
 	return EdgeSubtree(tenant, edgeID) + ".otel." + string(signal)
 }
 
+// IngestSubject is where an edge publishes records from one ingestion source.
+func IngestSubject(tenant, edgeID, source string) string {
+	return EdgeSubtree(tenant, edgeID) + ".ingest." + source
+}
+
 // EdgePublishSubjects maps the logical names an edge's leaf node knows to the
 // concrete subjects it publishes on. The vocabulary lives here because the
 // module that builds the leaf node owns it; AttachBus hands the map on
 // unchanged and chooses none of it.
 func EdgePublishSubjects(tenant, edgeID string) map[string]string {
-	subjects := make(map[string]string, 3)
+	subjects := make(map[string]string, 4)
 	for _, signal := range []OTelSignal{SignalLogs, SignalMetrics, SignalTraces} {
 		subjects["otel."+string(signal)] = OTelSubject(tenant, edgeID, signal)
 	}
+	subjects["ingest.syslog"] = IngestSubject(tenant, edgeID, "syslog")
 	return subjects
 }
 

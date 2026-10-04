@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h } from 'vue'
+import { createApp, h, nextTick } from 'vue'
 import UiProgress from './UiProgress.vue'
+import { createWebI18n, type WebLocale } from '../../i18n'
 
 let dispose = () => {}
 afterEach(() => {
@@ -10,7 +11,10 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mountProgress(props: Record<string, unknown> = {}) {
+function mountProgress(
+  props: Record<string, unknown> = {},
+  localeOrI18n: WebLocale | ReturnType<typeof createWebI18n> = 'en',
+) {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -18,6 +22,11 @@ function mountProgress(props: Record<string, unknown> = {}) {
       return h(UiProgress, props)
     },
   })
+  if (typeof localeOrI18n === 'string') {
+    app.use(createWebI18n(localeOrI18n))
+  } else {
+    app.use(localeOrI18n)
+  }
   app.mount(host)
   dispose = () => app.unmount()
   const el = host.firstElementChild as HTMLElement
@@ -45,5 +54,119 @@ describe('UiProgress', () => {
     expect(indicator.className).toContain('animate-progress-slide')
     expect(indicator.className).not.toContain('animate-pulse')
     expect(indicator.className).toContain('motion-reduce:animate-none')
+  })
+
+  it('renders localized aria-label and aria-valuetext in en and de', () => {
+    const { el: elEn } = mountProgress({ modelValue: 45, max: 100 }, 'en')
+    expect(elEn.getAttribute('aria-label')).toBe('Progress')
+    expect(elEn.getAttribute('aria-valuetext')).toBe('45%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elEnCustomMax } = mountProgress(
+      { modelValue: 35, max: 50 },
+      'en',
+    )
+    expect(elEnCustomMax.getAttribute('aria-valuetext')).toBe('70%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elEnZero } = mountProgress({ modelValue: 0 }, 'en')
+    expect(elEnZero.getAttribute('aria-valuetext')).toBe('0%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elDe } = mountProgress({ modelValue: 45, max: 100 }, 'de')
+    expect(elDe.getAttribute('aria-label')).toBe('Fortschritt')
+    expect(elDe.getAttribute('aria-valuetext')).toBe('45\u00a0%')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elDeCustomMax } = mountProgress(
+      { modelValue: 35, max: 50 },
+      'de',
+    )
+    expect(elDeCustomMax.getAttribute('aria-valuetext')).toBe('70\u00a0%')
+  })
+
+  it('updates progress aria-label and valuetext on live locale change and preserves explicit overrides', async () => {
+    const i18n = createWebI18n('en')
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render() {
+        return h('div', [
+          h(UiProgress, { modelValue: 45, max: 100 }),
+          h(UiProgress, {
+            modelValue: 45,
+            max: 100,
+            ariaLabel: 'Custom Progress',
+            valueText: 'Custom Value',
+          }),
+        ])
+      },
+    })
+    app.use(i18n)
+    app.mount(host)
+    dispose = () => app.unmount()
+
+    const progressEls = host.querySelectorAll('[role="progressbar"]')
+    const defaultEl = progressEls[0]
+    const customEl = progressEls[1]
+    if (!defaultEl || !customEl) {
+      throw new Error('Expected both progress elements to be rendered')
+    }
+
+    expect(defaultEl.getAttribute('aria-label')).toBe('Progress')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
+
+    i18n.global.locale.value = 'de'
+    await nextTick()
+
+    expect(defaultEl.getAttribute('aria-label')).toBe('Fortschritt')
+    expect(defaultEl.getAttribute('aria-valuetext')).toBe('45\u00a0%')
+    expect(customEl.getAttribute('aria-label')).toBe('Custom Progress')
+    expect(customEl.getAttribute('aria-valuetext')).toBe('Custom Value')
+  })
+
+  it('preserves explicit ariaLabel and valueText overrides across locales, including empty strings', () => {
+    const { el: elCustom } = mountProgress(
+      {
+        modelValue: 45,
+        max: 100,
+        ariaLabel: 'Buffer Fill Level',
+        valueText: (val: number | null, max: number) =>
+          `${val} of ${max} packets`,
+      },
+      'de',
+    )
+    expect(elCustom.getAttribute('aria-label')).toBe('Buffer Fill Level')
+    expect(elCustom.getAttribute('aria-valuetext')).toBe('45 of 100 packets')
+
+    dispose()
+    document.body.replaceChildren()
+
+    const { el: elEmpty } = mountProgress(
+      {
+        modelValue: 45,
+        max: 100,
+        ariaLabel: '',
+        valueText: '',
+      },
+      'de',
+    )
+    expect(elEmpty.getAttribute('aria-label')).toBe('')
+    expect(elEmpty.getAttribute('aria-valuetext')).toBe('')
+  })
+
+  it('indeterminate progress sets aria-valuetext to undefined', () => {
+    const { el } = mountProgress({ modelValue: null, max: 100 }, 'en')
+    expect(el.getAttribute('aria-valuetext')).toBeNull()
   })
 })

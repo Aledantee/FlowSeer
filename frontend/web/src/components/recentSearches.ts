@@ -3,44 +3,62 @@ import type { SearchResult } from '../domain/search'
 const KEY = 'flowseer.recent-searches'
 const LIMIT = 8
 
-function isResult(value: unknown): value is SearchResult {
-  if (typeof value !== 'object' || value === null) return false
+// What identifies a result. Its text resolves from current data, so a stored
+// entry never shows text written under another locale.
+export type RecentSearch = Pick<SearchResult, 'kind' | 'id' | 'port'>
+
+function asRecent(value: unknown): RecentSearch | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
   const entry = value as Record<string, unknown>
-  return (
-    ['page', 'tenant', 'site', 'device', 'client', 'interface'].includes(
+  if (
+    !['page', 'tenant', 'site', 'device', 'client', 'interface'].includes(
       String(entry.kind),
-    ) &&
-    typeof entry.id === 'string' &&
-    typeof entry.title === 'string' &&
-    typeof entry.detail === 'string' &&
-    (entry.port === undefined || typeof entry.port === 'string')
+    ) ||
+    typeof entry.id !== 'string' ||
+    (entry.port !== undefined && typeof entry.port !== 'string')
   )
+    return undefined
+  // An entry saved with a title and a detail loads without them.
+  return {
+    kind: entry.kind as RecentSearch['kind'],
+    id: entry.id,
+    ...(entry.port === undefined ? {} : { port: entry.port }),
+  }
 }
 
 // History is a per-browser convenience: storage can be blocked or cleared,
 // and the search works the same without it.
 export function loadRecent(
   storage: Storage | undefined = globalThis.localStorage,
-): SearchResult[] {
+): RecentSearch[] {
   try {
     const parsed: unknown = JSON.parse(storage?.getItem(KEY) ?? '[]')
-    return Array.isArray(parsed) ? parsed.filter(isResult).slice(0, LIMIT) : []
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .map(asRecent)
+      .filter((entry) => entry !== undefined)
+      .slice(0, LIMIT)
   } catch {
     return []
   }
 }
 
 export function rememberRecent(
-  result: SearchResult,
+  result: RecentSearch,
   storage: Storage | undefined = globalThis.localStorage,
-): SearchResult[] {
-  const same = (entry: SearchResult) =>
-    entry.kind === result.kind &&
-    entry.id === result.id &&
-    entry.port === result.port
+): RecentSearch[] {
+  const entry: RecentSearch = {
+    kind: result.kind,
+    id: result.id,
+    ...(result.port === undefined ? {} : { port: result.port }),
+  }
+  const same = (other: RecentSearch) =>
+    other.kind === entry.kind &&
+    other.id === entry.id &&
+    other.port === entry.port
   const next = [
-    result,
-    ...loadRecent(storage).filter((entry) => !same(entry)),
+    entry,
+    ...loadRecent(storage).filter((other) => !same(other)),
   ].slice(0, LIMIT)
   try {
     storage?.setItem(KEY, JSON.stringify(next))

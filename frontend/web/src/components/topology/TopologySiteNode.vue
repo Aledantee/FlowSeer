@@ -1,17 +1,21 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLink from '../../navigation/AppLink.vue'
 import { scopeOf, usePage } from '../../navigation/page'
 import type { Site } from '../../domain/fleet'
 import AppIcon from '../AppIcon.vue'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
+import { useFormat } from '../../i18n/format'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
   data: { siteId: string }
   sites: Site[]
   tenantName: (siteId: string) => string
 }>()
+const { t } = useI18n({ useScope: 'global' })
+const format = useFormat()
 const page = usePage()
 const slot = useAiSlot()
 const site = computed(() =>
@@ -43,8 +47,10 @@ const target = computed<AiTarget | undefined>(() => {
   >
     <header v-if="sites.length > 1">
       <span
-        ><strong>{{ site.name }}</strong
-        ><small>{{ site.location }} · {{ tenantName(site.id) }}</small></span
+        ><strong translate="no">{{ site.name }}</strong
+        ><small translate="no">{{
+          format.facts([site.location, tenantName(site.id)])
+        }}</small></span
       >
       <AppLink
         class="topology-site-link nodrag"
@@ -52,7 +58,7 @@ const target = computed<AiTarget | undefined>(() => {
           path: '/devices',
           query: { ...scopeOf(page.location.value), site: site.id },
         }"
-        :aria-label="`Devices at ${site.name}`"
+        :aria-label="t('view.topology.siteDevices', { site: site.name })"
         ><AppIcon name="arrow"
       /></AppLink>
     </header>

@@ -12,7 +12,7 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ## Context
 
 A fabric run takes one frame per `Fabric.Inject` call
-(`src/common/netsim/fabric/run.go`). The run already models what load acts
+(`src/common/sim/fabric/run.go`). The run already models what load acts
 on: serialization at the negotiated rate, a busy clock per endpoint, strict
 priority egress queues with a per-queue maximum rate, ingress policers, and
 mirrors. It has no way to state load. A caller who wants 800 Mbit/s into a
@@ -38,7 +38,7 @@ be compared.
 ## Decision
 
 - Load is stated as a stream. A stream is a plain Go value in
-  `src/common/netsim/stream`: a frame template, a rate in frames or bits per
+  `src/common/sim/stream`: a frame template, a rate in frames or bits per
   second, a burst size and gap, a frame count or a duration, a start time,
   and a list of field variations. The package imports the value and codec
   packages under `src/common/net` and nothing from `fabric` or `vswitch`.
@@ -107,7 +107,7 @@ be compared.
   copies them before attachment, because `Source.Next` has no error return.
   A read error therefore surfaces before the run, and capture memory scales
   with the file.
-- The on-wire transmitter is an edge application, `src/edge/netsimload`, not
+- The on-wire transmitter is an edge application, `src/edge/simload`, not
   part of `netsim` and not a netpen subcommand. It executes the same `stream`
   values with wall-clock pacing through a packet socket on one named
   interface and counts what a second named interface receives; neither
@@ -156,10 +156,10 @@ be compared.
   (cable loss) or as a switch drop reason.
 
 Landed 2026-09-23: the heap arrival queue, journey retention, and per-flow
-statistics in `src/common/netsim/fabric`, and stated egress buffers in
-`src/common/netsim/vswitch/traffic` and `fabric`. Landed 2026-09-24: the
-`src/common/netsim/stream` package with `Fabric.AttachStream` and the load
+statistics in `src/common/sim/fabric`, and stated egress buffers in
+`src/common/sim/layer/traffic` and `fabric`. Landed 2026-09-24: the
+`src/common/sim/stream` package with `Fabric.AttachStream` and the load
 corpus cases, the `src/common/net/pcap` reader with the capture source, and
-the `src/edge/netsimload` transmitter with its opt-in ICX7150 comparison
+the `src/edge/simload` transmitter with its opt-in ICX7150 comparison
 test. The live comparison run is an owner-run step and had not run when the
 transmitter landed.

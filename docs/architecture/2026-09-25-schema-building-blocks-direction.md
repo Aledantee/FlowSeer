@@ -355,3 +355,11 @@ check, as with `Location` and `Cable` today (conventions doc, "EntityRef").
   (`spec/mib/ietf/IANA-RTPROTO-MIB`) for the pass-through registries.
 - Google AIP-142 (time and duration) and AIP-143 (standardized codes and
   units in names).
+
+## Amendments
+
+### 2026-10-02: The simulator tree moved
+
+Consequences above names `src/common/netsim`, which is now `src/common/sim`. The
+[simulation package shape record](2026-10-01-simulation-package-shape-direction.md)
+gives the new layout.

@@ -1,4 +1,5 @@
 import importlib.util
+import io
 import os
 import tempfile
 import unittest
@@ -31,7 +32,7 @@ class PlanStateTest(unittest.TestCase):
                     "---\nstatus: implemented\nreview: accept\n"
                     "compound: no lesson\n---\n"
                 )
-                self.assertEqual(plan_state.stage(first_unit, set()), "done")
+                self.assertEqual(plan_state.stage(first_unit, set()), "land")
                 self.assertEqual(plan_state.stage(second_unit, {"U1"}), "implement")
 
             with patch.object(plan_state, "on_main", return_value=True):
@@ -69,6 +70,55 @@ class PlanStateTest(unittest.TestCase):
                 with patch.object(plan_state, "on_main", return_value=True):
                     self.assertEqual(plan_state.stage(units[0], set()), "on main (plan retired)")
                     self.assertEqual(plan_state.stage(units[1], {"U1"}), "implement")
+            finally:
+                os.chdir(cwd)
+
+    def test_land_owed_goes_before_ready_phases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            plans = Path(directory) / "docs/plans"
+            plans.mkdir(parents=True)
+            parent = plans / "parent-plan.md"
+            parent.write_text(
+                "### U1. First\nFiles: `docs/plans/phase1-plan.md`\nLanded: `abcdef0..abcdef1`\n\n"
+                "### U2. Second\nFiles: `docs/plans/phase2-plan.md`\nLanded:\n\n"
+                "### U3. Third\nFiles: `docs/plans/phase3-plan.md`\nLanded: `abcdef2..abcdef3`\n\n"
+                "### U4. Fourth\nFiles: `docs/plans/phase4-plan.md`\nAfter: U1\nLanded:\n\n"
+                "### U5. Fifth\nFiles: `docs/plans/phase5-plan.md`\nLanded: `abcdef4..abcdef5`\n"
+            )
+            (plans / "phase4-plan.md").write_text(
+                "---\nstatus: planned\nparent: docs/plans/parent-plan.md\n---\n"
+            )
+            (plans / "phase5-plan.md").write_text(
+                "---\nstatus: implemented\nparent: docs/plans/parent-plan.md\n---\n"
+            )
+            (plans / "phase1-plan.md").write_text(
+                "---\nstatus: implemented\nparent: docs/plans/parent-plan.md\n"
+                "review: accept\ncompound: no lesson\n---\n"
+            )
+            (plans / "phase2-plan.md").write_text(
+                "---\nstatus: planned\nparent: docs/plans/parent-plan.md\n---\n"
+            )
+            cwd = Path.cwd()
+            os.chdir(directory)
+            try:
+                # U1 finished on this branch and releases U4, U3 landed and
+                # retired with its fast-forward still pending, U5's implement
+                # merged and awaits review, U2 is ready.
+                with patch.object(plan_state, "on_main", return_value=False), patch(
+                    "sys.stdout", new_callable=io.StringIO
+                ) as out:
+                    plan_state.report(Path("docs/plans/parent-plan.md"))
+                lines = out.getvalue().splitlines()
+                self.assertIn("done (plan retired)", next(l for l in lines if " U3 " in l))
+                self.assertIn(" implement ", next(l for l in lines if " U4 " in l))
+                self.assertEqual(lines[-1], "next: land U1 after U5")
+                (plans / "phase1-plan.md").unlink()
+                (plans / "phase5-plan.md").unlink()
+                with patch.object(plan_state, "on_main", return_value=False), patch(
+                    "sys.stdout", new_callable=io.StringIO
+                ) as out:
+                    plan_state.report(Path("docs/plans/parent-plan.md"))
+                self.assertEqual(out.getvalue().splitlines()[-1], "next: U2, U4")
             finally:
                 os.chdir(cwd)
 

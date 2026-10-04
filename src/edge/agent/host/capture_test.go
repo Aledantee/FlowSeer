@@ -61,20 +61,24 @@ func TestCaptureConfigHostCanConstructEveryExportedField(t *testing.T) {
 	}
 }
 
-func TestModules_DeclaresLaneAndCapture(t *testing.T) {
+func TestModules_DeclaresLaneCaptureAndSyslog(t *testing.T) {
 	t.Parallel()
 
 	a := &assembly{}
 	ca := &captureAssembly{}
-	mods := modules(a, ca)
-	if len(mods) != 2 {
-		t.Fatalf("len(mods) = %d, want 2", len(mods))
+	sa := &syslogAssembly{cfg: &Config{}}
+	mods := modules(a, ca, sa)
+	if len(mods) != 3 {
+		t.Fatalf("len(mods) = %d, want 3", len(mods))
 	}
 	if mods[0].Name != "lane" || mods[0].Leaf == nil || mods[0].Leaf.Setup == nil {
 		t.Errorf("mods[0] = %+v, want lane module with non-nil leaf setup", mods[0])
 	}
 	if mods[1].Name != "capture" || mods[1].Leaf == nil || mods[1].Leaf.Setup == nil {
 		t.Errorf("mods[1] = %+v, want capture module with non-nil leaf setup", mods[1])
+	}
+	if mods[2].Name != "syslog" || mods[2].Leaf == nil || mods[2].Leaf.Setup == nil {
+		t.Errorf("mods[2] = %+v, want syslog module with non-nil leaf setup", mods[2])
 	}
 }
 
