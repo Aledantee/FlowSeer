@@ -38,15 +38,21 @@ reason in the commit message.
   in the
   [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
   record: that a kind may be compiled into central, and that an integration
-  run centrally names no host.
-- A controller or cloud platform behind one integration can serve more than
-  one Site and more than one Tenant, so neither is read from the host that
-  runs the integration. A Site comes from the platform's scopes, which the
+  run centrally names no host. It also replaces the adapter hosted in
+  central that the
+  [`central-ingestion-pipeline-direction`](docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md)
+  record lets publish into the CENTRAL account.
+- One controller or cloud platform can serve more than one Site and more
+  than one Tenant. Each Tenant configures its own integration against the
+  shared platform, so an integration stays in one Tenant and tenancy stays
+  ambient. One integration can cover several Sites: a device's Placement
+  into a FlowSeer Site can derive from the platform's scopes, and an
+  operator's Placement wins, as the
   [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
-  record mirrors as IntegrationScope. How one platform is shared between
-  Tenants is not decided. That record takes the tenant from the integration,
-  and [`docs/conventions/protobuf.md`](docs/conventions/protobuf.md) keeps
-  tenancy ambient. No record decides its shape yet.
+  record says. Neither Site nor Tenant is read from the host that runs the
+  integration. Who owns the credential and the request budget that
+  integrations of several Tenants share on one platform is not decided, and
+  no record decides it yet.
 - An observed configuration change, such as an SNMP trap or an integration's
   change event, reaches central over the bus and triggers the drift read at
   once. This protects against drift from changes made outside FlowSeer. The
