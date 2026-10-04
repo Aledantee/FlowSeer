@@ -265,3 +265,16 @@ The evidence stream keeps messages for 24 hours and discards its oldest
 messages at its byte bound, as configured in `src/modules/edgebus/hub.go`. A
 centrally hosted adapter input is not built. The current intake path accepts
 records from edge streams only.
+
+The edge follower in `src/modules/edgebus/follower.go` owns how long a
+delivery may run. It hands each consumer a lifetime context that ends when the
+caller's context ends, on `Close`, and on a failed first discovery pass, each
+before it drains its consumers. A failed interval pass ends nothing. Intake
+publishes under that lifetime and keeps no cancel of its own, so a caller
+never has to tell a failed first pass from a failed interval pass.
+
+Intake refuses a record only for a reason about the record. An edge the hub
+has no tenant for, a validator failure that is not a rule violation, and a
+failed central publish are retried, since a terminated record is gone and a
+retry is bounded by the edge stream's own age and byte limits
+(`src/services/device/internal/intake/README.md`).
