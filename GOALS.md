@@ -41,7 +41,10 @@ reason in the commit message.
   run centrally names no host. It also replaces the adapter hosted in
   central that the
   [`central-ingestion-pipeline-direction`](docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md)
-  record lets publish into the CENTRAL account.
+  record lets publish into the CENTRAL account. That record's intake reads
+  only per-Edge streams and takes the tenant from the stream, so how an
+  adapter host's observations reach intake and get their tenant is not
+  decided either.
 - One controller or cloud platform can serve more than one Site and more
   than one Tenant. Each Tenant configures its own integration against the
   shared platform, so an integration stays in one Tenant and tenancy stays
