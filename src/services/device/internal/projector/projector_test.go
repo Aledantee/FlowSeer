@@ -23,6 +23,7 @@ import (
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/spawn"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
@@ -118,18 +119,30 @@ func (f *fakeAccessSource) TenantIDs(context.Context) ([]string, error) {
 }
 
 func (f *fakeAccessSource) Members(_ context.Context, id string) ([]*identityv1.Member, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
 	return f.members[id], f.err
 }
 
 func (f *fakeAccessSource) Roles(_ context.Context, id string) ([]*identityv1.Role, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
 	return f.roles[id], f.err
 }
 
 func (f *fakeAccessSource) Partners(_ context.Context, id string) ([]*identityv1.Partner, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
 	return f.partners[id], f.err
 }
 
 func (f *fakeAccessSource) Member(_ context.Context, id string, operator *identityv1.OperatorRef) (*identityv1.Member, error) {
+	if err := tenant.Validate(id); err != nil {
+		return nil, err
+	}
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -726,6 +739,70 @@ func TestNoAccessSourcePreservesTenantDrift(t *testing.T) {
 	}
 	if got := readAllTuples(t, engine); !slices.Equal(got, []authz.Tuple{tuple}) {
 		t.Errorf("tenant tuple without access source = %v, want [%v]", got, tuple)
+	}
+}
+
+func TestReconcileDeletesOwnedTuplesUnderInvalidObjectID(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+
+	strayTuples := []authz.Tuple{
+		{Object: "tenant:acme", Relation: "admin", User: "user:x"},
+		{Object: "tenant:acme", Relation: "enrolled", User: "user:x"},
+		{Object: "role:not-a-uuid", Relation: "assignee", User: "user:x"},
+		{Object: "capture_session:not-a-uuid", Relation: "tenant", User: "tenant:acme"},
+		{Object: "platform:other", Relation: "enrolled", User: "user:x"},
+	}
+	platformAdmin := authz.Tuple{Object: "platform:flowseer", Relation: "enrolled", User: "user:platform-admin"}
+	if err := engine.Write(ctx, append(strayTuples, platformAdmin), nil); err != nil {
+		t.Fatalf("seed tuples: %v", err)
+	}
+
+	access := &fakeAccessSource{
+		ids: []string{"0192e6a0-0000-7000-8000-0000000000c1"},
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithAccessSource(access),
+		projector.WithTenantSource(&fakeTenantSource{}),
+		projector.WithPlatformPrincipals([]string{"platform-admin"}),
+	)
+
+	counts, err := p.Reconcile(ctx)
+	if err != nil {
+		t.Fatalf("Reconcile error = %v, want nil", err)
+	}
+	if counts.Tenants != 1 || counts.Roles != 1 || counts.CaptureSessions != 1 || counts.Platforms != 1 {
+		t.Errorf("counts = %+v, want repairs for invalid tenant, role, capture session, and platform", counts)
+	}
+	got := readAllTuples(t, engine)
+	for _, stray := range strayTuples {
+		if slices.Contains(got, stray) {
+			t.Errorf("tuples after reconcile = %v, want %v deleted", got, stray)
+		}
+	}
+	if !slices.Contains(got, platformAdmin) {
+		t.Errorf("platform admin tuple was unexpectedly removed: %v", got)
+	}
+}
+
+func TestSyncTenantCleansInvalidTenantID(t *testing.T) {
+	ctx := context.Background()
+	engine := authztest.New()
+	stray := authz.Tuple{Object: "tenant:acme", Relation: "admin", User: "user:x"}
+	if err := engine.Write(ctx, []authz.Tuple{stray}, nil); err != nil {
+		t.Fatalf("seed stray tuple: %v", err)
+	}
+	access := &fakeAccessSource{
+		ids: []string{"0192e6a0-0000-7000-8000-0000000000c1"},
+	}
+	p := projector.New(engine, &fakeEdgeSource{}, nil, &fakeCaptureSource{}, 0, nil, nil,
+		projector.WithAccessSource(access),
+	)
+	if err := p.SyncTenant(ctx, "acme"); err != nil {
+		t.Fatalf("SyncTenant(acme) error = %v, want nil", err)
+	}
+	if got := readAllTuples(t, engine); slices.Contains(got, stray) {
+		t.Errorf("stray tuple after SyncTenant = %v, want removed", got)
 	}
 }
 

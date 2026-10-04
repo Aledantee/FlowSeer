@@ -13,6 +13,7 @@ import (
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
@@ -292,6 +293,9 @@ func (p *Projector) desiredTuples(ctx context.Context, obj Object, existingOwned
 		if p.access == nil {
 			return nil, nil
 		}
+		if err := tenant.Validate(obj.ID); err != nil {
+			return nil, nil
+		}
 		committed, err := p.committedTenant(ctx, obj.ID)
 		if err != nil {
 			return nil, err
@@ -470,6 +474,10 @@ func (p *Projector) SyncTenant(ctx context.Context, tenantID string) error {
 	}
 	stored, err := p.relations.Read(ctx, "tenant:"+tenantID)
 	if err != nil {
+		return err
+	}
+	if err := tenant.Validate(tenantID); err != nil {
+		_, err := p.syncObjectWithStored(ctx, Object{Type: "tenant", ID: tenantID}, stored, true)
 		return err
 	}
 	roleIDs := make(map[string]bool)
