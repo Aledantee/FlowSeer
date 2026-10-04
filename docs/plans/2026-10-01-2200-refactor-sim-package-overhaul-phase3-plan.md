@@ -4,16 +4,14 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan
 
-> **Outcome**: U1 through U6 landed (`a8a26462..7602c877`), and
-> `parked/sim-p3-review` holds the fixes made to them since. U7 is planned.
-> It replaces the topology-change emission those units left (Review gaps).
+> **Implemented.** 7 units, 2026-10-03T19:45:04Z to 2026-10-04T19:03:28Z.
 
 ## Goal
 
