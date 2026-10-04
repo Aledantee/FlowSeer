@@ -425,9 +425,25 @@ func TestTheLabStoreScriptKeepsTheKeyOutOfCurlArguments(t *testing.T) {
 func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
 	t.Parallel()
 
+	for _, tool := range []string{"jq", "shasum"} {
+		if _, err := exec.LookPath(tool); err != nil {
+			t.Skipf("%s is not on PATH: %v", tool, err)
+		}
+	}
+
 	readme := labScript(t, "README.md")
-	if !strings.Contains(readme, "jq -r -R") {
-		t.Fatal("deploy/lab/README.md does not use jq -r -R to decode sub without quotes")
+	var subLine, idLine string
+	for line := range strings.SplitSeq(readme, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "ALICE_SUB=") {
+			subLine = trimmed
+		}
+		if strings.HasPrefix(trimmed, "ALICE_ID=") {
+			idLine = trimmed
+		}
+	}
+	if subLine == "" || idLine == "" {
+		t.Fatalf("extract principal pipeline from deploy/lab/README.md: ALICE_SUB=%q, ALICE_ID=%q", subLine, idLine)
 	}
 
 	issuer := "https://127.0.0.1:8445/dex"
@@ -441,10 +457,10 @@ func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
 	cmd := exec.Command("sh", "-c", fmt.Sprintf(`
 set -eu
 ALICE_TOKEN=%q
-ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -r -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
-ALICE_ID=$(printf '%%s\0%%s' %q "${ALICE_SUB}" | shasum -a 256 | awk '{print $1}')
+%s
+%s
 printf '%%s' "${ALICE_ID}"
-`, token, issuer))
+`, token, subLine, idLine))
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -497,5 +513,173 @@ func TestTheStoreDeviceReadmeSampleLoads(t *testing.T) {
 	}
 	if cfg.StateDir() != "/var/lib/flowseer/device" {
 		t.Errorf("StateDir = %q, want /var/lib/flowseer/device", cfg.StateDir())
+	}
+}
+
+// deploy/lab/README.md prints accurate expected answers for OpenFGA preshared key
+// checks and edge administration.
+func TestTheLabReadmeExpectedPresharedKeyAndEdgeResponses(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+
+	if strings.Contains(readme, "grpc-status: 16") {
+		t.Errorf("deploy/lab/README.md contains 'grpc-status: 16', want 1010 and 1500")
+	}
+	if !strings.Contains(readme, "grpc-status: 1010") {
+		t.Errorf("deploy/lab/README.md missing expected 'grpc-status: 1010'")
+	}
+	if !strings.Contains(readme, "grpc-status: 1500") {
+		t.Errorf("deploy/lab/README.md missing expected 'grpc-status: 1500'")
+	}
+
+	if strings.Contains(readme, `"Bearer token is missing"`) {
+		t.Errorf("deploy/lab/README.md contains '\"Bearer token is missing\"', want 'missing bearer token'")
+	}
+	if strings.Contains(readme, `"Unauthorized"`) {
+		t.Errorf("deploy/lab/README.md contains '\"Unauthorized\"', want 'unauthenticated'")
+	}
+	if !strings.Contains(readme, `"missing bearer token"`) {
+		t.Errorf("deploy/lab/README.md missing '\"missing bearer token\"'")
+	}
+
+	if strings.Contains(readme, `"edgeId":`) {
+		t.Errorf("deploy/lab/README.md contains '\"edgeId\":' under provisioning, which EdgeProvisioning lacks")
+	}
+	if !strings.Contains(readme, `"issuedAt":`) || !strings.Contains(readme, `"expiresAt":`) {
+		t.Errorf("deploy/lab/README.md setupKey expected answer missing issuedAt or expiresAt")
+	}
+
+	if strings.Contains(readme, `-d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}'`) {
+		t.Errorf("deploy/lab/README.md hardcodes edge id in GetEdge, must capture from CreateEdge answer")
+	}
+}
+
+// deploy/lab/README.md uses directory-relative path for starting device service and
+// explains bootstrap registry creation.
+func TestTheLabReadmeStartCommandAndBootstrapRegistry(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+
+	if strings.Contains(readme, "go run ./src/services/device/cmd/device") {
+		t.Errorf("deploy/lab/README.md start command uses ./src/services/device/cmd/device, should use ../../src/services/device/cmd/device")
+	}
+
+	if !strings.Contains(readme, "registry.textproto") || !strings.Contains(readme, "0192e6a0-0000-7000-8000-00000000dead") {
+		t.Errorf("deploy/lab/README.md does not show or cite the bootstrap registry with placeholder edge")
+	}
+}
+
+// docs/runbooks/lab-icx7150-first-write.md contracts: tenant id is deployment UUID,
+// links to lab README, requires authentication/authorization config, and states
+// tenant-record limits.
+func TestTheRunbookAuthenticationAndTenantContracts(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(repoRoot, "docs", "runbooks", "lab-icx7150-first-write.md"))
+	if err != nil {
+		t.Fatalf("read runbook: %v", err)
+	}
+	runbook := string(content)
+
+	if strings.Contains(runbook, "export TENANT=default\n") {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md contains 'export TENANT=default', want deployment's tenant UUID")
+	}
+
+	if !strings.Contains(runbook, "deploy/lab/README.md") {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing link to deploy/lab/README.md")
+	}
+
+	if !strings.Contains(runbook, "authentication") || !strings.Contains(runbook, "authorization") {
+		t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing mention of central authentication/authorization config")
+	}
+
+	for _, cite := range []string{
+		"tenantstore",
+		"TenantService",
+		"verifier.go",
+		"model.json",
+	} {
+		if !strings.Contains(runbook, cite) {
+			t.Errorf("docs/runbooks/lab-icx7150-first-write.md missing citation of %s for tenant record limit", cite)
+		}
+	}
+}
+
+// docs/architecture/2026-09-30-operator-authorization-direction.md contracts:
+// correct citations and inclusion of plan decisions.
+func TestTheDirectionRecordCitationsAndDecisions(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(repoRoot, "docs", "architecture", "2026-09-30-operator-authorization-direction.md"))
+	if err != nil {
+		t.Fatalf("read direction record: %v", err)
+	}
+	text := string(content)
+
+	if strings.Contains(text, "src/modules/edgebus/hub.go:42") {
+		t.Errorf("direction record cites src/modules/edgebus/hub.go:42, should cite subjects.go and hub.go:400")
+	}
+
+	if strings.Contains(text, "mutual TLS") {
+		t.Errorf("direction record claims edges authenticate through mutual TLS, want signed assertions citing src/services/device/README.md")
+	}
+
+	if strings.Contains(text, "the plan table") {
+		t.Errorf("direction record cites 'the plan table' without path")
+	}
+
+	if strings.Contains(text, "cannot evict setup key issuance records from another tenant") {
+		t.Errorf("direction record claims per-subject cap is for cross-tenant eviction; should be edge viewers evicting key issuance records")
+	}
+
+	for _, decision := range []string{
+		"Sync",
+		"5 s",
+		"Reconciled",
+		"256",
+		"AbandonMutationRequest",
+		"OPERATOR_ACTION_OUTCOME_DENIED",
+	} {
+		if !strings.Contains(text, decision) {
+			t.Errorf("direction record missing decision keyword %q", decision)
+		}
+	}
+}
+
+// src/services/device/test/integration/fixture_test.go comment contracts.
+func TestTheFixtureTestClientCommentReused(t *testing.T) {
+	t.Parallel()
+
+	content, err := os.ReadFile(filepath.Join(repoRoot, "src", "services", "device", "test", "integration", "fixture_test.go"))
+	if err != nil {
+		t.Fatalf("read fixture_test.go: %v", err)
+	}
+	if strings.Contains(string(content), "built once and reused") {
+		t.Errorf("fixture_test.go says 'built once and reused' while start() rebuilds it")
+	}
+}
+
+// spec/proto README contracts: no semicolons in operator event README and central
+// sets Actor in access model README.
+func TestTheAccessAndEventReadmes(t *testing.T) {
+	t.Parallel()
+
+	eventReadme, err := os.ReadFile(filepath.Join(repoRoot, "spec", "proto", "flowseer", "event", "operator", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read event README: %v", err)
+	}
+	if strings.Contains(string(eventReadme), ";") {
+		t.Errorf("spec/proto/flowseer/event/operator/v1/README.md contains semicolons")
+	}
+
+	accessReadme, err := os.ReadFile(filepath.Join(repoRoot, "spec", "proto", "flowseer", "model", "access", "v1", "README.md"))
+	if err != nil {
+		t.Fatalf("read access README: %v", err)
+	}
+	if strings.Contains(string(accessReadme), "The client builds a `MutationIntent`: the device ref, a fresh UUID as\n   `idempotency_key`, an `Actor`") ||
+		strings.Contains(string(accessReadme), "The client builds a `MutationIntent`: the device ref, a fresh UUID as `idempotency_key`, an `Actor`") {
+		t.Errorf("spec/proto/flowseer/model/access/v1/README.md claims client builds Actor")
 	}
 }

@@ -258,10 +258,11 @@ type central struct {
 	// the field out so the host applies its one-minute default.
 	captureSweep time.Duration
 
-	// client is built once and reused. A fresh http.Transport per call keeps
-	// its own idle pool with no IdleConnTimeout, and the status polls run at
-	// 50ms for minutes, so a per-call transport leaks thousands of
-	// connections and their goroutines on both sides of this process.
+	// client is built on each start and reused across calls. A fresh
+	// http.Transport per call keeps its own idle pool with no
+	// IdleConnTimeout, and the status polls run at 50ms for minutes, so a
+	// per-call transport leaks thousands of connections and their
+	// goroutines on both sides of this process.
 	client *http.Client
 
 	mu      sync.Mutex

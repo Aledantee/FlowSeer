@@ -110,16 +110,31 @@ Expected answer:
 6. Start the device service:
 
 ```bash
-go run ./src/services/device/cmd/device --config central.textproto
+go run ../../src/services/device/cmd/device --config central.textproto
 ```
 
 The config points at `/etc/flowseer/registry.textproto` and
 `/etc/flowseer/credentials`, so install or mount those paths before starting.
-The service validates the registry before it binds. For this first operator
-smoke test, use a valid bootstrap registry with the integration and a
-placeholder edge but no devices. After `CreateEdge` returns, render the full
-registry with `write-registry.sh` and restart central before using device
-procedures. The runbook describes that two-start sequence in detail.
+The service validates the registry before it binds. Central requires a registry
+at `/etc/flowseer/registry.textproto` with the integration and no devices for
+this first bootstrap start (`docs/runbooks/lab-icx7150-first-write.md:92-95`).
+The integration ref comes from `registry.textproto:13` with a placeholder edge
+UUID:
+
+```bash
+cat << 'EOF' > /etc/flowseer/registry.textproto
+integration {
+  ref { integration { id: "0192e6a0-0000-7000-8000-0000000000c1" } }
+  edge { edge { id: "0192e6a0-0000-7000-8000-00000000dead" } }
+}
+EOF
+```
+
+After `CreateEdge` returns, `write-registry.sh` renders `registry.textproto` with
+the minted edge identifier to `/etc/flowseer/registry.textproto`
+(`docs/runbooks/lab-icx7150-first-write.md:168`), and central is restarted before
+device procedures can be used. The runbook describes that two-start sequence in
+detail.
 
 Expected log entry:
 
@@ -136,7 +151,9 @@ buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
   -H "Authorization: Bearer ${ALICE_TOKEN}" \
   -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
   -d '{"name":"lab"}' \
-  https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/CreateEdge
+  https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/CreateEdge > created.json
+EDGE_ID=$(sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' created.json | head -1)
+cat created.json
 ```
 
 Expected answer:
@@ -160,13 +177,19 @@ Expected answer:
       },
       "lifecycle": "EDGE_LIFECYCLE_PENDING",
       "setupKey": {
-        "id": "0192e6a0-0000-7000-8000-000000000002",
-        "status": "SETUP_KEY_STATUS_ISSUED"
+        "id": "234567abcdefghijklmnopqrst",
+        "status": "SETUP_KEY_STATUS_ISSUED",
+        "issuedAt": "2026-10-04T08:00:00Z",
+        "expiresAt": "2027-04-02T08:00:00Z"
       }
     }
   },
   "provisioning": {
-    "edgeId": "0192e6a0-0000-7000-8000-000000000001"
+    "centralUrl": "https://127.0.0.1:8443",
+    "setupKey": "fse1_234567abcdefghijklmnopqrst_234567abcdefghijklmnopqrst234567abcdefghijklmnopqr",
+    "trustAnchors": [
+      "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+    ]
   }
 }
 ```
@@ -177,7 +200,7 @@ Requesting `GetEdge` with the bearer token and tenant header:
 buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
   -H "Authorization: Bearer ${ALICE_TOKEN}" \
   -H "X-FlowSeer-Tenant: ${TENANT_ID}" \
-  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  -d "{\"edge\":{\"edge\":{\"id\":\"${EDGE_ID}\"}}}" \
   https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
 ```
 
@@ -211,7 +234,7 @@ The same call without the header answers `InvalidArgument`:
 ```bash
 buf curl --schema ../../spec/proto --cacert /var/lib/flowseer/device/tls.crt \
   -H "Authorization: Bearer ${ALICE_TOKEN}" \
-  -d '{"edge":{"edge":{"id":"0192e6a0-0000-7000-8000-000000000001"}}}' \
+  -d "{\"edge\":{\"edge\":{\"id\":\"${EDGE_ID}\"}}}" \
   https://127.0.0.1:8443/flowseer.api.edge.v1.EdgeAdminService/GetEdge
 ```
 
@@ -232,11 +255,11 @@ On the HTTP listener, a request with no `Authorization` header returns HTTP 401 
 curl -i --cacert secrets/ca.crt https://127.0.0.1:8080/stores
 ```
 
-Expected answer:
+Expected answer (read from source in `github.com/openfga/openfga@v1.21.0/internal/authn/authn.go:17` and `pkg/server/errors/encoded_errors.go:125-130`):
 
 ```text
 HTTP/2 401
-{"code":"bearer_token_missing","message":"Bearer token is missing"}
+{"code":"bearer_token_missing","message":"missing bearer token"}
 ```
 
 A request with a wrong preshared key returns HTTP 401 with `unauthenticated`:
@@ -245,11 +268,11 @@ A request with a wrong preshared key returns HTTP 401 with `unauthenticated`:
 curl -i --cacert secrets/ca.crt -H "Authorization: Bearer wrong-key" https://127.0.0.1:8080/stores
 ```
 
-Expected answer:
+Expected answer (read from source in `github.com/openfga/openfga@v1.21.0/internal/authn/authn.go:16` and `pkg/server/errors/encoded_errors.go:125-130`):
 
 ```text
 HTTP/2 401
-{"code":"unauthenticated","message":"Unauthorized"}
+{"code":"unauthenticated","message":"unauthenticated"}
 ```
 
 Over gRPC, `ListStores` without `authorization` metadata fails with status 1010:
@@ -263,7 +286,7 @@ printf '\0\0\0\0\0' | curl -sS -i --http2 --cacert secrets/ca.crt \
 Expected answer:
 
 ```text
-grpc-status: 16
+grpc-status: 1010
 ```
 
 With a wrong key it fails with status 1500:
@@ -277,7 +300,7 @@ printf '\0\0\0\0\0' | curl -sS -i --http2 --cacert secrets/ca.crt \
 Expected answer:
 
 ```text
-grpc-status: 16
+grpc-status: 1500
 ```
 
 9. Stop the containers and drop their state:
