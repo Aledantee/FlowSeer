@@ -138,9 +138,29 @@ middleware and carries its own per-message bound.
 The six `EdgeAdminService` procedures, `TailCaptureSession`,
 `DownloadCaptureSession`, and full-payload `CreateCaptureSession` calls admitted
 by authorization record an attempt and completion in the operator action trail
-(`FLOWSEER_OPERATOR_ACTIONS` stream, published on
-`flowseer.<tenant>.operator.action.<action>` by `internal/auditapi.JetStreamPublisher`). An
-unauthenticated or unauthorized call leaves no action trail entry, avoiding
+(published by `internal/auditapi.JetStreamPublisher`). Views and changes go to
+two streams, so that a flood of views cannot evict the record of a change:
+
+| Stream | Subject | Holds | Bytes | Per subject |
+| --- | --- | --- | --- | --- |
+| `FLOWSEER_OPERATOR_ACTIONS` | `flowseer.<tenant>.operator.action.<action>` | changes, capture streams, full-payload captures | 64 MiB | 10,000 |
+| `FLOWSEER_OPERATOR_READS` | `flowseer.<tenant>.operator.read.<action>` | `GetEdge` and `ListEdges` | 16 MiB | 1,000 |
+
+The per-subject cap holds only while a stream is below its byte limit. Past
+it the oldest record in the stream goes, whatever its subject, so a view stream
+sized for views is what keeps changes. The sizing rule is in the
+[edgebus README](../../modules/edgebus/README.md#the-operator-trails-two-streams).
+
+The trail's table also holds the eleven change procedures of `TenantService`
+and `TenantAdminService`: `CreateTenant`, `EnrollMember`, `RemoveMember`,
+`CreateRole`, `DeleteRole`, `AssignRole`, `UnassignRole`, `ConnectPartner`,
+`DisconnectPartner`, `GrantFullPayload`, and `RevokeFullPayload`. A call admitted
+to no tenant, which only `CreateTenant` is, publishes on
+`flowseer.platform.operator.action.tenant_create`. Any other recorded call
+without a tenant answers `actiontrail/unprepared`. The host does not serve
+either service, so no call reaches those entries.
+
+An unauthenticated or unauthorized call leaves no action trail entry, avoiding
 trail pollution by unverified callers.
 
 The edge-facing services (`EdgeService`, `DispatchService`, `AuditService`,

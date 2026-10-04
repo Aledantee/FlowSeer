@@ -470,9 +470,9 @@ The operator action trail records who created an edge, minted a setup key, or
 downloaded a capture. Authorization adds global admins and cross-tenant grants,
 so each recorded operator action is emitted with its authenticated
 `OperatorRef`, object, action, and outcome in the same change that turns
-authorization on. That event goes to a single stream using
+authorization on. That event goes to a stream using
 `flowseer.<tenant>.operator.action.<action>` subjects (subject pattern in
-`src/modules/edgebus/subjects.go:86-88`, stream binding in `src/modules/edgebus/hub.go:400`).
+`src/modules/edgebus/subjects.go:103-105`, stream binding in `src/modules/edgebus/hub.go:408`).
 
 ## Consequences
 
@@ -806,17 +806,18 @@ to isolate idempotency keys across operators (`src/services/device/internal/jour
 
 #### Operator action trail
 
-The action trail records only the nine procedures in the interceptor table
-(`src/services/device/internal/actiontrail/interceptor.go:32-45`): `CreateEdge`,
+The action trail records only the nine procedures in the interceptor tables
+(`src/services/device/internal/actiontrail/interceptor.go:35-42` and `:240-243`): `CreateEdge`,
 `IssueSetupKey`, `RevokeSetupKey`, `RetireEdge`, `GetEdge`, and `ListEdges` on
 `EdgeAdminService`, along with full-payload `CreateCaptureSession`,
-`TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. Calls
+`TailCaptureSession`, and `DownloadCaptureSession` on `CaptureService`. The
+2026-10-04 amendment adds eleven. Calls
 refused by authentication or authorization interceptors are excluded from the
 trail, preventing unauthenticated or unauthorized callers from polluting audit
 streams. A denial inside the handler (such as the full-payload capture
 authorization check in `src/services/device/internal/captureapi/operator_service.go:127-134`)
 is recorded with outcome `OPERATOR_ACTION_OUTCOME_DENIED`
-(`src/services/device/internal/actiontrail/interceptor.go:87-95`), because the handler
+(`src/services/device/internal/actiontrail/interceptor.go:285-294`), because the handler
 was reached by an authenticated caller and the attempt was already recorded. The
 completion records the outcome the handler returned.
 
@@ -837,3 +838,75 @@ publication fails, execution halts and returns `CodeUnavailable` with
 `actiontrail/unavailable`. If completion publication fails, the failure is
 logged while the handler response returns to the caller, because the operation
 has already taken effect and cannot be rolled back.
+
+### 2026-10-04: operator trail streams, platform actions, and administration actions
+
+Views and changes go to two streams, so that a flood of views cannot evict the
+record of a change.
+
+| Stream | Subject | Holds | Bytes | Per subject |
+| --- | --- | --- | --- | --- |
+| `FLOWSEER_OPERATOR_ACTIONS` | `flowseer.<tenant>.operator.action.<action>` | every recorded change | 64 MiB | 10,000 |
+| `FLOWSEER_OPERATOR_READS` | `flowseer.<tenant>.operator.read.<action>` | `GetEdge` and `ListEdges` | 16 MiB | 1,000 |
+
+`OperatorReadSubject` builds the read subject
+(`src/modules/edgebus/subjects.go:108-110`) and the hub creates the read stream
+beside the action stream (`src/modules/edgebus/hub.go:419-438`). The
+interceptor sends the two view actions to it
+(`src/services/device/internal/actiontrail/interceptor.go:233-238`). Both limits
+are `HubConfig` fields with no deployment setting, as `DeviceServiceConfig`
+keeps the bus's storage bounds out until a deployment needs one
+(`spec/proto/flowseer/store/device/v1/service_config.proto:19-24`).
+
+The 2026-10-03 sentence that a flood evicts only records of its own action holds
+only below the stream's byte limit, and it is corrected in place. A stored
+record is 34 bytes plus its subject, header, and payload
+(`github.com/nats-io/nats-server/v2@v2.15.0/server/filestore.go:10055-10062`),
+and an `IssueSetupKey` attempt or completion occupies about 410 bytes
+(`TestOperatorActionRecordFitsTheSizingArithmetic` in
+`src/modules/edgebus/edgebus_test.go`). A subject at its cap of 10,000 holds
+about 4 MiB. Every viewer may call the two view actions, so one tenant's two
+view subjects hold about 8 MiB when full, and the views of nine tenants outgrow
+64 MiB. From then on each write removes the oldest record in the stream whatever
+its subject, which would be the rare change the trail exists for. After the
+split a change competes only with changes. The 64 MiB action stream holds about
+160,000 records, or 80,000 change calls, and
+`TestAViewFloodCannotEvictAChangeRecord` in
+`src/services/device/internal/actiontrail/actiontrail_test.go` fills the read
+stream past its limit and finds an earlier setup key record still in the action
+stream.
+
+The change stream is still shared by every tenant. A tenant admin who repeats
+changes can fill 18 change subjects at their cap, about 70 MiB, and push out the
+oldest change records of other tenants. A stream per tenant bounds that. It
+reserves its bytes per tenant against the central budget, which caps the tenant
+count, and it changes the subject-per-tenant design above.
+
+The two streams reserve 80 MiB of the central account's 512 MiB beside the
+audit stream's 256 MiB
+(`github.com/nats-io/nats-server/v2@v2.15.0/server/jetstream.go:2603-2607`). The
+new `access` bucket (`AccessBucket`) makes five key-value buckets, and with no
+byte limit of their own they share the 176 MiB the streams leave, where four
+shared 192 MiB.
+
+A call admitted to no tenant has no tenant to name in the subject. Only
+`CreateTenant` is recorded without one, since it runs under the platform rule of
+the 2026-10-02 amendment, and its records go to
+`flowseer.platform.operator.action.tenant_create`. `platform` can never be a
+tenant id (`src/common/tenant/tenant.go:41-51`), and the action stream's binding
+already matches it. The interceptor takes the token for that procedure alone
+(`src/services/device/internal/actiontrail/interceptor.go:361-366`). Any other
+recorded call with no tenant still answers `actiontrail/unprepared`.
+
+The trail records eleven more procedures
+(`src/services/device/internal/actiontrail/interceptor.go:70-154`):
+`CreateTenant` on `TenantService`, and `EnrollMember`, `RemoveMember`,
+`CreateRole`, `DeleteRole`, `AssignRole`, `UnassignRole`, `ConnectPartner`,
+`DisconnectPartner`, `GrantFullPayload`, and `RevokeFullPayload` on
+`TenantAdminService`. The attempt names the object the request carries. The
+completion fills it from the response where the request cannot: the created
+tenant, the created role with its relations, and the expiry of a full-payload
+grant. A removed record is deleted, so the trail is the only history of what a
+role, a link, or a grant held. The get and list procedures of both services are
+not recorded, since a list of members discloses nothing a setup key or a
+payload does.
