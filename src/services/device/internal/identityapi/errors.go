@@ -49,12 +49,12 @@ var ClientErrors = connecterr.Table{
 	tenant.ErrCodeInvalidTenant:      {Code: connect.CodeInvalidArgument, UserMsg: "the tenant identifier is not well-formed"},
 }
 
-func connectErr(err error) error {
+func connectErr(ctx context.Context, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
 	var connectError *connect.Error
 	if errors.As(err, &connectError) {
-		return err
-	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	code, _ := errs.CodeOf(err)
@@ -87,7 +87,7 @@ func adminRequest(ctx context.Context, msg proto.Message) (authn.Principal, stri
 	}
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
-		return authn.Principal{}, "", connectErr(err)
+		return authn.Principal{}, "", connectErr(ctx, err)
 	}
 	return p, tenantID, nil
 }
@@ -99,9 +99,9 @@ func projectionError(err error) error {
 	return connecterr.WrapAs(connect.CodeUnavailable, "authorization is unavailable; retry", errs.From(err).Retryable().Msg("project access records"))
 }
 
-func memberError(err error) error {
+func memberError(ctx context.Context, err error) error {
 	if code, _ := errs.CodeOf(err); code == accessstore.ErrCodeNotFound {
 		err = errs.From(err).Code(ErrCodeNotAMember).Msg("operator has no enrollment")
 	}
-	return connectErr(err)
+	return connectErr(ctx, err)
 }

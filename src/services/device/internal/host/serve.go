@@ -266,7 +266,7 @@ func (h *assembly) mux(ctx context.Context, resources *busResources, log *slog.L
 	)
 	mux.Handle(tenantPath, tenantHandler)
 	tenantAdminPath, tenantAdminHandler := identityv1connect.NewTenantAdminServiceHandler(
-		identityapi.NewAdminService(resources.tenants, access, issuerURLs, time.Now, resources.projector), operatorInterceptors, recoverPanic,
+		identityapi.NewAdminService(resources.tenants, access, issuerURLs, time.Now, resources.projector, log), operatorInterceptors, recoverPanic,
 	)
 	mux.Handle(tenantAdminPath, tenantAdminHandler)
 	edgePath, edgeHandler := attachv1connect.NewEdgeServiceHandler(edgeService, edgeInterceptors, recoverPanic)
