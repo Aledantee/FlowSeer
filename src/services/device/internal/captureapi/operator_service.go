@@ -17,6 +17,9 @@ import (
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/connecterr"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
 )
@@ -35,23 +38,25 @@ func unauthenticatedOperator(err error) error {
 	return connecterr.WrapRefused(msgOperatorUnauthenticated, err)
 }
 
-// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange is a
-// no-op, and nil Clock uses the wall clock.
+// OperatorServiceConfig configures an [OperatorService]. Nil NotifyChange and
+// Project callbacks are no-ops, and nil Clock uses the wall clock.
 type OperatorServiceConfig struct {
 	EdgeTenant   func(ctx context.Context, edgeID string) (string, error)
 	NotifyChange func()
 	Clock        func() time.Time
+	Project      func(ctx context.Context, objectType, id string)
 }
 
 // OperatorService serves operator capture requests. An OperatorService is safe
-// for concurrent use when both its configured NotifyChange and Clock callbacks
-// are safe for concurrent use.
+// for concurrent use when its configured EdgeTenant, NotifyChange, Clock, and
+// Project callbacks are safe for concurrent use.
 type OperatorService struct {
 	store        *Store
 	broadcaster  *Broadcaster
 	edgeTenant   func(ctx context.Context, edgeID string) (string, error)
 	notifyChange func()
 	clock        func() time.Time
+	project      func(ctx context.Context, objectType, id string)
 }
 
 var _ capturev1connect.CaptureServiceHandler = (*OperatorService)(nil)
@@ -67,12 +72,17 @@ func NewOperatorService(store *Store, broadcaster *Broadcaster, cfg OperatorServ
 	if notify == nil {
 		notify = func() {}
 	}
+	project := cfg.Project
+	if project == nil {
+		project = func(context.Context, string, string) {}
+	}
 	return &OperatorService{
 		store:        store,
 		broadcaster:  broadcaster,
 		edgeTenant:   cfg.EdgeTenant,
 		notifyChange: notify,
 		clock:        clock,
+		project:      project,
 	}
 }
 
@@ -83,6 +93,10 @@ func (s *OperatorService) CreateCaptureSession(
 	ctx context.Context,
 	req *connect.Request[operatorcapturev1.CreateCaptureSessionRequest],
 ) (*connect.Response[operatorcapturev1.CreateCaptureSessionResponse], error) {
+	principal, ok := authn.FromContext(ctx)
+	if !ok {
+		return nil, unauthenticatedOperator(nil)
+	}
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
 		return nil, unauthenticatedOperator(err)
@@ -110,8 +124,13 @@ func (s *OperatorService) CreateCaptureSession(
 	if msg.GetSource() == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("capture source is required"))
 	}
-	if msg.GetAuthorization() == nil || msg.GetAuthorization().GetRequestedBy().GetSubject() == "" || msg.GetAuthorization().GetReason() == "" {
+	if msg.GetAuthorization() == nil || msg.GetAuthorization().GetReason() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errs.Msg("authorization is required"))
+	}
+	if msg.GetAuthorization().GetFullPayloadRequested() {
+		if err := authz.Require(ctx, "full_payload", "tenant", tenantID); err != nil {
+			return nil, err
+		}
 	}
 
 	budget := msg.GetBudget()
@@ -133,11 +152,20 @@ func (s *OperatorService) CreateCaptureSession(
 		}.Build(),
 	}.Build()
 
+	authConfig := modelcapturev1.CaptureAuthorization_builder{
+		Reason:               proto.String(msg.GetAuthorization().GetReason()),
+		FullPayloadRequested: proto.Bool(msg.GetAuthorization().GetFullPayloadRequested()),
+		RequestedBy: identityv1.OperatorRef_builder{
+			Issuer:  proto.String(principal.Issuer),
+			Subject: proto.String(principal.Subject),
+		}.Build(),
+	}.Build()
+
 	configBuilder := modelcapturev1.CaptureSessionConfig_builder{
 		Ref:           globalRef,
 		Source:        msg.GetSource(),
 		Budget:        msg.GetBudget(),
-		Authorization: msg.GetAuthorization(),
+		Authorization: authConfig,
 	}
 	if msg.HasName() {
 		configBuilder.Name = proto.String(msg.GetName())
@@ -155,6 +183,7 @@ func (s *OperatorService) CreateCaptureSession(
 	}
 
 	s.notifyChange()
+	s.project(ctx, "capture_session", sessionID)
 
 	resp := operatorcapturev1.CreateCaptureSessionResponse_builder{
 		Session: rec,
@@ -242,12 +271,12 @@ func (s *OperatorService) ListCaptureSessions(
 ) (*connect.Response[operatorcapturev1.ListCaptureSessionsResponse], error) {
 	tenantID, err := tenant.FromContext(ctx)
 	if err != nil {
-		return nil, unauthenticatedOperator(err)
+		return nil, authz.Abandon(ctx, unauthenticatedOperator(err))
 	}
 
 	all, err := s.store.ListSessions(ctx, tenantID)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, authz.Abandon(ctx, connectErr(err))
 	}
 
 	pageSize := defaultPageSize
@@ -259,33 +288,99 @@ func (s *OperatorService) ListCaptureSessions(
 	}
 
 	pageToken := req.Msg.GetPageToken()
-	startIndex := 0
-	if pageToken != "" {
-		for i, rec := range all {
-			if rec.GetConfig().GetRef().GetCaptureSession().GetId() > pageToken {
-				startIndex = i
-				break
-			}
-			startIndex = len(all)
+	var candidates []*modelcapturev1.CaptureSessionRecord
+	for _, rec := range all {
+		if rec.GetConfig().GetRef().GetCaptureSession().GetId() > pageToken {
+			candidates = append(candidates, rec)
 		}
 	}
 
-	endIndex := startIndex + pageSize
-	if endIndex > len(all) {
-		endIndex = len(all)
+	const maxCandidates = 500
+	examined := 0
+	var (
+		page           []*modelcapturev1.CaptureSessionRecord
+		lastExaminedID string
+		lastReturnedID string
+		pageFilled     bool
+	)
+
+	for len(page) < pageSize && examined < maxCandidates && len(candidates) > 0 {
+		chunkSize := pageSize
+		remExamined := maxCandidates - examined
+		if remExamined < chunkSize {
+			chunkSize = remExamined
+		}
+		if len(candidates) < chunkSize {
+			chunkSize = len(candidates)
+		}
+
+		chunk := candidates[:chunkSize]
+		candidates = candidates[chunkSize:]
+		examined += len(chunk)
+		lastExaminedID = chunk[len(chunk)-1].GetConfig().GetRef().GetCaptureSession().GetId()
+
+		distinctEdgesMap := make(map[string]struct{})
+		var distinctEdges []string
+		for _, rec := range chunk {
+			edgeID := rec.GetConfig().GetRef().GetEdge().GetEdge().GetId()
+			if edgeID != "" {
+				if _, exists := distinctEdgesMap[edgeID]; !exists {
+					distinctEdgesMap[edgeID] = struct{}{}
+					distinctEdges = append(distinctEdges, edgeID)
+				}
+			}
+		}
+
+		allowedEdges, err := authz.Filter(ctx, "capture", "edge", distinctEdges)
+		if err != nil {
+			return nil, err
+		}
+		allowedEdgeSet := make(map[string]bool, len(allowedEdges))
+		for _, edgeID := range allowedEdges {
+			allowedEdgeSet[edgeID] = true
+		}
+
+		for _, rec := range chunk {
+			edgeID := rec.GetConfig().GetRef().GetEdge().GetEdge().GetId()
+			if !allowedEdgeSet[edgeID] {
+				continue
+			}
+			page = append(page, rec)
+			lastReturnedID = rec.GetConfig().GetRef().GetCaptureSession().GetId()
+			if len(page) == pageSize {
+				pageFilled = true
+				break
+			}
+		}
+	}
+	if examined == 0 {
+		if _, err := authz.Filter(ctx, "capture", "edge", nil); err != nil {
+			return nil, err
+		}
 	}
 
-	var page []*modelcapturev1.CaptureSessionRecord
-	if startIndex < len(all) {
-		page = all[startIndex:endIndex]
+	var tokenID string
+	if pageFilled {
+		tokenID = lastReturnedID
+	} else {
+		tokenID = lastExaminedID
+	}
+
+	var hasRemaining bool
+	if tokenID != "" {
+		for _, rec := range all {
+			if rec.GetConfig().GetRef().GetCaptureSession().GetId() > tokenID {
+				hasRemaining = true
+				break
+			}
+		}
 	}
 
 	respBuilder := operatorcapturev1.ListCaptureSessionsResponse_builder{
 		Sessions: page,
 	}
-	if endIndex < len(all) && len(page) > 0 {
-		nextID := page[len(page)-1].GetConfig().GetRef().GetCaptureSession().GetId()
-		respBuilder.NextPageToken = proto.String(nextID)
+	if hasRemaining && tokenID != "" {
+		respBuilder.NextPageToken = proto.String(tokenID)
 	}
 
 	return connect.NewResponse(respBuilder.Build()), nil
@@ -320,6 +415,7 @@ func (s *OperatorService) DeleteCaptureSession(
 
 	s.broadcaster.CloseSession(tenantID, sessionID)
 	s.notifyChange()
+	s.project(ctx, "capture_session", sessionID)
 
 	return connect.NewResponse(operatorcapturev1.DeleteCaptureSessionResponse_builder{}.Build()), nil
 }

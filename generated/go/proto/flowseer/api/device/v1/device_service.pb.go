@@ -607,7 +607,6 @@ type AbandonMutationRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Device      *v1.DeviceGlobalRef    `protobuf:"bytes,1,opt,name=device"`
 	xxx_hidden_Sequence    uint64                 `protobuf:"varint,2,opt,name=sequence"`
-	xxx_hidden_Actor       *v11.Actor             `protobuf:"bytes,3,opt,name=actor"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -653,24 +652,13 @@ func (x *AbandonMutationRequest) GetSequence() uint64 {
 	return 0
 }
 
-func (x *AbandonMutationRequest) GetActor() *v11.Actor {
-	if x != nil {
-		return x.xxx_hidden_Actor
-	}
-	return nil
-}
-
 func (x *AbandonMutationRequest) SetDevice(v *v1.DeviceGlobalRef) {
 	x.xxx_hidden_Device = v
 }
 
 func (x *AbandonMutationRequest) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
-}
-
-func (x *AbandonMutationRequest) SetActor(v *v11.Actor) {
-	x.xxx_hidden_Actor = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *AbandonMutationRequest) HasDevice() bool {
@@ -687,13 +675,6 @@ func (x *AbandonMutationRequest) HasSequence() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *AbandonMutationRequest) HasActor() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Actor != nil
-}
-
 func (x *AbandonMutationRequest) ClearDevice() {
 	x.xxx_hidden_Device = nil
 }
@@ -701,10 +682,6 @@ func (x *AbandonMutationRequest) ClearDevice() {
 func (x *AbandonMutationRequest) ClearSequence() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_Sequence = 0
-}
-
-func (x *AbandonMutationRequest) ClearActor() {
-	x.xxx_hidden_Actor = nil
 }
 
 type AbandonMutationRequest_builder struct {
@@ -715,8 +692,6 @@ type AbandonMutationRequest_builder struct {
 	// The sequence of the mutation to abandon. Must be present and at least
 	// 1.
 	Sequence *uint64
-	// Who abandons it. Must be present.
-	Actor *v11.Actor
 }
 
 func (b0 AbandonMutationRequest_builder) Build() *AbandonMutationRequest {
@@ -725,10 +700,9 @@ func (b0 AbandonMutationRequest_builder) Build() *AbandonMutationRequest {
 	_, _ = b, x
 	x.xxx_hidden_Device = b.Device
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
-	x.xxx_hidden_Actor = b.Actor
 	return m0
 }
 
@@ -894,7 +868,6 @@ type ResolveDesynchronizationRequest struct {
 	state                  protoimpl.MessageState                     `protogen:"opaque.v1"`
 	xxx_hidden_Device      *v1.DeviceGlobalRef                        `protobuf:"bytes,1,opt,name=device"`
 	xxx_hidden_Sequence    uint64                                     `protobuf:"varint,2,opt,name=sequence"`
-	xxx_hidden_Actor       *v11.Actor                                 `protobuf:"bytes,3,opt,name=actor"`
 	xxx_hidden_Decision    isResolveDesynchronizationRequest_Decision `protobuf_oneof:"decision"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
@@ -941,13 +914,6 @@ func (x *ResolveDesynchronizationRequest) GetSequence() uint64 {
 	return 0
 }
 
-func (x *ResolveDesynchronizationRequest) GetActor() *v11.Actor {
-	if x != nil {
-		return x.xxx_hidden_Actor
-	}
-	return nil
-}
-
 func (x *ResolveDesynchronizationRequest) GetAccept() *AcceptObservedDecision {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Decision.(*resolveDesynchronizationRequest_Accept); ok {
@@ -981,11 +947,7 @@ func (x *ResolveDesynchronizationRequest) SetDevice(v *v1.DeviceGlobalRef) {
 
 func (x *ResolveDesynchronizationRequest) SetSequence(v uint64) {
 	x.xxx_hidden_Sequence = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
-}
-
-func (x *ResolveDesynchronizationRequest) SetActor(v *v11.Actor) {
-	x.xxx_hidden_Actor = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
 func (x *ResolveDesynchronizationRequest) SetAccept(v *AcceptObservedDecision) {
@@ -1026,13 +988,6 @@ func (x *ResolveDesynchronizationRequest) HasSequence() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
-func (x *ResolveDesynchronizationRequest) HasActor() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Actor != nil
-}
-
 func (x *ResolveDesynchronizationRequest) HasDecision() bool {
 	if x == nil {
 		return false
@@ -1071,10 +1026,6 @@ func (x *ResolveDesynchronizationRequest) ClearDevice() {
 func (x *ResolveDesynchronizationRequest) ClearSequence() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_Sequence = 0
-}
-
-func (x *ResolveDesynchronizationRequest) ClearActor() {
-	x.xxx_hidden_Actor = nil
 }
 
 func (x *ResolveDesynchronizationRequest) ClearDecision() {
@@ -1128,8 +1079,6 @@ type ResolveDesynchronizationRequest_builder struct {
 	// The sequence of the abandoned or desynchronized mutation. Must be
 	// present and at least 1.
 	Sequence *uint64
-	// Who decides. Must be present.
-	Actor *v11.Actor
 	// The decision. Exactly one arm is set.
 
 	// Fields of oneof xxx_hidden_Decision:
@@ -1147,10 +1096,9 @@ func (b0 ResolveDesynchronizationRequest_builder) Build() *ResolveDesynchronizat
 	_, _ = b, x
 	x.xxx_hidden_Device = b.Device
 	if b.Sequence != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_Sequence = *b.Sequence
 	}
-	x.xxx_hidden_Actor = b.Actor
 	if b.Accept != nil {
 		x.xxx_hidden_Decision = &resolveDesynchronizationRequest_Accept{b.Accept}
 	}
@@ -1640,26 +1588,24 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"interfaces\x18\x04 \x03(\v2..flowseer.model.access.v1.InterfaceObservationR\n" +
 	"interfaces:\xa9\x02\xbaH\xa5\x02\x1a\x96\x01\n" +
 	"'device_access_status.unresolved_is_open\x126an unresolved mutation cannot be in the released phase\x1a3!has(this.unresolved) || this.unresolved.phase != 8\x1a\x89\x01\n" +
-	"*device_access_status.interfaces_are_unique\x12(each interface name appears at most once\x1a1this.interfaces.map(o, o.interface_name).unique()\"\xcd\x01\n" +
+	"*device_access_status.interfaces_are_unique\x12(each interface name appears at most once\x1a1this.interfaces.map(o, o.interface_name).unique()\"\x9b\x01\n" +
 	"\x16AbandonMutationRequest\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12=\n" +
-	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\"f\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequenceJ\x04\b\x03\x10\x04R\x05actor\"f\n" +
 	"\x17AbandonMutationResponse\x12K\n" +
 	"\bmutation\x18\x01 \x01(\v2'.flowseer.model.access.v1.MutationStateB\x06\xbaH\x03\xc8\x01\x01R\bmutation\"\x18\n" +
 	"\x16AcceptObservedDecision\"\x19\n" +
-	"\x17RestoreExpectedDecision\"\xc6\x03\n" +
+	"\x17RestoreExpectedDecision\"\x94\x03\n" +
 	"\x1fResolveDesynchronizationRequest\x12L\n" +
 	"\x06device\x18\x01 \x01(\v2,.flowseer.model.inventory.v1.DeviceGlobalRefB\x06\xbaH\x03\xc8\x01\x01R\x06device\x12&\n" +
 	"\bsequence\x18\x02 \x01(\x04B\n" +
-	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12=\n" +
-	"\x05actor\x18\x03 \x01(\v2\x1f.flowseer.model.access.v1.ActorB\x06\xbaH\x03\xc8\x01\x01R\x05actor\x12H\n" +
+	"\xbaH\a\xc8\x01\x012\x02(\x01R\bsequence\x12H\n" +
 	"\x06accept\x18\n" +
 	" \x01(\v2..flowseer.api.device.v1.AcceptObservedDecisionH\x00R\x06accept\x12K\n" +
 	"\arestore\x18\v \x01(\v2/.flowseer.api.device.v1.RestoreExpectedDecisionH\x00R\arestore\x12D\n" +
 	"\areplace\x18\f \x01(\v2(.flowseer.model.access.v1.MutationIntentH\x00R\areplaceB\x11\n" +
-	"\bdecision\x12\x05\xbaH\x02\b\x01\"g\n" +
+	"\bdecision\x12\x05\xbaH\x02\b\x01J\x04\b\x03\x10\x04R\x05actor\"g\n" +
 	" ResolveDesynchronizationResponse\x12C\n" +
 	"\bmutation\x18\x01 \x01(\v2'.flowseer.model.access.v1.MutationStateR\bmutation\"\x98\x01\n" +
 	"\x1cListEdgeOpenMutationsRequest\x12$\n" +
@@ -1675,14 +1621,14 @@ const file_flowseer_api_device_v1_device_service_proto_rawDesc = "" +
 	"\x1dListEdgeOpenMutationsResponse\x12C\n" +
 	"\x04open\x18\x01 \x03(\v2$.flowseer.api.device.v1.OpenMutationB\t\xbaH\x06\x92\x01\x03\x10\xe8\aR\x04open\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xa2\x06\n" +
-	"\rDeviceService\x12l\n" +
-	"\rReadInterface\x12,.flowseer.api.device.v1.ReadInterfaceRequest\x1a-.flowseer.api.device.v1.ReadInterfaceResponse\x12\x90\x01\n" +
-	"\x19ApplyInterfaceDescription\x128.flowseer.api.device.v1.ApplyInterfaceDescriptionRequest\x1a9.flowseer.api.device.v1.ApplyInterfaceDescriptionResponse\x12\x84\x01\n" +
-	"\x15GetDeviceAccessStatus\x124.flowseer.api.device.v1.GetDeviceAccessStatusRequest\x1a5.flowseer.api.device.v1.GetDeviceAccessStatusResponse\x12r\n" +
-	"\x0fAbandonMutation\x12..flowseer.api.device.v1.AbandonMutationRequest\x1a/.flowseer.api.device.v1.AbandonMutationResponse\x12\x8d\x01\n" +
-	"\x18ResolveDesynchronization\x127.flowseer.api.device.v1.ResolveDesynchronizationRequest\x1a8.flowseer.api.device.v1.ResolveDesynchronizationResponse\x12\x84\x01\n" +
-	"\x15ListEdgeOpenMutations\x124.flowseer.api.device.v1.ListEdgeOpenMutationsRequest\x1a5.flowseer.api.device.v1.ListEdgeOpenMutationsResponseB\xf5\x01\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\x99\b\n" +
+	"\rDeviceService\x12\x94\x01\n" +
+	"\rReadInterface\x12,.flowseer.api.device.v1.ReadInterfaceRequest\x1a-.flowseer.api.device.v1.ReadInterfaceResponse\"&\x82\xb5\x18\"\b\x01\x12\x04view\x1a\x06device\"\x10device.device.id\x12\xc2\x01\n" +
+	"\x19ApplyInterfaceDescription\x128.flowseer.api.device.v1.ApplyInterfaceDescriptionRequest\x1a9.flowseer.api.device.v1.ApplyInterfaceDescriptionResponse\"0\x82\xb5\x18,\b\x01\x12\aoperate\x1a\x06device\"\x17intent.device.device.id\x12\xac\x01\n" +
+	"\x15GetDeviceAccessStatus\x124.flowseer.api.device.v1.GetDeviceAccessStatusRequest\x1a5.flowseer.api.device.v1.GetDeviceAccessStatusResponse\"&\x82\xb5\x18\"\b\x01\x12\x04view\x1a\x06device\"\x10device.device.id\x12\x9d\x01\n" +
+	"\x0fAbandonMutation\x12..flowseer.api.device.v1.AbandonMutationRequest\x1a/.flowseer.api.device.v1.AbandonMutationResponse\")\x82\xb5\x18%\b\x01\x12\aoperate\x1a\x06device\"\x10device.device.id\x12\xb8\x01\n" +
+	"\x18ResolveDesynchronization\x127.flowseer.api.device.v1.ResolveDesynchronizationRequest\x1a8.flowseer.api.device.v1.ResolveDesynchronizationResponse\")\x82\xb5\x18%\b\x01\x12\aoperate\x1a\x06device\"\x10device.device.id\x12\xa1\x01\n" +
+	"\x15ListEdgeOpenMutations\x124.flowseer.api.device.v1.ListEdgeOpenMutationsRequest\x1a5.flowseer.api.device.v1.ListEdgeOpenMutationsResponse\"\x1b\x82\xb5\x18\x17\b\x01\x12\x04view\x1a\x04edge\"\aedge_idB\xf5\x01\n" +
 	"\x1acom.flowseer.api.device.v1B\x12DeviceServiceProtoZJgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1;devicev1\xa2\x02\x03FAD\xaa\x02\x16Flowseer.Api.Device.V1\xca\x02\x16Flowseer\\Api\\Device\\V1\xe2\x02\"Flowseer\\Api\\Device\\V1\\GPBMetadata\xea\x02\x19Flowseer::Api::Device::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_device_v1_device_service_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
@@ -1706,7 +1652,6 @@ var file_flowseer_api_device_v1_device_service_proto_goTypes = []any{
 	(*v11.InterfaceObservation)(nil),          // 16: flowseer.model.access.v1.InterfaceObservation
 	(*v11.MutationIntent)(nil),                // 17: flowseer.model.access.v1.MutationIntent
 	(*v11.MutationState)(nil),                 // 18: flowseer.model.access.v1.MutationState
-	(*v11.Actor)(nil),                         // 19: flowseer.model.access.v1.Actor
 }
 var file_flowseer_api_device_v1_device_service_proto_depIdxs = []int32{
 	15, // 0: flowseer.api.device.v1.ReadInterfaceRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
@@ -1717,34 +1662,32 @@ var file_flowseer_api_device_v1_device_service_proto_depIdxs = []int32{
 	18, // 5: flowseer.api.device.v1.GetDeviceAccessStatusResponse.unresolved:type_name -> flowseer.model.access.v1.MutationState
 	16, // 6: flowseer.api.device.v1.GetDeviceAccessStatusResponse.interfaces:type_name -> flowseer.model.access.v1.InterfaceObservation
 	15, // 7: flowseer.api.device.v1.AbandonMutationRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	19, // 8: flowseer.api.device.v1.AbandonMutationRequest.actor:type_name -> flowseer.model.access.v1.Actor
-	18, // 9: flowseer.api.device.v1.AbandonMutationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
-	15, // 10: flowseer.api.device.v1.ResolveDesynchronizationRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	19, // 11: flowseer.api.device.v1.ResolveDesynchronizationRequest.actor:type_name -> flowseer.model.access.v1.Actor
-	8,  // 12: flowseer.api.device.v1.ResolveDesynchronizationRequest.accept:type_name -> flowseer.api.device.v1.AcceptObservedDecision
-	9,  // 13: flowseer.api.device.v1.ResolveDesynchronizationRequest.restore:type_name -> flowseer.api.device.v1.RestoreExpectedDecision
-	17, // 14: flowseer.api.device.v1.ResolveDesynchronizationRequest.replace:type_name -> flowseer.model.access.v1.MutationIntent
-	18, // 15: flowseer.api.device.v1.ResolveDesynchronizationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
-	15, // 16: flowseer.api.device.v1.OpenMutation.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
-	18, // 17: flowseer.api.device.v1.OpenMutation.mutation:type_name -> flowseer.model.access.v1.MutationState
-	13, // 18: flowseer.api.device.v1.ListEdgeOpenMutationsResponse.open:type_name -> flowseer.api.device.v1.OpenMutation
-	0,  // 19: flowseer.api.device.v1.DeviceService.ReadInterface:input_type -> flowseer.api.device.v1.ReadInterfaceRequest
-	2,  // 20: flowseer.api.device.v1.DeviceService.ApplyInterfaceDescription:input_type -> flowseer.api.device.v1.ApplyInterfaceDescriptionRequest
-	4,  // 21: flowseer.api.device.v1.DeviceService.GetDeviceAccessStatus:input_type -> flowseer.api.device.v1.GetDeviceAccessStatusRequest
-	6,  // 22: flowseer.api.device.v1.DeviceService.AbandonMutation:input_type -> flowseer.api.device.v1.AbandonMutationRequest
-	10, // 23: flowseer.api.device.v1.DeviceService.ResolveDesynchronization:input_type -> flowseer.api.device.v1.ResolveDesynchronizationRequest
-	12, // 24: flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations:input_type -> flowseer.api.device.v1.ListEdgeOpenMutationsRequest
-	1,  // 25: flowseer.api.device.v1.DeviceService.ReadInterface:output_type -> flowseer.api.device.v1.ReadInterfaceResponse
-	3,  // 26: flowseer.api.device.v1.DeviceService.ApplyInterfaceDescription:output_type -> flowseer.api.device.v1.ApplyInterfaceDescriptionResponse
-	5,  // 27: flowseer.api.device.v1.DeviceService.GetDeviceAccessStatus:output_type -> flowseer.api.device.v1.GetDeviceAccessStatusResponse
-	7,  // 28: flowseer.api.device.v1.DeviceService.AbandonMutation:output_type -> flowseer.api.device.v1.AbandonMutationResponse
-	11, // 29: flowseer.api.device.v1.DeviceService.ResolveDesynchronization:output_type -> flowseer.api.device.v1.ResolveDesynchronizationResponse
-	14, // 30: flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations:output_type -> flowseer.api.device.v1.ListEdgeOpenMutationsResponse
-	25, // [25:31] is the sub-list for method output_type
-	19, // [19:25] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	18, // 8: flowseer.api.device.v1.AbandonMutationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
+	15, // 9: flowseer.api.device.v1.ResolveDesynchronizationRequest.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	8,  // 10: flowseer.api.device.v1.ResolveDesynchronizationRequest.accept:type_name -> flowseer.api.device.v1.AcceptObservedDecision
+	9,  // 11: flowseer.api.device.v1.ResolveDesynchronizationRequest.restore:type_name -> flowseer.api.device.v1.RestoreExpectedDecision
+	17, // 12: flowseer.api.device.v1.ResolveDesynchronizationRequest.replace:type_name -> flowseer.model.access.v1.MutationIntent
+	18, // 13: flowseer.api.device.v1.ResolveDesynchronizationResponse.mutation:type_name -> flowseer.model.access.v1.MutationState
+	15, // 14: flowseer.api.device.v1.OpenMutation.device:type_name -> flowseer.model.inventory.v1.DeviceGlobalRef
+	18, // 15: flowseer.api.device.v1.OpenMutation.mutation:type_name -> flowseer.model.access.v1.MutationState
+	13, // 16: flowseer.api.device.v1.ListEdgeOpenMutationsResponse.open:type_name -> flowseer.api.device.v1.OpenMutation
+	0,  // 17: flowseer.api.device.v1.DeviceService.ReadInterface:input_type -> flowseer.api.device.v1.ReadInterfaceRequest
+	2,  // 18: flowseer.api.device.v1.DeviceService.ApplyInterfaceDescription:input_type -> flowseer.api.device.v1.ApplyInterfaceDescriptionRequest
+	4,  // 19: flowseer.api.device.v1.DeviceService.GetDeviceAccessStatus:input_type -> flowseer.api.device.v1.GetDeviceAccessStatusRequest
+	6,  // 20: flowseer.api.device.v1.DeviceService.AbandonMutation:input_type -> flowseer.api.device.v1.AbandonMutationRequest
+	10, // 21: flowseer.api.device.v1.DeviceService.ResolveDesynchronization:input_type -> flowseer.api.device.v1.ResolveDesynchronizationRequest
+	12, // 22: flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations:input_type -> flowseer.api.device.v1.ListEdgeOpenMutationsRequest
+	1,  // 23: flowseer.api.device.v1.DeviceService.ReadInterface:output_type -> flowseer.api.device.v1.ReadInterfaceResponse
+	3,  // 24: flowseer.api.device.v1.DeviceService.ApplyInterfaceDescription:output_type -> flowseer.api.device.v1.ApplyInterfaceDescriptionResponse
+	5,  // 25: flowseer.api.device.v1.DeviceService.GetDeviceAccessStatus:output_type -> flowseer.api.device.v1.GetDeviceAccessStatusResponse
+	7,  // 26: flowseer.api.device.v1.DeviceService.AbandonMutation:output_type -> flowseer.api.device.v1.AbandonMutationResponse
+	11, // 27: flowseer.api.device.v1.DeviceService.ResolveDesynchronization:output_type -> flowseer.api.device.v1.ResolveDesynchronizationResponse
+	14, // 28: flowseer.api.device.v1.DeviceService.ListEdgeOpenMutations:output_type -> flowseer.api.device.v1.ListEdgeOpenMutationsResponse
+	23, // [23:29] is the sub-list for method output_type
+	17, // [17:23] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_flowseer_api_device_v1_device_service_proto_init() }

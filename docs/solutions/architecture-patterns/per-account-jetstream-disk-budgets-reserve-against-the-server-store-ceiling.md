@@ -154,10 +154,10 @@ Three operational rules follow:
 
 **Budgets are additive against the ceiling, so the arithmetic must leave room
 for the next account.** The hub's defaults are `defaultCentralBudget` at 1 GiB
-and `defaultEdgeBudget` at 128 MiB per edge (`src/modules/edgebus/hub.go:143-144`).
-The default central streams reserve 576 MiB before the four key-value buckets
-write data: 256 MiB for audit, 256 MiB for typed ingest, and 64 MiB for raw
-evidence. A hub configured with `MaxStoreBytes: 640 << 20` and an explicit
+and `defaultEdgeBudget` at 128 MiB per edge (`src/modules/edgebus/hub.go:158-159`).
+The default central streams reserve 640 MiB before the four key-value buckets
+write data: 256 MiB for audit, 64 MiB for operator actions, 256 MiB for typed
+ingest, and 64 MiB for raw evidence. A hub configured with `MaxStoreBytes: 640 << 20` and an explicit
 512 MiB central budget has room for exactly one edge: 512 + 128 reaches the
 ceiling without crossing it, and another edge's 128 MiB does not fit under
 the remaining capacity. Any configured ceiling must cover the central budget

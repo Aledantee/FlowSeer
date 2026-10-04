@@ -1,6 +1,7 @@
 package conformance
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -176,6 +177,45 @@ func TestModelIdentityRules(t *testing.T) {
 			message: apiidentityv1.CreateTenantRequest_builder{
 				Issuer:                proto.String("https://idp.example.com"),
 				OrganizationClaimName: proto.String("org_id"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "valid operator ref validates",
+			message: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://idp.example.com"),
+				Subject: proto.String("user-1"),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "operator ref without issuer fails",
+			message: identityv1.OperatorRef_builder{
+				Subject: proto.String("user-1"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "operator ref with invalid issuer uri fails",
+			message: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("not a uri"),
+				Subject: proto.String("user-1"),
+			}.Build(),
+			wantValid: false,
+		},
+		{
+			name: "operator ref with 2048-character issuer validates",
+			message: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://idp.example.com/" + strings.Repeat("a", 2048-len("https://idp.example.com/"))),
+				Subject: proto.String("user-1"),
+			}.Build(),
+			wantValid: true,
+		},
+		{
+			name: "operator ref with 2049-character issuer fails",
+			message: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://idp.example.com/" + strings.Repeat("a", 2049-len("https://idp.example.com/"))),
+				Subject: proto.String("user-1"),
 			}.Build(),
 			wantValid: false,
 		},

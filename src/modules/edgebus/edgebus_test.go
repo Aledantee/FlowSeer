@@ -1142,6 +1142,135 @@ func TestStartLeafRefusesEmptyAndInvalidTenant(t *testing.T) {
 	}
 }
 
+func TestOperatorActionStreamMaxPerSubject(t *testing.T) {
+	ctx := context.Background()
+	hub, err := edgebus.StartHub(ctx, edgebus.HubConfig{
+		StateDir:                    t.TempDir(),
+		FsyncPolicy:                 service.BusFsyncPeriodic,
+		OperatorActionMaxPerSubject: 2,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	defer hub.Close()
+
+	const tenantID = "tenant-op-test"
+	subj1 := edgebus.OperatorActionSubject(tenantID, "edge_create")
+	subj2 := edgebus.OperatorActionSubject(tenantID, "edge_get")
+
+	// Publish three records on subj1 with distinct msgIDs.
+	for i, body := range []string{"rec-1", "rec-2", "rec-3"} {
+		if _, err := hub.JetStream().Publish(ctx, subj1, []byte(body), jetstream.WithMsgID(fmt.Sprintf("msg-s1-%d", i))); err != nil {
+			t.Fatalf("publish on subj1: %v", err)
+		}
+	}
+	// Publish one record on subj2.
+	if _, err := hub.JetStream().Publish(ctx, subj2, []byte("rec-4"), jetstream.WithMsgID("msg-s2-0")); err != nil {
+		t.Fatalf("publish on subj2: %v", err)
+	}
+
+	stream, err := hub.JetStream().Stream(ctx, edgebus.OperatorActionStream)
+	if err != nil {
+		t.Fatalf("get operator action stream: %v", err)
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		t.Fatalf("stream info: %v", err)
+	}
+	if info.State.Msgs != 3 {
+		t.Fatalf("stream messages = %d, want 3", info.State.Msgs)
+	}
+
+	// Consume messages from subj1: should receive only the newest two ("rec-2" and "rec-3").
+	cons1, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubject: subj1,
+		DeliverPolicy: jetstream.DeliverAllPolicy,
+	})
+	if err != nil {
+		t.Fatalf("create consumer for subj1: %v", err)
+	}
+	batch1, err := cons1.Fetch(10, jetstream.FetchMaxWait(2*time.Second))
+	if err != nil {
+		t.Fatalf("fetch subj1: %v", err)
+	}
+	var got1 []string
+	for msg := range batch1.Messages() {
+		got1 = append(got1, string(msg.Data()))
+		_ = msg.Ack()
+	}
+	if len(got1) != 2 || got1[0] != "rec-2" || got1[1] != "rec-3" {
+		t.Fatalf("subj1 messages = %v, want [rec-2 rec-3]", got1)
+	}
+
+	// Consume messages from subj2: should receive the one ("rec-4").
+	cons2, err := stream.CreateOrUpdateConsumer(ctx, jetstream.ConsumerConfig{
+		FilterSubject: subj2,
+		DeliverPolicy: jetstream.DeliverAllPolicy,
+	})
+	if err != nil {
+		t.Fatalf("create consumer for subj2: %v", err)
+	}
+	batch2, err := cons2.Fetch(10, jetstream.FetchMaxWait(2*time.Second))
+	if err != nil {
+		t.Fatalf("fetch subj2: %v", err)
+	}
+	var got2 []string
+	for msg := range batch2.Messages() {
+		got2 = append(got2, string(msg.Data()))
+		_ = msg.Ack()
+	}
+	if len(got2) != 1 || got2[0] != "rec-4" {
+		t.Fatalf("subj2 messages = %v, want [rec-4]", got2)
+	}
+}
+
+func TestOperatorActionStreamExistsUnderDefaultBudgetWithKVWriteAccepted(t *testing.T) {
+	ctx := context.Background()
+	hub := startHub(t, t.TempDir(), 0)
+
+	if _, err := hub.JetStream().Stream(ctx, edgebus.AuditStream); err != nil {
+		t.Fatalf("audit stream missing: %v", err)
+	}
+	if _, err := hub.JetStream().Stream(ctx, edgebus.OperatorActionStream); err != nil {
+		t.Fatalf("operator action stream missing: %v", err)
+	}
+
+	kv, err := hub.JetStream().KeyValue(ctx, edgebus.LaneBucket)
+	if err != nil {
+		t.Fatalf("get lane bucket: %v", err)
+	}
+	if _, err := kv.Put(ctx, "dev-test-1", []byte("lane-data")); err != nil {
+		t.Fatalf("kv write into lane bucket failed: %v", err)
+	}
+}
+
+func TestHubStartFailsWhenCentralBudgetBelowStreamSum(t *testing.T) {
+	ctx := context.Background()
+	// Defaults: audit stream 256 MiB, operator action stream 64 MiB, typed
+	// ingest stream 256 MiB, evidence stream 64 MiB. Sum: 640 MiB. A central
+	// budget of 600 MiB is below the sum of reservations and must fail StartHub.
+	config := edgebus.HubConfig{
+		FsyncPolicy: service.BusFsyncPeriodic,
+	}
+	config.StateDir = t.TempDir()
+	config.CentralBudgetBytes = 600 << 20
+	_, err := edgebus.StartHub(ctx, config)
+	if err == nil {
+		t.Fatal("StartHub with central budget below stream sum succeeded, want error")
+	}
+	if code, ok := errs.CodeOf(err); !ok || code != edgebus.ErrCodeHub {
+		t.Fatalf("StartHub err=%v, code=%q, want code %q", err, code, edgebus.ErrCodeHub)
+	}
+
+	config.StateDir = t.TempDir()
+	config.CentralBudgetBytes = 768 << 20
+	hub, err := edgebus.StartHub(ctx, config)
+	if err != nil {
+		t.Fatalf("StartHub with sufficient central budget: %v", err)
+	}
+	hub.Close()
+}
+
 func TestLeafIngestSyslogRecordArrivesInHubEdgeStream(t *testing.T) {
 	hub := startHub(t, t.TempDir(), -1)
 	leaf := startLeaf(t, t.TempDir(), hub, edgeID)

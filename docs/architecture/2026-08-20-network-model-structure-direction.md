@@ -58,7 +58,7 @@ spec/proto/flowseer/
   model/
     policy/v1/          AccessPolicyHandle, an opaque key and version; imports nothing
     credential/v1/      CredentialMaterial, the typed secret an edge carries; imports nothing
-    identity/v1/        OperatorRef, the stable subject; imports nothing
+    identity/v1/        OperatorRef, issuer and stable subject; imports nothing
     edge/v1/            the Edge entity: ref pair, lifecycle, setup key, registered key, assertion, key proof, and provisioning file
     inventory/v1/       Device, Component, Integration, Binding, Placement, IntegrationScope, Location, PatchPanel, Cable, Link, Tag, provenance
     capture/v1/         the CaptureSession entity, its ref pair and lifecycle, and the chunk frames its two services share
@@ -72,9 +72,11 @@ spec/proto/flowseer/
     dispatch/v1/        DispatchService, the execution envelope central and the edge hosting a device's lane exchange
     audit/v1/           AuditService, delivering the durable DeviceOperationEvent audit record
     capture/v1/         CaptureEdgeService, the upload stream for packet capture sessions
+  authz/v1/             the operator authorization rule option
   errs/v1/              the error wire payload
   event/
     access/v1/          DeviceOperationEvent, the durable audit record of lane operations
+    operator/v1/        OperatorActionEvent, the durable audit record of operator actions
   integration/
     ingest/v1/          IngestRecord, the envelope an edge or central adapter publishes to the ingestion pipeline
   runtime/v1/           process-local runtime messages and durable mailbox contracts
@@ -106,10 +108,10 @@ net/packet ← net/switching
 {net/addr, net/packet} ← net/filter
 {net/addr, net/packet, net/switching} ← net/capture
 {net/addr, net/phy, net/switching, net/ip, net/filter} ← net/interface
-model/edge ← {api/capture, api/edge, edge/attach, edge/capture, model/access, model/capture, model/inventory, store/device}
+model/edge ← {api/capture, api/edge, edge/attach, edge/capture, event/operator, model/access, model/capture, model/inventory, store/device}
 model/policy ← {edge/attach, model/access, model/inventory, store/device}
 model/credential ← edge/attach
-model/identity ← {model/access, model/capture}
+model/identity ← {event/operator, model/access, model/capture}
 {model/edge, model/identity, net/capture} ← model/capture
 {model/edge, model/policy, model/credential, net/addr} ← edge/attach
 {model/edge, model/policy, net/addr, net/phy} ← model/inventory
@@ -120,7 +122,9 @@ model/identity ← {model/access, model/capture}
 model/access ← {edge/dispatch, event/access}
 model/inventory ← event/access
 errs ← {edge/dispatch, store/device}
+authz ← {api/capture, api/device, api/edge, api/identity}
 event/access ← edge/audit
+{model/identity, model/edge, model/capture} ← event/operator
 {model/edge, model/inventory, model/policy, model/access, errs, net/addr} ← store/device
 ```
 
@@ -136,11 +140,12 @@ and `model/access` imports `model/identity` for the operator actor; none of them
 imports anything FlowSeer-owned back.
 `edge/attach` imports `model/edge` for the entity, `model/credential` and
 `model/policy` for the handles and secret material its services hand out, and
-`net/addr` for the IP address a listed device reports; `api/edge` imports
-`model/edge` alone. `api/capture` imports `model/capture` for the entity and the
-chunk frames, `model/edge` for the owning ref, and `net/capture` for the values
-a capture observes; `edge/capture` imports `model/capture` and `model/edge` for
-the assignment stream and the assertion its upload stream re-verifies.
+`net/addr` for the IP address a listed device reports. `api/edge` imports
+`model/edge` and `authz`. `api/capture` imports `model/capture` for the entity
+and the chunk frames, `model/edge` for the owning ref, `net/capture` for the
+values a capture observes, and `authz` for the rule each RPC declares.
+`edge/capture` imports `model/capture` and `model/edge` for the assignment
+stream and the assertion its upload stream re-verifies.
 `model/inventory` imports `model/edge` because an integration names its hosting
 edge, `model/policy` because a device pins an access-policy handle, and
 `net/phy` because a component embeds the pluggable module and a cable names its
@@ -1010,6 +1015,24 @@ operation vocabulary into callers that only need identity. `OperatorRef` keeps
 its fields and `Actor.operator` keeps field 1, so encoded intents decode
 unchanged; the message's full name, its `.proto` import, and its Go import
 path move.
+
+### 2026-10-02: the authorization rule root is a leaf
+
+The `authz/v1` leaf package holds the `Rule` message, the `RuleMode` enum, and
+the `MethodOptions` extension 50000. It imports nothing FlowSeer-owned and sits
+as a leaf beside `errs/`. Operator-facing RPC services import it to declare
+authorization rules.
+
+### 2026-10-03: operator identity names issuer and subject
+
+`OperatorRef` gains a required `issuer` URI beside `subject`, naming a person
+by issuer and subject.
+
+### 2026-10-03: operator action event package
+
+`OperatorActionEvent` lives in `event/operator/v1`, an event-only family that
+records what an operator attempted and completed. It imports `model/identity/v1`,
+`model/edge/v1`, and `model/capture/v1`.
 
 ### 2026-10-03 — a removal before the first stable release leaves no `reserved` line
 

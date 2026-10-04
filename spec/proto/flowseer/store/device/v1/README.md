@@ -29,8 +29,6 @@ Deliberately absent:
 - A tenant field on stored lane and edge records. Lane records are partitioned
   by the `<tenant_id>.` prefix of their key. Edge lookup resolves the tenant
   through the `edge_<edgeID>` index, then reads the tenant-prefixed record key.
-  `DeviceServiceConfig.dev_tenant` is deployment configuration, not
-  stored-record scope.
 
 ## The lane record
 
@@ -45,7 +43,7 @@ mutation {
   intent {
     device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
     idempotency_key: "0192e6a0-0000-7000-8000-00000000a001"
-    actor { operator { subject: "zitadel|2837" } }
+    actor { operator { issuer: "https://auth.example.com" subject: "zitadel|2837" } }
     access_policy { key: "icx7150-lab" version: 3 }
     expected_firmware_fingerprint: "ICX7150-24P SPS10010g"
     interface_description { interface_name: "ethernet 1/1/1" description: "uplink to core" }
@@ -102,12 +100,24 @@ edges {
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
 }
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-api"
+  }
+}
+authorization {
+  endpoint: "https://openfga.example.test:8081"
+  store_id: "01H00000000000000000000000"
+  model_id: "01H00000000000000000000001"
+  preshared_key_file: "/etc/flowseer/secrets/openfga.key"
+}
 telemetry { endpoint: "https://collector.example.test" }
 ```
 
 That file names no certificate, so the service generates a self-signed pair
-into `state_dir` on first start — creating the directory if it is not there
-— and prints the digest an edge pins. A deployment with its own chain names
+into `state_dir` on first start, creating the directory if it is not there,
+and prints the digest an edge pins. A deployment with its own chain names
 `certificate_file` and `private_key_file` instead, and the two are named
 together or not at all.
 
@@ -115,3 +125,12 @@ together or not at all.
 to get the reason behind every refused call: the request interceptor grades
 refusals at DEBUG precisely so an incident can turn them on, and before this
 field existed there was no way to.
+
+`authentication` configures OIDC identity providers trusted to authenticate
+operators. Each issuer entry names an HTTPS issuer URL, an expected audience,
+and an optional organization claim name. An absolute CA bundle file can be
+provided when issuers use private certificates.
+
+`authorization` names the external authorization engine endpoint, store and
+model identifiers, a preshared key file path, and an optional CA bundle. Both
+`authentication` and `authorization` are required on every deployment.

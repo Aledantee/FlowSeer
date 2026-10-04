@@ -26,6 +26,36 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-04 delegate: an empty brief can start a worker without a task
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `start` validation.
+What happened: `start` checks that the brief path is a file, but accepts a zero-byte brief and sends it to the worker. A worker can therefore begin without the task that its lane was meant to carry.
+Suggested change: require a non-empty regular file before creating the worktree or launching the worker, and report that the brief is empty.
+
+## 2026-10-04 delegate: a dead child lane blocks parent cleanup
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `stop`, and parent review or fix cleanup.
+What happened: `stop` refuses a parent while a child worktree remains and then refuses a dirty child. A dead fix lane can therefore keep its parent review lane from being released even when the parent has finished.
+Suggested change: add a recovery step to the review fix loop and drive cleanup that inspects and settles dead child lanes before stopping the parent, while preserving dirty work for a person to read.
+
+## 2026-10-03 review: fix rounds reopened on behavior changes until bounded to tests and records against a fixed mutation set
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, step 1.
+What happened: Fix workers in rounds 4 and 5 introduced production code modifications that produced new edge-case findings during re-review, reopening the review loop. The loop closed in round 6 only after a recorded decision bounded fixes to test assertions and documentation alignments against the fixed list of 13 remaining mutations, freezing production behavior.
+Suggested change: in `.claude/skills/review/references/fix-loop.md`, after requirements are settled or when a loop exceeds three rounds, instruct fix briefs to freeze production code and restrict changes to tests and documentation against the identified defect set.
+
+## 2026-10-03 delegate: orca-worker wait reads idle while an agy background verifier runs
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `wait` command.
+What happened: `agy` workers can end their turn while their verifier command continues in a background task. The terminal screen settles without a working indicator, so `orca-worker.sh wait` reports `idle` before verification finishes and before changes are committed. This occurred twice in this drive: once during implementation and once in round 6 fix lane A.
+Suggested change: in `orca-worker.sh wait`, check for active background tasks or inspect git worktree commit status before declaring the lane idle, or instruct `agy` worker briefs to run verifier commands synchronously with an adequate timeout.
+
+## 2026-10-03 review: parallel fix briefs touching shared test files trigger merge-check lost change failure on equivalent resolution
+Skill or agent: `.claude/skills/review/references/fix-loop.md`, steps 1 and 2.
+What happened: In round 1, two parallel fix workers were dispatched concurrently. One worker's brief included an instruction to clean up plan labels in integration tests, causing both workers to edit comment lines in `src/services/device/test/integration/openfga_model_test.go`. Although both changes were equivalent resolutions removing the same obsolete comment syntax, `merge-check.py` on the merge commit (`f4f121d3`) reported a lost change for the second parent and exited non-zero, stopping the round.
+Suggested change: in `.claude/skills/review/references/fix-loop.md` step 1, instruct coordinators to enforce disjoint file sets across parallel fix workers and forbid broad style or comment cleanup outside a worker's assigned finding files. In `merge-check.py`, recognize equivalent comment-only removals between parents.
+
+## 2026-10-03 delegate: orca-worker terminal wait times out during concurrent Claude lane startup
+Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `start` command.
+What happened: During heavy multi-lane dispatch, `orca terminal wait --for tui-idle --timeout-ms 90000` timed out three times while Claude CLI initialized and queried models, causing lane startup failures before the brief pointer could be sent.
+Suggested change: in `orca-worker.sh start`, increase the startup wait timeout or add a retry loop around `orca terminal wait` before declaring terminal initialization failed.
+
 ## 2026-10-04 delegate: `wait` prints `limited` for a finished lane whose report says "quota"
 Skill or agent: `.claude/skills/delegate/scripts/orca-worker.sh`, `limited()`
 at line 66, and `.claude/skills/delegate/references/orca.md`, the `limited`

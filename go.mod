@@ -11,6 +11,7 @@ require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2
 	buf.build/go/protovalidate v1.4.0
 	connectrpc.com/connect v1.21.0
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/dave/jennifer v1.7.1
 	github.com/google/uuid v1.6.0
 	github.com/moby/moby/api v1.56.0
@@ -20,6 +21,7 @@ require (
 	github.com/nats-io/nkeys v0.4.16
 	github.com/openconfig/gnmi v0.14.1
 	github.com/openconfig/goyang v1.6.3
+	github.com/openfga/api/proto v0.0.0-20260723150800-6981fff8d33b
 	github.com/stretchr/testify v1.12.1
 	github.com/synadia-io/orbit.go/jetstreamext v0.3.2
 	github.com/testcontainers/testcontainers-go v0.44.0
@@ -67,7 +69,9 @@ require (
 	github.com/docker/go-connections v0.8.1 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
+	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -100,6 +104,7 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.71.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
+	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/time v0.16.0 // indirect

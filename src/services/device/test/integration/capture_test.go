@@ -21,11 +21,13 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	operatorcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1"
+	capturev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1/attachv1connect"
 	captureedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
+	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	modelcapturev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/capture/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
@@ -34,6 +36,8 @@ import (
 	"go.aledante.io/FlowSeer/src/modules/capture"
 	"go.aledante.io/FlowSeer/src/modules/capture/rawsocket"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 )
 
@@ -168,7 +172,10 @@ func TestRemotePacketCapture_EndToEnd(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("integration test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -769,7 +776,10 @@ func TestRemotePacketCapture_EndToEndWithAgent(t *testing.T) {
 			MaxPackets: proto.Uint64(10),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("e2e agent test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -875,7 +885,10 @@ func TestRemotePacketCapture_OperatorCancellation(t *testing.T) {
 			MaxPackets: proto.Uint64(1000),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("cancellation test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -1003,7 +1016,10 @@ func TestRemotePacketCapture_InactivityTimeout(t *testing.T) {
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("inactivity test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -1089,7 +1105,10 @@ func TestRemotePacketCapture_TelemetryPrivacy(t *testing.T) {
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("privacy test"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -1162,9 +1181,9 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 
 	tenantA := "0192e6a0-aaaa-7000-8000-0000000000aa"
 	tenantB := "0192e6a0-bbbb-7000-8000-0000000000bb"
-	sessionID := "0192e6a0-2222-7000-8000-000000000001"
+	var sessionID string
 
-	startCentralWithDevTenant(t, c, tenantA)
+	c.startWithTenant(tenantA)
 	defer c.shutdown()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -1188,22 +1207,33 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		t.Fatalf("open captures store: %v", err)
 	}
 
-	config := modelcapturev1.CaptureSessionConfig_builder{
-		Ref: modelcapturev1.CaptureSessionGlobalRef_builder{
-			Edge: edgev1.EdgeGlobalRef_builder{
-				Edge: edgev1.EdgeLocalRef_builder{Id: proto.String("0192e6a0-0000-7000-8000-00000000dead")}.Build(),
-			}.Build(),
-			CaptureSession: modelcapturev1.CaptureSessionLocalRef_builder{Id: proto.String(sessionID)}.Build(),
-		}.Build(),
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("cross-tenant-edge"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := created.Msg.GetEdge().GetConfig().GetRef()
+
+	sessionResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgeRef,
 		Name: proto.String("cross-tenant-e2e"),
 		Source: modelcapturev1.CaptureSource_builder{
 			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
 		}.Build(),
-	}.Build()
-
-	if _, err := store.CreateSession(ctx, tenantA, config); err != nil {
-		t.Fatalf("CreateSession tenantA: %v", err)
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Reason:               proto.String("e2e-cross-tenant"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
 	}
+	sessionRef := sessionResp.Msg.GetSession().GetConfig().GetRef()
+	sessionID = sessionRef.GetCaptureSession().GetId()
 
 	linkType := netcapturev1.LinkType_LINK_TYPE_ETHERNET
 	packet := netcapturev1.PacketRecord_builder{
@@ -1233,15 +1263,58 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		t.Fatalf("expected artifact on disk at %s: %v", expectedPathA, err)
 	}
 
-	// Verify tenant A can download artifact over Connect RPC
+	// Verify tenant A can download artifact over Connect RPC and trail is recorded
+	recordsBefore := len(c.operatorActionRecords(t))
 	streamA, err := c.captures().DownloadCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
-		Session: config.GetRef(),
+		Session: sessionRef,
 	}.Build()))
 	if err != nil {
 		t.Fatalf("DownloadCaptureSession tenant A: %v", err)
 	}
 	if !streamA.Receive() {
 		t.Fatalf("tenant A download stream had no chunks: %v", streamA.Err())
+	}
+	for streamA.Receive() {
+	}
+	if streamA.Err() != nil {
+		t.Fatalf("download stream error: %v", streamA.Err())
+	}
+
+	downloadRecords := c.operatorActionRecords(t)[recordsBefore:]
+	if len(downloadRecords) != 2 {
+		t.Fatalf("got %d operator action records for download, want 2", len(downloadRecords))
+	}
+	if downloadRecords[0].Event.GetAction() != operatorv1.OperatorAction_OPERATOR_ACTION_CAPTURE_DOWNLOAD {
+		t.Errorf("attempt action = %v, want CAPTURE_DOWNLOAD", downloadRecords[0].Event.GetAction())
+	}
+	if downloadRecords[1].Event.GetCompleted().GetOutcome() != operatorv1.OperatorActionOutcome_OPERATOR_ACTION_OUTCOME_SUCCEEDED {
+		t.Errorf("completion outcome = %v, want SUCCEEDED", downloadRecords[1].Event.GetCompleted().GetOutcome())
+	}
+	if downloadRecords[0].Event.GetCallId() == "" || downloadRecords[0].Event.GetCallId() != downloadRecords[1].Event.GetCallId() {
+		t.Fatalf("call_id mismatch: attempt=%q, completion=%q", downloadRecords[0].Event.GetCallId(), downloadRecords[1].Event.GetCallId())
+	}
+	wantOp := identityv1.OperatorRef_builder{
+		Issuer:  proto.String(c.issuer.URL()),
+		Subject: proto.String("e2e-operator"),
+	}.Build()
+	if !proto.Equal(downloadRecords[0].Event.GetOperator(), wantOp) {
+		t.Errorf("attempt operator = %v, want %v", downloadRecords[0].Event.GetOperator(), wantOp)
+	}
+	if !proto.Equal(downloadRecords[1].Event.GetOperator(), wantOp) {
+		t.Errorf("completion operator = %v, want %v", downloadRecords[1].Event.GetOperator(), wantOp)
+	}
+	if downloadRecords[0].Event.GetCaptureSession().GetCaptureSession().GetId() != sessionID {
+		t.Errorf("attempt session id = %q, want %q", downloadRecords[0].Event.GetCaptureSession().GetCaptureSession().GetId(), sessionID)
+	}
+	if downloadRecords[1].Event.GetCaptureSession().GetCaptureSession().GetId() != sessionID {
+		t.Errorf("completion session id = %q, want %q", downloadRecords[1].Event.GetCaptureSession().GetCaptureSession().GetId(), sessionID)
+	}
+	wantSubject := "flowseer." + tenantA + ".operator.action.capture_download"
+	if downloadRecords[0].Subject != wantSubject {
+		t.Errorf("attempt subject = %q, want %q", downloadRecords[0].Subject, wantSubject)
+	}
+	if downloadRecords[1].Subject != wantSubject {
+		t.Errorf("completion subject = %q, want %q", downloadRecords[1].Subject, wantSubject)
 	}
 
 	// Verify tenant B cannot read artifact directly from store
@@ -1252,31 +1325,131 @@ func TestCapture_PerTenantArtifactDirectoryAndCrossTenantIsolation(t *testing.T)
 		t.Fatal("tenant B was able to read tenant A artifact directly from store")
 	}
 
-	// Restart central with dev_tenant = UUID B over the same state dir
+	// Restart central under tenant B over the same state dir
 	c.shutdown()
-	startCentralWithDevTenant(t, c, tenantB)
+	c.startWithTenant(tenantB)
 
-	// Verify cross-tenant download isolation over Connect RPC without header manipulation
+	// Verify cross-tenant download isolation over Connect RPC
 	reqB := connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
-		Session: config.GetRef(),
+		Session: sessionRef,
 	}.Build())
 	streamB, err := c.captures().DownloadCaptureSession(ctx, reqB)
 	if err == nil {
 		if streamB.Receive() {
 			t.Fatal("tenant B received chunk for tenant A capture session")
 		}
-		if connect.CodeOf(streamB.Err()) != connect.CodeNotFound {
-			t.Fatalf("tenant B download stream code = %v, want CodeNotFound", connect.CodeOf(streamB.Err()))
+		if code := connect.CodeOf(streamB.Err()); code != connect.CodePermissionDenied {
+			t.Fatalf("tenant B download stream code = %v, want CodePermissionDenied", code)
 		}
-	} else if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("tenant B download got code = %v, want CodeNotFound", connect.CodeOf(err))
+	} else if code := connect.CodeOf(err); code != connect.CodePermissionDenied {
+		t.Fatalf("tenant B download got code = %v, want CodePermissionDenied", code)
 	}
 
-	// Verify GetCaptureSession under tenant B returns CodeNotFound
+	// Verify GetCaptureSession under tenant B returns CodePermissionDenied
 	_, err = c.captures().GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
-		Session: config.GetRef(),
+		Session: sessionRef,
 	}.Build()))
-	if connect.CodeOf(err) != connect.CodeNotFound {
-		t.Fatalf("GetCaptureSession under tenant B got code = %v, want CodeNotFound", connect.CodeOf(err))
+	if code := connect.CodeOf(err); code != connect.CodePermissionDenied {
+		t.Fatalf("GetCaptureSession under tenant B got code = %v, want CodePermissionDenied", code)
+	}
+}
+
+func TestDownloadAndTailWithoutDownloadPermissionDenied(t *testing.T) {
+	dir := t.TempDir()
+	writeCredentials(t, filepath.Join(dir, "credentials"))
+
+	registryPath := writeRegistry(t, filepath.Join(dir, "registry.textproto"), "0192e6a0-0000-7000-8000-00000000dead", 0)
+	c := newCentral(t, dir, registryPath)
+	c.start()
+	defer c.shutdown()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	created, err := c.admin().CreateEdge(ctx, connect.NewRequest(apiedgev1.CreateEdgeRequest_builder{
+		Name: proto.String("edge-cap"),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateEdge: %v", err)
+	}
+	edgeRef := created.Msg.GetEdge().GetConfig().GetRef()
+
+	sessionResp, err := c.captures().CreateCaptureSession(ctx, connect.NewRequest(operatorcapturev1.CreateCaptureSessionRequest_builder{
+		Edge: edgeRef,
+		Name: proto.String("session-test"),
+		Source: modelcapturev1.CaptureSource_builder{
+			LocalInterface: modelcapturev1.LocalInterfaceSource_builder{InterfaceName: proto.String("eth0")}.Build(),
+		}.Build(),
+		Budget: modelcapturev1.CaptureBudget_builder{
+			MaxPackets: proto.Uint64(10),
+		}.Build(),
+		Authorization: modelcapturev1.CaptureAuthorization_builder{
+			Reason:               proto.String("test"),
+			FullPayloadRequested: proto.Bool(false),
+		}.Build(),
+	}.Build()))
+	if err != nil {
+		t.Fatalf("CreateCaptureSession: %v", err)
+	}
+	sessionRef := sessionResp.Msg.GetSession().GetConfig().GetRef()
+
+	// Create a token for a user with NO download grant
+	noDownloadToken := c.issuer.Sign(map[string]any{
+		"iss": c.issuer.URL(),
+		"sub": "operator-no-download",
+		"aud": "flowseer-e2e",
+		"exp": time.Now().Add(24 * time.Hour).Unix(),
+	})
+	noDownloadPrincipalID := authn.ComputePrincipalID(c.issuer.URL(), "operator-no-download")
+	if err := c.engine.Write(ctx, []authz.Tuple{
+		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + noDownloadPrincipalID},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	c.engine.Grant("user:"+noDownloadPrincipalID, "view", "capture_session")
+	c.engine.Grant("user:"+noDownloadPrincipalID, "manage", "capture_session")
+
+	noDownloadClient := authClient(filepath.Join(c.dir, "central-state", "tls.crt"), noDownloadToken, edgebus.DefaultTenant)
+	capturesClient := capturev1connect.NewCaptureServiceClient(noDownloadClient, c.baseURL())
+
+	// Download should be refused with CodePermissionDenied
+	downloadStream, err := capturesClient.DownloadCaptureSession(ctx, connect.NewRequest(operatorcapturev1.DownloadCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err == nil {
+		if downloadStream.Receive() {
+			t.Fatal("expected download to be refused, but received data")
+		}
+		if connect.CodeOf(downloadStream.Err()) != connect.CodePermissionDenied {
+			t.Fatalf("download stream error code = %v, want CodePermissionDenied", connect.CodeOf(downloadStream.Err()))
+		}
+	} else if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("download error code = %v, want CodePermissionDenied", connect.CodeOf(err))
+	}
+
+	// Tail should be refused with CodePermissionDenied
+	tailStream, err := capturesClient.TailCaptureSession(ctx, connect.NewRequest(operatorcapturev1.TailCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err == nil {
+		if tailStream.Receive() {
+			t.Fatal("expected tail to be refused, but received data")
+		}
+		if connect.CodeOf(tailStream.Err()) != connect.CodePermissionDenied {
+			t.Fatalf("tail stream error code = %v, want CodePermissionDenied", connect.CodeOf(tailStream.Err()))
+		}
+	} else if connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatalf("tail error code = %v, want CodePermissionDenied", connect.CodeOf(err))
+	}
+
+	// Positive control: GetCaptureSession succeeds with view grant
+	getResp, err := capturesClient.GetCaptureSession(ctx, connect.NewRequest(operatorcapturev1.GetCaptureSessionRequest_builder{
+		Session: sessionRef,
+	}.Build()))
+	if err != nil {
+		t.Fatalf("GetCaptureSession with view grant: %v", err)
+	}
+	if getResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId() != sessionRef.GetCaptureSession().GetId() {
+		t.Fatalf("GetCaptureSession ID = %q, want %q", getResp.Msg.GetSession().GetConfig().GetRef().GetCaptureSession().GetId(), sessionRef.GetCaptureSession().GetId())
 	}
 }

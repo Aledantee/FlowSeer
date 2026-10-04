@@ -159,11 +159,14 @@ before phase 2 writes the model:
 
 | Object type | Relations a rule may name |
 | --- | --- |
+| `platform` | `admin` |
 | `tenant` | `member`, `admin`, `operator`, `capturer`, `viewer`, `full_payload` |
 | `edge` | `tenant`, `view`, `operate`, `capture`, `administer` |
 | `device` | `tenant`, `view`, `operate` |
 | `capture_session` | `tenant`, `manage`, `download` |
 
+`platform` has one object, `platform:flowseer`, and `TenantService`'s rules
+name it (`spec/proto/flowseer/api/identity/v1/tenant_service.proto`).
 `tenant` on a resource names its owning tenant. `capture_session#manage`
 derives from the session's stored edge (`capture from edge`), never from
 the edge a request names.
@@ -234,19 +237,19 @@ the edge a request names.
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase1-plan.md`
 After: none
-Landed:
+Landed: `5b8a83e6..6ebca6cb`
 
 ### U2. OIDC authentication, OpenFGA client, model, and deployment
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase2-plan.md`
 After: U1
-Landed:
+Landed: `e5ea2690..2e1c5ce1`
 
 ### U3. Service migration: enforcement on, projector, stamped identity
 
 Files: `docs/plans/2026-09-30-1139-feat-operator-authorization-phase3-plan.md`
 After: U2
-Landed:
+Landed: `af914ebf..d68db6e6`
 
 ### U4. Tenancy admin surfaces and the operator action trail
 
@@ -275,8 +278,14 @@ service.
 
 ## Open questions
 
-- How one tenant with several issuers maps to organization claims.
-  `TenantConfig` binds one issuer, so multiple issuers for one tenant need an
-  answered pattern before phase 2 writes the configuration.
-- Which OIDC issuer the lab deployment runs (Zitadel, Keycloak, or Dex).
-  Phase 2 decides. Any of them passes the vendor rule.
+- Phase 4 needs an operator-facing path that creates a tenant record and its
+  `org_` index before a deployment can admit its first tenant. `TenantService`
+  is defined but not mounted, and `tenantstore.Store.Create` has no caller
+  outside tests (`src/services/device/internal/host/host_test.go`,
+  `src/services/device/internal/tenantstore/store.go`). (2026-10-03)
+- Phase 4 needs a retryable order for a revoking removal that deletes its
+  record and then synchronizes OpenFGA. It also adds the `tenant#platform` and
+  `tenant#partner` relations to the projector's owned set. (2026-10-03)
+- Phase 4 needs to size the shared 64 MiB operator-action stream when tenant
+  administration expands its use. Per-subject limits isolate action floods,
+  while the total budget is shared by all tenants. (2026-10-03)

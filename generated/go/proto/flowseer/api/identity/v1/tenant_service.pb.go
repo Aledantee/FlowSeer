@@ -683,11 +683,11 @@ const file_flowseer_api_identity_v1_tenant_service_proto_rawDesc = "" +
 	"\x13ListTenantsResponse\x12B\n" +
 	"\atenants\x18\x01 \x03(\v2(.flowseer.model.identity.v1.TenantRecordR\atenants\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xd0\x02\n" +
-	"\rTenantService\x12m\n" +
-	"\fCreateTenant\x12-.flowseer.api.identity.v1.CreateTenantRequest\x1a..flowseer.api.identity.v1.CreateTenantResponse\x12d\n" +
-	"\tGetTenant\x12*.flowseer.api.identity.v1.GetTenantRequest\x1a+.flowseer.api.identity.v1.GetTenantResponse\x12j\n" +
-	"\vListTenants\x12,.flowseer.api.identity.v1.ListTenantsRequest\x1a-.flowseer.api.identity.v1.ListTenantsResponseB\x83\x02\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\x9d\x03\n" +
+	"\rTenantService\x12\x86\x01\n" +
+	"\fCreateTenant\x12-.flowseer.api.identity.v1.CreateTenantRequest\x1a..flowseer.api.identity.v1.CreateTenantResponse\"\x17\x82\xb5\x18\x13\b\x05\x12\x05admin\x1a\bplatform\x12}\n" +
+	"\tGetTenant\x12*.flowseer.api.identity.v1.GetTenantRequest\x1a+.flowseer.api.identity.v1.GetTenantResponse\"\x17\x82\xb5\x18\x13\b\x05\x12\x05admin\x1a\bplatform\x12\x83\x01\n" +
+	"\vListTenants\x12,.flowseer.api.identity.v1.ListTenantsRequest\x1a-.flowseer.api.identity.v1.ListTenantsResponse\"\x17\x82\xb5\x18\x13\b\x05\x12\x05admin\x1a\bplatformB\x83\x02\n" +
 	"\x1ccom.flowseer.api.identity.v1B\x12TenantServiceProtoZNgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1;identityv1\xa2\x02\x03FAI\xaa\x02\x18Flowseer.Api.Identity.V1\xca\x02\x18Flowseer\\Api\\Identity\\V1\xe2\x02$Flowseer\\Api\\Identity\\V1\\GPBMetadata\xea\x02\x1bFlowseer::Api::Identity::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_identity_v1_tenant_service_proto_msgTypes = make([]protoimpl.MessageInfo, 6)

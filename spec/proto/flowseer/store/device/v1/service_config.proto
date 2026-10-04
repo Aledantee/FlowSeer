@@ -22,6 +22,12 @@ import option "buf/validate/validate.proto";
 // operator who runs out of room is looking for a knob that was not forgotten:
 // it is one field away when a deployment needs it.
 message DeviceServiceConfig {
+  option (buf.validate.message).cel = {
+    id: "device_service_config.platform_admin_issuer_configured"
+    message: "platform_admin issuer must match one of the configured operator authentication issuers"
+    expression: "!has(this.platform_admin) || !has(this.authentication) || this.authentication.issuers.exists(i, i.issuer == this.platform_admin.issuer)"
+  };
+
   // The directory the service owns: the hub's JetStream store, the keys it
   // mints accounts with, and the certificate it serves. Must be present and
   // absolute, because the service resolves nothing against its working
@@ -64,9 +70,96 @@ message DeviceServiceConfig {
   LogLevel log_level = 8;
   // Identity of the platform administrator permitted to manage tenants.
   PlatformAdmin platform_admin = 9;
-  // Tenant injected into unauthenticated requests during development and testing.
-  // When unset, the device service defaults to injecting the default tenant ("default").
-  string dev_tenant = 10 [(buf.validate.field).string.pattern = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"];
+
+  reserved 10;
+  reserved dev_tenant;
+
+  // Operator authentication. Must be present.
+  OperatorAuthentication authentication = 11 [(buf.validate.field).required = true];
+  // Authorization service configuration. Must be present.
+  AuthorizationEngine authorization = 12 [(buf.validate.field).required = true];
+}
+
+// An OpenID Connect issuer trusted to authenticate operators.
+message OidcIssuer {
+  // The identity provider's HTTPS issuer URL. Must be present.
+  string issuer = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.prefix = "https://",
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The audience expected in tokens minted by this issuer. Must be present.
+  string audience = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 256
+  ];
+  // The claim name carrying the caller's organization identifier.
+  // Unset means tokens from this issuer claim no organization.
+  string organization_claim_name = 3 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+}
+
+// Trusted identity providers and TLS options for operator authentication.
+message OperatorAuthentication {
+  option (buf.validate.message).cel = {
+    id: "operator_authentication.unique_issuers"
+    message: "each issuer URL must be unique"
+    expression: "this.issuers.all(i, this.issuers.filter(j, j.issuer == i.issuer).size() == 1)"
+  };
+
+  // The identity providers trusted to authenticate operators. Must hold
+  // between 1 and 8 issuers with distinct URLs.
+  repeated OidcIssuer issuers = 1 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 8
+  ];
+  // Certificate authority bundle used to verify identity provider TLS
+  // certificates. Must be absolute. Unset uses the system trust store.
+  string ca_file = 2 [
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+}
+
+// Configuration for external authorization evaluations.
+message AuthorizationEngine {
+  // The authorization endpoint as an HTTPS URL with a host and a port. Must
+  // be present, and must carry no path, query, or userinfo.
+  string endpoint = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.pattern = "^https://(\\[[0-9a-fA-F:]+\\]|[^/@?#:]+):[0-9]{1,5}$",
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // The store identifier. Must be present.
+  string store_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // The authorization model identifier. Must be present.
+  string model_id = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 64
+  ];
+  // Path to the preshared key used to authenticate with the authorization
+  // service. Must be present and absolute.
+  string preshared_key_file = 4 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
+  // Certificate authority bundle used to verify authorization service TLS
+  // certificates. Must be absolute. Unset uses the system trust store.
+  string ca_file = 5 [
+    (buf.validate.field).string.pattern = "^/",
+    (buf.validate.field).string.max_len = 4096
+  ];
 }
 
 // The platform administrator identity named in deployment configuration.
@@ -247,4 +340,7 @@ message ServiceIntervals {
   // and a different workload: session metadata and on-disk files rather than
   // journal keys.
   google.protobuf.Duration capture_sweep = 8 [(buf.validate.field).duration.gte = {seconds: 1}];
+  // How often the relationship projector reconciles engine relationships with
+  // central records. Unset means 10 minutes.
+  google.protobuf.Duration relationship_reconcile = 9 [(buf.validate.field).duration.gte = {seconds: 1}];
 }
