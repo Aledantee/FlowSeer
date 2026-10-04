@@ -1467,5 +1467,5 @@ func TestRemoveMemberProjectsEnrollmentRoleAndRequesterAway(t *testing.T) {
 	}
 	// The fake authz engine stores tuples and grants without evaluating OpenFGA
 	// models, so RPC-level revocation of model-derived access is proven in the
-	// tagged tier (TestOperatorRoleGrantsAndRevocation in authz_enforcement_test.go).
+	// tagged tier (TestEnforcementAgainstTheRealEngine in authz_enforcement_test.go).
 }
