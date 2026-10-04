@@ -641,3 +641,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/sim/layer/stp/roles.go:195: boundary branch keeps `agreed` across a role change; fails: an MSTI boundary port that changes role must earn a new agreement
 - src/common/sim/layer/stp/tree_internal_test.go:924: sets `tcActive` on an Alternate port, a state `updatePortStates` never leaves; fails: with reachable state no emission names the expired root
 - src/common/net/bpdu/bpdu_test.go:1584: a second fixture with EtherType `len(Payload) - 3`
+- src/common/sim/layer/stp/receive.go:141: `changes` argument to `recordAgreement` replaced by nil here or at `:167`; fails: an MSTI agreement on a Designated port sends the flagged record on the MSTI's Root port in that call
+- src/common/sim/layer/stp/link.go:108: deferred emission dropped on link down; fails: a Root port goes down and the Alternate that becomes Root and Forwarding sends a flagged frame in that call
+- src/common/sim/layer/stp/tree_internal_test.go:814: `TestMSTTopologyChangeUsesTreeOrderForEmissions` calls `propagateReceivedTC` directly and tests no order; fails: a flagged BPDU through `Receive` on a boundary port gives one frame on the Root port
+- src/common/sim/layer/stp/tree_internal_test.go:957: Root port with `rcvInfoValid` false and an Alternate holding a better root than the tree's, states no call sequence leaves
+- src/common/sim/layer/stp/layer_test.go:4094: no hello is due at the instant checked, so the loop body never runs
