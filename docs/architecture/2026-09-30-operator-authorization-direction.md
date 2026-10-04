@@ -241,6 +241,13 @@ consistency token that must survive a restart is opaque bytes owned by the
 adapter. Changing engines therefore changes the adapter and its configuration,
 not the protobuf contract.
 
+While the device service is the only host of operator RPCs, authorization
+enforcement and OIDC identity stay in
+`src/services/device/internal/authn` and `src/services/device/internal/authz`.
+`src/common/README.md` requires two unrelated import trees before a package
+moves into that shared layer. A second host serving operator RPCs requires
+reconsidering that boundary before the enforcement code is shared.
+
 ### Tenants, as landed
 
 The tenant is a UUID-identified entity in `flowseer.model.identity.v1`, beside
@@ -612,9 +619,14 @@ cross-tenant roles:
 - `platform#admin` is `claimed and enrolled`, so a contextual token claim and a
   stored platform assignment must both hold. A platform administrator loses
   reach when the token stops carrying the claim.
-- Grants on `edge` and `device` are direct assignees or inherited from tenant
-  roles. Direct grants support fine-grained permissions on individual devices
-  or edges without site or tag infrastructure.
+- The model reserves direct assignees and role usersets on `edge` and `device`,
+  but the current access records grant only tenant-wide relations. When the
+  access source is configured, the projector owns those resource grant
+  relations as empty and deletes tuples that no record explains
+  (`src/services/device/internal/projector/projector.go`,
+  `src/services/device/internal/projector/reconcile.go`). Edge- and
+  device-scoped role grants remain a separate design because
+  `model/identity` does not own resource lifecycle.
 - `tenant#active_admin` is a grantee on `tenant#operator`, `tenant#capturer`,
   and `tenant#viewer`, so a partner administrator can hold an operational role
   in a customer tenant.
@@ -1016,3 +1028,40 @@ The default running-service tests prove record projection and trail contents
 with a fake engine that evaluates no model
 (`src/services/device/test/integration/e2e_test.go`). Role and partner access
 through the authorization model require the tagged OpenFGA tier.
+
+### 2026-10-04: implementation boundary and retained questions
+
+The landed tenancy administration work keeps authorization enforcement and
+identity in the device service while it remains the only operator-RPC host.
+It also confirms that the access source owns tenant-wide grants only. Direct
+resource grants remain reserved in the model until a design owns their
+resource lifecycle.
+
+## Open questions
+
+- Whether change records need one JetStream stream per tenant remains open.
+  `FLOWSEER_OPERATOR_ACTIONS` is still shared, so a tenant that fills its
+  change subjects can evict older changes from other tenants
+  (`src/services/device/internal/actiontrail/interceptor.go`,
+  `src/modules/edgebus/hub.go`). A per-tenant stream would reserve bytes per
+  tenant, cap the tenant count, and change the current subject and stream
+  design.
+- Whether a role can grant access on one edge or device remains open. The
+  current access records and projector grant only tenant-wide relations, while
+  the model reserves direct user and userset shapes on resource objects
+  (`src/services/device/internal/authz/openfga/model.json`,
+  `src/services/device/internal/projector/projector.go`). A future design
+  needs ownership and cleanup for the lifecycle of an individual resource.
+- The cost of `SyncTenant` for a tenant with thousands of members and the
+  cost of `RemoveMember`, which scans the tenant's sessions, remain
+  unmeasured (`src/services/device/internal/projector/projector.go`,
+  `src/services/device/internal/identityapi/admin.go`).
+- Whether OpenFGA v1.21.0 returns `Aborted` for two concurrent writes of one
+  tuple remains unverified. The adapter handles conflict responses and writes
+  idempotently, but no tagged integration test exercises that engine race
+  (`src/services/device/internal/authz/openfga/checker.go`,
+  `src/services/device/internal/authz/openfga/relations.go`).
+- The duration of a reconciliation pass at the benchmark fixture's size
+  remains unverified. Projector tests cover ownership and repair behavior, but
+  the current tree has no benchmark for that workload
+  (`src/services/device/internal/projector/projector_test.go`).
