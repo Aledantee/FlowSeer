@@ -423,7 +423,7 @@ func TestICX7150Load(t *testing.T) {
 
 	// The capture reports no powered device on any port and 0 W allocated.
 	alloc := cfg.Phy.Allocate()
-	if g := alloc.Groups["1"]; g.AllocatedNanowatts != 0 || g.RemainderNanowatts != 370_000_000_000 {
+	if g := alloc.Groups["1"]; g.AllocatedNanowatts != 0 || g.RemainderMinNanowatts != 370_000_000_000 || g.RemainderMaxNanowatts != 370_000_000_000 {
 		t.Errorf("group 1 allocation = %+v, want nothing allocated from 370 W", g)
 	}
 	for name, pa := range alloc.Ports {
