@@ -28,6 +28,15 @@ reason in the commit message.
 - A typed change reaches a device through the local-network lane, and an
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
+- Every integration runs on an enrolled host that holds the Connect dispatch
+  stream and answers with reports. The host is an edge at a site or an
+  adapter process deployed beside central. Central routes an operation by
+  the host its lane is placed on, and it calls no adapter in its own process
+  and sends no command over NATS. Decided here first, and no record states
+  its shape yet. It replaces "one that runs centrally names no host" in the
+  [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
+  record, and it widens Edge in [`CONCEPTS.md`](CONCEPTS.md) beyond a
+  process at a site.
 - An observed configuration change, such as an SNMP trap or an integration's
   change event, reaches central over the bus and triggers the drift read at
   once. This protects against drift from changes made outside FlowSeer. The
