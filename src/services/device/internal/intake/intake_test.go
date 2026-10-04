@@ -95,6 +95,36 @@ func TestRedeliveredRecordIsStoredOnce(t *testing.T) {
 	}
 }
 
+func TestRedeliveredRecordWithEvidenceCountsOneDuplicate(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	system := newTestSystem(t, Config{MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	_, data := validEnvelope(t, testEdge, testDevice, testRecordID, true)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, testEdge, "syslog"), data: data}
+
+	system.intake.handle(testEdge, msg)
+	system.intake.handle(testEdge, msg)
+
+	if got := metricValue(t, reader, "flowseer.intake.records.duplicate", "flowseer.intake.record_type", edgebus.IngestRecordTypeSyslog); got != 1 {
+		t.Fatalf("duplicate count = %d, want 1", got)
+	}
+}
+
+func TestRecordFromAnEdgeWithNoTenantIsRetried(t *testing.T) {
+	reader := sdkmetric.NewManualReader()
+	system := newTestSystem(t, Config{MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})
+	_, data := validEnvelope(t, otherEdge, testDevice, testRecordID, false)
+	msg := &fakeMsg{subject: edgebus.IngestSubject(testTenant, otherEdge, "syslog"), data: data}
+
+	system.intake.handle(otherEdge, msg)
+
+	if msg.termed || msg.acked || msg.nakDelay != defaultRetryDelay {
+		t.Fatalf("message from an edge with no tenant: termed=%v acked=%v nak=%s", msg.termed, msg.acked, msg.nakDelay)
+	}
+	if got := metricValue(t, reader, "flowseer.intake.records.retried", "", ""); got != 1 {
+		t.Fatalf("retry count = %d, want 1", got)
+	}
+}
+
 func TestForeignSubjectIsRefused(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	system := newTestSystem(t, Config{MeterProvider: sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))})

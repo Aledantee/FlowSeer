@@ -160,13 +160,13 @@ func (i *Intake) handle(edgeID string, msg jetstream.Msg) {
 	i.recordAge(ctx, msg, started)
 
 	tenantID, known := i.hub.EdgeTenant(edgeID)
-	var publications []publication
-	var reason string
 	if !known {
-		reason = reasonForeignSubject
-	} else {
-		publications, reason = prepare(tenantID, edgeID, msg.Subject(), msg.Data())
+		// The hub has no tenant for the edge, which says nothing about the
+		// record, so it stays in the edge stream for a later delivery.
+		i.retry(ctx, msg, started)
+		return
 	}
+	publications, reason := prepare(tenantID, edgeID, msg.Subject(), msg.Data())
 	if reason != "" {
 		_ = msg.Term()
 		i.metrics.refused.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.intake.reason", reason)))
@@ -175,23 +175,34 @@ func (i *Intake) handle(edgeID string, msg jetstream.Msg) {
 		return
 	}
 
+	recordType := metric.WithAttributes(attribute.String("flowseer.intake.record_type", publications[0].recordType))
+	duplicate := false
 	for _, item := range publications {
 		ack, err := i.central.Publish(ctx, item.subject, item.data, jetstream.WithMsgID(item.messageID))
 		if err != nil {
-			_ = msg.NakWithDelay(i.retryDelay)
-			i.metrics.retried.Add(ctx, 1)
-			i.metrics.duration.Record(ctx, time.Since(started).Seconds())
+			i.retry(ctx, msg, started)
 			return
 		}
 		if ack != nil && ack.Duplicate {
-			i.metrics.duplicate.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.intake.record_type", item.recordType)))
+			duplicate = true
 		}
 		if item.evidence {
-			i.metrics.evidenceStored.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.intake.record_type", item.recordType)))
+			i.metrics.evidenceStored.Add(ctx, 1, recordType)
 		}
 	}
+	// One count per delivery, though a record with evidence makes two
+	// publishes that can each report a duplicate.
+	if duplicate {
+		i.metrics.duplicate.Add(ctx, 1, recordType)
+	}
 	_ = msg.Ack()
-	i.metrics.republished.Add(ctx, 1, metric.WithAttributes(attribute.String("flowseer.intake.record_type", publications[0].recordType)))
+	i.metrics.republished.Add(ctx, 1, recordType)
+	i.metrics.duration.Record(ctx, time.Since(started).Seconds())
+}
+
+func (i *Intake) retry(ctx context.Context, msg jetstream.Msg, started time.Time) {
+	_ = msg.NakWithDelay(i.retryDelay)
+	i.metrics.retried.Add(ctx, 1)
 	i.metrics.duration.Record(ctx, time.Since(started).Seconds())
 }
 

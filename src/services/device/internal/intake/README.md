@@ -41,7 +41,9 @@ first to `flowseer.<tenant>.evidence.syslog.<device-id>`, then to
 messages use `<tenant>.<record_id>` as their JetStream message id.
 
 Central delivery is at least once. A publish failure uses `NakWithDelay`, so
-the edge message remains pending. A repeat inside the central stream's ten
+the edge message remains pending. A message from an edge the hub has no tenant
+for is retried the same way, because that says nothing about the record. A
+repeat inside the central stream's ten
 minute duplicate window is acknowledged as a duplicate. A message can still
 be lost when the edge stream reaches its age or byte bound, because JetStream
 discards its oldest message. The stream and subject definitions live in
@@ -52,8 +54,9 @@ and the central stream limits live in
 Intake publishes these instruments in the scope
 `go.aledante.io/FlowSeer/src/services/device/internal/intake`:
 
-- counters for republished records, duplicate acknowledgements, stored raw
-  evidence, refusals by reason, and retry requests
+- counters for republished records, deliveries a central stream reported as a
+  duplicate (one count per delivery), stored raw evidence, refusals by
+  reason, and retry requests
 - `flowseer.intake.record.duration` in seconds from delivery to `Ack`, `Term`,
   or `NakWithDelay`
 - `flowseer.intake.record.age` in seconds from the edge stream timestamp to
