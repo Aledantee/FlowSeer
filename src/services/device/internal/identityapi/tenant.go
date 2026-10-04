@@ -55,12 +55,12 @@ func (s *TenantService) CreateTenant(ctx context.Context, req *connect.Request[a
 
 	record, err := s.store.LookupByOrg(ctx, config.GetIssuer(), config.GetOrganizationClaimValue())
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if record == nil {
 		id, err := uuid.NewV7()
 		if err != nil {
-			return nil, connectErr(errs.Wrap(err, "mint tenant id"))
+			return nil, connectErr(ctx, errs.Wrap(err, "mint tenant id"))
 		}
 		config.SetRef(tenantRef(id.String()))
 		record, err = s.store.Create(ctx, config)
@@ -72,12 +72,12 @@ func (s *TenantService) CreateTenant(ctx context.Context, req *connect.Request[a
 			}
 		}
 		if err != nil {
-			return nil, connectErr(err)
+			return nil, connectErr(ctx, err)
 		}
 	}
 	config.SetRef(record.GetConfig().GetRef())
 	if !proto.Equal(config, record.GetConfig()) {
-		return nil, connectErr(errs.New().Code(tenantstore.ErrCodeAlreadyExists).Msg("organization has another tenant configuration"))
+		return nil, connectErr(ctx, errs.New().Code(tenantstore.ErrCodeAlreadyExists).Msg("organization has another tenant configuration"))
 	}
 	if err := s.projector.SyncTenant(ctx, record.GetConfig().GetRef().GetTenant().GetId()); err != nil {
 		return nil, projectionError(err)
@@ -92,10 +92,10 @@ func (s *TenantService) GetTenant(ctx context.Context, req *connect.Request[apiv
 	}
 	record, err := s.store.Get(ctx, req.Msg.GetTenant().GetTenant().GetId())
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	if record == nil {
-		return nil, connectErr(errs.New().Code(tenantstore.ErrCodeNotFound).Msg("tenant has no committed record"))
+		return nil, connectErr(ctx, errs.New().Code(tenantstore.ErrCodeNotFound).Msg("tenant has no committed record"))
 	}
 	return connect.NewResponse(apiv1.GetTenantResponse_builder{Tenant: record}.Build()), nil
 }
@@ -107,7 +107,7 @@ func (s *TenantService) ListTenants(ctx context.Context, req *connect.Request[ap
 	}
 	records, err := s.store.List(ctx)
 	if err != nil {
-		return nil, connectErr(err)
+		return nil, connectErr(ctx, err)
 	}
 	page, token, err := pageRecords(records, req.Msg.GetPageSize(), req.Msg.GetPageToken(), func(r *identityv1.TenantRecord) string { return r.GetConfig().GetRef().GetTenant().GetId() })
 	if err != nil {
