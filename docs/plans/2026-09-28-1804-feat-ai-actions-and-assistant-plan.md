@@ -132,6 +132,16 @@ model and this plan is wrong.
   Decision's "resolves the target the same way" for links.
   (decided by the user, 2026-10-04)
 
+- **Focus returns by Reka's own restore.** When the menu or its result
+  closes, focus goes to the element that was focused before the menu
+  opened, through Reka's focus scope. The layer prevents that restore
+  only while a verb hands focus to the result popover, and on popover
+  close it focuses that same element. The layer keeps no origin search
+  and no close modes. Why: focus handling had defects after each of
+  three fixes, and this is the simplest design that meets Requirement 3.
+  Focus may land outside the item the pointer opened the menu on.
+  (decided by the user, 2026-10-04)
+
 ### Result shapes and delivery
 
 - **Results are typed data rendered with `Ui` components.** They are
@@ -686,15 +696,3 @@ follow because they share `ui/index.ts`, the harness, and `FleetView.vue`.
   opens the AI menu and loses the native one there.
 - Confidence stays as the words low, medium, and high until a real model
   reports calibrated confidence. The implementer adds no percentages.
-- Parked by drive: after the AI menu opens by pointer from an element
-  that cannot take focus (a table cell, a topology node), where does
-  focus go when the menu or its result closes? The second review stopped
-  after two more fix rounds with `review: fixes needed`, and its fixes
-  and record are on `parked/aiact-review2`. Options: back to the element
-  focused before the menu opened, which is Reka's own restore (removes
-  the layer's origin search and close modes, and focus may land outside
-  the item) | to the nearest focusable element in the item (focus stays
-  on the item, and it keeps the mechanism that had defects after each of
-  three fixes). Recommended: Reka's own restore, because the review
-  names it the simplest design and four open findings sit in the code it
-  removes.
