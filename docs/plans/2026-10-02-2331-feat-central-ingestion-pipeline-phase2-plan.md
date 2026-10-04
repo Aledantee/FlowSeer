@@ -5,7 +5,7 @@ date: 2026-10-04
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: rework
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
@@ -395,8 +395,6 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
 - src/modules/edgebus/README.md:37: "remember message ids for ten minutes", while the window is `AuditDuplicateWindow` capped by the stream's maximum age
 - src/modules/edgebus/README.md:100: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
 - src/services/device/internal/intake/README.md:47: "up to ten minutes", while ten minutes is only the default of `AuditDuplicateWindow`
-- src/services/device/internal/intake/intake.go:251: key the retry limiter without the edge id; fails: a retry for a second edge inside the window, which must log (`TestRetryLogIsLimitedPerEdge` states per edge and passes, a false test)
-- src/modules/edgebus/follower.go:74: delete the done-context check before an interval pass; fails: `TestFollowerCloseCancelsIntervalAttach` on about half the runs only (a false test)
 - src/services/device/internal/intake/intake.go:239: restore the done-context gate in `logRefusal`; fails: a refusal logged under a done context
 - src/services/device/internal/intake/intake.go:239: delete the limiter check in `logRefusal`; fails: two refusals for one edge inside the window, which must log once
 - src/services/device/internal/intake/intake.go:275: delete the limiter check for a non-terminal consume error; fails: two missed heartbeats for one edge inside the window, which must log once
@@ -404,4 +402,10 @@ the phase 1 source tests and `TestIntakeRepublishesAnEdgeRecord` together.
 - src/services/device/internal/intake/intake.go:94: "A delivery between ctx ending and Close is retried", while a refused record in that window is terminated
 - src/modules/edgebus/follower.go:28: the `FollowEdges` comment no longer states the interval default or what a failed first pass returns
 - src/services/device/internal/intake/README.md:69: no statement that retry warnings stop once the lifetime ends, and `consume_error` is called non-terminal although a pending-header parse error stops the consumer under it
-
+- src/modules/edgebus/follower_test.go:199: the hub sets no `MaxStoreBytes` and the test attaches 21 edges, so it needs about 4.9 GiB of free disk and fails on a correct tree below that (a false test, host dependent)
+- src/modules/edgebus/follower.go:57: delete `f.cancel()` in `Close`; fails: `TestFollowerCloseCancelsIntervalAttach` only by hanging to the package timeout, since it calls `Close` with no deadline
+- src/modules/edgebus/follower.go:58: delete the wait for the discovery loop in `Close`; fails: a late interval attach that returns a consumer after cancel, which `Close` must still drain
+- src/modules/edgebus/follower_test.go:240: a one second deadline on the interval attach starting, run twenty times; fails on a correct tree under load
+- src/services/device/internal/intake/intake.go:275: add the error type to the consume limiter key; fails: two different non-terminal errors for one edge inside the window, which must log once
+- src/services/device/internal/intake/intake.go:44: change the limiter interval to one hour; fails: a second line for one edge after ten seconds
+- src/services/device/internal/intake/intake_test.go:294: three tests of one shape that are not one table-driven test
