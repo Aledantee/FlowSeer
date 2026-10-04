@@ -5,7 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: accept after fixes
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
@@ -584,12 +584,7 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 
 ## Review gaps
 
-- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:559: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels.
-- src/common/sim/device/vswitch/switch.go:2479: record a Marker decode fact for every refused Slow Protocols frame; fails: a refused LACPDU must carry an invalid LACP decode input on Peek and Forward.
-- src/common/sim/layer/lag/layer.go:675: change the defaulting guard to `m.enabled || !sameAggregationPort(...)`; fails: a Fallback member whose learned Partner equals the administrative values, advanced in one call from enabled past both receive timeouts, must stay attached and enabled and never enter WAITING.
-- src/common/sim/layer/lag/layer_test.go:2004: the test never asserts that 1/1/1 forwards as the fallback choice before the Primary gains carrier, and its comment says the Primary returns; fails: the backup state must be asserted before the outcome and the comment must say the Primary first gains carrier.
-- src/common/sim/layer/lag/layer_test.go:2384: the test crosses both receive timeouts in one call, asserts only empty lists, and says "want no selected member" for a member that is selected and waiting; fails: it must assert the attachment before the timeouts, the Expired step, and the reselected member's attachment after the aggregate wait.
-- src/common/sim/layer/lag/layer_test.go:1875: the comment says reselection becomes eligible only after the aggregate wait; fails: selection is redone in the Receive call and attachment is what waits.
-- src/common/sim/layer/lag/README.md:379: the Mux diagram's only exit from DETACHED is WAITING; fails: a member that kept its selection across carrier loss goes from DETACHED to STANDBY or ATTACHED when carrier returns.
-- src/common/sim/layer/lag/README.md:406: Primary is said to win with carrier and Defaulted alone; fails: the sentence must also require the LAG's key.
-- src/common/sim/layer/lag/layer.go:43: "records when:" is followed by the four causes; fails: the comment must say the entry names the cause and the time.
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:559: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels. Not fixable without rewriting landed history, so it stays as recorded.
+- src/common/sim/device/vswitch/switch.go:2479: replace `lag.SlowProtocolsDecodeFact` with `lag.MarkerDecodeFact` at the refusal site; fails: `TestLACPDUHandlingAtSwitch` must assert that a refused LACPDU carries the invalid LACP decode input on Peek and Forward (`V/switch_test.go:5771`, `:5779`). The choice inside `lag.SlowProtocolsDecodeFact` is tested in `L/fact_test.go:216`.
+- src/common/sim/layer/lag/fact_test.go:231: the expected facts come from `lag.LACPDecodeFact` and `lag.MarkerDecodeFact`, the functions the selector calls; fails: the wants must be literal type ids and canonical text, as at `L/fact_test.go:201`.
+- src/common/sim/layer/lag/README.md:368: the README does not say where `Aggregate_Wait_Time` starts when one `Advance` call crosses a receive timeout late; fails: `L/lacp.go:265` counts the wait from the call's time while `L/layer.go:672` expires the receive timer at its due time, and the text must state that base or the code must use the due time.
