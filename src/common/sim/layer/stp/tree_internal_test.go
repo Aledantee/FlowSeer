@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // TestTreeForAnswersForEveryVLAN asserts that one tree carries every VLAN,
@@ -835,71 +837,42 @@ func TestMSTTopologyChangeUsesTreeOrderForEmissions(t *testing.T) {
 func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 	t.Parallel()
 
-	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
-	region := MST{Instances: map[bpdu.MSTID]Instance{1: {VLANs: []vlan.ID{10}}}}
-	l := newLayer(Config{
-		Ports: map[string]Port{"p1": {}, "p2": {}},
-		MST:   &region,
-	}.Normalize(layer.Env{}))
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	region := MST{
+		Name: "region-1",
+		Instances: map[bpdu.MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+		},
+	}
+	portBuilder := port.NewBuilder()
+	portBuilder.Add(port.Port{Name: "p1", Kind: port.Physical})
+	portBuilder.Add(port.Port{Name: "p2", Kind: port.Physical})
+	ports, err := portBuilder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	l, err := New(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Ports:    map[string]Port{"p1": {}, "p2": {}},
+		MST:      &region,
+	}, layer.Env{Ports: ports})
+	if err != nil {
+		t.Fatalf("New() = %v", err)
+	}
 	l.LinkChange(now, "p1", true, true, 1_000_000_000)
 	l.LinkChange(now, "p2", true, true, 1_000_000_000)
 
-	root := bpdu.BridgeID{Priority: 4096}
-	cist := l.cist()
-	cist.rootID = root
-	cist.rootPort = "p1"
-	cist.rootPathCost = 0
-	cist.regionalRootID = root
-	cistP1 := cist.ports["p1"]
-	cistP1.rcvInfoValid = true
-	cistP1.rcvRootID = root
-	cistP1.rcvBridgeID = root
-	cistP1.rcvHelloTime = 2 * time.Second
-	cistP1.rcvTime = now
-	cistP1.role = bpdu.RoleRoot
-	cistP1.state = StateForwarding
-	cistP1.tcActive = true
-	cistP2 := cist.ports["p2"]
-	cistP2.role = bpdu.RoleDesignated
-	cistP2.state = StateForwarding
-	cistP2.tcActive = true
-
-	msti := l.trees[treeID(1)]
-	mstiP1 := msti.ports["p1"]
-	mstiP2 := msti.ports["p2"]
-	mstiRoot := bpdu.BridgeID{Priority: 4097}
-	msti.rootID = mstiRoot
-	msti.rootPort = "p1"
-	mstiP1.rcvInfoValid = true
-	mstiP1.rcvRegionalRootID = mstiRoot
-	mstiP1.rcvBridgeID = root
-	mstiP1.rcvHelloTime = 2 * time.Second
-	mstiP1.rcvTime = now
-	mstiP1.role = bpdu.RoleRoot
-	mstiP1.state = StateForwarding
-	mstiP1.tcActive = true
-	mstiP2.role = bpdu.RoleDesignated
-	mstiP2.state = StateForwarding
-	mstiP2.tcActive = true
-
-	if cistP1.role != bpdu.RoleRoot || mstiP1.role != bpdu.RoleRoot || mstiP2.role != bpdu.RoleDesignated {
-		t.Fatalf("prerequisite roles = CIST p1 %v, MSTI p1 %v, MSTI p2 %v", cistP1.role, mstiP1.role, mstiP2.role)
-	}
-	if cistP1.state != StateForwarding || mstiP1.state != StateForwarding || mstiP2.state != StateForwarding {
-		t.Fatalf("prerequisite states = CIST p1 %v, MSTI p1 %v, MSTI p2 %v", cistP1.state, mstiP1.state, mstiP2.state)
-	}
-
+	root := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+	mstiRoot := bpdu.BridgeID{Priority: 4097, Address: root.Address}
 	cid := region.ConfigID()
-	var mstiFlags bpdu.BPDU
-	mstiFlags.SetRole(bpdu.RoleDesignated)
-	mstiFlags.SetTopologyChange(true)
-	b := bpdu.BPDU{
+	peer := bpdu.BPDU{
 		Version:        3,
 		Type:           bpdu.TypeRapid,
 		RootID:         root,
 		BridgeID:       root,
-		PortID:         0x8002,
-		HelloTime:      2 * time.Second,
+		PortID:         0x8001,
+		HelloTime:      10 * time.Second,
 		MaxAge:         20 * time.Second,
 		ForwardDelay:   15 * time.Second,
 		RegionalRootID: root,
@@ -907,16 +880,60 @@ func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 		RemainingHops:  20,
 		MSTIs: []bpdu.MSTIRecord{{
 			MSTID:          1,
-			Flags:          mstiFlags.Flags,
 			RegionalRootID: mstiRoot,
-			BridgePriority: 0x80,
+			BridgePriority: 0x10,
 			PortPriority:   0x80,
 			RemainingHops:  20,
 		}},
 	}
-	b.SetRole(bpdu.RoleDesignated)
+	peer.SetRole(bpdu.RoleDesignated)
+	peer.SetProposal(true)
+	l.Receive(now, "p1", peer)
+	l.Advance(now.Add(16 * time.Second))
+	l.Receive(now.Add(16*time.Second), "p1", peer)
+	l.Advance(now.Add(32 * time.Second))
 
-	effects := l.Receive(now, "p2", b)
+	if got := l.PortInfo("p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("CIST p1 = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("MSTI p1 = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p2"); got.Role != bpdu.RoleDesignated || got.State != StateForwarding {
+		t.Fatalf("MSTI p2 = %v/%v, want Designated/Forwarding", got.Role, got.State)
+	}
+	if gotRoot, _, gotPort := l.Root(); gotRoot != root || gotPort != "p1" {
+		t.Fatalf("CIST root = %v via %q, want %v via p1", gotRoot, gotPort, root)
+	}
+	beforeMSTITimer := l.trees[treeID(1)].ports["p1"].tcWhile
+	if !l.cist().ports["p1"].tcWhile.IsZero() {
+		t.Fatalf("CIST p1 topology-change timer = %v, want no active timer before the MSTI-only change", l.cist().ports["p1"].tcWhile)
+	}
+
+	flagged := peer
+	flagged.BridgeID = bpdu.BridgeID{Priority: 32768, Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
+	flagged.PortID = 0x8002
+	flagged.RootPathCost = 20_000
+	flagged.MSTIs[0].BridgePriority = 0x80
+	flagged.MSTIs[0].InternalRootPathCost = 20_000
+	flagged.SetProposal(false)
+	var mstiFlags bpdu.BPDU
+	mstiFlags.SetRole(bpdu.RoleDesignated)
+	mstiFlags.SetTopologyChange(true)
+	flagged.MSTIs[0].Flags = mstiFlags.Flags
+
+	callNow := now.Add(33 * time.Second)
+	effects := l.Receive(callNow, "p2", flagged)
+	if got := l.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("MSTI p1 after flagged receive = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p2"); got.Role != bpdu.RoleDesignated || got.State != StateForwarding {
+		t.Fatalf("MSTI p2 after flagged receive = %v/%v, want Designated/Forwarding", got.Role, got.State)
+	}
+	if afterMSTITimer := l.trees[treeID(1)].ports["p1"].tcWhile; !afterMSTITimer.After(beforeMSTITimer) {
+		t.Fatalf("MSTI p1 topology-change timer = %v, want restart after %v", afterMSTITimer, beforeMSTITimer)
+	}
+
 	var rootFrames []layer.Emission
 	for _, emission := range effects.Emissions {
 		if emission.Port == "p1" {
@@ -930,7 +947,13 @@ func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode CIST topology-change frame: %v", err)
 	}
-	if len(decoded.MSTIs) != 1 || !(bpdu.BPDU{Flags: decoded.MSTIs[0].Flags}).TopologyChange() {
+	if decoded.RootID != root || decoded.Role() != bpdu.RoleRoot {
+		t.Fatalf("CIST frame root/role = %v/%v, want %v/Root", decoded.RootID, decoded.Role(), root)
+	}
+	if decoded.TopologyChange() {
+		t.Fatal("CIST frame carried a CIST topology-change bit for an MSTI-only change")
+	}
+	if len(decoded.MSTIs) != 1 || decoded.MSTIs[0].MSTID != 1 || !(bpdu.BPDU{Flags: decoded.MSTIs[0].Flags}).TopologyChange() {
 		t.Fatalf("CIST frame MSTI records = %+v, want MSTI 1 flagged", decoded.MSTIs)
 	}
 }
