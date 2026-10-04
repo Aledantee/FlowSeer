@@ -194,6 +194,9 @@ func TestLabDexIssuer(t *testing.T) {
 						Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-acme")}.Build(),
 					}.Build(),
 				}.Build(),
+				State: identityv1.TenantState_builder{
+					Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
+				}.Build(),
 			}.Build(), nil
 		case "globex":
 			return identityv1.TenantRecord_builder{
@@ -202,6 +205,9 @@ func TestLabDexIssuer(t *testing.T) {
 					Ref: identityv1.TenantGlobalRef_builder{
 						Tenant: identityv1.TenantLocalRef_builder{Id: proto.String("tenant-globex")}.Build(),
 					}.Build(),
+				}.Build(),
+				State: identityv1.TenantState_builder{
+					Lifecycle: identityv1.TenantLifecycle_TENANT_LIFECYCLE_ACTIVE.Enum(),
 				}.Build(),
 			}.Build(), nil
 		default:

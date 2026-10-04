@@ -1,8 +1,11 @@
 package integration_test
 
 import (
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -10,6 +13,7 @@ import (
 	"testing"
 
 	"buf.build/go/protovalidate"
+
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/yaml.v3"
@@ -18,6 +22,7 @@ import (
 	agentv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/agent/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
 	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
@@ -412,5 +417,85 @@ func TestTheLabStoreScriptKeepsTheKeyOutOfCurlArguments(t *testing.T) {
 		if strings.Contains(line, "-H") && strings.Contains(line, "PSK") {
 			t.Errorf("curl is given the preshared key as an argument: %q", strings.TrimSpace(line))
 		}
+	}
+}
+
+// The README's principal-id pipeline extracts the subject without quotes
+// and matches authn.ComputePrincipalID.
+func TestTheLabReadmePrincipalIDMatchesComputePrincipalID(t *testing.T) {
+	t.Parallel()
+
+	readme := labScript(t, "README.md")
+	if !strings.Contains(readme, "jq -r -R") {
+		t.Fatal("deploy/lab/README.md does not use jq -r -R to decode sub without quotes")
+	}
+
+	issuer := "https://127.0.0.1:8445/dex"
+	subject := "alice-subject-123"
+	wantID := authn.ComputePrincipalID(issuer, subject)
+
+	header := "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9"
+	payload := base64.RawURLEncoding.EncodeToString([]byte(`{"sub":"` + subject + `"}`))
+	token := header + "." + payload + ".dummy-sig"
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf(`
+set -eu
+ALICE_TOKEN=%q
+ALICE_SUB=$(echo "${ALICE_TOKEN}" | jq -r -R 'split(".")[1] | gsub("-";"+") | gsub("_";"/") | @base64d | fromjson | .sub')
+ALICE_ID=$(printf '%%s\0%%s' %q "${ALICE_SUB}" | shasum -a 256 | awk '{print $1}')
+printf '%%s' "${ALICE_ID}"
+`, token, issuer))
+
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("run principal pipeline from README: %v\n%s", err, out)
+	}
+
+	gotID := string(out)
+	if gotID != wantID {
+		t.Errorf("computed principal ID = %q, want %q", gotID, wantID)
+	}
+}
+
+// The sample DeviceServiceConfig in spec/proto/flowseer/store/device/v1/README.md
+// is valid and passes host.LoadConfig.
+func TestTheStoreDeviceReadmeSampleLoads(t *testing.T) {
+	t.Parallel()
+
+	readmePath := filepath.Join(repoRoot, "spec", "proto", "flowseer", "store", "device", "v1", "README.md")
+	content, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatalf("read store/device/v1/README.md: %v", err)
+	}
+
+	const section = "## The service configuration"
+	secIdx := strings.Index(string(content), section)
+	if secIdx < 0 {
+		t.Fatalf("no %q section in %s", section, readmePath)
+	}
+
+	const marker = "```prototext\n"
+	start := strings.Index(string(content)[secIdx:], marker)
+	if start < 0 {
+		t.Fatalf("no %s block under %q in %s", marker, section, readmePath)
+	}
+	start += secIdx + len(marker)
+	end := strings.Index(string(content)[start:], "\n```")
+	if end < 0 {
+		t.Fatalf("unclosed prototext block in %s", readmePath)
+	}
+	body := string(content)[start : start+end]
+
+	tmp := filepath.Join(t.TempDir(), "device.textproto")
+	if err := os.WriteFile(tmp, []byte(body), 0o600); err != nil {
+		t.Fatalf("write temp config: %v", err)
+	}
+
+	cfg, err := host.LoadConfig(tmp)
+	if err != nil {
+		t.Fatalf("host.LoadConfig(%s): %v", readmePath, err)
+	}
+	if cfg.StateDir() != "/var/lib/flowseer/device" {
+		t.Errorf("StateDir = %q, want /var/lib/flowseer/device", cfg.StateDir())
 	}
 }
