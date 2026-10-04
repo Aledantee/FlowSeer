@@ -15,4 +15,5 @@ A test that passes with the condition removed that its title, comment, or
 commit body states is a false test. A mutation that survives in a branch or
 boundary no test's title, comment, or commit body states is a gap. A
 surviving mutation that can be read either way is a false test
-(`fix-loop.md` decides the boundary).
+(`fix-loop.md` decides the boundary, and which false tests hold the
+verdict).
