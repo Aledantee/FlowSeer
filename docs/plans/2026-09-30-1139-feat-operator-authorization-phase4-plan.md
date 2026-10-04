@@ -710,11 +710,9 @@ The tagged run needs Docker and runs the package whole. The run in
 - `src/services/device/internal/identityapi/admin.go:95`: set the description unconditionally, or the name at `tenant.go:49`; fails: `CreateRole` and `CreateTenant` without the optional field store a record that passes validation
 - `src/services/device/internal/identityapi/errors.go:62`: keep only `tenantstore.ErrCodeStore` in the switch; fails: `accessstore/conflict` and `tenantstore/conflict` answer retryable
 - `src/services/device/internal/connecterr/consistency_test.go:31`: map `tenant.ErrCodeNoTenant` to `CodeInvalidArgument` in `identityapi.ClientErrors`; fails: `TestNoCodeAnswersTwoDifferentThings` reads the identity table
-- `spec/proto/flowseer/store/device/v1/service_config.proto:184`: `repeated string subjects = 3` reuses the number of the removed `subject`; fails: `docs/code-style-proto.md`, Evolution, "Never reuse or renumber a field"
-- `spec/proto/flowseer/event/operator/v1/README.md:26`: "Role, partner, and full-payload objects carry the relations"; fails: a `ROLE_DELETE` record carries the role ref and no relations
 - `spec/proto/flowseer/store/device/v1/README.md:88`: "sixteen distinct subject values;"; fails: `docs/doc-style.md`, no semicolons in prose
 - `src/modules/edgebus/edgebus_test.go:1314`: "330 MiB is above the 320 MiB the sum was before the read stream"; fails: `docs/code-style.md`, a comment describes the code as it is
 - `docs/architecture/2026-09-30-operator-authorization-direction.md:755`: cites `projector.go:90-132` for `Sync`; fails: those lines hold the `Projector` struct and `New`, and `Sync` is at `projector.go:147-198`
 - `docs/architecture/2026-09-30-operator-authorization-direction.md:642`: the record names no user shape the adapter accepts; fails: it states that the adapter accepts `type:id`, `role:<id>#assignee`, and `tenant:<id>#active_admin`, and answers false without a call for every other user
-- `src/services/device/internal/identityapi/admin.go:103`: `slog.WarnContext` writes to the process default logger; fails: `docs/conventions/observability.md`, the record goes to the service logger the host passes
 - `deploy/lab/README.md:411`: step `9.` follows step `7.`; fails: the steps count 1 through 8
+- `docs/architecture/2026-09-30-operator-authorization-direction.md:528`: a call whose context has ended answers `ctx.Err()` bare "in two places"; fails: `identityapi/errors.go` (`connectErr`) and `accessstore/store.go` (`storeError`) answer it too, and the 2026-10-04 amendment says so
