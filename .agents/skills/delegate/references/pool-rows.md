@@ -21,8 +21,10 @@ and the `worst` one with its reset time:
   sign-in), nothing about the pool. Never drop `google` on it: a pool is out
   only when its own `pool-usage.sh` row shows `signed_in: false` or a window
   over the threshold.
-- A row with `windows: null` and an `error` means usage is unknown. Report
-  the error. Only `signed_in: true` permits dispatch with unknown headroom.
+- An `error` means one of the row's source reads failed. Report it. A row may
+  still carry windows from another source when its plan or model read failed.
+  `windows: null` means usage is unknown. Only `signed_in: true` permits
+  dispatch with unknown headroom.
   A false or null sign-in state excludes the pool, as `SKILL.md` specifies.
 - On `google`, the `gemini-*` windows meter Gemini models and the `3p-*`
   windows meter Claude and GPT models run through `agy`; only the group of
