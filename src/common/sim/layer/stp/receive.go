@@ -44,20 +44,20 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 	}
 }
 
-func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	l.syncTree(t, p.name, flushes)
 	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 		if p.state != StateForwarding {
 			p.state = StateForwarding
 			p.forwardTransitions++
 			if !link.edge {
-				l.initiateTopologyChange(t, p, now, flushes, nil)
+				l.initiateTopologyChange(t, p, now, flushes, changes)
 			}
 		}
 	}
 }
 
-func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	if !link.pointToPoint || !link.sendRSTP || !agreement {
 		p.agreed = false
 		return
@@ -65,10 +65,13 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 
 	portVec := designatedVector(t, p, link.external)
 	cmp := compareVectors(incoming, portVec)
-	if role == bpdu.RoleDesignated {
+	switch role {
+	case bpdu.RoleDesignated:
 		p.agreed = cmp <= 0
-	} else {
+	case bpdu.RoleRoot, bpdu.RoleAlternate, bpdu.RoleBackup:
 		p.agreed = cmp >= 0
+	default:
+		p.agreed = false
 	}
 	if p.agreed {
 		p.proposing = false
@@ -76,7 +79,7 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 			p.state = StateForwarding
 			p.forwardTransitions++
 			if !link.edge {
-				l.initiateTopologyChange(t, p, now, flushes, emissions)
+				l.initiateTopologyChange(t, p, now, flushes, changes)
 			}
 		}
 	}
@@ -91,7 +94,7 @@ func (l *Layer) cistPortVector(p *portState) priorityVector {
 	return rawVector(cist, p, link.external)
 }
 
-func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVec priorityVector, flushes *[]layer.FlushTarget) []bpdu.MSTID {
+func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVec priorityVector, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) []bpdu.MSTID {
 	link := l.links[port]
 	cistConsistent := b.RootID == heldCISTVec.rootID &&
 		b.RootPathCost == heldCISTVec.externalRootPathCost &&
@@ -111,7 +114,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 
 		recFlags := bpdu.BPDU{Flags: rec.Flags}
 		if recFlags.TopologyChange() && !mp.cfg.RestrictedTCN && mp.tcActive {
-			l.propagateTopologyChange(mt, port, now, flushes, nil)
+			l.propagateTopologyChange(mt, port, now, flushes, changes)
 		}
 
 		recBridgeID := bpdu.BridgeID{
@@ -135,7 +138,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 		if !sameSource && !isSuperior {
 			if cistConsistent {
-				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil)
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, changes)
 			} else {
 				mp.agreed = false
 			}
@@ -161,7 +164,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		mp.rcvTime = now
 
 		if cistConsistent {
-			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, nil)
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes, changes)
 			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
 				proposals = append(proposals, rec.MSTID)
 			}
@@ -192,54 +195,59 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	l.armHelloTimers(now)
 
 	var flushes []layer.FlushTarget
+	changes := newTopologyChangeEmissions()
+	var emissions []layer.Emission
 
-	// An MST BPDU on a PVST bridge is the boundary this layer reports rather
-	// than models: its RST prefix still drives VLAN 1's tree below, but no
-	// other VLAN's tree hears anything from that neighbor.
-	if l.pvst != nil && b.ConfigID != nil {
-		link.pvstBoundary = true
-	}
-
-	emissions, done := l.receiveLink(now, port, b, &flushes)
-	if done {
-		return layer.Effects{Emissions: emissions, Flush: flushes}
-	}
-
-	if b.Type == bpdu.TypeTopologyChangeNotification {
-		if !p.tcActive {
-			return layer.Effects{Emissions: emissions, Flush: flushes}
+	func() {
+		// An MST BPDU on a PVST bridge is the boundary this layer reports rather
+		// than models: its RST prefix still drives VLAN 1's tree below, but no
+		// other VLAN's tree hears anything from that neighbor.
+		if l.pvst != nil && b.ConfigID != nil {
+			link.pvstBoundary = true
 		}
-		if p.role == bpdu.RoleDesignated {
-			p.tcAck = true
-			l.emit(t, p, now, emissionDesignated, &emissions)
+
+		var done bool
+		emissions, done = l.receiveLink(now, port, b, &flushes, changes)
+		if done {
+			return
 		}
-		if !p.cfg.RestrictedTCN {
-			p.tcWhile = now.Add(l.tcWhileDuration(t, p))
-			t.topologyChangeCount++
-			t.lastTopologyChange = now
-			l.propagateTopologyChange(t, p.name, now, &flushes, &emissions)
-			for _, mt := range l.trees {
-				if mt.id == cistID {
-					continue
+
+		if b.Type == bpdu.TypeTopologyChangeNotification {
+			if p.tcActive {
+				if p.role == bpdu.RoleDesignated {
+					p.tcAck = true
+					l.emit(t, p, now, emissionDesignated, &emissions, changes)
 				}
-				if mp := mt.ports[port]; mp != nil && mp.tcActive {
-					mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
-					mt.topologyChangeCount++
-					mt.lastTopologyChange = now
-					l.propagateTopologyChange(mt, port, now, &flushes, &emissions)
+				if !p.cfg.RestrictedTCN {
+					p.tcWhile = now.Add(l.tcWhileDuration(t, p))
+					changes.add(t, p.name)
+					t.topologyChangeCount++
+					t.lastTopologyChange = now
+					l.propagateTopologyChange(t, p.name, now, &flushes, changes)
+					for _, id := range l.treeOrder {
+						mt := l.trees[id]
+						if mt.id == cistID {
+							continue
+						}
+						if mp := mt.ports[port]; mp != nil && mp.tcActive {
+							mp.tcWhile = now.Add(l.tcWhileDuration(mt, mp))
+							changes.add(mt, mp.name)
+							mt.topologyChangeCount++
+							mt.lastTopologyChange = now
+							l.propagateTopologyChange(mt, port, now, &flushes, changes)
+						}
+					}
 				}
 			}
+
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+
+			return
 		}
 
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
-
-		return layer.Effects{
-			Emissions: emissions,
-			Flush:     flushes,
-		}
-	}
-
-	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
+		emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+	}()
+	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
 	return layer.Effects{
 		Emissions: emissions,
@@ -308,70 +316,83 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	link.rxBPDUs++
 
 	var flushes []layer.FlushTarget
+	changes := newTopologyChangeEmissions()
+	var emissions []layer.Emission
+	outcome := SSTPGuarded
 
-	// receiveLink is the link-level half of a receive: BPDU guard, the
-	// loop-guard clear, protocol migration, and auto-edge loss all belong to
-	// the port whatever tree the frame names, so it runs whatever this bridge
-	// goes on to decide about the tree half below.
-	emissions, done := l.receiveLink(now, port, b, &flushes)
+	func() {
+		// receiveLink is the link-level half of a receive: BPDU guard, the
+		// loop-guard clear, protocol migration, and auto-edge loss all belong to
+		// the port whatever tree the frame names, so it runs whatever this bridge
+		// goes on to decide about the tree half below.
+		var done bool
+		emissions, done = l.receiveLink(now, port, b, &flushes, changes)
 
-	// The mark is a statement about the neighbor, not about this frame's
-	// outcome, so it is set whenever this bridge does not run PVST even when
-	// the guard above just fired.
-	if l.pvst == nil {
-		link.pvstBoundary = true
-	}
+		// The mark is a statement about the neighbor, not about this frame's
+		// outcome, so it is set whenever this bridge does not run PVST even when
+		// the guard above just fired.
+		if l.pvst == nil {
+			link.pvstBoundary = true
+		}
 
-	if done {
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPGuarded
-	}
+		if done {
+			return
+		}
 
-	l.armHelloTimers(now)
+		l.armHelloTimers(now)
 
-	if l.pvst == nil {
-		// This bridge's CIST does not run the BPDU's VLAN, so feeding the
-		// vector into it would elect a root from a tree it is not running.
-		// The neighbor relationship still converges, because a PVST+ bridge
-		// sends VLAN 1's tree to the IEEE address as well.
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		if l.pvst == nil {
+			// This bridge's CIST does not run the BPDU's VLAN, so feeding the
+			// vector into it would elect a root from a tree it is not running.
+			// The neighbor relationship still converges, because a PVST+ bridge
+			// sends VLAN 1's tree to the IEEE address as well.
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPBoundary
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPBoundary
-	}
+			return
+		}
 
-	if !arrival.Admitted {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		if !arrival.Admitted {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPNotAdmitted
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPNotAdmitted
-	}
+			return
+		}
 
-	t, ok := l.treeFor(arrival.ArrivalVID)
-	if !ok {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		t, ok := l.treeFor(arrival.ArrivalVID)
+		if !ok {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPUntrackedVLAN
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
-	}
+			return
+		}
 
-	p, ok := t.ports[port]
-	if !ok {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		p, ok := t.ports[port]
+		if !ok {
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPUntrackedVLAN
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPUntrackedVLAN
-	}
+			return
+		}
 
-	// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
-	// VLAN the peer named: the arrival VLAN is the one whose local traffic
-	// would cross a link the two ends disagree about.
-	if arrival.TLVVID != arrival.ArrivalVID {
-		p.pvidInconsistent = true
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
+		// VLAN the peer named: the arrival VLAN is the one whose local traffic
+		// would cross a link the two ends disagree about.
+		if arrival.TLVVID != arrival.ArrivalVID {
+			p.pvidInconsistent = true
+			emissions = append(emissions, l.recomputeAll(now, &flushes, changes)...)
+			outcome = SSTPPVIDInconsistent
 
-		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
-	}
-	p.pvidInconsistent = false
+			return
+		}
+		p.pvidInconsistent = false
 
-	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
+		emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes, changes)...)
+		outcome = SSTPApplied
+	}()
+	l.emitTopologyChangeEmissions(now, changes, &emissions)
 
-	return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPApplied
+	return layer.Effects{Emissions: emissions, Flush: flushes}, outcome
 }
 
 // applyBPDU applies one received BPDU to one tree: the classification, the
@@ -381,7 +402,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 // on the tree of the VLAN an SSTP BPDU arrived on. The link-level half of a
 // receive, which runs once per frame whatever tree it belongs to, stays with
 // the two callers.
-func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]layer.FlushTarget) []layer.Emission {
+func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) []layer.Emission {
 	var emissions []layer.Emission
 	link := l.links[p.name]
 
@@ -401,7 +422,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.
 		if b.RemainingHops <= 1 {
-			emissions = append(emissions, l.recomputeAll(now, flushes)...)
+			emissions = append(emissions, l.recomputeAll(now, flushes, changes)...)
 
 			return emissions
 		}
@@ -414,7 +435,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		// longer exists stops refreshing the timer on every hop and the
 		// port's own information ages out.
 		if b.MessageAge+time.Second > b.MaxAge {
-			emissions = append(emissions, l.recomputeAll(now, flushes)...)
+			emissions = append(emissions, l.recomputeAll(now, flushes, changes)...)
 
 			return emissions
 		}
@@ -465,12 +486,13 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	var mstiProposals []bpdu.MSTID
 	if internal {
-		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
+		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes, changes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, &emissions)
-	if link.external {
-		for _, mt := range l.trees {
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes, changes)
+	if l.mst != nil && link.external {
+		for _, id := range l.treeOrder {
+			mt := l.trees[id]
 			if mt.id == cistID {
 				continue
 			}
@@ -482,7 +504,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 						mp.state = StateForwarding
 						mp.forwardTransitions++
 						if !link.edge {
-							l.initiateTopologyChange(mt, mp, now, flushes, &emissions)
+							l.initiateTopologyChange(mt, mp, now, flushes, changes)
 						}
 					}
 				}
@@ -490,34 +512,35 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	l.propagateReceivedTC(t, p, link, b, now, flushes, &emissions)
+	l.propagateReceivedTC(t, p, link, b, now, flushes, changes)
 
-	emissions = append(emissions, l.recomputeAll(now, flushes)...)
+	emissions = append(emissions, l.recomputeAll(now, flushes, changes)...)
 
-	if l.answerProposals(t, p, link, b, mstiProposals, now, flushes) {
-		l.emit(t, p, now, emissionAgreement, &emissions)
+	if l.answerProposals(t, p, link, b, mstiProposals, now, flushes, changes) {
+		l.emit(t, p, now, emissionAgreement, &emissions, changes)
 	} else if p.role == bpdu.RoleDesignated && !b.Agreement() {
 		if compareVectors(incoming, designatedVector(t, p, link.external)) > 0 {
-			l.emit(t, p, now, emissionDesignated, &emissions)
+			l.emit(t, p, now, emissionDesignated, &emissions, changes)
 		}
 	}
 
 	return emissions
 }
 
-func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget, emissions *[]layer.Emission) {
+func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) {
 	if b.TopologyChangeAck() && p.role == bpdu.RoleRoot {
 		p.tcWhile = time.Time{}
 	}
 	if b.TopologyChange() && !p.cfg.RestrictedTCN && p.tcActive {
-		l.propagateTopologyChange(t, p.name, now, flushes, emissions)
-		if link.external {
-			for _, mt := range l.trees {
+		l.propagateTopologyChange(t, p.name, now, flushes, changes)
+		if l.mst != nil && link.external {
+			for _, id := range l.treeOrder {
+				mt := l.trees[id]
 				if mt.id == cistID {
 					continue
 				}
 				if mp := mt.ports[p.name]; mp != nil && mp.tcActive {
-					l.propagateTopologyChange(mt, p.name, now, flushes, emissions)
+					l.propagateTopologyChange(mt, p.name, now, flushes, changes)
 				}
 			}
 		}
@@ -555,18 +578,19 @@ func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now
 	}
 }
 
-func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) bool {
+func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget, changes *topologyChangeEmissions) bool {
 	answered := false
 	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
 		answered = true
-		l.handleProposal(t, p, link, now, flushes)
-		if link.external {
-			for _, mt := range l.trees {
+		l.handleProposal(t, p, link, now, flushes, changes)
+		if l.mst != nil && link.external {
+			for _, id := range l.treeOrder {
+				mt := l.trees[id]
 				if mt.id == cistID {
 					continue
 				}
 				if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-					l.handleProposal(mt, mp, link, now, flushes)
+					l.handleProposal(mt, mp, link, now, flushes, changes)
 				}
 			}
 		}
@@ -574,7 +598,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 	for _, mstid := range mstiProposals {
 		if mt, ok := l.trees[treeID(mstid)]; ok {
 			if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-				l.handleProposal(mt, mp, link, now, flushes)
+				l.handleProposal(mt, mp, link, now, flushes, changes)
 				answered = true
 			}
 		}
