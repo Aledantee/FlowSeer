@@ -675,7 +675,7 @@ so the author does not read every comment as mandatory
 (https://google.github.io/eng-practices/review/reviewer/standard.html,
 https://google.github.io/eng-practices/review/reviewer/comments.html).
 
-Follow-ups used to hold the verdict at `fixes needed` until a gap pass had
+Follow-ups used to hold the verdict at `fixes needed` until a follow-up pass had
 closed every one, and a false test got a reviewed round. One phase then
 ended its third round with no behavior finding and two false tests still
 holding the verdict (`aff8a9fd`), while later phases waited behind it. A
@@ -683,23 +683,36 @@ false test now gets no reviewer round, because the coordinator's rerun of
 the recorded mutation already proves whether the corrected test fails.
 That demotion is this repository's judgment and has no outside source.
 
-The coordinator still closes follow-ups in one unreviewed pass inside the
-same review. It reruns each recorded mutation on the merged tree and drops
-the item only when the suite fails. The pass changes tests, comments, and
-docs only, and an item that needs other source stays recorded. Follow-ups
-close per phase in that pass and not in a last phase of the parent, because
-cleanup deferred past the change that exposed it tends not to happen
+Blocking false tests hold the verdict and get no reviewer round. The
+coordinator records each one with its mutation, flaky run count when
+applicable, and `review-fix-test: yes|no`. A later review keeps that class and
+metadata until the recorded mutation closes it.
+
+The coordinator still closes follow-ups and blocking false tests in one
+unreviewed pass inside the same review. It reruns each recorded mutation on
+the merged tree and drops the item only when the suite fails. The pass changes
+tests, comments, and docs only. A follow-up that needs other source stays a
+follow-up. A blocking false test that needs other source stays blocking and
+keeps the verdict at `fixes needed`. When the test is right and the shipped
+code is wrong, the item is a behavior finding. It gets a round while one is
+left and otherwise makes the verdict `rework`. Follow-ups close per phase in
+that pass and not in a last phase of the parent, because cleanup deferred past
+the change that exposed it tends not to happen
 (https://google.github.io/eng-practices/review/reviewer/pushback.html). The
 ones the pass leaves are the cost of this rule: nothing forces them closed.
+The pass starts after the last clean round, or immediately when no security or
+behavior finding holds the verdict. A review with only blocking false tests
+also starts the pass.
 
-Open follow-ups are recorded, and only `review` reads that record. With a
-plan it is a `## Review gaps` section at the end of the plan, and planless
-work keeps a `gaps:` line in the checkpoints file. No gate reads it
+Open follow-ups and blocking false-test items are recorded, and only `review`
+reads that record. With a plan it is a `## Review gaps` section at the end of
+the plan, and planless work keeps a `gaps:` line in the checkpoints file. No
+gate reads it
 because the verdict is the one field every gate reads. A gap carried
 across skills had to be known by `land`, `drive`, `next`, and plan
 retirement, and each fix round to that design found another reader it
 missed (`c65f3804`, `e83b1305`). The verdict commit's body lists the open
-follow-ups instead, so they outlive the plan without a second reader.
+items instead, so they outlive the plan without a second reader.
 
 The loop once stopped only at a round with no correctness finding, and a
 gap counted as one. Each fix round then added tests for the next reviewer
