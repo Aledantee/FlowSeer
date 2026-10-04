@@ -878,3 +878,15 @@ The run in `deploy/lab/README.md` is done once by hand.
   `journal/journal.go:1010-1016` where the actor line is `:1017`.
   `lab_fixtures_test.go` pins the runbook's token step by the absence of
   three old strings.
+- Parked by drive: the review ended in `rework` at its three-round limit
+  with no known defect in the service's behavior. Left are a property test
+  generator that covers two record layouts of 64, an untested recover
+  interceptor entry, stale line citations in the record, a weak runbook
+  test, and the two owner questions above (no tenant-record path, and an
+  unlisted device answering `PermissionDenied`). Options: accept the phase
+  with these items recorded (phase 4 serves `TenantService`, which closes
+  the tenant-record path, at the cost of known test gaps) | run one more
+  test-and-documentation round that changes no production behavior
+  (closes the gaps, at the cost of another round of worker quota) | stop
+  here. Recommended: one more test-and-documentation round, because the
+  generator gap leaves the reconcile rule's property test mostly unexercised.
