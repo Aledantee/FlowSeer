@@ -136,17 +136,20 @@ type memberState struct {
 	enabled          bool
 	status           Status
 	partnerDefaulted bool
+	actorExpired     bool
 	partner          lacp.Info
 	actor            lacp.Info
 	lastTxActor      lacp.Info
 	hasTxActor       bool
 	rxTimer          time.Time
-	rxPeriod         time.Duration
 	txTimer          time.Time
 	txPeriod         time.Duration
 	lacpdusTx        uint64
 	lacpdusRx        uint64
 	badLACPDUs       uint64
+
+	// needsReselect records a Partner identity change for Selection Logic.
+	needsReselect bool
 }
 
 func (m *memberState) clone() *memberState {
@@ -207,23 +210,25 @@ func newLayer(cfg Config, ports port.Table, systemID netaddr.MAC) *Layer {
 			txPeriod = fastPeriod
 		}
 
-		for idx, memName := range memNames {
+		for _, memName := range memNames {
 			mCfg := lagCfg.Members[memName]
 			ms := &memberState{
-				name:             memName,
-				lagName:          lagName,
-				portID:           uint16(idx + 1),
-				cfg:              mCfg,
-				linkUp:           false,
-				status:           Defaulted,
-				partnerDefaulted: true,
-				partner:          lacp.Info{State: lacp.StateDefaulted},
-				txPeriod:         txPeriod,
-				rxPeriod:         txPeriod,
+				name:          memName,
+				lagName:       lagName,
+				cfg:           mCfg,
+				needsReselect: true,
+				txPeriod:      txPeriod,
 			}
-			ms.updateActorInfo(ls)
+			ms.recordDefault()
+			ms.disableReceive()
 			layer.members[memName] = ms
 		}
+	}
+
+	for idx, name := range sortedKeys(layer.members) {
+		m := layer.members[name]
+		m.portID = uint16(idx + 1)
+		m.updateActorInfo(layer.lags[m.lagName])
 	}
 
 	return layer
@@ -524,12 +529,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects
 	var changed []string
 
 	if !up {
-		m.status = Defaulted
-		m.partnerDefaulted = true
-		m.partner = lacp.Info{State: lacp.StateDefaulted}
-		m.rxTimer = time.Time{}
-		m.txTimer = time.Time{}
-		m.hasTxActor = false
+		m.disableReceive()
 		if l.updateLag(lag) {
 			changed = append(changed, lag.name)
 		}
@@ -537,11 +537,7 @@ func (l *Layer) setCarrier(now time.Time, m *memberState, up bool) layer.Effects
 		return layer.Effects{Changed: changed}
 	}
 
-	m.status = Current
-	m.partnerDefaulted = true
-	m.partner = lacp.Info{State: lacp.StateDefaulted}
-	m.rxPeriod = m.txPeriod
-	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
+	m.expireReceive(now)
 
 	if l.updateLag(lag) {
 		changed = append(changed, lag.name)
@@ -599,28 +595,53 @@ func (l *Layer) Receive(now time.Time, member string, pdu lacp.PDU) layer.Effect
 		return layer.Effects{}
 	}
 
+	affectedLAGs := map[string]struct{}{lag.name: {}}
+	for _, name := range sortedKeys(l.members) {
+		other := l.members[name]
+		if other.name != m.name && other.status == PortDisabled &&
+			other.partner.SystemID == pdu.Actor.SystemID && other.partner.PortID == pdu.Actor.PortID {
+			other.needsReselect = true
+			other.recordDefault()
+			other.actorExpired = false
+			other.disableReceive()
+			affectedLAGs[other.lagName] = struct{}{}
+		}
+	}
+
+	if !sameAggregationPort(m.partner, pdu.Actor) {
+		m.needsReselect = true
+	}
 	m.partner = pdu.Actor
+	m.partner.State &^= lacp.StateSynchronization
+	activelyMaintained := pdu.Actor.State&lacp.StateActive != 0 ||
+		(m.actor.State&lacp.StateActive != 0 && pdu.Partner.State&lacp.StateActive != 0)
+	if activelyMaintained && pdu.Actor.State&lacp.StateSynchronization != 0 &&
+		(pdu.Actor.State&lacp.StateAggregation == 0 || sameAggregationPort(m.actor, pdu.Partner)) {
+		m.partner.State |= lacp.StateSynchronization
+	}
 	m.partnerDefaulted = false
 	m.status = Current
+	m.actorExpired = false
 
-	if pdu.Actor.State&lacp.StateShortTimeout != 0 {
-		m.rxPeriod = fastPeriod
-	} else {
-		m.rxPeriod = slowPeriod
+	rxPeriod := slowPeriod
+	if lag.cfg.LACP.Fast {
+		rxPeriod = fastPeriod
 	}
-	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
+	m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * rxPeriod)
 
 	var changed []string
-	if l.updateLag(lag) {
-		changed = append(changed, lag.name)
-	}
-
 	var emissions []layer.Emission
-	for _, name := range lag.memberNames {
-		mem := l.members[name]
-		if mem.mayTx(lag) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
-			emissions = append(emissions, l.emitLACPDU(mem))
-			mem.txTimer = now.Add(mem.txPeriod)
+	for _, lagName := range sortedKeys(affectedLAGs) {
+		affected := l.lags[lagName]
+		if l.updateLag(affected) {
+			changed = append(changed, affected.name)
+		}
+		for _, name := range affected.memberNames {
+			mem := l.members[name]
+			if mem.mayTx(affected) && (!mem.hasTxActor || mem.actor != mem.lastTxActor) {
+				emissions = append(emissions, l.emitLACPDU(mem))
+				mem.txTimer = now.Add(mem.txPeriod)
+			}
 		}
 	}
 
@@ -657,20 +678,23 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		lagNeedsUpdate := false
 		for _, name := range lag.memberNames {
 			m := l.members[name]
-			if !m.carrier || m.rxTimer.IsZero() || m.rxTimer.After(now) {
+			if !m.carrier {
 				continue
 			}
 
-			switch m.status {
-			case Current:
-				m.status = Expired
-				m.rxTimer = now.Add(time.Duration(timeoutMultiplier) * m.rxPeriod)
-				lagNeedsUpdate = true
-			case Expired:
-				m.status = Defaulted
-				m.partnerDefaulted = true
-				m.partner = lacp.Info{State: lacp.StateDefaulted}
-				m.rxTimer = time.Time{}
+			for !m.rxTimer.IsZero() && !m.rxTimer.After(now) {
+				switch m.status {
+				case Current:
+					m.expireReceive(m.rxTimer)
+				case Expired:
+					if !sameAggregationPort(m.partner, lacp.Info{State: lacp.StateSynchronization | lacp.StateCollecting}) {
+						m.needsReselect = true
+					}
+					m.recordDefault()
+					m.status = Defaulted
+					m.actorExpired = false
+					m.rxTimer = time.Time{}
+				}
 				lagNeedsUpdate = true
 			}
 		}
