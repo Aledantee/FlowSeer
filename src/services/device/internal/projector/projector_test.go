@@ -805,13 +805,8 @@ func TestReconcileDeletesOwnedTuplesUnderInvalidObjectID(t *testing.T) {
 		t.Errorf("counts = %+v, want repairs for six invalid objects", counts)
 	}
 	got := readAllTuples(t, engine)
-	for _, stray := range strayTuples {
-		if slices.Contains(got, stray) {
-			t.Errorf("tuples after reconcile = %v, want %v deleted", got, stray)
-		}
-	}
-	if !slices.Contains(got, platformAdmin) {
-		t.Errorf("platform admin tuple was unexpectedly removed: %v", got)
+	if want := []authz.Tuple{platformAdmin}; !slices.Equal(got, want) {
+		t.Errorf("tuples after reconcile = %v, want %v", got, want)
 	}
 }
 
@@ -867,6 +862,7 @@ func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) 
 	}{
 		{"not_uuid", "not-a-uuid", "acme"},
 		{"invalid_key", "a%b", validID},
+		{"braced_uuid", "{" + validID + "}", validID},
 		{"invalid_tenant", validID, "acme"},
 	}
 	owned := projector.OwnedRelations()
@@ -875,53 +871,81 @@ func TestReconcileDeletesEveryOwnedRelationWithoutAReadableRecord(t *testing.T) 
 		objectTypes = append(objectTypes, objectType)
 	}
 	slices.Sort(objectTypes)
-	ran := 0
+	generated := make(map[bool]int)
+	// The identity gate decides unreadable edge keys, invalid tenant object IDs,
+	// every capture-session case, and non-flowseer platform IDs. Device and role
+	// lookups, readable edge keys, and the valid tenant ID can also yield no
+	// desired tuples through empty stores without the gate. The valid platform
+	// ID reconciles to the configured principals.
 	for _, objectType := range objectTypes {
-		slices.Sort(owned[objectType])
-		for _, relation := range owned[objectType] {
+		relations := make([]string, 0, len(owned[objectType]))
+		for relation := range owned[objectType] {
+			relations = append(relations, relation)
+		}
+		slices.Sort(relations)
+		for _, relation := range relations {
 			for _, tc := range cases {
-				t.Run(objectType+"/"+relation+"/"+tc.name, func(t *testing.T) {
-					ran++
-					id := tc.id
-					if objectType == "platform" && tc.name == "invalid_tenant" {
-						id = "flowseer"
+				for _, withAccess := range []bool{true, false} {
+					if owned[objectType][relation] && !withAccess {
+						continue
 					}
-					object := objectType + ":" + id
-					stray := authz.Tuple{Object: object, Relation: relation, User: "user:x"}
-					if relation == "tenant" {
-						stray.User = "tenant:" + tc.tenantID
+					generated[withAccess]++
+					mode := "with_access"
+					if !withAccess {
+						mode = "without_access"
 					}
-					seed := []authz.Tuple{stray}
-					if objectType == "capture_session" && relation != "tenant" {
-						seed = append(seed, authz.Tuple{Object: object, Relation: "tenant", User: "tenant:" + tc.tenantID})
-					}
-					engine := authztest.New()
-					if err := engine.Write(ctx, seed, nil); err != nil {
-						t.Fatalf("seed tuples: %v", err)
-					}
-					before := readAllTuples(t, engine)
-					if len(before) != len(seed) || !slices.Contains(before, stray) {
-						t.Fatalf("tuples before pass = %v, want %v", before, seed)
-					}
-					p := projector.New(engine, edges, &registry.Registry{}, captures, 0, nil, nil,
-						projector.WithAccessSource(access), projector.WithTenantSource(tenants),
-					)
-					counts, err := p.Reconcile(ctx)
-					if err != nil {
-						t.Fatalf("Reconcile error = %v, want nil", err)
-					}
-					if counts.Total() != 1 {
-						t.Errorf("repaired objects = %d, want 1", counts.Total())
-					}
-					if got := readAllTuples(t, engine); len(got) != 0 {
-						t.Errorf("tuples after one pass = %v, want empty", got)
-					}
-				})
+					t.Run(objectType+"/"+relation+"/"+tc.name+"/"+mode, func(t *testing.T) {
+						id := tc.id
+						if objectType == "platform" && tc.name == "invalid_tenant" {
+							id = "flowseer"
+						}
+						object := objectType + ":" + id
+						stray := authz.Tuple{Object: object, Relation: relation, User: "user:x"}
+						if relation == "tenant" {
+							stray.User = "tenant:" + tc.tenantID
+						}
+						seed := []authz.Tuple{stray}
+						if objectType == "capture_session" && relation != "tenant" {
+							seed = append(seed, authz.Tuple{Object: object, Relation: "tenant", User: "tenant:" + tc.tenantID})
+						}
+						var want []authz.Tuple
+						options := []projector.Option{projector.WithTenantSource(tenants)}
+						if withAccess {
+							options = append(options, projector.WithAccessSource(access),
+								projector.WithPlatformPrincipals([]string{"platform-admin"}))
+							want = []authz.Tuple{{Object: "platform:flowseer", Relation: "enrolled", User: "user:platform-admin"}}
+							seed = append(seed, want...)
+						}
+						engine := authztest.New()
+						if err := engine.Write(ctx, seed, nil); err != nil {
+							t.Fatalf("seed tuples: %v", err)
+						}
+						before := readAllTuples(t, engine)
+						slices.SortFunc(seed, compareTuples)
+						if !slices.Equal(before, seed) {
+							t.Fatalf("tuples before pass = %v, want %v", before, seed)
+						}
+						p := projector.New(engine, edges, &registry.Registry{}, captures, 0, nil, nil, options...)
+						counts, err := p.Reconcile(ctx)
+						if err != nil {
+							t.Fatalf("Reconcile error = %v, want nil", err)
+						}
+						if counts.Total() != 1 {
+							t.Errorf("repaired objects = %d, want 1", counts.Total())
+						}
+						if got := readAllTuples(t, engine); !slices.Equal(got, want) {
+							t.Errorf("tuples after one pass = %v, want %v", got, want)
+						}
+					})
+				}
 			}
 		}
 	}
-	if ran != 63 {
-		t.Errorf("ran %d cases, want 63", ran)
+	if generated[true] != 84 {
+		t.Errorf("generated %d cases with access, want 84", generated[true])
+	}
+	if generated[false] != 20 {
+		t.Errorf("generated %d cases without access, want 20", generated[false])
 	}
 }
 
