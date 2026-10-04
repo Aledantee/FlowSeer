@@ -14,10 +14,10 @@
 #
 # Orca also lists `antigravity` with status `unavailable`. That status means
 # Orca cannot read its usage, not that the pool is down, so it is never
-# consulted for it. A source that fails leaves an `error`. If another source
-# supplied authoritative windows, they remain in the row. Otherwise, the row
-# carries `windows: null`. A failed read does not mark the pool signed out
-# unless the source itself says so.
+# consulted for it. A failed read leaves an `error`. Windows that were read
+# stay in the row. `windows: null` means none were read. `plan: null` beside
+# an `error` means the plan is unknown and counts capacity 1. A failed read
+# does not mark the pool signed out unless the source itself says so.
 #
 # The synthetic pool is served through omp, but omp keeps no auth file, so
 # the key still comes from SYNTHETIC_API_KEY, else from the `synthetic` entry
@@ -137,9 +137,9 @@ def flow_value(text):
 
 def read_registry(path):
     try:
-        with open(path) as registry:
+        with open(path, encoding="utf-8") as registry:
             lines = registry.readlines()
-    except OSError:
+    except (OSError, ValueError):
         return {}
     pools = {}
     in_pools = False
@@ -190,8 +190,6 @@ def pool_capacity(pool, plan):
     if not finite_number(limit):
         limit = 85
     capacity, plan_unlisted = 1, False
-    if not isinstance(plan, str):
-        plan = None
     if plan is not None:
         plans = config.get("plans") or {}
         entry = plans.get(plan) if isinstance(plans, dict) else None
@@ -216,6 +214,7 @@ def slots_for(windows, capacity, limit):
 
 def emit(pool, signed_in, source, windows=None, resets=None, error=None, *, plan=None,
          models=None):
+    plan = plan if isinstance(plan, str) else None
     capacity, limit, plan_unlisted = pool_capacity(pool, plan)
     row = {"signed_in": signed_in, "windows": windows, "plan": plan,
            "capacity": capacity}
@@ -252,27 +251,21 @@ def orca_pools():
     for pool, native in (("claude", claude_pool), ("codex", codex_pool)):
         rl = (result or {}).get("rateLimits", {}).get(pool) or {}
         windows, resets = {}, {}
-        read_error = None
         if isinstance(rl, dict) and rl.get("status") == "ok":
             for name, w in rl.items():
-                if isinstance(w, dict) and finite_number(w.get("usedPercent")):
+                if isinstance(w, dict) and isinstance(w.get("usedPercent"), (int, float)):
                     windows[name] = w["usedPercent"]
                     if w.get("resetsAt"):
-                        try:
-                            resets[name] = iso(w["resetsAt"])
-                        except (TypeError, ValueError, OverflowError, OSError):
-                            read_error = "unreadable orca rate limit reset"
-                elif isinstance(w, dict) and "usedPercent" in w:
-                    read_error = "unreadable orca rate limit usage"
+                        resets[name] = iso(w["resetsAt"])
         if windows:
             if pool == "claude":
                 plan, plan_error = claude_plan()
                 emit(pool, True, "orca", windows, resets,
-                     rl.get("error") or read_error or plan_error, plan=plan)
+                     rl.get("error") or plan_error, plan=plan)
             else:
                 info = codex_read(quota=False)
                 emit(pool, True, "orca", windows, resets,
-                     rl.get("error") or read_error or info["error"],
+                     rl.get("error") or (info["error"] if info["signed_in"] is not False else None),
                      plan=info["plan"], models=info["models"])
         else:
             native()
@@ -295,8 +288,7 @@ def claude_plan():
     auth = claude_auth()
     if auth is None:
         return None, "unreadable claude auth status"
-    plan = auth.get("subscriptionType")
-    return plan if isinstance(plan, str) else None, None
+    return auth.get("subscriptionType"), None
 
 
 def claude_pool():
@@ -312,7 +304,6 @@ def claude_pool():
         emit("claude", False, "claude-cli", error="no claude.ai subscription sign-in")
         return
     plan = auth.get("subscriptionType")
-    plan = plan if isinstance(plan, str) else None
     # /usage is a local command. Stream output carries its structured report,
     # while ordinary JSON output keeps only the rendered text.
     with tempfile.TemporaryDirectory(prefix="flowseer-pool-usage-") as scratch:
@@ -395,11 +386,8 @@ def codex_read(timeout=30, quota=True):
         if not info["signed_in"]:
             info["error"] = "no ChatGPT subscription sign-in"
             return info
-        plan = account.get("planType")
-        info["plan"] = plan if isinstance(plan, str) else None
-        info["models"] = codex_models(request)
-        if codex_models.error:
-            info["error"] = codex_models.error
+        info["plan"] = account.get("planType")
+        info["models"], info["error"] = codex_models(request)
         if not quota:
             return info
         quota_reply = request(100, "account/rateLimits/read")
@@ -432,13 +420,15 @@ def codex_read(timeout=30, quota=True):
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
-            proc.stdin.close()
+            try:
+                proc.stdin.close()
+            except OSError:
+                pass
             proc.stdout.close()
     return info
 
 
 def codex_models(request):
-    codex_models.error = None
     models = []
     cursor = None
     seen_cursors = set()
@@ -448,26 +438,21 @@ def codex_models(request):
         try:
             result = request(request_id, "model/list", params)
         except (OSError, TypeError, ValueError, KeyError, AttributeError, TimeoutError):
-            codex_models.error = "unreadable codex app-server model list"
-            return None
+            return None, "unreadable codex app-server model list"
         request_id += 1
         if not isinstance(result, dict) or not isinstance(result.get("data"), list):
-            codex_models.error = "unreadable codex app-server model list"
-            return None
+            return None, "unreadable codex app-server model list"
         for model in result["data"]:
             if not isinstance(model, dict) or not isinstance(model.get("id"), str):
-                codex_models.error = "unreadable codex app-server model list"
-                return None
+                return None, "unreadable codex app-server model list"
             models.append(model["id"])
         cursor = result.get("nextCursor")
         if cursor is None:
-            return models or None
+            return models or None, None
         if not isinstance(cursor, str):
-            codex_models.error = "unreadable codex app-server model cursor"
-            return None
+            return None, "unreadable codex app-server model cursor"
         if cursor in seen_cursors:
-            codex_models.error = "repeated codex app-server model cursor"
-            return None
+            return None, "repeated codex app-server model cursor"
         seen_cursors.add(cursor)
 
 
@@ -484,25 +469,16 @@ def google_pool():
     out, err = run(["agy", "-p", "/quota", "--output-format", "json", "--print-timeout", "60s"])
     try:
         groups = json.loads(out)["command"]["data"]["groups"]
-        if not isinstance(groups, list):
-            raise ValueError("groups is not a list")
-        windows, resets = {}, {}
-        for group in groups:
-            if not isinstance(group, dict) or not isinstance(group.get("buckets", []), list):
-                raise ValueError("invalid /quota group")
-            for bucket in group.get("buckets", []):
-                remaining = bucket.get("remaining_fraction") if isinstance(bucket, dict) else None
-                if (not isinstance(bucket, dict) or not isinstance(bucket.get("id"), str)
-                        or not finite_number(remaining)):
-                    raise ValueError("invalid /quota bucket")
-                bucket_id = bucket["id"]
-                windows[bucket_id] = round((1 - remaining) * 100)
-                resets[bucket_id] = bucket.get("reset_time")
-    except (AttributeError, TypeError, ValueError, KeyError, OverflowError):
+    except (TypeError, ValueError, KeyError):
         # The quota command is newer than the sign-in check it replaces here.
         models, _ = run(["agy", "models"])
         emit("google", models is not None, "agy", error=err or "unreadable /quota reply")
         return
+    windows, resets = {}, {}
+    for g in groups:
+        for b in g.get("buckets", []):
+            windows[b["id"]] = round((1 - b["remaining_fraction"]) * 100)
+            resets[b["id"]] = b.get("reset_time")
     emit("google", True, "agy", windows or None, resets)
 
 
@@ -556,48 +532,32 @@ def zai_pool():
         emit("zai", None, "omp", error="omp not installed")
         return
     out, err = run(["omp", "usage", "--provider", "zai", "--json"])
+    plan = None
     try:
         reports = json.loads(out)["reports"]
         report = next(r for r in reports if r.get("provider") == "zai")
-    except (AttributeError, TypeError, ValueError, KeyError, StopIteration):
-        # No zai report means omp has no Z.ai credential signed in.
-        emit("zai", False, "omp", error=err or "no zai account in omp")
-        return
-    try:
+        metadata = report.get("metadata")
+        plan = metadata.get("planType") if isinstance(metadata, dict) else None
         limits = report["limits"]
-        if not isinstance(limits, list):
-            raise ValueError("limits is not a list")
-        windows, resets = {}, {}
-        # Name the windows as the registry's zai pool expects: 5h and week.
-        name_map = {"5h": "5h", "1w": "week", "weekly": "week"}
-        for lim in limits:
-            if not isinstance(lim, dict):
-                raise ValueError("invalid zai limit")
-            window = lim.get("window") or {}
-            scope = lim.get("scope") or {}
-            amount = lim.get("amount") or {}
-            if not isinstance(window, dict) or not isinstance(scope, dict) \
-                    or not isinstance(amount, dict):
-                raise ValueError("invalid zai limit")
-            wid = window.get("id") or scope.get("windowId")
-            frac = amount.get("usedFraction")
-            if wid is None or frac is None:
-                continue
-            if not isinstance(wid, str) or not finite_number(frac):
-                raise ValueError("invalid zai limit")
-            key = name_map.get(wid, wid)
-            windows[key] = round(frac * 100)
-            reset = window.get("resetsAt")
-            if reset:
-                resets[key] = iso(reset)
-    except (AttributeError, TypeError, ValueError, KeyError, OverflowError):
-        emit("zai", True, "omp", error=err or "unreadable zai usage reply")
+    except (TypeError, ValueError, KeyError, StopIteration):
+        # No zai report means omp has no Z.ai credential signed in.
+        emit("zai", False, "omp", error=err or "no zai account in omp", plan=plan)
         return
-    metadata = report.get("metadata")
-    plan = metadata.get("planType") if isinstance(metadata, dict) else None
-    plan = plan if isinstance(plan, str) else None
-    emit("zai", True, "omp", windows or None, resets,
-         None if windows else "zai usage returned no quota windows", plan=plan)
+    windows, resets = {}, {}
+    # Name the windows as the registry's zai pool expects: 5h and week.
+    name_map = {"5h": "5h", "1w": "week", "weekly": "week"}
+    for lim in limits:
+        wid = lim.get("window", {}).get("id") or lim.get("scope", {}).get("windowId")
+        amount = lim.get("amount", {})
+        frac = amount.get("usedFraction")
+        if wid is None or frac is None:
+            continue
+        key = name_map.get(wid, wid)
+        windows[key] = round(frac * 100)
+        r = lim.get("window", {}).get("resetsAt")
+        if r:
+            resets[key] = iso(r)
+    emit("zai", True, "omp", windows or None, resets, plan=plan)
 
 
 orca_pools()

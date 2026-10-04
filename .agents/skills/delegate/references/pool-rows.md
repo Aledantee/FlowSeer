@@ -21,10 +21,10 @@ and the `worst` one with its reset time:
   sign-in), nothing about the pool. Never drop `google` on it: a pool is out
   only when its own `pool-usage.sh` row shows `signed_in: false` or a window
   over the threshold.
-- An `error` means one of the row's source reads failed. Report it. A row may
-  still carry windows from another source when its plan or model read failed.
-  `windows: null` means usage is unknown. Only `signed_in: true` permits
-  dispatch with unknown headroom.
+- A failed read leaves an `error`. Report it. Windows that were read stay
+  in the row. `windows: null` means none were read. A row with `plan: null`
+  beside an `error` has an unknown plan and counts capacity 1.
+  Only `signed_in: true` permits dispatch with unknown headroom.
   A false or null sign-in state excludes the pool, as `SKILL.md` specifies.
 - On `google`, the `gemini-*` windows meter Gemini models and the `3p-*`
   windows meter Claude and GPT models run through `agy`; only the group of
@@ -51,7 +51,7 @@ Every row also carries the account plan and the lanes it leaves room for:
 | --- | --- |
 | `plan` | The plan name the pool's own source reports, `null` where it reports none. |
 | `capacity` | The plan's entry in the effective registry, `pools.<pool>.plans.<plan>.capacity`. A number covers every window. A map names windows, and an unnamed window is 1. It is relative to that pool's standard paid plan and does not compare pools. |
-| `plan_unlisted` | `true` when the registry does not list the plan. The row then counts capacity 1. Name the plan in the report so `tune` adds it. A `null` plan never sets it. |
+| `plan_unlisted` | `true` when the registry does not list the plan or lists it without a usable `capacity`. The row then counts capacity 1. Name the plan in the report so `tune` adds it. A `null` plan never sets it. |
 | `models` | On `codex`, the model ids the account serves. The key is absent when the list could not be read, so an unreadable list drops no model. |
 | `slots` | Lanes per window, `null` when `windows` is `null`. |
 
@@ -84,7 +84,7 @@ field:
 
 `codex` reads `models` on the same app-server connection with
 `model/list`, following `nextCursor` as `params.cursor`. The cursor request
-is unverified, since the probe saw one page. Whether a free ChatGPT
+is unverified, since codex-cli 0.160.0 returned one page. Whether a free ChatGPT
 account's list omits the models Codex then rejects is unverified too, so
 the registry's `excludes` and the unsupported-model rule in `SKILL.md`,
 Dispatch by quota, cover what the list may miss.
