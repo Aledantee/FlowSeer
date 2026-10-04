@@ -376,7 +376,7 @@ func (p *Projector) Reconcile(ctx context.Context) (RepairedCounts, error) {
 			if !sessionsComplete {
 				continue
 			}
-		case "tenant", "role":
+		case "tenant", "role", "platform":
 			if !accessComplete {
 				continue
 			}

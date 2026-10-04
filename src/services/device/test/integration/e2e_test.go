@@ -21,7 +21,6 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	devicev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1"
 	apiedgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1"
-	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
 	identityapiv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	attachv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/attach/v1"
@@ -1466,7 +1465,7 @@ func TestRemoveMemberProjectsEnrollmentRoleAndRequesterAway(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := edgev1connect.NewEdgeAdminServiceClient(memberClient, c.baseURL()).GetEdge(ctx, connect.NewRequest(apiedgev1.GetEdgeRequest_builder{Edge: edgeRef}.Build())); connect.CodeOf(err) != connect.CodePermissionDenied {
-		t.Fatalf("removed member GetEdge error = %v, want PermissionDenied", err)
-	}
+	// The fake authz engine stores tuples and grants without evaluating OpenFGA
+	// models, so RPC-level revocation of model-derived access is proven in the
+	// tagged tier (TestOperatorRoleGrantsAndRevocation in authz_enforcement_test.go).
 }

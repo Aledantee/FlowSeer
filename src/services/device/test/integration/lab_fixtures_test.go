@@ -518,7 +518,15 @@ func TestTheLabTenantBootstrapUsesTheAPI(t *testing.T) {
 			t.Errorf("tenant bootstrap missing %q", part)
 		}
 	}
-	if strings.Index(section, "go run ../../src/services/device/cmd/device") > strings.Index(section, "/flowseer.api.identity.v1.TenantService/CreateTenant") {
+	startIndex := strings.Index(section, "go run ../../src/services/device/cmd/device")
+	createIndex := strings.Index(section, "/flowseer.api.identity.v1.TenantService/CreateTenant")
+	if startIndex < 0 {
+		t.Error("tenant bootstrap missing central start command")
+	}
+	if createIndex < 0 {
+		t.Error("tenant bootstrap missing CreateTenant call")
+	}
+	if startIndex >= 0 && createIndex >= 0 && startIndex > createIndex {
 		t.Error("central starts after CreateTenant")
 	}
 }
