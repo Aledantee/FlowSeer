@@ -579,51 +579,12 @@ go test -race ./src/common/net/lacp/... ./src/common/sim/... ./test/conformance/
 
 ## Review gaps
 
-- src/common/net/lacp/lacp_test.go:223: move the Decode length guard after the payload reads; fails: an empty payload must return an error without a panic.
-- src/common/net/lacp/marker_test.go:80: move the Marker length guard after the payload reads; fails: an empty payload must return an error without a panic.
-- src/common/net/lacp/lacp_test.go:186: reject Partner or Collector TLV type 0x07; fails: each type must decode in its own fixture row.
-- src/common/net/lacp/lacp_test.go:190: the Version, Actor type, and later TLV case changes several fields and rewrites bytes already present; fails: each acceptance field needs a distinct fixture row with a literal result.
-- src/common/net/lacp/lacp_test.go:240: replace the three exact TLV length checks with lower bounds; fails: lengths 21, 21, and 17 must be rejected.
-- src/common/net/lacp/marker_test.go:95: accept Marker TLV type 0x03; fails: the unsupported type must be rejected.
-- src/common/net/lacp/marker_test.go:103: accept Marker TLV length 17; fails: the unsupported length must be rejected.
-- src/common/net/lacp/lacp.go:83: the MarkerResponse comment says every frame property is preserved and leaves `src` undefined; fails: the comment must state both address changes and the supported request shape.
-- src/common/net/lacp/README.md:140: `AX` is named without its unapproved draft status; fails: the published standard remains unverified.
-- src/common/net/lacp/lacp.go:74: the package and sentinel comments describe only LACPDUs; fails: Marker responses and refusals need accurate names.
-- src/common/net/lacp/lacp.go:126: write the subtype value already required by the guard; fails: a dead store and redundant assertions remain.
-- src/common/net/lacp/README.md:124: skipped validation is stated without its reason and `Decode` says ignored fields are accepted unchanged; fails: the receiver rule and ignored fields need accurate wording.
-- src/common/sim/layer/phy/poe.go:353: remove the unknown demand clamp or use the initial budget instead of the remaining maximum; fails: after a 30 W allocation in a 50 W group, unknown demand may claim only 20 W.
-- src/common/sim/layer/phy/poe.go:338: charge the budget for a disabled unknown device; fails: a following enabled device must retain the full 30 W budget.
-- src/common/sim/layer/phy/negotiate.go:231: replace the cable ceiling comparison with `>=`; fails: an observation equal to the ceiling must resolve.
-- src/common/sim/layer/phy/negotiate.go:235: treat Unknown observed duplex as stated; fails: Unknown and Full must not report a duplex mismatch.
-- src/common/sim/layer/phy/ethernet.go:184: treat zero observed speed as present without a setting; fails: the source must remain unresolved.
-- src/common/sim/layer/lag/lacp.go:276: count ATTACHED members without Partner Synchronization toward MinLinks; fails: both ends with MinLinks 2 must keep traffic disabled while one partner is out of sync.
-- src/common/sim/layer/lag/lacp.go:441: remove the Individual partner grouping rule; fails: an Individual peer must not share an Aggregator.
-- src/common/sim/layer/lag/lacp.go:407: ignore Primary in fallback selection; fails: two Defaulted members must choose the configured Primary.
-- src/common/sim/layer/lag/lacp.go:399: ignore the member key in fallback selection; fails: a member with a different key must remain unselected.
-- src/common/sim/layer/lag/lacp.go:373: remove stored group retention after carrier loss; fails: a returning selected member with the same partner must keep its selection.
-- src/common/sim/layer/lag/lacp.go:303: omit the Mux transition transmit request; fails: leaving WAITING for DETACHED must request a LACPDU.
-- src/common/sim/layer/lag/layer.go:573: process a LACPDU without carrier; fails: a PortDisabled member must remain PortDisabled.
-- src/common/sim/layer/lag/layer.go:42: the pending comment names three causes after aggregate wait was added, as does layer_internal_test.go:21; fails: the text must name all four causes.
-- src/common/sim/device/vswitch/switch.go:2522: a Marker classification uses the LACP decode fact; fails: the input fact must identify a Marker decode.
-- docs/architecture/2026-09-10-virtual-device-direction.md:833: the emission premise omits Marker responses; fails: the list must include the switch's Marker response emission.
-- src/common/sim/layer/lag/lacp.go:440: replace carrier with the delayed link in fallback selection; fails: a Defaulted member under up delay must select from carrier and wait before enabling.
-- src/common/sim/layer/lag/lacp.go:320: retain the aggregate deadline after no member waits; fails: NextWake must omit a finished aggregate wait after the only waiting member loses carrier.
-- src/common/net/lacp/lacp.go:129: clone only 110 Marker payload octets; fails: a 111-octet request must retain its last octet in the response.
-- src/common/sim/device/vswitch/switch.go:2513: use a Marker input fact for an admitted LACPDU; fails: its classification trace must carry an LACP decode input fact.
-- src/common/sim/device/vswitch/switch.go:2489: a refused Marker PDU uses an LACP decode input and leaves the invalid Marker fact form without a caller; fails: a bad Marker TLV must produce a Marker decode fact with a declared refusal reason.
-- src/common/sim/device/vswitch/switch.go:166: the Protocol comment omits Marker responses from its PCP account; fails: the text must distinguish a response preserving request tags from emissions with priority zero.
-- src/common/sim/fabric/README.md:426: the observed rule is said to resolve every matching speed under uncertain reach; fails: an over-ceiling observation is Down with speed-mismatch.
-- src/common/sim/layer/lag/README.md:385: the Mux diagram names carrier loss as the only path to DETACHED; fails: reselection and leaving the group must appear, including from WAITING.
-- src/common/sim/layer/phy/phy_test.go:1059: two TestReview names describe the review process; fails: each test name must state its power-allocation behavior.
-- src/common/sim/layer/lag/layer_test.go:1977: new comments narrate actions or restate the next line; fails: comments must state a reason or be removed.
-- src/common/net/lacp/marker_test.go:38: expected payload writes the subtype value already cloned from the request; fails: the redundant assertion setup must be removed.
-- src/common/sim/layer/lag/README.md:404: Primary is said to win when it has carrier and defaulted; fails: the sentence must say the member is Defaulted.
-- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:555: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels.
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md:559: review commits b6cde757 and b3e894c4 use phase and U1 labels; fails: commit messages must name the change without plan labels.
 - src/common/sim/device/vswitch/switch.go:2479: record a Marker decode fact for every refused Slow Protocols frame; fails: a refused LACPDU must carry an invalid LACP decode input on Peek and Forward.
-- src/common/sim/layer/lag/lacp.go:320: clear aggregate wait only when no member is selected; fails: a waiting member that changes partner group must leave no stale aggregate deadline while another member stays enabled.
-- src/common/sim/layer/lag/lacp.go:420: use only the stored Partner system ID to retain a group; fails: a zero system ID with nonzero key must retain selection after all carriers drop.
-- src/common/sim/layer/lag/lacp.go:420: use only the stored Partner key to retain a group; fails: a nonzero system ID with zero key must retain selection after all carriers drop.
-- src/common/sim/layer/lag/README.md:382: STANDBY has only an ATTACHED exit and WAITING has no deadline exit after carrier loss; fails: the diagram must show their DETACHED, WAITING, and ATTACHED transitions as the code makes them.
-- src/common/sim/layer/lag/layer_test.go:1808: comments at 1808, 2068, and 2171 restate their next lines; fails: each comment must explain a reason or be removed.
-- src/common/sim/layer/lag/lacp.go:420: retain a zero stored group for Fallback false while the member is still enabled; fails: a zero-System peer advanced in one call past both receive timeouts must leave nothing attached.
-- src/common/sim/layer/lag/layer.go:676: compare only the Partner System ID with administrative values when defaulting; fails: differences in port, port priority, key, System priority, or Aggregation must request reselection.
+- src/common/sim/layer/lag/layer.go:675: change the defaulting guard to `m.enabled || !sameAggregationPort(...)`; fails: a Fallback member whose learned Partner equals the administrative values, advanced in one call from enabled past both receive timeouts, must stay attached and enabled and never enter WAITING.
+- src/common/sim/layer/lag/layer_test.go:2004: the test never asserts that 1/1/1 forwards as the fallback choice before the Primary gains carrier, and its comment says the Primary returns; fails: the backup state must be asserted before the outcome and the comment must say the Primary first gains carrier.
+- src/common/sim/layer/lag/layer_test.go:2384: the test crosses both receive timeouts in one call, asserts only empty lists, and says "want no selected member" for a member that is selected and waiting; fails: it must assert the attachment before the timeouts, the Expired step, and the reselected member's attachment after the aggregate wait.
+- src/common/sim/layer/lag/layer_test.go:1875: the comment says reselection becomes eligible only after the aggregate wait; fails: selection is redone in the Receive call and attachment is what waits.
+- src/common/sim/layer/lag/README.md:379: the Mux diagram's only exit from DETACHED is WAITING; fails: a member that kept its selection across carrier loss goes from DETACHED to STANDBY or ATTACHED when carrier returns.
+- src/common/sim/layer/lag/README.md:406: Primary is said to win with carrier and Defaulted alone; fails: the sentence must also require the LAG's key.
+- src/common/sim/layer/lag/layer.go:43: "records when:" is followed by the four causes; fails: the comment must say the entry names the cause and the time.
