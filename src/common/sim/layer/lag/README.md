@@ -382,8 +382,9 @@ stateDiagram-v2
     STANDBY --> ATTACHED: up delay done
     ATTACHED --> COLLECTING_DISTRIBUTING: synchronized and MinLinks met
     COLLECTING_DISTRIBUTING --> ATTACHED: synchronization or MinLinks lost
-    ATTACHED --> DETACHED: carrier loss
-    COLLECTING_DISTRIBUTING --> DETACHED: carrier loss
+    WAITING --> DETACHED: reselection or group leave
+    ATTACHED --> DETACHED: reselection or group leave or carrier loss
+    COLLECTING_DISTRIBUTING --> DETACHED: reselection or group leave or carrier loss
 ```
 
 `Info.Attached` lists members in `ATTACHED` or `COLLECTING_DISTRIBUTING`.
@@ -401,7 +402,7 @@ Partner after defaulting. The layer adopts the fallback switch in `OVS`
 With `Fallback` enabled and no learned group available, the layer selects one
 defaulted member for active-backup forwarding. The administrative Partner is
 Individual (`AX` 6.3.6.1), so it cannot share its Aggregator (6.4.14.1 h).
-`Primary` wins when it has carrier and defaulted. Otherwise the lowest-named
+`Primary` wins when it has carrier and is Defaulted. Otherwise the lowest-named
 member wins. The selection still waits for `Aggregate_Wait_Time`, and `MinLinks`
 can leave the selected member
 disabled. This allows traffic to pass to a non-LACP endpoint before aggregation
