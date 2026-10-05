@@ -384,3 +384,27 @@ migration that landed on 2026-10-03.
   label or hint that names one, because Reka prints the tooltip's
   accessible text as one hidden node that no slot reaches. That node is
   marked as a whole, and the visible message words stay translatable.
+
+### 2026-10-05: the ai prop, anchors, and origin acknowledgement
+
+This amendment refines "Every component is AI-addressable" above with the
+decision in `docs/architecture/2026-10-05-1251-web-ai-target-lifecycle-direction.md`,
+as implemented.
+
+- `ai` takes the resolved `AiTarget` from `aiTarget()`, not its input, and the
+  caller owns the identity (`frontend/web/src/ui/ai/context.ts`,
+  `frontend/web/src/ai/target.ts`). The `v-ai-target` directive and its
+  `ai/directive.ts` are deleted, and `useAiTarget`
+  (`frontend/web/src/ui/ai/useAiTarget.ts`) follows the prop and the rendered
+  element against the injected registry, with the document registry as fallback.
+- A component registers its meaningful element. Native markup uses `UiAiTarget`
+  with `as` or `asChild` (`frontend/web/src/ui/ai/UiAiTarget.vue`), and an
+  SVG root is a valid anchor. Popups register their content through
+  `frontend/web/src/ui/popover/popupAnchor.ts`.
+- The registry owns `data-ai-selected` for every registration, manual ones
+  included (`frontend/web/src/ai/registry.ts`).
+- `aiOrigin` takes an `AiOriginRequest` and the component emits
+  `aiOriginAcknowledged(requestId)` after pointerdown, keydown, input, or
+  change on the value (`frontend/web/src/ui/ai/useAiOrigin.ts`). The caller
+  clears its state and composes `UiAiLabel` beside the value. This replaces
+  the earlier "until the user next interacts" wording with an explicit event.

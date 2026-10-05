@@ -1,12 +1,10 @@
-import { createAiTargetDirective } from './directive'
 import { createAiRegistry } from './registry'
 import { installAiWindow } from './window'
 
-// The console-wide registry. `main.ts` owns installing the window API and
-// the directive; tests and Storybook build their own registry so a run does
+// The console-wide registry. `main.ts` owns installing the window API;
+// tests and Storybook build their own registry so a run does
 // not inherit targets from another document.
 export const aiRegistry = createAiRegistry()
-export const vAiTarget = createAiTargetDirective(aiRegistry)
 
 // Install the document contract for the console-wide registry.
 export function installFlowSeerAi(target: Window = window): () => void {
@@ -27,7 +25,6 @@ export type {
   AiViewport,
   FeedbackPayload,
 } from './registry'
-export { createAiTargetDirective } from './directive'
 export { installAiWindow } from './window'
 export { createMockAiHandler } from './mock'
 export { aiActions } from './actions'
