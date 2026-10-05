@@ -663,5 +663,3 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - Open: a Designated port whose topology-change timer starts sends at its
   next hello, not at once. `D2009` 13.29.11 also sets `newInfo` there, and
   the unit text names Root ports only.
-- Open: `Diff` in `S/diff.go` is 197 lines, over the parent's 150-line
-  bound, and no unit of this phase names it.
