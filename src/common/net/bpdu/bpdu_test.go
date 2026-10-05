@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -194,9 +195,9 @@ func TestBPDUDecodeRefusals(t *testing.T) {
 			wantField: "version",
 		},
 		{
-			name: "type 0 refused",
+			name: "type 0x81 refused",
 			modify: func(f *ethernet.Frame) {
-				f.Payload[6] = 0
+				f.Payload[6] = 0x81
 			},
 			wantField: "type",
 		},
@@ -427,15 +428,20 @@ func TestBPDUFlagBits(t *testing.T) {
 	})
 }
 
-// TestDecodeRefusesZeroHelloTime guards the aging arithmetic: a BPDU whose
-// hello time is zero would otherwise expire the instant it arrived.
-func TestDecodeRefusesZeroHelloTime(t *testing.T) {
+// TestDecodeAcceptsZeroHelloTime pins that the codec reads a Hello Time of
+// zero as zero. Q2003 14.4 sets no bound on it, so the caller decides what a
+// BPDU that announces no hello interval means.
+func TestDecodeAcceptsZeroHelloTime(t *testing.T) {
 	t.Parallel()
 
 	root := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 1}}
 	frame := mustEncode(t, bpdu.BPDU{RootID: root, BridgeID: root, MaxAge: 20 * time.Second}, root.Address)
-	if _, err := bpdu.Decode(frame); err == nil {
-		t.Fatal("Decode accepted a BPDU with hello time 0")
+	got, err := bpdu.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode refused a BPDU with hello time 0: %v", err)
+	}
+	if got.HelloTime != 0 {
+		t.Errorf("HelloTime = %s, want 0", got.HelloTime)
 	}
 }
 
@@ -643,17 +649,17 @@ func TestBPDUVersionAndTypeCombinations(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 	}
 
-	t.Run("version 2 type 0 refused", func(t *testing.T) {
+	t.Run("version 2 type 0 decodes as a Configuration BPDU", func(t *testing.T) {
 		t.Parallel()
 		f := mustEncode(t, valid, mac)
 		f.Payload[5] = 2
 		f.Payload[6] = 0
-		_, err := bpdu.Decode(f)
-		if err == nil {
-			t.Fatal("Decode unexpectedly succeeded for version 2 type 0")
+		dec, err := bpdu.Decode(f)
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
 		}
-		if !errors.Is(err, bpdu.ErrUnsupported) {
-			t.Errorf("error = %v, want ErrUnsupported", err)
+		if dec.Type != bpdu.TypeConfiguration || dec.Version != 2 {
+			t.Errorf("Type, Version = %v, %d, want Configuration, 2", dec.Type, dec.Version)
 		}
 	})
 
@@ -987,10 +993,9 @@ func TestMSTBPDUDecodeRefusesOverlongPayload(t *testing.T) {
 	}
 }
 
-// TestMSTBPDUEncodeRecordCountBoundary guards the version 3 length field
-// against wrapping a uint16: at 4092 MSTI records the naive computation
-// (64 + 16*n) wraps to 0, and Encode must refuse before that point rather
-// than emit a length that decodes wrong.
+// TestMSTBPDUEncodeRecordCountBoundary pins the limit of Q2003 13.14, 14.4
+// d) 3), and 14.6 v): no more than 64 MSTI Configuration Messages in an MST
+// BPDU. Encode refuses a 65th, and the 64 it accepts decode back.
 func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 	t.Parallel()
 
@@ -1016,7 +1021,7 @@ func TestMSTBPDUEncodeRecordCountBoundary(t *testing.T) {
 		return mstis
 	}
 
-	const maxRecords = (65535 - 64) / 16 // mirrors bpdu's own MaxMSTIRecords bound
+	const maxRecords = 64 // Q2003 13.14
 
 	t.Run("at the maximum record count", func(t *testing.T) {
 		t.Parallel()
@@ -1090,12 +1095,12 @@ func TestMSTIRecordPriorityLowBitsFollowMSTID(t *testing.T) {
 	}
 }
 
-func TestHelloTimeValidationPerType(t *testing.T) {
+func TestHelloTimePerType(t *testing.T) {
 	t.Parallel()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 
-	t.Run("configuration body with zero hello time refused", func(t *testing.T) {
+	t.Run("configuration body with zero hello time accepted", func(t *testing.T) {
 		t.Parallel()
 		b := bpdu.BPDU{
 			Type:         bpdu.TypeConfiguration,
@@ -1107,12 +1112,12 @@ func TestHelloTimeValidationPerType(t *testing.T) {
 			HelloTime:    0,
 		}
 		f := mustEncode(t, b, mac)
-		_, err := bpdu.Decode(f)
-		if err == nil {
-			t.Fatal("Decode unexpectedly succeeded for Configuration BPDU with zero hello time")
+		dec, err := bpdu.Decode(f)
+		if err != nil {
+			t.Fatalf("Decode refused a Configuration BPDU with zero hello time: %v", err)
 		}
-		if !errors.Is(err, bpdu.ErrUnsupported) {
-			t.Errorf("error = %v, want ErrUnsupported", err)
+		if dec.HelloTime != 0 {
+			t.Errorf("HelloTime = %s, want 0", dec.HelloTime)
 		}
 	})
 
@@ -1513,4 +1518,318 @@ func TestDecodeRefusesTruncatedPayload(t *testing.T) {
 	if !errors.Is(err, bpdu.ErrUnsupported) {
 		t.Fatalf("Decode(truncated) error = %v, want ErrUnsupported", err)
 	}
+}
+
+// mstFixture is an MST BPDU with two MSTI records, written octet by octet
+// from Q2003 Figure 14-1 (BPDU octets 1 to 102) and Figure 14-2 (MSTI
+// Configuration Message octets 1 to 16). The LLC header precedes BPDU octet
+// 1, so BPDU octet n is payload[n+2]. Every multi-octet field differs in each
+// of its octets, so a swapped or shifted octet shows. Wireshark's dissector
+// (packet-bpdu.c) reads the same offsets. No device capture backs this
+// fixture.
+var mstFixture = []byte{
+	0x42, 0x42, 0x03, // LLC header: DSAP, SSAP, control.
+	0x00, 0x00, // Octets 1-2: Protocol Identifier.
+	0x03,                                           // Octet 3: Protocol Version Identifier.
+	0x02,                                           // Octet 4: BPDU Type, RST/MST.
+	0x7e,                                           // Octet 5: CIST Flags, proposal, Designated role, learning, forwarding, agreement.
+	0x30, 0x05, 0x00, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f, // Octets 6-13: CIST Root Identifier.
+	0x00, 0x01, 0x86, 0xa0, // Octets 14-17: CIST External Path Cost, 100000.
+	0x50, 0x03, 0x06, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5, // Octets 18-25: CIST Regional Root Identifier.
+	0x81, 0x1d, // Octets 26-27: CIST Port Identifier.
+	0x01, 0x80, // Octets 28-29: Message Age, 1.5 s in 1/256 s.
+	0x14, 0x80, // Octets 30-31: Max Age, 20.5 s.
+	0x02, 0x40, // Octets 32-33: Hello Time, 2.25 s.
+	0x0f, 0x40, // Octets 34-35: Forward Delay, 15.25 s.
+	0x00,       // Octet 36: Version 1 Length.
+	0x00, 0x60, // Octets 37-38: Version 3 Length, 64 + 2*16.
+	0x00,                                                                         // Octet 39: MST Configuration Identifier, Format Selector.
+	'f', 'l', 'o', 'w', 's', 'e', 'e', 'r', '-', 'r', 'e', 'g', 'i', 'o', 'n', 0, // Octets 40-55: Configuration Name, first 16 octets.
+	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // Octets 56-71: Configuration Name, null padding to 32 octets.
+	0x0a, 0x0b, // Octets 72-73: Revision Level.
+	0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf, // Octets 74-89: Configuration Digest.
+	0x00, 0x0f, 0x42, 0x40, // Octets 90-93: CIST Internal Root Path Cost, 1000000.
+	0x60, 0x07, 0x0a, 0x1c, 0x2d, 0x3e, 0x4f, 0x50, // Octets 94-101: CIST Bridge Identifier.
+	0x13, // Octet 102: CIST Remaining Hops.
+
+	// First MSTI Configuration Message, octets 103-118.
+	0x3c,                                           // Octet 1: MSTI Flags, Designated role, learning, forwarding.
+	0x70, 0x01, 0x0c, 0x21, 0x32, 0x43, 0x54, 0x65, // Octets 2-9: MSTI Regional Root Identifier, MSTID 1 in the low 12 bits of octets 2-3.
+	0x00, 0x01, 0xc3, 0x50, // Octets 10-13: MSTI Internal Root Path Cost, 115536.
+	0x40, // Octet 14: MSTI Bridge Priority in bits 5-8.
+	0x20, // Octet 15: MSTI Port Priority in bits 5-8.
+	0x12, // Octet 16: MSTI Remaining Hops.
+
+	// Second MSTI Configuration Message, octets 119-134.
+	0x78,                                           // Octet 1: MSTI Flags, Root role, learning, forwarding, agreement.
+	0x80, 0x02, 0x0e, 0x1f, 0x2a, 0x3b, 0x4c, 0x5d, // Octets 2-9: MSTI Regional Root Identifier, MSTID 2.
+	0x00, 0x02, 0x4f, 0x6b, // Octets 10-13: MSTI Internal Root Path Cost, 151403.
+	0x10, // Octet 14: MSTI Bridge Priority.
+	0xe0, // Octet 15: MSTI Port Priority.
+	0x11, // Octet 16: MSTI Remaining Hops.
+}
+
+func mstFixtureBPDU() bpdu.BPDU {
+	rootMAC := netaddr.MAC{0x00, 0x1b, 0x2c, 0x3d, 0x4e, 0x5f}
+	return bpdu.BPDU{
+		Version:      3,
+		Type:         bpdu.TypeRapid,
+		Flags:        0x7e,
+		RootID:       bpdu.BridgeID{Priority: 0x3005, Address: rootMAC},
+		RootPathCost: 100000,
+		BridgeID:     bpdu.BridgeID{Priority: 0x6007, Address: netaddr.MAC{0x0a, 0x1c, 0x2d, 0x3e, 0x4f, 0x50}},
+		PortID:       0x811d,
+		MessageAge:   1500 * time.Millisecond,
+		MaxAge:       20*time.Second + 500*time.Millisecond,
+		HelloTime:    2*time.Second + 250*time.Millisecond,
+		ForwardDelay: 15*time.Second + 250*time.Millisecond,
+		ConfigID: &bpdu.ConfigID{
+			Name:     "flowseer-region",
+			Revision: 0x0a0b,
+			Digest:   [16]byte{0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf},
+		},
+		RegionalRootID:       bpdu.BridgeID{Priority: 0x5003, Address: netaddr.MAC{0x06, 0xa1, 0xb2, 0xc3, 0xd4, 0xe5}},
+		InternalRootPathCost: 1000000,
+		RemainingHops:        0x13,
+		MSTIs: []bpdu.MSTIRecord{
+			{
+				MSTID:                1,
+				Flags:                0x3c,
+				RegionalRootID:       bpdu.BridgeID{Priority: 0x7001, Address: netaddr.MAC{0x0c, 0x21, 0x32, 0x43, 0x54, 0x65}},
+				InternalRootPathCost: 115536,
+				BridgePriority:       0x40,
+				PortPriority:         0x20,
+				RemainingHops:        0x12,
+			},
+			{
+				MSTID:                2,
+				Flags:                0x78,
+				RegionalRootID:       bpdu.BridgeID{Priority: 0x8002, Address: netaddr.MAC{0x0e, 0x1f, 0x2a, 0x3b, 0x4c, 0x5d}},
+				InternalRootPathCost: 151403,
+				BridgePriority:       0x10,
+				PortPriority:         0xe0,
+				RemainingHops:        0x11,
+			},
+		},
+	}
+}
+
+func fixtureFrame(payload []byte) ethernet.Frame {
+	return ethernet.Frame{Payload: append([]byte(nil), payload...)}
+}
+
+func TestMSTFixtureDecodes(t *testing.T) {
+	t.Parallel()
+
+	got, err := bpdu.Decode(fixtureFrame(mstFixture))
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
+	}
+
+	want := mstFixtureBPDU()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Decode = %+v\nwant %+v", got, want)
+	}
+}
+
+func TestMSTFixtureEncodes(t *testing.T) {
+	t.Parallel()
+
+	frame := mustEncode(t, mstFixtureBPDU(), netaddr.MAC{0x02, 0, 0, 0, 0, 1})
+	if !bytes.Equal(frame.Payload, mstFixture) {
+		t.Errorf("Encode payload =\n% x\nwant\n% x", frame.Payload, mstFixture)
+	}
+	if frame.EtherType != ethernet.EtherType(len(mstFixture)) {
+		t.Errorf("EtherType = %d, want %d", frame.EtherType, len(mstFixture))
+	}
+}
+
+// TestMSTIPriorityOctetsKeepTheirHighNibble pins Q2003 14.6.1 d) and e): bits
+// 1 to 4 of the MSTI Bridge Priority and Port Priority octets are sent as 0
+// and ignored on receipt.
+func TestMSTIPriorityOctetsKeepTheirHighNibble(t *testing.T) {
+	t.Parallel()
+
+	const (
+		bridgeOctet = 3 + 102 + 13
+		portOctet   = bridgeOctet + 1
+	)
+
+	t.Run("encode sends the low nibbles as zero", func(t *testing.T) {
+		t.Parallel()
+
+		b := mstFixtureBPDU()
+		b.MSTIs[0].BridgePriority = 0x4f
+		b.MSTIs[0].PortPriority = 0x2f
+		frame := mustEncode(t, b, netaddr.MAC{0x02, 0, 0, 0, 0, 1})
+		if got := frame.Payload[bridgeOctet]; got != 0x40 {
+			t.Errorf("bridge priority octet = 0x%02x, want 0x40", got)
+		}
+		if got := frame.Payload[portOctet]; got != 0x20 {
+			t.Errorf("port priority octet = 0x%02x, want 0x20", got)
+		}
+	})
+
+	t.Run("decode ignores the low nibbles", func(t *testing.T) {
+		t.Parallel()
+
+		payload := append([]byte(nil), mstFixture...)
+		payload[bridgeOctet] = 0x4f
+		payload[portOctet] = 0x2f
+		got, err := bpdu.Decode(fixtureFrame(payload))
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
+		}
+		if got.MSTIs[0].BridgePriority != 0x40 || got.MSTIs[0].PortPriority != 0x20 {
+			t.Errorf("priorities = 0x%02x, 0x%02x, want 0x40, 0x20", got.MSTIs[0].BridgePriority, got.MSTIs[0].PortPriority)
+		}
+	})
+}
+
+// TestDecodeClassifiesBPDUsPerQ2003 pins Q2003 14.4. Each case differs from
+// the fixture, or from the case it names, in one property.
+func TestDecodeClassifiesBPDUsPerQ2003(t *testing.T) {
+	t.Parallel()
+
+	type shape int
+	const (
+		refused shape = iota
+		configuration
+		tcn
+		rst
+		mst
+	)
+
+	// withRecords returns the fixture's MST body with n zero records, the
+	// length field naming n.
+	withRecords := func(n int) []byte {
+		p := append([]byte(nil), mstFixture[:3+102]...)
+		p = append(p, make([]byte, 16*n)...)
+		binary.BigEndian.PutUint16(p[39:41], uint16(64+16*n))
+		return p
+	}
+	// edit returns a copy of p with fn applied.
+	edit := func(p []byte, fn func([]byte) []byte) []byte {
+		return fn(append([]byte(nil), p...))
+	}
+	set := func(i int, v byte) func([]byte) []byte {
+		return func(p []byte) []byte { p[i] = v; return p }
+	}
+	cut := func(n int) func([]byte) []byte {
+		return func(p []byte) []byte { return p[:n] }
+	}
+	setV3Length := func(v uint16) func([]byte) []byte {
+		return func(p []byte) []byte {
+			binary.BigEndian.PutUint16(p[39:41], v)
+			return p
+		}
+	}
+	// retype sets the version and type octets and keeps n octets after the LLC header.
+	retype := func(version, typ byte, n int) func([]byte) []byte {
+		return func(p []byte) []byte {
+			p[5], p[6] = version, typ
+			return p[:3+n]
+		}
+	}
+
+	tests := []struct {
+		name    string
+		payload []byte
+		want    shape
+		version uint8
+	}{
+		{"MST body with two records", mstFixture, mst, 3},
+		{"MST body with 64 records", withRecords(64), mst, 3},
+		{"65 records named by the length field", withRecords(65), rst, 3},
+		{"Version 1 Length nonzero", edit(mstFixture, set(3+35, 1)), rst, 3},
+		{"version 4 with a whole MST body", edit(mstFixture, set(5, 4)), mst, 4},
+		{"version 255 with a whole MST body", edit(mstFixture, set(5, 255)), mst, 255},
+		{"version 3 length not a whole number of records", edit(mstFixture, setV3Length(64+16*2+1)), rst, 3},
+		{"version 3 length below 64", edit(mstFixture, setV3Length(63)), rst, 3},
+		{"payload shorter than the length field claims", edit(mstFixture, cut(len(mstFixture)-1)), refused, 0},
+		{"version 3 body of 102 octets with no records", withRecords(0), mst, 3},
+		{"version 3 with 101 octets", edit(withRecords(0), cut(3+101)), rst, 3},
+		{"version 3 with 35 octets", edit(mstFixture, cut(3+35)), rst, 3},
+		{"version 3 with 34 octets", edit(mstFixture, cut(3+34)), refused, 0},
+		{"version 2 RST BPDU with 36 octets", edit(mstFixture, retype(2, 2, 36)), rst, 2},
+		{"version 2 RST BPDU with 35 octets", edit(mstFixture, retype(2, 2, 35)), refused, 0},
+		{"version 0 type 2", edit(mstFixture, retype(0, 2, 36)), refused, 0},
+		{"version 2 Configuration BPDU", edit(mstFixture, retype(2, 0, 35)), configuration, 2},
+		{"version 3 Configuration BPDU", edit(mstFixture, retype(3, 0, 35)), configuration, 3},
+		{"version 3 Configuration BPDU with 34 octets", edit(mstFixture, retype(3, 0, 34)), refused, 0},
+		{"version 3 TCN", edit(mstFixture, retype(3, 0x80, 4)), tcn, 3},
+		{"version 0 TCN", edit(mstFixture, retype(0, 0x80, 4)), tcn, 0},
+		{"TCN with 3 octets", edit(mstFixture, retype(3, 0x80, 3)), refused, 0},
+		{"version 3 unknown type", edit(mstFixture, set(6, 0x81)), refused, 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := bpdu.Decode(fixtureFrame(tc.payload))
+			if tc.want == refused {
+				if !errors.Is(err, bpdu.ErrUnsupported) {
+					t.Fatalf("Decode error = %v, want ErrUnsupported", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Decode: %v", err)
+			}
+			if got.Version != tc.version {
+				t.Errorf("Version = %d, want %d", got.Version, tc.version)
+			}
+			switch tc.want {
+			case configuration:
+				if got.Type != bpdu.TypeConfiguration || got.ConfigID != nil {
+					t.Errorf("Type, ConfigID = %v, %v, want Configuration, nil", got.Type, got.ConfigID)
+				}
+			case tcn:
+				if got.Type != bpdu.TypeTopologyChangeNotification {
+					t.Errorf("Type = %v, want TCN", got.Type)
+				}
+			case rst:
+				if got.Type != bpdu.TypeRapid || got.ConfigID != nil || len(got.MSTIs) != 0 {
+					t.Errorf("Type, ConfigID, MSTIs = %v, %v, %d, want an RST BPDU", got.Type, got.ConfigID, len(got.MSTIs))
+				}
+			case mst:
+				if got.Type != bpdu.TypeRapid || got.ConfigID == nil {
+					t.Errorf("Type, ConfigID = %v, %v, want an MST BPDU", got.Type, got.ConfigID)
+				}
+			case refused:
+			}
+		})
+	}
+}
+
+// TestDecodeNeverPanicsOnMalformedInput feeds Decode every prefix of the
+// fixture under each version, type, Version 1 Length, and Version 3 Length
+// that selects a different branch of Q2003 14.4.
+func TestDecodeNeverPanicsOnMalformedInput(t *testing.T) {
+	t.Parallel()
+
+	for _, version := range []byte{0, 1, 2, 3, 4, 255} {
+		for _, typ := range []byte{0, 2, 3, 0x80, 0xff} {
+			for _, v1 := range []byte{0, 1} {
+				for _, v3 := range []uint16{0, 63, 64, 80, 96, 1088, 1104, 65535} {
+					full := append([]byte(nil), mstFixture...)
+					full[5], full[6], full[38] = version, typ, v1
+					binary.BigEndian.PutUint16(full[39:41], v3)
+					for n := 0; n <= len(full); n++ {
+						_, _ = bpdu.Decode(fixtureFrame(full[:n]))
+					}
+				}
+			}
+		}
+	}
+}
+
+func FuzzDecode(f *testing.F) {
+	f.Add(mstFixture)
+	f.Add(mstFixture[:40])
+	f.Add([]byte{0x42, 0x42, 0x03, 0, 0, 0, 0x80})
+	f.Fuzz(func(_ *testing.T, payload []byte) {
+		_, _ = bpdu.Decode(ethernet.Frame{Payload: payload})
+	})
 }

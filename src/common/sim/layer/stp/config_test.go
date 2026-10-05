@@ -1104,7 +1104,7 @@ func TestPVSTCanonicalIncludesTrees(t *testing.T) {
 
 	p := stp.PVST{
 		Trees: map[vlan.ID]stp.Tree{
-			1:  {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 100}}},
+			1:  {Priority: 4096, Ports: map[string]stp.InstancePort{"1/1/1": {Priority: 128, PriorityPresent: true, PathCost: 100}}},
 			10: {Priority: 8192},
 		},
 	}
