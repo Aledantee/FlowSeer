@@ -4,7 +4,7 @@ type: feat
 date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: implemented
+status: partially-implemented
 review: rework
 review_rounds: 2
 execution: mixed
@@ -14,12 +14,14 @@ parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-pla
 
 # Web Component Contract Migration, Phase 6 - Generative UI Catalog and Renderer - Plan
 
-> Implemented. 4 units, 2026-10-05T16:09Z to 2026-10-05T17:14Z. All ten
-> components stayed in the catalog. The browser check ran on the
-> `UiAiRender` stories and on `AnswerWithComponents` in both themes, both
-> locales, and at narrow and wide widths. The running-app step, asking the
-> assistant about a device and following the mock answer's button, did not
-> run.
+> Partially implemented: U1 to U4, 2026-10-05T16:09Z to 2026-10-05T17:14Z.
+> U5 remains. A review ended in rework after two fix rounds on how the
+> validator reads a live value from the handler, and U5 replaces that
+> mechanism. All ten components stayed in the catalog. The browser check ran
+> on the `UiAiRender` stories and on `AnswerWithComponents` in both themes,
+> both locales, and at narrow and wide widths. The running-app step, asking
+> the assistant about a device and following the mock answer's button, did
+> not run.
 
 ## Goal
 
@@ -53,6 +55,39 @@ Paths below are relative to `frontend/web/` unless they start with `docs/`.
   asks for an error state for the tree. The field is typed `unknown` so no
   caller treats it as checked before `validateAiUiTree` has run. (decided
   by the user, 2026-10-05)
+- **The registry takes one clone of an answer's `ui`.** When a snapshot
+  arrives, `generateSnapshots` (`src/ai/registry.ts`) replaces a `ui` that is
+  not `undefined` with `structuredClone(ui)`. A `ui` that cannot be cloned
+  becomes `null`, which the renderer shows as the tree's error state while
+  the answer text stays. Why: two fix rounds patched the validator's reads
+  of a live handler value and each opened a new defect at another read. One
+  clone at the point of entry leaves the console holding data the handler
+  cannot reach, so every later read is of ordinary data. The renderer still
+  validates at render time, as the Decision above states.
+  `validateAiUiTree` and `UiAiRender` take no clone and no `toRaw`. (decided
+  by the user, 2026-10-05)
+- **The tree is cloneable data.** A tree's content is what `structuredClone`
+  keeps: enumerable, string-keyed own data. A non-enumerable or symbol-keyed
+  property is not part of the tree. It is dropped by the clone and never
+  bound. An accessor is read once and stored as data, and an object's own
+  prototype is dropped. A function, a Proxy, or an accessor that throws
+  makes the clone fail. Source: the HTML Standard, StructuredSerializeInternal
+  (https://html.spec.whatwg.org/multipage/structured-data.html), which
+  throws `DataCloneError` when `IsCallable(value)` is true and for an exotic
+  object ("For instance, a proxy object"), reads each key of
+  `EnumerableOwnProperties` with `[[Get]]`, and in StructuredDeserialize
+  builds "a new Object in targetRealm" and sets each entry with
+  `CreateDataProperty`. Why: this is what a transport would deliver, and a
+  rule about hidden keys needs a walk over the handler's live objects, the
+  mechanism the fix rounds failed on. (decided by the user, 2026-10-05)
+- **A result passed as a prop is trusted.** `UiAiResult` takes a `result`
+  prop that bypasses the registry (`src/ui/ai/UiAiResult.vue`,
+  `resolvedResult`). Its `ui` is validated by the renderer and not cloned.
+  Why: a prop is set by a caller in this repository.
+- **The validator's contract is plain data.** `validateAiUiTree` promises
+  its result for arrays and plain objects with data properties. It keeps
+  building its copy from allow-listed keys. A case for an accessor, a Proxy,
+  or a changed prototype is not part of its tests.
 - **Only the navigate intent exists.** An intent whose `type` is not
   `navigate` rejects the tree. Why: the contract says the API rule "has no
   code" until the console has a service API, and a proposal's shape cannot
@@ -181,11 +216,38 @@ Paths below are relative to `frontend/web/` unless they start with `docs/`.
    switches are offline.', refs: [], ui: [{ component: 'div', props: {} }]
    }` shows the sentence and the tree's error state, and its own state
    stays `done`.
-9. The registry passes `ui` through unchanged. Example: a handler that
-   yields an answer with `ui: 42` produces a snapshot whose `ui` is `42`,
-   and the run does not throw.
+9. The registry passes a cloneable `ui` through as an equal copy. Example: a
+   handler that yields an answer with `ui: 42` produces a snapshot whose
+   `ui` is `42`, and the run does not throw.
 10. The error text is in both locales. Example: under `de` the error state
     reads the German message, and the locale-parity test passes.
+
+11. A snapshot's tree is the console's own copy. Example: a handler yields
+    an answer whose `ui` is `[{ component: 'UiBadge', props: { text:
+    'Ready' } }]`, then sets that node's `props.text` to `'Changed'`. The
+    snapshot's `ui` is not the handler's array and its text still reads
+    `'Ready'`.
+12. A `ui` that cannot be cloned becomes the tree's error state and the
+    answer stays. Examples: a `ui` holding a function, a `ui` that is a
+    Proxy, and a `ui` whose accessor throws each produce a snapshot with
+    `ui: null` and the answer's `text` unchanged, and the run does not
+    throw. `UiAiResult` given a run from a registry whose handler yields
+    such an answer shows the text and the tree's error state, and
+    announces the done state.
+13. The clone keeps data only. Examples: a `UiBadge` whose props carry a
+    non-enumerable `onClick` produces a snapshot whose props have no
+    `onClick` key, and `validateAiUiTree` accepts that snapshot's tree. A query object created
+    with a prototype holding `inherited` produces a snapshot query with its
+    own keys only.
+14. A tree held in reactive state renders and follows in-place changes.
+    Examples: `[{ component: 'UiBadge', props: reactive({ text: 'Ready' })
+    }]` renders "Ready". With the tree in a `ref`, setting
+    `tree.value[0].props.text = 'Changed'` changes the rendered text, and
+    pushing `{ component: 'div', props: {} }` replaces the nodes with the
+    error state.
+15. The renderer validates the tree it is given. Example: an array holding
+    `{ component: 'div', props: {} }` with an own `__v_raw` property set to
+    a valid tree renders the error state.
 
 ## Out of scope
 
@@ -197,7 +259,11 @@ Paths below are relative to `frontend/web/` unless they start with `docs/`.
 - Input and trust: the validator reads what an AI handler yields, a
   handler installed through `window.flowseerAi.onRequest`
   (`src/ai/window.ts`). That author is not trusted. The validator's own
-  catalog is authored in this repository and is trusted.
+  catalog is authored in this repository and is trusted. The handler is
+  script in the page and can change the realm's intrinsics, such as
+  `Array.prototype`. Nothing here defends against that.
+- A clone of the rest of a result. `text`, `refs`, and `summary` reach the
+  console as the handler's own objects, as before this phase.
 
 ## Units
 
@@ -289,7 +355,41 @@ without halting the run. The component list names `UiAiRender`, and
 Tests: none. The verifier's prose and link checks cover both files.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/architecture/2026-09-28-web-component-contract-direction.md frontend/web/README.md`
 
-Waves: U1 | U2 | U3 | U4
+### U5. The registry owns the tree
+
+Files: `frontend/web/src/ai/registry.ts`, `frontend/web/src/ai/registry.test.ts`, `frontend/web/src/ai/catalog.ts`, `frontend/web/src/ai/catalog.test.ts`, `frontend/web/src/ai/types.ts`, `frontend/web/src/ui/ai/UiAiRender.vue`, `frontend/web/src/ui/ai/UiAiRender.test.ts`, `frontend/web/src/ui/ai/UiAiResult.test.ts`, `frontend/web/README.md`, `docs/architecture/2026-09-28-web-component-contract-direction.md`
+After: U4
+Change: `generateSnapshots` builds each snapshot in one place for both of
+its branches, the async iterator and the single value. After
+`validateAiResult` accepts an answer whose `ui` is not `undefined`, it
+yields a new answer object holding the handler's other fields and
+`structuredClone(ui)`, or `ui: null` when the clone throws. A summary, and
+an answer without `ui`, are yielded as today. `validateAiUiTree` loses its
+`structuredClone` call, its try and catch, and the comment above it, and
+keeps the index loop of `validateNodes`. `UiAiRender` passes `props.tree`
+to the validator without `toRaw`. The comment on `AiAnswer.ui` in
+`types.ts` says the registry clones it and the renderer validates it. The
+direction record's 2026-10-05 amendment and the README's "Typed results"
+and "Snapshot delivery and cancellation" sections state where the clone is
+taken, that a `ui` the clone refuses shows the tree's error state, and that
+a hidden or symbol-keyed property is dropped. Both lose the sentences about
+a clone in the validator and `toRaw` in the renderer.
+Tests: `registry.test.ts` covers requirements 9, 11, 13, and the snapshot
+half of 12, each once through an async-iterator handler, and requirement 11
+once more through a handler that returns a single value. It also covers an
+answer without `ui` and a summary yielded as the handler's own object.
+`UiAiRender.test.ts` covers requirements 14 and 15. `UiAiResult.test.ts`
+covers the mounted half of requirement 12 with a run from
+`createAiRegistry` and no `state` prop. `catalog.test.ts` loses the cases
+whose input is an accessor, a Proxy, an array with its own `map`, an
+inherited slot, or an object another prop read repairs, and the case for a
+query with its own prototype. It keeps "rejects a tree with an empty slot",
+since a clone keeps an empty slot empty. Nothing in this unit runs a
+browser engine's `structuredClone`: the tests run on Node, and the Open
+questions carry that gap.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ai frontend/web/src/ui/ai frontend/web/README.md docs/architecture/2026-09-28-web-component-contract-direction.md`
+
+Waves: U1 | U2 | U3 | U4 | U5
 
 The graph is a chain because each unit builds on the previous one's
 exports: the renderer on the validator, the result on the renderer, and
@@ -309,14 +409,14 @@ assistant about a device and follow the mock answer's button.
 
 ## Definition of done
 
-- [x] The verifier is green for every changed path.
+- [ ] The verifier is green for every changed path.
 - [x] The parent's requirement 5 holds: a tree naming `UiStatusBadge` with
       `status: 'Offline'` renders, and a tree naming `div` or passing
       `onClick` renders the error state.
 - [x] The browser check ran, or the outcome note says it did not and why.
 - [x] The direction record and the README changed in the same change as
       the code.
-- [x] This plan's `status` is set with an outcome note under its title,
+- [ ] This plan's `status` is set with an outcome note under its title,
       and the parent's `Landed:` line for this phase is filled.
 - [x] No requirement or unit label appears in code, comments, or commits.
 
@@ -328,38 +428,25 @@ assistant about a device and follow the mock answer's button.
 - The German error text. `src/i18n/locales/de.json` holds the proposed
   "FlowSeer kann diesen Teil der Antwort nicht anzeigen." beside "FlowSeer
   cannot show this part of the answer." Unconfirmed by a German reader.
-- `validateAiUiTree` takes one `structuredClone` of its input and validates
-  a copy built from that snapshot (`src/ai/catalog.ts`). The Decisions did
-  not say this. A handler's accessor property or Proxy could otherwise pass
-  the check with one value and reach the renderer with another. An object
-  with its own prototype is accepted as its own enumerable data.
 - `src/ai/index.ts` also exports `isPagePath` from `src/navigation/page.ts`.
   Whether the AI entry point should re-export a navigation helper is
   unreviewed.
 - The mock answer carries no `ui` for a device whose id does not make a page
   path (`src/ai/mock.ts`). The unit text did not name that case.
 
-- Review, two rounds: what `validateAiUiTree` defends against is undecided,
-  and Requirements 2 and 3 cannot be judged for exotic input until it is.
-  The handler is script in the page ("Input and trust", Out of scope), so
-  it can change the realm's intrinsics whatever the validator reads. Two
-  designs follow. The validator checks plain data and treats an accessor, a
-  Proxy, or a hidden key as outside the contract. Or the tree is validated
-  once where the handler's snapshot enters (`src/ai/registry.ts`,
-  `generateSnapshots`), before reactive state holds it, and the renderer
-  receives the checked copy or an error marker. The second touches the
-  Decision "The tree enters as `AiAnswer.ui`", which reads decided by the
-  user.
+- That `structuredClone` in the browsers the console supports behaves as
+  the HTML Standard states is unverified. The observations behind the
+  Decisions come from Node v22.14.0 and from the standard's text.
 
 ## Review gaps
 
 Two fix rounds ran and neither was clean, both on one mechanism: how the
-validator reads a live value from the handler. Round two replaced the
-per-read checks with one `structuredClone` and closed the changing-length,
-inherited-slot, and escaping-exception findings. Four behavior findings
-hold the verdict:
+validator reads a live value from the handler. This plan changed through
+`plan` after that verdict: U5 and its Decisions replace the mechanism, so
+the next review starts its round count at 0. The Decision "The tree is
+cloneable data" settles the hidden-key finding as intended behavior. Three
+behavior findings stay open until U5 lands:
 
-- `frontend/web/src/ai/catalog.ts:399`: the clone drops non-enumerable and symbol-keyed own properties before the key allow-list sees them; fails: a `UiBadge` whose props carry a non-enumerable `onClick` must throw; class: behavior
 - `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` unwraps the root only, so a plain tree holding a reactive node, props object, or children array shows the error state; fails: `[{ component: 'UiBadge', props: reactive({ text: 'Ready' }) }]` must render; class: behavior
 - `frontend/web/src/ui/ai/UiAiRender.vue:52`: the computed reads the raw tree and tracks no nested dependency; fails: setting `tree.value[0].props.text` on a mounted reactive tree must change the rendered text; class: behavior
 - `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` follows a `__v_raw` property on any object, so the renderer validates the tree that property names; fails: an array holding a `div` node with `__v_raw` set to a valid tree must show the error state; class: behavior
