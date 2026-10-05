@@ -1134,6 +1134,27 @@ func TestHelloTimeValidationPerType(t *testing.T) {
 			t.Errorf("Type = %v, want %v", dec.Type, bpdu.TypeTopologyChangeNotification)
 		}
 	})
+
+	t.Run("SSTP configuration body with zero hello time accepted", func(t *testing.T) {
+		t.Parallel()
+		b := bpdu.BPDU{
+			Type:         bpdu.TypeConfiguration,
+			RootID:       bpdu.BridgeID{Priority: 4096, Address: mac},
+			BridgeID:     bpdu.BridgeID{Priority: 4096, Address: mac},
+			PortID:       0x8001,
+			MaxAge:       20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+			HelloTime:    0,
+		}
+		f := mustEncodeSSTP(t, b, 10, mac)
+		dec, _, err := bpdu.DecodeSSTP(f)
+		if err != nil {
+			t.Fatalf("DecodeSSTP: %v", err)
+		}
+		if dec.HelloTime != 0 {
+			t.Errorf("HelloTime = %v, want 0", dec.HelloTime)
+		}
+	})
 }
 
 func mustEncodeSSTP(t *testing.T, b bpdu.BPDU, vid vlan.ID, src netaddr.MAC) ethernet.Frame {
@@ -1288,6 +1309,120 @@ func TestSSTPCodecRoundTrip(t *testing.T) {
 	}
 }
 
+func TestSSTPConfigurationGoldenPayload(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12}
+	units := func(v uint16) time.Duration {
+		return time.Duration(v) * time.Second / 256
+	}
+	b := bpdu.BPDU{
+		Version: 1,
+		Type:    bpdu.TypeConfiguration,
+		Flags:   0xff,
+		RootID: bpdu.BridgeID{
+			Priority: 0x1234,
+			Address:  netaddr.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+		},
+		RootPathCost: 0x01020304,
+		BridgeID: bpdu.BridgeID{
+			Priority: 0x2345,
+			Address:  netaddr.MAC{0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c},
+		},
+		PortID:       0x3456,
+		MessageAge:   units(0x0102),
+		MaxAge:       units(0x0304),
+		HelloTime:    units(0x0506),
+		ForwardDelay: units(0x0708),
+	}
+
+	frame := mustEncodeSSTP(t, b, 10, mac)
+	want := []byte{
+		0xaa, 0xaa, 0x03, // WS payload offsets 0-2: LLC header.
+		0x00, 0x00, 0x0c, // WS payload offsets 3-5: SNAP OUI.
+		0x01, 0x0b, // WS payload offsets 6-7: SNAP PID.
+		0x00, 0x00, // WS payload offsets 8-9: Protocol Identifier.
+		0x00,       // WS payload offset 10: Version.
+		0x00,       // WS payload offset 11: BPDU Type.
+		0x81,       // WS payload offset 12: Configuration flags.
+		0x12, 0x34, // WS payload offsets 13-14: Root Identifier priority.
+		0x01, 0x02, 0x03, 0x04, 0x05, 0x06, // WS payload offsets 15-20: Root Identifier address.
+		0x01, 0x02, 0x03, 0x04, // WS payload offsets 21-24: Root Path Cost.
+		0x23, 0x45, // WS payload offsets 25-26: Bridge Identifier priority.
+		0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, // WS payload offsets 27-32: Bridge Identifier address.
+		0x34, 0x56, // WS payload offsets 33-34: Port Identifier.
+		0x01, 0x02, // WS payload offsets 35-36: Message Age.
+		0x03, 0x04, // WS payload offsets 37-38: Max Age.
+		0x05, 0x06, // WS payload offsets 39-40: Hello Time.
+		0x07, 0x08, // WS payload offsets 41-42: Forward Delay.
+		0x00,       // WS payload offset 43: reserved octet before the TLV.
+		0x00, 0x00, // WS payload offsets 44-45: originating-VLAN TLV type.
+		0x00, 0x02, // WS payload offsets 46-47: originating-VLAN TLV length.
+		0x00, 0x0a, // WS payload offsets 48-49: originating VLAN 10.
+	}
+	if !bytes.Equal(frame.Payload, want) {
+		t.Fatalf("Configuration payload = % x, want % x", frame.Payload, want)
+	}
+
+	decoded, vid, err := bpdu.DecodeSSTP(frame)
+	if err != nil {
+		t.Fatalf("DecodeSSTP: %v", err)
+	}
+	if vid != 10 {
+		t.Errorf("vid = %d, want 10", vid)
+	}
+	if decoded.Type != bpdu.TypeConfiguration {
+		t.Errorf("Type = %v, want Configuration", decoded.Type)
+	}
+	if decoded.Version != 0 {
+		t.Errorf("Version = %d, want 0", decoded.Version)
+	}
+	if decoded.Flags != 0x81 {
+		t.Errorf("Flags = 0x%02x, want 0x81", decoded.Flags)
+	}
+	if decoded.RootID != b.RootID || decoded.RootPathCost != b.RootPathCost || decoded.BridgeID != b.BridgeID || decoded.PortID != b.PortID {
+		t.Errorf("decoded identifiers/body = %+v, want root=%+v cost=%d bridge=%+v port=0x%04x", decoded, b.RootID, b.RootPathCost, b.BridgeID, b.PortID)
+	}
+	if decoded.MessageAge != b.MessageAge || decoded.MaxAge != b.MaxAge || decoded.HelloTime != b.HelloTime || decoded.ForwardDelay != b.ForwardDelay {
+		t.Errorf("decoded timers = %v/%v/%v/%v, want %v/%v/%v/%v", decoded.MessageAge, decoded.MaxAge, decoded.HelloTime, decoded.ForwardDelay, b.MessageAge, b.MaxAge, b.HelloTime, b.ForwardDelay)
+	}
+}
+
+func TestSSTPTopologyChangeNotificationGoldenPayload(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	frame := mustEncodeSSTP(t, bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}, 10, mac)
+	want := append([]byte{
+		0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x01, 0x0b,
+		0x00, 0x00, 0x00, 0x80,
+	}, make([]byte, 34)...)
+	if frame.EtherType != ethernet.EtherType(12) {
+		t.Errorf("EtherType = %d, want 12", frame.EtherType)
+	}
+	if !bytes.Equal(frame.Payload, want) {
+		t.Fatalf("TCN payload = % x, want % x", frame.Payload, want)
+	}
+
+	decoded, vid, err := bpdu.DecodeSSTP(frame)
+	if err != nil {
+		t.Fatalf("DecodeSSTP padded TCN: %v", err)
+	}
+	if decoded.Type != bpdu.TypeTopologyChangeNotification || decoded.Version != 0 || vid != 0 {
+		t.Errorf("decoded TCN = type %v version %d vid %d, want TCN/0/0", decoded.Type, decoded.Version, vid)
+	}
+
+	short := frame
+	short.Payload = short.Payload[:12]
+	if _, vid, err := bpdu.DecodeSSTP(short); err != nil || vid != 0 {
+		t.Errorf("DecodeSSTP 12-octet TCN = vid %d, err %v, want 0/nil", vid, err)
+	}
+	short.Payload = short.Payload[:11]
+	if _, _, err := bpdu.DecodeSSTP(short); err == nil {
+		t.Fatal("DecodeSSTP accepted an 11-octet TCN")
+	}
+}
+
 // TestSSTPEncodeGoldenPayload pins the SSTP wire layout against literal
 // expected bytes for VID 20, so the encoder's own field choices cannot drift
 // the layout underneath a round-trip test that would not notice a uniform
@@ -1396,7 +1531,7 @@ func TestSSTPDecodeRefusals(t *testing.T) {
 		{
 			name: "wire type not 0x02",
 			modify: func(f *ethernet.Frame) {
-				f.Payload[11] = 0x00
+				f.Payload[11] = 0x81
 			},
 			wantField: "type",
 		},
@@ -1414,6 +1549,14 @@ func TestSSTPDecodeRefusals(t *testing.T) {
 			},
 			wantField: "TLV length",
 		},
+	}
+
+	config := validBPDU
+	config.Type = bpdu.TypeConfiguration
+	config.Version = 0
+	configFrame := mustEncodeSSTP(t, config, 20, mac)
+	if _, _, err := bpdu.DecodeSSTP(configFrame); err != nil {
+		t.Fatalf("DecodeSSTP refused a version-0 Configuration BPDU: %v", err)
 	}
 
 	for _, tc := range tests {

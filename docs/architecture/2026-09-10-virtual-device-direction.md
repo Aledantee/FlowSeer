@@ -651,15 +651,17 @@ bounded equivalence under a resource contract:
   enumerable, so the flush names it, and a VLAN 1 change leaves every other
   VLAN's learned entries in place.
 - **A per-VLAN BPDU rides its own VLAN through the port's ordinary egress
-  rules, and the switch is what tags it.** An SSTP BPDU is an RST BPDU in
-  LLC/SNAP addressed to `01:00:0c:cc:cc:cd` with the originating VLAN in a
-  trailing TLV. The spanning tree layer names the VLAN and leaves the frame
-  untagged; the switch passes it through the same `OriginateFrame` every
-  other frame it originates goes through, which already implements tagged
-  where the VLAN is tagged and untagged where it is the port's untagged VLAN.
-  That is Cisco's native-versus-tagged rule with no second implementation,
-  and it is why a port that does not carry a VLAN simply sends nothing for
-  it. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
+  rules, and the switch is what tags it.** An SSTP Configuration BPDU uses a
+  50-octet RST-layout body with version 0, wire type `0x00`, and an originating
+  VLAN TLV. An SSTP RST BPDU uses the same layout with version 2 or later and
+  wire type `0x02`. An SSTP TCN uses the LLC/SNAP header with a 12-octet
+  length, wire type `0x80`, and no TLV. Its receive effect is scoped by the
+  arrival VLAN classified by the switch. PVST and SSTP behavior is modelled on
+  observation. [CISCO](https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html) was read for per-VLAN loop guard, [PVID](https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html) for the SSTP address and VLAN tagging rule, and [EXT](https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml) for tagged per-VLAN TCNs. [WS](https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c) was read for the wire offsets. The spanning tree layer names the VLAN and leaves
+  the frame untagged; the switch passes it through the same `OriginateFrame`
+  every other frame it originates goes through, which already implements
+  tagged where the VLAN is tagged and untagged where it is the port's untagged
+  VLAN. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
   port, whatever the native VLAN is, which is the frame an RSTP or MSTP
   neighbor converges with.
 - **A BPDU is admitted past the spanning tree gate the tree itself set, and

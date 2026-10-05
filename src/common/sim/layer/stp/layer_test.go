@@ -2971,6 +2971,205 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	}
 }
 
+func activePVSTSSTPLayer(t *testing.T) (*stp.Layer, time.Time) {
+	t.Helper()
+
+	start := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l := pvstLayer(t, "00:11:22:33:44:02", 1, 10)
+	l.LinkChange(start, "l1", true, false, 1_000_000_000)
+	l.LinkChange(start, "l2", true, false, 1_000_000_000)
+	l.Advance(start.Add(15 * time.Second))
+	l.Advance(start.Add(30 * time.Second))
+
+	for _, vid := range []vlan.ID{1, 10} {
+		for _, port := range []string{"l1", "l2"} {
+			if info := l.VLANPortInfo(vid, port); info.State != stp.StateForwarding {
+				t.Fatalf("VLAN %d port %s = %v, want Forwarding", vid, port, info.State)
+			}
+		}
+	}
+
+	return l, start.Add(30 * time.Second)
+}
+
+func sstpConfigurationBPDU(root bpdu.BridgeID) bpdu.BPDU {
+	return bpdu.BPDU{
+		Version:      0,
+		Type:         bpdu.TypeConfiguration,
+		RootID:       root,
+		BridgeID:     root,
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+}
+
+func TestPVSTSSTPTopologyChangeScopesTheArrivalVLAN(t *testing.T) {
+	t.Parallel()
+
+	l, now := activePVSTSSTPLayer(t)
+	beforeChanges, _ := l.TopologyChanges()
+
+	fx, outcome := l.ReceiveSSTP(now.Add(time.Second), "l1", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     0,
+		Admitted:   true,
+	}, bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	if outcome != stp.SSTPApplied {
+		t.Fatalf("outcome = %q, want %q", outcome, stp.SSTPApplied)
+	}
+	target, ok := flushTarget(fx.Flush, "l2")
+	if !ok {
+		t.Fatalf("TCN flushes = %+v, want a target for l2", fx.Flush)
+	}
+	if !slices.Equal(target.FIDs, []vlan.ID{10}) {
+		t.Errorf("SSTP TCN flush FIDs = %v, want [10]", target.FIDs)
+	}
+	if slices.Contains(target.FIDs, vlan.ID(1)) {
+		t.Error("SSTP TCN for VLAN 10 flushed VLAN 1")
+	}
+	if afterChanges, _ := l.TopologyChanges(); afterChanges != beforeChanges {
+		t.Errorf("CIST topology changes = %d, want unchanged at %d", afterChanges, beforeChanges)
+	}
+	if l.PortInfo("l1").SendRSTP {
+		t.Error("TCN after MigrateTime left l1 in RSTP mode")
+	}
+}
+
+func TestSSTPReceiveRefusalsAndPVIDPreservation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("admission and untracked VLAN refuse without a flush", func(t *testing.T) {
+		t.Parallel()
+		l, now := activePVSTSSTPLayer(t)
+		tcn := bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}
+
+		fx, outcome := l.ReceiveSSTP(now.Add(time.Second), "l1", stp.SSTPArrival{
+			ArrivalVID: 10,
+			TLVVID:     0,
+			Admitted:   false,
+		}, tcn)
+		if outcome != stp.SSTPNotAdmitted || len(fx.Flush) != 0 {
+			t.Fatalf("unadmitted TCN = %q with flushes %+v, want not-admitted and no flush", outcome, fx.Flush)
+		}
+
+		_, outcome = l.ReceiveSSTP(now.Add(2*time.Second), "l1", stp.SSTPArrival{
+			ArrivalVID: 30,
+			TLVVID:     0,
+			Admitted:   true,
+		}, tcn)
+		if outcome != stp.SSTPUntrackedVLAN {
+			t.Errorf("untracked TCN = %q, want %q", outcome, stp.SSTPUntrackedVLAN)
+		}
+	})
+
+	t.Run("non-PVST is a boundary", func(t *testing.T) {
+		t.Parallel()
+		l := mustNewSTP(t, stp.Config{
+			Address: mustMAC(t, "00:11:22:33:44:02"),
+			Ports:   map[string]stp.Port{"l1": {}},
+		}, mustPortTable(t, "l1"))
+		now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+		l.LinkChange(now, "l1", true, true, 1_000_000_000)
+		_, outcome := l.ReceiveSSTP(now.Add(time.Second), "l1", stp.SSTPArrival{
+			ArrivalVID: 10,
+			TLVVID:     0,
+			Admitted:   true,
+		}, bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+		if outcome != stp.SSTPBoundary {
+			t.Errorf("non-PVST TCN = %q, want %q", outcome, stp.SSTPBoundary)
+		}
+	})
+
+	t.Run("TCN does not change PVID inconsistency", func(t *testing.T) {
+		t.Parallel()
+		l, now := activePVSTSSTPLayer(t)
+		peer := bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:aa:bb:cc:dd:ee")}
+		_, outcome := l.ReceiveSSTP(now.Add(time.Second), "l1", stp.SSTPArrival{
+			ArrivalVID: 10,
+			TLVVID:     20,
+			Admitted:   true,
+		}, sstpConfigurationBPDU(peer))
+		if outcome != stp.SSTPPVIDInconsistent {
+			t.Fatalf("wrong-TLV Configuration = %q, want %q", outcome, stp.SSTPPVIDInconsistent)
+		}
+		if got := l.VLANPortInfo(10, "l1").BlockReason; got != stp.BlockReasonPVIDInconsistent {
+			t.Fatalf("PVID block reason before TCN = %q, want %q", got, stp.BlockReasonPVIDInconsistent)
+		}
+
+		_, outcome = l.ReceiveSSTP(now.Add(2*time.Second), "l1", stp.SSTPArrival{
+			ArrivalVID: 10,
+			TLVVID:     0,
+			Admitted:   true,
+		}, bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+		if outcome != stp.SSTPApplied {
+			t.Fatalf("TCN on PVID-inconsistent port = %q, want %q", outcome, stp.SSTPApplied)
+		}
+		if got := l.VLANPortInfo(10, "l1").BlockReason; got != stp.BlockReasonPVIDInconsistent {
+			t.Errorf("PVID block reason after TCN = %q, want %q", got, stp.BlockReasonPVIDInconsistent)
+		}
+	})
+}
+
+func TestSSTPShapesMigrateToLegacySTP(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name string
+		b    bpdu.BPDU
+	}{
+		{name: "Configuration", b: sstpConfigurationBPDU(bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:aa:bb:cc:dd:01")})},
+		{name: "TCN", b: bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			l := pvstLayer(t, "00:11:22:33:44:02", 1, 10)
+			start := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+			l.LinkChange(start, "l1", true, true, 1_000_000_000)
+			tlvVID := vlan.ID(0)
+			if test.b.Type == bpdu.TypeConfiguration {
+				tlvVID = 10
+			}
+			_, outcome := l.ReceiveSSTP(start.Add(4*time.Second), "l1", stp.SSTPArrival{
+				ArrivalVID: 10,
+				TLVVID:     tlvVID,
+				Admitted:   true,
+			}, test.b)
+			if outcome != stp.SSTPApplied {
+				t.Fatalf("outcome = %q, want %q", outcome, stp.SSTPApplied)
+			}
+			if l.PortInfo("l1").SendRSTP {
+				t.Error("SSTP shape after MigrateTime left port in RSTP mode")
+			}
+		})
+	}
+}
+
+func TestPVSTSSTPConfigurationRefreshKeepsVLANRoot(t *testing.T) {
+	t.Parallel()
+
+	l := pvstLayer(t, "00:11:22:33:44:02", 1, 10)
+	start := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l.LinkChange(start, "l1", true, true, 1_000_000_000)
+	peer := bpdu.BridgeID{Priority: 0, Address: mustMAC(t, "00:aa:bb:cc:dd:01")}
+	b := sstpConfigurationBPDU(peer)
+	for i := 0; i < 6; i++ {
+		now := start.Add(time.Duration(4+2*i) * time.Second)
+		_, outcome := l.ReceiveSSTP(now, "l1", stp.SSTPArrival{
+			ArrivalVID: 10,
+			TLVVID:     10,
+			Admitted:   true,
+		}, b)
+		if outcome != stp.SSTPApplied {
+			t.Fatalf("Configuration at %s = %q, want %q", now, outcome, stp.SSTPApplied)
+		}
+		if got := l.VLANPortInfo(10, "l1").Role; got != bpdu.RoleRoot {
+			t.Fatalf("VLAN 10 role at %s = %q, want Root", now, got)
+		}
+	}
+}
+
 // TestPVSTAlreadyEmittedCheckIsPerVLAN is evidence that Mcheck's scan for an
 // emission recompute already sent on this port compares the VLAN as well as
 // the port name. l1 is left isolated (up, Designated, never agreed) while

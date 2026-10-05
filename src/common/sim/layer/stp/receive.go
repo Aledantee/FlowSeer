@@ -386,6 +386,26 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 			return
 		}
 
+		if b.Type == bpdu.TypeTopologyChangeNotification {
+			// An SSTP TCN carries no VLAN identifier of its own. The arrival
+			// tree is the scope of the change, while the PVID state belongs to
+			// the configuration shape and remains untouched.
+			p.loopInconsistent = false
+			if p.tcActive {
+				if p.role == bpdu.RoleDesignated {
+					p.tcAck = true
+				}
+				if !p.cfg.RestrictedTCN {
+					l.initiateTopologyChange(t, p, now, &flushes)
+				}
+			}
+
+			l.recomputeAll(now, &flushes)
+			outcome = SSTPApplied
+
+			return
+		}
+
 		// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
 		// VLAN the peer named: the arrival VLAN is the one whose local traffic
 		// would cross a link the two ends disagree about.
