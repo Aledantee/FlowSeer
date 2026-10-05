@@ -235,7 +235,8 @@ def moved_keys(text: str) -> list[str]:
     if not text.startswith("---\n"):
         return []
     head = text[4:].split("\n---", 1)[0]
-    keys = {line.partition(":")[0] for line in head.splitlines() if ":" in line and not line.startswith(" ")}
+    lines = [line for line in head.splitlines() if ":" in line and not line.startswith(" ")]
+    keys = {line.partition(":")[0].strip().strip("'\"") for line in lines}
     return [key for key in MOVED if key in keys]
 
 

@@ -109,8 +109,9 @@ rewrites that listing; `land` reads the receipt.
 
 Every verifier run that names a path under `docs/plans/` also runs
 `.claude/skills/plan/scripts/plan_record.py check`, including a run that names
-only a `.state.json` path. The check reads every state file or only the plans
-selected by the named paths.
+only a `.state.json` path. The check always reads every state file, since one
+is legal only beside its parent's and its phases', so an illegal file the run
+did not name fails it too.
 
 `implement` keeps `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
 never committed, so a later session resumes a plan without re-deriving what
@@ -160,8 +161,9 @@ proves the phase belongs in this tree. The phase state supplies `parent`,
 - every phase in the phase state's `after` list has a landed range whose last
   commit is an ancestor of `HEAD` (a worktree forked before the previous
   phase merged fails this);
-- the parent on `main` lists this phase in `phases`, not `retired` (a phase
-  being implemented a second time fails this).
+- on `main`, the phase's own state has no landed range and the parent's
+  `retired` list has no entry for it (a phase being implemented a second
+  time fails this).
 
 The message says which check failed.
 

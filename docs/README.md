@@ -29,7 +29,8 @@ direction explicitly.
 Each plan keeps document metadata in its Markdown frontmatter and machine
 state in a `*-plan.state.json` file beside it. The frontmatter carries
 `artifact_contract: flowseer-plan/v2`, while `plan_record.py` owns the state
-file. Use `.claude/skills/plan/scripts/plan_record.py show <plan>` to read it
+file. The state left the frontmatter because three scripts each parsed it
+their own way and disagreed about when a phase was finished. Use `.claude/skills/plan/scripts/plan_record.py show <plan>` to read it
 and the commands in its module docstring to record transitions. A plan's
 status is `planned`, `partially-implemented`, `implemented`, `superseded`, or
 `abandoned`. If an accepted record and the tree disagree, record the mismatch

@@ -364,6 +364,11 @@ class PlanRecordTest(unittest.TestCase):
         refused = self.record("check", code=1)
         self.assertIn(f"{PLAIN}: frontmatter carries status, review, which", refused.stderr)
         self.record("ready", PLAIN, code=1)
+        for spelling in ("status : planned", '"status": planned', "parent: docs/plans/x-plan.md"):
+            with self.subTest(spelling=spelling):
+                spelled = document.replace("type: fix\n", f"type: fix\n{spelling}\n")
+                (self.root / PLAIN).write_text(spelled, encoding="utf-8")
+                self.record("check", code=1)
         (self.root / PLAIN).write_text(document + "\nstatus: a word in the body\n", encoding="utf-8")
         self.record("check")
 

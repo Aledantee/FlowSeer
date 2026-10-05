@@ -167,8 +167,7 @@ cost more than a few file reads.
 
 Load `references/outcome-records.md` when
 `.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null` succeeds,
-when recording a parent plan's computed status, when the request skipped the plan, or
-when the session runs in Orca.
+when the request skipped the plan, or when the session runs in Orca.
 
 1. Read the final diff against the plan's Definition of done and
    `docs/code-style.md`, Rules for coding agents. Remove process narration,
@@ -178,10 +177,14 @@ when the session runs in Orca.
    `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
    --from <t> --to <t> [--landed <first>..<last>]`, or an open run with
    `.claude/skills/plan/scripts/plan_record.py partial <plan> --units <n>
-   --from <t> --to <t> --note <units left and why>`. The phase range is
-   written by `implemented --landed`; no parent edit is needed. Commit the
-   state on its own after the last unit's commit. The range's last SHA is the
-   last unit's commit, the one the ledger records. Leave the ledger in place
+   --from <t> --to <t> --note <units left and why>`. Read the arguments from
+   the ledger: `--units` is the count of `passed` units, and `--from` and
+   `--to` are the first and last of their `verified_at` values. A phase's
+   `--landed` range runs from the first unit's commit to the last unit's
+   commit, the one the ledger records, and no parent edit is needed. Commit
+   the state on its own after the last unit's commit. Never amend it into
+   that commit, which would replace the SHA the ledger and the landed range
+   name with one that is no ancestor of `HEAD`. Leave the ledger in place
    for `land`.
 3. Run the verifier as the last action of the task, sandbox disabled, since
    `land` refuses a receipt older than the last commit: `--base main -- <paths>`

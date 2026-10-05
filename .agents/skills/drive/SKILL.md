@@ -9,10 +9,10 @@ argument-hint: "[plan or parent plan path]"
 This session coordinates: it reads the state, dispatches, merges, verifies,
 and records. Every stage that reads or writes code runs in a worker session
 of its own, as `delegate` describes, from a fresh context and the plan file.
-All plan state is in files other skills keep. Read it with
-`.claude/skills/plan/scripts/plan_record.py show <plan>`, which includes the parent's phases and retired
-entries, each plan's status, review, compound outcome, and Open questions.
-Running `drive` again therefore continues a drive.
+All plan state is in places other skills keep: each plan's state file, read
+with `.claude/skills/plan/scripts/plan_record.py show <plan>` (a parent's
+lists its phases and retired entries), the plan's Open questions, and the
+branches. Running `drive` again therefore continues a drive.
 
 ## 1. Scope and preconditions
 
@@ -148,19 +148,17 @@ sends a plan back.
 ## 3. Drive a parent's phases
 
 Re-run the state command at the start of every round and after a compaction,
-and take the order from its output. When it disagrees with the tree (a phase
-reads `implemented` with a null `landed`, or the parent state computes
-`implemented` while a phase still needs a stage), stop and report it: an
-interrupted run left it, and guessing which side is right lands a phase
-twice. A round takes the phases its last line names that are not parked, in
+and take the order from its output. When it exits 2, or
+`.claude/skills/plan/scripts/plan_record.py check` names a fault, stop and
+report it: a hand-edit or a merge left a state no command writes, and
+guessing which side is right lands a phase twice. A round takes the phases its last line names that are not parked, in
 its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
-one phase that can run (not a `next: land` line): it says which run at once, how they split the cap, and how to
-finish the parent state when the last phases land together. For a merge
-conflict outside the phase state files it points to
-`.claude/skills/implement/references/workers.md`; read that file whole
-when one occurs.
+one phase that can run (not a `next: land` line): it says which run at once and how they split the cap. When a stage branch
+conflicts with one already merged, read
+`.claude/skills/implement/references/workers.md` whole: the branch goes back
+to its worker.
 
 A landed phase records its implementation range with
 `.claude/skills/plan/scripts/plan_record.py implemented <phase> ... --landed <first>..<last>`. A phase in

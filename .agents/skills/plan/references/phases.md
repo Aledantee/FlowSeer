@@ -27,10 +27,11 @@ in dependency order:
 
 - The parent keeps the Goal, Decisions, and Requirements for the whole
   change. Its Units are the phases, headed like any unit (`### U1.
-  <phase name>`, never `### P1.`, since `drive` finds phases by the `U`
-  heading and reads a parent without one as no parent at all). Each has
-  `Files:` naming the phase plan path. Initialize prerequisite phases first,
-  then initialize each phase with
+  <phase name>`, never `### P1.`, since `ledger.py` and the queue's unit
+  count read `### U` headings). Each has `Files:` naming the phase plan
+  path. Run `.claude/skills/plan/scripts/plan_record.py init <parent>` first,
+  since a phase cannot join a parent without a state file. Then initialize
+  the phases, prerequisites before their dependents, each with
   `.claude/skills/plan/scripts/plan_record.py init <phase> --parent <parent>
   [--after <prerequisite>...]`. The phase state carries its prerequisites and
   landed range, so the parent has no prerequisite or range line to edit.
@@ -43,8 +44,9 @@ in dependency order:
   `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md`. Its state file names the
   parent. Its Decisions cite the parent's rather than repeating them.
 - Only the first phase is written ready. A later phase carries Goal,
-  Decisions, and Requirements, and its state starts with
-  `--needs-decisions`. `implement` refuses such a plan until
+  Decisions, and Requirements, this line under its title: `> Re-planned by
+  plan when its turn comes; the tree will have moved.`, and a state that
+  starts with `--needs-decisions`. `implement` refuses such a plan until
   `.claude/skills/plan/scripts/plan_record.py ready <phase>` records that it
   is ready. When a phase lands, `.claude/skills/plan/scripts/plan_record.py
   implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>`
@@ -62,8 +64,8 @@ bounded enough to be its own plan and each depending on the one before,
 write the parent first and the phases under it in the same shape: the
 parent holds the Goal, the Decisions the phases share, and the Requirements
 each phase will claim; every phase after the first carries `needs-decisions`
-and its re-planning line. The parent state is the one place the sequence and
-its phase entries live.
+and its re-planning line. The parent's state lists the phases, and each
+phase's `after` holds its place in the sequence.
 
 The sequence must be decided, not hoped for. A direction record's
 Consequences that name what could come later (a next layer, a later

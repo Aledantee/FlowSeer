@@ -50,11 +50,14 @@ person's action.
 ## 3. Rewrite the links to the plan
 
 ```bash
-git grep -n "<plan file name>" -- ':!docs/plans/<plan file name>'
+git grep -n "<plan file name>" -- ':!docs/plans/<plan file name>' ':!docs/plans/*-plan.state.json'
 ```
 
-Every hit outside the plan changes in the same commit. The parent state keeps
-the retired phase entry because dependents need its landed range. A
+Every hit changes in the same commit. State files are left out of the search
+because `retire` in section 4 owns them: it moves a phase from its parent's
+`phases` to `retired`, and a dependent's `after` keeps naming the retired
+phase, whose landed range it still needs. A parent's unit `Files:` line
+naming a retired phase stays as it is. A
 link from a record, a solution, `GOALS.md`, or a README points at the
 record that now holds the decision, or gives the date and scope of the
 work as `docs/architecture/README.md` shows. An open plan's `amends:`

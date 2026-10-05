@@ -23,13 +23,17 @@ them:
 
 | Group | Meaning | Next skill |
 | --- | --- | --- |
-| `land` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `implemented` with an accepted review and a compound outcome, still on disk (a phase also has a landed range) | `land`, or `drive` on the parent for a phase |
-| `in-progress` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `partially-implemented`, names the ledger here, an unblocked phase of a parent with landed phases, or a finished phase whose landed range is null | `implement` |
-| `unchecked` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `implemented` with a review verdict that is neither an accept nor `rework`, or the plan has no review or compound outcome | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
-| `replan` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `readiness: needs-decisions`, prerequisites finished, or an implemented plan whose review reads `rework` | `plan`, which runs `.claude/skills/plan/scripts/plan_record.py replan <plan> [--needs-decisions]`, then `implement` |
-| `ready` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `planned`, implementation-ready, and nothing to wait for | `implement` |
-| `waiting` | `.claude/skills/plan/scripts/plan_record.py show <phase>` reports a prerequisite phase has not landed; the line names it | none yet |
-| `retire` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `implemented`, `superseded`, or `abandoned` on `main` and the plan is still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
+| `land` | implemented on this branch with an accepted review and a compound outcome, still on disk | `land`, or `drive` on the parent for a phase |
+| `in-progress` | partially implemented, named by this worktree's ledger, or an unblocked phase of a parent with landed phases | `implement` |
+| `unchecked` | implemented with a review verdict that is neither an accept nor `rework`, or implemented on this branch with no review or no compound outcome | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
+| `replan` | readiness `needs-decisions` with prerequisites finished, or an implemented plan whose review reads `rework` or that carries that readiness | `plan`, which ends with `plan_record.py ready` for a planned plan and `plan_record.py replan` for an implemented one, then `implement` |
+| `ready` | planned, implementation-ready, every prerequisite finished | `implement` |
+| `waiting` | a prerequisite phase is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open. The line names it | none yet |
+| `retire` | implemented, superseded, or abandoned on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
+
+`plan-queue.py` computes the group from the state files, the ledger, and the
+branches. `.claude/skills/plan/scripts/plan_record.py show <plan>` prints the
+fields behind one line.
 
 A phase line names its parent, which is the path to hand `drive`. Take two
   `in-progress` phases of one parent in the parent's state order.
@@ -52,8 +56,9 @@ before recommending it:
   `implement`, so say what unblocks it instead.
 - The tree wins over the plan: use `.claude/skills/plan/scripts/plan_record.py show <plan>` and check that the first remaining unit's
   files are in the state the plan expects. Report a plan whose work landed
-  under another plan as a mismatch, with the evidence; resolve it with the
-  appropriate `plan_record.py` command, not an implementation.
+  under another plan as a mismatch, with the evidence. Resolve it with
+  `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by <path>`,
+  not an implementation.
 
 ## 3. When no plan is open: read the goals
 

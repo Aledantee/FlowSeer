@@ -384,7 +384,6 @@ python3 .claude/skills/plan/scripts/plan_record.py check
 
 Open follow-ups from the first review. None of them holds the verdict.
 
-- .agents/skills/plan/scripts/plan_record.py:60: remove `parent` from `MOVED`; fails: a plan whose frontmatter carries `parent:` must fail `check`; class: gap
 - .agents/skills/plan/scripts/plan_record.py:298: return early for `superseded` as well as `planned`; fails: a parent stored as `superseded` with a retired phase that carries a range must read `superseded`; class: gap
 - .agents/skills/plan/scripts/plan_record.py:391: catch only `OSError` in the rollback; fails: a `retire` whose `git rm` fails must leave the parent's state unchanged; class: gap
 - .agents/skills/next/scripts/plan-queue.py:150: `not review or state["compound"] is None` to `not review`; fails: an implemented plan on a branch with an accepted review and no compound outcome must read `unchecked`; class: gap

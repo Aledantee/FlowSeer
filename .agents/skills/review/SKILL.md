@@ -22,9 +22,10 @@ List the changed files. Read the intended behavior from the plan under
 Read the record of open follow-ups and blocking false-test items an earlier
 review left: the plan's
 `## Review gaps` section, or for planless work the last `gaps:` line of
-`$(git rev-parse --git-dir)/flowseer-checkpoints`. For a plan, read the
-recorded round count with `.claude/skills/plan/scripts/plan_record.py show
-<plan>`. A run on a scope with a recorded verdict is a new review that
+`$(git rev-parse --git-dir)/flowseer-checkpoints`. Read the recorded
+round count beside it: for a plan with
+`.claude/skills/plan/scripts/plan_record.py show <plan>`, or for planless
+work the last `rounds:` line of that file. A run on a scope with a recorded verdict is a new review that
 continues that count (`references/fix-loop.md`, When to stop, says when it
 starts at zero again). Step 3 carries the record's items into the reviewer
 briefs as the previous round's findings, so a fresh session judges them

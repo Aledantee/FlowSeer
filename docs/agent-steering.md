@@ -222,7 +222,11 @@ and the existing agents only.
 One artifact format each. Every plan under `docs/plans/` carries
 `artifact_contract: flowseer-plan/v2` in its Markdown and a
 `*-plan.state.json` file beside it. `plan_record.py` owns the state file and
-the skills name its commands. Every solution carries `applies_when`
+the skills name its commands. The state used to be frontmatter fields and
+`Landed:` lines in a parent, which three scripts each parsed with their own
+regular expressions and their own test for a finished phase, and the
+parent's lines were the one file concurrent phases all wrote. One writer and
+one imported module leave a single place where that test can be wrong. Every solution carries `applies_when`
 frontmatter and a row in `docs/solutions/README.md`. The skills describe these
 formats and nothing else.
 
@@ -350,10 +354,11 @@ command because a model re-reading every file is slow and drifts. So
 and the unmerged branches that touch a plan, and the skill reads its output.
 Work in progress outranks ready work, the Kanban rule of limiting what is
 open; a plan another branch already changes is flagged, since two worktrees
-can otherwise implement the same phase. A dependent phase waits on the test
-`plan-state.py` applies, a prerequisite on `main`, a retired range, or a
-reviewed and compounded phase. The state command also marks a sent-back plan
-for re-planning when its review is `rework`. The
+can otherwise implement the same phase. A dependent phase waits on `finished` in `plan_record.py`, the test
+`plan-state.py` imports too: a prerequisite on `main`, a retired range, or a
+reviewed and compounded phase. An implemented plan whose review reads
+`rework` goes to re-planning, because no skill marks a sent-back plan beyond
+the verdict. The
 prior art has no answer for "nothing is planned": none of the surveyed
 tools compares plans with stated goals, and that comparison is where an
 agent invents a roadmap. `GOALS.md` is the guard: one line per decided
@@ -798,8 +803,8 @@ vocabulary and never edits an instruction file.
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` record
-their outcomes through `plan_record.py`, which `land` reads with `show`: the
-plan state, the verifier receipt under the git dir, and in Orca the card's
+their outcomes through `plan_record.py`. `land` reads the plan state with
+`show`, the verifier receipt under the git dir, and in Orca the card's
 status and comment. Work that skipped the plan has no plan state,
 so the same three lines go to a `flowseer-checkpoints` file beside the
 receipt, with the commit range standing in for the plan. Every checkpoint
