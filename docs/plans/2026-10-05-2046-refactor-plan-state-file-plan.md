@@ -69,6 +69,17 @@ without free text, the command set is wrong and the plan returns to `plan`.
   describe the document and no script gates on them.
 - No direction record. Why: the reason a skill is shaped as it is belongs
   in `docs/agent-steering.md`, which U5 updates.
+- A parent stored as `superseded` or `abandoned` reads that way, and only
+  a stored `planned` is computed from its phases. Why: computed without
+  exception, `abandon` and `supersede` on a parent would change nothing a
+  reader sees, and the parent could never retire.
+  (decided by the user, 2026-10-05)
+
+Ruled: `check` also rejects an implemented phase without `landed`, `superseded_by` set on any status but `superseded` or missing on that one, `after` on a plan without a parent, a phase its parent's `phases` does not list, a `phases` entry whose state names another parent, and a `retired` entry whose plan is still on disk. Why: Requirement 4 has `implemented` refuse a phase without a range, and a command refuses only what `check` rejects. The link rules let a reader follow `parent` and `phases` in either direction without testing both. Cost if wrong: one condition and one test case per rule, and U2's migration has to satisfy them.
+Ruled: `replan` without `--needs-decisions` sets `readiness` to `implementation-ready`. Why: the flag is the only way the row of Requirement 4 names to leave a re-plan open. Cost if wrong: one line and the `replan` step of U5.
+Ruled: `is` also takes `<field>!=<value>`, reads an unset field as `null`, and exits 2 when the plan has no state or the field does not exist. Why: `land`'s gate asks whether `compound` is set, which equality cannot express, and a `wait --until` must not read a missing file as a false test. Cost if wrong: `cmd_is` and the conditions U5 writes.
+Ruled: `retire` runs `git rm -f` and stages the parent's state. Why: the state file usually carries an uncommitted command result when a plan retires, and a commit holding the delete without the parent's `retired` entry fails `check`. It refuses a plan whose Markdown has uncommitted changes, since the forced delete would drop them. Cost if wrong: a few lines of `transition` and `cmd_retire`.
+Ruled: a command that writes two state files restores both when the second write or the `git rm` fails, and `replan` reads the ledger before it changes the state. Why: a phase its parent does not list, or a reset plan beside a ledger of passed units, is a fault no command repairs. Cost if wrong: the rollback in `transition` and two tests.
 
 ## Requirements
 
@@ -140,6 +151,9 @@ without free text, the command set is wrong and the plan returns to `plan`.
    Example: a parent whose last phase reads `implemented` and is still on
    disk prints `status: planned`, and a parent whose only phase retired
    as `abandoned` prints `status: planned`.
+   A stored `superseded` or `abandoned` stands. Example: an abandoned
+   parent with a retired phase that carries a range prints
+   `status: abandoned`.
 6. One exported test decides whether a phase frees its dependents: its
    `retired` entry carries a landed range, or its `landed.last` is an
    ancestor of `main`, or it reads `implemented` and
