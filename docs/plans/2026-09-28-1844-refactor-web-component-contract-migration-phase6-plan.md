@@ -4,7 +4,7 @@ type: feat
 date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: partially-implemented
+status: implemented
 review: rework
 review_rounds: 2
 execution: mixed
@@ -14,14 +14,14 @@ parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-pla
 
 # Web Component Contract Migration, Phase 6 - Generative UI Catalog and Renderer - Plan
 
-> Partially implemented: U1 to U4, 2026-10-05T16:09Z to 2026-10-05T17:14Z.
-> U5 remains. A review ended in rework after two fix rounds on how the
-> validator reads a live value from the handler, and U5 replaces that
-> mechanism. All ten components stayed in the catalog. The browser check ran
-> on the `UiAiRender` stories and on `AnswerWithComponents` in both themes,
-> both locales, and at narrow and wide widths. The running-app step, asking
-> the assistant about a device and following the mock answer's button, did
-> not run.
+> Implemented. 5 units, 2026-10-05T16:09Z to 2026-10-05T18:49Z. The fifth
+> unit followed a review that ended in rework after two fix rounds, and it
+> moved the one clone of an answer's tree into the registry. All ten
+> components stayed in the catalog. The browser check ran on the
+> `UiAiRender` stories and on `AnswerWithComponents` in both themes, both
+> locales, and at narrow and wide widths. The running-app step, asking the
+> assistant about a device and following the mock answer's button, did not
+> run.
 
 ## Goal
 
@@ -409,14 +409,14 @@ assistant about a device and follow the mock answer's button.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path.
+- [x] The verifier is green for every changed path.
 - [x] The parent's requirement 5 holds: a tree naming `UiStatusBadge` with
       `status: 'Offline'` renders, and a tree naming `div` or passing
       `onClick` renders the error state.
 - [x] The browser check ran, or the outcome note says it did not and why.
 - [x] The direction record and the README changed in the same change as
       the code.
-- [ ] This plan's `status` is set with an outcome note under its title,
+- [x] This plan's `status` is set with an outcome note under its title,
       and the parent's `Landed:` line for this phase is filled.
 - [x] No requirement or unit label appears in code, comments, or commits.
 
