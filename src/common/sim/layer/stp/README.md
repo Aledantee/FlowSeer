@@ -99,7 +99,8 @@ If Message Age is greater than Max Age, the BPDU is discarded"
 13.23.6, 13.27.30, and 13.28).
 
 The second bound is silence. Accepted information lives for `3 × HelloTime` from
-the moment it arrived, after which `Advance` expires it and the roles are recomputed.
+the moment it arrived, after which `Advance` expires it and the roles are recomputed. A received Hello
+Time below 1 second counts as 1 second.
 
 Internal information — a BPDU whose configuration identifier matches this
 bridge's own — ages by hop count instead: it is accepted while
@@ -187,9 +188,11 @@ ways and let the two disagree.
 
 Each VLAN runs the landed RSTP machine. `PVST.Trees` holds one `Tree` per
 VLAN, with the per-port priority and path cost overrides `InstancePort`
-already carries, and `PVST.Normalize` fills a tree that names no priority from
+already carries. `PVST.Normalize` fills a tree that names no priority from
 the bridge's own, so a bridge configured to be root is root on every VLAN it
-does not override. A tree's bridge identifier carries its VLAN in the low 12
+does not override. `Config.Normalize` fills a tree or instance port that names
+no priority from the bridge port's and marks it present, so the layer,
+`Canonical`, and `Diff` read one value. A tree's bridge identifier carries its VLAN in the low 12
 bits of the system-ID extension, the way an MSTI carries its MSTID, which is
 what the multiple-of-4096 rule on a tree priority reserves those bits for.
 
@@ -303,28 +306,43 @@ down, since only that can replace the neighbor.
 A version 3 BPDU carries the CIST fields every RST BPDU does, plus a 51-octet
 MST configuration identifier, the CIST's internal root path cost and remaining
 hops, and one 16-octet record per instance the sender maps a VLAN into.
-`bpdu.Decode` reads all of it: `bpdu.BPDU.ConfigID`, `RegionalRootID`,
-`InternalRootPathCost`, `RemainingHops`, and `MSTIs` come back filled whenever
-the payload holds enough octets for the MST body.
+`bpdu.Decode` classifies a frame by IEEE 802.1Q-2003 14.4, counting octets from
+the Protocol Identifier ([Q2003][q2003]):
 
-When the payload is too short to hold that body at all — a peer running plain
-RSTP that sent a 39-octet RST BPDU with version 3 in the header, or a capture
-truncated before the MST body starts — `bpdu.Decode` still reads the RST prefix
-and returns it with `ConfigID` nil and no records, rather than refusing the
-frame. A payload long enough for the MST body but truncated inside the MSTI
-records is refused, not fallen back to the RST prefix: at that point the
-sender meant to carry MST fields and `bpdu.Decode` cannot tell which ones survived
-the truncation. The UNH-IOL MSTP conformance suite is why the version number
-alone never disqualifies a BPDU: "A compliant device must not validate an MST
-BPDU based on the value encoded in the Protocol Version Identifier field.
-This allows future versions of the Spanning Tree Protocol to use this field
-while providing support for legacy versions" ([MSTP_conformance.pdf][unh-mstp],
-Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011 sub-clause 14.4). This is also
-why version 4 and later decode the same way as a short version 3 payload,
-with `ConfigID` nil, rather than being rejected outright. Refusing a short
-version 3 payload would leave a netsim bridge facing that peer with both ends
-Designated and Forwarding, an unbroken loop and a worse answer than the
-RST-prefix approximation.
+| Type | Version | Rest of the frame | Decoded as |
+| --- | --- | --- | --- |
+| `0x00` | any | 35 octets or more | Configuration BPDU (14.4 a) |
+| `0x80` | any | 4 octets or more | TCN BPDU (14.4 b) |
+| `0x02` | 2 | 36 octets or more | RST BPDU (14.4 c) |
+| `0x02` | 3 or above | 102 octets or more, Version 1 Length 0, Version 3 Length naming 0 to 64 whole records | MST BPDU (14.4 e) |
+| `0x02` | 3 or above | 35 octets or more, any other shape | RST BPDU (14.4 d) |
+
+Anything else is refused. The standard does not say what to do with an MST BPDU
+whose payload differs in length from the Version 3 Length it names, so
+`bpdu.Decode` refuses that too: at that point the sender meant to carry MST
+fields and the decoder cannot tell which ones survived. An MST BPDU naming
+more than 64 records is therefore an RST BPDU, as is a short version 3 payload
+from a peer running plain RSTP. The UNH-IOL MSTP conformance suite is why the
+version number alone never disqualifies a BPDU: "A compliant device must not
+validate an MST BPDU based on the value encoded in the Protocol Version
+Identifier field. This allows future versions of the Spanning Tree Protocol to
+use this field while providing support for legacy versions"
+([MSTP_conformance.pdf][unh-mstp], Test MSTP.op.1.3, citing IEEE Std
+802.1Q-2011 sub-clause 14.4). A Hello Time of zero decodes as zero, and the
+layer ages such a BPDU's information by 1 second, the lowest Hello Time the
+UNH-IOL RSTP suite sends as valid (RSTP.op.4.3 Part B). The draft text that
+raises a smaller value to the minimum takes the minimum from IEEE Std 802.1D
+Table 17-1, which was not read.
+
+An MSTI record sends its bridge priority and its port priority in bits 5 to 8
+of one octet and zero in bits 1 to 4 (14.6.1 d and e). The layer hands the
+codec the top octet of the instance's bridge identifier and of the port
+identifier, and rebuilds the identifiers from the octet's high nibble on
+receipt: the MSTI port identifier is that nibble over the low 12 bits of the
+CIST Port Identifier. A port priority that is not a multiple of 16 loads, and
+the layer sends its high nibble.
+
+[q2003]: https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf
 
 [unh-mstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/MSTP_conformance.pdf
 
@@ -384,9 +402,9 @@ A region configuration is refused at construction, with the field path it
 names, when: an instance claims a VLAN outside 1 through 4094; the region
 name contains a NUL byte; an instance lists a port that is not in this
 bridge's spanning tree port set; an instance port's path cost exceeds the
-maximum path cost; or the region holds more instances than one BPDU's
-version 3 length field can carry. The last one is a wire limit rather than an
-arbitrary cap: a region within it always has a BPDU to send, and a region
+maximum path cost; or the region holds more than 64 instances, the most one MST BPDU may
+carry (`bpdu.MaxMSTIRecords`, 802.1Q-2003 13.14). The last one is a wire limit
+rather than an arbitrary cap: a region within it always has a BPDU to send, and a region
 that validates but cannot be encoded would be a configuration with no
 correct simulated answer.
 
