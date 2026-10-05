@@ -2,8 +2,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { AiStaleError, AiUnavailableError, createAiRegistry } from './registry'
 import type { AiRegistry, AiViewport } from './registry'
+import { validateAiUiTree } from './catalog'
 import { installAiWindow } from './window'
-import type { AiAnswer, AiHandler, AiSummary, AiTarget } from './types'
+import type {
+  AiAnswer,
+  AiHandler,
+  AiResult,
+  AiSummary,
+  AiTarget,
+} from './types'
 
 function target(id: string, extra: Partial<AiTarget> = {}): AiTarget {
   return {
@@ -456,29 +463,34 @@ describe('request snapshots and AiRun', () => {
     }
     expect(results1).toEqual([sampleAnswer])
 
-    // Iterable snapshot order
+    // Iterable snapshot order and handler-owned objects
     const snap1: AiSummary = { ...sampleSummary, headline: 'Snapshot 1' }
     const snap2: AiSummary = { ...sampleSummary, headline: 'Snapshot 2' }
     registry.onRequest(async function* () {
+      yield sampleAnswer
       yield snap1
       yield snap2
     })
     const run2 = registry.request(t, { action: 'summary' })
-    const results2: AiSummary[] = []
+    const results2: AiResult[] = []
     for await (const s of run2.snapshots) {
-      results2.push(s as AiSummary)
+      results2.push(s)
     }
-    expect(results2).toEqual([snap1, snap2])
+    expect(results2[0]).toBe(sampleAnswer)
+    expect(results2[1]).toBe(snap1)
+    expect(results2[2]).toBe(snap2)
   })
 
-  it('passes an answer UI value through unchanged', async () => {
+  it('passes a cloneable answer ui through an async iterator', async () => {
     const registry = createAiRegistry()
     const node = element()
     const t = target('a:devices:device:d1')
     registry.register(node, t)
     const ui = 42
 
-    registry.onRequest(async () => ({ ...sampleAnswer, ui }))
+    registry.onRequest(async function* () {
+      yield { ...sampleAnswer, ui }
+    })
     const run = registry.request(t, { action: 'ask' })
     const snapshots: AiAnswer[] = []
     for await (const snapshot of run.snapshots) {
@@ -487,6 +499,140 @@ describe('request snapshots and AiRun', () => {
 
     expect(snapshots[0]?.ui).toBe(ui)
   })
+
+  it('clones an answer ui before yielding from an async iterator', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+    const ui = [{ component: 'UiBadge', props: { text: 'Ready' } }]
+
+    registry.onRequest(async function* () {
+      yield { ...sampleAnswer, ui }
+      ui[0]!.props.text = 'Changed'
+    })
+
+    const run = registry.request(t, { action: 'ask' })
+    const snapshots: AiAnswer[] = []
+    for await (const snapshot of run.snapshots) {
+      snapshots.push(snapshot as AiAnswer)
+    }
+
+    expect(snapshots[0]?.ui).not.toBe(ui)
+    expect(snapshots[0]?.ui).toEqual([
+      { component: 'UiBadge', props: { text: 'Ready' } },
+    ])
+  })
+
+  it('clones an answer ui before yielding a single value', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+    const ui = [{ component: 'UiBadge', props: { text: 'Ready' } }]
+    const answer = { ...sampleAnswer, ui }
+
+    registry.onRequest(() => answer)
+    const run = registry.request(t, { action: 'ask' })
+    const snapshots: AiAnswer[] = []
+    for await (const snapshot of run.snapshots) {
+      snapshots.push(snapshot as AiAnswer)
+    }
+
+    expect(snapshots[0]).not.toBe(answer)
+    expect(snapshots[0]?.ui).not.toBe(ui)
+    expect(snapshots[0]?.ui).toEqual(ui)
+  })
+
+  it('drops hidden and inherited ui data in the registry snapshot', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+    const badgeProps: Record<string, unknown> = { text: 'Ready' }
+    Object.defineProperty(badgeProps, 'onClick', {
+      enumerable: false,
+      value: () => {},
+    })
+    const query = Object.create({ inherited: 'hidden' }) as Record<
+      string,
+      string
+    >
+    query.site = 'berlin'
+
+    registry.onRequest(async function* () {
+      yield {
+        ...sampleAnswer,
+        ui: [
+          { component: 'UiBadge', props: badgeProps },
+          {
+            component: 'UiButton',
+            props: {
+              text: 'Open site',
+              intent: { type: 'navigate', target: { query } },
+            },
+          },
+        ],
+      }
+    })
+
+    const run = registry.request(t, { action: 'ask' })
+    const snapshots: AiAnswer[] = []
+    for await (const snapshot of run.snapshots) {
+      snapshots.push(snapshot as AiAnswer)
+    }
+
+    const snapshotUi = snapshots[0]?.ui as Array<{
+      props: Record<string, unknown>
+    }>
+    expect(Object.hasOwn(snapshotUi[0]!.props, 'onClick')).toBe(false)
+    expect(validateAiUiTree(snapshotUi)).toEqual(snapshotUi)
+    const copiedQuery = (
+      snapshotUi[1]!.props.intent as {
+        target: { query: Record<string, string> }
+      }
+    ).target.query
+    expect(copiedQuery).toEqual({ site: 'berlin' })
+    expect(Object.hasOwn(copiedQuery, 'inherited')).toBe(false)
+  })
+
+  it.each([
+    ['a function', { broken: () => {} }],
+    ['a Proxy', new Proxy([], {})],
+    [
+      'an accessor that throws',
+      (() => {
+        const value: Record<string, unknown> = {}
+        Object.defineProperty(value, 'broken', {
+          enumerable: true,
+          get: () => {
+            throw new Error('handler failure')
+          },
+        })
+        return value
+      })(),
+    ],
+  ])(
+    'turns %s into a tree error without halting the run',
+    async (_name, ui) => {
+      const registry = createAiRegistry()
+      const node = element()
+      const t = target('a:devices:device:d1')
+      registry.register(node, t)
+
+      registry.onRequest(async function* () {
+        yield { ...sampleAnswer, ui }
+      })
+
+      const run = registry.request(t, { action: 'ask' })
+      const snapshots: AiAnswer[] = []
+      for await (const snapshot of run.snapshots) {
+        snapshots.push(snapshot as AiAnswer)
+      }
+
+      expect(snapshots).toEqual([{ ...sampleAnswer, ui: null }])
+    },
+  )
 
   it('ends the run with an error when an invalid snapshot is returned', async () => {
     const registry = createAiRegistry()

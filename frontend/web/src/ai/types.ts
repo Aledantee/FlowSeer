@@ -66,7 +66,7 @@ export interface AiAnswer {
   text: string
   refs: AiEntityRef[]
   summary?: AiSummary
-  // The renderer validates this untrusted tree with validateAiUiTree.
+  // The registry clones this untrusted tree and the renderer validates it.
   ui?: unknown
 }
 

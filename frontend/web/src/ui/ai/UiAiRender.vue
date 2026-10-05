@@ -26,7 +26,7 @@ export const AI_UI_COMPONENTS: Record<string, Component> = {
 </script>
 
 <script setup lang="ts">
-import { computed, h, inject, toRaw, type VNodeChild } from 'vue'
+import { computed, h, inject, type VNodeChild } from 'vue'
 import {
   type AiUiNavigateIntent,
   type AiUiNode,
@@ -47,9 +47,7 @@ const page = inject(pageContext, null)
 const errorText = computed(() => props.errorLabel ?? t('ui.aiRender.error'))
 const validatedTree = computed<AiUiNode[] | null>(() => {
   try {
-    // The validator clones its input and a clone refuses a Proxy, which is
-    // what a tree held in reactive state arrives as.
-    return validateAiUiTree(toRaw(props.tree))
+    return validateAiUiTree(props.tree)
   } catch {
     return null
   }
