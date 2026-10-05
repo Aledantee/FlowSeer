@@ -4,11 +4,13 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 ---
 
 # Web Component Contract Migration - Plan
+
+> Implemented. 6 phases, each with its commit range on its `Landed:` line.
 
 ## Goal
 
@@ -115,7 +117,7 @@ Landed: `106bf6b6..0187a000`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase6-plan.md`
 After: U5
-Landed:
+Landed: `e88ec98f..c4604fd2`
 
 Waves: U1 | U2 U3 | U4 | U5 | U6
 

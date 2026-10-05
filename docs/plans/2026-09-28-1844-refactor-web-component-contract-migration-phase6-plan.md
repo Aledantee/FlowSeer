@@ -4,13 +4,20 @@ type: feat
 date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 6 - Generative UI Catalog and Renderer - Plan
+
+> Implemented. 4 units, 2026-10-05T16:09Z to 2026-10-05T17:14Z. All ten
+> components stayed in the catalog. The browser check ran on the
+> `UiAiRender` stories and on `AnswerWithComponents` in both themes, both
+> locales, and at narrow and wide widths. The running-app step, asking the
+> assistant about a device and following the mock answer's button, did not
+> run.
 
 ## Goal
 
@@ -300,22 +307,31 @@ assistant about a device and follow the mock answer's button.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path.
-- [ ] The parent's requirement 5 holds: a tree naming `UiStatusBadge` with
+- [x] The verifier is green for every changed path.
+- [x] The parent's requirement 5 holds: a tree naming `UiStatusBadge` with
       `status: 'Offline'` renders, and a tree naming `div` or passing
       `onClick` renders the error state.
-- [ ] The browser check ran, or the outcome note says it did not and why.
-- [ ] The direction record and the README changed in the same change as
+- [x] The browser check ran, or the outcome note says it did not and why.
+- [x] The direction record and the README changed in the same change as
       the code.
-- [ ] This plan's `status` is set with an outcome note under its title,
+- [x] This plan's `status` is set with an outcome note under its title,
       and the parent's `Landed:` line for this phase is filled.
-- [ ] No requirement or unit label appears in code, comments, or commits.
+- [x] No requirement or unit label appears in code, comments, or commits.
 
 ## Open questions
 
 - Whether a rendered button should be a link instead. A navigate intent is
   a link by meaning, and `src/navigation/AppLink.vue` exists. The plan
   keeps `UiButton` because the catalog decision names it. Unconfirmed.
-- The German error text. The plan proposes "FlowSeer kann diesen Teil der
-  Antwort nicht anzeigen." beside "FlowSeer cannot show this part of the
-  answer."
+- The German error text. `src/i18n/locales/de.json` holds the proposed
+  "FlowSeer kann diesen Teil der Antwort nicht anzeigen." beside "FlowSeer
+  cannot show this part of the answer." Unconfirmed by a German reader.
+- `validateAiUiTree` reads each input property once and validates the copy
+  it returns (`src/ai/catalog.ts`). The Decisions did not say this. A
+  handler's accessor property could otherwise pass the check with one value
+  and reach the renderer with another.
+- `src/ai/index.ts` also exports `isPagePath` from `src/navigation/page.ts`.
+  Whether the AI entry point should re-export a navigation helper is
+  unreviewed.
+- The mock answer carries no `ui` for a device whose id does not make a page
+  path (`src/ai/mock.ts`). The unit text did not name that case.
