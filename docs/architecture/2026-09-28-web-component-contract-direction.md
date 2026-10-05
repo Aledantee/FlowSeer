@@ -428,8 +428,10 @@ The generative UI catalog and renderer are implemented in
   Proposal intents remain outside the catalog until the console has a service
   API.
 - The validator caps a tree at 64 nodes, four levels, and 500 characters per
-  string (`frontend/web/src/ai/catalog.ts`). It copies the allow-listed data
-  before validation and rendering.
+  string (`frontend/web/src/ai/catalog.ts`). It takes one `structuredClone`
+  of the handler's value, which refuses a Proxy or a function, and copies the
+  allow-listed data from that snapshot before validation and rendering.
+  `UiAiRender` unwraps a tree held in reactive state with `toRaw` first.
 - `UiAiRender` has no `ai` prop. It is a container for agent output, so it
   stands for no entity, value, or action of its own. The structural exemption
   is recorded in `frontend/web/src/ui/ai/targetContract.test.ts`.

@@ -328,10 +328,11 @@ assistant about a device and follow the mock answer's button.
 - The German error text. `src/i18n/locales/de.json` holds the proposed
   "FlowSeer kann diesen Teil der Antwort nicht anzeigen." beside "FlowSeer
   cannot show this part of the answer." Unconfirmed by a German reader.
-- `validateAiUiTree` reads each input property once and validates the copy
-  it returns (`src/ai/catalog.ts`). The Decisions did not say this. A
-  handler's accessor property could otherwise pass the check with one value
-  and reach the renderer with another.
+- `validateAiUiTree` takes one `structuredClone` of its input and validates
+  a copy built from that snapshot (`src/ai/catalog.ts`). The Decisions did
+  not say this. A handler's accessor property or Proxy could otherwise pass
+  the check with one value and reach the renderer with another. An object
+  with its own prototype is accepted as its own enumerable data.
 - `src/ai/index.ts` also exports `isPagePath` from `src/navigation/page.ts`.
   Whether the AI entry point should re-export a navigation helper is
   unreviewed.

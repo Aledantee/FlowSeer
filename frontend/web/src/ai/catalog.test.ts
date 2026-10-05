@@ -7,7 +7,7 @@ import {
   AI_UI_MAX_STRING_LENGTH,
   validateAiUiTree,
 } from './catalog'
-import type { AiUiNode } from './types'
+import type { AiUiNavigateIntent, AiUiNode } from './types'
 
 function node(component: string, props: Record<string, unknown>): AiUiNode {
   return { component, props }
@@ -398,25 +398,23 @@ describe('validateAiUiTree', () => {
     rejects([{ component: 'UiButton', props }])
   })
 
-  it('rejects a query that a later prop read repairs', () => {
+  it('copies only the own keys of a query that has its own prototype', () => {
     const query = Object.create({ inherited: 'value' }) as Record<
       string,
       unknown
     >
     query.site = 'berlin'
-    const props: Record<string, unknown> = {
-      text: 'Open',
-      intent: { type: 'navigate', target: { query } },
-    }
-    Object.defineProperty(props, 'size', {
-      enumerable: true,
-      get: () => {
-        Object.setPrototypeOf(query, Object.prototype)
-        return 'sm'
-      },
-    })
 
-    rejects([{ component: 'UiButton', props }])
+    const copy = validateAiUiTree([
+      node('UiButton', {
+        text: 'Open',
+        intent: { type: 'navigate', target: { query } },
+      }),
+    ])
+    const copied = (copy[0]?.props.intent as AiUiNavigateIntent).target.query
+
+    expect(copied).toEqual({ site: 'berlin' })
+    expect(Object.getPrototypeOf(copied)).toBe(Object.prototype)
   })
 
   it('rejects an entity that a later prop read repairs', () => {
@@ -436,5 +434,38 @@ describe('validateAiUiTree', () => {
     })
 
     rejects([{ component: 'UiAiEntityChip', props }])
+  })
+
+  it('rejects a Proxy tree whose length changes between reads', () => {
+    let reads = 0
+    const length = { valueOf: () => (reads++ === 0 ? 2 : 0) }
+    const tree = new Proxy(
+      [node('UiBadge', { text: 'Ready' }), node('div', {})],
+      {
+        get: (target, key, receiver) =>
+          key === 'length' ? length : Reflect.get(target, key, receiver),
+      },
+    )
+
+    rejects(tree)
+  })
+
+  it('rejects an empty slot that the array prototype would fill', () => {
+    const tree = new Array<unknown>(1)
+    Object.setPrototypeOf(tree, { 0: node('UiBadge', { text: 'Ready' }) })
+
+    rejects(tree)
+  })
+
+  it('reports an input accessor that throws as a rejected tree', () => {
+    const input: Record<string, unknown> = { props: {} }
+    Object.defineProperty(input, 'component', {
+      enumerable: true,
+      get: () => {
+        throw new Error('handler failure')
+      },
+    })
+
+    rejects([input])
   })
 })

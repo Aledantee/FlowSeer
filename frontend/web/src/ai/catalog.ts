@@ -374,8 +374,7 @@ function validateNode(
   return copy
 }
 
-// Reads the array by index. Its own `map` is untrusted input and would skip
-// an empty slot.
+// Reads by index, so an empty slot reads `undefined` and rejects the tree.
 function validateNodes(
   values: unknown[],
   depth: number,
@@ -389,7 +388,18 @@ function validateNodes(
   return copy
 }
 
+// The handler's value is read once, through `structuredClone`, and every
+// check below runs on that snapshot. The clone holds ordinary arrays and
+// objects with data properties only, and it throws for a Proxy, a function,
+// or an accessor that throws, so no later read can answer differently from
+// an earlier one.
 export function validateAiUiTree(value: unknown): AiUiNode[] {
-  if (!Array.isArray(value)) fail()
-  return validateNodes(value, 1, { value: 0 })
+  let snapshot: unknown
+  try {
+    snapshot = structuredClone(value)
+  } catch {
+    fail()
+  }
+  if (!Array.isArray(snapshot)) fail()
+  return validateNodes(snapshot, 1, { value: 0 })
 }

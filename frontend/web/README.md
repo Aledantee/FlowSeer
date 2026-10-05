@@ -650,8 +650,10 @@ The value can look like this:
 
 The validator rejects unknown components, missing or extra node and prop keys,
 invalid values, unsupported children, invalid entities or navigation targets,
-and trees over 64 nodes, four levels, or 500 characters per string. It copies
-allow-listed data before the renderer binds it. Proposal intents remain outside
+and trees over 64 nodes, four levels, or 500 characters per string. It reads
+the handler's value once through `structuredClone`, so a Proxy, a function, or
+an empty array slot rejects the tree, and it copies allow-listed data from that
+snapshot before the renderer binds it. Proposal intents remain outside
 the catalog until the console has a service API.
 
 An example structured `AiSummary` payload:
