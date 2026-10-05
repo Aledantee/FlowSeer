@@ -124,6 +124,21 @@ under Inventory, Sources.
   carries the flag from the running timers. Outside PVST the report is the
   CIST's BPDU, and toward an STP peer it is a TCN from the CIST alone.
   Cost if wrong: the owed-report mark in `S/topology.go` and its callers.
+- Ruled: under PVST a tree's loop-guard mark clears only when a BPDU is
+  applied to that tree (`ReceiveSSTP` for a VLAN, `Receive` for VLAN 1's
+  tree) or on link down, so an SSTP frame that is not admitted, untracked,
+  or PVID-inconsistent leaves the mark. Outside PVST any BPDU on the port
+  clears the CIST's mark. The clear moved out of `receiveLink`, which
+  cannot tell the tree. Why: the unit names "a BPDU applied to that tree".
+  `S/README.md` states the PVST behaviour as modelled on observation.
+  Cost if wrong: one condition in `ReceiveSSTP` and the rows of
+  `TestReceiveSSTPRunsTheLinkHalfForEveryOutcome`.
+- Ruled: `PortInfo.Tree` is a `TreeRef` (`Kind TreeKind`, `ID uint16`),
+  since `Tree` already names the PVST configuration type, and an untracked
+  port reports an empty kind. The MST decision fact appends `config_id`,
+  `regional_root`, `internal_cost`, `remaining_hops`, and an `mstis` list
+  inside the BPDU braces. Cost if wrong: `S/info.go`, `S/fact.go`, and the
+  fact tests.
 
 ## Requirements
 
@@ -648,3 +663,5 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - Open: a Designated port whose topology-change timer starts sends at its
   next hello, not at once. `D2009` 13.29.11 also sets `newInfo` there, and
   the unit text names Root ports only.
+- Open: `Diff` in `S/diff.go` is 197 lines, over the parent's 150-line
+  bound, and no unit of this phase names it.
