@@ -24,7 +24,8 @@ import { pageContext, pageFor } from '../../navigation/page'
 import { workspaceContext, type NoticeKey } from '../../navigation/workspace'
 import { topologyLive } from './live'
 import type { Selection } from './live'
-import { createAiRegistry, createAiTargetDirective } from '../../ai'
+import { createAiRegistry, isAiTargetElement } from '../../ai'
+import { aiRegistryKey } from '../../ui/ai/context'
 import type { AiRegistry } from '../../ai'
 import TopologyInspector from './TopologyInspector.vue'
 import TopologyLink from './TopologyLink.vue'
@@ -146,7 +147,7 @@ function mount(
   app.use(i18n)
   app.provide(pageContext, page)
   app.provide(workspaceContext, workspace)
-  app.directive('ai-target', createAiTargetDirective(registry))
+  app.provide(aiRegistryKey, registry)
   app.mount(host)
   dispose = () => app.unmount()
   return host
@@ -431,8 +432,19 @@ describe('topology in German', () => {
   })
 })
 
+// The nearest registered ancestor, as the context layer resolves a context
+// event that starts in nested markup.
+function targetNear(node: Element | null): string | undefined {
+  for (let element = node; element; element = element.parentElement) {
+    if (!isAiTargetElement(element)) continue
+    const id = registry.idForElement(element)
+    if (id) return id
+  }
+  return undefined
+}
+
 describe('topology AI targets', () => {
-  it('registers a node with its device context', () => {
+  it('registers a node with its device context', async () => {
     const device = devices.find((item) => item.role === 'access-point')
     if (!device) throw new Error('Missing device fixture')
 
@@ -443,13 +455,21 @@ describe('topology AI targets', () => {
       clients: 1250,
     }
 
-    mount(
+    const host = mount(
       TopologyNode,
       { data: { deviceId: customDevice.id } },
       { locale: 'de', fleet: [customDevice] },
     )
+    await nextTick()
 
     const node = registry.view(`standalone:topology:device:${customDevice.id}`)
+    const element = host.querySelector('.topology-node')
+    expect(element).not.toBeNull()
+    expect(node?.element).toBe(element)
+    expect(host.querySelectorAll('.topology-node')).toHaveLength(1)
+    const nested = host.querySelector('.topology-node strong')
+    expect(nested).not.toBeNull()
+    expect(targetNear(nested)).toBe(node?.target.id)
     expect(node?.target.kind).toBe('device')
     expect(node?.target.label).toBe(customDevice.name)
     expect(node?.target.context).toMatchObject({
@@ -461,12 +481,12 @@ describe('topology AI targets', () => {
     })
   })
 
-  it('registers a link label with both endpoint names', () => {
+  it('registers a link label with both endpoint names', async () => {
     const link = linksOf(devices)[0]
     if (!link) throw new Error('Missing link fixture')
     const byId = new Map(devices.map((device) => [device.id, device]))
 
-    mount(TopologyLink, {
+    const host = mount(TopologyLink, {
       id: link.id,
       sourceX: 0,
       sourceY: 0,
@@ -476,8 +496,15 @@ describe('topology AI targets', () => {
       targetPosition: Position.Top,
       data: { linkId: link.id },
     })
+    await nextTick()
 
     const label = registry.view(`standalone:topology:link:${link.id}`)
+    const element = host.querySelector('.topology-link-label')
+    expect(element).not.toBeNull()
+    expect(label?.element).toBe(element)
+    const nested = document.createElement('span')
+    element?.append(nested)
+    expect(targetNear(nested)).toBe(label?.target.id)
     expect(label?.target.kind).toBe('link')
     expect(label?.target.context).toMatchObject({
       health: link.health,

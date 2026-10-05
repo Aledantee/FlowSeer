@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { scopeOf, usePage } from './navigation/page'
 import type { Device } from './domain/fleet'
 import type { Band, Client } from './domain/clients'
@@ -129,8 +130,9 @@ function clearAccessPoint() {
 </script>
 
 <template>
-  <section
-    v-ai-target="viewTarget"
+  <UiAiTarget
+    as="section"
+    :ai="viewTarget"
     class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
     aria-labelledby="clients-title"
   >
@@ -202,7 +204,7 @@ function clearAccessPoint() {
           <UiTableRow
             v-for="client in paginated"
             :key="client.id"
-            v-ai-target="clientTarget(client)"
+            :ai="clientTarget(client)"
           >
             <UiTableCell>
               <strong
@@ -292,5 +294,5 @@ function clearAccessPoint() {
         show-edges
       />
     </footer>
-  </section>
+  </UiAiTarget>
 </template>

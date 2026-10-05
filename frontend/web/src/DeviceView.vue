@@ -2,6 +2,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
 import type { Device, Health, Site } from './domain/fleet'
@@ -282,7 +283,7 @@ function to(path: string, extra: Record<string, string> = {}) {
 </script>
 
 <template>
-  <div v-ai-target="viewTarget" class="grid gap-5">
+  <UiAiTarget :ai="viewTarget" class="grid gap-5">
     <AppLink
       class="inline-flex items-center gap-1.5 justify-self-start text-xs text-muted-foreground hover:text-accent-foreground"
       :to="to('/devices')"
@@ -590,10 +591,11 @@ function to(path: string, extra: Record<string, string> = {}) {
           </AppLink>
         </div>
         <ul v-if="clients.length" class="m-0 p-0 list-none">
-          <li
+          <UiAiTarget
             v-for="client in clients"
             :key="client.id"
-            v-ai-target="clientTarget(client)"
+            as="li"
+            :ai="clientTarget(client)"
             class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
           >
             <span>
@@ -618,7 +620,7 @@ function to(path: string, extra: Record<string, string> = {}) {
                 ])
               }}
             </span>
-          </li>
+          </UiAiTarget>
         </ul>
         <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
           {{
@@ -648,10 +650,11 @@ function to(path: string, extra: Record<string, string> = {}) {
             </h2>
           </div>
           <ul v-if="links.length" class="m-0 p-0 list-none">
-            <li
+            <UiAiTarget
               v-for="link in links"
               :key="link.id"
-              v-ai-target="downlinkTarget(link)"
+              as="li"
+              :ai="downlinkTarget(link)"
               class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
             >
               <AppLink class="group" :to="to(`/devices/${link.id}`)">
@@ -666,7 +669,7 @@ function to(path: string, extra: Record<string, string> = {}) {
                 </small>
               </AppLink>
               <UiStatusBadge :status="link.health" />
-            </li>
+            </UiAiTarget>
           </ul>
           <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
             {{ t('view.device.downlinksNone') }}
@@ -716,5 +719,5 @@ function to(path: string, extra: Record<string, string> = {}) {
         </I18nT>
       </div>
     </div>
-  </div>
+  </UiAiTarget>
 </template>

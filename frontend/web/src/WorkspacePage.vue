@@ -24,6 +24,7 @@ import {
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget, AiTargetSegment } from './ai'
 import { useFormat } from './i18n/format'
@@ -558,8 +559,9 @@ async function handleUndo() {
 
     <template v-if="!scopeError">
       <template v-if="view === 'devices'">
-        <section
-          v-ai-target="inventoryTarget"
+        <UiAiTarget
+          as="section"
+          :ai="inventoryTarget"
           class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
           aria-labelledby="inventory-title"
         >
@@ -623,8 +625,9 @@ async function handleUndo() {
               :key="device.id"
               class="border-t border-border first:border-t-0"
             >
-              <button
-                v-ai-target="deviceTarget(device, 'mobile')"
+              <UiAiTarget
+                as="button"
+                :ai="deviceTarget(device, 'mobile')"
                 :data-device-id="device.id"
                 class="grid grid-cols-[1fr_auto] gap-2.5 w-full py-4 text-left cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
                 @click="openMobileDevice(device)"
@@ -652,7 +655,7 @@ async function handleUndo() {
                 >
                   {{ t('view.devices.viewStatus') }} <AppIcon name="arrow" />
                 </span>
-              </button>
+              </UiAiTarget>
             </li>
           </ul>
 
@@ -753,7 +756,7 @@ async function handleUndo() {
                 <UiTableRow
                   v-for="device in filtered"
                   :key="device.id"
-                  v-ai-target="deviceTarget(device, 'desktop')"
+                  :ai="deviceTarget(device, 'desktop')"
                   :data-device-id="device.id"
                   :class="{
                     peeked: page.primary && sideDeviceId === device.id,
@@ -893,7 +896,7 @@ async function handleUndo() {
               )
             }}</span>
           </footer>
-        </section>
+        </UiAiTarget>
       </template>
 
       <ClientsView
@@ -910,9 +913,10 @@ async function handleUndo() {
         :tenant-name="tenantName"
       />
 
-      <section
+      <UiAiTarget
         v-else-if="view === 'sites'"
-        v-ai-target="sitesViewTarget"
+        as="section"
+        :ai="sitesViewTarget"
         class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
         aria-labelledby="sites-title"
       >
@@ -951,7 +955,7 @@ async function handleUndo() {
               <UiTableRow
                 v-for="rollup in siteRows"
                 :key="rollup.site.id"
-                v-ai-target="siteRowTarget(rollup)"
+                :ai="siteRowTarget(rollup)"
               >
                 <UiTableCell>
                   <AppLink
@@ -1029,7 +1033,7 @@ async function handleUndo() {
             </UiTableBody>
           </UiTable>
         </UiScrollArea>
-      </section>
+      </UiAiTarget>
     </template>
   </template>
 </template>
