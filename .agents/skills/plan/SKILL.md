@@ -37,22 +37,9 @@ decision carries its reason.
 Load `references/replan-phase.md` before re-planning a phase plan (one with
 a `parent:` field): it holds the checks that the tree is fit to plan from.
 
-When the plan being re-planned reads `status: implemented` (a review that
-ended in `rework` sent it back), set `status: planned` and delete its
-`review` and `compound` fields in the edit that makes it
-`implementation-ready`. Its Units list then holds open work only: a unit
-that stands as built leaves the list, because `implement` starts every
-listed unit as `pending` and `ledger.py` refuses `passed` for a unit with
-nothing to commit. A plan left `implemented` reads as finished to `next`,
-`drive`, and `land`. When
-`.claude/skills/verify-change/scripts/ledger.py show` prints a ledger
-naming this plan, delete it in the same step. Its `passed` units would
-make `implement` skip a redesigned unit that kept its id, and `implement`
-starts a fresh ledger when none exists:
-
-```bash
-find "$(git rev-parse --git-dir)" -maxdepth 1 -name flowseer-plan-status.json -delete
-```
+Load `references/replan-implemented.md` before re-planning a plan that reads
+`status: implemented` (a review that ended in `rework` sent it back): it
+holds the fields, the Units list, and the ledger to reset.
 
 ### Promote a decision to a direction record
 

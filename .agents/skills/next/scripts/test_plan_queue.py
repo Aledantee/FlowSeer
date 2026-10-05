@@ -107,8 +107,11 @@ class PlanQueueTest(unittest.TestCase):
         self.assertEqual(self.groups().get(PLAIN), "replan")
 
     def test_sent_back_phase_on_this_branch_with_empty_landed_line_is_a_replan(self):
-        self.finish(PHASE, f"artifact_readiness: needs-decisions\nparent: {PARENT}\n")
-        self.commit("phase sent back on the branch, Landed empty")
+        self.write(
+            PHASE,
+            f"---\nstatus: implemented\nartifact_readiness: needs-decisions\nreview: rework\nparent: {PARENT}\n---\n",
+        )
+        self.commit("phase sent back by a rework review, Landed empty")
         self.assertEqual(self.groups().get(PHASE), "replan")
 
     def test_sent_back_plan_with_a_rework_verdict_is_a_replan(self):
