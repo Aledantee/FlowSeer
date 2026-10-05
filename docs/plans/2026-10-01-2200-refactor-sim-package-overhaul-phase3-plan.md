@@ -4,12 +4,14 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan
+
+> Implemented. 6 units, 2026-10-05T07:28Z to 2026-10-05T09:39Z.
 
 ## Goal
 
@@ -623,14 +625,14 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Every Inventory entry has its failing-first test or is struck.
-- [ ] `S/README.md` and `B/README.md` name the edition, sources, clauses,
+- [x] Verifier green for every changed path.
+- [x] Every Inventory entry has its failing-first test or is struck.
+- [x] `S/README.md` and `B/README.md` name the edition, sources, clauses,
       and limits, and say nothing the code no longer does.
-- [ ] No non-test file in `layer/stp` exceeds 1,200 lines and no function
+- [x] No non-test file in `layer/stp` exceeds 1,200 lines and no function
       150, unless a comment at its head states why it is one unit.
-- [ ] No plan label appears in code, comments, or commit messages.
-- [ ] This plan's `status` is set with an outcome note under its title, and
+- [x] No plan label appears in code, comments, or commit messages.
+- [x] This plan's `status` is set with an outcome note under its title, and
       the parent's U3 `Landed:` line holds the range.
 
 ## Open questions
