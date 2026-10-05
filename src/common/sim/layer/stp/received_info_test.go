@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -198,8 +199,10 @@ func TestForwardDelayLadderStepsByTheRootsForwardDelay(t *testing.T) {
 // steps by the CIST's Forward Delay on a bridge that is not the regional root.
 // An MSTI record carries no timers, so the MSTI's Root port has none of its
 // own to read (P802.1aq/D1.5 13.28.9, draft text: FwdDelay is the Forward
-// Delay component of the CIST's designatedTimes). A port that comes up with no
-// peer climbs MSTI 1's ladder in step with the CIST's.
+// Delay component of the CIST's designatedTimes). The root advertises a
+// Forward Delay of 10 seconds where this bridge's own is 15, and its hellos
+// keep arriving, so a port that comes up with no peer climbs MSTI 1's ladder
+// in step with the CIST's on the root's times.
 func TestMSTIForwardDelayLadderStepsByTheCISTsTimes(t *testing.T) {
 	t.Parallel()
 
@@ -210,10 +213,12 @@ func TestMSTIForwardDelayLadderStepsByTheCISTsTimes(t *testing.T) {
 		}}
 	}
 	root := mustNewSTP(t, stp.Config{
-		Priority: 4096,
-		Address:  mustMAC(t, "00:11:22:33:44:01"),
-		Ports:    map[string]stp.Port{"l1": {}},
-		MST:      region(),
+		Priority:     4096,
+		Address:      mustMAC(t, "00:11:22:33:44:01"),
+		MaxAge:       18 * time.Second,
+		ForwardDelay: 10 * time.Second,
+		Ports:        map[string]stp.Port{"l1": {}},
+		MST:          region(),
 	}, mustPortTable(t, "l1"))
 	l := mustNewSTP(t, stp.Config{
 		Priority: 32768,
@@ -235,22 +240,65 @@ func TestMSTIForwardDelayLadderStepsByTheCISTsTimes(t *testing.T) {
 
 	l.LinkChange(t0, "p3", true, true, 1_000_000_000)
 
+	// Only l1 is cabled, so a frame from either side's l1 reaches the other's.
+	deliver := func(now time.Time, from int, emissions []layer.Emission) {
+		type frame struct {
+			to int
+			f  ethernet.Frame
+		}
+		var queue []frame
+		push := func(src int, ems []layer.Emission) {
+			for _, em := range ems {
+				if em.Port == "l1" {
+					queue = append(queue, frame{to: 1 - src, f: em.Frame})
+				}
+			}
+		}
+		push(from, emissions)
+		for len(queue) > 0 {
+			next := queue[0]
+			queue = queue[1:]
+			b, err := bpdu.Decode(next.f)
+			if err != nil {
+				t.Fatalf("decode a frame for switch %d: %v", next.to, err)
+			}
+			push(next.to, layers[next.to].Receive(now, "l1", b).Emissions)
+		}
+	}
+	runUntil := func(target time.Time) {
+		for {
+			var wake time.Time
+			found := false
+			for _, sw := range layers {
+				if w, ok := sw.NextWake(); ok && !w.After(target) && (!found || w.Before(wake)) {
+					wake, found = w, true
+				}
+			}
+			if !found {
+				break
+			}
+			for i, sw := range layers {
+				deliver(wake, i, sw.Advance(wake).Emissions)
+			}
+		}
+		for i, sw := range layers {
+			deliver(target, i, sw.Advance(target).Emissions)
+		}
+	}
+
 	for _, c := range []struct {
 		at   time.Duration
 		want stp.State
 	}{
 		{0, stp.StateDiscarding},
-		{14 * time.Second, stp.StateDiscarding},
-		{15 * time.Second, stp.StateLearning},
-		{29 * time.Second, stp.StateLearning},
-		{30 * time.Second, stp.StateForwarding},
+		{9 * time.Second, stp.StateDiscarding},
+		{10 * time.Second, stp.StateLearning},
+		{19 * time.Second, stp.StateLearning},
+		{20 * time.Second, stp.StateForwarding},
 	} {
-		now := t0.Add(c.at)
-		for _, sw := range layers {
-			for w, ok := sw.NextWake(); ok && !w.After(now); w, ok = sw.NextWake() {
-				sw.Advance(w)
-			}
-			sw.Advance(now)
+		runUntil(t0.Add(c.at))
+		if info := l.VLANPortInfo(10, "l1"); info.Role != bpdu.RoleRoot {
+			t.Fatalf("MSTI 1 l1 role at +%v = %v, want Root: the root's information must stay current", c.at, info.Role)
 		}
 		if got := l.VLANPortInfo(1, "p3").State; got != c.want {
 			t.Fatalf("CIST p3 state at +%v = %v, want %v", c.at, got, c.want)
