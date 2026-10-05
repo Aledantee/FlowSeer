@@ -273,7 +273,7 @@ function defineValue(
 }
 
 function copyEntityValue(value: unknown): unknown {
-  if (!isPlainObject(value) || !hasOnlyKeys(value, ENTITY_KEYS)) return value
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ENTITY_KEYS)) fail()
   const kind = value.kind
   const id = value.id
   const label = value.label
@@ -281,7 +281,7 @@ function copyEntityValue(value: unknown): unknown {
 }
 
 function copyQueryValue(value: unknown): unknown {
-  if (!isPlainObject(value)) return value
+  if (!isPlainObject(value)) fail()
   const keys = Reflect.ownKeys(value)
   const copy = Object.create(Object.getPrototypeOf(value)) as AiUiProps
   for (const key of keys) {
@@ -292,11 +292,11 @@ function copyQueryValue(value: unknown): unknown {
 }
 
 function copyIntentValue(value: unknown): unknown {
-  if (!isPlainObject(value) || !hasOnlyKeys(value, INTENT_KEYS)) return value
+  if (!isPlainObject(value) || !hasOnlyKeys(value, INTENT_KEYS)) fail()
   const type = value.type
   const targetValue = value.target
   if (!isPlainObject(targetValue) || !hasOnlyKeys(targetValue, TARGET_KEYS)) {
-    return value
+    fail()
   }
   const target = Object.create(Object.getPrototypeOf(targetValue)) as AiUiProps
   if (Object.hasOwn(targetValue, 'path')) {
@@ -369,15 +369,27 @@ function validateNode(
   const children = hasChildren ? value.children : undefined
   if (hasChildren) {
     if (!catalogEntryValue.children || !Array.isArray(children)) fail()
-    copy.children = children.map((child) =>
-      validateNode(child, depth + 1, count),
-    )
+    copy.children = validateNodes(children, depth + 1, count)
+  }
+  return copy
+}
+
+// Reads the array by index. Its own `map` is untrusted input and would skip
+// an empty slot.
+function validateNodes(
+  values: unknown[],
+  depth: number,
+  count: { value: number },
+): AiUiNode[] {
+  const copy: AiUiNode[] = []
+  const length = values.length
+  for (let index = 0; index < length; index++) {
+    copy.push(validateNode(values[index], depth, count))
   }
   return copy
 }
 
 export function validateAiUiTree(value: unknown): AiUiNode[] {
   if (!Array.isArray(value)) fail()
-  const count = { value: 0 }
-  return value.map((nodeValue) => validateNode(nodeValue, 1, count))
+  return validateNodes(value, 1, { value: 0 })
 }

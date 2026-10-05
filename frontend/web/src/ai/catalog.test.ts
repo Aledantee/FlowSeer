@@ -329,4 +329,112 @@ describe('validateAiUiTree', () => {
 
     expect(copy[0]?.component).toBe('UiBadge')
   })
+
+  it('validates each node of a tree whose array carries its own map', () => {
+    const unchecked = [{ component: 'div', props: {} }]
+    const tree: unknown[] = [node('UiBadge', { text: 'Ready' })]
+    Object.defineProperty(tree, 'map', { value: () => unchecked })
+
+    expect(validateAiUiTree(tree)).toEqual([
+      { component: 'UiBadge', props: { text: 'Ready' } },
+    ])
+  })
+
+  it('validates each child of a card whose children carry their own map', () => {
+    const unchecked = [{ component: 'div', props: {} }]
+    const children: unknown[] = [node('UiBadge', { text: 'Ready' })]
+    Object.defineProperty(children, 'map', { value: () => unchecked })
+
+    const copy = validateAiUiTree([
+      { component: 'UiCard', props: {}, children },
+    ])
+
+    expect(copy[0]?.children).toEqual([
+      { component: 'UiBadge', props: { text: 'Ready' } },
+    ])
+  })
+
+  it('rejects a tree with an empty slot', () => {
+    const tree: unknown[] = []
+    tree[1] = node('UiBadge', { text: 'Ready' })
+
+    rejects(tree)
+  })
+
+  // Each prop below is read after the value it repairs, so the repaired
+  // object would pass validation if the copy step had kept it.
+  it('rejects an intent that a later prop read repairs', () => {
+    const intent: Record<string, unknown> = {
+      type: 'navigate',
+      target: { path: '/devices' },
+      extra: true,
+    }
+    const props: Record<string, unknown> = { text: 'Open', intent }
+    Object.defineProperty(props, 'size', {
+      enumerable: true,
+      get: () => {
+        delete intent.extra
+        return 'sm'
+      },
+    })
+
+    rejects([{ component: 'UiButton', props }])
+  })
+
+  it('rejects a target that a later prop read repairs', () => {
+    const target: Record<string, unknown> = { path: '/devices', extra: true }
+    const props: Record<string, unknown> = {
+      text: 'Open',
+      intent: { type: 'navigate', target },
+    }
+    Object.defineProperty(props, 'size', {
+      enumerable: true,
+      get: () => {
+        delete target.extra
+        return 'sm'
+      },
+    })
+
+    rejects([{ component: 'UiButton', props }])
+  })
+
+  it('rejects a query that a later prop read repairs', () => {
+    const query = Object.create({ inherited: 'value' }) as Record<
+      string,
+      unknown
+    >
+    query.site = 'berlin'
+    const props: Record<string, unknown> = {
+      text: 'Open',
+      intent: { type: 'navigate', target: { query } },
+    }
+    Object.defineProperty(props, 'size', {
+      enumerable: true,
+      get: () => {
+        Object.setPrototypeOf(query, Object.prototype)
+        return 'sm'
+      },
+    })
+
+    rejects([{ component: 'UiButton', props }])
+  })
+
+  it('rejects an entity that a later prop read repairs', () => {
+    const entity: Record<string, unknown> = {
+      kind: 'site',
+      id: 'berlin',
+      label: 'Berlin',
+      extra: true,
+    }
+    const props: Record<string, unknown> = { entity }
+    Object.defineProperty(props, 'size', {
+      enumerable: true,
+      get: () => {
+        delete entity.extra
+        return 'sm'
+      },
+    })
+
+    rejects([{ component: 'UiAiEntityChip', props }])
+  })
 })
