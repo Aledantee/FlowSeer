@@ -424,16 +424,28 @@ and the element, using the registry injected through `src/ui/ai/context.ts`
 and the console-wide registry when none is provided. HTML and SVG elements
 are both valid anchors.
 
-Native markup that no component owns, such as a table row, a list item, a
-link, or an SVG group, uses `UiAiTarget` (`src/ui/ai/UiAiTarget.vue`). With
-`as` it renders that tag. With `asChild` it merges into the one child it is
-given. Neither adds a layout element:
+A kit component takes the prop directly, so a table row is a `UiTableRow`
+with `:ai`. Native markup that no component owns, such as a list item, a
+section, or a link, uses `UiAiTarget` (`src/ui/ai/UiAiTarget.vue`). With `as`
+it renders that tag. With `asChild` it merges into the one child it is given.
+Neither adds a layout element. Both shapes appear in `src/DashboardView.vue`:
 
 ```vue
-<UiAiTarget as="li" :ai="siteTarget(site)">{{ site.name }}</UiAiTarget>
+<UiTableRow
+  v-for="rollup in rollups"
+  :key="rollup.site.id"
+  :ai="siteTarget(rollup)"
+>
+  <UiTableCell>{{ rollup.site.name }}</UiTableCell>
+</UiTableRow>
 
-<UiAiTarget as-child :ai="rowTarget(device)">
-  <tr><td>{{ device.name }}</td></tr>
+<UiAiTarget
+  v-for="device in attention"
+  :key="device.id"
+  as="li"
+  :ai="attentionTarget(device)"
+>
+  <AppLink :to="deviceTo(device.id)">{{ device.name }}</AppLink>
 </UiAiTarget>
 ```
 
