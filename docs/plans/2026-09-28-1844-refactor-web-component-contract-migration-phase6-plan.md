@@ -5,8 +5,8 @@ date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: rework
-review_rounds: 2
+review: fixes needed
+review_rounds: 0
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -440,16 +440,13 @@ assistant about a device and follow the mock answer's button.
 
 ## Review gaps
 
-Two fix rounds ran and neither was clean, both on one mechanism: how the
-validator reads a live value from the handler. This plan changed through
-`plan` after that verdict: U5 and its Decisions replace the mechanism, so
-the next review starts its round count at 0. The Decision "The tree is
-cloneable data" settles the hidden-key finding as intended behavior. Three
-behavior findings stay open until U5 lands:
+An earlier review ended in rework after two fix rounds on how the validator
+reads a live value from the handler. The plan then changed through `plan`,
+and the registry's clone replaced that mechanism. The review of that change
+starts its round count at 0. It closed the three renderer findings the
+earlier review left open. One behavior finding holds the verdict:
 
-- `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` unwraps the root only, so a plain tree holding a reactive node, props object, or children array shows the error state; fails: `[{ component: 'UiBadge', props: reactive({ text: 'Ready' }) }]` must render; class: behavior
-- `frontend/web/src/ui/ai/UiAiRender.vue:52`: the computed reads the raw tree and tracks no nested dependency; fails: setting `tree.value[0].props.text` on a mounted reactive tree must change the rendered text; class: behavior
-- `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` follows a `__v_raw` property on any object, so the renderer validates the tree that property names; fails: an array holding a `div` node with `__v_raw` set to a valid tree must show the error state; class: behavior
+- `frontend/web/src/ai/registry.ts:114`: `prepareSnapshot` reads the answer's `ui` up to three times, and returns the handler's own answer object when the first read is `undefined`; fails: an answer whose `ui` accessor returns `undefined` once and a tree afterwards must not reach the renderer with that tree uncloned, and a `ui` accessor that throws on a later read must yield `ui: null` with the text kept; class: behavior
 
 Follow-ups, which do not hold the verdict:
 
