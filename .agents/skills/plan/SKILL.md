@@ -37,6 +37,12 @@ decision carries its reason.
 Load `references/replan-phase.md` before re-planning a phase plan (one with
 a `parent:` field): it holds the checks that the tree is fit to plan from.
 
+When the plan being re-planned reads `status: implemented` (a review that
+ended in `rework` sent it back), set `status: planned` and delete its
+`review` and `compound` fields in the edit that makes it
+`implementation-ready`. The re-planned units are open work, and a plan left
+`implemented` reads as finished to `next`, `drive`, and `land`.
+
 ### Promote a decision to a direction record
 
 A decision that outlives the task belongs in `docs/architecture/`, since a

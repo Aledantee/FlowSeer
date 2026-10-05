@@ -95,6 +95,29 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain done on main")
         self.assertEqual(self.groups().get(PLAIN), "retire")
 
+    def test_finished_plan_sent_back_to_plan_is_a_replan(self):
+        self.git("checkout", "-q", "main")
+        self.write(PLAIN, "---\nstatus: implemented\nartifact_readiness: needs-decisions\n---\n")
+        self.commit("plain sent back to plan")
+        self.assertEqual(self.groups().get(PLAIN), "replan")
+
+    def test_abandoned_plan_that_needs_decisions_still_retires(self):
+        self.git("checkout", "-q", "main")
+        self.write(PLAIN, "---\nstatus: abandoned\nartifact_readiness: needs-decisions\n---\n")
+        self.commit("plain abandoned")
+        self.assertEqual(self.groups().get(PLAIN), "retire")
+
+    def test_finished_parent_that_needs_decisions_still_retires(self):
+        self.git("checkout", "-q", "main")
+        self.write(
+            PARENT,
+            self.parent("abc1234..def5678").replace(
+                "status: planned", "status: implemented\nartifact_readiness: needs-decisions"
+            ),
+        )
+        self.commit("parent done on main")
+        self.assertEqual(self.groups().get(PARENT), "retire")
+
 
 if __name__ == "__main__":
     unittest.main()

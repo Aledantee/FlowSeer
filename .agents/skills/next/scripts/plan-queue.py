@@ -17,8 +17,9 @@ plan with work left, grouped:
                finished phase whose `Landed:` line is still empty
   unchecked    implemented, with a review verdict that is not an accept, or
                implemented on this branch with no review or compound field
-  replan       artifact_readiness needs-decisions, prerequisites landed; the
-               next step is the plan skill, not implement
+  replan       artifact_readiness needs-decisions, prerequisites landed, or
+               an implemented plan a rework review sent back; the next step
+               is the plan skill, not implement
   ready        planned, implementation-ready, every prerequisite landed
   waiting      a prerequisite phase has not landed; names it
   stale        a parent still `planned` whose phases have all landed
@@ -187,7 +188,14 @@ def main() -> int:
             started_parent = any(u["landed"] for u in parent["units"])
             open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
 
-        if status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
+        if status == "implemented" and readiness == "needs-decisions" and rel not in parents:
+            # A review that ended in rework sent the plan back to `plan`
+            # and the status still reads implemented. plan-state.py also
+            # tests the readiness before the status, after its After
+            # check. A parent keeps the readiness it was planned with and
+            # is never re-planned, so it retires below.
+            group = "waiting" if missing else "replan"
+        elif status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
             # Finished and on main, yet still on disk: land's retire step
             # never ran for it.
             group = "retire"
