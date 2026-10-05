@@ -415,6 +415,19 @@ receives one flushes that instance's VLANs on its other ports the same way a
 locally raised change would, so a change on one bridge's instance reaches
 every other bridge's copy of it rather than stopping at the first hop.
 
+An IEEE-addressed TCN is scoped to VLAN 1 under PVST. Under MSTP it applies to
+the CIST and every active MSTI on the receiving port. The PVST mapping follows
+the PVID source's rule for VLAN 1 BPDUs. The MSTP behavior follows IEEE
+802.1Q-2003 clause 13.26.19, page 194, and P802.1aq/D1.5 clause 13.29.13,
+page 63.
+
+Every active non-edge receiver propagates a TCN to the tree's other active
+non-edge ports, even when its own `tcWhile` is already running. A Designated
+receiver sets TCAck and starts its own timer only when it is stopped. Each
+propagated destination is flushed and starts a stopped timer. An Alternate
+receiver propagates nothing. This follows P802.1aq/D1.5 Figure 13-28, page 82,
+and clauses 13.29.11, page 63, and 13.29.26, page 67.
+
 Five cases flush every FID instead of a VLAN list. A link going down and a
 BPDU-guard disable both leave every entry on that port stale whatever tree it
 belonged to. A received topology change notification, and a received CIST
@@ -442,7 +455,7 @@ The implementation structures its logic around the standard state machines:
 - Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
 - Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20, Figures 13-20 and 13-25. Computes proposal and agreement handshakes and steps the forward delay ladder.
 - Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Settles state before one deterministic tree-then-port transmit pass, sends periodic hellos from each tree's timer, and bounds each port and tree by txHoldCount.
-- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19 and 13.29.11. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting RSTP port, starts tcWhile only when stopped, and propagates the change to active non-edge ports while flushing their tree VLANs. RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay.
+- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting RSTP port, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST VLAN 1 address mapping.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 ### Limits
