@@ -580,20 +580,18 @@ bounded equivalence under a resource contract:
   than `port-blocked`, because a frame the port would never have admitted is
   not a spanning-tree question. A frame dropped in classification consults no
   spanning-tree scope, since no tree state could have changed its outcome.
-- **`Decode` reads a version 3 BPDU's MST body, and falls back to its RST
-  prefix only when the payload is too short for one.** The configuration
-  identifier, internal root path cost, remaining hops, and MSTI records come
-  back filled whenever the payload holds enough octets; an RSTP peer's
-  39-octet version 3 BPDU, a capture truncated before the MST body starts, and
-  every version above 3 all still decode as the RST prefix rather than being
-  refused. A payload long enough for the MST body but truncated inside the
-  MSTI records is refused outright, not fallen back. UNH-IOL's MSTP suite
-  states that a compliant device must not validate a BPDU on its protocol
-  version identifier (Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011
-  sub-clause 14.4), which is why the fallback exists at all: refusing a short
-  version 3 payload would leave a netsim bridge facing that peer with both
-  ends Designated and Forwarding, an unbroken loop and a worse answer than the
-  RST-prefix approximation.
+- **`Decode` classifies a version 3 or later type 2 BPDU by the length bands in
+  IEEE 802.1Q-2003 clause 14.4.** The octets count from the Protocol Identifier.
+  From 35 through 101 octets the frame reads as RST whatever its length fields
+  say. At 102 octets, Version 1 Length 0 and Version 3 Length 64 read as MST
+  with no records, while every other pair reads as RST. At 103 octets or more,
+  Version 1 Length 0 and a Version 3 Length naming 0 to 64 records read as MST,
+  and octets after those records are ignored. A frame whose named records are
+  absent is refused because clause 14.4 gives no reading for it. The
+  configuration identifier, internal root path cost, remaining hops, and MSTI
+  records are filled for the MST reading. Version 4 and later use the same
+  bands. Figure 14-1 ends the CIST part at octet 102, and clause 14.6 q) makes
+  Version 3 Length count the octets after octet 38.
 - **A region is a name, a revision, and a digest over the VID-to-MSTID
   table, carried as a 51-octet configuration identifier.** The digest is
   HMAC-MD5 over the 4096-entry table, two big-endian octets per VID, keyed
