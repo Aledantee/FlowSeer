@@ -71,6 +71,24 @@ under Inventory, Sources.
 - R3's example is a port that starts forwarding, not one that goes down,
   since the sources above raise no topology change when a port leaves
   Forwarding. (decided by the user, 2026-10-03)
+- Ruled: `bpdu.Decode` refuses an MST BPDU whose payload is longer than its
+  Version 3 Length names, as it refuses a shorter one. Why: `Q2003` 14.4
+  addresses neither mismatch, and the decoder refused both before this
+  phase (`B/bpdu.go` doc comment at `1af2f975`, "disagrees with the
+  payload"). Cost if wrong: one condition in `readMSTBody` and
+  `TestMSTBPDUDecodeRefusesOverlongPayload`.
+- Ruled: the layer masks received MSTI bridge and port priority octets with
+  `0xF0` as well as the codec. Why: a `bpdu.BPDU` built in a test or by a
+  caller reaches `receiveMSTIs` without passing `Decode`. Cost if wrong: two
+  masks in `S/receive.go`.
+- Ruled: a received Hello Time below 1 second is stored as 1 second, and
+  the 1-second minimum is marked unverified in code and README. Why: `D2009`
+  takes it from IEEE 802.1D Table 17-1, which was not read (Sources). Cost
+  if wrong: `receivedHelloTime` and its test.
+- Ruled: priority inheritance runs in `Config.Normalize` through
+  `inheritPortPriorities`, and `MST.Normalize` and `PVST.Normalize` keep
+  their signatures. Why: only `Config` holds the bridge ports an instance
+  or VLAN port inherits from. Cost if wrong: one helper in `S/config.go`.
 
 ## Requirements
 
