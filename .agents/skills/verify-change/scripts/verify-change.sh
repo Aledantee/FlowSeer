@@ -245,6 +245,7 @@ hook_tooling=false
 mib=false
 service_otel_integration=false
 web=false
+plan_state=false
 
 add_module() {
   local candidate=$1
@@ -285,10 +286,16 @@ if [[ $full == true ]]; then
   mib=true
   service_otel_integration=true
   web=true
+  plan_state=true
 else
   for path in "${paths[@]}"; do
     case "$path" in
       frontend/web/*) web=true ;;
+    esac
+    # A plan's state file selects the state gate by itself, and so does a
+    # deleted plan: its state file left behind is a fault the gate names.
+    case "$path" in
+      docs/plans/*) plan_state=true ;;
     esac
     case "$path" in
       *.md)
@@ -473,6 +480,9 @@ if [[ $print_selection == true ]]; then
   if [[ $buf_module == true ]]; then
     printf 'tool_module=tools/buf mode=mod-verify\n'
   fi
+  if [[ $plan_state == true ]]; then
+    printf 'plan_state=true\n'
+  fi
   for module in "${modules[@]:-}"; do
     [[ -n $module ]] || continue
     if [[ $module == generated/* ]]; then
@@ -508,7 +518,7 @@ fi
 gates_selected=false
 if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
   [[ $proto == true || $hook_tooling == true || $mib == true ||
-  $service_otel_integration == true || $web == true ]]; then
+  $service_otel_integration == true || $web == true || $plan_state == true ]]; then
   gates_selected=true
 fi
 
@@ -572,6 +582,11 @@ fi
 need_tool python3
 need_tool go
 run python3 "$script_dir/check-plan-status.py"
+if [[ $plan_state == true ]]; then
+  # The whole tree, not the named paths: a state file is legal only beside
+  # its parent's and its phases', which the run may not name.
+  run python3 "$script_dir/../../plan/scripts/plan_record.py" check
+fi
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
 if [[ $full == true ]]; then
