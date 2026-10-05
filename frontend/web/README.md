@@ -399,11 +399,13 @@ A message read into a top-level `const` keeps the locale the module was set up i
 ## AI targets
 
 The console can expose meaningful instances to an agent or model without an AI
-backend. A view marks an element with the `v-ai-target` directive bound to an
-`AiTarget`. The directive registers the element while it is mounted and
-removes it when it unmounts, so a row that leaves a filter stops being
-addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
-`standalone` for a Storybook story or a test), keeping IDs stable across pane
+backend. A component registers the element that stands for it through an
+optional `ai` prop. The prop takes the resolved `AiTarget` that `aiTarget()`
+returns (`src/ai/target.ts`), so the caller owns the identity and the component
+never invents one. A registered element is listed while it is mounted and
+removed when it unmounts, so a row that leaves a filter stops being
+addressable. An absent `ai` prop registers nothing. Target IDs are qualified
+by physical pane slot (`a`, `b`, or `standalone` for a Storybook story or a test), keeping IDs stable across pane
 swaps even when primary and secondary roles change. Responsive components that
 mount simultaneous mobile and desktop layouts in CSS register distinct
 `mobile` and `desktop` segments, for example `a:devices:device:desktop:d1`.
@@ -411,6 +413,63 @@ Only mounted elements in the active responsive segment that are not hidden by
 the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
 `visibility: collapse` on the target or an ancestor) are listed or selectable.
 Offscreen elements remain addressable so `highlight()` can scroll them into view.
+
+### Anchor selection
+
+Each component registers its meaningful element and nothing around it. A
+plain control registers the control itself, a select registers its trigger,
+and a popup registers its content while it is mounted. Layout-only components
+register nothing. `useAiTarget` in `src/ui/ai/useAiTarget.ts` follows the prop
+and the element, using the registry injected through `src/ui/ai/context.ts`
+and the console-wide registry when none is provided. HTML and SVG elements
+are both valid anchors.
+
+Native markup that no component owns, such as a table row, a list item, a
+link, or an SVG group, uses `UiAiTarget` (`src/ui/ai/UiAiTarget.vue`). With
+`as` it renders that tag. With `asChild` it merges into the one child it is
+given. Neither adds a layout element:
+
+```vue
+<UiAiTarget as="li" :ai="siteTarget(site)">{{ site.name }}</UiAiTarget>
+
+<UiAiTarget as-child :ai="rowTarget(device)">
+  <tr><td>{{ device.name }}</td></tr>
+</UiAiTarget>
+```
+
+The registry writes `data-ai-selected` on the highlighted element, including
+a manual `registry.register()` call, and one rule in `src/theme/ai.css`
+draws the outline with `--ring`.
+
+### Origin acknowledgement
+
+A value an agent changed takes `aiOrigin`, the originating request without its
+`signal` (`AiOriginRequest` in `src/ui/ai/context.ts`), and emits
+`aiOriginAcknowledged` with its `requestId`. The component sets
+`data-ai-origin="agent"` on the value until the user interacts with it
+(pointerdown, keydown, input, or change). Hover and programmatic
+updates leave it, and so does selection. The origin does not depend on `ai`. After an
+acknowledgement the component ignores that `requestId` while mounted, so the
+caller clears its own state on the event, and a new `requestId` marks the
+value again. Portalled content, such as a select's list, forwards its
+interactions to the same acknowledgement. `UiAiLabel` explains the request
+beside the value, and the caller removes it on the same event. This field and
+label pair is the `AgentChanged` story in `src/ui/form/UiField.stories.ts`:
+
+```vue
+<UiField label="Device Name">
+  <UiInput
+    v-model="name"
+    :ai-origin="changed"
+    @ai-origin-acknowledged="changed = undefined"
+  />
+  <UiAiLabel v-if="changed" :request="changed" />
+</UiField>
+```
+
+Text controls keep the browser's native context menu, so the story passes no
+`ai` there. Pass `:ai="nameTarget"` where the control should also be an
+agent target.
 
 Earlier prototypes explored hover triggers and a floating button that followed
 keyboard focus. Both were removed on purpose: hover triggers fired by accident
