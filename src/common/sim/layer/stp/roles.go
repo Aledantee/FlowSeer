@@ -123,14 +123,13 @@ func (l *Layer) electRoot(t *tree, now time.Time) {
 		if !ok || !hasLink || !link.up || !p.rcvInfoValid {
 			continue
 		}
-		// bpduGuardDisabled and loopInconsistent are link-on-cist outside PVST:
-		// only the CIST's copy is ever written, so every tree's root election reads
-		// them through cistP the way the role switch below already does. Under PVST
-		// each tree tracks its own loop guard inconsistency. Restricted role denies
-		// the port the root role, and pvidInconsistent is tree-owned: a peer that disagrees
-		// about which VLAN the link is describes a different VLAN's tree, so
-		// it reads from p. None of the four may contribute the bridge's root
-		// vector.
+		// bpduGuardDisabled is link-owned. Outside PVST, loopInconsistent is
+		// written on the CIST's copy and every tree reads it through cistP. Under
+		// PVST each tree tracks its own loop guard inconsistency. Restricted role
+		// denies the port the root role, and pvidInconsistent is tree-owned: a peer
+		// that disagrees about which VLAN the link carries describes a different
+		// VLAN's tree, so it reads from p. None of the four may contribute the
+		// bridge's root vector.
 		cistP, ok := l.cist().ports[name]
 		isLoopInconsistent := p.loopInconsistent || (l.pvst == nil && cistP != nil && cistP.loopInconsistent)
 		if !ok || link.bpduGuardDisabled || p.cfg.RestrictedRole || isLoopInconsistent || p.pvidInconsistent {

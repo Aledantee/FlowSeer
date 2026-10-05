@@ -537,14 +537,16 @@ bounded equivalence under a resource contract:
   role keeps a port out of root selection, restricted TCN stops a received
   change from propagating, and loop guard holds a port whose information
   expired in silence while it was Root, Alternate, or Backup in a discarding
-  Alternate role with reason `loop-inconsistent` until any BPDU arrives, one
-  the message-age bound discards included, so a peer sending only stale
-  information is not covered. Both BPDU guard and loop guard hold a guarded
-  port out of every tree, not only the CIST: the outcome is bridge-global, so
-  an MSTI's own port is Disabled or Alternate right alongside the CIST's.
-  Loop guard is netsim's own design drawn from Cisco, Juniper, and Arista, and
-  is inactive on an operationally edge port and on a shared link, where a port
-  that stops hearing BPDUs is not evidence of a link broken in one direction.
+  Alternate role with reason `loop-inconsistent`. PVST owns one loop-guard
+  mark per tree. An IEEE BPDU admitted by the link clears the CIST mark, and
+  an SSTP BPDU clears only its arrival tree after admission and PVID checks
+  pass. A boundary, unadmitted, untracked, or PVID-inconsistent SSTP BPDU
+  leaves the mark in place. Under MSTP the CIST mark is the bridge-global
+  outcome read by every MSTI, while PVST reads each tree's own mark. A link
+  down clears every tree. Loop guard is netsim's own design drawn from Cisco,
+  Juniper, and Arista, and is inactive on an operationally edge port and on a
+  shared link, where a port that stops hearing BPDUs is not evidence of a link
+  broken in one direction.
   `LoopGuard` beside `RestrictedRole` or beside `AdminEdge` is refused at
   construction: a configuration whose halves contradict each other has no
   correct simulated answer.
@@ -685,10 +687,11 @@ bounded equivalence under a resource contract:
   behavior: the first applies the MST BPDU's RST prefix to VLAN 1's tree, the
   second counts the SSTP BPDU and withholds only its priority vector, because
   its CIST does not run that VLAN's tree and feeding the vector in would
-  elect a root from a tree it is not running. The link-level half of a
-  receive — BPDU guard, the loop-guard clear, protocol migration, and
-  auto-edge loss — runs on both sides of the boundary the same as for any
-  other BPDU the port hears; the boundary withholds the vector alone. The
+  elect a root from a tree it is not running. The link-level receive path
+  handles BPDU guard, protocol migration, and auto-edge loss on both sides of
+  the boundary, the same as for any other BPDU the port hears. A
+  boundary SSTP outcome does not clear a PVST loop-guard mark because it is not
+  applied to a tree. The boundary withholds the vector alone. The
   neighbor relationship still converges over the IEEE-addressed frame both
   sides exchange, so the report covers every VLAN but VLAN 1. It is raised
   per port and VLAN through a hit set, scoped
