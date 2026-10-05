@@ -106,18 +106,20 @@ Run at the end of every pass and on `audit`:
    `tools/hooks/tests/run.sh` that pins it. A script registered in one
    runtime only is a finding unless the other runtime has no such event.
 3. Run `tools/hooks/tests/run.sh` and `shellcheck` over the hook scripts.
-4. Read the phase size off the plans: every outcome note `implement` wrote
-   since the last change to the six-unit trigger in `plan` carries a unit
-   count and a `verified_at` span. Look for a phase that ran past one
-   session, or a run of phases with one or two units. Change the number in
-   `plan` and the reason in `docs/agent-steering.md` together, or record
-   that the data does not yet say.
+4. Read the phase size from each plan's state with
+   `.claude/skills/plan/scripts/plan_record.py show <plan> --json`. The
+   `outcome` object carries the unit count and verification span. For plans
+   that `land` retired, read the same outcome line in the retire commit. Look
+   for a phase that ran past one session, or a run of phases with one or two
+   units. Change the number in `plan` and the reason in
+   `docs/agent-steering.md` together, or record that the data does not yet
+   say.
 
-   `land` deletes a plan when its work lands and copies the note into the
+   `land` retires a plan when its work lands and copies the outcome into the
    retire commit, so read both places:
 
    ```bash
-   { grep -h '^> Implemented\. [0-9]* units' docs/plans/*-plan.md; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
+   { for plan in docs/plans/*-plan.md; do .claude/skills/plan/scripts/plan_record.py show "$plan" --json; done; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
    ```
 5. Sweep the plans `land` should have retired. Every `retire` line is a
    plan finished on `main` and still on disk:

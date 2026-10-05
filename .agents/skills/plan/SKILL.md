@@ -34,13 +34,15 @@ decision the user answered ends with `(decided by the user, <YYYY-MM-DD>)`,
 which no worker may edit (`delegate`, Write the brief, item 6). Every
 decision carries its reason.
 
-Load `references/replan-phase.md` before re-planning a phase plan (one with
-a `parent:` field): it holds the checks that the tree is fit to plan from.
+Load `references/replan-phase.md` before re-planning a phase plan. Use
+`.claude/skills/plan/scripts/plan_record.py show <plan>` to confirm its
+`parent` state before loading the reference. It holds the checks that the tree
+is fit to plan from.
 
-Load `references/replan-implemented.md` before re-planning a plan that reads
-`status: implemented` (a review that ended in `rework` sent it back): it
-holds the fields, the Units list, the ledger, and the parent's `Landed:`
-line to reset.
+Load `references/replan-implemented.md` before re-planning a plan for which
+`.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
+succeeds and the review sent it back. It holds the command, the Units list,
+and the ledger reset.
 
 ### Promote a decision to a direction record
 
@@ -83,31 +85,33 @@ parallel when independent.
 Path: `docs/plans/<date>-<type>-<slug>-plan.md`, `<date>` from
 `date +%Y-%m-%d-%H%M`, `<type>` the commit type the work will carry (`feat`,
 `fix`, `refactor`, `perf`, `docs`, `chore`). Scripts in `drive`, `next`,
-`implement`, and `verify-change` read the frontmatter fields, the `### U1.`
-unit headings, and the `Files:`, `After:`, and `Landed:` lines, so copy
-their shape exactly.
+`implement`, and `verify-change` read the plan's state file through
+`.claude/skills/plan/scripts/plan_record.py`, the `### U1.` unit headings, and the `Files:` and `After:`
+lines, so copy their shape exactly. Initialize the state file with:
+
+```bash
+.claude/skills/plan/scripts/plan_record.py init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
+```
 
 ```yaml
 ---
 title: <Title> - Plan
 type: <type>
 date: <YYYY-MM-DD>
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready | needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code | docs | mixed
 amends: <path of the plan or direction record this one changes, if any>
-superseded_by: <path of the replacing plan; only with status superseded>
-parent: <path of the parent plan; only in a phase plan>
 ---
 ```
 
-`status` is `planned` until the work lands, then `implemented`,
-`partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
-describes the plan's completeness and does not change with progress.
-`review` and `compound` each add a field of their own name beside `status`
-when they run (`review: accept`, `compound: no lesson`); `land` reads the
-three together.
+The state file beside the plan holds `status`, `readiness`, `review`,
+`review_rounds`, `compound`, `outcome`, `superseded_by`, `parent`, `after`,
+`landed`, `phases`, and `retired`. Read it with
+`.claude/skills/plan/scripts/plan_record.py show <plan>`. Use
+`.claude/skills/plan/scripts/plan_record.py ready <plan>` when a plan is
+ready. Use `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by
+<path>` or `.claude/skills/plan/scripts/plan_record.py abandon <plan>` for
+those final states.
 
 The body, in this order; leave out an empty section:
 
@@ -141,8 +145,9 @@ The commands that prove the whole change, and any manual or lab check.
 
 ## Definition of done
 Checklist: verifier green for every changed path, package README and
-convention docs updated in the same change, this plan's `status` set with an
-outcome note under its title, no plan labels in code.
+convention docs updated in the same change, this plan's outcome recorded with
+`.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+--from <t> --to <t>` or `partial`, no plan labels in code.
 
 ## Open questions
 What the implementer must decide or ask. Empty is a valid answer.
@@ -241,7 +246,8 @@ the options that fit:
   lands it before the next); implement the ready phase plan, naming its
   path, in a fresh session; stop here. `implement` does not run a parent
   plan, whose units are plan files.
-- `artifact_readiness: needs-decisions`: ask the unresolved design questions
+- `.claude/skills/plan/scripts/plan_record.py show <plan>` reports
+  `readiness: needs-decisions`: ask the unresolved design questions
   instead; do not offer the plan for implementation until they are
   answered. Open questions alone do not block the offer: name them in the
   option's reason, since `implement` rules on them or asks.

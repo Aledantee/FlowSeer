@@ -1,18 +1,21 @@
 # Outcome records for phase plans, planless work, and Orca
 
-Load this at Finish when the plan carries a `parent:` field, when the request
-skipped the plan, or when running in Orca.
+Load this at Finish when
+`.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null` succeeds,
+when the request skipped the plan, or when running in Orca.
 
-## Phase plan (`parent:` field)
+## Phase plan
 
-Fill this phase's `Landed:` line in the parent with the commit range in
-backticks, as `` `601e6e03..7cdc35dd` ``: the first unit's commit, then the
-last unit's commit as the ledger records it. The outcome commit that writes
-this line comes after both and is not in the range, since no commit can
-name its own SHA. The ledger check reads the last commit of that range to
-prove a later phase's worktree holds this one, and a `Landed:` written as
-prose fails it. Set the parent to `implemented` when this was its last
-phase, in the same outcome commit.
+Record this phase's outcome and commit range with:
+
+```bash
+.claude/skills/plan/scripts/plan_record.py implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>
+```
+
+The command writes the phase state and its range. The parent computes its
+status from the phase state and retired entries, so no parent edit is needed.
+The range ends at the last unit's commit as the ledger records it. The outcome
+commit comes after that range, since no commit can name its own SHA.
 
 ## Planless request
 

@@ -9,9 +9,10 @@ argument-hint: "[plan or parent plan path]"
 This session coordinates: it reads the state, dispatches, merges, verifies,
 and records. Every stage that reads or writes code runs in a worker session
 of its own, as `delegate` describes, from a fresh context and the plan file.
-All state is in files other skills keep (the parent's `Landed:` lines; each
-plan's `status`, `review`, and `compound` fields and Open questions; the
-branches), so running `drive` again continues a drive.
+All plan state is in files other skills keep. Read it with
+`.claude/skills/plan/scripts/plan_record.py show <plan>`, which includes the parent's phases and retired
+entries, each plan's status, review, compound outcome, and Open questions.
+Running `drive` again therefore continues a drive.
 
 ## 1. Scope and preconditions
 
@@ -28,8 +29,8 @@ python3 .claude/skills/drive/scripts/plan-state.py <plan>
   phases owed a land and, after `after`, the phases holding it, or else the
   phases that can run now. Run step 2 once
   per phase, in step 3's order.
-- "not a parent plan": drive it by step 2, its stages read off its own
-  frontmatter.
+- "not a parent plan": drive it by step 2, its stages read off its own state
+  file.
 - "not a plan file" for a parent that a `docs(plans): retire <slug>` commit
   deleted: its last phase landed; go to step 5.
 - With `status` as the request, report that output and stop.
@@ -57,10 +58,10 @@ from a parked branch starts with `--base parked/<slug>` instead
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
-| re-plan | `artifact_readiness: needs-decisions`, or `implemented` with `review: rework` | `plan` on this plan, against this tree | `plan` | the plan reads `implementation-ready` |
-| implement | `status` is not `implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | the plan reads `implemented`, a phase's `Landed:` line in its parent carries the range, and every unit in the worker's ledger is `passed` |
-| review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
-| compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |
+| re-plan | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=needs-decisions`, or `.claude/skills/plan/scripts/plan_record.py show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready` |
+| implement | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`, a phase's `landed` range is set, and every unit in the worker's ledger is `passed` |
+| review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports an accepted review |
+| compound | `.claude/skills/plan/scripts/plan_record.py is <plan> compound=null` | `compound` on the plan | `execute` | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null` |
 
 `$base` is the commit a lane's branch forked from, read from the `start`
 event it logged, with `$run` the `run` that `orca-worker.sh start` printed:
@@ -90,10 +91,10 @@ Wait on the lane as `delegate` describes, with
 `wait <slug> --until '<test>'` using the anchored `grep -q` on the plan path
 for the stage's "Done when":
 
-- re-plan: `grep -q '^artifact_readiness: implementation-ready$' <plan>`
-- implement: `grep -q '^status: implemented$' <plan>`
-- review: `grep -q '^review: accept' <plan>`
-- compound: `grep -q '^compound:' <plan>`
+- re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
+- implement: `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
+- review: `.claude/skills/plan/scripts/plan_record.py show <plan> --json | grep -q '"review": "accept'`
+- compound: `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null`
 
 On `done` without the stage's report on the screen, wait again without
 `--until`.
@@ -130,9 +131,11 @@ After each stage:
    the verifier ran green:
    `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
 6. Remove the child worktree: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
-7. Read the stage's "done when" off the merged files. A stage that reports
-   success and leaves the field unset, or set to a value other than an
-   accept, parks the plan with that as its question; do not run it again.
+7. Read the stage's "done when" with the matching
+   `.claude/skills/plan/scripts/plan_record.py is` or `show` command. A stage
+   that reports success and leaves the field unset, or set to a value other
+   than an accept, parks the plan with that as its question; do not run it
+   again.
 
 End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check in step 1 or a failed
@@ -146,7 +149,7 @@ sends a plan back.
 
 Re-run the state command at the start of every round and after a compaction,
 and take the order from its output. When it disagrees with the tree (a phase
-reads `implemented` with an empty `Landed:`, or the parent reads
+reads `implemented` with a null `landed`, or the parent state computes
 `implemented` while a phase still needs a stage), stop and report it: an
 interrupted run left it, and guessing which side is right lands a phase
 twice. A round takes the phases its last line names that are not parked, in
@@ -154,15 +157,16 @@ its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
 one phase that can run (not a `next: land` line): it says which run at once, how they split the cap, and how to
-set the parent's `status` when the last phases land together. For a merge
-conflict outside the parent's `Landed:` lines it points to
+finish the parent state when the last phases land together. For a merge
+conflict outside the phase state files it points to
 `.claude/skills/implement/references/workers.md`; read that file whole
 when one occurs.
 
-A landed phase fills its `Landed:` line, which records implementation only:
-a phase named in another's `After:` releases that dependent once its review
-and compound stages also read done. The parent has no stage; its `status`
-follows its last phase, as `implement` writes it.
+A landed phase records its implementation range with
+`.claude/skills/plan/scripts/plan_record.py implemented <phase> ... --landed <first>..<last>`. A phase in
+another's `after` releases that dependent once its review and compound stages
+also read done. The parent has no stage. Its status is computed from its phase
+state.
 
 When the state command's last line reads `next: land <phases>`, land them
 before any new stage, as `land` describes for multi-phase plans. `land`

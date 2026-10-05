@@ -25,29 +25,27 @@ verbatim when refused.
 ## 1. Read the checkpoints
 
 The branch is the current worktree's branch. The plan is the argument, or the
-plan under `docs/plans/` that records this work among the files
-`git diff --name-only main...HEAD` lists; work that skipped the plan under
-`plan`'s skip rule has none. A plan touched for another reason (a typo fix, a
-`superseded_by` field) is not this work's plan: say so and treat the work as
-planless. Of a phase plan and its `parent:`, the phase plan is this work's;
-report the parent, do not gate on it. A branch that implemented several plans
-(a `drive` of a parent's phases) is gated on every one's three fields; one
+plan under `docs/plans/` that records this work among the `.md` and
+`.state.json` files `git diff --name-only main...HEAD` lists. Resolve it with
+`.claude/skills/plan/scripts/plan_record.py show <path>`. Work that skipped the plan under
+`plan`'s skip rule has none. A plan touched for another reason (a typo fix, or
+an unrelated `superseded_by` transition recorded by
+`.claude/skills/plan/scripts/plan_record.py supersede <plan> --by <path>`) is
+not this work's plan: say so and treat the work as planless. Use
+`.claude/skills/plan/scripts/plan_record.py show <plan>` to identify a phase
+and its parent. A branch that implemented several plans
+(a `drive` of a parent's phases) is gated on the `show` result for every
+plan's status, review, and compound outcome; one
 missing field pauses the merge. A plan an earlier run already retired
 (step 4) has a `docs(plans): retire <slug>` commit in `main..HEAD`: read
 its three fields from that commit's body, and do not retire it again.
 
-`implement`, `review`, and `compound` leave their outcome as the `status`,
-`review`, and `compound` fields of the plan's frontmatter, or for planless
-work as one `key: value` line each in
-`$(git rev-parse --git-dir)/flowseer-checkpoints`, beside the verifier receipt
-and the ledger. `implement` writes the file anew and the other two append; the
-last line for a key wins, and step 5 removes the file once the work has landed.
-
-```text
-implemented: <request in a few words>
-review: accept
-compound: no lesson
-```
+`implement`, `review`, and `compound` leave their outcomes in the plan state
+file through `.claude/skills/plan/scripts/plan_record.py`. Read them with
+`.claude/skills/plan/scripts/plan_record.py show <plan>`. Planless work uses
+the checkpoints file beside the verifier receipt and the ledger. The
+checkpoint commands write that file, and step 5 removes it once the work has
+landed.
 
 In Orca (`ORCA_TERMINAL_HANDLE` set, `orca status --json` reachable
 unsandboxed) the card carries the same entries; load
@@ -55,21 +53,23 @@ unsandboxed) the card carries the same entries; load
 
 | Signal | Where | Required value |
 | --- | --- | --- |
-| Implementation landed | plan `status`, or the checkpoints file's `implemented:` line with commits in `main..HEAD` (in Orca also the card's `implemented:` entry with `.workspaceStatus` `in-review`) | `status: implemented`, or the line present |
+| Implementation landed | `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`, or the checkpoints file's `implemented:` line with commits in `main..HEAD` (in Orca also the card's `implemented:` entry with `.workspaceStatus` `in-review`) | the command succeeds, or the line is present |
 | Verifier ran after the last edit | `$(git rev-parse --git-dir)/flowseer-verification-receipt` present, `flowseer-verification-dirty` absent | `verified_at` newer than the last commit |
 | Every unit landed | `$(git rev-parse --git-dir)/flowseer-plan-status.json`, when present | every `status` is `passed` |
-| Review verdict | plan `review` field, or the checkpoints file's `review:` line (in Orca also the card) | `accept` or `accept after fixes` |
-| Lesson captured or declined | plan `compound` field, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
+| Review verdict | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports `accept` or `accept after fixes`, or the checkpoints file's `review:` line (in Orca also the card) | an accepted verdict |
+| Lesson captured or declined | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null`, or the checkpoints file's `compound:` line (in Orca also the card) | a solution path, `no lesson`, or `observation logged` |
 
 A verdict or outcome in neither place is missing, whatever the conversation
 holds; an answer from the user counts only once it is written to disk, as
 the rows below do. An absent ledger is not a signal.
 
-A failed signal whose remedy is another skill's work (a plan not implemented,
+A failed signal whose remedy is another skill's work (a plan for which
+`.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` succeeds,
 a `partially implemented:` entry, a ledger unit not `passed` even when the
-plan says `implemented`, no review verdict, no compound outcome) pauses the
-merge. Say which signal failed, and the ledger against the plan's `status`
-when they disagree, then ask the user (`AGENTS.md`, Agent behavior) whether to
+plan's `show` result says `implemented`, no review verdict, no compound
+outcome) pauses the merge. Say which signal failed, and compare the ledger
+against `.claude/skills/plan/scripts/plan_record.py show <plan>` when they
+disagree, then ask the user (`AGENTS.md`, Agent behavior) whether to
 run the missing skill now, all missing signals in one question:
 
 | Missing | Options, recommended first |
@@ -79,7 +79,7 @@ run the missing skill now, all missing signals in one question:
 | review verdict | run `review` on the branch now; stop |
 | review verdict is `fixes needed` | fix the findings and review again (`review` from step 1, with step 6), or stop |
 | review verdict is `rework` | take what the review established to `plan`, or stop |
-| compound outcome | run `compound` now; record `compound: no lesson` when the user says there is none; stop |
+| compound outcome | run `compound` now; record no lesson with `.claude/skills/plan/scripts/plan_record.py compound <plan> "no lesson"` when the user says there is none; stop |
 
 On yes, load `references/missing-checkpoint.md`; without Orca, also read
 `.claude/skills/delegate/references/no-orca.md` whole, which it points to.
@@ -158,8 +158,8 @@ report.
 
 A plan describes open work; once its work lands, a later agent would read
 it as a statement about the tree. Retire after the merge, so the links
-`main` gained since the fork and the parent's merged `Landed:` lines are in
-the tree the retire reads.
+`main` gained since the fork and the parent's merged phase state are in the
+tree the retire reads.
 
 Step 1 was the plan status ledger's last reader, and the verifier rejects a
 ledger that names a deleted plan, so remove it first:
@@ -169,23 +169,20 @@ find "$(git rev-parse --git-dir)" -maxdepth 1 -name flowseer-plan-status.json -d
 ```
 
 Then load `references/retire-plan.md` for each plan step 1 gated whose
-`status` reads `implemented` (a phase plan, and its parent too when the
-merged parent shows every phase landed), and for each plan the branch
-marked `superseded` or `abandoned`. It promotes or amends the direction
-records the plan's decisions call for, rewrites the links to the plan, and
-deletes it in a commit of its own. When it drafts a record, read
+`.claude/skills/plan/scripts/plan_record.py show <plan>` reports a final
+state. A phase plan, and its parent too when the parent state is computed as
+finished, follows the same rule. It promotes or amends the direction records
+the plan's decisions call for, rewrites the links to the plan, and retires it
+with the command. When it drafts a record, read
 `.claude/skills/plan/references/direction-record.md` whole, which it
 points to.
 
 A merge can carry in a finished plan that no `land` gated, such as a phase a
-`drive` merged into another branch. Retire those too: each plan the merged tree holds whose `status` is
-`superseded` or `abandoned`, and each `implemented` one whose `review` and
-`compound` fields read as step 1 requires. Report an `implemented` plan
-missing a field without retiring it.
-
-```bash
-grep -l -E '^status: (implemented|superseded|abandoned)' docs/plans/*-plan.md
-```
+`drive` merged into another branch. Run
+`.claude/skills/plan/scripts/plan_record.py show <plan>` for each plan in the
+merged tree and retire every final state that has the required review and
+compound outcome. Report a plan missing a required outcome without retiring
+it.
 
 Planless work skips the first retire and still runs the check.
 

@@ -220,10 +220,11 @@ diffs to an external CLI by default. The skills rely on `git`, `go`, `buf`,
 and the existing agents only.
 
 One artifact format each. Every plan under `docs/plans/` carries
-`artifact_contract: flowseer-plan/v1` and the `artifact_readiness` field that
-`docs/README.md` documents. Every solution carries `applies_when` frontmatter
-and a row in `docs/solutions/README.md`. The skills describe these formats
-and nothing else.
+`artifact_contract: flowseer-plan/v2` in its Markdown and a
+`*-plan.state.json` file beside it. `plan_record.py` owns the state file and
+the skills name its commands. Every solution carries `applies_when`
+frontmatter and a row in `docs/solutions/README.md`. The skills describe these
+formats and nothing else.
 
 `AGENTS.md`, Investigation discipline, states once what counts as a source
 for a claim about external behavior. Each stage names only its own action.
@@ -345,16 +346,14 @@ that answer it well agree on the shape: Task Master's `next` and Beads'
 `bd ready` compute the set whose dependencies are met from a store, never
 from the model's recall, and rank inside it; both ship the listing as a
 command because a model re-reading every file is slow and drifts. So
-`plan-queue.py` reads frontmatter, a parent's `After:` and `Landed:`
-lines, the ledger, and the unmerged branches that touch a plan, and the
-skill reads its output. Work in progress outranks ready work, the Kanban
-rule of limiting what is open; a plan another branch already changes is
-flagged, since two worktrees can otherwise implement the same phase. A
-dependent phase waits on the test `plan-state.py` applies, a prerequisite
-on `main`, retired, or reviewed and compounded, since a `Landed:` range
-alone released it while a review could still rewrite the files it builds
-on. Both scripts read `review: rework` on an implemented plan as a re-plan
-owed, because no skill marks a sent-back plan beyond the verdict. The
+`plan-queue.py` reads each plan's state through `plan_record.py`, the ledger,
+and the unmerged branches that touch a plan, and the skill reads its output.
+Work in progress outranks ready work, the Kanban rule of limiting what is
+open; a plan another branch already changes is flagged, since two worktrees
+can otherwise implement the same phase. A dependent phase waits on the test
+`plan-state.py` applies, a prerequisite on `main`, a retired range, or a
+reviewed and compounded phase. The state command also marks a sent-back plan
+for re-planning when its review is `rework`. The
 prior art has no answer for "nothing is planned": none of the surveyed
 tools compares plans with stated goals, and that comparison is where an
 agent invents a roadmap. `GOALS.md` is the guard: one line per decided
@@ -408,7 +407,7 @@ multi-artifact frameworks. Phase boundaries follow dependency cohesion:
 cohesion-aware partitioning gained 11 to 14 points over naive splitting,
 and naive parallel splitting scored below sequential execution, so `plan`
 clusters units by the files they touch and the `After` edges between
-them, and only the first phase is written implementation-ready, since
+them, and only the first phase is initialized ready, since
 as-needed decomposition (ADaPT) beats fixed baselines. Units of a
 phase plan run one at a time in fresh worker contexts; the CAID and STORM
 results disagree on isolation versus shared state for parallel workers,
@@ -798,10 +797,10 @@ vocabulary and never edits an instruction file.
 
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
-which skills ran before it, so `implement`, `review`, and `compound` each
-leave a checkpoint that `land` reads: the plan's `status`, `review`, and
-`compound` fields, the verifier receipt under the git dir, and in Orca the
-card's status and comment. Work that skipped the plan has no frontmatter,
+which skills ran before it, so `implement`, `review`, and `compound` record
+their outcomes through `plan_record.py`, which `land` reads with `show`: the
+plan state, the verifier receipt under the git dir, and in Orca the card's
+status and comment. Work that skipped the plan has no plan state,
 so the same three lines go to a `flowseer-checkpoints` file beside the
 receipt, with the commit range standing in for the plan. Every checkpoint
 is on disk because an answer given in the conversation is unreadable to
@@ -857,8 +856,8 @@ deleted after the change
 `land` retires each plan it lands (`land/references/retire-plan.md`): it
 runs the promotion test again against what was built, drafts or amends a
 direction record where a decision outlives the work, rewrites links to
-the plan, and deletes it, with the outcome note and checkpoints copied
-into the commit body. Deleting beats an archive folder because an archive
+the plan, and runs `.claude/skills/plan/scripts/plan_record.py retire <plan>`, which removes the plan and its
+state file and prints the outcome lines for the commit body. Deleting beats an archive folder because an archive
 still turns up in every search. A record names landed work by date and
 scope rather than by plan path; records written before this rule still
 link plans, and the retire step rewrites each link as it deletes the plan.
@@ -882,17 +881,17 @@ Sequence a parent plan's stages from the files, in a skill that owns only
 the order. A plan, implement, review, compound loop per phase, with each
 stage in its own worktree, is the same sequence every time, and
 improvising it drifts: a coordinator skips loading `plan` or `review`,
-hands their work to workers as hand-written briefs, and leaves no
-`review` field, the verdict `land` refuses to merge without. `drive` therefore names the stage and loads the skill that owns it,
+hands their work to workers as hand-written briefs, and leaves no review
+outcome, the verdict `land` refuses to merge without. `drive` therefore names the stage and loads the skill that owns it,
 restating none of their rules, so a correction to a stage still has one
-place to go. Its state is `plan-state.py` over the parent's `Landed:`
-lines and the phase plans' frontmatter, the fields the other skills
-already write, for the reason the ledger exists: a long coordinator's
+place to go. Its state is `plan-state.py` over the parent and phase state
+files, which the other skills write through `plan_record.py`, for the reason
+the ledger exists: a long coordinator's
 context does not survive compaction, and a resumed session has to find
 its place without it. A phase whose last commit is on `main` needs no stage, since
 `land` gated it there and older phases predate the `review` and
-`compound` fields. A dependent phase waits until its predecessor's review
-and compound are done: a `Landed:` range records implementation only, and
+`compound` outcomes. A dependent phase waits until its predecessor's review
+and compound are done: a landed range records implementation only, and
 starting the dependent then lets the predecessor's review fix loop rewrite
 files both phases own. A plan without phases stops before `land`, which
 stays a person's request like every other merge into `main`. A parent's
@@ -911,8 +910,8 @@ lives in the implement worker's git directory, so `drive` reads it before
 the child worktree goes and reports it as the gate `land` would have
 read. Each stage worker takes one slot of `delegate`'s cap and holds a
 budget of its own from the rest, and independent phases run at once when
-the cap leaves every one of them at least one worker; the parent's
-`Landed:` lines are the only file they both write. A decision that
+the cap leaves every one of them at least one worker; their state files are
+independent. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 
