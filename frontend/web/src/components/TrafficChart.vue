@@ -1,11 +1,29 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useFormat } from '../i18n/format'
 import type { TrafficPoint } from '../domain/overview'
+import type { UiAiEmits, UiAiProps } from '../ui/ai/context'
+import { useAiOrigin } from '../ui/ai/useAiOrigin'
+import { useAiTarget } from '../ui/ai/useAiTarget'
 const { t, n } = useI18n({ useScope: 'global' })
 const format = useFormat()
-const props = defineProps<{ points: TrafficPoint[]; label: string }>()
+export interface TrafficChartProps extends UiAiProps {
+  points: TrafficPoint[]
+  label: string
+}
+const props = withDefaults(defineProps<TrafficChartProps>(), {
+  ai: undefined,
+  aiOrigin: undefined,
+})
+const emit = defineEmits<UiAiEmits>()
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const frame = ref<HTMLElement>()
 const width = ref(640)
 const height = 200
@@ -79,7 +97,7 @@ function step(event: KeyboardEvent) {
 </script>
 
 <template>
-  <figure class="traffic-chart">
+  <figure ref="root" class="traffic-chart">
     <div
       class="traffic-legend flex items-center gap-2 text-xs text-muted-foreground mb-2"
     >

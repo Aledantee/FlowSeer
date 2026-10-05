@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { I18nT, useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
 export interface UiMeterThresholds {
   warning: number
   critical: number
 }
 
-export interface UiMeterProps {
+export interface UiMeterProps extends UiAiProps {
   label: string
   value: number
   min?: number
@@ -29,7 +32,19 @@ const props = withDefaults(defineProps<UiMeterProps>(), {
   valueText: undefined,
   tone: 'auto',
   thresholds: () => ({ warning: 75, critical: 90 }),
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t, n } = useI18n({ useScope: 'global' })
 
@@ -71,7 +86,7 @@ const toneColorClass = computed(() => {
 </script>
 
 <template>
-  <div class="w-full space-y-1">
+  <div ref="anchor" class="w-full space-y-1">
     <div class="flex items-center justify-between text-xs">
       <span class="font-medium text-foreground">{{ label }}</span>
       <span class="font-mono tabular-nums text-muted-foreground">

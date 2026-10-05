@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import { ref } from 'vue'
+import type { AiOriginRequest } from '../ai/context'
+import UiAiLabel from '../ai/UiAiLabel.vue'
 import UiTable from './UiTable.vue'
 import UiTableHeader from './UiTableHeader.vue'
 import UiTableBody from './UiTableBody.vue'
@@ -66,6 +68,7 @@ const sampleDevices = [
 ]
 
 export const Default: Story = {
+  parameters: { tableScroller: true },
   render: (args) => ({
     components: {
       UiTable,
@@ -98,7 +101,7 @@ export const Default: Story = {
           <UiTableRow
             v-for="dev in devices"
             :key="dev.id"
-            v-ai-target="aiTarget(dev)"
+            :ai="aiTarget(dev)"
           >
             <UiTableCell>{{ dev.name }}</UiTableCell>
             <UiTableCell mono>{{ dev.ip }}</UiTableCell>
@@ -417,6 +420,65 @@ export const CustomSortMarks: Story = {
           <UiTableRow>
             <UiTableCell>edge-router-01</UiTableCell>
             <UiTableCell>Healthy</UiTableCell>
+          </UiTableRow>
+        </UiTableBody>
+      </UiTable>
+    `,
+  }),
+}
+
+// A cell an agent changed carries the outline until the user touches it. Its
+// explanation sits in the next cell, so the label never becomes a child of the
+// table or row, and the caller clears both through the typed event.
+export const AgentChanged: Story = {
+  parameters: { tableScroller: true },
+  render: () => ({
+    components: {
+      UiTable,
+      UiTableHeader,
+      UiTableBody,
+      UiTableRow,
+      UiTableHead,
+      UiTableCell,
+      UiAiLabel,
+    },
+    setup() {
+      const target = {
+        id: 'standalone:story:ui-table-agent-changed:status',
+        kind: 'device',
+        label: 'access-point-03',
+        context: { status: 'Degraded' },
+      }
+      const origin = ref<AiOriginRequest | undefined>({
+        requestId: 'req-story',
+        action: 'summary',
+        targets: [],
+        history: [],
+      })
+      return { target, origin }
+    },
+    template: `
+      <UiTable>
+        <UiTableHeader>
+          <UiTableRow>
+            <UiTableHead>Name</UiTableHead>
+            <UiTableHead>Status</UiTableHead>
+            <UiTableHead>Explanation</UiTableHead>
+          </UiTableRow>
+        </UiTableHeader>
+        <UiTableBody>
+          <UiTableRow>
+            <UiTableCell>access-point-03</UiTableCell>
+            <UiTableCell
+              :ai="target"
+              :ai-origin="origin"
+              @ai-origin-acknowledged="origin = undefined"
+            >
+              Degraded
+            </UiTableCell>
+            <UiTableCell>
+              <UiAiLabel v-if="origin" :request="origin" />
+            </UiTableCell>
           </UiTableRow>
         </UiTableBody>
       </UiTable>

@@ -1,14 +1,34 @@
 <script setup lang="ts">
-export interface UiEmptyStateProps {
+import { useTemplateRef } from 'vue'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
+
+export interface UiEmptyStateProps extends UiAiProps {
   title: string
   description?: string
 }
 
-defineProps<UiEmptyStateProps>()
+const props = withDefaults(defineProps<UiEmptyStateProps>(), {
+  description: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
+})
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 </script>
 
 <template>
   <div
+    ref="anchor"
     class="flex flex-col items-center justify-center p-8 text-center text-muted-foreground gap-3"
   >
     <div v-if="$slots.icon" class="text-muted-foreground">
