@@ -22,7 +22,8 @@ const (
 
 	// BlockReasonLoopInconsistent marks a port whose received information
 	// expired while it held a non-designated role, which loop guard keeps
-	// discarding rather than letting it open a loop. The next BPDU clears it.
+	// discarding rather than letting it open a loop. The next BPDU applied to
+	// its tree clears it.
 	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
 )
 
@@ -141,6 +142,15 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	p := t.ports[port]
 	lk.rxBPDUs++
 
+	// Any BPDU on the port is evidence the link carries traffic both ways,
+	// which is the condition loop guard was waiting to see restored. An
+	// IEEE-addressed BPDU belongs to the CIST, so it clears the CIST's mark,
+	// which is every tree's outside PVST and VLAN 1's inside it. This runs
+	// before the BPDU guard check in receiveLink: a frame that trips or is
+	// held by BPDU guard is still such evidence, and the two guards clear on
+	// independent events.
+	p.loopInconsistent = false
+
 	l.armHelloTimers(now)
 
 	var flushes []layer.FlushTarget
@@ -225,15 +235,14 @@ const (
 )
 
 // ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
-// receive — BPDU guard, the loop-guard clear, protocol migration, and
-// auto-edge loss — always runs before anything below decides what happens to
-// a tree, whatever that decision turns out to be: a caller that could skip
-// the link half by declining to call this function is the hole BPDU guard
-// exists to close. Every return after the link half recomputes roles, because
-// the link half can change what every tree's role depends on (the loop-guard
-// clear above all) whether or not the frame reaches a tree. The returned
-// SSTPOutcome describes the tree half alone: what, if anything, happened to
-// arrival.ArrivalVID's own tree.
+// receive — BPDU guard, protocol migration, and auto-edge loss — always runs
+// before anything below decides what happens to a tree, whatever that
+// decision turns out to be: a caller that could skip the link half by
+// declining to call this function is the hole BPDU guard exists to close.
+// Every return after the link half recomputes roles, because the link half
+// can change what every tree's role depends on whether or not the frame
+// reaches a tree. The returned SSTPOutcome describes the tree half alone:
+// what, if anything, happened to arrival.ArrivalVID's own tree.
 func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
 	lk := l.link(port)
 	if lk == nil || !lk.up {
@@ -243,12 +252,19 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	cistP := l.cist().ports[port]
 	lk.rxBPDUs++
 
+	// Outside PVST the CIST's mark is every tree's, and any BPDU on the port
+	// restores it, as Receive explains. Under PVST each tree owns its mark and
+	// only a BPDU applied to that tree clears it, below.
+	if l.pvst == nil {
+		cistP.loopInconsistent = false
+	}
+
 	var flushes []layer.FlushTarget
 
-	// receiveLink is the link-level half of a receive: BPDU guard, the
-	// loop-guard clear, protocol migration, and auto-edge loss all belong to
-	// the port whatever tree the frame names, so it runs whatever this bridge
-	// goes on to decide about the tree half below.
+	// receiveLink is the link-level half of a receive: BPDU guard, protocol
+	// migration, and auto-edge loss all belong to the port whatever tree the
+	// frame names, so it runs whatever this bridge goes on to decide about the
+	// tree half below.
 	emissions, done := l.receiveLink(now, cistP, b, &flushes)
 
 	// The mark is a statement about the neighbor, not about this frame's
@@ -304,6 +320,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 		return layer.Effects{Emissions: emissions, Flush: flushes}, SSTPPVIDInconsistent
 	}
 	p.pvidInconsistent = false
+	p.loopInconsistent = false
 
 	emissions = append(emissions, l.applyBPDU(t, p, now, b, &flushes)...)
 
@@ -329,10 +346,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	lk := l.link(p.name)
 
 	if exhausted(b, internal) {
-		if t.id == cistID {
-			lk.external = !internal
-		}
-
 		return l.recomputeAll(now, flushes)
 	}
 
@@ -410,21 +423,23 @@ func (l *Layer) storeInformation(t *tree, p *portState, lk *linkRecord, incoming
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
 	isSuperior := !p.rcvInfoValid || compareVectors(incoming, rawVector(t, p, lk.external)) < 0
 
-	// The classification updates only now, after the stored vector above was
-	// built against what the port currently holds under its old
-	// classification. Assigning it earlier would compare that stored
-	// information as though it already carried this BPDU's classification,
-	// which can invert the superiority verdict for the one BPDU that flips
-	// internal to external or back. It is written only for the CIST's own
-	// call: a non-CIST tree's applyBPDU (PVST, an SSTP arrival on a VLAN
+	if !sameSource && !isSuperior {
+		return
+	}
+
+	// The classification describes the information the port holds, so it
+	// moves only when this BPDU's information is stored (IEEE Std 802.1Q-2003
+	// Figure 13-14 assigns infoInternal in SUPERIOR_DESIGNATED and
+	// REPEATED_DESIGNATED alone). A BPDU that is not stored, or that
+	// exhausted its age or hops, leaves it, since the stored fields would
+	// otherwise be read in a shape they were never written in. It also
+	// changes only after the superiority test above, which read the stored
+	// vector under its old classification. It is written only for the CIST's
+	// own call: a non-CIST tree's applyBPDU (PVST, an SSTP arrival on a VLAN
 	// other than 1) would otherwise leave a copy on a port boundary never
 	// reads.
 	if t.id == cistID {
 		lk.external = !internal
-	}
-
-	if !sameSource && !isSuperior {
-		return
 	}
 
 	p.rcvInfoValid = true

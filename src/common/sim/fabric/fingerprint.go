@@ -317,8 +317,9 @@ func (s Snapshot) Fingerprint() string {
 }
 
 func encodeFingerprintPortInfo(info stp.PortInfo) string {
-	return fmt.Sprintf("mstid=%d,role=%s,state=%s,reason=%s,prio=%d,cost=%d,root=%s,desig=%s,desig_port=%d,desig_cost=%d,p2p=%t,edge=%t,send_rstp=%t",
-		info.MSTID,
+	return fmt.Sprintf("tree_kind=%s,tree_id=%d,role=%s,state=%s,reason=%s,prio=%d,cost=%d,root=%s,desig=%s,desig_port=%d,desig_cost=%d,p2p=%t,edge=%t,send_rstp=%t",
+		escapeFingerprint(string(info.Tree.Kind)),
+		info.Tree.ID,
 		escapeFingerprint(string(info.Role)),
 		escapeFingerprint(string(info.State)),
 		escapeFingerprint(string(info.BlockReason)),

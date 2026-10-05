@@ -11,12 +11,46 @@ import (
 // empty value means no guard is holding the port, whatever its role and state.
 type BlockReason string
 
+// TreeKind says what the identifier of a spanning tree names. An MSTI's number
+// and a PVST VLAN's share a range, so the number alone does not tell two trees
+// apart.
+type TreeKind string
+
+const (
+	// TreeCIST is the common and internal spanning tree of a bridge that does
+	// not run PVST. Its identifier is 0.
+	TreeCIST TreeKind = "cist"
+	// TreeMSTI is a multiple spanning tree instance, identified by its MSTID.
+	TreeMSTI TreeKind = "msti"
+	// TreeVLAN is the tree of one VLAN under PVST, identified by the VLAN. The
+	// tree of VLAN 1 is the one that takes the CIST's place there.
+	TreeVLAN TreeKind = "vlan"
+)
+
+// TreeRef identifies the spanning tree a PortInfo describes.
+type TreeRef struct {
+	Kind TreeKind
+	ID   uint16
+}
+
+// treeRef names tree t by what this bridge runs it for.
+func (l *Layer) treeRef(t *tree) TreeRef {
+	switch {
+	case l.pvst != nil:
+		return TreeRef{Kind: TreeVLAN, ID: uint16(t.vid)}
+	case t.id == cistID:
+		return TreeRef{Kind: TreeCIST}
+	default:
+		return TreeRef{Kind: TreeMSTI, ID: uint16(t.id)}
+	}
+}
+
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
-	// MSTID names the tree this snapshot belongs to: 0 for the CIST, the
-	// instance identifier for an MSTI. It rides here so a trace fact can name
-	// the blocking instance rather than leaving a reader to infer it.
-	MSTID              bpdu.MSTID
+	// Tree names the tree this snapshot belongs to. It rides here so a trace
+	// fact can name the blocking tree rather than leaving a reader to infer
+	// it.
+	Tree               TreeRef
 	Role               bpdu.Role
 	State              State
 	BlockReason        BlockReason
@@ -37,21 +71,21 @@ type PortInfo struct {
 
 // blockReason names the guard holding the port out of the active topology.
 // bpduGuardDisabled is a link fact, read from the port's link record.
-// loopInconsistent is armed on the CIST's port state alone, so every tree
-// reads it through cistP. pvidInconsistent is tree-owned, set on the VLAN
-// whose SSTP BPDU disagreed about the link, so it reads from p. BPDU guard
-// outranks the rest: it disables the port outright, so nothing below it can
-// be the decisive reason. A PVID-inconsistent port is by definition
-// receiving BPDUs, which is what clears loopInconsistent on every receive,
-// so those two cannot both hold after a receive and the order between them
-// only fixes what a reader sees should that stop being true.
-func (l *Layer) blockReason(p, cistP *portState, lk *linkRecord) BlockReason {
+// loopInconsistent is read through loopMark: the CIST's port state carries it
+// for every tree outside PVST, and each tree carries its own under PVST.
+// pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU disagreed
+// about the link, so it reads from p. BPDU guard outranks the rest: it
+// disables the port outright, so nothing below it can be the decisive reason.
+// A PVID-inconsistent BPDU is applied to no tree, so it clears no loop-guard
+// mark, and both can hold at once. The order between them only fixes what a
+// reader sees then.
+func (l *Layer) blockReason(p *portState, lk *linkRecord) BlockReason {
 	switch {
 	case lk.bpduGuardDisabled:
 		return BlockReasonBPDUGuard
 	case p.pvidInconsistent:
 		return BlockReasonPVIDInconsistent
-	case cistP.loopInconsistent:
+	case l.loopMark(p).loopInconsistent:
 		return BlockReasonLoopInconsistent
 	default:
 		return ""
@@ -118,21 +152,33 @@ func (l *Layer) BridgeID() bpdu.BridgeID {
 	return l.cist().bridgeID
 }
 
-// Times returns the max age, hello time, and forward delay in force: the root's
-// values as received on the root port, or this bridge's own while it is root.
+// Times returns the max age and forward delay in force: the root's values as
+// received on the root port, or this bridge's own while it is root. The hello
+// time is always this bridge's own, since Hello Time is a per-bridge value the
+// root does not impose (P802.1aq/D1.5 Table 13-5, UNH-IOL RSTP.op.4.3).
 func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 	return l.times(l.cist())
 }
 
-// times returns the timers in force for one tree.
+// times returns the timers in force for one tree. Max age and forward delay
+// follow the root (P802.1aq/D1.5 13.28.9 and 13.29.33 f, draft text), and the
+// hello time is the bridge's own.
 func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
 	if t.rootPort != "" {
 		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
-			return rp.rcvMaxAge, rp.rcvHelloTime, rp.rcvForwardDelay
+			return rp.rcvMaxAge, l.helloTime, rp.rcvForwardDelay
 		}
 	}
 
 	return l.maxAge, l.helloTime, l.forwardDelay
+}
+
+// forwardDelayOf returns the Forward Delay in force for tree t, the step of
+// the forward-delay ladder.
+func (l *Layer) forwardDelayOf(t *tree) time.Duration {
+	_, _, forwardDelay := l.times(t)
+
+	return forwardDelay
 }
 
 // PortInfo returns runtime spanning tree information for the named port. If the
@@ -214,15 +260,10 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	if !ok {
 		return PortInfo{}
 	}
-	// The link facts and counters come from the port's link record, and the
-	// loop-guard mark from the CIST's port state, where it is armed. Every
-	// tree is built from l.portNames, so both always exist for any port a
-	// tree tracks; the zero values below only guard that invariant, not a
+	// The link facts and counters come from the port's link record. Every
+	// tree is built from l.portNames, so it always exists for any port a
+	// tree tracks; the zero value below only guards that invariant, not a
 	// case this simulator reaches.
-	cistP, ok := l.cist().ports[port]
-	if !ok {
-		cistP = &portState{}
-	}
 	lk := l.link(port)
 	if lk == nil {
 		lk = &linkRecord{}
@@ -249,10 +290,10 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	}
 
 	return PortInfo{
-		MSTID:              bpdu.MSTID(t.id),
+		Tree:               l.treeRef(t),
 		Role:               p.role,
 		State:              p.state,
-		BlockReason:        l.blockReason(p, cistP, lk),
+		BlockReason:        l.blockReason(p, lk),
 		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
 		DesignatedRoot:     desigRoot,

@@ -51,14 +51,43 @@ func (l *Layer) NextWake() (time.Time, bool) {
 }
 
 // Advance advances timer-driven state to now, firing due hellos, forward delays,
-// topology change timers, and information age-outs.
+// topology change timers, and information age-outs. Received information
+// expires, the forward-delay ladder steps, and roles are recomputed before a
+// held BPDU is released or a hello is sent: every transmit transition waits
+// for the port information to settle (IEEE Std 802.1Q-2003 Figure 13-13
+// qualifies each by selected && !updtInfo), so a BPDU sent at the instant the
+// root's information expires names the bridge's new root, not the old one.
 func (l *Layer) Advance(now time.Time) layer.Effects {
-	t := l.cist()
-
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
 
-	autoEdgeFired := false
+	changed := l.detectAutoEdge(now)
+	if l.expireInformation(now) {
+		changed = true
+	}
+	if l.stepForwardDelay(now) {
+		changed = true
+	}
+	l.clearSpentTopologyTimers(now)
+
+	if changed {
+		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+	}
+
+	l.emitDue(now, &emissions)
+
+	return layer.Effects{
+		Emissions: emissions,
+		Flush:     flushes,
+	}
+}
+
+// detectAutoEdge makes an edge of every auto-edge port whose edge delay ran
+// out with no answer to its proposal, and reports whether one was made.
+func (l *Layer) detectAutoEdge(now time.Time) bool {
+	t := l.cist()
+	fired := false
+
 	for _, name := range l.portNames {
 		p := t.ports[name]
 		lk := l.link(name)
@@ -66,24 +95,109 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			p.state == StateDiscarding && lk.pointToPoint && p.proposing &&
 			!lk.edgeDelayWhile.IsZero() && !lk.edgeDelayWhile.After(now) {
 			// edge is on the link record, so an MSTI port reaches Forwarding
-			// at the same wake as the CIST's through the recompute below, and
-			// no tree counts the port as active.
+			// at the same wake as the CIST's through the recompute that
+			// follows, and no tree counts the port as active.
 			lk.edge = true
 			lk.edgeDelayWhile = time.Time{}
 			p.state = StateForwarding
 			p.fwdDelayTimer = time.Time{}
 			p.proposing = false
 			p.forwardTransitions++
-			autoEdgeFired = true
+			fired = true
 		}
 	}
 
-	// Both emission loops walk every tree, the way the forward-delay, age-out
-	// and topology-change loops below already do. Outside PVST mode the walk
-	// is behavior-neutral: treeOrder holds the CIST first, the budget is
-	// shared, and an MSTI's own hello timer never runs because only the CIST
-	// emits. Inside it, a per-VLAN tree's periodic hello would otherwise
-	// never fire and a transmission held on it would never be released.
+	return fired
+}
+
+// expireInformation drops every tree's received information that has been
+// silent for 3 hello times and reports whether any was dropped. The silence
+// bound holds whatever the internal or external classification, and only the
+// test for accepting new information at Receive differs by hop count or
+// message age. Loop guard arms where the information lived: on the tree's own
+// port under PVST, and on the CIST's alone otherwise, where an MSTI's own role
+// on an internal port reads it and a boundary port mirrors the CIST outright.
+func (l *Layer) expireInformation(now time.Time) bool {
+	expired := false
+
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
+				continue
+			}
+			if (l.pvst != nil || id == cistID) && p.loopGuardWatches(l.link(name)) &&
+				(p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup) {
+				p.loopInconsistent = true
+			}
+			p.rcvInfoValid = false
+			expired = true
+		}
+	}
+
+	return expired
+}
+
+// stepForwardDelay climbs the forward-delay ladder of every port whose timer
+// is due, by the Forward Delay in force for its tree, and reports whether a
+// port reached Forwarding. The ladder runs per tree, since role and state are
+// per tree: an MSTI's own internal ports climb it independently of the CIST's.
+// A boundary port never sets fwdDelayTimer for a non-CIST tree (recompute
+// mirrors its state from the CIST outright), so this never double-drives one.
+func (l *Layer) stepForwardDelay(now time.Time) bool {
+	forwarded := false
+
+	for _, id := range l.treeOrder {
+		mt := l.trees[id]
+		forwardDelay := l.forwardDelayOf(mt)
+		for _, name := range l.portNames {
+			p, ok := mt.ports[name]
+			if !ok || p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now) {
+				continue
+			}
+			p.fwdDelayTimer = time.Time{}
+			switch p.role {
+			case bpdu.RoleDesignated, bpdu.RoleRoot:
+				switch p.state {
+				case StateDiscarding:
+					p.state = StateLearning
+					p.fwdDelayTimer = now.Add(forwardDelay)
+				case StateLearning:
+					p.state = StateForwarding
+					p.forwardTransitions++
+					forwarded = true
+				case StateForwarding:
+				}
+			case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:
+			}
+		}
+	}
+
+	return forwarded
+}
+
+// clearSpentTopologyTimers zeroes every port's topology change timer that ran
+// out, so it stops reporting a wake. Every port's timer clears on its own
+// schedule.
+func (l *Layer) clearSpentTopologyTimers(now time.Time) {
+	for _, mt := range l.trees {
+		for _, p := range mt.ports {
+			if !p.tcWhile.IsZero() && !p.tcRunning(now) {
+				p.tcWhile = time.Time{}
+			}
+		}
+	}
+}
+
+// emitDue releases the BPDUs the transmit budget held and sends the hello of
+// every tree whose timer is due. Both walk every tree, the way the loops
+// above do. Outside PVST mode the walk is behavior-neutral: treeOrder holds
+// the CIST first, the budget is shared, and an MSTI's own hello timer never
+// runs because only the CIST emits. Inside it, a per-VLAN tree's periodic
+// hello would otherwise never fire and a transmission held on it would never
+// be released.
+func (l *Layer) emitDue(now time.Time, emissions *[]layer.Emission) {
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
 
@@ -102,19 +216,19 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			if tx.pendingAgreement {
 				tx.pendingAgreement = false
 				if p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate {
-					l.emit(mt, p, now, emissionAgreement, &emissions)
+					l.emit(mt, p, now, emissionAgreement, emissions)
 				}
 			}
 			if tx.pendingDesignated {
 				tx.pendingDesignated = false
 				if p.role == bpdu.RoleDesignated {
-					l.emit(mt, p, now, emissionDesignated, &emissions)
+					l.emit(mt, p, now, emissionDesignated, emissions)
 				}
 			}
 			if tx.pendingTopology {
 				tx.pendingTopology = false
 				if l.rootReports(mt, name, now) {
-					l.emit(mt, p, now, emissionTopology, &emissions)
+					l.emit(mt, p, now, emissionTopology, emissions)
 				}
 			}
 		}
@@ -132,83 +246,10 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			// where a Designated port sends its ordinary hello.
 			switch {
 			case p.role == bpdu.RoleDesignated:
-				l.emit(mt, p, now, emissionDesignated, &emissions)
+				l.emit(mt, p, now, emissionDesignated, emissions)
 			case l.rootReports(mt, name, now):
-				l.emit(mt, p, now, emissionTopology, &emissions)
+				l.emit(mt, p, now, emissionTopology, emissions)
 			}
 		}
-	}
-
-	// The forward delay ladder runs per tree, since role and state are per
-	// tree: an MSTI's own internal ports climb it independently of the CIST's.
-	// A boundary port never sets fwdDelayTimer for a non-CIST tree (recompute
-	// mirrors its state from the CIST outright), so this never double-drives
-	// one.
-	stateChanged := false
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			if !ok || p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now) {
-				continue
-			}
-			p.fwdDelayTimer = time.Time{}
-			switch p.role {
-			case bpdu.RoleDesignated, bpdu.RoleRoot:
-				switch p.state {
-				case StateDiscarding:
-					p.state = StateLearning
-					p.fwdDelayTimer = now.Add(l.forwardDelay)
-				case StateLearning:
-					p.state = StateForwarding
-					p.forwardTransitions++
-					stateChanged = true
-				case StateForwarding:
-				}
-			case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:
-			}
-		}
-	}
-
-	// Every tree's received information keeps the landed 3xHelloTime silence
-	// bound regardless of internal or external classification; only the test
-	// for accepting new information at Receive differs by hop count or
-	// message age. Loop guard is a CIST-only concept: an MSTI's own role on
-	// an internal port never gets to hold a segment open past its peer, and
-	// on a boundary port it mirrors the CIST outright.
-	agedOut := false
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		for _, name := range l.portNames {
-			p, ok := mt.ports[name]
-			if !ok || !p.rcvInfoValid || p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-				continue
-			}
-			if id == cistID && p.loopGuardWatches(l.link(name)) &&
-				(p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup) {
-				p.loopInconsistent = true
-			}
-			p.rcvInfoValid = false
-			agedOut = true
-		}
-	}
-
-	// Every port's topology change timer clears on its own schedule, so a
-	// timer that ran out stops reporting a wake.
-	for _, mt := range l.trees {
-		for _, p := range mt.ports {
-			if !p.tcWhile.IsZero() && !p.tcRunning(now) {
-				p.tcWhile = time.Time{}
-			}
-		}
-	}
-
-	if agedOut || stateChanged || autoEdgeFired {
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
-	}
-
-	return layer.Effects{
-		Emissions: emissions,
-		Flush:     flushes,
 	}
 }

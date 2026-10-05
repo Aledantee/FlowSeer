@@ -612,7 +612,7 @@ func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 
 	hitOnL1 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:13";present=true;port="l1";static=true`)
 	gateBlocksL1 := expectedFact("stp.forwarding_decision",
-		`port="l1";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
+		`port="l1";vid=10;state={tree_kind="msti";tree_id=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=200000;designated_root="32769/02:00:00:00:04:01";designated="32769/02:00:00:00:04:01";`+
 			`designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;`+
 			`tx_bpdus=0;rx_bpdus=165;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
@@ -718,10 +718,10 @@ func caseTopologyShadowingMSTRegionBoundary() Case {
 	hitOnL2 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:11";present=true;port="l2";static=true`)
 
 	// gateBlocksL2 is the CIST's own answer for l2 (Alternate, Discarding),
-	// which MSTI 1 (mstid=1) reports outright on the boundary port instead of
+	// which MSTI 1 (tree_id=1) reports outright on the boundary port instead of
 	// the role its own path cost override, ignored here, would have elected.
 	gateBlocksL2 := expectedFact("stp.forwarding_decision",
-		`port="l2";vid=10;state={mstid=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
+		`port="l2";vid=10;state={tree_kind="msti";tree_id=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+
 			`path_cost=20000;designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";`+
 			`designated_port=0;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;`+
 			`tx_bpdus=0;rx_bpdus=166;bad_bpdus=0;send_rstp=true};learns=false;forwards=false`)
@@ -1041,7 +1041,7 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 // and Discarding, with the reason naming the guard rather than leaving a reader
 // to infer it from a role that says only "not participating".
 var stpCaseBPDUGuardGate = stpCaseGateFact(
-	`{mstid=0;role="Disabled";state="Discarding";block_reason="bpdu-guard";priority=128;path_cost=20000;` +
+	`{tree_kind="cist";tree_id=0;role="Disabled";state="Discarding";block_reason="bpdu-guard";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
 		`designated_cost=0;point_to_point=true;edge=true;forward_transitions=1;tx_bpdus=0;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)
@@ -1112,7 +1112,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 // and Discarding rather than the Designated and Forwarding it would reach
 // without the guard, which on a link broken in one direction is a loop.
 var stpCaseLoopGuardGate = stpCaseGateFact(
-	`{mstid=0;role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
+	`{tree_kind="cist";tree_id=0;role="Alternate";state="Discarding";block_reason="loop-inconsistent";priority=128;path_cost=20000;` +
 		`designated_root="0/00:00:00:00:00:00";designated="0/00:00:00:00:00:00";designated_port=0;` +
 		`designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=2;rx_bpdus=1;` +
 		`bad_bpdus=0;send_rstp=true}`)

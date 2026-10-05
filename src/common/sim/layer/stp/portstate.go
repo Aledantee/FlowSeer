@@ -82,8 +82,9 @@ type portState struct {
 	state State
 
 	// loopInconsistent is the loop-guard outcome that holds a port out of the
-	// active topology. Only the CIST's copy is armed, and every tree reads it
-	// through the CIST.
+	// active topology. Outside PVST only the CIST's copy is armed and every
+	// tree reads it there. Under PVST each tree arms and clears its own.
+	// Layer.loopMark picks the copy a tree reads.
 	loopInconsistent bool
 
 	// pvidInconsistent marks a port whose peer named a different VLAN than
