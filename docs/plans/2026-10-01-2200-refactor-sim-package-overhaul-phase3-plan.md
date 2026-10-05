@@ -169,10 +169,10 @@ under Inventory, Sources.
   (Inventory, Limits).
 - An MSTI's sync changes nothing on a boundary port, and counts that port
   synced when the CIST port is Discarding or agreed. Why: at a boundary
-  the MSTI's role and state are the CIST's (`S/README.md:372-373`), so a
-  state the sync writes there is overwritten by the next recompute, which
-  counts a forward transition and detects a topology change
-  (`S/roles.go:255-269`). `Q2003` 13.26.9 gives every MSTI the CIST's
+  the MSTI's role is the CIST's (`S/README.md:372-373`) and so is its state
+  (`S/roles.go:255-260`), so a state the sync writes there is overwritten
+  by the next recompute, which counts a forward transition and detects a
+  topology change (`S/roles.go:262-266`). `Q2003` 13.26.9 gives every MSTI the CIST's
   `agreed` on such a port, and `D2009` Figure 13-25 enters DESIGNATED_SYNCED
   on `agreed && !synced` without discarding. Where the CIST port forwards
   with no agreement the standard discards the MSTI's port, which the layer
@@ -180,6 +180,13 @@ under Inventory, Sources.
 - These shapes break as well: `bpdu.DecodeSSTP` accepts Configuration and
   TCN BPDUs it refused, `bpdu.EncodeSSTP` writes them, and `bpdu.Decode`
   reads by length a frame it refused.
+- U8, U11, and U14 amend the paragraphs of
+  `docs/architecture/2026-09-10-virtual-device-direction.md` they make
+  false: how a version 3 BPDU decodes (`:583-593`), what clears loop guard
+  (`:538-543,690-693`), and what an SSTP BPDU is (`:653-656`). Why: a
+  record and the code change together (`docs/doc-style.md:113-114`), and
+  the simulation package shape record amends that one, so later plans read
+  it. It holds no statement about a port in STP mode for U15 to change.
 
 ## Requirements
 
@@ -248,8 +255,9 @@ nothing at the IEEE address.
 
 ## Out of scope
 
-- The switch recording an MSTI transition on a BPDU. The parent's U9 owns
-  it (`device/vswitch/switch.go:2599,2633`), and `VLANPortInfo` gives the
+- The switch recording an MSTI transition on a BPDU. Its snapshots around
+  a BPDU read the CIST alone (`device/vswitch/switch.go:2626,2660,2672` at
+  `7de7c8ea`). The parent's U9 owns that, and `VLANPortInfo` gives the
   view.
 - Loading MSTP or PVST from the network model. The parent's U11 owns it.
 - What Inventory, Limits lists, and the L2GP and SPT machines.
@@ -446,8 +454,9 @@ and clears the flag otherwise.
     to no tree releases a held port. `CISCO` blocks and unblocks by VLAN.
     U2 for the recompute, U11 for the clear. Test: a PVST port that is
     loop-inconsistent for VLAN 10 stays Alternate with the reason set when
-    it receives an SSTP BPDU with `Admitted` false, one whose TLV names
-    another VLAN, or an IEEE BPDU. It leaves Alternate in the call that
+    it receives an SSTP BPDU with `Admitted` false or an IEEE BPDU. An SSTP
+    BPDU whose TLV names another VLAN leaves the mark in place under the
+    `pvid-inconsistent` reason. The port leaves Alternate in the call that
     applies an SSTP BPDU to VLAN 10's tree.
 12. Medium. A speed-only update restarts the CIST handshake. The guard at
     `S/layer.go:1919` requires an unchanged cost, so a link-derived cost that
@@ -989,7 +998,7 @@ numbers are the printed ones. Each rule names its source and a test, and a
 mutation named for a test is one that test fails under.
 
 ### U8. Decode by the length bands of 14.4
-Files: src/common/net/bpdu/, src/common/sim/layer/stp/README.md
+Files: src/common/net/bpdu/, src/common/sim/layer/stp/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U7
 Change: `bpdu.Decode` reads a type 2 frame of version 3 or above as U3
 states. Octets count from the Protocol Identifier, which is
@@ -1007,8 +1016,9 @@ Version 3 Length counts the octets after octet 38. Figure 14-1, p. 214:
 octet 102 ends the CIST part. `WS` puts the two length fields at offsets 35
 and 36 and the first record at 102 (`:39-40,48`).
 The comments on `Decode` and `readMSTBody` (`B/bpdu.go:507-533,617-620,673-677`),
-`B/README.md`, and "Decoding a version 3 BPDU" in `S/README.md`
-(`:307-331`) state the bands, the 102-octet reading, and the refusal as the
+`B/README.md`, "Decoding a version 3 BPDU" in `S/README.md` (`:307-331`),
+and the `Decode` paragraph of the virtual device direction record
+(`:583-593`) state the bands, the 102-octet reading, and the refusal as the
 layer's own. `B/README.md` stops claiming a UNH-IOL cross-check that no
 fixture holds (`:60`), a Hello Time floor in the codec (`:68,73`), and an
 RST reading for every truncated body (`:64`).
@@ -1039,7 +1049,7 @@ second test decodes every length from 0 to 150 octets at version 3 and
 requires a result or `ErrUnsupported`, never a panic. Mutation: the call to
 `readMSTBody` restored for a frame under 102 octets. Nothing here compares
 a frame with a device capture.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim/layer/stp`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim/layer/stp docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U9. Agreement and proposal in the standard's order
 Files: src/common/sim/layer/stp/
@@ -1057,8 +1067,15 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   MSTI 1 record has a better regional root, the Designated role, and the
   Proposal flag. In that call p2 returns to Discarding for MSTI 1, p1 is
   Root and Forwarding for it, and the frame p1 emits has the Agreement flag
-  in its MSTI 1 record. The same record with the Root role syncs nothing,
-  and so does a CIST proposal from a Root-role sender. Mutation: the
+  in its MSTI 1 record. That case is the second example of R2, and A2 is
+  what makes its CIST part match. A second case pins A1 alone: p1 holds
+  CIST information, and a BPDU from another bridge of its region carries a
+  worse CIST vector with another CIST root, so its CIST part is not stored,
+  and an MSTI 1 record better than the one p1 holds, with the Designated
+  role and the Proposal flag. p2 returns to Discarding for MSTI 1 and the
+  frame p1 emits has the Agreement flag in its MSTI 1 record. The same
+  record with the Root role syncs nothing, and so does a CIST proposal from
+  a Root-role sender. Mutation, against the second case: the
   `cistConsistent` test restored around the proposal.
 - A2, an MSTI agreement. The Agreement flag of an MSTI record counts only
   when the CIST part of its BPDU matches the CIST vector the port holds
@@ -1101,11 +1118,16 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   BPDU leaves p1 Discarding for MSTI 1 as well. An agreement from a
   Root-role sender with a worse vector on a boundary Designated port brings
   it to Forwarding for the CIST and for MSTI 1 in that call. Mutation: the
-  state change restored in `recordAgreement`.
+  state change restored in `recordAgreement`. Nothing here shows that a
+  boundary port's MSTIs take the CIST's `agreed` (`S/receive.go:486`),
+  since their state follows the CIST's either way. Review gaps keeps that
+  item.
 - A4, a sync at a boundary. An MSTI's sync changes nothing on a boundary
   port, and `isSynced` reads the CIST port's state and `agreed` for it
-  (Decisions). A sync of the CIST gives each MSTI's boundary port the CIST
-  port's new state in that call. Today `syncTree` returns an MSTI's
+  (Decisions). It reads the CIST port's and not the MSTI's copy because
+  the copy is written only when a BPDU arrives on the port
+  (`S/receive.go:479-486`). A sync of the CIST gives each MSTI's boundary
+  port the CIST port's new state in that call. Today `syncTree` returns an MSTI's
   boundary port to Discarding while the CIST port forwards
   (`S/receive.go:33-42`). The next recompute brings it back, counts a
   forward transition, and detects a change (`S/roles.go:255-269`). Source:
@@ -1175,7 +1197,7 @@ Tests: the two named above, in a new `S/tcn_test.go` (package `stp_test`).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
 ### U11. Loop guard clears per tree
-Files: src/common/sim/layer/stp/
+Files: src/common/sim/layer/stp/, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U10
 Change: `receiveLink` clears no mark (`S/link.go:187-197`). `Receive`
 clears the CIST port's mark once `receiveLink` lets the frame through,
@@ -1190,18 +1212,26 @@ say which VLAN's BPDU recovers a port.
 `S/README.md` states the per-tree clear and where `BlockReason` comes from
 in its Guards table (`:127`), the paragraph under it (`:129-136`), and the
 PVST section (`:241,250-251`). The comment on `blockReason`
-(`S/info.go:76-86`) follows.
+(`S/info.go:76-86`) follows. The virtual device direction record states
+the same where it has any BPDU clear the guard (`:538-543`) and has the
+clear run on both sides of a PVST boundary (`:690-693`).
 Tests: the test of Correctness 11, as
 `TestLoopGuardClearsOnABPDUAppliedToItsTree`, which replaces
 `TestLoopInconsistentPVSTPortReceivesUnadmittedSSTPLeavesAlternate`.
-`TestReceiveSSTPRunsTheLinkHalfForEveryOutcome` asserts for each outcome
-that the marked tree keeps its mark, and that `SSTPApplied` clears the
-arrival VLAN's alone. `TestBlockReasonReadsTheTreesOwnMark`: on a PVST
+`TestReceiveSSTPRunsTheLinkHalfForEveryOutcome` asserts that the marked
+tree keeps its mark under `SSTPBoundary`, `SSTPNotAdmitted`, and
+`SSTPUntrackedVLAN`, and that `SSTPApplied` clears the arrival VLAN's
+alone. Its `SSTPGuarded` row keeps the outcome and reason checks it has,
+since a guarded port never holds a mark (`S/layer_test.go:2556-2567`).
+Under `SSTPPVIDInconsistent` the reason reads `pvid-inconsistent` and both
+marks give Alternate (`S/info.go:89-94`, `S/roles.go:210-220`), so a case in
+`S/link_state_internal_test.go` reads the tree's mark after that outcome.
+`TestBlockReasonReadsTheTreesOwnMark`: on a PVST
 port whose VLAN 1 information expired while VLAN 10's did not, `PortInfo`
 reports Alternate with `loop-inconsistent`, and `VLANPortInfo` for VLAN 10
 reports the Root role and no reason. On an MST bridge an MSTI's port
 reports the CIST's mark. Mutation: the clear restored in `receiveLink`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U12. The requests the Port Transmit machine makes
 Files: src/common/sim/layer/stp/
@@ -1300,12 +1330,13 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim
 ### U13. The transmit tests run the examples of their rules
 Files: src/common/sim/layer/stp/
 After: U12
-Change: no file outside `*_test.go` changes. Four tests in
+Change: the intended change is to `*_test.go` alone. Four tests in
 `S/transmit_test.go` run less than the example U7 names for their rule,
 and pass under the mutation given here. Each is rewritten to that example.
-A rewritten test that fails on the landed code shows its rule unmet. The
-unit then brings the code to the rule as U7 states it, and its commit says
-which rule.
+A rewritten test that fails on the landed code shows its rule unmet. Only
+then does the unit change `S/transmit.go`, `S/topology.go`, or
+`S/advance.go`, to the rule as U7 states it, and its commit says which
+rule.
 
 | Test | What it runs today | What it runs after | Mutation |
 | --- | --- | --- | --- |
@@ -1327,7 +1358,7 @@ line.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp`
 
 ### U14. Legacy BPDUs at the SSTP address, and receiving them
-Files: src/common/net/bpdu/, src/common/sim/layer/stp/, src/common/sim/device/vswitch/switch_test.go
+Files: src/common/net/bpdu/, src/common/sim/layer/stp/, src/common/sim/device/vswitch/, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U13
 Change: `bpdu.EncodeSSTP` and `bpdu.DecodeSSTP` gain two shapes, chosen by
 `BPDU.Type` and by the wire type. A Configuration BPDU keeps the 50-octet
@@ -1349,6 +1380,10 @@ when the port is Designated, starts a stopped timer, and propagates on
 that tree alone. The outcome is `SSTPApplied`. On a bridge that does not
 run PVST the outcome stays `SSTPBoundary`. Either shape migrates the port
 to STP as its IEEE form does (`S/link.go:231-233`).
+The switch's `stp.sstp.vlans` fact compares the TLV's VLAN with the arrival
+VLAN for every SSTP BPDU (`device/vswitch/switch.go:2813-2816,2915-2920`),
+which would print `tlv=0` and `consistent=false` for a TCN. For a TCN it
+prints `tlv=none,arrival=<vid>` and no `consistent` term.
 Sources: Decisions, modelled on observation. `PVID` for the per-VLAN BPDU
 at the SSTP address. No Cisco document read names a TCN there. `EXT`, a
 second vendor, sends "a tagged TCN BPDU" to that address for a tagged
@@ -1358,7 +1393,9 @@ any TLV (`:61,511-514`). `WS` shows what a dissector reads. It does not
 show that a device sends a TCN with no TLV, which stays unverified.
 `B/README.md` and the PVST section of `S/README.md` name both shapes, mark
 PVST and SSTP as modelled on observation, and name `CISCO`, `PVID`, and
-`EXT` with what each was read for.
+`EXT` with what each was read for. The virtual device direction record
+names the three shapes where it calls an SSTP BPDU an RST BPDU
+(`:653-656`).
 Tests: `B/bpdu_test.go` gains a byte literal for an SSTP Configuration
 BPDU on VLAN 10 with both flags set and every multi-octet field distinct
 in each octet, each field commented with its `WS` offset. `DecodeSSTP`
@@ -1380,11 +1417,13 @@ another VLAN returns `SSTPPVIDInconsistent`. Each of the two shapes turns
 `PortInfo.SendRSTP` false once MigrateTime has passed. On a PVST bridge
 with VLANs 1 and 10, a Configuration BPDU for VLAN 10 with a better root
 every two seconds keeps p1 Root for VLAN 10 past ten seconds.
-`switch_test.go`: a TCN at the SSTP address tagged for VLAN 10 on a PVST
-switch flushes VLAN 10's entries on another port and traces as applied.
+`device/vswitch/switch_test.go`: a TCN at the SSTP address tagged for VLAN
+10 on a PVST switch flushes VLAN 10's entries on another port, traces as
+applied, and carries the fact `tlv=none,arrival=10`. An RST BPDU there
+keeps the fact it has.
 Mutations: the PVID test run for a TCN, and the TCN applied to VLAN 1's
 tree. Nothing here compares either frame with a device capture.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U15. A VLAN tree's own frames on a port in STP mode
 Files: src/common/sim/layer/stp/
@@ -1467,7 +1506,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   call `Switch.Start`, reports each port with the resolved value
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
-  (`device/vswitch/switch.go:2929-2945`), which the parent's U9 owns.
+  (`device/vswitch/switch.go:2956-2968` at `7de7c8ea`), which the parent's
+  U9 owns.
 - U7's rules T2 (a port that sends RSTP transmits whatever its role), T6,
   and C2 rest on `D2009` alone, a working draft. `UNH` neither supports nor
   contradicts them, and the published IEEE Std 802.1Q-2011 is unverified.
@@ -1513,6 +1553,7 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 
 - src/common/sim/layer/stp/receive.go:113: `mp.tcActive` dropped; fails: an inactive MSTI port ignores its record's topology-change flag
 - src/common/sim/layer/stp/receive.go:150: MSTI record hello floor removed; fails: an MSTI record under Hello Time zero expires after 3 seconds
+- src/common/sim/layer/stp/receive.go:478: boundary MSTIs no longer take the CIST's `agreed`; fails: an MSTI Designated port on a boundary forwards on the CIST's agreement
 - src/common/sim/layer/stp/receive.go:509: acknowledgment no longer stops the timer; fails: a Root port in STP mode emits TCN BPDUs at each hello until a Configuration BPDU with the acknowledgment flag arrives, and none after
 - src/common/sim/layer/stp/roles.go:306: `!link.edge` dropped; fails: an edge port that starts forwarding raises no topology change
 - src/common/sim/layer/stp/advance.go:31: `update(p.tcWhile)` removed; fails: `NextWake` returns the earliest port timer
