@@ -1,8 +1,12 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { ContextMenuItem } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import UiKbd from '../kbd/UiKbd.vue'
 
-export interface UiContextMenuItemProps {
+export interface UiContextMenuItemProps extends UiAiProps {
   label?: string
   hint?: string
   kbd?: string
@@ -18,15 +22,28 @@ const props = withDefaults(defineProps<UiContextMenuItemProps>(), {
   disabled: false,
   textValue: undefined,
   asChild: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'select', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'select', event: Event): void
+  }
+>()
+
+const item = useTemplateRef('item')
+useAiTarget(item, () => props.ai)
+useAiOrigin(
+  item,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 </script>
 
 <template>
   <ContextMenuItem
+    ref="item"
     :disabled="disabled"
     :text-value="textValue ?? label"
     :as-child="asChild"

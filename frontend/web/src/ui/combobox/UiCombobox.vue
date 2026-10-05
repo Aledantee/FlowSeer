@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, ref } from 'vue'
+import { computed, h, ref, shallowRef, useTemplateRef } from 'vue'
 import {
   ComboboxContent,
   ComboboxEmpty,
@@ -16,6 +16,9 @@ import {
   useId,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
 export interface ComboboxOption {
   value: string
@@ -26,7 +29,7 @@ export interface ComboboxOption {
   iconUrl?: string
 }
 
-export interface UiComboboxProps {
+export interface UiComboboxProps extends UiAiProps {
   modelValue?: string | string[]
   options?: ComboboxOption[]
   ignoreFilter?: boolean
@@ -50,6 +53,8 @@ const props = withDefaults(defineProps<UiComboboxProps>(), {
   side: 'bottom',
   align: 'start',
   sideOffset: 4,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -60,12 +65,30 @@ const resolvedEmptyText = computed(
   () => props.emptyText ?? t('ui.combobox.emptyText'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string | string[]): void
-  (e: 'update:open', value: boolean): void
-  (e: 'highlight', item: unknown): void
-  (e: 'select', value: string): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string | string[]): void
+    (e: 'update:open', value: boolean): void
+    (e: 'highlight', item: unknown): void
+    (e: 'select', value: string): void
+  }
+>()
+
+// The value's control is the input, or the caller's trigger element when the
+// input moves into the popup. A caller-supplied input slot owns its element.
+const input = useTemplateRef('input')
+const trigger = shallowRef<HTMLElement | null>(null)
+function setTrigger(element: HTMLElement | null) {
+  trigger.value = element
+}
+const anchor = () => trigger.value ?? input.value
+useAiTarget(anchor, () => props.ai)
+// The options and the popup input live in a portal, outside the anchor.
+const aiOrigin = useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const emptyOptionValue = computed(() => {
   let value = '__ui_combobox_empty__'
@@ -153,7 +176,11 @@ const groupedOptions = computed(() => {
 })
 
 function UiCustomComboboxTrigger(
-  props: { asChild?: boolean; disabled?: boolean },
+  props: {
+    asChild?: boolean
+    disabled?: boolean
+    anchor?: (element: HTMLElement | null) => void
+  },
   { slots }: { slots: { default?: () => unknown } },
 ) {
   const rootContext = injectComboboxRootContext()
@@ -186,7 +213,10 @@ function UiCustomComboboxTrigger(
           const domEl = '$el' in el ? (el as { $el: HTMLElement }).$el : el
           if (domEl instanceof HTMLElement) {
             rootContext.onTriggerElementChange(domEl)
+            props.anchor?.(domEl)
           }
+        } else {
+          props.anchor?.(null)
         }
       },
       asChild: props.asChild ?? true,
@@ -232,11 +262,16 @@ function UiCustomComboboxTrigger(
     @update:open="onOpenUpdate"
     @highlight="onHighlight"
   >
-    <UiCustomComboboxTrigger v-if="$slots.trigger" as-child>
+    <UiCustomComboboxTrigger
+      v-if="$slots.trigger"
+      as-child
+      :anchor="setTrigger"
+    >
       <slot name="trigger" />
     </UiCustomComboboxTrigger>
     <slot v-else name="input">
       <ComboboxInput
+        ref="input"
         :placeholder="resolvedPlaceholder"
         :display-value="displayValue"
         class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
@@ -250,6 +285,9 @@ function UiCustomComboboxTrigger(
         :side-offset="sideOffset"
         :collision-padding="8"
         class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-(--z-overlay) max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
+        @pointerdown.capture="aiOrigin.acknowledge"
+        @keydown.capture="aiOrigin.acknowledge"
+        @input.capture="aiOrigin.acknowledge"
       >
         <div v-if="$slots.trigger" class="p-1 border-b border-border mb-1">
           <ComboboxInput

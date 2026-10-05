@@ -5,8 +5,10 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 
-export interface UiDropdownMenuProps {
+export interface UiDropdownMenuProps extends UiAiProps {
   open?: boolean
   defaultOpen?: boolean
   side?: 'top' | 'right' | 'bottom' | 'left'
@@ -20,12 +22,16 @@ withDefaults(defineProps<UiDropdownMenuProps>(), {
   side: 'bottom',
   align: 'start',
   sideOffset: 4,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-  (e: 'closeAutoFocus', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+    (e: 'closeAutoFocus', event: Event): void
+  }
+>()
 </script>
 
 <template>
@@ -46,6 +52,11 @@ const emit = defineEmits<{
         class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-(--z-overlay) min-w-[10rem] focus:outline-none data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out motion-reduce:data-[state=open]:animate-fade-in motion-reduce:data-[state=closed]:animate-fade-out origin-(--reka-popper-transform-origin)"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
         <slot />
       </DropdownMenuContent>
     </DropdownMenuPortal>

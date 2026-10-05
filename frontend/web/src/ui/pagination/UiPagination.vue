@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import {
   PaginationEllipsis,
   PaginationFirst,
@@ -11,8 +11,11 @@ import {
   PaginationRoot,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiPaginationProps {
+export interface UiPaginationProps extends UiAiProps {
   total: number
   itemsPerPage?: number
   page?: number
@@ -51,11 +54,23 @@ const props = withDefaults(defineProps<UiPaginationProps>(), {
   nextMark: undefined,
   lastMark: undefined,
   ellipsis: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:page', page: number): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:page', page: number): void
+  }
+>()
+
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t, n } = useI18n({ useScope: 'global' })
 
@@ -103,6 +118,7 @@ function resolvePageLabel(pageNumber: number): string {
 
 <template>
   <PaginationRoot
+    ref="root"
     :total="total"
     :items-per-page="itemsPerPage"
     :page="page"

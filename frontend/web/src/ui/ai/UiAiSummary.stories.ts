@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import UiAiSummary from './UiAiSummary.vue'
+import UiAiTarget from './UiAiTarget.vue'
 import { AiUnavailableError } from '../../ai'
 import type { AiTarget } from '../../ai'
 
@@ -28,18 +29,19 @@ function summaryTarget(story: string): AiTarget {
 
 function placement(story: string) {
   return () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       return { target: summaryTarget(story) }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Site summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   })
 }
@@ -109,19 +111,20 @@ export const DarkMode: Story = {
     },
   },
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       return { target: summaryTarget('dark') }
     },
     template: `
-      <div
+      <UiAiTarget
+        as="div"
         data-theme="dark"
-        v-ai-target="target"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Site summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }
@@ -142,7 +145,7 @@ export const LongText: Story = {
     },
   },
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       const target: AiTarget = {
         id: 'standalone:story:ai-summary-longtext:datacenter-core-aggregation-switch-fra-01',
@@ -157,20 +160,21 @@ export const LongText: Story = {
       return { target }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">LongText summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }
 
 export const Overrides: Story = {
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       const target = summaryTarget('overrides')
       const labels = {
@@ -184,13 +188,14 @@ export const Overrides: Story = {
       return { target, labels }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Custom labels placement</p>
         <UiAiSummary :target="target" :labels="labels" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }

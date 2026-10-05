@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { ComboboxInput, injectComboboxRootContext, useId } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
 defineOptions({
   inheritAttrs: false,
 })
 
-export interface UiCommandInputProps {
+export interface UiCommandInputProps extends UiAiProps {
   modelValue?: string
   placeholder?: string
   label?: string
@@ -19,6 +22,8 @@ const props = withDefaults(defineProps<UiCommandInputProps>(), {
   placeholder: undefined,
   label: undefined,
   autoFocus: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -27,9 +32,19 @@ const resolvedPlaceholder = computed(
 )
 const resolvedLabel = computed(() => props.label ?? t('ui.commandInput.label'))
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string): void
+  }
+>()
+
+const input = useTemplateRef('input')
+useAiTarget(input, () => props.ai)
+useAiOrigin(
+  input,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const rootContext = injectComboboxRootContext()
 rootContext.contentId ||= useId(undefined, 'reka-command-content')
@@ -53,6 +68,7 @@ rootContext.contentId ||= useId(undefined, 'reka-command-content')
       <path d="m21 21-4.3-4.3" />
     </svg>
     <ComboboxInput
+      ref="input"
       :model-value="modelValue"
       :placeholder="resolvedPlaceholder"
       :aria-label="resolvedLabel"

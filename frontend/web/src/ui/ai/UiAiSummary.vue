@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AiStaleError, AiUnavailableError } from '../../ai'
 import type { AiResult, AiRun, AiTarget } from '../../ai'
 import UiButton from '../button/UiButton.vue'
 import { useAiRegistry } from './context'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 import UiAiLabel from './UiAiLabel.vue'
 import UiAiResult, { type UiAiResultState } from './UiAiResult.vue'
 import UiAiResultActions from './UiAiResultActions.vue'
@@ -19,12 +22,26 @@ export interface UiAiSummaryLabels {
   stop?: string
 }
 
-export interface UiAiSummaryProps {
+export interface UiAiSummaryProps extends UiAiProps {
   target: AiTarget
   labels?: UiAiSummaryLabels
 }
 
-const props = defineProps<UiAiSummaryProps>()
+const props = withDefaults(defineProps<UiAiSummaryProps>(), {
+  labels: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
+})
+
+const emit = defineEmits<UiAiEmits>()
+
+const section = useTemplateRef('section')
+useAiTarget(section, () => props.ai)
+useAiOrigin(
+  section,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 const registry = useAiRegistry()
@@ -142,6 +159,7 @@ function handleStop() {
 
 <template>
   <section
+    ref="section"
     class="flex flex-col items-start gap-2 w-full"
     :aria-label="summaryLabelText"
     data-ai-summary
