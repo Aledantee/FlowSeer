@@ -34,6 +34,19 @@ func (l *Layer) BadBPDU(port string) {
 	}
 }
 
+// minReceivedHelloTime is the shortest Hello Time the layer ages received
+// information by. P802.1aq/D1.5 13.29.21 raises a smaller one to the minimum
+// of IEEE 802.1D Table 17-1, which was not read, so this is 1 second, the
+// lowest value UNH-IOL RSTP.op.4.3 Part B sends as valid.
+const minReceivedHelloTime = time.Second
+
+// receivedHelloTime raises a received Hello Time below the minimum to the
+// minimum, so a BPDU that announces none does not expire the moment it
+// arrives.
+func receivedHelloTime(d time.Duration) time.Duration {
+	return max(d, minReceivedHelloTime)
+}
+
 // receiveMSTIs stores the MSTI records an internal BPDU carries into each
 // named instance's port state, one instance at a time by the same
 // same-source-or-superior rule the CIST uses, and carries each record's own
@@ -43,7 +56,7 @@ func (l *Layer) BadBPDU(port string) {
 // record for an instance this bridge does not configure is ignored: the
 // fabric's bridges are not required to share the same instance set. The
 // designated bridge and port a record implies reuse the sending bridge's own
-// address and the CIST port identifier's index half, since MSTI bridge and
+// address and the low 12 bits of the CIST port identifier, since MSTI bridge and
 // port identifiers differ from the CIST's only in their priority nibble
 // (clause 13.7).
 func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) {
@@ -68,10 +81,10 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 		}
 
 		recBridgeID := bpdu.BridgeID{
-			Priority: (uint16(rec.BridgePriority) << 12) | uint16(rec.MSTID),
+			Priority: (uint16(rec.BridgePriority&0xF0) << 8) | uint16(rec.MSTID),
 			Address:  b.BridgeID.Address,
 		}
-		recPortID := (uint16(rec.PortPriority) << 8) | (b.PortID & 0x00FF)
+		recPortID := (uint16(rec.PortPriority&0xF0) << 8) | (b.PortID & 0x0FFF)
 
 		incoming := priorityVector{
 			rootID: rec.RegionalRootID, regionalRootID: rec.RegionalRootID,
@@ -100,7 +113,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 		mp.rcvBridgeID = recBridgeID
 		mp.rcvPortID = recPortID
 		mp.rcvRemainingHops = rec.RemainingHops
-		mp.rcvHelloTime = b.HelloTime
+		mp.rcvHelloTime = receivedHelloTime(b.HelloTime)
 		mp.rcvTime = now
 	}
 }
@@ -396,7 +409,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		p.rcvPortID = b.PortID
 		p.rcvMessageAge = b.MessageAge
 		p.rcvMaxAge = b.MaxAge
-		p.rcvHelloTime = b.HelloTime
+		p.rcvHelloTime = receivedHelloTime(b.HelloTime)
 		p.rcvForwardDelay = b.ForwardDelay
 		p.rcvTime = now
 		if internal {

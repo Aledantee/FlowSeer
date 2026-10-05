@@ -416,7 +416,7 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),
@@ -512,7 +512,7 @@ func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),

@@ -154,10 +154,7 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 			Msgf("unsupported SSTP TLV length %d, want 2", tlvLength)
 	}
 
-	b, err := readBody(f.Payload[5:])
-	if err != nil {
-		return BPDU{}, 0, err
-	}
+	b := readBody(f.Payload[5:])
 	b.Version = version
 	b.Type = TypeRapid
 	b.Flags = f.Payload[12]
