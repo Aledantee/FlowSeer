@@ -237,13 +237,15 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 				}
 				if !p.cfg.RestrictedTCN {
 					l.initiateTopologyChange(t, p, now, &flushes)
-					for _, id := range l.treeOrder {
-						mt := l.trees[id]
-						if mt.id == cistID {
-							continue
-						}
-						if mp := mt.ports[port]; mp != nil && mp.tcActive {
-							l.initiateTopologyChange(mt, mp, now, &flushes)
+					if l.mst != nil {
+						for _, id := range l.treeOrder {
+							mt := l.trees[id]
+							if mt.id == cistID {
+								continue
+							}
+							if mp := mt.ports[port]; mp != nil && mp.tcActive {
+								l.initiateTopologyChange(mt, mp, now, &flushes)
+							}
 						}
 					}
 				}
