@@ -58,6 +58,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // Advance advances timer-driven state to now, firing due hellos, forward delays,
 // topology change timers, and information age-outs.
 func (l *Layer) Advance(now time.Time) layer.Effects {
+	l.settleHelloTimers(now)
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
 

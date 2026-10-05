@@ -2266,7 +2266,7 @@ func TestPVSTHelloEmitsEveryVLANAndOneIEEEFrame(t *testing.T) {
 	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
 
 	up := l.LinkChange(start, "l1", true, true, 1_000_000_000)
-	if got, want := emissionShapes(up.Emissions), []string{"l1/1/sstp", "l1/0/ieee"}; !slices.Equal(got, want) {
+	if got, want := emissionShapes(up.Emissions), []string{"l1/1/sstp", "l1/0/ieee", "l1/10/sstp"}; !slices.Equal(got, want) {
 		t.Fatalf("link up emissions = %v, want %v", got, want)
 	}
 
@@ -4350,7 +4350,11 @@ func TestLegacyTCNHandshakeAndTimer(t *testing.T) {
 	}
 
 	// The next hello carries the acknowledgment and TC flag.
-	now = now.Add(2 * time.Second)
+	wake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake reported no hello after the TCN")
+	}
+	now = wake
 	fxHello := l.Advance(now)
 	if len(fxHello.Emissions) == 0 {
 		t.Fatal("hello produced no emissions")
