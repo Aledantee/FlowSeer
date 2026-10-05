@@ -61,8 +61,9 @@ func compareVectors(a, b priorityVector) int {
 // port adds the cost to the external or the internal slot depending on
 // whether it is a boundary port; an MSTI port always adds it to the internal
 // slot and mirrors rootID from regionalRootID, which is clause 13.11's MSTI
-// vector order (see priorityVector).
-func candidateVector(t *tree, p *portState) priorityVector {
+// vector order (see priorityVector). external is the link record's boundary
+// classification of the port.
+func candidateVector(t *tree, p *portState, external bool) priorityVector {
 	cand := priorityVector{
 		rootID:   p.rcvRootID,
 		bridgeID: p.rcvBridgeID,
@@ -70,7 +71,7 @@ func candidateVector(t *tree, p *portState) priorityVector {
 	}
 
 	switch {
-	case t.id == cistID && p.external:
+	case t.id == cistID && external:
 		// A bridge whose CIST root port is a boundary port terminates the
 		// region for this vector: it IS the CIST regional root here, not a
 		// name borrowed from the peer's region, so the regional root mirrors
@@ -94,9 +95,9 @@ func candidateVector(t *tree, p *portState) priorityVector {
 // compares what the peer is claiming for the segment against what this
 // bridge would claim, and neither side's own link cost belongs in that
 // comparison.
-func rawVector(t *tree, p *portState) priorityVector {
+func rawVector(t *tree, p *portState, external bool) priorityVector {
 	switch {
-	case t.id == cistID && p.external:
+	case t.id == cistID && external:
 		return priorityVector{
 			rootID: p.rcvRootID, externalRootPathCost: p.rcvRootPathCost,
 			regionalRootID: p.rcvRootID, bridgeID: p.rcvBridgeID, portID: p.rcvPortID,
@@ -118,9 +119,9 @@ func rawVector(t *tree, p *portState) priorityVector {
 // designatedVector builds the priority vector tree t itself offers on port p
 // once its root is elected, in the same shape rawVector gives a received one,
 // so the two compare directly.
-func designatedVector(t *tree, p *portState) priorityVector {
+func designatedVector(t *tree, p *portState, external bool) priorityVector {
 	switch {
-	case t.id == cistID && p.external:
+	case t.id == cistID && external:
 		return priorityVector{
 			rootID: t.rootID, externalRootPathCost: t.rootPathCost,
 			regionalRootID: t.rootID, bridgeID: t.bridgeID, portID: p.portID,

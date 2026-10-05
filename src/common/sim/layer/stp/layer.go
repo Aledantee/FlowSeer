@@ -42,12 +42,18 @@ type Layer struct {
 	txHoldCount  uint8
 
 	// portNames is the bridge-global port key set in the order every emit and
-	// flush loop walks. A per-tree map iterated separately would reorder
+	// flush loop walks. It is fixed at construction, so Clone shares it. A per-tree map iterated separately would reorder
 	// Effects.Flush with no behavior change to point at.
 	portNames []string
 
 	trees     map[treeID]*tree
 	vidToTree map[vlan.ID]treeID
+
+	// links holds one record per port for what the physical link decides
+	// whatever tree runs over it, in portNames order. Layer.link finds the
+	// record of a named port. A slice rather than a map keeps Clone to one
+	// allocation for every record.
+	links []linkRecord
 
 	// treeVLANs lists, sorted and deduplicated, the VLANs each MSTI carries.
 	// It has no entry for the CIST: the CIST forwards every VLAN no MSTI
@@ -144,6 +150,7 @@ func newLayer(cfg Config) *Layer {
 		txHoldCount:  holdCount,
 		portNames:    sortedNames,
 		trees:        map[treeID]*tree{cistID: cist},
+		links:        make([]linkRecord, len(sortedNames)),
 		vidToTree:    make(map[vlan.ID]treeID),
 		treeVLANs:    make(map[treeID][]vlan.ID),
 		treeOrder:    []treeID{cistID},
@@ -168,12 +175,19 @@ func newLayer(cfg Config) *Layer {
 		pCfg := cfg.Ports[name]
 		portPrio := effectivePortPriority(pCfg.Priority, pCfg.PriorityPresent)
 
-		cost := pCfg.PathCost
-		if cost == 0 {
-			cost = defaultPathCost(0)
+		linkCost := pCfg.PathCost
+		if linkCost == 0 {
+			linkCost = defaultPathCost(0)
 		}
-		linkCost := cost
+		cost := linkCost
 		fixed := false
+
+		l.links[i] = linkRecord{
+			edge:      pCfg.AdminEdge,
+			sendRSTP:  true,
+			adminEdge: pCfg.AdminEdge,
+			cost:      linkCost,
+		}
 
 		if treePort, ok := cistTreePorts[name]; ok {
 			if treePort.PriorityPresent {
@@ -190,15 +204,9 @@ func newLayer(cfg Config) *Layer {
 			cfg:           pCfg,
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
-			linkPathCost:  linkCost,
 			pathCostFixed: fixed,
-			adminEdge:     pCfg.AdminEdge,
-			linkState: linkState{
-				edge:     pCfg.AdminEdge,
-				sendRSTP: true,
-			},
-			role:  bpdu.RoleDisabled,
-			state: StateDiscarding,
+			role:          bpdu.RoleDisabled,
+			state:         StateDiscarding,
 		}
 	}
 
@@ -322,17 +330,23 @@ func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePort
 			portID:        (uint16(portPrio) << 8) | uint16(i+1),
 			pathCost:      cost,
 			pathCostFixed: fixed,
-			adminEdge:     pCfg.AdminEdge,
-			linkState: linkState{
-				edge:     pCfg.AdminEdge,
-				sendRSTP: true,
-			},
-			role:  bpdu.RoleDisabled,
-			state: StateDiscarding,
+			role:          bpdu.RoleDisabled,
+			state:         StateDiscarding,
 		}
 	}
 
 	l.trees[id] = t
+}
+
+// link returns the record of the named port, or nil for a port the layer does
+// not track.
+func (l *Layer) link(name string) *linkRecord {
+	i, ok := slices.BinarySearch(l.portNames, name)
+	if !ok {
+		return nil
+	}
+
+	return &l.links[i]
 }
 
 // Clone creates an independent deep copy of the spanning tree layer, preserving
@@ -347,8 +361,9 @@ func (l *Layer) Clone() *Layer {
 		maxAge:       l.maxAge,
 		forwardDelay: l.forwardDelay,
 		txHoldCount:  l.txHoldCount,
-		portNames:    slices.Clone(l.portNames),
+		portNames:    l.portNames,
 		trees:        make(map[treeID]*tree, len(l.trees)),
+		links:        slices.Clone(l.links),
 		vidToTree:    make(map[vlan.ID]treeID, len(l.vidToTree)),
 		treeVLANs:    make(map[treeID][]vlan.ID, len(l.treeVLANs)),
 		treeOrder:    slices.Clone(l.treeOrder),
