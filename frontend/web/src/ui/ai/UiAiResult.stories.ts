@@ -94,6 +94,36 @@ export const HealthySummary: Story = {
   },
 }
 
+export const AnswerWithComponents: Story = {
+  args: {
+    state: 'done',
+    result: {
+      type: 'answer',
+      text: 'The core switch is offline and needs attention.',
+      refs: [{ kind: 'device', id: 'core-sw-1', label: 'core-sw-1' }],
+      ui: [
+        {
+          component: 'UiCard',
+          props: {},
+          children: [
+            { component: 'UiStatusBadge', props: { status: 'Offline' } },
+            {
+              component: 'UiButton',
+              props: {
+                text: 'Open device',
+                intent: {
+                  type: 'navigate',
+                  target: { path: '/devices/core-sw-1' },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
+}
+
 export const GeneratingSkeleton: Story = {
   args: {
     state: 'generating',

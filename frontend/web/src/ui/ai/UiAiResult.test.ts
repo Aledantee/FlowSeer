@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import UiAiResult, { type UiAiResultProps } from './UiAiResult.vue'
 import { createWebI18n } from '../../i18n'
-import type { AiResult, AiRun, AiSummary, AiTone } from '../../ai'
+import type { AiAnswer, AiResult, AiRun, AiSummary, AiTone } from '../../ai'
 
 let disposers: (() => void)[] = []
 afterEach(() => {
@@ -123,6 +123,79 @@ describe('UiAiResult', () => {
     expect(host.querySelector('[data-ai-result-metrics]')).toBeNull()
     expect(host.querySelector('[data-ai-result-next-steps]')).toBeNull()
     expect(host.querySelector('[data-ai-result-refs]')).toBeNull()
+  })
+
+  it('renders an answer tree after its text and entity chips', () => {
+    const answer: AiAnswer = {
+      type: 'answer',
+      text: 'Two switches are offline.',
+      refs: [{ kind: 'device', id: 'core-sw-1', label: 'Core switch' }],
+      ui: [
+        {
+          component: 'UiCard',
+          props: {},
+          children: [
+            { component: 'UiStatusBadge', props: { status: 'Offline' } },
+            {
+              component: 'UiButton',
+              props: {
+                text: 'Open device',
+                intent: {
+                  type: 'navigate',
+                  target: { path: '/devices/core-sw-1' },
+                },
+              },
+            },
+          ],
+        },
+      ],
+    }
+
+    const { host } = mountResult({ result: answer, state: 'done' })
+    const text = host.querySelector('[data-ai-result-text]')
+    const refs = host.querySelector('[data-ai-result-refs]')
+    const render = host.querySelector('[data-ai-render]')
+
+    expect(text?.textContent).toContain('Two switches are offline.')
+    expect(refs).not.toBeNull()
+    expect(render).not.toBeNull()
+    expect(text?.compareDocumentPosition(render as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(refs?.compareDocumentPosition(render as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    )
+    expect(render?.textContent).toContain('Offline')
+  })
+
+  it('leaves answer text standing when its tree is rejected', () => {
+    const answer: AiAnswer = {
+      type: 'answer',
+      text: 'Two switches are offline.',
+      refs: [],
+      ui: [{ component: 'div', props: {} }],
+    }
+
+    const { host } = mountResult({ result: answer, state: 'done' })
+
+    expect(host.querySelector('[data-ai-result-text]')?.textContent).toContain(
+      'Two switches are offline.',
+    )
+    expect(host.querySelector('[data-ai-render] [role="alert"]')).not.toBeNull()
+    expect(host.querySelector('[data-ai-result-error]')).toBeNull()
+  })
+
+  it('does not mount the tree renderer when an answer has no ui', () => {
+    const answer: AiAnswer = {
+      type: 'answer',
+      text: 'Everything is healthy.',
+      refs: [],
+    }
+
+    const { host } = mountResult({ result: answer, state: 'done' })
+
+    expect(host.textContent).toContain('Everything is healthy.')
+    expect(host.querySelector('[data-ai-render]')).toBeNull()
   })
 
   it('maps tone to the required badge variants and labels', () => {

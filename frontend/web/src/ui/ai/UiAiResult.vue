@@ -9,6 +9,7 @@ import type { UiAiEmits, UiAiProps } from './context'
 import { useAiOrigin } from './useAiOrigin'
 import { useAiTarget } from './useAiTarget'
 import UiAiEntityChip from './UiAiEntityChip.vue'
+import UiAiRender from './UiAiRender.vue'
 
 export type UiAiResultState =
   'idle' | 'generating' | 'done' | 'stopped' | 'error' | 'unavailable'
@@ -344,6 +345,10 @@ const sourcesList = computed(() => {
             :entity="r"
           />
         </div>
+        <UiAiRender
+          v-if="answerResult.ui !== undefined"
+          :tree="answerResult.ui"
+        />
       </template>
 
       <!-- Structured Summary -->
