@@ -25,3 +25,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-05 delegate: no review-unit lane survives when Orca is down and units ran on Sonnet
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Pick the role" with `references/no-orca.md`, as `review` step 3 uses it.
+What happened: without Orca, `execute` resolves to `claude-sonnet-5-5` (the only Claude model in its `fit`), so every unit is Anthropic-written. `review-unit` then drops Anthropic by `vendor_differs_from`, and its non-Claude models fall away because the codex pool row lists only `gpt-5.5` and `no-orca.md` gives a non-Claude review lane no reviewer. The phase review had no independent reviewer by construction. The steps were followed as written.
+Suggested change: give `review-unit` a `last_resort` that a native subagent can run (for example `claude-opus-5-5`, model differing from the executor), or let `no-orca.md` launch a codex review lane directly when a pool model fits, so a no-Orca host still gets a second reader.
