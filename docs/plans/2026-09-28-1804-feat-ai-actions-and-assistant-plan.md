@@ -297,8 +297,8 @@ model and this plan is wrong.
   Why: those are the only entity routes `navigation/page.ts` defines.
 
 - **Start after migration phase 1.** This plan starts only after phase 1
-  of `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md`
-  has landed. That phase puts overlays on z-index tokens and `@theme`
+  of the web component contract migration (2026-09-28 to 2026-10-05, the
+  `Ui*` components and views under `frontend/web/`) has landed. That phase puts overlays on z-index tokens and `@theme`
   keyframes, and moves the tooltip provider into `UiAppRoot`. The new
   components follow the accepted
   `docs/architecture/2026-09-28-web-component-contract-direction.md`
