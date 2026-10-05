@@ -68,6 +68,7 @@ const exempt = {
   UiAppRoot: 'provider',
   UiToastProvider: 'provider',
   UiAiContextLayer: 'provider',
+  UiAiRender: 'structural',
   UiScrollArea: 'structural',
   UiSkeleton: 'decorative',
   UiSpinner: 'decorative',

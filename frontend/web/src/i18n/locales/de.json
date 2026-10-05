@@ -46,6 +46,9 @@
       "targets": "Ziele",
       "title": "Gesendeter Kontext"
     },
+    "aiRender": {
+      "error": "FlowSeer kann diesen Teil der Antwort nicht anzeigen."
+    },
     "aiResult": {
       "cause": "Wahrscheinliche Ursache",
       "confidence": "{confidence} Zuversicht",
