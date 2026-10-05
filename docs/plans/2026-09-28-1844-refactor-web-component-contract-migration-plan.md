@@ -109,7 +109,7 @@ Landed: `014ceda3..ea17148b`
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase5-plan.md`
 After: U4
-Landed:
+Landed: `106bf6b6..0187a000`
 
 ### U6. Generative UI catalog and renderer
 

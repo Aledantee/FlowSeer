@@ -4,13 +4,15 @@ type: refactor
 date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 5 - The ai Prop and Shared Highlight - Plan
+
+> Implemented. 6 units, 2026-10-05T12:41Z to 2026-10-05T13:47Z.
 
 ## Goal
 
@@ -302,14 +304,14 @@ loop in `.agents/skills/web-component/references/review.md` after migration.
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path.
-- [ ] Every inventory component meets its prop and anchor contract.
-- [ ] Origin and selection have independent cleanup and stories.
-- [ ] No directive registration or use remains in frontend/web.
-- [ ] README and accepted direction amendment match the final code.
-- [ ] Browser checks include 320 px Default table and SVG targets.
-- [ ] This plan's status is set with an outcome note under its title.
-- [ ] No plan labels appear in code or comments.
+- [x] Verifier green for every changed path.
+- [x] Every inventory component meets its prop and anchor contract.
+- [x] Origin and selection have independent cleanup and stories.
+- [x] No directive registration or use remains in frontend/web.
+- [x] README and accepted direction amendment match the final code.
+- [x] Browser checks include 320 px Default table and SVG targets.
+- [x] This plan's status is set with an outcome note under its title.
+- [x] No plan labels appear in code or comments.
 
 ## Open questions
 
