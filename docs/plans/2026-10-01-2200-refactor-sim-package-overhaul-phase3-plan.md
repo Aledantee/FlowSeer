@@ -106,6 +106,24 @@ under Inventory, Sources.
   asserts Discarding and no forward transition rather than the role.
   `Q2003` would treat it as other information. Cost if wrong: the storage
   rule in `applyBPDU`, which no unit of this phase names.
+- Ruled: a port stays active for topology change while it is Discarding in
+  the same role, so a sync-blocked Designated port that reopens detects no
+  second change. Why: `Q2003` Figure 13-19 leaves ACTIVE only on a role
+  change or `operEdge`. Cost if wrong: the detect condition in
+  `settleTopology`.
+- Ruled: only a received TCN sets the acknowledgment, as the unit says,
+  and `S/README.md` marks as unverified whether a flag should also set it.
+  Why: the figure's NOTIFIED_TC was read as setting it for a flag as well,
+  which the unit text does not ask for. Cost if wrong: one condition in
+  `applyTopologyChange`.
+- Ruled: a `RestrictedTCN` port starts no timer and propagates nothing, and
+  still acknowledges a TCN. Cost if wrong: the acknowledgment line in
+  `applyTopologyChange`.
+- Ruled: a Root port's topology-change report is sent once per call, and
+  any other emission on its budget key stands for it, since every BPDU
+  carries the flag from the running timers. Outside PVST the report is the
+  CIST's BPDU, and toward an STP peer it is a TCN from the CIST alone.
+  Cost if wrong: the owed-report mark in `S/topology.go` and its callers.
 
 ## Requirements
 
@@ -622,3 +640,11 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - Open: an agreement held back by the transmit budget is released only for
   a CIST Root or Alternate port, so an answer only an MSTI owed is dropped
   until the peer's next proposal. `S/README.md`, Not modeled, states it.
+- Open: a port that becomes Root does not sync the tree's forwarding
+  Designated ports, so it opens by the forward-delay ladder rather than at
+  once (the Root case of the state loop in `S/roles.go`). This is why
+  `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` runs 32 seconds of hellos
+  before it reads the entries.
+- Open: a Designated port whose topology-change timer starts sends at its
+  next hello, not at once. `D2009` 13.29.11 also sets `newInfo` there, and
+  the unit text names Root ports only.
