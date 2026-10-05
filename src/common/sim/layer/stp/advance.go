@@ -58,6 +58,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // Advance advances timer-driven state to now, firing due hellos, forward delays,
 // topology change timers, and information age-outs.
 func (l *Layer) Advance(now time.Time) layer.Effects {
+	l.settleHelloTimers(now)
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
 
@@ -179,7 +180,7 @@ func (l *Layer) clearExpiredTCWhile(now time.Time) {
 }
 
 func (l *Layer) helloWouldRequest(t *tree, p *portState, at time.Time) bool {
-	if t.id == cistID || (l.pvst != nil && l.links[p.name].sendRSTP) {
+	if t.id == cistID || l.pvst != nil {
 		if p.role == bpdu.RoleDesignated || (p.role == bpdu.RoleRoot && activeAt(p.tcWhile, at)) {
 			return true
 		}

@@ -2812,7 +2812,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 
 	inputs := []trace.Fact{
 		stp.BPDUDecodeFact(f, true, ""),
-		sstpVLANFact(tlvVID, arrivalVID),
+		sstpVLANFact(bpdu.Type, tlvVID, arrivalVID),
 	}
 	outputs := []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)}
 	subject := trace.Subject{Kind: "port", Key: resolvedPort}
@@ -2908,14 +2908,18 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	return admitResult
 }
 
-// sstpVLANFact records the two VLANs an SSTP BPDU is judged against: the one
-// its trailing TLV names and the one the bridge classified the frame into. A
-// trace that carries both is what makes a PVID inconsistency readable, since
-// the disagreement between them is the whole finding.
-func sstpVLANFact(tlvVID, arrivalVID vlan.ID) trace.Fact {
+// sstpVLANFact records the VLAN relationship an SSTP BPDU is judged against.
+// Configuration and RST BPDUs carry a TLV that is compared with the arrival
+// VLAN. A TCN carries no VLAN or TLV, so its fact names only the arrival VLAN.
+func sstpVLANFact(shape bpdu.Type, tlvVID, arrivalVID vlan.ID) trace.Fact {
+	canonical := fmt.Sprintf("tlv=%d,arrival=%d,consistent=%t", tlvVID, arrivalVID, tlvVID == arrivalVID)
+	if shape == bpdu.TypeTopologyChangeNotification {
+		canonical = fmt.Sprintf("tlv=none,arrival=%d", arrivalVID)
+	}
+
 	return runtimeFact{
 		typeID:    "stp.sstp.vlans",
-		canonical: fmt.Sprintf("tlv=%d,arrival=%d,consistent=%t", tlvVID, arrivalVID, tlvVID == arrivalVID),
+		canonical: canonical,
 	}
 }
 

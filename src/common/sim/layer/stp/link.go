@@ -11,6 +11,7 @@ import (
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
+	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
 		return layer.Effects{}
@@ -43,6 +44,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 // returned emissions. A link down clears received information and moves the
 // port to Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
+	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
 	if !ok {
@@ -65,7 +67,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			link.pvstBoundary = false
 			link.edgeDelayWhile = time.Time{}
 			link.mdelayWhile = time.Time{}
-			l.clearTransmit(port)
+			l.resetTransmit(port)
 
 			for _, id := range l.treeOrder {
 				tp := l.trees[id].ports[port]
@@ -163,7 +165,11 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		l.armHelloTimers(now)
 		l.recomputeAll(now, &flushes)
 
-		l.requestNewInfo(t, p)
+		for _, id := range l.treeOrder {
+			tx := l.tx(l.trees[id], port)
+			tx.newInfo = true
+			tx.newInfoMsti = true
+		}
 	}()
 	l.transmit(now, &emissions)
 
@@ -174,9 +180,10 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 }
 
 // receiveLink runs the half of a receive that belongs to the link rather than
-// to any one tree: BPDU guard, the loop-guard clear every BPDU earns, the
-// protocol migration between RSTP and legacy STP, and the loss of auto-edge
-// status. It runs once per received frame whatever tree the frame belongs to.
+// to any one tree: BPDU guard, the protocol migration between RSTP and legacy
+// STP, and the loss of auto-edge status. It runs once per received frame
+// whatever tree the frame belongs to. Loop-guard marks stay with the receive
+// entry point because each entry point has a different tree to recover.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
 func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (done bool) {
@@ -184,24 +191,12 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	p := t.ports[port]
 	link := l.links[port]
 
-	// Any BPDU on the port is evidence the link carries traffic both ways,
-	// which is the condition loop guard was waiting to see restored. This
-	// runs before the BPDU guard checks below: a frame that trips or is held
-	// by BPDU guard is still such evidence, and guard and loop guard clear on
-	// independent events.
-	for _, id := range l.treeOrder {
-		tr := l.trees[id]
-		if tp, ok := tr.ports[port]; ok {
-			tp.loopInconsistent = false
-		}
-	}
-
 	// BPDU guard exists to keep an unexpected bridge on an access port out of
 	// the topology, so the frame that proves one is there disables the port
 	// before anything reads the BPDU. Only a link down and up brings it back.
 	if p.cfg.BPDUGuard && !link.bpduGuardDisabled {
 		link.bpduGuardDisabled = true
-		l.clearTransmit(port)
+		l.resetTransmit(port)
 		for _, id := range l.treeOrder {
 			tr := l.trees[id]
 			if tp, ok := tr.ports[port]; ok {

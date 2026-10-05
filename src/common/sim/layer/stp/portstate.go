@@ -121,14 +121,11 @@ func (l *Layer) tx(t *tree, name string) *portTx {
 	return l.portTx[l.txKeyFor(t, name)]
 }
 
-// clearTransmit drops every pending transmission and timer on the named port.
-// A port whose link just went down, or that BPDU guard just disabled, must not
-// release a BPDU it was holding when the budget next frees up.
-func (l *Layer) clearTransmit(name string) {
+// resetTransmit drops the count and timers on the named port while retaining
+// pending requests for the port-up transmit pass.
+func (l *Layer) resetTransmit(name string) {
 	for _, id := range l.treeOrder {
 		tx := l.tx(l.trees[id], name)
-		tx.newInfo = false
-		tx.newInfoMsti = false
 		tx.count = 0
 		tx.tick = time.Time{}
 		tx.helloWhen = time.Time{}

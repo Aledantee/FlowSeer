@@ -23,7 +23,8 @@ func (l *Layer) tcWhileDuration(t *tree, p *portState) time.Duration {
 
 // initiateTopologyChange marks p active, increments the tree's topology change
 // count, starts p's own tcWhile timer when it is stopped, and propagates to
-// other active ports on tree t. A running timer is not restarted.
+// other active ports on tree t. Propagation happens even when p's timer runs.
+// A running timer is not restarted.
 func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
 	p.tcActive = true
 	if !activeAt(p.tcWhile, now) {
@@ -33,18 +34,15 @@ func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flu
 		if l.links[p.name].sendRSTP {
 			l.requestNewInfo(t, p)
 		}
-		l.propagateTopologyChange(t, p.name, now, flushes)
 	}
+	l.propagateTopologyChange(t, p.name, now, flushes)
 }
 
-// detectTopologyChange records a local forwarding transition. Detection also
-// requests information on the detecting RSTP port when its existing timer is
-// still running. A received notification does not get that extra request.
+// detectTopologyChange records a local forwarding transition and requests
+// information on the detecting port, regardless of its protocol mode or timer.
 func (l *Layer) detectTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
 	l.initiateTopologyChange(t, p, now, flushes)
-	if l.links[p.name].sendRSTP {
-		l.requestNewInfo(t, p)
-	}
+	l.requestNewInfo(t, p)
 }
 
 // propagateTopologyChange flushes every active non-edge port on tree t other

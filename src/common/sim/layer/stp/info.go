@@ -74,23 +74,19 @@ type PortInfo struct {
 }
 
 // blockReason names the guard holding the port out of the active topology.
-// bpduGuardDisabled and loopInconsistent are link-on-cist: they are written
-// only on the CIST's port state, so every tree reads them through cistP
-// rather than through its own copy, which for the CIST tree is the same
-// object. pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU
-// disagreed about the link, so it reads from p. BPDU guard outranks the
-// rest: it disables the port outright, so nothing below it can be the
-// decisive reason. A PVID-inconsistent port is by definition receiving
-// BPDUs, which is what clears loopInconsistent on every receive, so those
-// two cannot both hold after a receive and the order between them only
-// fixes what a reader sees should that stop being true.
+// bpduGuardDisabled is link-owned and disables every tree. loopInconsistent is
+// tree-owned under PVST, while an MST bridge reads the CIST mark for each MSTI.
+// pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU disagreed
+// about the link, so it reads from p. BPDU guard outranks the rest because it
+// disables the port outright. PVID inconsistency outranks loop guard on the
+// arrival tree because the same frame can establish both marks.
 func (l *Layer) blockReason(p, cistP *portState, link *linkRecord) BlockReason {
 	switch {
 	case link.bpduGuardDisabled:
 		return BlockReasonBPDUGuard
 	case p.pvidInconsistent:
 		return BlockReasonPVIDInconsistent
-	case p.loopInconsistent || (cistP != nil && cistP.loopInconsistent):
+	case p.loopInconsistent || (l.pvst == nil && cistP != nil && cistP.loopInconsistent):
 		return BlockReasonLoopInconsistent
 	default:
 		return ""

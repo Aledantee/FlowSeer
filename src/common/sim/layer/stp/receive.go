@@ -25,6 +25,9 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 		if otherName == rootPort {
 			continue
 		}
+		if l.mst != nil && t.id != cistID && l.boundary(otherName) {
+			continue
+		}
 		otherP := t.ports[otherName]
 		if otherP == nil {
 			continue
@@ -38,6 +41,27 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 				otherP.state = StateDiscarding
 				if wasFwd {
 					l.deactivatePort(t, otherP, flushes)
+				}
+			}
+			if t.id == cistID && l.mst != nil && l.boundary(otherName) {
+				for _, id := range l.treeOrder {
+					if id == cistID {
+						continue
+					}
+					mt := l.trees[id]
+					mp, ok := mt.ports[otherName]
+					if !ok {
+						continue
+					}
+					mp.agreed = otherP.agreed
+					mp.proposing = otherP.proposing
+					if mp.state != otherP.state {
+						mp.state = otherP.state
+						mp.fwdDelayTimer = time.Time{}
+						if otherP.state != StateForwarding {
+							l.deactivatePort(mt, mp, flushes)
+						}
+					}
 				}
 			}
 		}
@@ -57,7 +81,7 @@ func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time
 	}
 }
 
-func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool) {
 	if !link.pointToPoint || !link.sendRSTP || !agreement {
 		p.agreed = false
 		return
@@ -75,19 +99,15 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 	}
 	if p.agreed {
 		p.proposing = false
-		if p.role == bpdu.RoleDesignated && p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !link.edge {
-				l.detectTopologyChange(t, p, now, flushes)
-			}
-		}
 	}
 }
 
 func (l *Layer) cistPortVector(p *portState) priorityVector {
 	cist := l.cist()
 	link := l.links[p.name]
+	if p.rcvInfoValid {
+		return rawVector(cist, p, link.external)
+	}
 	if p.role == bpdu.RoleDesignated {
 		return designatedVector(cist, p, link.external)
 	}
@@ -138,7 +158,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 		if !sameSource && !isSuperior {
 			if cistConsistent {
-				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement())
 			} else {
 				mp.agreed = false
 			}
@@ -164,12 +184,12 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		mp.rcvTime = now
 
 		if cistConsistent {
-			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
-			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
-				proposals = append(proposals, rec.MSTID)
-			}
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement())
 		} else {
 			mp.agreed = false
+		}
+		if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
+			proposals = append(proposals, rec.MSTID)
 		}
 	}
 
@@ -183,6 +203,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 // goes to ReceiveSSTP instead, which is the only entry point that classifies
 // a BPDU by VLAN.
 func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
+	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
 	link := l.links[port]
@@ -209,6 +230,10 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 		if done {
 			return
 		}
+		// An IEEE-addressed BPDU belongs to the CIST. Once the link half admits
+		// it, any BPDU type, including one that will not be stored, recovers the
+		// CIST's loop guard mark.
+		p.loopInconsistent = false
 
 		if b.Type == bpdu.TypeTopologyChangeNotification {
 			if p.tcActive {
@@ -217,13 +242,15 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 				}
 				if !p.cfg.RestrictedTCN {
 					l.initiateTopologyChange(t, p, now, &flushes)
-					for _, id := range l.treeOrder {
-						mt := l.trees[id]
-						if mt.id == cistID {
-							continue
-						}
-						if mp := mt.ports[port]; mp != nil && mp.tcActive {
-							l.initiateTopologyChange(mt, mp, now, &flushes)
+					if l.mst != nil {
+						for _, id := range l.treeOrder {
+							mt := l.trees[id]
+							if mt.id == cistID {
+								continue
+							}
+							if mp := mt.ports[port]; mp != nil && mp.tcActive {
+								l.initiateTopologyChange(mt, mp, now, &flushes)
+							}
 						}
 					}
 				}
@@ -287,16 +314,13 @@ const (
 )
 
 // ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
-// receive — BPDU guard, the loop-guard clear, protocol migration, and
-// auto-edge loss — always runs before anything below decides what happens to
-// a tree, whatever that decision turns out to be: a caller that could skip
-// the link half by declining to call this function is the hole BPDU guard
-// exists to close. syncInstancePorts carries whatever the link half changed
-// to every tree before the frame is judged, so the tree of
-// arrival.ArrivalVID sees an up-to-date link even though the change was made
-// on the CIST's port state. The returned SSTPOutcome describes the tree half
-// alone: what, if anything, happened to arrival.ArrivalVID's own tree.
+// receive — BPDU guard, protocol migration, and auto-edge loss — always runs
+// before anything below decides what happens to a tree, whatever that decision
+// turns out to be: a caller that could skip the link half by declining to call
+// this function is the hole BPDU guard exists to close. Loop-guard recovery is
+// tree-owned, so only the applied path clears the arrival tree's mark.
 func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
+	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
 		return layer.Effects{}, SSTPPortDown
@@ -309,10 +333,10 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	outcome := SSTPGuarded
 
 	func() {
-		// receiveLink is the link-level half of a receive: BPDU guard, the
-		// loop-guard clear, protocol migration, and auto-edge loss all belong to
-		// the port whatever tree the frame names, so it runs whatever this bridge
-		// goes on to decide about the tree half below.
+		// receiveLink is the link-level half of a receive: BPDU guard, protocol
+		// migration, and auto-edge loss all belong to the port whatever tree the
+		// frame names, so it runs whatever this bridge goes on to decide about the
+		// tree half below.
 		done := l.receiveLink(now, port, b, &flushes)
 
 		// The mark is a statement about the neighbor, not about this frame's
@@ -362,6 +386,26 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 			return
 		}
 
+		if b.Type == bpdu.TypeTopologyChangeNotification {
+			// An SSTP TCN carries no VLAN identifier of its own. The arrival
+			// tree is the scope of the change, while the PVID state belongs to
+			// the configuration shape and remains untouched.
+			p.loopInconsistent = false
+			if p.tcActive {
+				if p.role == bpdu.RoleDesignated {
+					p.tcAck = true
+				}
+				if !p.cfg.RestrictedTCN {
+					l.initiateTopologyChange(t, p, now, &flushes)
+				}
+			}
+
+			l.recomputeAll(now, &flushes)
+			outcome = SSTPApplied
+
+			return
+		}
+
 		// Cisco blocks the traffic of the VLAN the frame arrived on, not of the
 		// VLAN the peer named: the arrival VLAN is the one whose local traffic
 		// would cross a link the two ends disagree about.
@@ -373,6 +417,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 			return
 		}
 		p.pvidInconsistent = false
+		p.loopInconsistent = false
 
 		l.applyBPDU(t, p, now, b, &flushes)
 		outcome = SSTPApplied
@@ -456,8 +501,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	heldCISTVec := l.cistPortVector(p)
-
 	if sameSource || isSuperior {
 		// The classification updates only when received information is
 		// stored (IEEE 802.1Q clause 13.24.10). Assigning it earlier or
@@ -466,16 +509,16 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		if t.id == cistID {
 			link.external = !internal
 		}
-		p.loopInconsistent = false
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
 
 	var mstiProposals []bpdu.MSTID
 	if internal {
+		heldCISTVec := l.cistPortVector(p)
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes)
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement())
 	if l.mst != nil && link.external {
 		for _, id := range l.treeOrder {
 			mt := l.trees[id]
@@ -486,13 +529,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 				mp.agreed = p.agreed
 				if mp.agreed {
 					mp.proposing = false
-					if mp.role == bpdu.RoleDesignated && mp.state != StateForwarding {
-						mp.state = StateForwarding
-						mp.forwardTransitions++
-						if !link.edge {
-							l.detectTopologyChange(mt, mp, now, flushes)
-						}
-					}
 				}
 			}
 		}

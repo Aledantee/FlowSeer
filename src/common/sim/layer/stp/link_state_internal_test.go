@@ -114,6 +114,116 @@ func TestLinkDownClearsHandshakeStateAndTimersOnEveryTree(t *testing.T) {
 	}
 }
 
+func TestPVIDInconsistentSSTPLeavesArrivalTreeLoopMark(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
+		Ports:    map[string]Port{"p1": {LoopGuard: true}},
+		PVST: &PVST{Trees: map[vlan.ID]Tree{
+			1:  {},
+			10: {},
+		}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(t0, "p1", true, true, 1_000_000_000)
+
+	p := l.trees[treeID(10)].ports["p1"]
+	p.loopInconsistent = true
+	b := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096},
+		BridgeID:     bpdu.BridgeID{Priority: 4096},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+
+	_, outcome := l.ReceiveSSTP(t0.Add(time.Second), "p1", SSTPArrival{
+		ArrivalVID: vlan.ID(10),
+		TLVVID:     vlan.ID(20),
+		Admitted:   true,
+	}, b)
+
+	if outcome != SSTPPVIDInconsistent {
+		t.Fatalf("outcome = %q, want %q", outcome, SSTPPVIDInconsistent)
+	}
+	if !p.loopInconsistent {
+		t.Error("arrival tree loop mark = false after a PVID-inconsistent BPDU, want true")
+	}
+	if !p.pvidInconsistent {
+		t.Error("arrival tree PVID mark = false after a PVID-inconsistent BPDU, want true")
+	}
+	if p.role != bpdu.RoleAlternate {
+		t.Errorf("arrival tree role = %v, want Alternate", p.role)
+	}
+}
+
+func TestBlockReasonReadsTheTreesOwnMark(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 4096},
+		BridgeID:     bpdu.BridgeID{Priority: 4096},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	peer.SetRole(bpdu.RoleDesignated)
+
+	pvst := newLayer(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
+		Ports:    map[string]Port{"p1": {}},
+		PVST: &PVST{Trees: map[vlan.ID]Tree{
+			1:  {},
+			10: {},
+		}},
+	}.Normalize(layer.Env{}))
+	pvst.LinkChange(t0, "p1", true, true, 1_000_000_000)
+	pvst.Receive(t0.Add(time.Second), "p1", peer)
+	pvst.ReceiveSSTP(t0.Add(time.Second), "p1", SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     10,
+		Admitted:   true,
+	}, peer)
+	pvst.cist().ports["p1"].loopInconsistent = true
+	var flushes []layer.FlushTarget
+	pvst.recomputeAll(t0.Add(2*time.Second), &flushes)
+
+	if got := pvst.PortInfo("p1"); got.Role != bpdu.RoleAlternate || got.BlockReason != BlockReasonLoopInconsistent {
+		t.Fatalf("CIST port info = %+v, want Alternate/loop-inconsistent", got)
+	}
+	if got := pvst.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.BlockReason != "" {
+		t.Fatalf("VLAN 10 port info = %+v, want Root with no loop-guard reason", got)
+	}
+
+	mst := newLayer(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
+		Ports:    map[string]Port{"p1": {}},
+		MST: &MST{Name: "region-1", Instances: map[bpdu.MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+		}},
+	}.Normalize(layer.Env{}))
+	mst.LinkChange(t0, "p1", true, true, 1_000_000_000)
+	mst.cist().ports["p1"].loopInconsistent = true
+	flushes = nil
+	mst.recomputeAll(t0.Add(time.Second), &flushes)
+
+	if got := mst.instancePortInfo(1, "p1"); got.BlockReason != BlockReasonLoopInconsistent {
+		t.Fatalf("MSTI port info = %+v, want the CIST loop-guard mark", got)
+	}
+}
+
 func TestLinkDownClearsHeldTCNAndAcknowledgment(t *testing.T) {
 	t.Parallel()
 

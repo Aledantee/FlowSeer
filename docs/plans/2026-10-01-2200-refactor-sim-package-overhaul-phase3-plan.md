@@ -4,15 +4,14 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: planned
+status: implemented
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan
 
-> **Partially implemented: U1 to U7.** They landed 2026-10-03T19:45:04Z to
-> 2026-10-04T19:03:28Z. U8 to U15 are planned.
+> Implemented. 15 units, 2026-10-05T16:30:47Z to 2026-10-05T20:11:58Z.
 
 ## Goal
 

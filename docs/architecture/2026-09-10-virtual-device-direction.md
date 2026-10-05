@@ -537,14 +537,16 @@ bounded equivalence under a resource contract:
   role keeps a port out of root selection, restricted TCN stops a received
   change from propagating, and loop guard holds a port whose information
   expired in silence while it was Root, Alternate, or Backup in a discarding
-  Alternate role with reason `loop-inconsistent` until any BPDU arrives, one
-  the message-age bound discards included, so a peer sending only stale
-  information is not covered. Both BPDU guard and loop guard hold a guarded
-  port out of every tree, not only the CIST: the outcome is bridge-global, so
-  an MSTI's own port is Disabled or Alternate right alongside the CIST's.
-  Loop guard is netsim's own design drawn from Cisco, Juniper, and Arista, and
-  is inactive on an operationally edge port and on a shared link, where a port
-  that stops hearing BPDUs is not evidence of a link broken in one direction.
+  Alternate role with reason `loop-inconsistent`. PVST owns one loop-guard
+  mark per tree. An IEEE BPDU admitted by the link clears the CIST mark, and
+  an SSTP BPDU clears only its arrival tree after admission and PVID checks
+  pass. A boundary, unadmitted, untracked, or PVID-inconsistent SSTP BPDU
+  leaves the mark in place. Under MSTP the CIST mark is the bridge-global
+  outcome read by every MSTI, while PVST reads each tree's own mark. A link
+  down clears every tree. Loop guard is netsim's own design drawn from Cisco,
+  Juniper, and Arista, and is inactive on an operationally edge port and on a
+  shared link, where a port that stops hearing BPDUs is not evidence of a link
+  broken in one direction.
   `LoopGuard` beside `RestrictedRole` or beside `AdminEdge` is refused at
   construction: a configuration whose halves contradict each other has no
   correct simulated answer.
@@ -580,20 +582,18 @@ bounded equivalence under a resource contract:
   than `port-blocked`, because a frame the port would never have admitted is
   not a spanning-tree question. A frame dropped in classification consults no
   spanning-tree scope, since no tree state could have changed its outcome.
-- **`Decode` reads a version 3 BPDU's MST body, and falls back to its RST
-  prefix only when the payload is too short for one.** The configuration
-  identifier, internal root path cost, remaining hops, and MSTI records come
-  back filled whenever the payload holds enough octets; an RSTP peer's
-  39-octet version 3 BPDU, a capture truncated before the MST body starts, and
-  every version above 3 all still decode as the RST prefix rather than being
-  refused. A payload long enough for the MST body but truncated inside the
-  MSTI records is refused outright, not fallen back. UNH-IOL's MSTP suite
-  states that a compliant device must not validate a BPDU on its protocol
-  version identifier (Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011
-  sub-clause 14.4), which is why the fallback exists at all: refusing a short
-  version 3 payload would leave a netsim bridge facing that peer with both
-  ends Designated and Forwarding, an unbroken loop and a worse answer than the
-  RST-prefix approximation.
+- **`Decode` classifies a version 3 or later type 2 BPDU by the length bands in
+  IEEE 802.1Q-2003 clause 14.4.** The octets count from the Protocol Identifier.
+  From 35 through 101 octets the frame reads as RST whatever its length fields
+  say. At 102 octets, Version 1 Length 0 and Version 3 Length 64 read as MST
+  with no records, while every other pair reads as RST. At 103 octets or more,
+  Version 1 Length 0 and a Version 3 Length naming 0 to 64 records read as MST,
+  and octets after those records are ignored. A frame whose named records are
+  absent is refused because clause 14.4 gives no reading for it. The
+  configuration identifier, internal root path cost, remaining hops, and MSTI
+  records are filled for the MST reading. Version 4 and later use the same
+  bands. Figure 14-1 ends the CIST part at octet 102, and clause 14.6 q) makes
+  Version 3 Length count the octets after octet 38.
 - **A region is a name, a revision, and a digest over the VID-to-MSTID
   table, carried as a 51-octet configuration identifier.** The digest is
   HMAC-MD5 over the 4096-entry table, two big-endian octets per VID, keyed
@@ -651,15 +651,17 @@ bounded equivalence under a resource contract:
   enumerable, so the flush names it, and a VLAN 1 change leaves every other
   VLAN's learned entries in place.
 - **A per-VLAN BPDU rides its own VLAN through the port's ordinary egress
-  rules, and the switch is what tags it.** An SSTP BPDU is an RST BPDU in
-  LLC/SNAP addressed to `01:00:0c:cc:cc:cd` with the originating VLAN in a
-  trailing TLV. The spanning tree layer names the VLAN and leaves the frame
-  untagged; the switch passes it through the same `OriginateFrame` every
-  other frame it originates goes through, which already implements tagged
-  where the VLAN is tagged and untagged where it is the port's untagged VLAN.
-  That is Cisco's native-versus-tagged rule with no second implementation,
-  and it is why a port that does not carry a VLAN simply sends nothing for
-  it. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
+  rules, and the switch is what tags it.** An SSTP Configuration BPDU uses a
+  50-octet RST-layout body with version 0, wire type `0x00`, and an originating
+  VLAN TLV. An SSTP RST BPDU uses the same layout with version 2 or later and
+  wire type `0x02`. An SSTP TCN uses the LLC/SNAP header with a 12-octet
+  length, wire type `0x80`, and no TLV. Its receive effect is scoped by the
+  arrival VLAN classified by the switch. PVST and SSTP behavior is modelled on
+  observation. [CISCO](https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html) was read for per-VLAN loop guard, [PVID](https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html) for the SSTP address and VLAN tagging rule, and [EXT](https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml) for tagged per-VLAN TCNs. [WS](https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c) was read for the wire offsets. The spanning tree layer names the VLAN and leaves
+  the frame untagged; the switch passes it through the same `OriginateFrame`
+  every other frame it originates goes through, which already implements
+  tagged where the VLAN is tagged and untagged where it is the port's untagged
+  VLAN. VLAN 1's tree additionally emits one untagged IEEE-addressed frame per
   port, whatever the native VLAN is, which is the frame an RSTP or MSTP
   neighbor converges with.
 - **A BPDU is admitted past the spanning tree gate the tree itself set, and
@@ -687,10 +689,11 @@ bounded equivalence under a resource contract:
   behavior: the first applies the MST BPDU's RST prefix to VLAN 1's tree, the
   second counts the SSTP BPDU and withholds only its priority vector, because
   its CIST does not run that VLAN's tree and feeding the vector in would
-  elect a root from a tree it is not running. The link-level half of a
-  receive — BPDU guard, the loop-guard clear, protocol migration, and
-  auto-edge loss — runs on both sides of the boundary the same as for any
-  other BPDU the port hears; the boundary withholds the vector alone. The
+  elect a root from a tree it is not running. The link-level receive path
+  handles BPDU guard, protocol migration, and auto-edge loss on both sides of
+  the boundary, the same as for any other BPDU the port hears. A
+  boundary SSTP outcome does not clear a PVST loop-guard mark because it is not
+  applied to a tree. The boundary withholds the vector alone. The
   neighbor relationship still converges over the IEEE-addressed frame both
   sides exchange, so the report covers every VLAN but VLAN 1. It is raised
   per port and VLAN through a hit set, scoped
