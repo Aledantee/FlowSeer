@@ -243,19 +243,29 @@ of auto-edge status, runs once per frame in `receiveLink`, which both entry
 points share, whatever `SSTPOutcome` the tree half goes on to report.
 
 Every property `receiveLink` can change belongs to the link, not to any tree,
-but the link keeps no state apart from the trees: `portState` embeds a
-`linkState{up, pointToPoint, edge, sendRSTP}`, one copy per tree, and
-`syncInstancePorts` copies the CIST's whole `linkState` onto every other
-tree's port once `receiveLink` finishes. A second group of link properties —
-path cost, whether the link is external, the BPDU-guard and loop-guard flags,
-the PVST-boundary mark, the migration-delay timer, and the two BPDU counters —
-is written only on the CIST's port state and read through it, rather than
-replicated: `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and `BadBPDUs` answer
-from the CIST's copy on any VLAN, the same value `PortInfo` reports for the
-common tree. A VLAN with no tree under PVST answers neither kind: `treeFor`
-says so through its second return, and `VLANPortInfo` and `ForwardingFact`
-return the zero value for it rather than VLAN 1's, because VLAN 1's tree is a
-tree like any other, not a stand-in for a VLAN that has none.
+so `Layer` keeps one `linkRecord` per port and no tree holds a copy. The record
+holds the four link flags (`up`, `pointToPoint`, `edge`, `sendRSTP`), the
+admin edge setting, the link-derived path cost, whether the link is external,
+the BPDU-guard and PVST-boundary marks, the migration and edge delay timers,
+and the two received-BPDU counters. A tree's `portState` keeps what that tree
+computes: role, state, the handshake flags, its timers, and the information it
+received. Its path cost is its own only when the tree fixed one. The
+loop-guard mark stays on a tree's port state and is armed on the CIST's alone,
+which every tree reads. `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and
+`BadBPDUs` therefore answer the same on any VLAN as `PortInfo` does for the
+common tree. A link down or a BPDU-guard disable clears every tree's
+handshake state, forward-delay timer, and received information in one pass,
+and a lost auto-edge status returns the port to Discarding and proposing on
+every tree. A VLAN with no tree under PVST has no answer: `treeFor` says so
+through its second return, and `VLANPortInfo` and `ForwardingFact` return the
+zero value for it rather than VLAN 1's, because VLAN 1's tree is a tree like
+any other, not a stand-in for a VLAN that has none.
+
+`ReceiveSSTP` recomputes roles on every return after the link half, so a
+frame that reaches no tree still lets a port leave the Alternate role loop
+guard gave it. A `LinkChange` that reports a speed alone on a port that is up
+with the same point-to-point status updates the cost on every tree that has
+not fixed one and resets no handshake state.
 
 A separate `Receive` taking a VLAN would read as though an RSTP bridge
 classified its BPDUs per VLAN, which it does not.
@@ -285,8 +295,8 @@ seen by a bridge that is not one. The second withholds only the priority
 vector, because its CIST does not run that VLAN's tree and feeding the vector
 in would elect a root from a tree it is not running; the link half of the
 receive, BPDU guard among it, still runs, the same as for any other BPDU the
-port hears. The mark lives on the CIST port state and clears on a link down,
-since only that can replace the neighbor.
+port hears. The mark lives on the port's link record and clears on a link
+down, since only that can replace the neighbor.
 
 ## Decoding a version 3 BPDU
 

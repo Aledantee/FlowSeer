@@ -10,8 +10,8 @@ import (
 // edgeDelay is the time without a BPDU after which a port may be detected as
 // an edge: migrateTime on a point-to-point link, the max age in force on a
 // shared one.
-func (l *Layer) edgeDelay(t *tree, p *portState) time.Duration {
-	if p.pointToPoint {
+func (l *Layer) edgeDelay(t *tree, lk *linkRecord) time.Duration {
+	if lk.pointToPoint {
 		return migrateTime
 	}
 	maxAge, _, _ := l.times(t)
@@ -24,7 +24,7 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 		if name == rootPort {
 			continue
 		}
-		if p.role == bpdu.RoleDesignated && !p.edge {
+		if p.role == bpdu.RoleDesignated && !l.link(name).edge {
 			if p.state != StateDiscarding && !p.agreed {
 				return false
 			}
@@ -40,12 +40,9 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 // track, which for a plain RSTP bridge with no MSTI trees is moot since this
 // is only ever consulted from one.
 func (l *Layer) boundary(name string) bool {
-	p, ok := l.cist().ports[name]
-	if !ok {
-		return false
-	}
+	lk := l.link(name)
 
-	return p.external
+	return lk != nil && lk.external
 }
 
 // recomputeAll runs recompute for every tree in deterministic order, the CIST
@@ -89,29 +86,30 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 	for _, name := range l.portNames {
 		p, ok := t.ports[name]
-		if !ok || !p.up || !p.rcvInfoValid {
+		lk := l.link(name)
+		if !ok || !lk.up || !p.rcvInfoValid {
 			continue
 		}
-		// bpduGuardDisabled and loopInconsistent are link-on-cist: only the
-		// CIST's copy is ever written, so every tree's root election reads
-		// them through cistP the way the role switch below already does. A
-		// guard that fires on the CIST must hold every MSTI's election too,
-		// not only the CIST's own. Restricted role denies the port the root
-		// role, and pvidInconsistent is tree-owned: a peer that disagrees
-		// about which VLAN the link is describes a different VLAN's tree, so
-		// it reads from p. None of the four may contribute the bridge's root
-		// vector. Every tree is built from l.portNames, so the CIST always
-		// has a matching port for any port a tree tracks; a missing one here
-		// only guards that invariant, not a case this simulator reaches.
+		// bpduGuardDisabled is a link fact and loopInconsistent is armed on
+		// the CIST's port state alone, so every tree's root election reads
+		// them the way the role switch below does. A guard that fires on the
+		// link must hold every MSTI's election too, not only the CIST's own.
+		// Restricted role denies the port the root role, and
+		// pvidInconsistent is tree-owned: a peer that disagrees about which
+		// VLAN the link is describing a different VLAN's tree, so it reads
+		// from p. None of the four may contribute the bridge's root vector.
+		// Every tree is built from l.portNames, so the CIST always has a
+		// matching port for any port a tree tracks; a missing one here only
+		// guards that invariant, not a case this simulator reaches.
 		cistP, ok := l.cist().ports[name]
-		if !ok || cistP.bpduGuardDisabled || p.cfg.RestrictedRole || cistP.loopInconsistent || p.pvidInconsistent {
+		if !ok || lk.bpduGuardDisabled || p.cfg.RestrictedRole || cistP.loopInconsistent || p.pvidInconsistent {
 			continue
 		}
 		if !p.rcvTime.Add(3 * p.rcvHelloTime).After(now) {
 			continue
 		}
 
-		cand := candidateVector(t, p)
+		cand := candidateVector(t, p, lk.external)
 
 		if bestPort == "" {
 			if compareVectors(cand, bestVector) < 0 {
@@ -181,22 +179,21 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			continue
 		}
 
-		// bpduGuardDisabled and loopInconsistent are bridge-global properties
-		// of the port, like the internal/external classification: only the
-		// CIST's copy is ever written (Receive's guard branch, and Advance's
-		// loop-guard arm), so an MSTI reads them from the CIST's port state
-		// the way it already reaches across for l.boundary. Every tree is
-		// built from l.portNames, so the CIST always has a matching port for
-		// any port a tree tracks; the zero portState below only guards that
-		// invariant, not a case this simulator reaches.
+		// bpduGuardDisabled is a link fact, and loopInconsistent is armed on
+		// the CIST's port state alone (Advance's loop-guard arm), so an MSTI
+		// reads it from there the way it reaches across for l.boundary.
+		// Every tree is built from l.portNames, so the CIST always has a
+		// matching port for any port a tree tracks; the zero portState below
+		// only guards that invariant, not a case this simulator reaches.
 		cistP, ok := l.cist().ports[name]
 		if !ok {
 			cistP = &portState{}
 		}
+		lk := l.link(name)
 
 		oldRole := p.role
 		switch {
-		case !p.up || cistP.bpduGuardDisabled:
+		case !lk.up || lk.bpduGuardDisabled:
 			p.role = bpdu.RoleDisabled
 		case cistP.loopInconsistent:
 			// A loop-inconsistent port is Alternate and never Designated: a
@@ -222,9 +219,10 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 		}
 		// The edge delay counts from the moment the port could become an
 		// edge; a port that returns to Designated with the timer long past
-		// would otherwise report a wake in the past.
-		if p.role == bpdu.RoleDesignated && oldRole != bpdu.RoleDesignated && p.cfg.AutoEdge {
-			p.edgeDelayWhile = now.Add(l.edgeDelay(t, p))
+		// would otherwise report a wake in the past. The CIST's port decides
+		// auto-edge for the link, so only its role restarts the delay.
+		if t.id == cistID && p.role == bpdu.RoleDesignated && oldRole != bpdu.RoleDesignated && p.cfg.AutoEdge {
+			lk.edgeDelayWhile = now.Add(l.edgeDelay(t, lk))
 		}
 	}
 
@@ -234,6 +232,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			continue
 		}
 		oldState := p.state
+		lk := l.link(name)
 
 		// The state half of the boundary role rule, gated for the same reason
 		// its role half above is: on a PVST bridge every port reads external,
@@ -268,7 +267,7 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			p.state = StateDiscarding
 			p.fwdDelayTimer = time.Time{}
 		case bpdu.RoleRoot:
-			if p.pointToPoint && l.isSynced(t, p.name) && p.sendRSTP {
+			if lk.pointToPoint && l.isSynced(t, p.name) && lk.sendRSTP {
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
 			} else if p.state == StateDiscarding && p.fwdDelayTimer.IsZero() {
@@ -278,10 +277,10 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			}
 		case bpdu.RoleDesignated:
 			switch {
-			case p.edge:
+			case lk.edge:
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
-			case p.pointToPoint && p.agreed:
+			case lk.pointToPoint && p.agreed:
 				p.state = StateForwarding
 				p.fwdDelayTimer = time.Time{}
 			default:
@@ -296,11 +295,11 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
-			if !p.edge {
+			if !lk.edge {
 				l.raiseTopologyChange(t, p.name, now, flushes)
 			}
 		} else if oldState == StateForwarding && p.state != StateForwarding {
-			if !p.edge {
+			if !lk.edge {
 				l.raiseTopologyChange(t, p.name, now, flushes)
 			}
 		}
@@ -309,7 +308,8 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
 		for _, name := range l.portNames {
 			p := t.ports[name]
-			if p.up && p.role == bpdu.RoleDesignated && p.pointToPoint && p.state == StateDiscarding && !p.agreed {
+			lk := l.link(name)
+			if lk.up && p.role == bpdu.RoleDesignated && lk.pointToPoint && p.state == StateDiscarding && !p.agreed {
 				l.emit(t, p, now, emissionDesignated, &emissions)
 			}
 		}
@@ -323,8 +323,9 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 // when that bridge is this one through another port, else Designated.
 func (l *Layer) designatedOrBlocked(t *tree, p *portState, now time.Time) bpdu.Role {
 	if p.rcvInfoValid && p.rcvTime.Add(3*p.rcvHelloTime).After(now) {
-		desig := designatedVector(t, p)
-		rcv := rawVector(t, p)
+		external := l.link(p.name).external
+		desig := designatedVector(t, p, external)
+		rcv := rawVector(t, p, external)
 		if compareVectors(rcv, desig) < 0 {
 			if p.rcvBridgeID == t.bridgeID {
 				return bpdu.RoleBackup

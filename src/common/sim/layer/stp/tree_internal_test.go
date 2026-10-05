@@ -53,9 +53,10 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	}.Normalize(layer.Env{}))
 
 	p := l.cist().ports["1/1/1"]
-	p.up = true
-	p.pointToPoint = true
-	p.edge = true
+	lk := l.link("1/1/1")
+	lk.up = true
+	lk.pointToPoint = true
+	lk.edge = true
 	p.role = bpdu.RoleRoot
 	p.rcvInfoValid = true
 	p.rcvHelloTime = 2 * time.Second
@@ -74,8 +75,8 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	// The same expiry on a non-edge port does arm the guard, so the assertion
 	// above is about the edge clause and not about the trigger never firing.
 	q := l.cist().ports["1/1/2"]
-	q.up = true
-	q.pointToPoint = true
+	l.link("1/1/2").up = true
+	l.link("1/1/2").pointToPoint = true
 	q.cfg.LoopGuard = true
 	q.role = bpdu.RoleRoot
 	q.rcvInfoValid = true
@@ -388,7 +389,6 @@ func TestRawAndDesignatedVectorsShareShape(t *testing.T) {
 
 			p := &portState{
 				portID:                  portID,
-				external:                tc.external,
 				rcvRootID:               tr.rootID,
 				rcvRootPathCost:         tr.rootPathCost,
 				rcvRegionalRootID:       tr.regionalRootID,
@@ -397,8 +397,8 @@ func TestRawAndDesignatedVectorsShareShape(t *testing.T) {
 				rcvPortID:               portID,
 			}
 
-			raw := rawVector(tr, p)
-			des := designatedVector(tr, p)
+			raw := rawVector(tr, p, tc.external)
+			des := designatedVector(tr, p, tc.external)
 
 			// The two must compare equal directly: identical information
 			// offered by the tree and received on the port is neither
@@ -432,8 +432,8 @@ func TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer(t
 	tr.internalRootPathCost = 0
 
 	p := tr.ports["1/1/1"]
-	p.up = true
-	p.external = false
+	l.link("1/1/1").up = true
+	l.link("1/1/1").external = false
 	p.rcvInfoValid = true
 	p.rcvTime = t0
 	p.rcvHelloTime = 2 * time.Second
@@ -486,7 +486,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "1/1/1", peer)
 
 	cist := l.cist()
-	if !cist.ports["1/1/1"].external {
+	if !l.link("1/1/1").external {
 		t.Fatal("port not classified external from a peer carrying no ConfigID")
 	}
 	if cist.rootPort != "1/1/1" {
@@ -521,9 +521,10 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 
 	cist := l.cist()
 	p := cist.ports["1/1/1"]
-	p.up = true
-	p.pointToPoint = true
-	p.external = false
+	lk := l.link("1/1/1")
+	lk.up = true
+	lk.pointToPoint = true
+	lk.external = false
 	p.rcvInfoValid = true
 	p.rcvRootID = bpdu.BridgeID{Priority: 4096}
 	p.rcvRootPathCost = 0
@@ -553,7 +554,7 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 
 	l.Receive(t0.Add(time.Second), "1/1/1", b)
 
-	if !p.external {
+	if !lk.external {
 		t.Fatal("port not classified external after a foreign-region BPDU")
 	}
 	if p.rcvRegionalRootID != (bpdu.BridgeID{}) || p.rcvInternalRootPathCost != 0 || p.rcvRemainingHops != 0 {
