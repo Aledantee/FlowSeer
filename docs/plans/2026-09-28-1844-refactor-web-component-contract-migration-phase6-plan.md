@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: fixes needed
+review_rounds: 1
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -339,10 +340,13 @@ assistant about a device and follow the mock answer's button.
 
 ## Review gaps
 
-Two behavior findings hold the verdict:
+Fix round one closed the own-`map` and uncopied-fallback findings and was not
+clean. Three behavior findings hold the verdict, all on reads of an exotic
+input array or object:
 
-- `frontend/web/src/ai/catalog.ts:372`: `validateAiUiTree` and the card's `children` call the input array's own `map`, so an array with an own `map` property, a swapped prototype, or holes returns nodes `validateNode` never saw; fails: a tree array whose own `map` returns `[{ component: 'div', props: {} }]` must throw; class: behavior
-- `frontend/web/src/ai/catalog.ts:276`: `copyEntityValue`, `copyQueryValue`, and `copyIntentValue` return the input object when its shape check fails, and a later accessor can repair that object before validation; fails: a `UiButton` whose `intent` has an extra key that a `size` getter deletes must not return the handler's `intent` object; class: behavior
+- `frontend/web/src/ai/catalog.ts:386`: `validateNodes` compares the index with a `length` it does not check, so a Proxy whose `length` is an object with a changing `valueOf` ends the loop early; fails: a two-node Proxy tree whose second node names `div` must throw; class: behavior
+- `frontend/web/src/ai/catalog.ts:387`: an index read follows the prototype chain, so a node on the array's prototype fills an empty own slot; fails: `new Array(1)` whose prototype holds a valid node at `0` must throw; class: behavior
+- `frontend/web/src/ai/catalog.ts:392`: an exception thrown by an input accessor or Proxy trap leaves `validateAiUiTree` as thrown; fails: a node whose `component` getter throws must produce `Error(AI_UI_ERROR_MESSAGE)`; class: behavior
 
 Follow-ups, which do not hold the verdict:
 
