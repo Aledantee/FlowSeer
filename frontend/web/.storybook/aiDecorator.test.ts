@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick, ref, type App, type Component } from 'vue'
+import { createApp, h, nextTick, type App, type Component } from 'vue'
 import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from './preview'
 import type { AiRequest } from '../src/ai'
 import { aiRegistry } from '../src/ai'
 import { createWebI18n } from '../src/i18n'
+import UiAiTarget from '../src/ui/ai/UiAiTarget.vue'
 
 setProjectAnnotations(preview)
 
@@ -50,26 +51,21 @@ const storyModule = {
       },
     },
     render: () => ({
+      components: { UiAiTarget },
       setup() {
-        const nestedRef = ref<HTMLElement>()
         const target = {
           id: 'standalone:story:lifecycle-documentscope--with-nested:nested',
           kind: 'device',
           label: 'Nested device',
           context: { health: 'Offline' },
         }
-        return { nestedRef, target }
+        return { target }
       },
       template: `
         <div>
-          <button
-            ref="nestedRef"
-            v-ai-target="target"
-            tabindex="0"
-            data-nested-target
-          >
+          <UiAiTarget as="button" :ai="target" tabindex="0" data-nested-target>
             Nested device
-          </button>
+          </UiAiTarget>
         </div>
       `,
     }),
@@ -177,6 +173,20 @@ describe('AI decorator document scope', () => {
     await settle()
 
     expect(window.flowseerAi).toBeUndefined()
+  })
+
+  it('marks the story wrapper as selected while it is highlighted', async () => {
+    const alpha = mountStory(stories.Alpha)
+    await settle()
+
+    const id = window.flowseerAi?.listTargets()[0]?.id ?? ''
+    expect(alpha.root?.hasAttribute('data-ai-selected')).toBe(false)
+
+    expect(window.flowseerAi?.highlight(id)).toBe(true)
+    expect(alpha.root?.hasAttribute('data-ai-selected')).toBe(true)
+
+    window.flowseerAi?.clearHighlight()
+    expect(alpha.root?.hasAttribute('data-ai-selected')).toBe(false)
   })
 
   it('keeps a duplicate story id invalid', async () => {

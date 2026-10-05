@@ -1,18 +1,13 @@
 import type { Decorator } from '@storybook/vue3-vite'
-import { getCurrentInstance, onBeforeUnmount, onMounted, ref } from 'vue'
-import {
-  aiRegistry,
-  AiUnavailableError,
-  installFlowSeerAi,
-  vAiTarget,
-} from '../src/ai'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { aiRegistry, AiUnavailableError, installFlowSeerAi } from '../src/ai'
 import type { AiHandler } from '../src/ai'
 import UiAiContextLayer from '../src/ui/ai/UiAiContextLayer.vue'
 
 // One decorator gives every story an inspectable target and a local demo
 // handler, independently of `main.ts`. It registers the story's wrapper as a
 // target, installs the window contract, and wraps the story in an AI context
-// layer.
+// layer. The registry marks that wrapper's selection like any other target.
 //
 // Storybook Docs mounts several canvases into one document, and each canvas
 // runs its own decorator instance. The window contract and the request
@@ -115,7 +110,6 @@ export const withAiTargets: Decorator = (story, context) => {
   return {
     components: { story, UiAiContextLayer },
     setup() {
-      getCurrentInstance()?.appContext.app.directive('ai-target', vAiTarget)
       const root = ref<HTMLElement>()
       let release: (() => void) | undefined
       onMounted(() => {
