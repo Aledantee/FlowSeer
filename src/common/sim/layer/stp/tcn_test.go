@@ -160,7 +160,11 @@ func TestEveryTCNPropagates(t *testing.T) {
 	if middleChanges != beforeChanges+1 {
 		t.Fatalf("topology changes after first TCN = %d, want %d", middleChanges, beforeChanges+1)
 	}
-	firstHello := l.Advance(firstAt.Add(2 * time.Second))
+	firstWake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake reported no hello after the TCN")
+	}
+	firstHello := l.Advance(firstWake)
 	var acknowledged bool
 	for _, emission := range firstHello.Emissions {
 		if emission.Port != "p1" {

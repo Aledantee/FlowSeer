@@ -23,8 +23,6 @@ func (l *Layer) transmit(now time.Time, emissions *[]layer.Emission) {
 			link := l.links[name]
 			tx := l.tx(t, name)
 			if !link.up || link.bpduGuardDisabled {
-				tx.newInfo = false
-				tx.newInfoMsti = false
 				tx.count = 0
 				tx.tick = time.Time{}
 				tx.helloWhen = time.Time{}
@@ -63,7 +61,23 @@ func (l *Layer) transmit(now time.Time, emissions *[]layer.Emission) {
 			}
 			tx.helloWhen = now.Add(l.helloTime)
 			tx.newInfo = false
-			tx.newInfoMsti = false
+			if msg.Type == bpdu.TypeRapid {
+				tx.newInfoMsti = false
+			}
+		}
+	}
+}
+
+func (l *Layer) settleHelloTimers(now time.Time) {
+	for _, id := range l.treeOrder {
+		if l.pvst == nil && id != cistID {
+			continue
+		}
+		for _, name := range l.portNames {
+			tx := l.tx(l.trees[id], name)
+			for !tx.helloWhen.IsZero() && tx.helloWhen.Before(now) {
+				tx.helloWhen = tx.helloWhen.Add(l.helloTime)
+			}
 		}
 	}
 }
@@ -110,8 +124,11 @@ func (l *Layer) transmitRequested(p *portState, tx *portTx) bool {
 	if tx.newInfo {
 		return true
 	}
-	if !tx.newInfoMsti || l.pvst != nil || !l.mstiMasterPort(p.name) {
-		return tx.newInfoMsti
+	if !tx.newInfoMsti || !l.links[p.name].sendRSTP {
+		return false
+	}
+	if l.pvst != nil || !l.mstiMasterPort(p.name) {
+		return true
 	}
 
 	return false

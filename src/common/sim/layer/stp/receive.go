@@ -203,6 +203,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 // goes to ReceiveSSTP instead, which is the only entry point that classifies
 // a BPDU by VLAN.
 func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
+	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
 	link := l.links[port]
@@ -319,6 +320,7 @@ const (
 // this function is the hole BPDU guard exists to close. Loop-guard recovery is
 // tree-owned, so only the applied path clears the arrival tree's mark.
 func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
+	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
 		return layer.Effects{}, SSTPPortDown

@@ -271,6 +271,12 @@ Transmit pass. That pass visits `treeOrder` and then `portNames`, so each
 emission is built from the final state of every tree that was changed by the
 event.
 
+Before an event is applied, each record whose hello time is already overdue is
+advanced from its due instant by whole HelloTime intervals until it is no longer
+before the event. This settlement does not request a frame. A hello due exactly
+at the event instant is handled by the transmit pass. `NextWake` keeps reporting
+only a hello that can set a request.
+
 Each tree and port keeps pending new information, a held transmit count and
 tick, and its next hello time. Outside PVST, only the CIST owns a hello timer.
 MSTI information is pending on the CIST port and rides its BPDU as an MSTI
@@ -278,11 +284,17 @@ record. In PVST, each VLAN tree owns its timer and its transmit budget.
 
 RSTP and MSTP transmit pending information regardless of the port role. Legacy
 STP sends a Topology Change Notification from a Root port and a Configuration
-BPDU from a Designated port. A legacy non-CIST PVST tree keeps pending
-information without sending a frame. RSTP and MSTP transmission clears both
-CIST and MSTI pending information. A legacy Configuration BPDU or TCN clears
-only CIST information. A legacy TCN acknowledgment is included in the next
-Configuration BPDU rather than emitted immediately.
+BPDU from a Designated port. An MSTI-only request on a port that does not send
+RSTP emits nothing and remains pending. A legacy non-CIST PVST tree also keeps
+pending information without sending a frame. RSTP and MSTP transmission clears
+both CIST and MSTI pending information. A legacy Configuration BPDU or TCN
+clears only CIST information. A legacy TCN acknowledgment is included in the
+next Configuration BPDU rather than emitted immediately.
+
+When a port comes up, every tree's transmit record receives both requests after
+roles are computed. This sends one frame per tree, including edge ports. A port
+that is down or disabled by BPDU guard sends nothing, retains its requests, and
+holds a zero transmit count until the port-up pass.
 
 Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
 `layer.Emission.VID`. VLAN 1's tree sends a second, IEEE-addressed and naming no
@@ -460,8 +472,8 @@ The implementation structures its logic around the standard state machines:
 - Port Role Selection (PRS): IEEE 802.1Q-2003 clauses 13.9, 13.10, 13.11, and 13.24. Compares the six-part priority vector (Root ID, External Path Cost, Regional Root ID, Internal Path Cost, Designated Bridge ID, Designated Port ID) to elect the root and assign port roles.
 - Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
 - Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20, Figures 13-20 and 13-25. Computes proposal and agreement handshakes and steps the forward delay ladder.
-- Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Settles state before one deterministic tree-then-port transmit pass, sends periodic hellos from each tree's timer, and bounds each port and tree by txHoldCount.
-- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting RSTP port, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST VLAN 1 address mapping.
+- Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13 and P802.1aq/D1.5 Figure 13-19, clauses 13.28.13 and 13.28.14. It settles overdue hello records before an event, then runs one deterministic tree-then-port transmit pass. It sends periodic hellos from each tree's timer, bounds each port and tree by txHoldCount, and clears only the requests carried by the BPDU shape it sent. The layer's own port-up request is made by `LinkChange` after role computation.
+- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting port in either protocol mode, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. The layer's own detection request is made by `detectTopologyChange`. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST VLAN 1 address mapping.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 ### Limits

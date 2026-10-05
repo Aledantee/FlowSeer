@@ -11,6 +11,7 @@ import (
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
+	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
 		return layer.Effects{}
@@ -43,6 +44,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 // returned emissions. A link down clears received information and moves the
 // port to Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
+	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
 	if !ok {
@@ -65,7 +67,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			link.pvstBoundary = false
 			link.edgeDelayWhile = time.Time{}
 			link.mdelayWhile = time.Time{}
-			l.clearTransmit(port)
+			l.resetTransmit(port)
 
 			for _, id := range l.treeOrder {
 				tp := l.trees[id].ports[port]
@@ -163,7 +165,11 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		l.armHelloTimers(now)
 		l.recomputeAll(now, &flushes)
 
-		l.requestNewInfo(t, p)
+		for _, id := range l.treeOrder {
+			tx := l.tx(l.trees[id], port)
+			tx.newInfo = true
+			tx.newInfoMsti = true
+		}
 	}()
 	l.transmit(now, &emissions)
 
@@ -190,7 +196,7 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 	// before anything reads the BPDU. Only a link down and up brings it back.
 	if p.cfg.BPDUGuard && !link.bpduGuardDisabled {
 		link.bpduGuardDisabled = true
-		l.clearTransmit(port)
+		l.resetTransmit(port)
 		for _, id := range l.treeOrder {
 			tr := l.trees[id]
 			if tp, ok := tr.ports[port]; ok {
