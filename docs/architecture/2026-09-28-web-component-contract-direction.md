@@ -408,3 +408,28 @@ as implemented.
   change on the value (`frontend/web/src/ui/ai/useAiOrigin.ts`). The caller
   clears its state and composes `UiAiLabel` beside the value. This replaces
   the earlier "until the user next interacts" wording with an explicit event.
+
+### 2026-10-05: generative UI catalog and renderer
+
+The generative UI catalog and renderer are implemented in
+`frontend/web/src/ai/catalog.ts`, `frontend/web/src/ui/ai/UiAiRender.vue`,
+`frontend/web/src/ui/ai/UiAiResult.vue`, and `frontend/web/src/ai/types.ts`.
+
+- An answer enters the catalog through `AiAnswer.ui`. `UiAiResult` passes the
+  value to `UiAiRender`, which validates it before rendering. The catalog
+  contains `UiCard`, `UiBadge`, `UiStatusBadge`, `UiMetricCard`, `UiMeter`,
+  `UiProgress`, `UiSeparator`, `UiEmptyState`, `UiAiEntityChip`, and
+  `UiButton`.
+- A node has `component`, `props`, and optional `children`. `text` is the
+  catalog prop for text that the renderer places in the default slot. `UiCard`
+  is the only component that accepts children.
+- Buttons use the `navigate` intent with a `path` or `query`. A path is valid
+  only when `isPagePath` in `frontend/web/src/navigation/page.ts` accepts it.
+  Proposal intents remain outside the catalog until the console has a service
+  API.
+- The validator caps a tree at 64 nodes, four levels, and 500 characters per
+  string (`frontend/web/src/ai/catalog.ts`). It copies the allow-listed data
+  before validation and rendering.
+- `UiAiRender` has no `ai` prop. It is a container for agent output, so it
+  stands for no entity, value, or action of its own. The structural exemption
+  is recorded in `frontend/web/src/ui/ai/targetContract.test.ts`.

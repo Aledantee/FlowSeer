@@ -601,16 +601,58 @@ A handler that rejects produces an error state.
 ### Typed results
 
 Results render using typed objects defined in `src/ai/types.ts` rather than
-raw Markdown or HTML strings. This avoids HTML-injection risks and allows native
-design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`) to
-present structured insights:
+raw Markdown or HTML strings. This avoids HTML-injection risks. Native
+design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`)
+present structured insights. `UiAiResult` uses `UiAiRender` for an optional
+validated component tree:
 
 - `AiSummary`: contains a headline, overall tone (`ok`, `warning`, `critical`,
   `unknown`), structured findings with individual severities and entity
   references, an optional likely cause with confidence rating, optional impact,
   key metrics with status tones, recommended next steps, and entity sources.
 - `AiAnswer`: conversational or question responses containing prose text,
-  associated entity references, and an optional nested `AiSummary`.
+  associated entity references, an optional nested `AiSummary`, and an optional
+  `ui` tree rendered by `UiAiRender`.
+
+An answer's `ui` value is an array of catalog nodes. `UiAiRender` validates the
+array and maps its ten components to the real design-system components:
+`UiCard`, `UiBadge`, `UiStatusBadge`, `UiMetricCard`, `UiMeter`, `UiProgress`,
+`UiSeparator`, `UiEmptyState`, `UiAiEntityChip`, and `UiButton`. A `text` prop
+becomes default-slot text. A button uses the `navigate` intent, whose path must
+pass `isPagePath` in `src/navigation/page.ts`.
+
+The value can look like this:
+
+```json
+[
+  {
+    "component": "UiCard",
+    "props": {},
+    "children": [
+      {
+        "component": "UiStatusBadge",
+        "props": { "status": "Healthy" }
+      },
+      {
+        "component": "UiButton",
+        "props": {
+          "text": "Open device",
+          "intent": {
+            "type": "navigate",
+            "target": { "path": "/devices/core-01" }
+          }
+        }
+      }
+    ]
+  }
+]
+```
+
+The validator rejects unknown components, missing or extra node and prop keys,
+invalid values, unsupported children, invalid entities or navigation targets,
+and trees over 64 nodes, four levels, or 500 characters per string. It copies
+allow-listed data before the renderer binds it. Proposal intents remain outside
+the catalog until the console has a service API.
 
 An example structured `AiSummary` payload:
 
@@ -661,8 +703,10 @@ delivers progressive snapshots where each yielded object is a complete result
 state so far, eliminating fragile delta-patching protocols. The active request
 carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
 iteration and freezing the current rendered snapshot. Every received snapshot
-must satisfy the `isAiResult` validator. Malformed payloads immediately halt the
-run and display an error.
+is checked by `validateAiResult`, defined in `src/ai/validate.ts` and called
+from `src/ai/registry.ts`. A malformed result halts the run and displays an
+error. `validateAiResult` leaves `AiAnswer.ui` to `UiAiRender`, so a malformed
+tree shows the tree's error state without halting the run.
 
 ### Bound and unbound runs
 
@@ -700,8 +744,9 @@ The UI uses product-facing copy and omits decorative placeholder text and demo
 badges. This is still a design preview backed by local fixtures. Tenant selection filters fixtures and does not enforce
 authorization. Backend integration must authorize every tenant/site request and
 validate assignment changes. The logout icon beside the operator name is disabled until authentication is
-connected. There is no login, persistence, streaming transport,
-or production telemetry. Traffic is synthetic; aggregate device traffic may count
+connected. There is no login, persistence, streaming transport, or production
+telemetry. Traffic is
+synthetic. Aggregate device traffic may count
 traffic at multiple network hops. Topology links are illustrative.
 
 The 16-row native table establishes density and interactions. It is not a
