@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import { aiRegistry } from '../../ai'
+import type { AiTarget } from '../../ai'
 import UiAiEntityChip from './UiAiEntityChip.vue'
 
 const meta: Meta<typeof UiAiEntityChip> = {
@@ -63,5 +65,23 @@ export const Removable: Story = {
     },
     size: 'md',
     removable: true,
+  },
+}
+
+const selectedTarget: AiTarget = {
+  id: 'standalone:story:ai-entity-chip:selected',
+  kind: 'chip',
+  label: 'Aggregate traffic',
+  context: { state: 'selected' },
+}
+
+// The registry draws the selection outline on the chip it registered.
+export const Selected: Story = {
+  args: {
+    ...PlainText.args,
+    ai: selectedTarget,
+  },
+  play: () => {
+    aiRegistry.highlight(selectedTarget.id)
   },
 }

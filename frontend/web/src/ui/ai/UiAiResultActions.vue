@@ -63,12 +63,15 @@ export function serializeAiResultToText(result: AiResult): string {
 </script>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AiRun } from '../../ai'
 import { useAiRegistry } from './context'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 
-export interface UiAiResultActionsProps {
+export interface UiAiResultActionsProps extends UiAiProps {
   run?: AiRun
   result?: AiResult | null
   requestId?: string
@@ -78,13 +81,25 @@ const props = withDefaults(defineProps<UiAiResultActionsProps>(), {
   run: undefined,
   result: undefined,
   requestId: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'copy', text: string): void
-  (e: 'regenerate'): void
-  (e: 'feedback', payload: { requestId: string; rating: 'up' | 'down' }): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'copy', text: string): void
+    (e: 'regenerate'): void
+    (e: 'feedback', payload: { requestId: string; rating: 'up' | 'down' }): void
+  }
+>()
+
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 const registry = useAiRegistry()
@@ -125,6 +140,7 @@ function handleFeedback(rating: 'up' | 'down') {
 
 <template>
   <div
+    ref="root"
     class="flex items-center gap-1 text-muted-foreground pt-1"
     data-ai-result-actions
   >

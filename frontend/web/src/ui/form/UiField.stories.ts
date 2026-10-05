@@ -1,4 +1,7 @@
+import { ref } from 'vue'
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import type { AiOriginRequest } from '../ai/context'
+import UiAiLabel from '../ai/UiAiLabel.vue'
 import UiField from './UiField.vue'
 import UiInput from './UiInput.vue'
 
@@ -107,6 +110,48 @@ export const CustomRequiredMark: Story = {
     template: `
       <UiField v-bind="args">
         <UiInput placeholder="admin@example.com" />
+      </UiField>
+    `,
+  }),
+}
+
+const origin: AiOriginRequest = {
+  requestId: 'req-story-field',
+  action: 'summary',
+  targets: [
+    {
+      id: 'standalone:story:ui-field:device-name',
+      kind: 'device',
+      view: 'devices',
+      label: 'Device Name',
+      context: { site: 'Berlin Mitte' },
+    },
+  ],
+  history: [],
+}
+
+// An agent changed the value. The input carries the marker and the label
+// explains the request, and the caller clears both when the user edits. The
+// text control keeps its own context menu, so the story registers no target.
+export const AgentChanged: Story = {
+  args: {
+    label: 'Device Name',
+  },
+  render: (args) => ({
+    components: { UiField, UiInput, UiAiLabel },
+    setup() {
+      const name = ref('edge-router-01')
+      const changed = ref<AiOriginRequest | undefined>(origin)
+      return { args, name, changed }
+    },
+    template: `
+      <UiField v-bind="args">
+        <UiInput
+          v-model="name"
+          :ai-origin="changed"
+          @ai-origin-acknowledged="changed = undefined"
+        />
+        <UiAiLabel v-if="changed" :request="changed" />
       </UiField>
     `,
   }),

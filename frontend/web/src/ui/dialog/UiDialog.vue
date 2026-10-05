@@ -13,8 +13,10 @@ import {
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
 import { tv } from 'tailwind-variants'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 
-export interface UiDialogProps {
+export interface UiDialogProps extends UiAiProps {
   open?: boolean
   defaultOpen?: boolean
   title?: string
@@ -38,6 +40,8 @@ const props = withDefaults(defineProps<UiDialogProps>(), {
   fallbackTitle: undefined,
   fallbackDescription: undefined,
   closeLabel: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -51,10 +55,12 @@ const resolvedCloseLabel = computed(
   () => props.closeLabel ?? t('ui.dialog.closeLabel'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-  (e: 'closeAutoFocus', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+    (e: 'closeAutoFocus', event: Event): void
+  }
+>()
 
 const dialogVariants = tv({
   base: 'bg-popover text-foreground border border-border shadow-lg z-(--z-overlay) focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out',
@@ -98,6 +104,11 @@ const dialogVariants = tv({
         ]"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
         <VisuallyHidden v-if="!title && !$slots.title" as-child>
           <DialogTitle>{{ resolvedFallbackTitle }}</DialogTitle>
         </VisuallyHidden>

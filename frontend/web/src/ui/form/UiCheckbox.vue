@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { CheckboxIndicator, CheckboxRoot } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import { useFormReset } from './useFormReset'
 
-export interface UiCheckboxProps {
+export interface UiCheckboxProps extends UiAiProps {
   modelValue?: boolean | 'indeterminate'
   name?: string
   required?: boolean
@@ -19,13 +22,23 @@ const props = withDefaults(defineProps<UiCheckboxProps>(), {
   disabled: false,
   id: undefined,
   value: 'on',
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean | 'indeterminate'): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: boolean | 'indeterminate'): void
+  }
+>()
 
 const rootRef = ref<{ $el?: unknown } | null>(null)
+useAiTarget(rootRef, () => props.ai)
+useAiOrigin(
+  rootRef,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const internalValue = ref<boolean | 'indeterminate'>(props.modelValue ?? false)
 
 watch(

@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { tv } from 'tailwind-variants'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
 export interface TabItem {
   value: string
@@ -9,23 +13,35 @@ export interface TabItem {
   content?: string
 }
 
-export interface UiTabsProps {
+export interface UiTabsProps extends UiAiProps {
   modelValue?: string
   defaultValue?: string
   orientation?: 'horizontal' | 'vertical'
   tabs?: TabItem[]
 }
 
-withDefaults(defineProps<UiTabsProps>(), {
+const props = withDefaults(defineProps<UiTabsProps>(), {
   modelValue: undefined,
   defaultValue: undefined,
   orientation: 'horizontal',
   tabs: () => [],
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string): void
+  }
+>()
+
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const triggerVariants = tv({
   base: 'inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
@@ -40,6 +56,7 @@ const triggerVariants = tv({
 
 <template>
   <TabsRoot
+    ref="root"
     :model-value="modelValue"
     :default-value="defaultValue"
     :orientation="orientation"

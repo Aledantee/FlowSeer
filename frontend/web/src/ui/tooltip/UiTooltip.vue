@@ -6,12 +6,14 @@ import {
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 import UiKbd from '../kbd/UiKbd.vue'
 import type { Shortcut } from '../../navigation/shortcuts'
 import { keysOf } from '../../navigation/shortcuts'
 import { useI18n } from 'vue-i18n'
 
-export interface UiTooltipProps {
+export interface UiTooltipProps extends UiAiProps {
   label: string
   hint?: string
   shortcut?: Shortcut | string[]
@@ -39,7 +41,11 @@ const props = withDefaults(defineProps<UiTooltipProps>(), {
   defaultOpen: undefined,
   open: undefined,
   identifier: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -121,6 +127,11 @@ watch([labelSpan, () => props.identifier], () => nextTick(markHiddenText), {
         :collision-padding="8"
         class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
         <span ref="labelSpan" class="font-medium"
           ><slot name="label">{{ label }}</slot></span
         >
