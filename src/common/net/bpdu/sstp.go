@@ -93,7 +93,7 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 		}
 		payload[10] = version
 		payload[11] = bpduTypeWireRST
-		payload[12] = b.Flags
+		payload[12] = b.Flags &^ flagTopologyChangeAck
 	}
 
 	// putBody writes the RST body fields (root id through forward delay)
@@ -201,10 +201,10 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	b := readBody(f.Payload[5:])
 	b.Version = version
 	b.Type = TypeRapid
-	b.Flags = f.Payload[12]
+	b.Flags = f.Payload[12] &^ flagTopologyChangeAck
 	if wireType == bpduTypeWireConfig {
 		b.Type = TypeConfiguration
-		b.Flags &= flagTopologyChange | flagTopologyChangeAck
+		b.Flags = f.Payload[12] & (flagTopologyChange | flagTopologyChangeAck)
 	}
 
 	vid := vlan.ID(binary.BigEndian.Uint16(f.Payload[48:50]))

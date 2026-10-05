@@ -404,7 +404,7 @@ func TestBPDUFlagBits(t *testing.T) {
 
 	t.Run("topology change ack", func(t *testing.T) {
 		t.Parallel()
-		b := bpdu.BPDU{HelloTime: defaultHelloTime}
+		b := bpdu.BPDU{Type: bpdu.TypeConfiguration, HelloTime: defaultHelloTime}
 		b.SetTopologyChangeAck(true)
 		if !b.TopologyChangeAck() {
 			t.Error("TopologyChangeAck() = false, want true")
@@ -424,6 +424,69 @@ func TestBPDUFlagBits(t *testing.T) {
 		b.SetTopologyChangeAck(false)
 		if b.TopologyChangeAck() {
 			t.Error("TopologyChangeAck() = true after clear, want false")
+		}
+	})
+}
+
+func TestRapidAndMSTIgnoreTopologyChangeAck(t *testing.T) {
+	t.Parallel()
+
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+
+	t.Run("IEEE RST", func(t *testing.T) {
+		t.Parallel()
+		b := bpdu.BPDU{Type: bpdu.TypeRapid, Flags: 0xff, HelloTime: defaultHelloTime}
+		frame := mustEncode(t, b, mac)
+		if frame.Payload[7] != 0x7f {
+			t.Errorf("encoded flags = 0x%02x, want 0x7f", frame.Payload[7])
+		}
+		frame.Payload[7] = 0xff
+		decoded, err := bpdu.Decode(frame)
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
+		}
+		if decoded.Flags != 0x7f || decoded.TopologyChangeAck() {
+			t.Errorf("decoded flags = 0x%02x, want 0x7f", decoded.Flags)
+		}
+	})
+
+	t.Run("IEEE MST", func(t *testing.T) {
+		t.Parallel()
+		frame := ethernet.Frame{
+			Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+			Src:       mac,
+			EtherType: ethernet.EtherType(len(mstBPDUWireFixture()) - 3),
+			Payload:   append([]byte(nil), mstBPDUWireFixture()...),
+		}
+		frame.Payload[7] = 0xff
+		decoded, err := bpdu.Decode(frame)
+		if err != nil {
+			t.Fatalf("Decode: %v", err)
+		}
+		if decoded.ConfigID == nil || decoded.Flags != 0x7f || decoded.TopologyChangeAck() {
+			t.Errorf("decoded MST = %+v, want MST with flags 0x7f", decoded)
+		}
+		decoded.Flags = 0xff
+		encoded := mustEncode(t, decoded, mac)
+		if encoded.Payload[7] != 0x7f {
+			t.Errorf("encoded flags = 0x%02x, want 0x7f", encoded.Payload[7])
+		}
+	})
+
+	t.Run("SSTP RST", func(t *testing.T) {
+		t.Parallel()
+		b := bpdu.BPDU{Type: bpdu.TypeRapid, Flags: 0xff, HelloTime: defaultHelloTime}
+		frame := mustEncodeSSTP(t, b, 10, mac)
+		if frame.Payload[12] != 0x7f {
+			t.Errorf("encoded flags = 0x%02x, want 0x7f", frame.Payload[12])
+		}
+		frame.Payload[12] = 0xff
+		decoded, _, err := bpdu.DecodeSSTP(frame)
+		if err != nil {
+			t.Fatalf("DecodeSSTP: %v", err)
+		}
+		if decoded.Flags != 0x7f || decoded.TopologyChangeAck() {
+			t.Errorf("decoded flags = 0x%02x, want 0x7f", decoded.Flags)
 		}
 	})
 }
@@ -1194,7 +1257,7 @@ func TestSSTPCodecRoundTrip(t *testing.T) {
 			vid: 1,
 		},
 		{
-			name: "every flag bit set",
+			name: "every RST flag bit set",
 			b: bpdu.BPDU{
 				RootID:       root,
 				RootPathCost: 0,
@@ -1203,7 +1266,7 @@ func TestSSTPCodecRoundTrip(t *testing.T) {
 				HelloTime:    defaultHelloTime,
 				MaxAge:       defaultMaxAge,
 				ForwardDelay: defaultForwardDelay,
-				Flags:        0xFF,
+				Flags:        0x7F,
 			},
 			vid: 100,
 		},
@@ -1725,30 +1788,6 @@ func TestMaxMSTIRecordsRefuses65Where64Encode(t *testing.T) {
 		extraRecord := append([]byte(nil), frame.Payload[len(frame.Payload)-16:]...)
 		frame.Payload = append(frame.Payload, extraRecord...)
 		frame.EtherType = ethernet.EtherType(len(frame.Payload) - 3)
-		binary.BigEndian.PutUint16(frame.Payload[39:41], 1104)
-		dec, err := bpdu.Decode(frame)
-		if err != nil {
-			t.Fatalf("Decode(v3 len naming 65): %v", err)
-		}
-		if dec.Type != bpdu.TypeRapid {
-			t.Errorf("Type = %v, want TypeRapid", dec.Type)
-		}
-		if dec.ConfigID != nil {
-			t.Errorf("ConfigID = %+v, want nil (decoded as RST)", dec.ConfigID)
-		}
-		if len(dec.MSTIs) != 0 {
-			t.Errorf("len(MSTIs) = %d, want 0 (decoded as RST)", len(dec.MSTIs))
-		}
-	})
-
-	t.Run("truncated version 3 body naming 65 records decodes as RST BPDU", func(t *testing.T) {
-		t.Parallel()
-		b := baseBPDU
-		b.MSTIs = makeMSTIs(0)
-		frame, err := bpdu.Encode(b, mac)
-		if err != nil {
-			t.Fatalf("Encode: %v", err)
-		}
 		binary.BigEndian.PutUint16(frame.Payload[39:41], 1104)
 		dec, err := bpdu.Decode(frame)
 		if err != nil {
