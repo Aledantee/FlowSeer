@@ -38,7 +38,7 @@ export const Default: Story = {
     },
     template: `
       <div class="p-6 bg-card border border-border rounded-panel max-w-3xl">
-        <TrafficChart v-bind="args" v-ai-target="chartTarget" />
+        <TrafficChart v-bind="args" :ai="chartTarget" />
       </div>
     `,
   }),
@@ -67,7 +67,7 @@ export const DarkMode: Story = {
     },
     template: `
       <div data-theme="dark" class="p-6 bg-card border border-border rounded-panel max-w-3xl text-foreground">
-        <TrafficChart v-bind="args" v-ai-target="chartTarget" />
+        <TrafficChart v-bind="args" :ai="chartTarget" />
       </div>
     `,
   }),

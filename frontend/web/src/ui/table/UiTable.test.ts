@@ -8,7 +8,10 @@ import UiTableRow from './UiTableRow.vue'
 import UiTableHead from './UiTableHead.vue'
 import UiTableCell from './UiTableCell.vue'
 import UiTableEmpty from './UiTableEmpty.vue'
+import { createAiRegistry } from '../../ai'
 import { createWebI18n, type WebLocale } from '../../i18n'
+import { aiRegistryKey } from '../ai/context'
+import UiScrollArea from '../scroll-area/UiScrollArea.vue'
 
 let dispose = () => {}
 afterEach(() => {
@@ -249,5 +252,65 @@ describe('UiTable context and layout', () => {
     const td = host.querySelector('td')
     expect(td?.getAttribute('colspan')).toBe('4')
     expect(td?.textContent).toBe('No data found')
+  })
+})
+
+describe('UiTable row targets', () => {
+  const devices = ['dev-1', 'dev-2', 'dev-3', 'dev-4']
+
+  function mountRows(visible: { value: string[] }) {
+    const registry = createAiRegistry()
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp({
+      render: () =>
+        h(UiScrollArea, { axis: 'x', label: 'Devices' }, () =>
+          h(UiTable, () =>
+            h(UiTableBody, () =>
+              visible.value.map((id) =>
+                h(
+                  UiTableRow,
+                  {
+                    key: id,
+                    ai: { id, kind: 'device', label: id, context: {} },
+                  },
+                  () => h(UiTableCell, () => id),
+                ),
+              ),
+            ),
+          ),
+        ),
+    })
+    app.provide(aiRegistryKey, registry)
+    app.use(createWebI18n('en'))
+    app.mount(host)
+    dispose = () => app.unmount()
+    return { host, registry }
+  }
+
+  it('registers four rows inside the scroll viewport and drops a filtered row', async () => {
+    const visible = ref([...devices])
+    const { host, registry } = mountRows(visible)
+    await nextTick()
+
+    const viewport = host.querySelector('[data-reka-scroll-area-viewport]')
+    expect(viewport).not.toBeNull()
+    const rows = [...host.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(4)
+    expect(registry.list().map((entry) => entry.id)).toEqual(devices)
+    for (const [index, row] of rows.entries()) {
+      expect(viewport?.contains(row)).toBe(true)
+      expect(registry.view(devices[index]!)?.element).toBe(row)
+    }
+
+    const removed = rows[1]!
+    visible.value = ['dev-1', 'dev-3', 'dev-4']
+    await nextTick()
+    expect(registry.list().map((entry) => entry.id)).toEqual([
+      'dev-1',
+      'dev-3',
+      'dev-4',
+    ])
+    expect(registry.idForElement(removed as HTMLElement)).toBeUndefined()
   })
 })
