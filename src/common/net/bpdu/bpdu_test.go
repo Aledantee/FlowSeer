@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -957,11 +958,9 @@ func TestMSTBPDUEncodePlacesBridgeAndRegionalRootSeparately(t *testing.T) {
 	}
 }
 
-// TestMSTBPDUDecodeRefusesOverlongPayload guards against a payload carrying
-// more octets than its own version 3 length names: silently accepting the
-// extra octets would decode a longer capture as an MST BPDU with fewer (or
-// no) records, aging out information the sender actually refreshed.
-func TestMSTBPDUDecodeRefusesOverlongPayload(t *testing.T) {
+// TestMSTBPDUDecodeIgnoresOctetsAfterRecords guards the 14.4 e) reading for
+// a payload carrying more octets than its Version 3 Length names.
+func TestMSTBPDUDecodeIgnoresOctetsAfterRecords(t *testing.T) {
 	t.Parallel()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
@@ -977,17 +976,18 @@ func TestMSTBPDUDecodeRefusesOverlongPayload(t *testing.T) {
 	frame := mustEncode(t, b, mac)
 
 	// Append a whole trailing MSTI record's worth of octets without updating
-	// the version 3 length field, as ten records appended past the length
-	// the field names would look on the wire.
+	// the version 3 length field.
 	frame.Payload = append(frame.Payload, make([]byte, 16)...)
 
-	_, err := bpdu.Decode(frame)
-	if err == nil {
-		t.Fatal("Decode unexpectedly succeeded on a payload longer than its version 3 length names")
+	decoded, err := bpdu.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode: %v", err)
 	}
-
-	if !errors.Is(err, bpdu.ErrUnsupported) {
-		t.Errorf("error = %v, want ErrUnsupported", err)
+	if decoded.ConfigID == nil {
+		t.Fatal("ConfigID = nil, want MST configuration")
+	}
+	if len(decoded.MSTIs) != 0 {
+		t.Errorf("len(MSTIs) = %d, want 0", len(decoded.MSTIs))
 	}
 }
 
@@ -1770,16 +1770,8 @@ func TestBPDUDecodeQ2003Compliance(t *testing.T) {
 	})
 }
 
-// TestMSTBPDUWireFixture asserts the exact wire bytes of an MST BPDU against
-// a literal fixture commented per field with its octets in IEEE 802.1Q-2003
-// Figure 14-1 and Figure 14-2, ensuring every multi-octet field has distinct
-// bytes in each octet, Decode returns the fields, and Encode returns the bytes.
-func TestMSTBPDUWireFixture(t *testing.T) {
-	t.Parallel()
-
-	srcMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-
-	wire := []byte{
+func mstBPDUWireFixture() []byte {
+	return []byte{
 		// LLC header: DSAP, SSAP, Control
 		0x42, 0x42, 0x03,
 
@@ -1855,6 +1847,17 @@ func TestMSTBPDUWireFixture(t *testing.T) {
 		// Figure 14-2 octet 16: MSTI Remaining Hops (18)
 		0x12,
 	}
+}
+
+// TestMSTBPDUWireFixture asserts the exact wire bytes of an MST BPDU against
+// a literal fixture commented per field with its octets in IEEE 802.1Q-2003
+// Figure 14-1 and Figure 14-2, ensuring every multi-octet field has distinct
+// bytes in each octet, Decode returns the fields, and Encode returns the bytes.
+func TestMSTBPDUWireFixture(t *testing.T) {
+	t.Parallel()
+
+	srcMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	wire := mstBPDUWireFixture()
 
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
@@ -1974,5 +1977,154 @@ func TestMSTBPDUWireFixture(t *testing.T) {
 	}
 	if !bytes.Equal(enc.Payload, wire) {
 		t.Errorf("Encode payload does not match wire fixture bytes:\ngot:  % x\nwant: % x", enc.Payload, wire)
+	}
+}
+
+func TestDecodeVersion3ByLength(t *testing.T) {
+	t.Parallel()
+
+	const (
+		version3   = 3
+		version4   = 4
+		version255 = 255
+	)
+
+	tests := []struct {
+		name            string
+		octets          int
+		version         uint8
+		version1Len     byte
+		version3Len     uint16
+		wantMST         bool
+		wantRecords     int
+		wantUnsupported bool
+	}{
+		{name: "34 octets are refused", octets: 34, version: version3, wantUnsupported: true},
+		{name: "35 octets are RST version 3", octets: 35, version: version3},
+		{name: "35 octets are RST version 4", octets: 35, version: version4},
+		{name: "35 octets are RST version 255", octets: 35, version: version255},
+		{name: "60 octets are RST despite MST-shaped lengths", octets: 60, version: version3, version3Len: 80},
+		{name: "101 octets are RST despite MST-shaped lengths", octets: 101, version: version3, version3Len: 64},
+		{name: "102 octets are MST with no records", octets: 102, version: version3, version3Len: 64, wantMST: true},
+		{name: "102 octets are RST with a longer MST length", octets: 102, version: version3, version3Len: 80},
+		{name: "102 octets are RST with a nonzero Version 1 Length", octets: 102, version: version3, version1Len: 1, version3Len: 64},
+		{name: "103 octets are MST with no records", octets: 103, version: version3, version3Len: 64, wantMST: true},
+		{name: "117 octets refuse an absent record", octets: 117, version: version3, version3Len: 80, wantUnsupported: true},
+		{name: "118 octets are MST with one record", octets: 118, version: version3, version3Len: 80, wantMST: true, wantRecords: 1},
+		{name: "119 octets are MST with one record and trailing octets", octets: 119, version: version3, version3Len: 80, wantMST: true, wantRecords: 1},
+		{name: "118 octets are RST with a nonzero Version 1 Length", octets: 118, version: version3, version1Len: 1, version3Len: 80},
+		{name: "118 octets are RST with a partial record length", octets: 118, version: version3, version3Len: 81},
+		{name: "118 octets are RST with too many records", octets: 118, version: version3, version3Len: 1104},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			payload := append([]byte(nil), mstBPDUWireFixture()...)
+			wantPayloadLen := tc.octets + 3
+			if wantPayloadLen < len(payload) {
+				payload = payload[:wantPayloadLen]
+			} else {
+				payload = append(payload, make([]byte, wantPayloadLen-len(payload))...)
+			}
+			payload[5] = tc.version
+			if len(payload) >= 41 {
+				payload[38] = tc.version1Len
+				binary.BigEndian.PutUint16(payload[39:41], tc.version3Len)
+			}
+
+			frame := ethernet.Frame{
+				Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+				Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+				EtherType: ethernet.EtherType(tc.octets),
+				Payload:   payload,
+			}
+
+			decoded, err := bpdu.Decode(frame)
+			if tc.wantUnsupported {
+				if err == nil {
+					t.Fatal("Decode succeeded, want ErrUnsupported")
+				}
+				if !errors.Is(err, bpdu.ErrUnsupported) {
+					t.Fatalf("error = %v, want ErrUnsupported", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Decode: %v", err)
+			}
+
+			if decoded.Version != tc.version {
+				t.Errorf("Version = %d, want %d", decoded.Version, tc.version)
+			}
+			if decoded.Type != bpdu.TypeRapid {
+				t.Errorf("Type = %v, want TypeRapid", decoded.Type)
+			}
+			if tc.wantMST {
+				if decoded.ConfigID == nil {
+					t.Fatal("ConfigID = nil, want MST configuration")
+				}
+				if len(decoded.MSTIs) != tc.wantRecords {
+					t.Errorf("len(MSTIs) = %d, want %d", len(decoded.MSTIs), tc.wantRecords)
+				}
+				return
+			}
+
+			if decoded.ConfigID != nil {
+				t.Errorf("ConfigID = %+v, want nil for RST", decoded.ConfigID)
+			}
+			if len(decoded.MSTIs) != 0 {
+				t.Errorf("len(MSTIs) = %d, want 0 for RST", len(decoded.MSTIs))
+			}
+			wantRoot := bpdu.BridgeID{Priority: 0x1234, Address: netaddr.MAC{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}}
+			if decoded.RootID != wantRoot {
+				t.Errorf("RootID = %v, want %v", decoded.RootID, wantRoot)
+			}
+			if decoded.RootPathCost != 0x0708090a {
+				t.Errorf("RootPathCost = 0x%08x, want 0x0708090a", decoded.RootPathCost)
+			}
+			wantBridge := bpdu.BridgeID{Priority: 0x2345, Address: netaddr.MAC{0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10}}
+			if decoded.BridgeID != wantBridge {
+				t.Errorf("BridgeID = %v, want %v", decoded.BridgeID, wantBridge)
+			}
+			if decoded.PortID != 0x8123 {
+				t.Errorf("PortID = 0x%04x, want 0x8123", decoded.PortID)
+			}
+		})
+	}
+}
+
+func TestDecodeVersion3LengthsNeverPanic(t *testing.T) {
+	t.Parallel()
+
+	for octets := 0; octets <= 150; octets++ {
+		octets := octets
+		t.Run(fmt.Sprintf("%d octets", octets), func(t *testing.T) {
+			t.Parallel()
+
+			payload := append([]byte(nil), mstBPDUWireFixture()...)
+			wantPayloadLen := octets + 3
+			if wantPayloadLen < len(payload) {
+				payload = payload[:wantPayloadLen]
+			} else {
+				payload = append(payload, make([]byte, wantPayloadLen-len(payload))...)
+			}
+			if len(payload) >= 6 {
+				payload[5] = 3
+			}
+			if len(payload) >= 7 {
+				payload[6] = 2
+			}
+
+			frame := ethernet.Frame{
+				EtherType: ethernet.EtherType(octets),
+				Payload:   payload,
+			}
+			_, err := bpdu.Decode(frame)
+			if err != nil && !errors.Is(err, bpdu.ErrUnsupported) {
+				t.Fatalf("Decode error = %v, want nil or ErrUnsupported", err)
+			}
+		})
 	}
 }

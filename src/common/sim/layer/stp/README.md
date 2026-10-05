@@ -309,30 +309,18 @@ since only that can replace the neighbor.
 A version 3 BPDU carries the CIST fields every RST BPDU does, plus a 51-octet
 MST configuration identifier, the CIST's internal root path cost and remaining
 hops, and one 16-octet record per instance the sender maps a VLAN into.
-`bpdu.Decode` reads all of it: `bpdu.BPDU.ConfigID`, `RegionalRootID`,
-`InternalRootPathCost`, `RemainingHops`, and `MSTIs` come back filled whenever
-the payload holds enough octets for the MST body.
+`bpdu.Decode` classifies a type 2 frame by the octets counted from its Protocol
+Identifier, as IEEE 802.1Q-2003 clause 14.4 requires:
 
-When the payload is too short to hold that body at all — a peer running plain
-RSTP that sent a 39-octet RST BPDU with version 3 in the header, or a capture
-truncated before the MST body starts — `bpdu.Decode` still reads the RST prefix
-and returns it with `ConfigID` nil and no records, rather than refusing the
-frame. A payload long enough for the MST body but truncated inside the MSTI
-records is refused, not fallen back to the RST prefix: at that point the
-sender meant to carry MST fields and `bpdu.Decode` cannot tell which ones survived
-the truncation. The UNH-IOL MSTP conformance suite is why the version number
-alone never disqualifies a BPDU: "A compliant device must not validate an MST
-BPDU based on the value encoded in the Protocol Version Identifier field.
-This allows future versions of the Spanning Tree Protocol to use this field
-while providing support for legacy versions" ([MSTP_conformance.pdf][unh-mstp],
-Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011 sub-clause 14.4). This is also
-why version 4 and later decode the same way as a short version 3 payload,
-with `ConfigID` nil, rather than being rejected outright. Refusing a short
-version 3 payload would leave a netsim bridge facing that peer with both ends
-Designated and Forwarding, an unbroken loop and a worse answer than the
-RST-prefix approximation.
+- From 35 through 101 octets, it reads the RST prefix whatever the length fields say.
+- At 102 octets, it reads MST with no records only when Version 1 Length is 0 and Version 3 Length is 64. Every other pair reads as RST.
+- At 103 octets or more, Version 1 Length 0 and a Version 3 Length naming 0 to 64 records select MST. Octets after the named records are ignored.
 
-[unh-mstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/MSTP_conformance.pdf
+The MST fields come back in `bpdu.BPDU.ConfigID`, `RegionalRootID`,
+`InternalRootPathCost`, `RemainingHops`, and `MSTIs`. A frame of 103 or more
+octets whose Version 3 Length names records that are absent is refused. That is
+this package's rule for an input that clause 14.4 does not define. Version 4 and
+later use the same length bands.
 
 ## Multiple spanning tree instances (MSTP)
 
