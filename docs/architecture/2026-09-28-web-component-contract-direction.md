@@ -419,9 +419,7 @@ The generative UI catalog and renderer are implemented in
   non-`undefined` `ui` once before yielding an answer snapshot
   (`frontend/web/src/ai/registry.ts`). A clone failure sets `ui` to `null`, so
   `UiAiRender` shows the tree's error state while the answer text remains.
-  The registry reads the answer's `ui` once and yields a new answer object, so
-  no accessor on the handler's object answers for `ui` later. A summary is
-  yielded as the handler returned it.
+  Summaries and answers without `ui` are yielded as the handler returned them.
   `UiAiResult` passes the value to `UiAiRender`, which validates it before
   rendering. The catalog contains `UiCard`, `UiBadge`, `UiStatusBadge`,
   `UiMetricCard`, `UiMeter`, `UiProgress`, `UiSeparator`, `UiEmptyState`,

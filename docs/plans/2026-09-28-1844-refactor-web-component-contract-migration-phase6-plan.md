@@ -363,11 +363,8 @@ Change: `generateSnapshots` builds each snapshot in one place for both of
 its branches, the async iterator and the single value. After
 `validateAiResult` accepts an answer whose `ui` is not `undefined`, it
 yields a new answer object holding the handler's other fields and
-`structuredClone(ui)`, or `ui: null` when the clone throws. It reads the
-answer's `ui` once and yields every answer as a new object, with or without
-`ui`, since an accessor on the handler's object could otherwise answer
-`undefined` first and a tree later. A summary is yielded as today.
-`validateAiUiTree` loses its
+`structuredClone(ui)`, or `ui: null` when the clone throws. A summary, and
+an answer without `ui`, are yielded as today. `validateAiUiTree` loses its
 `structuredClone` call, its try and catch, and the comment above it, and
 keeps the index loop of `validateNodes`. `UiAiRender` passes `props.tree`
 to the validator without `toRaw`. The comment on `AiAnswer.ui` in
@@ -380,9 +377,7 @@ a clone in the validator and `toRaw` in the renderer.
 Tests: `registry.test.ts` covers requirements 9, 11, 13, and the snapshot
 half of 12, each once through an async-iterator handler, and requirement 11
 once more through a handler that returns a single value. It also covers an
-answer without `ui` yielded as an equal new object, a summary yielded as
-the handler's own object, and an answer whose `ui` is an accessor that
-answers `undefined` first, a tree once, or throws.
+answer without `ui` and a summary yielded as the handler's own object.
 `UiAiRender.test.ts` covers requirements 14 and 15. `UiAiResult.test.ts`
 covers the mounted half of requirement 12 with a run from
 `createAiRegistry` and no `state` prop. `catalog.test.ts` loses the cases

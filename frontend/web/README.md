@@ -653,10 +653,8 @@ snapshot. `structuredClone` keeps enumerable, string-keyed own data. It drops
 non-enumerable and symbol-keyed properties, reads an accessor once, and stores
 the value as data. A function, Proxy, or accessor that throws makes the clone
 fail. The registry then sets `ui` to `null`, so `UiAiRender` shows the tree's
-error state while the answer text remains. The registry reads the answer's
-`ui` once and yields a new answer object, so no accessor on the handler's
-object answers for `ui` later. A summary is yielded as the handler returned
-it.
+error state while the answer text remains. Summaries and answers without `ui`
+are yielded as the handler returned them.
 
 The validator rejects unknown components, missing or extra node and prop keys,
 invalid values, unsupported children, invalid entities or navigation targets,

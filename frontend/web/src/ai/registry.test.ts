@@ -476,8 +476,7 @@ describe('request snapshots and AiRun', () => {
     for await (const s of run2.snapshots) {
       results2.push(s)
     }
-    expect(results2[0]).toEqual(sampleAnswer)
-    expect(results2[0]).not.toBe(sampleAnswer)
+    expect(results2[0]).toBe(sampleAnswer)
     expect(results2[1]).toBe(snap1)
     expect(results2[2]).toBe(snap2)
   })
@@ -595,86 +594,6 @@ describe('request snapshots and AiRun', () => {
     ).target.query
     expect(copiedQuery).toEqual({ site: 'berlin' })
     expect(Object.hasOwn(copiedQuery, 'inherited')).toBe(false)
-  })
-
-  it('yields no tree and no accessor when an answer ui accessor answers undefined first', async () => {
-    const registry = createAiRegistry()
-    const node = element()
-    const t = target('a:devices:device:d1')
-    registry.register(node, t)
-    let reads = 0
-    const answer = { ...sampleAnswer }
-    Object.defineProperty(answer, 'ui', {
-      enumerable: true,
-      get: () =>
-        reads++ === 0
-          ? undefined
-          : [{ component: 'UiBadge', props: { text: 'Uncloned' } }],
-    })
-
-    registry.onRequest(() => answer)
-    const run = registry.request(t, { action: 'ask' })
-    const snapshots: AiAnswer[] = []
-    for await (const snapshot of run.snapshots) {
-      snapshots.push(snapshot as AiAnswer)
-    }
-
-    expect(snapshots).toHaveLength(1)
-    expect(snapshots[0]?.text).toBe(sampleAnswer.text)
-    expect('ui' in snapshots[0]!).toBe(false)
-  })
-
-  it('clones the tree an answer ui accessor returns once and reads it no further', async () => {
-    const registry = createAiRegistry()
-    const node = element()
-    const t = target('a:devices:device:d1')
-    registry.register(node, t)
-    let reads = 0
-    const answer = { ...sampleAnswer }
-    Object.defineProperty(answer, 'ui', {
-      enumerable: true,
-      get: () => {
-        if (reads++ > 0) throw new Error('handler failure')
-        return [{ component: 'UiBadge', props: { text: 'Ready' } }]
-      },
-    })
-
-    registry.onRequest(() => answer)
-    const run = registry.request(t, { action: 'ask' })
-    const snapshots: AiAnswer[] = []
-    for await (const snapshot of run.snapshots) {
-      snapshots.push(snapshot as AiAnswer)
-    }
-
-    expect(snapshots).toEqual([
-      {
-        ...sampleAnswer,
-        ui: [{ component: 'UiBadge', props: { text: 'Ready' } }],
-      },
-    ])
-  })
-
-  it('turns an answer ui accessor that throws into a tree error without halting the run', async () => {
-    const registry = createAiRegistry()
-    const node = element()
-    const t = target('a:devices:device:d1')
-    registry.register(node, t)
-    const answer = { ...sampleAnswer }
-    Object.defineProperty(answer, 'ui', {
-      enumerable: true,
-      get: () => {
-        throw new Error('handler failure')
-      },
-    })
-
-    registry.onRequest(() => answer)
-    const run = registry.request(t, { action: 'ask' })
-    const snapshots: AiAnswer[] = []
-    for await (const snapshot of run.snapshots) {
-      snapshots.push(snapshot as AiAnswer)
-    }
-
-    expect(snapshots).toEqual([{ ...sampleAnswer, ui: null }])
   })
 
   it.each([
