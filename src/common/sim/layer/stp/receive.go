@@ -58,8 +58,13 @@ func receivedHelloTime(d time.Duration) time.Duration {
 // designated bridge and port a record implies reuse the sending bridge's own
 // address and the low 12 bits of the CIST port identifier, since MSTI bridge and
 // port identifiers differ from the CIST's only in their priority nibble
-// (clause 13.7).
+// (clause 13.7). Each record also records its tree's agreement the way the
+// CIST does, when the CIST message of the same BPDU names the vectors the
+// port holds (13.26.10).
 func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) {
+	lk := l.link(port)
+	held := l.cistHolds(port, b)
+
 	for _, rec := range b.MSTIs {
 		mt, ok := l.trees[treeID(rec.MSTID)]
 		if !ok {
@@ -91,19 +96,24 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 			internalRootPathCost: rec.InternalRootPathCost, bridgeID: recBridgeID, portID: recPortID,
 		}
 
+		if rec.RemainingHops <= 1 {
+			continue
+		}
+
+		flags := bpdu.BPDU{Flags: rec.Flags}
+		recordAgreement(mt, mp, lk, treeMessage{
+			role: flags.Role(), agreement: flags.Agreement() && held, vector: incoming,
+		})
+
 		sameSource := mp.rcvInfoValid && mp.rcvBridgeID == recBridgeID && mp.rcvPortID == recPortID
 		isSuperior := !mp.rcvInfoValid
 		if mp.rcvInfoValid {
-			stored := rawVector(mt, mp, l.link(port).external)
+			stored := rawVector(mt, mp, lk.external)
 			if compareVectors(incoming, stored) < 0 {
 				isSuperior = true
 			}
 		}
 		if !sameSource && !isSuperior {
-			continue
-		}
-
-		if rec.RemainingHops <= 1 {
 			continue
 		}
 
@@ -315,8 +325,6 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 // receive, which runs once per frame whatever tree it belongs to, stays with
 // the two callers.
 func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flushes *[]layer.FlushTarget) []layer.Emission {
-	var emissions []layer.Emission
-
 	// A BPDU is internal when it names this bridge's own region: an MST BPDU
 	// (ConfigID set) whose configuration identifier equals this bridge's. An
 	// RST or Configuration BPDU, and an MST BPDU from a different region, are
@@ -327,42 +335,68 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	internal := l.mst != nil && b.ConfigID != nil && *b.ConfigID == *l.configID
 	lk := l.link(p.name)
 
-	if internal {
-		// Internal information ages by hop count, re-originated one hop
-		// short of what was received; a record that has already reached the
-		// bound is discarded rather than stored, so a BPDU naming a regional
-		// root that no longer exists stops refreshing on every hop and the
-		// port's own information ages out.
-		if b.RemainingHops <= 1 {
-			if t.id == cistID {
-				lk.external = !internal
-			}
-			emissions = append(emissions, l.recomputeAll(now, flushes)...)
-
-			return emissions
+	if exhausted(b, internal) {
+		if t.id == cistID {
+			lk.external = !internal
 		}
-	} else {
-		// IEEE 802.1Q treats message age as a hop count bounded by the max age
-		// the BPDU itself carries, not by this bridge's configured one: the
-		// received value is the root's, and the fabric builds bridges with
-		// differing timers. Information that has reached the bound is
-		// discarded rather than stored, so a BPDU naming a root that no
-		// longer exists stops refreshing the timer on every hop and the
-		// port's own information ages out.
-		if b.MessageAge+time.Second > b.MaxAge {
-			if t.id == cistID {
-				lk.external = !internal
-			}
-			emissions = append(emissions, l.recomputeAll(now, flushes)...)
 
-			return emissions
+		return l.recomputeAll(now, flushes)
+	}
+
+	incoming := incomingVector(t, internal, b)
+	l.storeInformation(t, p, lk, incoming, internal, b, now)
+
+	recordAgreement(t, p, lk, treeMessage{role: b.Role(), agreement: b.Agreement(), vector: incoming})
+	switch {
+	case internal:
+		l.receiveMSTIs(now, p.name, b, flushes)
+	case l.mst != nil && t.id == cistID:
+		l.mirrorAgreement(p)
+	}
+
+	if b.TopologyChange() && !p.cfg.RestrictedTCN {
+		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
+		for _, name := range l.portNames {
+			if name != p.name {
+				mergeFlushTarget(flushes, name, l.treeVLANs[t.id])
+			}
 		}
 	}
 
-	// Built in the same shape rawVector gives the stored vector it is compared
-	// against: a non-CIST tree carries its cost in internalRootPathCost, not
-	// externalRootPathCost, and a vector built with the cost in the wrong slot
-	// compares against a different component than the one it belongs next to.
+	emissions := l.recomputeAll(now, flushes)
+
+	if l.answerProposals(t, p, now, b, internal, flushes) {
+		l.emit(t, p, now, emissionAgreement, &emissions)
+	} else if p.role == bpdu.RoleDesignated && !b.Agreement() &&
+		compareVectors(incoming, designatedVector(t, p, lk.external)) > 0 {
+		l.emit(t, p, now, emissionDesignated, &emissions)
+	}
+
+	return emissions
+}
+
+// exhausted reports whether the information b carries has reached its bound
+// and must be discarded rather than stored, so that a BPDU naming a root that
+// no longer exists stops refreshing the timer on every hop and the port's own
+// information ages out. Internal information ages by hop count, re-originated
+// one hop short of what was received. IEEE 802.1Q treats message age as a hop
+// count bounded by the max age the BPDU itself carries, not by this bridge's
+// configured one: the received value is the root's, and the fabric builds
+// bridges with differing timers.
+func exhausted(b bpdu.BPDU, internal bool) bool {
+	if internal {
+		return b.RemainingHops <= 1
+	}
+
+	return b.MessageAge+time.Second > b.MaxAge
+}
+
+// incomingVector builds the vector b conveys for tree t in the same shape
+// rawVector gives the stored vector it is compared against: a non-CIST tree
+// carries its cost in internalRootPathCost, not externalRootPathCost, and a
+// vector built with the cost in the wrong slot compares against a different
+// component than the one it belongs next to.
+func incomingVector(t *tree, internal bool, b bpdu.BPDU) priorityVector {
 	incoming := priorityVector{rootID: b.RootID, bridgeID: b.BridgeID, portID: b.PortID}
 	switch {
 	case t.id == cistID && internal:
@@ -377,16 +411,14 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		incoming.internalRootPathCost = b.RootPathCost
 	}
 
+	return incoming
+}
+
+// storeInformation keeps what b conveys on port p of tree t when it comes
+// from the source the port already hears or is better than what it holds.
+func (l *Layer) storeInformation(t *tree, p *portState, lk *linkRecord, incoming priorityVector, internal bool, b bpdu.BPDU, now time.Time) {
 	sameSource := p.rcvInfoValid && (b.BridgeID == p.rcvBridgeID && b.PortID == p.rcvPortID)
-	isSuperior := false
-	if !p.rcvInfoValid {
-		isSuperior = true
-	} else {
-		stored := rawVector(t, p, lk.external)
-		if compareVectors(incoming, stored) < 0 {
-			isSuperior = true
-		}
-	}
+	isSuperior := !p.rcvInfoValid || compareVectors(incoming, rawVector(t, p, lk.external)) < 0
 
 	// The classification updates only now, after the stored vector above was
 	// built against what the port currently holds under its old
@@ -401,96 +433,33 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		lk.external = !internal
 	}
 
-	if sameSource || isSuperior {
-		p.rcvInfoValid = true
-		p.rcvRootID = b.RootID
-		p.rcvRootPathCost = b.RootPathCost
-		p.rcvBridgeID = b.BridgeID
-		p.rcvPortID = b.PortID
-		p.rcvMessageAge = b.MessageAge
-		p.rcvMaxAge = b.MaxAge
-		p.rcvHelloTime = receivedHelloTime(b.HelloTime)
-		p.rcvForwardDelay = b.ForwardDelay
-		p.rcvTime = now
-		if internal {
-			p.rcvRegionalRootID = b.RegionalRootID
-			p.rcvInternalRootPathCost = b.InternalRootPathCost
-			p.rcvRemainingHops = b.RemainingHops
-		} else {
-			// A port classified external carries no internal-only state: a
-			// stale regional root, internal cost, or hop count left over from
-			// an earlier internal BPDU would otherwise survive the flip and
-			// this bridge would re-originate a decreasing hop count instead
-			// of MaxHops.
-			p.rcvRegionalRootID = bpdu.BridgeID{}
-			p.rcvInternalRootPathCost = 0
-			p.rcvRemainingHops = 0
-		}
+	if !sameSource && !isSuperior {
+		return
 	}
 
+	p.rcvInfoValid = true
+	p.rcvRootID = b.RootID
+	p.rcvRootPathCost = b.RootPathCost
+	p.rcvBridgeID = b.BridgeID
+	p.rcvPortID = b.PortID
+	p.rcvMessageAge = b.MessageAge
+	p.rcvMaxAge = b.MaxAge
+	p.rcvHelloTime = receivedHelloTime(b.HelloTime)
+	p.rcvForwardDelay = b.ForwardDelay
+	p.rcvTime = now
 	if internal {
-		l.receiveMSTIs(now, p.name, b, flushes)
+		p.rcvRegionalRootID = b.RegionalRootID
+		p.rcvInternalRootPathCost = b.InternalRootPathCost
+		p.rcvRemainingHops = b.RemainingHops
+
+		return
 	}
 
-	if p.role == bpdu.RoleDesignated && b.Agreement() {
-		p.agreed = true
-		p.proposing = false
-		if p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !lk.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
-			}
-		}
-	}
-
-	if b.TopologyChange() && !p.cfg.RestrictedTCN {
-		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range l.portNames {
-			if name != p.name {
-				mergeFlushTarget(flushes, name, l.treeVLANs[t.id])
-			}
-		}
-	}
-
-	emissions = append(emissions, l.recomputeAll(now, flushes)...)
-
-	if b.Proposal() && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
-		for _, otherName := range l.portNames {
-			if otherName == p.name {
-				continue
-			}
-			otherP := t.ports[otherName]
-			otherLk := l.link(otherName)
-			if otherP.role == bpdu.RoleDesignated && !otherLk.edge {
-				otherP.agreed = false
-				otherP.proposing = otherLk.pointToPoint && otherLk.sendRSTP
-				if otherP.state != StateDiscarding {
-					wasFwd := otherP.state == StateForwarding
-					otherP.state = StateDiscarding
-					if wasFwd {
-						l.raiseTopologyChange(t, otherP.name, now, flushes)
-					}
-				}
-			}
-		}
-
-		if p.role == bpdu.RoleRoot && lk.pointToPoint && l.isSynced(t, p.name) && lk.sendRSTP {
-			if p.state != StateForwarding {
-				p.state = StateForwarding
-				p.forwardTransitions++
-				if !lk.edge {
-					l.raiseTopologyChange(t, p.name, now, flushes)
-				}
-			}
-		}
-
-		l.emit(t, p, now, emissionAgreement, &emissions)
-	} else if p.role == bpdu.RoleDesignated && !b.Agreement() {
-		if compareVectors(incoming, designatedVector(t, p, lk.external)) > 0 {
-			l.emit(t, p, now, emissionDesignated, &emissions)
-		}
-	}
-
-	return emissions
+	// A port classified external carries no internal-only state: a stale
+	// regional root, internal cost, or hop count left over from an earlier
+	// internal BPDU would otherwise survive the flip and this bridge would
+	// re-originate a decreasing hop count instead of MaxHops.
+	p.rcvRegionalRootID = bpdu.BridgeID{}
+	p.rcvInternalRootPathCost = 0
+	p.rcvRemainingHops = 0
 }
