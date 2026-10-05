@@ -3929,6 +3929,22 @@ func TestMSTIProposalAndAgreementExchange(t *testing.T) {
 
 		// swA is Designated on MSTI 1, Discarding
 		cid := cfgA.MST.ConfigID()
+		heldCIST := bpdu.BPDU{
+			Version:        3,
+			Type:           bpdu.TypeRapid,
+			RootID:         bpdu.BridgeID{Priority: 4096, Address: mac1},
+			RegionalRootID: bpdu.BridgeID{Priority: 4096, Address: mac1},
+			BridgeID:       bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:88:88:88:88:88")},
+			PortID:         0x8002,
+			HelloTime:      2 * time.Second,
+			MaxAge:         20 * time.Second,
+			ForwardDelay:   15 * time.Second,
+			RemainingHops:  20,
+			ConfigID:       &cid,
+		}
+		heldCIST.SetRole(bpdu.RoleDesignated)
+		swA.Receive(now, "1/1/1", heldCIST)
+
 		badCISTAgreement := bpdu.BPDU{
 			Version:        3,
 			Type:           bpdu.TypeRapid,

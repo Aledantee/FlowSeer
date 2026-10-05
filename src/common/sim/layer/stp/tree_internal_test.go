@@ -774,8 +774,7 @@ func TestAgreementClearsOnRoleChangesAndUnknownSenderRoles(t *testing.T) {
 	}
 
 	p.agreed = true
-	var flushes []layer.FlushTarget
-	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true, now, &flushes)
+	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true)
 	if p.agreed {
 		t.Error("unknown sender role left agreed=true, want false")
 	}

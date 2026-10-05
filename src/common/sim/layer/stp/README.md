@@ -371,6 +371,21 @@ in `spec/mib/ieee/`) list exactly Root, Alternate, Designated, and Backup, so
 a boundary port's MSTI mirrors the CIST's Root under the label the MIB can
 express, the same forwarding answer under a different name.
 
+Proposal and agreement are evaluated after the CIST information is stored.
+An MSTI Proposal is acted on when its stored record names a Designated sender,
+even when the BPDU's CIST information does not match the information already
+held. An MSTI Agreement requires the BPDU's CIST root, external path cost, and
+regional root to match the vector held after that receive. Role selection then
+chooses the role before the port state machine changes state. This follows
+IEEE 802.1Q-2003 clauses 13.26.9, 13.26.10, and 13.26.14, and P802.1aq/D1.5
+clauses 13.29.16 and 13.29.20.
+
+On a boundary port, MSTI sync reads the CIST port's state and agreement. MSTI
+sync leaves that port's state unchanged. CIST sync mirrors its resulting state
+to the boundary MSTIs in the same receive call. The layer's boundary role and
+state mirror is the limit of this model, so the standard's separate Master and
+disputed mechanisms are not represented.
+
 See "How long received information lives" above for hop aging, which applies
 to internal information on both the CIST and every MSTI.
 
@@ -425,7 +440,7 @@ The implementation structures its logic around the standard state machines:
 
 - Port Role Selection (PRS): IEEE 802.1Q-2003 clauses 13.9, 13.10, 13.11, and 13.24. Compares the six-part priority vector (Root ID, External Path Cost, Regional Root ID, Internal Path Cost, Designated Bridge ID, Designated Port ID) to elect the root and assign port roles.
 - Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
-- Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20. Computes proposal and agreement handshakes and steps the forward delay ladder.
+- Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20, Figures 13-20 and 13-25. Computes proposal and agreement handshakes and steps the forward delay ladder.
 - Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13. Settles state before one deterministic tree-then-port transmit pass, sends periodic hellos from each tree's timer, and bounds each port and tree by txHoldCount.
 - Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19 and 13.29.11. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting RSTP port, starts tcWhile only when stopped, and propagates the change to active non-edge ports while flushing their tree VLANs. RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
@@ -438,6 +453,7 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
 - The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
 - A port losing auto-edge returns to Discarding and proposes again across all trees, standing in for the disputed mechanism. Draft Figure 13-16 only clears operEdge.
+- On a boundary port, MSTI sync keeps the CIST-derived state and agreement. CIST sync mirrors a CIST state change to the boundary MSTIs. The layer does not model the draft's separate disputed or Master paths, so an MSTI cannot discard independently while its CIST port forwards.
 - Port priority configurations that are not multiples of 16 are accepted. The layer extracts and transmits the high four bits as port priority (IEEE 802.1Q-2003 clause 13.24.21).
 
 ## State retention

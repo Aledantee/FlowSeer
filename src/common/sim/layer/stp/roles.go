@@ -14,6 +14,14 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 		}
 		link := l.links[name]
 		if p.role == bpdu.RoleDesignated && !link.edge {
+			if l.mst != nil && t.id != cistID && l.boundary(name) {
+				cistP := l.cist().ports[name]
+				if cistP != nil && cistP.state != StateDiscarding && !cistP.agreed {
+					return false
+				}
+
+				continue
+			}
 			if p.state != StateDiscarding && !p.agreed {
 				return false
 			}
