@@ -89,6 +89,23 @@ under Inventory, Sources.
   `inheritPortPriorities`, and `MST.Normalize` and `PVST.Normalize` keep
   their signatures. Why: only `Config` holds the bridge ports an instance
   or VLAN port inherits from. Cost if wrong: one helper in `S/config.go`.
+- Ruled: an MSTI record's Proposal is acted on without the CIST-message
+  gate that its Agreement needs. Why: `Q2003` 13.26.14 states no such
+  condition, and 13.26.10 a) gates the agreement alone. Cost if wrong: one
+  condition in `answerProposals`.
+- Ruled: `recordAgreement` keeps `agreed` only on a port that is Designated
+  when the message arrives. Why: the flag answers that port's own proposal,
+  and a stale true would open a port that becomes Designated later without
+  a handshake. Cost if wrong: one condition in `recordAgreement`.
+- Ruled: an agreement emission sets the Agreement flag from tree state:
+  always on an Alternate or Backup port, on a Root port only when the tree
+  is in sync, for the CIST and every MSTI record. Cost if wrong: `agrees` in
+  `S/transmit.go`.
+- Ruled: a superior vector from a sender that conveys a Root role is still
+  stored, so the agreement test's "Root sender with a better vector" row
+  asserts Discarding and no forward transition rather than the role.
+  `Q2003` would treat it as other information. Cost if wrong: the storage
+  rule in `applyBPDU`, which no unit of this phase names.
 
 ## Requirements
 
@@ -597,3 +614,11 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
+- Open: `applyBPDU` stores a superior vector whatever role the message
+  conveys. Unverified: that `Q2003`'s received-message classification
+  treats a superior message conveying a Root role as other information, as
+  the agreement worker read it. No unit of this phase names it, and
+  `S/README.md` does not list it yet.
+- Open: an agreement held back by the transmit budget is released only for
+  a CIST Root or Alternate port, so an answer only an MSTI owed is dropped
+  until the peer's next proposal. `S/README.md`, Not modeled, states it.
