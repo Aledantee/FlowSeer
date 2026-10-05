@@ -5,7 +5,7 @@ date: 2026-09-28
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: accept
+review: accept after fixes
 execution: code
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -319,10 +319,3 @@ loop in `.agents/skills/web-component/references/review.md` after migration.
 No design question remains. Origin acknowledgement for compound portalled
 controls is the least certain implementation detail. U3 proves it through
 their DOM interactions and isolated sibling values.
-
-## Review gaps
-
-- frontend/web/src/ui/form/UiSelect.vue:206: delete the portal `@pointerdown.capture` listener; fails: nothing, because the portal test dispatches pointerdown and keydown together, so a pointer-only pick in an already open select is unpinned; class: gap
-- frontend/web/src/ui/table/UiTable.stories.ts:71: set Default's `parameters` to `{}`; fails: nothing, because the 320 px scroller requirement is checked only in the browser; class: gap
-- docs/solutions/conventions/mount-tests-catch-script-setup-order-crashes.md:131: the mount example installs `createAiTargetDirective`, which no longer exists; fails: the example does not compile against the current API; class: convention
-- .agents/skills/web-component/references/i18n-and-ai.md:112: says `ai` takes the `aiTarget()` input and that the origin clears on the next interaction, and never names `aiOrigin` or `aiOriginAcknowledged`; fails: guidance disagrees with `src/ui/ai/context.ts` and `src/ui/ai/useAiOrigin.ts`; class: convention
