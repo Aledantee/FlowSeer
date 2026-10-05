@@ -25,8 +25,8 @@ them:
 | --- | --- | --- |
 | `land` | `implemented` on this branch with an accepted `review` and a `compound` field, still on disk (a phase also has its `Landed:` range) | `land`, or `drive` on the parent for a phase |
 | `in-progress` | `partially-implemented`, named by the ledger here, an unblocked phase of a parent with landed phases, or a finished phase whose `Landed:` line is empty | `implement` |
-| `unchecked` | `implemented`, with a review verdict that is not an accept, or implemented on this branch with no `review` or `compound` field | `review` (from step 1, with step 6 for `fixes needed`), `plan` for `rework`, or `compound` |
-| `replan` | `artifact_readiness: needs-decisions`, prerequisites landed, or an `implemented` plan a `rework` review sent back with that readiness | `plan`, which sets a sent-back plan to `planned`, then `implement` |
+| `unchecked` | `implemented`, with a review verdict that is neither an accept nor `rework`, or implemented on this branch with no `review` or `compound` field | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
+| `replan` | `artifact_readiness: needs-decisions`, prerequisites finished, or an `implemented` plan whose `review` reads `rework` or that carries that readiness | `plan`, which sets a sent-back plan to `planned`, then `implement` |
 | `ready` | `planned`, implementation-ready, nothing to wait for | `implement` |
 | `waiting` | a prerequisite phase has not landed; the line names it | none yet |
 | `stale` | a parent still `planned` whose phases have all landed | set its `status`, as `implement`'s Finish describes |

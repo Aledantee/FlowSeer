@@ -107,12 +107,14 @@ class PlanQueueTest(unittest.TestCase):
         self.assertEqual(self.groups().get(PLAIN), "replan")
 
     def test_sent_back_phase_on_this_branch_with_empty_landed_line_is_a_replan(self):
-        self.write(
-            PHASE,
-            f"---\nstatus: implemented\nartifact_readiness: needs-decisions\nreview: rework\nparent: {PARENT}\n---\n",
-        )
-        self.commit("phase sent back by a rework review, Landed empty")
-        self.assertEqual(self.groups().get(PHASE), "replan")
+        for fields in ("review: rework\n", "review: accept\ncompound: no lesson\n", ""):
+            with self.subTest(fields=fields):
+                self.write(
+                    PHASE,
+                    f"---\nstatus: implemented\nartifact_readiness: needs-decisions\n{fields}parent: {PARENT}\n---\n",
+                )
+                self.commit("phase sent back, Landed empty")
+                self.assertEqual(self.groups().get(PHASE), "replan")
 
     def test_sent_back_plan_with_a_rework_verdict_is_a_replan(self):
         self.git("checkout", "-q", "main")
@@ -132,13 +134,71 @@ class PlanQueueTest(unittest.TestCase):
 
         self.git("checkout", "-q", "main")
         self.write(first, f"---\nstatus: planned\nparent: {PARENT}\n---\n")
-        self.write(PHASE, f"---\nstatus: implemented\nartifact_readiness: needs-decisions\nparent: {PARENT}\n---\n")
-        self.write(PARENT, parent(""))
-        self.commit("phase sent back, prerequisite open")
-        self.assertEqual(self.groups().get(PHASE), "waiting")
-        self.write(PARENT, parent("`abcdef0..abcdef1`"))
-        self.commit("prerequisite landed")
-        self.assertEqual(self.groups().get(PHASE), "replan")
+        for review in ("", "review: rework\n"):
+            with self.subTest(review=review):
+                self.write(
+                    PHASE,
+                    f"---\nstatus: implemented\nartifact_readiness: needs-decisions\n{review}parent: {PARENT}\n---\n",
+                )
+                self.write(PARENT, parent(""))
+                self.commit("phase sent back, prerequisite open")
+                self.assertEqual(self.groups().get(PHASE), "waiting")
+                self.write(first, f"---\nstatus: implemented\nparent: {PARENT}\n---\n")
+                self.write(PARENT, parent("`abcdef0..abcdef1`"))
+                self.commit("prerequisite implemented, not reviewed")
+                self.assertEqual(self.groups().get(PHASE), "waiting")
+                self.finish(first, f"parent: {PARENT}\n")
+                self.commit("prerequisite reviewed and compounded")
+                self.assertEqual(self.groups().get(PHASE), "replan")
+                self.write(first, f"---\nstatus: planned\nparent: {PARENT}\n---\n")
+
+    def test_dependent_phase_waits_until_its_prerequisite_is_finished(self):
+        first = "docs/plans/2026-01-04-first-plan.md"
+        self.write(
+            PARENT,
+            "---\nstatus: planned\n---\n\n"
+            f"### U1. First\nFiles: `{first}`\nLanded: `abcdef0..abcdef1`\n\n"
+            f"### U2. Phase\nFiles: `{PHASE}`\nAfter: U1\nLanded:\n",
+        )
+        for fields in (
+            "status: implemented\n",
+            "status: implemented\nreview: fixes needed\n",
+            "status: implemented\nreview: rework\n",
+            "status: implemented\nreview: accept\n",
+            "status: planned\n",
+        ):
+            with self.subTest(fields=fields):
+                self.write(first, f"---\n{fields}parent: {PARENT}\n---\n")
+                self.commit("prerequisite has a range and is not finished")
+                self.assertEqual(self.groups().get(PHASE), "waiting")
+        self.finish(first, f"parent: {PARENT}\n")
+        self.commit("prerequisite reviewed and compounded")
+        self.assertEqual(self.groups().get(PHASE), "in-progress")
+
+    def test_dependent_phase_is_free_once_its_prerequisite_is_on_main(self):
+        first = "docs/plans/2026-01-04-first-plan.md"
+        self.git("checkout", "-q", "main")
+        self.write(first, f"---\nstatus: implemented\nparent: {PARENT}\n---\n")
+        self.commit("prerequisite implemented on main")
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=self.root, env=self.env, check=True, capture_output=True, text=True
+        ).stdout.strip()
+        self.write(
+            PARENT,
+            "---\nstatus: planned\n---\n\n"
+            f"### U1. First\nFiles: `{first}`\nLanded: `{sha}..{sha}`\n\n"
+            f"### U2. Phase\nFiles: `{PHASE}`\nAfter: U1\nLanded:\n",
+        )
+        self.commit("range recorded")
+        self.assertEqual(self.groups().get(PHASE), "in-progress")
+
+    def test_rework_verdict_alone_is_a_replan(self):
+        self.write(PLAIN, "---\nstatus: implemented\nreview: rework\n---\n")
+        self.commit("plain reviewed, rework")
+        self.assertEqual(self.groups().get(PLAIN), "replan")
+        self.write(PLAIN, "---\nstatus: implemented\nreview: fixes needed\n---\n")
+        self.commit("plain reviewed, fixes needed")
+        self.assertEqual(self.groups().get(PLAIN), "unchecked")
 
     def test_abandoned_plan_that_needs_decisions_still_retires(self):
         self.git("checkout", "-q", "main")

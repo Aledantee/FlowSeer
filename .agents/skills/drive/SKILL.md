@@ -57,7 +57,7 @@ from a parked branch starts with `--base parked/<slug>` instead
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
-| re-plan | `artifact_readiness: needs-decisions` | `plan` on this plan, against this tree | `plan` | the plan reads `implementation-ready` |
+| re-plan | `artifact_readiness: needs-decisions`, or `implemented` with `review: rework` | `plan` on this plan, against this tree | `plan` | the plan reads `implementation-ready` |
 | implement | `status` is not `implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | the plan reads `implemented`, a phase's `Landed:` line in its parent carries the range, and every unit in the worker's ledger is `passed` |
 | review | `review` is absent or not an accept | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | the plan's `review` field reads `accept` or `accept after fixes` |
 | compound | `compound` is absent | `compound` on the plan | `execute` | the plan's `compound` field is set |

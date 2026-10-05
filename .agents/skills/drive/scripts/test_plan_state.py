@@ -33,6 +33,17 @@ class PlanStateTest(unittest.TestCase):
                     "compound: no lesson\n---\n"
                 )
                 self.assertEqual(plan_state.stage(first_unit, set()), "land")
+
+                first.write_text("---\nstatus: implemented\nreview: rework\n---\n")
+                self.assertEqual(plan_state.stage(first_unit, set()), "plan")
+                first.write_text("---\nstatus: implemented\nreview: fixes needed\n---\n")
+                self.assertEqual(
+                    plan_state.stage(first_unit, set()), "review (verdict: fixes needed)"
+                )
+                first.write_text(
+                    "---\nstatus: implemented\nreview: accept\n"
+                    "compound: no lesson\n---\n"
+                )
                 self.assertEqual(plan_state.stage(second_unit, {"U1"}), "implement")
 
             with patch.object(plan_state, "on_main", return_value=True):

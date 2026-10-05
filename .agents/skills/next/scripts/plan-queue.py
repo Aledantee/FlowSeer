@@ -15,13 +15,17 @@ plan with work left, grouped:
   in-progress  partially-implemented, named by this worktree's ledger, an
                unblocked phase of a parent that has landed phases, or a
                finished phase whose `Landed:` line is still empty
-  unchecked    implemented, with a review verdict that is not an accept, or
-               implemented on this branch with no review or compound field
-  replan       artifact_readiness needs-decisions, prerequisites landed, or
-               an implemented plan a rework review sent back; the next step
-               is the plan skill, not implement
-  ready        planned, implementation-ready, every prerequisite landed
-  waiting      a prerequisite phase has not landed; names it
+  unchecked    implemented, with a review verdict that is neither an accept
+               nor rework, or implemented on this branch with no review or
+               compound field
+  replan       artifact_readiness needs-decisions, prerequisites finished,
+               or an implemented plan whose review reads rework or that
+               carries that readiness; the next step is the plan skill, not
+               implement
+  ready        planned, implementation-ready, every prerequisite finished
+  waiting      a prerequisite phase is not finished: no `Landed:` range, or
+               a range not on main whose plan lacks an accepted review or a
+               compound field; names it
   stale        a parent still `planned` whose phases have all landed
   retire       implemented, superseded, or abandoned on main and still on
                disk; land's retire step never ran for it
@@ -88,6 +92,7 @@ def units(text: str) -> list[dict]:
                 "plans": [],
                 "after": [],
                 "landed": False,
+                "landed_last": "",
                 "landed_line": False,
             }
             found.append(unit)
@@ -109,9 +114,53 @@ def units(text: str) -> list[dict]:
             unit["after"] += UNIT_ID.findall(value)
         elif field == "Landed":
             unit["landed_line"] = True
-            if COMMIT_RANGE.search(value):
+            commits = COMMIT_RANGE.findall(value)
+            if commits:
                 unit["landed"] = True
+                unit["landed_last"] = commits[-1]
     return found
+
+
+def on_main(commit: str) -> bool:
+    check = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "main"], capture_output=True, check=False)
+    return check.returncode == 0
+
+
+def sent_back(fm: dict[str, str]) -> bool:
+    """An implemented plan owed a re-plan: a review ended in rework, or
+    `plan` took it up and left it at needs-decisions."""
+    return fm.get("status") == "implemented" and (
+        fm.get("review") == "rework" or fm.get("artifact_readiness") == "needs-decisions"
+    )
+
+
+def finished_phases(parent: dict, plans: dict[str, dict]) -> set[str]:
+    """The parent's units a dependent phase may build on.
+
+    A `Landed:` range records implementation only. plan-state.py frees a
+    dependent once the phase is on main, retired, or owed nothing but its
+    land, so a review's fix round cannot rewrite files the dependent edits;
+    this applies the same test. A unit that names no phase plan on disk is
+    finished by its range alone.
+    """
+    done: set[str] = set()
+    while True:
+        found = set()
+        for unit in parent["units"]:
+            if not unit["landed"]:
+                continue
+            phase = plans.get(unit["plans"][0]) if unit["plans"] else None
+            if phase is None or phase["fm"].get("parent") != parent["path"] or on_main(unit["landed_last"]):
+                found.add(unit["id"])
+                continue
+            fm = phase["fm"]
+            if any(after not in done for after in unit["after"]) or sent_back(fm):
+                continue
+            if fm.get("status") == "implemented" and fm.get("review") in ACCEPTED and "compound" in fm:
+                found.add(unit["id"])
+        if found == done:
+            return done
+        done = found
 
 
 def branches_touching_plans() -> dict[str, str]:
@@ -180,20 +229,23 @@ def main() -> int:
             parent, own = phase_of[rel]
             by_id = {u["id"]: u for u in parent["units"]}
             own_ids = {u["id"] for u in own}
+            finished = finished_phases(parent, plans)
             for unit in own:
                 for after in unit["after"]:
-                    if after in by_id and after not in own_ids and not by_id[after]["landed"]:
+                    if after in by_id and after not in own_ids and after not in finished:
                         named = by_id[after]["plans"][:1]
                         missing.append(f"{after} ({named[0]})" if named else after)
             started_parent = any(u["landed"] for u in parent["units"])
             open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
 
-        if status == "implemented" and readiness == "needs-decisions" and rel not in parents:
+        if sent_back(fm) and rel not in parents:
             # A review that ended in rework sent the plan back to `plan`
-            # and the status still reads implemented. plan-state.py also
-            # tests the readiness before the status, after its After
-            # check. A parent keeps the readiness it was planned with and
-            # is never re-planned, so it retires below.
+            # and the status still reads implemented. No skill marks the
+            # plan beyond the verdict, so the verdict is the signal, and
+            # the readiness covers a re-plan that stopped on a decision.
+            # plan-state.py applies the same test after its After check.
+            # A parent keeps the readiness it was planned with and is
+            # never re-planned, so it retires below.
             group = "waiting" if missing else "replan"
         elif status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
             # Finished and on main, yet still on disk: land's retire step

@@ -117,6 +117,10 @@ def stage(unit, completed):
         return "waits for " + ", ".join(waiting)
     if fields.get("artifact_readiness") == "needs-decisions":
         return "plan"
+    if status == "implemented" and fields.get("review") == "rework":
+        # A rework verdict sends the plan back to `plan`, and no skill
+        # marks it beyond the verdict. plan-queue.py reads it the same way.
+        return "plan"
     if status != "implemented":
         return "implement"
     if not unit.get("landed"):

@@ -9,6 +9,13 @@ Run several at once when the quota allows and the phases are independent:
   Units. A phase that still needs re-planning has no units yet; its re-plan
   stage edits only its own plan file and can run beside anything, but its
   implement stage waits for the check.
+- When the phase to re-plan reads `status: implemented`, a review sent it
+  back, and its re-plan also empties its `Landed:` line in the parent and
+  may set the parent back to `planned`
+  (`plan/references/replan-implemented.md`). Run that re-plan with no
+  implement stage in flight, since an implement worker that still reads the
+  old range can take its own phase for the last one and set the parent
+  `implemented`.
 - Read the cap from `delegate`'s Wave size before the round. Run
   `k = min(independent ready phases, cap / 2)` phases at once, rounded down
   and at least one, and give each a share of `cap / k`, rounded down, so
@@ -21,7 +28,8 @@ Run several at once when the quota allows and the phases are independent:
   whatever else has merged.
 - The parent is the one file concurrent phases both write. Resolve a
   conflict that touches only the parent's `Landed:` lines or `status` here
-  by keeping every landed range; send any other conflict back to the
+  by keeping every landed range other than one a re-plan emptied; send any
+  other conflict back to the
   worker, as `implement/references/workers.md` describes.
 - Recompute the cap when a phase finishes or parks, and start the next
   ready phase into the freed share, unless a finished phase is owed a land

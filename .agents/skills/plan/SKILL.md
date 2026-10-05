@@ -39,7 +39,8 @@ a `parent:` field): it holds the checks that the tree is fit to plan from.
 
 Load `references/replan-implemented.md` before re-planning a plan that reads
 `status: implemented` (a review that ended in `rework` sent it back): it
-holds the fields, the Units list, and the ledger to reset.
+holds the fields, the Units list, the ledger, and the parent's `Landed:`
+line to reset.
 
 ### Promote a decision to a direction record
 

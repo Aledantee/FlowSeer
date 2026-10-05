@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Agent steering
@@ -349,7 +349,12 @@ command because a model re-reading every file is slow and drifts. So
 lines, the ledger, and the unmerged branches that touch a plan, and the
 skill reads its output. Work in progress outranks ready work, the Kanban
 rule of limiting what is open; a plan another branch already changes is
-flagged, since two worktrees can otherwise implement the same phase. The
+flagged, since two worktrees can otherwise implement the same phase. A
+dependent phase waits on the test `plan-state.py` applies, a prerequisite
+on `main`, retired, or reviewed and compounded, since a `Landed:` range
+alone released it while a review could still rewrite the files it builds
+on. Both scripts read `review: rework` on an implemented plan as a re-plan
+owed, because no skill marks a sent-back plan beyond the verdict. The
 prior art has no answer for "nothing is planned": none of the surveyed
 tools compares plans with stated goals, and that comparison is where an
 agent invents a roadmap. `GOALS.md` is the guard: one line per decided
