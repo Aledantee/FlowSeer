@@ -6,6 +6,7 @@ artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
 review: fixes needed
+review_rounds: 1
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
@@ -683,8 +684,20 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   `Canonical`, and `Diff` and re-inherit on each normalization.
 ## Review gaps
 
-Recorded by the first review of this phase. None of these holds the
-verdict.
+Recorded by the first review of this phase and its first fix round
+(`d81bf514`). Only the item marked blocking holds the verdict, beside the
+fix round's open behavior findings: the boundary skip in `syncOnProposal`
+also fires on PVST VLAN trees, where every port with stored information is
+external (`S/agreement.go:132`, `S/receive.go:442`, against the
+`l.mst != nil` gate at `S/roles.go:217`), and it leaves `isSynced` and
+`agrees` counting a boundary port the MSTI sync no longer blocks. A
+`Q2003` passage read in the fix review (Figure 13-17 `sync` on MSTI
+Designated ports, and the Agreement text near Figure 13-8) suggests the
+transient block the skip removed is what the standard does. Unverified.
+
+- `src/common/sim/layer/stp/received_info_test.go:203`: `times` returning the bridge's own Max Age and Forward Delay for an MSTI; fails: none, both bridges use the default 15 s and the peer's information expires 6 s into the ladder; class: false test, blocking; review-fix-test: yes
+- `src/common/sim/layer/stp/info.go:169`: the `l.pvst == nil` guard removed; fails: a PVST VLAN tree whose root advertises timers other than VLAN 1's root; class: gap
+- `src/common/sim/layer/stp/README.md:379`: says a proposed Root or Alternate port blocks every other Designated port of the tree, which the boundary skip makes untrue for an MSTI; class: convention
 
 - `src/common/sim/layer/stp/wire_format_test.go:128`: `addTree` ignoring `treePort.Priority`; fails: none, the test claims the layer reads the resolved priority and builds no layer; class: false test
 - `src/common/sim/layer/stp/agreement_test.go:35`: `!lk.pointToPoint` removed from `recordAgreement`; fails: none, the "shared link" row passes; class: false test
