@@ -4,22 +4,25 @@ type: fix
 date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
-status: implemented
+status: planned
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan
 
-> **Implemented.** 7 units, 2026-10-03T19:45:04Z to 2026-10-04T19:03:28Z.
+> **Partially implemented: U1 to U7.** They landed 2026-10-03T19:45:04Z to
+> 2026-10-04T19:03:28Z. U8 to U15 are planned.
 
 ## Goal
 
 `layer/stp` follows IEEE 802.1D and IEEE 802.1Q for RSTP, MSTP, and
 interoperation with legacy STP, and keeps its PVST and SSTP behaviour
-consistent with them. The means is seven units: a file split, one owner for
-link state, one unit per state machine the inventory touches, and one that
-replaces the transmit path with the standard's Port Transmit machine. Stop
+consistent with them. The means is fifteen units. Seven have landed: a file
+split, one owner for link state, one unit per state machine the inventory
+touches, and one that replaces the transmit path with the standard's Port
+Transmit machine. Eight bring the code to the five decisions of 2026-10-04
+and to what the review of the first seven found. Stop
 condition: if a per-tree machine in U4 or U5 needs a link fact that the
 per-port record of U2 cannot give it without a second copy, the ownership
 decision below is wrong and the phase is re-planned from U2.
@@ -67,7 +70,7 @@ under Inventory, Sources.
   is not a multiple of 16 still loads, and the README says the layer sends
   its high nibble. Why: `netmodel` passes collected priorities through
   (`netmodel/netmodel.go:1446`) and promises to turn bad input into issues,
-  so a refusal needs a guard in U11's package. `Q2003` 13.24.21 makes the
+  so a refusal needs a guard in the package of the parent's U11. `Q2003` 13.24.21 makes the
   priority the four most significant bits of the Port Identifier.
 - These shapes break: `bpdu.MaxMSTIRecords` is 64, `bpdu.Decode` accepts
   frames it refused, `PortInfo.MSTID` goes, and the BPDU decision fact grows.
@@ -131,6 +134,59 @@ under Inventory, Sources.
   to that tree or a link down. A PVID-inconsistent SSTP frame is applied
   to no tree and clears nothing. The test of Correctness 11 changes to
   match. (decided by the user, 2026-10-04)
+- U8 to U15 carry the code changes the five decisions above require and
+  the review's findings that need no decision. U1 to U7 stay landed, and
+  their text states the decided behaviour where a decision changed it.
+  Why: the review judges each landed unit by its text, and a unit whose
+  text and code disagree names the later unit that closes the difference.
+- At exactly 102 octets a type 2 frame of version 3 or above decodes as an
+  MST BPDU with no records when its Version 1 Length is 0 and its Version
+  3 Length is 64, and as an RST BPDU otherwise. Why: `Q2003` 14.4 d) 1)
+  and e) 1) both match 102 octets, and the decision above names 35 to 101
+  and 103 or more. Figure 14-1 ends the CIST part at octet 102, so that
+  frame is the whole BPDU of a region with no instance, and reading it as
+  RST would put two bridges of one region on a boundary.
+- A BPDU is applied to a tree when the layer hands it to that tree. An
+  IEEE-addressed BPDU of any type that BPDU guard lets through is applied
+  to the CIST, and an SSTP BPDU for which `ReceiveSSTP` returns
+  `SSTPApplied` to its arrival VLAN's tree. Why: the loop-guard decision
+  above turns on the word. `S/README.md:131` already has a BPDU that the
+  message-age bound discards clear the mark, and `SSTPApplied` is the
+  outcome the layer documents as applied (`S/receive.go:265-267`).
+- A VLAN's tree gets the Configuration BPDU at the SSTP address as well as
+  the TCN. Why: a TCN leaves a Root port (`D2009` Figure 13-19,
+  TRANSMIT_TCN needs `cistRootPort`). On a port in STP mode a tree other
+  than VLAN 1's sends nothing today (`S/transmit.go:133-135`), and an SSTP
+  BPDU in the RST shape returns the port to RSTP (`S/link.go:234-236`), so
+  the tree's information on that link ages out and it has no Root port to
+  send a TCN from. `PVID` documents the per-VLAN BPDU at that address. A
+  bridge configured to run 802.1D on every port stays unmodelled
+  (`S/README.md:465`).
+- On a port in STP mode VLAN 1's tree keeps sending to the IEEE address
+  alone. Why: it is what landed (`S/README.md:288-294`), and `EXT` sends "a
+  standard IEEE TCN BPDU" for VLAN 1. `PVID` also sends VLAN 1's BPDUs to
+  the SSTP address, which the layer does only while the port sends RSTP
+  (Inventory, Limits).
+- An MSTI's sync changes nothing on a boundary port, and counts that port
+  synced when the CIST port is Discarding or agreed. Why: at a boundary
+  the MSTI's role is the CIST's (`S/README.md:372-373`) and so is its state
+  (`S/roles.go:255-260`), so a state the sync writes there is overwritten
+  by the next recompute, which counts a forward transition and detects a
+  topology change (`S/roles.go:262-266`). `Q2003` 13.26.9 gives every MSTI the CIST's
+  `agreed` on such a port, and `D2009` Figure 13-25 enters DESIGNATED_SYNCED
+  on `agreed && !synced` without discarding. Where the CIST port forwards
+  with no agreement the standard discards the MSTI's port, which the layer
+  cannot do (Inventory, Limits).
+- These shapes break as well: `bpdu.DecodeSSTP` accepts Configuration and
+  TCN BPDUs it refused, `bpdu.EncodeSSTP` writes them, and `bpdu.Decode`
+  reads by length a frame it refused.
+- U8, U11, and U14 amend the paragraphs of
+  `docs/architecture/2026-09-10-virtual-device-direction.md` they make
+  false: how a version 3 BPDU decodes (`:583-593`), what clears loop guard
+  (`:538-543,690-693`), and what an SSTP BPDU is (`:653-656`). Why: a
+  record and the code change together (`docs/doc-style.md:113-114`), and
+  the simulation package shape record amends that one, so later plans read
+  it. It holds no statement about a port in STP mode for U15 to change.
 
 ## Requirements
 
@@ -140,7 +196,8 @@ regains link, stays Discarding until the new peer agrees.
 
 R2. MSTI ports run proposal and agreement. Example: two bridges in one
 region on a point-to-point link bring an MSTI Designated port to Forwarding
-in the same exchange that brings the CIST there.
+in the same exchange that brings the CIST there. The first BPDU from a
+better CIST sender that carries an MSTI proposal is answered in that call.
 
 R3. A topology change reaches the root. Example: a settled non-root bridge
 whose non-edge downstream Designated port starts forwarding transmits a
@@ -185,13 +242,24 @@ hello. Example: a Root port has migrated to STP and receives a
 Configuration BPDU every two seconds, and a flagged RST BPDU arrives on
 another port. The Root port emits nothing in that call, a TCN BPDU at its
 next hello, and one at each hello until 35 seconds have passed at default
-timers.
+timers. When the flagged BPDU arrives one second after that port's hello
+fell due, with no call in between, the port emits nothing in that call
+either, and the TCN BPDU leaves one second later.
+
+R10. Under PVST a topology change on a VLAN other than 1 crosses a link in
+STP mode. Example: a PVST bridge has p1 in STP mode and Root for VLAN 10,
+kept so by a Configuration BPDU for VLAN 10 at the SSTP address every two
+seconds. A flagged SSTP BPDU for VLAN 10 arrives on p3. At VLAN 10's next
+hello p1 emits one TCN BPDU at the SSTP address with `Emission.VID` 10, and
+nothing at the IEEE address.
 
 ## Out of scope
 
-- The switch recording an MSTI transition on a BPDU. U9 owns it
-  (`device/vswitch/switch.go:2599,2633`), and `VLANPortInfo` gives the view.
-- Loading MSTP or PVST from the network model. U11 owns it.
+- The switch recording an MSTI transition on a BPDU. Its snapshots around
+  a BPDU read the CIST alone (`device/vswitch/switch.go:2626,2660,2672` at
+  `7de7c8ea`). The parent's U9 owns that, and `VLANPortInfo` gives the
+  view.
+- Loading MSTP or PVST from the network model. The parent's U11 owns it.
 - What Inventory, Limits lists, and the L2GP and SPT machines.
 - `bpdu.Decode` reads frames that simulated bridges emit and frames replayed
   from captures. That input is untrusted for shape: a malformed frame is
@@ -221,8 +289,36 @@ that fails before its fix.
   https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c.
   It reads the offsets of `Q2003` Figures 14-1 and 14-2 (`:33-57`), which
   makes that octet table R5's second source. No device capture was found.
+  U8, U14, and U15 cite it as read at `4e3f8264`, the last commit to the
+  file on `master`.
 - `CISCO`: Cisco's loop guard document, which `S/README.md` already links,
   https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html.
+  "Understand STP Loop Guard and UDLD Features", document 218321,
+  revision 2.0 of 18 December 2023, read from
+  https://web.archive.org/web/20260103171445/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html.
+  Its Configuration Considerations: "if BPDUs are not received on the trunk
+  port for only one particular VLAN, only that VLAN is blocked". Its
+  unblock message names a port and a VLAN. It does not say which VLAN's
+  BPDU recovers a port, and never mentions SSTP or a PVID-inconsistent
+  frame.
+- `PVID`: Cisco, "Troubleshoot Spanning Tree PVID- and
+  Type-Inconsistencies", document 24063, revision 3.0 of 14 March 2024,
+  section "Theory Behind PVID- and Type-Inconsistencies", read from
+  https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html.
+  With native VLAN 1: "VLAN 1 STP BPDUs are sent to the IEEE STP MAC
+  address (0180.c200.0000), untagged", and "Non-VLAN 1 STP BPDUs are sent
+  to the PVST+ MAC address (also called the Shared Spanning Tree Protocol
+  (SSTP) MAC address, 0100.0ccc.cccd), tagged with a corresponding IEEE
+  802.1Q VLAN tag". It names no BPDU type, and no TCN.
+- `EXT`: Extreme SLX-OS Layer 2 Switching Configuration Guide, 20.1.1,
+  March 2020, "TCN BPDUs",
+  https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml.
+  A second vendor describing its own PVST+ implementation, not a Cisco
+  document: "TCN BPDUs are sent per VLAN", "On a trunk port, a tagged TCN
+  BPDU is sent to Cisco or Extreme proprietary MAC address for a tagged
+  VLAN", and "the Topology Change and Topology Change Acknowledgment flags
+  are set in all configuration BPDUs corresponding to the VLAN for which
+  the TCN was received".
 - Not read: IEEE Std 802.1D-2004 and the published IEEE Std 802.1Q-2011.
   The IEEE GET program needs an account, and no public copy was found. A
   statement that rests on either is marked unverified.
@@ -254,6 +350,15 @@ and clears the flag otherwise.
   13-16 (Port Receive) only clears `operEdge`.
 - A port priority that is not a multiple of 16 loads, and the layer sends
   its high nibble (Decisions).
+- An MSTI's Root port is not synced while a boundary port forwards for the
+  CIST with no agreement, so it sends no agreement and reaches Forwarding
+  through the forward-delay ladder. `D2009` Figure 13-25 would discard that
+  MSTI's boundary port (DESIGNATED_DISCARD on `sync && !synced`). The
+  layer gives an MSTI no state of its own at a boundary (Decisions).
+- On a port in STP mode VLAN 1's tree sends to the IEEE address alone,
+  where `PVID` also sends its BPDUs to the SSTP address. A native VLAN
+  other than 1 is not modelled: the IEEE-addressed BPDU is VLAN 1's
+  (`S/receive.go:179-184`).
 
 ### Correctness
 
@@ -341,11 +446,18 @@ and clears the flag otherwise.
     RSTP.op.4.3 Parts B through E expect 2 seconds whatever the root sent.
     U6. Test: a bridge whose root advertises Forward Delay 4 and Hello Time
     1 moves a port to Learning after 4 seconds and sends Hello Time 2.
-11. Medium. An SSTP outcome clears loop guard and never recomputes roles.
-    `receiveLink` clears the mark (`S/layer.go:1999`) and `ReceiveSSTP`
-    returns at `:2202,2210,2215,2220` with no recompute, so the port stays
-    Alternate. U2. Test: a loop-inconsistent PVST port receives an SSTP BPDU
-    with `Admitted` false and leaves Alternate in that call.
+11. Medium. An SSTP outcome never recomputes roles, and the loop-guard
+    clear belongs to no tree. `ReceiveSSTP` returns at
+    `S/layer.go:2202,2210,2215,2220` with no recompute, so a port whose
+    mark or admission changed keeps its role. `receiveLink` clears the mark
+    for any frame (`:1999`), before the frame is judged, so a frame applied
+    to no tree releases a held port. `CISCO` blocks and unblocks by VLAN.
+    U2 for the recompute, U11 for the clear. Test: a PVST port that is
+    loop-inconsistent for VLAN 10 stays Alternate with the reason set when
+    it receives an SSTP BPDU with `Admitted` false or an IEEE BPDU. An SSTP
+    BPDU whose TLV names another VLAN leaves the mark in place under the
+    `pvid-inconsistent` reason. The port leaves Alternate in the call that
+    applies an SSTP BPDU to VLAN 10's tree.
 12. Medium. A speed-only update restarts the CIST handshake. The guard at
     `S/layer.go:1919` requires an unchanged cost, so a link-derived cost that
     follows the new speed falls through to `:1931-1959`, against the contract
@@ -394,9 +506,14 @@ and clears the flag otherwise.
     such a frame as an RST BPDU. It refuses a Configuration or TCN BPDU
     whose version is above 1 (`:577,596`), where a), b), and NOTE 2 do not
     test the version. `S/README.md:300-317` describes the first two as
-    intended. U3. Test: a nonzero Version 1 Length decodes as RST, version 4
-    with a whole MST body as MST, and a version 2 Configuration BPDU is
-    accepted, each one property away from a frame decoded the other way.
+    intended. It also refuses a frame of 35 to 101 octets whose length
+    fields name a whole MST body (`B/bpdu.go:682` at `7de7c8ea`), where
+    d) 1) says RST. U3, and U8 for the length bands. Test: a nonzero
+    Version 1 Length decodes as RST, version 4 with a whole MST body as
+    MST, and a version 2 Configuration BPDU is accepted, each one property
+    away from a frame decoded the other way. A 60-octet version 3 frame
+    with a zero Version 1 Length and a Version 3 Length of 80 decodes as
+    RST.
 19. Medium. A BPDU with a Hello Time of zero is refused (`B/bpdu.go:666`).
     `UNH` RSTP.op.4.3 Part C expects it accepted as root information.
     `D2009` 13.29.21 raises a received Hello Time below the minimum to the
@@ -484,6 +601,18 @@ and clears the flag otherwise.
   comment.
 - `simtest/scenario_cases.go`, `simtest/stp_cases.go`, and
   `simtest/README.md` hold the `mstid=` token. U6.
+- `TestLoopInconsistentPVSTPortReceivesUnadmittedSSTPLeavesAlternate`
+  (`S/layer_test.go:3411` at `7de7c8ea`) and
+  `TestReceiveSSTPRunsTheLinkHalfForEveryOutcome` (`:2568`, assertion at
+  `:2668-2669`) require a frame applied to no tree to clear the loop-guard
+  mark, which pins the old test of Correctness 11. U11.
+- Eight tests in `S/transmit_test.go` do not run the example U7 names for
+  their rule (U12, U13).
+- `TestSSTPDecodeRefusals` (`B/bpdu_test.go:1335`, rows `version below 2`
+  and `wire type not 0x02`) and
+  `TestPVSTMigrationReachesEveryTreeAndSilencesSSTP`
+  (`S/layer_test.go:3128`) pin an SSTP address with no legacy shape. U14,
+  U15.
 
 ## Units
 
@@ -540,10 +669,15 @@ octet's high nibble over the low 12 bits of the CIST Port Identifier (17).
 `bpdu.MaxMSTIRecords` is 64, for `Encode`, `Decode`, and `MST.Validate`
 (14). `Decode` follows `Q2003` 14.4 a) through f). Type 0 with at least 35
 octets is a Configuration BPDU and type `0x80` with at least 4 is a TCN,
-whatever the version. Version 3 or above with a zero Version 1 Length and
-0 to 64 whole records is an MST BPDU, and any other type 2 frame of that
-version and at least 35 octets is an RST BPDU. A payload shorter than its
-version 3 length claims is refused, which 14.4 does not address (18).
+whatever the version. A type 2 frame of version 3 or above is read by its
+length. With 35 to 101 octets it is an RST BPDU whatever its length fields
+say (d) 1)). With 103 or more it is an MST BPDU when its Version 1 Length
+is zero and its Version 3 Length names 0 to 64 whole records, octets past
+those records ignored (e)), and an RST BPDU otherwise (d) 2) and 3)). One
+of 103 octets or more whose Version 3 Length names records that are absent
+is refused, as the layer's own rule, since 14.4 gives no reading for them.
+At 102 octets d) 1) and e) both match (Decisions) (18). U8 brings the code
+to this text.
 `Decode` accepts a Hello Time of zero, and the layer stores a received
 Hello Time below 1 second as 1 second (19). `Config.Normalize` gives an
 instance or VLAN port without a priority the bridge port's and marks it
@@ -569,9 +703,12 @@ Designated role the same or better. Any other message it is run for clears
 `agreed` (`Q2003` 13.26.9, 13.26.10). A proposal is acted on only when the
 message conveys a Designated role (`D2009` 13.29.20, Sources). The layer
 keeps no `proposed` flag, so there is nothing to clear. Each MSTI record
-carries its tree's Proposal and Agreement flags, recorded only when the
-CIST message in the same BPDU names the CIST root, external cost, and
-regional root the port holds (13.26.10 a). On a boundary port the MSTIs
+carries its tree's Proposal and Agreement flags. The Proposal flag is
+recorded with no CIST condition (`Q2003` 13.26.14, `D2009` 13.29.20). The
+Agreement flag is recorded only when the CIST message in the same BPDU
+names the CIST root, external cost, and regional root of the vector the
+port holds once that BPDU's CIST information is stored (`Q2003` 13.26.10
+a), `D2009` 13.29.16). U9 brings the code to this text. On a boundary port the MSTIs
 take the CIST's `agreed` and `proposed` (13.26.9, 13.26.13). A proposal on
 a tree's Root or Alternate port syncs that tree's other ports, and the
 answer carries every tree's agreement. `applyBPDU` comes under 150 lines.
@@ -594,8 +731,10 @@ its flag from the sending port's own timer. A Root port whose timer runs
 transmits when it starts and at each hello: an RST or MST BPDU with its
 role, its agreement state, and the flag when it sends RSTP, a TCN BPDU
 when it does not (5). On receipt (`Q2003` 13.26.19) a TCN counts for the
-CIST and every MSTI, a flag from outside the region for every tree, and a
-flag from inside for the trees that set it. A port that is not active
+CIST and, under MSTP, every MSTI. Under PVST it counts for VLAN 1's tree
+alone (Decisions), and U10 brings the code to that. A flag from outside
+the region counts for every tree, and a flag from inside for the trees
+that set it. A port that is not active
 ignores all three (16). A TCN on a Designated port sets an acknowledgment
 that the next Configuration BPDU on that port carries once. A received
 acknowledgment stops the port's timer. U7 supersedes when a port whose
@@ -616,7 +755,10 @@ Delay in force, the Hello Time field carries the bridge's own, and `Times`
 reports the bridge's own hello (10). `Advance` expires information, runs
 the ladder, and recomputes before it releases a held BPDU or sends a hello
 (13). Under PVST each tree arms loop guard on its own expiry and clears it
-on a BPDU applied to that tree or a link down. Under MSTP the CIST's mark
+on a BPDU applied to that tree or a link down. A frame applied to no tree
+clears nothing, an unadmitted or PVID-inconsistent SSTP frame among them,
+and `blockReason` reads the tree's own mark. U11 brings the code to those
+two sentences. Under MSTP the CIST's mark
 holds every instance, as `S/README.md:127` says (6). For a BPDU with a
 configuration identifier, the decision fact also prints it, the regional
 root, internal cost, remaining hops, and each MSTI record. Any other
@@ -661,7 +803,7 @@ Transmit rules:
   Configuration BPDU when it is Designated for the CIST, and with nothing
   otherwise, and then the flag stays. Under PVST a tree other than VLAN 1's
   sends nothing on such a port, as today (`S/transmit.go:23-30`), and keeps
-  its flag. Each tree's role, Proposal, Agreement, Learning, and Forwarding
+  its flag, until U15 gives it its own frames. Each tree's role, Proposal, Agreement, Learning, and Forwarding
   bits are the ones U4 landed (`S/transmit.go:58,215-224,311-331`), read
   for that tree when the frame is built, so every frame of a port carries
   each tree's own. `emissionKind`, `emit`, and `makeAgreementBPDU`
@@ -697,7 +839,11 @@ Transmit rules:
   (`S/layer_test.go:1151`) and `TestPVSTEveryVLANKeepsItsOwnTransmitBudget`
   (`:2306`) keep their assertions.
 - T5, hello. Each record has its own hello timer. It restarts when the
-  record transmits and when it expires, from the instant of that call. At
+  record transmits, and when it expires in an `Advance` at that instant,
+  from the instant of that call. A hello found overdue at the start of a
+  call is settled before the call's event is applied: it sets no flag and
+  advances by whole HelloTimes from the instant it was due (Decisions).
+  U12 brings the code to that sentence. At
   expiry the CIST flag is set when the port is Designated for the CIST, or
   Root for it with its CIST timer running. The MSTI flag is set when the
   port is Designated for an MSTI, or Root for one whose timer runs on the
@@ -846,7 +992,479 @@ compares a frame with the published IEEE Std 802.1Q-2011, or with a device
 capture.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
-Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7
+U8 to U15 bring the code to the decisions of 2026-10-04 and to what the
+review of U1 to U7 found. Their line numbers hold at `7de7c8ea`. Page
+numbers are the printed ones. Each rule names its source and a test, and a
+mutation named for a test is one that test fails under.
+
+### U8. Decode by the length bands of 14.4
+Files: src/common/net/bpdu/, src/common/sim/layer/stp/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
+After: U7
+Change: `bpdu.Decode` reads a type 2 frame of version 3 or above as U3
+states. Octets count from the Protocol Identifier, which is
+`len(f.Payload) - 3`. Three readings change. A frame of 35 to 101 octets is
+an RST BPDU whatever its length fields say, where `readMSTBody` refuses one
+whose fields name a whole MST body (`B/bpdu.go:621-626,682`). A frame of
+103 octets or more with octets past the records its Version 3 Length names
+is an MST BPDU with those records, where `:688` refuses it. A frame of 102
+octets is an MST BPDU with no records when its Version 1 Length is 0 and
+its Version 3 Length is 64, and an RST BPDU otherwise (Decisions), where
+`:682` refuses one whose length names a record. One refusal stays, as the
+layer's own: 103 octets or more with records the length names absent.
+Sources: `Q2003` 14.4 d) and e), pp. 210 to 211. 14.6 q), p. 212: the
+Version 3 Length counts the octets after octet 38. Figure 14-1, p. 214:
+octet 102 ends the CIST part. `WS` puts the two length fields at offsets 35
+and 36 and the first record at 102 (`:39-40,48`).
+The comments on `Decode` and `readMSTBody` (`B/bpdu.go:507-533,617-620,673-677`),
+`B/README.md`, "Decoding a version 3 BPDU" in `S/README.md` (`:307-331`),
+and the `Decode` paragraph of the virtual device direction record
+(`:583-593`) state the bands, the 102-octet reading, and the refusal as the
+layer's own. `B/README.md` stops claiming a UNH-IOL cross-check that no
+fixture holds (`:60`), a Hello Time floor in the codec (`:68,73`), and an
+RST reading for every truncated body (`:64`).
+Tests: `TestDecodeVersion3ByLength` in `B/bpdu_test.go`. Its rows are cut
+from U3's R5 byte literal by truncating it, padding it with zero octets,
+and rewriting the two length fields. Each row differs in one property from
+a row decoded the other way.
+
+| Octets | Version 1 Length | Version 3 Length | Decodes as |
+| --- | --- | --- | --- |
+| 34 | none | none | refused |
+| 35 | none | none | RST, for versions 3, 4, and 255 |
+| 60 | 0 | 80 | RST |
+| 101 | 0 | 64 | RST |
+| 102 | 0 | 64 | MST, no records |
+| 102 | 0 | 80 | RST |
+| 102 | 1 | 64 | RST |
+| 103 | 0 | 64 | MST, no records |
+| 117 | 0 | 80 | refused |
+| 118 | 0 | 80 | MST, one record |
+| 119 | 0 | 80 | MST, one record |
+| 118 | 1 | 80 | RST |
+| 118 | 0 | 81 | RST |
+| 118 | 0 | 1104 | RST |
+
+An RST row asserts a nil `ConfigID` and the CIST fields of the prefix. A
+second test decodes every length from 0 to 150 octets at version 3 and
+requires a result or `ErrUnsupported`, never a panic. Mutation: the call to
+`readMSTBody` restored for a frame under 102 octets. Nothing here compares
+a frame with a device capture.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim/layer/stp docs/architecture/2026-09-10-virtual-device-direction.md`
+
+### U9. Agreement and proposal in the standard's order
+Files: src/common/sim/layer/stp/
+After: U8
+Change: four rules in `S/receive.go` and `S/roles.go`.
+
+- A1, an MSTI proposal. A stored MSTI record with the Designated role and
+  the Proposal flag is a proposal whatever the CIST part of its BPDU says.
+  Today `receiveMSTIs` keeps it only under `cistConsistent`
+  (`S/receive.go:166-170`), and a port that held no CIST information from
+  the sender fails that test. Source: `Q2003` 13.26.14, p. 194. `D2009`
+  13.29.20, p. 66. Test `TestMSTIProposalNeedsNoCISTMatch`: an MST bridge
+  has p2 Designated and Forwarding for MSTI 1 with no agreement. The first
+  MST BPDU on p1 comes from its own region with a better CIST root, and its
+  MSTI 1 record has a better regional root, the Designated role, and the
+  Proposal flag. In that call p2 returns to Discarding for MSTI 1, p1 is
+  Root and Forwarding for it, and the frame p1 emits has the Agreement flag
+  in its MSTI 1 record. That case is the second example of R2, and A2 is
+  what makes its CIST part match. A second case pins A1 alone: p1 holds
+  CIST information, and a BPDU from another bridge of its region carries a
+  worse CIST vector with another CIST root, so its CIST part is not stored,
+  and an MSTI 1 record better than the one p1 holds, with the Designated
+  role and the Proposal flag. p2 returns to Discarding for MSTI 1 and the
+  frame p1 emits has the Agreement flag in its MSTI 1 record. The same
+  record with the Root role syncs nothing, and so does a CIST proposal from
+  a Root-role sender. Mutation, against the second case: the
+  `cistConsistent` test restored around the proposal.
+- A2, an MSTI agreement. The Agreement flag of an MSTI record counts only
+  when the CIST part of its BPDU matches the CIST vector the port holds
+  once that part is stored. When this call stored it, the two match.
+  Otherwise the BPDU's CIST root, external cost, and regional root are
+  compared with `cistPortVector`, as today. Today the vector is taken
+  before the store (`S/receive.go:459,470`), so the first BPDU from a
+  better CIST sender loses its MSTI agreement. Source: `Q2003` 13.26.10 a),
+  p. 193. `D2009` 13.29.16, p. 65, and the NOTE under 13.28.24, p. 60: "The
+  state machines ensure that the CIST parameters from received BPDUs are
+  processed and updated prior to processing MSTI information." Test
+  `TestMSTIAgreementIsJudgedAfterTheCISTIsStored`: a port that is
+  Designated and Discarding for MSTI 1 on a point-to-point link receives
+  its first MST BPDU, with a better CIST root and an MSTI 1 record that has
+  the Root role, the Agreement flag, and a worse vector than the port's.
+  The port is Forwarding for MSTI 1 after that call. Three BPDUs whose CIST
+  part is not stored record no agreement, one for each of another CIST
+  root, another external cost, and another regional root than the port
+  holds. An MSTI record that is not stored still records its agreement
+  when the CIST part matches. A Designated port and a Root port each judge
+  the CIST part against their own vector. Mutation: `heldCISTVec` taken
+  before `recordReceivedBPDU`.
+- A3, role before state. A received agreement sets `agreed` and clears
+  `proposing`, and changes no state. The port advances in
+  `updatePortStates`, after `assignRoles` has selected its role for this
+  BPDU, and a topology change is detected there
+  (`S/roles.go:294-296,307-311`). Today `recordAgreement` forwards a port
+  by the role it had before the BPDU (`S/receive.go:76-84`), and the copy
+  to a boundary port's MSTIs does the same (`:486-496`). Source: `D2009`
+  Figure 13-20, p. 75: SUPERIOR_DESIGNATED runs `recordAgreement()` and
+  then sets `reselect = TRUE; selected = FALSE`. Figure 13-25, p. 79: "All
+  transitions, except UCT, are qualified by `&& selected && !updtInfo`."
+  Test `TestAgreementWaitsForRoleSelection`: p1 is Designated and
+  Discarding on a point-to-point link, and p2 is Designated and Forwarding
+  with no agreement. An RST BPDU on p1 comes from a Designated sender with
+  a better root, the Agreement flag set, and the Proposal flag clear. After
+  the call p1 is Root and Discarding, its `ForwardTransitions` and the
+  bridge's `TopologyChanges` are unchanged, `Effects.Flush` is empty, and
+  no emission carries the topology-change flag. On an MST bridge the same
+  BPDU leaves p1 Discarding for MSTI 1 as well. An agreement from a
+  Root-role sender with a worse vector on a boundary Designated port brings
+  it to Forwarding for the CIST and for MSTI 1 in that call. Mutation: the
+  state change restored in `recordAgreement`. Nothing here shows that a
+  boundary port's MSTIs take the CIST's `agreed` (`S/receive.go:486`),
+  since their state follows the CIST's either way. Review gaps keeps that
+  item.
+- A4, a sync at a boundary. An MSTI's sync changes nothing on a boundary
+  port, and `isSynced` reads the CIST port's state and `agreed` for it
+  (Decisions). It reads the CIST port's and not the MSTI's copy because
+  the copy is written only when a BPDU arrives on the port
+  (`S/receive.go:479-486`). A sync of the CIST gives each MSTI's boundary
+  port the CIST port's new state in that call. Today `syncTree` returns an MSTI's
+  boundary port to Discarding while the CIST port forwards
+  (`S/receive.go:33-42`). The next recompute brings it back, counts a
+  forward transition, and detects a change (`S/roles.go:255-269`). Source:
+  `Q2003` 13.26.9, p. 193. `D2009` Figure 13-25, p. 79. The limit is the
+  layer's own (Inventory, Limits). Test `TestMSTISyncLeavesABoundaryPort`:
+  on an MST bridge p1 is internal and Root for the CIST and MSTI 1, and p2
+  is a boundary port that reached Forwarding as Designated through the
+  ladder. An MST BPDU on p1 repeats the CIST information, and its MSTI 1
+  record has the Designated role and the Proposal flag. Over that call and
+  the next `Advance`, `VLANPortInfo` shows p2 Forwarding for MSTI 1, no
+  flush names p2, and no emitted MSTI 1 record carries the
+  topology-change flag. The frame p1 emits has the Agreement flag clear in
+  its MSTI 1 record. Where p2 holds the CIST's agreement, that flag is set
+  and p2 still forwards. A CIST proposal on a boundary Root port returns a
+  forwarding, unagreed Designated port to Discarding for the CIST and for
+  MSTI 1 in that call. Mutation: the boundary test removed from
+  `syncTree`.
+
+`S/README.md` states A4 and its limit in its MSTP and Limits sections, and
+names the figures of A3 for Port Role Transitions (`:440`).
+Tests: the four named above and the cases listed with them, in a new
+`S/agreement_test.go` (package `stp_test`). They drive `Receive` and read
+`Effects`, `PortInfo`, and `VLANPortInfo`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+### U10. A TCN BPDU's tree and its propagation
+Files: src/common/sim/layer/stp/
+After: U9
+Change: two rules in `Receive` and `S/topology.go`.
+
+- N1, the tree. Under PVST a TCN BPDU at the IEEE address starts a change
+  on VLAN 1's tree alone. Under MSTP it counts for the CIST and for every
+  MSTI the port is active for. The loop at `S/receive.go:220-228` takes the
+  `l.mst != nil` test that `:520` has. Source: Decisions and `PVID` for
+  PVST. `Q2003` 13.26.19, p. 194, and `D2009` 13.29.13, p. 63, for MSTP.
+  Test `TestIEEETCNUnderPVSTIsVLAN1s`: a PVST port active for VLANs 1 and
+  10 receives a TCN BPDU through `Receive`. `Effects.Flush` names VLAN 1 on
+  the other active ports and never VLAN 10, and no frame for VLAN 10
+  carries the flag in that call or at its next hello. On an MST bridge the
+  same BPDU puts the flag in the MSTI 1 record of the frame each other
+  active internal port emits in that call. Mutation: the mode test removed
+  from the loop.
+- N2, every TCN propagates. On an active port a TCN BPDU sets the
+  acknowledgment when the port is Designated, starts the port's own timer
+  only when it is stopped, and propagates to the tree's other active ports
+  whether or not that timer ran. Each of those is flushed and starts a
+  stopped timer, as C1 of U7 has it. Today `initiateTopologyChange`
+  propagates only where it starts the receiving port's timer
+  (`S/topology.go:29-37`), so a second TCN BPDU within Max Age plus Forward
+  Delay of the first flushes nothing. Source: `D2009` Figure 13-28, p. 82:
+  NOTIFIED_TCN runs `newTcWhile()` and passes to NOTIFIED_TC, which runs
+  `setTcPropTree()`, and PROPAGATING runs `newTcWhile(); fdbFlush = TRUE`.
+  13.29.11, p. 63. 13.29.26, p. 67. Test `TestEveryTCNPropagates`: p1 is
+  Designated and in STP mode, p2 is Root, p3 is Designated, and all three
+  forward and none is an edge. A TCN BPDU on p1 flushes p2 and p3, and each
+  emits one flagged frame. A second TCN BPDU on p1 ten seconds later, while
+  p1's timer runs and theirs have stopped, flushes them again, and each
+  emits one flagged frame in that call. `TopologyChanges` moves once, with
+  the first. A TCN BPDU on an Alternate port flushes nothing, and no
+  emission in that call or at the next hello carries the flag. Mutation:
+  the propagation put back under the test of the receiving port's timer.
+
+The comment on `initiateTopologyChange` says what it does (`S/topology.go:24-26`).
+`S/README.md` states both rules under "What a topology change flushes"
+and in the Topology Change line of its Standards section (`:442`).
+Tests: the two named above, in a new `S/tcn_test.go` (package `stp_test`).
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+### U11. Loop guard clears per tree
+Files: src/common/sim/layer/stp/, docs/architecture/2026-09-10-virtual-device-direction.md
+After: U10
+Change: `receiveLink` clears no mark (`S/link.go:187-197`). `Receive`
+clears the CIST port's mark once `receiveLink` lets the frame through,
+whatever the BPDU's type. `ReceiveSSTP` clears the arrival tree's mark on
+the path that returns `SSTPApplied`, and no other outcome clears one. A
+link down clears every tree's, as today (`S/link.go:83`). `blockReason`
+reports `loop-inconsistent` from the tree's own mark under PVST and from
+the CIST's under MSTP, where today it reads the CIST's for every tree
+(`S/info.go:93`). Source: Decisions. `CISCO`, Configuration Considerations
+and Feature Description. Modelled on observation, since `CISCO` does not
+say which VLAN's BPDU recovers a port.
+`S/README.md` states the per-tree clear and where `BlockReason` comes from
+in its Guards table (`:127`), the paragraph under it (`:129-136`), and the
+PVST section (`:241,250-251`). The comment on `blockReason`
+(`S/info.go:76-86`) follows. The virtual device direction record states
+the same where it has any BPDU clear the guard (`:538-543`) and has the
+clear run on both sides of a PVST boundary (`:690-693`).
+Tests: the test of Correctness 11, as
+`TestLoopGuardClearsOnABPDUAppliedToItsTree`, which replaces
+`TestLoopInconsistentPVSTPortReceivesUnadmittedSSTPLeavesAlternate`.
+`TestReceiveSSTPRunsTheLinkHalfForEveryOutcome` asserts that the marked
+tree keeps its mark under `SSTPBoundary`, `SSTPNotAdmitted`, and
+`SSTPUntrackedVLAN`, and that `SSTPApplied` clears the arrival VLAN's
+alone. Its `SSTPGuarded` row keeps the outcome and reason checks it has,
+since a guarded port never holds a mark (`S/layer_test.go:2556-2567`).
+Under `SSTPPVIDInconsistent` the reason reads `pvid-inconsistent` and both
+marks give Alternate (`S/info.go:89-94`, `S/roles.go:210-220`), so a case in
+`S/link_state_internal_test.go` reads the tree's mark after that outcome.
+`TestBlockReasonReadsTheTreesOwnMark`: on a PVST
+port whose VLAN 1 information expired while VLAN 10's did not, `PortInfo`
+reports Alternate with `loop-inconsistent`, and `VLANPortInfo` for VLAN 10
+reports the Root role and no reason. On an MST bridge an MSTI's port
+reports the CIST's mark. Mutation: the clear restored in `receiveLink`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim docs/architecture/2026-09-10-virtual-device-direction.md`
+
+### U12. The requests the Port Transmit machine makes
+Files: src/common/sim/layer/stp/
+After: U11
+Change: four rules of U7 that the code does not meet, in `S/transmit.go`,
+`S/topology.go`, `S/link.go`, and `S/portstate.go`. U7 holds each rule's
+text. The four tests named here are among the eight of Inventory, Tests.
+
+- T5, an overdue hello. Every call first settles each record whose hello
+  fell due before the call's instant: `helloWhen` advances by whole
+  HelloTimes from the instant it was due until it is no longer before the
+  call's, and no flag is set. The call's event is applied after that. A
+  hello due at the instant of the call is judged in the pass, as today.
+  `NextWake` is unchanged. It reports a hello only while its expiry would
+  set a flag (`S/advance.go:46-48`), so a caller that advances at every
+  wake finds no flag-setting hello overdue. Today the pass judges an
+  overdue hello with the state the event left and restarts it from the
+  call (`S/transmit.go:81-103`), so a Root port in STP mode sends a TCN
+  BPDU in the call that starts its timer. Source: Decisions. `D2009`
+  Figure 13-19, p. 74: IDLE runs `helloWhen = HelloTime`, and
+  TRANSMIT_PERIODIC is entered on `helloWhen == 0`. Figure 13-15, p. 71:
+  every tick decrements `helloWhen`, whatever the port's role. `UNH`
+  RSTP.op.2.3 Part A waits two seconds for the TCN BPDUs. Test
+  `TestOverdueHelloIsSettledBeforeTheEvent`: the second example of R9. A
+  Root port p1 in STP mode has its hello due at an instant H, and no call
+  follows until a flagged RST BPDU arrives on p3 one second after H. p1
+  emits nothing in that call, `NextWake` is no later than H plus two
+  seconds, and the `Advance` at H plus two seconds emits p1's first TCN
+  BPDU. Mutations: the settle step removed, and the hello restarted from
+  the call's instant.
+  `TestHelloRestartsWhenThePortTransmits` runs the R7 example, where it
+  transmits today only on the hello's own phase (`S/transmit_test.go:158-172`).
+  Mutation: `S/transmit.go:64` deleted.
+- T3, the MSTI flag on a port that does not send RSTP. It sends nothing
+  there and stays set, and a TCN or Configuration BPDU clears the CIST flag
+  alone. Today `transmitRequested` answers for the MSTI flag whatever
+  `sendRSTP` is (`S/transmit.go:109-118`), `transmitBPDU` then builds a TCN
+  or Configuration BPDU (`:137-144`), and the pass clears both flags
+  (`:65-66`). Source: `D2009` Figure 13-19, p. 74: TRANSMIT_RSTP needs
+  `sendRSTP`, and TRANSMIT_TCN and TRANSMIT_CONFIG need `newInfo` and clear
+  it alone. Test `TestMSTIFlagAloneSendsOnlyInsideTheRegion` runs the
+  example of T3 on a bridge with an internal port and a boundary Root
+  port, where its fixture today has no boundary port
+  (`S/transmit_test.go:103-116`). Mutation: the `mstiMasterPort` test
+  removed from `transmitRequested`. Test
+  `TestMSTIFlagOnAPortInSTPModeWaits`: p2 is in STP mode, and Designated
+  and Discarding for the CIST. An MST BPDU on the internal port p1 changes
+  MSTI 1's root and repeats the CIST information, and p2 emits nothing in
+  that call. p2 sends its Configuration BPDU at its hello. Once MigrateTime
+  has passed, an MST BPDU of p2's own region with no Proposal flag makes p2
+  Alternate for the CIST, and p2 emits one MST BPDU in that call.
+  Mutations: `sendRSTP` not tested for the MSTI flag, and both flags
+  cleared after a Configuration BPDU.
+- C2, detection on a port that does not send RSTP. It sets its tree's flag
+  as any detecting port does. Today `detectTopologyChange` requests only
+  where the port sends RSTP (`S/topology.go:45-47`), and no test in the
+  package fails with that request deleted. Source: `D2009` Figure 13-28,
+  p. 82: DETECTED ends with `newInfoXst = TRUE`, after `newTcWhile()` and
+  `setTcPropTree()`. Figure 13-19, p. 74: TRANSMIT_TCN is entered on
+  `!sendRSTP && newInfo && cistRootPort`. Test
+  `TestDetectionTransmitsOnTheDetectingPort` runs the two cases of C2,
+  each at an instant when no hello is due on the detecting port, where its
+  one case today coincides with a hello (`S/transmit_test.go:240-253`). A
+  Designated port that an agreement brings to Forwarding emits one flagged
+  frame in that `Receive`. A Root port in STP mode that ends the ladder
+  emits one TCN BPDU in that `Advance`. Mutation: the `sendRSTP` test kept
+  around detection's request. The comment on `detectTopologyChange`
+  (`S/topology.go:40-42`) says what it does.
+- T6, a port coming up. A record whose port is down or disabled by BPDU
+  guard holds both flags and a zero count, from construction on, and
+  `LinkChange` makes no request of its own. Today the pass and
+  `clearTransmit` clear both flags of such a record
+  (`S/transmit.go:25-33`, `S/portstate.go:127-136`), and `LinkChange`
+  requests for the CIST's record alone (`S/link.go:166`), so under PVST
+  every other VLAN's tree first sends at its hello. Source: `D2009` Figure
+  13-19, p. 74: TRANSMIT_INIT is entered while the port is not enabled,
+  sets `newInfo` and `newInfoMsti`, and zeroes `txCount`.
+  Decisions for a record for each VLAN's tree. Test
+  `TestPortComingUpTransmitsOnce` keeps its two cases and adds three. On a
+  PVST bridge with VLANs 1, 10, and 20 the `LinkChange` that brings p1 up
+  emits VLAN 1's two frames and one SSTP frame each for VLAN 10 and VLAN
+  20. On an MST bridge it emits one MST BPDU. A port that held a request
+  at the hold count, went down, and came up emits one frame in that
+  `LinkChange`. Mutation: the flags cleared for a port that is down.
+  `TestLinkDownClearsHeldTCNAndAcknowledgment`
+  (`S/link_state_internal_test.go:117`) keeps its assertion, since a zero
+  count reports no wake.
+
+`S/README.md` states the four in its Emission section (`:260-294`), and its
+Standards section names `D2009` Figures 13-19 and 13-28 for the transmit
+and topology-change machines, the two request sites that are the layer's
+own, and the limits U7 carries (`:441-442,445-453`).
+Tests: the six named above, in `S/transmit_test.go`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+### U13. The transmit tests run the examples of their rules
+Files: src/common/sim/layer/stp/
+After: U12
+Change: the intended change is to `*_test.go` alone. Four tests in
+`S/transmit_test.go` run less than the example U7 names for their rule,
+and pass under the mutation given here. Each is rewritten to that example.
+A rewritten test that fails on the landed code shows its rule unmet. Only
+then does the unit change `S/transmit.go`, `S/topology.go`, or
+`S/advance.go`, to the rule as U7 states it, and its commit says which
+rule.
+
+| Test | What it runs today | What it runs after | Mutation |
+| --- | --- | --- | --- |
+| `TestTransmitOnceFromFinalState` (`:33`) | an RSTP bridge, one tree, and no frame content beyond p1's role | the R6 example, and an `Advance` before any hello that emits nothing | a sent record keeps its flags (`S/transmit.go:65-66` deleted) |
+| `TestHeldRequestIsBuiltAtRelease` (`:77`) | an RSTP port, asserting the frame's type | the three cases of T2: the R8 example, the Root port that migrates to STP before the count falls, and the port that is Alternate for the CIST and Root for MSTI 1 | the Root port in STP mode answers with a Configuration BPDU (`S/transmit.go:138-139`) |
+| `TestTopologyChangeLeavesAtOnceAndTwice` (`:219`) | two shared-link ports that end the ladder together | the R7 example, the second flagged BPDU one second later, the last flagged frame within HelloTime plus one second, and the PVST case of C1 | a running timer restarts and requests again (`started` always true at `S/topology.go:67`) |
+| `TestLegacyPortReportsAChangeAtItsHello` (`:255`) | one port that is Designated by the time it is checked, asserting a Configuration BPDU | the first example of R9, with the Configuration BPDUs that keep the port Root, and no TCN BPDU after 35 seconds | the Root-port term removed from `setHelloRequests` (`S/transmit.go:87`) |
+
+Three more tests gain the half of their rule they leave out.
+`TestTopologyChangeFlagIsPerTree` (`:271`) gets a fixture of its own and
+reads octet 5 at index 7 of the payload and each MSTI record's flags octet
+at index 105 plus 16 for each record before it (`B/bpdu.go:724,732`), with
+no call to `Decode`. `TestEmissionsLeaveByTreeThenPort` (`:194`) adds the
+first case of T7. `TestAcknowledgmentLeavesInTheNextConfigurationBPDU`
+(`:275`) adds the last two cases of C5, and fails with `p.tcAck = false`
+deleted at `S/transmit.go:322`.
+Tests: the seven above. Each commit quotes the mutation and its failing
+line.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp`
+
+### U14. Legacy BPDUs at the SSTP address, and receiving them
+Files: src/common/net/bpdu/, src/common/sim/layer/stp/, src/common/sim/device/vswitch/, docs/architecture/2026-09-10-virtual-device-direction.md
+After: U13
+Change: `bpdu.EncodeSSTP` and `bpdu.DecodeSSTP` gain two shapes, chosen by
+`BPDU.Type` and by the wire type. A Configuration BPDU keeps the 50-octet
+layout of the RST shape (`B/sstp.go:35-42`) with version 0, type `0x00`,
+and the flags masked to the two `Encode` keeps (`B/bpdu.go:386`). `Q2003`
+14.4 a) does not test its version, so the refusal of a version below 2
+(`B/sstp.go:129-134`) applies to type 2 alone. A TCN BPDU is the 8-octet
+LLC and SNAP header, a zero Protocol Identifier, version 0, and type
+`0x80`, with no TLV, padded to the 46 octets `Encode` pads a TCN to
+(`B/bpdu.go:322,372`) under a length field of 12. `DecodeSSTP` accepts a
+TCN of 12 octets or more and returns VLAN 0 for it. Every other wire type
+stays refused.
+`ReceiveSSTP` takes both. A Configuration BPDU goes the way an RST BPDU
+goes today, PVID test included. A TCN BPDU carries no VLAN, so it runs the
+link half, the admission and tree tests, and no PVID test, and it neither
+sets nor clears `pvidInconsistent`. Then the arrival VLAN's tree takes it
+as the CIST takes one in U10: on an active port it sets the acknowledgment
+when the port is Designated, starts a stopped timer, and propagates on
+that tree alone. The outcome is `SSTPApplied`. On a bridge that does not
+run PVST the outcome stays `SSTPBoundary`. Either shape migrates the port
+to STP as its IEEE form does (`S/link.go:231-233`).
+The switch's `stp.sstp.vlans` fact compares the TLV's VLAN with the arrival
+VLAN for every SSTP BPDU (`device/vswitch/switch.go:2813-2816,2915-2920`),
+which would print `tlv=0` and `consistent=false` for a TCN. For a TCN it
+prints `tlv=none,arrival=<vid>` and no `consistent` term.
+Sources: Decisions, modelled on observation. `PVID` for the per-VLAN BPDU
+at the SSTP address. No Cisco document read names a TCN there. `EXT`, a
+second vendor, sends "a tagged TCN BPDU" to that address for a tagged
+VLAN. `WS` reads the TLV at offset 36 after a Configuration BPDU under
+the Cisco PID (`:50,622-624,1360`), and ends a TCN at four octets before
+any TLV (`:61,511-514`). `WS` shows what a dissector reads. It does not
+show that a device sends a TCN with no TLV, which stays unverified.
+`B/README.md` and the PVST section of `S/README.md` name both shapes, mark
+PVST and SSTP as modelled on observation, and name `CISCO`, `PVID`, and
+`EXT` with what each was read for. The virtual device direction record
+names the three shapes where it calls an SSTP BPDU an RST BPDU
+(`:653-656`).
+Tests: `B/bpdu_test.go` gains a byte literal for an SSTP Configuration
+BPDU on VLAN 10 with both flags set and every multi-octet field distinct
+in each octet, each field commented with its `WS` offset. `DecodeSSTP`
+returns the fields and `EncodeSSTP` the bytes, and a BPDU with role bits
+set encodes with them masked. A second literal is the TCN: `AA AA 03 00 00
+0C 01 0B 00 00 00 80` and 34 zero octets. It decodes as a TCN with VLAN 0,
+its first 12 octets alone decode too, and its first 11 are refused. In
+`TestSSTPDecodeRefusals` the row `wire type not 0x02` takes type `0x81`,
+and the row `version below 2` gains a neighbour, a version 0 Configuration
+BPDU that decodes. An SSTP frame with a Hello Time of zero decodes.
+`S/layer_test.go`: an SSTP TCN for VLAN 10 on a port that is Designated
+and Forwarding for VLAN 10 flushes VLAN 10 on that tree's other active
+ports and leaves `TopologyChanges` and VLAN 1's frames alone. With
+`Admitted` false it returns `SSTPNotAdmitted` and flushes nothing, for a
+VLAN with no tree `SSTPUntrackedVLAN`, and on an RSTP bridge
+`SSTPBoundary`. An SSTP TCN on a port that is PVID-inconsistent for VLAN
+10 leaves the reason set. An SSTP Configuration BPDU whose TLV names
+another VLAN returns `SSTPPVIDInconsistent`. Each of the two shapes turns
+`PortInfo.SendRSTP` false once MigrateTime has passed. On a PVST bridge
+with VLANs 1 and 10, a Configuration BPDU for VLAN 10 with a better root
+every two seconds keeps p1 Root for VLAN 10 past ten seconds.
+`device/vswitch/switch_test.go`: a TCN at the SSTP address tagged for VLAN
+10 on a PVST switch flushes VLAN 10's entries on another port, traces as
+applied, and carries the fact `tlv=none,arrival=10`. An RST BPDU there
+keeps the fact it has.
+Mutations: the PVID test run for a TCN, and the TCN applied to VLAN 1's
+tree. Nothing here compares either frame with a device capture.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/net/bpdu src/common/sim docs/architecture/2026-09-10-virtual-device-direction.md`
+
+### U15. A VLAN tree's own frames on a port in STP mode
+Files: src/common/sim/layer/stp/
+After: U14
+Change: under PVST, on a port that does not send RSTP, every VLAN's tree
+answers its flag as T2 has VLAN 1's answer it: a TCN BPDU when the tree's
+port is Root, a Configuration BPDU when it is Designated, and nothing
+otherwise. A tree other than VLAN 1's sends its frame to the SSTP address
+and names its VLAN in `Emission.VID`. VLAN 1's tree sends to the IEEE
+address alone, as today (Decisions). `transmitBPDU` loses its PVST
+exception (`S/transmit.go:133-135`), `frames` builds the SSTP frame for
+either mode (`:176-187`), and a hello sets a tree's flag whatever the port
+sends (`:86`, `S/advance.go:182`). The comment on `frames` (`:155-165`)
+follows. C3 and C5 of U7 then hold for each tree: a
+running timer shows at the tree's hello, and a tree's acknowledgment
+leaves once, in its next Configuration BPDU on that port.
+Sources: Decisions, modelled on observation. `PVID`. `EXT`: "TCN BPDUs are
+sent per VLAN", and the acknowledgment is set "in all configuration BPDUs
+corresponding to the VLAN for which the TCN was received". `D2009` Figure
+13-19, p. 74, for which role sends which BPDU.
+`S/README.md` states this in its Emission section, in place of the two
+paragraphs that say a tree other than VLAN 1's sends nothing there
+(`:272-276,288-294`). Its "Not modeled" entry for 802.1D per VLAN (`:465`)
+names what is left: a bridge configured to run it on every port.
+Tests, in `S/transmit_test.go`. `TestVLANTreeReportsAChangeInSTPMode`: the
+R10 example. p1 emits nothing in the call that receives the flagged BPDU. At
+VLAN 10's next hello it emits one frame, to the SSTP address with
+`Emission.VID` 10, whose payload is the TCN literal of U14. It emits one
+at each hello until a Configuration BPDU for VLAN 10 with the
+acknowledgment flag arrives, and none after. No frame leaves for VLAN 1.
+`TestVLANTreeAcknowledgesInSTPMode`: p2 is Designated and Forwarding for
+VLAN 10 in STP mode. At its hello it emits a Configuration BPDU at the
+SSTP address whose TLV names VLAN 10. After an SSTP TCN for VLAN 10 its
+next such BPDU has bits 8 and 1 of the flags octet set, and the one after
+has bit 8 clear. `TestPVSTMigrationReachesEveryTreeAndSilencesSSTP`
+(`S/layer_test.go:3128`) takes the new frames and a name that says so.
+Mutations: the exception restored in `transmitBPDU`, and a tree's TCN sent
+to the IEEE address.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12 | U13 | U14 | U15
 
 ## Verification
 
@@ -864,6 +1482,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 - [ ] Verifier green for every changed path.
 - [ ] Every Inventory entry has its failing-first test or is struck.
+- [ ] Every rule of U8 to U15 has its named test, and the commit that adds
+      the test quotes the mutation and the failing line.
 - [ ] `S/README.md` and `B/README.md` name the edition, sources, clauses,
       and limits, and say nothing the code no longer does.
 - [ ] No non-test file in `layer/stp` exceeds 1,200 lines and no function
@@ -877,7 +1497,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - The edition is decided above. Carried: the published IEEE Std 802.1Q-2011
   and IEEE Std 802.1D-2004 are unverified, and with them the forward-delay
   step on an RSTP port (Limits). U6's README marks each `D2009` clause draft.
-- Whether U11 loads MSTP and PVST stays with U11, which owns `netmodel`.
+- Whether the parent's U11 loads MSTP and PVST stays with that unit, which
+  owns `netmodel`.
   The schema carries MSTP (`PROTOCOL_VERSION_MSTP` and the `Mst*` messages
   under `spec/proto/flowseer/net/protocol/stp/v1/`) and nothing for PVST,
   and `netmodel` skips every version but RSTP (`netmodel/netmodel.go:1279`).
@@ -885,20 +1506,35 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   call `Switch.Start`, reports each port with the resolved value
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
-  (`device/vswitch/switch.go:2929-2945`), which U9 owns.
-- U6 and Correctness 11 disagree under PVST. U6 clears a tree's loop-guard
-  mark "on a BPDU applied to that tree or a link down". Correctness 11's test
-  has a loop-inconsistent PVST port leave Alternate on an SSTP BPDU with
-  `Admitted` false, which is applied to no tree. The code clears every
-  tree's mark on any frame (`S/link.go`, `receiveLink`), so a VLAN 1 BPDU
-  reopens VLAN 10's held port within one hello, and
-  `TestLoopInconsistentPVSTPortReceivesUnadmittedSSTPLeavesAlternate` and
-  `TestReceiveSSTPRunsTheLinkHalfForEveryOutcome` fail once the clear follows
-  U6. One of the two texts has to change. `S/info.go` `blockReason` reads the
-  CIST's mark for every tree and follows the same answer.
+  (`device/vswitch/switch.go:2956-2968` at `7de7c8ea`), which the parent's
+  U9 owns.
 - U7's rules T2 (a port that sends RSTP transmits whatever its role), T6,
   and C2 rest on `D2009` alone, a working draft. `UNH` neither supports nor
   contradicts them, and the published IEEE Std 802.1Q-2011 is unverified.
+  The same holds for A3 of U9 and N2 of U10, which rest on `D2009` Figures
+  13-20, 13-25, and 13-28.
+- Unverified, the length bands: whether a later edition corrects "less
+  than 103" in `Q2003` 14.4 d) 1), which overlaps e) 1) at 102 octets. Only
+  the 2003 text was read, and the reading at 102 octets is this plan's.
+- Unverified, the overdue hello: the standard decrements `helloWhen` every
+  second and has no expiry that waits for a call, so settling one before
+  the event is the layer's own rule for its event-driven clock. The Port
+  Transmit figure of IEEE Std 802.1Q-2011 was not read.
+- Unverified, the MSTI flags: the wording of `recordProposal` and
+  `recordAgreement` in IEEE Std 802.1Q-2011. `Q2003` and `D2009` agree that
+  the proposal has no CIST condition and the agreement has one.
+- Unverified, the TCN at the SSTP address. No Cisco document read names a
+  TCN BPDU on a trunk at either address. That a device sends one for each
+  VLAN, that it carries no TLV, and that the acknowledgment returns in that
+  VLAN's Configuration BPDU rest on `EXT`, a second vendor, and on what
+  `WS` reads. No device capture was found. `PVID` sends VLAN 1's BPDUs to
+  the SSTP address as well, which the layer does not do on a port in STP
+  mode (Limits).
+- Unverified, the loop-guard clear. `CISCO` blocks and unblocks by VLAN and
+  does not say that the recovering BPDU must be that VLAN's. It says
+  nothing of an SSTP BPDU on a VLAN the port does not admit or of a
+  PVID-inconsistent frame. `CISCO` and `PVID` were each read from one
+  Internet Archive capture, so a later revision is unverified.
 - Carried, and not changed by U7: a Designated port whose root information
   changes while it forwards or holds an agreement sends the new information
   at its next hello. `D2009` Figure 13-20 (UPDATE) with 13.29.33 j) and k)
@@ -913,16 +1549,12 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 
 ## Review gaps
 
-- src/common/sim/layer/stp/receive.go:71: Root-like branch of `recordAgreement` narrowed to the Root role; fails: an Alternate or Backup sender's agreement with a worse vector opens the port
-- src/common/sim/layer/stp/receive.go:96: root or external-cost term dropped from `cistConsistent`; fails: an MSTI agreement whose CIST message names another root or cost is not recorded
+Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
+
 - src/common/sim/layer/stp/receive.go:113: `mp.tcActive` dropped; fails: an inactive MSTI port ignores its record's topology-change flag
-- src/common/sim/layer/stp/receive.go:118: `<< 8` to `<< 12`; fails: a received record priority octet `0x40` gives designated bridge priority `0x4000`
 - src/common/sim/layer/stp/receive.go:150: MSTI record hello floor removed; fails: an MSTI record under Hello Time zero expires after 3 seconds
-- src/common/sim/layer/stp/receive.go:165: Designated-role test dropped from the MSTI and CIST proposal checks (`:560`); fails: a proposal from a Root-role sender syncs nothing
-- src/common/sim/layer/stp/receive.go:48: `syncTree` call removed; fails: a proposal on a Root port returns a forwarding, unagreed Designated port to Discarding
 - src/common/sim/layer/stp/receive.go:478: boundary MSTIs no longer take the CIST's `agreed`; fails: an MSTI Designated port on a boundary forwards on the CIST's agreement
 - src/common/sim/layer/stp/receive.go:509: acknowledgment no longer stops the timer; fails: a Root port in STP mode emits TCN BPDUs at each hello until a Configuration BPDU with the acknowledgment flag arrives, and none after
-- src/common/sim/layer/stp/topology.go:69: `deactivatePort` keeps `tcWhile`; fails: a port that loses its role reports no wake for the timer
 - src/common/sim/layer/stp/roles.go:306: `!link.edge` dropped; fails: an edge port that starts forwarding raises no topology change
 - src/common/sim/layer/stp/advance.go:31: `update(p.tcWhile)` removed; fails: `NextWake` returns the earliest port timer
 - src/common/sim/layer/stp/advance.go:67: held release moved above expiry; fails: a held BPDU released at the instant root information expires names the bridge itself root
@@ -939,36 +1571,34 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - src/common/net/bpdu/bpdu.go:501: either encode mask removed (`:502`); fails: priorities `0x4F` and `0x2F` encode as octets `0x40` and `0x20`
 - src/common/net/bpdu/bpdu.go:735: either decode mask removed; fails: wire octets `0x4F` and `0x2F` decode as `0x40` and `0x20`
 - src/common/net/bpdu/bpdu.go:588: version refusal restored for TCN, or for Configuration above version 2; fails: version 4 Configuration and TCN frames decode
-- src/common/net/bpdu/bpdu.go:623: whole-record test replaced by `true`; fails: a Version 3 Length of 65 decodes as RST
-- src/common/net/bpdu/sstp.go:157: zero Hello Time refusal restored; fails: an SSTP frame with Hello Time zero decodes
 - src/common/sim/fabric/fingerprint.go:321: tree kind replaced by a constant; fails: VLAN 10 and MSTI 10 snapshots give two fingerprints
 - src/common/sim/layer/stp/receive.go:11: `receiveMSTIs` comment sits on `syncTree` and says the flag is carried unconditionally; `:297` names `syncInstancePorts`; `:391` says the classification is written on the CIST's port state
-- src/common/sim/layer/stp/info.go:76: link fields described as written on the CIST's port state (also `src/common/sim/layer/stp/roles.go:119`); `:160` says hello is the root's; `:220` `PVSTBoundary` comment duplicated
+- src/common/sim/layer/stp/roles.go:119: link fields described as written on the CIST's port state; `src/common/sim/layer/stp/info.go:160` says hello is the root's; `:220` `PVSTBoundary` comment duplicated
 - src/common/sim/layer/stp/link.go:93: says a topology change follows link down (also `:236` for BPDU guard)
-- src/common/sim/layer/stp/topology.go:25: says `initiateTopologyChange` emits on p
 - src/common/sim/layer/stp/mst.go:176: says the layer reads `PriorityPresent`; `:226` explains the instance cap by the 16-bit length
 - src/common/sim/layer/stp/transmit.go:117: `p.sendRSTP`
-- src/common/sim/layer/stp/README.md:129: loop-guard clear stated two ways (`:127`, `:240`); `:250` `BlockReason` said to come from the link record; `:285` boundary mark on the CIST port state; `:297` and `:458` version 4 decodes with no `ConfigID`; `:374` instance cap by length field; `:387` a change flushes every other port; PVST and SSTP not marked as modelled on observation
+- src/common/sim/layer/stp/README.md:285: boundary mark on the CIST port state; `:374` instance cap by length field; `:387` a change flushes every other port
 - src/common/sim/layer/stp/guard_test.go:201: `TestBPDUGuardCountsOneTopologyChange` asserts zero; `src/common/sim/layer/stp/mst_test.go:368` and `:398`, `src/common/sim/layer/stp/layer_test.go:699`, `:728`, `:4121` state replaced behavior; `:3301` `t.Logf` leftovers
-- src/common/net/bpdu/README.md:73: says Hello Time is clamped on decode; `:64` promises RST fallback for a truncated body
-- src/common/net/bpdu/bpdu.go:511: `Decode` comment keeps legacy versions 0 or 1, fallback above version 3, and the zero Hello Time refusal; `:365`, `:443`, and `src/common/net/bpdu/bpdu_test.go:994` give the 16-bit length as the reason for 64; `:676` says the caller checked 105 octets
+- src/common/net/bpdu/bpdu.go:365: gives the 16-bit length as the reason for 64 (also `:443` and `src/common/net/bpdu/bpdu_test.go:994`)
 - src/common/net/bpdu/bpdu_test.go:1777: golden frame EtherType is `len(wire) - 3`, the encoder writes `len(wire)`, and only payloads are compared
 - src/common/sim/internal/simtest/stp_cases.go:721: comment keeps `mstid=1`
-- src/common/net/bpdu/bpdu.go:601: `version >= mstProtocolVersion` to `==`; fails: version 4 and 255 frames with a 35-octet body decode as RST
-- src/common/sim/layer/stp/receive.go:222: `l.treeOrder` back to `range l.trees` here, at `:476`, or at `:569`; fails: a TCN through `Receive` on a PVST bridge with five VLANs emits in ascending VLAN order on repeated runs
 - src/common/sim/layer/stp/roles.go:195: boundary branch keeps `agreed` across a role change; fails: an MSTI boundary port that changes role must earn a new agreement
 - src/common/sim/layer/stp/tree_internal_test.go:924: sets `tcActive` on an Alternate port, a state `updatePortStates` never leaves; fails: with reachable state no emission names the expired root
 - src/common/net/bpdu/bpdu_test.go:1584: a second fixture with EtherType `len(Payload) - 3`
-- src/common/sim/layer/stp/receive.go:141: `changes` argument to `recordAgreement` replaced by nil here or at `:167`; fails: an MSTI agreement on a Designated port sends the flagged record on the MSTI's Root port in that call
-- src/common/sim/layer/stp/link.go:108: deferred emission dropped on link down; fails: a Root port goes down and the Alternate that becomes Root and Forwarding sends a flagged frame in that call
 - src/common/sim/layer/stp/tree_internal_test.go:814: `TestMSTTopologyChangeUsesTreeOrderForEmissions` calls `propagateReceivedTC` directly and tests no order; fails: a flagged BPDU through `Receive` on a boundary port gives one frame on the Root port
-- src/common/sim/layer/stp/tree_internal_test.go:957: Root port with `rcvInfoValid` false and an Alternate holding a better root than the tree's, states no call sequence leaves
 - src/common/sim/layer/stp/layer_test.go:4094: no hello is due at the instant checked, so the loop body never runs
-- src/common/sim/layer/stp/transmit.go:33: open behavior finding of round four. A second frame on a budget in one call is held, and the deferred topology-change frame is queued as an agreement or TCN on the CIST port, which `advance.go:196` and `:208` drop at release when that port is Designated for the CIST. On an MST bridge whose port is CIST Designated and becomes Root for an MSTI in a `Receive` that also changes the CIST root, the proposal built in the CIST's turn (`roles.go:91`) names the MSTI port Alternate with no flag, and the owed record waits for the next hello; fails: the flagged record leaves in that call, built from the final role
-- src/common/sim/layer/stp/topology.go:183: open behavior finding of round four. Deferred frames are prepended, so a flagged Designated reply on p1 follows the Root frame on p2, and under PVST a flagged acknowledgment on VLAN 1's p2 follows VLAN 10 to 40 on p1; fails: frames leave in tree order, then port order
-- src/common/sim/layer/stp/transmit.go:81: `markBuilt` skipped for Designated frames, or the hold at `:33` deleted; fails: an MST port Designated for the CIST whose MSTI timers start in the call (the fixture's p2 in Learning, superior BPDU before the ladder ends) sends one frame
-- src/common/sim/layer/stp/topology_change_property_test.go:97: `DesignatedRestartRootReturn` starts no timer and owes nothing, and p1's information expires in the call under test; fails: p2 Designated and Discarding takes an agreement that forwards it and makes it Root, and owes the CIST pair on p2
-- src/common/sim/layer/stp/topology_change_property_test.go:235: no forward-delay timer is due in `ladderEffects` and the TCN comes from the hello; fails: a legacy Root port that finishes the ladder where a hello is due sends one TCN
-- src/common/sim/layer/stp/topology_change_property_test.go:546: `expected` is never read, a TCN skips the role check (`:567`), and a held flag counts as sent with budget to spare (`:634`); fails: `p.role != bpdu.RoleRoot` dropped at `topology.go:162` sends a flagged frame from a Designated port
-- src/common/sim/layer/stp/topology_change_property_test.go:330: the MST Mcheck BPDU is a Configuration BPDU that keeps `ConfigID` and MSTI records, and the MST Receive BPDU (`:34`) raises the external cost under an unchanged regional root, shapes `bpdu.Decode` or a conformant sender never gives; not confirmed by a run
-- src/common/sim/layer/stp/topology.go:162: guards a nil port and link no caller can pass, and `:175` reads the link again
+- src/common/net/bpdu/bpdu.go:575: Configuration minimum raised from 38 to 39 LLC octets; fails: a 35-octet BPDU decodes as Configuration
+- src/common/net/bpdu/bpdu.go:482: `Selector` write and read removed; fails: a nonzero selector survives an encode and decode
+- src/common/sim/layer/stp/roles.go:96: request restricted to the CIST; fails: an MSTI root change proposes in that call
+- src/common/sim/layer/stp/transmit.go:60: one PVST VLAN 1 pair spends two budget slots; fails: the pair is one transmission at the hold count
+- src/common/sim/layer/stp/receive.go:520: external-link test dropped; fails: an internal CIST topology-change flag with clear MSTI records leaves the MSTIs alone
+- src/common/sim/layer/stp/receive.go:526: `mp.tcActive` dropped; fails: a boundary flag leaves an inactive MSTI alone
+- src/common/sim/layer/stp/receive.go:586: MSTI answer dropped; fails: an MSTI-only proposal is answered in that call
+- src/common/sim/layer/stp/receive.go:148: one remaining hop rejected; fails: a record with one hop is stored
+- src/common/sim/layer/stp/topology.go:19: legacy timer uses local instead of root times; fails: its duration follows the received Max Age and Forward Delay
+- src/common/net/bpdu/bpdu_test.go:1626: test name claims `Q2003` compliance without an independent capture or edition check; fails: the test's claim matches its evidence
+- src/common/net/bpdu/bpdu_test.go:1826: fixture uses a nonzero CIST system ID extension; fails: the CIST Bridge Identifier has extension zero
+- src/common/sim/device/vswitch/switch_test.go:7364: comment says only CIST roles are exposed and logs MSTI state instead of asserting it; fails: the test checks the MSTI state it depends on
+- src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
+- src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
+- src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
