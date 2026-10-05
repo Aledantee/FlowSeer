@@ -58,7 +58,10 @@
   }
 }
 
-[data-ai-selected] {
+/* One ring for both states: the registry marks the selected target, and an
+   agent-changed value carries its origin until the user touches it. */
+[data-ai-selected],
+[data-ai-origin='agent'] {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }

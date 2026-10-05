@@ -278,6 +278,159 @@ describe('target registry', () => {
   })
 })
 
+function svgElement(): SVGElement {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  document.body.append(node)
+  return node
+}
+
+describe('selection attribute', () => {
+  it('marks exactly the highlighted manual registration and clears it', () => {
+    const registry = createAiRegistry()
+    const first = element()
+    const second = element()
+    registry.register(first, target('a:devices:device:d1'))
+    registry.register(second, target('a:devices:device:d2'))
+
+    registry.highlight('a:devices:device:d1')
+    expect(first.hasAttribute('data-ai-selected')).toBe(true)
+    expect(second.hasAttribute('data-ai-selected')).toBe(false)
+
+    registry.highlight('a:devices:device:d2')
+    expect(first.hasAttribute('data-ai-selected')).toBe(false)
+    expect(second.hasAttribute('data-ai-selected')).toBe(true)
+
+    registry.clearHighlight()
+    expect(second.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('removes the attribute when the selected element unregisters', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    registry.register(node, target('a:devices:device:d1'))
+    registry.highlight('a:devices:device:d1')
+
+    registry.unregister(node)
+
+    expect(node.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('removes the attribute when the element moves to another id', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    registry.register(node, target('a:devices:device:d1'))
+    registry.highlight('a:devices:device:d1')
+
+    registry.register(node, target('a:devices:device:d2'))
+
+    expect(registry.selection()).toBeUndefined()
+    expect(node.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('removes the attribute after a failed highlight', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    registry.register(node, target('a:devices:device:d1'))
+    registry.highlight('a:devices:device:d1')
+
+    expect(registry.highlight('missing')).toBe(false)
+
+    expect(node.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('removes the attribute once a viewport change hides the segment and refresh runs', () => {
+    const { registry, set } = viewport({ wide: true, narrow: false })
+    const node = element()
+    registry.register(
+      node,
+      target('a:devices:device:desktop:d1', { segment: 'desktop' }),
+    )
+    registry.highlight('a:devices:device:desktop:d1')
+    expect(node.hasAttribute('data-ai-selected')).toBe(true)
+
+    set({ wide: false, narrow: true })
+    registry.refresh()
+
+    expect(node.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('keeps the selection and stays quiet when an equal target object registers', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    registry.register(node, target('a:devices:device:d1'))
+    registry.highlight('a:devices:device:d1')
+    const listener = vi.fn()
+    registry.subscribe(listener)
+
+    registry.register(node, target('a:devices:device:d1'))
+
+    expect(listener).not.toHaveBeenCalled()
+    expect(node.hasAttribute('data-ai-selected')).toBe(true)
+    expect(registry.selection()?.element).toBe(node)
+  })
+})
+
+describe('stored target metadata', () => {
+  it('notices an in-place edit of a registered target object', () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const edited = target('a:devices:device:d1', { context: { health: 'Up' } })
+    registry.register(node, edited)
+    const listener = vi.fn()
+    registry.subscribe(listener)
+
+    edited.label = 'renamed'
+    edited.context.health = 'Down'
+    registry.register(node, edited)
+
+    expect(listener).toHaveBeenCalledOnce()
+    expect(registry.list()[0]?.label).toBe('renamed')
+    expect(registry.list()[0]?.context).toEqual({ health: 'Down' })
+  })
+
+  it('does not follow a later edit until the target registers again', () => {
+    const registry = createAiRegistry()
+    const edited = target('a:devices:device:d1', { context: { health: 'Up' } })
+    registry.register(element(), edited)
+
+    edited.context.health = 'Down'
+
+    expect(registry.list()[0]?.context).toEqual({ health: 'Up' })
+  })
+})
+
+describe('SVG targets', () => {
+  it('lists, resolves, highlights, and unregisters an SVG element', () => {
+    const registry = createAiRegistry()
+    const chart = svgElement()
+    registry.register(chart, target('a:devices:chart:t1', { kind: 'chart' }))
+
+    expect(registry.list().map((item) => item.id)).toEqual([
+      'a:devices:chart:t1',
+    ])
+    expect(registry.idForElement(chart)).toBe('a:devices:chart:t1')
+    expect(registry.highlight('a:devices:chart:t1')).toBe(true)
+    expect(chart.hasAttribute('data-ai-selected')).toBe(true)
+    expect(registry.view('a:devices:chart:t1')?.element).toBe(chart)
+
+    registry.unregister(chart)
+    expect(registry.list()).toHaveLength(0)
+    expect(chart.hasAttribute('data-ai-selected')).toBe(false)
+  })
+
+  it('hides an SVG target inside a hidden HTML ancestor', () => {
+    const registry = createAiRegistry()
+    const wrapper = element()
+    const chart = svgElement()
+    wrapper.append(chart)
+    registry.register(chart, target('a:devices:chart:t1', { kind: 'chart' }))
+
+    wrapper.hidden = true
+
+    expect(registry.list()).toHaveLength(0)
+  })
+})
+
 describe('request snapshots and AiRun', () => {
   it('rejects synchronously when no handler is installed', () => {
     const registry = createAiRegistry()
@@ -398,6 +551,32 @@ describe('request snapshots and AiRun', () => {
 
     const run = registry.request(t, { action: 'summary', bound: true })
     registry.unregister(node)
+    resolveHandler?.(sampleSummary)
+
+    await expect(async () => {
+      for await (const snapshot of run.snapshots) {
+        void snapshot
+      }
+    }).rejects.toBeInstanceOf(AiStaleError)
+  })
+
+  it('ends a bound run on an SVG target as stale when another element takes its id', async () => {
+    const registry = createAiRegistry()
+    const chart = svgElement()
+    const t = target('a:devices:chart:t1', { kind: 'chart' })
+    registry.register(chart, t)
+
+    let resolveHandler: ((res: AiSummary) => void) | undefined
+    registry.onRequest(
+      () =>
+        new Promise<AiSummary>((resolve) => {
+          resolveHandler = resolve
+        }),
+    )
+
+    const run = registry.request(t, { action: 'summary', bound: true })
+    registry.unregister(chart)
+    registry.register(svgElement(), t)
     resolveHandler?.(sampleSummary)
 
     await expect(async () => {

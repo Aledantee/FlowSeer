@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n'
 import {
   aiActions,
   AiStaleError,
+  isAiTargetElement,
   type AiResult,
   type AiRun,
   type AiSeed,
   type AiTarget,
+  type AiTargetElement,
   type AiTargetSnapshot,
   type AiTargetView,
 } from '../../ai'
@@ -44,7 +46,7 @@ const verbs = ref<string[]>([])
 const menuOpen = ref(false)
 
 const popoverOpen = ref(false)
-const popoverReference = ref<HTMLElement>()
+const popoverReference = ref<AiTargetElement>()
 const currentRun = ref<AiRun>()
 const currentResult = ref<AiResult>()
 const resultState = ref<UiAiResultState>('idle')
@@ -52,7 +54,7 @@ const errorMessage = ref<string>()
 
 const closeSymbol = '\u00D7'
 
-let originElement: HTMLElement | undefined
+let originElement: AiTargetElement | undefined
 let preventMenuCloseAutoFocus = false
 let currentToken = 0
 
@@ -67,11 +69,18 @@ function toSnapshot(t: AiTarget): AiTargetSnapshot {
   }
 }
 
+function elementOf(node: Node | null): Element | null {
+  return node instanceof Element ? node : (node?.parentElement ?? null)
+}
+
+// Walks every Element ancestor, so a context event that starts on an SVG child
+// path still resolves the registered chart root.
 function nearTarget(node: Node | null): AiTargetView | undefined {
-  let element =
-    node instanceof HTMLElement ? node : (node?.parentElement ?? null)
+  let element = elementOf(node)
   while (element && layerRoot.value?.contains(element)) {
-    const id = registry.idForElement(element)
+    const id = isAiTargetElement(element)
+      ? registry.idForElement(element)
+      : undefined
     if (id) return registry.view(id)
     element = element.parentElement
   }
@@ -80,8 +89,7 @@ function nearTarget(node: Node | null): AiTargetView | undefined {
 
 function handleContextMenuCapture(event: MouseEvent) {
   const target = event.target as Node | null
-  const element =
-    target instanceof HTMLElement ? target : (target?.parentElement ?? null)
+  const element = elementOf(target)
 
   // 1. the event originates in a[href], input, textarea, select, or [contenteditable]
   if (element) {
@@ -117,7 +125,7 @@ function handleContextMenuCapture(event: MouseEvent) {
   }
 
   activeTarget.value = view.target
-  originElement = element ?? view.element
+  originElement = isAiTargetElement(element) ? element : view.element
   verbs.value = aiActions(view.target)
 }
 
@@ -129,10 +137,7 @@ function handleKeydown(event: KeyboardEvent) {
   if (!isShiftF10 && !isContextMenuKey) return
 
   const activeEl = document.activeElement
-  if (
-    !(activeEl instanceof HTMLElement) ||
-    !layerRoot.value?.contains(activeEl)
-  )
+  if (!isAiTargetElement(activeEl) || !layerRoot.value?.contains(activeEl))
     return
 
   const targetView = nearTarget(activeEl)

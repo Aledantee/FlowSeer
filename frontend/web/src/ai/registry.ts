@@ -5,14 +5,17 @@ import type {
   AiResult,
   AiRun,
   AiTarget,
+  AiTargetElement,
   AiTargetSegment,
   AiTargetSnapshot,
   AiTargetView,
   AiTurn,
 } from './types'
 
-// One registry per document. The directive writes into it as elements mount
-// and update; the window API and the on-screen action layer read from it.
+// One registry per document. Components write into it as elements mount and
+// update; the window API and the on-screen action layer read from it. The
+// registry also owns `data-ai-selected` on the element it highlights, so every
+// registered element, however it was registered, is marked the same way.
 // Duplicate IDs are invalid: the first registration of an ID wins, so a
 // second element cannot silently shadow the instance an agent selected.
 
@@ -56,11 +59,11 @@ export interface FeedbackPayload {
 }
 
 export interface AiRegistry {
-  register(element: HTMLElement, target: AiTarget): void
-  unregister(element: HTMLElement): void
+  register(element: AiTargetElement, target: AiTarget): void
+  unregister(element: AiTargetElement): void
   list(): AiTarget[]
   view(id: string): AiTargetView | undefined
-  idForElement(element: HTMLElement): string | undefined
+  idForElement(element: AiTargetElement): string | undefined
   highlight(id: string): boolean
   clearHighlight(): void
   selection(): AiTargetView | undefined
@@ -78,8 +81,28 @@ export interface AiRegistry {
 }
 
 interface Registration {
-  element: HTMLElement
+  element: AiTargetElement
   target: AiTarget
+}
+
+// Components resolve their anchor from a ref or a forwarded component root,
+// so the value is checked before it reaches the registry.
+export function isAiTargetElement(node: unknown): node is AiTargetElement {
+  return node instanceof HTMLElement || node instanceof SVGElement
+}
+
+// A caller may edit its target object in place. The registry keeps its own
+// copy so the next registration is compared with what it last held.
+export function cloneAiTarget(target: AiTarget): AiTarget {
+  return {
+    id: target.id,
+    kind: target.kind,
+    ...(target.view !== undefined ? { view: target.view } : {}),
+    label: target.label,
+    context: { ...target.context },
+    ...(target.entity ? { entity: { ...target.entity } } : {}),
+    ...(target.segment ? { segment: target.segment } : {}),
+  }
 }
 
 function defaultViewport(): AiViewport {
@@ -87,13 +110,9 @@ function defaultViewport(): AiViewport {
   return { wide, narrow: !wide }
 }
 
-function isHidden(element: HTMLElement): boolean {
-  for (
-    let node: HTMLElement | null = element;
-    node;
-    node = node.parentElement
-  ) {
-    if (node.hidden) return true
+function isHidden(element: AiTargetElement): boolean {
+  for (let node: Element | null = element; node; node = node.parentElement) {
+    if ('hidden' in node && node.hidden === true) return true
     const win = node.ownerDocument?.defaultView ?? window
     const style = win.getComputedStyle(node)
     if (
@@ -106,7 +125,7 @@ function isHidden(element: HTMLElement): boolean {
   return false
 }
 
-// A view hands the directive a fresh target object on every render. When
+// A view hands a component a fresh target object on every render. When
 // nothing but the object identity changed, re-registering it must not wake
 // every listener, or a live value like traffic would churn the action layer.
 function sameTarget(a: AiTarget, b: AiTarget): boolean {
@@ -142,11 +161,23 @@ function nextRequestId(targetId: string): string {
 export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
   const viewportOf = options.viewport ?? defaultViewport
   const byId = new Map<string, Registration>()
-  const byElement = new Map<HTMLElement, string>()
+  const byElement = new Map<AiTargetElement, string>()
   const listeners = new Set<() => void>()
   const feedbackListeners = new Set<(payload: FeedbackPayload) => void>()
   let handler: AiHandler | undefined
   let highlighted: string | undefined
+  let marked: AiTargetElement | undefined
+
+  // The attribute follows the selection and nothing else: it sits on the
+  // element of the highlighted registration and is removed from any other.
+  function syncSelection() {
+    const next =
+      highlighted === undefined ? undefined : byId.get(highlighted)?.element
+    if (marked === next) return
+    marked?.removeAttribute('data-ai-selected')
+    next?.setAttribute('data-ai-selected', '')
+    marked = next
+  }
 
   function notify() {
     for (const listener of [...listeners]) listener()
@@ -172,9 +203,10 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     byId.delete(id)
     byElement.delete(registration.element)
     if (highlighted === id) highlighted = undefined
+    syncSelection()
   }
 
-  function register(element: HTMLElement, target: AiTarget) {
+  function register(element: AiTargetElement, target: AiTarget) {
     const held = byElement.get(element)
     if (held && held !== target.id) removeId(held)
     const existing = byId.get(target.id)
@@ -185,24 +217,24 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
       return
     }
     if (existing && existing.element === element) {
-      const changed = !sameTarget(existing.target, target)
-      existing.target = target
-      if (changed) notify()
+      if (sameTarget(existing.target, target)) return
+      existing.target = cloneAiTarget(target)
+      notify()
       return
     }
-    byId.set(target.id, { element, target })
+    byId.set(target.id, { element, target: cloneAiTarget(target) })
     byElement.set(element, target.id)
     notify()
   }
 
-  function unregister(element: HTMLElement) {
+  function unregister(element: AiTargetElement) {
     const held = byElement.get(element)
     if (!held) return
     removeId(held)
     notify()
   }
 
-  function idForElement(element: HTMLElement): string | undefined {
+  function idForElement(element: AiTargetElement): string | undefined {
     const id = byElement.get(element)
     if (id === undefined) return undefined
     const registration = byId.get(id)
@@ -221,12 +253,14 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     if (!targetView) {
       if (highlighted !== undefined) {
         highlighted = undefined
+        syncSelection()
         notify()
       }
       return false
     }
     if (highlighted !== id) {
       highlighted = id
+      syncSelection()
       notify()
     }
     targetView.element.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -236,6 +270,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
   function clearHighlight() {
     if (highlighted === undefined) return
     highlighted = undefined
+    syncSelection()
     notify()
   }
 
@@ -244,6 +279,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
     const current = view(highlighted)
     if (!current) {
       highlighted = undefined
+      syncSelection()
       notify()
       return undefined
     }
@@ -288,7 +324,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
   ): AiRun {
     const targetList = Array.isArray(targets) ? targets : [targets]
     const isBound = requestOptions.bound ?? false
-    const boundElements: HTMLElement[] = []
+    const boundElements: AiTargetElement[] = []
 
     if (isBound) {
       for (const t of targetList) {

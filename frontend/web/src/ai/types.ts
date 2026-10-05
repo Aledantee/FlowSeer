@@ -120,9 +120,13 @@ export type AiHandler = (
   request: AiRequest,
 ) => Promise<AiResult | string> | AsyncIterable<AiResult> | AiResult | string
 
+// The DOM node a target stands for. An SVG root such as a sparkline is as
+// valid an anchor as an HTML element.
+export type AiTargetElement = HTMLElement | SVGElement
+
 export interface AiTargetView {
   target: AiTarget
-  element: HTMLElement
+  element: AiTargetElement
 }
 
 export type AiRequestKind = 'ask' | 'summary'
