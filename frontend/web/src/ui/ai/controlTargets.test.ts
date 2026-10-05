@@ -883,6 +883,39 @@ describe('origin acknowledgement of a control', () => {
     },
   )
 
+  it('acknowledges an open select origin from a pointer-only pick and leaves a sibling alone', async () => {
+    const states = reactive({
+      a: request('ra') as AiOriginRequest | undefined,
+      b: request('rb') as AiOriginRequest | undefined,
+    })
+    const acks: string[] = []
+    const select = (id: 'a' | 'b', open: boolean) =>
+      h(UiSelect, {
+        id,
+        options,
+        defaultOpen: open,
+        ai: target(`${id}-target`),
+        aiOrigin: states[id],
+        onAiOriginAcknowledged: (requestId: string) => {
+          acks.push(requestId)
+          states[id] = undefined
+        },
+      })
+    mount(() => h('div', [select('a', true), select('b', false)]))
+    await settle()
+    const markers = () => document.querySelectorAll('[data-ai-origin]').length
+    expect(markers()).toBe(2)
+
+    const choice = option('Beta')
+    choice.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    choice.dispatchEvent(new Event('pointerup', { bubbles: true }))
+    await settle()
+
+    expect(acks).toEqual(['ra'])
+    expect(states.b?.requestId).toBe('rb')
+    expect(markers()).toBe(1)
+  })
+
   it('keeps a combobox trigger value away from a portal interaction of another value once it acknowledged', async () => {
     const acks: string[] = []
     mount(() =>
