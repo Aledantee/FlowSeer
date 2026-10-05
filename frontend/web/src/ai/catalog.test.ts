@@ -186,6 +186,13 @@ describe('validateAiUiTree', () => {
       },
     ],
     [
+      'a proposal intent with a target',
+      {
+        text: 'Review',
+        intent: { type: 'propose', target: { path: '/devices' } },
+      },
+    ],
+    [
       'an external path',
       {
         text: 'Open',
@@ -295,5 +302,31 @@ describe('validateAiUiTree', () => {
     expect(copy).not.toBe(input)
     expect(copy[0]).not.toBe(input[0])
     expect(copy[0]?.props).not.toBe(input[0]?.props)
+  })
+
+  it('copies an accessor prop before validating it', () => {
+    let reads = 0
+    const props: Record<string, unknown> = {}
+    Object.defineProperty(props, 'text', {
+      enumerable: true,
+      get: () => (reads++ === 0 ? 'ok' : () => ''),
+    })
+
+    const copy = validateAiUiTree([{ component: 'UiBadge', props }])
+
+    expect(copy[0]?.props.text).toBe('ok')
+  })
+
+  it('copies an accessor component before validating it', () => {
+    let reads = 0
+    const input: Record<string, unknown> = { props: { text: 'ok' } }
+    Object.defineProperty(input, 'component', {
+      enumerable: true,
+      get: () => (reads++ === 0 ? 'UiBadge' : 'div'),
+    })
+
+    const copy = validateAiUiTree([input])
+
+    expect(copy[0]?.component).toBe('UiBadge')
   })
 })

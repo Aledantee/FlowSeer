@@ -1,5 +1,5 @@
 import { isPagePath } from '../navigation/page'
-import type { AiEntityRef, AiUiIntent, AiUiNode } from './types'
+import type { AiUiNode } from './types'
 import { validateEntityRef } from './validate'
 
 export const AI_UI_ERROR_MESSAGE =
@@ -93,11 +93,10 @@ function catalogEntry(
   }
 }
 
-function validateEntity(value: unknown): AiEntityRef {
+function validateEntity(value: unknown): void {
   if (!isPlainObject(value) || !hasOnlyKeys(value, ENTITY_KEYS)) fail()
-  let entity: AiEntityRef
   try {
-    entity = validateEntityRef(value)
+    validateEntityRef(value)
   } catch {
     fail()
   }
@@ -111,14 +110,10 @@ function validateEntity(value: unknown): AiEntityRef {
   if (value.kind === 'device' && !isPagePath(`/devices/${value.id}`)) {
     fail()
   }
-  return entity
 }
 
-function validateQuery(value: unknown): Record<string, string> {
+function validateQuery(value: unknown): void {
   if (!isPlainObject(value)) fail()
-  const query: Record<string, string> = Object.create(
-    Object.getPrototypeOf(value),
-  )
   for (const key of Reflect.ownKeys(value)) {
     const queryValue = typeof key === 'string' ? value[key] : undefined
     if (
@@ -128,12 +123,10 @@ function validateQuery(value: unknown): Record<string, string> {
     ) {
       fail()
     }
-    defineValue(query, key, queryValue)
   }
-  return query
 }
 
-function validateIntent(value: unknown): AiUiIntent {
+function validateIntent(value: unknown): void {
   if (!isPlainObject(value) || !hasOnlyKeys(value, INTENT_KEYS)) fail()
   if (value.type !== 'navigate' || !isPlainObject(value.target)) fail()
   if (!hasOnlyKeys(value.target, TARGET_KEYS)) fail()
@@ -141,14 +134,11 @@ function validateIntent(value: unknown): AiUiIntent {
   const hasPath = Object.hasOwn(value.target, 'path')
   const hasQuery = Object.hasOwn(value.target, 'query')
   if (!hasPath && !hasQuery) fail()
-  const target: AiUiIntent['target'] = {}
   const path = value.target.path
   if (hasPath) {
     if (!isBoundedString(path) || !isPagePath(path)) fail()
-    target.path = path
   }
-  if (hasQuery) target.query = validateQuery(value.target.query)
-  return { type: 'navigate', target }
+  if (hasQuery) validateQuery(value.target.query)
 }
 
 export const AI_UI_CATALOG: Record<string, AiUiCatalogEntry> = {
@@ -269,7 +259,11 @@ export const AI_UI_CATALOG: Record<string, AiUiCatalogEntry> = {
   }),
 }
 
-function defineValue(target: AiUiProps, key: string, value: unknown): void {
+function defineValue(
+  target: AiUiProps,
+  key: PropertyKey,
+  value: unknown,
+): void {
   Object.defineProperty(target, key, {
     configurable: true,
     enumerable: true,
@@ -278,27 +272,45 @@ function defineValue(target: AiUiProps, key: string, value: unknown): void {
   })
 }
 
-function copyEntity(value: AiEntityRef): AiEntityRef {
-  return { kind: value.kind, id: value.id, label: value.label }
+function copyEntityValue(value: unknown): unknown {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ENTITY_KEYS)) return value
+  const kind = value.kind
+  const id = value.id
+  const label = value.label
+  return { kind, id, label }
 }
 
-function copyQuery(value: Record<string, string>): Record<string, string> {
-  const copy: Record<string, string> = Object.create(
-    Object.getPrototypeOf(value),
-  )
-  for (const key of Reflect.ownKeys(value)) {
-    if (typeof key === 'string') defineValue(copy, key, value[key])
+function copyQueryValue(value: unknown): unknown {
+  if (!isPlainObject(value)) return value
+  const keys = Reflect.ownKeys(value)
+  const copy = Object.create(Object.getPrototypeOf(value)) as AiUiProps
+  for (const key of keys) {
+    const queryValue = Reflect.get(value, key)
+    defineValue(copy, key, queryValue)
   }
   return copy
 }
 
-function copyIntent(value: AiUiIntent): AiUiIntent {
-  const target: AiUiIntent['target'] = {}
-  if (value.target.path !== undefined) target.path = value.target.path
-  if (value.target.query !== undefined) {
-    target.query = copyQuery(value.target.query)
+function copyIntentValue(value: unknown): unknown {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, INTENT_KEYS)) return value
+  const type = value.type
+  const targetValue = value.target
+  if (!isPlainObject(targetValue) || !hasOnlyKeys(targetValue, TARGET_KEYS)) {
+    return value
   }
-  return { type: 'navigate', target }
+  const target = Object.create(Object.getPrototypeOf(targetValue)) as AiUiProps
+  if (Object.hasOwn(targetValue, 'path')) {
+    const path = targetValue.path
+    defineValue(target, 'path', path)
+  }
+  if (Object.hasOwn(targetValue, 'query')) {
+    const query = targetValue.query
+    defineValue(target, 'query', copyQueryValue(query))
+  }
+  const copy = Object.create(Object.getPrototypeOf(value)) as AiUiProps
+  defineValue(copy, 'type', type)
+  defineValue(copy, 'target', target)
+  return copy
 }
 
 function copyProps(component: string, props: AiUiProps): AiUiProps {
@@ -309,9 +321,9 @@ function copyProps(component: string, props: AiUiProps): AiUiProps {
     if (!Object.hasOwn(props, key)) continue
     let value = props[key]
     if (component === 'UiAiEntityChip' && key === 'entity') {
-      value = copyEntity(validateEntity(value))
+      value = copyEntityValue(value)
     } else if (component === 'UiButton' && key === 'intent') {
-      value = copyIntent(validateIntent(value))
+      value = copyIntentValue(value)
     }
     defineValue(copy, key, value)
   }
@@ -330,22 +342,34 @@ function validateNode(
   ) {
     fail()
   }
-  if (!isBoundedString(value.component)) fail()
-  const catalogEntryValue = Object.hasOwn(AI_UI_CATALOG, value.component)
-    ? AI_UI_CATALOG[value.component]
+  const component = value.component
+  if (!isBoundedString(component)) fail()
+  const catalogEntryValue = Object.hasOwn(AI_UI_CATALOG, component)
+    ? AI_UI_CATALOG[component]
     : undefined
   if (!catalogEntryValue || !Object.hasOwn(value, 'props')) fail()
   const props = value.props
   if (!isPlainObject(props)) fail()
-  catalogEntryValue.validate(props)
+  if (
+    !hasOnlyKeys(
+      props,
+      CATALOG_PROP_KEYS[component as keyof typeof CATALOG_PROP_KEYS],
+    )
+  ) {
+    fail()
+  }
+  const copiedProps = copyProps(component, props)
+  catalogEntryValue.validate(copiedProps)
 
   const copy: AiUiNode = {
-    component: value.component,
-    props: copyProps(value.component, props),
+    component,
+    props: copiedProps,
   }
-  if (Object.hasOwn(value, 'children')) {
-    if (!catalogEntryValue.children || !Array.isArray(value.children)) fail()
-    copy.children = value.children.map((child) =>
+  const hasChildren = Object.hasOwn(value, 'children')
+  const children = hasChildren ? value.children : undefined
+  if (hasChildren) {
+    if (!catalogEntryValue.children || !Array.isArray(children)) fail()
+    copy.children = children.map((child) =>
       validateNode(child, depth + 1, count),
     )
   }
