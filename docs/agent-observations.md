@@ -73,3 +73,8 @@ Suggested change: run the branch-side phase fixture over three frontmatter
 states with `subTest` (`review: rework`, `review: accept` with compound, and
 no review), and add a `review: rework` companion to
 `test_sent_back_phase_waits_for_an_unlanded_prerequisite`.
+
+## 2026-10-05 web-component: the i18n and AI reference still says the catalog has not landed
+Skill or agent: `.agents/skills/web-component/references/i18n-and-ai.md`, lines 4 to 17.
+What happened: the reference says "The generative UI catalog has not, so check what exists" and carries a section "While the AI migration has not landed". `frontend/web/src/ai/catalog.ts` and `frontend/web/src/ui/ai/UiAiRender.vue` now exist. The migration's parent plan asked for the interim rules to go as their migration landed, and no phase unit named this file.
+Suggested change: delete the check and the interim section, and state that the catalog is in `src/ai/catalog.ts` and rendered by `UiAiRender`.
