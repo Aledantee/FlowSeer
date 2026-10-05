@@ -171,6 +171,8 @@ export type {
   UiAiAssistantLabels,
   UiAiAssistantProps,
 } from './ai/UiAiAssistant.vue'
+export { default as UiAiRender, AI_UI_COMPONENTS } from './ai/UiAiRender.vue'
+export type { UiAiRenderProps } from './ai/UiAiRender.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {
