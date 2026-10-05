@@ -34,6 +34,13 @@ const VIEWS: PageView[] = [
   'sites',
   'topology',
 ]
+export function isPagePath(path: string): boolean {
+  return (
+    VIEWS.some((view) => path === `/${view}`) ||
+    /^\/devices\/[^/?#]+$/.test(path)
+  )
+}
+
 export function viewOf(path: string): { view: PageView; deviceId?: string } {
   const device = /^\/devices\/([^/]+)$/.exec(path)
   if (device?.[1]) {

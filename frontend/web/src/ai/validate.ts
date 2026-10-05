@@ -40,7 +40,7 @@ function isString(value: unknown): value is string {
   return typeof value === 'string'
 }
 
-function validateEntityRef(value: unknown): AiEntityRef {
+export function validateEntityRef(value: unknown): AiEntityRef {
   if (!isObject(value)) fail()
   if (
     !isString(value.kind) ||

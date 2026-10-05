@@ -33,8 +33,18 @@ export {
   validateAiResult,
   validateAiSummary,
   validateAiAnswer,
+  validateEntityRef,
   AI_VALIDATION_ERROR_MESSAGE,
 } from './validate'
+export {
+  AI_UI_CATALOG,
+  AI_UI_ERROR_MESSAGE,
+  AI_UI_MAX_DEPTH,
+  AI_UI_MAX_NODES,
+  AI_UI_MAX_STRING_LENGTH,
+  validateAiUiTree,
+} from './catalog'
+export { isPagePath } from '../navigation/page'
 export type { FlowSeerAi } from './window'
 export {
   aiTarget,
@@ -70,4 +80,7 @@ export type {
   AiTargetView,
   AiTone,
   AiTurn,
+  AiUiIntent,
+  AiUiNavigateIntent,
+  AiUiNode,
 } from './types'

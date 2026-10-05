@@ -1,0 +1,359 @@
+import { isPagePath } from '../navigation/page'
+import type { AiEntityRef, AiUiIntent, AiUiNode } from './types'
+import { validateEntityRef } from './validate'
+
+export const AI_UI_ERROR_MESSAGE =
+  'FlowSeer cannot show this part of the answer.'
+export const AI_UI_MAX_NODES = 64
+export const AI_UI_MAX_DEPTH = 4
+export const AI_UI_MAX_STRING_LENGTH = 500
+
+type AiUiProps = Record<string, unknown>
+
+export interface AiUiCatalogEntry {
+  children: boolean
+  validate: (props: AiUiProps) => void
+}
+
+const CATALOG_PROP_KEYS = {
+  UiCard: ['as'],
+  UiBadge: ['text', 'variant', 'size'],
+  UiStatusBadge: ['status', 'label', 'size'],
+  UiMetricCard: ['label', 'value', 'unit'],
+  UiMeter: ['label', 'value', 'min', 'max', 'unit', 'detail', 'tone'],
+  UiProgress: [
+    'modelValue',
+    'max',
+    'size',
+    'variant',
+    'ariaLabel',
+    'valueText',
+  ],
+  UiSeparator: ['orientation', 'decorative'],
+  UiEmptyState: ['title', 'description'],
+  UiAiEntityChip: ['entity', 'size'],
+  UiButton: ['text', 'intent', 'variant', 'size'],
+} as const satisfies Record<string, readonly string[]>
+
+const ENTITY_KEYS = ['kind', 'id', 'label'] as const
+const INTENT_KEYS = ['type', 'target'] as const
+const TARGET_KEYS = ['path', 'query'] as const
+
+function fail(): never {
+  throw new Error(AI_UI_ERROR_MESSAGE)
+}
+
+function isPlainObject(value: unknown): value is AiUiProps {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return false
+  }
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
+
+function hasOnlyKeys(value: object, allowed: readonly string[]): boolean {
+  const allowedKeys = new Set(allowed)
+  return Reflect.ownKeys(value).every(
+    (key) => typeof key === 'string' && allowedKeys.has(key),
+  )
+}
+
+function isBoundedString(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= AI_UI_MAX_STRING_LENGTH
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isOneOf(value: unknown, choices: readonly string[]): value is string {
+  return typeof value === 'string' && choices.includes(value)
+}
+
+function optionalString(value: unknown): void {
+  if (value !== undefined && !isBoundedString(value)) fail()
+}
+
+function optionalFiniteNumber(value: unknown): void {
+  if (value !== undefined && !isFiniteNumber(value)) fail()
+}
+
+function catalogEntry(
+  component: keyof typeof CATALOG_PROP_KEYS,
+  children: boolean,
+  validateValues: (props: AiUiProps) => void,
+): AiUiCatalogEntry {
+  const allowedKeys = CATALOG_PROP_KEYS[component]
+  return {
+    children,
+    validate: (props) => {
+      if (!isPlainObject(props) || !hasOnlyKeys(props, allowedKeys)) fail()
+      validateValues(props)
+    },
+  }
+}
+
+function validateEntity(value: unknown): AiEntityRef {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, ENTITY_KEYS)) fail()
+  let entity: AiEntityRef
+  try {
+    entity = validateEntityRef(value)
+  } catch {
+    fail()
+  }
+  if (
+    !isBoundedString(value.kind) ||
+    !isBoundedString(value.id) ||
+    !isBoundedString(value.label)
+  ) {
+    fail()
+  }
+  if (value.kind === 'device' && !isPagePath(`/devices/${value.id}`)) {
+    fail()
+  }
+  return entity
+}
+
+function validateQuery(value: unknown): Record<string, string> {
+  if (!isPlainObject(value)) fail()
+  const query: Record<string, string> = Object.create(
+    Object.getPrototypeOf(value),
+  )
+  for (const key of Reflect.ownKeys(value)) {
+    const queryValue = typeof key === 'string' ? value[key] : undefined
+    if (
+      typeof key !== 'string' ||
+      !isBoundedString(key) ||
+      !isBoundedString(queryValue)
+    ) {
+      fail()
+    }
+    defineValue(query, key, queryValue)
+  }
+  return query
+}
+
+function validateIntent(value: unknown): AiUiIntent {
+  if (!isPlainObject(value) || !hasOnlyKeys(value, INTENT_KEYS)) fail()
+  if (value.type !== 'navigate' || !isPlainObject(value.target)) fail()
+  if (!hasOnlyKeys(value.target, TARGET_KEYS)) fail()
+
+  const hasPath = Object.hasOwn(value.target, 'path')
+  const hasQuery = Object.hasOwn(value.target, 'query')
+  if (!hasPath && !hasQuery) fail()
+  const target: AiUiIntent['target'] = {}
+  const path = value.target.path
+  if (hasPath) {
+    if (!isBoundedString(path) || !isPagePath(path)) fail()
+    target.path = path
+  }
+  if (hasQuery) target.query = validateQuery(value.target.query)
+  return { type: 'navigate', target }
+}
+
+export const AI_UI_CATALOG: Record<string, AiUiCatalogEntry> = {
+  UiCard: catalogEntry('UiCard', true, (props) => {
+    optionalString(props.as)
+    if (
+      props.as !== undefined &&
+      !isOneOf(props.as, ['div', 'article', 'section'])
+    ) {
+      fail()
+    }
+  }),
+  UiBadge: catalogEntry('UiBadge', false, (props) => {
+    if (!isBoundedString(props.text)) fail()
+    optionalString(props.variant)
+    if (
+      props.variant !== undefined &&
+      !isOneOf(props.variant, [
+        'default',
+        'outline',
+        'primary',
+        'accent',
+        'success',
+        'warning',
+        'danger',
+        'info',
+      ])
+    ) {
+      fail()
+    }
+    optionalString(props.size)
+    if (props.size !== undefined && !isOneOf(props.size, ['sm', 'md'])) fail()
+  }),
+  UiStatusBadge: catalogEntry('UiStatusBadge', false, (props) => {
+    if (!isOneOf(props.status, ['Healthy', 'Degraded', 'Offline'])) fail()
+    optionalString(props.label)
+    optionalString(props.size)
+    if (props.size !== undefined && !isOneOf(props.size, ['sm', 'md'])) fail()
+  }),
+  UiMetricCard: catalogEntry('UiMetricCard', false, (props) => {
+    if (!isBoundedString(props.label) || !isFiniteNumber(props.value)) fail()
+    optionalString(props.unit)
+  }),
+  UiMeter: catalogEntry('UiMeter', false, (props) => {
+    if (!isBoundedString(props.label) || !isFiniteNumber(props.value)) fail()
+    optionalFiniteNumber(props.min)
+    optionalFiniteNumber(props.max)
+    optionalString(props.unit)
+    optionalString(props.detail)
+    optionalString(props.tone)
+    if (
+      props.tone !== undefined &&
+      !isOneOf(props.tone, ['normal', 'warning', 'critical', 'auto'])
+    ) {
+      fail()
+    }
+  }),
+  UiProgress: catalogEntry('UiProgress', false, (props) => {
+    optionalFiniteNumber(props.modelValue)
+    optionalFiniteNumber(props.max)
+    optionalString(props.size)
+    if (props.size !== undefined && !isOneOf(props.size, ['sm', 'md', 'lg'])) {
+      fail()
+    }
+    optionalString(props.variant)
+    if (
+      props.variant !== undefined &&
+      !isOneOf(props.variant, [
+        'default',
+        'accent',
+        'success',
+        'warning',
+        'danger',
+      ])
+    ) {
+      fail()
+    }
+    optionalString(props.ariaLabel)
+    optionalString(props.valueText)
+  }),
+  UiSeparator: catalogEntry('UiSeparator', false, (props) => {
+    optionalString(props.orientation)
+    if (
+      props.orientation !== undefined &&
+      !isOneOf(props.orientation, ['horizontal', 'vertical'])
+    ) {
+      fail()
+    }
+    if (
+      props.decorative !== undefined &&
+      typeof props.decorative !== 'boolean'
+    ) {
+      fail()
+    }
+  }),
+  UiEmptyState: catalogEntry('UiEmptyState', false, (props) => {
+    if (!isBoundedString(props.title)) fail()
+    optionalString(props.description)
+  }),
+  UiAiEntityChip: catalogEntry('UiAiEntityChip', false, (props) => {
+    if (!Object.hasOwn(props, 'entity')) fail()
+    validateEntity(props.entity)
+    optionalString(props.size)
+    if (props.size !== undefined && !isOneOf(props.size, ['sm', 'md'])) fail()
+  }),
+  UiButton: catalogEntry('UiButton', false, (props) => {
+    if (!isBoundedString(props.text) || !Object.hasOwn(props, 'intent')) fail()
+    validateIntent(props.intent)
+    optionalString(props.variant)
+    if (
+      props.variant !== undefined &&
+      !isOneOf(props.variant, ['primary', 'secondary', 'ghost', 'danger'])
+    ) {
+      fail()
+    }
+    optionalString(props.size)
+    if (props.size !== undefined && !isOneOf(props.size, ['sm', 'md'])) fail()
+  }),
+}
+
+function defineValue(target: AiUiProps, key: string, value: unknown): void {
+  Object.defineProperty(target, key, {
+    configurable: true,
+    enumerable: true,
+    value,
+    writable: true,
+  })
+}
+
+function copyEntity(value: AiEntityRef): AiEntityRef {
+  return { kind: value.kind, id: value.id, label: value.label }
+}
+
+function copyQuery(value: Record<string, string>): Record<string, string> {
+  const copy: Record<string, string> = Object.create(
+    Object.getPrototypeOf(value),
+  )
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key === 'string') defineValue(copy, key, value[key])
+  }
+  return copy
+}
+
+function copyIntent(value: AiUiIntent): AiUiIntent {
+  const target: AiUiIntent['target'] = {}
+  if (value.target.path !== undefined) target.path = value.target.path
+  if (value.target.query !== undefined) {
+    target.query = copyQuery(value.target.query)
+  }
+  return { type: 'navigate', target }
+}
+
+function copyProps(component: string, props: AiUiProps): AiUiProps {
+  const copy = Object.create(Object.getPrototypeOf(props)) as AiUiProps
+  for (const key of CATALOG_PROP_KEYS[
+    component as keyof typeof CATALOG_PROP_KEYS
+  ]) {
+    if (!Object.hasOwn(props, key)) continue
+    let value = props[key]
+    if (component === 'UiAiEntityChip' && key === 'entity') {
+      value = copyEntity(validateEntity(value))
+    } else if (component === 'UiButton' && key === 'intent') {
+      value = copyIntent(validateIntent(value))
+    }
+    defineValue(copy, key, value)
+  }
+  return copy
+}
+
+function validateNode(
+  value: unknown,
+  depth: number,
+  count: { value: number },
+): AiUiNode {
+  if (++count.value > AI_UI_MAX_NODES || depth > AI_UI_MAX_DEPTH) fail()
+  if (
+    !isPlainObject(value) ||
+    !hasOnlyKeys(value, ['component', 'props', 'children'])
+  ) {
+    fail()
+  }
+  if (!isBoundedString(value.component)) fail()
+  const catalogEntryValue = Object.hasOwn(AI_UI_CATALOG, value.component)
+    ? AI_UI_CATALOG[value.component]
+    : undefined
+  if (!catalogEntryValue || !Object.hasOwn(value, 'props')) fail()
+  const props = value.props
+  if (!isPlainObject(props)) fail()
+  catalogEntryValue.validate(props)
+
+  const copy: AiUiNode = {
+    component: value.component,
+    props: copyProps(value.component, props),
+  }
+  if (Object.hasOwn(value, 'children')) {
+    if (!catalogEntryValue.children || !Array.isArray(value.children)) fail()
+    copy.children = value.children.map((child) =>
+      validateNode(child, depth + 1, count),
+    )
+  }
+  return copy
+}
+
+export function validateAiUiTree(value: unknown): AiUiNode[] {
+  if (!Array.isArray(value)) fail()
+  const count = { value: 0 }
+  return value.map((nodeValue) => validateNode(nodeValue, 1, count))
+}
