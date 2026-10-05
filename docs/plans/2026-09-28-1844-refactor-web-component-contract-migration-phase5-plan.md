@@ -62,6 +62,25 @@ changing its DOM semantics or transferring ownership from its caller.
   2.10.5's `Primitive/Primitive.js`, `Primitive/Slot.js`,
   `shared/useForwardExpose.js`, and `ScrollArea/ScrollAreaViewport.js`.
   Versions come from `frontend/web/pnpm-lock.yaml`.
+- Ruled: `UiAiProps`, `UiAiEmits`, and `AiOriginRequest` live in
+  `src/ui/ai/context.ts`, and nested origins acknowledge independently. Why:
+  the plan named no file, and an inner value's interaction is not the outer
+  value's. Cost if wrong: an import path and one composable branch.
+- Ruled: the story audit's highlighted-element check accepts an SVG target
+  together with the display components, ahead of the story unit. Why: the
+  sparkline registers its SVG root, so the audit is red from that change
+  until the check widens. Cost if wrong: one assertion in
+  `src/ui/a11y.test.ts`.
+- Ruled: popups register through a render-less `PopupAnchor` placed first in
+  their content (`src/ui/popover/popupAnchor.ts`). Why: in Reka 2.10.5,
+  context-menu content and toast roots stay mounted and swap content through
+  their own presence, and dropdown and popover content expose the popper
+  wrapper. Cost if wrong: one component and eight popup templates.
+- Ruled: text controls (input, textarea, combobox input) keep the native
+  context menu, so their AgentChanged stories show origin without a target.
+  Why: `UiAiContextLayer` leaves editable targets to the browser menu, and a
+  registered target there fails the audit's context-menu check. Cost if
+  wrong: three stories and the audit's text-control case.
 
 Paths starting with `src/` or `.storybook/` below are under `frontend/web/`.
 
