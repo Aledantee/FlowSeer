@@ -45,6 +45,12 @@ type linkRecord struct {
 	mdelayWhile    time.Time
 	edgeDelayWhile time.Time
 
+	// tcAck is the acknowledgment the next Configuration BPDU on the port
+	// carries once. A topology change notification received on a Designated
+	// port sets it, and one transmission of a Configuration or RST BPDU
+	// clears it (IEEE Std 802.1Q-2003 Figure 13-13 and Figure 13-19).
+	tcAck bool
+
 	rxBPDUs  uint64
 	badBPDUs uint64
 }
@@ -92,6 +98,15 @@ type portState struct {
 
 	fwdDelayTimer time.Time
 
+	// tcWhile is the port's topology change timer for this tree, running
+	// while it is after the current time. tcActive marks the port as part of
+	// the tree's active topology for topology change: a non-edge Root or
+	// Designated port that started forwarding and has not lost the role. Only
+	// an active port acts on a received topology change (IEEE Std
+	// 802.1Q-2003 Figure 13-19).
+	tcWhile  time.Time
+	tcActive bool
+
 	rcvInfoValid    bool
 	rcvRootID       bpdu.BridgeID
 	rcvRootPathCost uint32
@@ -131,6 +146,14 @@ type portTx struct {
 	tick              time.Time
 	pendingDesignated bool
 	pendingAgreement  bool
+
+	// pendingTopology holds a Root port's topology change transmission the
+	// budget refused. topologyOwed marks one the call in progress still has to
+	// send: a timer started on a Root port, which sends when it starts. Any
+	// emission on the key clears it, since every BPDU carries the flag from the
+	// timers running at that moment.
+	pendingTopology bool
+	topologyOwed    bool
 }
 
 func (tx *portTx) clone() *portTx {

@@ -25,10 +25,10 @@ func (l *Layer) NextWake() (time.Time, bool) {
 
 	for _, t := range l.trees {
 		update(t.helloTimer)
-		update(t.topologyChangeTimer)
 
 		for _, p := range t.ports {
 			update(p.fwdDelayTimer)
+			update(p.tcWhile)
 			if p.rcvInfoValid {
 				update(p.rcvTime.Add(3 * p.rcvHelloTime))
 			}
@@ -41,7 +41,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 				update(lk.edgeDelayWhile)
 			}
 			tx := l.tx(t, p.name)
-			if (tx.pendingAgreement || tx.pendingDesignated) && !tx.tick.IsZero() {
+			if (tx.pendingAgreement || tx.pendingDesignated || tx.pendingTopology) && !tx.tick.IsZero() {
 				update(tx.tick)
 			}
 		}
@@ -66,9 +66,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			p.state == StateDiscarding && lk.pointToPoint && p.proposing &&
 			!lk.edgeDelayWhile.IsZero() && !lk.edgeDelayWhile.After(now) {
 			// edge is on the link record, so an MSTI port reaches Forwarding
-			// at the same wake as the CIST's through the recompute below, or
-			// it would raise a topology change of its own for a flush
-			// auto-edge exists to prevent.
+			// at the same wake as the CIST's through the recompute below, and
+			// no tree counts the port as active.
 			lk.edge = true
 			lk.edgeDelayWhile = time.Time{}
 			p.state = StateForwarding
@@ -112,6 +111,12 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					l.emit(mt, p, now, emissionDesignated, &emissions)
 				}
 			}
+			if tx.pendingTopology {
+				tx.pendingTopology = false
+				if l.rootReports(mt, name, now) {
+					l.emit(mt, p, now, emissionTopology, &emissions)
+				}
+			}
 		}
 
 		if mt.helloTimer.IsZero() || mt.helloTimer.After(now) {
@@ -120,8 +125,16 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		mt.helloTimer = now.Add(l.helloTime)
 		for _, name := range l.portNames {
 			p, ok := mt.ports[name]
-			if ok && l.link(name).up && p.role == bpdu.RoleDesignated {
+			if !ok || !l.link(name).up {
+				continue
+			}
+			// A Root port repeats a running topology change at each hello,
+			// where a Designated port sends its ordinary hello.
+			switch {
+			case p.role == bpdu.RoleDesignated:
 				l.emit(mt, p, now, emissionDesignated, &emissions)
+			case l.rootReports(mt, name, now):
+				l.emit(mt, p, now, emissionTopology, &emissions)
 			}
 		}
 	}
@@ -150,9 +163,6 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					p.state = StateForwarding
 					p.forwardTransitions++
 					stateChanged = true
-					if !l.link(name).edge {
-						l.raiseTopologyChange(mt, p.name, now, &flushes)
-					}
 				case StateForwarding:
 				}
 			case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:
@@ -183,13 +193,13 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		}
 	}
 
-	// Every tree's topology change timer clears on its own schedule: an
-	// MSTI's forward-delay ladder above can raise one independently of the
-	// CIST's.
-	for _, id := range l.treeOrder {
-		mt := l.trees[id]
-		if !mt.topologyChangeTimer.IsZero() && !mt.topologyChangeTimer.After(now) {
-			mt.topologyChangeTimer = time.Time{}
+	// Every port's topology change timer clears on its own schedule, so a
+	// timer that ran out stops reporting a wake.
+	for _, mt := range l.trees {
+		for _, p := range mt.ports {
+			if !p.tcWhile.IsZero() && !p.tcRunning(now) {
+				p.tcWhile = time.Time{}
+			}
 		}
 	}
 

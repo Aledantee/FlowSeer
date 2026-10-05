@@ -133,22 +133,14 @@ func (l *Layer) syncOnProposal(t *tree, p *portState, now time.Time, flushes *[]
 		}
 		otherP.agreed = false
 		otherP.proposing = otherLk.pointToPoint && otherLk.sendRSTP
-		if otherP.state != StateDiscarding {
-			wasFwd := otherP.state == StateForwarding
-			otherP.state = StateDiscarding
-			if wasFwd {
-				l.raiseTopologyChange(t, otherP.name, now, flushes)
-			}
-		}
+		otherP.state = StateDiscarding
 	}
 
 	lk := l.link(p.name)
 	if p.role == bpdu.RoleRoot && lk.pointToPoint && l.isSynced(t, p.name) && lk.sendRSTP && p.state != StateForwarding {
 		p.state = StateForwarding
 		p.forwardTransitions++
-		if !lk.edge {
-			l.raiseTopologyChange(t, p.name, now, flushes)
-		}
+		l.settleTopology(t, now, flushes)
 	}
 
 	return true

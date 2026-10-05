@@ -575,13 +575,14 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 	}
 }
 
-// TestMSTITopologyChangeBitReachesAndFlushesThePeer pins that a per-instance
-// topology change is carried on the wire and acted on. Bridge A raises a
-// change on MSTI 1 alone; the BPDU it emits must carry the bit in MSTI 1's
-// record and none in MSTI 2's; bridge B receiving it must flush MSTI 1's
-// VLAN on its other ports and leave MSTI 2's VLAN alone.
-func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
-	t.Parallel()
+// settledRegion returns two bridges of one region joined on A's p1 and B's p1,
+// with B's p2 an open Designated port, run until every timer the start-up
+// started has run out. A is the root, so B's p1 is the Root port of every tree.
+// A's hellos are replayed to B every hello time, so B's stored information
+// about A never ages out, until both instances are well past their forward
+// delay ladders.
+func settledRegion(t *testing.T) (a, b *Layer, now time.Time) {
+	t.Helper()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	region := MST{
@@ -592,14 +593,14 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 		},
 	}
 
-	a := newLayer(Config{
+	a = newLayer(Config{
 		Priority: 4096,
 		Ports:    map[string]Port{"p1": {}},
 		MST:      &region,
 	}.Normalize(layer.Env{}))
 	a.LinkChange(t0, "p1", true, true, 1_000_000_000)
 
-	b := newLayer(Config{
+	b = newLayer(Config{
 		Priority: 32768,
 		Ports:    map[string]Port{"p1": {}, "p2": {}},
 		MST:      &region,
@@ -607,14 +608,10 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	b.LinkChange(t0, "p1", true, true, 1_000_000_000)
 	b.LinkChange(t0, "p2", true, true, 1_000_000_000)
 
-	// Converge and settle on A's hellos, refreshed every hello time so B's
-	// stored information about A never ages out, until both instances are
-	// well past their forward delay ladders.
-	now := t0
-	for i := 0; i < 20; i++ {
+	now = t0
+	for range 20 {
 		now = now.Add(2 * time.Second)
-		fx := a.Advance(now)
-		for _, e := range fx.Emissions {
+		for _, e := range a.Advance(now).Emissions {
 			dec, err := bpdu.Decode(e.Frame)
 			if err != nil {
 				t.Fatalf("decode A's emission: %v", err)
@@ -625,13 +622,28 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	}
 
 	if info := b.PortInfo("p1"); info.Role != bpdu.RoleRoot {
-		t.Fatalf("B's p1 role = %v, want Root before the topology change under test", info.Role)
+		t.Fatalf("B's p1 role = %v, want Root", info.Role)
+	}
+	if info := b.PortInfo("p2"); info.State != StateForwarding {
+		t.Fatalf("B's p2 state = %v, want Forwarding", info.State)
 	}
 
-	// Raise a topology change on MSTI 1 alone on A, as recompute would from
-	// an instance-only role or state change on an internal port, without
-	// touching the CIST's own timer.
-	a.trees[treeID(1)].topologyChangeTimer = now.Add(10 * time.Second)
+	return a, b, now
+}
+
+// TestMSTITopologyChangeBitReachesAndFlushesThePeer pins that a per-instance
+// topology change is carried on the wire and acted on. Bridge A raises a
+// change on MSTI 1 alone; the BPDU it emits must carry the bit in MSTI 1's
+// record and none in MSTI 2's; bridge B receiving it must flush MSTI 1's
+// VLAN on its other ports and leave MSTI 2's VLAN alone.
+func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
+	t.Parallel()
+
+	a, b, now := settledRegion(t)
+
+	// Start MSTI 1's timer alone on A's port, as a role or state change on an
+	// instance-only internal port would, without touching the CIST's own.
+	a.trees[treeID(1)].ports["p1"].tcWhile = now.Add(10 * time.Second)
 
 	now = now.Add(2 * time.Second)
 	fx := a.Advance(now)
@@ -679,8 +691,8 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 // from internal to boundary clears any live fwdDelayTimer an MSTI's own
 // ladder was running, at the same recompute that mirrors its role and state
 // from the CIST. Left set, the next wake would advance the instance port on
-// a timer behind a state recompute already overwrote, raising a topology
-// change with nothing behind it.
+// a timer behind a state recompute already overwrote, counting a forward
+// transition with nothing behind it.
 func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	t.Parallel()
 

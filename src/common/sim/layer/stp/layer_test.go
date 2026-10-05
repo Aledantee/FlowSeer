@@ -395,7 +395,9 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 		t.Errorf("ring converged at %v, but expected convergence without forward delay passing", now.Sub(startTime))
 	}
 
-	// Test link-down on sw3 Root port (p1): Alternate (p2) becomes Root with a flush
+	// Test link-down on sw3 Root port (p1): Alternate (p2) becomes Root and
+	// starts forwarding, which is the topology change: p1 is flushed because it
+	// went down, and p2 reports the change toward the root with the flag.
 	fxDown := sw3.LinkChange(now, "p1", false, false, 0)
 	sw3RootID, sw3RootCost, sw3RootPort := sw3.Root()
 	if sw3RootPort != "p2" {
@@ -411,8 +413,13 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	if infoP2.Role != bpdu.RoleRoot || infoP2.State != stp.StateForwarding {
 		t.Errorf("sw3 p2 after failover: got role %v, state %v; want Root Forwarding", infoP2.Role, infoP2.State)
 	}
-	if !slices.Contains(flushPorts(fxDown.Flush), "p2") {
-		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p2\"", fxDown.Flush)
+	if got := flushPorts(fxDown.Flush); !slices.Equal(got, []string{"p1"}) {
+		t.Errorf("sw3 LinkChange flushes: got %v, want the downed port \"p1\" alone: the new Root port is the origin of the change", got)
+	}
+	// The convergence above spent p2's transmit budget for this second, so the
+	// report waits for the budget and leaves with the next second's tick.
+	if got := flaggedPorts(t, sw3.Advance(now.Add(time.Second))); !slices.Equal(got, []string{"p2"}) {
+		t.Errorf("sw3 topology change flag on %v, want the new Root port \"p2\" once its budget frees", got)
 	}
 }
 
@@ -1234,9 +1241,12 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 		l.LinkChange(t0, name, true, true, 1_000_000_000)
 	}
 
-	// A TCN on the first port flushes every other port, which is the widest
-	// flush list one call produces.
-	fx := l.Receive(t0.Add(4*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	// Two forward delays open every port and make it active, so a TCN on the
+	// first port flushes every other port, which is the widest flush list one
+	// call produces.
+	l.Advance(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
+	fx := l.Receive(t0.Add(34*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 
 	want := names[1:]
 	if !slices.Equal(flushPorts(fx.Flush), want) {
@@ -1245,7 +1255,8 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 }
 
 // TestTCNReceiveRaisesTopologyChange is evidence that a legacy Topology
-// Change Notification flushes the other ports and migrates the port.
+// Change Notification on an active port flushes the other active ports,
+// migrates the port, and is acknowledged by the next Configuration BPDU on it.
 func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	t.Parallel()
 
@@ -1257,11 +1268,18 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	}, mustPortTable(t, "1/1/1", "1/1/2"))
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+	l.Advance(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
 
-	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	tcn := t0.Add(34 * time.Second)
+	fx := l.Receive(tcn, "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || slices.Contains(got, "1/1/1") {
 		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
+	}
+	reply := emittedOn(t, l.Advance(tcn.Add(time.Second)), "1/1/1")
+	if len(reply) != 1 || reply[0].Type != bpdu.TypeConfiguration || !reply[0].TopologyChangeAck() {
+		t.Errorf("reply on the receiving port = %+v, want one Configuration BPDU with the acknowledgment", reply)
 	}
 	if l.PortInfo("1/1/1").SendRSTP {
 		t.Error("a TCN after the migration delay left the port in RSTP mode")
@@ -1442,9 +1460,31 @@ func TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance(t *testing.T) {
 	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
 
+	// A downstream bridge agrees on 1/1/2, which opens it and makes it an
+	// active port, and leaves it in agreement, so a Root port elsewhere can
+	// open at once.
+	localID := bpdu.BridgeID{Priority: 32768, Address: localMAC}
+	downstream := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       localID,
+		RootPathCost: 20_000,
+		BridgeID:     bpdu.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:03")},
+		PortID:       0x8003,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstream.SetRole(bpdu.RoleRoot)
+	downstream.SetAgreement(true)
+	l.Receive(now, "1/1/2", downstream)
+	if info := l.PortInfo("1/1/2"); info.State != stp.StateForwarding {
+		t.Fatalf("1/1/2 state = %v, want Forwarding after its peer agreed", info.State)
+	}
+
 	// A foreign-region BPDU marks 1/1/1 a boundary port and, being superior,
 	// elects it Root; point-to-point and synced, it forwards in this same
-	// call, raising the topology change under test.
+	// call, which is the topology change under test.
 	foreignRegion := stp.MST{Name: "region-1", Revision: 2}
 	foreignConfigID := foreignRegion.ConfigID()
 	b := bpdu.BPDU{
@@ -1890,8 +1930,8 @@ func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 // mirrors onto every MST instance's own port at the same wake the CIST's
 // fires, rather than waiting for a later LinkChange to carry it across.
 // Without immediate mirroring, an instance stays dark two forward delays longer than the
-// CIST and raises a topology change of its own on becoming an edge,
-// which is the flush auto-edge exists to prevent.
+// CIST and then opens as a non-edge port. That detects a topology change,
+// the flush auto-edge exists to prevent.
 func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	t.Parallel()
 
@@ -2271,8 +2311,8 @@ func TestPVSTVLAN1FlushNamesVLAN1Only(t *testing.T) {
 	l.LinkChange(start, "l1", true, true, 1_000_000_000)
 	l.LinkChange(start, "l2", true, true, 1_000_000_000)
 
-	// l2 reaching Forwarding raises VLAN 1's topology change, which flushes
-	// every other port by VLAN 1's own FID list.
+	// l2 reaching Forwarding detects VLAN 1's topology change, which flushes
+	// every other active port by VLAN 1's own FID list.
 	var target layer.FlushTarget
 	found := false
 	for range 20 {
@@ -2824,10 +2864,15 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
 	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
 
+	// Two forward delays open both of local's ports, so each is an active port
+	// of every VLAN's tree and the change can propagate between them.
+	local.Advance(start.Add(15 * time.Second))
+	local.Advance(start.Add(30 * time.Second))
+
 	// A designated, agreeing BPDU for VLAN 20 with the topology-change flag
-	// set, delivered straight to VLAN 20's tree. The peer's first hello timer
-	// is due at 2s; a wake before that finds nothing to send.
-	now := start.Add(2 * time.Second)
+	// set, delivered straight to VLAN 20's tree. The peer's hello timer has
+	// been due since 2s.
+	now := start.Add(32 * time.Second)
 	var vlan20BPDU bpdu.BPDU
 	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 20 {
