@@ -25,6 +25,9 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 		if otherName == rootPort {
 			continue
 		}
+		if l.mst != nil && t.id != cistID && l.boundary(otherName) {
+			continue
+		}
 		otherP := t.ports[otherName]
 		if otherP == nil {
 			continue
@@ -38,6 +41,27 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 				otherP.state = StateDiscarding
 				if wasFwd {
 					l.deactivatePort(t, otherP, flushes)
+				}
+			}
+			if t.id == cistID && l.mst != nil && l.boundary(otherName) {
+				for _, id := range l.treeOrder {
+					if id == cistID {
+						continue
+					}
+					mt := l.trees[id]
+					mp, ok := mt.ports[otherName]
+					if !ok {
+						continue
+					}
+					mp.agreed = otherP.agreed
+					mp.proposing = otherP.proposing
+					if mp.state != otherP.state {
+						mp.state = otherP.state
+						mp.fwdDelayTimer = time.Time{}
+						if otherP.state != StateForwarding {
+							l.deactivatePort(mt, mp, flushes)
+						}
+					}
 				}
 			}
 		}
@@ -57,7 +81,7 @@ func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time
 	}
 }
 
-func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool) {
 	if !link.pointToPoint || !link.sendRSTP || !agreement {
 		p.agreed = false
 		return
@@ -75,19 +99,15 @@ func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incomin
 	}
 	if p.agreed {
 		p.proposing = false
-		if p.role == bpdu.RoleDesignated && p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !link.edge {
-				l.detectTopologyChange(t, p, now, flushes)
-			}
-		}
 	}
 }
 
 func (l *Layer) cistPortVector(p *portState) priorityVector {
 	cist := l.cist()
 	link := l.links[p.name]
+	if p.rcvInfoValid {
+		return rawVector(cist, p, link.external)
+	}
 	if p.role == bpdu.RoleDesignated {
 		return designatedVector(cist, p, link.external)
 	}
@@ -138,7 +158,7 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		}
 		if !sameSource && !isSuperior {
 			if cistConsistent {
-				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
+				l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement())
 			} else {
 				mp.agreed = false
 			}
@@ -164,12 +184,12 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVe
 		mp.rcvTime = now
 
 		if cistConsistent {
-			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement(), now, flushes)
-			if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
-				proposals = append(proposals, rec.MSTID)
-			}
+			l.recordAgreement(mt, mp, link, incoming, recFlags.Role(), recFlags.Agreement())
 		} else {
 			mp.agreed = false
+		}
+		if recFlags.Proposal() && recFlags.Role() == bpdu.RoleDesignated {
+			proposals = append(proposals, rec.MSTID)
 		}
 	}
 
@@ -456,8 +476,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	heldCISTVec := l.cistPortVector(p)
-
 	if sameSource || isSuperior {
 		// The classification updates only when received information is
 		// stored (IEEE 802.1Q clause 13.24.10). Assigning it earlier or
@@ -472,10 +490,11 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	var mstiProposals []bpdu.MSTID
 	if internal {
+		heldCISTVec := l.cistPortVector(p)
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement(), now, flushes)
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement())
 	if l.mst != nil && link.external {
 		for _, id := range l.treeOrder {
 			mt := l.trees[id]
@@ -486,13 +505,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 				mp.agreed = p.agreed
 				if mp.agreed {
 					mp.proposing = false
-					if mp.role == bpdu.RoleDesignated && mp.state != StateForwarding {
-						mp.state = StateForwarding
-						mp.forwardTransitions++
-						if !link.edge {
-							l.detectTopologyChange(mt, mp, now, flushes)
-						}
-					}
 				}
 			}
 		}
