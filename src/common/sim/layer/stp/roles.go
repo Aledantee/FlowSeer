@@ -51,8 +51,19 @@ func (l *Layer) boundary(name string) bool {
 // per-port transmit budget is spent once per port rather than once per
 // instance, and the MSTI records ride the CIST's own BPDU. Under PVST every
 // tree emits, because each VLAN's BPDU is a frame of its own metered against
-// that tree's own budget.
+// that tree's own budget. It then sends the topology change reports the
+// recompute owed.
 func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
+	emissions := l.recomputeTrees(now, flushes)
+	l.drainTopology(now, &emissions)
+
+	return emissions
+}
+
+// recomputeTrees is recomputeAll without the topology change reports, for a
+// caller that sends its own BPDU on the port first and drains afterwards, so
+// the port sends one frame.
+func (l *Layer) recomputeTrees(now time.Time, flushes *[]layer.FlushTarget) []layer.Emission {
 	var emissions []layer.Emission
 
 	for _, id := range l.treeOrder {
@@ -252,8 +263,8 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 			// a live timer from its internal role and state ladder; a
 			// boundary port never drives its own state, so nothing else
 			// clears it. Left set, the next Advance would advance the port on
-			// a timer behind a state this branch already mirrored, raising
-			// a topology change with nothing behind it.
+			// a timer behind a state this branch already mirrored, counting
+			// a forward transition with nothing behind it.
 			p.fwdDelayTimer = time.Time{}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
@@ -295,15 +306,10 @@ func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget, 
 
 		if oldState != StateForwarding && p.state == StateForwarding {
 			p.forwardTransitions++
-			if !lk.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
-			}
-		} else if oldState == StateForwarding && p.state != StateForwarding {
-			if !lk.edge {
-				l.raiseTopologyChange(t, p.name, now, flushes)
-			}
 		}
 	}
+
+	l.settleTopology(t, now, flushes)
 
 	if emit && (t.rootID != oldRootID || t.rootPathCost != oldRootCost || t.rootPort != oldRootPort) {
 		for _, name := range l.portNames {

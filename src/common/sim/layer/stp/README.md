@@ -124,7 +124,7 @@ a port, and the trace carries it.
 | --- | --- | --- |
 | `BPDUGuard` | A BPDU on the port disables it for spanning tree, on the CIST and every MSTI alike: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
 | `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
-| `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
+| `RestrictedTCN` | A topology change received on the port propagates to no other port, and starts no topology-change timer that would carry the flag out on this bridge's own BPDUs. A TCN is still acknowledged. | Nothing to clear. |
 | `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. The outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. | Any BPDU received on the port, or a link down. |
 
 Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
@@ -449,31 +449,70 @@ rather than an arbitrary cap: a region within it always has a BPDU to send, and 
 that validates but cannot be encoded would be a configuration with no
 correct simulated answer.
 
-## What a topology change flushes
+## Topology change
+
+Topology change follows the Topology Change state machine of IEEE Std
+802.1Q-2003 (13.35, Figure 13-19), kept for each port of each tree. A port is
+active in a tree when it is a Root or Designated port, is not an edge port,
+and has started forwarding. It stays active until it loses the role, becomes
+an edge port, or goes down. Only an active port detects a change, acts on a
+received one, and keeps a timer. A port outside the active topology ignores
+every topology change flag, TCN, and acknowledgment it receives.
+
+A change is detected when a port becomes active. The port starts its
+topology-change timer and tells every other active port of the tree, which
+start theirs and flush. `TopologyChanges` counts the detections on the CIST.
+A port that leaves Forwarding raises nothing. One that loses its role, becomes
+an edge, or goes down is flushed itself, stops its timer, and leaves the
+active topology. A port also starts no new timer while one runs, so a second
+change inside the window does not extend it.
+
+The timer runs HelloTime plus one second on a port that sends RSTP
+(P802.1aq/D1.5 13.29.11, which UNH-IOL RSTP.op.4.5 agrees with), where the
+published 802.1Q-2003 13.26.6 says twice HelloTime. On a port that does not
+send RSTP it runs Max Age plus Forward Delay of the root's times, 35 seconds at
+the defaults.
+
+A BPDU sets its topology-change flag while the sending port's timer runs, and
+each MSTI record sets its flag from that instance's timer on the same port. A
+Root port whose timer runs reports the change toward the root: it sends when
+the timer starts and again at each hello, an RST or MST BPDU with its role,
+its agreement state, and the flag, or a TCN BPDU toward a bridge that sends
+STP. The report waits for the transmit budget like any other BPDU. Toward an
+STP bridge only the CIST reports, since a TCN names no instance.
+
+A received TCN counts for the CIST and every MSTI. A topology-change flag from
+outside the region counts for every tree, and one from inside the region counts
+for the CIST if its CST message sets the flag and for each MSTI whose record
+does (13.26.19). A TCN on a Designated port also sets an acknowledgment that
+the next Configuration BPDU on the port carries once, and starts the port's
+own CIST timer. A received acknowledgment stops the CIST timer of the port it
+arrived on. A port with `RestrictedTCN` starts no timer and propagates
+nothing, and still acknowledges a TCN so the STP bridge stops repeating it.
+Figure 13-19 sets the acknowledgment in NOTIFIED_TC, which a topology-change
+flag reaches as well as a TCN. The layer sets it for a TCN alone, so a flagged
+Configuration BPDU is not answered with an acknowledgment nobody asked for.
+That this matches the standard's intent is unverified.
 
 `layer.Effects.Flush` is a list of `layer.FlushTarget{Port, FIDs}`, and the bridge's
 `Flush` deletes a learned entry only when its port matches a target and that
 target either names the entry's FID or names none at all. An empty `FIDs` means
 every FID on the port.
 
-A topology change on an instance flushes, on the bridge's other ports, only the
-VLANs that instance carries. That is the point of the pair: moving VLAN 10's
-tree must not discard what the bridge learned about VLAN 20, which did not move.
-This propagates across the fabric, not just locally: each MSTI record on an
-MST BPDU carries its own instance's topology-change bit, and a bridge that
-receives one flushes that instance's VLANs on its other ports the same way a
-locally raised change would, so a change on one bridge's instance reaches
-every other bridge's copy of it rather than stopping at the first hop.
+A topology change on an instance flushes, on the bridge's other active ports,
+only the VLANs that instance carries. That is the point of the pair: moving
+VLAN 10's tree must not discard what the bridge learned about VLAN 20, which
+did not move. This propagates across the fabric, not just locally: each MSTI
+record on an MST BPDU carries its own instance's topology-change bit, and a
+bridge that receives one flushes that instance's VLANs on its other active
+ports the same way a locally detected change would, so a change on one
+bridge's instance reaches every other bridge's copy of it rather than stopping
+at the first hop. An edge port, an Alternate port, and a Designated port that
+is not yet forwarding are not flushed by a change on another port.
 
-Five cases flush every FID instead of a VLAN list. A link going down and a
+Some flushes name every FID instead of a VLAN list. A link going down and a
 BPDU-guard disable both leave every entry on that port stale whatever tree it
-belonged to. A received topology change notification, and a received CIST
-BPDU with the topology-change flag set, both flush every other port with an
-empty FID set outright, without going through the per-instance accounting
-above: a peer reporting a change at the CIST level is reporting it for
-whatever it is carrying, which this bridge cannot narrow down from the
-notification alone. The last is a topology change this bridge's own CIST
-raises, and it is worth being plain about: the CIST carries every VLAN no
+belonged to. A change on the CIST is the other: the CIST carries every VLAN no
 instance claims, which is not a set this layer can enumerate, so a CIST
 change names no FIDs and the bridge flushes the port across all of them. On a
 boundary port that is what the standard wants anyway, since a CIST change

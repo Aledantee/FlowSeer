@@ -1,6 +1,7 @@
 package stp
 
 import (
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -49,10 +50,10 @@ func receivedHelloTime(d time.Duration) time.Duration {
 
 // receiveMSTIs stores the MSTI records an internal BPDU carries into each
 // named instance's port state, one instance at a time by the same
-// same-source-or-superior rule the CIST uses, and carries each record's own
-// topology change bit into that instance the way Receive carries the CIST's:
-// unconditionally, not gated on superiority, since a change notification is
-// evidence about the fabric rather than a claim this port might reject. A
+// same-source-or-superior rule the CIST uses, and returns the instances whose
+// record sets the topology change bit. The bit is reported unconditionally, not
+// gated on superiority, since a change notification is evidence about the
+// fabric rather than a claim this port might reject. A
 // record for an instance this bridge does not configure is ignored: the
 // fabric's bridges are not required to share the same instance set. The
 // designated bridge and port a record implies reuse the sending bridge's own
@@ -61,7 +62,7 @@ func receivedHelloTime(d time.Duration) time.Duration {
 // (clause 13.7). Each record also records its tree's agreement the way the
 // CIST does, when the CIST message of the same BPDU names the vectors the
 // port holds (13.26.10).
-func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) {
+func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU) (flagged []treeID) {
 	lk := l.link(port)
 	held := l.cistHolds(port, b)
 
@@ -75,14 +76,8 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 			continue
 		}
 
-		if (bpdu.BPDU{Flags: rec.Flags}).TopologyChange() && !mp.cfg.RestrictedTCN {
-			mt.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-			fids := l.treeVLANs[mt.id]
-			for _, name := range l.portNames {
-				if name != port {
-					mergeFlushTarget(flushes, name, fids)
-				}
-			}
+		if (bpdu.BPDU{Flags: rec.Flags}).TopologyChange() {
+			flagged = append(flagged, mt.id)
 		}
 
 		recBridgeID := bpdu.BridgeID{
@@ -126,6 +121,8 @@ func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, flushes *[
 		mp.rcvHelloTime = receivedHelloTime(b.HelloTime)
 		mp.rcvTime = now
 	}
+
+	return flagged
 }
 
 // Receive processes an incoming BPDU received on a port. It applies the BPDU
@@ -161,19 +158,15 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 	}
 
 	if b.Type == bpdu.TypeTopologyChangeNotification {
-		// Restricted TCN stops the change here. Setting the timer would carry
-		// the flag out on this bridge's own BPDUs, which is the propagation the
-		// guard denies, so neither the timer nor the flush runs.
-		if !p.cfg.RestrictedTCN {
-			t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-			for _, name := range l.portNames {
-				if name != port {
-					mergeFlushTarget(&flushes, name, l.treeVLANs[t.id])
-				}
-			}
+		// A TCN counts for the CIST and every MSTI (13.26.19). Roles settle
+		// first, since only a port that is active after them acts on it.
+		trees := []treeID{cistID}
+		if l.mst != nil {
+			trees = slices.Clone(l.treeOrder)
 		}
-
-		emissions = append(emissions, l.recomputeAll(now, &flushes)...)
+		emissions = append(emissions, l.recomputeTrees(now, &flushes)...)
+		l.applyTopologyChange(now, port, topologyNotice{trees: trees, tcn: true}, &flushes)
+		l.drainTopology(now, &emissions)
 
 		return layer.Effects{
 			Emissions: emissions,
@@ -347,23 +340,19 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	l.storeInformation(t, p, lk, incoming, internal, b, now)
 
 	recordAgreement(t, p, lk, treeMessage{role: b.Role(), agreement: b.Agreement(), vector: incoming})
+	var flagged []treeID
 	switch {
 	case internal:
-		l.receiveMSTIs(now, p.name, b, flushes)
+		flagged = l.receiveMSTIs(now, p.name, b)
 	case l.mst != nil && t.id == cistID:
 		l.mirrorAgreement(p)
 	}
 
-	if b.TopologyChange() && !p.cfg.RestrictedTCN {
-		t.topologyChangeTimer = now.Add(l.helloTime + time.Second)
-		for _, name := range l.portNames {
-			if name != p.name {
-				mergeFlushTarget(flushes, name, l.treeVLANs[t.id])
-			}
-		}
-	}
-
-	emissions := l.recomputeAll(now, flushes)
+	// The topology change facts are acted on after the roles settle, since a
+	// port ignores them unless it is active, and before the answer below, so
+	// the answer carries the flag a started timer sets.
+	emissions := l.recomputeTrees(now, flushes)
+	l.applyTopologyChange(now, p.name, l.receivedTopology(t, internal, b, flagged), flushes)
 
 	if l.answerProposals(t, p, now, b, internal, flushes) {
 		l.emit(t, p, now, emissionAgreement, &emissions)
@@ -371,6 +360,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		compareVectors(incoming, designatedVector(t, p, lk.external)) > 0 {
 		l.emit(t, p, now, emissionDesignated, &emissions)
 	}
+	l.drainTopology(now, &emissions)
 
 	return emissions
 }

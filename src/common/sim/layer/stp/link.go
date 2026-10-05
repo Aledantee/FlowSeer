@@ -112,6 +112,8 @@ func (l *Layer) clearPending(name string) {
 		tx := l.tx(l.trees[id], name)
 		tx.pendingDesignated = false
 		tx.pendingAgreement = false
+		tx.pendingTopology = false
+		tx.topologyOwed = false
 	}
 }
 
@@ -157,14 +159,14 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 }
 
 // linkDown takes the named port's link down on every tree. The entries learned
-// on the dead port are the ones certainly stale whatever tree they belong to;
-// the topology change flushes every other port by its own tree's VLANs.
+// on the dead port are the ones certainly stale whatever tree they belong to,
+// so the port is flushed for every FID. Going down is not a topology change:
+// no other port is flushed for it.
 func (l *Layer) linkDown(now time.Time, lk *linkRecord, p *portState) layer.Effects {
 	if !lk.up {
 		return layer.Effects{}
 	}
 
-	oldState := p.state
 	lk.up = false
 
 	// Both guard states clear here, which is what makes a link down and up
@@ -177,10 +179,9 @@ func (l *Layer) linkDown(now time.Time, lk *linkRecord, p *portState) layer.Effe
 	lk.pvstBoundary = false
 	l.dropHandshake(p.name, true)
 
+	// A port that goes down leaves the active topology in the recompute below
+	// and raises no topology change of its own.
 	flushes := []layer.FlushTarget{{Port: p.name}}
-	if oldState == StateForwarding && !lk.edge {
-		l.raiseTopologyChange(l.cist(), p.name, now, &flushes)
-	}
 
 	return layer.Effects{
 		Emissions: l.recomputeAll(now, &flushes),
@@ -277,10 +278,8 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 		l.dropHandshake(p.name, false)
 
 		// The entries learned on the port are the ones certainly stale,
-		// whatever tree they belong to. The topology change itself is left
-		// to recompute, which raises it from the same transition with the
-		// same origin and timestamp; raising it here as well would count one
-		// event twice.
+		// whatever tree they belong to. Disabling the port raises no topology
+		// change: recompute takes it out of the active topology.
 		*flushes = append(*flushes, layer.FlushTarget{Port: p.name})
 
 		return l.recomputeAll(now, flushes), true
@@ -302,7 +301,7 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 	lk.edgeDelayWhile = now.Add(l.edgeDelay(l.cist(), lk))
 
 	if wasAutoEdge {
-		l.loseAutoEdge(now, lk, p.name, flushes)
+		l.loseAutoEdge(lk, p.name)
 	}
 
 	return nil, false
@@ -311,16 +310,14 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 // loseAutoEdge returns the named port to Discarding and proposing on every
 // tree. A Designated port that already forwards keeps its state through
 // recompute, so each tree must be sent back here or only the CIST would
-// stop forwarding.
-func (l *Layer) loseAutoEdge(now time.Time, lk *linkRecord, name string, flushes *[]layer.FlushTarget) {
+// stop forwarding. The port was an edge, so it was in no tree's active
+// topology and leaving Forwarding raises no topology change.
+func (l *Layer) loseAutoEdge(lk *linkRecord, name string) {
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
 		tp, ok := mt.ports[name]
 		if !ok {
 			continue
-		}
-		if tp.state == StateForwarding {
-			l.raiseTopologyChange(mt, name, now, flushes)
 		}
 		tp.state = StateDiscarding
 		tp.fwdDelayTimer = time.Time{}

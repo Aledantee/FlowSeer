@@ -20,7 +20,17 @@ const (
 	// emissionAgreement answers a proposal. Every tree whose port is Root or
 	// Alternate, and in sync, carries the Agreement flag.
 	emissionAgreement
+	// emissionTopology reports a topology change from a Root port. It carries
+	// the agreement state of emissionAgreement, and toward a bridge that does
+	// not send RSTP it is a TCN BPDU.
+	emissionTopology
 )
+
+// agreement reports whether an emission of this kind carries the Agreement
+// flag of a port that agrees.
+func (k emissionKind) agreement() bool {
+	return k == emissionAgreement || k == emissionTopology
+}
 
 // proposes reports whether the port asks its peer to agree: a Designated
 // port that is blocked, has no agreement, and sends RSTP on a point-to-point
@@ -58,6 +68,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 	}
 
 	tx := l.tx(t, p.name)
+	tx.topologyOwed = false
 
 	for tx.count > 0 && !tx.tick.After(now) {
 		tx.count--
@@ -81,6 +92,11 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 		for _, f := range built {
 			*emissions = append(*emissions, layer.Emission{Port: p.name, VID: f.vid, Frame: f.frame})
 		}
+		// A Configuration or RST BPDU spends the acknowledgment, which only the
+		// Configuration shape carries. A TCN BPDU does not.
+		if kind != emissionTopology || lk.sendRSTP {
+			lk.tcAck = false
+		}
 		p.txBPDUs++
 		wasZero := tx.count == 0
 		tx.count++
@@ -93,6 +109,8 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 			tx.pendingDesignated = true
 		case emissionAgreement:
 			tx.pendingAgreement = true
+		case emissionTopology:
+			tx.pendingTopology = true
 		}
 	}
 }
@@ -194,8 +212,8 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind
 
 		// Flags reuses the CIST's own role/learning/forwarding bit layout
 		// (SetRole/SetLearning/SetForwarding/SetTopologyChange), applied to
-		// this instance port's role and state and this instance's own
-		// topology change timer rather than the CIST's, so the record says
+		// this instance port's role and state and its own topology change
+		// timer rather than the CIST's, so the record says
 		// what the sender's per-instance port is doing and lets a peer
 		// reconverge that instance without waiting on its filtering database
 		// to age out. A zero-value BPDU used only to borrow its bit-setting
@@ -204,11 +222,9 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind
 		flags.SetRole(mp.role)
 		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
 		flags.SetForwarding(mp.state == StateForwarding)
-		if !mt.topologyChangeTimer.IsZero() && mt.topologyChangeTimer.After(now) {
-			flags.SetTopologyChange(true)
-		}
+		flags.SetTopologyChange(mp.tcRunning(now))
 		flags.SetProposal(proposes(lk, mp))
-		flags.SetAgreement(kind == emissionAgreement && l.agrees(mt, mp))
+		flags.SetAgreement(kind.agreement() && l.agrees(mt, mp))
 
 		recs = append(recs, bpdu.MSTIRecord{
 			MSTID:                mstid,
@@ -253,21 +269,25 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, kind emissionKind
 	}
 
 	if !sendRSTP {
+		// A Root port tells a bridge that does not send RSTP with a TCN BPDU,
+		// which carries nothing else.
+		if kind == emissionTopology {
+			return bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}
+		}
 		b.Version = 0
 		b.Type = bpdu.TypeConfiguration
+		b.SetTopologyChangeAck(lk.tcAck)
 	} else {
 		b.Version = 2
 		b.Type = bpdu.TypeRapid
 		b.SetProposal(proposes(lk, p))
-		b.SetAgreement(kind == emissionAgreement && l.agrees(t, p))
+		b.SetAgreement(kind.agreement() && l.agrees(t, p))
 	}
 
 	b.SetRole(p.role)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
-	if !t.topologyChangeTimer.IsZero() && t.topologyChangeTimer.After(now) {
-		b.SetTopologyChange(true)
-	}
+	b.SetTopologyChange(p.tcRunning(now))
 
 	// Only the CIST drives emission (see recomputeAll), so this is also the
 	// one place that attaches the region's configuration identifier and every
