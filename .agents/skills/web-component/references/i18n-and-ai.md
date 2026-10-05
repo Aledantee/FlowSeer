@@ -2,7 +2,7 @@
 
 Both are decided in
 `docs/architecture/2026-09-28-web-component-contract-direction.md`. AI
-registration lands through a migration plan, so first check what exists:
+registration has landed. The generative UI catalog has not, so check what exists:
 
 ```bash
 ls frontend/web/src/ai/catalog.ts 2>&1
@@ -10,12 +10,11 @@ ls frontend/web/src/ai/catalog.ts 2>&1
 
 ## While the AI migration has not landed
 
-When `src/ai/catalog.ts` or `useAiTarget` does not exist yet:
+When `src/ai/catalog.ts` does not exist yet:
 
-- **AI registration.** Register with `v-ai-target` on the root element,
-  through `aiTarget()`. See the README's "AI targets" section.
 - **Report.** Say that generative AI catalog integration awaits the AI
-  migration.
+  migration. Target registration through `useAiTarget` has landed, so follow
+  the contract below.
 
 ## i18n
 
@@ -107,17 +106,30 @@ from `src/components/DevicePorts.vue`.
   `translate="no"` while leaving message text unmarked. Each new surface
   requires an explicit test call.
 
-## AI contract, once `useAiTarget` exists
+## AI contract
 
 - **The `ai` prop.** A component that renders an entity, a value, or an
-  action takes an optional `ai` prop (the `aiTarget()` input) and calls
-  `useAiTarget(rootRef, () => props.ai)`. Layout-only components take no
-  `ai` prop: separators, scroll areas, and skeletons.
+  action takes an optional `ai?: AiTarget`, the resolved target that
+  `aiTarget()` returns (`UiAiProps` in `src/ui/ai/context.ts`, `AiTarget` in
+  `src/ai/types.ts`, the `aiTarget()` builder in `src/ai/target.ts`). It calls `useAiTarget(anchorRef, () => props.ai)`.
+  Layout-only components take no `ai` prop: separators, scroll areas, and
+  skeletons. `src/ui/ai/targetContract.test.ts` classifies every semantic
+  `Ui*.vue` file and fails on one it does not know, so classify a new
+  component there.
+- **Native markup.** Markup that no kit component owns uses `UiAiTarget`
+  (`src/ui/ai/UiAiTarget.vue`) with `as` or `asChild`. A popup registers its
+  content through `PopupAnchor` (`src/ui/popover/popupAnchor.ts`).
 - **Highlight.** The registry writes `data-ai-selected` on the
   highlighted element, and one shared rule draws the outline. Never style
   the highlight per component.
-- **Agent changes.** A value an agent changed carries
-  `data-ai-origin="agent"` until the user next interacts with it.
+- **Agent changes.** A value an agent changed takes
+  `aiOrigin?: AiOriginRequest`, the request without its `signal`. The
+  component calls `useAiOrigin(anchorRef, () => props.aiOrigin, onAck)`
+  (`src/ui/ai/useAiOrigin.ts`), which sets `data-ai-origin="agent"` until the
+  user interacts with the value. It emits `aiOriginAcknowledged(requestId)`
+  after pointerdown, keydown, input, or change, and the caller clears its own
+  origin state on that event. Portalled content forwards to the same
+  acknowledgement.
 - **Generative UI.** A component is renderable by an agent only once it
   has a catalog entry in `src/ai/catalog.ts`, with a prop validator.
   - Adding the entry is part of the component's change when an agent
@@ -135,6 +147,8 @@ from `src/components/DevicePorts.vue`.
   pagination renders `Zurück` and `Weiter`.
 - **AI:** with an `ai` prop, `registry.list()` includes the target, and
   `highlight(id)` sets `data-ai-selected`. Without the prop, nothing
-  registers.
+  registers. With `aiOrigin`, the anchor carries `data-ai-origin="agent"`
+  until an interaction emits `aiOriginAcknowledged`. Add the component to
+  `src/ui/ai/targetContract.test.ts`.
 - **Catalog:** a valid tree renders. An unknown component, or an unknown
   or invalid prop, rejects the whole tree.
