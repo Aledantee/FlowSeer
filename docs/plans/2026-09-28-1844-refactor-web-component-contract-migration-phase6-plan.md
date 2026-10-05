@@ -5,6 +5,7 @@ date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -335,3 +336,33 @@ assistant about a device and follow the mock answer's button.
   unreviewed.
 - The mock answer carries no `ui` for a device whose id does not make a page
   path (`src/ai/mock.ts`). The unit text did not name that case.
+
+## Review gaps
+
+Two behavior findings hold the verdict:
+
+- `frontend/web/src/ai/catalog.ts:372`: `validateAiUiTree` and the card's `children` call the input array's own `map`, so an array with an own `map` property, a swapped prototype, or holes returns nodes `validateNode` never saw; fails: a tree array whose own `map` returns `[{ component: 'div', props: {} }]` must throw; class: behavior
+- `frontend/web/src/ai/catalog.ts:276`: `copyEntityValue`, `copyQueryValue`, and `copyIntentValue` return the input object when its shape check fails, and a later accessor can repair that object before validation; fails: a `UiButton` whose `intent` has an extra key that a `size` getter deletes must not return the handler's `intent` object; class: behavior
+
+Follow-ups, which do not hold the verdict:
+
+- `frontend/web/src/ai/catalog.test.ts:106`: remove the prop key allow-list check with a valid `intent` on the fixture; fails: `rejects unknown prop`, whose `UiButton` fixture is rejected today for its missing `intent`; class: false test
+- `frontend/web/src/ai/catalog.test.ts:109`: delete `optionalString(props.valueText)` for `UiProgress`; fails: a `UiProgress` with `valueText: () => ''`, since the `UiMeter` fixture is an unknown-prop case; class: false test
+- `frontend/web/src/ai/catalog.test.ts:118`: remove the prototype check in `isPlainObject`; fails: `Object.assign(new Date(), { component: 'UiSeparator', props: {} })`; class: false test
+- `frontend/web/src/ai/catalog.test.ts:120`: remove the node key check; fails: `{ component: 'UiBadge', props: { text: 'Ready' }, extra: true }`; class: false test
+- `frontend/web/src/ai/catalog.test.ts:123`: default absent, array, or `null` `props` to `{}`; fails: the same three cases on `UiSeparator`, which has no required prop; class: false test
+- `frontend/web/src/ai/catalog.test.ts:254`: set `AI_UI_MAX_DEPTH = 5`; fails: bound cases written with the literals 64 and 65, 4 and 5, 500 and 501; class: convention
+- `frontend/web/src/ai/catalog.test.ts:154`: make `copyEntityValue` return its input; fails: a check that the returned `entity` is not the input object; class: gap
+- `frontend/web/src/ai/mock.test.ts:1`: pass any `context.health` string through as the badge status; fails: a device target with `health: 'Unknown'` yielding a card with the button only; class: gap
+- `frontend/web/src/ui/ai/UiAiResult.vue:349`: change the condition to `v-if="answerResult.ui"`; fails: an answer with `ui: null` showing the tree's error state; class: gap
+- `frontend/web/src/ui/ai/UiAiRender.test.ts:91`: render the node beside the alert; fails: an assertion that `[data-ai-render]` has one element child carrying `role="alert"`, since `catalogRoots` matches no `UiBadge` or `UiStatusBadge` root; class: false test
+- `frontend/web/src/ui/ai/UiAiRender.test.ts:100`: render the badge beside the card; fails: `.bg-card .flex-wrap` containing "Offline"; class: false test
+- `frontend/web/src/ui/ai/UiAiResult.test.ts:171`: let a rejected tree set the result's error state; fails: a mount with a `run` and no `state` prop whose announcement reads the done text, since the test passes `state: 'done'`; class: false test
+- `frontend/web/src/ai/index.ts:47`: `export { isPagePath } from '../navigation/page'` has no importer; class: convention
+- `frontend/web/src/ai/catalog.ts:146`: `optionalString(x)` directly before `isOneOf(x, ...)` at eleven sites, `Object.hasOwn` before `validateEntity` and `validateIntent`, and the `hasOnlyKeys` half of `catalogEntry` cannot fail; class: convention
+- `docs/architecture/2026-09-28-web-component-contract-direction.md:426`: "Buttons use the `navigate` intent" leaves out that a catalog `UiAiEntityChip` navigates by its entity with no declared intent and that a device id must make a page path; class: convention
+- `frontend/web/README.md:651`: "The validator rejects" names no file, the mock sentence at `:596` omits the device tree, and the click's query handling is not described; class: convention
+- `.agents/skills/web-component/references/i18n-and-ai.md:4`: "The generative UI catalog has not, so check what exists" and the section under it; class: convention
+- `frontend/web/src/ui/ai/UiAiRender.stories.ts:117`: `LongText` covers `UiEmptyState` only, while `UiBadge`, `UiButton`, and `UiAiEntityChip` are `whitespace-nowrap` and take 500 characters; class: convention
+- `frontend/web/src/ai/catalog.ts:61`: an empty `text` on `UiButton` or `label` on `UiMeter` passes and renders a control with no accessible name; class: hardening
+- `frontend/web/src/ui/ai/UiAiEntityChip.vue:60`: a catalog chip calls `go` without the scope merge the button uses, so a device chip keeps page-local keys and a site chip drops `tenant`; class: hardening
