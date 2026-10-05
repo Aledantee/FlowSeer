@@ -66,9 +66,27 @@ export interface AiAnswer {
   text: string
   refs: AiEntityRef[]
   summary?: AiSummary
+  // The registry clones this untrusted tree and the renderer validates it.
+  ui?: unknown
 }
 
 export type AiResult = AiSummary | AiAnswer
+
+export interface AiUiNode {
+  component: string
+  props: Record<string, unknown>
+  children?: AiUiNode[]
+}
+
+export interface AiUiNavigateIntent {
+  type: 'navigate'
+  target: {
+    path?: string
+    query?: Record<string, string>
+  }
+}
+
+export type AiUiIntent = AiUiNavigateIntent
 
 export interface AiTarget {
   id: string
@@ -120,9 +138,13 @@ export type AiHandler = (
   request: AiRequest,
 ) => Promise<AiResult | string> | AsyncIterable<AiResult> | AiResult | string
 
+// The DOM node a target stands for. An SVG root such as a sparkline is as
+// valid an anchor as an HTML element.
+export type AiTargetElement = HTMLElement | SVGElement
+
 export interface AiTargetView {
   target: AiTarget
-  element: HTMLElement
+  element: AiTargetElement
 }
 
 export type AiRequestKind = 'ask' | 'summary'

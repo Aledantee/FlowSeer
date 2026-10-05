@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { UiTooltip } from '../../ui'
+import UiAiTarget from '../../ui/ai/UiAiTarget.vue'
 import {
   computed,
   nextTick,
@@ -349,74 +350,76 @@ function edgesChanged(changes: EdgeChange[]) {
 </script>
 
 <template>
-  <div ref="frame" v-ai-target="viewTarget" class="topology-graph">
-    <VueFlow
-      :id="flowId"
-      :nodes="nodes"
-      :edges="edges"
-      :min-zoom="0.2"
-      :max-zoom="1.6"
-      :nodes-connectable="false"
-      :edges-updatable="false"
-      :zoom-on-double-click="false"
-      @nodes-change="nodesChanged"
-      @edges-change="edgesChanged"
-      @pane-click="select(undefined)"
-      @edge-mouse-enter="hovered = $event.edge.id"
-      @edge-mouse-leave="hovered = undefined"
-    >
-      <template #node-device="nodeProps">
-        <TopologyNode v-bind="nodeProps" />
-      </template>
-      <template #node-site="nodeProps">
-        <TopologySiteNode
-          v-bind="nodeProps"
-          :sites="sites"
-          :tenant-name="tenantName"
-        />
-      </template>
-      <template #edge-link="edgeProps">
-        <TopologyLink v-bind="edgeProps" />
-      </template>
-      <Background :gap="24" :size="1.4" pattern-color="var(--input)" />
-      <Controls
-        :show-interactive="false"
-        :show-fit-view="false"
-        position="bottom-left"
+  <UiAiTarget as-child :ai="viewTarget">
+    <div ref="frame" class="topology-graph">
+      <VueFlow
+        :id="flowId"
+        :nodes="nodes"
+        :edges="edges"
+        :min-zoom="0.2"
+        :max-zoom="1.6"
+        :nodes-connectable="false"
+        :edges-updatable="false"
+        :zoom-on-double-click="false"
+        @nodes-change="nodesChanged"
+        @edges-change="edgesChanged"
+        @pane-click="select(undefined)"
+        @edge-mouse-enter="hovered = $event.edge.id"
+        @edge-mouse-leave="hovered = undefined"
       >
-        <UiTooltip :label="t('view.topology.fitToView')" side="right">
-          <ControlButton
-            :aria-label="t('view.topology.fitView')"
-            @click="frameGraph(true)"
-          >
-            <AppIcon name="expand" />
-          </ControlButton>
-        </UiTooltip>
-      </Controls>
-      <MiniMap
-        :class="{ 'minimap-hidden': everythingVisible }"
-        :aria-hidden="everythingVisible"
-        pannable
-        zoomable
-        position="bottom-right"
-        :node-color="
-          (node: Node) =>
-            node.type === 'site'
-              ? 'transparent'
-              : `var(--${devicesById.get(node.id)?.health === 'Healthy' ? 'graph-edge' : 'primary'})`
-        "
-        mask-color="color-mix(in srgb, var(--background) 70%, transparent)"
-      />
-    </VueFlow>
-    <p class="topology-assumption">
-      <i aria-hidden="true"></i>
-      {{ t('view.topology.assumption') }}
-    </p>
-    <TopologyInspector :history="history" :site-name="siteName" />
-    <p v-if="failed" class="topology-error" role="alert">
-      {{ t('view.topology.layoutError') }}
-    </p>
-  </div>
+        <template #node-device="nodeProps">
+          <TopologyNode v-bind="nodeProps" />
+        </template>
+        <template #node-site="nodeProps">
+          <TopologySiteNode
+            v-bind="nodeProps"
+            :sites="sites"
+            :tenant-name="tenantName"
+          />
+        </template>
+        <template #edge-link="edgeProps">
+          <TopologyLink v-bind="edgeProps" />
+        </template>
+        <Background :gap="24" :size="1.4" pattern-color="var(--input)" />
+        <Controls
+          :show-interactive="false"
+          :show-fit-view="false"
+          position="bottom-left"
+        >
+          <UiTooltip :label="t('view.topology.fitToView')" side="right">
+            <ControlButton
+              :aria-label="t('view.topology.fitView')"
+              @click="frameGraph(true)"
+            >
+              <AppIcon name="expand" />
+            </ControlButton>
+          </UiTooltip>
+        </Controls>
+        <MiniMap
+          :class="{ 'minimap-hidden': everythingVisible }"
+          :aria-hidden="everythingVisible"
+          pannable
+          zoomable
+          position="bottom-right"
+          :node-color="
+            (node: Node) =>
+              node.type === 'site'
+                ? 'transparent'
+                : `var(--${devicesById.get(node.id)?.health === 'Healthy' ? 'graph-edge' : 'primary'})`
+          "
+          mask-color="color-mix(in srgb, var(--background) 70%, transparent)"
+        />
+      </VueFlow>
+      <p class="topology-assumption">
+        <i aria-hidden="true"></i>
+        {{ t('view.topology.assumption') }}
+      </p>
+      <TopologyInspector :history="history" :site-name="siteName" />
+      <p v-if="failed" class="topology-error" role="alert">
+        {{ t('view.topology.layoutError') }}
+      </p>
+    </div>
+  </UiAiTarget>
 </template>
 
 <style scoped>

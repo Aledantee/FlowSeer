@@ -55,9 +55,11 @@ type tree struct {
 
 	helloTimer time.Time
 
+	// topologyChangeCount and lastTopologyChange record the topology changes
+	// this tree detected: a port that started forwarding. The timers that
+	// carry a change belong to the ports (portState.tcWhile).
 	topologyChangeCount uint64
 	lastTopologyChange  time.Time
-	topologyChangeTimer time.Time
 
 	ports map[string]*portState
 }

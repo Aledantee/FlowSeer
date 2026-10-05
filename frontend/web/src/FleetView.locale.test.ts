@@ -11,7 +11,7 @@ import { devices, filterDevices, sites, tenants } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Port } from './domain/telemetry'
 import DevicePorts from './components/DevicePorts.vue'
-import { createAiRegistry, createAiTargetDirective } from './ai'
+import { createAiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
@@ -99,7 +99,6 @@ async function mountLocale(path: string, locale: WebLocale) {
   await router.push(path)
   app.use(i18n)
   app.use(router)
-  app.directive('ai-target', createAiTargetDirective(registry))
   app.provide(aiRegistryKey, registry)
   await router.isReady()
   app.mount(host)

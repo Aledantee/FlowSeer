@@ -1,7 +1,9 @@
 package stp
 
 import (
+	"encoding/hex"
 	"strconv"
+	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -77,11 +79,48 @@ func bpduSnapshot(b bpdu.BPDU) string {
 		";message_age=" + strconv.FormatInt(int64(b.MessageAge), 10) +
 		";max_age=" + strconv.FormatInt(int64(b.MaxAge), 10) +
 		";hello=" + strconv.FormatInt(int64(b.HelloTime), 10) +
-		";forward_delay=" + strconv.FormatInt(int64(b.ForwardDelay), 10) + "}"
+		";forward_delay=" + strconv.FormatInt(int64(b.ForwardDelay), 10) +
+		mstSnapshot(b) + "}"
+}
+
+// mstSnapshot renders what an MST BPDU adds to the RST shape: the
+// configuration identifier, the regional root, the internal cost, the
+// remaining hops, and each MSTI record. It is empty for a BPDU with no
+// configuration identifier, so the text of any other BPDU is unchanged.
+func mstSnapshot(b bpdu.BPDU) string {
+	if b.ConfigID == nil {
+		return ""
+	}
+
+	var s strings.Builder
+	s.WriteString(";config_id={selector=" + strconv.FormatUint(uint64(b.ConfigID.Selector), 10) +
+		";name=" + strconv.Quote(b.ConfigID.Name) +
+		";revision=" + strconv.FormatUint(uint64(b.ConfigID.Revision), 10) +
+		";digest=" + strconv.Quote(hex.EncodeToString(b.ConfigID.Digest[:])) + "}" +
+		";regional_root=" + strconv.Quote(b.RegionalRootID.String()) +
+		";internal_cost=" + strconv.FormatUint(uint64(b.InternalRootPathCost), 10) +
+		";remaining_hops=" + strconv.FormatUint(uint64(b.RemainingHops), 10) +
+		";mstis=[")
+	for i, rec := range b.MSTIs {
+		if i > 0 {
+			s.WriteString(",")
+		}
+		s.WriteString("{mstid=" + strconv.FormatUint(uint64(rec.MSTID), 10) +
+			";flags=" + strconv.FormatUint(uint64(rec.Flags), 10) +
+			";regional_root=" + strconv.Quote(rec.RegionalRootID.String()) +
+			";internal_cost=" + strconv.FormatUint(uint64(rec.InternalRootPathCost), 10) +
+			";bridge_priority=" + strconv.FormatUint(uint64(rec.BridgePriority), 10) +
+			";port_priority=" + strconv.FormatUint(uint64(rec.PortPriority), 10) +
+			";remaining_hops=" + strconv.FormatUint(uint64(rec.RemainingHops), 10) + "}")
+	}
+	s.WriteString("]")
+
+	return s.String()
 }
 
 func portInfoSnapshot(info PortInfo) string {
-	return "{mstid=" + strconv.FormatUint(uint64(info.MSTID), 10) +
+	return "{tree_kind=" + strconv.Quote(string(info.Tree.Kind)) +
+		";tree_id=" + strconv.FormatUint(uint64(info.Tree.ID), 10) +
 		";role=" + strconv.Quote(string(info.Role)) +
 		";state=" + strconv.Quote(string(info.State)) +
 		";block_reason=" + strconv.Quote(string(info.BlockReason)) +

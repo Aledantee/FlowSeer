@@ -10,13 +10,15 @@ import {
   VisuallyHidden,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 import UiCommand from './UiCommand.vue'
 
 defineOptions({
   inheritAttrs: false,
 })
 
-export interface UiCommandDialogProps {
+export interface UiCommandDialogProps extends UiAiProps {
   open?: boolean
   defaultOpen?: boolean
   ignoreFilter?: boolean
@@ -34,6 +36,8 @@ const props = withDefaults(defineProps<UiCommandDialogProps>(), {
   highlightedValue: '',
   title: undefined,
   description: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -42,13 +46,15 @@ const resolvedDescription = computed(
   () => props.description ?? t('ui.commandDialog.description'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-  (e: 'update:modelValue', value: string): void
-  (e: 'update:highlightedValue', value: string): void
-  (e: 'highlight', value: string): void
-  (e: 'closeAutoFocus', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+    (e: 'update:modelValue', value: string): void
+    (e: 'update:highlightedValue', value: string): void
+    (e: 'highlight', value: string): void
+    (e: 'closeAutoFocus', event: Event): void
+  }
+>()
 </script>
 
 <template>
@@ -66,6 +72,11 @@ const emit = defineEmits<{
         @keydown.escape="emit('update:open', false)"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
         <VisuallyHidden as-child>
           <DialogTitle>{{ resolvedTitle }}</DialogTitle>
         </VisuallyHidden>

@@ -46,6 +46,9 @@
       "targets": "Targets",
       "title": "Context sent"
     },
+    "aiRender": {
+      "error": "FlowSeer cannot show this part of the answer."
+    },
     "aiResult": {
       "cause": "Likely cause",
       "confidence": "{confidence} confidence",

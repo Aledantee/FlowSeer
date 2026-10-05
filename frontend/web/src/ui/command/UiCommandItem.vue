@@ -1,13 +1,21 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import type { ComboboxItemEmits } from 'reka-ui'
-import { ComboboxItem } from 'reka-ui'
+import { ComboboxItem, injectComboboxRootContext } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiCommandItemProps {
+export interface UiCommandItemProps extends UiAiProps {
   value: string
   disabled?: boolean
 }
 
-const props = defineProps<UiCommandItemProps>()
+const props = withDefaults(defineProps<UiCommandItemProps>(), {
+  disabled: false,
+  ai: undefined,
+  aiOrigin: undefined,
+})
 
 type RekaSelectEvent = ComboboxItemEmits<string>['select'][0]
 
@@ -19,9 +27,24 @@ export interface UiCommandItemSelectEvent {
   shiftKey: boolean
 }
 
-const emit = defineEmits<{
-  (e: 'select', event: UiCommandItemSelectEvent): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'select', event: UiCommandItemSelectEvent): void
+  }
+>()
+
+const rootContext = injectComboboxRootContext()
+const item = useTemplateRef('item')
+const anchor = () => {
+  void rootContext.filterState.value
+  return item.value
+}
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 function select(event: RekaSelectEvent) {
   const { originalEvent } = event.detail
@@ -37,6 +60,7 @@ function select(event: RekaSelectEvent) {
 
 <template>
   <ComboboxItem
+    ref="item"
     :value="value"
     :disabled="disabled"
     :data-command-value="value"

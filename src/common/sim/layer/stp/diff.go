@@ -193,9 +193,47 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
-	for _, name := range sortedKeys(a.Ports) {
-		ap := a.Ports[name]
-		bp, exists := b.Ports[name]
+	changes = append(changes, diffPorts(a.Ports, b.Ports, lyr)...)
+
+	if a.MST != nil || b.MST != nil {
+		if (a.MST == nil) != (b.MST == nil) {
+			changes = append(changes, trace.Change{
+				Layer:   lyr,
+				Subject: trace.Subject{Kind: "bridge", Key: ""},
+				Field:   "mst",
+				From:    boolFact(a.MST != nil),
+				To:      boolFact(b.MST != nil),
+			})
+		}
+		if a.MST != nil && b.MST != nil {
+			changes = append(changes, diffMST(*a.MST, *b.MST, lyr)...)
+		}
+	}
+
+	if a.PVST != nil || b.PVST != nil {
+		if (a.PVST == nil) != (b.PVST == nil) {
+			changes = append(changes, trace.Change{
+				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
+				From: boolFact(a.PVST != nil), To: boolFact(b.PVST != nil),
+			})
+		}
+		if a.PVST != nil && b.PVST != nil {
+			changes = append(changes, diffPVST(*a.PVST, *b.PVST, lyr)...)
+		}
+	}
+
+	return changes
+}
+
+// diffPorts computes the differences between two normalized bridge port
+// sets: each port removed, each port added, and each kept port's priority,
+// admin path cost, admin edge, point-to-point mode, auto edge, and guards.
+func diffPorts(a, b map[string]Port, lyr trace.Layer) []trace.Change {
+	var changes []trace.Change
+
+	for _, name := range sortedKeys(a) {
+		ap := a[name]
+		bp, exists := b[name]
 		if !exists {
 			changes = append(changes, trace.Change{
 				Layer:   lyr,
@@ -281,42 +319,15 @@ func Diff(a, b Config) []trace.Change {
 		}
 	}
 
-	for _, name := range sortedKeys(b.Ports) {
-		if _, exists := a.Ports[name]; !exists {
+	for _, name := range sortedKeys(b) {
+		if _, exists := a[name]; !exists {
 			changes = append(changes, trace.Change{
 				Layer:   lyr,
 				Subject: trace.Subject{Kind: "port", Key: name},
 				Field:   "",
 				From:    nil,
-				To:      b.Ports[name],
+				To:      b[name],
 			})
-		}
-	}
-
-	if a.MST != nil || b.MST != nil {
-		if (a.MST == nil) != (b.MST == nil) {
-			changes = append(changes, trace.Change{
-				Layer:   lyr,
-				Subject: trace.Subject{Kind: "bridge", Key: ""},
-				Field:   "mst",
-				From:    boolFact(a.MST != nil),
-				To:      boolFact(b.MST != nil),
-			})
-		}
-		if a.MST != nil && b.MST != nil {
-			changes = append(changes, diffMST(*a.MST, *b.MST, lyr)...)
-		}
-	}
-
-	if a.PVST != nil || b.PVST != nil {
-		if (a.PVST == nil) != (b.PVST == nil) {
-			changes = append(changes, trace.Change{
-				Layer: lyr, Subject: trace.Subject{Kind: "bridge", Key: ""}, Field: "pvst",
-				From: boolFact(a.PVST != nil), To: boolFact(b.PVST != nil),
-			})
-		}
-		if a.PVST != nil && b.PVST != nil {
-			changes = append(changes, diffPVST(*a.PVST, *b.PVST, lyr)...)
 		}
 	}
 
@@ -416,7 +427,7 @@ func diffMSTInstance(a, b Instance, key string, lyr trace.Layer) []trace.Change 
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),
@@ -512,7 +523,7 @@ func diffPVSTTree(a, b Tree, key string, lyr trace.Layer) []trace.Change {
 
 			continue
 		}
-		if ap.Priority != bp.Priority || ap.PriorityPresent != bp.PriorityPresent {
+		if ap.Priority != bp.Priority {
 			changes = append(changes, trace.Change{
 				Layer: lyr, Subject: portSubject, Field: "priority",
 				From: portPriorityFact(ap.Priority), To: portPriorityFact(bp.Priority),

@@ -12,8 +12,10 @@ execution: code
 
 `layer/stp` follows IEEE 802.1D and IEEE 802.1Q for RSTP, MSTP, and
 interoperation with legacy STP, and keeps its PVST and SSTP behaviour
-consistent with them. The means is six units: a file split, one owner for
-link state, then one unit per state machine the inventory touches. Stop
+consistent with them. The means is eight units: a file split, one owner for
+link state, one unit per state machine the inventory touches, then two for
+what the review of those found (MSTP transmit and sync, and inherited port
+priority). Stop
 condition: if a per-tree machine in U4 or U5 needs a link fact that the
 per-port record of U2 cannot give it without a second copy, the ownership
 decision below is wrong and the phase is re-planned from U2.
@@ -68,6 +70,133 @@ under Inventory, Sources.
 - R3's example is a port that starts forwarding, not one that goes down,
   since the sources above raise no topology change when a port leaves
   Forwarding. (decided by the user, 2026-10-03)
+- Ruled: `bpdu.Decode` refuses an MST BPDU whose payload is longer than its
+  Version 3 Length names, as it refuses a shorter one. Why: `Q2003` 14.4
+  addresses neither mismatch, and the decoder refused both before this
+  phase (`B/bpdu.go` doc comment at `1af2f975`, "disagrees with the
+  payload"). Cost if wrong: one condition in `readMSTBody` and
+  `TestMSTBPDUDecodeRefusesOverlongPayload`.
+- Ruled: the layer masks received MSTI bridge and port priority octets with
+  `0xF0` as well as the codec. Why: a `bpdu.BPDU` built in a test or by a
+  caller reaches `receiveMSTIs` without passing `Decode`. Cost if wrong: two
+  masks in `S/receive.go`.
+- Ruled: a received Hello Time below 1 second is stored as 1 second, and
+  the 1-second minimum is marked unverified in code and README. Why: `D2009`
+  takes it from IEEE 802.1D Table 17-1, which was not read (Sources). Cost
+  if wrong: `receivedHelloTime` and its test.
+- Ruled: priority inheritance runs in `Config.Normalize` through
+  `inheritPortPriorities`, and `MST.Normalize` and `PVST.Normalize` keep
+  their signatures. Why: only `Config` holds the bridge ports an instance
+  or VLAN port inherits from. Cost if wrong: one helper in `S/config.go`.
+- Ruled: an MSTI record's Proposal is acted on without the CIST-message
+  gate that its Agreement needs. Why: `Q2003` 13.26.14 states no such
+  condition, and 13.26.10 a) gates the agreement alone. Cost if wrong: one
+  condition in `answerProposals`.
+- Ruled: `recordAgreement` keeps `agreed` only on a port that is Designated
+  when the message arrives. Why: the flag answers that port's own proposal,
+  and a stale true would open a port that becomes Designated later without
+  a handshake. Cost if wrong: one condition in `recordAgreement`.
+- Ruled: an agreement emission sets the Agreement flag from tree state:
+  always on an Alternate or Backup port, on a Root port only when the tree
+  is in sync, for the CIST and every MSTI record. Cost if wrong: `agrees` in
+  `S/transmit.go`.
+- Ruled: a superior vector from a sender that conveys a Root role is still
+  stored, so the agreement test's "Root sender with a better vector" row
+  asserts Discarding and no forward transition rather than the role.
+  `Q2003` would treat it as other information. Cost if wrong: the storage
+  rule in `applyBPDU`, which no unit of this phase names.
+- Ruled: a port stays active for topology change while it is Discarding in
+  the same role, so a sync-blocked Designated port that reopens detects no
+  second change. Why: `Q2003` Figure 13-19 leaves ACTIVE only on a role
+  change or `operEdge`. Cost if wrong: the detect condition in
+  `settleTopology`.
+- Ruled: only a received TCN sets the acknowledgment, as the unit says,
+  and `S/README.md` marks as unverified whether a flag should also set it.
+  Why: the figure's NOTIFIED_TC was read as setting it for a flag as well,
+  which the unit text does not ask for. Cost if wrong: one condition in
+  `applyTopologyChange`.
+- Ruled: a `RestrictedTCN` port starts no timer and propagates nothing, and
+  still acknowledges a TCN. Cost if wrong: the acknowledgment line in
+  `applyTopologyChange`.
+- Ruled: a Root port's topology-change report is sent once per call, and
+  any other emission on its budget key stands for it, since every BPDU
+  carries the flag from the running timers. Outside PVST the report is the
+  CIST's BPDU, and toward an STP peer it is a TCN from the CIST alone.
+  Cost if wrong: the owed-report mark in `S/topology.go` and its callers.
+- Ruled: under PVST a tree's loop-guard mark clears only when a BPDU is
+  applied to that tree (`ReceiveSSTP` for a VLAN, `Receive` for VLAN 1's
+  tree) or on link down, so an SSTP frame that is not admitted, untracked,
+  or PVID-inconsistent leaves the mark. Outside PVST any BPDU on the port
+  clears the CIST's mark. The clear moved out of `receiveLink`, which
+  cannot tell the tree. Why: the unit names "a BPDU applied to that tree".
+  `S/README.md` states the PVST behaviour as modelled on observation.
+  Cost if wrong: one condition in `ReceiveSSTP` and the rows of
+  `TestReceiveSSTPRunsTheLinkHalfForEveryOutcome`.
+- Ruled: `PortInfo.Tree` is a `TreeRef` (`Kind TreeKind`, `ID uint16`),
+  since `Tree` already names the PVST configuration type, and an untracked
+  port reports an empty kind. The MST decision fact appends `config_id`,
+  `regional_root`, `internal_cost`, `remaining_hops`, and an `mstis` list
+  inside the BPDU braces. Cost if wrong: `S/info.go`, `S/fact.go`, and the
+  fact tests.
+- Under MSTP a port transmits at each hello while its CIST role or any
+  MSTI role is Designated, or while a CIST or MSTI Root port's
+  topology-change timer runs. Why: `Q2003` Figure 13-13 TRANSMIT_PERIODIC
+  sets `newInfoMsti` on `mstiDesignatedPort || (mstiRootPort && tcWhile !=
+  0)`, 13.25.6 defines `mstiDesignatedPort` as "TRUE if the role for any
+  MSTI for the given Port is DesignatedPort", and TRANSMIT_RSTP sends on
+  `newInfoMsti && (mstiRootPort || mstiDesignatedPort)`. The STP-peer
+  transitions of the same figure name `cistRootPort` and
+  `cistDesignatedPort` alone, so toward a peer that does not send RSTP
+  only the CIST's role counts.
+- A proposal blocks only those other Designated ports of the tree that are
+  not synced, and a port holding an agreement keeps it and stays
+  Forwarding. This holds for the CIST, an MSTI, and a PVST VLAN tree alike,
+  boundary ports included. This amends U4's "syncs that tree's other
+  ports". Why: in `Q2003` Figure 13-17 PROPOSED calls `setSyncTree()`, a
+  Designated port that is learning or forwarding leaves for LISTEN on
+  `(learn || forward) && !operEdge && (role != RootPort) && (sync &&
+  !synced)`, and SYNCED is entered on `agreed && !synced` or `sync &&
+  synced`. 13.24.28 makes `synced` "TRUE only if the Port State is
+  compatible with the loop free active topology", and 13.26.18 sets `sync`
+  "for all Ports of the Bridge". The layer's `isSynced` already counts a
+  Designated port synced when it is Discarding or agreed (`S/roles.go`).
+  This replaces the boundary skip the review tried and removed.
+- Ruled: the layer keeps a Designated port's agreement through a change of
+  that port's designated vector. Why: `Q2003` Figure 13-14 UPDATE keeps it
+  only as `agreed = agreed && betterorsameInfoXst() && !changedMaster`, and
+  SUPERIOR_DESIGNATED clears `synced = synced && agreed`, but 13.26.1
+  defines `betterorsameInfoCist` for a received vector, so what UPDATE
+  compares is unverified. `S/README.md` lists it under Limits. Cost if
+  wrong: an agreement clear where the designated vector is recomputed in
+  `S/roles.go`, and the sync tests.
+- A BPDU's Agreement flag, for the CIST and for each MSTI record, follows
+  the transmitting port's state for that tree in every emission, whatever
+  sent it. Why: `Q2003` 13.26.22 sets "The Agreement and Proposal flags in
+  the BPDU ... to the values of the agreed ... and proposing ... variables
+  for the transmitting Port", and 13.24.1 makes `agree` the variable "used
+  by the Port Transmit state machine to set the value of the Agreement
+  flag". Both are per-tree state that persists between BPDUs, and the two
+  clauses name different variables, which is unverified against the later
+  text. The layer computes it as `agrees` (`S/transmit.go`). A hello that
+  carried no Agreement from a Root port would clear the peer's `agreed` in
+  `recordAgreement`, which the sync rule above then blocks. This widens the
+  `Ruled:` line on agreement emissions to every emission.
+- A change of point-to-point status on a port that is up restarts the
+  handshake on every tree, as auto-edge loss does. Why: link state has one
+  owner per port (above), so a link fact that changes reaches every tree.
+  `linkUp` today resets the CIST's port alone (`S/link.go`), which leaves
+  the other trees Forwarding on an agreement made over the old link.
+  `Q2003` has no transition on a change of `operPointToPointMAC`, so this
+  is the layer's rule, and `S/README.md` states it under Limits beside the
+  auto-edge rule.
+- An instance or VLAN port that sets no priority of its own gets the
+  bridge port's from `Config.Normalize`, and `PriorityPresent` stays as
+  the caller wrote it, so normalizing again inherits again. This amends
+  U3's "marks it present". Why: `Switch.Config` and `Fabric.Config` return
+  normalized configurations, and a caller that reads one back and changes
+  the bridge port priority must see the tree ports follow it. `Diff`
+  reports the effective change on each inheriting tree port. (decided by
+  the user, 2026-10-05)
 
 ## Requirements
 
@@ -90,6 +219,24 @@ answered by a Configuration BPDU with the acknowledgment flag set.
 R5. BPDU encoding is checked against bytes from a second source, including
 an MST BPDU with at least one MSTI record whose bridge and port priority are
 not the defaults.
+
+R6. An MSTI whose root differs from the CIST root stays loop free. Example:
+sw1 has bridge priority 4096 and roots the CIST, sw2 has bridge priority
+32768 and MSTI 1 priority 4096 and roots MSTI 1, and two point-to-point
+links join them in one region with VLAN 10 on MSTI 1. Ninety seconds after
+convergence, one of sw1's two ports still blocks VLAN 10.
+
+R7. A proposal leaves an agreed port forwarding. Example: a PVST bridge's
+VLAN 10 tree has a Designated port that holds an agreement and forwards,
+and a proposal arrives on its VLAN 10 Root port. The Designated port is
+still Forwarding with its agreement after the call, and a second
+Designated port that forwards without one is Discarding.
+
+R8. An inherited port priority follows the bridge port. Example: a
+configuration whose MSTI 1 port `1/1/1` sets only a path cost is
+normalized, its bridge port `1/1/1` priority is changed from 128 to 64, and
+it is normalized again. The MSTI 1 port's priority is 64, and the layer
+built from it reports 64 for that port on VLAN 10.
 
 ## Out of scope
 
@@ -536,7 +683,88 @@ Tests: entries 6, 7, 9, 10, 13, the fact entry under Completeness, and the
 counter.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
 
-Waves: U1 | U2 | U3 | U4 | U5 | U6
+### U7. MSTI transmit, proposal sync, and point-to-point re-entry
+Files: src/common/sim/layer/stp/, src/common/sim/device/vswitch/, src/common/sim/fabric/, src/common/sim/internal/simtest/
+After: U6
+Change: under MSTP, `Advance`'s hello (`emitDue` in `S/advance.go`) sends
+the CIST's BPDU on a port that sends RSTP when its CIST role or any MSTI
+role is Designated, or a CIST or MSTI Root port's `tcWhile` runs. Toward a
+peer that does not send RSTP the CIST's role alone decides, as today, so a
+CIST Root port facing an STP peer sends nothing at a hello. Every emission
+sets the CIST Agreement flag and each MSTI record's from `agrees` for that
+tree, whatever kind of emission it is (`makeBPDU` and `gatherMSTIRecords`
+in `S/transmit.go`). Outside PVST the held agreement has one budget key
+per port (`txKeyFor` in `S/portstate.go`), so the CIST's pass of `emitDue`
+releases it as an agreement emission when any tree's port is Root or
+Alternate, not only the CIST's. `syncOnProposal` (`S/agreement.go`) blocks
+another Designated port only when it is not edge, not Discarding, and
+holds no agreement, and it no longer clears the agreement of a port it
+leaves alone. `assignRoles` (`S/roles.go`) sets `proposing` on a port that
+enters Designated over a point-to-point link that sends RSTP, which the
+old sync loop set as a side effect. `linkUp` (`S/link.go`) on a port whose
+point-to-point status changed returns every tree's port to Discarding,
+clears its agreement and timer, and proposes when the link is
+point-to-point and the port sends RSTP, as `loseAutoEdge` does.
+`S/README.md` updates the "Proposal and agreement" section (the sentence
+that a proposal blocks the other Designated ports, and its pointer to Not
+modeled), drops the Not modeled bullet on a held agreement only an MSTI
+owed, and adds two Limits bullets: the point-to-point rule as the layer's,
+and the agreement kept through a designated-vector change. A simtest count
+that moves names its cause in the commit body.
+Tests:
+- R6's example on a helper lifted from `convergeLayers` in
+  `S/layer_test.go` that runs the cables of a fixture until a given time
+  (`runLayersUntil`). The test asserts the converged MSTI 1 roles first,
+  then after 90 seconds that sw1 `l2` VLAN 10 is Alternate and not
+  forwarding. It fails on the current code, where all four port ends
+  forward VLAN 10. After the 90 seconds, sw2's hello on `l1` carries the
+  CIST Agreement flag and sw1's hello on `l1` carries MSTI 1's.
+- A port that is CIST Root and MSTI 1 Designated emits an MST BPDU at a
+  hello after every timer on the port has run out, with the
+  topology-change flag clear. The same port migrated to STP emits nothing
+  at that hello.
+- The held release: sw1 `l2`, CIST Designated and MSTI 1 Alternate, gets
+  an MSTI 1 proposal after `TxHoldCount` emissions in the same second, and
+  the `Advance` at the budget tick emits a BPDU whose MSTI 1 record has the
+  Agreement flag set. It fails on the current code.
+- R7's example on a PVST bridge, and the same on an MSTP bridge whose
+  agreed Designated port is a boundary port. A VLAN 10 proposal blocks a
+  VLAN 10 Designated port that forwards without an agreement and leaves
+  VLAN 20 Forwarding.
+- A port that returns to Designated from Alternate over a point-to-point
+  RSTP link proposes.
+- A point-to-point change on an up internal MSTP port and on a PVST port,
+  with every tree Forwarding and agreed, leaves every tree Discarding with
+  `agreed` false, read in an internal test, since `PortInfo` carries no
+  agreement.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+### U8. Inherited port priority follows the bridge port
+Files: src/common/sim/layer/stp/config.go, src/common/sim/layer/stp/config_test.go, src/common/sim/layer/stp/wire_format_test.go, src/common/sim/layer/stp/mst_test.go, src/common/sim/layer/stp/diff_coverage_test.go, src/common/sim/layer/stp/README.md, src/common/sim/device/vswitch/, src/common/sim/fabric/
+After: U7
+Change: `inheritPortPriorities` (`S/config.go`) fills `Priority` from the
+bridge port when `PriorityPresent` is false and leaves `PriorityPresent`
+as written. `Config.Normalize` stays idempotent, and a normalized
+configuration normalized again after its bridge port priority changed
+gives every inheriting tree port the new priority. `newLayer`, `addTree`,
+`InstancePort.Canonical`, and `Diff` read `Priority` as they do now.
+`S/README.md` says the inherited value follows the bridge port.
+Tests:
+- R8's example, which fails on the current code, through `Normalize` and
+  through a layer's `VLANPortInfo(10, "1/1/1").Priority`.
+- `TestInstancePortPriorityIsResolvedOnceInNormalize` gains the layer
+  subtest its comment claims: a tree port `{Priority: 128,
+  PriorityPresent: true}` over bridge port priority 32 reports 128 from
+  `VLANPortInfo(10, "1/1/1").Priority`, which fails if `addTree` ignores
+  the tree port's priority. Both of its subtests that assert
+  `PriorityPresent` take the new rule.
+- A `Fabric.Configure` or `Switch` reconfigure of a configuration read back
+  from `Config()` with a new bridge port priority reaches the MSTI port.
+- The comment of `TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority`
+  names `inheritPortPriorities` as the reader of the flag.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim`
+
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8
 
 ## Verification
 
@@ -559,6 +787,8 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
 - [ ] No non-test file in `layer/stp` exceeds 1,200 lines and no function
       150, unless a comment at its head states why it is one unit.
 - [ ] No plan label appears in code, comments, or commit messages.
+- [ ] R6, R7, and R8 each have a test that fails on the code before U7 or
+      U8.
 - [ ] This plan's `status` is set with an outcome note under its title, and
       the parent's U3 `Landed:` line holds the range.
 
@@ -576,3 +806,53 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   (`fabric/fabric.go:860-862`), and injects emissions only after every port
   is reported (`:873-875`). The default of true serves a switch run alone
   (`device/vswitch/switch.go:2929-2945`), which U9 owns.
+- Open: `applyBPDU` stores a superior vector whatever role the message
+  conveys. Unverified: that `Q2003`'s received-message classification
+  treats a superior message conveying a Root role as other information, as
+  the agreement worker read it. No unit of this phase names it, and
+  `S/README.md` does not list it yet.
+- Open: a port that becomes Root does not sync the tree's forwarding
+  Designated ports, so it opens by the forward-delay ladder rather than at
+  once (the Root case of the state loop in `S/roles.go`). The review found
+  that `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` sees its flush on the
+  second of its 16 hellos, so the 32 seconds it runs do not show the ladder.
+- Open: a Designated port whose topology-change timer starts sends at its
+  next hello, not at once. `D2009` 13.29.11 also sets `newInfo` there, and
+  the unit text names Root ports only.
+- `PVST.Normalize` gives a VLAN tree that sets no priority the bridge
+  priority and marks it present (`S/pvst.go`, `Normalize`), so a PVST
+  configuration read back from `Config()` and given a new bridge priority
+  keeps the old one on those trees. This is R8's defect for the tree
+  priority. The user's decision on inheritance names the port priority,
+  so whether U8 also covers the tree priority is open.
+- The record that `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` sees its
+  flush on the second of its 16 hellos was taken before `times` read the
+  CIST outside PVST (`1bcf7338`), and is probably stale. Re-measure it in
+  the follow-up pass that closes that test's gap.
+
+## Review gaps
+
+Recorded by the first review of this phase and its two fix rounds
+(`d81bf514`, `1bcf7338`). None of these holds the verdict.
+
+- `src/common/sim/layer/stp/info.go:169`: the `l.pvst == nil` guard removed; fails: a PVST VLAN tree whose root advertises timers other than VLAN 1's root; class: gap
+- `src/common/sim/layer/stp/agreement.go:131`: `otherP.state = StateDiscarding` removed from `syncOnProposal`, or a boundary skip put back; fails: a PVST VLAN 10 proposal on a Root port leaving another Designated port of VLAN 10 Forwarding without an agreement; class: gap
+- `src/common/sim/layer/stp/received_info_test.go:244`: `deliver` and `runUntil` copy the cable scheduler `convergeLayers` has (`layer_test.go:1528`) and hardcode the one cable `cables` already names; class: convention
+
+- `src/common/sim/layer/stp/wire_format_test.go:128`: `addTree` ignoring `treePort.Priority`; fails: none, the test claims the layer reads the resolved priority and builds no layer; class: false test
+- `src/common/sim/layer/stp/agreement_test.go:35`: `!lk.pointToPoint` removed from `recordAgreement`; fails: none, the "shared link" row passes; class: false test
+- `src/common/sim/layer/stp/agreement_test.go:38`: `order >= 0` replaced by `true` in `recordAgreement`; fails: none, the "Root sender with a better vector" row ends Alternate by role election; class: false test
+- `src/common/sim/layer/stp/topology_test.go:314`: arrival-port timer started for a TCN before the `!p.tcActive` skip; fails: none, `b.step(time.Second)` reaches no hello; class: false test
+- `src/common/sim/device/vswitch/switch_test.go:7372`: MSTI 1 Root port opening at once instead of by the ladder; fails: none, the flush is read after 32 s; class: false test
+- `src/common/sim/fabric/result_test.go:264`: a BPDU still in flight at the cut; fails: none, 1 or 2 pending journeys pass; class: false test
+- `src/common/sim/layer/stp/agreement.go:37`: `order >= 0` to `order > 0`; fails: a Root, Alternate, or Backup message with the same vector as the port's; class: gap
+- `src/common/sim/layer/stp/agreement.go:73`: `RootPathCost` comparison removed from `cistHolds`; fails: an MSTI agreement whose CIST message names another external cost; class: gap
+- `src/common/sim/layer/stp/receive.go:360`: `mirrorAgreement` call removed; fails: a boundary port's MSTIs taking the CIST's agreement; class: gap
+- `src/common/net/bpdu/bpdu.go:625`: `version >= mstProtocolVersion` to `version >= 2`; fails: a version 2 frame carrying a whole MST body decodes as RST; class: gap
+- `src/common/net/bpdu/sstp.go:157`: a zero Hello Time refused in `DecodeSSTP` alone; fails: an SSTP BPDU with Hello Time 0 decodes; class: gap
+- `src/common/sim/layer/stp/vector.go:85`: `addCost` reverted to `+` in the internal CIST and MSTI sums; fails: the 100 against `0xfffffff0` election on an internal MST port and on an MSTI record; class: gap
+- `src/common/sim/layer/stp/mst_test.go:402`: comment says the layer checks whether an instance overrides the CIST port priority; class: convention
+- `src/common/sim/layer/stp/README.md:345`: "the version number alone never disqualifies a BPDU", while `Decode` refuses type 2 at version 0 or 1; class: convention
+- `src/common/sim/layer/stp/README.md:362`: "the layer sends its high nibble" for any port priority, while a CIST, RST, or SSTP Port Identifier carries the low nibble in the port-number bits (`S/layer.go:203,343`, predates this phase), also at `:604`; class: convention
+- `src/common/sim/layer/stp/README.md:572`: Hello Time "Fixed at 2 seconds", while the layer sends the configured one; class: convention
+- `src/common/sim/layer/stp/transmit.go:234`: `gatherMSTIRecords` puts MSTID bits 9 to 12 in the low nibble of an emitted record's bridge priority before `Encode` masks it; class: hardening

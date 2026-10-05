@@ -384,3 +384,63 @@ migration that landed on 2026-10-03.
   label or hint that names one, because Reka prints the tooltip's
   accessible text as one hidden node that no slot reaches. That node is
   marked as a whole, and the visible message words stay translatable.
+
+### 2026-10-05: the ai prop, anchors, and origin acknowledgement
+
+This amendment refines "Every component is AI-addressable" above with the
+decision in `docs/architecture/2026-10-05-1251-web-ai-target-lifecycle-direction.md`,
+as implemented.
+
+- `ai` takes the resolved `AiTarget` from `aiTarget()`, not its input, and the
+  caller owns the identity (`frontend/web/src/ui/ai/context.ts`,
+  `frontend/web/src/ai/target.ts`). The `v-ai-target` directive and its
+  `ai/directive.ts` are deleted, and `useAiTarget`
+  (`frontend/web/src/ui/ai/useAiTarget.ts`) follows the prop and the rendered
+  element against the injected registry, with the document registry as fallback.
+- A component registers its meaningful element. Native markup uses `UiAiTarget`
+  with `as` or `asChild` (`frontend/web/src/ui/ai/UiAiTarget.vue`), and an
+  SVG root is a valid anchor. Popups register their content through
+  `frontend/web/src/ui/popover/popupAnchor.ts`.
+- The registry owns `data-ai-selected` for every registration, manual ones
+  included (`frontend/web/src/ai/registry.ts`).
+- `aiOrigin` takes an `AiOriginRequest` and the component emits
+  `aiOriginAcknowledged(requestId)` after pointerdown, keydown, input, or
+  change on the value (`frontend/web/src/ui/ai/useAiOrigin.ts`). The caller
+  clears its state and composes `UiAiLabel` beside the value. This replaces
+  the earlier "until the user next interacts" wording with an explicit event.
+
+### 2026-10-05: generative UI catalog and renderer
+
+The generative UI catalog and renderer are implemented in
+`frontend/web/src/ai/catalog.ts`, `frontend/web/src/ui/ai/UiAiRender.vue`,
+`frontend/web/src/ui/ai/UiAiResult.vue`, and `frontend/web/src/ai/types.ts`.
+
+- An answer enters the catalog through `AiAnswer.ui`. The registry clones a
+  non-`undefined` `ui` once before yielding an answer snapshot
+  (`frontend/web/src/ai/registry.ts`). A clone failure sets `ui` to `null`, so
+  `UiAiRender` shows the tree's error state while the answer text remains.
+  Summaries and answers without `ui` are yielded as the handler returned them.
+  `UiAiResult` passes the value to `UiAiRender`, which validates it before
+  rendering. The catalog contains `UiCard`, `UiBadge`, `UiStatusBadge`,
+  `UiMetricCard`, `UiMeter`, `UiProgress`, `UiSeparator`, `UiEmptyState`,
+  `UiAiEntityChip`, and `UiButton`.
+- A node has `component`, `props`, and optional `children`. `text` is the
+  catalog prop for text that the renderer places in the default slot. `UiCard`
+  is the only component that accepts children.
+- Buttons use the `navigate` intent with a `path` or `query`. A path is valid
+  only when `isPagePath` in `frontend/web/src/navigation/page.ts` accepts it.
+  Proposal intents remain outside the catalog until the console has a service
+  API.
+- The validator caps a tree at 64 nodes, four levels, and 500 characters per
+  string (`frontend/web/src/ai/catalog.ts`). The registry clone keeps
+  enumerable, string-keyed own data. It drops non-enumerable and symbol-keyed
+  properties, reads an accessor once, and stores the value as data. A function,
+  Proxy, or accessor that throws makes the clone fail. The validator copies
+  allow-listed data before validation and rendering. `UiAiRender` validates
+  the tree it receives, including trees held in reactive state. These checks
+  are promised for a result made of data. An accessor or a Proxy on the
+  handler's own answer object is outside the contract, since the handler is
+  script in the page.
+- `UiAiRender` has no `ai` prop. It is a container for agent output, so it
+  stands for no entity, value, or action of its own. The structural exemption
+  is recorded in `frontend/web/src/ui/ai/targetContract.test.ts`.

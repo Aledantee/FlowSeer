@@ -2,12 +2,7 @@ import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import App from './App.vue'
 import FleetView from './FleetView.vue'
-import {
-  aiRegistry,
-  createMockAiHandler,
-  installFlowSeerAi,
-  vAiTarget,
-} from './ai'
+import { aiRegistry, createMockAiHandler, installFlowSeerAi } from './ai'
 import { createWebI18n } from './i18n'
 import { bindDocumentLang, initialLocale } from './i18n/locale'
 import '@fontsource-variable/inter/standard.css'
@@ -31,8 +26,4 @@ installFlowSeerAi()
 aiRegistry.onRequest(createMockAiHandler())
 const i18n = createWebI18n(initialLocale())
 bindDocumentLang(i18n.global)
-createApp(App)
-  .use(i18n)
-  .use(router)
-  .directive('ai-target', vAiTarget)
-  .mount('#app')
+createApp(App).use(i18n).use(router).mount('#app')

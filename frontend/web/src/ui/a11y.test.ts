@@ -6,6 +6,7 @@ import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
 import { useI18n } from 'vue-i18n'
 import UiInput from './form/UiInput.vue'
+import { isAiTargetElement } from '../ai'
 import { createWebI18n, type WebLocale } from '../i18n'
 import { i18nWarnings } from '../i18n/testing'
 
@@ -253,12 +254,13 @@ async function selectTarget(label: string) {
     `Expected ${label} to highlight its registered target`,
   ).toBe(true)
 
+  // A chart registers its SVG root, so a target is an HTML or an SVG element.
   const element = highlighted[0]
   expect(
-    element,
+    isAiTargetElement(element),
     `Expected ${label} to highlight a mounted target element`,
-  ).toBeInstanceOf(HTMLElement)
-  if (element instanceof HTMLElement) element.getBoundingClientRect = box
+  ).toBe(true)
+  if (isAiTargetElement(element)) element.getBoundingClientRect = box
 
   window.dispatchEvent(new Event('resize'))
   await settle()

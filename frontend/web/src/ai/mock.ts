@@ -1,4 +1,5 @@
 import type { AiFinding, AiHandler, AiMetric, AiRequest, AiTone } from './types'
+import { isPagePath } from '../navigation/page'
 
 // A stand-in provider for the design preview. The console has no model
 // backend, so this answers summaries from the target's own context after a
@@ -7,16 +8,58 @@ import type { AiFinding, AiHandler, AiMetric, AiRequest, AiTone } from './types'
 
 const pendingMs = 1800
 
+type AiUiStatus = 'Healthy' | 'Degraded' | 'Offline'
+
+function uiStatus(value: string | undefined): AiUiStatus | undefined {
+  if (value === 'Healthy' || value === 'Degraded' || value === 'Offline') {
+    return value
+  }
+  return undefined
+}
+
 export function createMockAiHandler(delay = pendingMs): AiHandler {
   return async function* (request: AiRequest) {
     if (request.action === 'ask') {
       if (delay > 0) {
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
+      const target = request.targets[0]
+      const entity = target?.entity
+      const status = uiStatus(target?.context.health)
+      const ui =
+        entity?.kind === 'device' && isPagePath(`/devices/${entity.id}`)
+          ? [
+              {
+                component: 'UiCard',
+                props: {},
+                children: [
+                  ...(status
+                    ? [
+                        {
+                          component: 'UiStatusBadge',
+                          props: { status },
+                        },
+                      ]
+                    : []),
+                  {
+                    component: 'UiButton',
+                    props: {
+                      text: 'Open device',
+                      intent: {
+                        type: 'navigate',
+                        target: { path: `/devices/${entity.id}` },
+                      },
+                    },
+                  },
+                ],
+              },
+            ]
+          : undefined
       yield {
         type: 'answer',
         text: 'This is a placeholder answer.',
-        refs: request.targets[0]?.entity ? [request.targets[0].entity] : [],
+        refs: entity ? [entity] : [],
+        ui,
       }
       return
     }

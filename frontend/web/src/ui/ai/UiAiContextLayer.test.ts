@@ -2,9 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import UiAiContextLayer from './UiAiContextLayer.vue'
+import UiAiTarget from './UiAiTarget.vue'
 import {
   createAiRegistry,
-  createAiTargetDirective,
   type AiRegistry,
   type AiResult,
   type AiSeed,
@@ -21,14 +21,13 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function mountLayer(
+async function mountLayer(
   registry: AiRegistry,
   slots: Record<string, () => unknown>,
   onContinue?: (seed: AiSeed) => void,
 ) {
   const host = document.createElement('div')
   document.body.append(host)
-  const directive = createAiTargetDirective(registry)
   const app = createApp({
     setup() {
       return () =>
@@ -43,9 +42,9 @@ function mountLayer(
   })
   app.use(createWebI18n())
   app.provide(aiRegistryKey, registry)
-  app.directive('ai-target', directive)
   app.mount(host)
   dispose = () => app.unmount()
+  await nextTick()
   return host
 }
 
@@ -64,16 +63,17 @@ describe('UiAiContextLayer', () => {
       context: { health: 'Offline' },
     }
 
-    const host = mountLayer(registry, {
+    const host = await mountLayer(registry, {
       default: () => [
-        h('div', { id: 'row-1', 'v-ai-target': offlineDevice }, [
-          h('span', 'core-sw-1'),
-        ]),
+        h(
+          UiAiTarget,
+          { id: 'row-1', ai: offlineDevice },
+          { default: () => h('span', 'core-sw-1') },
+        ),
       ],
     })
 
     const row = host.querySelector('#row-1') as HTMLElement
-    registry.register(row, offlineDevice)
 
     const event = new MouseEvent('contextmenu', {
       bubbles: true,
@@ -109,28 +109,33 @@ describe('UiAiContextLayer', () => {
       context: {},
     }
 
-    const host = mountLayer(registry, {
+    const host = await mountLayer(registry, {
       default: () => [
         h('h1', { id: 'heading' }, 'Overview Heading'),
-        h('div', { id: 'row-1' }, [
-          h('a', { id: 'row-link', href: '/devices/d1' }, 'Link to device'),
-          h('input', { id: 'row-input', type: 'text' }),
-        ]),
-        h('div', { id: 'view-pane' }, [
-          h('p', { id: 'pane-text' }, 'General pane content'),
-        ]),
+        h(
+          UiAiTarget,
+          { id: 'row-1', ai: offlineDevice },
+          {
+            default: () => [
+              h('a', { id: 'row-link', href: '/devices/d1' }, 'Link to device'),
+              h('input', { id: 'row-input', type: 'text' }),
+            ],
+          },
+        ),
+        h(
+          UiAiTarget,
+          { id: 'view-pane', ai: viewTarget },
+          {
+            default: () => h('p', { id: 'pane-text' }, 'General pane content'),
+          },
+        ),
       ],
     })
 
-    const row = host.querySelector('#row-1') as HTMLElement
     const heading = host.querySelector('#heading') as HTMLElement
     const link = host.querySelector('#row-link') as HTMLElement
     const input = host.querySelector('#row-input') as HTMLElement
-    const viewPane = host.querySelector('#view-pane') as HTMLElement
     const paneText = host.querySelector('#pane-text') as HTMLElement
-
-    registry.register(row, offlineDevice)
-    registry.register(viewPane, viewTarget)
 
     // Heading (outside targets)
     const headingEvt = new MouseEvent('contextmenu', {
@@ -181,16 +186,19 @@ describe('UiAiContextLayer', () => {
       context: { health: 'Offline' },
     }
 
-    const host = mountLayer(registry, {
+    const host = await mountLayer(registry, {
       default: () => [
-        h('div', { id: 'row-1', tabindex: 0 }, 'Target row'),
+        h(
+          UiAiTarget,
+          { id: 'row-1', tabindex: 0, ai: target },
+          { default: () => 'Target row' },
+        ),
         h('button', { id: 'outside-btn' }, 'Outside target'),
       ],
     })
 
     const row = host.querySelector('#row-1') as HTMLElement
     const outsideBtn = host.querySelector('#outside-btn') as HTMLElement
-    registry.register(row, target)
 
     // Shift+F10 on non-target
     outsideBtn.focus()
@@ -241,12 +249,17 @@ describe('UiAiContextLayer', () => {
         }),
     )
 
-    const host = mountLayer(registry, {
-      default: () => [h('button', { id: 'row-btn' }, 'core-sw-1')],
+    const host = await mountLayer(registry, {
+      default: () => [
+        h(
+          UiAiTarget,
+          { as: 'button', id: 'row-btn', ai: target },
+          { default: () => 'core-sw-1' },
+        ),
+      ],
     })
 
     const btn = host.querySelector('#row-btn') as HTMLElement
-    registry.register(btn, target)
     btn.focus()
 
     // Open context menu
@@ -324,10 +337,16 @@ describe('UiAiContextLayer', () => {
       context: { health: 'Offline' },
     }
 
-    const host = mountLayer(
+    const host = await mountLayer(
       registry,
       {
-        default: () => [h('div', { id: 'row-1' }, 'core-sw-1')],
+        default: () => [
+          h(
+            UiAiTarget,
+            { id: 'row-1', ai: target },
+            { default: () => 'core-sw-1' },
+          ),
+        ],
       },
       (seed) => {
         continuedSeed = seed
@@ -335,7 +354,6 @@ describe('UiAiContextLayer', () => {
     )
 
     const row = host.querySelector('#row-1') as HTMLElement
-    registry.register(row, target)
 
     row.dispatchEvent(
       new MouseEvent('contextmenu', {
@@ -379,10 +397,16 @@ describe('UiAiContextLayer', () => {
       sources: [],
     }))
 
-    const host = mountLayer(
+    const host = await mountLayer(
       registry,
       {
-        default: () => [h('div', { id: 'row-1' }, 'core-sw-1')],
+        default: () => [
+          h(
+            UiAiTarget,
+            { id: 'row-1', ai: target },
+            { default: () => 'core-sw-1' },
+          ),
+        ],
       },
       (seed) => {
         continuedSeed = seed
@@ -390,7 +414,6 @@ describe('UiAiContextLayer', () => {
     )
 
     const row = host.querySelector('#row-1') as HTMLElement
-    registry.register(row, target)
 
     row.dispatchEvent(
       new MouseEvent('contextmenu', {
@@ -427,6 +450,82 @@ describe('UiAiContextLayer', () => {
     expect(continuedSeed?.turns[1]?.role).toBe('assistant')
   })
 
+  it('a context event on an SVG child path resolves the registered SVG root', async () => {
+    const chart: AiTarget = {
+      id: 'chart:t1',
+      kind: 'chart',
+      label: 'Traffic',
+      context: {},
+    }
+    const host = await mountLayer(registry, {
+      default: () => [
+        h(
+          UiAiTarget,
+          { as: 'svg', id: 'chart', ai: chart },
+          { default: () => h('path', { id: 'line', d: 'M0 0L10 10' }) },
+        ),
+      ],
+    })
+    const root = host.querySelector('#chart')
+    const path = host.querySelector('#line')
+    expect(root).toBeInstanceOf(SVGElement)
+    expect(path?.parentElement).toBe(root)
+
+    const event = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+    })
+    path?.dispatchEvent(event)
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(event.defaultPrevented).toBe(true)
+    const menu = document.body.querySelector('[role="menu"]')
+    expect(menu?.textContent).toContain('Explain this traffic')
+  })
+
+  it('runs a verb on an SVG target and anchors the result to it', async () => {
+    const chart: AiTarget = {
+      id: 'chart:t1',
+      kind: 'chart',
+      label: 'Traffic',
+      context: {},
+    }
+    registry.onRequest(async () => ({
+      type: 'answer',
+      text: 'Traffic is steady.',
+      refs: [],
+    }))
+    const host = await mountLayer(registry, {
+      default: () => [
+        h(
+          UiAiTarget,
+          { as: 'svg', id: 'chart', ai: chart },
+          { default: () => h('path', { id: 'line', d: 'M0 0L10 10' }) },
+        ),
+      ],
+    })
+
+    host
+      .querySelector('#line')
+      ?.dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+      )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+    const item = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (el) => el.textContent?.includes('Explain this traffic'),
+    ) as HTMLElement
+    item.click()
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 30))
+
+    const popover = document.body.querySelector('[data-ai-context-popover]')
+    expect(popover?.textContent).toContain('Traffic is steady.')
+  })
+
   it('target unmounting mid-run discards the result and closes popover', async () => {
     const target: AiTarget = {
       id: 'device:d1',
@@ -442,12 +541,17 @@ describe('UiAiContextLayer', () => {
         }),
     )
 
-    const host = mountLayer(registry, {
-      default: () => [h('div', { id: 'row-1' }, 'core-sw-1')],
+    const host = await mountLayer(registry, {
+      default: () => [
+        h(
+          UiAiTarget,
+          { id: 'row-1', ai: target },
+          { default: () => 'core-sw-1' },
+        ),
+      ],
     })
 
     const row = host.querySelector('#row-1') as HTMLElement
-    registry.register(row, target)
 
     row.dispatchEvent(
       new MouseEvent('contextmenu', {

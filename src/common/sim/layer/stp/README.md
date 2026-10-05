@@ -99,7 +99,8 @@ If Message Age is greater than Max Age, the BPDU is discarded"
 13.23.6, 13.27.30, and 13.28).
 
 The second bound is silence. Accepted information lives for `3 × HelloTime` from
-the moment it arrived, after which `Advance` expires it and the roles are recomputed.
+the moment it arrived, after which `Advance` expires it and the roles are recomputed. A received Hello
+Time below 1 second counts as 1 second.
 
 Internal information — a BPDU whose configuration identifier matches this
 bridge's own — ages by hop count instead: it is accepted while
@@ -123,17 +124,25 @@ a port, and the trace carries it.
 | --- | --- | --- |
 | `BPDUGuard` | A BPDU on the port disables it for spanning tree, on the CIST and every MSTI alike: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
 | `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
-| `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
-| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. The outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. | Any BPDU received on the port, or a link down. |
+| `RestrictedTCN` | A topology change received on the port propagates to no other port, and starts no topology-change timer that would carry the flag out on this bridge's own BPDUs. A TCN is still acknowledged. | Nothing to clear. |
+| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. Outside PVST the outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. Under PVST each VLAN's tree arms its own mark on its own expiry. | Outside PVST, any BPDU received on the port. Under PVST, a BPDU applied to that VLAN's tree. In both, a link down. |
 
 Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
 all apply loop protection only to ports that were receiving BPDUs and recover on
-the next BPDU. Because any received BPDU clears the state, including one the
-message-age bound discards, a peer that keeps sending information too old to
-store is not covered: the guard clears on each such BPDU and never re-arms. It is inactive on a port that is operationally edge and on one
+the next BPDU. Because a received BPDU applied to the tree clears the state,
+including one the message-age bound discards, a peer that keeps sending
+information too old to store is not covered: the guard clears on each such BPDU
+and never re-arms. It is inactive on a port that is operationally edge and on one
 that is not point-to-point, which is where [Cisco][cisco-loop] and
 [Arista][arista-stp] rule it out: on a shared link a port that stops hearing
 BPDUs is not evidence of a link broken in one direction.
+
+Under PVST the guard is per VLAN, as [Cisco][cisco-loop] describes it for
+per-VLAN spanning tree. A port that is Root for VLAN 10 and stops hearing VLAN
+10's BPDUs is held for VLAN 10 while VLAN 1 keeps forwarding. A BPDU applied to
+another VLAN's tree, or applied to none because the VLAN is not admitted, not
+tracked, or disagrees with the arrival VLAN, leaves the mark where it is. This
+is modelled on observation, since no IEEE standard defines loop guard.
 
 Two combinations are refused at construction, with the field path
 `ports.<name>.loop_guard`:
@@ -168,6 +177,16 @@ the CIST on every port. Under `PVST` every VLAN maps to a tree of its own.
 the common tree, and works in every mode: on a bridge running one tree every
 VLAN answers alike.
 
+`PortInfo.Tree` names the tree a snapshot describes by a kind and an
+identifier. `TreeCIST` carries 0, `TreeMSTI` the MSTID, and `TreeVLAN` the VLAN
+under PVST, where VLAN 1's tree is `TreeVLAN` 1. The kind keeps MSTI 10 apart
+from VLAN 10, which share a number but never a bridge. The facts print it as
+`tree_kind` and `tree_id`, and the fabric fingerprint escapes both. A decision
+fact for a BPDU with a configuration identifier also prints that identifier, the
+regional root, the internal cost, the remaining hops, and each MSTI record, so
+two BPDUs that differ only in an instance's cost read differently. Any other
+BPDU's text is unchanged.
+
 The bridge consults the gate after classifying the frame, so a gate-blocked
 frame names the VLAN it was classified into, and a frame that fails
 classification reports the classification reason instead: a frame the port would
@@ -187,9 +206,11 @@ ways and let the two disagree.
 
 Each VLAN runs the landed RSTP machine. `PVST.Trees` holds one `Tree` per
 VLAN, with the per-port priority and path cost overrides `InstancePort`
-already carries, and `PVST.Normalize` fills a tree that names no priority from
+already carries. `PVST.Normalize` fills a tree that names no priority from
 the bridge's own, so a bridge configured to be root is root on every VLAN it
-does not override. A tree's bridge identifier carries its VLAN in the low 12
+does not override. `Config.Normalize` fills a tree or instance port that names
+no priority from the bridge port's and marks it present, so the layer,
+`Canonical`, and `Diff` read one value. A tree's bridge identifier carries its VLAN in the low 12
 bits of the system-ID extension, the way an MSTI carries its MSTID, which is
 what the multiple-of-4096 rule on a tree priority reserves those bits for.
 
@@ -238,24 +259,36 @@ VLAN the TLV names, because its local traffic is what would cross a link the
 two ends disagree about.
 
 The half of a receive that belongs to the link rather than to any tree, BPDU
-guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
-of auto-edge status, runs once per frame in `receiveLink`, which both entry
-points share, whatever `SSTPOutcome` the tree half goes on to report.
+guard, protocol migration, and the loss of auto-edge status, runs once per
+frame in `receiveLink`, which both entry points share, whatever `SSTPOutcome`
+the tree half goes on to report.
 
 Every property `receiveLink` can change belongs to the link, not to any tree,
-but the link keeps no state apart from the trees: `portState` embeds a
-`linkState{up, pointToPoint, edge, sendRSTP}`, one copy per tree, and
-`syncInstancePorts` copies the CIST's whole `linkState` onto every other
-tree's port once `receiveLink` finishes. A second group of link properties —
-path cost, whether the link is external, the BPDU-guard and loop-guard flags,
-the PVST-boundary mark, the migration-delay timer, and the two BPDU counters —
-is written only on the CIST's port state and read through it, rather than
-replicated: `VLANPortInfo`'s `BlockReason`, `RxBPDUs` and `BadBPDUs` answer
-from the CIST's copy on any VLAN, the same value `PortInfo` reports for the
-common tree. A VLAN with no tree under PVST answers neither kind: `treeFor`
-says so through its second return, and `VLANPortInfo` and `ForwardingFact`
-return the zero value for it rather than VLAN 1's, because VLAN 1's tree is a
-tree like any other, not a stand-in for a VLAN that has none.
+so `Layer` keeps one `linkRecord` per port and no tree holds a copy. The record
+holds the four link flags (`up`, `pointToPoint`, `edge`, `sendRSTP`), the
+admin edge setting, the link-derived path cost, whether the link is external,
+the BPDU-guard and PVST-boundary marks, the migration and edge delay timers,
+and the two received-BPDU counters. A tree's `portState` keeps what that tree
+computes: role, state, the handshake flags, its timers, and the information it
+received. Its path cost is its own only when the tree fixed one. The
+loop-guard mark stays on a tree's port state. Outside PVST it is armed on the
+CIST's alone, which every tree reads, and under PVST each tree arms its own.
+`VLANPortInfo`'s `RxBPDUs` and `BadBPDUs` therefore answer the same on any VLAN
+as `PortInfo` does for the common tree, and so does its `BlockReason` outside
+PVST. A link down or a BPDU-guard disable clears every tree's
+handshake state, forward-delay timer, and received information in one pass,
+and a lost auto-edge status returns the port to Discarding and proposing on
+every tree. A VLAN with no tree under PVST has no answer: `treeFor` says so
+through its second return, and `VLANPortInfo` and `ForwardingFact` return the
+zero value for it rather than VLAN 1's, because VLAN 1's tree is a tree like
+any other, not a stand-in for a VLAN that has none.
+
+`ReceiveSSTP` recomputes roles on every return after the link half, so a
+frame that reaches no tree still moves whatever mark roles depend on. Outside
+PVST that lets a port leave the Alternate role loop guard gave it. A
+`LinkChange` that reports a speed alone on a port that is up
+with the same point-to-point status updates the cost on every tree that has
+not fixed one and resets no handshake state.
 
 A separate `Receive` taking a VLAN would read as though an RSTP bridge
 classified its BPDUs per VLAN, which it does not.
@@ -285,38 +318,94 @@ seen by a bridge that is not one. The second withholds only the priority
 vector, because its CIST does not run that VLAN's tree and feeding the vector
 in would elect a root from a tree it is not running; the link half of the
 receive, BPDU guard among it, still runs, the same as for any other BPDU the
-port hears. The mark lives on the CIST port state and clears on a link down,
-since only that can replace the neighbor.
+port hears. The mark lives on the port's link record and clears on a link
+down, since only that can replace the neighbor.
 
 ## Decoding a version 3 BPDU
 
 A version 3 BPDU carries the CIST fields every RST BPDU does, plus a 51-octet
 MST configuration identifier, the CIST's internal root path cost and remaining
 hops, and one 16-octet record per instance the sender maps a VLAN into.
-`bpdu.Decode` reads all of it: `bpdu.BPDU.ConfigID`, `RegionalRootID`,
-`InternalRootPathCost`, `RemainingHops`, and `MSTIs` come back filled whenever
-the payload holds enough octets for the MST body.
+`bpdu.Decode` classifies a frame by IEEE 802.1Q-2003 14.4, counting octets from
+the Protocol Identifier ([Q2003][q2003]):
 
-When the payload is too short to hold that body at all — a peer running plain
-RSTP that sent a 39-octet RST BPDU with version 3 in the header, or a capture
-truncated before the MST body starts — `bpdu.Decode` still reads the RST prefix
-and returns it with `ConfigID` nil and no records, rather than refusing the
-frame. A payload long enough for the MST body but truncated inside the MSTI
-records is refused, not fallen back to the RST prefix: at that point the
-sender meant to carry MST fields and `bpdu.Decode` cannot tell which ones survived
-the truncation. The UNH-IOL MSTP conformance suite is why the version number
-alone never disqualifies a BPDU: "A compliant device must not validate an MST
-BPDU based on the value encoded in the Protocol Version Identifier field.
-This allows future versions of the Spanning Tree Protocol to use this field
-while providing support for legacy versions" ([MSTP_conformance.pdf][unh-mstp],
-Test MSTP.op.1.3, citing IEEE Std 802.1Q-2011 sub-clause 14.4). This is also
-why version 4 and later decode the same way as a short version 3 payload,
-with `ConfigID` nil, rather than being rejected outright. Refusing a short
-version 3 payload would leave a netsim bridge facing that peer with both ends
-Designated and Forwarding, an unbroken loop and a worse answer than the
-RST-prefix approximation.
+| Type | Version | Rest of the frame | Decoded as |
+| --- | --- | --- | --- |
+| `0x00` | any | 35 octets or more | Configuration BPDU (14.4 a) |
+| `0x80` | any | 4 octets or more | TCN BPDU (14.4 b) |
+| `0x02` | 2 | 36 octets or more | RST BPDU (14.4 c) |
+| `0x02` | 3 or above | 102 octets or more, Version 1 Length 0, Version 3 Length naming 0 to 64 whole records | MST BPDU (14.4 e) |
+| `0x02` | 3 or above | 35 octets or more, any other shape | RST BPDU (14.4 d) |
+
+Anything else is refused. The standard does not say what to do with an MST BPDU
+whose payload differs in length from the Version 3 Length it names, so
+`bpdu.Decode` refuses that too: at that point the sender meant to carry MST
+fields and the decoder cannot tell which ones survived. An MST BPDU naming
+more than 64 records is therefore an RST BPDU, as is a short version 3 payload
+from a peer running plain RSTP. The UNH-IOL MSTP conformance suite is why the
+version number alone never disqualifies a BPDU: "A compliant device must not
+validate an MST BPDU based on the value encoded in the Protocol Version
+Identifier field. This allows future versions of the Spanning Tree Protocol to
+use this field while providing support for legacy versions"
+([MSTP_conformance.pdf][unh-mstp], Test MSTP.op.1.3, citing IEEE Std
+802.1Q-2011 sub-clause 14.4). A Hello Time of zero decodes as zero, and the
+layer ages such a BPDU's information by 1 second, the lowest Hello Time the
+UNH-IOL RSTP suite sends as valid (RSTP.op.4.3 Part B). The draft text that
+raises a smaller value to the minimum takes the minimum from IEEE Std 802.1D
+Table 17-1, which was not read.
+
+An MSTI record sends its bridge priority and its port priority in bits 5 to 8
+of one octet and zero in bits 1 to 4 (14.6.1 d and e). The layer hands the
+codec the top octet of the instance's bridge identifier and of the port
+identifier, and rebuilds the identifiers from the octet's high nibble on
+receipt: the MSTI port identifier is that nibble over the low 12 bits of the
+CIST Port Identifier. A port priority that is not a multiple of 16 loads, and
+the layer sends its high nibble.
+
+[q2003]: https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf
 
 [unh-mstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/MSTP_conformance.pdf
+
+[d2009]: https://www.ieee802.org/1/files/public/docs2009/aq-seaman-merged-spanning-tree-protocols-0509.pdf
+
+## Proposal and agreement
+
+The CIST and every MSTI run the same two rules, so an instance's Designated
+port opens in the exchange that opens the CIST's.
+
+A proposal is acted on only when the message conveys a Designated role
+([P802.1aq/D1.5][d2009] 13.29.20, a working draft). The published text tests
+for a point-to-point link instead ([Q2003][q2003] 13.26.13), and the draft's
+later wording wins here. A Root or Alternate port that is proposed to blocks
+the other Designated ports of that tree and answers with the Agreement flag.
+A Root port that is then in sync starts forwarding.
+
+An agreement is recorded by one rule ([Q2003][q2003] 13.26.9 and 13.26.10).
+The port agrees when the link is point-to-point, the port sends RSTP, the
+message carries the Agreement flag, and it conveys one of:
+
+- a Root, Alternate, or Backup role with a vector the same as or worse than
+  the port's own
+- a Designated role with a vector the same as or better
+
+Any other message the rule is run for clears the flag, so a shared link, a
+port in STP mode, and a Designated sender with a worse vector all leave the
+port Discarding until the forward-delay ladder opens it. The layer keeps the
+flag only on a port that is Designated when the message arrives. A port that
+becomes Designated later proposes again.
+
+An MSTI record carries its tree's Proposal and Agreement flags in the bits the
+CIST uses. A record's agreement is recorded only when the CIST message of the
+same BPDU names the CIST root, external cost, and regional root the port holds
+(13.26.10 a). A record's proposal has no such condition (13.26.14). A port
+facing another region receives no records, so each MSTI takes the CIST's
+agreement (13.26.9) and is proposed to when the CIST is (13.26.13).
+
+An answer carries every tree's agreement. The Agreement flag is set on the
+CIST and on each MSTI record whose port is Alternate, Backup, or a Root port
+in sync.
+
+[Not modeled](#not-modeled) lists the one case where an answer is lost.
 
 ## Multiple spanning tree instances (MSTP)
 
@@ -349,11 +438,15 @@ regional root and internal cost compare ahead of bridge and port, which is
 what lets a region compute its own internal topology before comparing outward
 against the wider network.
 
-A port that has received nothing is treated as internal, since the field
-that marks a boundary port only gets set on `Receive`. Once a BPDU has
-arrived, a port is internal when it carried this bridge's own configuration
-identifier, and a boundary port otherwise; an RST or Configuration BPDU is
-always external. Only the CIST computes a boundary port's role; every MSTI
+A port that has stored nothing is treated as internal, since the field
+that marks a boundary port only gets set when a BPDU's information is stored.
+After that, a port is internal when the stored BPDU carried this bridge's own
+configuration identifier, and a boundary port otherwise. An RST or
+Configuration BPDU is always external. A BPDU that is not stored, because it is
+worse than what the port holds or has used up its age or hops, leaves the mark
+alone, since the stored fields would otherwise be read in a shape they were
+never written in ([Q2003][q2003] Figure 13-14 assigns `infoInternal` only where
+information is stored). Only the CIST computes a boundary port's role, and every MSTI
 takes the CIST port's role there outright rather than electing one from
 information a different region sent. A bridge whose CIST root port is itself
 a boundary port names its own bridge identifier the CIST's regional root, not
@@ -374,37 +467,76 @@ A region configuration is refused at construction, with the field path it
 names, when: an instance claims a VLAN outside 1 through 4094; the region
 name contains a NUL byte; an instance lists a port that is not in this
 bridge's spanning tree port set; an instance port's path cost exceeds the
-maximum path cost; or the region holds more instances than one BPDU's
-version 3 length field can carry. The last one is a wire limit rather than an
-arbitrary cap: a region within it always has a BPDU to send, and a region
+maximum path cost; or the region holds more than 64 instances, the most one MST BPDU may
+carry (`bpdu.MaxMSTIRecords`, 802.1Q-2003 13.14). The last one is a wire limit
+rather than an arbitrary cap: a region within it always has a BPDU to send, and a region
 that validates but cannot be encoded would be a configuration with no
 correct simulated answer.
 
-## What a topology change flushes
+## Topology change
+
+Topology change follows the Topology Change state machine of IEEE Std
+802.1Q-2003 (13.35, Figure 13-19), kept for each port of each tree. A port is
+active in a tree when it is a Root or Designated port, is not an edge port,
+and has started forwarding. It stays active until it loses the role, becomes
+an edge port, or goes down. Only an active port detects a change, acts on a
+received one, and keeps a timer. A port outside the active topology ignores
+every topology change flag, TCN, and acknowledgment it receives.
+
+A change is detected when a port becomes active. The port starts its
+topology-change timer and tells every other active port of the tree, which
+start theirs and flush. `TopologyChanges` counts the detections on the CIST.
+A port that leaves Forwarding raises nothing. One that loses its role, becomes
+an edge, or goes down is flushed itself, stops its timer, and leaves the
+active topology. A port also starts no new timer while one runs, so a second
+change inside the window does not extend it.
+
+The timer runs HelloTime plus one second on a port that sends RSTP
+(P802.1aq/D1.5 13.29.11, which UNH-IOL RSTP.op.4.5 agrees with), where the
+published 802.1Q-2003 13.26.6 says twice HelloTime. On a port that does not
+send RSTP it runs Max Age plus Forward Delay of the root's times, 35 seconds at
+the defaults.
+
+A BPDU sets its topology-change flag while the sending port's timer runs, and
+each MSTI record sets its flag from that instance's timer on the same port. A
+Root port whose timer runs reports the change toward the root: it sends when
+the timer starts and again at each hello, an RST or MST BPDU with its role,
+its agreement state, and the flag, or a TCN BPDU toward a bridge that sends
+STP. The report waits for the transmit budget like any other BPDU. Toward an
+STP bridge only the CIST reports, since a TCN names no instance.
+
+A received TCN counts for the CIST and every MSTI. A topology-change flag from
+outside the region counts for every tree, and one from inside the region counts
+for the CIST if its CST message sets the flag and for each MSTI whose record
+does (13.26.19). A TCN on a Designated port also sets an acknowledgment that
+the next Configuration BPDU on the port carries once, and starts the port's
+own CIST timer. A received acknowledgment stops the CIST timer of the port it
+arrived on. A port with `RestrictedTCN` starts no timer and propagates
+nothing, and still acknowledges a TCN so the STP bridge stops repeating it.
+Figure 13-19 sets the acknowledgment in NOTIFIED_TC, which a topology-change
+flag reaches as well as a TCN. The layer sets it for a TCN alone, so a flagged
+Configuration BPDU is not answered with an acknowledgment nobody asked for.
+That this matches the standard's intent is unverified.
 
 `layer.Effects.Flush` is a list of `layer.FlushTarget{Port, FIDs}`, and the bridge's
 `Flush` deletes a learned entry only when its port matches a target and that
 target either names the entry's FID or names none at all. An empty `FIDs` means
 every FID on the port.
 
-A topology change on an instance flushes, on the bridge's other ports, only the
-VLANs that instance carries. That is the point of the pair: moving VLAN 10's
-tree must not discard what the bridge learned about VLAN 20, which did not move.
-This propagates across the fabric, not just locally: each MSTI record on an
-MST BPDU carries its own instance's topology-change bit, and a bridge that
-receives one flushes that instance's VLANs on its other ports the same way a
-locally raised change would, so a change on one bridge's instance reaches
-every other bridge's copy of it rather than stopping at the first hop.
+A topology change on an instance flushes, on the bridge's other active ports,
+only the VLANs that instance carries. That is the point of the pair: moving
+VLAN 10's tree must not discard what the bridge learned about VLAN 20, which
+did not move. This propagates across the fabric, not just locally: each MSTI
+record on an MST BPDU carries its own instance's topology-change bit, and a
+bridge that receives one flushes that instance's VLANs on its other active
+ports the same way a locally detected change would, so a change on one
+bridge's instance reaches every other bridge's copy of it rather than stopping
+at the first hop. An edge port, an Alternate port, and a Designated port that
+is not yet forwarding are not flushed by a change on another port.
 
-Five cases flush every FID instead of a VLAN list. A link going down and a
+Some flushes name every FID instead of a VLAN list. A link going down and a
 BPDU-guard disable both leave every entry on that port stale whatever tree it
-belonged to. A received topology change notification, and a received CIST
-BPDU with the topology-change flag set, both flush every other port with an
-empty FID set outright, without going through the per-instance accounting
-above: a peer reporting a change at the CIST level is reporting it for
-whatever it is carrying, which this bridge cannot narrow down from the
-notification alone. The last is a topology change this bridge's own CIST
-raises, and it is worth being plain about: the CIST carries every VLAN no
+belonged to. A change on the CIST is the other: the CIST carries every VLAN no
 instance claims, which is not a set this layer can enumerate, so a CIST
 change names no FIDs and the bridge flushes the port across all of them. On a
 boundary port that is what the standard wants anyway, since a CIST change
@@ -412,6 +544,71 @@ there reaches every tree. On an internal port it discards more than it
 strictly must, costing a round of flooding to relearn entries that were never
 stale. Narrowing it would need a target that can say
 "every FID except these", which `layer.FlushTarget` deliberately cannot.
+
+## Standards and sources
+
+The layer follows IEEE Std 802.1Q clause 13 for RSTP and MSTP and clause 14
+for the BPDU formats. The reference edition is IEEE Std 802.1Q-2011, because
+the UNH-IOL suite tests RSTP against it and its clause 13 holds both
+protocols. Its text was not read, and neither was IEEE Std 802.1D-2004. A
+statement that rests on either is unverified. Each claim here cites the text it
+was read from.
+
+| Source | What it is |
+| --- | --- |
+| [Q2003][q2003] | IEEE Std 802.1Q, 2003 Edition, which incorporates 802.1s. Clauses 13 and 14. The published standard. |
+| [D2009][d2009] | P802.1aq/D1.5 with suggested changes, 12 May 2009, clause 13 with RSTP and MSTP merged. **Draft text:** an unapproved working draft whose clause numbers are its own. It puts the timers in 13.25 where UNH-IOL cites 13.23 of the published text. |
+| [UNH-RSTP][unh-rstp] and [UNH-MSTP][unh-mstp] | UNH-IOL conformance suites, which cite IEEE Std 802.1Q-2011 per test. |
+| [WS][wireshark] | Wireshark's BPDU dissector. It reads the octet offsets of Q2003 Figures 14-1 and 14-2, the second source for the BPDU byte tests. |
+| [Cisco][cisco-loop] | Cisco's loop guard document. |
+
+Where Q2003 and the later text differ, the later text wins. Every D2009 clause
+below is draft text.
+
+| Topic | Q2003 | Followed |
+| --- | --- | --- |
+| Topology change timer | Twice Hello Time (13.26.6) | Hello Time plus one second (D2009 13.29.11, draft, and UNH RSTP.op.4.5) |
+| Received information lifetime | Bounded by Max Age (13.26.23) | Three Hello Times (D2009 13.29.32, draft) |
+| Hello Time | Managed per port (13.22 e) | Fixed at 2 seconds (D2009 Table 13-5, draft, and UNH RSTP.op.4.3) |
+| A received proposal | Tests for a point-to-point link and clears the flag otherwise (13.26.13) | Recorded from a Designated sender and left alone otherwise (D2009 13.29.20, draft) |
+
+The clause each machine follows:
+
+| Machine | Clauses | What the layer does with them |
+| --- | --- | --- |
+| Priority vectors and path cost | Q2003 13.11, 14.2.4, 14.2.5 | Six-component comparison. A cost has four octets and the standard says nothing of overflow, so a sum saturates at 4294967295 where a wrapped one would win the election. |
+| Received information | Q2003 Figure 13-14 | The internal or external mark changes only when a BPDU's information is stored. |
+| Transmit | Q2003 Figure 13-13 | Every transmit transition waits for the port information to settle, so `Advance` expires information, steps the forward-delay ladder, and recomputes roles before it releases a held BPDU or sends a hello. |
+| Timers in force | D2009 13.28.9 and 13.29.33 f (draft), Table 13-5 (draft), UNH RSTP.op.4.3 | Max Age and Forward Delay come from the root's times on the root port. Outside PVST an MSTI runs on the CIST's times, since an MSTI record carries none, and a PVST VLAN's tree runs on its own root's. The forward-delay ladder steps by the Forward Delay in force, and the published wording of that is unverified. The Hello Time field a BPDU carries, and the hello `Times` reports, are the bridge's own. |
+| Proposal and agreement | Q2003 13.26.9, 13.26.10, 13.26.14, D2009 13.29.16 and 13.29.20 (draft) | See "Proposal and agreement". |
+| Topology change | Q2003 13.26.19 through 13.26.22, Figure 13-19, D2009 13.19 and 13.29.11 (draft) | See "Topology change". |
+| BPDU formats | Q2003 14.4, 14.6.1, Figures 14-1 and 14-2 | See "Decoding a version 3 BPDU". |
+
+PVST, SSTP, and loop guard have no IEEE standard. Their behavior is modelled on
+observation of Cisco's, and the [Cisco][cisco-loop] document is the one this
+package links.
+
+What the layer keeps short of the standard, each with its reason:
+
+- No `disputed` flag (D2009 13.29.17, draft).
+- No Master role. The MIB role tables under `spec/mib/ieee/` list none, so a
+  boundary port's MSTI mirrors the CIST's Root.
+- Hello Time stays configurable where the later text fixes it at 2 seconds.
+- The forward-delay ladder steps by Forward Delay on every port. D2009 13.28.8
+  (draft) steps an RSTP port by Hello Time, and UNH RSTP.op.4.2 expects a port
+  that got no agreement to pass no traffic 20 seconds after it comes up. The
+  sources disagree, so the ladder stays as it was.
+- A port that loses auto-edge status returns to Discarding and proposes again on
+  every tree. It stands in for `disputed`, and D2009 Figure 13-16 (draft)
+  only clears `operEdge`.
+- A port priority that is not a multiple of 16 loads, and the layer sends its
+  high nibble (Q2003 13.24.21 makes the priority the four most significant bits
+  of the Port Identifier).
+- A received Hello Time below 1 second counts as 1 second. D2009 13.29.21
+  (draft) takes the minimum from IEEE Std 802.1D Table 17-1, which was not
+  read, so the 1 second is unverified.
+
+[wireshark]: https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c
 
 ## State retention
 
@@ -422,6 +619,11 @@ configured ports, and resolved physical link speeds. `vswitch.Derive` retains th
 runtime layer only when both keys match and rebuilds it otherwise.
 
 ## Not modeled
+
+- An agreement the transmit budget held back is released only when the CIST
+  port is Root or Alternate. An answer that only an MSTI owed, with the CIST
+  port Designated, is dropped when the budget is spent, and the peer's
+  proposal repeats it.
 
 - 802.1D spanning tree per VLAN, and the PVST inconsistency states other than
   the PVID check: type inconsistency, and port-VLAN-ID mismatch on an access

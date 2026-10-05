@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { AiUnavailableError } from '../../ai'
 import type { AiAnswer, AiResult, AiRun, AiSummary, AiTone } from '../../ai'
 import UiBadge, { type UiBadgeProps } from '../badge/UiBadge.vue'
 import UiButton from '../button/UiButton.vue'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 import UiAiEntityChip from './UiAiEntityChip.vue'
+import UiAiRender from './UiAiRender.vue'
 
 export type UiAiResultState =
   'idle' | 'generating' | 'done' | 'stopped' | 'error' | 'unavailable'
 
-export interface UiAiResultProps {
+export interface UiAiResultProps extends UiAiProps {
   run?: AiRun
   result?: AiResult | null
   state?: UiAiResultState
@@ -24,12 +28,24 @@ const props = withDefaults(defineProps<UiAiResultProps>(), {
   state: undefined,
   error: undefined,
   showStop: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'stop'): void
-  (e: 'update:state', state: UiAiResultState): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'stop'): void
+    (e: 'update:state', state: UiAiResultState): void
+  }
+>()
+
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -226,6 +242,7 @@ const sourcesList = computed(() => {
 
 <template>
   <div
+    ref="root"
     class="flex flex-col gap-3"
     :aria-busy="resolvedState === 'generating'"
     data-ai-result
@@ -328,6 +345,10 @@ const sourcesList = computed(() => {
             :entity="r"
           />
         </div>
+        <UiAiRender
+          v-if="answerResult.ui !== undefined"
+          :tree="answerResult.ui"
+        />
       </template>
 
       <!-- Structured Summary -->

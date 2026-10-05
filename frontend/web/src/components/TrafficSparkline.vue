@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
+import type { UiAiEmits, UiAiProps } from '../ui/ai/context'
+import { useAiOrigin } from '../ui/ai/useAiOrigin'
+import { useAiTarget } from '../ui/ai/useAiTarget'
 
 export type ChartColor =
   'chart-1' | 'chart-2' | 'chart-3' | 'chart-4' | 'chart-5' | 'chart-6'
 
-export interface TrafficSparklineProps {
+export interface TrafficSparklineProps extends UiAiProps {
   values: number[]
   label: string
   color?: ChartColor
@@ -12,7 +15,19 @@ export interface TrafficSparklineProps {
 
 const props = withDefaults(defineProps<TrafficSparklineProps>(), {
   color: 'chart-1',
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const WIDTH = 240
 const HEIGHT = 44
@@ -36,6 +51,7 @@ const fillColor = computed(
 
 <template>
   <svg
+    ref="anchor"
     class="sparkline"
     :viewBox="`0 0 ${WIDTH} ${HEIGHT}`"
     preserveAspectRatio="none"

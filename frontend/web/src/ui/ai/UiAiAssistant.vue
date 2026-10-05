@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import {
+  computed,
+  onMounted,
+  onUnmounted,
+  ref,
+  useTemplateRef,
+  watch,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   aiActions,
@@ -13,6 +20,9 @@ import {
   type AiTurn,
 } from '../../ai'
 import { useAiRegistry } from './context'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 import UiAiEntityChip from './UiAiEntityChip.vue'
 import UiAiLabel from './UiAiLabel.vue'
 import UiAiResult, { type UiAiResultState } from './UiAiResult.vue'
@@ -41,7 +51,7 @@ export interface UiAiAssistantLabels {
   emptyThread?: string
 }
 
-export interface UiAiAssistantProps {
+export interface UiAiAssistantProps extends UiAiProps {
   open?: boolean
   seed?: AiSeed
   labels?: UiAiAssistantLabels
@@ -65,12 +75,25 @@ const props = withDefaults(defineProps<UiAiAssistantProps>(), {
   open: true,
   seed: undefined,
   labels: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:open', open: boolean): void
-  (e: 'close'): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', open: boolean): void
+    (e: 'close'): void
+  }
+>()
+
+// The panel renders only while open, so the target does too.
+const panel = useTemplateRef('panel')
+useAiTarget(panel, () => props.ai)
+useAiOrigin(
+  panel,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 const registry = useAiRegistry()
@@ -324,6 +347,7 @@ onUnmounted(() => {
 <template>
   <section
     v-if="open"
+    ref="panel"
     class="flex flex-col h-full bg-card w-full"
     :aria-label="props.labels?.title ?? t('ui.aiAssistant.title')"
     data-ai-assistant

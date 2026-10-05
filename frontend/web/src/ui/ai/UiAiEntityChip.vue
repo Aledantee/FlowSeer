@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed, inject, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AiRef, AiTarget } from '../../ai'
 import { pageContext } from '../../navigation/page'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 
-export interface UiAiEntityChipProps {
+export interface UiAiEntityChipProps extends UiAiProps {
   entity?: { kind: string; id: string; label?: string } | AiRef | AiTarget
   target?: { kind: string; id: string; label?: string } | AiRef | AiTarget
   removable?: boolean
@@ -16,11 +19,24 @@ const props = withDefaults(defineProps<UiAiEntityChipProps>(), {
   target: undefined,
   removable: false,
   size: 'md',
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'remove'): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'remove'): void
+  }
+>()
+
+// Only one of the two branches below renders, and both use this ref.
+const chip = useTemplateRef('chip')
+useAiTarget(chip, () => props.ai)
+useAiOrigin(
+  chip,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 const page = inject(pageContext, null)
@@ -51,6 +67,7 @@ function handleClick(event: MouseEvent) {
 <template>
   <button
     v-if="canNavigate"
+    ref="chip"
     type="button"
     class="inline-flex items-center gap-1 font-medium rounded-full bg-subtle text-foreground border border-border hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer transition-colors whitespace-nowrap"
     :class="size === 'sm' ? 'h-5 px-2 text-2xs' : 'h-6 px-2.5 text-xs'"
@@ -74,6 +91,7 @@ function handleClick(event: MouseEvent) {
   </button>
   <span
     v-else
+    ref="chip"
     class="inline-flex items-center gap-1 font-medium rounded-full bg-subtle text-foreground border border-border whitespace-nowrap"
     :class="size === 'sm' ? 'h-5 px-2 text-2xs' : 'h-6 px-2.5 text-xs'"
     data-ai-entity-chip

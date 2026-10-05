@@ -2,6 +2,9 @@
 import { computed, onMounted, ref, useId, watch } from 'vue'
 import { tv } from 'tailwind-variants'
 import { RadioGroupIndicator, RadioGroupItem, RadioGroupRoot } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import { useFormReset } from './useFormReset'
 
 export interface RadioOption {
@@ -10,7 +13,7 @@ export interface RadioOption {
   disabled?: boolean
 }
 
-export interface UiRadioGroupProps {
+export interface UiRadioGroupProps extends UiAiProps {
   modelValue?: string
   options?: RadioOption[]
   orientation?: 'horizontal' | 'vertical'
@@ -26,11 +29,15 @@ const props = withDefaults(defineProps<UiRadioGroupProps>(), {
   name: undefined,
   disabled: false,
   required: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string): void
+  }
+>()
 
 const instanceId = useId()
 const getOptionId = (val: string) => `${instanceId}-${val}`
@@ -49,6 +56,12 @@ const radioLabelVariants = tv({
 })
 
 const rootRef = ref<{ $el?: unknown } | null>(null)
+useAiTarget(rootRef, () => props.ai)
+useAiOrigin(
+  rootRef,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const internalValue = ref<string>(props.modelValue ?? '')
 
 watch(

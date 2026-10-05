@@ -47,6 +47,7 @@ covering port tables and VLAN membership.
 | [Simulation Package Shape](2026-10-01-simulation-package-shape-direction.md) | Accepted direction | Adding, moving, or importing a package under the simulator tree: the `sim` root, capability layers, the device and medium seams, the capability contract, or protocol conformance. |
 | [Web Design System](2026-09-26-web-design-system-direction.md) | Accepted direction | Styling, theming, or adding a component in `frontend/web/`: design tokens, Tailwind, Reka UI primitives, or Storybook stories. |
 | [Web Component Contract](2026-09-28-web-component-contract-direction.md) | Accepted direction | Adding or changing any component in `frontend/web/`: composition, i18n and locale files, the `ai` prop and generative UI catalog, overlays (portals, stacking, dismissal, focus), or animation. |
+| [Web AI Target Lifecycle](2026-10-05-1251-web-ai-target-lifecycle-direction.md) | Accepted direction | Migrating web AI registration to component props, choosing a target anchor, or displaying and acknowledging agent-origin values. |
 | [Schema Building Blocks](2026-09-25-schema-building-blocks-direction.md) | Accepted direction | Adding any FlowSeer-owned protobuf package or message: canonical units, key rules, the network-instance key, facet and table naming, protocol packages, and the Endpoint, Wlan, and Alarm entities. |
 | [Dependency Admission](2026-10-01-dependency-admission-direction.md) | Proposed direction | Adding, upgrading, or removing a Go module, npm package, container image, buf module or plugin, or toolchain pin, or reviewing a dependency version. |
 | [Central Ingestion Pipeline](2026-10-02-central-ingestion-pipeline-direction.md) | Accepted direction | Adding an ingestion source, the ingest envelope, central intake, a consumer of ingested records, or choosing where history, current state, or an API read model is stored. |
@@ -54,6 +55,7 @@ covering port tables and VLAN membership.
 | [Edge High Availability](2026-10-03-edge-high-availability-direction.md) | Proposed direction | Running more than one edge node at a site, the address devices send syslog and traps to, which Edge hosts a device lane, or an agent build for an operating system other than Linux. |
 | [Edge Delivery over Connect](2026-10-04-edge-delivery-over-connect-direction.md) | Proposed direction | Changing how ingest records or the agent's telemetry travel from an edge to central, the edge's local buffer, `AttachBus`, per-edge NATS accounts, or the bus listener an edge dials. |
 | [Deployment](2026-10-03-deployment-direction.md) | Proposed direction | Adding or changing anything under `deploy/`, a container image, what a cluster exposes, a third-party store's installation, or how the edge agent is packaged. |
+| [Repository Scripting](2026-10-05-repository-scripting-direction.md) | Proposed direction | Adding or moving a hook, a verifier check, a skill script, or any script run on the host, or choosing the language or location of one. |
 
 Current source and tests show which parts of a direction have landed. When the
 tree and an accepted record disagree, do not silently choose one. Update or

@@ -225,6 +225,20 @@ class FieldTest(unittest.TestCase):
         self.assertEqual("unsupported", run["transcript"])
         self.assertEqual(42, run["elapsed_s"])
 
+    def test_issues_list_amended_rejected_and_failed_verify_with_replay_fields(self):
+        clean = self.lane(run="r1")
+        amended = self.lane(run="r2")
+        amended[0].update(effort="medium", plan="docs/plans/p.md", unit="U2")
+        amended[1].update(outcome="amended", note="missed the cancel path")
+        failed = self.lane(run="r3")
+        failed[1]["verify"] = "fail"
+        write_lines(self.log, clean + amended + failed)
+        issues = self.run_field()["issues"]
+        self.assertEqual(["r2", "r3"], [issue["run"] for issue in issues])
+        self.assertEqual({"run": "r2", "role": "execute", "model": "gpt-6-sol", "effort": "medium",
+                          "outcome": "amended", "verify": "pass", "note": "missed the cancel path",
+                          "base": "abc", "plan": "docs/plans/p.md", "unit": "U2"}, issues[0])
+
     def test_groups_split_by_effort_from_launch_flag(self):
         events = self.lane(run="r1", cli="codex")
         events[0]["effort"] = "high"

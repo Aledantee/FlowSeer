@@ -6,7 +6,7 @@ import { pageContext, pageFor } from './navigation/page'
 import { workspaceContext, type NoticeKey } from './navigation/workspace'
 import { devices, moveDevice, sites, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
-import { createAiRegistry, createAiTargetDirective } from './ai'
+import { createAiRegistry } from './ai'
 import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
@@ -79,7 +79,6 @@ async function mountDeviceView(
   app.provide(pageContext, page)
   app.provide(workspaceContext, workspace)
   app.provide(aiRegistryKey, registry)
-  app.directive('ai-target', createAiTargetDirective(registry))
   app.mount(host)
   dispose = () => app.unmount()
   await nextTick()

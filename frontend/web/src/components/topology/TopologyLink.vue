@@ -8,6 +8,7 @@ import {
   getSmoothStepPath,
 } from '@vue-flow/core'
 import { linkDetailsOf } from '../../domain/telemetry'
+import UiAiTarget from '../../ui/ai/UiAiTarget.vue'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
 import { useFormat } from '../../i18n/format'
@@ -157,25 +158,26 @@ const width = computed(() => {
     />
   </g>
   <EdgeLabelRenderer v-if="link">
-    <button
-      v-ai-target="target"
-      :class="[
-        'topology-link-label',
-        'nodrag',
-        'nopan',
-        link.health.toLowerCase(),
-        { selected },
-      ]"
-      :style="{
-        transform: `translate(calc(-100% - 6px), -50%) translate(${drop.x}px, ${(drop.top + drop.bottom) / 2}px)`,
-      }"
-      :aria-label="ariaLabel"
-      @click="live.select({ kind: 'link', id: link.id })"
-      @mouseenter="hover(true)"
-      @mouseleave="hover(false)"
-    >
-      {{ reading }}
-    </button>
+    <UiAiTarget as-child :ai="target">
+      <button
+        :class="[
+          'topology-link-label',
+          'nodrag',
+          'nopan',
+          link.health.toLowerCase(),
+          { selected },
+        ]"
+        :style="{
+          transform: `translate(calc(-100% - 6px), -50%) translate(${drop.x}px, ${(drop.top + drop.bottom) / 2}px)`,
+        }"
+        :aria-label="ariaLabel"
+        @click="live.select({ kind: 'link', id: link.id })"
+        @mouseenter="hover(true)"
+        @mouseleave="hover(false)"
+      >
+        {{ reading }}
+      </button>
+    </UiAiTarget>
     <template v-for="end in ends" :key="end.side">
       <button
         v-if="end.port"

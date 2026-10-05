@@ -5,7 +5,7 @@ import { TooltipProvider } from 'reka-ui'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from '../FleetView.vue'
 import { UiAppRoot } from '../ui'
-import { createAiRegistry, createAiTargetDirective } from '../ai'
+import { createAiRegistry } from '../ai'
 import { aiRegistryKey } from '../ui/ai/context'
 import { DOCK_KEY } from '../navigation/dock'
 import type { Device } from '../domain/fleet'
@@ -666,7 +666,6 @@ describe('global search in German', () => {
     await router.push('/devices')
     app.use(i18n)
     app.use(router)
-    app.directive('ai-target', createAiTargetDirective(registry))
     app.provide(aiRegistryKey, registry)
     await router.isReady()
     app.mount(host)

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h } from 'vue'
 import UiAiLabel, { type UiAiLabelProps } from './UiAiLabel.vue'
 import { createAiRegistry } from '../../ai'
-import { createWebI18n } from '../../i18n'
+import { createWebI18n, type WebLocale } from '../../i18n'
 import type { AiRun } from '../../ai'
 
 let disposers: (() => void)[] = []
@@ -13,10 +13,10 @@ afterEach(() => {
   document.body.replaceChildren()
 })
 
-function mountLabel(props: UiAiLabelProps) {
+function mountLabel(props: UiAiLabelProps, locale: WebLocale = 'en') {
   const host = document.createElement('div')
   document.body.append(host)
-  const i18n = createWebI18n('en')
+  const i18n = createWebI18n(locale)
 
   const app = createApp({
     render: () => h(UiAiLabel, props),
@@ -115,4 +115,75 @@ describe('UiAiLabel', () => {
     expect(document.body.textContent).toContain('Upstream Core')
     expect(document.body.textContent).toContain('SNMP MIB-II')
   })
+
+  it.each([
+    {
+      locale: 'en' as const,
+      aria: 'AI generation context',
+      title: 'Context sent',
+      disclaimer: 'AI output can be wrong; check the linked items.',
+    },
+    {
+      locale: 'de' as const,
+      aria: 'KI-Generierungskontext',
+      title: 'Gesendeter Kontext',
+      disclaimer:
+        'KI-Ausgaben können fehlerhaft sein; verlinkte Einträge prüfen.',
+    },
+  ])(
+    'explains the targets and context of an origin request in $locale',
+    async ({ locale, aria, title, disclaimer }) => {
+      // The snapshot of a responsive target carries its segment.
+      const mobile = {
+        id: 'd1',
+        kind: 'device',
+        view: 'devices',
+        label: 'Core Switch 1',
+        segment: 'mobile',
+        context: { site: 'Berlin Mitte', health: 'Degraded' },
+      }
+      mountLabel(
+        {
+          request: {
+            requestId: 'req-origin',
+            action: 'summary',
+            history: [],
+            targets: [
+              mobile,
+              {
+                id: 'd2',
+                kind: 'device',
+                view: 'devices',
+                label: 'Edge Switch 2',
+                context: {},
+              },
+            ],
+          },
+          defaultOpen: true,
+        },
+        locale,
+      )
+      await settle()
+
+      const trigger = document.querySelector('[data-ai-label-trigger]')
+      expect(trigger?.getAttribute('aria-label')).toBe(aria)
+
+      const targets = [...document.querySelectorAll('[data-ai-label-target]')]
+      expect(targets.map((entry) => entry.textContent)).toEqual([
+        expect.stringContaining('Core Switch 1'),
+        expect.stringContaining('Edge Switch 2'),
+      ])
+      expect(targets[0]?.textContent).toContain('(mobile)')
+      const context = [
+        ...(targets[0]?.querySelectorAll('[data-ai-label-context-list] > *') ??
+          []),
+      ].map((node) => node.textContent?.trim())
+      expect(context).toEqual(['health:', 'Degraded', 'site:', 'Berlin Mitte'])
+      expect(
+        targets[1]?.querySelector('[data-ai-label-context-list]'),
+      ).toBeNull()
+      expect(document.body.textContent).toContain(title)
+      expect(document.body.textContent).toContain(disclaimer)
+    },
+  )
 })

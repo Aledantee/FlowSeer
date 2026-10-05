@@ -113,7 +113,8 @@ so overlapping lanes on the synthetic pool never share session state.
   --brief <brief file> --dir <worktree> --out <json>
 ```
 
-A sweep runs one lane per level in the model's `effort` list. `agy` takes
+A lane runs at one level, the model's recommended start, and a second
+level runs only as `SKILL.md` step 3b or step 4 allows. `agy` takes
 the level in the model id (`gemini-3.8-flash-<effort>`), and `omp` takes it
 through `--thinking`. `bench.sh` exits 2 on an `--effort` it cannot apply,
 which only `agy` cannot. It records wall time, the CLI's reported usage, the

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import UiAiContextLayer from './UiAiContextLayer.vue'
+import UiAiTarget from './UiAiTarget.vue'
 
 const meta: Meta<typeof UiAiContextLayer> = {
   title: 'Ui/AiContextLayer',
@@ -15,6 +16,7 @@ export const Default: Story = {
   render: () => ({
     components: {
       UiAiContextLayer,
+      UiAiTarget,
     },
     setup() {
       const target = {
@@ -31,13 +33,14 @@ export const Default: Story = {
           <p class="text-xs text-muted-foreground">
             Right-click the target row below to open context-specific AI actions.
           </p>
-          <div
-            v-ai-target="target"
+          <UiAiTarget
+            as="div"
+            :ai="target"
             tabindex="0"
             class="p-3 border border-border rounded-panel bg-card text-xs cursor-context-menu"
           >
             core-sw-1 (Offline)
-          </div>
+          </UiAiTarget>
         </div>
       </UiAiContextLayer>
     `,

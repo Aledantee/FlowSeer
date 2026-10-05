@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, provide, useId } from 'vue'
+import { computed, provide, useId, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiFieldProps {
+export interface UiFieldProps extends UiAiProps {
   id?: string
   label?: string
   description?: string
@@ -18,7 +21,19 @@ const props = withDefaults(defineProps<UiFieldProps>(), {
   error: undefined,
   required: false,
   requiredMark: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -48,7 +63,7 @@ provide('ui-field-context', {
 </script>
 
 <template>
-  <div class="flex flex-col gap-1.5 w-full">
+  <div ref="root" class="flex flex-col gap-1.5 w-full">
     <label
       v-if="label"
       :for="fieldId"

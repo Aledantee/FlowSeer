@@ -1,4 +1,6 @@
+import { ref } from 'vue'
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import type { AiOriginRequest } from '../ai/context'
 import UiInput from './UiInput.vue'
 
 const meta: Meta<typeof UiInput> = {
@@ -49,5 +51,37 @@ export const Focus: Story = {
       return { args }
     },
     template: '<UiInput v-bind="args" autofocus />',
+  }),
+}
+
+const origin: AiOriginRequest = {
+  requestId: 'req-story-input',
+  action: 'summary',
+  targets: [],
+  history: [],
+}
+
+// The outline marks a value an agent changed until the user touches it. The
+// caller clears its own state when the component reports the interaction. A
+// native text control keeps its own context menu, so the story registers no
+// target and shows the origin on its own.
+export const AgentChanged: Story = {
+  args: {
+    ariaLabel: 'Device name',
+    modelValue: 'core-sw-1',
+  },
+  render: (args) => ({
+    components: { UiInput },
+    setup() {
+      const changed = ref<AiOriginRequest | undefined>(origin)
+      return { args, changed }
+    },
+    template: `
+      <UiInput
+        v-bind="args"
+        :ai-origin="changed"
+        @ai-origin-acknowledged="changed = undefined"
+      />
+    `,
   }),
 }

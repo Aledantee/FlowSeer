@@ -5,7 +5,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from './FleetView.vue'
 import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
-import { createAiRegistry, createAiTargetDirective } from './ai'
+import { createAiRegistry } from './ai'
 import type { AiRegistry } from './ai'
 import { aiRegistryKey } from './ui/ai/context'
 import { createWebI18n } from './i18n'
@@ -89,7 +89,6 @@ async function mountAt(path: string) {
   await router.push(path)
   app.use(createWebI18n())
   app.use(router)
-  app.directive('ai-target', createAiTargetDirective(registry))
   app.provide(aiRegistryKey, registry)
   await router.isReady()
   app.mount(host)

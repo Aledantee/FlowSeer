@@ -1,16 +1,34 @@
 <script setup lang="ts">
-export interface UiCardProps {
+import { useTemplateRef } from 'vue'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
+
+export interface UiCardProps extends UiAiProps {
   as?: 'div' | 'article' | 'section'
 }
 
-withDefaults(defineProps<UiCardProps>(), {
+const props = withDefaults(defineProps<UiCardProps>(), {
   as: 'div',
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 </script>
 
 <template>
   <component
     :is="as"
+    ref="anchor"
     class="bg-card border border-border rounded-panel shadow-xs p-4 flex flex-col gap-3"
   >
     <header v-if="$slots.header" class="flex items-center justify-between">

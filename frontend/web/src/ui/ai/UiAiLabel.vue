@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AiRef, AiRequest, AiRun } from '../../ai'
 import UiPopover from '../popover/UiPopover.vue'
+import type { UiAiEmits, UiAiProps } from './context'
+import { useAiOrigin } from './useAiOrigin'
+import { useAiTarget } from './useAiTarget'
 import UiAiEntityChip from './UiAiEntityChip.vue'
 
-export interface UiAiLabelProps {
+export interface UiAiLabelProps extends UiAiProps {
   request?: Omit<AiRequest, 'signal'>
   run?: AiRun
   sources?: (AiRef | string)[]
@@ -19,11 +22,23 @@ const props = withDefaults(defineProps<UiAiLabelProps>(), {
   sources: () => [],
   open: undefined,
   defaultOpen: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+  }
+>()
+
+const trigger = useTemplateRef('trigger')
+useAiTarget(trigger, () => props.ai)
+useAiOrigin(
+  trigger,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -65,6 +80,7 @@ function formatSegment(seg?: string): string {
   >
     <template #trigger>
       <button
+        ref="trigger"
         type="button"
         class="inline-flex items-center justify-center font-medium rounded-control px-1.5 py-0.5 text-2xs bg-subtle text-muted-foreground hover:text-foreground border border-border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         :aria-label="t('ui.aiLabel.ariaLabel')"

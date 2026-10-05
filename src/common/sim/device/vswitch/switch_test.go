@@ -7261,8 +7261,11 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 // override, same shape as stp's TestMSTInstancesSelectIndependentRoots), so
 // once the two switches converge, MSTI 1's root port is l2 while the CIST
 // and MSTI 2 both keep l1 (equal cost on both links resolves to the lower
-// port ID). Failing l2 then raises a topology change on MSTI 1 alone: the
-// CIST and MSTI 2 were never forwarding on l2, so neither transitions.
+// port ID). Failing l2 then makes l1 MSTI 1's new Root port, which starts
+// forwarding there and detects a topology change on MSTI 1 alone: l1 was
+// already the CIST's and MSTI 2's Root port, so neither tree detects one. The
+// change reaches p3 because p3 is an active port of MSTI 1, and flushes
+// VLAN 10 on it.
 func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -7322,11 +7325,22 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
 	}
 
+	// sw2's p3 has no peer and opens by the forward delay ladder. The snapshot
+	// differs on every round until it does, so the run goes on until p3 is
+	// Forwarding and active in every tree. The change below reaches it only
+	// then.
+	waiting := 0
 	snapshot := func() string {
+		if sw2.Roles()["p3"].State != stp.StateForwarding {
+			waiting++
+
+			return fmt.Sprintf("p3 not forwarding, round %d", waiting)
+		}
+
 		var b strings.Builder
 		for _, sw := range switches {
 			roles := sw.Roles()
-			for _, name := range []string{"l1", "l2"} {
+			for _, name := range []string{"l1", "l2", "p3"} {
 				fmt.Fprintf(&b, "%v/%v;", roles[name].Role, roles[name].State)
 			}
 		}
@@ -7342,6 +7356,9 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	if cist.Role != bpdu.RoleRoot || cist.State != stp.StateForwarding {
 		t.Fatalf("sw2 CIST on l1 = role %v state %v, want Root Forwarding", cist.Role, cist.State)
 	}
+	if p3 := sw2.Roles()["p3"]; p3.Role != bpdu.RoleDesignated || p3.State != stp.StateForwarding {
+		t.Fatalf("sw2 CIST on p3 = role %v state %v, want Designated Forwarding", p3.Role, p3.State)
+	}
 
 	macVLAN10 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
 	macVLAN20 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x20}
@@ -7351,6 +7368,21 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	})
 
 	sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+
+	// l1 is MSTI 1's Root port now, but p3 forwards without an agreement, so
+	// the instance is not in sync and l1 opens by the forward delay ladder. Run
+	// sw1's hellos into l1 until it has, which is when the change is detected.
+	for range 16 {
+		now = now.Add(2 * time.Second)
+		sw1.Wake(now)
+		for _, em := range sw1.Drain() {
+			if em.Port == "l1" {
+				sw2.Forward(now, "l1", em.Frame)
+			}
+		}
+		sw2.Wake(now)
+		sw2.Drain()
+	}
 
 	entries := sw2.Entries()
 	if len(entries) != 1 || entries[0].FID != 20 || entries[0].Port != "p3" {

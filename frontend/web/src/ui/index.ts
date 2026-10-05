@@ -155,6 +155,12 @@ export {
   serializeAiResultToText,
 } from './ai/UiAiResultActions.vue'
 export type { UiAiResultActionsProps } from './ai/UiAiResultActions.vue'
+export { default as UiAiTarget } from './ai/UiAiTarget.vue'
+export type { UiAiTargetProps } from './ai/UiAiTarget.vue'
+export type { AiOriginRequest, UiAiEmits, UiAiProps } from './ai/context'
+export { useAiTarget } from './ai/useAiTarget'
+export { useAiOrigin } from './ai/useAiOrigin'
+export type { AiOrigin } from './ai/useAiOrigin'
 export { default as UiAiContextLayer } from './ai/UiAiContextLayer.vue'
 export type {
   UiAiContextLayerLabels,
@@ -165,6 +171,8 @@ export type {
   UiAiAssistantLabels,
   UiAiAssistantProps,
 } from './ai/UiAiAssistant.vue'
+export { default as UiAiRender, AI_UI_COMPONENTS } from './ai/UiAiRender.vue'
+export type { UiAiRenderProps } from './ai/UiAiRender.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {

@@ -12,6 +12,41 @@ pnpm dev
 Open the URL Vite prints. Use Node 22.12 or newer and pnpm 11.25.0.
 The fonts are bundled locally. The app makes no requests to external services.
 
+### pnpm in the Claude Code sandbox
+
+pnpm 12 takes a store lock under `/tmp/pnpm-store-operation-locks-<uid>/`, and
+the macOS sandbox denies writes to `/tmp`. Every pnpm command then fails before
+it starts, `pnpm --version` included:
+
+```text
+ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK … Operation not permitted (os error 1)
+```
+
+pnpm puts the lock under `$XDG_RUNTIME_DIR` instead when that directory exists,
+is absolute, belongs to you, and others cannot write to it
+([pnpm#16406](https://github.com/pnpm/pnpm/pull/16406)). Claude Code's
+per-user sandbox directory `/private/tmp/claude-<uid>` qualifies.
+
+Inside the sandbox pnpm also passes over `~/Library/pnpm/store`, even though
+the sandbox may write it, and falls back to an untracked `.pnpm-store/` at the
+worktree root. Each worktree then downloads every package again. Naming the
+store explicitly keeps installs in the shared one.
+
+Both values hold your user ID or home directory, so they go in your user
+settings, `~/.claude/settings.json`, not in the project's:
+
+```json
+"env": {
+  "XDG_RUNTIME_DIR": "/private/tmp/claude-501",
+  "pnpm_config_store_dir": "/Users/you/Library/pnpm/store"
+}
+```
+
+Replace `501` with the output of `id -u` and `/Users/you` with your home
+directory, then start a new session. The project's `.claude/settings.json`
+already lets the sandbox write the pnpm store, engine store, and cache under
+`~/Library` and reach `registry.npmjs.org`.
+
 ## Try the UI
 
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
@@ -399,11 +434,13 @@ A message read into a top-level `const` keeps the locale the module was set up i
 ## AI targets
 
 The console can expose meaningful instances to an agent or model without an AI
-backend. A view marks an element with the `v-ai-target` directive bound to an
-`AiTarget`. The directive registers the element while it is mounted and
-removes it when it unmounts, so a row that leaves a filter stops being
-addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
-`standalone` for a Storybook story or a test), keeping IDs stable across pane
+backend. A component registers the element that stands for it through an
+optional `ai` prop. The prop takes the resolved `AiTarget` that `aiTarget()`
+returns (`src/ai/target.ts`), so the caller owns the identity and the component
+never invents one. A registered element is listed while it is mounted and
+removed when it unmounts, so a row that leaves a filter stops being
+addressable. An absent `ai` prop registers nothing. Target IDs are qualified
+by physical pane slot (`a`, `b`, or `standalone` for a Storybook story or a test), keeping IDs stable across pane
 swaps even when primary and secondary roles change. Responsive components that
 mount simultaneous mobile and desktop layouts in CSS register distinct
 `mobile` and `desktop` segments, for example `a:devices:device:desktop:d1`.
@@ -411,6 +448,75 @@ Only mounted elements in the active responsive segment that are not hidden by
 the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
 `visibility: collapse` on the target or an ancestor) are listed or selectable.
 Offscreen elements remain addressable so `highlight()` can scroll them into view.
+
+### Anchor selection
+
+Each component registers its meaningful element and nothing around it. A
+plain control registers the control itself, a select registers its trigger,
+and a popup registers its content while it is mounted. Layout-only components
+register nothing. `useAiTarget` in `src/ui/ai/useAiTarget.ts` follows the prop
+and the element, using the registry injected through `src/ui/ai/context.ts`
+and the console-wide registry when none is provided. HTML and SVG elements
+are both valid anchors.
+
+A kit component takes the prop directly, so a table row is a `UiTableRow`
+with `:ai`. Native markup that no component owns, such as a list item, a
+section, or a link, uses `UiAiTarget` (`src/ui/ai/UiAiTarget.vue`). With `as`
+it renders that tag. With `asChild` it merges into the one child it is given.
+Neither adds a layout element. Both shapes appear in `src/DashboardView.vue`:
+
+```vue
+<UiTableRow
+  v-for="rollup in rollups"
+  :key="rollup.site.id"
+  :ai="siteTarget(rollup)"
+>
+  <UiTableCell>{{ rollup.site.name }}</UiTableCell>
+</UiTableRow>
+
+<UiAiTarget
+  v-for="device in attention"
+  :key="device.id"
+  as="li"
+  :ai="attentionTarget(device)"
+>
+  <AppLink :to="deviceTo(device.id)">{{ device.name }}</AppLink>
+</UiAiTarget>
+```
+
+The registry writes `data-ai-selected` on the highlighted element, including
+a manual `registry.register()` call, and one rule in `src/theme/ai.css`
+draws the outline with `--ring`.
+
+### Origin acknowledgement
+
+A value an agent changed takes `aiOrigin`, the originating request without its
+`signal` (`AiOriginRequest` in `src/ui/ai/context.ts`), and emits
+`aiOriginAcknowledged` with its `requestId`. The component sets
+`data-ai-origin="agent"` on the value until the user interacts with it
+(pointerdown, keydown, input, or change). Hover and programmatic
+updates leave it, and so does selection. The origin does not depend on `ai`. After an
+acknowledgement the component ignores that `requestId` while mounted, so the
+caller clears its own state on the event, and a new `requestId` marks the
+value again. Portalled content, such as a select's list, forwards its
+interactions to the same acknowledgement. `UiAiLabel` explains the request
+beside the value, and the caller removes it on the same event. This field and
+label pair is the `AgentChanged` story in `src/ui/form/UiField.stories.ts`:
+
+```vue
+<UiField label="Device Name">
+  <UiInput
+    v-model="name"
+    :ai-origin="changed"
+    @ai-origin-acknowledged="changed = undefined"
+  />
+  <UiAiLabel v-if="changed" :request="changed" />
+</UiField>
+```
+
+Text controls keep the browser's native context menu, so the story passes no
+`ai` there. Pass `:ai="nameTarget"` where the control should also be an
+agent target.
 
 Earlier prototypes explored hover triggers and a floating button that followed
 keyboard focus. Both were removed on purpose: hover triggers fired by accident
@@ -495,16 +601,69 @@ A handler that rejects produces an error state.
 ### Typed results
 
 Results render using typed objects defined in `src/ai/types.ts` rather than
-raw Markdown or HTML strings. This avoids HTML-injection risks and allows native
-design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`) to
-present structured insights:
+raw Markdown or HTML strings. This avoids HTML-injection risks. Native
+design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`)
+present structured insights. `UiAiResult` uses `UiAiRender` for an optional
+validated component tree:
 
 - `AiSummary`: contains a headline, overall tone (`ok`, `warning`, `critical`,
   `unknown`), structured findings with individual severities and entity
   references, an optional likely cause with confidence rating, optional impact,
   key metrics with status tones, recommended next steps, and entity sources.
 - `AiAnswer`: conversational or question responses containing prose text,
-  associated entity references, and an optional nested `AiSummary`.
+  associated entity references, an optional nested `AiSummary`, and an optional
+  `ui` tree rendered by `UiAiRender`.
+
+An answer's `ui` value is an array of catalog nodes. `UiAiRender` validates the
+array and maps its ten components to the real design-system components:
+`UiCard`, `UiBadge`, `UiStatusBadge`, `UiMetricCard`, `UiMeter`, `UiProgress`,
+`UiSeparator`, `UiEmptyState`, `UiAiEntityChip`, and `UiButton`. A `text` prop
+becomes default-slot text. A button uses the `navigate` intent, whose path must
+pass `isPagePath` in `src/navigation/page.ts`.
+
+The value can look like this:
+
+```json
+[
+  {
+    "component": "UiCard",
+    "props": {},
+    "children": [
+      {
+        "component": "UiStatusBadge",
+        "props": { "status": "Healthy" }
+      },
+      {
+        "component": "UiButton",
+        "props": {
+          "text": "Open device",
+          "intent": {
+            "type": "navigate",
+            "target": { "path": "/devices/core-01" }
+          }
+        }
+      }
+    ]
+  }
+]
+```
+
+The registry clones a non-`undefined` `ui` once before it yields an answer
+snapshot. `structuredClone` keeps enumerable, string-keyed own data. It drops
+non-enumerable and symbol-keyed properties, reads an accessor once, and stores
+the value as data. A function, Proxy, or accessor that throws makes the clone
+fail. The registry then sets `ui` to `null`, so `UiAiRender` shows the tree's
+error state while the answer text remains. Summaries and answers without `ui`
+are yielded as the handler returned them.
+
+The validator rejects unknown components, missing or extra node and prop keys,
+invalid values, unsupported children, invalid entities or navigation targets,
+and trees over 64 nodes, four levels, or 500 characters per string. It copies
+allow-listed data before the renderer binds it. An empty array slot still
+rejects the tree. These checks are promised for a result made of data. An
+accessor or a Proxy on the handler's own answer object is outside the
+contract, since the handler is script in the page. Proposal intents remain outside the catalog until the
+console has a service API.
 
 An example structured `AiSummary` payload:
 
@@ -555,8 +714,11 @@ delivers progressive snapshots where each yielded object is a complete result
 state so far, eliminating fragile delta-patching protocols. The active request
 carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
 iteration and freezing the current rendered snapshot. Every received snapshot
-must satisfy the `isAiResult` validator. Malformed payloads immediately halt the
-run and display an error.
+is checked by `validateAiResult`, defined in `src/ai/validate.ts` and called
+from `src/ai/registry.ts`. A malformed result halts the run and displays an
+error. The registry clones an answer's `ui` before yielding it. A clone failure
+sets `ui` to `null`, and `UiAiRender` shows the tree's error state without
+halting the run.
 
 ### Bound and unbound runs
 
@@ -594,8 +756,9 @@ The UI uses product-facing copy and omits decorative placeholder text and demo
 badges. This is still a design preview backed by local fixtures. Tenant selection filters fixtures and does not enforce
 authorization. Backend integration must authorize every tenant/site request and
 validate assignment changes. The logout icon beside the operator name is disabled until authentication is
-connected. There is no login, persistence, streaming transport,
-or production telemetry. Traffic is synthetic; aggregate device traffic may count
+connected. There is no login, persistence, streaming transport, or production
+telemetry. Traffic is
+synthetic. Aggregate device traffic may count
 traffic at multiple network hops. Topology links are illustrative.
 
 The 16-row native table establishes density and interactions. It is not a

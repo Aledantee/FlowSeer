@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
   UiAiSummary,
@@ -219,8 +220,8 @@ const roles = computed(() => {
 </script>
 
 <template>
-  <div
-    v-ai-target="viewTarget"
+  <UiAiTarget
+    :ai="viewTarget"
     class="dashboard grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
   >
     <UiCard
@@ -281,10 +282,11 @@ const roles = computed(() => {
       </template>
       <div>
         <ul v-if="attention.length" class="list-none m-0 p-0">
-          <li
+          <UiAiTarget
             v-for="device in attention"
             :key="device.id"
-            v-ai-target="attentionTarget(device)"
+            as="li"
+            :ai="attentionTarget(device)"
           >
             <AppLink
               class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
@@ -311,7 +313,7 @@ const roles = computed(() => {
               </span>
               <UiStatusBadge :status="device.health" />
             </AppLink>
-          </li>
+          </UiAiTarget>
         </ul>
         <p v-else-if="scope.length" class="text-xs text-muted-foreground">
           {{ t('view.dashboard.allHealthy') }}
@@ -356,11 +358,7 @@ const roles = computed(() => {
           }}</span>
         </div>
       </template>
-      <TrafficChart
-        v-ai-target="chartTarget"
-        :points="history"
-        :label="chartLabel"
-      />
+      <TrafficChart :ai="chartTarget" :points="history" :label="chartLabel" />
     </UiCard>
 
     <UiCard
@@ -406,7 +404,7 @@ const roles = computed(() => {
             <UiTableRow
               v-for="rollup in rollups"
               :key="rollup.site.id"
-              v-ai-target="siteTarget(rollup)"
+              :ai="siteTarget(rollup)"
             >
               <UiTableCell>
                 <AppLink
@@ -496,29 +494,35 @@ const roles = computed(() => {
           <h3 class="text-xs font-medium text-muted-foreground mt-2 mb-1.5">
             {{ kind }}
           </h3>
-          <AppLink
+          <UiAiTarget
             v-for="device in members"
             :key="device.id"
-            v-ai-target="roleTarget(device)"
-            class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
-            :to="deviceTo(device.id)"
+            as-child
+            :ai="roleTarget(device)"
           >
-            <span>
-              <strong
-                translate="no"
-                class="text-xs font-medium text-foreground block"
-                >{{ device.name }}</strong
-              >
-              <small class="text-2xs text-muted-foreground mt-0.5 block">
-                <span translate="no">{{ device.address }}</span>
-                <template v-if="device.clients">
-                  {{ separator
-                  }}{{ format.counted('view.common.clients', device.clients) }}
-                </template>
-              </small>
-            </span>
-            <UiStatusBadge :status="device.health" />
-          </AppLink>
+            <AppLink
+              class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
+              :to="deviceTo(device.id)"
+            >
+              <span>
+                <strong
+                  translate="no"
+                  class="text-xs font-medium text-foreground block"
+                  >{{ device.name }}</strong
+                >
+                <small class="text-2xs text-muted-foreground mt-0.5 block">
+                  <span translate="no">{{ device.address }}</span>
+                  <template v-if="device.clients">
+                    {{ separator
+                    }}{{
+                      format.counted('view.common.clients', device.clients)
+                    }}
+                  </template>
+                </small>
+              </span>
+              <UiStatusBadge :status="device.health" />
+            </AppLink>
+          </UiAiTarget>
         </div>
       </div>
     </UiCard>
@@ -582,5 +586,5 @@ const roles = computed(() => {
         {{ t('view.dashboard.eventsNone') }}
       </p>
     </UiCard>
-  </div>
+  </UiAiTarget>
 </template>

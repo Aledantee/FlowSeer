@@ -46,6 +46,17 @@ describe('validateAiResult', () => {
     expect(validateAiResult(validAnswer)).toEqual(validAnswer)
   })
 
+  it('accepts an answer with UI for render-time validation', () => {
+    const answer: AiAnswer = {
+      type: 'answer',
+      text: validAnswer.text,
+      refs: validAnswer.refs,
+      ui: [{ component: 'div', props: {} }],
+    }
+
+    expect(validateAiResult(answer)).toEqual(answer)
+  })
+
   it('rejects a missing type or invalid type', () => {
     expect(() => validateAiResult(null)).toThrow(AI_VALIDATION_ERROR_MESSAGE)
     expect(() => validateAiResult(undefined)).toThrow(
