@@ -536,34 +536,6 @@ func mstiChangeBPDU(t *testing.T, region stp.MST) bpdu.BPDU {
 	return b
 }
 
-func mstTestBPDU(t *testing.T, region stp.MST, portID uint16, proposal bool) bpdu.BPDU {
-	t.Helper()
-	root := bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:01")}
-	peer := bpdu.BPDU{
-		Version:        3,
-		Type:           bpdu.TypeRapid,
-		RootID:         root,
-		BridgeID:       root,
-		PortID:         portID,
-		HelloTime:      20 * time.Second,
-		MaxAge:         20 * time.Second,
-		ForwardDelay:   15 * time.Second,
-		ConfigID:       func() *bpdu.ConfigID { id := region.ConfigID(); return &id }(),
-		RegionalRootID: root,
-		RemainingHops:  20,
-	}
-	peer.SetRole(bpdu.RoleDesignated)
-	peer.SetProposal(proposal)
-	for _, id := range []bpdu.MSTID{1, 2} {
-		peer.MSTIs = append(peer.MSTIs, bpdu.MSTIRecord{
-			MSTID: id, RegionalRootID: root, RemainingHops: 20,
-		})
-		peer.MSTIs[len(peer.MSTIs)-1].Flags = peer.Flags
-	}
-
-	return peer
-}
-
 func pvstTestTrees(ids ...vlan.ID) *stp.PVST {
 	trees := make(map[vlan.ID]stp.Tree, len(ids))
 	for _, id := range ids {
