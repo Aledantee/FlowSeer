@@ -43,14 +43,16 @@ the previous value with its old date; never guess.
 
 `field` runs steps 1, 3a, and 5 from local run and transcript stores, with
 no catalogue request or calibration lane. `all` is a full run: every step,
-the field step before calibration, and an effort sweep (step 4) over every
-model a signed-in pool serves. `discover` and `catalogue` keep their named
-scope.
+the field step and the effort check (step 3b) before calibration. No run
+sweeps effort levels. `discover` and `catalogue` keep their named scope.
 
 The goal of every run is one routing point per role: the model and effort
 level that give the best result for the least spend on that role's work.
-Effort is part of that point. A model that passes at `medium` should not
-route at `xhigh`, and one that fails at `high` may pass at `max`.
+Effort is part of that point. A model starts at the level its vendor
+recommends for the kind of work (step 3) and moves up one level only when a
+real failure from the run history passes at the higher one (step 3b). A
+level above the start costs tokens and wall time on every run, so it needs
+that evidence.
 
 Work is not one thing, so the run measures a model against five execute
 tasks of rising difficulty (simple, medium, complex, a cross-component
@@ -110,9 +112,14 @@ delete it, since a plan ledger may name it.
 For each new or changed model, and for every model on a full run, one web
 pass for: the vendor's launch note, the effort levels the vendor documents
 and what each changes (thinking budget, default level, levels a CLI does
-not expose), Terminal-Bench 2.1 and SWE-bench Verified with the harness and
+not expose), the level the vendor recommends as a starting point for each
+kind of work (lookup, agentic coding, review and judgment), Terminal-Bench
+2.1 and SWE-bench Verified with the harness and
 effort level named, and refusal reports for security tooling. The model's
 `effort` list holds the levels its CLI accepts, checked against the vendor.
+The recommended starting level is the model's level in a fit set until step
+3b moves it. Where the vendor names none, the start is the vendor's default
+level, and "unverified" in `evidence.md` when no page states one.
 Append to `evidence.md` as `model — claim — source URL — date`. Record conflicting numbers as conflicting. Do not
 compare benchmarks run on different harnesses in the registry; fill `terminal_bench` only
 from a run whose harness is named.
@@ -158,6 +165,46 @@ Field evidence can order a fit set or support a removal proposal; entry
 requires a calibration result. Step 5 asks before applying any proposed
 fit-set change.
 
+## 3b. Check effort against history
+
+`field.py` lists every run that was amended, rejected, or failed its
+verifier under `issues`, with the coordinator's `note` and the `base`,
+`plan`, and `unit` that replay it. Read them per model, role, and level.
+
+A model with no issue at its level stays there and runs no lane. For a
+model with issues, read each note and sort it:
+
+| The note says | Kind | What follows |
+| --- | --- | --- |
+| The worker got the work wrong: a missed requirement, a wrong change, a false or missed finding | reasoning | a candidate for a replay |
+| The coordinator, the brief, the plan, or the harness failed: a wrong dispatch, a stalled CLI, a rate limit | not the model | nothing; say so in the report |
+| A formatter or lint fix, or a reviewer finding the coordinator dropped as out of scope | not effort | nothing, unless it recurs in a third of the model's runs |
+
+When a model has reasoning issues at a level, test one upgrade on one of
+them. Pick the most recent reasoning issue whose `plan` still exists at its
+`base`, and ask the user before the lane runs (step 4 states the spend).
+Branch a worktree from `base`, give the worker the same plan unit at the
+next level in the model's `effort` list, and grade the result against the
+note: the replay passes when the defect the note names is absent and the
+verifier is green.
+
+```bash
+git worktree add -b replay-<run> ~/Projects/worktrees/FlowSeer/replay-<run> <base>
+.claude/skills/tune/scripts/bench.sh --lane replay-<run> --cli <cli> \
+  --model <id> --effort <next level> \
+  --brief <brief naming the plan and unit> --dir <worktree> --out <json>
+```
+
+A passing replay proposes the higher level for that model in that role. A
+failing one keeps the level: more thinking did not fix it, so the issue
+counts toward the removal threshold of step 3a instead. One replay per
+model and role per run. Record the run id, both levels, and the result in
+`evidence.md`.
+
+A level also moves down. A model above its recommended start with no
+reasoning issue in at least ten graded runs is proposed at the start level,
+and the next run's history checks it there.
+
 ## 4. Calibrate on the repository (optional, costs money)
 
 Public numbers do not show how a model does on this Go tree with race tests
@@ -171,11 +218,13 @@ record to write. The brief a lane's worker receives is a file under
 review tasks), named in that file's task table; read the lane's brief whole
 before dispatching it.
 
-A full run sweeps effort. Every model a signed-in pool serves runs the
+A lane runs at one level: the model's recommended start (step 3), or no
+level when its `effort` list is empty. A model new to the registry runs the
 calibration ladder (the simple, medium, complex, integration, and sensitive
-execute tasks and the unit and seam review tasks) once per level in its
-`effort` list, and once with no level when the list is empty. A single-model check sweeps that
-model the same way. Lanes on one pool may overlap. Take cost from each
+execute tasks and the unit and seam review tasks) once at that level. A
+second level runs only for a task the model failed at the start, one level
+up, and a step 3b replay is the only other lane above the start. Lanes on
+one pool may overlap. Take cost from each
 lane's own CLI figure then, since the pool meter cannot be split.
 
 `bench.sh` records `served_model`, `downgraded`, and `refused` on every
@@ -200,11 +249,13 @@ replaces the machine-wide date (the overlay rule above).
 filtering hot and busy pools, so order decides routing. Build each list in
 two passes.
 
-1. Pick each model's level. Consider only levels at or above the role's
-   `min_effort`. Among those at which the model passed the role's task
-   (every acceptance test and the package check for `execute`, the known bug
-   found for a review), take the cheapest. Take a costlier level only when
-   it passes more runs or, on a review task, finds more valid extras. Each
+1. Pick each model's level. Start from the vendor's recommended level for
+   the role's kind of work (step 3), raised to the role's `min_effort`.
+   Move above it only on evidence: a step 3b replay that passed at the
+   higher level, or a calibration result that fails the role's task at the
+   start and passes one level up (every acceptance test and the package
+   check for `execute`, the known bug found for a review). More valid
+   extras on a review task do not justify a costlier level. Each
    role reads the task that measures it: `execute` from `local.execute` (the
    medium task), `execute-sensitive` from `local.sensitive`, `review-seam`
    from `local.review-seam`, and every other `judgment: true` role from
@@ -214,7 +265,7 @@ two passes.
    `local.integration` does not lead an `execute` fit set. Write the entry as `<model>@<level>`, or as the bare
    model id when its `effort` list is empty (its result sits under `none`).
    A bare id of a model with levels routes at the role's `effort`, which is
-   the level for a model not yet swept.
+   the level for a model with no recommended start on record.
 2. Order the entries. A `judgment: true` role (planning, research,
    verdicts, adversarial reads) orders by result first: the review task's
    known bug found, then valid extras, then cost. `execute-sensitive` drops
