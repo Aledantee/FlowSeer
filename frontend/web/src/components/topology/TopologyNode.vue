@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { Handle, Position } from '@vue-flow/core'
 import { UiStatusBadge } from '../../ui'
 import DeviceIcon from '../DeviceIcon.vue'
+import UiAiTarget from '../../ui/ai/UiAiTarget.vue'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
 import { useFormat } from '../../i18n/format'
@@ -46,44 +47,47 @@ const selected = computed(
 </script>
 
 <template>
-  <div
-    v-if="device"
-    v-ai-target="target"
-    :class="[
-      'topology-node',
-      device.health.toLowerCase(),
-      { selected: selected, peeked: live.highlighted.value === data.deviceId },
-    ]"
-    :aria-label="
-      t('view.topology.nodeLabel', {
-        name: device.name,
-        kind: device.kind,
-        health: labels.health(device.health),
-      })
-    "
-  >
-    <Handle type="target" :position="Position.Top" :connectable="false" />
-    <DeviceIcon :role="device.role" />
-    <span class="topology-node-text">
-      <strong translate="no">{{ device.name }}</strong>
-      <small translate="no">{{
-        format.facts([device.kind, device.address])
-      }}</small>
-    </span>
-    <UiStatusBadge
-      v-if="device.health !== 'Healthy'"
-      class="topology-node-status"
-      :status="device.health"
-      size="sm"
-    />
-    <span class="topology-node-stats">
-      <span v-if="device.role === 'access-point'">{{
-        format.counted('view.common.clients', device.clients)
-      }}</span
-      ><span>{{ format.rate(device.throughput) }}</span>
-    </span>
-    <Handle type="source" :position="Position.Bottom" :connectable="false" />
-  </div>
+  <UiAiTarget v-if="device" as-child :ai="target">
+    <div
+      :class="[
+        'topology-node',
+        device.health.toLowerCase(),
+        {
+          selected: selected,
+          peeked: live.highlighted.value === data.deviceId,
+        },
+      ]"
+      :aria-label="
+        t('view.topology.nodeLabel', {
+          name: device.name,
+          kind: device.kind,
+          health: labels.health(device.health),
+        })
+      "
+    >
+      <Handle type="target" :position="Position.Top" :connectable="false" />
+      <DeviceIcon :role="device.role" />
+      <span class="topology-node-text">
+        <strong translate="no">{{ device.name }}</strong>
+        <small translate="no">{{
+          format.facts([device.kind, device.address])
+        }}</small>
+      </span>
+      <UiStatusBadge
+        v-if="device.health !== 'Healthy'"
+        class="topology-node-status"
+        :status="device.health"
+        size="sm"
+      />
+      <span class="topology-node-stats">
+        <span v-if="device.role === 'access-point'">{{
+          format.counted('view.common.clients', device.clients)
+        }}</span
+        ><span>{{ format.rate(device.throughput) }}</span>
+      </span>
+      <Handle type="source" :position="Position.Bottom" :connectable="false" />
+    </div>
+  </UiAiTarget>
 </template>
 
 <style scoped>
