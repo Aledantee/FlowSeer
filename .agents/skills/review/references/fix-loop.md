@@ -197,8 +197,9 @@ remedy is `review` again.
    27.0% and 32.8%, respectively, while its signal-to-noise ratio fell from
    5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
 
-After the round settles, write the round count beside the verdict
-(`SKILL.md` step 5).
+After the round settles, record the round count with
+`.claude/skills/plan/scripts/plan_record.py review <plan> <verdict>
+--rounds <n>` (`SKILL.md` step 5).
 
 When the coordinator applied a security or behavior fix itself (`SKILL.md`
 step 5, "apply the fixes here" or "apply chosen findings only"), that is a

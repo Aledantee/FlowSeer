@@ -14,9 +14,12 @@ a native subagent. Use role
 The brief names the skill to run, this branch as the scope, the plan path or
 the request in a few words, and asks for the checkpoint:
 
-- With a plan, the worker commits the plan's `status`, `review`, or
-  `compound` field on its branch, and the merge of that branch brings the
-  checkpoint here.
+- With a plan, the worker records the plan state with
+  `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n> --from <t> --to <t>`,
+  `.claude/skills/plan/scripts/plan_record.py review <plan> <verdict>`, or
+  `.claude/skills/plan/scripts/plan_record.py compound <plan> <outcome>` on its
+  branch, and the merge of that branch brings
+  the checkpoint here.
 - Without a plan, the checkpoints file lives in the worker's own git
   directory, so the worker reports the line (`implemented:`, `review:`, or
   `compound:`) and this session writes it to its own checkpoints file with
