@@ -648,13 +648,20 @@ The value can look like this:
 ]
 ```
 
+The registry clones a non-`undefined` `ui` once before it yields an answer
+snapshot. `structuredClone` keeps enumerable, string-keyed own data. It drops
+non-enumerable and symbol-keyed properties, reads an accessor once, and stores
+the value as data. A function, Proxy, or accessor that throws makes the clone
+fail. The registry then sets `ui` to `null`, so `UiAiRender` shows the tree's
+error state while the answer text remains. Summaries and answers without `ui`
+are yielded as the handler returned them.
+
 The validator rejects unknown components, missing or extra node and prop keys,
 invalid values, unsupported children, invalid entities or navigation targets,
-and trees over 64 nodes, four levels, or 500 characters per string. It reads
-the handler's value once through `structuredClone`, so a Proxy, a function, or
-an empty array slot rejects the tree, and it copies allow-listed data from that
-snapshot before the renderer binds it. Proposal intents remain outside
-the catalog until the console has a service API.
+and trees over 64 nodes, four levels, or 500 characters per string. It copies
+allow-listed data before the renderer binds it. An empty array slot still
+rejects the tree. Proposal intents remain outside the catalog until the
+console has a service API.
 
 An example structured `AiSummary` payload:
 
@@ -707,8 +714,9 @@ carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
 iteration and freezing the current rendered snapshot. Every received snapshot
 is checked by `validateAiResult`, defined in `src/ai/validate.ts` and called
 from `src/ai/registry.ts`. A malformed result halts the run and displays an
-error. `validateAiResult` leaves `AiAnswer.ui` to `UiAiRender`, so a malformed
-tree shows the tree's error state without halting the run.
+error. The registry clones an answer's `ui` before yielding it. A clone failure
+sets `ui` to `null`, and `UiAiRender` shows the tree's error state without
+halting the run.
 
 ### Bound and unbound runs
 

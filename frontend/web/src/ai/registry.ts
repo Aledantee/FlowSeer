@@ -105,6 +105,25 @@ export function cloneAiTarget(target: AiTarget): AiTarget {
   }
 }
 
+function prepareSnapshot(value: unknown): AiResult {
+  const snapshot =
+    typeof value === 'string'
+      ? { type: 'answer', text: value, refs: [] }
+      : value
+  const validated = validateAiResult(snapshot)
+  if (validated.type !== 'answer' || validated.ui === undefined) {
+    return validated
+  }
+
+  let ui: unknown
+  try {
+    ui = structuredClone(validated.ui)
+  } catch {
+    ui = null
+  }
+  return { ...validated, ui }
+}
+
 function defaultViewport(): AiViewport {
   const wide = window.matchMedia('(min-width: 561px)').matches
   return { wide, narrow: !wide }
@@ -445,12 +464,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
               if (controller.signal.aborted) {
                 return
               }
-              let snapshot: unknown = value
-              if (typeof snapshot === 'string') {
-                snapshot = { type: 'answer', text: snapshot, refs: [] }
-              }
-              validateAiResult(snapshot)
-              yield snapshot as AiResult
+              yield prepareSnapshot(value)
             }
           } finally {
             if (typeof iterator.return === 'function') {
@@ -474,12 +488,7 @@ export function createAiRegistry(options: AiRegistryOptions = {}): AiRegistry {
           if (controller.signal.aborted) {
             return
           }
-          let snapshot: unknown = value
-          if (typeof snapshot === 'string') {
-            snapshot = { type: 'answer', text: snapshot, refs: [] }
-          }
-          validateAiResult(snapshot)
-          yield snapshot as AiResult
+          yield prepareSnapshot(value)
         }
       } finally {
         unsubscribeStale?.()

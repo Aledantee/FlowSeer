@@ -3,7 +3,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import UiAiResult, { type UiAiResultProps } from './UiAiResult.vue'
 import { createWebI18n } from '../../i18n'
-import type { AiAnswer, AiResult, AiRun, AiSummary, AiTone } from '../../ai'
+import {
+  createAiRegistry,
+  type AiAnswer,
+  type AiResult,
+  type AiRun,
+  type AiSummary,
+  type AiTone,
+} from '../../ai'
 
 let disposers: (() => void)[] = []
 afterEach(() => {
@@ -183,6 +190,40 @@ describe('UiAiResult', () => {
     )
     expect(host.querySelector('[data-ai-render] [role="alert"]')).not.toBeNull()
     expect(host.querySelector('[data-ai-result-error]')).toBeNull()
+  })
+
+  it('shows an uncloneable run tree error while the answer stays and finishes', async () => {
+    const registry = createAiRegistry()
+    const node = document.createElement('div')
+    document.body.append(node)
+    const target = {
+      id: 'a:devices:device:d1',
+      kind: 'device',
+      label: 'd1',
+      context: {},
+    }
+    registry.register(node, target)
+    registry.onRequest(async function* () {
+      yield {
+        type: 'answer',
+        text: 'The tree failed to clone.',
+        refs: [],
+        ui: { callback: () => {} },
+      }
+    })
+
+    const run = registry.request(target, { action: 'ask' })
+    const { host } = mountResult({ run })
+    await nextTick()
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(host.querySelector('[data-ai-result-text]')?.textContent).toContain(
+      'The tree failed to clone.',
+    )
+    expect(host.querySelector('[data-ai-render] [role="alert"]')).not.toBeNull()
+    expect(host.querySelector('[data-ai-announcement]')?.textContent).toBe(
+      'Summary complete',
+    )
   })
 
   it('does not mount the tree renderer when an answer has no ui', () => {

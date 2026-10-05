@@ -33,13 +33,12 @@ function mountRender(
     page?: PageContext
   } = {},
 ) {
-  const treeState = isRef(tree) ? tree : ref(tree)
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
     render: () =>
       h(UiAiRender, {
-        tree: treeState.value,
+        tree: isRef(tree) ? tree.value : tree,
         errorLabel: options.errorLabel,
       }),
   })
@@ -215,7 +214,7 @@ describe('UiAiRender', () => {
     expect(catalogRoots(host)).toHaveLength(0)
   })
 
-  it('removes the previous tree when the next tree is invalid', async () => {
+  it('renders reactive trees and follows in-place changes', async () => {
     const tree = ref<unknown>([
       { component: 'UiBadge', props: { text: 'First' } },
     ])
@@ -223,12 +222,29 @@ describe('UiAiRender', () => {
     const root = host.querySelector('[data-ai-render]')
 
     expect(host.textContent).toContain('First')
-    tree.value = [{ component: 'div', props: {} }]
+    ;(tree.value as Array<{ props: { text: string } }>)[0]!.props.text =
+      'Changed'
     await settle()
 
-    expect(root?.textContent).not.toContain('First')
+    expect(root?.textContent).toContain('Changed')
+    ;(tree.value as unknown[]).push({ component: 'div', props: {} })
+    await settle()
+
+    expect(root?.textContent).not.toContain('Changed')
     expect(host.querySelector('[role="alert"]')).not.toBeNull()
     expect(catalogRoots(host)).toHaveLength(0)
+  })
+
+  it('validates the provided tree instead of its __v_raw property', () => {
+    const tree: unknown[] = [{ component: 'div', props: {} }]
+    Object.defineProperty(tree, '__v_raw', {
+      value: [{ component: 'UiBadge', props: { text: 'Hidden' } }],
+    })
+
+    const { host } = mountRender(tree)
+
+    expect(host.querySelector('[role="alert"]')).not.toBeNull()
+    expect(host.textContent).not.toContain('Hidden')
   })
 
   it('navigates with the page scope and keeps page-local query keys out', async () => {

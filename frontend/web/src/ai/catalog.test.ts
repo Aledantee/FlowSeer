@@ -7,7 +7,7 @@ import {
   AI_UI_MAX_STRING_LENGTH,
   validateAiUiTree,
 } from './catalog'
-import type { AiUiNavigateIntent, AiUiNode } from './types'
+import type { AiUiNode } from './types'
 
 function node(component: string, props: Record<string, unknown>): AiUiNode {
   return { component, props }
@@ -304,168 +304,10 @@ describe('validateAiUiTree', () => {
     expect(copy[0]?.props).not.toBe(input[0]?.props)
   })
 
-  it('copies an accessor prop before validating it', () => {
-    let reads = 0
-    const props: Record<string, unknown> = {}
-    Object.defineProperty(props, 'text', {
-      enumerable: true,
-      get: () => (reads++ === 0 ? 'ok' : () => ''),
-    })
-
-    const copy = validateAiUiTree([{ component: 'UiBadge', props }])
-
-    expect(copy[0]?.props.text).toBe('ok')
-  })
-
-  it('copies an accessor component before validating it', () => {
-    let reads = 0
-    const input: Record<string, unknown> = { props: { text: 'ok' } }
-    Object.defineProperty(input, 'component', {
-      enumerable: true,
-      get: () => (reads++ === 0 ? 'UiBadge' : 'div'),
-    })
-
-    const copy = validateAiUiTree([input])
-
-    expect(copy[0]?.component).toBe('UiBadge')
-  })
-
-  it('validates each node of a tree whose array carries its own map', () => {
-    const unchecked = [{ component: 'div', props: {} }]
-    const tree: unknown[] = [node('UiBadge', { text: 'Ready' })]
-    Object.defineProperty(tree, 'map', { value: () => unchecked })
-
-    expect(validateAiUiTree(tree)).toEqual([
-      { component: 'UiBadge', props: { text: 'Ready' } },
-    ])
-  })
-
-  it('validates each child of a card whose children carry their own map', () => {
-    const unchecked = [{ component: 'div', props: {} }]
-    const children: unknown[] = [node('UiBadge', { text: 'Ready' })]
-    Object.defineProperty(children, 'map', { value: () => unchecked })
-
-    const copy = validateAiUiTree([
-      { component: 'UiCard', props: {}, children },
-    ])
-
-    expect(copy[0]?.children).toEqual([
-      { component: 'UiBadge', props: { text: 'Ready' } },
-    ])
-  })
-
   it('rejects a tree with an empty slot', () => {
     const tree: unknown[] = []
     tree[1] = node('UiBadge', { text: 'Ready' })
 
     rejects(tree)
-  })
-
-  // Each prop below is read after the value it repairs, so the repaired
-  // object would pass validation if the copy step had kept it.
-  it('rejects an intent that a later prop read repairs', () => {
-    const intent: Record<string, unknown> = {
-      type: 'navigate',
-      target: { path: '/devices' },
-      extra: true,
-    }
-    const props: Record<string, unknown> = { text: 'Open', intent }
-    Object.defineProperty(props, 'size', {
-      enumerable: true,
-      get: () => {
-        delete intent.extra
-        return 'sm'
-      },
-    })
-
-    rejects([{ component: 'UiButton', props }])
-  })
-
-  it('rejects a target that a later prop read repairs', () => {
-    const target: Record<string, unknown> = { path: '/devices', extra: true }
-    const props: Record<string, unknown> = {
-      text: 'Open',
-      intent: { type: 'navigate', target },
-    }
-    Object.defineProperty(props, 'size', {
-      enumerable: true,
-      get: () => {
-        delete target.extra
-        return 'sm'
-      },
-    })
-
-    rejects([{ component: 'UiButton', props }])
-  })
-
-  it('copies only the own keys of a query that has its own prototype', () => {
-    const query = Object.create({ inherited: 'value' }) as Record<
-      string,
-      unknown
-    >
-    query.site = 'berlin'
-
-    const copy = validateAiUiTree([
-      node('UiButton', {
-        text: 'Open',
-        intent: { type: 'navigate', target: { query } },
-      }),
-    ])
-    const copied = (copy[0]?.props.intent as AiUiNavigateIntent).target.query
-
-    expect(copied).toEqual({ site: 'berlin' })
-    expect(Object.getPrototypeOf(copied)).toBe(Object.prototype)
-  })
-
-  it('rejects an entity that a later prop read repairs', () => {
-    const entity: Record<string, unknown> = {
-      kind: 'site',
-      id: 'berlin',
-      label: 'Berlin',
-      extra: true,
-    }
-    const props: Record<string, unknown> = { entity }
-    Object.defineProperty(props, 'size', {
-      enumerable: true,
-      get: () => {
-        delete entity.extra
-        return 'sm'
-      },
-    })
-
-    rejects([{ component: 'UiAiEntityChip', props }])
-  })
-
-  it('rejects a Proxy tree whose length changes between reads', () => {
-    let reads = 0
-    const length = { valueOf: () => (reads++ === 0 ? 2 : 0) }
-    const tree = new Proxy(
-      [node('UiBadge', { text: 'Ready' }), node('div', {})],
-      {
-        get: (target, key, receiver) =>
-          key === 'length' ? length : Reflect.get(target, key, receiver),
-      },
-    )
-
-    rejects(tree)
-  })
-
-  it('rejects an empty slot that the array prototype would fill', () => {
-    const tree = new Array<unknown>(1)
-    Object.setPrototypeOf(tree, { 0: node('UiBadge', { text: 'Ready' }) })
-
-    rejects(tree)
-  })
-
-  it('reports an input accessor that throws as a rejected tree', () => {
-    const input: Record<string, unknown> = { props: {} }
-    Object.defineProperty(input, 'component', {
-      enumerable: true,
-      get: () => {
-        throw new Error('handler failure')
-      },
-    })
-
-    rejects([input])
   })
 })
