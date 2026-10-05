@@ -411,7 +411,7 @@ func Encode(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 		}
 		payload[5] = version
 		payload[6] = bpduTypeWireRST
-		payload[7] = b.Flags
+		payload[7] = b.Flags &^ flagTopologyChangeAck
 		putBody(payload, b)
 		payload[38] = 0
 
@@ -452,7 +452,7 @@ func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 	binary.BigEndian.PutUint16(payload[3:5], 0x0000)
 	payload[5] = mstProtocolVersion
 	payload[6] = bpduTypeWireRST
-	payload[7] = b.Flags
+	payload[7] = b.Flags &^ flagTopologyChangeAck
 	putBody(payload, b)
 	payload[38] = 0
 	binary.BigEndian.PutUint16(payload[20:22], b.RegionalRootID.Priority)
@@ -621,7 +621,7 @@ func Decode(f ethernet.Frame) (BPDU, error) {
 		b := readBody(f.Payload)
 		b.Version = version
 		b.Type = TypeRapid
-		b.Flags = f.Payload[7]
+		b.Flags = f.Payload[7] &^ flagTopologyChangeAck
 
 		// IEEE 802.1Q-2003 clause 14.4 d), e): count octets from the
 		// Protocol Identifier at payload[3]. The 102-octet frame is
