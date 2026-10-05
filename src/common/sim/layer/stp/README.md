@@ -292,31 +292,33 @@ record. In PVST, each VLAN tree owns its timer and its transmit budget.
 
 RSTP and MSTP transmit pending information regardless of the port role. Legacy
 STP sends a Topology Change Notification from a Root port and a Configuration
-BPDU from a Designated port. An MSTI-only request on a port that does not send
-RSTP emits nothing and remains pending. A legacy non-CIST PVST tree also keeps
-pending information without sending a frame. RSTP and MSTP transmission clears
-both CIST and MSTI pending information. A legacy Configuration BPDU or TCN
-clears only CIST information. A legacy TCN acknowledgment is included in the
-next Configuration BPDU rather than emitted immediately.
+BPDU from a Designated port. Under PVST this applies to every tree. A Root
+tree sends a TCN, a Designated tree sends a Configuration BPDU, and another
+tree sends nothing. An MSTI-only request on a port that does not send RSTP
+emits nothing and remains pending. RSTP and MSTP transmission clears both CIST
+and MSTI pending information. A legacy Configuration BPDU or TCN clears only
+CIST information. A legacy TCN acknowledgment is included in the next
+Configuration BPDU for that tree and port rather than emitted immediately.
 
 When a port comes up, every tree's transmit record receives both requests after
 roles are computed. This sends one frame per tree, including edge ports. A port
 that is down or disabled by BPDU guard sends nothing, retains its requests, and
 holds a zero transmit count until the port-up pass.
 
-Every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own VLAN through
-`layer.Emission.VID`. VLAN 1's tree sends a second, IEEE-addressed and naming no
-VLAN. The two are one transmission and spend one budget slot between them. The
-layer never builds a VLAN tag: a non-zero `layer.Emission.VID` tells the switch to
-put the frame through the port's ordinary egress rules, which is where the
+In PVST every tree sends its BPDU to `bpdu.GroupAddressSSTP()` naming its own
+VLAN through `layer.Emission.VID`. While the port sends RSTP, VLAN 1's tree
+also sends a second, IEEE-addressed frame naming no VLAN. The two VLAN 1 frames
+are one transmission and spend one budget slot between them. The layer never
+builds a VLAN tag: a non-zero `layer.Emission.VID` tells the switch to put the
+frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 
 A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
-alone. A non-CIST tree on such a port builds and meters nothing. VLAN 1's tree
-still builds its legacy Configuration BPDU but sends only the IEEE-addressed
-copy, dropping the SSTP one. The SSTP codec retains its Configuration, RST,
-and TCN shapes for the per-VLAN path, while the legacy sender selects the IEEE
-shape.
+alone. Each non-CIST tree still sends its own SSTP Configuration BPDU or TCN on
+its VLAN. VLAN 1's tree builds its legacy Configuration BPDU and sends only the
+IEEE-addressed copy. The SSTP codec retains its Configuration, RST, and TCN
+shapes for the per-VLAN path. PVID supplies the VLAN mapping, and EXT supplies
+the observed per-VLAN TCN and acknowledgment behavior.
 
 ### The boundary this package reports
 
@@ -487,7 +489,7 @@ The implementation structures its logic around the standard state machines:
 - Port Information (PIM): IEEE 802.1Q-2003 clauses 13.21 and 13.24, and P802.1aq/D1.5 clause 13.29. Stored information expires after 3 x HelloTime of silence or when message age or hop count limits are exceeded.
 - Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.26.9 and Figure 13-14, and P802.1aq/D1.5 clauses 13.29.16 and 13.29.20, Figures 13-20 and 13-25. Computes proposal and agreement handshakes and steps the forward delay ladder.
 - Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13 and P802.1aq/D1.5 Figure 13-19, clauses 13.28.13 and 13.28.14. It settles overdue hello records before an event, then runs one deterministic tree-then-port transmit pass. It sends periodic hellos from each tree's timer, bounds each port and tree by txHoldCount, and clears only the requests carried by the BPDU shape it sent. The layer's own port-up request is made by `LinkChange` after role computation.
-- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting port in either protocol mode, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. The layer's own detection request is made by `detectTopologyChange`. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST VLAN 1 address mapping.
+- Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it moves to Forwarding, requests a frame on the detecting port in either protocol mode, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. The layer's own detection request is made by `detectTopologyChange`. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST address mapping, and EXT supplies the observed per-VLAN TCN and acknowledgment behavior.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 ### Limits
@@ -511,9 +513,9 @@ runtime layer only when both keys match and rebuilds it otherwise.
 
 ## Not modeled
 
-- 802.1D spanning tree per VLAN, and the PVST inconsistency states other than
-  the PVID check: type inconsistency, and port-VLAN-ID mismatch on an access
-  port.
+- A bridge configured to run independent 802.1D state machines on every port,
+  and the PVST inconsistency states other than the PVID check: type
+  inconsistency, and port-VLAN-ID mismatch on an access port.
 - Cisco's PVST simulation on an MSTP boundary port, which this package reports
   as a boundary rather than models.
 - Tagged BPDU emission from this package. `bpdu.Encode` and `bpdu.EncodeSSTP` both emit
