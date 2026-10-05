@@ -8,6 +8,13 @@ Frames are exchanged over IEEE 802.3 LLC to the standard bridge group multicast
 destination address `01:80:c2:00:00:00` or via LLC/SNAP framing to the Cisco
 SSTP address `01:00:0c:cc:cc:cd`.
 
+SSTP supports three wire shapes. Configuration and RST BPDUs share a 50-octet
+LLC/SNAP layout with an originating-VLAN TLV. Configuration uses version 0 and
+wire type `0x00`, while RST uses version 2 or later and wire type `0x02`. A TCN
+uses the same LLC/SNAP header with a 12-octet length, wire type `0x80`, no TLV,
+and Ethernet minimum-frame padding. TCN decoding returns VLAN 0 because its
+VLAN scope comes from ingress classification.
+
 The codec operates on Go structures and produces `ethernet.Frame` values.
 
 ## Example
@@ -65,7 +72,22 @@ Package `bpdu` implements encoding and decoding based on IEEE Std 802.1Q-2003 (i
 - IEEE Std 802.1Q-2003 clause 14.6: Frame formats and field encodings for Configuration BPDUs, RST BPDUs, and MST BPDUs. Priority nibbles for MSTI records are encoded in bits 5 through 8 of octets 14 and 15 (IEEE 802.1Q-2003 clauses 14.6.1 d and e).
 - IEEE Std 802.1Q-2003 clause 13.14: Bounds the number of MSTI records in a single BPDU to 64 (`MaxMSTIRecords`).
 
+### PVST and SSTP observation model
+
+PVST and SSTP behavior is modelled on observation. [`CISCO`][CISCO] describes
+loop guard blocking per VLAN. [`PVID`][PVID] describes the IEEE destination and
+SSTP address used for VLAN-specific BPDUs. [`EXT`][EXT] describes tagged TCN
+BPDUs sent per VLAN. [`WS`][WS]
+provides the dissector offsets for the SSTP body and Configuration TLV. These
+sources establish the observation model, not a claim that every vendor uses
+the same implementation.
+
+[CISCO]: https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html
+[PVID]: https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html
+[EXT]: https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml
+[WS]: https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c
+
 ### Limits
 
 - An MST BPDU can contain at most 64 MSTI records (`MaxMSTIRecords`). Payloads advertising more than 64 records are decoded as RST BPDUs when the length band permits the RST reading.
-- Encapsulation supports standard LLC destination `01:80:c2:00:00:00` and Cisco PVST+ LLC/SNAP destination `01:00:0c:cc:cc:cd` with protocol ID `0x010b` and trailing PVID TLV.
+- Encapsulation supports standard LLC destination `01:80:c2:00:00:00` and Cisco PVST+ LLC/SNAP destination `01:00:0c:cc:cc:cd` with protocol ID `0x010b`. Configuration and RST shapes carry the trailing PVID TLV. TCN shapes do not carry a TLV.

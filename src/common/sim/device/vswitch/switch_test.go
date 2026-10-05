@@ -7642,6 +7642,22 @@ func pvstSSTPFrame(t *testing.T, vid vlan.ID, tagVID vlan.ID, src netaddr.MAC) e
 	return frame
 }
 
+// pvstSSTPTCNFrame builds the no-TLV SSTP TCN shape and tags it for the
+// arrival VLAN selected by the switch.
+func pvstSSTPTCNFrame(t *testing.T, tagVID vlan.ID, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}, 0, src)
+	if err != nil {
+		t.Fatalf("EncodeSSTP TCN: %v", err)
+	}
+	if tagVID != 0 {
+		frame.Tags = []vlan.Tag{{VID: tagVID}}
+	}
+
+	return frame
+}
+
 func findStep(steps []trace.Step, ruleID trace.RuleID) (trace.Step, bool) {
 	for _, step := range steps {
 		if step.RuleID == ruleID {
@@ -7684,6 +7700,101 @@ func TestPVSTPVIDInconsistencyTraceNamesBothVLANs(t *testing.T) {
 	want := "tlv=20,arrival=10,consistent=false"
 	if canonical != want {
 		t.Fatalf("stp.sstp.vlans fact = %q, want %q", canonical, want)
+	}
+}
+
+// TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN is evidence for the switch-level
+// PVST behavior: an SSTP TCN has no payload VLAN, so its tagged arrival VLAN
+// scopes the flush while the trace records that distinction.
+func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	pvid := vlan.ID(1)
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{1: "VLAN1", 10: "VLAN10"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Untagged: []vlan.ID{1}, Tagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &pvid, Untagged: []vlan.ID{1}, Tagged: []vlan.ID{10}},
+			},
+		}},
+		STP: &stp.Config{
+			Priority: 4096,
+			Address:  netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01},
+			Ports: map[string]stp.Port{
+				"1/1/1": {PointToPoint: stp.PointToPointForceFalse},
+				"1/1/2": {PointToPoint: stp.PointToPointForceFalse},
+			},
+			PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{1: {}, 10: {}}},
+		},
+	})
+	sw.Start(now)
+	sw.Drain()
+	sw.Wake(now.Add(15 * time.Second))
+	sw.Drain()
+	sw.Wake(now.Add(30 * time.Second))
+	sw.Drain()
+
+	mac1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
+	mac10 := netaddr.MAC{0x02, 0, 0, 0, 0, 10}
+	mustSwitchLearn(t, sw, []bridge.Seed{
+		{FID: 1, MAC: mac1, Port: "1/1/2", LearnedAt: now},
+		{FID: 10, MAC: mac10, Port: "1/1/2", LearnedAt: now},
+	})
+
+	res := sw.Forward(now.Add(31*time.Second), "1/1/1", pvstSSTPTCNFrame(t, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 2}))
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("TCN outcome = %s, want %s, trace=%+v", res.Outcome, trace.Consumed, res.Steps)
+	}
+	step, ok := findStep(res.Steps, "stp.sstp.admit")
+	if !ok {
+		t.Fatalf("no stp.sstp.admit step in TCN trace: %+v", res.Steps)
+	}
+	var canonical string
+	for _, fact := range step.Inputs {
+		if fact.TypeID() == "stp.sstp.vlans" {
+			canonical = fact.Canonical()
+		}
+	}
+	if canonical != "tlv=none,arrival=10" {
+		t.Fatalf("TCN stp.sstp.vlans fact = %q, want %q", canonical, "tlv=none,arrival=10")
+	}
+
+	entries := sw.Entries()
+	for _, entry := range entries {
+		if entry.FID == 10 {
+			t.Fatalf("VLAN 10 entry survived TCN flush: %+v", entries)
+		}
+	}
+	foundVLAN1 := false
+	for _, entry := range entries {
+		if entry.FID == 1 && entry.MAC == mac1 {
+			foundVLAN1 = true
+		}
+	}
+	if !foundVLAN1 {
+		t.Fatalf("VLAN 1 entry was flushed by VLAN 10 TCN: %+v", entries)
+	}
+
+	// The existing RST shape keeps the named-VLAN trace contract.
+	rst := sw.Forward(now.Add(31*time.Second), "1/1/1", pvstSSTPFrame(t, 10, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 3}))
+	rstStep, ok := findStep(rst.Steps, "stp.sstp.admit")
+	if !ok {
+		t.Fatalf("no stp.sstp.admit step in RST trace: %+v", rst.Steps)
+	}
+	canonical = ""
+	for _, fact := range rstStep.Inputs {
+		if fact.TypeID() == "stp.sstp.vlans" {
+			canonical = fact.Canonical()
+		}
+	}
+	if canonical != "tlv=10,arrival=10,consistent=true" {
+		t.Fatalf("RST stp.sstp.vlans fact = %q, want %q", canonical, "tlv=10,arrival=10,consistent=true")
 	}
 }
 

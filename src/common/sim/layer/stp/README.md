@@ -240,6 +240,14 @@ until a consistent BPDU arrives. The arrival VLAN is the blocked one, not the
 VLAN the TLV names, because its local traffic is what would cross a link the
 two ends disagree about.
 
+SSTP Configuration BPDUs use the RST body layout with version 0, wire type
+`0x00`, and a PVID TLV. SSTP RST BPDUs use the same layout with version 2 or
+later and wire type `0x02`. SSTP TCN BPDUs use wire type `0x80`, have no TLV,
+and scope their receive effect to the VLAN the switch classified on ingress.
+The TCN path therefore runs admission and tree checks but skips the PVID
+comparison. PVST and SSTP behavior is modelled on observation from [CISCO],
+[PVID], and [EXT], with wire offsets cross-checked against [WS].
+
 The half of a receive that belongs to the link rather than to any tree, BPDU
 guard, protocol migration, and the loss of auto-edge status, runs once per
 frame in `receiveLink`, which both entry points share. Loop-guard recovery is
@@ -304,12 +312,11 @@ put the frame through the port's ordinary egress rules, which is where the
 native-versus-tagged decision already lives.
 
 A port migrated to legacy STP sends VLAN 1's untagged IEEE Configuration BPDU
-alone, because SSTP has no legacy form: `bpdu.EncodeSSTP` forces a version of at
-least 2 and `bpdu.DecodeSSTP` refuses anything else, so a version-2 wrapper around
-a legacy BPDU would be a frame whose header contradicts its content. A
-non-CIST tree on such a port builds and meters nothing. VLAN 1's tree still
-builds its legacy Configuration BPDU but sends only the IEEE-addressed copy,
-dropping the SSTP one.
+alone. A non-CIST tree on such a port builds and meters nothing. VLAN 1's tree
+still builds its legacy Configuration BPDU but sends only the IEEE-addressed
+copy, dropping the SSTP one. The SSTP codec retains its Configuration, RST,
+and TCN shapes for the per-VLAN path, while the legacy sender selects the IEEE
+shape.
 
 ### The boundary this package reports
 
@@ -433,7 +440,9 @@ receives one flushes that instance's VLANs on its other ports the same way a
 locally raised change would, so a change on one bridge's instance reaches
 every other bridge's copy of it rather than stopping at the first hop.
 
-An IEEE-addressed TCN is scoped to VLAN 1 under PVST. Under MSTP it applies to
+An IEEE-addressed TCN is scoped to VLAN 1 under PVST. An SSTP TCN is scoped to
+the arrival VLAN under PVST and carries no PVID TLV, so a PVID inconsistency
+cannot be created by that shape. Under MSTP an IEEE-addressed TCN applies to
 the CIST and every active MSTI on the receiving port. The PVST mapping follows
 the PVID source's rule for VLAN 1 BPDUs. The MSTP behavior follows IEEE
 802.1Q-2003 clause 13.26.19, page 194, and P802.1aq/D1.5 clause 13.29.13,
@@ -465,7 +474,12 @@ stale. Narrowing it would need a target that can say
 
 ## Standards and state machines
 
-The layer implements the state machines defined in IEEE Std 802.1Q-2003 (incorporating IEEE Std 802.1s-2002) and follows the unified RSTP and MSTP state machine consolidation from the IEEE P802.1aq/D1.5 draft (May 2009). Conformance test behavior is drawn from the UNH-IOL Rapid Spanning Tree Conformance Test Suite (referencing IEEE Std 802.1Q-2011). Frame encoding offsets are cross-checked against the Wireshark dissector (`epan/dissectors/packet-bpdu.c`). Published editions of IEEE Std 802.1D-2004 and IEEE Std 802.1Q-2011 were not directly consulted and are unverified.
+The layer implements the state machines defined in IEEE Std 802.1Q-2003 (incorporating IEEE Std 802.1s-2002) and follows the unified RSTP and MSTP state machine consolidation from the IEEE P802.1aq/D1.5 draft (May 2009). Conformance test behavior is drawn from the UNH-IOL Rapid Spanning Tree Conformance Test Suite (referencing IEEE Std 802.1Q-2011). Frame encoding offsets are cross-checked against the Wireshark dissector (`epan/dissectors/packet-bpdu.c`). PVST and SSTP behavior is modelled on observation from [CISCO], [PVID], and [EXT]. Published editions of IEEE Std 802.1D-2004 and IEEE Std 802.1Q-2011 were not directly consulted and are unverified.
+
+[CISCO]: https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html
+[PVID]: https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html
+[EXT]: https://documentation.extremenetworks.com/slxos/SW/20xx/l2config/GUID-FC3E8C8E-3930-4777-825D-3ECD12328F51.shtml
+[WS]: https://gitlab.com/wireshark/wireshark/-/raw/master/epan/dissectors/packet-bpdu.c
 
 The implementation structures its logic around the standard state machines:
 
