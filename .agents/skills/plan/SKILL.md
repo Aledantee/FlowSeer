@@ -37,6 +37,10 @@ decision carries its reason.
 Load `references/replan-phase.md` before re-planning a phase plan (one with
 a `parent:` field): it holds the checks that the tree is fit to plan from.
 
+Load `references/replan-implemented.md` before re-planning a plan that reads
+`status: implemented` (a review that ended in `rework` sent it back): it
+holds the fields, the Units list, and the ledger to reset.
+
 ### Promote a decision to a direction record
 
 A decision that outlives the task belongs in `docs/architecture/`, since a

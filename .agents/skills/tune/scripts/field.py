@@ -428,7 +428,7 @@ def score(args):
             continue
         attributed_claude.append(session)
     claude = attributed_claude
-    runs, unmatched, joined = [], [], set()
+    runs, unmatched, joined, issues = [], [], set(), []
     if log.skipped:
         unmatched.append({"reason": "malformed_runlog_lines", "count": log.skipped})
     lane_windows = defaultdict(list)
@@ -465,6 +465,13 @@ def score(args):
                         grade.get("outcome"), grade.get("verify"), effort_for(start, models))
         run["run"] = rid
         run["elapsed_s"] = seconds(at, instant(grade.get("at")))
+        if run["outcome"] in ("amended", "rejected") or run["verify"] == "fail":
+            # Enough to replay the unit: the base it branched from and the
+            # plan unit it worked, beside the coordinator's reason.
+            issues.append({"run": rid, "role": run["role"], "model": model, "effort": run["effort"],
+                           "outcome": run["outcome"], "verify": run["verify"],
+                           "note": grade.get("note"), "base": start.get("base"),
+                           "plan": start.get("plan"), "unit": start.get("unit")})
         if roles and run["role"] not in roles:
             unmatched.append({"run": rid, "reason": "role_not_in_registry", "role": run["role"]})
         candidates = {"claude": claude, "codex": codex, "omp": omp}.get(cli, [])
@@ -519,7 +526,8 @@ def score(args):
     if branch_names:
         unmatched.append({"reason": "branch_name_calls", "count": branch_names})
     return {"as_of": now.date().isoformat(), "since": since.date().isoformat(),
-            "runs": runs, "groups": groups_for(runs), "unmatched": unmatched}
+            "runs": runs, "groups": groups_for(runs), "issues": issues,
+            "unmatched": unmatched}
 
 
 def main(argv=None):

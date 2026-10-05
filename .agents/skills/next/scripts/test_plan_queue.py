@@ -95,6 +95,68 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain done on main")
         self.assertEqual(self.groups().get(PLAIN), "retire")
 
+    def test_finished_plan_sent_back_to_plan_is_a_replan(self):
+        self.git("checkout", "-q", "main")
+        self.write(PLAIN, "---\nstatus: implemented\nartifact_readiness: needs-decisions\n---\n")
+        self.commit("plain sent back to plan")
+        self.assertEqual(self.groups().get(PLAIN), "replan")
+
+    def test_sent_back_plan_changed_on_this_branch_is_a_replan(self):
+        self.finish(PLAIN, "artifact_readiness: needs-decisions\n")
+        self.commit("plain sent back on the branch")
+        self.assertEqual(self.groups().get(PLAIN), "replan")
+
+    def test_sent_back_phase_on_this_branch_with_empty_landed_line_is_a_replan(self):
+        self.write(
+            PHASE,
+            f"---\nstatus: implemented\nartifact_readiness: needs-decisions\nreview: rework\nparent: {PARENT}\n---\n",
+        )
+        self.commit("phase sent back by a rework review, Landed empty")
+        self.assertEqual(self.groups().get(PHASE), "replan")
+
+    def test_sent_back_plan_with_a_rework_verdict_is_a_replan(self):
+        self.git("checkout", "-q", "main")
+        self.write(PLAIN, "---\nstatus: implemented\nartifact_readiness: needs-decisions\nreview: rework\n---\n")
+        self.commit("plain sent back, verdict kept")
+        self.assertEqual(self.groups().get(PLAIN), "replan")
+
+    def test_sent_back_phase_waits_for_an_unlanded_prerequisite(self):
+        first = "docs/plans/2026-01-04-first-plan.md"
+
+        def parent(landed):
+            return (
+                "---\nstatus: planned\n---\n\n"
+                f"### U1. First\nFiles: `{first}`\nLanded: {landed}\n\n"
+                f"### U2. Phase\nFiles: `{PHASE}`\nAfter: U1\nLanded:\n"
+            )
+
+        self.git("checkout", "-q", "main")
+        self.write(first, f"---\nstatus: planned\nparent: {PARENT}\n---\n")
+        self.write(PHASE, f"---\nstatus: implemented\nartifact_readiness: needs-decisions\nparent: {PARENT}\n---\n")
+        self.write(PARENT, parent(""))
+        self.commit("phase sent back, prerequisite open")
+        self.assertEqual(self.groups().get(PHASE), "waiting")
+        self.write(PARENT, parent("`abcdef0..abcdef1`"))
+        self.commit("prerequisite landed")
+        self.assertEqual(self.groups().get(PHASE), "replan")
+
+    def test_abandoned_plan_that_needs_decisions_still_retires(self):
+        self.git("checkout", "-q", "main")
+        self.write(PLAIN, "---\nstatus: abandoned\nartifact_readiness: needs-decisions\n---\n")
+        self.commit("plain abandoned")
+        self.assertEqual(self.groups().get(PLAIN), "retire")
+
+    def test_finished_parent_that_needs_decisions_still_retires(self):
+        self.git("checkout", "-q", "main")
+        self.write(
+            PARENT,
+            self.parent("abc1234..def5678").replace(
+                "status: planned", "status: implemented\nartifact_readiness: needs-decisions"
+            ),
+        )
+        self.commit("parent done on main")
+        self.assertEqual(self.groups().get(PARENT), "retire")
+
 
 if __name__ == "__main__":
     unittest.main()
