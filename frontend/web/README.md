@@ -601,9 +601,10 @@ A handler that rejects produces an error state.
 ### Typed results
 
 Results render using typed objects defined in `src/ai/types.ts` rather than
-raw Markdown or HTML strings. This avoids HTML-injection risks and allows native
-design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`) to
-present structured insights:
+raw Markdown or HTML strings. This avoids HTML-injection risks. Native
+design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`)
+present structured insights. `UiAiResult` uses `UiAiRender` for an optional
+validated component tree:
 
 - `AiSummary`: contains a headline, overall tone (`ok`, `warning`, `critical`,
   `unknown`), structured findings with individual severities and entity
@@ -702,10 +703,10 @@ delivers progressive snapshots where each yielded object is a complete result
 state so far, eliminating fragile delta-patching protocols. The active request
 carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
 iteration and freezing the current rendered snapshot. Every received snapshot
-must satisfy `validateAiResult` in `src/ai/registry.ts`. A malformed result
-halts the run and displays an error. `validateAiResult` leaves `AiAnswer.ui` to
-`UiAiRender`, so a malformed tree shows the tree's error state without halting
-the run.
+is checked by `validateAiResult`, defined in `src/ai/validate.ts` and called
+from `src/ai/registry.ts`. A malformed result halts the run and displays an
+error. `validateAiResult` leaves `AiAnswer.ui` to `UiAiRender`, so a malformed
+tree shows the tree's error state without halting the run.
 
 ### Bound and unbound runs
 
@@ -743,7 +744,8 @@ The UI uses product-facing copy and omits decorative placeholder text and demo
 badges. This is still a design preview backed by local fixtures. Tenant selection filters fixtures and does not enforce
 authorization. Backend integration must authorize every tenant/site request and
 validate assignment changes. The logout icon beside the operator name is disabled until authentication is
-connected. There is no login, persistence, or production telemetry. Traffic is
+connected. There is no login, persistence, streaming transport, or production
+telemetry. Traffic is
 synthetic. Aggregate device traffic may count
 traffic at multiple network hops. Topology links are illustrative.
 
