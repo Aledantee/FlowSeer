@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -3350,16 +3351,15 @@ func TestEveryReaderOfALinkPropertyReadsTheCISTsCopy(t *testing.T) {
 	}
 }
 
-// TestPVSTMigrationReachesEveryTreeAndSilencesSSTP verifies that a legacy
-// Configuration BPDU received IEEE-addressed migrates every tree, not
-// only the CIST's, and a migrated port sends VLAN 1's untagged Configuration
-// BPDU alone: SSTP has no legacy shape to carry a per-VLAN downgrade in, so
-// every other VLAN's tree falls silent on the port instead.
-func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
+// TestPVSTMigrationReachesEveryTreeAndEmitsPerVLANSSTP verifies that a legacy
+// Configuration BPDU received IEEE-addressed migrates every tree, and a
+// migrated port keeps sending VLAN 1's IEEE Configuration BPDU plus one SSTP
+// Configuration BPDU for every other VLAN tree.
+func TestPVSTMigrationReachesEveryTreeAndEmitsPerVLANSSTP(t *testing.T) {
 	t.Parallel()
 
 	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
-	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10)
+	l := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
 	l.LinkChange(start, "l1", true, true, 1_000_000_000)
 
 	legacyConfig := bpdu.BPDU{
@@ -3376,29 +3376,28 @@ func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
 
 	// An IEEE-addressed BPDU is what Receive handles in every mode, VLAN 1's
 	// tree included, since that slot is VLAN 1's tree under PVST.
-	l.Receive(start.Add(4*time.Second), "l1", legacyConfig)
+	effects := l.Receive(start.Add(4*time.Second), "l1", legacyConfig)
 
-	if l.VLANPortInfo(10, "l1").SendRSTP {
-		t.Fatal("VLAN 10 SendRSTP = true, want false: the migration must reach every tree, not only the CIST's")
+	for _, vid := range []vlan.ID{1, 10, 20} {
+		if l.VLANPortInfo(vid, "l1").SendRSTP {
+			t.Fatalf("VLAN %d SendRSTP = true, want false: migration must reach every tree", vid)
+		}
 	}
 
-	wake, ok := l.NextWake()
-	if !ok {
-		t.Fatal("NextWake() reported no timer after the migration")
-	}
-	fx := l.Advance(wake)
-
-	var sstpCount, ieeeCount int
-	for _, em := range fx.Emissions {
+	var shapes []string
+	for _, em := range effects.Emissions {
 		if em.Port != "l1" {
 			continue
 		}
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() {
-			sstpCount++
+			decoded, vid := decodeTestEmission(t, em)
+			if decoded.Type != bpdu.TypeConfiguration || vid == 0 || em.VID != vid {
+				t.Fatalf("SSTP migration emission = %+v with decoded %v/%d, want Configuration with matching VLAN", em, decoded.Type, vid)
+			}
+			shapes = append(shapes, em.Port+":"+strconv.FormatUint(uint64(em.VID), 10)+":sstp")
 
 			continue
 		}
-		ieeeCount++
 		b, err := bpdu.Decode(em.Frame)
 		if err != nil {
 			t.Fatalf("decode IEEE emission: %v", err)
@@ -3406,12 +3405,25 @@ func TestPVSTMigrationReachesEveryTreeAndSilencesSSTP(t *testing.T) {
 		if b.Version != 0 || b.Type != bpdu.TypeConfiguration {
 			t.Errorf("IEEE emission version=%d type=%v, want 0 and Configuration", b.Version, b.Type)
 		}
+		shapes = append(shapes, em.Port+":"+strconv.FormatUint(uint64(em.VID), 10)+":ieee")
 	}
-	if sstpCount != 0 {
-		t.Errorf("SSTP emissions on l1 = %d, want 0: a migrated port sends no per-VLAN frame", sstpCount)
+	want := []string{"l1:0:ieee", "l1:10:sstp", "l1:20:sstp"}
+	if !slices.Equal(shapes, want) {
+		t.Fatalf("migration emissions = %v, want %v", shapes, want)
 	}
-	if ieeeCount != 1 {
-		t.Errorf("IEEE emissions on l1 = %d, want 1", ieeeCount)
+
+	wake, ok := l.NextWake()
+	if !ok {
+		t.Fatal("NextWake() reported no timer after the migration")
+	}
+	fx := l.Advance(wake)
+	for _, em := range fx.Emissions {
+		if em.Port != "l1" || em.Frame.Dst != bpdu.GroupAddressSSTP() {
+			continue
+		}
+		if em.VID != 10 && em.VID != 20 {
+			t.Fatalf("next migration emission = %+v, want a non-CIST SSTP VLAN", em)
+		}
 	}
 }
 

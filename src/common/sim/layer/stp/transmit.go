@@ -97,7 +97,7 @@ func (l *Layer) setHelloRequests(t *tree, p *portState, tx *portTx, now time.Tim
 		return
 	}
 
-	if t.id == cistID || (l.pvst != nil && l.links[p.name].sendRSTP) {
+	if t.id == cistID || l.pvst != nil {
 		if p.role == bpdu.RoleDesignated || (p.role == bpdu.RoleRoot && activeAt(p.tcWhile, now)) {
 			tx.newInfo = true
 		}
@@ -147,10 +147,6 @@ func (l *Layer) transmitBPDU(t *tree, p *portState, now time.Time) (bpdu.BPDU, b
 	if link.sendRSTP {
 		return l.makeBPDU(t, p, now), true
 	}
-	if l.pvst != nil && t.id != cistID {
-		return bpdu.BPDU{}, false
-	}
-
 	switch p.role {
 	case bpdu.RoleRoot:
 		return bpdu.BPDU{Version: 0, Type: bpdu.TypeTopologyChangeNotification}, true
@@ -170,16 +166,12 @@ type taggedFrame struct {
 }
 
 // frames builds the wire form of one BPDU for tree t on port p. Outside PVST
-// mode that is the single IEEE-addressed frame, untagged. Inside it, every
-// tree sends its BPDU to the SSTP address on its own VLAN, and VLAN 1's tree
-// sends a second, IEEE-addressed and untagged, which is the one an RSTP or
-// MSTP neighbor converges with — unless the port has migrated to legacy STP,
-// in which case the SSTP copy is dropped and only the IEEE Configuration BPDU
-// goes out: SSTP has no legacy shape to carry it in, so sending the SSTP copy
-// would relabel a legacy BPDU under a version-2 RST header. transmit already
-// withholds a non-CIST tree's frame entirely on a migrated port, so this
-// branch is only ever reached with p.sendRSTP true there. The two frames are
-// one transmission and spend one budget slot between them.
+// mode that is the single IEEE-addressed frame, untagged. In PVST mode a
+// non-CIST tree always sends its SSTP frame on its own VLAN. VLAN 1's tree
+// sends an SSTP frame while the port sends RSTP, plus the IEEE-addressed frame
+// the neighboring RSTP or MSTP bridge converges with. A migrated VLAN 1 tree
+// sends only the IEEE-addressed frame. The two VLAN 1 frames are one
+// transmission and spend one budget slot between them.
 func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error) {
 	if l.pvst == nil {
 		frame, err := bpdu.Encode(b, l.address)
@@ -192,7 +184,7 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 
 	var built []taggedFrame
 	link := l.links[p.name]
-	if link.sendRSTP {
+	if t.id != cistID || link.sendRSTP {
 		sstp, err := bpdu.EncodeSSTP(b, t.vid, l.address)
 		if err != nil {
 			return nil, err

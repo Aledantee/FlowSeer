@@ -1,6 +1,7 @@
 package stp_test
 
 import (
+	"bytes"
 	"slices"
 	"strconv"
 	"testing"
@@ -853,6 +854,227 @@ func TestLegacyPortReportsAChangeAtItsHello(t *testing.T) {
 	if tcnCount == 0 {
 		t.Fatal("legacy Root port emitted no TCNs at its hellos")
 	}
+}
+
+func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"p1": {}, "p2": {}, "p3": {}},
+		PVST:     pvstTestTrees(1, 10),
+	}, mustPortTable(t, "p1", "p2", "p3"))
+	for _, port := range []string{"p1", "p2", "p3"} {
+		l.LinkChange(start, port, true, false, 1_000_000_000)
+	}
+
+	cistPeer := legacyConfigBPDU(t, 0, "00:aa:bb:cc:dd:00")
+	cistPeer.HelloTime = 60 * time.Second
+	cistPeer.MaxAge = 120 * time.Second
+	l.Receive(start.Add(3500*time.Millisecond), "p1", cistPeer)
+
+	peer := sstpConfigurationBPDU(bpdu.BridgeID{
+		Priority: 0,
+		Address:  mustMAC(t, "00:aa:bb:cc:dd:01"),
+	})
+	peer.HelloTime = 60 * time.Second
+	peer.MaxAge = 120 * time.Second
+	if _, outcome := l.ReceiveSSTP(start.Add(3500*time.Millisecond), "p1", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     10,
+		Admitted:   true,
+	}, peer); outcome != stp.SSTPApplied {
+		t.Fatalf("VLAN 10 root Configuration outcome = %q, want applied", outcome)
+	}
+
+	l.Advance(start.Add(15 * time.Second))
+	l.Advance(start.Add(30 * time.Second))
+	if info := l.VLANPortInfo(10, "p1"); info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding || info.SendRSTP {
+		t.Fatalf("VLAN 10 p1 = %v/%v RSTP=%t, want Root/Forwarding/STP", info.Role, info.State, info.SendRSTP)
+	}
+	cistAck := cistPeer
+	cistAck.SetTopologyChangeAck(true)
+	l.Receive(start.Add(30500*time.Millisecond), "p1", cistAck)
+
+	flagged := peer
+	flagged.Version = 2
+	flagged.Type = bpdu.TypeRapid
+	flagged.SetRole(bpdu.RoleRoot)
+	flagged.SetTopologyChange(true)
+	effects, outcome := l.ReceiveSSTP(start.Add(31*time.Second), "p3", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     10,
+		Admitted:   true,
+	}, flagged)
+	if outcome != stp.SSTPApplied {
+		t.Fatalf("flagged VLAN 10 BPDU outcome = %q, want applied", outcome)
+	}
+	for _, emission := range effects.Emissions {
+		if emission.Port == "p1" {
+			t.Fatalf("p1 emitted while receiving the flagged BPDU: %+v", effects.Emissions)
+		}
+	}
+
+	effects = l.Advance(start.Add(32 * time.Second))
+	var tcnCount int
+	for _, emission := range effects.Emissions {
+		if emission.Port != "p1" {
+			continue
+		}
+		if emission.Frame.Dst != bpdu.GroupAddressSSTP() {
+			t.Fatalf("p1 emitted a VLAN 1 frame for the VLAN 10 topology change: %+v", emission)
+		}
+		if emission.Frame.Dst != bpdu.GroupAddressSSTP() || emission.VID != 10 {
+			t.Fatalf("p1 VLAN 10 emission = %+v, want SSTP VID 10", emission)
+		}
+		decoded, vid := decodeTestEmission(t, emission)
+		if decoded.Type != bpdu.TypeTopologyChangeNotification || vid != 0 {
+			t.Fatalf("p1 VLAN 10 frame = type %v decoded VID %d, want SSTP TCN/0", decoded.Type, vid)
+		}
+		wantPayload := append([]byte{
+			0xaa, 0xaa, 0x03, 0x00, 0x00, 0x0c, 0x01, 0x0b,
+			0x00, 0x00, 0x00, 0x80,
+		}, make([]byte, 34)...)
+		if !bytes.Equal(emission.Frame.Payload, wantPayload) {
+			t.Fatalf("p1 VLAN 10 TCN payload = % x, want % x", emission.Frame.Payload, wantPayload)
+		}
+		tcnCount++
+	}
+	if tcnCount != 1 {
+		t.Fatalf("p1 VLAN 10 TCN count = %d, want one", tcnCount)
+	}
+
+	effects = l.Advance(start.Add(34 * time.Second))
+	var repeatedTCN int
+	for _, emission := range effects.Emissions {
+		if emission.Port != "p1" {
+			continue
+		}
+		if emission.Frame.Dst != bpdu.GroupAddressSSTP() || emission.VID != 10 {
+			t.Fatalf("repeated p1 VLAN 10 emission = %+v, want SSTP VID 10", emission)
+		}
+		decoded, _ := decodeTestEmission(t, emission)
+		if decoded.Type != bpdu.TypeTopologyChangeNotification {
+			t.Fatalf("repeated p1 VLAN 10 frame type = %v, want TCN", decoded.Type)
+		}
+		repeatedTCN++
+	}
+	if repeatedTCN != 1 {
+		t.Fatalf("repeated p1 VLAN 10 TCN count = %d, want one", repeatedTCN)
+	}
+
+	ack := peer
+	ack.SetTopologyChangeAck(true)
+	if effects, outcome := l.ReceiveSSTP(start.Add(34500*time.Millisecond), "p1", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     10,
+		Admitted:   true,
+	}, ack); outcome != stp.SSTPApplied {
+		t.Fatalf("VLAN 10 acknowledgment outcome = %q with effects %+v, want applied", outcome, effects)
+	} else if len(effects.Emissions) != 0 {
+		t.Fatalf("VLAN 10 acknowledgment emitted immediately: %+v", effects.Emissions)
+	}
+
+	effects = l.Advance(start.Add(36 * time.Second))
+	for _, emission := range effects.Emissions {
+		if emission.Port == "p1" {
+			t.Fatalf("p1 emitted after VLAN 10 acknowledgment: %+v", effects.Emissions)
+		}
+	}
+	for _, emission := range effects.Emissions {
+		if emission.Port == "p1" && emission.VID == 1 {
+			t.Fatal("p1 emitted a VLAN 1 frame for the VLAN 10 topology change")
+		}
+	}
+}
+
+func TestVLANTreeAcknowledgesInSTPMode(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"p1": {}, "p2": {}},
+		PVST:     pvstTestTrees(1, 10),
+	}, mustPortTable(t, "p1", "p2"))
+	for _, port := range []string{"p1", "p2"} {
+		l.LinkChange(start, port, true, false, 1_000_000_000)
+	}
+
+	peer := sstpConfigurationBPDU(bpdu.BridgeID{
+		Priority: 61440,
+		Address:  mustMAC(t, "00:aa:bb:cc:dd:02"),
+	})
+	peer.HelloTime = 60 * time.Second
+	peer.MaxAge = 120 * time.Second
+	if _, outcome := l.ReceiveSSTP(start.Add(3500*time.Millisecond), "p2", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     10,
+		Admitted:   true,
+	}, peer); outcome != stp.SSTPApplied {
+		t.Fatalf("VLAN 10 Configuration outcome = %q, want applied", outcome)
+	}
+	l.Advance(start.Add(15 * time.Second))
+	effects := l.Advance(start.Add(30 * time.Second))
+	if info := l.VLANPortInfo(10, "p2"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding || info.SendRSTP {
+		t.Fatalf("VLAN 10 p2 = %v/%v RSTP=%t, want Designated/Forwarding/STP", info.Role, info.State, info.SendRSTP)
+	}
+
+	var first bpdu.BPDU
+	for _, emission := range effects.Emissions {
+		if emission.Port != "p2" || emission.Frame.Dst != bpdu.GroupAddressSSTP() || emission.VID != 10 {
+			continue
+		}
+		var vid vlan.ID
+		first, vid = decodeTestEmission(t, emission)
+		if first.Type != bpdu.TypeConfiguration || vid != 10 {
+			t.Fatalf("first VLAN 10 frame = type %v vid %d, want Configuration/10", first.Type, vid)
+		}
+		break
+	}
+	if first.Type != bpdu.TypeConfiguration {
+		t.Fatal("p2 emitted no VLAN 10 SSTP Configuration BPDU at its hello")
+	}
+
+	tcn := bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}
+	if effects, outcome := l.ReceiveSSTP(start.Add(31*time.Second), "p2", stp.SSTPArrival{
+		ArrivalVID: 10,
+		TLVVID:     0,
+		Admitted:   true,
+	}, tcn); outcome != stp.SSTPApplied {
+		t.Fatalf("VLAN 10 TCN outcome = %q with effects %+v, want applied", outcome, effects)
+	} else if len(effects.Emissions) != 0 {
+		t.Fatalf("VLAN 10 TCN emitted immediately: %+v", effects.Emissions)
+	}
+
+	effects = l.Advance(start.Add(32 * time.Second))
+	var ack bpdu.BPDU
+	var ackVID vlan.ID
+	for _, emission := range effects.Emissions {
+		if emission.Port == "p2" && emission.Frame.Dst == bpdu.GroupAddressSSTP() && emission.VID == 10 {
+			ack, ackVID = decodeTestEmission(t, emission)
+			break
+		}
+	}
+	if ack.Type != bpdu.TypeConfiguration || ackVID != 10 || !ack.TopologyChange() || !ack.TopologyChangeAck() {
+		t.Fatalf("next VLAN 10 Configuration = type %v vid %d TC=%t TCAck=%t, want Configuration/10/true/true", ack.Type, ackVID, ack.TopologyChange(), ack.TopologyChangeAck())
+	}
+
+	effects = l.Advance(start.Add(34 * time.Second))
+	for _, emission := range effects.Emissions {
+		if emission.Port != "p2" || emission.Frame.Dst != bpdu.GroupAddressSSTP() || emission.VID != 10 {
+			continue
+		}
+		following, vid := decodeTestEmission(t, emission)
+		if following.Type != bpdu.TypeConfiguration || vid != 10 || following.TopologyChangeAck() {
+			t.Fatalf("following VLAN 10 Configuration = type %v vid %d TC=%t TCAck=%t, want Configuration/10/any/false", following.Type, vid, following.TopologyChange(), following.TopologyChangeAck())
+		}
+		return
+	}
+	t.Fatal("p2 emitted no following VLAN 10 Configuration BPDU")
 }
 
 func TestTopologyChangeFlagIsPerTree(t *testing.T) {
