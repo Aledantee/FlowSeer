@@ -12,6 +12,41 @@ pnpm dev
 Open the URL Vite prints. Use Node 22.12 or newer and pnpm 11.25.0.
 The fonts are bundled locally. The app makes no requests to external services.
 
+### pnpm in the Claude Code sandbox
+
+pnpm 12 takes a store lock under `/tmp/pnpm-store-operation-locks-<uid>/`, and
+the macOS sandbox denies writes to `/tmp`. Every pnpm command then fails before
+it starts, `pnpm --version` included:
+
+```text
+ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK … Operation not permitted (os error 1)
+```
+
+pnpm puts the lock under `$XDG_RUNTIME_DIR` instead when that directory exists,
+is absolute, belongs to you, and others cannot write to it
+([pnpm#16406](https://github.com/pnpm/pnpm/pull/16406)). Claude Code's
+per-user sandbox directory `/private/tmp/claude-<uid>` qualifies.
+
+Inside the sandbox pnpm also passes over `~/Library/pnpm/store`, even though
+the sandbox may write it, and falls back to an untracked `.pnpm-store/` at the
+worktree root. Each worktree then downloads every package again. Naming the
+store explicitly keeps installs in the shared one.
+
+Both values hold your user ID or home directory, so they go in your user
+settings, `~/.claude/settings.json`, not in the project's:
+
+```json
+"env": {
+  "XDG_RUNTIME_DIR": "/private/tmp/claude-501",
+  "pnpm_config_store_dir": "/Users/you/Library/pnpm/store"
+}
+```
+
+Replace `501` with the output of `id -u` and `/Users/you` with your home
+directory, then start a new session. The project's `.claude/settings.json`
+already lets the sandbox write the pnpm store, engine store, and cache under
+`~/Library` and reach `registry.npmjs.org`.
+
 ## Try the UI
 
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
