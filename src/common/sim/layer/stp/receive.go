@@ -229,6 +229,10 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 		if done {
 			return
 		}
+		// An IEEE-addressed BPDU belongs to the CIST. Once the link half admits
+		// it, any BPDU type, including one that will not be stored, recovers the
+		// CIST's loop guard mark.
+		p.loopInconsistent = false
 
 		if b.Type == bpdu.TypeTopologyChangeNotification {
 			if p.tcActive {
@@ -309,15 +313,11 @@ const (
 )
 
 // ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
-// receive — BPDU guard, the loop-guard clear, protocol migration, and
-// auto-edge loss — always runs before anything below decides what happens to
-// a tree, whatever that decision turns out to be: a caller that could skip
-// the link half by declining to call this function is the hole BPDU guard
-// exists to close. syncInstancePorts carries whatever the link half changed
-// to every tree before the frame is judged, so the tree of
-// arrival.ArrivalVID sees an up-to-date link even though the change was made
-// on the CIST's port state. The returned SSTPOutcome describes the tree half
-// alone: what, if anything, happened to arrival.ArrivalVID's own tree.
+// receive — BPDU guard, protocol migration, and auto-edge loss — always runs
+// before anything below decides what happens to a tree, whatever that decision
+// turns out to be: a caller that could skip the link half by declining to call
+// this function is the hole BPDU guard exists to close. Loop-guard recovery is
+// tree-owned, so only the applied path clears the arrival tree's mark.
 func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b bpdu.BPDU) (layer.Effects, SSTPOutcome) {
 	link, ok := l.links[port]
 	if !ok || !link.up {
@@ -331,10 +331,10 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 	outcome := SSTPGuarded
 
 	func() {
-		// receiveLink is the link-level half of a receive: BPDU guard, the
-		// loop-guard clear, protocol migration, and auto-edge loss all belong to
-		// the port whatever tree the frame names, so it runs whatever this bridge
-		// goes on to decide about the tree half below.
+		// receiveLink is the link-level half of a receive: BPDU guard, protocol
+		// migration, and auto-edge loss all belong to the port whatever tree the
+		// frame names, so it runs whatever this bridge goes on to decide about the
+		// tree half below.
 		done := l.receiveLink(now, port, b, &flushes)
 
 		// The mark is a statement about the neighbor, not about this frame's
@@ -395,6 +395,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 			return
 		}
 		p.pvidInconsistent = false
+		p.loopInconsistent = false
 
 		l.applyBPDU(t, p, now, b, &flushes)
 		outcome = SSTPApplied
@@ -486,7 +487,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		if t.id == cistID {
 			link.external = !internal
 		}
-		p.loopInconsistent = false
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
 

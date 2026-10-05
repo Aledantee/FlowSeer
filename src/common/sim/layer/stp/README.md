@@ -124,16 +124,19 @@ a port, and the trace carries it.
 | `BPDUGuard` | A BPDU on the port disables it for spanning tree, on the CIST and every MSTI alike: role Disabled, state Discarding, reason `bpdu-guard`. The BPDU is not read. | A `LinkChange` reporting the port down and then up. Nothing else, including further BPDUs. |
 | `RestrictedRole` | The port is never selected as root port, so superior information on it makes it Alternate and leaves the bridge's own root unchanged. IEEE calls this restricted role; vendors call it root guard. | Nothing to clear: it is a standing restriction. |
 | `RestrictedTCN` | A topology change received on the port propagates to no other port, and does not set the topology-change timer that would carry the flag out on this bridge's own BPDUs. | Nothing to clear. |
-| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. Under MSTP the outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the same guard state the CIST set, and a boundary port mirrors the CIST's role and state outright. Under PVST each tree arms loop guard on its own expiry. | A BPDU applied to that tree (or any BPDU under MSTP), or a link down. |
+| `LoopGuard` | A port whose stored information expires in silence while it is Root, Alternate, or Backup becomes Alternate and Discarding with reason `loop-inconsistent`, excluded from root-port selection so the tree reconverges around it, and never Designated. Under MSTP the outcome is bridge-global, so every MSTI's own port follows it too: an internal port reads the CIST mark, and a boundary port mirrors the CIST's role and state outright. Under PVST each tree arms loop guard on its own expiry. | Under PVST, an SSTP BPDU applied to that tree. An IEEE BPDU admitted by the link clears the CIST mark. A link down clears every tree. |
 
-Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista, which
-all apply loop protection only to ports that were receiving BPDUs and recover on
-the next BPDU. Because any received BPDU clears the state, including one the
-message-age bound discards, a peer that keeps sending information too old to
-store is not covered: the guard clears on each such BPDU and never re-arms. It is inactive on a port that is operationally edge and on one
-that is not point-to-point, which is where [Cisco][cisco-loop] and
-[Arista][arista-stp] rule it out: on a shared link a port that stops hearing
-BPDUs is not evidence of a link broken in one direction.
+Loop guard is netsim's own design, drawn from Cisco, Juniper, and Arista. Cisco
+blocks inconsistent ports per VLAN, so PVST keeps one mark per tree. A BPDU
+recovers only the tree it is allowed to affect: an IEEE BPDU recovers the CIST,
+while an SSTP BPDU recovers its arrival VLAN only after the PVID and admission
+checks pass. A boundary, unadmitted, untracked, or PVID-inconsistent SSTP BPDU
+leaves the mark in place. Cisco does not identify which VLAN's BPDU recovers a
+port, so the per-tree recovery rule is modelled on this per-VLAN observation.
+Loop guard is inactive on a port that is operationally edge and on one that is
+not point-to-point, which is where [Cisco][cisco-loop] and [Arista][arista-stp]
+rule it out: on a shared link a port that stops hearing BPDUs is not evidence
+of a link broken in one direction.
 
 Two combinations are refused at construction, with the field path
 `ports.<name>.loop_guard`:
@@ -238,17 +241,20 @@ VLAN the TLV names, because its local traffic is what would cross a link the
 two ends disagree about.
 
 The half of a receive that belongs to the link rather than to any tree, BPDU
-guard, the loop-guard clear every BPDU earns, protocol migration, and the loss
-of auto-edge status, runs once per frame in `receiveLink`, which both entry
-points share, whatever `SSTPOutcome` the tree half goes on to report.
+guard, protocol migration, and the loss of auto-edge status, runs once per
+frame in `receiveLink`, which both entry points share. Loop-guard recovery is
+owned by the receive entry point because the two entry points select different
+trees.
 
 Every property `receiveLink` can change belongs to the link, not to any tree.
 `Layer` holds one `linkRecord` per port for physical and administrative link
 state: `up`, `pointToPoint`, `edge`, `sendRSTP`, `adminEdge`, `linkPathCost`,
 `external`, `bpduGuardDisabled`, `pvstBoundary`, `mdelayWhile`, `edgeDelayWhile`,
 `rxBPDUs`, and `badBPDUs`. `portState` holds tree-owned state alone.
-`VLANPortInfo`'s `BlockReason`, `RxBPDUs`, and `BadBPDUs` answer from the port's
-`linkRecord` on any VLAN, the same value `PortInfo` reports for the common tree.
+`VLANPortInfo`'s `RxBPDUs` and `BadBPDUs` answer from the port's `linkRecord` on
+any VLAN. `BlockReason` reads the tree's own PVID and loop-guard marks under
+PVST. On an MST bridge an MSTI reads the CIST loop-guard mark, while the CIST
+itself reads its own. `PortInfo` reports the same rules for the common tree.
 A VLAN with no tree under PVST answers neither kind: `treeFor` says so through
 its second return, and `VLANPortInfo` and `ForwardingFact` return the zero value
 for it rather than VLAN 1's, because VLAN 1's tree is a tree like any other, not

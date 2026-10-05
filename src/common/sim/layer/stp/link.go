@@ -174,27 +174,16 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 }
 
 // receiveLink runs the half of a receive that belongs to the link rather than
-// to any one tree: BPDU guard, the loop-guard clear every BPDU earns, the
-// protocol migration between RSTP and legacy STP, and the loss of auto-edge
-// status. It runs once per received frame whatever tree the frame belongs to.
+// to any one tree: BPDU guard, the protocol migration between RSTP and legacy
+// STP, and the loss of auto-edge status. It runs once per received frame
+// whatever tree the frame belongs to. Loop-guard marks stay with the receive
+// entry point because each entry point has a different tree to recover.
 // done reports that the frame must not reach a tree at all, either because
 // the guard just fired or because it had already disabled the port.
 func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]layer.FlushTarget) (done bool) {
 	t := l.cist()
 	p := t.ports[port]
 	link := l.links[port]
-
-	// Any BPDU on the port is evidence the link carries traffic both ways,
-	// which is the condition loop guard was waiting to see restored. This
-	// runs before the BPDU guard checks below: a frame that trips or is held
-	// by BPDU guard is still such evidence, and guard and loop guard clear on
-	// independent events.
-	for _, id := range l.treeOrder {
-		tr := l.trees[id]
-		if tp, ok := tr.ports[port]; ok {
-			tp.loopInconsistent = false
-		}
-	}
 
 	// BPDU guard exists to keep an unexpected bridge on an access port out of
 	// the topology, so the frame that proves one is there disables the port
