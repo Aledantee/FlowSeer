@@ -3,36 +3,34 @@
 
 Usage: plan-queue.py [--json] [--large-units N]
 
-Reads plan frontmatter, unit headings, and a parent plan's phase lines
-(After/Landed), the status ledger of this worktree, the unmerged branches
+Reads each plan's state file through plan_record.py, the plan's title and
+unit headings, the status ledger of this worktree, the unmerged branches
 that touch a plan, and the plans this branch changed. Prints one line per
 plan with work left, grouped:
 
   land         implemented on this branch with an accepted review and a
-               compound field, still on disk. A phase also has its
-               `Landed:` range. land goes first, since it gates every plan
-               this branch carries past main
-  in-progress  partially-implemented, named by this worktree's ledger, an
-               unblocked phase of a parent that has landed phases, or a
-               finished phase whose `Landed:` line is still empty
+               compound outcome, still on disk. land goes first, since it
+               gates every plan this branch carries past main
+  in-progress  partially-implemented, named by this worktree's ledger, or
+               an unblocked phase of a parent that has landed phases
   unchecked    implemented, with a review verdict that is neither an accept
                nor rework, or implemented on this branch with no review or
-               compound field
-  replan       artifact_readiness needs-decisions, prerequisites finished,
-               or an implemented plan whose review reads rework or that
-               carries that readiness; the next step is the plan skill, not
+               compound outcome
+  replan       needs-decisions readiness, prerequisites finished, or an
+               implemented plan whose review reads rework or that carries
+               that readiness; the next step is the plan skill, not
                implement
   ready        planned, implementation-ready, every prerequisite finished
-  waiting      a prerequisite phase is not finished: no `Landed:` range, or
-               a range not on main whose plan lacks an accepted review or a
-               compound field; names it
-  stale        a parent still `planned` whose phases have all landed
+  waiting      a prerequisite phase is not finished by plan_record.py's
+               test; names it
   retire       implemented, superseded, or abandoned on main and still on
-               disk; land's retire step never ran for it
+               disk; land's retire step never ran for it. A parent whose
+               phases have all landed reads implemented and ends here
 
 Within a group the oldest plan comes first, by the date in its filename. A
 plan another unmerged branch already changes is flagged
-`elsewhere:<branch>`, since implementing it here would land it twice.
+`elsewhere:<branch>`, since implementing it here would land it twice. A
+plan counts as changed when its Markdown or its state file did.
 `large` marks a plan over the unit threshold; a phase line names its parent
 and how many phases the parent still has open.
 """
@@ -40,21 +38,23 @@ and how many phases the parent still has open.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
 import sys
 from pathlib import Path
 
+RECORD = Path(__file__).resolve().parents[2] / "plan/scripts/plan_record.py"
+spec = importlib.util.spec_from_file_location("plan_record", RECORD)
+plan_record = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(plan_record)
+
 OPEN = {"planned", "partially-implemented"}
-FINISHED = {"implemented", "superseded", "abandoned"}
-ACCEPTED = {"accept", "accept after fixes"}
-UNIT = re.compile(r"^### (U\d+[a-z]*)[.:]\s*(.*)$")
-UNIT_ID = re.compile(r"U\d+[a-z]*")
-PLAN_PATH = re.compile(r"docs/plans/[\w.-]+-plan\.md")
-FIELD = re.compile(r"^(?:- )?\*{0,2}([A-Z][A-Za-z ]+):\*{0,2}")
-COMMIT_RANGE = re.compile(r"[0-9a-f]{7,}")
-ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "stale", "retire"]
+FINISHED = set(plan_record.FINAL)
+ACCEPTED = set(plan_record.ACCEPTED)
+UNIT = re.compile(r"^### U\d+[a-z]*[.:]")
+ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "retire"]
 
 
 def git(*args: str) -> str:
@@ -62,105 +62,16 @@ def git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
-def frontmatter(text: str) -> dict[str, str]:
-    if not text.startswith("---\n"):
-        return {}
-    end = text.find("\n---", 4)
-    fields = {}
-    for line in text[4:end].splitlines():
-        key, sep, value = line.partition(":")
-        if sep and not key.startswith(" "):
-            fields[key.strip()] = value.strip()
-    return fields
+def describe(text: str) -> tuple[str, int]:
+    """The title, from the first `# ` heading, and the count of unit headings."""
+    lines = text.splitlines()
+    title = next((line[2:].strip() for line in lines if line.startswith("# ")), "")
+    return title.removesuffix(" - Plan"), sum(1 for line in lines if UNIT.match(line))
 
 
-def units(text: str) -> list[dict]:
-    """Units in either format the plans use: `### U1. Name` with `Files:`
-    lines, or `### U1: Name` with `- **Files:**` bullets. A field runs from
-    its line to the next field, blank line, or heading, so a value on the
-    following line still reads, as check-plan-status.py reads it. `plans`
-    holds every plan path the unit's block names."""
-    found: list[dict] = []
-    unit: dict | None = None
-    field = ""
-    for line in text.splitlines():
-        match = UNIT.match(line)
-        if match:
-            unit = {
-                "id": match.group(1),
-                "name": match.group(2),
-                "plans": [],
-                "after": [],
-                "landed": False,
-                "landed_last": "",
-                "landed_line": False,
-            }
-            found.append(unit)
-            field = ""
-            continue
-        if line.startswith("#"):
-            unit = None  # a later section's prose is no part of the last unit
-            continue
-        if unit is None:
-            continue
-        unit["plans"] += PLAN_PATH.findall(line)
-        label = FIELD.match(line)
-        if label:
-            field = label.group(1)
-        elif not line.strip():
-            field = ""
-        value = line.split(":", 1)[1] if label else line
-        if field == "After":
-            unit["after"] += UNIT_ID.findall(value)
-        elif field == "Landed":
-            unit["landed_line"] = True
-            commits = COMMIT_RANGE.findall(value)
-            if commits:
-                unit["landed"] = True
-                unit["landed_last"] = commits[-1]
-    return found
-
-
-def on_main(commit: str) -> bool:
-    check = subprocess.run(["git", "merge-base", "--is-ancestor", commit, "main"], capture_output=True, check=False)
-    return check.returncode == 0
-
-
-def sent_back(fm: dict[str, str]) -> bool:
-    """An implemented plan owed a re-plan: a review ended in rework, or
-    `plan` took it up and left it at needs-decisions."""
-    return fm.get("status") == "implemented" and (
-        fm.get("review") == "rework" or fm.get("artifact_readiness") == "needs-decisions"
-    )
-
-
-def finished_phases(parent: dict, plans: dict[str, dict]) -> set[str]:
-    """The parent's units a dependent phase may build on.
-
-    A `Landed:` range records implementation only. plan-state.py frees a
-    dependent once the phase is on main, retired, or owed nothing but its
-    land, so a review's fix round cannot rewrite files the dependent edits;
-    this applies the same test. A unit that names no phase plan on disk is
-    finished by its range alone.
-    """
-    done: set[str] = set()
-    while True:
-        found = set()
-        for unit in parent["units"]:
-            if not unit["landed"]:
-                continue
-            phase = plans.get(unit["plans"][0]) if unit["plans"] else None
-            if phase is None or phase["fm"].get("parent") != parent["path"] or on_main(unit["landed_last"]):
-                found.add(unit["id"])
-                continue
-            fm = phase["fm"]
-            if any(after not in done for after in unit["after"]) or sent_back(fm):
-                continue
-            if fm.get("status") == "implemented" and fm.get("review") in ACCEPTED and "compound" in fm:
-                found.add(unit["id"])
-        if found == done:
-            return done
-        done = found
+def plans_in(paths: str) -> list[str]:
+    """The plans a `git diff --name-only` listing touches, through either file."""
+    return [plan for path in paths.splitlines() if (plan := plan_record.plan_of(path))]
 
 
 def branches_touching_plans() -> dict[str, str]:
@@ -169,27 +80,26 @@ def branches_touching_plans() -> dict[str, str]:
     for branch in git("branch", "--no-merged", "main", "--format=%(refname:short)").splitlines():
         if branch == current:
             continue
-        for path in git("diff", "--name-only", f"main...{branch}", "--", "docs/plans").splitlines():
-            touched.setdefault(path, branch)
+        for plan in plans_in(git("diff", "--name-only", f"main...{branch}", "--", "docs/plans")):
+            touched.setdefault(plan, branch)
     return touched
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--json", action="store_true")
-    parser.add_argument("--large-units", type=int, default=6)
-    args = parser.parse_args()
-
-    root = Path(git("rev-parse", "--show-toplevel") or ".")
+def read_plans(root: Path) -> dict[str, dict]:
     plans: dict[str, dict] = {}
     for path in sorted((root / "docs/plans").glob("*-plan.md")):
-        text = path.read_text(encoding="utf-8")
         rel = str(path.relative_to(root))
-        plans[rel] = {"path": rel, "fm": frontmatter(text), "units": units(text)}
+        title, units = describe(path.read_text(encoding="utf-8"))
+        plans[rel] = {"state": plan_record.load(rel, root), "title": title, "units": units}
+    return plans
+
+
+def queue(root: Path, large_units: int) -> list[dict]:
+    plans = read_plans(root)
 
     ledger_plan = None
     git_dir = git("rev-parse", "--git-dir")
-    ledger = Path(git_dir) / "flowseer-plan-status.json" if git_dir else None
+    ledger = Path(git_dir) / plan_record.LEDGER_NAME if git_dir else None
     if ledger and ledger.is_file():
         try:
             ledger_plan = json.loads(ledger.read_text(encoding="utf-8")).get("plan")
@@ -197,86 +107,49 @@ def main() -> int:
             ledger_plan = None
 
     elsewhere = branches_touching_plans()
-    changed_here = set(git("diff", "--name-only", "main...HEAD", "--", "docs/plans").splitlines())
-
-    # Several units of a parent may name one phase plan; the phase waits on
-    # the After lines of all of them and has landed when all of them have.
-    phase_of: dict[str, tuple[dict, list[dict]]] = {}
-    for plan in plans.values():
-        for unit in plan["units"]:
-            for named in unit["plans"]:
-                if named in plans and plans[named]["fm"].get("parent") == plan["path"]:
-                    phase_of.setdefault(named, (plan, []))[1].append(unit)
-    parents = {parent["path"] for parent, _ in phase_of.values()}
-    # land deletes a phase plan once the phase lands, so a unit with the
-    # `Landed:` line every phase unit carries that names a plan no longer on
-    # disk is a retired or missing phase, not a plain unit. plan-state.py
-    # applies the same test.
-    for plan in plans.values():
-        if any(unit["landed_line"] and unit["plans"] and unit["plans"][0] not in plans for unit in plan["units"]):
-            parents.add(plan["path"])
+    changed_here = set(plans_in(git("diff", "--name-only", "main...HEAD", "--", "docs/plans")))
 
     rows = []
     for rel, plan in plans.items():
-        fm = plan["fm"]
-        status = fm.get("status", "")
-        review = fm.get("review", "")
-        readiness = fm.get("artifact_readiness", "")
-        missing: list[str] = []
+        state = plan["state"]
+        status = plan_record.computed_status(state)
+        review = state["review"]
+        readiness = state["readiness"]
+        missing = [after for after in state["after"] if not plan_record.finished(after, root)]
         started_parent = False
         open_phases = 0
-        if rel in phase_of:
-            parent, own = phase_of[rel]
-            by_id = {u["id"]: u for u in parent["units"]}
-            own_ids = {u["id"] for u in own}
-            finished = finished_phases(parent, plans)
-            for unit in own:
-                for after in unit["after"]:
-                    if after in by_id and after not in own_ids and after not in finished:
-                        named = by_id[after]["plans"][:1]
-                        missing.append(f"{after} ({named[0]})" if named else after)
-            started_parent = any(u["landed"] for u in parent["units"])
-            open_phases = len({p for u in parent["units"] if not u["landed"] for p in u["plans"][:1]})
+        if state["parent"]:
+            holder = plan_record.load(state["parent"], root)
+            siblings = [plan_record.load(path, root) for path in holder["phases"]]
+            started_parent = any(s["landed"] for s in siblings) or any(e["landed"] for e in holder["retired"])
+            open_phases = sum(1 for s in siblings if not s["landed"])
 
-        if sent_back(fm) and rel not in parents:
+        if plan_record.sent_back(state):
             # A review that ended in rework sent the plan back to `plan`
             # and the status still reads implemented. No skill marks the
             # plan beyond the verdict, so the verdict is the signal, and
             # the readiness covers a re-plan that stopped on a decision.
-            # plan-state.py applies the same test after its After check.
-            # A parent keeps the readiness it was planned with and is
-            # never re-planned, so it retires below.
+            # plan-state.py applies the same test after its prerequisite
+            # check. A parent's stored status is never implemented, so a
+            # parent that kept the readiness it was planned with retires
+            # below.
             group = "waiting" if missing else "replan"
         elif status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
             # Finished and on main, yet still on disk: land's retire step
             # never ran for it.
             group = "retire"
-        elif rel in parents:
-            # A parent is worked through its phases; it shows up only when
-            # they have all landed and its own status was never set.
-            phase_units = [
-                u for u in plan["units"] if u["plans"] and (u["plans"][0] in phase_of or u["plans"][0] not in plans)
-            ]
-            if status in OPEN and phase_units and all(u["landed"] for u in phase_units):
-                group = "stale"
-            else:
-                continue
+        elif state["phases"] or state["retired"]:
+            # A parent is worked through its phases and shows up only to
+            # retire.
+            continue
         elif status == "implemented":
+            # Either a review verdict is open or this branch changed the
+            # plan. Reviewed and compounded on this branch, still on disk:
+            # land has not run for it. plan-state.py prints `land`.
             unfinished = (review and review not in ACCEPTED) or (
-                rel in changed_here and (not review or "compound" not in fm)
+                rel in changed_here and (not review or state["compound"] is None)
             )
-            if rel in changed_here and rel in phase_of and not all(u["landed"] for u in phase_of[rel][1]):
-                # plan-state.py reads a phase with an empty `Landed:` line
-                # as owed its implement, before any review or land.
-                group = "in-progress"
-            elif unfinished:
-                group = "unchecked"
-            elif rel not in changed_here:
-                continue
-            else:
-                # Reviewed and compounded on this branch, still on disk:
-                # land has not run for it. plan-state.py prints `land`.
-                group = "land"
+            group = "unchecked" if unfinished else "land"
         elif status not in OPEN:
             continue
         elif missing:
@@ -293,22 +166,37 @@ def main() -> int:
             {
                 "group": group,
                 "path": rel,
-                "title": fm.get("title", "").removesuffix(" - Plan"),
+                "title": plan["title"],
                 "status": status,
                 "readiness": readiness,
-                "review": review or None,
-                "compound": fm.get("compound"),
-                "units": len(plan["units"]),
-                "parent": fm.get("parent"),
+                "review": review,
+                "compound": state["compound"],
+                "units": plan["units"],
+                "parent": state["parent"],
                 "open_phases": open_phases,
                 "waiting_on": missing,
                 "elsewhere": elsewhere.get(rel),
                 "ledger": rel == ledger_plan,
-                "large": len(plan["units"]) > args.large_units,
+                "large": plan["units"] > large_units,
             }
         )
 
     rows.sort(key=lambda r: (ORDER.index(r["group"]), r["path"]))
+    return rows
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--large-units", type=int, default=6)
+    args = parser.parse_args()
+
+    root = Path(git("rev-parse", "--show-toplevel") or ".")
+    try:
+        rows = queue(root, args.large_units)
+    except plan_record.StateError as error:
+        print(f"plan-queue: {error}", file=sys.stderr)
+        return 1
 
     if args.json:
         json.dump(rows, sys.stdout, indent=2)
