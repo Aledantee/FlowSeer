@@ -7,6 +7,7 @@ artifact_readiness: implementation-ready
 status: implemented
 review: accept after fixes
 review_rounds: 1
+compound: docs/solutions/architecture-patterns/clone-handler-data-before-reactive-state-holds-it.md
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
