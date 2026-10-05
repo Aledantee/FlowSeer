@@ -64,11 +64,7 @@ func agreementBPDU(
 }
 
 func agreementRecord(
-	mstid bpdu.MSTID,
 	regionalRootID bpdu.BridgeID,
-	internalRootPathCost uint32,
-	bridgePriority uint8,
-	portPriority uint8,
 	role bpdu.Role,
 	proposal bool,
 	agreement bool,
@@ -79,12 +75,12 @@ func agreementRecord(
 	flags.SetAgreement(agreement)
 
 	return bpdu.MSTIRecord{
-		MSTID:                mstid,
+		MSTID:                1,
 		Flags:                flags.Flags,
 		RegionalRootID:       regionalRootID,
-		InternalRootPathCost: internalRootPathCost,
-		BridgePriority:       bridgePriority,
-		PortPriority:         portPriority,
+		InternalRootPathCost: 0,
+		BridgePriority:       0x80,
+		PortPriority:         0x80,
 		RemainingHops:        20,
 	}
 }
@@ -135,7 +131,7 @@ func TestMSTIProposalNeedsNoCISTMatch(t *testing.T) {
 			region.ConfigID(), peerRoot, 0, peerRoot,
 			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
 			bpdu.RoleRoot, false,
-			agreementRecord(1, peerMSTIRoot, 0, 0x80, 0x80, bpdu.RoleDesignated, true, false),
+			agreementRecord(peerMSTIRoot, bpdu.RoleDesignated, true, false),
 		)
 		fx := l.Receive(now.Add(33*time.Second), "p1", b)
 
@@ -164,7 +160,7 @@ func TestMSTIProposalNeedsNoCISTMatch(t *testing.T) {
 			region.ConfigID(), peerRoot, 0, peerRoot,
 			bpdu.BridgeID{Priority: 61440, Address: peer}, 0x8001,
 			bpdu.RoleDesignated, false,
-			agreementRecord(1, localMSTI, 0, 0x80, 0x80, bpdu.RoleDesignated, false, false),
+			agreementRecord(localMSTI, bpdu.RoleDesignated, false, false),
 		)
 		l.Receive(now.Add(33*time.Second), "p1", held)
 
@@ -172,7 +168,7 @@ func TestMSTIProposalNeedsNoCISTMatch(t *testing.T) {
 			region.ConfigID(), heldRoot, 0, heldRoot,
 			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
 			bpdu.RoleDesignated, false,
-			agreementRecord(1, peerMSTIRoot, 0, 0x80, 0x80, bpdu.RoleDesignated, true, false),
+			agreementRecord(peerMSTIRoot, bpdu.RoleDesignated, true, false),
 		)
 		fx := l.Receive(now.Add(34*time.Second), "p1", b)
 
@@ -208,7 +204,7 @@ func TestMSTIAgreementIsJudgedAfterTheCISTIsStored(t *testing.T) {
 			region.ConfigID(), peerRoot, 0, peerRoot,
 			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
 			bpdu.RoleRoot, false,
-			agreementRecord(1, localMSTIRoot, 0, 0x80, 0x80, bpdu.RoleRoot, false, true),
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true),
 		)
 		if got := l.Receive(now, "p1", b); len(got.Emissions) == 0 {
 			t.Log("the received agreement did not require a response")
@@ -249,12 +245,12 @@ func TestMSTIAgreementIsJudgedAfterTheCISTIsStored(t *testing.T) {
 			region.ConfigID(), peerRoot, 0, peerRoot,
 			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
 			bpdu.RoleRoot, false,
-			agreementRecord(1, localMSTIRoot, 0, 0x80, 0x80, bpdu.RoleRoot, false, false),
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, false),
 		)
 		l.Receive(now, "p1", base)
 
 		base.SetAgreement(true)
-		base.MSTIs[0].Flags = agreementRecord(1, localMSTIRoot, 0, 0x80, 0x80, bpdu.RoleRoot, false, true).Flags
+		base.MSTIs[0].Flags = agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true).Flags
 		l.Receive(now.Add(time.Second), "p1", base)
 
 		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateForwarding {
@@ -285,7 +281,7 @@ func assertMSTIAgreementRefusedForCISTDifference(
 		region.ConfigID(), base.RootID, base.RootPathCost, base.RegionalRootID,
 		bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
 		bpdu.RoleRoot, false,
-		agreementRecord(1, bpdu.BridgeID{Priority: 32769, Address: local}, 0, 0x80, 0x80, bpdu.RoleRoot, false, true),
+		agreementRecord(bpdu.BridgeID{Priority: 32769, Address: local}, bpdu.RoleRoot, false, true),
 	))
 	l.Receive(now.Add(time.Second), "p1", changed)
 
@@ -419,7 +415,7 @@ func TestMSTISyncLeavesABoundaryPort(t *testing.T) {
 		bpdu.BridgeID{Priority: 4096, Address: peer},
 		bpdu.BridgeID{Priority: 4096, Address: peer}, 0x8001,
 		bpdu.RoleRoot, false,
-		agreementRecord(1, bpdu.BridgeID{Priority: 4097, Address: peer}, 0, 0x80, 0x80, bpdu.RoleRoot, false, false),
+		agreementRecord(bpdu.BridgeID{Priority: 4097, Address: peer}, bpdu.RoleRoot, false, false),
 	)
 	l.Receive(now, "p1", internal)
 
@@ -451,7 +447,7 @@ func TestMSTISyncLeavesABoundaryPort(t *testing.T) {
 		bpdu.BridgeID{Priority: 4096, Address: peer},
 		bpdu.BridgeID{Priority: 4096, Address: peer}, 0x8001,
 		bpdu.RoleRoot, false,
-		agreementRecord(1, bpdu.BridgeID{Priority: 4097, Address: peer}, 0, 0x80, 0x80, bpdu.RoleDesignated, true, false),
+		agreementRecord(bpdu.BridgeID{Priority: 4097, Address: peer}, bpdu.RoleDesignated, true, false),
 	)
 	fx := l.Receive(now.Add(37*time.Second), "p1", repeat)
 	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateForwarding {
