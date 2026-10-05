@@ -5,6 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
+review: fixes needed
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
@@ -659,9 +660,46 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   until the peer's next proposal. `S/README.md`, Not modeled, states it.
 - Open: a port that becomes Root does not sync the tree's forwarding
   Designated ports, so it opens by the forward-delay ladder rather than at
-  once (the Root case of the state loop in `S/roles.go`). This is why
-  `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` runs 32 seconds of hellos
-  before it reads the entries.
+  once (the Root case of the state loop in `S/roles.go`). The review found
+  that `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` sees its flush on the
+  second of its 16 hellos, so the 32 seconds it runs do not show the ladder.
 - Open: a Designated port whose topology-change timer starts sends at its
   next hello, not at once. `D2009` 13.29.11 also sets `newInfo` there, and
   the unit text names Root ports only.
+- Open, predates this phase: under MSTP a port that is Designated for an
+  MSTI and Root or Alternate for the CIST sends no periodic BPDU
+  (`armHelloTimers` in `S/link.go`, the hello loop in `S/advance.go`). With
+  sw1 the CIST root, sw2 the MSTI 1 root, and two links between them, the
+  peer's MSTI 1 information expires and VLAN 10 forwards on all four port
+  ends 90 seconds after convergence, on this branch and on `main`. R2's
+  example holds because there one bridge roots every tree. Unverified:
+  that `Q2003` Figure 13-13 TRANSMIT_PERIODIC counts MSTI Designated ports.
+- Open, Requirement question for U3's unit text: `Config.Normalize` marks
+  an inherited instance or VLAN port priority present, so a normalized
+  configuration read back from `Switch.Config` or `Fabric.Config` and
+  reconfigured with a new bridge port priority keeps the old one for that
+  tree (`S/config.go`, `inheritPortPriorities`). Filling `Priority` while
+  leaving `PriorityPresent` as written would keep one value for the layer,
+  `Canonical`, and `Diff` and re-inherit on each normalization.
+## Review gaps
+
+Recorded by the first review of this phase. None of these holds the
+verdict.
+
+- `src/common/sim/layer/stp/wire_format_test.go:128`: `addTree` ignoring `treePort.Priority`; fails: none, the test claims the layer reads the resolved priority and builds no layer; class: false test
+- `src/common/sim/layer/stp/agreement_test.go:35`: `!lk.pointToPoint` removed from `recordAgreement`; fails: none, the "shared link" row passes; class: false test
+- `src/common/sim/layer/stp/agreement_test.go:38`: `order >= 0` replaced by `true` in `recordAgreement`; fails: none, the "Root sender with a better vector" row ends Alternate by role election; class: false test
+- `src/common/sim/layer/stp/topology_test.go:314`: arrival-port timer started for a TCN before the `!p.tcActive` skip; fails: none, `b.step(time.Second)` reaches no hello; class: false test
+- `src/common/sim/device/vswitch/switch_test.go:7372`: MSTI 1 Root port opening at once instead of by the ladder; fails: none, the flush is read after 32 s; class: false test
+- `src/common/sim/fabric/result_test.go:264`: a BPDU still in flight at the cut; fails: none, 1 or 2 pending journeys pass; class: false test
+- `src/common/sim/layer/stp/agreement.go:37`: `order >= 0` to `order > 0`; fails: a Root, Alternate, or Backup message with the same vector as the port's; class: gap
+- `src/common/sim/layer/stp/agreement.go:73`: `RootPathCost` comparison removed from `cistHolds`; fails: an MSTI agreement whose CIST message names another external cost; class: gap
+- `src/common/sim/layer/stp/receive.go:360`: `mirrorAgreement` call removed; fails: a boundary port's MSTIs taking the CIST's agreement; class: gap
+- `src/common/net/bpdu/bpdu.go:625`: `version >= mstProtocolVersion` to `version >= 2`; fails: a version 2 frame carrying a whole MST body decodes as RST; class: gap
+- `src/common/net/bpdu/sstp.go:157`: a zero Hello Time refused in `DecodeSSTP` alone; fails: an SSTP BPDU with Hello Time 0 decodes; class: gap
+- `src/common/sim/layer/stp/vector.go:85`: `addCost` reverted to `+` in the internal CIST and MSTI sums; fails: the 100 against `0xfffffff0` election on an internal MST port and on an MSTI record; class: gap
+- `src/common/sim/layer/stp/mst_test.go:402`: comment says the layer checks whether an instance overrides the CIST port priority; class: convention
+- `src/common/sim/layer/stp/README.md:345`: "the version number alone never disqualifies a BPDU", while `Decode` refuses type 2 at version 0 or 1; class: convention
+- `src/common/sim/layer/stp/README.md:362`: "the layer sends its high nibble" for any port priority, while a CIST, RST, or SSTP Port Identifier carries the low nibble in the port-number bits (`S/layer.go:203,343`, predates this phase), also at `:604`; class: convention
+- `src/common/sim/layer/stp/README.md:572`: Hello Time "Fixed at 2 seconds", while the layer sends the configured one; class: convention
+- `src/common/sim/layer/stp/transmit.go:234`: `gatherMSTIRecords` puts MSTID bits 9 to 12 in the low nibble of an emitted record's bridge priority before `Encode` masks it; class: hardening
