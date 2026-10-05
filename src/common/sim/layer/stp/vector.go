@@ -2,6 +2,7 @@ package stp
 
 import (
 	"cmp"
+	"math"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 )
@@ -76,18 +77,31 @@ func candidateVector(t *tree, p *portState, external bool) priorityVector {
 		// region for this vector: it IS the CIST regional root here, not a
 		// name borrowed from the peer's region, so the regional root mirrors
 		// this tree's own bridge identifier and the internal cost stays zero.
-		cand.externalRootPathCost = p.rcvRootPathCost + p.pathCost
+		cand.externalRootPathCost = addCost(p.rcvRootPathCost, p.pathCost)
 		cand.regionalRootID = t.bridgeID
 	case t.id == cistID:
 		cand.externalRootPathCost = p.rcvRootPathCost
 		cand.regionalRootID = p.rcvRegionalRootID
-		cand.internalRootPathCost = p.rcvInternalRootPathCost + p.pathCost
+		cand.internalRootPathCost = addCost(p.rcvInternalRootPathCost, p.pathCost)
 	default:
 		cand.regionalRootID = p.rcvRootID
-		cand.internalRootPathCost = p.rcvRootPathCost + p.pathCost
+		cand.internalRootPathCost = addCost(p.rcvRootPathCost, p.pathCost)
 	}
 
 	return cand
+}
+
+// addCost adds a port's path cost to a received root path cost. Costs have
+// four octets on the wire (IEEE Std 802.1Q-2003 14.2.4 and 14.2.5), which
+// say nothing of overflow, so a sum past the largest value stays there
+// rather than wrapping to a small one that would win the election.
+func addCost(received, own uint32) uint32 {
+	sum := received + own
+	if sum < received {
+		return math.MaxUint32
+	}
+
+	return sum
 }
 
 // rawVector builds the priority vector port p received, in the same shape as

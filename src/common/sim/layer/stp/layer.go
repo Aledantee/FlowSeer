@@ -208,39 +208,8 @@ func newLayer(cfg Config) *Layer {
 		}
 	}
 
-	if cfg.MST != nil {
-		for _, mstid := range sortedMSTIDs(cfg.MST.Instances) {
-			inst := cfg.MST.Instances[mstid]
-			l.addTree(treeID(mstid), 0, mstiBridgeID(inst, mstid, cfg.Address), inst.Ports, sortedNames)
-			l.treeOrder = append(l.treeOrder, treeID(mstid))
-			vids := slices.Clone(inst.VLANs)
-			slices.Sort(vids)
-			l.treeVLANs[treeID(mstid)] = slices.Compact(vids)
-			for _, vid := range inst.VLANs {
-				l.vidToTree[vid] = treeID(mstid)
-			}
-		}
-	}
-
-	if cfg.PVST != nil {
-		// VLAN 1 is registered like every other VLAN rather than left to
-		// treeFor's fallback: in PVST mode its tree carries exactly VLAN 1,
-		// so a topology change on it stales VLAN 1 alone, where the CIST's
-		// empty FID set in MSTP means every VLAN no MSTI claims.
-		l.vidToTree[1] = cistID
-		l.treeVLANs[cistID] = []vlan.ID{1}
-
-		for _, vid := range sortedVLANIDs(cfg.PVST.Trees) {
-			if vid == 1 {
-				continue
-			}
-			cfgTree := cfg.PVST.Trees[vid]
-			l.addTree(treeID(vid), vid, pvstBridgeID(cfgTree, vid, prio, cfg.Address), cfgTree.Ports, sortedNames)
-			l.treeOrder = append(l.treeOrder, treeID(vid))
-			l.treeVLANs[treeID(vid)] = []vlan.ID{vid}
-			l.vidToTree[vid] = treeID(vid)
-		}
-	}
+	l.addMSTTrees(sortedNames)
+	l.addPVSTTrees(sortedNames, prio)
 
 	for _, id := range l.treeOrder {
 		for _, name := range sortedNames {
@@ -252,6 +221,52 @@ func newLayer(cfg Config) *Layer {
 	}
 
 	return l
+}
+
+// addMSTTrees builds one tree per configured MST instance beside the CIST and
+// maps the VLANs each instance claims to it.
+func (l *Layer) addMSTTrees(sortedNames []string) {
+	if l.mst == nil {
+		return
+	}
+
+	for _, mstid := range sortedMSTIDs(l.mst.Instances) {
+		inst := l.mst.Instances[mstid]
+		l.addTree(treeID(mstid), 0, mstiBridgeID(inst, mstid, l.address), inst.Ports, sortedNames)
+		l.treeOrder = append(l.treeOrder, treeID(mstid))
+		vids := slices.Clone(inst.VLANs)
+		slices.Sort(vids)
+		l.treeVLANs[treeID(mstid)] = slices.Compact(vids)
+		for _, vid := range inst.VLANs {
+			l.vidToTree[vid] = treeID(mstid)
+		}
+	}
+}
+
+// addPVSTTrees builds one tree per configured VLAN beside VLAN 1's, which
+// occupies the CIST slot.
+func (l *Layer) addPVSTTrees(sortedNames []string, bridgePriority uint16) {
+	if l.pvst == nil {
+		return
+	}
+
+	// VLAN 1 is registered like every other VLAN rather than left to
+	// treeFor's fallback: in PVST mode its tree carries exactly VLAN 1,
+	// so a topology change on it stales VLAN 1 alone, where the CIST's
+	// empty FID set in MSTP means every VLAN no MSTI claims.
+	l.vidToTree[1] = cistID
+	l.treeVLANs[cistID] = []vlan.ID{1}
+
+	for _, vid := range sortedVLANIDs(l.pvst.Trees) {
+		if vid == 1 {
+			continue
+		}
+		cfgTree := l.pvst.Trees[vid]
+		l.addTree(treeID(vid), vid, pvstBridgeID(cfgTree, vid, bridgePriority, l.address), cfgTree.Ports, sortedNames)
+		l.treeOrder = append(l.treeOrder, treeID(vid))
+		l.treeVLANs[treeID(vid)] = []vlan.ID{vid}
+		l.vidToTree[vid] = treeID(vid)
+	}
 }
 
 // mstiBridgeID is an MST instance's own bridge identifier: the instance

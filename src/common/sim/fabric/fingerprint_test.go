@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -55,7 +56,7 @@ var deviceFieldClasses = map[string]fieldClassification{
 }
 
 var portInfoFieldClasses = map[string]fieldClassification{
-	"MSTID":              fieldIncluded,
+	"Tree":               fieldIncluded,
 	"Role":               fieldIncluded,
 	"State":              fieldIncluded,
 	"BlockReason":        fieldIncluded,
@@ -125,7 +126,7 @@ func baseSnapshotForTest() Snapshot {
 				TreeRoles: map[vlan.ID]map[string]stp.PortInfo{
 					10: {
 						"1/1/1": {
-							MSTID:          1,
+							Tree:           stp.TreeRef{Kind: stp.TreeMSTI, ID: 1},
 							Role:           bpdu.RoleRoot,
 							State:          stp.StateForwarding,
 							BlockReason:    "",
@@ -328,11 +329,21 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			},
 		},
 		{
-			name: "tree_roles_mstid",
+			name: "tree_roles_tree_id",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.MSTID = 2
+				info.Tree.ID = 2
+				dev.TreeRoles[10]["1/1/1"] = info
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "tree_roles_tree_kind",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				info := dev.TreeRoles[10]["1/1/1"]
+				info.Tree.Kind = stp.TreeVLAN
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -855,10 +866,10 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstSnap1 := cloneSnapshot(base)
 	mstDev1 := mstSnap1.Devices["sw1"]
 	mstDev1.TreeRoles[1] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 0, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeCIST}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstDev1.TreeRoles[10] = map[string]stp.PortInfo{
-		"1/1/1": {MSTID: 1, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstSnap1.Devices["sw1"] = mstDev1
 
@@ -866,7 +877,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstDev2 := mstSnap2.Devices["sw1"]
 	// CIST unchanged, MSTI 1 role changed
 	mstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
-		MSTID: 1, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
+		Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
 	}
 	mstSnap2.Devices["sw1"] = mstDev2
 
@@ -1064,11 +1075,11 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 		// stp.PortInfo fields
 		{
 			typ:   reflect.TypeOf(stp.PortInfo{}),
-			field: "MSTID",
+			field: "Tree",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.MSTID = 2
+				info.Tree.ID = 2
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -1507,5 +1518,20 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 
 	if fp2 != fp3 {
 		t.Errorf("advancing neighbor expiry alone changed fingerprint:\n%s\nvs\n%s", fp2, fp3)
+	}
+}
+
+// TestFingerprintEscapesTheTreeKind pins that the tree kind passes through
+// escapeFingerprint, since ':' and '=' are delimiters of the encoding. A kind
+// that carried them raw would let one tree's text read as another's fields.
+func TestFingerprintEscapesTheTreeKind(t *testing.T) {
+	t.Parallel()
+
+	info := stp.PortInfo{Tree: stp.TreeRef{Kind: "a=b:c,tree_id=9", ID: 1}}
+	got := encodeFingerprintPortInfo(info)
+
+	const wantPrefix = "tree_kind=a%3Db%3Ac%2Ctree_id%3D9,tree_id=1,role="
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("encoding = %s, want prefix %s", got, wantPrefix)
 	}
 }

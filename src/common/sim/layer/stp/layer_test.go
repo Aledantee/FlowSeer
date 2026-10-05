@@ -702,8 +702,9 @@ func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
 	}
 }
 
-// TestTimesInForceFollowTheRoot is evidence that Times reports the root's
-// timer values on a non-root bridge and the bridge's own while it is root.
+// TestTimesInForceFollowTheRoot is evidence that Times reports the root's max
+// age and forward delay on a non-root bridge and the bridge's own while it is
+// root. The hello time is the bridge's own either way.
 func TestTimesInForceFollowTheRoot(t *testing.T) {
 	t.Parallel()
 
@@ -730,8 +731,8 @@ func TestTimesInForceFollowTheRoot(t *testing.T) {
 	if l.BridgeID() != (bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")}) {
 		t.Errorf("BridgeID = %+v", l.BridgeID())
 	}
-	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != 3*time.Second || fwd != 20*time.Second {
-		t.Errorf("times in force = %v %v %v, want the root's 30s 3s 20s", maxAge, hello, fwd)
+	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != stp.DefaultHelloTime || fwd != 20*time.Second {
+		t.Errorf("times in force = %v %v %v, want the root's 30s and 20s around the bridge's own hello %v", maxAge, hello, fwd, stp.DefaultHelloTime)
 	}
 	if info := l.PortInfo("1/1/1"); info.DesignatedRoot != root || info.Priority != stp.DefaultPortPriority {
 		t.Errorf("PortInfo = %+v, want designated root %+v and default priority", info, root)
@@ -2505,29 +2506,33 @@ func rowSSTPBPDU(t *testing.T, addr string) bpdu.BPDU {
 	return b
 }
 
-// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome verifies the receive outcome order:
-// the link half of a receive — the loop-guard clear
-// above all, since it is the one link property every row here can carry a
-// precondition for — runs whatever the tree half of the same receive goes on
-// to decide. Every row but bpdu-guard preconditions the port loop-inconsistent
-// through real convergence and aging, then asserts the condition is gone
-// after the row's own ReceiveSSTP call, whatever that call's outcome. The
-// bpdu-guard row cannot carry that same precondition: a BPDU-guarded port
-// never reaches the Root, Alternate or Backup role loop guard requires,
-// because the guard disables it on its very first BPDU before any role
-// persists long enough to age. Its assertions are the outcome and the block
-// reason the guard itself leaves, which is the link half's own proof that it
-// ran on that row.
+// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome verifies the receive outcome
+// order: the link half of a receive runs, and roles are recomputed, whatever
+// the tree half of the same receive goes on to decide. Every row but
+// bpdu-guard preconditions the port loop-inconsistent on the CIST (VLAN 1
+// under PVST) through real convergence and aging, then reads what the row's
+// own ReceiveSSTP call left. Outside PVST any BPDU on the port restores the
+// mark, so the pvst-boundary row shows the role recomputed in the same call.
+// Under PVST only a BPDU applied to the tree that armed the mark restores it:
+// the applied row names VLAN 1, and the rows that apply nothing, or apply to
+// VLAN 10, leave VLAN 1 held. The bpdu-guard row cannot carry that same
+// precondition: a BPDU-guarded port never reaches the Root, Alternate or
+// Backup role loop guard requires, because the guard disables it on its very
+// first BPDU before any role persists long enough to age. Its assertions are
+// the outcome and the block reason the guard itself leaves, which is the link
+// half's own proof that it ran on that row.
 func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 
 	cases := []struct {
-		name     string
-		l        *stp.Layer
-		want     stp.SSTPOutcome
-		wantRole bpdu.Role
+		name       string
+		l          *stp.Layer
+		arrival    stp.SSTPArrival
+		want       stp.SSTPOutcome
+		wantRole   bpdu.Role
+		wantReason stp.BlockReason
 	}{
 		{
 			name: "applied",
@@ -2537,8 +2542,9 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
+			arrival:  stp.SSTPArrival{ArrivalVID: 1, TLVVID: 1, Admitted: true},
 			want:     stp.SSTPApplied,
-			wantRole: bpdu.RoleDesignated,
+			wantRole: bpdu.RoleRoot,
 		},
 		{
 			name: "bpdu-guard",
@@ -2548,8 +2554,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {BPDUGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want:     stp.SSTPGuarded,
-			wantRole: bpdu.RoleDisabled,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true},
+			want:       stp.SSTPGuarded,
+			wantRole:   bpdu.RoleDisabled,
+			wantReason: stp.BlockReasonBPDUGuard,
 		},
 		{
 			name: "pvst-boundary",
@@ -2558,6 +2566,7 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Address:  mustMAC(t, "00:11:22:33:44:03"),
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 			}, mustPortTable(t, "l1")),
+			arrival:  stp.SSTPArrival{ArrivalVID: 20, TLVVID: 20, Admitted: true},
 			want:     stp.SSTPBoundary,
 			wantRole: bpdu.RoleDesignated,
 		},
@@ -2569,8 +2578,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want:     stp.SSTPNotAdmitted,
-			wantRole: bpdu.RoleDesignated,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: false},
+			want:       stp.SSTPNotAdmitted,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 		{
 			name: "vlan-untracked",
@@ -2580,8 +2591,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want:     stp.SSTPUntrackedVLAN,
-			wantRole: bpdu.RoleDesignated,
+			arrival:    stp.SSTPArrival{ArrivalVID: 30, TLVVID: 30, Admitted: true},
+			want:       stp.SSTPUntrackedVLAN,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 		{
 			name: "pvid-inconsistent",
@@ -2591,8 +2604,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want:     stp.SSTPPVIDInconsistent,
-			wantRole: bpdu.RoleDesignated,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 20, Admitted: true},
+			want:       stp.SSTPPVIDInconsistent,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 	}
 
@@ -2608,29 +2623,17 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				now = establishLoopInconsistent(t, c.l, "l1", t0)
 			}
 
-			arrival := stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}
-			switch c.want {
-			case stp.SSTPBoundary:
-				arrival = stp.SSTPArrival{ArrivalVID: 20, TLVVID: 20, Admitted: true}
-			case stp.SSTPNotAdmitted:
-				arrival.Admitted = false
-			case stp.SSTPUntrackedVLAN:
-				arrival = stp.SSTPArrival{ArrivalVID: 30, TLVVID: 30, Admitted: true}
-			case stp.SSTPPVIDInconsistent:
-				arrival.TLVVID = 20
-			}
-
-			_, outcome := c.l.ReceiveSSTP(now.Add(time.Second), "l1", arrival, rowSSTPBPDU(t, "00:aa:bb:cc:dd:ee"))
+			_, outcome := c.l.ReceiveSSTP(now.Add(time.Second), "l1", c.arrival, rowSSTPBPDU(t, "00:aa:bb:cc:dd:ee"))
 
 			if outcome != c.want {
 				t.Fatalf("outcome = %q, want %q", outcome, c.want)
 			}
-			if reason := c.l.PortInfo("l1").BlockReason; reason == stp.BlockReasonLoopInconsistent {
-				t.Errorf("block reason after the call = %q, want the loop-guard clear to have run", reason)
+			if reason := c.l.PortInfo("l1").BlockReason; reason != c.wantReason {
+				t.Errorf("block reason after the call = %q, want %q", reason, c.wantReason)
 			}
-			// The clear is only half the effect: a port that was held Alternate
-			// by the guard must leave that role in the same call, since nothing
-			// else wakes it before the next hello.
+			// A port the guard held Alternate leaves that role in the same
+			// call when the guard clears, since nothing else wakes it before
+			// the next hello, and keeps it when the guard holds.
 			if role := c.l.PortInfo("l1").Role; role != c.wantRole {
 				t.Errorf("role after the call = %v, want %v: the receive must recompute roles on every outcome", role, c.wantRole)
 			}
@@ -2693,15 +2696,14 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 
 	after := []stp.PortInfo{local.PortInfo("l1"), local.VLANPortInfo(20, "l1")}
 	for i := range before {
-		// The received BPDU counter is the one field that must move: the
-		// frame did arrive, it is what the boundary report rests on.
-		before[i].RxBPDUs = after[i].RxBPDUs
-		if before[i] != after[i] {
-			t.Errorf("tree %d port state changed: got %+v, want %+v", i, after[i], before[i])
+		// The received BPDU counter is the one field that must move, by
+		// exactly the one frame: it did arrive, and it is what the boundary
+		// report rests on.
+		want := before[i]
+		want.RxBPDUs++
+		if after[i] != want {
+			t.Errorf("tree %d port state = %+v, want %+v: only the received BPDU counter moves, by the one frame", i, after[i], want)
 		}
-	}
-	if after[0].RxBPDUs != before[0].RxBPDUs {
-		t.Error("RxBPDUs was not counted for an SSTP BPDU on a non-PVST bridge")
 	}
 
 	guarded := mustNewSTP(t, stp.Config{
