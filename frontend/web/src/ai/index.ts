@@ -13,7 +13,13 @@ export function installFlowSeerAi(target: Window = window): () => void {
   return installAiWindow(aiRegistry, target)
 }
 
-export { createAiRegistry, AiStaleError, AiUnavailableError } from './registry'
+export {
+  createAiRegistry,
+  cloneAiTarget,
+  isAiTargetElement,
+  AiStaleError,
+  AiUnavailableError,
+} from './registry'
 export type {
   AiRegistry,
   AiRegistryOptions,
@@ -61,6 +67,7 @@ export type {
   AiSeverity,
   AiSummary,
   AiTarget,
+  AiTargetElement,
   AiTargetSegment,
   AiTargetSnapshot,
   AiTargetView,

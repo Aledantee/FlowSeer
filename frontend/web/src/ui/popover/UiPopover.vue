@@ -6,6 +6,7 @@ import {
   PopoverRoot,
   PopoverTrigger,
 } from 'reka-ui'
+import type { AiTargetElement } from '../../ai'
 
 export interface UiPopoverProps {
   open?: boolean
@@ -13,7 +14,7 @@ export interface UiPopoverProps {
   side?: 'top' | 'right' | 'bottom' | 'left'
   align?: 'start' | 'center' | 'end'
   sideOffset?: number
-  reference?: HTMLElement | { getBoundingClientRect: () => DOMRect } | null
+  reference?: AiTargetElement | { getBoundingClientRect: () => DOMRect } | null
 }
 
 withDefaults(defineProps<UiPopoverProps>(), {
