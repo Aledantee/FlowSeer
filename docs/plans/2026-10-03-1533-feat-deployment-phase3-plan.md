@@ -2,11 +2,8 @@
 title: Deployment, Phase 3, Edge Agent Packaging - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
-parent: docs/plans/2026-10-03-1533-feat-deployment-plan.md
 ---
 
 # Deployment, Phase 3, Edge Agent Packaging - Plan

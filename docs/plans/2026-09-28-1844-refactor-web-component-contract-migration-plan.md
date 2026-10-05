@@ -2,9 +2,7 @@
 title: Web Component Contract Migration - Plan
 type: refactor
 date: 2026-09-28
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
 ---
 
@@ -84,38 +82,26 @@ from 3 on assumes a story can render in both locales.
 ### U1. Overlays and motion foundation
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase1-plan.md`
-After: none
-Landed: `f35884bb..102193b1`
 
 ### U2. motion-v replaces motion/mini
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase2-plan.md`
-After: U1
-Landed: `7c101257..0a89dc0e`
 
 ### U3. i18n foundation and Ui component strings
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase3-plan.md`
-After: U1
-Landed: `51c253f5..0bdbc4d9`
 
 ### U4. View strings and locale formatting
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase4-plan.md`
-After: U3
-Landed: `014ceda3..ea17148b`
 
 ### U5. The ai prop and shared highlight
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase5-plan.md`
-After: U4
-Landed:
 
 ### U6. Generative UI catalog and renderer
 
 Files: `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-phase6-plan.md`
-After: U5
-Landed:
 
 Waves: U1 | U2 U3 | U4 | U5 | U6
 

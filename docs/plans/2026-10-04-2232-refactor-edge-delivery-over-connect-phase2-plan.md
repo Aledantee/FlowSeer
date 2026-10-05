@@ -2,12 +2,9 @@
 title: Edge Delivery over Connect, Phase 2, Delivery Calls and Central Handlers - Plan
 type: feat
 date: 2026-10-04
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
-parent: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-plan.md
 ---
 
 # Edge Delivery over Connect, Phase 2, Delivery Calls and Central Handlers - Plan

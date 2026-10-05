@@ -2,9 +2,7 @@
 title: Central Intake Review Items - Plan
 type: fix
 date: 2026-10-04
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md
 ---

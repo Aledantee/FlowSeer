@@ -2,11 +2,8 @@
 title: Edge Delivery over Connect, Phase 3, Agent Switch - Plan
 type: refactor
 date: 2026-10-04
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
-parent: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-plan.md
 ---
 
 # Edge Delivery over Connect, Phase 3, Agent Switch - Plan

@@ -2,12 +2,9 @@
 title: Central High Availability, Phase 1, Edge Listener Split - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
-parent: docs/plans/2026-10-03-1533-feat-central-high-availability-plan.md
 ---
 
 # Central High Availability, Phase 1, Edge Listener Split - Plan

@@ -88,8 +88,8 @@ The brief follows `delegate` and adds:
   stand; only the count is this drive's.
 
 Wait on the lane as `delegate` describes, with
-`wait <slug> --until '<test>'` using the anchored `grep -q` on the plan path
-for the stage's "Done when":
+`wait <slug> --until '<test>'`, the test being the state command for the
+stage's "Done when":
 
 - re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
 - implement: `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`

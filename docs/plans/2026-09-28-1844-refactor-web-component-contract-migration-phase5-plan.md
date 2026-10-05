@@ -2,11 +2,8 @@
 title: Web Component Contract Migration, Phase 5 - The ai Prop and Shared Highlight - Plan
 type: refactor
 date: 2026-09-28
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
-parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
 ---
 
 # Web Component Contract Migration, Phase 5 - The ai Prop and Shared Highlight - Plan

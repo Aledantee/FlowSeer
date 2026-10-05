@@ -2,9 +2,7 @@
 title: Remote Packet Capture - Plan
 type: feat
 date: 2026-09-09
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 
@@ -159,65 +157,53 @@ operator-originated command, because a capture nobody can start is not a feature
 ### U1. Schema and direction records
 
 Files: `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase1-plan.md`
-After: none
 Change: `flowseer/net/capture/v1` and `flowseer/api/capture/v1` exist with their
 values, entity family, refs, and streaming service contracts; the network model
 structure record's tree and import order name them.
-Landed: 2026-09-09, `f99c7e4d..dc4762f1`.
 
 ### U2. Capture engine module
 
 Files: `docs/plans/2026-09-09-1213-feat-remote-packet-capture-phase2-plan.md`
-After: U1
 Change: `src/modules/capture/` captures on a local interface, compiles a
 `CaptureFilter` to cBPF, terminates the mirror encapsulations, enforces budgets,
 accounts for every drop, and renders pcapng.
-Landed: 2026-09-09, `a116ad70..f49f944e`.
 
 ### U3a. Shared subscribe-loop transport
 
 Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3a-plan.md`
-After: U2
 Change: the reconnect, backoff, `Contact` counters, and pre-attempt resync move
 out of `src/edge/agent/internal/dispatch` into a reusable, message-generic
 subscribe loop; the dispatch loop runs on it with its behavior and its metric
 names unchanged.
-Landed: `6cd0a483..85758b1f`
 
 ### U3b. Capture command channel and central capture leg
 
 Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3b-plan.md`
-After: U3a
 Change: `CaptureEdgeService` gains `SubscribeCaptureAssignments`; the device
 service serves the operator `CaptureService`, originates an assignment when a
 session is created, receives `UploadCapture` under the re-assertion rule, stores
 the pcapng, and serves `TailCaptureSession` and `DownloadCaptureSession`; the
 capture direction record is amended to store centrally and the network model
 structure record's `edge/capture` line names both streams.
-Landed: 2026-09-18, `4a675beb..0156e1c8`.
 
 ### U3c. Edge capture wiring
 
 Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3c-plan.md`
-After: U3b
 Change: the agent host assembles `src/modules/capture` as a `service.Module`,
 runs the capture-assignment loop on the U3a transport, drives a session from a
 received assignment, uploads chunks on `UploadCapture` with periodic
 re-assertion, and proves the round trip against a live device-service central in
 the host end-to-end test.
-Landed: 2026-09-18, `4fdd8897..7144a6a6`.
 
 ### U3d. Lab validation
 
 Files: `docs/plans/2026-09-18-1423-feat-remote-packet-capture-phase3d-plan.md`
-After: U3c
 Change: an ICX7150 local SPAN into the edge's capture interface and an
 EVE-NG RouterOS TZSP stream to the edge's receiver each produce an artifact
 `capinfos` reads, with decoded Ethernet frames matching tcpdump's captures.
 The ICX run exercises a physical switch; the virtual RouterOS run validates
 TZSP decoding without claiming compatibility with a particular physical
 MikroTik firmware release.
-Landed: 2026-09-27, `2a3462db..15fb3e32`.
 
 Waves: U3a | U3b | U3c | U3d
 

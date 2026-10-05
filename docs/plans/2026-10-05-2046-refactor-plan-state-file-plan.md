@@ -2,9 +2,7 @@
 title: Plan state in a JSON file behind one script - Plan
 type: refactor
 date: 2026-10-05
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 

@@ -2,9 +2,7 @@
 title: Shared Telemetry Conventions Package - Plan
 type: refactor
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 

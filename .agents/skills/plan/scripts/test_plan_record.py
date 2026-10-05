@@ -353,6 +353,20 @@ class PlanRecordTest(unittest.TestCase):
         self.record("check", plan_record.state_path(PLAIN), code=1)
         self.record("check", "docs/plans", code=1)
 
+    def test_check_rejects_a_frontmatter_that_still_carries_state(self):
+        for plan in (PARENT, FIRST, PHASE, PLAIN):
+            self.record("init", plan)
+        document = "---\ntitle: Plain - Plan\ntype: fix\nartifact_contract: flowseer-plan/v2\n---\n\n# Plain\n"
+        (self.root / PLAIN).write_text(document, encoding="utf-8")
+        self.record("check")
+        carried = document.replace("type: fix\n", "type: fix\nstatus: planned\nreview: accept\n")
+        (self.root / PLAIN).write_text(carried, encoding="utf-8")
+        refused = self.record("check", code=1)
+        self.assertIn(f"{PLAIN}: frontmatter carries status, review, which", refused.stderr)
+        self.record("ready", PLAIN, code=1)
+        (self.root / PLAIN).write_text(document + "\nstatus: a word in the body\n", encoding="utf-8")
+        self.record("check")
+
     def test_check_names_a_key_outside_the_contract(self):
         for plan in (PARENT, FIRST, PHASE):
             self.record("init", plan)

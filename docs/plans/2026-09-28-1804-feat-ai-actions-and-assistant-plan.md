@@ -2,16 +2,12 @@
 title: AI Actions, Structured Summaries, and the Assistant Panel - Plan
 type: feat
 date: 2026-09-28
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: implemented
+artifact_contract: flowseer-plan/v2
 execution: code
 amends: docs/plans/2026-09-27-feat-contextual-ai-controls-plan.md
 ---
 
 # AI Actions, Structured Summaries, and the Assistant Panel - Plan
-
-> Implemented. 6 units, 2026-10-03T21:04Z to 2026-10-03T21:55Z.
 
 ## Goal
 

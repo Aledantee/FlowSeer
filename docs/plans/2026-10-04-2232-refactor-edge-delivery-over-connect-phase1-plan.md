@@ -2,11 +2,8 @@
 title: Edge Delivery over Connect, Phase 1, Segmented Log - Plan
 type: feat
 date: 2026-10-04
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
-parent: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-plan.md
 ---
 
 # Edge Delivery over Connect, Phase 1, Segmented Log - Plan

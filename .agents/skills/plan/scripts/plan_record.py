@@ -57,6 +57,7 @@ FINAL = ("implemented", "superseded", "abandoned")
 READINESS = ("implementation-ready", "needs-decisions")
 VERDICTS = ("accept", "accept after fixes", "fixes needed", "rework")
 ACCEPTED = ("accept", "accept after fixes")
+MOVED = ("status", "artifact_readiness", "review", "review_rounds", "compound", "superseded_by", "parent")
 SHA = re.compile(r"[0-9a-f]{7,40}")
 TIME = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?Z")
 BLANK = {
@@ -229,10 +230,22 @@ def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk:
     return faults
 
 
-def read_tree(root: Path) -> tuple[set[str], dict[str, object]]:
-    """The plans on disk, and each state file parsed or the error it gave."""
+def moved_keys(text: str) -> list[str]:
+    """The frontmatter keys of a plan that belong in its state file."""
+    if not text.startswith("---\n"):
+        return []
+    head = text[4:].split("\n---", 1)[0]
+    keys = {line.partition(":")[0] for line in head.splitlines() if ":" in line and not line.startswith(" ")}
+    return [key for key in MOVED if key in keys]
+
+
+def read_tree(root: Path) -> tuple[dict[str, list[str]], dict[str, object]]:
+    """The plans on disk, each with the state keys its frontmatter still
+    carries, and each state file parsed or the error it gave."""
     directory = root / PLANS
-    plans = {f"{PLANS}/{path.name}" for path in directory.glob("*-plan.md")}
+    plans = {
+        f"{PLANS}/{path.name}": moved_keys(path.read_text(encoding="utf-8")) for path in directory.glob("*-plan.md")
+    }
     raw: dict[str, object] = {}
     for path in directory.glob("*-plan.state.json"):
         plan = f"{PLANS}/{path.name.removesuffix('.state.json')}.md"
@@ -243,9 +256,16 @@ def read_tree(root: Path) -> tuple[set[str], dict[str, object]]:
     return plans, raw
 
 
-def problems(plans: set[str], raw: dict[str, object]) -> list[tuple[str, str]]:
+def problems(plans: dict[str, list[str]], raw: dict[str, object]) -> list[tuple[str, str]]:
     """Every fault in a tree, as (file, rule), in file order."""
-    found = [(plan, "has no state file; run `plan_record.py init`") for plan in plans - raw.keys()]
+    found = [(plan, "has no state file; run `plan_record.py init`") for plan in plans.keys() - raw.keys()]
+    # A field kept in both places has two writers, and every reader takes
+    # the state file's.
+    found += [
+        (plan, f"frontmatter carries {', '.join(keys)}, which {state_path(plan)} holds")
+        for plan, keys in plans.items()
+        if keys
+    ]
     states = {}
     for plan, state in raw.items():
         if plan not in plans:
@@ -254,7 +274,7 @@ def problems(plans: set[str], raw: dict[str, object]) -> list[tuple[str, str]]:
         found += [(state_path(plan), fault) for fault in faults]
         if not faults:
             states[plan] = state
-    on_disk = plans | raw.keys()
+    on_disk = plans.keys() | raw.keys()
     for plan, state in states.items():
         found += [(state_path(plan), fault) for fault in combination_faults(plan, state, states, on_disk)]
     return sorted(found)
@@ -351,7 +371,7 @@ def transition(root: Path, changes: dict[str, dict], retire: str | None = None) 
     before = set(problems(plans, raw))
     raw.update(changes)
     if retire:
-        plans.discard(retire)
+        plans.pop(retire, None)
         raw.pop(retire, None)
     written = {state_path(plan) for plan in changes} | set(changes)
     faults = [fault for fault in problems(plans, raw) if fault not in before or fault[0] in written]

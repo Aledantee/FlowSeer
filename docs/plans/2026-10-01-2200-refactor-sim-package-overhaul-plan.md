@@ -2,9 +2,7 @@
 title: Simulator Package Overhaul - Plan
 type: refactor
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ---
@@ -125,8 +123,6 @@ unless a comment at its head states why it is one unit. Example:
 
 ### U1. Move the tree to `src/common/sim`
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase1-plan.md
-After: none
-Landed: `d2c52250..bd684278`
 Change: every package sits at its final path and every doc names it. No
 behaviour changes.
 Tests: the existing suites pass at the new paths.
@@ -134,8 +130,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim
 
 ### U2. Capability contract and surface trim
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md
-After: U1
-Landed: `414ffd79..6a2ea03a`
 Change: `sim/layer` holds the shared contract types, every capability
 package has the contract's shape, rule identifiers belong to their
 producers, fact types and dead exports are gone, and the BPDU codec lives
@@ -145,8 +139,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U3. Spanning tree to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md
-After: U2
-Landed:
 Change: `layer/stp` follows IEEE 802.1D and 802.1Q for RSTP, MSTP, and
 legacy interoperation, with link state owned once per port.
 Tests: one failing-first test per inventory entry, and known-bytes BPDU
@@ -155,8 +147,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U4. Link aggregation and physical layer to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md
-After: U2
-Landed:
 Change: `layer/lag` follows IEEE 802.1AX, and `layer/phy` resolves speed,
 duplex, and PoE within the stated bounds.
 Tests: one failing-first test per inventory entry.
@@ -164,8 +154,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U5. Multicast snooping and loop protection
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase5-plan.md
-After: U2
-Landed:
 Change: `layer/mcast` ages lazily and restores retained state with its
 source filters, and `layer/loopprotect` arms its timers on every path.
 Tests: one failing-first test per inventory entry.
@@ -173,8 +161,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U6. Routing, neighbor resolution, and filtering
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase6-plan.md
-After: U2
-Landed:
 Change: `layer/routing` resolves neighbors as ARP and Neighbor Discovery
 specify, a held frame carries what its release needs, and `layer/filter`
 never widens a rule it cannot evaluate.
@@ -183,8 +169,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U7. Relay, port table, and traffic
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase7-plan.md
-After: U2
-Landed:
 Change: `layer/bridge`, `sim/port`, and `layer/traffic` keep static entries
 authoritative, validate deterministically, and mirror stacked tags intact.
 Tests: one failing-first test per inventory entry.
@@ -192,8 +176,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U8. Analysis, trace, stream, and search
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase8-plan.md
-After: U2
-Landed:
 Change: stream sources yield independent frames, alignment and minimization
 name the journey they judged, and the leaves drop what nothing uses.
 Tests: one failing-first test per inventory entry.
@@ -201,8 +183,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U9. Switch composition
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase9-plan.md
-After: U3, U4, U5, U6, U7
-Landed:
 Change: `device/vswitch` has one receive entry returning the result with its
 emissions, copies, and drops, drives its layers through the contract, forks
 and derives every capability, and is split into files by subject.
@@ -212,8 +192,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U10. Fabric, device seam, and cable
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase10-plan.md
-After: U8, U9
-Landed:
 Change: `fabric` drives switches and hosts through `sim/device`, the cable
 model is `medium/cable`, every input is a queue event, and a held frame
 continues its own journey.
@@ -222,8 +200,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U11. Network model boundary
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md
-After: U9, U10
-Landed:
 Change: `netmodel.Load` takes one input value and is a coordinator over
 per-layer loaders, and an input it cannot translate raises an issue instead
 of widening a rule.
@@ -232,8 +208,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U12. Corpus, load transmitter, and documentation close-out
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md
-After: U10, U11
-Landed:
 Change: the corpus and `simload` use the final APIs, their own defects are
 fixed, and the READMEs and direction records match the tree.
 Tests: one failing-first test per inventory entry, and `check-prose.py` on

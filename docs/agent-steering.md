@@ -561,9 +561,9 @@ Prove a phase's prerequisites are in the tree. Two worktrees forked from
 different points of `main` can each re-plan "against the landed tree",
 find the same phase absent, and implement it twice.
 `check-plan-status.py` therefore fails a ledger naming a phase plan when a
-phase its parent's `After:` names has no `Landed:` commit that is an
-ancestor of `HEAD`, or when the parent on `main` already shows this
-phase landed. The `Landed:` line therefore carries the commit range.
+phase its state file lists under `after` has no `landed` range whose last
+commit is an ancestor of `HEAD`, or when `main` already shows this phase
+landed or retired. The `landed` object therefore carries the commit range.
 
 Keep test conventions in the convention doc. The instruction-position
 studies measured 30 to 50% lower compliance for a rule in the middle of a

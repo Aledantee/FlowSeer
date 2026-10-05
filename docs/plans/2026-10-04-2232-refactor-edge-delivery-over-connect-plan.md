@@ -2,9 +2,7 @@
 title: Edge Delivery over Connect - Plan
 type: refactor
 date: 2026-10-04
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 ---
@@ -115,26 +113,18 @@ The ones this plan adds:
 ### U1. Segmented log
 
 Files: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase1-plan.md
-After: none
-Landed:
 
 ### U2. Delivery calls and central handlers
 
 Files: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase2-plan.md
-After: none
-Landed:
 
 ### U3. The agent switches to the logs and the drains
 
 Files: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase3-plan.md
-After: U1, U2
-Landed:
 
 ### U4. Removal of the leaf link and the record amendments
 
 Files: docs/plans/2026-10-04-2232-refactor-edge-delivery-over-connect-phase4-plan.md
-After: U3
-Landed:
 
 Waves: U1 U2 | U3 | U4
 

@@ -2,11 +2,8 @@
 title: Dependency Admission Phase 4, The Dependency Skill - Plan
 type: chore
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: docs
-parent: docs/plans/2026-10-01-1457-chore-dependency-admission-plan.md
 ---
 
 # Dependency Admission Phase 4, The Dependency Skill - Plan

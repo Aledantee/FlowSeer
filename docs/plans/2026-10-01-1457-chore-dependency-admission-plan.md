@@ -2,9 +2,7 @@
 title: Dependency Admission - Plan
 type: chore
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 
@@ -157,8 +155,6 @@ the work.
 ### U1. Inventory, statements, and the cut list
 
 Files: docs/plans/2026-10-01-1457-chore-dependency-admission-phase1-plan.md
-After: none
-Landed:
 
 `tools/deps` lists every dependency version with its hash, criteria, and
 the direct dependencies that pull it in, and looks up advisories. Every
@@ -169,8 +165,6 @@ trust settings are on. Claims requirements 5, 8 (the lookup), 10, and 12
 ### U2. Removals
 
 Files: docs/plans/2026-10-01-1457-chore-dependency-admission-phase2-plan.md
-After: U1
-Landed:
 
 Each dependency ruled `cut` in U1 is replaced by owned code or dropped, and
 build-only npm packages move to `devDependencies`.
@@ -178,8 +172,6 @@ build-only npm packages move to `devDependencies`.
 ### U3. Records, baseline, and the gate
 
 Files: docs/plans/2026-10-01-1457-chore-dependency-admission-phase3-plan.md
-After: U1, U2
-Landed:
 
 Every remaining version has a record, the unreviewed ones are listed in the
 baseline, and the gate enforces requirements 1 to 7, 9, 11, and 12. Images,
@@ -189,8 +181,6 @@ are pinned by hash and recorded. The `tools/hooks/` edit lands here.
 ### U4. The dependency skill
 
 Files: docs/plans/2026-10-01-1457-chore-dependency-admission-phase4-plan.md
-After: U3
-Landed:
 
 A project skill carries the procedures: add, upgrade, review one version,
 and the monthly pass that re-checks advisories and proposes stale pins.
@@ -198,8 +188,6 @@ and the monthly pass that re-checks advisories and proposes stale pins.
 ### U5. Review backlog
 
 Files: docs/plans/2026-10-01-1457-chore-dependency-admission-phase5-plan.md
-After: U3, U4
-Landed:
 
 The baseline is reviewed down to empty, `deploy` versions first.
 
