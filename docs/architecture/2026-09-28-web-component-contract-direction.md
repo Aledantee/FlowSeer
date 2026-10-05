@@ -437,7 +437,10 @@ The generative UI catalog and renderer are implemented in
   properties, reads an accessor once, and stores the value as data. A function,
   Proxy, or accessor that throws makes the clone fail. The validator copies
   allow-listed data before validation and rendering. `UiAiRender` validates
-  the tree it receives, including trees held in reactive state.
+  the tree it receives, including trees held in reactive state. These checks
+  are promised for a result made of data. An accessor or a Proxy on the
+  handler's own answer object is outside the contract, since the handler is
+  script in the page.
 - `UiAiRender` has no `ai` prop. It is a container for agent output, so it
   stands for no entity, value, or action of its own. The structural exemption
   is recorded in `frontend/web/src/ui/ai/targetContract.test.ts`.

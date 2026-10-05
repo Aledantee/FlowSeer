@@ -5,7 +5,7 @@ date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: accept after fixes
 review_rounds: 1
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
@@ -88,6 +88,18 @@ Paths below are relative to `frontend/web/` unless they start with `docs/`.
   its result for arrays and plain objects with data properties. It keeps
   building its copy from allow-listed keys. A case for an accessor, a Proxy,
   or a changed prototype is not part of its tests.
+- **The console defends against malformed data, not against a crafted
+  object.** The registry and the validator promise their behavior for a
+  result made of data. An accessor or a Proxy on the handler's own objects,
+  the answer and its `type`, `text`, `refs`, `summary`, and `ui` keys, is
+  outside the contract: the registry may read such a key more than once,
+  and nothing is promised when two reads disagree. A Requirement that says
+  a value "rejects the whole tree" is read for data. Why: the handler is
+  script in the page and can already change the page and the realm's
+  intrinsics directly, so a check against its own objects protects nothing.
+  Four fix rounds each closed one double read and exposed the next. The
+  clone of `ui` stays, since it is what keeps a handler's later change to
+  an ordinary tree out of the console. (decided by the user, 2026-10-05)
 - **Only the navigate intent exists.** An intent whose `type` is not
   `navigate` rejects the tree. Why: the contract says the API rule "has no
   code" until the console has a service API, and a proposal's shape cannot
@@ -440,16 +452,13 @@ assistant about a device and follow the mock answer's button.
 
 ## Review gaps
 
-An earlier review ended in rework after two fix rounds on how the validator
-reads a live value from the handler. The plan then changed through `plan`,
-and the registry's clone replaced that mechanism. The review of that change
-closed the three renderer findings the earlier review left open. Its fix
-round one closed the three `ui` accessor cases in `prepareSnapshot` and was
-not clean. Two behavior findings hold the verdict, both on the registry
-reading the handler's answer object after `validateAiResult` has read it:
-
-- `frontend/web/src/ai/registry.ts:131`: `prepareSnapshot` reads the answer's `summary` a second time, outside any catch; fails: an answer without `ui` whose `summary` accessor returns `undefined` once and throws afterwards must still be yielded; class: behavior
-- `frontend/web/src/ai/registry.ts:115`: `prepareSnapshot` reads `type` again to choose the summary path, so a Proxy answer that says `summary` on that read is yielded as the handler's own object with its tree uncloned; fails: a Proxy answer whose fourth `type` read is `summary` must not be yielded as the Proxy; class: behavior
+Two reviews ran. The first ended in rework after two fix rounds on how the
+validator reads a live value from the handler, and the plan changed so that
+the registry clones the tree. The second closed the three renderer findings
+the first left open. Its remaining findings were double reads of an accessor
+or a Proxy on the handler's answer object, which the Decision "The console
+defends against malformed data, not against a crafted object" places outside
+the contract. No finding holds the verdict.
 
 Follow-ups, which do not hold the verdict:
 
@@ -476,4 +485,3 @@ Follow-ups, which do not hold the verdict:
 - `frontend/web/src/ai/catalog.ts:392`: the comment says the clone holds "ordinary arrays and objects with data properties only", which is false for a `Date` or typed array, and `frontend/web/README.md:654` says a function rejects the tree without the hidden-key exception; class: convention
 - `frontend/web/src/ai/catalog.ts:118`: the symbol-key checks in `validateQuery` and `hasOnlyKeys`, and the prototype copies at `:286`, `:301`, `:310`, `:317`, cannot fail on a cloned snapshot; class: convention
 - `frontend/web/src/ai/catalog.ts:386`: a value on `Array.prototype` fills an empty slot, and an accessor a handler installs on `Object.prototype` throws past the clone's catch; class: hardening
-- `frontend/web/src/ai/registry.ts:122`: a tree that refers back to its answer makes `structuredClone` read the answer's `ui` accessor again, so "reads `ui` once" in the record and README holds for the registry's own read only; class: hardening

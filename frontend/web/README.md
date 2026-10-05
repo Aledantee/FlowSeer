@@ -660,7 +660,9 @@ The validator rejects unknown components, missing or extra node and prop keys,
 invalid values, unsupported children, invalid entities or navigation targets,
 and trees over 64 nodes, four levels, or 500 characters per string. It copies
 allow-listed data before the renderer binds it. An empty array slot still
-rejects the tree. Proposal intents remain outside the catalog until the
+rejects the tree. These checks are promised for a result made of data. An
+accessor or a Proxy on the handler's own answer object is outside the
+contract, since the handler is script in the page. Proposal intents remain outside the catalog until the
 console has a service API.
 
 An example structured `AiSummary` payload:
