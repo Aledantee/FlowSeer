@@ -37,11 +37,11 @@ type InstancePort struct {
 // TypeID returns the fact type identifier for InstancePort.
 func (p InstancePort) TypeID() string { return "stp.mst.instance_port" }
 
-// Canonical returns the canonical string representation of the InstancePort fact.
+// Canonical returns the canonical string representation of the InstancePort
+// fact. It reads Priority as it stands, so a value that has not been through
+// [Config.Normalize] has not yet inherited the bridge port's priority.
 func (p InstancePort) Canonical() string {
-	return fmt.Sprintf("priority=%d,path_cost=%d",
-		effectivePortPriority(p.Priority, p.PriorityPresent),
-		p.PathCost)
+	return fmt.Sprintf("priority=%d,path_cost=%d", p.Priority, p.PathCost)
 }
 
 // Instance holds the configuration of one Multiple Spanning Tree Instance:
@@ -178,9 +178,8 @@ func effectiveInstancePriority(p uint16, present bool) uint16 {
 // Normalize returns a normalized copy of the MST region configuration,
 // filling MaxHops with 20, each instance's priority with the default bridge
 // priority, and sorting each instance's VLANs. An instance port's priority is
-// left untouched: whether it overrides the CIST port priority is a fact the
-// layer reads from PriorityPresent, and normalization must not manufacture
-// an override no one configured.
+// left untouched: only [Config.Normalize] knows the bridge ports, so it
+// fills the priority an instance port leaves unset.
 func (m MST) Normalize() MST {
 	cloned := m.Clone()
 	cloned.MaxHops = effectiveMaxHops(cloned.MaxHops)
@@ -225,10 +224,10 @@ func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 			Msgf("MST max hops %d is outside 6 through 40", maxHops)
 	}
 
-	// One BPDU carries the CIST and every instance, and its version 3 length
-	// field is 16 bits, so a region with more instances than bpdu.Encode can fit
-	// has no wire form. Refusing it here keeps a configuration that validates
-	// from producing a BPDU that cannot be sent.
+	// One BPDU carries the CIST and every instance, and an MST BPDU holds at
+	// most bpdu.MaxMSTIRecords records, so a region with more instances has no
+	// wire form. Refusing it here keeps a configuration that validates from
+	// producing a BPDU that cannot be sent.
 	if len(m.Instances) > bpdu.MaxMSTIRecords {
 		return errs.New().
 			Attr("field", "mst.instances").

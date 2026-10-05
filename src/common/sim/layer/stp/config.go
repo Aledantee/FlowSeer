@@ -213,13 +213,34 @@ func (c Config) Normalize(_ layer.Env) Config {
 	}
 	if cloned.MST != nil {
 		normalized := cloned.MST.Normalize()
+		for _, inst := range normalized.Instances {
+			inheritPortPriorities(inst.Ports, cloned.Ports)
+		}
 		cloned.MST = &normalized
 	}
 	if cloned.PVST != nil {
 		normalized := cloned.PVST.Normalize(cloned.Priority)
+		for _, tree := range normalized.Trees {
+			inheritPortPriorities(tree.Ports, cloned.Ports)
+		}
 		cloned.PVST = &normalized
 	}
 	return cloned
+}
+
+// inheritPortPriorities gives each instance or VLAN port without a priority
+// of its own the priority of the bridge port of that name, and marks it
+// present. The bridge ports are already normalized. This is the one place the
+// inheritance is resolved: the layer, Canonical, and Diff read the result.
+// The map is edited in place, so the caller passes a copy it owns.
+func inheritPortPriorities(treePorts map[string]InstancePort, bridgePorts map[string]Port) {
+	for name, tp := range treePorts {
+		if !tp.PriorityPresent {
+			tp.Priority = effectivePortPriority(bridgePorts[name].Priority, bridgePorts[name].PriorityPresent)
+		}
+		tp.PriorityPresent = true
+		treePorts[name] = tp
+	}
 }
 
 // defaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the

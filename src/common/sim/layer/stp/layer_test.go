@@ -395,7 +395,9 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 		t.Errorf("ring converged at %v, but expected convergence without forward delay passing", now.Sub(startTime))
 	}
 
-	// Test link-down on sw3 Root port (p1): Alternate (p2) becomes Root with a flush
+	// Test link-down on sw3 Root port (p1): Alternate (p2) becomes Root and
+	// starts forwarding, which is the topology change: p1 is flushed because it
+	// went down, and p2 reports the change toward the root with the flag.
 	fxDown := sw3.LinkChange(now, "p1", false, false, 0)
 	sw3RootID, sw3RootCost, sw3RootPort := sw3.Root()
 	if sw3RootPort != "p2" {
@@ -411,8 +413,13 @@ func TestThreeBridgeRingConvergence(t *testing.T) {
 	if infoP2.Role != bpdu.RoleRoot || infoP2.State != stp.StateForwarding {
 		t.Errorf("sw3 p2 after failover: got role %v, state %v; want Root Forwarding", infoP2.Role, infoP2.State)
 	}
-	if !slices.Contains(flushPorts(fxDown.Flush), "p2") {
-		t.Errorf("sw3 LinkChange flushes: got %v, want flush containing \"p2\"", fxDown.Flush)
+	if got := flushPorts(fxDown.Flush); !slices.Equal(got, []string{"p1"}) {
+		t.Errorf("sw3 LinkChange flushes: got %v, want the downed port \"p1\" alone: the new Root port is the origin of the change", got)
+	}
+	// The convergence above spent p2's transmit budget for this second, so the
+	// report waits for the budget and leaves with the next second's tick.
+	if got := flaggedPorts(t, sw3.Advance(now.Add(time.Second))); !slices.Equal(got, []string{"p2"}) {
+		t.Errorf("sw3 topology change flag on %v, want the new Root port \"p2\" once its budget frees", got)
 	}
 }
 
@@ -695,8 +702,9 @@ func TestLinkDownFlushesPortAndRepeatIsSilent(t *testing.T) {
 	}
 }
 
-// TestTimesInForceFollowTheRoot is evidence that Times reports the root's
-// timer values on a non-root bridge and the bridge's own while it is root.
+// TestTimesInForceFollowTheRoot is evidence that Times reports the root's max
+// age and forward delay on a non-root bridge and the bridge's own while it is
+// root. The hello time is the bridge's own either way.
 func TestTimesInForceFollowTheRoot(t *testing.T) {
 	t.Parallel()
 
@@ -723,8 +731,8 @@ func TestTimesInForceFollowTheRoot(t *testing.T) {
 	if l.BridgeID() != (bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")}) {
 		t.Errorf("BridgeID = %+v", l.BridgeID())
 	}
-	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != 3*time.Second || fwd != 20*time.Second {
-		t.Errorf("times in force = %v %v %v, want the root's 30s 3s 20s", maxAge, hello, fwd)
+	if maxAge, hello, fwd := l.Times(); maxAge != 30*time.Second || hello != stp.DefaultHelloTime || fwd != 20*time.Second {
+		t.Errorf("times in force = %v %v %v, want the root's 30s and 20s around the bridge's own hello %v", maxAge, hello, fwd, stp.DefaultHelloTime)
 	}
 	if info := l.PortInfo("1/1/1"); info.DesignatedRoot != root || info.Priority != stp.DefaultPortPriority {
 		t.Errorf("PortInfo = %+v, want designated root %+v and default priority", info, root)
@@ -1234,9 +1242,12 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 		l.LinkChange(t0, name, true, true, 1_000_000_000)
 	}
 
-	// A TCN on the first port flushes every other port, which is the widest
-	// flush list one call produces.
-	fx := l.Receive(t0.Add(4*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	// Two forward delays open every port and make it active, so a TCN on the
+	// first port flushes every other port, which is the widest flush list one
+	// call produces.
+	l.Advance(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
+	fx := l.Receive(t0.Add(34*time.Second), names[0], bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 
 	want := names[1:]
 	if !slices.Equal(flushPorts(fx.Flush), want) {
@@ -1245,7 +1256,8 @@ func TestTopologyChangeFlushKeepsBridgeGlobalPortOrder(t *testing.T) {
 }
 
 // TestTCNReceiveRaisesTopologyChange is evidence that a legacy Topology
-// Change Notification flushes the other ports and migrates the port.
+// Change Notification on an active port flushes the other active ports,
+// migrates the port, and is acknowledged by the next Configuration BPDU on it.
 func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	t.Parallel()
 
@@ -1257,11 +1269,18 @@ func TestTCNReceiveRaisesTopologyChange(t *testing.T) {
 	}, mustPortTable(t, "1/1/1", "1/1/2"))
 	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(t0, "1/1/2", true, true, 1_000_000_000)
+	l.Advance(t0.Add(15 * time.Second))
+	l.Advance(t0.Add(30 * time.Second))
 
-	fx := l.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	tcn := t0.Add(34 * time.Second)
+	fx := l.Receive(tcn, "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || slices.Contains(got, "1/1/1") {
 		t.Errorf("Flush = %v, want the other port and not the receiving one", fx.Flush)
+	}
+	reply := emittedOn(t, l.Advance(tcn.Add(time.Second)), "1/1/1")
+	if len(reply) != 1 || reply[0].Type != bpdu.TypeConfiguration || !reply[0].TopologyChangeAck() {
+		t.Errorf("reply on the receiving port = %+v, want one Configuration BPDU with the acknowledgment", reply)
 	}
 	if l.PortInfo("1/1/1").SendRSTP {
 		t.Error("a TCN after the migration delay left the port in RSTP mode")
@@ -1442,9 +1461,31 @@ func TestCISTTopologyChangeOnBoundaryPortFlushesEveryInstance(t *testing.T) {
 	l.LinkChange(now, "1/1/1", true, true, 1_000_000_000)
 	l.LinkChange(now, "1/1/2", true, true, 1_000_000_000)
 
+	// A downstream bridge agrees on 1/1/2, which opens it and makes it an
+	// active port, and leaves it in agreement, so a Root port elsewhere can
+	// open at once.
+	localID := bpdu.BridgeID{Priority: 32768, Address: localMAC}
+	downstream := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       localID,
+		RootPathCost: 20_000,
+		BridgeID:     bpdu.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:03")},
+		PortID:       0x8003,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	downstream.SetRole(bpdu.RoleRoot)
+	downstream.SetAgreement(true)
+	l.Receive(now, "1/1/2", downstream)
+	if info := l.PortInfo("1/1/2"); info.State != stp.StateForwarding {
+		t.Fatalf("1/1/2 state = %v, want Forwarding after its peer agreed", info.State)
+	}
+
 	// A foreign-region BPDU marks 1/1/1 a boundary port and, being superior,
 	// elects it Root; point-to-point and synced, it forwards in this same
-	// call, raising the topology change under test.
+	// call, which is the topology change under test.
 	foreignRegion := stp.MST{Name: "region-1", Revision: 2}
 	foreignConfigID := foreignRegion.ConfigID()
 	b := bpdu.BPDU{
@@ -1483,7 +1524,7 @@ type cableLink struct {
 // draining the BPDU queue and advancing every layer's earliest NextWake until
 // two consecutive rounds report the same snapshot with an empty queue. snapshot
 // renders whatever a test needs to see stabilize; the scheduler does not look
-// inside it.
+// inside it. It fails the test when 400 rounds pass without that happening.
 func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables []cableLink, snapshot func() string) time.Time {
 	t.Helper()
 
@@ -1523,12 +1564,14 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 
 	var prevSnapshot string
 	stableRounds := 0
+	converged := false
 
 	for round := 0; round < 400; round++ {
 		current := snapshot()
 		if current == prevSnapshot {
 			stableRounds++
 			if stableRounds >= 2 && len(queue) == 0 {
+				converged = true
 				break
 			}
 		} else {
@@ -1566,6 +1609,7 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 			}
 		}
 		if !hasWake {
+			converged = true
 			break
 		}
 
@@ -1580,6 +1624,10 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 		}
 	}
 
+	if !converged {
+		t.Fatalf("no convergence in 400 rounds; last snapshot %q", prevSnapshot)
+	}
+
 	return now
 }
 
@@ -1588,7 +1636,8 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 // on L1 for MSTI 1 and on L2 for MSTI 2, MSTI 1 roots across L2 and MSTI 2
 // roots across L1, the opposite of each other and of the CIST (which sees no
 // per-instance cost override and roots across whichever link converges
-// first).
+// first). It also checks that each instance's ports are in the state their
+// role earns once the exchange settles, and the run fails if it never does.
 func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 	t.Parallel()
 
@@ -1626,13 +1675,16 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
 	}
 
+	// VLAN 1 belongs to the CIST, VLAN 10 to MSTI 1, and VLAN 20 to MSTI 2.
+	vids := []vlan.ID{1, 10, 20}
 	snapshot := func() string {
 		var b strings.Builder
 		for _, l := range layers {
 			for _, port := range []string{"l1", "l2"} {
-				fmt.Fprintf(&b, "%v/%v/%v/%v;",
-					l.PortInfo(port).Role, l.VLANPortInfo(10, port).Role, l.VLANPortInfo(20, port).Role,
-					l.PortInfo(port).State)
+				for _, vid := range vids {
+					info := l.VLANPortInfo(vid, port)
+					fmt.Fprintf(&b, "%v/%v;", info.Role, info.State)
+				}
 			}
 		}
 		return b.String()
@@ -1640,20 +1692,45 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 
 	convergeLayers(t, start, layers, cables, snapshot)
 
-	msti1 := sw2.VLANPortInfo(10, "l2")
-	if msti1.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
+	type want struct {
+		role     bpdu.Role
+		forwards bool
 	}
-	if got := sw2.VLANPortInfo(10, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
-		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
-	}
+	designated := want{bpdu.RoleDesignated, true}
+	root := want{bpdu.RoleRoot, true}
+	alternate := want{bpdu.RoleAlternate, false}
 
-	msti2 := sw2.VLANPortInfo(20, "l1")
-	if msti2.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
+	// sw1 is the root of every tree. On sw2 the CIST takes l1, MSTI 1 takes
+	// l2 because l1 costs 200000 for it, and MSTI 2 takes l1 because l2 does.
+	expect := []struct {
+		sw    int
+		port  string
+		vid   vlan.ID
+		state want
+	}{
+		{0, "l1", 1, designated},
+		{0, "l1", 10, designated},
+		{0, "l1", 20, designated},
+		{0, "l2", 1, designated},
+		{0, "l2", 10, designated},
+		{0, "l2", 20, designated},
+		{1, "l1", 1, root},
+		{1, "l1", 10, alternate},
+		{1, "l1", 20, root},
+		{1, "l2", 1, alternate},
+		{1, "l2", 10, root},
+		{1, "l2", 20, alternate},
 	}
-	if got := sw2.VLANPortInfo(20, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
-		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
+	for _, e := range expect {
+		l := layers[e.sw]
+		info := l.VLANPortInfo(e.vid, e.port)
+		if info.Role != e.state.role {
+			t.Errorf("sw%d %s VLAN %d role = %v, want %v", e.sw+1, e.port, e.vid, info.Role, e.state.role)
+		}
+		if got := l.Forwards(e.port, e.vid); got != e.state.forwards {
+			t.Errorf("sw%d %s VLAN %d forwards = %v (state %v), want %v",
+				e.sw+1, e.port, e.vid, got, info.State, e.state.forwards)
+		}
 	}
 }
 
@@ -1854,8 +1931,8 @@ func TestInferiorExternalBPDUKeepsStoredInternalInformation(t *testing.T) {
 // mirrors onto every MST instance's own port at the same wake the CIST's
 // fires, rather than waiting for a later LinkChange to carry it across.
 // Without immediate mirroring, an instance stays dark two forward delays longer than the
-// CIST and raises a topology change of its own on becoming an edge,
-// which is the flush auto-edge exists to prevent.
+// CIST and then opens as a non-edge port. That detects a topology change,
+// the flush auto-edge exists to prevent.
 func TestAutoEdgeReachesAnMSTIAtTheSameWake(t *testing.T) {
 	t.Parallel()
 
@@ -2235,8 +2312,8 @@ func TestPVSTVLAN1FlushNamesVLAN1Only(t *testing.T) {
 	l.LinkChange(start, "l1", true, true, 1_000_000_000)
 	l.LinkChange(start, "l2", true, true, 1_000_000_000)
 
-	// l2 reaching Forwarding raises VLAN 1's topology change, which flushes
-	// every other port by VLAN 1's own FID list.
+	// l2 reaching Forwarding detects VLAN 1's topology change, which flushes
+	// every other active port by VLAN 1's own FID list.
 	var target layer.FlushTarget
 	found := false
 	for range 20 {
@@ -2301,9 +2378,9 @@ func TestPVSTPVIDInconsistencyBlocksTheArrivalVLAN(t *testing.T) {
 	if reason := local.VLANPortInfo(20, "l1").BlockReason; reason != "" {
 		t.Errorf("vlan 20 block reason = %q, want empty: the check blocks the arrival VLAN only", reason)
 	}
-	// RxBPDUs is link-on-cist: it is the port's received count, shared by
-	// every VLAN's view, so it moves with the frame that just arrived even
-	// though that frame named VLAN 20 and this snapshot is VLAN 20's own.
+	// RxBPDUs is the link's received count, shared by every VLAN's view, so
+	// it moves with the frame that just arrived even though that frame named
+	// VLAN 20 and this snapshot is VLAN 20's own.
 	vlan20After := local.VLANPortInfo(20, "l1")
 	vlan20Before.RxBPDUs = vlan20After.RxBPDUs
 	if vlan20After != vlan20Before {
@@ -2429,28 +2506,33 @@ func rowSSTPBPDU(t *testing.T, addr string) bpdu.BPDU {
 	return b
 }
 
-// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome verifies the receive outcome order:
-// the link half of a receive — the loop-guard clear
-// above all, since it is the one link property every row here can carry a
-// precondition for — runs whatever the tree half of the same receive goes on
-// to decide. Every row but bpdu-guard preconditions the port loop-inconsistent
-// through real convergence and aging, then asserts the condition is gone
-// after the row's own ReceiveSSTP call, whatever that call's outcome. The
-// bpdu-guard row cannot carry that same precondition: a BPDU-guarded port
-// never reaches the Root, Alternate or Backup role loop guard requires,
-// because the guard disables it on its very first BPDU before any role
-// persists long enough to age. Its assertions are the outcome and the block
-// reason the guard itself leaves, which is the link half's own proof that it
-// ran on that row.
+// TestReceiveSSTPRunsTheLinkHalfForEveryOutcome verifies the receive outcome
+// order: the link half of a receive runs, and roles are recomputed, whatever
+// the tree half of the same receive goes on to decide. Every row but
+// bpdu-guard preconditions the port loop-inconsistent on the CIST (VLAN 1
+// under PVST) through real convergence and aging, then reads what the row's
+// own ReceiveSSTP call left. Outside PVST any BPDU on the port restores the
+// mark, so the pvst-boundary row shows the role recomputed in the same call.
+// Under PVST only a BPDU applied to the tree that armed the mark restores it:
+// the applied row names VLAN 1, and the rows that apply nothing, or apply to
+// VLAN 10, leave VLAN 1 held. The bpdu-guard row cannot carry that same
+// precondition: a BPDU-guarded port never reaches the Root, Alternate or
+// Backup role loop guard requires, because the guard disables it on its very
+// first BPDU before any role persists long enough to age. Its assertions are
+// the outcome and the block reason the guard itself leaves, which is the link
+// half's own proof that it ran on that row.
 func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 
 	cases := []struct {
-		name string
-		l    *stp.Layer
-		want stp.SSTPOutcome
+		name       string
+		l          *stp.Layer
+		arrival    stp.SSTPArrival
+		want       stp.SSTPOutcome
+		wantRole   bpdu.Role
+		wantReason stp.BlockReason
 	}{
 		{
 			name: "applied",
@@ -2460,7 +2542,9 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPApplied,
+			arrival:  stp.SSTPArrival{ArrivalVID: 1, TLVVID: 1, Admitted: true},
+			want:     stp.SSTPApplied,
+			wantRole: bpdu.RoleRoot,
 		},
 		{
 			name: "bpdu-guard",
@@ -2470,7 +2554,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {BPDUGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPGuarded,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true},
+			want:       stp.SSTPGuarded,
+			wantRole:   bpdu.RoleDisabled,
+			wantReason: stp.BlockReasonBPDUGuard,
 		},
 		{
 			name: "pvst-boundary",
@@ -2479,7 +2566,9 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Address:  mustMAC(t, "00:11:22:33:44:03"),
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPBoundary,
+			arrival:  stp.SSTPArrival{ArrivalVID: 20, TLVVID: 20, Admitted: true},
+			want:     stp.SSTPBoundary,
+			wantRole: bpdu.RoleDesignated,
 		},
 		{
 			name: "vlan-not-admitted",
@@ -2489,7 +2578,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPNotAdmitted,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: false},
+			want:       stp.SSTPNotAdmitted,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 		{
 			name: "vlan-untracked",
@@ -2499,7 +2591,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPUntrackedVLAN,
+			arrival:    stp.SSTPArrival{ArrivalVID: 30, TLVVID: 30, Admitted: true},
+			want:       stp.SSTPUntrackedVLAN,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 		{
 			name: "pvid-inconsistent",
@@ -2509,7 +2604,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				Ports:    map[string]stp.Port{"l1": {LoopGuard: true}},
 				PVST:     pvstTrees(nil, 1, 10),
 			}, mustPortTable(t, "l1")),
-			want: stp.SSTPPVIDInconsistent,
+			arrival:    stp.SSTPArrival{ArrivalVID: 10, TLVVID: 20, Admitted: true},
+			want:       stp.SSTPPVIDInconsistent,
+			wantRole:   bpdu.RoleAlternate,
+			wantReason: stp.BlockReasonLoopInconsistent,
 		},
 	}
 
@@ -2525,25 +2623,19 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 				now = establishLoopInconsistent(t, c.l, "l1", t0)
 			}
 
-			arrival := stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}
-			switch c.want {
-			case stp.SSTPBoundary:
-				arrival = stp.SSTPArrival{ArrivalVID: 20, TLVVID: 20, Admitted: true}
-			case stp.SSTPNotAdmitted:
-				arrival.Admitted = false
-			case stp.SSTPUntrackedVLAN:
-				arrival = stp.SSTPArrival{ArrivalVID: 30, TLVVID: 30, Admitted: true}
-			case stp.SSTPPVIDInconsistent:
-				arrival.TLVVID = 20
-			}
-
-			_, outcome := c.l.ReceiveSSTP(now.Add(time.Second), "l1", arrival, rowSSTPBPDU(t, "00:aa:bb:cc:dd:ee"))
+			_, outcome := c.l.ReceiveSSTP(now.Add(time.Second), "l1", c.arrival, rowSSTPBPDU(t, "00:aa:bb:cc:dd:ee"))
 
 			if outcome != c.want {
 				t.Fatalf("outcome = %q, want %q", outcome, c.want)
 			}
-			if reason := c.l.PortInfo("l1").BlockReason; reason == stp.BlockReasonLoopInconsistent {
-				t.Errorf("block reason after the call = %q, want the loop-guard clear to have run", reason)
+			if reason := c.l.PortInfo("l1").BlockReason; reason != c.wantReason {
+				t.Errorf("block reason after the call = %q, want %q", reason, c.wantReason)
+			}
+			// A port the guard held Alternate leaves that role in the same
+			// call when the guard clears, since nothing else wakes it before
+			// the next hello, and keeps it when the guard holds.
+			if role := c.l.PortInfo("l1").Role; role != c.wantRole {
+				t.Errorf("role after the call = %v, want %v: the receive must recompute roles on every outcome", role, c.wantRole)
 			}
 		})
 	}
@@ -2604,15 +2696,14 @@ func TestSSTPOnANonPVSTBridgeRunsTheLinkHalfAndAppliesNoVector(t *testing.T) {
 
 	after := []stp.PortInfo{local.PortInfo("l1"), local.VLANPortInfo(20, "l1")}
 	for i := range before {
-		// The received BPDU counter is the one field that must move: the
-		// frame did arrive, it is what the boundary report rests on.
-		before[i].RxBPDUs = after[i].RxBPDUs
-		if before[i] != after[i] {
-			t.Errorf("tree %d port state changed: got %+v, want %+v", i, after[i], before[i])
+		// The received BPDU counter is the one field that must move, by
+		// exactly the one frame: it did arrive, and it is what the boundary
+		// report rests on.
+		want := before[i]
+		want.RxBPDUs++
+		if after[i] != want {
+			t.Errorf("tree %d port state = %+v, want %+v: only the received BPDU counter moves, by the one frame", i, after[i], want)
 		}
-	}
-	if after[0].RxBPDUs != before[0].RxBPDUs {
-		t.Error("RxBPDUs was not counted for an SSTP BPDU on a non-PVST bridge")
 	}
 
 	guarded := mustNewSTP(t, stp.Config{
@@ -2691,8 +2782,7 @@ func TestPVSTNonVLAN1TreeAcceptsSuperiorLowerCost(t *testing.T) {
 
 // TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs is evidence that VLAN 1's own
 // per-port path cost, applied to the CIST's port state because that slot is
-// VLAN 1's tree, does not carry onto a tree syncInstancePorts otherwise keeps
-// synced to the link-derived cost.
+// VLAN 1's tree, does not carry onto a tree that takes the link's cost.
 func TestPVSTVLAN1PathCostDoesNotLeakToOtherVLANs(t *testing.T) {
 	t.Parallel()
 
@@ -2776,10 +2866,15 @@ func TestPVSTTopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	peer := pvstLayer(t, "00:11:22:33:44:01", 1, 10, 20)
 	peer.LinkChange(start, "l1", true, true, 1_000_000_000)
 
+	// Two forward delays open both of local's ports, so each is an active port
+	// of every VLAN's tree and the change can propagate between them.
+	local.Advance(start.Add(15 * time.Second))
+	local.Advance(start.Add(30 * time.Second))
+
 	// A designated, agreeing BPDU for VLAN 20 with the topology-change flag
-	// set, delivered straight to VLAN 20's tree. The peer's first hello timer
-	// is due at 2s; a wake before that finds nothing to send.
-	now := start.Add(2 * time.Second)
+	// set, delivered straight to VLAN 20's tree. The peer's hello timer has
+	// been due since 2s.
+	now := start.Add(32 * time.Second)
 	var vlan20BPDU bpdu.BPDU
 	for _, em := range peer.Advance(now).Emissions {
 		if em.Frame.Dst == bpdu.GroupAddressSSTP() && em.VID == 20 {
@@ -2852,17 +2947,14 @@ func TestPVSTAlreadyEmittedCheckIsPerVLAN(t *testing.T) {
 	}
 }
 
-// TestMcheckSyncsSendRSTPToEveryTree is evidence that Mcheck's migration
-// check reaches every tree, not just the CIST's own port state. sendRSTP is
-// link-replicated: LinkChange and receiveLink both call syncInstancePorts
-// after writing the CIST's copy, and Mcheck must too, or a PVST bridge that
-// migrated a port back to legacy STP on the CIST alone (a version-0
-// Configuration BPDU past migrateTime) leaves every other VLAN's copy false.
-// That copy gates emission directly: l.emit refuses to send a non-CIST
-// tree's BPDU on a port whose own sendRSTP is false, so a stale copy
-// silences that VLAN on the port until the next link bounce or a fresh RST
-// BPDU, which an Mcheck call is supposed to force immediately.
-func TestMcheckSyncsSendRSTPToEveryTree(t *testing.T) {
+// TestMcheckRestoresSendRSTPOnEveryTree is evidence that Mcheck's migration
+// check reaches every tree. sendRSTP belongs to the link, so a PVST bridge
+// that migrated a port to legacy STP (a version-0 Configuration BPDU past
+// migrateTime) reads false on every VLAN until Mcheck restores it. The flag
+// gates emission directly: l.emit refuses to send a non-CIST tree's BPDU on
+// a port whose sendRSTP is false, which an Mcheck call is supposed to undo
+// immediately.
+func TestMcheckRestoresSendRSTPOnEveryTree(t *testing.T) {
 	t.Parallel()
 
 	t0 := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -2898,7 +2990,7 @@ func TestMcheckSyncsSendRSTPToEveryTree(t *testing.T) {
 		t.Error("after Mcheck: CIST SendRSTP = false, want true")
 	}
 	if !l.VLANPortInfo(10, "l1").SendRSTP {
-		t.Error("after Mcheck: VLAN 10 SendRSTP = false, want true: Mcheck must sync the link-replicated field to every tree, not just the CIST's")
+		t.Error("after Mcheck: VLAN 10 SendRSTP = false, want true: Mcheck must restore the link's flag for every tree")
 	}
 }
 
@@ -2933,13 +3025,12 @@ func TestVLANPortInfoOnAVLANWithNoTreeIsZeroUnderPVST(t *testing.T) {
 	}
 }
 
-// TestEveryReaderOfALinkPropertyReadsTheCISTsCopy verifies that a link-on-cist field
-// answers the same value through every tree's own
-// PortInfo, because every reader resolves it through the CIST rather than
-// through its own copy. BPDU guard firing on a PVST bridge's trunk is what
-// exercises this: the guard and the received-frame counter both live on the
-// CIST alone, and VLAN 10's tree never receives a frame of its own.
-func TestEveryReaderOfALinkPropertyReadsTheCISTsCopy(t *testing.T) {
+// TestEveryTreeReadsTheLinkRecord verifies that a link fact answers the same
+// value through every tree's own PortInfo, because every reader resolves it
+// through the port's one link record. BPDU guard firing on a PVST bridge's
+// trunk is what exercises this: the guard and the received-frame counter
+// both live on the link, and VLAN 10's tree never receives a frame of its own.
+func TestEveryTreeReadsTheLinkRecord(t *testing.T) {
 	t.Parallel()
 
 	start := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -3165,5 +3256,149 @@ func TestRetentionKeyDiffersOnPortSpeed(t *testing.T) {
 	key2 := stp.RetentionKey(cfg, env2)
 	if key1 == key2 {
 		t.Fatalf("RetentionKey() produced identical key %q for different port speeds", key1)
+	}
+}
+
+// TestAnAgreementDoesNotSurviveALinkBounceOnAPVSTTree verifies that a
+// Designated port that earned an agreement on VLAN 10 stays Discarding after
+// its link goes down and up, until the new peer agrees. The agreement was the
+// old peer's, and a port that kept it would forward without a handshake.
+func TestAnAgreementDoesNotSurviveALinkBounceOnAPVSTTree(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		PVST:     pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(t0, "l1", true, true, 1_000_000_000)
+
+	// The peer's vector is worse than this bridge's on VLAN 10, so the port
+	// stays Designated and the agreement is the only thing that opens it.
+	peer := mustMAC(t, "00:aa:bb:cc:dd:01")
+	agreement := bpdu.BPDU{
+		Version:      2,
+		Type:         bpdu.TypeRapid,
+		RootID:       bpdu.BridgeID{Priority: 61440 | 10, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 61440 | 10, Address: peer},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	agreement.SetRole(bpdu.RoleRoot)
+	agreement.SetAgreement(true)
+
+	arrival := stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}
+	if _, outcome := l.ReceiveSSTP(t0.Add(time.Second), "l1", arrival, agreement); outcome != stp.SSTPApplied {
+		t.Fatalf("outcome = %q, want %q", outcome, stp.SSTPApplied)
+	}
+	if info := l.VLANPortInfo(10, "l1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding {
+		t.Fatalf("VLAN 10 before the bounce = %v/%v, want Designated/Forwarding", info.Role, info.State)
+	}
+
+	l.LinkChange(t0.Add(2*time.Second), "l1", false, false, 0)
+	l.LinkChange(t0.Add(3*time.Second), "l1", true, true, 1_000_000_000)
+
+	if info := l.VLANPortInfo(10, "l1"); info.State != stp.StateDiscarding {
+		t.Errorf("VLAN 10 state after the bounce = %v, want Discarding until the new peer agrees", info.State)
+	}
+}
+
+// TestLosingAutoEdgeReturnsEveryTreeToDiscarding verifies that a BPDU arriving
+// on a port auto-edge had opened takes an MST instance's port out of
+// Forwarding along with the CIST's.
+func TestLosingAutoEdgeReturnsEveryTreeToDiscarding(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	region := stp.MST{
+		Name:      "region-1",
+		Instances: map[bpdu.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}},
+	}
+	cid := region.ConfigID()
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "02:00:00:00:00:31"),
+		Ports:    map[string]stp.Port{"1/1/1": {AutoEdge: true}},
+		MST:      &region,
+	}, mustPortTable(t, "1/1/1"))
+
+	l.LinkChange(t0, "1/1/1", true, true, 1_000_000_000)
+	l.Advance(t0.Add(3 * time.Second))
+	if !l.Forwards("1/1/1", 1) || !l.Forwards("1/1/1", 10) {
+		t.Fatalf("test setup: CIST forwards = %v, MSTI forwards = %v, want both after auto-edge",
+			l.Forwards("1/1/1", 1), l.Forwards("1/1/1", 10))
+	}
+
+	// An internal BPDU from a worse bridge: this bridge stays Designated on
+	// both trees, so nothing but the loss of auto-edge can take them down.
+	peer := mustMAC(t, "00:aa:bb:cc:dd:01")
+	l.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{
+		Version:        3,
+		Type:           bpdu.TypeRapid,
+		RootID:         bpdu.BridgeID{Priority: 61440, Address: peer},
+		BridgeID:       bpdu.BridgeID{Priority: 61440, Address: peer},
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		ConfigID:       &cid,
+		RegionalRootID: bpdu.BridgeID{Priority: 61440, Address: peer},
+		RemainingHops:  20,
+	})
+
+	if info := l.PortInfo("1/1/1"); info.Edge || info.State != stp.StateDiscarding {
+		t.Fatalf("CIST after the BPDU = edge %v state %v, want not edge and Discarding", info.Edge, info.State)
+	}
+	if info := l.VLANPortInfo(10, "1/1/1"); info.State != stp.StateDiscarding {
+		t.Errorf("MSTI 1 state after the BPDU = %v, want Discarding", info.State)
+	}
+}
+
+// TestSpeedChangeOnAPortWithoutAFixedCostKeepsItsHandshake verifies that a
+// speed-only LinkChange on a forwarding port whose cost the link derives moves
+// the cost on every tree and sends or resets nothing.
+func TestSpeedChangeOnAPortWithoutAFixedCostKeepsItsHandshake(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:cd"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		PVST:     pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "l1"))
+
+	l.LinkChange(t0, "l1", true, true, 1_000_000_000)
+	const fwdDelay = 15 * time.Second
+	l.Advance(t0.Add(fwdDelay))
+	l.Advance(t0.Add(2 * fwdDelay))
+
+	before := l.PortInfo("l1")
+	if before.State != stp.StateForwarding || before.PathCost != 20_000 {
+		t.Fatalf("test setup: state %v cost %d, want Forwarding and 20000", before.State, before.PathCost)
+	}
+
+	fx := l.LinkChange(t0.Add(3*fwdDelay), "l1", true, true, 10_000_000_000)
+
+	for _, vid := range []vlan.ID{1, 10} {
+		info := l.VLANPortInfo(vid, "l1")
+		if info.PathCost != 2_000 {
+			t.Errorf("VLAN %d path cost after the speed change = %d, want 2000", vid, info.PathCost)
+		}
+		if info.State != stp.StateForwarding {
+			t.Errorf("VLAN %d state after the speed change = %v, want the unchanged Forwarding", vid, info.State)
+		}
+		if info.ForwardTransitions != before.ForwardTransitions {
+			t.Errorf("VLAN %d forward transitions = %d, want the unchanged %d",
+				vid, info.ForwardTransitions, before.ForwardTransitions)
+		}
+	}
+	if len(fx.Emissions) != 0 {
+		t.Errorf("emissions after the speed change = %d, want none: no handshake restarts", len(fx.Emissions))
 	}
 }
