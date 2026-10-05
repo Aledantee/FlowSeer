@@ -1,5 +1,6 @@
 import { validateAiResult } from './validate'
 import type {
+  AiAnswer,
   AiHandler,
   AiRequest,
   AiResult,
@@ -111,17 +112,26 @@ function prepareSnapshot(value: unknown): AiResult {
       ? { type: 'answer', text: value, refs: [] }
       : value
   const validated = validateAiResult(snapshot)
-  if (validated.type !== 'answer' || validated.ui === undefined) {
-    return validated
-  }
+  if (validated.type !== 'answer') return validated
 
+  // The handler's `ui` is read once, and the answer is rebuilt so that no
+  // accessor of the handler's object can answer for `ui` later.
   let ui: unknown
   try {
-    ui = structuredClone(validated.ui)
+    const handlerUi: unknown = validated.ui
+    ui = handlerUi === undefined ? undefined : structuredClone(handlerUi)
   } catch {
     ui = null
   }
-  return { ...validated, ui }
+  const answer: AiAnswer = {
+    type: 'answer',
+    text: validated.text,
+    refs: validated.refs,
+  }
+  const summary = validated.summary
+  if (summary !== undefined) answer.summary = summary
+  if (ui !== undefined) answer.ui = ui
+  return answer
 }
 
 function defaultViewport(): AiViewport {
