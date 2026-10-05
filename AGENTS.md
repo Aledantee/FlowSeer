@@ -89,9 +89,12 @@ no remote. The Claude worktree hook defaults to the sibling
   on request and stops at a staged diff for any policy surface.
   `docs/agent-steering.md` records why they are shaped this way. Where a
   project skill covers the work, it wins over a globally installed plugin
-  or skill of the same kind (compound-engineering's `ce-work` or
-  `ce-code-review`, for example); an external one is for work no project
-  skill covers.
+  or skill of the same kind.
+- Compound Engineering (CE) is blocked in this repository. Do not load,
+  invoke, or delegate to its plugin or skills, including `ce-*` and `lfg`,
+  even when no project skill covers the work. Use project instructions and
+  direct tools for that work. This keeps work in the repository's workflow
+  and records. FlowSeer's own `compound` skill remains available.
 - Auto-memory is off. Record a durable fact in the repository, in the place
   `docs/agent-knowledge.md` names for it.
 - FlowSeer is still building its building blocks and nothing external consumes

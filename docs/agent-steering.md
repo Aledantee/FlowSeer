@@ -139,19 +139,15 @@ doc review into `plan` and `review`, refreshing solutions into
 `compound`, and `land` (first named `close`) covers the merge step that
 otherwise gets repeated by hand.
 
-Steer toward the project skills; do not block the external ones. A
-runtime that cannot see `.claude/skills/` falls back to whatever global
-skill fits, for example the compound-engineering plugin's `ce-work` and
-`ce-code-review`, which write findings in that plugin's format to `/tmp`
-where no later step reads them. The skills therefore live under
-`.agents/skills/`, which every runtime reads, with `.claude/skills/` as a
-link. Disabling the plugin per runtime would also have worked, but
-it hides a plugin that is still useful for work no project skill covers,
-and each new runtime would need its own switch. So `AGENTS.md` says a
-project skill wins where it covers the work, and `delegate`'s brief names
-the skill by path. `.claude/settings.json` still disables the plugin for
-Claude, from before either existed, and `tune`'s bench disables it
-because the plugin's own review stretched a timed run past 100 minutes.
+[`AGENTS.md`](../AGENTS.md), Agent behavior, blocks Compound Engineering
+so work follows the project workflows and leaves records their later steps
+can read. The project skills live under `.agents/skills/`, with
+`.claude/skills/` as a link. The runtime disable settings are
+[`.claude/settings.json`](../.claude/settings.json) and
+[`.codex/config.toml`](../.codex/config.toml). Codex uses the project setting
+in trusted repositories, as its
+[plugin documentation](https://developers.openai.com/plugins/build/plugins#enable-or-disable-a-plugin-for-a-repo)
+describes.
 
 Keep each skill short and specific to this repository. Anthropic's authoring
 guidance caps a `SKILL.md` body at 500 lines and says a skill that restates
