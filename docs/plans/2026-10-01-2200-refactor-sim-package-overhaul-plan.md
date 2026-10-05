@@ -146,7 +146,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 ### U3. Spanning tree to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md
 After: U2
-Landed: `3c4d24d2..c0258bd4`
+Landed:
 Change: `layer/stp` follows IEEE 802.1D and 802.1Q for RSTP, MSTP, and
 legacy interoperation, with link state owned once per port.
 Tests: one failing-first test per inventory entry, and known-bytes BPDU
