@@ -210,8 +210,9 @@ rule, `implement` offers a review and runs none on its own, and
 gate that refuses one-off or derivable lessons, so that `docs/solutions/`
 stays a set of lessons rather than a log of every session.
 
-Drop what the repository cannot use. There is no remote, so pull-request,
-CI-watching, and push skills are inert here. Cross-model review would send
+Drop what the repository cannot use. Work lands on local `main` and the
+remote `origin` only receives it, so pull-request, CI-watching, and push
+skills are inert here. Cross-model review would send
 diffs to an external CLI by default. The skills rely on `git`, `go`, `buf`,
 and the existing agents only.
 

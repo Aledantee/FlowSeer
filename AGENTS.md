@@ -54,8 +54,9 @@ Binding on humans and agents equally; each doc states its own scope.
 
 On a protected branch in the primary checkout, enter a session worktree (short
 task-shaped name) before the first edit; read-only exploration is fine.
-Worktrees live outside the repository and branch off local `HEAD` — the repo has
-no remote. The Claude worktree hook defaults to the sibling
+Worktrees live outside the repository and branch off local `HEAD`, never off
+a remote branch. The repository has one remote, `origin`, and no skill
+fetches from it or pushes to it: work lands on local `main`. The Claude worktree hook defaults to the sibling
 `worktrees/<repo>/` directory.
 
 ## Agent behavior
