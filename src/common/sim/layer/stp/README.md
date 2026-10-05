@@ -346,6 +346,47 @@ the layer sends its high nibble.
 
 [unh-mstp]: https://www.iol.unh.edu/sites/default/files/testsuites/bfc/MSTP_conformance.pdf
 
+[d2009]: https://www.ieee802.org/1/files/public/docs2009/aq-seaman-merged-spanning-tree-protocols-0509.pdf
+
+## Proposal and agreement
+
+The CIST and every MSTI run the same two rules, so an instance's Designated
+port opens in the exchange that opens the CIST's.
+
+A proposal is acted on only when the message conveys a Designated role
+([P802.1aq/D1.5][d2009] 13.29.20, a working draft). The published text tests
+for a point-to-point link instead ([Q2003][q2003] 13.26.13), and the draft's
+later wording wins here. A Root or Alternate port that is proposed to blocks
+the other Designated ports of that tree and answers with the Agreement flag.
+A Root port that is then in sync starts forwarding.
+
+An agreement is recorded by one rule ([Q2003][q2003] 13.26.9 and 13.26.10).
+The port agrees when the link is point-to-point, the port sends RSTP, the
+message carries the Agreement flag, and it conveys one of:
+
+- a Root, Alternate, or Backup role with a vector the same as or worse than
+  the port's own
+- a Designated role with a vector the same as or better
+
+Any other message the rule is run for clears the flag, so a shared link, a
+port in STP mode, and a Designated sender with a worse vector all leave the
+port Discarding until the forward-delay ladder opens it. The layer keeps the
+flag only on a port that is Designated when the message arrives. A port that
+becomes Designated later proposes again.
+
+An MSTI record carries its tree's Proposal and Agreement flags in the bits the
+CIST uses. A record's agreement is recorded only when the CIST message of the
+same BPDU names the CIST root, external cost, and regional root the port holds
+(13.26.10 a). A record's proposal has no such condition (13.26.14). A port
+facing another region receives no records, so each MSTI takes the CIST's
+agreement (13.26.9) and is proposed to when the CIST is (13.26.13).
+
+An answer carries every tree's agreement. The Agreement flag is set on the
+CIST and on each MSTI record whose port is Alternate, Backup, or a Root port
+in sync.
+
+[Not modeled](#not-modeled) lists the one case where an answer is lost.
+
 ## Multiple spanning tree instances (MSTP)
 
 A region is a name (32 octets at most), a 16-bit revision, and a digest,
@@ -450,6 +491,11 @@ configured ports, and resolved physical link speeds. `vswitch.Derive` retains th
 runtime layer only when both keys match and rebuilds it otherwise.
 
 ## Not modeled
+
+- An agreement the transmit budget held back is released only when the CIST
+  port is Root or Alternate. An answer that only an MSTI owed, with the CIST
+  port Designated, is dropped when the budget is spent, and the peer's
+  proposal repeats it.
 
 - 802.1D spanning tree per VLAN, and the PVST inconsistency states other than
   the PVID check: type inconsistency, and port-VLAN-ID mismatch on an access

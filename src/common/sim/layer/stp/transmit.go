@@ -9,12 +9,42 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
+// emissionKind says why a BPDU is sent, which decides whether it carries
+// agreement flags. A proposal flag follows the port and tree it describes,
+// whatever the reason.
 type emissionKind uint8
 
 const (
+	// emissionDesignated is a hello or a proposal from a Designated port.
 	emissionDesignated emissionKind = iota
+	// emissionAgreement answers a proposal. Every tree whose port is Root or
+	// Alternate, and in sync, carries the Agreement flag.
 	emissionAgreement
 )
+
+// proposes reports whether the port asks its peer to agree: a Designated
+// port that is blocked, has no agreement, and sends RSTP on a point-to-point
+// link.
+func proposes(lk *linkRecord, p *portState) bool {
+	return p.role == bpdu.RoleDesignated && lk.pointToPoint && lk.sendRSTP &&
+		p.state == StateDiscarding && !p.agreed
+}
+
+// agrees reports whether a Root or Alternate port of tree t can tell its peer
+// that it is in sync. An Alternate or Backup port blocks, so it is in sync by
+// construction. A Root port is in sync when every other Designated port of the
+// tree is blocked or has an agreement of its own.
+func (l *Layer) agrees(t *tree, p *portState) bool {
+	switch p.role {
+	case bpdu.RoleAlternate, bpdu.RoleBackup:
+		return true
+	case bpdu.RoleRoot:
+		return l.isSynced(t, p.name)
+	case bpdu.RoleDisabled, bpdu.RoleDesignated:
+	}
+
+	return false
+}
 
 func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
 	// SSTP has no legacy shape: bpdu.EncodeSSTP forces a version of at least 2 and
@@ -38,16 +68,7 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 	}
 
 	if tx.count < int(l.txHoldCount) {
-		var msg bpdu.BPDU
-		switch kind {
-		case emissionDesignated:
-			proposal := lk.pointToPoint && p.state == StateDiscarding && !p.agreed && lk.sendRSTP
-			msg = l.makeBPDU(t, p, now, proposal)
-		case emissionAgreement:
-			msg = l.makeAgreementBPDU(t, p, now)
-		}
-
-		built, err := l.frames(t, p, msg)
+		built, err := l.frames(t, p, l.makeBPDU(t, p, now, kind))
 		if err != nil {
 			// MST.Validate rejects a region with more instances than one
 			// BPDU can carry, so this is unreachable for a Layer built
@@ -153,9 +174,12 @@ func (l *Layer) instanceRemainingHops(t *tree) uint8 {
 // internal cost, and per-instance bridge and port priority. It is called only
 // while building the CIST's own BPDU: an MST bridge always emits its MSTI
 // records alongside the CIST, on every up port, boundary ports included,
-// because a port is classified internal or external only on reception.
-func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord {
+// because a port is classified internal or external only on reception. Each
+// record carries its own tree's Proposal flag, and its Agreement flag when
+// the BPDU answers a proposal.
+func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind) []bpdu.MSTIRecord {
 	var recs []bpdu.MSTIRecord
+	lk := l.link(p.name)
 
 	for _, id := range l.treeOrder {
 		if id == cistID {
@@ -183,6 +207,8 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 		if !mt.topologyChangeTimer.IsZero() && mt.topologyChangeTimer.After(now) {
 			flags.SetTopologyChange(true)
 		}
+		flags.SetProposal(proposes(lk, mp))
+		flags.SetAgreement(kind == emissionAgreement && l.agrees(mt, mp))
 
 		recs = append(recs, bpdu.MSTIRecord{
 			MSTID:                mstid,
@@ -198,8 +224,9 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord
 	return recs
 }
 
-func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bpdu.BPDU {
-	sendRSTP := l.link(p.name).sendRSTP
+func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, kind emissionKind) bpdu.BPDU {
+	lk := l.link(p.name)
+	sendRSTP := lk.sendRSTP
 	var msgAge time.Duration
 	maxAge, hello, fwdDelay := l.times(t)
 
@@ -228,14 +255,14 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 	if !sendRSTP {
 		b.Version = 0
 		b.Type = bpdu.TypeConfiguration
-		proposal = false
 	} else {
 		b.Version = 2
 		b.Type = bpdu.TypeRapid
+		b.SetProposal(proposes(lk, p))
+		b.SetAgreement(kind == emissionAgreement && l.agrees(t, p))
 	}
 
 	b.SetRole(p.role)
-	b.SetProposal(proposal)
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
 	if !t.topologyChangeTimer.IsZero() && t.topologyChangeTimer.After(now) {
@@ -256,21 +283,8 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, proposal bool) bp
 		b.RegionalRootID = t.regionalRootID
 		b.InternalRootPathCost = t.internalRootPathCost
 		b.RemainingHops = l.instanceRemainingHops(t)
-		b.MSTIs = l.gatherMSTIRecords(now, p)
+		b.MSTIs = l.gatherMSTIRecords(now, p, kind)
 	}
-
-	return b
-}
-
-func (l *Layer) makeAgreementBPDU(t *tree, p *portState, now time.Time) bpdu.BPDU {
-	b := l.makeBPDU(t, p, now, false)
-	b.SetRole(p.role)
-	if l.link(p.name).sendRSTP {
-		b.SetAgreement(true)
-	}
-	b.SetProposal(false)
-	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
-	b.SetForwarding(p.state == StateForwarding)
 
 	return b
 }

@@ -1483,7 +1483,7 @@ type cableLink struct {
 // draining the BPDU queue and advancing every layer's earliest NextWake until
 // two consecutive rounds report the same snapshot with an empty queue. snapshot
 // renders whatever a test needs to see stabilize; the scheduler does not look
-// inside it.
+// inside it. It fails the test when 400 rounds pass without that happening.
 func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables []cableLink, snapshot func() string) time.Time {
 	t.Helper()
 
@@ -1523,12 +1523,14 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 
 	var prevSnapshot string
 	stableRounds := 0
+	converged := false
 
 	for round := 0; round < 400; round++ {
 		current := snapshot()
 		if current == prevSnapshot {
 			stableRounds++
 			if stableRounds >= 2 && len(queue) == 0 {
+				converged = true
 				break
 			}
 		} else {
@@ -1566,6 +1568,7 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 			}
 		}
 		if !hasWake {
+			converged = true
 			break
 		}
 
@@ -1580,6 +1583,10 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 		}
 	}
 
+	if !converged {
+		t.Fatalf("no convergence in 400 rounds; last snapshot %q", prevSnapshot)
+	}
+
 	return now
 }
 
@@ -1588,7 +1595,8 @@ func convergeLayers(t *testing.T, start time.Time, layers []*stp.Layer, cables [
 // on L1 for MSTI 1 and on L2 for MSTI 2, MSTI 1 roots across L2 and MSTI 2
 // roots across L1, the opposite of each other and of the CIST (which sees no
 // per-instance cost override and roots across whichever link converges
-// first).
+// first). It also checks that each instance's ports are in the state their
+// role earns once the exchange settles, and the run fails if it never does.
 func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 	t.Parallel()
 
@@ -1626,13 +1634,16 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 		{swA: 0, portA: "l2", swB: 1, portB: "l2"},
 	}
 
+	// VLAN 1 belongs to the CIST, VLAN 10 to MSTI 1, and VLAN 20 to MSTI 2.
+	vids := []vlan.ID{1, 10, 20}
 	snapshot := func() string {
 		var b strings.Builder
 		for _, l := range layers {
 			for _, port := range []string{"l1", "l2"} {
-				fmt.Fprintf(&b, "%v/%v/%v/%v;",
-					l.PortInfo(port).Role, l.VLANPortInfo(10, port).Role, l.VLANPortInfo(20, port).Role,
-					l.PortInfo(port).State)
+				for _, vid := range vids {
+					info := l.VLANPortInfo(vid, port)
+					fmt.Fprintf(&b, "%v/%v;", info.Role, info.State)
+				}
 			}
 		}
 		return b.String()
@@ -1640,20 +1651,45 @@ func TestMSTInstancesSelectIndependentRoots(t *testing.T) {
 
 	convergeLayers(t, start, layers, cables, snapshot)
 
-	msti1 := sw2.VLANPortInfo(10, "l2")
-	if msti1.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 1 on l2 = %v, want Root (l1 costs 200000 for MSTI 1)", msti1.Role)
+	type want struct {
+		role     bpdu.Role
+		forwards bool
 	}
-	if got := sw2.VLANPortInfo(10, "l1").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
-		t.Errorf("sw2 MSTI 1 on l1 = %v, want Alternate or Designated, not Root", got)
-	}
+	designated := want{bpdu.RoleDesignated, true}
+	root := want{bpdu.RoleRoot, true}
+	alternate := want{bpdu.RoleAlternate, false}
 
-	msti2 := sw2.VLANPortInfo(20, "l1")
-	if msti2.Role != bpdu.RoleRoot {
-		t.Errorf("sw2 MSTI 2 on l1 = %v, want Root (l2 costs 200000 for MSTI 2)", msti2.Role)
+	// sw1 is the root of every tree. On sw2 the CIST takes l1, MSTI 1 takes
+	// l2 because l1 costs 200000 for it, and MSTI 2 takes l1 because l2 does.
+	expect := []struct {
+		sw    int
+		port  string
+		vid   vlan.ID
+		state want
+	}{
+		{0, "l1", 1, designated},
+		{0, "l1", 10, designated},
+		{0, "l1", 20, designated},
+		{0, "l2", 1, designated},
+		{0, "l2", 10, designated},
+		{0, "l2", 20, designated},
+		{1, "l1", 1, root},
+		{1, "l1", 10, alternate},
+		{1, "l1", 20, root},
+		{1, "l2", 1, alternate},
+		{1, "l2", 10, root},
+		{1, "l2", 20, alternate},
 	}
-	if got := sw2.VLANPortInfo(20, "l2").Role; got != bpdu.RoleAlternate && got != bpdu.RoleDesignated {
-		t.Errorf("sw2 MSTI 2 on l2 = %v, want Alternate or Designated, not Root", got)
+	for _, e := range expect {
+		l := layers[e.sw]
+		info := l.VLANPortInfo(e.vid, e.port)
+		if info.Role != e.state.role {
+			t.Errorf("sw%d %s VLAN %d role = %v, want %v", e.sw+1, e.port, e.vid, info.Role, e.state.role)
+		}
+		if got := l.Forwards(e.port, e.vid); got != e.state.forwards {
+			t.Errorf("sw%d %s VLAN %d forwards = %v (state %v), want %v",
+				e.sw+1, e.port, e.vid, got, info.State, e.state.forwards)
+		}
 	}
 }
 
