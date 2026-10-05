@@ -5,8 +5,8 @@ date: 2026-10-05
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
-review_rounds: 1
+review: rework
+review_rounds: 2
 execution: mixed
 amends: docs/architecture/2026-09-28-web-component-contract-direction.md
 parent: docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md
@@ -339,15 +339,30 @@ assistant about a device and follow the mock answer's button.
 - The mock answer carries no `ui` for a device whose id does not make a page
   path (`src/ai/mock.ts`). The unit text did not name that case.
 
+- Review, two rounds: what `validateAiUiTree` defends against is undecided,
+  and Requirements 2 and 3 cannot be judged for exotic input until it is.
+  The handler is script in the page ("Input and trust", Out of scope), so
+  it can change the realm's intrinsics whatever the validator reads. Two
+  designs follow. The validator checks plain data and treats an accessor, a
+  Proxy, or a hidden key as outside the contract. Or the tree is validated
+  once where the handler's snapshot enters (`src/ai/registry.ts`,
+  `generateSnapshots`), before reactive state holds it, and the renderer
+  receives the checked copy or an error marker. The second touches the
+  Decision "The tree enters as `AiAnswer.ui`", which reads decided by the
+  user.
+
 ## Review gaps
 
-Fix round one closed the own-`map` and uncopied-fallback findings and was not
-clean. Three behavior findings hold the verdict, all on reads of an exotic
-input array or object:
+Two fix rounds ran and neither was clean, both on one mechanism: how the
+validator reads a live value from the handler. Round two replaced the
+per-read checks with one `structuredClone` and closed the changing-length,
+inherited-slot, and escaping-exception findings. Four behavior findings
+hold the verdict:
 
-- `frontend/web/src/ai/catalog.ts:386`: `validateNodes` compares the index with a `length` it does not check, so a Proxy whose `length` is an object with a changing `valueOf` ends the loop early; fails: a two-node Proxy tree whose second node names `div` must throw; class: behavior
-- `frontend/web/src/ai/catalog.ts:387`: an index read follows the prototype chain, so a node on the array's prototype fills an empty own slot; fails: `new Array(1)` whose prototype holds a valid node at `0` must throw; class: behavior
-- `frontend/web/src/ai/catalog.ts:392`: an exception thrown by an input accessor or Proxy trap leaves `validateAiUiTree` as thrown; fails: a node whose `component` getter throws must produce `Error(AI_UI_ERROR_MESSAGE)`; class: behavior
+- `frontend/web/src/ai/catalog.ts:399`: the clone drops non-enumerable and symbol-keyed own properties before the key allow-list sees them; fails: a `UiBadge` whose props carry a non-enumerable `onClick` must throw; class: behavior
+- `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` unwraps the root only, so a plain tree holding a reactive node, props object, or children array shows the error state; fails: `[{ component: 'UiBadge', props: reactive({ text: 'Ready' }) }]` must render; class: behavior
+- `frontend/web/src/ui/ai/UiAiRender.vue:52`: the computed reads the raw tree and tracks no nested dependency; fails: setting `tree.value[0].props.text` on a mounted reactive tree must change the rendered text; class: behavior
+- `frontend/web/src/ui/ai/UiAiRender.vue:52`: `toRaw` follows a `__v_raw` property on any object, so the renderer validates the tree that property names; fails: an array holding a `div` node with `__v_raw` set to a valid tree must show the error state; class: behavior
 
 Follow-ups, which do not hold the verdict:
 
@@ -371,3 +386,6 @@ Follow-ups, which do not hold the verdict:
 - `frontend/web/src/ui/ai/UiAiRender.stories.ts:117`: `LongText` covers `UiEmptyState` only, while `UiBadge`, `UiButton`, and `UiAiEntityChip` are `whitespace-nowrap` and take 500 characters; class: convention
 - `frontend/web/src/ai/catalog.ts:61`: an empty `text` on `UiButton` or `label` on `UiMeter` passes and renders a control with no accessible name; class: hardening
 - `frontend/web/src/ui/ai/UiAiEntityChip.vue:60`: a catalog chip calls `go` without the scope merge the button uses, so a device chip keeps page-local keys and a site chip drops `tenant`; class: hardening
+- `frontend/web/src/ai/catalog.ts:392`: the comment says the clone holds "ordinary arrays and objects with data properties only", which is false for a `Date` or typed array, and `frontend/web/README.md:654` says a function rejects the tree without the hidden-key exception; class: convention
+- `frontend/web/src/ai/catalog.ts:118`: the symbol-key checks in `validateQuery` and `hasOnlyKeys`, and the prototype copies at `:286`, `:301`, `:310`, `:317`, cannot fail on a cloned snapshot; class: convention
+- `frontend/web/src/ai/catalog.ts:386`: a value on `Array.prototype` fills an empty slot, and an accessor a handler installs on `Object.prototype` throws past the clone's catch; class: hardening
