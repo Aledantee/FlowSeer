@@ -471,6 +471,23 @@ describe('request snapshots and AiRun', () => {
     expect(results2).toEqual([snap1, snap2])
   })
 
+  it('passes an answer UI value through unchanged', async () => {
+    const registry = createAiRegistry()
+    const node = element()
+    const t = target('a:devices:device:d1')
+    registry.register(node, t)
+    const ui = 42
+
+    registry.onRequest(async () => ({ ...sampleAnswer, ui }))
+    const run = registry.request(t, { action: 'ask' })
+    const snapshots: AiAnswer[] = []
+    for await (const snapshot of run.snapshots) {
+      snapshots.push(snapshot as AiAnswer)
+    }
+
+    expect(snapshots[0]?.ui).toBe(ui)
+  })
+
   it('ends the run with an error when an invalid snapshot is returned', async () => {
     const registry = createAiRegistry()
     const node = element()

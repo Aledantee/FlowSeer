@@ -66,9 +66,27 @@ export interface AiAnswer {
   text: string
   refs: AiEntityRef[]
   summary?: AiSummary
+  // The renderer validates this untrusted tree with validateAiUiTree.
+  ui?: unknown
 }
 
 export type AiResult = AiSummary | AiAnswer
+
+export interface AiUiNode {
+  component: string
+  props: Record<string, unknown>
+  children?: AiUiNode[]
+}
+
+export interface AiUiNavigateIntent {
+  type: 'navigate'
+  target: {
+    path?: string
+    query?: Record<string, string>
+  }
+}
+
+export type AiUiIntent = AiUiNavigateIntent
 
 export interface AiTarget {
   id: string
