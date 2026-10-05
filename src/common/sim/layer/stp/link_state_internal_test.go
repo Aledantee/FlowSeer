@@ -136,6 +136,45 @@ func TestLinkDownClearsHandshakeStateOnEveryTree(t *testing.T) {
 	}
 }
 
+// TestLosingAutoEdgeProposesAgainOnEveryTree verifies that a port that loses
+// auto-edge status drops every tree's agreement, so each tree is Discarding
+// and proposing. A tree that kept its agreement would not propose, and the
+// next recompute would open it again without a handshake.
+func TestLosingAutoEdgeProposesAgainOnEveryTree(t *testing.T) {
+	t.Parallel()
+
+	t0 := time.Unix(1_000_000, 0)
+	for name, l := range handshakeLayers(t, false) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			l.LinkChange(t0, "p1", true, true, 1_000_000_000)
+			lk := l.link("p1")
+			lk.edge = true
+			for _, id := range l.treeOrder {
+				p := l.trees[id].ports["p1"]
+				if p.role != bpdu.RoleDesignated {
+					t.Fatalf("tree %d role = %v, want Designated before the edge is lost", id, p.role)
+				}
+				p.state = StateForwarding
+				p.agreed = true
+			}
+
+			l.loseAutoEdge(lk, "p1")
+
+			for _, id := range l.treeOrder {
+				p := l.trees[id].ports["p1"]
+				if p.state != StateDiscarding {
+					t.Errorf("tree %d state = %v, want Discarding", id, p.state)
+				}
+				if !proposes(lk, p) {
+					t.Errorf("tree %d does not propose (agreed %v, proposing %v), want a new proposal", id, p.agreed, p.proposing)
+				}
+			}
+		})
+	}
+}
+
 // TestBPDUGuardClearsHandshakeStateOnEveryTree verifies that the frame that
 // fires BPDU guard clears the same state on every tree as a link down does.
 func TestBPDUGuardClearsHandshakeStateOnEveryTree(t *testing.T) {

@@ -304,8 +304,10 @@ func (l *Layer) receiveLink(now time.Time, p *portState, b bpdu.BPDU, flushes *[
 // loseAutoEdge returns the named port to Discarding and proposing on every
 // tree. A Designated port that already forwards keeps its state through
 // recompute, so each tree must be sent back here or only the CIST would
-// stop forwarding. The port was an edge, so it was in no tree's active
-// topology and leaving Forwarding raises no topology change.
+// stop forwarding. Each tree also drops its agreement: a port that keeps one
+// does not propose, and recompute would open it again. The port was an edge,
+// so it was in no tree's active topology and leaving Forwarding raises no
+// topology change.
 func (l *Layer) loseAutoEdge(lk *linkRecord, name string) {
 	for _, id := range l.treeOrder {
 		mt := l.trees[id]
@@ -315,6 +317,7 @@ func (l *Layer) loseAutoEdge(lk *linkRecord, name string) {
 		}
 		tp.state = StateDiscarding
 		tp.fwdDelayTimer = time.Time{}
+		tp.agreed = false
 		tp.proposing = lk.pointToPoint && lk.sendRSTP
 	}
 }

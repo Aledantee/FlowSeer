@@ -162,8 +162,13 @@ func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 
 // times returns the timers in force for one tree. Max age and forward delay
 // follow the root (P802.1aq/D1.5 13.28.9 and 13.29.33 f, draft text), and the
-// hello time is the bridge's own.
+// hello time is the bridge's own. Outside PVST an MSTI runs on the CIST's
+// times: an MSTI record carries no timers, and 13.28.9 takes FwdDelay from the
+// CIST's designatedTimes. A PVST VLAN's tree stores its own root's.
 func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
+	if l.pvst == nil {
+		t = l.cist()
+	}
 	if t.rootPort != "" {
 		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
 			return rp.rcvMaxAge, l.helloTime, rp.rcvForwardDelay

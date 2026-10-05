@@ -116,7 +116,8 @@ func (l *Layer) answerProposals(t *tree, p *portState, now time.Time, b bpdu.BPD
 
 // syncOnProposal blocks the other Designated ports of tree t when its Root or
 // Alternate port p is proposed to, so that p can agree, and opens a Root port
-// that is now in sync. It reports whether p is a port that agrees.
+// that is now in sync. An MSTI leaves a boundary port alone, since that port's
+// state follows the CIST's. It reports whether p is a port that agrees.
 func (l *Layer) syncOnProposal(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) bool {
 	if p.role != bpdu.RoleRoot && p.role != bpdu.RoleAlternate {
 		return false
@@ -128,7 +129,7 @@ func (l *Layer) syncOnProposal(t *tree, p *portState, now time.Time, flushes *[]
 			continue
 		}
 		otherLk := l.link(otherName)
-		if otherP.role != bpdu.RoleDesignated || otherLk.edge {
+		if otherP.role != bpdu.RoleDesignated || otherLk.edge || (t.id != cistID && otherLk.external) {
 			continue
 		}
 		otherP.agreed = false

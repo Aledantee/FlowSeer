@@ -1,6 +1,7 @@
 package stp_test
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -190,6 +191,73 @@ func TestForwardDelayLadderStepsByTheRootsForwardDelay(t *testing.T) {
 	}
 	if info := step(8 * time.Second); info.State != stp.StateForwarding {
 		t.Errorf("state at 8s = %v, want Forwarding after a second Forward Delay", info.State)
+	}
+}
+
+// TestMSTIForwardDelayLadderStepsByTheCISTsTimes pins that an MSTI's ladder
+// steps by the CIST's Forward Delay on a bridge that is not the regional root.
+// An MSTI record carries no timers, so the MSTI's Root port has none of its
+// own to read (P802.1aq/D1.5 13.28.9, draft text: FwdDelay is the Forward
+// Delay component of the CIST's designatedTimes). A port that comes up with no
+// peer climbs MSTI 1's ladder in step with the CIST's.
+func TestMSTIForwardDelayLadderStepsByTheCISTsTimes(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	region := func() *stp.MST {
+		return &stp.MST{Name: "region-1", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{
+			1: {VLANs: []vlan.ID{10}},
+		}}
+	}
+	root := mustNewSTP(t, stp.Config{
+		Priority: 4096,
+		Address:  mustMAC(t, "00:11:22:33:44:01"),
+		Ports:    map[string]stp.Port{"l1": {}},
+		MST:      region(),
+	}, mustPortTable(t, "l1"))
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768,
+		Address:  mustMAC(t, "00:11:22:33:44:02"),
+		Ports:    map[string]stp.Port{"l1": {}, "p3": {}},
+		MST:      region(),
+	}, mustPortTable(t, "l1", "p3"))
+
+	layers := []*stp.Layer{root, l}
+	cables := []cableLink{{swA: 0, portA: "l1", swB: 1, portB: "l1"}}
+	snapshot := func() string {
+		cist, msti := l.VLANPortInfo(1, "l1"), l.VLANPortInfo(10, "l1")
+		return fmt.Sprintf("%v/%v %v/%v", cist.Role, cist.State, msti.Role, msti.State)
+	}
+	t0 := convergeLayers(t, start, layers, cables, snapshot)
+	if info := l.VLANPortInfo(10, "l1"); info.Role != bpdu.RoleRoot {
+		t.Fatalf("MSTI 1 l1 role = %v, want Root before the peerless port comes up", info.Role)
+	}
+
+	l.LinkChange(t0, "p3", true, true, 1_000_000_000)
+
+	for _, c := range []struct {
+		at   time.Duration
+		want stp.State
+	}{
+		{0, stp.StateDiscarding},
+		{14 * time.Second, stp.StateDiscarding},
+		{15 * time.Second, stp.StateLearning},
+		{29 * time.Second, stp.StateLearning},
+		{30 * time.Second, stp.StateForwarding},
+	} {
+		now := t0.Add(c.at)
+		for _, sw := range layers {
+			for w, ok := sw.NextWake(); ok && !w.After(now); w, ok = sw.NextWake() {
+				sw.Advance(w)
+			}
+			sw.Advance(now)
+		}
+		if got := l.VLANPortInfo(1, "p3").State; got != c.want {
+			t.Fatalf("CIST p3 state at +%v = %v, want %v", c.at, got, c.want)
+		}
+		if got := l.VLANPortInfo(10, "p3").State; got != c.want {
+			t.Errorf("MSTI 1 p3 state at +%v = %v, want %v in step with the CIST", c.at, got, c.want)
+		}
 	}
 }
 
