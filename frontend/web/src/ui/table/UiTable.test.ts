@@ -1,6 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick, ref } from 'vue'
+import { createApp, h, nextTick, ref, type Component } from 'vue'
+import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
+import preview from '../../../.storybook/preview'
+import * as stories from './UiTable.stories'
 import UiTable from './UiTable.vue'
 import UiTableHeader from './UiTableHeader.vue'
 import UiTableBody from './UiTableBody.vue'
@@ -12,6 +15,8 @@ import { createAiRegistry } from '../../ai'
 import { createWebI18n, type WebLocale } from '../../i18n'
 import { aiRegistryKey } from '../ai/context'
 import UiScrollArea from '../scroll-area/UiScrollArea.vue'
+
+setProjectAnnotations(preview)
 
 let dispose = () => {}
 afterEach(() => {
@@ -312,5 +317,34 @@ describe('UiTable row targets', () => {
       'dev-4',
     ])
     expect(registry.idForElement(removed as HTMLElement)).toBeUndefined()
+  })
+})
+
+describe('UiTable Default story', () => {
+  it('lists its four device rows as targets inside the scroll viewport', async () => {
+    const { Default } = composeStories(stories)
+    const host = document.createElement('div')
+    document.body.append(host)
+    const app = createApp(Default as Component)
+    app.use(createWebI18n('en'))
+    app.mount(host)
+    dispose = () => app.unmount()
+    await nextTick()
+    await nextTick()
+
+    const viewport = host.querySelector('[data-reka-scroll-area-viewport]')
+    expect(viewport).not.toBeNull()
+    const rows = [...host.querySelectorAll('tbody tr')]
+    expect(rows).toHaveLength(4)
+    for (const row of rows) expect(viewport?.contains(row)).toBe(true)
+    const targets = (window.flowseerAi?.listTargets() ?? []).filter(
+      (target) => target.kind === 'device',
+    )
+    expect(targets.map((target) => target.label)).toEqual([
+      'edge-router-01',
+      'core-switch-02',
+      'access-point-03',
+      'firewall-gw-04',
+    ])
   })
 })
