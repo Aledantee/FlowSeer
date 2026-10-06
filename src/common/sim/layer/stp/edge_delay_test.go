@@ -213,18 +213,19 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 							log(now, fmt.Sprintf("Mcheck %s", port))
 							l.Mcheck(now, port)
 						case 7:
-							if mode == "mstp" {
+							switch mode {
+							case "mstp":
 								b := edgeTestBPDU(t, 4096, bpdu.RoleDesignated, true, false)
 								cid := cfg.MST.ConfigID()
 								b.Version, b.ConfigID, b.RegionalRootID, b.RemainingHops = 3, &cid, b.RootID, 20
 								b.MSTIs = []bpdu.MSTIRecord{{MSTID: 1, RegionalRootID: b.RootID, RemainingHops: 20}}
 								log(now, fmt.Sprintf("Receive %s MST with MSTI", port))
 								l.Receive(now, port, b)
-							} else if mode == "pvst" {
+							case "pvst":
 								b := edgeTestBPDU(t, 4096, bpdu.RoleDesignated, true, false)
 								log(now, fmt.Sprintf("ReceiveSSTP %s VLAN 10", port))
 								l.ReceiveSSTP(now, port, stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, b)
-							} else {
+							default:
 								log(now, "Advance")
 								l.Advance(now)
 							}
