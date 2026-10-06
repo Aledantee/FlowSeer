@@ -1627,3 +1627,15 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
+- Parked by drive: the second closing round fixed the sync's frame request,
+  and each of its three mutations now fails a test. Its fix for an MSTI
+  agreement on a port that turns Designated in the call runs the CIST
+  election early in `applyBPDU`, and the re-review found that this changes
+  the timers a port that does not send RSTP reads for `tcWhile`. The work
+  is on `parked/sim-p3-review`. Options: take the early election out, keep
+  the rule for a port that stays Designated, and record the mid-call case
+  as a limit (returns `applyBPDU` to the order reviewed before, one
+  re-review) | fix the timer read and keep the early election (keeps the
+  mid-call rule, patches the path that just broke) | accept now with the
+  defect recorded. Recommended: take the early election out, because it is
+  the change that caused the defect and the case it serves is narrow.
