@@ -1601,3 +1601,13 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
+- Parked by drive: the review of U1 to U15 ended `fixes needed` after three
+  fix rounds and a gap pass. No behavior finding from the rounds is open.
+  Six Review gaps items remain that no sequence of exported calls shows,
+  and three questions need a decision: the CIST test of an MSTI agreement
+  on a port that stays Designated, the proposal of a port a sync cuts, and
+  bridge detection behavior that predates the phase. The work is on
+  `parked/sim-p3-review`. Options: decide the three, run one closing round,
+  and accept unless it finds a behavior defect or a false test | accept
+  now with all of it recorded. Recommended: decide and close, because two
+  of the three let a port forward where the standard holds it.
