@@ -23,6 +23,8 @@ func (l *Layer) transmit(now time.Time, emissions *[]layer.Emission) {
 			link := l.links[name]
 			tx := l.tx(t, name)
 			if !link.up || link.bpduGuardDisabled {
+				tx.newInfo = true
+				tx.newInfoMsti = true
 				tx.count = 0
 				tx.tick = time.Time{}
 				tx.helloWhen = time.Time{}

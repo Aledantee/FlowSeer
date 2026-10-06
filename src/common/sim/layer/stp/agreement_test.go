@@ -249,6 +249,10 @@ func TestMSTIAgreementIsJudgedAfterTheCISTIsStored(t *testing.T) {
 		)
 		l.Receive(now, "p1", base)
 
+		if info := l.VLANPortInfo(10, "p1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+			t.Fatalf("MSTI before inferior agreement = %+v, want Designated/Discarding", info)
+		}
+		base.BridgeID.Address = mustMAC(t, "00:bb:cc:dd:ee:ff")
 		base.SetAgreement(true)
 		base.MSTIs[0].Flags = agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true).Flags
 		l.Receive(now.Add(time.Second), "p1", base)

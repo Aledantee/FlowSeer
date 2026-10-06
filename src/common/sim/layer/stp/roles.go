@@ -271,7 +271,8 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
 					l.detectTopologyChange(t, p, now, flushes)
 				}
-			} else if oldState == StateForwarding && p.state != StateForwarding {
+			}
+			if link.edge || (p.role != bpdu.RoleRoot && p.role != bpdu.RoleDesignated) {
 				l.deactivatePort(t, p, flushes)
 			}
 
@@ -316,8 +317,6 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
 				l.detectTopologyChange(t, p, now, flushes)
 			}
-		} else if oldState == StateForwarding && p.state != StateForwarding {
-			l.deactivatePort(t, p, flushes)
 		}
 	}
 }

@@ -8,19 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// receiveMSTIs stores the MSTI records an internal BPDU carries into each
-// named instance's port state, one instance at a time by the same
-// same-source-or-superior rule the CIST uses, and carries each record's own
-// topology change bit into that instance the way Receive carries the CIST's:
-// unconditionally, not gated on superiority, since a change notification is
-// evidence about the fabric rather than a claim this port might reject. A
-// record for an instance this bridge does not configure is ignored: the
-// fabric's bridges are not required to share the same instance set. The
-// designated bridge and port a record implies reuse the sending bridge's own
-// address and the CIST port identifier's index half, since MSTI bridge and
-// port identifiers differ from the CIST's only in their priority nibble
-// (clause 13.7).
-func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget) {
+func (l *Layer) syncTree(t *tree, rootPort string) {
 	for _, otherName := range l.portNames {
 		if otherName == rootPort {
 			continue
@@ -37,11 +25,7 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 			otherP.agreed = false
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
 			if otherP.state != StateDiscarding {
-				wasFwd := otherP.state == StateForwarding
 				otherP.state = StateDiscarding
-				if wasFwd {
-					l.deactivatePort(t, otherP, flushes)
-				}
 			}
 			if t.id == cistID && l.mst != nil && l.boundary(otherName) {
 				for _, id := range l.treeOrder {
@@ -58,9 +42,6 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 					if mp.state != otherP.state {
 						mp.state = otherP.state
 						mp.fwdDelayTimer = time.Time{}
-						if otherP.state != StateForwarding {
-							l.deactivatePort(mt, mp, flushes)
-						}
 					}
 				}
 			}
@@ -69,7 +50,7 @@ func (l *Layer) syncTree(t *tree, rootPort string, flushes *[]layer.FlushTarget)
 }
 
 func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
-	l.syncTree(t, p.name, flushes)
+	l.syncTree(t, p.name)
 	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 		if p.state != StateForwarding {
 			p.state = StateForwarding
@@ -114,6 +95,18 @@ func (l *Layer) cistPortVector(p *portState) priorityVector {
 	return rawVector(cist, p, link.external)
 }
 
+// receiveMSTIs stores the MSTI records an internal BPDU carries into each
+// named instance's port state, one instance at a time by the same
+// same-source-or-superior rule the CIST uses, and carries each record's own
+// topology change bit into that instance the way Receive carries the CIST's:
+// unconditionally, not gated on superiority, since a change notification is
+// evidence about the fabric rather than a claim this port might reject. A
+// record for an instance this bridge does not configure is ignored: the
+// fabric's bridges are not required to share the same instance set. The
+// designated bridge and port a record implies reuse the sending bridge's own
+// address and the CIST port identifier's index half, since MSTI bridge and
+// port identifiers differ from the CIST's only in their priority nibble
+// (clause 13.7).
 func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVec priorityVector, flushes *[]layer.FlushTarget) []bpdu.MSTID {
 	link := l.links[port]
 	cistConsistent := b.RootID == heldCISTVec.rootID &&
@@ -538,9 +531,11 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	l.recomputeAll(now, flushes)
 
-	if l.answerProposals(t, p, link, b, mstiProposals, now, flushes) {
-		l.requestNewInfo(t, p)
-	} else if p.role == bpdu.RoleDesignated && !b.Agreement() {
+	answered := l.answerProposals(t, p, link, b, mstiProposals, now, flushes)
+	for _, answeredTree := range answered {
+		l.requestNewInfo(answeredTree, answeredTree.ports[p.name])
+	}
+	if len(answered) == 0 && p.role == bpdu.RoleDesignated && !b.Agreement() {
 		if compareVectors(incoming, designatedVector(t, p, link.external)) > 0 {
 			l.requestNewInfo(t, p)
 		}
@@ -548,7 +543,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 }
 
 func (l *Layer) propagateReceivedTC(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, now time.Time, flushes *[]layer.FlushTarget) {
-	if b.TopologyChangeAck() && p.role == bpdu.RoleRoot {
+	if b.Type == bpdu.TypeConfiguration && b.TopologyChangeAck() && p.role == bpdu.RoleRoot {
 		p.tcWhile = time.Time{}
 	}
 	if b.TopologyChange() && !p.cfg.RestrictedTCN && p.tcActive {
@@ -598,10 +593,10 @@ func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now
 	}
 }
 
-func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) bool {
-	answered := false
+func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) []*tree {
+	var answered []*tree
 	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
-		answered = true
+		answered = append(answered, t)
 		l.handleProposal(t, p, link, now, flushes)
 		if l.mst != nil && link.external {
 			for _, id := range l.treeOrder {
@@ -611,6 +606,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 				}
 				if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
 					l.handleProposal(mt, mp, link, now, flushes)
+					answered = append(answered, mt)
 				}
 			}
 		}
@@ -619,7 +615,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 		if mt, ok := l.trees[treeID(mstid)]; ok {
 			if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
 				l.handleProposal(mt, mp, link, now, flushes)
-				answered = true
+				answered = append(answered, mt)
 			}
 		}
 	}

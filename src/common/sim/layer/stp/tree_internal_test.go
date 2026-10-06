@@ -750,8 +750,8 @@ func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-	if !l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}) {
-		t.Fatal("CIST proposal was not answered")
+	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}); len(answered) != 1 || answered[0] != l.cist() {
+		t.Fatalf("proposal answered %d trees, want only the CIST", len(answered))
 	}
 
 	if got := l.trees[treeID(10)].ports["p1"].state; got != StateDiscarding {
@@ -1104,10 +1104,39 @@ func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
 		t.Fatalf("boundary activation state=%v active=%t changes=%d, want Forwarding/true/1", mstiP.state, mstiP.tcActive, msti.topologyChangeCount)
 	}
 
-	cistP.state = StateDiscarding
+	timer := mstiP.tcWhile
+	flushes = nil
+	cistP.tcActive = true
+	cistP.tcWhile = timer
+	cistP.tcAck = true
+	l.syncTree(l.cist(), "upstream")
+	if !cistP.tcActive || cistP.tcWhile != timer || !cistP.tcAck {
+		t.Errorf("CIST sync cut active=%t timer=%v ack=%t, want true/%v/true", cistP.tcActive, cistP.tcWhile, cistP.tcAck, timer)
+	}
 	l.recompute(msti, now.Add(time.Second), &flushes)
-	if mstiP.state != StateDiscarding || mstiP.tcActive || !mstiP.tcWhile.IsZero() {
-		t.Errorf("boundary deactivation state=%v active=%t timer=%v, want Discarding/false/zero", mstiP.state, mstiP.tcActive, mstiP.tcWhile)
+	if mstiP.state != StateDiscarding || !mstiP.tcActive || mstiP.tcWhile != timer || len(flushes) != 0 {
+		t.Errorf("boundary cut state=%v active=%t timer=%v flush=%v, want Discarding/true/%v/empty", mstiP.state, mstiP.tcActive, mstiP.tcWhile, flushes, timer)
+	}
+	cistP.state = StateForwarding
+	l.recompute(msti, now.Add(2*time.Second), &flushes)
+	if msti.topologyChangeCount != 1 || mstiP.tcWhile != timer {
+		t.Errorf("boundary resume changes=%d timer=%v, want 1/%v", msti.topologyChangeCount, mstiP.tcWhile, timer)
+	}
+	cistP.state = StateDiscarding
+	l.recompute(msti, now.Add(2500*time.Millisecond), &flushes)
+	if mstiP.state != StateDiscarding || !mstiP.tcActive || mstiP.tcWhile != timer || len(flushes) != 0 {
+		t.Errorf("boundary state mirror active=%t timer=%v flush=%v, want true/%v/empty", mstiP.tcActive, mstiP.tcWhile, flushes, timer)
+	}
+	cistP.state = StateForwarding
+	l.recompute(msti, now.Add(2750*time.Millisecond), &flushes)
+	if msti.topologyChangeCount != 1 || mstiP.tcWhile != timer {
+		t.Errorf("boundary mirror resume changes=%d timer=%v, want 1/%v", msti.topologyChangeCount, mstiP.tcWhile, timer)
+	}
+	cistP.role = bpdu.RoleAlternate
+	cistP.state = StateDiscarding
+	l.recompute(msti, now.Add(3*time.Second), &flushes)
+	if mstiP.tcActive || !mstiP.tcWhile.IsZero() || len(flushes) != 1 {
+		t.Errorf("boundary role loss active=%t timer=%v flush=%v, want false/zero/one", mstiP.tcActive, mstiP.tcWhile, flushes)
 	}
 }
 
