@@ -196,11 +196,17 @@ guessing which side is right lands a phase twice. A round takes the phases its l
 its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
-one phase that can run (not a `next: land` line): it says which run at once and how they split the cap. When a phase's branch
-conflicts with one already merged, run `git merge --abort` and send the
-branch back to a worker: join the phase's worktree with a lane whose brief
-merges this branch's `HEAD` and resolves the conflict there, then run the
-"After the last stage" list again.
+one phase that can run (not a `next: land` line): it says which run at once
+and how they split the cap. When a phase's branch conflicts with one already
+merged, run `git merge --abort` and send the branch back to a worker. The
+phase's last stage left its lane live. Because `start --join` refuses while a
+lane has a live terminal and `stop` requires a grade event, grade the
+still-live lane `--outcome accepted --verify none` and stop it with
+`--keep-worktree` before the join, both as "After each stage" item 4 spells
+them. Join the phase's worktree with a lane whose brief merges this branch's
+`HEAD` and resolves the conflict there. The lane that resolves the conflict is
+the plan's last lane for items 4 and 5 of "After the last stage". Run that
+list again.
 
 A landed phase records its implementation range with
 `.claude/skills/plan/scripts/plan_record.py implemented <phase> ... --landed <first>..<last>`. A phase in
