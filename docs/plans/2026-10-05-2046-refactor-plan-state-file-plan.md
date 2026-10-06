@@ -382,24 +382,9 @@ python3 .claude/skills/plan/scripts/plan_record.py check
 
 ## Review gaps
 
-Open follow-ups from the first review and fix round 1 (`41997872`). None of
-them holds the verdict.
+Open follow-ups after two fix rounds and the follow-up pass. None of them
+holds the verdict. Each needs a change the pass may not make.
 
-- .agents/skills/plan/scripts/plan_record.py:298: return early for `superseded` as well as `planned`; fails: a parent stored as `superseded` with a retired phase that carries a range must read `superseded`; class: gap
-- .agents/skills/plan/scripts/plan_record.py:391: catch only `OSError` in the rollback; fails: a `retire` whose `git rm` fails must leave the parent's state unchanged; class: gap
-- .agents/skills/next/scripts/plan-queue.py:150: `not review or state["compound"] is None` to `not review`; fails: an implemented plan on a branch with an accepted review and no compound outcome must read `unchecked`; class: gap
-- .agents/skills/next/scripts/plan-queue.py:157: the partial-status and ledger condition to `False`; fails: a partially implemented plan, and a planned plan the ledger names, must read `in-progress`; class: gap
-- .agents/skills/next/scripts/plan-queue.py:74: `plans_in` accepts only `.state.json` paths; fails: a finished plan with only a Markdown edit on a branch must read `land`; class: gap
-- .agents/skills/next/scripts/plan-queue.py:140: `state["phases"] or state["retired"]` to `state["phases"]`; fails: a parent this branch changed whose phases are all retired must stay out of the queue; class: gap
-- .agents/skills/drive/scripts/plan-state.py:56: remove the compound branch; fails: a phase with an accepted review and no compound outcome must read `compound`; class: gap
-- .agents/skills/drive/scripts/plan-state.py:46: `if waiting and state["status"] != "implemented"`; fails: an implemented phase whose prerequisite is still planned must read `waits for`; class: gap
-- .agents/skills/verify-change/scripts/check-plan-status.py:134: `landed = retired.get(prerequisite)` to `None`; fails: a phase whose prerequisite is retired with a range in this tree must pass; class: gap
-- .agents/skills/next/scripts/plan-queue.py:27: "a parent whose phases have all landed reads implemented"; it reads so once no phase is on disk and a retired one carries a range; class: convention
+- .agents/skills/verify-change/scripts/check-plan-status.py:134: `landed = retired.get(prerequisite)` to `None`; fails: a phase whose prerequisite is retired with a range in this tree must pass; class: gap. Its test belongs in `tools/hooks/tests/run.sh`, a policy surface
 - .agents/skills/next/scripts/plan-queue.py:88: `read_plans`, `describe`, and `queue` each have one caller, as does `retired_stage` in plan-state.py:27; class: convention
 - .agents/skills/plan/scripts/plan_record.py:535: a ledger delete that fails after the state reset leaves the reset state beside the old ledger; class: hardening
-- .agents/skills/review/SKILL.md:250: `<verdict>` and `<outcome>` are unquoted here and in fix-loop.md:201, missing-checkpoint.md:19, compound/SKILL.md:38, and docs/README.md:41, so `fixes needed` splits into two arguments; class: convention
-- .agents/skills/implement/SKILL.md:182: a semicolon in prose, as in drive/SKILL.md:137, land/SKILL.md:38, next/SKILL.md:41 and :55, and docs/agent-steering.md:352 and :913; class: convention
-- .agents/skills/next/SKILL.md:31: the `waiting` row names a prerequisite's open review or compound outcome and leaves out its own unfinished prerequisite; fails: a phase after an accepted, compounded phase whose own prerequisite reads `fixes needed` reads `waiting`, not `ready`; class: convention
-- .agents/skills/plan/references/phases.md:29: "`ledger.py` and the queue's unit count read `### U` headings"; `ledger.py` reads no headings, only `plan-queue.py` does; class: convention
-- docs/README.md:48: "The parent stays computed as `planned` until the last phase lands"; it stays so until the last phase retires; class: convention
-- .agents/skills/land/SKILL.md:47: "one `key: value` line each" beside "the last line for a key wins" at :50; class: convention
