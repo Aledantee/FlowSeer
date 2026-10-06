@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-shell-to-python-port-changes-empty-variables-and-line-breaks.md",
   "outcome": {
     "units": 5,
     "from": "2026-10-06T17:56:26Z",

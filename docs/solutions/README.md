@@ -100,3 +100,4 @@ a solution override an accepted architecture record or binding convention.
 Add a solution only after the behavior and lesson have been verified. Keep its
 frontmatter specific enough that an agent can reject unrelated documents
 without reading their full bodies.
+| [A Shell-to-Python Port Changes How Empty Variables and Carriage Returns Behave](conventions/a-shell-to-python-port-changes-empty-variables-and-line-breaks.md) | Porting a shell script that reads `${NAME:-default}` to Python, porting a shell pipeline to `subprocess` in text mode with line splitting, or reviewing a ported script whose tests cover only the unset variable and the plain line feed. |
