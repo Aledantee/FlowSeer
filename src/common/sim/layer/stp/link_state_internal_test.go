@@ -182,7 +182,7 @@ func TestBlockReasonReadsTheTreesOwnMark(t *testing.T) {
 	pvst := newLayer(Config{
 		Priority: 32768,
 		Address:  netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02},
-		Ports:    map[string]Port{"p1": {}},
+		Ports:    map[string]Port{"p1": {LoopGuard: true}},
 		PVST: &PVST{Trees: map[vlan.ID]Tree{
 			1:  {},
 			10: {},
@@ -190,20 +190,23 @@ func TestBlockReasonReadsTheTreesOwnMark(t *testing.T) {
 	}.Normalize(layer.Env{}))
 	pvst.LinkChange(t0, "p1", true, true, 1_000_000_000)
 	pvst.Receive(t0.Add(time.Second), "p1", peer)
-	pvst.ReceiveSSTP(t0.Add(time.Second), "p1", SSTPArrival{
-		ArrivalVID: 10,
-		TLVVID:     10,
-		Admitted:   true,
-	}, peer)
-	pvst.cist().ports["p1"].loopInconsistent = true
-	var flushes []layer.FlushTarget
-	pvst.recomputeAll(t0.Add(2*time.Second), &flushes)
-
-	if got := pvst.PortInfo("p1"); got.Role != bpdu.RoleAlternate || got.BlockReason != BlockReasonLoopInconsistent {
-		t.Fatalf("CIST port info = %+v, want Alternate/loop-inconsistent", got)
+	arrival := SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}
+	for _, second := range []int{1, 3, 5, 7} {
+		pvst.Advance(t0.Add(time.Duration(second) * time.Second))
+		if _, outcome := pvst.ReceiveSSTP(t0.Add(time.Duration(second)*time.Second), "p1", arrival, peer); outcome != SSTPApplied {
+			t.Fatalf("VLAN 10 refresh at %ds = %v, want applied", second, outcome)
+		}
 	}
-	if got := pvst.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.BlockReason != "" {
-		t.Fatalf("VLAN 10 port info = %+v, want Root with no loop-guard reason", got)
+	for _, second := range []int{7, 9} {
+		if second == 9 {
+			pvst.ReceiveSSTP(t0.Add(9*time.Second), "p1", arrival, peer)
+		}
+		if got := pvst.PortInfo("p1"); got.Role != bpdu.RoleAlternate || got.BlockReason != BlockReasonLoopInconsistent {
+			t.Fatalf("CIST at %ds = %+v, want Alternate/loop-inconsistent", second, got)
+		}
+		if got := pvst.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.BlockReason != "" {
+			t.Fatalf("VLAN 10 at %ds = %+v, want Root with no loop-guard reason", second, got)
+		}
 	}
 
 	mst := newLayer(Config{
@@ -216,7 +219,7 @@ func TestBlockReasonReadsTheTreesOwnMark(t *testing.T) {
 	}.Normalize(layer.Env{}))
 	mst.LinkChange(t0, "p1", true, true, 1_000_000_000)
 	mst.cist().ports["p1"].loopInconsistent = true
-	flushes = nil
+	var flushes []layer.FlushTarget
 	mst.recomputeAll(t0.Add(time.Second), &flushes)
 
 	if got := mst.instancePortInfo(1, "p1"); got.BlockReason != BlockReasonLoopInconsistent {
@@ -276,13 +279,17 @@ func TestHeldTCNIsNotReleasedOnAnRSTPPort(t *testing.T) {
 	tx.newInfo = true
 	tx.tick = now
 
-	for _, emission := range l.Advance(now.Add(time.Second)).Emissions {
+	effects := l.Advance(now.Add(time.Second))
+	if len(effects.Emissions) != 1 || effects.Emissions[0].Port != "p1" {
+		t.Fatalf("released request emissions = %+v, want one on p1", effects.Emissions)
+	}
+	for _, emission := range effects.Emissions {
 		decoded, err := bpdu.Decode(emission.Frame)
 		if err != nil {
 			t.Fatalf("decode emission: %v", err)
 		}
-		if decoded.Type == bpdu.TypeTopologyChangeNotification {
-			t.Errorf("held TCN was released on an RSTP port: %+v", decoded)
+		if decoded.Type != bpdu.TypeRapid {
+			t.Errorf("released request type = %v, want Rapid", decoded.Type)
 		}
 	}
 }
@@ -301,6 +308,9 @@ func TestPointToPointChangeDeactivatesAnActivePort(t *testing.T) {
 	p.tcWhile = now.Add(time.Minute)
 
 	fx := l.LinkChange(now.Add(time.Second), "p1", true, false, 1_000_000_000)
+	if len(fx.Emissions) != 1 || fx.Emissions[0].Port != "p1" {
+		t.Fatalf("point-to-point reset emissions = %+v, want one on p1", fx.Emissions)
+	}
 	if p.tcActive || !p.tcWhile.IsZero() {
 		t.Errorf("point-to-point change left topology state active=%t timer=%v", p.tcActive, p.tcWhile)
 	}
@@ -464,5 +474,105 @@ func TestAnMSTIDoesNotElectThroughAGuardDisabledPort(t *testing.T) {
 	}
 	if mt.rootPort != "" {
 		t.Errorf("MSTI 1 root port = %q, want empty", mt.rootPort)
+	}
+}
+
+func TestDisabledTransmitRecordsHoldBothRequests(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	for _, guarded := range []bool{false, true} {
+		l := newLayer(Config{
+			Ports: map[string]Port{"p1": {BPDUGuard: guarded}},
+			PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+		}.Normalize(layer.Env{}))
+		check := func(stage string) {
+			t.Helper()
+			for key, tx := range l.portTx {
+				if !tx.newInfo || !tx.newInfoMsti || tx.count != 0 {
+					t.Errorf("%s guarded=%t record %v = %+v, want both requests and zero count", stage, guarded, key, tx)
+				}
+			}
+		}
+		check("construction")
+		l.Advance(now)
+		check("disabled pass")
+		for _, tx := range l.portTx {
+			tx.newInfo = false
+			tx.newInfoMsti = false
+			tx.count = 4
+			tx.tick = now.Add(time.Second)
+			tx.helloWhen = now.Add(time.Second)
+		}
+		l.resetTransmit("p1")
+		check("transmit initialization")
+		for _, tx := range l.portTx {
+			if !tx.tick.IsZero() || !tx.helloWhen.IsZero() {
+				t.Errorf("initialization left timers = %v/%v, want zero", tx.tick, tx.helloWhen)
+			}
+		}
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		if guarded {
+			l.Receive(now.Add(time.Second), "p1", bpdu.BPDU{Type: bpdu.TypeRapid})
+		} else {
+			l.LinkChange(now.Add(time.Second), "p1", false, true, 0)
+		}
+		check("reset")
+		l.Advance(now.Add(2 * time.Second))
+		check("reset pass")
+	}
+}
+
+func TestAutoEdgeLossRestartsProposalsOnEveryTree(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	region := MST{Name: "region", Instances: map[bpdu.MSTID]Instance{
+		1: {VLANs: []vlan.ID{10}},
+		2: {VLANs: []vlan.ID{20}},
+	}}
+	l := newLayer(Config{Ports: map[string]Port{"p1": {AutoEdge: true}}, MST: &region}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.Advance(now.Add(migrateTime))
+	if !l.links["p1"].edge {
+		t.Fatal("p1 did not become an auto-edge port")
+	}
+
+	peer := bpdu.BPDU{
+		Version: 3, Type: bpdu.TypeRapid,
+		RootID:   bpdu.BridgeID{Priority: 61440, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		BridgeID: bpdu.BridgeID{Priority: 61440, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		PortID:   0x8001, HelloTime: 2 * time.Second, MaxAge: 20 * time.Second,
+		ForwardDelay: 15 * time.Second, RemainingHops: 20,
+	}
+	id := region.ConfigID()
+	peer.ConfigID = &id
+	peer.SetRole(bpdu.RoleRoot)
+	l.Receive(now.Add(4*time.Second), "p1", peer)
+	if l.links["p1"].edge {
+		t.Fatal("received BPDU left p1 in auto-edge mode")
+	}
+	for _, id := range l.treeOrder {
+		if !l.trees[id].ports["p1"].proposing {
+			t.Errorf("tree %d did not propose after auto-edge loss", id)
+		}
+	}
+}
+
+func TestHeldRSTPRequestReleasesAtHoldCountOne(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{TxHoldCount: 1, Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))
+	if effects := l.LinkChange(now, "p1", true, true, 1_000_000_000); len(effects.Emissions) != 1 {
+		t.Fatalf("link-up emissions = %d, want one", len(effects.Emissions))
+	}
+	if effects := l.Mcheck(now.Add(500*time.Millisecond), "p1"); len(effects.Emissions) != 0 {
+		t.Fatalf("held request emitted before tick: %+v", effects.Emissions)
+	}
+	effects := l.Advance(now.Add(time.Second))
+	if len(effects.Emissions) != 1 || effects.Emissions[0].Port != "p1" {
+		t.Fatalf("released request emissions = %+v, want one on p1", effects.Emissions)
+	}
+	frame, err := bpdu.Decode(effects.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode released request: %v", err)
+	}
+	if frame.Type != bpdu.TypeRapid {
+		t.Fatalf("released request type = %v, want Rapid", frame.Type)
 	}
 }

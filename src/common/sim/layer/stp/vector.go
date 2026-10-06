@@ -67,7 +67,7 @@ func compareVectors(a, b priorityVector) int {
 // candidateVector builds the priority vector port p offers tree t towards
 // root election, from its received information and its own path cost. A CIST
 // port adds the cost to the external or the internal slot depending on
-// whether it is a boundary port; an MSTI port always adds it to the internal
+// whether it is a boundary port. An MSTI port always adds it to the internal
 // slot and mirrors rootID from regionalRootID, which is clause 13.11's MSTI
 // vector order (see priorityVector).
 func candidateVector(t *tree, p *portState, external bool) priorityVector {
