@@ -32,12 +32,8 @@ func (l *Layer) NextWake() (time.Time, bool) {
 			if p.rcvInfoValid {
 				update(p.rcvTime.Add(3 * p.rcvHelloTime))
 			}
-			// The edge delay is due only on a port that can still become an
-			// edge, or a wake would be scheduled that changes nothing.
-			link := l.links[p.name]
-			if p.cfg.AutoEdge && !link.edge && link.up && link.sendRSTP && p.role == bpdu.RoleDesignated &&
-				p.state == StateDiscarding && link.pointToPoint && p.proposing {
-				update(link.edgeDelayWhile)
+			if id == cistID && l.edgeDelayPending(p.name) {
+				update(l.links[p.name].edgeDelayWhile)
 			}
 			if l.pvst == nil && id != cistID {
 				continue
@@ -103,14 +99,10 @@ func (l *Layer) expireReceivedInfo(now time.Time) bool {
 }
 
 func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) bool {
-	t := l.cist()
 	autoEdgeFired := false
 	for _, name := range l.portNames {
-		p := t.ports[name]
 		link := l.links[name]
-		if p.cfg.AutoEdge && link.sendRSTP && link.up && p.role == bpdu.RoleDesignated &&
-			p.state == StateDiscarding && link.pointToPoint && p.proposing &&
-			!link.edgeDelayWhile.IsZero() && !link.edgeDelayWhile.After(now) {
+		if l.edgeDelayPending(name) && !link.edgeDelayWhile.After(now) {
 			link.edge = true
 			link.edgeDelayWhile = time.Time{}
 			for _, id := range l.treeOrder {
@@ -129,6 +121,14 @@ func (l *Layer) advanceAutoEdge(now time.Time, flushes *[]layer.FlushTarget) boo
 	}
 
 	return autoEdgeFired
+}
+
+func (l *Layer) edgeDelayPending(name string) bool {
+	p := l.cist().ports[name]
+	link := l.links[name]
+	return p != nil && p.cfg.AutoEdge && link.up && !link.edge && link.sendRSTP &&
+		link.pointToPoint && p.role == bpdu.RoleDesignated && p.state == StateDiscarding &&
+		p.proposing && !link.edgeDelayWhile.IsZero()
 }
 
 func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget) bool {

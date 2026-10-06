@@ -718,7 +718,7 @@ func caseTopologyShadowingMSTRegionBoundary() Case {
 	hitOnL2 := expectedFact("bridge.fdb_decision", `fid=10;mac="02:00:00:00:04:11";present=true;port="l2";static=true`)
 
 	// gateBlocksL2 is the CIST's own answer for l2 (Alternate, Discarding),
-	// which MSTI 1 (mstid=1) reports outright on the boundary port instead of
+	// which MSTI 1 (tree_id=1) reports outright on the boundary port instead of
 	// the role its own path cost override, ignored here, would have elected.
 	gateBlocksL2 := expectedFact("stp.forwarding_decision",
 		`port="l2";vid=10;state={tree_kind="MSTI";tree_id=1;role="Alternate";state="Discarding";block_reason="";priority=128;`+

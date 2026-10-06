@@ -344,10 +344,10 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time) bpdu.BPDU {
 		p.tcAck = false
 	}
 
-	// Only the CIST drives transmission (see recomputeAll), so this is also the
-	// one place that attaches the region's configuration identifier and every
-	// instance's MSTI record. t is always the CIST here. The MST shape is
-	// version 3, so it is withheld on a port that has migrated to legacy STP
+	// Under MSTP only the CIST drives transmission, so this attaches the
+	// region's configuration identifier and every instance's MSTI record.
+	// PVST builds a separate BPDU for each VLAN and never enters this branch.
+	// The MST shape is version 3, so it is withheld on a port that has migrated to legacy STP
 	// (sendRSTP false, which already forced Version 0 and Configuration
 	// above): bpdu.Encode picks the MST shape whenever ConfigID is set regardless
 	// of Version and Type, and a legacy peer needs a Configuration BPDU, not

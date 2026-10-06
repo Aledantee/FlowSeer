@@ -2680,8 +2680,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 // interceptSSTP handles a frame addressed to the per-VLAN BPDU group. Unlike
 // an IEEE-addressed BPDU, an SSTP BPDU means nothing without the VLAN it
 // arrived on: the tree it belongs to is chosen by that VLAN, and the check
-// that the peer agrees about the link compares it with the VLAN the BPDU
-// itself names.
+// that the peer agrees about the link compares it with the VLAN named by a
+// Configuration or RST BPDU. A TCN names no VLAN.
 //
 // The VLAN is resolved from the frame's own tag, or the port's untagged VLAN
 // when it carries none, rather than through the bridge's ingress pipeline the
@@ -2793,8 +2793,8 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		// Peek cannot call ReceiveSSTP without mutating the link half of a
 		// receive, so it renders the same step Forward reaches through
 		// PortLinked, admitted, and tracked instead: PortLinked reproduces
-		// ReceiveSSTP's own first check (the port is tracked and its CIST
-		// copy has the link up), and every remaining outcome but that one
+		// ReceiveSSTP's own first check (the port is tracked and its link
+		// record is up), and every remaining outcome but that one
 		// follows from admitted and tracked alone once the frame has
 		// decoded.
 		switch {
