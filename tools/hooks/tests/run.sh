@@ -1092,7 +1092,7 @@ done
 phase_state() {
   jq -n --argjson fields "$2" '{contract: "flowseer-plan-state/v1", status: "planned",
     readiness: "implementation-ready", review: null, review_rounds: 0, compound: null, outcome: null,
-    superseded_by: null, parent: null, after: [], landed: null, phases: [], retired: []} + $fields' \
+    superseded_by: null, branch: null, parent: null, after: [], landed: null, phases: [], retired: []} + $fields' \
     >"$phase_fixture/docs/plans/$1-plan.state.json"
 }
 phase1_landed() {
