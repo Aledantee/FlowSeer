@@ -114,6 +114,28 @@ func TestFingerprintFieldClassificationWalk(t *testing.T) {
 	checkFieldClasses(t, reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses)
 }
 
+func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
+	t.Parallel()
+
+	msti := baseSnapshotForTest()
+	dev := msti.Devices["sw1"]
+	info := dev.TreeRoles[10]["1/1/1"]
+	info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 10}
+	dev.TreeRoles[10]["1/1/1"] = info
+	msti.Devices["sw1"] = dev
+
+	perVLAN := cloneSnapshot(msti)
+	dev = perVLAN.Devices["sw1"]
+	info = dev.TreeRoles[10]["1/1/1"]
+	info.Tree = stp.TreeRef{Kind: stp.TreeVLAN, ID: 10}
+	dev.TreeRoles[10]["1/1/1"] = info
+	perVLAN.Devices["sw1"] = dev
+
+	if msti.Fingerprint() == perVLAN.Fingerprint() {
+		t.Fatal("MSTI 10 and VLAN 10 produced the same fingerprint")
+	}
+}
+
 func baseSnapshotForTest() Snapshot {
 	return Snapshot{
 		Clock: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
@@ -329,7 +351,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			},
 		},
 		{
-			name: "tree_roles_mstid",
+			name: "tree_roles_tree_id",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]

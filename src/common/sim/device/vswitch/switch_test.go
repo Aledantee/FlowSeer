@@ -7361,12 +7361,17 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 
 	now := convergeSwitches(t, start, switches, cables, snapshot)
 
-	// vswitch.Switch exposes only the CIST's roles; MSTI 1's own root port
-	// landing on l2 instead of l1 is confirmed indirectly below, by which
-	// FDB entry the flush after l2 fails leaves behind.
+	// The CIST and MSTI 1 choose different root ports before l2 fails.
 	cist := sw2.Roles()["l1"]
 	if cist.Role != bpdu.RoleRoot || cist.State != stp.StateForwarding {
 		t.Fatalf("sw2 CIST on l1 = role %v state %v, want Root Forwarding", cist.Role, cist.State)
+	}
+	msti := sw2.TreeRoles()[10]
+	if got := msti["l1"]; got.Role != bpdu.RoleAlternate || got.State != stp.StateDiscarding {
+		t.Fatalf("sw2 MSTI 1 on l1 = role %v state %v, want Alternate Discarding", got.Role, got.State)
+	}
+	if got := msti["l2"]; got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
+		t.Fatalf("sw2 MSTI 1 on l2 = role %v state %v, want Root Forwarding", got.Role, got.State)
 	}
 
 	reg := region(map[bpdu.MSTID]stp.Instance{
@@ -7420,7 +7425,6 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		t.Fatalf("encode p3 agreement: %v", err)
 	}
 	sw2.Forward(now, "p3", frame)
-	t.Logf("TreeRoles after p3 agreement: %+v", sw2.TreeRoles())
 
 	macVLAN10 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
 	macVLAN20 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x20}
@@ -7430,7 +7434,10 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	})
 
 	sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-	t.Logf("TreeRoles after l2 down: %+v", sw2.TreeRoles())
+	msti = sw2.TreeRoles()[10]
+	if got := msti["l1"]; got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
+		t.Fatalf("sw2 MSTI 1 on l1 after l2 down = role %v state %v, want Root Forwarding", got.Role, got.State)
+	}
 
 	entries := sw2.Entries()
 	if len(entries) != 1 || entries[0].FID != 20 || entries[0].Port != "p3" {
@@ -7701,6 +7708,46 @@ func TestPVSTPVIDInconsistencyTraceNamesBothVLANs(t *testing.T) {
 	if canonical != want {
 		t.Fatalf("stp.sstp.vlans fact = %q, want %q", canonical, want)
 	}
+}
+
+func TestPVSTConfigurationBPDUTraceNamesBothVLANs(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
+	sw.Start(now)
+	sw.Drain()
+
+	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: peer},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: peer},
+		PortID:       0x8001,
+		Version:      0,
+		Type:         bpdu.TypeConfiguration,
+		MaxAge:       20 * time.Second,
+		HelloTime:    2 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}, 20, peer)
+	if err != nil {
+		t.Fatalf("EncodeSSTP Configuration: %v", err)
+	}
+	frame.Tags = []vlan.Tag{{VID: 10}}
+
+	res := sw.Forward(now, "1/1/1", frame)
+	step, ok := findStep(res.Steps, "stp.sstp.admit")
+	if !ok {
+		t.Fatalf("no stp.sstp.admit step in Configuration trace: %+v", res.Steps)
+	}
+	for _, fact := range step.Inputs {
+		if fact.TypeID() == "stp.sstp.vlans" {
+			if got, want := fact.Canonical(), "tlv=20,arrival=10,consistent=false"; got != want {
+				t.Fatalf("Configuration stp.sstp.vlans fact = %q, want %q", got, want)
+			}
+			return
+		}
+	}
+	t.Fatal("Configuration trace has no stp.sstp.vlans fact")
 }
 
 // TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN is evidence for the switch-level
