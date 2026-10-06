@@ -26,6 +26,16 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-06 drive: stage branches merge at the end, and the plan state has no branch field
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 2, "After each stage", item 3, and `.claude/skills/plan/scripts/plan_record.py`.
+What happened: the user corrected the drive of the uv scripts plan. Stage branches are no longer merged into the coordinator branch after each stage. Every stage commits on one branch, and the work is merged once at the end. The user wants that as the default. The user also asked for the branch to be recorded in the plan state. The state contract has no field for it, so the branch went into a `## Branch` section of `docs/plans/2026-10-05-2216-refactor-uv-python-scripts-plan.md`. The step was followed as written and was still the wrong default.
+Suggested change: add a `branch` field to the plan state, written by a `plan_record.py branch <plan> <name>` subcommand and read by `show`, `check`, and `plan-queue.py`. Then change `drive` step 2 so later stages run on the recorded branch and the merge happens once, before `land`.
+
+## 2026-10-06 drive: a no-Orca drive in auto mode cannot finish a stage on its own
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 1, "Before the first dispatch", with `.claude/skills/delegate/references/no-orca.md`.
+What happened: Orca was unreachable, so the uv scripts Phase 1 stages ran as native subagents in a Claude Code session in auto mode. The auto-mode classifier refused the `.claude/settings.json` edit (`[Self-Modification]`). It refused the U1 commit that touched policy surfaces, the verifier run with the sandbox disabled (`[Safety Bypass Flag]`), and a test-mutation run (`[Security Test Removal]`). The worktree-isolated session also refused git in a stage worker's worktree. Every refused step went back to the user as a `!` command. A plan whose units touch a policy surface hits this on every stage. The steps were followed as written. Step 1 checks pools and Orca but not the permission mode.
+Suggested change: in `drive` step 1, when Orca is unreachable and the plan names a policy surface or the stage skills need an unsandboxed verifier, ask the user before the first dispatch to leave auto mode, or to accept one `!` command per refused step.
+
 ## 2026-10-05 delegate: no review-unit lane survives when Orca is down and units ran on Sonnet
 Skill or agent: `.claude/skills/delegate/SKILL.md`, "Pick the role" with `references/no-orca.md`, as `review` step 3 uses it.
 What happened: without Orca, `execute` resolves to `claude-sonnet-5-5` (the only Claude model in its `fit`), so every unit is Anthropic-written. `review-unit` then drops Anthropic by `vendor_differs_from`, and its non-Claude models fall away because the codex pool row lists only `gpt-5.5` and `no-orca.md` gives a non-Claude review lane no reviewer. The phase review had no independent reviewer by construction. The steps were followed as written.

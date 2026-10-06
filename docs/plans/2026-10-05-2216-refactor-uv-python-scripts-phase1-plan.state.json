@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept",
   "review_rounds": 0,
-  "compound": null,
+  "compound": "observation logged",
   "outcome": {
     "units": 4,
     "from": "2026-10-06T10:54:17Z",

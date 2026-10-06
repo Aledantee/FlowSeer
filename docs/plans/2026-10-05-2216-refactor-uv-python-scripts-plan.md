@@ -20,6 +20,14 @@ entry point, and hooks, verifier, and skills share one library there.
 runtime the repository supports (Claude Code or Codex) on one of the three
 platforms. The entry point and the registration shape in U3 are then wrong.
 
+## Branch
+
+Every phase's work collects on the branch
+`worktree-agent-a661d9cff38d208c7`, based on `83069173`. Each stage of
+each phase commits there, and no stage branch is merged after its stage.
+The work is merged once, at the end. The state file has no field for the
+branch yet, so this section holds it.
+
 ## Decisions
 
 The [repository scripting record](../architecture/2026-10-05-repository-scripting-direction.md)
