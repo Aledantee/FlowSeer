@@ -1191,6 +1191,130 @@ else:
         self.assertIn("it has child worktrees: repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertNotIn("worktree rm", self.orca_calls())
 
+    def git(self, *args, cwd=None):
+        return subprocess.run(
+            ["git", *args], cwd=cwd or self.repo, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+    def kept_lane(self):
+        """Starts l1 through the script, grades it, and stops it with --keep-worktree."""
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        child = self.root / "child-l1"
+        (child / "work.txt").write_text("lane output")
+        self.git("add", ".", cwd=child)
+        self.git("commit", "-m", "work on lane", cwd=child)
+        grade = self.command("grade", "l1", "--outcome", "rejected", "--verify", "none")
+        self.assertEqual(grade.returncode, 0, grade.stderr)
+        kept = self.command("stop", "l1", "--keep-worktree")
+        self.assertEqual(kept.returncode, 0, kept.stderr)
+        return child
+
+    def join(self, lane="l2", target="l1", *extra):
+        return self.command(
+            "start", "--lane", lane, "--cli", "codex", "--model", "gpt-6-sol",
+            "--role", "execute", "--brief", str(self.repo / "brief.md"), "--join", target, *extra,
+        )
+
+    def runlog_events(self):
+        return [json.loads(line) for line in self.runlog.read_text().splitlines()]
+
+    def test_join_reuses_the_path_and_branch_and_logs_the_worktree_head(self):
+        child = self.kept_lane()
+        head = self.git("rev-parse", "HEAD", cwd=child)
+        first = json.loads((self.state_dir / "l1.json").read_text())
+        result = self.join()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        line = json.loads(result.stdout)
+        self.assertEqual((line["name"], line["path"], line["branch"]), ("l2", str(child), "wt1"))
+        self.assertNotEqual(line["run"], first["run"])
+        self.assertEqual(self.orca_calls().count("worktree create"), 1)
+        self.assertEqual(self.orca_calls().count("terminal create"), 2)
+        start = [e for e in self.runlog_events() if e["event"] == "start" and e["lane"] == "l2"][0]
+        self.assertEqual((start["base"], start["worktree"], start["branch"]), (head, str(child), "wt1"))
+        state = json.loads((self.state_dir / "l2.json").read_text())
+        self.assertEqual((state["worktree"], state["terminal"]), ("wt1", "term-1"))
+
+    def test_join_refuses_and_creates_no_terminal(self):
+        child = self.kept_lane()
+        creates = self.orca_calls().count("terminal create")
+
+        def dirty_join():
+            (child / "stray.txt").write_text("x")
+            return self.join()
+
+        cases = {
+            "unknown lane": (lambda: self.join(target="nope"), "no lane named nope"),
+            "base": (lambda: self.join("l2", "l1", "--base", "main"), "--base"),
+            "dirty worktree": (dirty_join, "dirty"),
+        }
+        for name, (run, message) in cases.items():
+            with self.subTest(name):
+                result = run()
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(self.orca_calls().count("terminal create"), creates)
+                self.assertFalse((self.state_dir / "l2.json").exists())
+
+    def test_join_refuses_a_worktree_with_a_live_terminal(self):
+        self.start()
+        creates = self.orca_calls().count("terminal create")
+        result = self.join()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("live terminal", result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal create"), creates)
+        self.assertFalse((self.state_dir / "l2.json").exists())
+
+    def test_stop_keep_worktree_leaves_an_unmerged_lane_and_status_prints_it_kept(self):
+        child = self.kept_lane()
+        self.assertTrue(child.exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn(str(child), self.git("worktree", "list"))
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual((state["terminal"], state["kept"]), ("", True))
+        self.assertEqual([e["event"] for e in self.runlog_events()], ["start", "grade", "end"])
+        status = self.command("status")
+        self.assertIn(f"l1 codex kept {child}", status.stdout)
+        self.assertNotIn("unavailable-terminal", status.stdout)
+
+    def test_stop_on_a_kept_lane_closes_no_terminal_and_logs_no_second_end(self):
+        child = self.kept_lane()
+        self.git("merge", "wt1")
+        self.orca_log.unlink()
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt1", self.orca_calls())
+        self.assertEqual([e["event"] for e in self.runlog_events()].count("end"), 1)
+        self.assertFalse(child.exists())
+        self.assertFalse((self.state_dir / "l1.json").exists())
+
+    def test_failed_joined_start_closes_its_terminal_and_leaves_the_worktree(self):
+        child = self.kept_lane()
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        result = self.join()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pointer not on", result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal close"), 2)
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertTrue(child.exists())
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertFalse((self.state_dir / "l2.json").exists())
+        self.assertEqual([e["event"] for e in self.runlog_events()][-2:], ["start", "end"])
+
+    def test_final_stop_removes_the_worktree_and_every_lane_state(self):
+        child = self.kept_lane()
+        self.assertEqual(self.join().returncode, 0)
+        self.git("merge", "wt1")
+        graded = self.command("grade", "l2", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(graded.returncode, 0, graded.stderr)
+        result = self.command("stop", "l2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("worktree rm"), 1)
+        self.assertFalse(child.exists())
+        self.assertEqual(list(self.state_dir.glob("*.json")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

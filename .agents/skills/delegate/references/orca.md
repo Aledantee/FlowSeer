@@ -5,7 +5,7 @@ Load this when a worker's state does not match what its tree says, when
 `idle` or `done`, or the screen shows an unexpected dialog, or for an orchestration run
 or a full handoff. `SKILL.md` names the lane; this file is the procedure.
 
-Contents: What the script does; When a step fails; Orchestration runs;
+Contents: What the script does; A second terminal in one worktree; When a step fails; Orchestration runs;
 Full handoff.
 
 ## What the script does
@@ -55,6 +55,14 @@ Full handoff.
   and before sending the pointer, `start` writes a `start` event to the run
   log with the lane metadata and base commit, storing `run` in the state file
   and printed JSON line.
+- With `--join <lane>`, skips `orca worktree create` and runs everything
+  else above in the worktree of a kept lane, so the new lane has its own
+  terminal, `run`, and state file. `stop <lane> --keep-worktree` is what
+  keeps a lane: it closes the terminal, logs `end`, and leaves the
+  worktree, with the state file's `terminal` emptied and `"kept": true`.
+  A start that fails after a join closes its terminal and never removes the
+  worktree. A `stop` without the flag removes the worktree and every state
+  file that names it.
 - On a failure after the worktree exists, closes the terminal and removes
   the worktree. If either cleanup call fails, it keeps or writes lane state
   so `status` still lists the lane, and reports that it needs manual removal.
@@ -115,6 +123,16 @@ as are child-aware waiting and the Codex poll cap on a live Orca. The Codex
 launch and its hooks-review answer were measured on codex 0.157.1. The `agy`,
 `omp`, and `claude` lanes start through this script, but their behavior here is
 not measured.
+
+## A second terminal in one worktree
+
+`start --join <lane>` opens a new terminal with `orca terminal create
+--worktree id:<id>` in the worktree of a lane that `stop --keep-worktree`
+left behind, whose first terminal is closed. Whether Orca accepts that, and
+whether the new terminal's checkout is the kept lane's path and branch, is
+what a `drive` that joins its stages depends on.
+
+Observed: pending the live check.
 
 ## When a step fails
 

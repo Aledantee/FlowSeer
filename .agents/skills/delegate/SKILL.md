@@ -160,20 +160,31 @@ disabled; a sandboxed call reports the runtime as not running.
 ```bash
 s=.claude/skills/delegate/scripts/orca-worker.sh
 $s line --cli <cli> --model <id> [--effort <level>]
-$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
-$s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file>
+$s start --lane <slug> --cli <claude|codex|agy> --model <id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
+$s start --lane <slug> --cli omp --model <pool_id> [--effort <level>] --role <role> [--plan <path>] [--unit <unit>] --brief <file> [--join <lane>]
 $s wait <slug> [--until <command>] [--max <seconds>]  # blocks; prints idle, limited, done, stalled, timeout, exited, or idle-children, then the screen
 $s read <slug>            # the worker's report, from its screen
 $s keys <slug> <text>     # a dialog answer, at most 200 characters; presses no Enter
 $s tell <slug> <file>     # any message the worker must act on; submits it
 $s status                 # one line per live lane
 $s grade <slug> --outcome <accepted|amended|rejected|blocked> --verify <pass|fail|none> [--note <text>]
-$s stop <slug>            # after grade and merge: closes the terminal, removes checkout and branch
+$s stop <slug> [--keep-worktree]  # after grade and merge: closes the terminal, removes checkout and branch
 ```
 
 `start` exits 0 only when the worker runs in a child worktree branched from
 this branch with the brief on its screen; its JSON line names the branch
 (prefixed with the git user) and `run`.
+
+`stop <slug> --keep-worktree` closes the terminal and logs the lane's `end`
+but leaves the checkout, the branch, and the lane's state file, which
+`status` then prints as `kept`. It needs the grade and a clean, idle lane
+like any `stop`, and not a merged branch. `start --join <kept lane>` opens
+a new lane's terminal in that checkout and logs a `start` whose `base` is
+its `HEAD`, so several lanes can work one branch in turn. It refuses an
+unknown lane, a worktree with a live terminal, and a dirty checkout, and
+excludes `--base`. A `stop` without the flag on any lane of the worktree
+removes it, with the state file of every lane that named it. A start that
+fails after a join leaves the checkout.
 
 A Claude coordinator runs `wait` once per lane with the Bash tool's
 `run_in_background` and `timeout: 7200000`, sandbox disabled, and acts on

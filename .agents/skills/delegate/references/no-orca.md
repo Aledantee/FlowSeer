@@ -41,6 +41,13 @@ report `runtime.reachable: true`.
     python3 .claude/skills/delegate/scripts/runlog.py start --lane <slug> --cli claude --role <role> --worktree <path> --branch <branch> --base "$base" --model <id> --plan <plan> --unit <stage>
     ```
 
+  - A later stage of a plan whose first stage ran this way cannot join that
+    subagent's worktree, since `isolation: worktree` always makes a new
+    one. The coordinator records the first stage's branch. A later stage's
+    subagent starts with `git merge --ff-only <recorded branch>`, and the
+    coordinator moves the recorded branch to the stage's head with `git
+    branch -f <recorded branch> <head>` once the stage's checks pass, so
+    the next stage forks from the plan's work.
   - Before the first stage of a `drive`, when the session runs in auto
     mode, ask the user (`AGENTS.md`, Agent behavior) to leave auto mode for
     the drive (recommended, since every stage otherwise stops on a
