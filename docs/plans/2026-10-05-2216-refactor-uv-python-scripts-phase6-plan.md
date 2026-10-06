@@ -503,8 +503,9 @@ No unit names a file the phase 2 plan names in a `Files:` line.
   with PyPI reachable or the four packages in uv's cache.
 - `uv lock --check --script deploy/lab/write-lab-secrets.py` exits 0.
 - `go test ./src/protocol/snmp/test/integration/ -run TestCapture` passes.
-- `git ls-files '*.sh' -- src/protocol/smi/bench src/protocol/snmp/bench
-  deploy/lab src/protocol/snmp/test/integration/scripts` prints nothing.
+- `git ls-files -- 'src/protocol/smi/bench/*.sh' 'src/protocol/snmp/bench/*.sh'
+  'deploy/lab/*.sh' 'src/protocol/snmp/test/integration/scripts/*.sh'` prints
+  nothing.
 - `git grep -n -E 'bench-gate\.sh|write-[a-z-]+\.sh|capture-snmprec\.sh'
   -- ':!docs/plans'` prints nothing.
 - Manual, on a host with Docker: the "Lab run" steps 1 to 3 of

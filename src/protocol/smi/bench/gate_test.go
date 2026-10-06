@@ -294,8 +294,7 @@ func TestGateRefusesAMissingBaseline(t *testing.T) {
 }
 
 // TestGateTakesTheDefaultForAnEmptyVariable pins that a variable set to
-// the empty string behaves as if it were unset, which is what the
-// ${NAME:-default} reads in the shell file did.
+// the empty string takes its default.
 func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 	run := runGate(t, baselineTranscript(t), "MIN_DELTA=", "BASELINE=")
 	if run.exit != 0 {
@@ -307,10 +306,9 @@ func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 }
 
 // TestGateComparesMinDeltaLikeAwk pins the verdict for a MIN_DELTA that
-// is not a plain number. The shell file passed it to awk with -v, and awk
-// compares a number with text that does not look like one as strings:
-// the regression percentage printed as text against MIN_DELTA, byte by
-// byte. So "abc" is never reached, "9x" is reached by no percentage whose
+// is not a plain number. The gate follows awk's comparison of a number
+// with text that does not look like one: both sides are compared as text,
+// the regression percentage as printed against MIN_DELTA, byte by byte. So "abc" is never reached, "9x" is reached by no percentage whose
 // text starts below "9", and "0.5x" is reached by both. Text that looks
 // like a number, "1e1", compares as that number.
 func TestGateComparesMinDeltaLikeAwk(t *testing.T) {
@@ -351,9 +349,9 @@ func TestGateComparesMinDeltaLikeAwk(t *testing.T) {
 }
 
 // TestGateReadsLinesByLineFeedOnly pins that a carriage return is not a
-// line break. A row that follows one on the same line is not a benchmark
-// row, as grep saw it in the shell file, so a regression hidden behind
-// one is not compared. A benchmark name holding U+001C is one CSV field,
+// line break, only a line feed ends a line. A row that follows one on the
+// same line is not a benchmark row, so a regression hidden behind one is
+// not compared. A benchmark name holding U+001C is one CSV field,
 // as awk splits on commas and line feeds only.
 func TestGateReadsLinesByLineFeedOnly(t *testing.T) {
 	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)

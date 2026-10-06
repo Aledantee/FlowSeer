@@ -38,9 +38,6 @@ func runGate(t *testing.T, transcript string, env ...string) gateRun {
 	if runtime.GOOS == "windows" {
 		t.Skip("the stand-in go is a POSIX sh file")
 	}
-	if _, err := exec.LookPath("benchstat"); err != nil {
-		t.Skip("benchstat is not on PATH")
-	}
 
 	bin := t.TempDir()
 	raw := filepath.Join(bin, "transcript.txt")
@@ -142,6 +139,20 @@ func TestGatePassesAgainstBaseline(t *testing.T) {
 	}
 }
 
+// TestGateFailsOnBytesRegression covers the second hard metric: bytes
+// allocated per operation, which can grow while the allocation count holds.
+func TestGateFailsOnBytesRegression(t *testing.T) {
+	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "B/op", 1.5)
+
+	run := runGate(t, bad)
+	if run.exit != 1 {
+		t.Errorf("gate exited %d on a +50%% B/op regression, want 1:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "REGRESSION") {
+		t.Errorf("gate did not report a regression:\n%s", run.output)
+	}
+}
+
 // TestGateFailsOnAllocationRegression is the case the gate exists for.
 func TestGateFailsOnAllocationRegression(t *testing.T) {
 	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
@@ -189,9 +200,8 @@ func TestGateFailsOnAnEmptyRun(t *testing.T) {
 }
 
 // TestGateTakesTheDefaultForAnEmptyVariable pins that a variable set to
-// the empty string behaves as if it were unset, which is what the
-// ${NAME:-default} reads in the shell file did. The stand-in go ignores
-// BENCH and COUNT, so the line the gate prints is where they show.
+// the empty string takes its default. The stand-in go ignores BENCH and
+// COUNT, so the line the gate prints is where they show.
 func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 	run := runGate(t, baselineTranscript(t), "BENCH=", "COUNT=")
 	if run.exit != 0 {
@@ -203,9 +213,9 @@ func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 }
 
 // TestGateReadsLinesByLineFeedOnly pins that a carriage return is not a
-// line break. A row that follows one on the same line is not a benchmark
-// row to benchstat, so a regression hidden behind one is not compared,
-// as it was not when grep fed benchstat in the shell file.
+// line break, only a line feed ends a line. A row that follows one on the
+// same line is not a benchmark row to benchstat, so a regression hidden
+// behind one is not compared.
 func TestGateReadsLinesByLineFeedOnly(t *testing.T) {
 	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
 	hidden := strings.ReplaceAll(bad, "\n"+gatedBenchmark, "\njunk\r"+gatedBenchmark)
