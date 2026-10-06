@@ -12,9 +12,9 @@ import (
 	"testing"
 )
 
-// The gate is a shell script, and a shell script nobody tests is a shell
-// script that silently stops gating. These tests drive bench-gate.sh
-// through RAW_IN, which feeds it a prepared `go test` transcript instead
+// The gate is a Python script, and a gate nobody tests is a gate that
+// silently stops gating. These tests drive bench-gate.py through
+// RAW_IN, which feeds it a prepared `go test` transcript instead
 // of running the suite, so the whole comparison — the row filter, the
 // self-test, the metric policy, the exit code — is exercised in
 // milliseconds against transcripts whose expected verdict is known.
@@ -23,7 +23,8 @@ import (
 // That is the one line these tests take on trust, and it is the line
 // that changes least.
 
-const gateScript = "bench-gate.sh"
+// gateCommand is the command under test.
+var gateCommand = []string{"uv", "run", "bench-gate.py"}
 
 // gateRun is one invocation of the gate.
 type gateRun struct {
@@ -41,7 +42,7 @@ func runGate(t *testing.T, transcript string, env ...string) gateRun {
 		t.Fatalf("writing transcript: %v", err)
 	}
 
-	cmd := exec.Command("sh", gateScript)
+	cmd := exec.Command(gateCommand[0], gateCommand[1:]...)
 	cmd.Env = append(os.Environ(), "RAW_IN="+raw)
 	cmd.Env = append(cmd.Env, env...)
 
@@ -274,6 +275,20 @@ func TestGateSelfTestRejectsEmptyRows(t *testing.T) {
 		t.Errorf("gate exited %d on a transcript with no benchmark rows, want 2:\n%s", run.exit, run.output)
 	}
 	if !strings.Contains(run.output, "no benchmark rows") {
+		t.Errorf("gate did not say why it refused:\n%s", run.output)
+	}
+}
+
+// TestGateRefusesAMissingBaseline pins the exit code that tells a
+// misconfigured gate apart from a failing one.
+func TestGateRefusesAMissingBaseline(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "no-such-baseline.txt")
+
+	run := runGate(t, baselineTranscript(t), "BASELINE="+missing)
+	if run.exit != 2 {
+		t.Errorf("gate exited %d on a missing baseline, want 2:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "missing baseline") {
 		t.Errorf("gate did not say why it refused:\n%s", run.output)
 	}
 }
