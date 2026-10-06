@@ -311,6 +311,15 @@ One manual check on a live Orca, in U3: a join after `stop
   uv phase that moves one of these files has landed first, the unit applies
   to the moved file and its command spelling, and the implementer says so
   in the outcome note.
-- Whether Orca opens a second terminal in a worktree whose first terminal
-  was closed is unverified. U3's manual check settles it, and the stop
-  condition applies when it fails.
+
+## Review gaps
+
+Follow-ups from the review of the implemented plan. They do not hold the
+verdict.
+
+- .agents/skills/plan/scripts/plan_record.py:186: `shape_faults` accepts any string as `branch`; fails: `check` on a state file holding `"branch": "a b"`; class: gap
+- .agents/skills/next/scripts/plan-queue.py:206: the `changed_here.update` line removed; fails: a phase implemented on its unmerged branch whose branch record is already on `main` is grouped `retire`, not `unchecked`; class: gap
+- .agents/skills/drive/scripts/plan-state.py:112: `open_plans` reading with `load`; fails: a plan without phases implemented on its unmerged branch is listed `planned`; class: gap
+- .agents/skills/drive/scripts/plan-state.py:95: `plan not in owed` removed; fails: a phase owed a land on an unmerged branch prints `next: land <phase> after <phase>`; class: gap
+- .agents/skills/delegate/scripts/orca-worker.sh:579: the live-lane refusal of a removing `stop` disabled; fails: `stop <kept lane>` while a joined lane's terminal is live removes that lane's checkout; class: gap
+- .agents/skills/delegate/scripts/orca-worker.sh:572: the already-kept refusal of `stop --keep-worktree` disabled; fails: a second `stop <lane> --keep-worktree` on a kept lane exits 0; class: gap
