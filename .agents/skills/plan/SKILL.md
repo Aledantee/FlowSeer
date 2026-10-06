@@ -105,9 +105,11 @@ amends: <path of the plan or direction record this one changes, if any>
 ```
 
 The state file beside the plan holds `status`, `readiness`, `review`,
-`review_rounds`, `compound`, `outcome`, `superseded_by`, `parent`, `after`,
+`review_rounds`, `compound`, `outcome`, `superseded_by`, `branch`, `parent`, `after`,
 `landed`, `phases`, and `retired`. Read it with
 `.claude/skills/plan/scripts/plan_record.py show <plan>`. Use
+`.claude/skills/plan/scripts/plan_record.py branch <plan> <name>` to record
+the plan's work branch, or `branch <plan> --clear` to clear it. Use
 `.claude/skills/plan/scripts/plan_record.py ready <plan>` when a plan is
 ready. Use `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by
 <path>` or `.claude/skills/plan/scripts/plan_record.py abandon <plan>` for
