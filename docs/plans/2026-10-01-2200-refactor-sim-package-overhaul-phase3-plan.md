@@ -1558,6 +1558,26 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   requests a frame at once, and `UNH` RSTP.op.4.6 drives its hold-count
   test that way. It is a role-transition request, outside the
   topology-change emission (Decisions).
+- From the re-review of the closing round, on the Decisions of 2026-10-04
+  and 2026-10-06 for an MSTI record's Agreement flag: neither names a port
+  that becomes Designated for the CIST in the call. A Root port that
+  receives worse CIST information from the source it holds stores it
+  (`S/receive.go:494-514`), compares the BPDU with what it just stored, and
+  records the MSTI agreement. The recompute then makes the port Designated
+  for the CIST, and the MSTI port forwards on an agreement sent under
+  another CIST root, since its role did not change and `agreed` survives
+  (`S/roles.go:234`). The code follows the 2026-10-04 text. Unverified:
+  how `D2009` orders this case. Options: select the vector by the role the
+  CIST port has after this BPDU, or state the case as a limit in
+  `S/README.md`.
+- From the re-review, unverified, read from the code and not run: a CIST
+  port that returns to Designated by a role change while `proposing` is
+  still set restarts its edge delay and requests no frame
+  (`S/roles.go:237-239`). With a Hello Time of 4 seconds an auto-edge port
+  can become an edge having sent no BPDU since it became Designated. `D2009`
+  Figure 13-20 (UPDATE) sets `newInfoXst`. That line landed in this phase,
+  so the Decision of 2026-10-06 on bridge detection that predates the phase
+  does not name it.
 
 ## Review gaps
 
@@ -1572,3 +1592,20 @@ nothing reaches, which is a source change.
 - src/common/sim/layer/stp/roles.go:313: `!link.edge` dropped; fails: an edge port that starts forwarding raises no topology change
 - src/common/sim/layer/stp/receive.go:559: `mp.tcActive` dropped; fails: a boundary flag leaves an inactive MSTI alone
 - src/common/sim/layer/stp/roles.go:19: boundary branch of `isSynced` removed; fails: the frame p1 emits has the Agreement flag clear in its MSTI 1 record while the boundary port forwards unagreed
+
+The closing round of 2026-10-06 applied the three Decisions of that date.
+Its re-review found one behavior defect and one test that pins it, so the
+verdict stays `fixes needed`. Line numbers below hold at the commit that
+records this.
+
+- src/common/sim/layer/stp/receive.go:29: behavior: `syncTree` requests a frame on every port left proposing, a port already Discarding and proposing included, where the Decision names a port the sync cuts and `D2009` Figure 13-25 enters DESIGNATED_PROPOSE on `!proposing`; fails: a repeated proposal on the Root port makes such a port send again, and with the request limited to `!wasProposing || !wasDiscarding` every test passes at the fabric expectations of `b3221fa7`
+- src/common/sim/layer/stp/receive.go:50: the boundary mirror's request follows the same condition; fails: with it removed no emission differs, since the CIST request set the flag on the same record
+- src/common/sim/fabric/stp_test.go:1096: the changed timestamps hold only with the request above, and the messages at `:1111` and `:1160` still name a hello among the three frames; fails: the test at its earlier timestamps, where a hello and one reply fill a hold count of 2 and two held requests leave as one frame
+- src/common/sim/fabric/stp_test.go:1130: the `EntryCrossing` loop never runs, since a frame to a host records an arrival, and its `5*time.Second` contradicts `:1126`; fails: an assertion on the arrival at h1
+- src/common/sim/layer/stp/receive.go:521: `>= 0` to `> 0`; fails: a Designated port that receives its own designated vector back judges an MSTI agreement against that vector
+- src/common/sim/layer/stp/receive.go:29: request limited to the CIST; fails: a sync of an MSTI or of a PVST VLAN's tree sends the cut port's proposal in that call
+- src/common/sim/layer/stp/agreement_test.go:111: `emittedMSTIAgreement` cannot return true for a Designated MSTI port (`S/transmit.go:275`), and has one caller; fails: nothing, the state assertion at `:308` carries the subtest
+- src/common/sim/layer/stp/README.md:510: the sentence saying the edge-delay restart on a cut with `proposing` already set is the layer's own rule was removed while `S/receive.go:32` still does it; fails: a reader comparing the README with Figure 13-25
+- src/common/sim/layer/stp/README.md:532: says a port whose `proposing` an agreement cleared never becomes an edge again, which a sync cut contradicts (`S/layer_test.go:1311`), and cites Figure 13-18 for the clear that Figure 13-16 makes; fails: "returns to Designated by a role change", citing Figure 13-16
+- src/common/sim/layer/stp/README.md:536: "its port-role diagrams use that value for the ladder" holds only for a port that does not send RSTP (`D2009` 13.28.8); fails: the entry limited to that port
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md:1115: the A2 "Mutation:" sentence describes the landed code and drops the mutation of `TestMSTIAgreementIsJudgedAfterTheCISTIsStored`; fails: "the designated-vector branch removed from `applyBPDU`", with the earlier mutation kept
