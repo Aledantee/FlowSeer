@@ -202,6 +202,16 @@ under Inventory, Sources.
   behavior defect or a test that cannot fail. The six Review gaps items no
   exported call shows stay recorded, as does any new comment or convention
   item. (decided by the user, 2026-10-06)
+- The sync requests a frame only on a port it cuts, not on every port left
+  proposing. The fabric hold-count test returns to the timing that rule
+  gives. One more round fixes this under the closing rule above. (decided
+  by the user, 2026-10-06)
+- An MSTI agreement is judged against the designated vector whenever the
+  port ends the call Designated for the CIST, whatever its role was when
+  the call began. (decided by the user, 2026-10-06)
+- A role return that restarts the edge delay and requests no frame
+  (`S/roles.go`) is unverified and joins the bridge detection Limits for
+  the later plan. (decided by the user, 2026-10-06)
 
 ## Requirements
 
@@ -1617,15 +1627,3 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
-- Parked by drive: the closing round applied the three decisions of
-  2026-10-06 and its re-review found a behavior defect the round
-  introduced. The sync requests a frame on every port left proposing,
-  where the decision names a port the sync cuts, and a fabric hold-count
-  test was changed to match. Two questions also came up that no Decision
-  settles: a Root port that becomes Designated in the call still records an
-  MSTI agreement under another CIST root, and a role return restarts the
-  edge delay and requests no frame. The work is on `parked/sim-p3-review`.
-  Options: one more round on the defect under the same closing rule, with
-  the two questions recorded as limits | accept now with the defect
-  recorded. Recommended: one more round, because the defect changes frame
-  timing that other phases' tests will pin.
