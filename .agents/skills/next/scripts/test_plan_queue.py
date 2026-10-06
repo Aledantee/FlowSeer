@@ -231,6 +231,18 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain abandoned")
         self.assertEqual(self.groups().get(PLAIN), "retire")
 
+    def test_superseded_or_abandoned_plan_retires_whatever_its_review(self):
+        self.git("checkout", "-q", "main")
+        for verdict in ("fixes needed", "rework"):
+            for final in (("supersede", PLAIN, "--by", PHASE), ("abandon", PLAIN)):
+                with self.subTest(verdict=verdict, final=final[0]):
+                    self.record("replan", PLAIN)
+                    self.implement(PLAIN)
+                    self.record("review", PLAIN, verdict)
+                    self.record(*final)
+                    self.commit(f"plain {final[0]} after {verdict}")
+                    self.assertEqual(self.groups().get(PLAIN), "retire")
+
     def test_finished_parent_that_needs_decisions_still_retires(self):
         self.git("checkout", "-q", "main")
         self.record("replan", PARENT, "--needs-decisions")

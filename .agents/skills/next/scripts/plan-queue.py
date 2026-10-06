@@ -134,9 +134,15 @@ def queue(root: Path, large_units: int) -> list[dict]:
             # parent that kept the readiness it was planned with retires
             # below.
             group = "waiting" if missing else "replan"
-        elif status in FINISHED and rel not in changed_here and not (review and review not in ACCEPTED):
+        elif (
+            status in FINISHED
+            and rel not in changed_here
+            and (status != "implemented" or not review or review in ACCEPTED)
+        ):
             # Finished and on main, yet still on disk: land's retire step
-            # never ran for it.
+            # never ran for it. A superseded or abandoned plan retires
+            # whatever its review says; an implemented one needs an
+            # accepted review or none.
             group = "retire"
         elif state["phases"] or state["retired"]:
             # A parent is worked through its phases and shows up only to
