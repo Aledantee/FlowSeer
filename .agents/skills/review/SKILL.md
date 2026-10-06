@@ -248,7 +248,7 @@ plan's paths), record the verdict where `land` reads it (`land`, step 1). With
 a plan, run:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py review <plan> <verdict> [--rounds <n>]
+.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>" [--rounds <n>]
 ```
 
 The command stores the verdict and, when supplied, the round count. Write the

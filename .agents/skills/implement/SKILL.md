@@ -193,7 +193,7 @@ when the request skipped the plan, or when the session runs in Orca.
    deleted units ago. When `$(git rev-parse --git-dir)/flowseer-verification-dirty`
    still holds the `<Bash mutation; verify with --full>` line after the
    `--base main` run, or the run stops on a `.golangci.yml` change and asks
-   for `--full`, run `--full`. Quote the run's last line; anything other
+   for `--full`, run `--full`. Quote the run's last line. Anything other
    than `FlowSeer verification passed.` blocks the report.
 4. With a plan, read the deviations off the tree, not from memory (any edit
    this prompts goes back to item 1). Planless work has no units to compare

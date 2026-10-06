@@ -198,7 +198,7 @@ remedy is `review` again.
    5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
 
 After the round settles, record the round count with
-`.claude/skills/plan/scripts/plan_record.py review <plan> <verdict>
+`.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"
 --rounds <n>` (`SKILL.md` step 5).
 
 When the coordinator applied a security or behavior fix itself (`SKILL.md`
