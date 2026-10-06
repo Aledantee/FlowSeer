@@ -15,8 +15,9 @@ chosen skill do the work.
 python3 .claude/skills/next/scripts/plan-queue.py
 ```
 
-The script reads every plan's state file through `plan_record.py`, this
-worktree's ledger, and the unmerged branches that change a plan. Take the
+The script reads every plan's state file through `plan_record.py`, the
+units' `Files:` lines, the ledger of this worktree and of every other, and
+the unmerged branches that change a plan. Take the
 queue from its output, never from plans read
 earlier in the session or one by one. Its groups, in the order to take
 them:
@@ -35,6 +36,15 @@ them:
 branches. `.claude/skills/plan/scripts/plan_record.py show <plan>` prints the
 fields behind one line.
 
+The script also orders the lines, and that order is the one to take:
+
+- Within a group a line flagged `harness` comes first. Such a plan changes
+  the skills, hooks, or host-side scripts and no product code, and product
+  work started before it runs on the old workflow.
+- A line flagged `shares files with <plan>` is printed after that plan,
+  even when its own group comes earlier, since the named plan is further
+  along on a file both change.
+
 A phase line names its parent, which is the path to hand `drive`. Take two
   `in-progress` phases of one parent in the parent's state order.
 
@@ -42,12 +52,20 @@ With an argument, keep the lines whose path or title matches it.
 
 ## 2. Check the top candidates against the tree
 
-Take the first three lines that are not `waiting` or `retire`, and
+Take the first three lines that are not `waiting` or `retire`, in the
+order printed, and
 report the count of `retire` lines as clean-up owed. For each,
 before recommending it:
 
 - `elsewhere:<branch>` means another unmerged branch already changes that
-  plan. Do not recommend it here; name the branch.
+  plan, or another worktree's ledger names it. Do not recommend it here;
+  name the branch.
+- Compare the candidate with the `other worktrees:` line, when the script
+  printed one. A session
+  that has not committed yet leaves only its branch name. When a branch
+  reads as the candidate's subject (`worktree-review-plan-state` beside a
+  plan about the plan state file), do not recommend the candidate; name
+  the branch and say the match is by name.
 - Read the plan's Goal and Open questions. Use
   `.claude/skills/plan/scripts/plan_record.py show <plan>` to read its status
   and outcome. For `partially-implemented`, the outcome names the units that

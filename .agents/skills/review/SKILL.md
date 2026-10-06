@@ -169,7 +169,10 @@ that names the unchecked claim, not as a patch.
 Give each settled finding its class from the table in
 `references/fix-loop.md`, Which findings block: security, behavior, false
 test, gap, convention, or hardening. The class decides whether the finding
-holds the verdict, so a finding without one reads as mandatory. A security
+holds the verdict, so a finding without one reads as mandatory. Before
+classing a finding whose failing input someone has to craft, name who can
+supply that input and what that principal can already do without it. When
+it can already cause the finding's result, the finding is hardening. A security
 finding is a behavior finding that names all six parts
 `references/security.md` asks for, and a concern missing one is hardening.
 Security and behavior findings hold the verdict and get a reviewed round.
@@ -313,7 +316,9 @@ answers a security or behavior finding, it is a round: load
 4, over the diff of the fixes, and add one to the round count before any
 verdict is written. A fix to shipped code gets a reviewer whoever made it.
 A first round that is not clean records `fixes needed` with the new count
-and ends with its row's question. Before the coordinator
+and ends with its row's question, or, for a finding about input a checker,
+parser, or validator reads, with the question `references/fix-loop.md`,
+When to stop, first item, gives. Before the coordinator
 writes `accept after fixes`, the coordinator closes each blocking false
 test by the pass's rule (`references/fix-loop.md`, The follow-up pass): it
 reruns the recorded mutation on the merged tree and closes the item only

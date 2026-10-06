@@ -1,20 +1,10 @@
 # i18n and the AI contract
 
 Both are decided in
-`docs/architecture/2026-09-28-web-component-contract-direction.md`. AI
-registration has landed. The generative UI catalog has not, so check what exists:
-
-```bash
-ls frontend/web/src/ai/catalog.ts 2>&1
-```
-
-## While the AI migration has not landed
-
-When `src/ai/catalog.ts` does not exist yet:
-
-- **Report.** Say that generative AI catalog integration awaits the AI
-  migration. Target registration through `useAiTarget` has landed, so follow
-  the contract below.
+`docs/architecture/2026-09-28-web-component-contract-direction.md`. Target
+registration goes through `useAiTarget`. The generative UI catalog is
+`src/ai/catalog.ts`, and `UiAiRender` (`src/ui/ai/UiAiRender.vue`) renders
+a tree from it.
 
 ## i18n
 

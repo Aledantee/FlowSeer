@@ -24,7 +24,18 @@ Sort the settled findings (`SKILL.md` step 4) before dispatching anything:
 | false test, other | a test of the reviewed change passes with the condition removed that its title, comment, or commit body states | no | a follow-up |
 | gap | a mutation survives in a branch or boundary no test's title, comment, or commit body states | no | a follow-up |
 | convention | repository rule broken in code, or a wrong comment or doc | no | a follow-up |
-| hardening | a security concern missing one of the six parts | no | a follow-up |
+| hardening | a security concern missing one of the six parts, or a finding whose failing input only a principal that can already cause its result could supply | no | a follow-up |
+
+A finding is hardening, whatever Requirement text it contradicts, when its
+failing input can come only from a principal that can already cause the
+finding's result directly. `SKILL.md` step 4 names that capability before
+the class is given. For example, a validator of a component tree that a
+handler in the page yields accepts a Proxy that answers differently on a
+second read. The handler is script in the page and can render anything
+without the validator, so the validator's "rejects" covers malformed data,
+and the finding is hardening. Four fix rounds on findings of this kind each
+closed one double read while the next reviewer found another
+(`cca58380` to `2dcaccdc`, reverted in `a03f9a8f`).
 
 Security and behavior findings hold the verdict and get a reviewed round. A
 blocking false test also holds the verdict, but gets no reviewer round. A fix
@@ -164,7 +175,8 @@ remedy is `review` again.
    The coordinating session does not make the fixes itself.
 2. Before each merge, run
    `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
-   result stops the round. Merge each worker's branch. After the merge commit
+   result stops the round. Merge each worker's branch, with the sandbox
+   disabled when it touched `.claude/` or `.agents/` (`land`, step 3). After the merge commit
    exists, including a resolved conflict, run
    `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
    A non-zero result also stops the round. Carry every `missing` block in the
@@ -207,10 +219,19 @@ round too. Its own edits and verifier run stand in for steps 1 and 2. Steps
 3 and 4 run over the diff of its fixes, the count rises by one, and When to
 stop decides what a second unclean round means. A first round that is not
 clean records `fixes needed` with the new count and ends with that row's
-question in `SKILL.md` step 5.
+question in `SKILL.md` step 5, or with the question of When to stop, first
+item, when the finding is about input a checker reads.
 
 ## When to stop
 
+- A first round that is not clean on a finding about input a checker,
+  parser, or validator reads does not get the usual question. Ask the user
+  (`AGENTS.md`, Agent behavior) what the check defends against:
+  - malformed data from an honest author (recommended when the input's
+    author can already cause the result): record that as a plan Decision,
+    class the finding as hardening, and end the loop;
+  - a hostile object: run the second round as the finding stands;
+  - stop here.
 - A round in which no reviewer returns a security or behavior finding that
   holds the verdict is clean, and a clean round ends the loop. For example,
   if a round returns two gaps and one false test on a fix's own test, the loop

@@ -28,10 +28,26 @@ plan with work left, grouped:
                implemented once none of its phases is left on disk and a
                retired one carries a landed range, and ends here
 
-Within a group the oldest plan comes first, by the date in its filename. A
-plan another unmerged branch already changes is flagged
-`elsewhere:<branch>`, since implementing it here would land it twice. A
-plan counts as changed when its Markdown or its state file did.
+Within a group a harness plan comes first, then the oldest plan, by the
+date in its filename. A harness plan is one whose units' `Files:` lines name
+the skills, the agent runtime configuration, the hooks, the host-side
+scripts, or the workflow documents (`HARNESS` below), and beside those only
+files under `docs/` and files at the repository root: a change to the
+workflow is worked before the product work that would run on the old one.
+
+A plan that names a file another plan with work left also names is printed
+after that plan when the other is further along (owed a land, then
+unchecked, in progress, re-plan, ready) or as far along and older. It is
+flagged `shares files with <plan>`, since work started on the earlier state
+of a shared file is done twice. `waiting` and `retire` lines keep their
+place.
+
+A plan another unmerged branch already changes, or another worktree's
+ledger names, is flagged `elsewhere:<branch>`, since implementing it here
+would land it twice. A plan counts as changed when its Markdown or its
+state file did. The last line names the branches the other worktrees have
+checked out, for the reader to compare with the candidates: a session that
+has not committed yet shows up nowhere else.
 `large` marks a plan over the unit threshold. A phase line names its parent
 and how many phases the parent still has open.
 """
@@ -56,6 +72,12 @@ FINISHED = set(plan_record.FINAL)
 ACCEPTED = set(plan_record.ACCEPTED)
 UNIT = re.compile(r"^### U\d+[a-z]*[.:]")
 ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "retire"]
+# How far along a plan with work left is, furthest first. Two plans that
+# share a file are taken in this order whatever their groups' places.
+PROGRESS = ["land", "unchecked", "in-progress", "replan", "ready"]
+HARNESS = (".agents/", ".claude/", ".codex/", "tools/hooks/", "tools/scripts/", "docs/agent-", "AGENTS.md", "CLAUDE.md")
+UNIT_KEY = re.compile(r"^(After|Change|Tests|Verify):")
+PATH = re.compile(r"[\w@.*/-]*[\w*/]")
 
 
 def git(*args: str) -> str:
@@ -63,11 +85,75 @@ def git(*args: str) -> str:
     return out.stdout.strip() if out.returncode == 0 else ""
 
 
-def describe(text: str) -> tuple[str, int]:
-    """The title, from the first `# ` heading, and the count of unit headings."""
+def describe(text: str) -> tuple[str, int, set[str]]:
+    """The title, from the first `# ` heading, the count of unit headings,
+    and the paths the units' `Files:` lines name."""
     lines = text.splitlines()
     title = next((line[2:].strip() for line in lines if line.startswith("# ")), "")
-    return title.removesuffix(" - Plan"), sum(1 for line in lines if UNIT.match(line))
+    files: set[str] = set()
+    listing = False
+    for line in lines:
+        if line.startswith("Files:"):
+            listing, line = True, line.removeprefix("Files:")
+        elif not line.strip() or line.startswith("#") or UNIT_KEY.match(line):
+            listing = False
+        if listing:
+            # A list item is a path, sometimes followed by a note in
+            # parentheses. Only its first word is the path.
+            for item in line.replace("`", "").split(","):
+                word = item.split()[0] if item.split() else ""
+                if PATH.fullmatch(word) and ("/" in word or "." in word):
+                    files.add(word)
+    return title.removesuffix(" - Plan"), sum(1 for line in lines if UNIT.match(line)), files
+
+
+def is_harness(files: set[str]) -> bool:
+    """Whether a plan changes the workflow and no product code."""
+    beside = [path for path in files if not path.startswith(HARNESS)]
+    return len(beside) < len(files) and all(path.startswith("docs/") or "/" not in path for path in beside)
+
+
+def overlap(ours: set[str], theirs: set[str]) -> bool:
+    """Whether two plans name a common file, a directory standing for
+    everything under it."""
+
+    def within(path: str, others: set[str]) -> bool:
+        return any(path == other or (other.endswith("/") and path.startswith(other)) for other in others)
+
+    return any(within(path, theirs) for path in ours) or any(within(path, ours) for path in theirs)
+
+
+def other_worktrees() -> list[tuple[str, str | None]]:
+    """Each other worktree's branch and the plan its ledger names.
+
+    Read from the files under the shared git directory, since a session
+    isolated in its worktree may run no git command that names another
+    checkout."""
+    common, here = git("rev-parse", "--git-common-dir"), git("rev-parse", "--absolute-git-dir")
+    if not common or not here:
+        return []
+    common_dir = Path(common).resolve()
+    found = []
+    for git_dir in [common_dir, *sorted((common_dir / "worktrees").glob("*"))]:
+        if git_dir == Path(here).resolve():
+            continue
+        try:
+            # A checkout deleted without `git worktree prune` leaves its
+            # entry and its ledger behind, and nobody is working there.
+            pointer = git_dir / "gitdir"
+            if pointer.is_file() and not Path(pointer.read_text(encoding="utf-8").strip()).exists():
+                continue
+            head = (git_dir / "HEAD").read_text(encoding="utf-8").strip()
+        except OSError:
+            continue
+        if not head.startswith("ref: refs/heads/"):
+            continue
+        try:
+            plan = json.loads((git_dir / plan_record.LEDGER_NAME).read_text(encoding="utf-8")).get("plan")
+        except (OSError, ValueError, AttributeError):
+            plan = None
+        found.append((head.removeprefix("ref: refs/heads/"), plan if isinstance(plan, str) else None))
+    return found
 
 
 def plans_in(paths: str) -> list[str]:
@@ -90,8 +176,8 @@ def read_plans(root: Path) -> dict[str, dict]:
     plans: dict[str, dict] = {}
     for path in sorted((root / "docs/plans").glob("*-plan.md")):
         rel = str(path.relative_to(root))
-        title, units = describe(path.read_text(encoding="utf-8"))
-        plans[rel] = {"state": plan_record.load(rel, root), "title": title, "units": units}
+        title, units, files = describe(path.read_text(encoding="utf-8"))
+        plans[rel] = {"state": plan_record.load(rel, root), "title": title, "units": units, "files": files}
     return plans
 
 
@@ -108,6 +194,9 @@ def queue(root: Path, large_units: int) -> list[dict]:
             ledger_plan = None
 
     elsewhere = branches_touching_plans()
+    for branch, plan in other_worktrees():
+        if plan:
+            elsewhere.setdefault(plan, branch)
     changed_here = set(plans_in(git("diff", "--name-only", "main...HEAD", "--", "docs/plans")))
 
     rows = []
@@ -185,11 +274,32 @@ def queue(root: Path, large_units: int) -> list[dict]:
                 "elsewhere": elsewhere.get(rel),
                 "ledger": rel == ledger_plan,
                 "large": plan["units"] > large_units,
+                "harness": is_harness(plan["files"]),
+                "shares_files_with": [],
             }
         )
 
-    rows.sort(key=lambda r: (ORDER.index(r["group"]), r["path"]))
-    return rows
+    rows.sort(key=lambda r: (ORDER.index(r["group"]), not r["harness"], r["path"]))
+
+    def ahead(row: dict) -> tuple[int, str]:
+        return PROGRESS.index(row["group"]), row["path"]
+
+    active = [row for row in rows if row["group"] in PROGRESS]
+    for row in active:
+        row["shares_files_with"] = sorted(
+            other["path"]
+            for other in active
+            if ahead(other) < ahead(row) and overlap(plans[row["path"]]["files"], plans[other["path"]]["files"])
+        )
+    # A row is printed once every plan it shares files with and trails is
+    # printed. `ahead` is a strict order, so the loop always places a row.
+    placed: list[dict] = []
+    while len(placed) < len(active):
+        done = {row["path"] for row in placed}
+        placed.append(
+            next(row for row in active if row["path"] not in done and done.issuperset(row["shares_files_with"]))
+        )
+    return placed + [row for row in rows if row["group"] not in PROGRESS]
 
 
 def main() -> int:
@@ -216,6 +326,8 @@ def main() -> int:
         flags = [f"{row['units']} units"]
         if row["large"]:
             flags.append("large")
+        if row["harness"]:
+            flags.append("harness")
         if row["group"] == "unchecked":
             flags.append(f"review: {row['review'] or 'none'}; compound: {row['compound'] or 'none'}")
         if row["parent"]:
@@ -224,9 +336,14 @@ def main() -> int:
             flags.append("ledger here")
         if row["elsewhere"]:
             flags.append(f"elsewhere:{row['elsewhere']}")
+        if row["shares_files_with"]:
+            flags.append("shares files with " + ", ".join(row["shares_files_with"]))
         if row["waiting_on"]:
             flags.append("after " + ", ".join(row["waiting_on"]))
         print(f"{row['group']:<12} {row['path']}  [{'; '.join(flags)}]\n{'':<12} {row['title']}")
+    branches = [branch for branch, _ in other_worktrees()]
+    if branches:
+        print("other worktrees: " + ", ".join(branches))
     return 0
 
 

@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Agent steering
@@ -362,6 +362,20 @@ agent invents a roadmap. `GOALS.md` is the guard: one line per decided
 goal with its record, no status, and `next` proposes a gap only for a
 goal that file states.
 
+The queue's order is computed, on two corrections from the owner. Harness
+plans come first within a group, since product work started ahead of a
+workflow change runs on the workflow about to be replaced. A plan that
+shares a file with a plan further along is printed after it, whatever
+their groups: the group order alone put an in-progress phase ahead of an
+unchecked plan that changed the scripts the phase edits. The script reads
+the `Files:` lines for both, so neither depends on the reader noticing. It
+also reads every other worktree's ledger from the shared git directory. A
+session that has neither a ledger nor a commit shows only its branch name,
+and whether a name such as `worktree-review-plan-state` means a given plan
+is a judgment. The script prints the names and `next` step 2 makes the
+comparison, because a pattern match on names would flag plans that nobody
+is working.
+
 ### `plan`
 
 Promote lasting decisions out of the plan, from the plan. A plan under
@@ -458,7 +472,8 @@ and the 10-unit one spanned 21 hours, which does not separate unit count
 from what a review added. The data does not yet support changing the
 trigger. As of 2026-10-04 the notes dated after that check hold 3 to 8
 units, and the longest span is about three hours for an 8-unit phase,
-which says the same.
+which says the same. As of 2026-10-06 the six notes since hold 3 to 6
+units with spans under three hours, and the trigger stays.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
@@ -705,6 +720,18 @@ so the author does not read every comment as mandatory
 (https://google.github.io/eng-practices/review/reviewer/standard.html,
 https://google.github.io/eng-practices/review/reviewer/comments.html).
 
+A finding is hardening when only a principal that can already cause its
+result could supply the failing input. The class table had no such row, so
+findings about crafted objects handed to an in-page validator were classed
+as behavior for contradicting a Requirement's literal "rejects", and four
+fix rounds each closed one double read while the next reviewer found
+another (`cca58380`, `534bf4ef`, `ea532a0e`, `2dcaccdc`, reverted in
+`a03f9a8f`). `review` step 4 now names the principal's existing capability
+before classing, `plan` has the Out of scope sentence say what a check is
+for when its untrusted author already holds the capability, and a first
+unclean round on a checker's input asks the user what the check defends
+against before another round is offered.
+
 Follow-ups used to hold the verdict at `fixes needed` until a gap pass had
 closed every one, and a false test got a reviewed round. One phase then
 ended its third round with no behavior finding and two false tests still
@@ -933,12 +960,14 @@ commit, so running it late still lands only finished phases.
 ### `delegate` and `tune`
 
 Name the model for every delegate. `repo-researcher` and
-`independent-reviewer` run on `claude-opus-5-5` at `xhigh`, the level the
-registry gives that model in `research` and `review-unit`. The Agent tool
+`independent-reviewer` run on `claude-opus-5-5` at `high`. The owner capped
+Claude models at `high` on 2026-10-06, for review lanes first, and
+`delegate` lowers an `xhigh` or `max` level to it. The registry's roles
+already sat at or under that level after the changes of 2026-10-05. The Agent tool
 takes a model and no effort, so the agent frontmatter carries the level.
 The frontmatter names the full id because the `opus` alias resolves to the
 session's own model whenever the session already runs an Opus model, and
-it accepts `xhigh` among `low` to `max`
+its `effort` field takes `low` to `max`
 ([Create custom subagents](https://code.claude.com/docs/en/sub-agents),
 checked 2026-10-02).
 `delegate` sends pure lookups to `Explore`
@@ -1006,7 +1035,14 @@ subagent with worktree isolation only when the role's fit set holds a
 Claude model. Otherwise the coordinator works the units itself. A native
 subagent runs only on Claude, and a role whose fit set holds no Claude
 model would send editing work to a model with no calibration for it.
-Sequential work is the safer fallback. A stage of `land` or `drive` needs a
+Sequential work is the safer fallback. A review lane without Orca runs on a
+Claude model other than the executor's even when the role asks for another
+vendor. Units that ran on Sonnet otherwise left `review-unit` with no model
+a native subagent can run, and the phase was reviewed by its coordinator
+alone. A no-Orca `drive` in auto mode asks once before its first stage,
+because the classifier refuses the unsandboxed verifier, policy-surface
+commits, and test mutations that every stage needs, and each refusal
+otherwise returns to the user as a command to run by hand. A stage of `land` or `drive` needs a
 session of its own that commits a checkpoint, so it runs in a native
 subagent with worktree isolation, on a Claude model from the stage role's
 fit set, for a review stage one other than the change's author. Stopping the stage for the user

@@ -186,6 +186,10 @@ Rules:
   says under Out of scope whose input it reads and whether that author is
   trusted. `review` briefs its reviewer with that sentence, so a plan that
   omits it invites findings about hostile input no one meant to handle.
+  When an untrusted author already holds the capability a check would deny
+  (script in the page, a process on the host), the sentence also says what
+  the check is for: malformed data, or a hostile object. A Requirement's
+  "rejects" is then read against that.
 - A unit adding or changing the exported `Config` of a module under
   `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines (an inventory of sites excluded), cut what the

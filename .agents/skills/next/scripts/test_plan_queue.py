@@ -96,6 +96,73 @@ class PlanQueueTest(unittest.TestCase):
         self.record("review", plan, "accept")
         self.record("compound", plan, "no lesson")
 
+    def order(self):
+        out = self.queue()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return [row["path"] for row in json.loads(out.stdout)]
+
+    def test_harness_plan_comes_first_in_its_group(self):
+        self.write(FIRST, "# First - Plan\n\n### U1. Skill\nFiles: `.agents/skills/next/SKILL.md`,\n`tools/hooks/guard.sh` (new), docs/README.md, uv.toml\nAfter: none\n")
+        self.record("init", FIRST)
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. Code\nFiles: src/common/errs/errs.go\nAfter: none\n")
+        rows = self.rows()
+        self.assertEqual((rows[FIRST]["harness"], rows[PLAIN]["harness"]), (True, False))
+        order = self.order()
+        self.assertLess(order.index(FIRST), order.index(PLAIN))
+
+    def test_plan_naming_product_files_too_is_not_a_harness_plan(self):
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. Both\nFiles: .agents/skills/next/SKILL.md, src/common/errs/errs.go\n")
+        self.assertFalse(self.rows()[PLAIN]["harness"])
+
+    def test_plan_naming_only_documents_is_not_a_harness_plan(self):
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. Docs\nFiles: docs/README.md\n")
+        self.assertFalse(self.rows()[PLAIN]["harness"])
+
+    def test_plan_sharing_files_follows_the_plan_further_along(self):
+        # PLAIN is in progress and FIRST is implemented and unreviewed, so
+        # the group order alone would print PLAIN first.
+        self.write(FIRST, "# First - Plan\n\n### U1. Errors\nFiles: src/common/errs/\n")
+        self.record("init", FIRST)
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. Code\nFiles: src/common/errs/errs.go\n")
+        self.record("partial", PLAIN, *RUN, "--note", "U2 left")
+        self.implement(FIRST)
+        self.commit("first implemented")
+        rows = self.rows()
+        self.assertEqual((rows[FIRST]["group"], rows[PLAIN]["group"]), ("unchecked", "in-progress"))
+        self.assertEqual(rows[PLAIN]["shares_files_with"], [FIRST])
+        order = self.order()
+        self.assertLess(order.index(FIRST), order.index(PLAIN))
+
+    def test_plans_with_disjoint_files_keep_the_group_order(self):
+        self.write(FIRST, "# First - Plan\n\n### U1. Errors\nFiles: src/common/errs/\n")
+        self.record("init", FIRST)
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. Code\nFiles: src/common/pump/pump.go\n")
+        self.record("partial", PLAIN, *RUN, "--note", "U2 left")
+        self.implement(FIRST)
+        self.commit("first implemented")
+        self.assertEqual(self.rows()[PLAIN]["shares_files_with"], [])
+        order = self.order()
+        self.assertLess(order.index(PLAIN), order.index(FIRST))
+
+    def test_plan_another_worktrees_ledger_names_is_elsewhere(self):
+        other = Path(self.directory.name + "-other")
+        self.git("worktree", "add", "-q", "-b", "reviewing", str(other))
+        self.addCleanup(lambda: subprocess.run(["rm", "-rf", str(other)], check=False))
+        git_dir = self.root / ".git/worktrees" / other.name
+        (git_dir / "flowseer-plan-status.json").write_text(json.dumps({"plan": PLAIN}), encoding="utf-8")
+        self.assertEqual(self.rows()[PLAIN]["elsewhere"], "reviewing")
+        self.assertIn("other worktrees: reviewing", subprocess.run(
+            [sys.executable, str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True
+        ).stdout)
+
+    def test_ledger_of_a_deleted_worktree_is_ignored(self):
+        other = Path(self.directory.name + "-gone")
+        self.git("worktree", "add", "-q", "-b", "gone", str(other))
+        git_dir = self.root / ".git/worktrees" / other.name
+        (git_dir / "flowseer-plan-status.json").write_text(json.dumps({"plan": PLAIN}), encoding="utf-8")
+        subprocess.run(["rm", "-rf", str(other)], check=True)
+        self.assertIsNone(self.rows()[PLAIN]["elsewhere"])
+
     def test_finished_phase_on_branch_is_owed_a_land(self):
         self.finish(PHASE, self.on_work)
         self.commit("phase done")
