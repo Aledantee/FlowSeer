@@ -1115,9 +1115,6 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	if !replies[0].Injection.At.Equal(wantFirstReplyAt) {
 		t.Errorf("first reply At = %v, want %v", replies[0].Injection.At, wantFirstReplyAt)
 	}
-	if !replies[0].Injection.At.Before(t0.Add(5 * time.Second)) {
-		t.Errorf("first reply At %v is not before t0+5s", replies[0].Injection.At)
-	}
 
 	if !replies[1].Injection.At.Equal(t0.Add(4100*time.Millisecond + 672*time.Nanosecond)) {
 		t.Errorf("second reply At = %v, want t0+4.1s", replies[1].Injection.At)

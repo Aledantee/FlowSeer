@@ -408,10 +408,13 @@ even when the BPDU's CIST information does not match the information already
 held. An MSTI Agreement requires the BPDU's CIST root, external path cost, and
 regional root to match the CIST vector selected after the CIST information is
 stored. A port that ends the call Designated uses its designated vector. A port
-that ends Root uses the stored vector. Role selection then chooses the role
-before the port state machine changes state. This follows
-IEEE 802.1Q-2003 clauses 13.26.9, 13.26.10, and 13.26.14, and P802.1aq/D1.5
-clauses 13.29.16 and 13.29.20.
+that ends Root, Alternate, or Backup uses the stored vector. Role selection
+then chooses the role before the port state machine changes state. IEEE
+802.1Q-2003 clauses 13.26.9, 13.26.10, and 13.26.14, and P802.1aq/D1.5
+clauses 13.29.16 and 13.29.20 define these agreement and proposal tests.
+D2009 permits CIST role selection before the MSTI agreement and does not
+require that order. Figures 13-20 and 13-21 give no condition between them,
+so the layer keeps that order.
 
 On a boundary port, MSTI sync reads the CIST port's state and agreement. MSTI
 sync leaves that port's state unchanged. CIST sync mirrors its resulting state
@@ -467,7 +470,11 @@ an edge port from ACTIVE to LEARNING. Its INACTIVE state clears the timer and
 acknowledgment. Only a Configuration BPDU's acknowledgment stops a Root port's
 timer. Detection and propagation follow IEEE 802.1Q-2003 clause 13.17 and clause
 14.6 g), and P802.1aq/D1.5 Figure 13-28, page 82, and clauses 13.29.11, page 63,
-and 13.29.26, page 67.
+and 13.29.26, page 67. A topology change raised by a BPDU is handled before
+that BPDU's root election for every BPDU class. A port that does not send RSTP
+sets `tcWhile` from the Max Age plus Forward Delay of the root held before the
+BPDU. This timer order is the layer's own rule. P802.1aq/D1.5 clauses
+13.29.11 and 13.29.33 d), and Figure 13-28, order neither.
 
 A link going down and a BPDU-guard disable flush every FID learned on that port.
 CIST topology-change propagation names no FIDs, because the CIST carries every
