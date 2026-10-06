@@ -55,7 +55,7 @@ def verdict(csv_text: str, gate_ns: str) -> int:
     """Print the regression lines of benchstat's CSV and return the exit status."""
     fail = False
     metric = ""
-    for row in csv.reader(csv_text.splitlines()):
+    for row in csv.reader(csv_text.split("\n")):
         if not row:
             continue
         # Metric block header, e.g.  ,allocs/op,CI,allocs/op,CI,vs base,P
@@ -85,9 +85,9 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-    count = os.environ.get("COUNT", "10")
-    bench = os.environ.get("BENCH", ".")
-    gate_ns = os.environ.get("GATE_NS", "0")
+    count = os.environ.get("COUNT") or "10"
+    bench = os.environ.get("BENCH") or "."
+    gate_ns = os.environ.get("GATE_NS") or "0"
 
     if not Path(BASELINE).is_file():
         eprint(
@@ -103,14 +103,12 @@ def main() -> int:
     run = subprocess.run(
         ["go", "test", "-bench", bench, "-benchmem", "-run", "^$", f"-count={count}"],
         stdout=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
     )
     if run.returncode != 0:
         return run.returncode
 
     # Keep only the FlowSeer arm + the benchstat preamble, matching the baseline.
-    kept = [line for line in run.stdout.split("\n") if KEPT_LINE.search(line)]
+    kept = [line for line in run.stdout.decode("utf-8").split("\n") if KEPT_LINE.search(line)]
     if not kept:
         eprint("perf-gate: FAIL — the benchmark output holds no FlowSeer rows and no preamble")
         return 1
@@ -129,10 +127,8 @@ def main() -> int:
             ["benchstat", "-format", "csv", BASELINE, str(new)],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
         )
-        return verdict(table.stdout, gate_ns)
+        return verdict(table.stdout.decode("utf-8"), gate_ns)
 
 
 if __name__ == "__main__":

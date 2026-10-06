@@ -20,8 +20,9 @@ var missingTargetExit = 2
 
 // snmpwalkFixture is what the stand-in snmpwalk prints: one line per
 // type the converter maps, an untyped value, a value whose character
-// after the colon is not a space, and a continuation line that has no
-// " = " at all.
+// after the colon is not a space, a continuation line that has no
+// " = " at all, and two values that hold a carriage return, one in a
+// CR LF pair and one alone. Only the line feed ends a record.
 const snmpwalkFixture = `.1.3.6.1.2.1.1.5.0 = STRING: "sw1"
 .1.3.6.1.2.1.2.1.0 = INTEGER: 3
 .1.3.6.1.2.1.1.3.0 = Timeticks: (12345) 0:02:03.45
@@ -30,7 +31,9 @@ const snmpwalkFixture = `.1.3.6.1.2.1.1.5.0 = STRING: "sw1"
 .1.3.6.1.2.1.1.4.0 = admin
 .1.3.6.1.2.1.1.9.0 = X:yz
 0A 0B
-`
+` +
+	".1.3.6.1.2.1.1.1.0 = STRING: \"line one\r\nline two\"\n" +
+	".1.3.6.1.2.1.1.6.0 = STRING: \"a\rb\"\n"
 
 // snmprecFixture is the converter's output for snmpwalkFixture.
 const snmprecFixture = `1.3.6.1.2.1.1.5.0|4|sw1
@@ -41,7 +44,10 @@ const snmprecFixture = `1.3.6.1.2.1.1.5.0|4|sw1
 1.3.6.1.2.1.1.4.0|4|admin
 1.3.6.1.2.1.1.9.0|4|z
 0A 0B|4|
-`
+` +
+	"1.3.6.1.2.1.1.1.0|4|line one\r\n" +
+	"line two\"|4|\n" +
+	"1.3.6.1.2.1.1.6.0|4|a\rb\n"
 
 // captureRun is one invocation of the capture script.
 type captureRun struct {
@@ -99,7 +105,8 @@ func runCapture(t *testing.T, args ...string) captureRun {
 // TestCaptureConvertsSnmpwalkLines pins the conversion of each shape of
 // snmpwalk line, including the two that look wrong: the character after
 // the colon is skipped whatever it is, and a line with no " = " becomes
-// a type 4 row with an empty value.
+// a type 4 row with an empty value. A carriage return reaches the output
+// unchanged and does not split a record.
 func TestCaptureConvertsSnmpwalkLines(t *testing.T) {
 	run := runCapture(t, "--target", "192.0.2.1")
 	if run.exit != 0 {

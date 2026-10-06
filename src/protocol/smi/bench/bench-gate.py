@@ -58,16 +58,33 @@ from pathlib import Path
 KEPT_LINE = re.compile(r"^(Benchmark|goos|goarch|pkg|cpu)")
 HARD_METRICS = ("allocs/op", "B/op")
 
+# What awk takes for a number when it reads a command-line assignment: decimal
+# digits with an optional sign, fraction, and exponent, and blanks around them.
+AWK_NUMBER = re.compile(r"[ \t\n]*[+-]?([0-9]+\.?[0-9]*|\.[0-9]+)([eE][+-]?[0-9]+)?[ \t\n]*")
+
 
 def eprint(*lines: str) -> None:
     print(*lines, sep="\n", file=sys.stderr)
 
 
-def verdict(csv_text: str, gate_ns: str, min_delta: float, min_delta_text: str) -> int:
+def at_least(pct: float, floor: str) -> bool:
+    """Report pct >= floor the way awk does for a floor taken from the command line.
+
+    A floor that looks like a number compares numerically. Any other text
+    compares with pct printed as a string, byte by byte, so "abc" is never
+    reached and "9x" is reached by no pct below 9.
+    """
+    if AWK_NUMBER.fullmatch(floor):
+        return pct >= float(floor)
+    shown = str(int(pct)) if pct.is_integer() else f"{pct:.6g}"
+    return shown.encode() >= os.fsencode(floor)
+
+
+def verdict(csv_text: str, gate_ns: str, min_delta_text: str) -> int:
     """Print the regression lines of benchstat's CSV and return the exit status."""
     fail = False
     metric = ""
-    for row in csv.reader(csv_text.splitlines()):
+    for row in csv.reader(csv_text.split("\n")):
         if not row:
             continue
         # Metric block header, e.g.  ,allocs/op,CI,allocs/op,CI,vs base,P
@@ -86,7 +103,7 @@ def verdict(csv_text: str, gate_ns: str, min_delta: float, min_delta_text: str) 
         pct = float(delta.split("%", 1)[0])
 
         hard = metric in HARD_METRICS or (metric == "sec/op" and gate_ns == "1")
-        if hard and pct >= min_delta:
+        if hard and at_least(pct, min_delta_text):
             print(f"  REGRESSION {metric:<10} {row[0]:<34} {row[1]} -> {row[3]} ({delta})")
             fail = True
         elif hard:
@@ -105,18 +122,12 @@ def main() -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
 
-    count = os.environ.get("COUNT", "10")
-    bench = os.environ.get("BENCH", ".")
-    gate_ns = os.environ.get("GATE_NS", "0")
-    min_delta_text = os.environ.get("MIN_DELTA", "1")
-    baseline = os.environ.get("BASELINE", "testdata/baseline-micro.txt")
+    count = os.environ.get("COUNT") or "10"
+    bench = os.environ.get("BENCH") or "."
+    gate_ns = os.environ.get("GATE_NS") or "0"
+    min_delta_text = os.environ.get("MIN_DELTA") or "1"
+    baseline = os.environ.get("BASELINE") or "testdata/baseline-micro.txt"
     raw_in = os.environ.get("RAW_IN", "")
-
-    try:
-        min_delta = float(min_delta_text)
-    except ValueError:
-        eprint(f"perf-gate: MIN_DELTA is not a number: {min_delta_text}")
-        return 2
 
     if not Path(baseline).is_file():
         eprint(f"perf-gate: missing baseline {baseline}")
@@ -128,18 +139,16 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="smi-bench-") as tmp:
         if raw_in:
             print(f"perf-gate: reading benchmark output from {raw_in}")
-            raw = Path(raw_in).read_text(encoding="utf-8")
+            raw = Path(raw_in).read_bytes().decode("utf-8")
         else:
             print(f"perf-gate: running benchmarks (BENCH={bench} COUNT={count})…", flush=True)
             run = subprocess.run(
                 ["go", "test", "-bench", bench, "-benchmem", "-run", "^$", f"-count={count}"],
                 stdout=subprocess.PIPE,
-                text=True,
-                encoding="utf-8",
             )
             if run.returncode != 0:
                 return run.returncode
-            raw = run.stdout
+            raw = run.stdout.decode("utf-8")
 
         # Keep the benchstat preamble and the benchmark rows; drop the test
         # harness's PASS/ok trailer, which benchstat has no use for.
@@ -173,10 +182,8 @@ def main() -> int:
             ["benchstat", "-format", "csv", baseline, str(new)],
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            text=True,
-            encoding="utf-8",
         )
-        return verdict(table.stdout, gate_ns, min_delta, min_delta_text)
+        return verdict(table.stdout.decode("utf-8"), gate_ns, min_delta_text)
 
 
 if __name__ == "__main__":

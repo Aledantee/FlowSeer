@@ -121,12 +121,9 @@ def main() -> int:
     walk = subprocess.run(
         ["snmpwalk", "-v2c", "-c", args.community, "-OnQU", "-Cc", args.target, args.root],
         stdout=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="surrogateescape",
     )
 
-    lines = walk.stdout.split("\n")
+    lines = walk.stdout.decode("utf-8", errors="surrogateescape").split("\n")
     if lines[-1] == "":
         lines.pop()
     converted = "".join(convert(line) + "\n" for line in lines)
