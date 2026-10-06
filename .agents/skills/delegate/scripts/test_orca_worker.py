@@ -866,6 +866,19 @@ else:
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
         self.assert_wait(result, ["timeout", "> lane done"], 20)
 
+    def test_wait_keeps_waiting_for_a_joined_child_after_an_earlier_lane_is_kept(self):
+        self.live_lane()
+        self.child_lane(child_id="wt-c1", name="b", terminal="term-b", screen="esc to interrupt")
+        (self.state_dir / "a.json").write_text(json.dumps({
+            "name": "a", "cli": "codex", "terminal": "", "kept": True,
+            "worktree": "wt-c1", "path": str(self.root / "child-b"),
+            "branch": "branch-b", "run": "run-a",
+        }))
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+        self.assertIn("terminal read --terminal term-b --screen", self.orca_calls())
+
     def test_wait_reports_idle_children_for_a_quiet_child(self):
         self.live_lane()
         self.child_lane()
