@@ -25,9 +25,3 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
-
-## 2026-10-06 drive: stage branches merge at the end, and the plan state has no branch field
-Skill or agent: `.claude/skills/drive/SKILL.md`, step 2, "After each stage", item 3, and `.claude/skills/plan/scripts/plan_record.py`.
-What happened: the user corrected the drive of the uv scripts plan. Stage branches are no longer merged into the coordinator branch after each stage. Every stage commits on one branch, and the work is merged once at the end. The user wants that as the default. The user also asked for the branch to be recorded in the plan state. The state contract has no field for it, so the branch went into a `## Branch` section of `docs/plans/2026-10-05-2216-refactor-uv-python-scripts-plan.md`. The step was followed as written and was still the wrong default.
-Suggested change: add a `branch` field to the plan state, written by a `plan_record.py branch <plan> <name>` subcommand and read by `show`, `check`, and `plan-queue.py`. Then change `drive` step 2 so later stages run on the recorded branch and the merge happens once, before `land`.
-Decided by the user, 2026-10-06: this goes to `plan` as a harness plan and is not applied as a steer edit, since it changes the state contract, `orca-worker.sh`, and `drive` steps 2 and 3. Delete this entry when that plan exists.
