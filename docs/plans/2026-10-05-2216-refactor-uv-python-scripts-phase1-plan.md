@@ -237,3 +237,30 @@ Waves: U1 U2 | U3 U4
   entry `~/.cache/uv` matches uv's documented default on Linux and macOS
   (https://docs.astral.sh/uv/reference/settings/), and a host that sets
   `XDG_CACHE_HOME` needs its own entry.
+
+## Review gaps
+
+Requirement 8 is open. No sandboxed Bash call has run `uv run
+tools/scripts/run.py list` with the `~/.cache/uv` entry loaded, and without
+it `uv run` exits 2 with `Failed to initialize cache`.
+
+- tools/hooks/mark-verification-dirty.sh:74: `uv.toml` missing from the type list (also `tools/hooks/tree-state.sh:23`); fails: edit `uv.toml`, verify an unrelated Go path, and neither the Stop hook nor the `land` receipt check names it; class: gap
+- tools/scripts/run.py:73: `module.main([])` in place of `module.main(argv[2:])` survives; fails: `run.py verify check-markdown-links <file with a broken link>` exits 0, so the verifier's link check checks nothing; class: gap
+- tools/scripts/run.py:52: `discover` skips a test directory without `__init__.py`; fails: `tests/hooks/test_x.py` holding `self.fail()` with no `tests/hooks/__init__.py` leaves `run.py test` at 18 tests, OK; class: gap
+- tools/scripts/tests/test_run.py:28: `return lines` in place of `return sorted(lines)` survives, since the current registry is already in order; fails: a registry whose insertion order is not sorted; class: false test
+- tools/scripts/tests/test_run.py:35: `start = scripts / "tests"` (start argument ignored) survives, because the nested run's failure traceback quotes the literal `ran zero tests`; fails: `run.py test <empty dir>` running the whole suite; class: false test
+- tools/scripts/tests/test_run.py:41: no exit-code assertion, and an absolute path where Requirement 6 uses `../tools/scripts/run.py`; fails: both invocations crashing with empty stdout; class: gap
+- tools/scripts/tests/test_run.py:25: the unknown-group case asserts only exit 2; fails: an unknown group that does not print the registry (Requirement 2); class: gap
+- tools/scripts/run.py:36: dropping `replace("_", "-")` here and the reverse at `:72` survives; fails: a group package with an underscore in its name; class: gap
+- .agents/skills/verify-change/scripts/verify-change.sh:304: removing `tools/scripts/*` from the Markdown hook-tooling case survives; fails: a `.md` change under `tools/scripts/` that skips the scripts suite; class: gap
+- .agents/skills/verify-change/scripts/verify-change.sh:987: `py_compile` runs on the host `python3`, not the pinned 3.13; fails: syntax 3.13 rejects in a module no test imports; class: gap
+- tools/hooks/tests/run.sh:291: `!= ask` lets a `deny` pass; fails: a `deny` for `tools/scripts/tests/test_run.py` reads as unprompted; class: false test
+- .agents/skills/verify-change/scripts/verify-change.sh:634: both uv gates label as `in gate: uv run` (also `:988`), where `SKILL.md:58` says the line names the gate; fails: a failing link check reads the same as a failing scripts suite; class: convention
+- tools/scripts/run.py:9: "A __pycache__ directory marks the checkout dirty" is false, since `.gitignore:28` ignores `__pycache__/`, so Requirement 11's `git status --porcelain` example cannot fail; fails: a run that writes `__pycache__` still prints nothing; class: convention
+- tools/scripts/verify/check_markdown_links.py:39: a non-file argument is skipped with exit 0, against `docs/code-style-python.md:31`; fails: a missing path passed to the check; class: convention
+- docs/code-style-python.md:33: "no module-level work beyond definitions" does not name the `run.py` bytecode flag the Decisions require; fails: `run.py:10` read against the rule; class: convention
+- docs/code-style-python.md:17: the once-per-host `uv python install 3.13` appears nowhere outside `docs/plans/`; fails: a first sandboxed `uv run` on a host without 3.13; class: convention
+- .agents/skills/verify-change/SKILL.md:46: the `--print-selection` description omits `hook_tooling=true`; fails: a reader of the selection output; class: convention
+- .agents/skills/verify-change/references/gate-coverage.md:34: the `.md` entry does not say the link check needs uv; fails: a docs-only run on a host without uv stops at the tool check; class: convention
+- tools/scripts/tests/lib/test_proc.py:19: `# type: ignore[arg-type]` with no type checker in the repository; fails: none, the suppression has nothing behind it; class: convention
+- tools/scripts/run.py:32: every group package is imported before dispatch, `skills/` included, and a computed `COMMANDS` dict is accepted; fails: an import error in one group stops every command; class: hardening
