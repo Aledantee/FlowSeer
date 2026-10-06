@@ -371,6 +371,28 @@ class PlanQueueTest(unittest.TestCase):
         self.assertEqual(rows[PLAIN]["elsewhere"], "other")
         self.assertIsNone(rows[PHASE]["elsewhere"])
 
+    def test_phase_implemented_on_its_recorded_branch_is_unchecked(self):
+        # The checkout still reads planned: the stage wrote its state on the
+        # plan's branch, which is not merged here.
+        self.git("checkout", "-q", "-b", "stage")
+        self.implement(PHASE, self.on_work)
+        self.commit("phase implemented on its branch")
+        self.git("checkout", "-q", "work")
+        self.record("branch", PHASE, "stage")
+        self.commit("branch recorded")
+        row = self.rows()[PHASE]
+        self.assertEqual((row["group"], row["status"], row["branch"]), ("unchecked", "implemented", "stage"))
+        out = subprocess.run([sys.executable, str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True)
+        self.assertIn("branch:stage", out.stdout)
+
+        # Once merged, the checkout's file is the one read: an outcome
+        # recorded here shows, which a read of the branch would miss.
+        self.git("merge", "-q", "--no-edit", "stage")
+        self.record("review", PHASE, "accept")
+        self.record("compound", PHASE, "no lesson")
+        row = self.rows()[PHASE]
+        self.assertEqual((row["group"], row["branch"]), ("land", None))
+
     def test_row_carries_the_title_and_the_unit_count(self):
         row = self.rows()[PHASE]
         self.assertEqual((row["title"], row["units"]), ("Phase", 2))

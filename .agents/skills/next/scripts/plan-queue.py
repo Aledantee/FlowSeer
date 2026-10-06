@@ -3,7 +3,8 @@
 
 Usage: plan-queue.py [--json] [--large-units N]
 
-Reads each plan's state file through plan_record.py, the plan's title and
+Reads each plan's state file through plan_record.py, from the plan's
+recorded branch while that branch is not merged here, the plan's title and
 unit headings, the status ledger of this worktree, the unmerged branches
 that touch a plan, and the plans this branch changed. Prints one line per
 plan with work left, grouped:
@@ -48,6 +49,8 @@ would land it twice. A plan counts as changed when its Markdown or its
 state file did. The last line names the branches the other worktrees have
 checked out, for the reader to compare with the candidates: a session that
 has not committed yet shows up nowhere else.
+`branch:<name>` names the unmerged branch a plan's state was read from: its
+work is there, not in this checkout.
 `large` marks a plan over the unit threshold. A phase line names its parent
 and how many phases the parent still has open.
 """
@@ -177,7 +180,7 @@ def read_plans(root: Path) -> dict[str, dict]:
     for path in sorted((root / "docs/plans").glob("*-plan.md")):
         rel = str(path.relative_to(root))
         title, units, files = describe(path.read_text(encoding="utf-8"))
-        plans[rel] = {"state": plan_record.load(rel, root), "title": title, "units": units, "files": files}
+        plans[rel] = {"state": plan_record.followed(rel, root), "title": title, "units": units, "files": files}
     return plans
 
 
@@ -198,6 +201,9 @@ def queue(root: Path, large_units: int) -> list[dict]:
         if plan:
             elsewhere.setdefault(plan, branch)
     changed_here = set(plans_in(git("diff", "--name-only", "main...HEAD", "--", "docs/plans")))
+    # A plan read from its branch is this branch's work, merged here or not.
+    unmerged = {rel: plan_record.branch_to_follow(plan["state"], root) for rel, plan in plans.items()}
+    changed_here.update(rel for rel, branch in unmerged.items() if branch)
 
     rows = []
     for rel, plan in plans.items():
@@ -210,7 +216,7 @@ def queue(root: Path, large_units: int) -> list[dict]:
         open_phases = 0
         if state["parent"]:
             holder = plan_record.load(state["parent"], root)
-            siblings = [plan_record.load(path, root) for path in holder["phases"]]
+            siblings = [plan_record.followed(path, root) for path in holder["phases"]]
             started_parent = any(s["landed"] for s in siblings) or any(e["landed"] for e in holder["retired"])
             open_phases = sum(1 for s in siblings if not s["landed"])
 
@@ -272,6 +278,7 @@ def queue(root: Path, large_units: int) -> list[dict]:
                 "open_phases": open_phases,
                 "waiting_on": missing,
                 "elsewhere": elsewhere.get(rel),
+                "branch": unmerged[rel],
                 "ledger": rel == ledger_plan,
                 "large": plan["units"] > large_units,
                 "harness": is_harness(plan["files"]),
@@ -336,6 +343,8 @@ def main() -> int:
             flags.append("ledger here")
         if row["elsewhere"]:
             flags.append(f"elsewhere:{row['elsewhere']}")
+        if row["branch"]:
+            flags.append(f"branch:{row['branch']}")
         if row["shares_files_with"]:
             flags.append("shares files with " + ", ".join(row["shares_files_with"]))
         if row["waiting_on"]:

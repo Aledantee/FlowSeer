@@ -60,6 +60,10 @@ before recommending it:
 - `elsewhere:<branch>` means another unmerged branch already changes that
   plan, or another worktree's ledger names it. Do not recommend it here;
   name the branch.
+- `branch:<name>` names where the plan's work is: a `drive` recorded that
+  branch for the plan, it is not merged here, and the line's group was read
+  from the state file on it. Such a plan belongs to the drive that recorded
+  the branch, so offer `drive` for it, not `implement` in this checkout.
 - Compare the candidate with the `other worktrees:` line, when the script
   printed one. A session
   that has not committed yet leaves only its branch name. When a branch

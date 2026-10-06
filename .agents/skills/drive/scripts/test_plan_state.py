@@ -195,6 +195,59 @@ class PlanStateTest(unittest.TestCase):
         self.record("retire", fifth)
         self.assertEqual(self.report()[-1], f"next: {second}, {fourth}")
 
+    def test_phase_implemented_on_its_recorded_branch_reads_review(self):
+        # The checkout still reads planned: the stage wrote its state on the
+        # plan's branch, which is not merged here.
+        first = self.phase(1)
+        self.commit("phases")
+        self.git("checkout", "-q", "-b", "stage")
+        self.implement(first, self.on_work)
+        self.commit("implemented on the plan's branch")
+        self.git("checkout", "-q", "work")
+        self.record("branch", first, "stage")
+        self.commit("branch recorded")
+        self.assertEqual(self.stages(), {first: "review"})
+        self.assertIn("      branch: stage", self.report())
+
+        # Once merged, the checkout's file is the one read: a verdict
+        # recorded here shows, which a read of the branch would miss.
+        self.git("merge", "-q", "--no-edit", "stage")
+        self.record("review", first, "accept")
+        self.assertEqual(self.stages(), {first: "compound"})
+        self.assertNotIn("      branch: stage", self.report())
+
+    def test_land_owed_waits_for_a_phase_on_an_unmerged_branch(self):
+        # land refuses while a child worktree remains, and the second phase
+        # keeps its worktree until its branch merges here or it parks.
+        first, second = self.phase(1), self.phase(2)
+        self.commit("phases")
+        self.finish(first, self.on_work)
+        self.commit("first done")
+        self.git("checkout", "-q", "-b", "stage")
+        self.write("code", "second phase, under way\n")
+        self.commit("second started")
+        self.git("checkout", "-q", "work")
+        self.record("branch", second, "stage")
+        self.commit("branch recorded")
+        self.assertEqual(self.stages()[second], "implement")
+        self.assertEqual(self.report()[-1], f"next: land {first} after {second}")
+
+    def test_land_owed_does_not_wait_for_a_parked_phase(self):
+        # Parking removes the phase's worktree and keeps its work on
+        # parked/<slug>, off this branch, so nothing of it stands in land's way.
+        first, second = self.phase(1), self.phase(2)
+        self.commit("phases")
+        self.finish(first, self.on_work)
+        self.commit("first done")
+        self.git("checkout", "-q", "-b", "parked/second")
+        self.implement(second, self.on_work)
+        self.commit("second implemented, then parked")
+        self.git("checkout", "-q", "work")
+        self.record("branch", second, "parked/second")
+        self.commit("parked branch recorded")
+        self.assertEqual(self.stages()[second], "review")
+        self.assertEqual(self.report()[-1], f"next: land {first}")
+
     def test_plan_that_names_other_plans_in_its_units_is_not_a_parent(self):
         # A reconciliation plan lists the plans it rewrites: a phase of
         # another parent on disk and one already retired. Neither is its phase.

@@ -6,7 +6,9 @@ and its account of which phase is where drifts from the files. The stage is
 therefore read from the state files plan_record.py keeps beside the plans:
 the parent's phase lists and each phase's status, review, and compound
 outcome, the same fields `implement`, `review`, `compound`, and `land`
-write and gate on.
+write and gate on. A phase whose recorded branch is not merged here is read
+from that branch, where its stage workers write, and the branch is printed
+under it.
 
 Usage:
     plan-state.py <parent plan>   the phases of one parent
@@ -35,7 +37,7 @@ def retired_stage(entry, root):
 
 def stage(plan, root):
     """The next stage a phase needs, in the order the skills run."""
-    state = plan_record.load(plan, root)
+    state = plan_record.followed(plan, root)
     if state["landed"] and plan_record.on_main(state["landed"]["last"], root):
         # A phase on main was gated by land, whatever its review says since;
         # phases older than the review and compound fields carry neither.
@@ -66,19 +68,37 @@ def report(parent, root):
         return 1
     # Retired phases landed first, so they come before the ones still on disk.
     rows = [(retired_stage(entry, root), entry["plan"], entry["landed"]) for entry in state["retired"]]
-    rows += [(stage(plan, root), plan, plan_record.load(plan, root)["landed"]) for plan in state["phases"]]
+    unmerged = {}
+    for plan in state["phases"]:
+        phase = plan_record.followed(plan, root)
+        unmerged[plan] = plan_record.branch_to_follow(phase, root)
+        rows.append((stage(plan, root), plan, phase["landed"]))
     print(f"{parent}  status: {plan_record.computed_status(state)}")
     for phase_stage, plan, landed in rows:
         print(f"  {phase_stage:<28}  {plan}")
+        if unmerged.get(plan):
+            print(f"      branch: {unmerged[plan]}")
         if landed:
             print(f"      landed: {landed['first']}..{landed['last']}")
     settled = ("land", "done", "on main", "waits", "retired")
     ready = [plan for phase_stage, plan, _ in rows if not phase_stage.startswith(settled)]
     # A phase owed a land goes before any new stage, since land gates every
-    # plan this branch carries past main. A phase whose implement merged here
-    # holds that land until its review and compound are done.
+    # plan this branch carries past main. A phase implemented here holds
+    # that land until its review and compound are done. So does a phase at
+    # any stage on a branch not merged here: it keeps its child worktree
+    # until then, and land refuses while one remains. A parked phase holds
+    # nothing: its worktree is gone and its work is off this branch.
     owed = [plan for phase_stage, plan, _ in rows if phase_stage == "land"]
-    holding = [plan for phase_stage, plan, _ in rows if phase_stage.startswith(("review", "compound"))]
+    holding = [
+        plan
+        for phase_stage, plan, _ in rows
+        if plan not in owed
+        and (
+            not unmerged[plan].startswith("parked/")
+            if unmerged.get(plan)
+            else phase_stage.startswith(("review", "compound"))
+        )
+    ]
     if owed:
         print("next: land " + ", ".join(owed) + (" after " + ", ".join(holding) if holding else ""))
     else:
@@ -89,7 +109,7 @@ def report(parent, root):
 def open_plans(root):
     plans = sorted(f"{plan_record.PLANS}/{path.name}" for path in (root / plan_record.PLANS).glob("*-plan.md"))
     for plan in plans:
-        state = plan_record.load(plan, root)
+        state = plan_record.followed(plan, root)
         status = plan_record.computed_status(state)
         if status in plan_record.FINAL or state["parent"]:
             continue

@@ -84,6 +84,21 @@ not work and this plan returns to `plan`.
   the first verifier run after the merge, and stage workers already run the
   verifier their skill names in the plan's worktree. Each lane is graded
   once, since `runlog.py` appends a second grade without a check.
+- Ruled: `plan-state.py` leaves a phase whose unmerged recorded branch is
+  under `parked/` out of the list after `after`, and applies the earlier
+  rule (a phase at review or compound holds the land) only to a phase read
+  from this checkout. Why: parking removes the phase's worktree and keeps
+  its work off this branch (`.agents/skills/drive/references/parking.md`),
+  so neither reason for `land` to wait applies, and a parked phase would
+  otherwise hold every other phase's land until its question is answered.
+  Cost if wrong: the `holding` expression in `plan-state.py`, its test
+  `test_land_owed_does_not_wait_for_a_parked_phase`, and one sentence in
+  `drive` step 3.
+- Ruled: `plan-queue.py` and `plan-state.py` name a plan's branch only
+  while its state is read from it, and a row's `branch` is null once the
+  branch is merged or gone. Why: the flag says where the plan's work is,
+  and after the merge it is in this checkout. Cost if wrong: the `branch`
+  value of a row and one line of each script's output.
 
 ## Requirements
 
