@@ -5,7 +5,7 @@ required_by:
   - deploy/lab/write-lab-secrets.py
 criteria: run
 verdict: keep
-approved:
+approved: 2026-10-06
 ---
 
 ## Why it is required
