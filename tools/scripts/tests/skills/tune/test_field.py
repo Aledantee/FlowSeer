@@ -8,7 +8,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-import field
+from skills.tune import field
 
 
 BASE = datetime(2026, 1, 1, tzinfo=timezone.utc)

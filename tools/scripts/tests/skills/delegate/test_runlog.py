@@ -6,10 +6,10 @@ import sys
 import tempfile
 import unittest
 
-import runlog
+from skills.delegate import runlog
 
 
-SCRIPT = Path(__file__).with_name("runlog.py")
+RUN = Path(__file__).resolve().parents[3] / "run.py"
 
 
 class RunlogTests(unittest.TestCase):
@@ -21,7 +21,7 @@ class RunlogTests(unittest.TestCase):
 
     def command(self, *args):
         return subprocess.run(
-            [sys.executable, str(SCRIPT), *args],
+            [sys.executable, str(RUN), "delegate", "runlog", *args],
             env=self.env, capture_output=True, text=True, check=False,
         )
 
@@ -55,7 +55,7 @@ class RunlogTests(unittest.TestCase):
 
     def test_parallel_review_writes_complete_lines(self):
         processes = [subprocess.Popen(
-            [sys.executable, str(SCRIPT), "review", "--model", "claude-opus-5-5",
+            [sys.executable, str(RUN), "delegate", "runlog", "review", "--model", "claude-opus-5-5",
              "--role", "review-unit", "--agent", f"a{index}",
              "--findings", "4", "--held", "3", "--unverified", "1"],
             env=self.env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -115,6 +115,48 @@ class RunlogTests(unittest.TestCase):
                     read_result = runlog.read(self.log)
                     self.assertEqual(read_result.skipped, 1)
                     self.assertEqual([event["event"] for event in read_result], [kind])
+
+    def seed(self, *events):
+        self.log.write_text("".join(json.dumps(event) + "\n" for event in events))
+
+    def start_event(self, run, at, model="claude-opus-5-5"):
+        return {"v": 1, "event": "start", "run": run, "at": at, "lane": "l1",
+                "cli": "claude", "model": model, "role": "execute",
+                "worktree": "/w/l1", "branch": "u/l1", "base": "abc123"}
+
+    def test_last_start_prints_model_and_time_of_the_last_start(self):
+        self.seed(
+            self.start_event("r1", "2026-09-30T10:00:00Z", "claude-sonnet-5-5"),
+            self.start_event("r1", "2026-09-30T12:00:00Z", "claude-opus-5-5"),
+            self.start_event("r2", "2026-09-30T13:00:00Z", "claude-haiku-4-5"),
+        )
+        result = self.command("last-start", "--run", "r1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "claude-opus-5-5\t2026-09-30T12:00:00Z\n")
+
+    def test_last_start_prints_an_empty_line_without_a_start(self):
+        self.seed({"v": 1, "event": "end", "run": "r1", "at": "2026-09-30T10:00:00Z", "head": "h"})
+        result = self.command("last-start", "--run", "r1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "\n")
+
+    def test_last_start_prints_an_empty_line_without_a_log(self):
+        result = self.command("last-start", "--run", "r1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "\n")
+        self.assertFalse(self.log.exists())
+
+    def test_has_grade_exits_zero_only_for_a_graded_run(self):
+        grade = {"v": 1, "event": "grade", "run": "r1", "at": "2026-09-30T10:00:00Z",
+                 "outcome": "accepted", "verify": "pass"}
+        self.seed(self.start_event("r1", "2026-09-30T10:00:00Z"), grade)
+        self.assertEqual(self.command("has-grade", "--run", "r1").returncode, 0)
+        self.assertEqual(self.command("has-grade", "--run", "r2").returncode, 1)
+        self.assertFalse(self.command("has-grade", "--run", "r1").stdout)
+
+    def test_has_grade_exits_one_without_a_log(self):
+        self.assertEqual(self.command("has-grade", "--run", "r1").returncode, 1)
+        self.assertFalse(self.log.exists())
 
 
 if __name__ == "__main__":

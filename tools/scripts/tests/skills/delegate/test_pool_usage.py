@@ -8,8 +8,10 @@ import tempfile
 import unittest
 from unittest import mock
 
+from lib import repo
 
-SCRIPT = Path(__file__).with_name("pool-usage.sh")
+
+SCRIPT = repo.root(Path(__file__).parent) / ".agents/skills/delegate/scripts/pool-usage.sh"
 source = SCRIPT.read_text().split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
 tree = ast.parse(source)
 tree.body = [node for node in tree.body if not isinstance(node, ast.Expr)]

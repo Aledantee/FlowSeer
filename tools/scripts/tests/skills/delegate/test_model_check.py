@@ -8,7 +8,7 @@ import tempfile
 import unittest
 
 
-SCRIPT = Path(__file__).with_name("model_check.py")
+RUN = Path(__file__).resolve().parents[3] / "run.py"
 FIXTURE = Path(__file__).with_name("testdata") / "fallback-records.jsonl"
 
 
@@ -40,7 +40,7 @@ class ModelCheckTests(unittest.TestCase):
 
     def run_check(self, expected="claude-opus-5-5", since="2026-09-30T10:00:00Z"):
         return subprocess.run(
-            [sys.executable, str(SCRIPT), str(self.lane), expected, since],
+            [sys.executable, str(RUN), "delegate", "model-check", str(self.lane), expected, since],
             env=self.env,
             capture_output=True,
             text=True,
@@ -112,7 +112,7 @@ class ModelCheckTests(unittest.TestCase):
         path.write_text(json.dumps(self.record("2026-09-30T10:05:00Z", "claude-opus-5-5")) + "\n")
 
         result = subprocess.run(
-            [sys.executable, str(SCRIPT), str(self.lane), "claude-opus-5-5", "2026-09-30T10:00:00Z"],
+            [sys.executable, str(RUN), "delegate", "model-check", str(self.lane), "claude-opus-5-5", "2026-09-30T10:00:00Z"],
             env=env,
             capture_output=True,
             text=True,

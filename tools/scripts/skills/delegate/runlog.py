@@ -1,9 +1,7 @@
-#!/usr/bin/env python3
 """Append and read agent run events in the machine-wide JSON Lines log."""
 
 import argparse
 from datetime import datetime, timezone
-import fcntl
 import json
 import os
 from pathlib import Path
@@ -11,11 +9,14 @@ import re
 import sys
 import uuid
 
+from lib import lock
+
 
 DEFAULT_PATH = Path.home() / ".claude/models/runs.jsonl"
 ROLE = re.compile(r"[a-z][a-z-]*\Z")
 OUTCOMES = {"accepted", "amended", "rejected", "blocked"}
 VERIFY = {"pass", "fail", "none"}
+QUERIES = ("last-start", "has-grade")
 
 
 class ReadResult:
@@ -93,22 +94,22 @@ def append(event, path=None):
     target = Path(path) if path is not None else log_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     data = (json.dumps(event, separators=(",", ":")) + "\n").encode("utf-8")
-    descriptor = os.open(str(target), os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o600)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX)
+    with lock.exclusive(target) as descriptor:
         size = os.fstat(descriptor).st_size
-        if size and os.pread(descriptor, 1, size - 1) != b"\n":
+        if size and last_byte(descriptor, size) != b"\n":
             if os.write(descriptor, b"\n") != 1:
                 raise OSError("short run log separator write")
         if os.write(descriptor, data) != len(data):
             raise OSError("short run log write")
-    finally:
-        fcntl.flock(descriptor, fcntl.LOCK_UN)
-        os.close(descriptor)
+
+
+def last_byte(descriptor, size):
+    os.lseek(descriptor, size - 1, os.SEEK_SET)
+    return os.read(descriptor, 1)
 
 
 def parser():
-    cli = argparse.ArgumentParser(description=__doc__)
+    cli = argparse.ArgumentParser(prog="run.py delegate runlog", description=__doc__)
     commands = cli.add_subparsers(dest="event", required=True)
     start = commands.add_parser("start")
     for flag in ("lane", "cli", "role", "worktree", "branch", "base"):
@@ -129,13 +130,32 @@ def parser():
     review.add_argument("--plan")
     for flag in ("findings", "held", "unverified"):
         review.add_argument("--" + flag, type=int, required=True)
+    for name in QUERIES:
+        commands.add_parser(name).add_argument("--run", required=True)
     return cli
 
 
-def main(argv=None):
+def last_start(run):
+    """Return the model and time of the run's last start event, tab-separated."""
+    starts = [event for event in read() if event.get("event") == "start" and event.get("run") == run]
+    if not starts:
+        return ""
+    return "\t".join((starts[-1].get("model", ""), starts[-1].get("at", "")))
+
+
+def has_grade(run):
+    return any(event.get("event") == "grade" and event.get("run") == run for event in read())
+
+
+def main(argv):
     args = parser().parse_args(argv)
     fields = vars(args)
     kind = fields.pop("event")
+    if kind == "last-start":
+        print(last_start(fields["run"]))
+        return 0
+    if kind == "has-grade":
+        return 0 if has_grade(fields["run"]) else 1
     event = {"v": 1, "event": kind, "run": fields.pop("run", None) or uuid.uuid4().hex,
              "at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")}
     event.update({key: value for key, value in fields.items() if value is not None})
@@ -148,6 +168,3 @@ def main(argv=None):
         print(event["run"])
     return 0
 
-
-if __name__ == "__main__":
-    sys.exit(main())
