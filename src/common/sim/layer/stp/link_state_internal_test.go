@@ -520,3 +520,59 @@ func TestDisabledTransmitRecordsHoldBothRequests(t *testing.T) {
 		check("reset pass")
 	}
 }
+
+func TestAutoEdgeLossRestartsProposalsOnEveryTree(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	region := MST{Name: "region", Instances: map[bpdu.MSTID]Instance{
+		1: {VLANs: []vlan.ID{10}},
+		2: {VLANs: []vlan.ID{20}},
+	}}
+	l := newLayer(Config{Ports: map[string]Port{"p1": {AutoEdge: true}}, MST: &region}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.Advance(now.Add(migrateTime))
+	if !l.links["p1"].edge {
+		t.Fatal("p1 did not become an auto-edge port")
+	}
+
+	peer := bpdu.BPDU{
+		Version: 3, Type: bpdu.TypeRapid,
+		RootID:   bpdu.BridgeID{Priority: 61440, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		BridgeID: bpdu.BridgeID{Priority: 61440, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
+		PortID:   0x8001, HelloTime: 2 * time.Second, MaxAge: 20 * time.Second,
+		ForwardDelay: 15 * time.Second, RemainingHops: 20,
+	}
+	id := region.ConfigID()
+	peer.ConfigID = &id
+	peer.SetRole(bpdu.RoleRoot)
+	l.Receive(now.Add(4*time.Second), "p1", peer)
+	if l.links["p1"].edge {
+		t.Fatal("received BPDU left p1 in auto-edge mode")
+	}
+	for _, id := range l.treeOrder {
+		if !l.trees[id].ports["p1"].proposing {
+			t.Errorf("tree %d did not propose after auto-edge loss", id)
+		}
+	}
+}
+
+func TestHeldRSTPRequestReleasesAtHoldCountOne(t *testing.T) {
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{TxHoldCount: 1, Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))
+	if effects := l.LinkChange(now, "p1", true, true, 1_000_000_000); len(effects.Emissions) != 1 {
+		t.Fatalf("link-up emissions = %d, want one", len(effects.Emissions))
+	}
+	if effects := l.Mcheck(now.Add(500*time.Millisecond), "p1"); len(effects.Emissions) != 0 {
+		t.Fatalf("held request emitted before tick: %+v", effects.Emissions)
+	}
+	effects := l.Advance(now.Add(time.Second))
+	if len(effects.Emissions) != 1 || effects.Emissions[0].Port != "p1" {
+		t.Fatalf("released request emissions = %+v, want one on p1", effects.Emissions)
+	}
+	frame, err := bpdu.Decode(effects.Emissions[0].Frame)
+	if err != nil {
+		t.Fatalf("decode released request: %v", err)
+	}
+	if frame.Type != bpdu.TypeRapid {
+		t.Fatalf("released request type = %v, want Rapid", frame.Type)
+	}
+}

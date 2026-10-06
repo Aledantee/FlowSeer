@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
-func TestIEETCNUnderPVSTIsVLAN1s(t *testing.T) {
+func TestIEEETCNUnderPVSTIsVLAN1s(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)

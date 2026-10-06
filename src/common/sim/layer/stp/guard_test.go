@@ -195,10 +195,9 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	}
 }
 
-// TestBPDUGuardCountsOneTopologyChange pins that disabling a forwarding port
-// raises no topology change: a port leaving the active topology is flushed
-// but raises nothing.
-func TestBPDUGuardCountsOneTopologyChange(t *testing.T) {
+// TestBPDUGuardDoesNotRaiseTopologyChange checks that disabling a
+// forwarding port flushes it without starting a topology change.
+func TestBPDUGuardDoesNotRaiseTopologyChange(t *testing.T) {
 	t.Parallel()
 
 	l, t0 := guardLayer(t, map[string]stp.Port{
@@ -355,11 +354,8 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	}
 }
 
-// TestBPDUGuardHoldsAnMSTIOutOfForwarding pins that BPDU guard, like the
-// internal/external classification it rides beside, is a bridge-global
-// property of the port: tripping it must hold every MST instance's own role
-// and state out of the active topology, not just the CIST's. Recompute reads
-// the guard flag from the CIST's port state so every MSTI sees the guard trip.
+// TestBPDUGuardHoldsAnMSTIOutOfForwarding checks that the link record's
+// guard state disables every MST instance on the port.
 func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	t.Parallel()
 
@@ -427,9 +423,4 @@ func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 	if got := shared.PortInfo("1/1/1").BlockReason; got != "" {
 		t.Errorf("shared-link port block reason = %q, want none: loop guard does not watch it", got)
 	}
-
-	// Removing p.pointToPoint from loopGuardWatches makes this fail, which is
-	// what makes it evidence about the guard rather than about the fabric. The
-	// edge half of the exclusion cannot be reached from here and is pinned by
-	// TestLoopGuardIgnoresAnEdgePort instead.
 }
