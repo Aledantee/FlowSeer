@@ -275,13 +275,22 @@ ok "Edit leaves a path outside every checkout to the sandbox and holds another c
 
 mkdir -p "$fixture/.agents/skills/verify-change/scripts" "$fixture/.agents/skills/prose/scripts" "$fixture/.claude"
 [ -e "$fixture/.claude/skills" ] || ln -s ../.agents/skills "$fixture/.claude/skills"
-for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/ledger.py .agents/skills/prose/scripts/check-prose.py; do
+for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/ledger.py .agents/skills/prose/scripts/check-prose.py tools/scripts/lib/repo.py tools/scripts/run.py tools/scripts/hooks/x.py tools/scripts/verify/x.py; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
   [[ $(decision <<<"$policy_output") == ask ]] || fail "$LINENO"
 done
 ok "Edit asks before touching a policy surface"
+
+# Tests and skill commands under tools/scripts are not policy surfaces.
+for open_path in tools/scripts/tests/test_run.py tools/scripts/skills/x.py; do
+  open_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$open_path" \
+    '{cwd:$cwd,tool_input:{file_path:$path}}')
+  open_output=$(printf '%s' "$open_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
+  [[ $(decision <<<"$open_output") != ask ]] || fail "$LINENO"
+done
+ok "Edit leaves tools/scripts tests and skill commands unprompted"
 
 missing_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/missing.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')

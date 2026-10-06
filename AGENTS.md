@@ -23,6 +23,8 @@ Binding on humans and agents equally; each doc states its own scope.
   changing instrumentation.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
+- [`docs/code-style-python.md`](docs/code-style-python.md) — Python scripts under
+  `tools/scripts/` (hooks, verifier, skill commands; started through `uv run`).
 - [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema
   comments, skills, commit and PR text, agent reports. The repository
   documents itself: prose cites source code, a present file, or (last
@@ -47,7 +49,9 @@ Binding on humans and agents equally; each doc states its own scope.
 - `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
   `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
   verifier's scripts (`.agents/skills/verify-change/scripts/`,
-  `.agents/skills/prose/scripts/`), and merge-gate configuration are policy
+  `.agents/skills/prose/scripts/`), `tools/scripts/run.py`,
+  `tools/scripts/lib/`, `tools/scripts/verify/`, `tools/scripts/hooks/`, and
+  merge-gate configuration are policy
   surfaces; changes require explicit guardrail review.
 
 ## Isolation
@@ -167,6 +171,9 @@ authority: `go test -race ./...` enforces the same invariants.
   - `src/modules/` — reusable modules a host assembles; see its README.
   - `src/services/` — control-plane services, assembled from modules.
   - `src/edge/` — applications built to run at the edge (may also run centrally).
+- `tools/scripts/` — host-side Python scripts behind one entry point,
+  `uv run tools/scripts/run.py <group> <command>`; `uv run tools/scripts/run.py
+  list` names every command and `test` runs their suites.
 - `spec/proto/` + `spec/mib/` — schema sources of truth; `generated/` is
   `buf generate` output, never edited by hand.
 - `docs/architecture/` — accepted direction records; read first for work on the

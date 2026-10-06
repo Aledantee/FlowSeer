@@ -51,7 +51,7 @@ while IFS= read -r candidate_file; do
           ;;
       esac
       ;;
-    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*|.agents/skills/verify-change/scripts/*|.agents/skills/prose/scripts/*)
+    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*|.agents/skills/verify-change/scripts/*|.agents/skills/prose/scripts/*|tools/scripts/run.py|tools/scripts/lib/*|tools/scripts/verify/*|tools/scripts/hooks/*)
       # Policy surfaces stay editable, but the person running the session
       # approves each edit; AGENTS.md calls this guardrail review.
       # test/conformance/a11y holds the axe rules the audit may disable,
