@@ -64,6 +64,7 @@ removes it after the merge.
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
 | [`code-style-proto.md`](code-style-proto.md) | Protobuf syntax, evolution, validation, and generation rules. |
 | [`code-style-web.md`](code-style-web.md) | Frontend TypeScript conventions. |
+| [`code-style-python.md`](code-style-python.md) | Host-side Python script conventions under `tools/scripts/`. |
 | [`doc-style.md`](doc-style.md) | Prose rules for documentation, comments, commits, and pull requests. |
 | [`agent-steering.md`](agent-steering.md) | How repository instructions, hooks, skills, and agent roles fit together. |
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |
