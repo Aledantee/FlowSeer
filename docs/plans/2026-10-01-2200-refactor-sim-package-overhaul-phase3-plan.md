@@ -1094,12 +1094,11 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   a Root-role sender. Mutation, against the second case: the
   `cistConsistent` test restored around the proposal.
 - A2, an MSTI agreement. The Agreement flag of an MSTI record counts only
-  when the CIST part of its BPDU matches the CIST vector the port holds
-  once that part is stored. When this call stored it, the two match.
-  Otherwise the BPDU's CIST root, external cost, and regional root are
-  compared with `cistPortVector`, as today. Today the vector is taken
-  before the store (`S/receive.go:459,470`), so the first BPDU from a
-  better CIST sender loses its MSTI agreement. Source: `Q2003` 13.26.10 a),
+  when the CIST part of its BPDU matches the CIST vector the port uses for
+  that role. A CIST port that remains Designated compares the BPDU's CIST
+  root, external cost, and regional root with its designated vector. A Root
+  port keeps comparing with the vector it holds once the BPDU's CIST part is
+  stored. Source: `Q2003` 13.26.10 a),
   p. 193. `D2009` 13.29.16, p. 65, and the NOTE under 13.28.24, p. 60: "The
   state machines ensure that the CIST parameters from received BPDUs are
   processed and updated prior to processing MSTI information." Test
@@ -1112,8 +1111,10 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   root, another external cost, and another regional root than the port
   holds. An MSTI record that is not stored still records its agreement
   when the CIST part matches. A Designated port and a Root port each judge
-  the CIST part against their own vector. Mutation: `heldCISTVec` taken
-  before `recordReceivedBPDU`.
+  the CIST part against their own vector. Test `TestMSTIAgreementUsesTheCISTPortVector`
+  covers both cases. Mutation: the CIST comparison
+  selected from the port's role and designated vector rather than the newly
+  stored BPDU alone.
 - A3, role before state. A received agreement sets `agreed` and clears
   `proposing`, and changes no state. The port advances in
   `updatePortStates`, after `assignRoles` has selected its role for this
@@ -1557,51 +1558,6 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   requests a frame at once, and `UNH` RSTP.op.4.6 drives its hold-count
   test that way. It is a role-transition request, outside the
   topology-change emission (Decisions).
-- Carried, and not changed by U7: a Designated port that a sync returns to
-  Discarding (`S/receive.go:23-45`) proposes at its next hello. `D2009`
-  Figure 13-25 (DESIGNATED_PROPOSE) requests a frame at once, so each
-  bridge between a new root and a leaf can add one HelloTime to
-  convergence. Outside the topology-change emission for the same reason.
-- From the review of U8 to U15, on the Decision of 2026-10-04 for an MSTI
-  record's Agreement flag: `applyBPDU` stores a first or same-source BPDU
-  whatever its role or vector (`S/receive.go:493-513`), and
-  `cistPortVector` returns the stored vector whenever one is held
-  (`:108-110`). On a port that stays Designated for the CIST the test
-  therefore compares the BPDU with itself, and an MSTI agreement is
-  recorded under any CIST regional root. `D2009` Figure 13-20 runs
-  `recordAgreement()` in NOT_DESIGNATED with no `recordPriority()`, so the
-  standard compares with the port's designated vector there. U9's listed
-  case "A Designated port and a Root port each judge the CIST part against
-  their own vector" has no test until this is decided. Options: judge a
-  port that stays Designated against `designatedVector`, which follows the
-  figure and changes A2's "when this call stored it, the two match". Or
-  keep the stored vector, state it as a limit in `S/README.md`, and strike
-  the listed case.
-- From the review, on the carried limit above: a Designated port that a
-  sync cuts proposes at its next hello, and its edge delay restarts at the
-  cut. With a Hello Time of 4 seconds an auto-edge port whose hello falls
-  due later than MigrateTime after the cut becomes an edge with no proposal
-  sent, and forwards toward a bridge. `D2009` Figure 13-25
-  (DESIGNATED_PROPOSE) sets `newInfoXst` with `proposing`. Options: request
-  the frame where the sync sets `proposing`, which ends the carried limit.
-  Or keep the limit and hold the edge delay until the proposal has left.
-- From the review, on behavior that predates this phase and that no unit
-  names. An auto-edge port whose common-tree port lost `proposing` (an
-  agreement, or a Configuration BPDU that ends auto-edge) and that later
-  returns to Designated and Discarding never becomes an edge again, and
-  forwards through the forward-delay ladder (`S/roles.go:235`,
-  `S/link.go:20-25,252`). `D2009` Figure 13-20 (UPDATE) clears `proposing`
-  and Figure 13-25 sets it again on `!forward && !agreed && !proposing`.
-  An `AdminEdge` port keeps `edge` when it receives a BPDU
-  (`S/link.go:239`), where `D2009` Port Receive clears `operEdge`. A
-  shared-link port never runs edge detection (`S/advance.go:126-132`).
-  `advanceAutoEdge` opens every tree's port whatever its role there
-  (`S/advance.go:108-117`). A received Forward Delay of zero is stored as
-  given, so the ladder completes in two calls at one instant
-  (`S/receive.go:583`). Options: a unit in this phase that brings bridge
-  detection to `D2009` Figures 13-18 and 13-25, with the wake-progress
-  property test extended to assert that every eligible port becomes an
-  edge. Or a Limits entry for each in `S/README.md` and a later plan.
 
 ## Review gaps
 

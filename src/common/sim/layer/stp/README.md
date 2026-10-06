@@ -507,11 +507,11 @@ The implementation structures its logic around the standard state machines:
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clause 13.29 and draft P802.1aq/D1.5 clause 13.32, Figure 13-17. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 An auto-edge port starts its edge delay when the common tree enters proposing.
-A sync restarts it when that port was not proposing or was not Discarding
-(`syncTree` in `receive.go`). Proposals on other trees do not restart it.
-The restart on a cut from Forwarding with proposing already set is the layer's
-own rule. Draft P802.1aq/D1.5 Figure 13-25 DESIGNATED_PROPOSE requires
-proposing to be clear before entering that state.
+A sync sets proposing and requests that tree's information in the same call
+(`syncTree` in `receive.go`). A CIST sync restarts the edge delay when that
+port was not proposing or was not Discarding, and mirrors the proposing state
+and request to boundary MSTIs. Proposals on other trees do not restart the
+CIST edge delay.
 
 Every BPDU past BPDU guard restarts the delay in `receiveLink` (`link.go`),
 including SSTP outcomes not-admitted, untracked, boundary, and PVID-inconsistent.
@@ -529,11 +529,15 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
 - The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
 - A port losing auto-edge returns to Discarding and proposes again across all trees, standing in for the disputed mechanism. Draft Figure 13-16 only clears operEdge.
+- An auto-edge port whose CIST proposing flag was cleared by an agreement or a Configuration BPDU does not become an edge again when it later returns to Designated and Discarding. It follows the forward-delay ladder instead. Draft Figure 13-18 clears operEdge on receipt and Figure 13-25 enters DESIGNATED_PROPOSE when the port is not forwarding, agreed, proposing, or edge, then sets proposing.
+- An AdminEdge port keeps edge when it receives a BPDU because `receiveLink` assigns `link.edge` from `link.adminEdge`. Draft Figure 13-16 clears operEdge on every received BPDU.
+- A shared-link port never runs automatic edge detection because `edgeDelayPending` requires point-to-point operation. Draft Figure 13-18's AutoEdge transition requires only an expired edge delay, AutoEdge, sendRSTP, and proposing.
+- `advanceAutoEdge` opens every tree's port when the shared edge delay expires, whatever role the tree assigned to that port. Draft Figure 13-18 changes one port-level operEdge result, while Figure 13-25 qualifies each tree's transitions by selected role.
+- A received Forward Delay of zero is stored as received, so the forward-delay ladder can complete in two calls at one instant. Draft `recordTimes()` copies the received Forward Delay, and its port-role diagrams use that value for the ladder, so the zero case remains unnormalized here.
 - On a boundary port, MSTI sync keeps the CIST-derived state and agreement. CIST sync mirrors a CIST state change to the boundary MSTIs. The layer does not model the draft's separate disputed or Master paths, so an MSTI cannot discard independently while its CIST port forwards.
 - A Designated port receiving worse information without Agreement requests a frame when no proposal was answered (`applyBPDU` in `receive.go`). The sender's role is not tested. This is the layer's own substitute for the draft Figure 13-20 dispute path.
 - `Mcheck` requests information on a port Designated for the CIST (`link.go`). This request is the layer's own. Draft Figure 13-17 changes only migration variables in CHECKING_RSTP.
 - A Designated port whose root information changes while it forwards or holds an agreement sends the change at its next hello. Draft Figure 13-20 UPDATE and clause 13.29.33 j) and k) request a frame at once.
-- A Designated port returned to Discarding by sync proposes at its next hello. Draft Figure 13-25 DESIGNATED_PROPOSE requests a frame at once. Each bridge between a new root and a leaf can therefore add one HelloTime to convergence.
 - An MSTI Root port cannot complete sync while a boundary port forwards for the CIST without agreement. It sends no agreement and reaches Forwarding through the forward-delay ladder. Draft Figure 13-25 would discard that MSTI's boundary port independently.
 - On a port in STP mode VLAN 1's tree sends to the IEEE address alone, where [PVID] also sends its BPDUs to the SSTP address. A native VLAN other than 1 is not modelled. The IEEE-addressed BPDU is always assigned to VLAN 1.
 - Port priority configurations that are not multiples of 16 are accepted. The layer extracts and transmits the high four bits as port priority (IEEE 802.1Q-2003 clause 13.24.21).

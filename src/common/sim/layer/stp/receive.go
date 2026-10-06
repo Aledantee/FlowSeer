@@ -26,6 +26,9 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
+			if otherP.proposing {
+				l.requestNewInfo(t, otherP)
+			}
 			if t.id == cistID && otherP.proposing && (!wasProposing || !wasDiscarding) {
 				otherLink.edgeDelayWhile = now.Add(l.edgeDelay(l.cist(), otherLink))
 			}
@@ -44,6 +47,9 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 					}
 					mp.agreed = otherP.agreed
 					mp.proposing = otherP.proposing
+					if mp.proposing {
+						l.requestNewInfo(mt, mp)
+					}
 					if mp.state != otherP.state {
 						mp.state = otherP.state
 						mp.fwdDelayTimer = time.Time{}
@@ -510,6 +516,12 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	var mstiProposals []bpdu.MSTID
 	if internal {
 		heldCISTVec := l.cistPortVector(p)
+		if p.role == bpdu.RoleDesignated {
+			designated := designatedVector(t, p, link.external)
+			if compareVectors(incoming, designated) >= 0 {
+				heldCISTVec = designated
+			}
+		}
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 

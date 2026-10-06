@@ -108,6 +108,24 @@ func emittedMSTI(t *testing.T, effects layer.Effects) (bpdu.MSTIRecord, bool) {
 	return bpdu.MSTIRecord{}, false
 }
 
+func emittedMSTIAgreement(t *testing.T, effects layer.Effects) bool {
+	t.Helper()
+
+	for _, emission := range effects.Emissions {
+		b, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("Decode emitted BPDU: %v", err)
+		}
+		for _, record := range b.MSTIs {
+			if record.MSTID == 1 && (bpdu.BPDU{Flags: record.Flags}).Agreement() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
 func TestMSTIProposalNeedsNoCISTMatch(t *testing.T) {
 	t.Parallel()
 
@@ -257,6 +275,66 @@ func TestMSTIAgreementIsJudgedAfterTheCISTIsStored(t *testing.T) {
 
 		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateForwarding {
 			t.Errorf("MSTI port state after an inferior-record agreement = %v, want Forwarding", got)
+		}
+	})
+}
+
+func TestMSTIAgreementUsesTheCISTPortVector(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 6, 13, 0, 0, 0, time.UTC)
+	local := mustMAC(t, "00:11:22:33:44:02")
+	peer := mustMAC(t, "00:11:22:33:44:01")
+	peer2 := mustMAC(t, "00:aa:bb:cc:dd:ee")
+	localMSTIRoot := bpdu.BridgeID{Priority: 32769, Address: local}
+
+	t.Run("a designated port rejects an agreement under another CIST root", func(t *testing.T) {
+		t.Parallel()
+
+		l, region := agreementMSTBridge(t, local, map[string]stp.Port{"p1": {}})
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		b := agreementBPDU(
+			region.ConfigID(), bpdu.BridgeID{Priority: 61440, Address: peer}, 0,
+			bpdu.BridgeID{Priority: 61440, Address: peer},
+			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
+			bpdu.RoleDesignated, false,
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true),
+		)
+		fx := l.Receive(now, "p1", b)
+
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated {
+			t.Fatalf("CIST p1 role = %v, want Designated", info.Role)
+		}
+		if info := l.VLANPortInfo(10, "p1"); info.State != stp.StateDiscarding {
+			t.Errorf("MSTI p1 state = %v, want Discarding", info.State)
+		}
+		if emittedMSTIAgreement(t, fx) {
+			t.Errorf("emitted MSTI agreement = true, want clear")
+		}
+	})
+
+	t.Run("a root port accepts an agreement against its stored CIST root", func(t *testing.T) {
+		t.Parallel()
+
+		l, region := agreementMSTBridge(t, local, map[string]stp.Port{"p1": {}})
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		b := agreementBPDU(
+			region.ConfigID(), bpdu.BridgeID{Priority: 4096, Address: peer}, 0,
+			bpdu.BridgeID{Priority: 4096, Address: peer},
+			bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8001,
+			bpdu.RoleRoot, false,
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true),
+		)
+		fx := l.Receive(now, "p1", b)
+
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleRoot {
+			t.Fatalf("CIST p1 role = %v, want Root", info.Role)
+		}
+		if info := l.VLANPortInfo(10, "p1"); info.State != stp.StateForwarding {
+			t.Fatalf("MSTI p1 state = %v, want Forwarding", info.State)
+		}
+		if len(fx.Emissions) == 0 {
+			t.Error("Receive returned no emissions")
 		}
 	})
 }
