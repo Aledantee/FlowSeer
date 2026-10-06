@@ -129,7 +129,20 @@ class PlanRecordTest(unittest.TestCase):
     def test_branch_refuses_a_parent(self):
         self.phases()
         refused = self.record("branch", PARENT, "work", code=1)
-        self.assertIn("phases", refused.stderr)
+        for phase in (FIRST, PHASE):
+            self.assertIn(phase, refused.stderr)
+        self.assertIsNone(self.state(PARENT)["branch"])
+
+    def test_branch_refuses_a_parent_whose_phases_are_retired(self):
+        self.phases()
+        for plan in (FIRST, PHASE):
+            self.record("abandon", plan)
+            self.commit("phase done")
+            self.record("retire", plan)
+            self.commit("phase retired")
+        refused = self.record("branch", PARENT, "work", code=1)
+        for phase in (FIRST, PHASE):
+            self.assertIn(phase, refused.stderr)
         self.assertIsNone(self.state(PARENT)["branch"])
 
     def test_check_requires_the_branch_key(self):
