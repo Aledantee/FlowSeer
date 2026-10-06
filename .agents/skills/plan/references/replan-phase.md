@@ -16,11 +16,13 @@ tests must pass:
    worktree forked before the previous phase merged fails this, and a
    re-plan from it re-derives that phase as new units.
 2. `main` shows this phase neither landed nor retired. `show` reads the work
-   tree, so read `main` with git: `git show main:<phase state path>` prints
-   `"landed": null`, and `git show main:<parent state path>` names this
-   phase under `phases` and not under `retired`. A phase already landed or
-   retired on `main` fails this, and a re-plan from it lands the phase
-   twice.
+   tree, so read `main` with git. `git show main:<phase state path>` must not
+   print a non-null `landed`, and `git show main:<parent state path>` must
+   not name this phase in its `retired` list. A file `main` does not hold
+   passes its half of the test. `git show` then fails with `does not exist
+   in 'main'`, as it does while an earlier phase of the drive waits for its
+   fast-forward. A phase already landed or retired on `main` fails this,
+   and a re-plan from it lands the phase twice.
 
 `check-plan-status.py` applies both tests on every verifier run once a ledger
 names the phase.

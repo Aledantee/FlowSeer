@@ -49,8 +49,8 @@ Before the first dispatch:
 
 ## 2. Drive one plan
 
-Run the stages in order from the first whose "done when" the files do not
-already show. Each stage is one worker in a child worktree branched from
+Run the stages in order from the first that applies and whose "done when"
+the files do not already show. Each stage is one worker in a child worktree branched from
 this branch's `HEAD`, started with `orca-worker.sh start` with the table's
 `--role`, `--plan <path>`, and the stage name as `--unit`. A phase resumed
 from a parked branch starts with `--base parked/<slug>` instead
@@ -58,7 +58,7 @@ from a parked branch starts with `--base parked/<slug>` instead
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
-| re-plan | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=needs-decisions`, or `.claude/skills/plan/scripts/plan_record.py show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready` |
+| re-plan | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=needs-decisions`, or `.claude/skills/plan/scripts/plan_record.py show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` and `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready` both exit 0 |
 | implement | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`, a phase's `landed` range is set, and every unit in the worker's ledger is `passed` |
 | review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports an accepted review |
 | compound | `.claude/skills/plan/scripts/plan_record.py is <plan> compound=null` | `compound` on the plan | `execute` | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null` |
@@ -91,7 +91,7 @@ Wait on the lane as `delegate` describes, with
 `wait <slug> --until '<test>'`, the test being the state command for the
 stage's "Done when":
 
-- re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
+- re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented && .claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
 - implement: `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
 - review: `.claude/skills/plan/scripts/plan_record.py show <plan> --json | grep -q '"review": "accept'`
 - compound: `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null`
@@ -148,7 +148,9 @@ sends a plan back.
 ## 3. Drive a parent's phases
 
 Re-run the state command at the start of every round and after a compaction,
-and take the order from its output. When it exits 2, or
+and take the order from its output. An exit 2 with "not a plan file" for a
+parent that a `docs(plans): retire <slug>` commit deleted means its last
+phase landed: go to step 5, as step 1 says. On any other exit 2, or when
 `.claude/skills/plan/scripts/plan_record.py check` names a fault, stop and
 report it: a hand-edit or a merge left a state no command writes, and
 guessing which side is right lands a phase twice. A round takes the phases its last line names that are not parked, in
