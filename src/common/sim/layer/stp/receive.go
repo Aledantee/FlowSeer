@@ -26,7 +26,7 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
-			if otherP.proposing {
+			if otherP.proposing && (!wasProposing || !wasDiscarding) {
 				l.requestNewInfo(t, otherP)
 			}
 			if t.id == cistID && otherP.proposing && (!wasProposing || !wasDiscarding) {
@@ -47,7 +47,7 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 					}
 					mp.agreed = otherP.agreed
 					mp.proposing = otherP.proposing
-					if mp.proposing {
+					if mp.proposing && (!wasProposing || !wasDiscarding) {
 						l.requestNewInfo(mt, mp)
 					}
 					if mp.state != otherP.state {
@@ -502,7 +502,8 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 	}
 
-	if sameSource || isSuperior {
+	stored := sameSource || isSuperior
+	if stored {
 		// The classification updates only when received information is
 		// stored (IEEE 802.1Q clause 13.24.10). Assigning it earlier or
 		// on an inferior BPDU would rewrite how stored vectors are read.
@@ -512,15 +513,18 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
+	if internal && t.id == cistID && stored {
+		// CIST information is role-selected before MSTI records are judged. The
+		// final recompute below still advances every tree's state.
+		l.electRoot(t, now)
+		l.assignRoles(t, now)
+	}
 
 	var mstiProposals []bpdu.MSTID
 	if internal {
 		heldCISTVec := l.cistPortVector(p)
 		if p.role == bpdu.RoleDesignated {
-			designated := designatedVector(t, p, link.external)
-			if compareVectors(incoming, designated) >= 0 {
-				heldCISTVec = designated
-			}
+			heldCISTVec = designatedVector(t, p, link.external)
 		}
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
