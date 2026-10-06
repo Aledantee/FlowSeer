@@ -85,19 +85,19 @@ func baselineTranscript(t *testing.T) string {
 	return string(raw)
 }
 
-// regressBenchmark returns the transcript with one metric of one
-// benchmark multiplied, which is how a regression is injected without
+// regressBenchmark returns the transcript with one metric of
+// gatedBenchmark multiplied, which is how a regression is injected without
 // touching the gate.
 //
 // A benchmark row is "name-P<TAB>iters<TAB>value unit<TAB>value unit…",
 // so the value to scale is the field before the named unit.
-func regressBenchmark(t *testing.T, transcript, benchmark, unit string, factor float64) string {
+func regressBenchmark(t *testing.T, transcript, unit string, factor float64) string {
 	t.Helper()
 
 	hit := false
 	lines := strings.Split(transcript, "\n")
 	for i, line := range lines {
-		if !strings.HasPrefix(line, benchmark) {
+		if !strings.HasPrefix(line, gatedBenchmark) {
 			continue
 		}
 
@@ -118,7 +118,7 @@ func regressBenchmark(t *testing.T, transcript, benchmark, unit string, factor f
 	}
 
 	if !hit {
-		t.Fatalf("no %s field on any %s row; the transcript format changed", unit, benchmark)
+		t.Fatalf("no %s field on any %s row; the transcript format changed", unit, gatedBenchmark)
 	}
 
 	return strings.Join(lines, "\n")
@@ -142,7 +142,7 @@ func TestGatePassesAgainstBaseline(t *testing.T) {
 // TestGateFailsOnBytesRegression covers the second hard metric: bytes
 // allocated per operation, which can grow while the allocation count holds.
 func TestGateFailsOnBytesRegression(t *testing.T) {
-	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "B/op", 1.5)
+	bad := regressBenchmark(t, baselineTranscript(t), "B/op", 1.5)
 
 	run := runGate(t, bad)
 	if run.exit != 1 {
@@ -155,7 +155,7 @@ func TestGateFailsOnBytesRegression(t *testing.T) {
 
 // TestGateFailsOnAllocationRegression is the case the gate exists for.
 func TestGateFailsOnAllocationRegression(t *testing.T) {
-	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
+	bad := regressBenchmark(t, baselineTranscript(t), "allocs/op", 1.5)
 
 	run := runGate(t, bad)
 	if run.exit != 1 {
@@ -173,7 +173,7 @@ func TestGateFailsOnAllocationRegression(t *testing.T) {
 // shared hardware moves for reasons that have nothing to do with the
 // code, and a gate that fails on those gets turned off.
 func TestGateTreatsWallTimeAsAdvisory(t *testing.T) {
-	slow := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "ns/op", 2)
+	slow := regressBenchmark(t, baselineTranscript(t), "ns/op", 2)
 
 	run := runGate(t, slow)
 	if run.exit != 0 {
@@ -217,7 +217,7 @@ func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 // same line is not a benchmark row to benchstat, so a regression hidden
 // behind one is not compared.
 func TestGateReadsLinesByLineFeedOnly(t *testing.T) {
-	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
+	bad := regressBenchmark(t, baselineTranscript(t), "allocs/op", 1.5)
 	hidden := strings.ReplaceAll(bad, "\n"+gatedBenchmark, "\njunk\r"+gatedBenchmark)
 
 	run := runGate(t, hidden)
