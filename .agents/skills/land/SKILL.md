@@ -43,14 +43,15 @@ its three fields from that commit's body, and do not retire it again.
 
 `implement`, `review`, and `compound` leave their outcomes in the plan state
 file through `.claude/skills/plan/scripts/plan_record.py`. Read them with
-`.claude/skills/plan/scripts/plan_record.py show <plan>`. Planless work has
-one `key: value` line each in
+`.claude/skills/plan/scripts/plan_record.py show <plan>`. Planless work keeps
+them as `key: value` lines in
 `$(git rev-parse --git-dir)/flowseer-checkpoints`, beside the verifier receipt
-and the ledger. `implement` writes the file anew and the other two append. The
-last line for a key wins, and step 5 removes the file once the work has landed.
+and the ledger. `implement` writes the file anew and every later write appends
+a line, so a key can repeat. The last line for a key wins, and step 5 removes
+the file once the work has landed.
 
 In Orca (`ORCA_TERMINAL_HANDLE` set, `orca status --json` reachable
-unsandboxed) the card carries the same entries; load
+unsandboxed) the card carries the same entries. Load
 `references/orca-card.md` and read the card after the plan or the file.
 
 | Signal | Where | Required value |

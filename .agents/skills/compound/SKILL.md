@@ -35,7 +35,7 @@ Whichever way the gate goes, record the outcome where `land` reads it
 `compound: observation logged`.
 
 - With a plan: record the outcome with
-  `.claude/skills/plan/scripts/plan_record.py compound <plan> <outcome>`,
+  `.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"`,
   committed together with the solution, then run the verifier on the changed
   paths so the receipt post-dates the commit.
 - Without a plan: a line appended to

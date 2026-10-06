@@ -39,14 +39,14 @@ and reconcile the direction instead of guessing a new package or boundary.
 When a plan has shipped, record its outcome with
 `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
 --from <t> --to <t>`. The
-`.claude/skills/plan/scripts/plan_record.py review <plan> <verdict>` and
-`.claude/skills/plan/scripts/plan_record.py compound <plan> <outcome>` record
+`.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"` and
+`.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"` record
 their own outcomes. `land` retires the plan and its state file once the work
 lands, after moving any decision that outlives it into `docs/architecture/`.
 
 A large plan is split into a parent plan and phase plans. A phase's state file
 names its parent, prerequisites, and landed range. The parent stays computed
-as `planned` until the last phase lands. While a plan is being implemented, the
+as `planned` until its last phase retires. While a plan is being implemented, the
 worktree keeps a status ledger at
 `$(git rev-parse --git-dir)/flowseer-plan-status.json`, never committed,
 whose shape `.claude/skills/verify-change/SKILL.md` documents; `land`

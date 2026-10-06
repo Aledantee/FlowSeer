@@ -106,6 +106,39 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("plain done")
         self.assertEqual(self.groups().get(PLAIN), "land")
 
+    def test_accepted_plan_on_branch_without_a_compound_outcome_is_unchecked(self):
+        self.implement(PLAIN)
+        self.record("review", PLAIN, "accept")
+        self.commit("plain reviewed, no compound")
+        self.assertEqual(self.groups().get(PLAIN), "unchecked")
+
+    def test_finished_plan_with_only_a_markdown_edit_on_branch_is_owed_a_land(self):
+        self.git("checkout", "-q", "main")
+        self.finish(PLAIN)
+        self.commit("plain done on main")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "--no-edit", "main")
+        self.write(PLAIN, "# Plain - Plan\n\nEdited on the branch.\n")
+        self.commit("plain edited on the branch")
+        self.assertEqual(self.groups().get(PLAIN), "land")
+
+    def test_partially_implemented_plan_is_in_progress(self):
+        self.record("partial", PLAIN, *RUN, "--note", "U2 left")
+        self.assertEqual(self.groups().get(PLAIN), "in-progress")
+
+    def test_planned_plan_the_ledger_names_is_in_progress(self):
+        git_dir = self.root / self.git("rev-parse", "--git-dir")
+        (git_dir / "flowseer-plan-status.json").write_text(json.dumps({"plan": PLAIN}), encoding="utf-8")
+        row = self.rows()[PLAIN]
+        self.assertEqual((row["group"], row["ledger"]), ("in-progress", True))
+
+    def test_parent_this_branch_changed_with_every_phase_retired_is_not_listed(self):
+        self.implement(PHASE, self.on_work)
+        self.commit("phase implemented")
+        self.record("retire", PHASE)
+        self.commit("phase retired")
+        self.assertNotIn(PARENT, self.groups())
+
     def test_finished_plan_on_main_is_owed_a_retire(self):
         self.git("checkout", "-q", "main")
         self.finish(PLAIN)
@@ -230,6 +263,18 @@ class PlanQueueTest(unittest.TestCase):
         self.record("abandon", PLAIN)
         self.commit("plain abandoned")
         self.assertEqual(self.groups().get(PLAIN), "retire")
+
+    def test_superseded_or_abandoned_plan_retires_whatever_its_review(self):
+        self.git("checkout", "-q", "main")
+        for verdict in ("fixes needed", "rework"):
+            for final in (("supersede", PLAIN, "--by", PHASE), ("abandon", PLAIN)):
+                with self.subTest(verdict=verdict, final=final[0]):
+                    self.record("replan", PLAIN)
+                    self.implement(PLAIN)
+                    self.record("review", PLAIN, verdict)
+                    self.record(*final)
+                    self.commit(f"plain {final[0]} after {verdict}")
+                    self.assertEqual(self.groups().get(PLAIN), "retire")
 
     def test_finished_parent_that_needs_decisions_still_retires(self):
         self.git("checkout", "-q", "main")

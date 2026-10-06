@@ -299,6 +299,17 @@ class PlanRecordTest(unittest.TestCase):
         self.assertFalse((self.root / plan_record.state_path(FIRST)).exists())
         self.assertEqual(self.state(PARENT), before)
 
+    def test_retire_whose_git_rm_fails_leaves_the_parent_as_it_was(self):
+        self.phases()
+        self.record("abandon", FIRST)
+        self.commit("phase abandoned")
+        before = self.state(PARENT)
+        (self.root / ".git/index.lock").touch()
+        refused = self.record("retire", FIRST, code=1)
+        self.assertEqual(self.state(PARENT), before)
+        self.assertIn("nothing changed: git rm failed", refused.stderr)
+        self.assertTrue((self.root / FIRST).exists())
+
     def test_retire_reports_a_parent_state_it_could_not_stage(self):
         self.phases()
         self.record("abandon", FIRST)
@@ -452,6 +463,8 @@ class PlanRecordTest(unittest.TestCase):
         self.assertEqual(plan_record.status(PARENT, self.root), "planned")
         self.put(PARENT, status="abandoned", retired=[{"plan": gone, "status": "implemented", "landed": landed}])
         self.assertEqual(plan_record.status(PARENT, self.root), "abandoned")
+        self.put(PARENT, status="superseded", superseded_by=PLAIN, retired=[{"plan": gone, "status": "implemented", "landed": landed}])
+        self.assertEqual(plan_record.status(PARENT, self.root), "superseded")
         self.assertEqual(plan_record.status(FIRST, self.root), "implemented")
 
     def test_phase_is_finished_only_when_nothing_but_its_land_is_owed(self):

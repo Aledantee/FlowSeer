@@ -318,6 +318,24 @@ loses chunks rather than stalling it, and that a tail sees nothing across a
 restart or a second central replica. Both are acceptable while the artifact on
 disk is the record of what was captured.
 
+### 2026-09-18 — capture commands reach the edge on a capture-owned stream
+
+The open question this record carried, how an operator's capture reaches the
+edge, is settled. The edge calls `SubscribeCaptureAssignments` on
+`CaptureEdgeService` in `edge/capture/v1`, the same service it uploads to, and
+central streams owed start and stop assignments back. Capture does not ride the
+device dispatch stream in `edge/dispatch/v1`. Every message there names a
+`device_id` and its arms are lane operations, so its contract is
+device-scoped, while a capture belongs to the edge. A capture arm in that
+oneof would make the envelope false about its subject.
+
+Both streams run on one reconnect loop. The backoff, the `Contact` counters,
+and the resync before each attempt live in
+`src/edge/agent/internal/subscribeloop`, generic over the streamed message,
+and the dispatch loop and the capture-assignment loop
+(`src/edge/agent/internal/capture/subscribe.go`) both run on it. A further
+edge-called stream joins that loop rather than writing its own.
+
 ### 2026-09-28 — operator identity and capture authorization
 
 "Every capture is bounded and authorized" above asks that a session record who
