@@ -210,7 +210,11 @@ def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk:
     if (state["phases"] or state["retired"]) and parent:
         faults.append("phases or retired is non-empty with parent set; a phase has no phases of its own")
     if (state["phases"] or state["retired"]) and state["branch"]:
-        faults.append("branch is set on a plan with phases or retired; a parent has no branch")
+        named = [*state["phases"], *(entry["plan"] for entry in state["retired"])]
+        faults.append(
+            f"branch is set on a plan with phases or retired; a parent has no branch, "
+            f"each phase carries its own: {', '.join(named)}"
+        )
     if (state["phases"] or state["retired"]) and status in ("implemented", "partially-implemented"):
         faults.append(f"a parent's status is computed from its phases; the stored status must not be {status!r}")
     if (status == "superseded") != (state["superseded_by"] is not None):
