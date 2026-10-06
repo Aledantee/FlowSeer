@@ -19,6 +19,10 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 
 	link.sendRSTP = true
 	link.mdelayWhile = now.Add(migrateTime)
+	if p := l.cist().ports[port]; p != nil && p.proposing && p.state == StateDiscarding &&
+		p.cfg.AutoEdge && !link.edge && link.edgeDelayWhile.Before(now) {
+		link.edgeDelayWhile = now
+	}
 
 	var flushes []layer.FlushTarget
 	var emissions []layer.Emission
@@ -40,7 +44,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 }
 
 // LinkChange records a physical or administrative link transition on a port.
-// A port coming up transmits one frame per transmit record in the returned
+// A port coming up transmits one transmission per transmit record in the returned
 // emissions. A link down clears received information and moves the port to
 // Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
@@ -141,7 +145,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		link.sendRSTP = true
 		link.mdelayWhile = now.Add(migrateTime)
 		link.edge = link.adminEdge
-		link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
+		link.edgeDelayWhile = time.Time{}
 
 		for _, id := range l.treeOrder {
 			tp := l.trees[id].ports[port]
@@ -156,6 +160,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			tp.role = bpdu.RoleDesignated
 			tp.agreed = false
 			tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
+			if id == cistID && tp.proposing {
+				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
+			}
 			if link.edge {
 				tp.state = StateForwarding
 				tp.forwardTransitions++
@@ -230,7 +237,6 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 
 	wasAutoEdge := link.edge && !link.adminEdge
 	link.edge = link.adminEdge
-	link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 
 	if wasAutoEdge {
 		for _, id := range l.treeOrder {
@@ -243,6 +249,9 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 			tp.state = StateDiscarding
 			tp.fwdDelayTimer = time.Time{}
 			tp.proposing = link.pointToPoint && link.sendRSTP
+			if id == cistID && tp.proposing {
+				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
+			}
 		}
 	}
 

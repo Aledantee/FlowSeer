@@ -1233,6 +1233,18 @@ func TestPointToPointChangeKeepsTransmitBudget(t *testing.T) {
 	if fx := l.Advance(start.Add(time.Second)); len(fx.Emissions) != 1 || fx.Emissions[0].Port != "p1" {
 		t.Errorf("emissions when count falls = %v, want one on p1", fx.Emissions)
 	}
+
+	pvst := mustNewSTP(t, stp.Config{
+		Priority: 32768, Address: mustMAC(t, "02:00:00:00:00:02"), TxHoldCount: 1,
+		Ports: map[string]stp.Port{"p1": {}}, PVST: pvstTrees(nil, 1, 10),
+	}, mustPortTable(t, "p1"))
+	if got := emissionShapes(pvst.LinkChange(start, "p1", true, true, 1_000_000_000).Emissions); !slices.Equal(got, []string{"p1/1/sstp", "p1/0/ieee", "p1/10/sstp"}) {
+		t.Fatalf("PVST link up emissions = %v", got)
+	}
+	pvst.LinkChange(start.Add(100*time.Millisecond), "p1", true, false, 1_000_000_000)
+	if got := emissionShapes(pvst.Advance(start.Add(time.Second)).Emissions); !slices.Equal(got, []string{"p1/1/sstp", "p1/0/ieee", "p1/10/sstp"}) {
+		t.Errorf("PVST held emissions = %v, want both VLAN records released", got)
+	}
 }
 
 func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
@@ -1275,9 +1287,16 @@ func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
 	if slices.Contains(flushPorts(fx.Flush), "p2") {
 		t.Errorf("Advance flushes = %v, want no p2", fx.Flush)
 	}
-	l.Receive(start.Add(6*time.Second), "p2", peer)
+	l.Advance(cut.Add(3*time.Second - time.Nanosecond))
+	if info := l.PortInfo("p2"); info.Edge {
+		t.Errorf("p2 before restarted edge delay = %+v, want non-edge", info)
+	}
+	l.Advance(cut.Add(3 * time.Second))
+	if info := l.PortInfo("p2"); !info.Edge || info.State != stp.StateForwarding {
+		t.Errorf("p2 at restarted edge delay = %+v, want edge Forwarding", info)
+	}
 	if after, _ := l.TopologyChanges(); after != before {
-		t.Errorf("TopologyChanges after agreement = %d, want %d", after, before)
+		t.Errorf("TopologyChanges after edge transition = %d, want %d", after, before)
 	}
 }
 

@@ -459,7 +459,7 @@ propagated destination is flushed and starts a stopped timer. An Alternate
 receiver propagates nothing. A temporary sync cut keeps a Root or Designated
 port active with its timer and pending acknowledgment. Role loss and going down
 clear activity, tcWhile, and the acknowledgment. The layer also clears them when
-a port becomes an edge. Figure 13-28 moves an edge port from ACTIVE to LEARNING,
+a port becomes an edge and flushes that port. Figure 13-28 moves an edge port from ACTIVE to LEARNING,
 while its INACTIVE state clears the timer and acknowledgment. Only a
 Configuration BPDU's acknowledgment stops a Root port's timer. Detection and
 propagation follow IEEE 802.1Q-2003 clause 13.17 and clause 14.6 g), and
@@ -500,6 +500,11 @@ The implementation structures its logic around the standard state machines:
 - Port Transmit (PTM): IEEE 802.1Q-2003 Figure 13-13 and P802.1aq/D1.5 Figure 13-19, clauses 13.28.13 and 13.28.14. It settles overdue hello records before an event, then runs one deterministic tree-then-port transmit pass. It sends periodic hellos from each tree's timer, bounds each transmit record by txHoldCount, and clears only the requests carried by the BPDU shape it sent. Disabled records hold both requests through TRANSMIT_INIT. A point-to-point status change on an up port requests both kinds of information without resetting the record's budget. This is the layer's own link-change rule.
 - Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it first becomes active in Forwarding, requests a frame on the detecting port in either protocol mode, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. The detection request is made by `detectTopologyChange`. Temporary sync cuts preserve activity and tcWhile, so resuming Forwarding detects no change. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is Max Age + Forward Delay. PVID supplies the PVST address mapping, and EXT supplies the observed per-VLAN TCN and acknowledgment behavior.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clauses 13.24.18, 13.24.23, and Figure 13-12. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
+
+An auto-edge port starts its edge delay when the common tree enters proposing.
+The delay restarts on a later entry to proposing, including a sync cut from
+Forwarding, but proposals on other trees do not restart it. This follows
+P802.1aq/D1.5 Figure 13-25 DESIGNATED_PROPOSE.
 
 ### Limits
 

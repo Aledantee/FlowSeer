@@ -22,9 +22,11 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 		}
 		otherLink := l.links[otherName]
 		if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
+			wasProposing := otherP.proposing
+			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
-			if otherP.proposing && (t.id == cistID || otherLink.edgeDelayWhile.Before(now)) {
+			if t.id == cistID && otherP.proposing && (!wasProposing || !wasDiscarding) {
 				otherLink.edgeDelayWhile = now.Add(l.edgeDelay(l.cist(), otherLink))
 			}
 			if otherP.state != StateDiscarding {

@@ -440,7 +440,7 @@ func encodeMST(b BPDU, src netaddr.MAC) (ethernet.Frame, error) {
 		return ethernet.Frame{}, errs.New().
 			Attr("records", len(b.MSTIs)).
 			Attr("max_records", MaxMSTIRecords).
-			Msgf("MST BPDU holds %d MSTI records, more than the %d the version 3 length field can carry", len(b.MSTIs), MaxMSTIRecords)
+			Msgf("MST BPDU holds %d MSTI records, more than the supported limit of %d", len(b.MSTIs), MaxMSTIRecords)
 	}
 
 	contentLen := 3 + mstBodyLength + mstiRecordLength*len(b.MSTIs)

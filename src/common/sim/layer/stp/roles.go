@@ -235,10 +235,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 		if p.role != oldRole {
 			p.agreed = false
 		}
-		// The edge delay counts from the moment the port could become an
-		// edge; a port that returns to Designated with the timer long past
-		// would otherwise report a wake in the past.
-		if t.id == cistID && p.role == bpdu.RoleDesignated && oldRole != bpdu.RoleDesignated && p.cfg.AutoEdge {
+		if t.id == cistID && p.role == bpdu.RoleDesignated && oldRole != bpdu.RoleDesignated && p.proposing {
 			link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 		}
 	}
