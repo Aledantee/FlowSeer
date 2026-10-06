@@ -3,8 +3,8 @@
 # running the chosen CLI with the model on its launch line, the brief, and
 # the settled-state wait.
 #
-# orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
-# orca-worker.sh start --lane SLUG --cli omp --model provider/model [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF]
+# orca-worker.sh start --lane SLUG --cli claude|codex|agy --model ID [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF | --join LANE]
+# orca-worker.sh start --lane SLUG --cli omp --model provider/model [--effort LEVEL] --role ROLE [--plan FILE] [--unit NAME] --brief FILE [--base REF | --join LANE]
 # orca-worker.sh line   --cli CLI --model ID [--effort LEVEL]
 # orca-worker.sh wait   SLUG [--until CMD] [--max S] [--stall S]  # prints idle|limited|idle-children|done|exited|stalled|timeout, then the screen
 # orca-worker.sh read   SLUG [--lines N]
@@ -13,13 +13,18 @@
 # orca-worker.sh check  SLUG                    # verify the Claude lane's recorded model
 # orca-worker.sh status
 # orca-worker.sh grade  SLUG --outcome accepted|amended|rejected|blocked --verify pass|fail|none [--note TEXT]
-# orca-worker.sh stop   SLUG [--stalled]         # --stalled: after wait printed stalled; an unmerged lane needs its commits on parked/SLUG
+# orca-worker.sh stop   SLUG [--stalled] [--keep-worktree]  # --stalled: after wait printed stalled; an unmerged lane needs its commits on parked/SLUG
+#                                                           # --keep-worktree: close the terminal, keep the checkout for `start --join`
 #
 # `start` prints one JSON line {"name","terminal","worktree","path","branch","run"}
 # and exits 0 only when the worker was pointed at its brief and lane state was
 # saved; failures after the worktree exists remove it when cleanup succeeds.
 # Orca prefixes the branch with the git user, so read `branch` from that line
-# instead of assuming the slug.
+# instead of assuming the slug. `--join LANE` skips the worktree and starts a
+# new terminal in the checkout of a kept lane (`stop --keep-worktree`), so one
+# plan's stages share one branch. A kept lane's state file stays, with an empty
+# terminal and "kept": true, until a `stop` without the flag removes the
+# worktree and every state file that names it.
 # The launch line carries the model because `orca orchestration worker-start
 # --model` pins Claude, Codex, and Cursor ids only. Lane state lives in
 # <git common dir>/orca-workers/. Run unsandboxed: Orca is a local socket.
@@ -52,6 +57,26 @@ child_info() {
     return 0
   done
   printf '%s\t\n' "$child"
+}
+# A kept lane has closed its terminal and left the worktree for a later lane.
+# Every other lane whose state names a worktree has a live terminal.
+lanes_on() {
+  local file lane
+  for file in "$state_dir"/*.json; do
+    [[ -f $file ]] || continue
+    lane=${file##*/}; lane=${lane%.json}
+    [[ $(field "$lane" worktree) == "$1" ]] && echo "$lane"
+  done
+  return 0
+}
+is_kept() { [[ $(field "$1" kept) == True ]]; }
+live_lane_on() {
+  local lane
+  for lane in $(lanes_on "$1"); do
+    [[ $lane == "${2:-}" ]] && continue
+    is_kept "$lane" || { echo "$lane"; return 0; }
+  done
+  return 1
 }
 screen() { [[ -n $1 ]] || return 1; orca terminal read --terminal "$1" --screen 2>/dev/null; }
 brief_name=.orca-brief.md
@@ -143,7 +168,7 @@ case "$cmd" in
     launch_line "$cli" "$model" "$effort"
     ;;
   start)
-    lane='' cli='' model='' effort='' agent='' role='' plan='' unit='' brief='' base=''
+    lane='' cli='' model='' effort='' agent='' role='' plan='' unit='' brief='' base='' join=''
     while (($#)); do
       case "$1" in
         --lane) lane=$2; shift 2 ;;
@@ -156,9 +181,11 @@ case "$cmd" in
         --unit) unit=$2; shift 2 ;;
         --brief) brief=$2; shift 2 ;;
         --base) base=$2; shift 2 ;;
+        --join) [[ $# -ge 2 ]] || die "--join requires a lane"; join=$2; shift 2 ;;
         *) die "unknown flag $1" ;;
       esac
     done
+    [[ -z $join || -z $base ]] || die "--join and --base are exclusive: a joined lane starts from its worktree's HEAD"
     for v in lane cli brief role; do [[ -n "${!v}" ]] || die "--$v is required"; done
     [[ "$lane" =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "lane must match [a-z][a-z0-9_-]{0,31}"
     [[ -f "$brief" ]] || die "brief $brief not found"
@@ -175,16 +202,26 @@ case "$cmd" in
       || die "Orca runtime not reachable; sandboxed calls report this too"
     [[ -e $state_dir/$lane.json ]] && die "a lane named $lane exists; stop it or pick another slug"
 
-    # Without --base-branch the child starts from main, and merging it then
-    # also merges whatever landed on main since.
-    base=${base:-$(git branch --show-current)}
-    [[ -n $base ]] || die "detached HEAD: pass --base REF"
-    created=$(orca worktree create --name "$lane" --parent-worktree active --base-branch "$base" --setup skip \
-      --comment "delegate lane $lane ($cli)" --json 2>&1) || die "worktree create failed: $created"
-    wt=$(printf '%s' "$created" | json 'd["result"]["worktree"]["id"]')
-    path=$(printf '%s' "$created" | json 'd["result"]["worktree"]["path"]')
-    branch=$(printf '%s' "$created" | json 'd["result"]["worktree"]["branch"].removeprefix("refs/heads/")')
-    [[ -n $wt && -n $path && -n $branch ]] || die "worktree create returned no id, path, or branch: $created"
+    if [[ -n $join ]]; then
+      # A joined lane runs in the worktree of a kept lane, so a later stage
+      # of one plan continues on the same branch without a merge in between.
+      wt=$(field "$join" worktree); path=$(field "$join" path); branch=$(field "$join" branch)
+      [[ -n $wt && -n $path && -n $branch ]] || die "no lane named $join to join; status lists them"
+      live=$(live_lane_on "$wt") && die "lane $live still has a live terminal in $path; stop it with --keep-worktree first"
+      dirty=$(git -C "$path" status --porcelain 2>&1) || die "cannot read the state of $path: $dirty"
+      [[ -z $dirty ]] || die "$path is dirty; commit or discard before joining: $dirty"
+    else
+      # Without --base-branch the child starts from main, and merging it then
+      # also merges whatever landed on main since.
+      base=${base:-$(git branch --show-current)}
+      [[ -n $base ]] || die "detached HEAD: pass --base REF"
+      created=$(orca worktree create --name "$lane" --parent-worktree active --base-branch "$base" --setup skip \
+        --comment "delegate lane $lane ($cli)" --json 2>&1) || die "worktree create failed: $created"
+      wt=$(printf '%s' "$created" | json 'd["result"]["worktree"]["id"]')
+      path=$(printf '%s' "$created" | json 'd["result"]["worktree"]["path"]')
+      branch=$(printf '%s' "$created" | json 'd["result"]["worktree"]["branch"].removeprefix("refs/heads/")')
+      [[ -n $wt && -n $path && -n $branch ]] || die "worktree create returned no id, path, or branch: $created"
+    fi
     # A failed cleanup keeps lane state so status still names what needs removal.
     term='' run_id='' base_sha=''
     save_state() {
@@ -200,6 +237,12 @@ case "$cmd" in
       fi
       if [[ -n $term ]] && ! orca terminal close --terminal "$term" --json >/dev/null 2>&1; then
         cleanup_failed='terminal close failed'
+      fi
+      # A joined lane's worktree holds the plan's earlier stages, so a failed
+      # start closes its terminal and leaves the checkout.
+      if [[ -z $cleanup_failed && -n $join ]]; then
+        rm -f "$state_dir/$lane.json" >/dev/null 2>&1 || true
+        die "$reason"
       fi
       # Checked after the close, so the worker cannot start another lane.
       if [[ -z $cleanup_failed ]]; then
@@ -463,6 +506,10 @@ case "$cmd" in
     ((${#files[@]})) || { echo "no live lanes"; exit 0; }
     for f in "${files[@]}"; do
       n=$(basename "$f" .json); term=$(field "$n" terminal)
+      if is_kept "$n"; then
+        echo "$n $(field "$n" cli) kept $(field "$n" path)"
+        continue
+      fi
       if [[ -z $term ]]; then
         echo "$n $(field "$n" cli) unavailable-terminal $(field "$n" path)"
         continue
@@ -509,41 +556,66 @@ case "$cmd" in
     out=$(python3 "$script_dir/runlog.py" "${grade_args[@]}" 2>&1) || die "$out"
     ;;
   stop)
-    name=${1:-}; [[ -n $name ]] || die "stop SLUG [--stalled]"
-    stalled=false; [[ ${2:-} == --stalled ]] && stalled=true
+    name=${1:-}; [[ -n $name ]] || die "stop SLUG [--stalled] [--keep-worktree]"
+    shift
+    stalled=false keep=false
+    while (($#)); do
+      case "$1" in
+        --stalled) stalled=true; shift ;;
+        --keep-worktree) keep=true; shift ;;
+        *) die "unknown flag $1" ;;
+      esac
+    done
     term=$(field "$name" terminal); wt=$(field "$name" worktree); path=$(field "$name" path)
     [[ -n $wt ]] || die "no lane named $name; status lists them"
+    kept=false; is_kept "$name" && kept=true
+    [[ $kept == false || $keep == false ]] || die "lane $name is already kept; stop it without --keep-worktree to remove the worktree"
     run_id=$(field "$name" run)
     [[ -n $run_id ]] || die "lane $name has no run; cannot verify grade"
     # -B: a bytecode cache beside runlog.py would leave the tree untracked.
     python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; sys.exit(0 if any(e.get("event") == "grade" and e.get("run") == sys.argv[2] for e in runlog.read()) else 1)' \
       "$script_dir" "$run_id" || die "lane $name has no grade event; grade it before stop"
+    # Removing the worktree takes every lane's checkout with it.
+    if [[ $keep == false ]] && other=$(live_lane_on "$wt" "$name"); then
+      die "lane $other still has a live terminal in $path; stop it first, nothing removed"
+    fi
     # A stalled lane shows the working hint over a turn that will not end.
-    [[ $stalled == true ]] || ! working "$(screen "$term")" \
+    [[ $kept == true || $stalled == true ]] || ! working "$(screen "$term")" \
       || die "$name is still working; wait for it, or pass --stalled after wait printed stalled"
-    kids=$(children "$wt") || die "cannot read the child worktrees of $name; nothing removed"
-    if [[ -n $kids ]]; then
-      kids=${kids//$'\n'/ }
-      die "$name has child worktrees of its own; merge and remove them first, nothing removed: $kids"
+    if [[ $keep == false ]]; then
+      kids=$(children "$wt") || die "cannot read the child worktrees of $name; nothing removed"
+      if [[ -n $kids ]]; then
+        kids=${kids//$'\n'/ }
+        die "$name has child worktrees of its own; merge and remove them first, nothing removed: $kids"
+      fi
     fi
     rm -f "$path/$brief_name" "$path/$note_name"
     dirty=$(git -C "$path" status --porcelain 2>/dev/null)
     [[ -z $dirty ]] || die "$path is dirty; nothing removed: $dirty"
-    # `orca worktree rm` deletes the branch with the checkout, so commits
-    # that were not merged here would go with it. A parked lane's commits
-    # stay on parked/<slug>, which the removal leaves alone.
     branch=$(field "$name" branch)
-    git merge-base --is-ancestor "$branch" HEAD 2>/dev/null \
-      || git merge-base --is-ancestor "$branch" "refs/heads/parked/$name" 2>/dev/null \
-      || die "$branch has commits that are not merged into $(git branch --show-current) or kept on parked/$name; merge it first, park it with 'git branch parked/$name $branch', or remove the lane by hand in Orca"
+    if [[ $keep == false ]]; then
+      # `orca worktree rm` deletes the branch with the checkout, so commits
+      # that were not merged here would go with it. A parked lane's commits
+      # stay on parked/<slug>, which the removal leaves alone.
+      git merge-base --is-ancestor "$branch" HEAD 2>/dev/null \
+        || git merge-base --is-ancestor "$branch" "refs/heads/parked/$name" 2>/dev/null \
+        || die "$branch has commits that are not merged into $(git branch --show-current) or kept on parked/$name; merge it first, park it with 'git branch parked/$name $branch', or remove the lane by hand in Orca"
+    fi
     head_sha=$(git rev-parse "$branch" 2>&1) || die "cannot resolve branch $branch: $head_sha"
-    # `end` waits for the terminal to close, so the log never ends a run
-    # whose worker still runs, and precedes the removal, so a failed removal
-    # still leaves the run ended.
-    orca terminal close --terminal "$term" --json >/dev/null 2>&1 \
-      || die "terminal close failed for $name; nothing removed"
-    end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
-      || die "run log end failed after $name's terminal closed: $end_out"
+    if [[ $kept == false ]]; then
+      # `end` waits for the terminal to close, so the log never ends a run
+      # whose worker still runs, and precedes the removal, so a failed removal
+      # still leaves the run ended. A kept lane ran both when it was kept.
+      orca terminal close --terminal "$term" --json >/dev/null 2>&1 \
+        || die "terminal close failed for $name; nothing removed"
+      end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
+        || die "run log end failed after $name's terminal closed: $end_out"
+    fi
+    if [[ $keep == true ]]; then
+      python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); d["terminal"]=""; d["kept"]=True; json.dump(d, open(sys.argv[1],"w"))' "$state_dir/$name.json" \
+        || die "cannot mark lane $name kept; its terminal is closed and the worktree stays"
+      exit 0
+    fi
     # A stalled worker may have started a lane after the first check.
     kids=$(children "$wt") || die "cannot read the child worktrees of $name after its terminal closed; worktree kept"
     if [[ -n $kids ]]; then
@@ -551,7 +623,10 @@ case "$cmd" in
       die "$name started child worktrees before its terminal closed; merge and remove them, then remove $name in Orca: $kids"
     fi
     out=$(orca worktree rm --worktree "id:$wt" --json 2>&1) || die "worktree rm refused: $out"
-    rm -f "$state_dir/$name.json" || die "cannot remove lane state for $name"
+    # The removal ends every lane that named the worktree.
+    for lane in $(lanes_on "$wt"); do
+      rm -f "$state_dir/$lane.json" || die "cannot remove lane state for $lane"
+    done
     ;;
   *) sed -n '2,25p' "$0" >&2; exit 2 ;;
 esac
