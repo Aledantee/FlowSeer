@@ -28,7 +28,7 @@ them:
 | `unchecked` | implemented with a review verdict that is neither an accept nor `rework`, or implemented on this branch with no review or no compound outcome | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
 | `replan` | readiness `needs-decisions` with prerequisites finished, or an implemented plan whose review reads `rework` or that carries that readiness | `plan`, which ends with `plan_record.py ready` for a planned plan and `plan_record.py replan` for an implemented one, then `implement` |
 | `ready` | planned, implementation-ready, every prerequisite finished | `implement` |
-| `waiting` | a prerequisite phase is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open. The line names it | none yet |
+| `waiting` | a prerequisite phase is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open or one of its own prerequisites is not finished. The line names it | none yet |
 | `retire` | implemented, superseded, or abandoned on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
 
 `plan-queue.py` computes the group from the state files, the ledger, and the
@@ -42,7 +42,7 @@ With an argument, keep the lines whose path or title matches it.
 
 ## 2. Check the top candidates against the tree
 
-Take the first three lines that are not `waiting` or `retire`;
+Take the first three lines that are not `waiting` or `retire`, and
 report the count of `retire` lines as clean-up owed. For each,
 before recommending it:
 
@@ -51,7 +51,7 @@ before recommending it:
 - Read the plan's Goal and Open questions. Use
   `.claude/skills/plan/scripts/plan_record.py show <plan>` to read its status
   and outcome. For `partially-implemented`, the outcome names the units that
-  remain and why they stopped; a unit that stopped on a blocker (lab
+  remain and why they stopped. A unit that stopped on a blocker (lab
   hardware, a decision, a three-round `blocked`) is not resumable by
   `implement`, so say what unblocks it instead.
 - The tree wins over the plan: use `.claude/skills/plan/scripts/plan_record.py show <plan>` and check that the first remaining unit's

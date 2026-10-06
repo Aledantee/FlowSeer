@@ -60,7 +60,7 @@ from a parked branch starts with `--base parked/<slug>` instead
 | --- | --- | --- | --- | --- |
 | re-plan | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=needs-decisions`, or `.claude/skills/plan/scripts/plan_record.py show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` and `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready` both exit 0 |
 | implement | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`, a phase's `landed` range is set, and every unit in the worker's ledger is `passed` |
-| review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports an accepted review |
+| review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports review `accept` or `accept after fixes` |
 | compound | `.claude/skills/plan/scripts/plan_record.py is <plan> compound=null` | `compound` on the plan | `execute` | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null` |
 
 `$base` is the commit a lane's branch forked from, read from the `start`
@@ -93,7 +93,7 @@ stage's "Done when":
 
 - re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented && .claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
 - implement: `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
-- review: `.claude/skills/plan/scripts/plan_record.py show <plan> --json | grep -q '"review": "accept'`
+- review: `.claude/skills/plan/scripts/plan_record.py is <plan> review=accept || .claude/skills/plan/scripts/plan_record.py is <plan> "review=accept after fixes"`
 - compound: `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null`
 
 On `done` without the stage's report on the screen, wait again without
@@ -134,7 +134,7 @@ After each stage:
 7. Read the stage's "done when" with the matching
    `.claude/skills/plan/scripts/plan_record.py is` or `show` command. A stage
    that reports success and leaves the field unset, or set to a value other
-   than an accept, parks the plan with that as its question; do not run it
+   than an accept, parks the plan with that as its question. Do not run it
    again.
 
 End a turn only while waiting on a started lane, with a started successor,

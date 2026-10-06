@@ -16,8 +16,8 @@ the request in a few words, and asks for the checkpoint:
 
 - With a plan, the worker records the plan state with
   `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n> --from <t> --to <t>`,
-  `.claude/skills/plan/scripts/plan_record.py review <plan> <verdict>`, or
-  `.claude/skills/plan/scripts/plan_record.py compound <plan> <outcome>` on its
+  `.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"`, or
+  `.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"` on its
   branch, and the merge of that branch brings
   the checkpoint here.
 - Without a plan, the checkpoints file lives in the worker's own git

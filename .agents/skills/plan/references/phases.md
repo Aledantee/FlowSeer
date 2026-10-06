@@ -27,8 +27,8 @@ in dependency order:
 
 - The parent keeps the Goal, Decisions, and Requirements for the whole
   change. Its Units are the phases, headed like any unit (`### U1.
-  <phase name>`, never `### P1.`, since `ledger.py` and the queue's unit
-  count read `### U` headings). Each has `Files:` naming the phase plan
+  <phase name>`, never `### P1.`, since the queue's unit count reads
+  `### U` headings). Each has `Files:` naming the phase plan
   path. Run `.claude/skills/plan/scripts/plan_record.py init <parent>` first,
   since a phase cannot join a parent without a state file. Then initialize
   the phases, prerequisites before their dependents, each with

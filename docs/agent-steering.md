@@ -350,7 +350,7 @@ command because a model re-reading every file is slow and drifts. So
 `plan-queue.py` reads each plan's state through `plan_record.py`, the ledger,
 and the unmerged branches that touch a plan, and the skill reads its output.
 Work in progress outranks ready work, the Kanban rule of limiting what is
-open; a plan another branch already changes is flagged, since two worktrees
+open. A plan another branch already changes is flagged, since two worktrees
 can otherwise implement the same phase. A dependent phase waits on `finished` in `plan_record.py`, the test
 `plan-state.py` imports too: a prerequisite on `main`, a retired range, or a
 reviewed and compounded phase. An implemented plan whose review reads
@@ -912,8 +912,8 @@ lives in the implement worker's git directory, so `drive` reads it before
 the child worktree goes and reports it as the gate `land` would have
 read. Each stage worker takes one slot of `delegate`'s cap and holds a
 budget of its own from the rest, and independent phases run at once when
-the cap leaves every one of them at least one worker; their state files are
-independent. A decision that
+the cap leaves every one of them at least one worker, since their state files
+are independent. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 
