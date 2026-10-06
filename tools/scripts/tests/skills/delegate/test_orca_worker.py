@@ -9,8 +9,10 @@ import sys
 import tempfile
 import unittest
 
+from lib import repo
 
-SCRIPT = Path(__file__).with_name("orca-worker.sh")
+
+SCRIPT = repo.root(Path(__file__).parent) / ".agents/skills/delegate/scripts/orca-worker.sh"
 
 
 class OrcaWorkerTests(unittest.TestCase):
@@ -585,6 +587,15 @@ else:
                 self.assertEqual([event["event"] for event in events], ["start", "grade"])
                 self.assertEqual(events[-1]["outcome"], outcome)
 
+    def test_check_names_a_claude_lane_whose_run_has_no_start_event(self):
+        self.claude_lane_with_session()
+        self.runlog.write_text(self.runlog.read_text().replace("run-l1", "run-other"))
+
+        result = self.command("check", "l1")
+
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("lane l1 has no start model and time", result.stderr)
+
     def test_check_reports_non_claude_lanes_as_not_checked(self):
         child_path = self.root / "child-l1"
         child_path.mkdir()
@@ -604,6 +615,11 @@ else:
         lane_path.mkdir(exist_ok=True)
         self.env.pop("CLAUDE_CONFIG_DIR", None)
         home = self.root / "home"
+        outer = Path(os.environ["HOME"])
+        # uv defaults both directories under HOME, which this lane replaces.
+        self.env["UV_CACHE_DIR"] = os.environ.get("UV_CACHE_DIR", str(outer / ".cache/uv"))
+        self.env["UV_PYTHON_INSTALL_DIR"] = os.environ.get(
+            "UV_PYTHON_INSTALL_DIR", str(outer / ".local/share/uv/python"))
         self.env["HOME"] = str(home)
         session_dir = home / ".claude" / "projects" / re.sub(r"[^a-zA-Z0-9]", "-", str(lane_path))
         session_dir.mkdir(parents=True, exist_ok=True)

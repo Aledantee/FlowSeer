@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Score local agent transcripts against run log grades and registry prices."""
 
 import argparse
@@ -8,15 +7,9 @@ import json
 from pathlib import Path
 import re
 import statistics
-import sys
 
-# The imported scripts live in skill directories; bytecode caches there
-# would leave every worktree that runs tune with an untracked __pycache__.
-sys.dont_write_bytecode = True
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "delegate" / "scripts"))
-import runlog
-
-from catalogue import registry_file_models
+from skills.delegate import runlog
+from skills.tune.catalogue import registry_file_models
 
 
 HOME = Path.home()
@@ -530,8 +523,8 @@ def score(args):
             "unmatched": unmatched}
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(argv):
+    parser = argparse.ArgumentParser(prog="run.py tune field", description=__doc__)
     parser.add_argument("--since", help="Include runs started on or after this UTC date (YYYY-MM-DD)")
     parser.add_argument("--match", default="FlowSeer")
     parser.add_argument("--runlog", type=Path, default=runlog.log_path())
@@ -542,7 +535,4 @@ def main(argv=None):
     args = parser.parse_args(argv)
     args.registry = [path for group in args.registry for path in group] if args.registry else [HOME / ".claude/models/registry.yaml"]
     print(json.dumps(score(args), sort_keys=True))
-
-
-if __name__ == "__main__":
-    main()
+    return 0

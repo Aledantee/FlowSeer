@@ -7,7 +7,9 @@ import subprocess
 import tempfile
 import unittest
 
-BENCH_SH = Path(__file__).resolve().parent / "bench.sh"
+from lib import repo
+
+BENCH_SH = repo.root(Path(__file__).parent) / ".agents/skills/tune/scripts/bench.sh"
 
 
 class BenchTest(unittest.TestCase):

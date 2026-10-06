@@ -1,7 +1,6 @@
-#!/usr/bin/env python3
 """Compare the registry's models against live catalogues.
 
-Usage: catalogue.py REGISTRY [OVERRIDE...]
+Usage: run.py tune catalogue REGISTRY [OVERRIDE...]
 
 Pass the machine-wide registry first, then the project override; a model in
 a later file replaces the model of the same id in an earlier one. A missing
@@ -34,7 +33,7 @@ def fetch(url):
     return json.loads(out.stdout)
 
 
-def registry_models(paths):
+def registry_models(argv):
     out = {}
     for path in paths:
         if os.path.exists(path):
@@ -59,8 +58,11 @@ def norm(s):
     return re.sub(r"[^a-z0-9]", "", s.lower())
 
 
-def main(paths):
-    reg = registry_models(paths)
+def main(argv):
+    if not argv:
+        print(__doc__, file=sys.stderr)
+        return 2
+    reg = registry_models(argv)
     md = fetch(MODELS_DEV)
     orr = {m["id"]: m for m in fetch(OPENROUTER)["data"]}
 
@@ -89,9 +91,4 @@ def main(paths):
     for m in fresh[:40]:
         p = m["pricing"]
         print(f"  {m['id']:44} {float(p['prompt'])*1e6:6.2f}/{float(p['completion'])*1e6:6.2f}  ctx={m.get('context_length')}")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit(__doc__)
-    main(sys.argv[1:])
+    return 0
