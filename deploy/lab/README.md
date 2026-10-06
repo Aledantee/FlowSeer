@@ -15,7 +15,7 @@ The files one lab run needs: the device service, its registry and edge agent, an
 
 The provisioning file is the only file that holds an edge credential. Its placeholders fail validation on purpose, so an agent given an unedited file refuses it at load and names the field, instead of failing later somewhere less obvious.
 
-`registry.textproto` fails the same way for the two positions that describe a device rather than the deployment: the management address and `ssh_host_key_sha256`. `write-registry.sh` refuses to render the shipped file while either is still a placeholder.
+`registry.textproto` fails the same way for the two positions that describe a device rather than the deployment: the management address and `ssh_host_key_sha256`. `write-registry.py` refuses to render the shipped file while either is still a placeholder.
 
 Read [the runbook](../../docs/runbooks/lab-icx7150-first-write.md) before using any of this against a switch. Two values cannot be copied from a document because they are measurements: the delayed-apply horizon and the switch's SSH host key.
 
@@ -94,9 +94,9 @@ integration {
 EOF
 ```
 
-After `CreateEdge` returns, `write-registry.sh` renders `registry.textproto` with
+After `CreateEdge` returns, `write-registry.py` renders `registry.textproto` with
 the minted edge identifier to `/etc/flowseer/registry.textproto`
-(`deploy/lab/write-registry.sh`), and central is restarted before device
+(`deploy/lab/write-registry.py`), and central is restarted before device
 procedures can be used. The runbook's "Fill the device's two positions in the
 registry template" section describes that two-start sequence in detail.
 

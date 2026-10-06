@@ -34,10 +34,8 @@ import (
 )
 
 // The lab scripts write beside themselves, so each test copies the script
-// it runs into a temporary tree and starts it there. The scripts under test
-// are named by the two variables below, which let one test body run the
-// shell file and then the Python file that replaces it.
-var (
+// it runs into a temporary tree and starts it there.
+const (
 	labSecretsScript = "write-lab-secrets.py"
 	labStoreScript   = "write-openfga-store.py"
 )
@@ -73,32 +71,28 @@ type labRun struct {
 	exit   int
 }
 
-// skipUnlessLabScriptsRun skips on a host that cannot start the scripts
-// under test.
-func skipUnlessLabScriptsRun(t *testing.T, names ...string) {
+// skipUnlessLabScriptsRun skips on a host that cannot run the scripts, which
+// are started through POSIX paths and modes.
+func skipUnlessLabScriptsRun(t *testing.T) {
 	t.Helper()
 
 	if runtime.GOOS == "windows" {
 		t.Skip("the lab scripts are run through POSIX paths and modes")
 	}
-	for _, name := range names {
-		if !strings.HasSuffix(name, ".sh") {
-			continue
-		}
-		for _, tool := range []string{"bash", "openssl", "htpasswd", "curl", "jq"} {
-			if _, err := exec.LookPath(tool); err != nil {
-				t.Skipf("%s is not on PATH: %v", tool, err)
-			}
-		}
-	}
 }
 
 // runLabScript copies the script into <tree>/deploy/lab, with the lock file
-// beside it when it has one, and runs it there. A .sh file runs under the
-// interpreter its first line names, and a .py file under `uv run`, with
-// --locked when a lock file travels with it so that a lock that no longer
-// matches the script's block fails the run.
+// beside it when it has one, and runs it there under `uv run`. A lock file
+// that travels with the script makes the run --locked, so that a lock that no
+// longer matches the script's block fails the run.
 func runLabScript(t *testing.T, tree, name string, args ...string) labRun {
+	t.Helper()
+
+	return runLabScriptWithEnv(t, tree, nil, name, args...)
+}
+
+// runLabScriptWithEnv is runLabScript with extra environment variables.
+func runLabScriptWithEnv(t *testing.T, tree string, env []string, name string, args ...string) labRun {
 	t.Helper()
 
 	dir := filepath.Join(tree, labDir)
@@ -107,23 +101,17 @@ func runLabScript(t *testing.T, tree, name string, args ...string) labRun {
 	}
 	copyFile(t, labFixturePath(name), filepath.Join(dir, name))
 
-	var argv []string
-	switch {
-	case strings.HasSuffix(name, ".sh"):
-		argv = []string{"bash", name}
-	default:
-		argv = []string{"uv", "run"}
-		if _, err := os.Stat(labFixturePath(name + ".lock")); err == nil {
-			copyFile(t, labFixturePath(name+".lock"), filepath.Join(dir, name+".lock"))
-			argv = append(argv, "--locked")
-		}
-		argv = append(argv, name)
+	argv := []string{"run"}
+	if _, err := os.Stat(labFixturePath(name + ".lock")); err == nil {
+		copyFile(t, labFixturePath(name+".lock"), filepath.Join(dir, name+".lock"))
+		argv = append(argv, "--locked")
 	}
+	argv = append(argv, name)
 
-	cmd := exec.Command(argv[0], append(argv[1:], args...)...)
+	cmd := exec.Command("uv", append(argv, args...)...)
 	cmd.Dir = dir
 
-	return startLabCommand(t, cmd, nil)
+	return startLabCommand(t, cmd, env)
 }
 
 // startLabCommand runs cmd and returns its streams and exit status.
@@ -183,7 +171,7 @@ func copyDir(t *testing.T, from, to string) {
 func generatedSecrets(t *testing.T) string {
 	t.Helper()
 
-	skipUnlessLabScriptsRun(t, labSecretsScript)
+	skipUnlessLabScriptsRun(t)
 
 	sharedSecrets.once.Do(func() {
 		root, err := os.MkdirTemp("", "lab-secrets-")
@@ -299,16 +287,6 @@ func TestTheLabSecretsScriptWritesOwnerOnlyFiles(t *testing.T) {
 	}
 }
 
-// hashPrefix is what the script under test writes at the head of a bcrypt
-// hash: htpasswd writes the $2y$ spelling and the bcrypt package $2b$.
-func hashPrefix() string {
-	if strings.HasSuffix(labSecretsScript, ".sh") {
-		return `$2y$10$`
-	}
-
-	return `$2b$10$`
-}
-
 // dexHashes returns the user and bcrypt hash of each hash line of dex.env.
 func dexHashes(t *testing.T, dir string) map[string]string {
 	t.Helper()
@@ -346,10 +324,10 @@ func TestTheLabSecretsScriptQuotesTheDexEnvFile(t *testing.T) {
 		}
 	}
 
-	shape := regexp.MustCompile(`^` + regexp.QuoteMeta(hashPrefix()) + `.{53}$`)
+	shape := regexp.MustCompile(`^\$2b\$10\$.{53}$`)
 	for user, hash := range dexHashes(t, dir) {
 		if !shape.MatchString(hash) {
-			t.Errorf("hash of %s does not hold %s and 53 more characters", user, hashPrefix())
+			t.Errorf("hash of %s does not hold $2b$10$ and 53 more characters", user)
 		}
 		password := regexp.MustCompile(`(?m)^Dex User ` + user + `: (\S+)$`).FindStringSubmatch(secretFile(t, dir, "credentials.txt"))
 		if password == nil {
@@ -390,9 +368,6 @@ func importsSubprocess(body string) bool {
 func TestTheLabSecretsScriptStartsNoProcess(t *testing.T) {
 	t.Parallel()
 
-	if strings.HasSuffix(labSecretsScript, ".sh") {
-		t.Skip("a shell script starts the tools it uses")
-	}
 	if importsSubprocess(labScript(t, labSecretsScript)) {
 		t.Errorf("%s imports subprocess", labSecretsScript)
 	}
@@ -405,10 +380,6 @@ func TestTheLabSecretsScriptStartsNoProcess(t *testing.T) {
 // first TLS handshake and not at generation.
 func TestTheLabSecretsScriptWritesAStrictChain(t *testing.T) {
 	t.Parallel()
-
-	if strings.HasSuffix(labSecretsScript, ".sh") {
-		t.Skip("the shell file writes the chain openssl 3 defaults give")
-	}
 
 	dir := generatedSecrets(t)
 	ca := parseCert(t, dir, "ca.crt")
@@ -576,11 +547,7 @@ func runStoreScript(t *testing.T, tree string, f *labOpenFGA) labRun {
 	name := labStoreScript
 	copyFile(t, labFixturePath(name), filepath.Join(dir, name))
 
-	argv := []string{"bash", name}
-	if strings.HasSuffix(name, ".py") {
-		argv = []string{"uv", "run", name}
-	}
-	cmd := exec.Command(argv[0], argv[1:]...)
+	cmd := exec.Command("uv", "run", name)
 	cmd.Dir = dir
 
 	return startLabCommand(t, cmd, []string{"OPENFGA_HTTP_ENDPOINT=" + f.server.URL})
@@ -595,7 +562,7 @@ func runStoreScript(t *testing.T, tree string, f *labOpenFGA) labRun {
 func TestTheLabStoreScriptPrintsTheAuthorizationBlock(t *testing.T) {
 	t.Parallel()
 
-	skipUnlessLabScriptsRun(t, labSecretsScript, labStoreScript)
+	skipUnlessLabScriptsRun(t)
 	tree := labTree(t)
 	f := startLabOpenFGA(t, tree, "S1")
 
@@ -654,7 +621,7 @@ func otherCA(t *testing.T) string {
 func TestTheLabStoreScriptRefusesAnotherCa(t *testing.T) {
 	t.Parallel()
 
-	skipUnlessLabScriptsRun(t, labSecretsScript, labStoreScript)
+	skipUnlessLabScriptsRun(t)
 	tree := labTree(t)
 	f := startLabOpenFGA(t, tree, "S1")
 	caPath := filepath.Join(tree, labDir, "secrets", "ca.crt")
@@ -666,7 +633,7 @@ func TestTheLabStoreScriptRefusesAnotherCa(t *testing.T) {
 	if run.exit == 0 {
 		t.Errorf("the store script accepted a server another CA signed:\n%s", run.stdout)
 	}
-	if strings.HasSuffix(labStoreScript, ".py") && run.exit != 1 {
+	if run.exit != 1 {
 		t.Errorf("the store script exited %d, want 1", run.exit)
 	}
 	if n := f.calls.Load(); n != 0 {
@@ -678,7 +645,7 @@ func TestTheLabStoreScriptRefusesAnotherCa(t *testing.T) {
 func TestTheLabStoreScriptFailsWithoutAStoreId(t *testing.T) {
 	t.Parallel()
 
-	skipUnlessLabScriptsRun(t, labSecretsScript, labStoreScript)
+	skipUnlessLabScriptsRun(t)
 	tree := labTree(t)
 	f := startLabOpenFGA(t, tree, "")
 
@@ -696,9 +663,6 @@ func TestTheLabStoreScriptFailsWithoutAStoreId(t *testing.T) {
 func TestTheLabStoreScriptStartsNoProcess(t *testing.T) {
 	t.Parallel()
 
-	if strings.HasSuffix(labStoreScript, ".sh") {
-		t.Skip("a shell script starts the tools it uses")
-	}
 	if importsSubprocess(labScript(t, labStoreScript)) {
 		t.Errorf("%s imports subprocess", labStoreScript)
 	}
