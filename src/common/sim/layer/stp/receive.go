@@ -503,6 +503,8 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	stored := sameSource || isSuperior
+	previousMaxAge := p.rcvMaxAge
+	previousForwardDelay := p.rcvForwardDelay
 	if stored {
 		// The classification updates only when received information is
 		// stored (IEEE 802.1Q clause 13.24.10). Assigning it earlier or
@@ -513,7 +515,13 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
+	receivedMaxAge := p.rcvMaxAge
+	receivedForwardDelay := p.rcvForwardDelay
 	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement())
+	if stored {
+		p.rcvMaxAge = previousMaxAge
+		p.rcvForwardDelay = previousForwardDelay
+	}
 
 	var previousRootID bpdu.BridgeID
 	var previousRootCost uint32
@@ -535,6 +543,14 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		if p.role == bpdu.RoleDesignated {
 			heldCISTVec = designatedVector(t, p, link.external)
 		}
+		if t.id == cistID && stored {
+			// The topology-change calls below read the root and received times
+			// held before this BPDU. MSTI agreement keeps the CIST vector selected
+			// above.
+			t.rootID = previousRootID
+			t.rootPathCost = previousRootCost
+			t.rootPort = previousRootPort
+		}
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
@@ -554,10 +570,9 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	l.propagateReceivedTC(t, p, link, b, now, flushes)
-	if internal && t.id == cistID && stored {
-		t.rootID = previousRootID
-		t.rootPathCost = previousRootCost
-		t.rootPort = previousRootPort
+	if stored {
+		p.rcvMaxAge = receivedMaxAge
+		p.rcvForwardDelay = receivedForwardDelay
 	}
 
 	l.recomputeAll(now, flushes)

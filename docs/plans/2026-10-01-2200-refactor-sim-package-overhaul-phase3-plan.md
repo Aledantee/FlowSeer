@@ -1116,9 +1116,10 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   `cistConsistent` test restored around the proposal.
 - A2, an MSTI agreement. The Agreement flag of an MSTI record counts only
   when the CIST part of its BPDU matches the CIST vector the port uses for
-  that role. A CIST port that remains Designated compares the BPDU's CIST
-  root, external cost, and regional root with its designated vector. A Root
-  port keeps comparing with the vector it holds once the BPDU's CIST part is
+  that role. A CIST port that ends the call Designated compares the BPDU's
+  CIST root, external cost, and regional root with its designated vector,
+  whatever role it held when the call began. A port that ends Root,
+  Alternate, or Backup uses the vector it holds once the BPDU's CIST part is
   stored. Source: `Q2003` 13.26.10 a),
   p. 193. `D2009` 13.29.16, p. 65, and the NOTE under 13.28.24, p. 60: "The
   state machines ensure that the CIST parameters from received BPDUs are
@@ -1133,9 +1134,15 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   holds. An MSTI record that is not stored still records its agreement
   when the CIST part matches. A Designated port and a Root port each judge
   the CIST part against their own vector. Test `TestMSTIAgreementUsesTheCISTPortVector`
-  covers both cases. Mutation: the designated-vector branch removed from
-  `applyBPDU`. Keep the earlier mutation that processes MSTI information before
-  the CIST is stored.
+  covers both cases. D2009 permits CIST role selection before the MSTI
+  agreement and does not require that order. Figures 13-20 and 13-21 give no
+  condition between them, so the layer keeps that order. A topology change
+  raised by a BPDU is handled before that BPDU's root election for every BPDU
+  class. A port that does not send RSTP uses the Max Age plus Forward Delay of
+  the root held before the BPDU for `tcWhile`. This timer order is the
+  layer's own rule. D2009 clauses 13.29.11 and 13.29.33 d), and Figure 13-28,
+  order neither. Mutations: remove the designated-vector branch from
+  `applyBPDU`, and process MSTI information before the CIST is stored.
 - A3, role before state. A received agreement sets `agreed` and clears
   `proposing`, and changes no state. The port advances in
   `updatePortStates`, after `assignRoles` has selected its role for this
