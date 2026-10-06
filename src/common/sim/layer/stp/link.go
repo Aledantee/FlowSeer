@@ -237,6 +237,7 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 
 	wasAutoEdge := link.edge && !link.adminEdge
 	link.edge = link.adminEdge
+	link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
 
 	if wasAutoEdge {
 		for _, id := range l.treeOrder {
@@ -249,9 +250,6 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 			tp.state = StateDiscarding
 			tp.fwdDelayTimer = time.Time{}
 			tp.proposing = link.pointToPoint && link.sendRSTP
-			if id == cistID && tp.proposing {
-				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))
-			}
 		}
 	}
 

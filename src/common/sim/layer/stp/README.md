@@ -503,8 +503,10 @@ The implementation structures its logic around the standard state machines:
 
 An auto-edge port starts its edge delay when the common tree enters proposing.
 The delay restarts on a later entry to proposing, including a sync cut from
-Forwarding, but proposals on other trees do not restart it. This follows
-P802.1aq/D1.5 Figure 13-25 DESIGNATED_PROPOSE.
+Forwarding, but proposals on other trees do not restart it. Every admitted
+BPDU also restarts the port's delay, whether it arrives through IEEE or SSTP.
+These transitions follow P802.1aq/D1.5 Figures 13-16 RECEIVE and 13-25
+DESIGNATED_PROPOSE.
 
 ### Limits
 

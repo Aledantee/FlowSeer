@@ -146,14 +146,45 @@ func TestMcheckDoesNotExposeExpiredEdgeDelay(t *testing.T) {
 	}
 }
 
+func TestReceivedBPDUsKeepAutoEdgePortNonEdge(t *testing.T) {
+	for _, mode := range []string{"ieee", "sstp"} {
+		t.Run(mode, func(t *testing.T) {
+			start := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+			cfg := stp.Config{
+				Priority: 4096,
+				Address:  mustMAC(t, "02:00:00:00:00:02"),
+				Ports:    map[string]stp.Port{"p1": {AutoEdge: true}},
+			}
+			if mode == "sstp" {
+				cfg.PVST = pvstTrees(nil, 1, 10)
+			}
+			l := mustNewSTP(t, cfg, mustPortTable(t, "p1"))
+			l.LinkChange(start, "p1", true, true, 1_000_000_000)
+			b := edgeTestBPDU(t, 61440, bpdu.RoleDesignated, false, false)
+			for i := range 5 {
+				received := start.Add(time.Duration(2*i+1) * time.Second)
+				if mode == "sstp" {
+					l.ReceiveSSTP(received, "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, b)
+				} else {
+					l.Receive(received, "p1", b)
+				}
+				l.Advance(received.Add(1500 * time.Millisecond))
+				if info := l.PortInfo("p1"); info.Edge || info.State != stp.StateDiscarding {
+					t.Fatalf("after BPDU %d at %v, port = %+v, want non-edge Discarding", i, received, info)
+				}
+			}
+		})
+	}
+}
+
 func TestEdgeDelayCallSequences(t *testing.T) {
 	for _, mode := range []string{"rstp", "mstp", "pvst"} {
-		for _, seed := range []uint64{1, 7, 29, 101} {
+		for _, seed := range []uint64{1, 7, 29, 101, 115} {
 			t.Run(fmt.Sprintf("%s/%d", mode, seed), func(t *testing.T) {
 				start := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 				cfg := stp.Config{
 					Address: mustMAC(t, "02:00:00:00:00:02"),
-					Ports:   map[string]stp.Port{"p1": {}, "p2": {AutoEdge: true}, "quiet": {AutoEdge: true}},
+					Ports:   map[string]stp.Port{"p1": {}, "p2": {AutoEdge: true}, "quiet": {AutoEdge: true}, "heard": {AutoEdge: true}},
 				}
 				if mode == "mstp" {
 					cfg.MST = &stp.MST{Name: "region", Instances: map[bpdu.MSTID]stp.Instance{1: {VLANs: []vlan.ID{10}}}}
@@ -161,7 +192,7 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 				if mode == "pvst" {
 					cfg.PVST = pvstTrees(nil, 1, 10)
 				}
-				l := mustNewSTP(t, cfg, mustPortTable(t, "p1", "p2", "quiet"))
+				l := mustNewSTP(t, cfg, mustPortTable(t, "p1", "p2", "quiet", "heard"))
 				rng := rand.New(rand.NewPCG(seed, seed+11))
 				var calls []string
 				fail := func(format string, args ...any) {
@@ -172,7 +203,11 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 				}
 				log(start, "LinkChange quiet up point-to-point")
 				l.LinkChange(start, "quiet", true, true, 1_000_000_000)
+				log(start, "LinkChange heard up point-to-point")
+				l.LinkChange(start, "heard", true, true, 1_000_000_000)
 				now := start
+				heardNext := start.Add(time.Second)
+				heardBPDU := edgeTestBPDU(t, 61440, bpdu.RoleDesignated, false, false)
 				quietChecked := false
 				for step := range 320 {
 					wake, hasWake := l.NextWake()
@@ -180,7 +215,12 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 						fail("step %d NextWake %v before %v", step, wake, now)
 					}
 					next := now.Add(time.Duration(rng.IntN(200)+50) * time.Millisecond)
-					if hasWake && !wake.After(next) {
+					if !heardNext.After(next) && (!hasWake || !wake.Before(heardNext)) {
+						now = heardNext
+						log(now, "Receive heard RST Designated")
+						l.Receive(now, "heard", heardBPDU)
+						heardNext = heardNext.Add(2 * time.Second)
+					} else if hasWake && !wake.After(next) {
 						now = wake
 						log(now, "Advance at NextWake")
 						l.Advance(now)
@@ -237,6 +277,9 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 					if next, ok := l.NextWake(); ok && next.Before(now) {
 						fail("step %d NextWake %v before %v", step, next, now)
 					}
+					if info := l.PortInfo("heard"); info.Edge {
+						fail("step %d heard port became edge: %+v", step, info)
+					}
 					if !quietChecked && !now.Before(start.Add(3*time.Second)) {
 						log(now, "Advance at or after quiet edge delay")
 						l.Advance(now)
@@ -244,6 +287,9 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 							fail("quiet port at first Advance after edge delay = %+v", info)
 						}
 						quietChecked = true
+					}
+					if info := l.PortInfo("heard"); info.Edge {
+						fail("step %d heard port became edge after Advance: %+v", step, info)
 					}
 				}
 				if !quietChecked {
