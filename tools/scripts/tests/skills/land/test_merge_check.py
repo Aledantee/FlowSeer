@@ -1,20 +1,19 @@
 from collections import Counter
 import contextlib
-import importlib.util
 import io
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from itertools import product
 from pathlib import Path
 from unittest import mock
 
+from skills.land import merge_check as MERGE_CHECKER
 
-MERGE_CHECK = Path(__file__).with_name("merge-check.py")
-CHECKER_SPEC = importlib.util.spec_from_file_location("merge_checker", MERGE_CHECK)
-MERGE_CHECKER = importlib.util.module_from_spec(CHECKER_SPEC)
-CHECKER_SPEC.loader.exec_module(MERGE_CHECKER)
+RUN_PY = Path(__file__).resolve().parents[3] / "run.py"
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 
 def expected_lost_sides(base, first, second, merged):
@@ -275,16 +274,11 @@ class ThrowawayRepository:
         return self.run("rev-parse", "HEAD").stdout.strip()
 
     def check(self, revision_range):
-        return subprocess.run(
-            ["python3", str(MERGE_CHECK), revision_range],
-            cwd=self.root,
-            capture_output=True,
-            text=True,
-        )
+        return self.check_from(self.root, revision_range)
 
     def check_from(self, directory, revision_range):
         return subprocess.run(
-            ["python3", str(MERGE_CHECK.resolve()), revision_range],
+            [sys.executable, str(RUN_PY), "land", "merge-check", revision_range],
             cwd=directory,
             capture_output=True,
             text=True,
@@ -324,6 +318,28 @@ class MergeCheckTest(unittest.TestCase):
         repo = ThrowawayRepository()
         self.addCleanup(repo.close)
         return repo
+
+    def test_empty_tree_is_the_hash_of_empty_standard_input(self):
+        repo = self.repository()
+        MERGE_CHECKER.empty_tree.cache_clear()
+        self.addCleanup(MERGE_CHECKER.empty_tree.cache_clear)
+        calls = []
+        real_run = subprocess.run
+
+        def record(command, *args, **kwargs):
+            calls.append((command, kwargs.get("input")))
+            return real_run(command, *args, **kwargs)
+
+        previous_directory = os.getcwd()
+        os.chdir(repo.root)
+        self.addCleanup(os.chdir, previous_directory)
+        with mock.patch.object(MERGE_CHECKER.subprocess, "run", side_effect=record):
+            tree = MERGE_CHECKER.empty_tree()
+
+        self.assertEqual(tree, EMPTY_TREE)
+        self.assertEqual(
+            calls, [(["git", "hash-object", "-t", "tree", "--stdin"], b"")]
+        )
 
     def test_lost_side_fails_when_other_side_changed(self):
         repo = self.repository()
@@ -1042,6 +1058,7 @@ class MergeCheckTest(unittest.TestCase):
         self.assertIn("not compared", result.stdout)
         self.assertIn("multiple merge bases", result.stdout)
         self.assertNotEqual(merge, merged_a)
+
 
 if __name__ == "__main__":
     unittest.main()

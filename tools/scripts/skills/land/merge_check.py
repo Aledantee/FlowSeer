@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check merge commits for changes silently dropped from either parent.
 
 For each nontrivial line, the checker compares counts in the merge base, a
@@ -20,9 +19,9 @@ import subprocess
 import sys
 
 
-def git(*args):
+def git(*args, input=None):
     return subprocess.run(
-        ["git", *args], check=True, capture_output=True
+        ["git", *args], check=True, capture_output=True, input=input
     ).stdout
 
 
@@ -32,7 +31,7 @@ def decode(value):
 
 @lru_cache
 def empty_tree():
-    return decode(git("hash-object", "-t", "tree", "/dev/null")).strip()
+    return decode(git("hash-object", "-t", "tree", "--stdin", input=b"")).strip()
 
 
 def nontrivial(line):
@@ -501,7 +500,3 @@ def main(argv):
         print(detail, file=sys.stderr)
         return 2
     return 1 if lost else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
