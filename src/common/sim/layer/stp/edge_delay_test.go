@@ -215,19 +215,20 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 						fail("step %d NextWake %v before %v", step, wake, now)
 					}
 					next := now.Add(time.Duration(rng.IntN(200)+50) * time.Millisecond)
-					if !heardNext.After(next) && (!hasWake || !wake.Before(heardNext)) {
+					switch {
+					case !heardNext.After(next) && (!hasWake || !wake.Before(heardNext)):
 						now = heardNext
 						log(now, "Receive heard RST Designated")
 						l.Receive(now, "heard", heardBPDU)
 						heardNext = heardNext.Add(2 * time.Second)
-					} else if hasWake && !wake.After(next) {
+					case hasWake && !wake.After(next):
 						now = wake
 						log(now, "Advance at NextWake")
 						l.Advance(now)
 						if later, ok := l.NextWake(); ok && !later.After(now) {
 							fail("step %d Advance at wake %v left wake %v", step, now, later)
 						}
-					} else {
+					default:
 						now = next
 						port := []string{"p1", "p2"}[rng.IntN(2)]
 						switch operation := rng.IntN(9); operation {
