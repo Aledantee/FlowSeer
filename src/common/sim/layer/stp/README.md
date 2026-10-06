@@ -412,9 +412,9 @@ that ends Root, Alternate, or Backup uses the stored vector. Role selection
 then chooses the role before the port state machine changes state. IEEE
 802.1Q-2003 clauses 13.26.9, 13.26.10, and 13.26.14, and P802.1aq/D1.5
 clauses 13.29.16 and 13.29.20 define these agreement and proposal tests.
-D2009 permits CIST role selection before the MSTI agreement and does not
-require that order. Figures 13-20 and 13-21 give no condition between them,
-so the layer keeps that order.
+P802.1aq/D1.5 permits CIST role selection before the MSTI agreement and does
+not require that order. That draft's Figures 13-20 and 13-21 give no condition
+between them, so the layer keeps that order.
 
 On a boundary port, MSTI sync reads the CIST port's state and agreement. MSTI
 sync leaves that port's state unchanged. CIST sync mirrors its resulting state

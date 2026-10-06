@@ -544,9 +544,9 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 			heldCISTVec = designatedVector(t, p, link.external)
 		}
 		if t.id == cistID && stored {
-			// Topology-change propagation uses the root and timer values held
-			// before this BPDU. Keep the post-selection CIST vector above for
-			// MSTI agreement, then restore the old receive state for propagation.
+			// The topology-change calls below read the root and received times
+			// held before this BPDU. MSTI agreement keeps the CIST vector selected
+			// above.
 			t.rootID = previousRootID
 			t.rootPathCost = previousRootCost
 			t.rootPort = previousRootPort
