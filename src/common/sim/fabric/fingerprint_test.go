@@ -4,6 +4,7 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -133,6 +134,17 @@ func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
 
 	if msti.Fingerprint() == perVLAN.Fingerprint() {
 		t.Fatal("MSTI 10 and VLAN 10 produced the same fingerprint")
+	}
+}
+
+func TestFingerprintEscapesTheTreeKind(t *testing.T) {
+	t.Parallel()
+
+	info := stp.PortInfo{Tree: stp.TreeRef{Kind: "a=b:c,tree_id=9", ID: 1}}
+	got := encodeFingerprintPortInfo(info)
+	const wantPrefix = "tree_kind=a%3Db%3Ac%2Ctree_id%3D9,tree_id=1,role="
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("encoding = %s, want prefix %s", got, wantPrefix)
 	}
 }
 
