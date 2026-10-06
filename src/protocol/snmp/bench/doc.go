@@ -69,7 +69,7 @@
 //	go tool pprof -top -alloc_objects bench.test mem.prof
 //
 // testdata/baseline-micro.txt contains a fixed FlowSeer benchmark snapshot.
-// bench-gate.sh compares fresh FlowSeer samples with it through benchstat.
+// bench-gate.py compares fresh FlowSeer samples with it through benchstat.
 // Its intended hard metrics are B/op and allocs/op; GATE_NS=1 also gates ns/op
 // on comparable local hardware. Refreshing the baseline requires a reviewed
 // change; the gate never rewrites it. DecodeFallback has no baseline entry.

@@ -3,9 +3,9 @@
 #
 # The identifiers are this deployment's own. Three positions ship unfilled and
 # have to be filled before the file describes a real device: the edge, which
-# write-registry.sh substitutes from what CreateEdge returned, and the device
+# write-registry.py substitutes from what CreateEdge returned, and the device
 # address and ssh_host_key_sha256, which come off the device in front of you.
-# write-registry.sh refuses to render the shipped template while either of the
+# write-registry.py refuses to render the shipped template while either of the
 # last two still carries its placeholder. delayed_apply_horizon is measured
 # rather than looked up, and has its own runbook step.
 

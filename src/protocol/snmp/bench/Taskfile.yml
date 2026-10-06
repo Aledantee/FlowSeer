@@ -129,7 +129,7 @@ tasks:
     vars:
       COUNT: '10'
     cmds:
-      - COUNT={{.COUNT}} BENCH={{.BENCH | default "."}} GATE_NS={{.GATE_NS | default "0"}} sh bench-gate.sh
+      - COUNT={{.COUNT}} BENCH={{.BENCH | default "."}} GATE_NS={{.GATE_NS | default "0"}} uv run bench-gate.py
 
   macro:
     desc: 'Tier 2 — macro wall-clock vs gosnmp + net-snmp (needs a live agent + env gate)'

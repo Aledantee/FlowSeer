@@ -160,7 +160,7 @@ test -n "$EDGE_ID"
 
 `deploy/lab/registry.textproto` ships with the device's management address and
 its SSH host key digest unfilled, because neither can be written before there
-is a device. Fill both now. `write-registry.sh` refuses to render the shipped
+is a device. Fill both now. `write-registry.py` refuses to render the shipped
 template while either still carries its placeholder, and that refusal is the
 cheap version of this mistake: a registry rendered with the placeholder
 address points at the documentation range, and the agent then logs a timed-out
@@ -194,7 +194,7 @@ Write the full registry — the same integration, now naming the edge that
 exists, and the device — then restart central so it reads it:
 
 ```sh
-"$FLOWSEER_REPO"/deploy/lab/write-registry.sh "$EDGE_ID" > "$REGISTRY"
+uv run "$FLOWSEER_REPO"/deploy/lab/write-registry.py "$EDGE_ID" > "$REGISTRY"
 kill -TERM "$(cat "$RUN/central.pid")"
 wait "$(cat "$RUN/central.pid")"
 "$RUN/device" --config "$CENTRAL_CONFIG" >> "$RUN/central.log" 2>&1 &
@@ -220,7 +220,7 @@ Write the provisioning the agent reads, from what `CreateEdge` returned, and
 start the agent:
 
 ```sh
-"$FLOWSEER_REPO"/deploy/lab/write-provisioning.sh "$RUN/created.json" "$CENTRAL" > "$PROVISIONING"
+uv run "$FLOWSEER_REPO"/deploy/lab/write-provisioning.py "$RUN/created.json" "$CENTRAL" > "$PROVISIONING"
 "$RUN/agent" --config "$AGENT_CONFIG" > "$RUN/agent.log" 2>&1 &
 echo $! > "$RUN/agent.pid"
 until grep -q '"flowseer.edge.id"' "$RUN/agent.log"; do sleep 0.2; done
