@@ -40,9 +40,9 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 }
 
 // LinkChange records a physical or administrative link transition on a port.
-// A port coming up point-to-point transmits a proposal immediately in the
-// returned emissions. A link down clears received information and moves the
-// port to Disabled.
+// A port coming up transmits one frame per transmit record in the returned
+// emissions. A link down clears received information and moves the port to
+// Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
 	l.settleHelloTimers(now)
 	t := l.cist()
@@ -85,9 +85,8 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 				tp.loopInconsistent = false
 			}
 
-			// The entries learned on the dead port are the ones certainly stale
-			// whatever tree they belong to; the topology change below flushes
-			// every other port by its own tree's VLANs.
+			// Entries learned on the dead port are stale whatever tree they
+			// belong to.
 			flushes = append(flushes, layer.FlushTarget{Port: port})
 			for _, id := range l.treeOrder {
 				if tp, ok := l.trees[id].ports[port]; ok {
@@ -130,7 +129,11 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 
 		if link.up {
-			l.resetTransmit(port)
+			for _, id := range l.treeOrder {
+				tx := l.tx(l.trees[id], port)
+				tx.newInfo = true
+				tx.newInfoMsti = true
+			}
 		}
 		link.linkPathCost = linkCost
 		link.up = true
@@ -205,11 +208,8 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 			}
 		}
 
-		// The entries learned on the port are the ones certainly stale,
-		// whatever tree they belong to. The topology change itself is left
-		// to recompute, which raises it from the same transition with the
-		// same origin and timestamp; raising it here as well would count one
-		// event twice.
+		// Entries learned on the disabled port are stale whatever tree they
+		// belong to.
 		*flushes = append(*flushes, layer.FlushTarget{Port: port})
 
 		l.recomputeAll(now, flushes)

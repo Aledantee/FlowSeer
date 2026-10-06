@@ -1210,6 +1210,77 @@ func TestTransmitHoldCountGating(t *testing.T) {
 	}
 }
 
+func TestPointToPointChangeKeepsTransmitBudget(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768, Address: mustMAC(t, "02:00:00:00:00:02"), TxHoldCount: 1,
+		Ports: map[string]stp.Port{"p1": {}},
+	}, mustPortTable(t, "p1"))
+	if got := len(l.LinkChange(start, "p1", true, true, 1_000_000_000).Emissions); got != 1 {
+		t.Fatalf("link up emissions = %d, want 1", got)
+	}
+	if got := len(l.LinkChange(start.Add(100*time.Millisecond), "p1", true, false, 1_000_000_000).Emissions); got != 0 {
+		t.Errorf("first point-to-point flip emissions = %d, want 0", got)
+	}
+	if got := len(l.LinkChange(start.Add(200*time.Millisecond), "p1", true, true, 1_000_000_000).Emissions); got != 0 {
+		t.Errorf("second point-to-point flip emissions = %d, want 0", got)
+	}
+	if got := l.PortInfo("p1").TxBPDUs; got != 1 {
+		t.Errorf("transmissions before count falls = %d, want 1", got)
+	}
+	if fx := l.Advance(start.Add(time.Second)); len(fx.Emissions) != 1 || fx.Emissions[0].Port != "p1" {
+		t.Errorf("emissions when count falls = %v, want one on p1", fx.Emissions)
+	}
+}
+
+func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
+	t.Parallel()
+
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	l := mustNewSTP(t, stp.Config{
+		Priority: 32768, Address: mustMAC(t, "02:00:00:00:00:02"),
+		Ports: map[string]stp.Port{"p1": {}, "p2": {AutoEdge: true}},
+	}, mustPortTable(t, "p1", "p2"))
+	l.LinkChange(start, "p1", true, true, 1_000_000_000)
+	l.LinkChange(start, "p2", true, true, 1_000_000_000)
+
+	peer := legacyConfigBPDU(t, 61440, "02:00:00:00:00:0c")
+	peer.Type = bpdu.TypeRapid
+	peer.SetRole(bpdu.RoleRoot)
+	peer.SetAgreement(true)
+	l.Receive(start.Add(1500*time.Millisecond), "p2", peer)
+	if info := l.PortInfo("p2"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding || info.Edge {
+		t.Fatalf("p2 before sync cut = %+v, want non-edge Designated Forwarding", info)
+	}
+
+	proposal := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
+	proposal.Type = bpdu.TypeRapid
+	proposal.SetRole(bpdu.RoleDesignated)
+	proposal.SetProposal(true)
+	cut := start.Add(5500 * time.Millisecond)
+	l.Receive(cut, "p1", proposal)
+	if info := l.PortInfo("p2"); info.State != stp.StateDiscarding || info.Edge {
+		t.Fatalf("p2 after sync cut = %+v, want non-edge Discarding", info)
+	}
+	if next, ok := l.NextWake(); !ok || next.Before(cut) {
+		t.Errorf("NextWake after sync cut = (%v, %v), want no earlier than %v", next, ok, cut)
+	}
+	before, _ := l.TopologyChanges()
+	fx := l.Advance(start.Add(5750 * time.Millisecond))
+	if info := l.PortInfo("p2"); info.State != stp.StateDiscarding || info.Edge {
+		t.Errorf("p2 after Advance = %+v, want non-edge Discarding", info)
+	}
+	if slices.Contains(flushPorts(fx.Flush), "p2") {
+		t.Errorf("Advance flushes = %v, want no p2", fx.Flush)
+	}
+	l.Receive(start.Add(6*time.Second), "p2", peer)
+	if after, _ := l.TopologyChanges(); after != before {
+		t.Errorf("TopologyChanges after agreement = %d, want %d", after, before)
+	}
+}
+
 func legacyConfigBPDU(t *testing.T, rootPriority uint16, addr string) bpdu.BPDU {
 	t.Helper()
 	b := bpdu.BPDU{
