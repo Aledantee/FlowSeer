@@ -217,7 +217,7 @@ func newLayer(cfg Config) *Layer {
 		for _, name := range sortedNames {
 			key := l.txKeyFor(l.trees[id], name)
 			if _, ok := l.portTx[key]; !ok {
-				l.portTx[key] = &portTx{}
+				l.portTx[key] = &portTx{newInfo: true, newInfoMsti: true}
 			}
 		}
 	}

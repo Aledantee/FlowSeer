@@ -38,9 +38,12 @@ func (l *Layer) initiateTopologyChange(t *tree, p *portState, now time.Time, flu
 	l.propagateTopologyChange(t, p.name, now, flushes)
 }
 
-// detectTopologyChange records a local forwarding transition and requests
-// information on the detecting port, regardless of its protocol mode or timer.
+// detectTopologyChange records the first forwarding transition into active.
+// It requests information on the detecting port in either protocol mode.
 func (l *Layer) detectTopologyChange(t *tree, p *portState, now time.Time, flushes *[]layer.FlushTarget) {
+	if p.tcActive {
+		return
+	}
 	l.initiateTopologyChange(t, p, now, flushes)
 	l.requestNewInfo(t, p)
 }
@@ -76,11 +79,12 @@ func (l *Layer) propagateTopologyChange(t *tree, originPort string, now time.Tim
 }
 
 // deactivatePort is called when a port loses its role, becomes an edge, or goes
-// down. It flushes the port's learned entries, stops its timer, leaves active,
-// and raises nothing.
+// down. It flushes the port's learned entries, clears its timer and
+// acknowledgment, leaves active, and raises nothing.
 func (l *Layer) deactivatePort(t *tree, p *portState, flushes *[]layer.FlushTarget) {
 	wasActive := p.tcActive
 	p.tcActive = false
+	p.tcAck = false
 	p.tcWhile = time.Time{}
 	if wasActive && flushes != nil {
 		mergeFlushTarget(flushes, p.name, l.treeVLANs[t.id])

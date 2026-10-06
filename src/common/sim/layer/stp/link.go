@@ -129,6 +129,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			return
 		}
 
+		if link.up {
+			l.resetTransmit(port)
+		}
 		link.linkPathCost = linkCost
 		link.up = true
 		link.pointToPoint = p2p
@@ -164,12 +167,6 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 
 		l.armHelloTimers(now)
 		l.recomputeAll(now, &flushes)
-
-		for _, id := range l.treeOrder {
-			tx := l.tx(l.trees[id], port)
-			tx.newInfo = true
-			tx.newInfoMsti = true
-		}
 	}()
 	l.transmit(now, &emissions)
 

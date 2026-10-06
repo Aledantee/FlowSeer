@@ -121,11 +121,13 @@ func (l *Layer) tx(t *tree, name string) *portTx {
 	return l.portTx[l.txKeyFor(t, name)]
 }
 
-// resetTransmit drops the count and timers on the named port while retaining
-// pending requests for the port-up transmit pass.
+// resetTransmit initializes both requests and clears the count and timers on
+// the named port for its next enabled transmit pass.
 func (l *Layer) resetTransmit(name string) {
 	for _, id := range l.treeOrder {
 		tx := l.tx(l.trees[id], name)
+		tx.newInfo = true
+		tx.newInfoMsti = true
 		tx.count = 0
 		tx.tick = time.Time{}
 		tx.helloWhen = time.Time{}
