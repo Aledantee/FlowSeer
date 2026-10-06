@@ -18,9 +18,9 @@ tags: [skills, drive, state-machine, wait-condition, shell-quoting]
 `drive` picks its next stage from the files alone: it runs "the first that
 applies and whose 'done when' the files do not already show" and then waits
 on that stage's done test (`.agents/skills/drive/SKILL.md:52`, `:91-97`).
-That design has two silent failure modes. Both shipped with the plan state
-file change (`docs/plans/2026-10-05-2046-refactor-plan-state-file-plan.md`)
-and were fixed after it.
+That design has two silent failure modes. Both shipped with the move of plan
+state into `*-plan.state.json` files (2026-10-05, the plan, implement, drive,
+next, land, and review skills) and were fixed after it.
 
 ## The done test held before the stage ran
 
