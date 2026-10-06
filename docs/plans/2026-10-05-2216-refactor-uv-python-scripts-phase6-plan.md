@@ -544,6 +544,10 @@ No unit names a file the phase 2 plan names in a `Files:` line.
   the case `src/protocol/smi/bench/bench-gate.sh:86` to `:97` guards. The
   port keeps the verdict. Adding the guard changes a verdict and is left
   to a person.
+- The SMI gate compares a `MIN_DELTA` that is not a decimal number as text,
+  as awk did under `-v`, so `MIN_DELTA=abc` never fails a run. The port
+  keeps the verdict (`src/protocol/smi/bench/bench-gate.py:70`).
+  Refusing such a value changes a verdict and is left to a person.
 - Whether the Dex and OpenFGA containers accept the new chain is
   unverified. Both are Go programs and Go 1.27.1 loads and verifies it,
   but neither image was started. The manual lab run under Verification
@@ -559,3 +563,11 @@ No unit names a file the phase 2 plan names in a `Files:` line.
 - The first `TestTheLab*` run generates a 4096-bit RSA key, which takes
   seconds. If that is too slow for the targeted verifier run, the
   implementer reports it and does not shrink the key.
+
+## Review gaps
+
+Follow-ups of the review. None holds the verdict.
+
+- deploy/lab/write-openfga-store.py:25: `Path(__file__).resolve()` prints `preshared_key_file` and `ca_file` with symbolic links resolved, where the shell printed the directory as it was invoked, and `write-lab-secrets.py:204` and `write-registry.py:50` do the same in their messages; fails: a checkout under a linked directory, such as `/var/folders` on macOS, prints `/private/var/...`; class: convention
+- docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase6-plan.md:418: U4's Change line names no difference for `argparse`, which exits 2 on a missing argument where `sh` exited 1 and refuses an extra argument the shell ignored (`deploy/lab/write-registry.py:46`, `deploy/lab/write-provisioning.py:94`); fails: a caller that tests for status 1 or passes a third argument; class: convention
+- src/protocol/smi/bench/bench-gate.py:63: `AWK_NUMBER` reads `+inf`, `+nan`, `-nan`, `nan`, and `0x10` as text, and the two awk builds on the development host (`/usr/bin/awk` 20200816, Homebrew 20260426) disagree with each other on each of them; fails: `MIN_DELTA=+inf` on a 5% regression exits 1, where Homebrew awk gave 0 and `/usr/bin/awk` gave 1; class: hardening
