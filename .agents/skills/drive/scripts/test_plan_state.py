@@ -102,6 +102,7 @@ class PlanStateTest(unittest.TestCase):
         self.assertEqual(self.stages(), {first: "review", second: f"waits for {first}"})
 
         self.record("review", first, "accept")
+        self.assertEqual(self.stages(), {first: "compound", second: f"waits for {first}"})
         self.record("compound", first, "no lesson")
         self.assertEqual(self.stages(), {first: "land", second: "implement"})
 
@@ -113,6 +114,15 @@ class PlanStateTest(unittest.TestCase):
         self.record("replan", first)
         self.implement(first, self.on_main)
         self.assertEqual(self.stages(), {first: "on main", second: "implement"})
+
+    def test_implemented_phase_still_waits_for_an_unfinished_prerequisite(self):
+        # The order an `--after` list sets holds whatever the dependent's own
+        # state says, so its implementation alone does not release it.
+        first = self.phase(1)
+        second = self.phase(2, first)
+        self.commit("phases")
+        self.implement(second, self.on_work)
+        self.assertEqual(self.stages(), {first: "implement", second: f"waits for {first}"})
 
     def test_phase_that_needs_decisions_reads_plan_until_it_is_ready(self):
         first = self.phase(1)
