@@ -1561,6 +1561,14 @@ requires (`New`, `Advance`, `NextWake`, `RetentionKey`, `Diff`, `Config`).
   figure and changes A2's "when this call stored it, the two match". Or
   keep the stored vector, state it as a limit in `S/README.md`, and strike
   the listed case.
+- From the review, on the carried limit above: a Designated port that a
+  sync cuts proposes at its next hello, and its edge delay restarts at the
+  cut. With a Hello Time of 4 seconds an auto-edge port whose hello falls
+  due later than MigrateTime after the cut becomes an edge with no proposal
+  sent, and forwards toward a bridge. `D2009` Figure 13-25
+  (DESIGNATED_PROPOSE) sets `newInfoXst` with `proposing`. Options: request
+  the frame where the sync sets `proposing`, which ends the carried limit.
+  Or keep the limit and hold the edge delay until the proposal has left.
 
 ## Review gaps
 
@@ -1581,15 +1589,6 @@ Line numbers hold at `e581110c`. `S` is `src/common/sim/layer/stp` and `B` is
 - src/common/sim/layer/stp/layer_test.go:3602: the MSTI half of the link-bounce case is missing; fails: an MSTI Designated port that earned an agreement stays Discarding after a bounce
 - src/common/sim/layer/stp/layer_test.go:4423: the emission loop never runs on a one-port fixture; fails: a forwarding Designated port goes down and the Root port emits no flagged frame in that call or at the next hello
 - src/common/sim/layer/stp/layer_test.go:4573: no check of `TypeConfiguration`, and the later checks are conditional (`:4585-4600`); fails: the acknowledging frame is a Configuration BPDU with bit 8 set
-- src/common/net/bpdu/bpdu.go:501: either encode mask removed (`:502`); fails: priorities `0x4F` and `0x2F` encode as octets `0x40` and `0x20`
-- src/common/net/bpdu/bpdu.go:752: either decode mask removed (`:753`); fails: wire octets `0x4F` and `0x2F` decode as `0x40` and `0x20`
-- src/common/net/bpdu/bpdu.go:583: version refusal restored for TCN, or for Configuration above version 2; fails: version 4 Configuration and TCN frames decode
-- src/common/net/bpdu/bpdu.go:584: Configuration minimum raised from 38 to 39 LLC octets; fails: a 35-octet BPDU decodes as Configuration
-- src/common/net/bpdu/bpdu.go:482: `Selector` write or read (`:723`) replaced by zero; fails: a nonzero selector survives an encode and decode
-- src/common/net/bpdu/bpdu.go:637: `bpduOctets == mstBodyLength` to `<= mstBodyLength+1`; fails: 103 octets with Version 3 Length 80 are refused
-- src/common/net/bpdu/bpdu.go:630: `version >= mstProtocolVersion` to `version >= 2`; fails: a version 2 frame with a whole MST body decodes as RST
-- src/common/net/bpdu/bpdu.go:594: Configuration flag mask removed on decode (also `src/common/net/bpdu/sstp.go:207`); fails: a type 0 frame with flags `0xff` decodes with flags `0x81`
-- src/common/sim/fabric/fingerprint.go:323: tree kind replaced by a constant; fails: VLAN 10 and MSTI 10 snapshots give two fingerprints
 - src/common/sim/layer/stp/roles.go:199: boundary branch keeps `agreed` across a role change; fails: an MSTI boundary port that changes role must earn a new agreement
 - src/common/sim/layer/stp/tree_internal_test.go:974: plants a Root port with `rcvInfoValid` false and asserts a role inside an uncounted loop (`:1001-1009`); fails: with reachable state no emission names the expired root
 - src/common/sim/layer/stp/tree_internal_test.go:814: `TestMSTTopologyChangeUsesTreeOrderForEmissions` calls `propagateReceivedTC` directly and tests no order; fails: a flagged BPDU through `Receive` on a boundary port gives one frame on the Root port
@@ -1618,7 +1617,6 @@ Line numbers hold at `e581110c`. `S` is `src/common/sim/layer/stp` and `B` is
 - src/common/sim/layer/stp/transmit_test.go:854: asserts a nonzero TCN count; fails: one TCN BPDU at each hello until 35 seconds
 - src/common/sim/layer/stp/layer_test.go:3415: only assertion sits in a loop that can be empty; fails: the frames at the wake are the three named shapes
 - src/common/sim/layer/stp/layer_test.go:3009: emissions never read; fails: no VLAN 1 frame carries the flag after an SSTP TCN for VLAN 10
-- src/common/sim/device/vswitch/switch.go:2914: `shape == TypeTopologyChangeNotification` to `shape != TypeRapid`; fails: an SSTP Configuration BPDU with TLV 20 on VLAN 10 prints `tlv=20,arrival=10,consistent=false`
 - src/common/sim/layer/stp/receive.go:11: `receiveMSTIs` comment sits on `syncTree` and says the flag is carried unconditionally; `:443` says the classification is written on the CIST's port state; `:317` em dashes
 - src/common/sim/layer/stp/info.go:156: says hello is the root's; `:220` `PVSTBoundary` comment duplicated; `:25` says the next BPDU clears the mark; `:80` says one frame can establish both marks
 - src/common/sim/layer/stp/link.go:88: says a topology change follows link down (also `:211` for BPDU guard); `:42` says a port coming up point-to-point transmits a proposal
@@ -1634,19 +1632,10 @@ Line numbers hold at `e581110c`. `S` is `src/common/sim/layer/stp` and `B` is
 - src/common/sim/layer/stp/layer_test.go:2425: comments name removed code or replaced behavior (`:2853`, `:3174`, `:3223`, `:3269`, `:3304`, `:4323`, `:4539`); `:1518` and `:1945` narrate process (also `src/common/sim/layer/stp/tree_internal_test.go:355`, `:416`, `:459`, `:507`); `:3639` `t.Logf` leftovers (also `src/common/sim/layer/stp/agreement_test.go:209`)
 - src/common/sim/layer/stp/layer_test.go:1266: comment calls a TCN reply a Configuration BPDU; `:4584` comment promises a TCAck check absent from the assertions; `:2575` test name says link half where its rows read marks
 - src/common/sim/layer/stp/tcn_test.go:14: `TestIEETCNUnderPVSTIsVLAN1s` misspells the name the unit gives
-- src/common/net/bpdu/bpdu.go:365: gives the 16-bit length as the reason for 64 (also `:443` and `src/common/net/bpdu/bpdu_test.go:994`); `:626` cites "the decision"; `:510` cites IEEE 802.1D-2004 clause 9.3, a standard not read (also `:75`, `:307`, `:350`, `:514`)
-- src/common/net/bpdu/bpdu_test.go:2008: golden frame EtherType is `len(wire) - 3`, the encoder writes `len(wire)`, and only payloads are compared (also `:1727`, `:2183`, `:2264`)
-- src/common/net/bpdu/bpdu_test.go:1769: test name claims `Q2003` compliance without an independent capture or edition check; `:1960` fixture uses a nonzero CIST system ID extension; `:1341` comments give payload offsets as `WS` offsets; `:1097` names a Hello Time validation the codec no longer has
-- src/common/net/bpdu/README.md:71: gives the 102-octet reading as clause 14.4's; `:13` and `:93` state a TCN with no TLV as fact where it is unverified
-- src/common/sim/internal/simtest/stp_cases.go:721: comment keeps `mstid=1`; `src/common/sim/fabric/fingerprint_test.go:332` subtest name keeps `mstid`
-- src/common/sim/device/vswitch/switch_test.go:7364: comment says only CIST roles are exposed and logs MSTI state instead of asserting it
-- src/common/sim/device/vswitch/switch.go:2683: says the check compares with the VLAN the BPDU names, which a TCN lacks; `:2796` says the port's CIST copy has the link up
-- src/common/sim/device/vswitch/README.md:457: says every other VLAN's tree sends nothing on a migrated port and that SSTP has no legacy form; `:410` says the trace names both VLANs for every SSTP BPDU; `:254` cites IEEE 802.1D-2004
-- docs/architecture/2026-09-10-virtual-device-direction.md:603: a port is external by its last BPDU, not its last stored one; `:654` calls the 50-octet payload a 50-octet body; `:690` names a PVST mark on a bridge that runs no PVST and says only the vector is withheld; `:541` says a PVID check precedes every clear
-- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md:14: outcome note gives 15 units for the span of the last eight; `:1482` Definition of done unticked
 - src/common/sim/layer/stp/transmit_test.go:697: the hello restart on transmit deleted passes `TestTopologyChangeLeavesAtOnceAndTwice`, whose flagged BPDU lands 1.5 seconds before the hello; fails: with the BPDU half a second before p2's hello, each port's second flagged frame leaves a HelloTime after its first
 - src/common/sim/layer/stp/transmit_test.go:948: p1 stays Root through a 60 second Hello Time; fails: a Configuration BPDU for VLAN 10 at the SSTP address every two seconds keeps p1 Root
 - src/common/sim/layer/stp/link_state_internal_test.go:265: nothing is held at hold count 6; fails: at hold count 1 the request is held, then released as one RST BPDU
-- src/common/sim/layer/stp/transmit.go:26: sets flags no call sequence finds clear
-- src/common/sim/layer/stp/README.md:459: cites Figure 13-28 for the flush and clear on becoming an edge, which are the layer's own; `:304` says one frame per tree where MSTP sends one per transmit record
-- src/common/net/bpdu/bpdu.go:351: `Encode`, `Decode`, `EncodeSSTP`, and `DecodeSSTP` comments state the Configuration flag mask and not the bit 8 mask on RST and MST BPDUs (also `:521`, `src/common/net/bpdu/sstp.go:50`, `src/common/net/bpdu/README.md:72`)
+- src/common/net/bpdu/bpdu.go:443: the refusal message gives the version 3 length field as the reason for 64 records
+- src/common/sim/layer/stp/link.go:43: says one frame per transmit record where VLAN 1's record sends two; `src/common/sim/layer/stp/README.md:460` names the clears on becoming an edge and not the flush
+- src/common/sim/layer/stp/link.go:132: only the CIST's record requested on a point-to-point change; fails: under PVST each VLAN's record owes one transmission after the change
+- src/common/sim/layer/stp/receive.go:28: edge delay restarted with one second; fails: a cut auto-edge port with no answer is not an edge just before MigrateTime and is one at it
