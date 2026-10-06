@@ -8,7 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-func (l *Layer) syncTree(t *tree, rootPort string) {
+func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 	for _, otherName := range l.portNames {
 		if otherName == rootPort {
 			continue
@@ -24,6 +24,9 @@ func (l *Layer) syncTree(t *tree, rootPort string) {
 		if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
 			otherP.agreed = false
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
+			if otherP.proposing && (t.id == cistID || otherLink.edgeDelayWhile.Before(now)) {
+				otherLink.edgeDelayWhile = now.Add(l.edgeDelay(l.cist(), otherLink))
+			}
 			if otherP.state != StateDiscarding {
 				otherP.state = StateDiscarding
 			}
@@ -50,7 +53,7 @@ func (l *Layer) syncTree(t *tree, rootPort string) {
 }
 
 func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
-	l.syncTree(t, p.name)
+	l.syncTree(t, p.name, now)
 	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
 		if p.state != StateForwarding {
 			p.state = StateForwarding

@@ -1109,7 +1109,7 @@ func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
 	cistP.tcActive = true
 	cistP.tcWhile = timer
 	cistP.tcAck = true
-	l.syncTree(l.cist(), "upstream")
+	l.syncTree(l.cist(), "upstream", now)
 	if !cistP.tcActive || cistP.tcWhile != timer || !cistP.tcAck {
 		t.Errorf("CIST sync cut active=%t timer=%v ack=%t, want true/%v/true", cistP.tcActive, cistP.tcWhile, cistP.tcAck, timer)
 	}
