@@ -50,3 +50,33 @@ Suggested change: in `fix-loop.md`, "Which findings block", class a finding as h
 Skill or agent: `.agents/skills/web-component/references/i18n-and-ai.md`, lines 4 to 17.
 What happened: the reference says "The generative UI catalog has not, so check what exists" and carries a section "While the AI migration has not landed". `frontend/web/src/ai/catalog.ts` and `frontend/web/src/ui/ai/UiAiRender.vue` now exist. The migration's parent plan asked for the interim rules to go as their migration landed, and no phase unit named this file.
 Suggested change: delete the check and the interim section, and state that the catalog is in `src/ai/catalog.ts` and rendered by `UiAiRender`.
+
+## 2026-10-06 next: harness work does not come before product work
+Skill or agent: `.claude/skills/next/SKILL.md`, steps 1, 2, and 4, with `.claude/skills/next/scripts/plan-queue.py`.
+What happened: `next` took the queue order as `plan-queue.py` printed it and
+recommended driving the sim package overhaul, a product plan, ahead of the
+unchecked plan state file change, which changes the skills and their scripts.
+The user corrected the order: in general, `next` should work on harness tasks
+first. The step was followed as written, since neither the skill nor the
+script tells harness work from product work.
+Suggested change: rank harness plans first within each group. A harness plan
+is one whose Units change only `.agents/skills/`, `.claude/`, `tools/hooks/`,
+the verifier, or docs about the workflow. Do this in `plan-queue.py` so the
+order is computed, and say in `next` step 2 that the top three are taken in
+that order.
+
+## 2026-10-06 delegate: the sandbox denies Bash writes under .agents/skills
+Skill or agent: `.claude/skills/delegate/SKILL.md`, "Write the brief" and "Reading a worker's report", and `.claude/skills/review/references/fix-loop.md`, One round, step 2.
+What happened: the session's sandbox lists the worktree's `.agents/skills`
+among the paths it never writes, since `.claude/skills` links there. The
+project's `.claude/settings.json` does not set this. Fix workers for the
+plan state review reported that `sed` writes under `.agents/skills` were
+denied, so they switched to the Edit tool. The coordinator's
+`git merge` of a worker branch that touched skill files failed with
+"unable to unlink old '.agents/skills/compound/SKILL.md': Operation not
+permitted" and succeeded only with the sandbox disabled. The steps were
+followed as written, and neither mentions this.
+Suggested change: say in the brief that a worker edits files under
+`.agents/skills` with the Edit tool, and say in `fix-loop.md` and
+`delegate`'s merge step what `land` step 3 already says: a merge touching
+`.agents/skills` runs with the sandbox disabled.
