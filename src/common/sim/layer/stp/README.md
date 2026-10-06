@@ -406,8 +406,10 @@ Proposal and agreement are evaluated after the CIST information is stored.
 An MSTI Proposal is acted on when its stored record names a Designated sender,
 even when the BPDU's CIST information does not match the information already
 held. An MSTI Agreement requires the BPDU's CIST root, external path cost, and
-regional root to match the vector held after that receive. Role selection then
-chooses the role before the port state machine changes state. This follows
+regional root to match the CIST vector selected after the CIST information is
+stored. A port that ends the call Designated uses its designated vector. A port
+that ends Root uses the stored vector. Role selection then chooses the role
+before the port state machine changes state. This follows
 IEEE 802.1Q-2003 clauses 13.26.9, 13.26.10, and 13.26.14, and P802.1aq/D1.5
 clauses 13.29.16 and 13.29.20.
 
@@ -507,11 +509,14 @@ The implementation structures its logic around the standard state machines:
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clause 13.29 and draft P802.1aq/D1.5 clause 13.32, Figure 13-17. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 An auto-edge port starts its edge delay when the common tree enters proposing.
-A sync sets proposing and requests that tree's information in the same call
-(`syncTree` in `receive.go`). A CIST sync restarts the edge delay when that
-port was not proposing or was not Discarding, and mirrors the proposing state
-and request to boundary MSTIs. Proposals on other trees do not restart the
-CIST edge delay.
+A sync sets proposing. When it cuts a port, it requests that tree's information
+in the same call (`syncTree` in `receive.go`). A CIST sync restarts the edge
+delay when that port was not proposing or was not Discarding, and mirrors the
+proposing state and request to boundary MSTIs. Proposals on other trees do not
+restart the CIST edge delay.
+
+The CIST edge-delay restart for a cut that was already proposing but was not
+Discarding is the layer's own rule.
 
 Every BPDU past BPDU guard restarts the delay in `receiveLink` (`link.go`),
 including SSTP outcomes not-admitted, untracked, boundary, and PVID-inconsistent.
@@ -529,11 +534,12 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
 - The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
 - A port losing auto-edge returns to Discarding and proposes again across all trees, standing in for the disputed mechanism. Draft Figure 13-16 only clears operEdge.
-- An auto-edge port whose CIST proposing flag was cleared by an agreement or a Configuration BPDU does not become an edge again when it later returns to Designated and Discarding. It follows the forward-delay ladder instead. Draft Figure 13-18 clears operEdge on receipt and Figure 13-25 enters DESIGNATED_PROPOSE when the port is not forwarding, agreed, proposing, or edge, then sets proposing.
+- An auto-edge port whose CIST proposing flag was cleared by an agreement or a Configuration BPDU does not become an edge again when it later returns to Designated by a role change. It follows the forward-delay ladder instead. Draft Figure 13-16 clears operEdge on receipt and Figure 13-25 enters DESIGNATED_PROPOSE when the port is not forwarding, agreed, proposing, or edge, then sets proposing.
 - An AdminEdge port keeps edge when it receives a BPDU because `receiveLink` assigns `link.edge` from `link.adminEdge`. Draft Figure 13-16 clears operEdge on every received BPDU.
 - A shared-link port never runs automatic edge detection because `edgeDelayPending` requires point-to-point operation. Draft Figure 13-18's AutoEdge transition requires only an expired edge delay, AutoEdge, sendRSTP, and proposing.
 - `advanceAutoEdge` opens every tree's port when the shared edge delay expires, whatever role the tree assigned to that port. Draft Figure 13-18 changes one port-level operEdge result, while Figure 13-25 qualifies each tree's transitions by selected role.
-- A received Forward Delay of zero is stored as received, so the forward-delay ladder can complete in two calls at one instant. Draft `recordTimes()` copies the received Forward Delay, and its port-role diagrams use that value for the ladder, so the zero case remains unnormalized here.
+- A received Forward Delay of zero is stored as received, so the forward-delay ladder can complete in two calls at one instant. Draft `recordTimes()` copies the received Forward Delay, and the port-role diagrams for a port that does not send RSTP use that value for the ladder, so the zero case remains unnormalized here. Draft P802.1aq/D1.5 clause 13.28.8 defines that port-role behavior.
+- Unverified: A CIST port that returns to Designated by a role change while `proposing` is still set restarts its edge delay and requests no frame (`assignRoles` in `roles.go`). With a Hello Time of 4 seconds, an auto-edge port can become an edge having sent no BPDU since it became Designated. Draft Figure 13-20 (UPDATE) sets `newInfoXst`.
 - On a boundary port, MSTI sync keeps the CIST-derived state and agreement. CIST sync mirrors a CIST state change to the boundary MSTIs. The layer does not model the draft's separate disputed or Master paths, so an MSTI cannot discard independently while its CIST port forwards.
 - A Designated port receiving worse information without Agreement requests a frame when no proposal was answered (`applyBPDU` in `receive.go`). The sender's role is not tested. This is the layer's own substitute for the draft Figure 13-20 dispute path.
 - `Mcheck` requests information on a port Designated for the CIST (`link.go`). This request is the layer's own. Draft Figure 13-17 changes only migration variables in CHECKING_RSTP.

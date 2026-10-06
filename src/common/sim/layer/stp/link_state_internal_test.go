@@ -555,6 +555,138 @@ func TestAutoEdgeLossRestartsProposalsOnEveryTree(t *testing.T) {
 	}
 }
 
+func TestSyncTreeRequestsOnlyNewProposals(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
+
+	t.Run("does not request an already proposing Discarding port", func(t *testing.T) {
+		t.Parallel()
+
+		l := newLayer(Config{
+			Ports: map[string]Port{"p1": {}, "p2": {}},
+		}.Normalize(layer.Env{}))
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+		p := l.cist().ports["p2"]
+		p.role = bpdu.RoleDesignated
+		p.state = StateDiscarding
+		p.proposing = true
+		tx := l.tx(l.cist(), "p2")
+		tx.newInfo = false
+		tx.newInfoMsti = false
+
+		l.syncTree(l.cist(), "p1", now)
+
+		if tx.newInfo || tx.newInfoMsti {
+			t.Errorf("already proposing Discarding port request = %+v, want no request", *tx)
+		}
+	})
+}
+
+func TestSyncTreeRequestsTheCutTree(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 6, 12, 1, 0, 0, time.UTC)
+
+	t.Run("MSTI", func(t *testing.T) {
+		t.Parallel()
+
+		region := MST{
+			Name: "region",
+			Instances: map[bpdu.MSTID]Instance{
+				1: {VLANs: []vlan.ID{10}},
+			},
+		}
+		l := newLayer(Config{
+			Ports: map[string]Port{"p1": {}, "p2": {}},
+			MST:   &region,
+		}.Normalize(layer.Env{}))
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+		mt := l.trees[treeID(1)]
+		p := mt.ports["p2"]
+		p.role = bpdu.RoleDesignated
+		p.state = StateForwarding
+		p.proposing = false
+		tx := l.tx(mt, "p2")
+		tx.newInfo = false
+		tx.newInfoMsti = false
+
+		l.syncTree(mt, "p1", now)
+
+		if !tx.newInfoMsti {
+			t.Errorf("MSTI cut request = %+v, want newInfoMsti", *tx)
+		}
+	})
+
+	t.Run("PVST VLAN", func(t *testing.T) {
+		t.Parallel()
+
+		l := newLayer(Config{
+			Ports: map[string]Port{"p1": {}, "p2": {}},
+			PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+		}.Normalize(layer.Env{}))
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+		vt := l.trees[treeID(10)]
+		p := vt.ports["p2"]
+		p.role = bpdu.RoleDesignated
+		p.state = StateForwarding
+		p.proposing = false
+		tx := l.tx(vt, "p2")
+		tx.newInfo = false
+		tx.newInfoMsti = false
+
+		l.syncTree(vt, "p1", now)
+
+		if !tx.newInfo {
+			t.Errorf("PVST VLAN cut request = %+v, want newInfo", *tx)
+		}
+	})
+}
+
+func TestSyncTreeRequestsBoundaryMSTIInformation(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 6, 12, 2, 0, 0, time.UTC)
+	region := MST{
+		Name: "region",
+		Instances: map[bpdu.MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+		},
+	}
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}, "p2": {}},
+		MST:   &region,
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+	l.links["p2"].external = true
+
+	for _, tr := range []*tree{l.cist(), l.trees[treeID(1)]} {
+		p := tr.ports["p2"]
+		p.role = bpdu.RoleDesignated
+		p.state = StateForwarding
+		p.proposing = false
+	}
+	tx := l.tx(l.cist(), "p2")
+	tx.newInfo = false
+	tx.newInfoMsti = false
+
+	l.syncTree(l.cist(), "p1", now)
+
+	if !tx.newInfo {
+		t.Errorf("boundary CIST cut request = %+v, want newInfo", *tx)
+	}
+	if !tx.newInfoMsti {
+		t.Errorf("boundary MSTI mirror request = %+v, want newInfoMsti", *tx)
+	}
+}
+
 func TestHeldRSTPRequestReleasesAtHoldCountOne(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	l := newLayer(Config{TxHoldCount: 1, Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))

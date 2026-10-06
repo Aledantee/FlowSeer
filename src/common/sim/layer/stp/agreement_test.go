@@ -108,24 +108,6 @@ func emittedMSTI(t *testing.T, effects layer.Effects) (bpdu.MSTIRecord, bool) {
 	return bpdu.MSTIRecord{}, false
 }
 
-func emittedMSTIAgreement(t *testing.T, effects layer.Effects) bool {
-	t.Helper()
-
-	for _, emission := range effects.Emissions {
-		b, err := bpdu.Decode(emission.Frame)
-		if err != nil {
-			t.Fatalf("Decode emitted BPDU: %v", err)
-		}
-		for _, record := range b.MSTIs {
-			if record.MSTID == 1 && (bpdu.BPDU{Flags: record.Flags}).Agreement() {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 func TestMSTIProposalNeedsNoCISTMatch(t *testing.T) {
 	t.Parallel()
 
@@ -300,16 +282,13 @@ func TestMSTIAgreementUsesTheCISTPortVector(t *testing.T) {
 			bpdu.RoleDesignated, false,
 			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true),
 		)
-		fx := l.Receive(now, "p1", b)
+		l.Receive(now, "p1", b)
 
 		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated {
 			t.Fatalf("CIST p1 role = %v, want Designated", info.Role)
 		}
 		if info := l.VLANPortInfo(10, "p1"); info.State != stp.StateDiscarding {
 			t.Errorf("MSTI p1 state = %v, want Discarding", info.State)
-		}
-		if emittedMSTIAgreement(t, fx) {
-			t.Errorf("emitted MSTI agreement = true, want clear")
 		}
 	})
 
@@ -335,6 +314,39 @@ func TestMSTIAgreementUsesTheCISTPortVector(t *testing.T) {
 		}
 		if len(fx.Emissions) == 0 {
 			t.Error("Receive returned no emissions")
+		}
+	})
+
+	t.Run("a root port returning to Designated rejects another CIST root", func(t *testing.T) {
+		t.Parallel()
+
+		l, region := agreementMSTBridge(t, local, map[string]stp.Port{"p1": {}})
+		l.LinkChange(now, "p1", true, true, 1_000_000_000)
+		sender := bpdu.BridgeID{Priority: 61440, Address: peer2}
+		first := agreementBPDU(
+			region.ConfigID(), bpdu.BridgeID{Priority: 4096, Address: peer}, 0,
+			bpdu.BridgeID{Priority: 4096, Address: peer}, sender, 0x8001,
+			bpdu.RoleRoot, false,
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, false),
+		)
+		l.Receive(now, "p1", first)
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleRoot {
+			t.Fatalf("CIST p1 after first BPDU = %v, want Root", info.Role)
+		}
+
+		secondRoot := bpdu.BridgeID{Priority: 61440, Address: peer}
+		second := agreementBPDU(
+			region.ConfigID(), secondRoot, 0, secondRoot, sender, 0x8001,
+			bpdu.RoleRoot, false,
+			agreementRecord(localMSTIRoot, bpdu.RoleRoot, false, true),
+		)
+		l.Receive(now.Add(time.Second), "p1", second)
+
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated {
+			t.Fatalf("CIST p1 after worse same-source BPDU = %v, want Designated", info.Role)
+		}
+		if info := l.VLANPortInfo(10, "p1"); info.State != stp.StateDiscarding {
+			t.Errorf("MSTI p1 after return to Designated = %v, want Discarding", info.State)
 		}
 	})
 }

@@ -1122,9 +1122,9 @@ Change: four rules in `S/receive.go` and `S/roles.go`.
   holds. An MSTI record that is not stored still records its agreement
   when the CIST part matches. A Designated port and a Root port each judge
   the CIST part against their own vector. Test `TestMSTIAgreementUsesTheCISTPortVector`
-  covers both cases. Mutation: the CIST comparison
-  selected from the port's role and designated vector rather than the newly
-  stored BPDU alone.
+  covers both cases. Mutation: the designated-vector branch removed from
+  `applyBPDU`. Keep the earlier mutation that processes MSTI information before
+  the CIST is stored.
 - A3, role before state. A received agreement sets `agreed` and clears
   `proposing`, and changes no state. The port advances in
   `updatePortStates`, after `assignRoles` has selected its role for this
