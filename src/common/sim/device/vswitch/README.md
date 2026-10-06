@@ -252,7 +252,8 @@ Forwarding and allocation behavior follows standard specifications:
   0 and 3 allocate 15.4 W; 1 allocates 4.0 W; 2 allocates 7.0 W; 4 allocates
   30.0 W; 5 through 8 allocate 45 W, 60 W, 75 W, and 90 W).
 - **Spanning tree timing and migration**: Protocol migration and bridge detection
-  follow IEEE 802.1D-2004 clauses 17.24 and 17.25 and Table 17-1. Transmit rate
+  follow the read IEEE 802.1Q-2003 clause 13.30 and P802.1aq/D1.5 Figure 13-19.
+  IEEE 802.1D-2004 was not read. Transmit rate
   limiting defaults to 6 frames per second per `spec/mib/ietf/RSTP-MIB:73`
   (`dot1dStpTxHoldCount`), management protocol migration check follows
   `spec/mib/ietf/RSTP-MIB:130` (`dot1dStpPortProtocolMigration`), and CIST
@@ -407,9 +408,10 @@ bridge runs no tree for is traced the same way, as `stp.sstp.vlan-untracked`.
 Every other outcome — the BPDU applied to its tree, BPDU guard firing, a PVST
 boundary neighbor, or a PVID mismatch — is traced as `stp.sstp.admit`: the
 frame's own VLAN was admitted and tracked, so whatever the tree half decided,
-the layer processed the frame. The trace step names both the VLAN the BPDU
-claims and the VLAN it arrived on, so a PVID inconsistency is readable from
-the journey.
+the layer processed the frame. For Configuration and RST BPDUs, the trace step
+names both the VLAN in the originating-VLAN TLV and the arrival VLAN, so a
+PVID inconsistency is readable from the journey. A TCN has no TLV, and its
+trace names only the arrival VLAN.
 
 Emissions run the other way: a `stp.Emission` naming a VLAN goes out through
 `bridge.OriginateFrame`, so a per-VLAN BPDU is tagged where the VLAN is
@@ -455,10 +457,9 @@ port that is not a LAG member, it drops as a reserved address.
 A port that hears a version 0 BPDU after its 3 s migration delay sends
 Configuration BPDUs until `Mcheck` or an RST BPDU after another delay returns it
 to RSTP. Migration is a property of the link, not of one VLAN's tree: under
-PVST a migrated port sends VLAN 1's untagged IEEE Configuration BPDU alone,
-and every other VLAN's tree sends nothing for that port until the port
-migrates back, because the codec SSTP shares with RSTP has no legacy form to
-carry a per-VLAN Configuration BPDU in. Under `AutoEdge`, a proposing
+PVST a migrated port sends VLAN 1's untagged IEEE Configuration BPDU without
+an SSTP copy. Other VLAN trees can send SSTP Configuration BPDUs on the same
+port when their transmit timer fires. Under `AutoEdge`, a proposing
 point-to-point port becomes an edge port after 3 s without receiving a BPDU;
 any received BPDU revokes that edge status.
 The transmit hold count (`TxHoldCount`, default 6 per second per port) caps

@@ -539,8 +539,10 @@ bounded equivalence under a resource contract:
   expired in silence while it was Root, Alternate, or Backup in a discarding
   Alternate role with reason `loop-inconsistent`. PVST owns one loop-guard
   mark per tree. An IEEE BPDU admitted by the link clears the CIST mark, and
-  an SSTP BPDU clears only its arrival tree after admission and PVID checks
-  pass. A boundary, unadmitted, untracked, or PVID-inconsistent SSTP BPDU
+  an SSTP Configuration or RST BPDU clears only its arrival tree after
+  admission and PVID checks pass. An admitted SSTP TCN clears its arrival
+  tree without a PVID check because it has no VLAN TLV. A boundary,
+  unadmitted, untracked, or PVID-inconsistent SSTP BPDU
   leaves the mark in place. Under MSTP the CIST mark is the bridge-global
   outcome read by every MSTI, while PVST reads each tree's own mark. A link
   down clears every tree. Loop guard is netsim's own design drawn from Cisco,
@@ -602,9 +604,10 @@ bounded equivalence under a resource contract:
   MSTID 2 to `9357ebb7a8d74dd5fef4f2bab50531aa`, which is what proves the
   construction matches the standard rather than some other one. A port that
   has received nothing is treated as internal, since the field marking a
-  boundary port is set only on `Receive`; once a BPDU has arrived, a port is
-  internal when it carried this bridge's own configuration identifier, and a
-  boundary port otherwise, with an RST or Configuration BPDU always external.
+  boundary port is set only on `Receive`. Once BPDU information is stored, a
+  port is internal when that BPDU carried this bridge's own configuration
+  identifier, and a boundary port otherwise, with an RST or Configuration
+  BPDU always external. An inferior BPDU does not replace the classification.
 - **One priority vector type serves the CIST and every MSTI.** Its six
   components compare in order: root, external root path cost, regional root,
   internal root path cost, designated bridge, designated port. An RSTP tree,
@@ -652,8 +655,9 @@ bounded equivalence under a resource contract:
   VLAN's learned entries in place.
 - **A per-VLAN BPDU rides its own VLAN through the port's ordinary egress
   rules, and the switch is what tags it.** An SSTP Configuration BPDU uses a
-  50-octet RST-layout body with version 0, wire type `0x00`, and an originating
-  VLAN TLV. An SSTP RST BPDU uses the same layout with version 2 or later and
+  50-octet payload with an 8-octet LLC/SNAP header, a 36-octet RST-layout
+  body, and a 6-octet originating-VLAN TLV. It carries version 0 and wire
+  type `0x00`. An SSTP RST BPDU uses the same layout with version 2 or later and
   wire type `0x02`. An SSTP TCN uses the LLC/SNAP header with a 12-octet
   length, wire type `0x80`, and no TLV. Its receive effect is scoped by the
   arrival VLAN classified by the switch. PVST and SSTP behavior is modelled on
@@ -687,13 +691,12 @@ bounded equivalence under a resource contract:
   reported, not modeled.** A PVST bridge meeting an MST BPDU, and a non-PVST
   bridge meeting an SSTP BPDU, marks the port and keeps its existing
   behavior: the first applies the MST BPDU's RST prefix to VLAN 1's tree, the
-  second counts the SSTP BPDU and withholds only its priority vector, because
+  second counts the SSTP BPDU and skips its tree-level receive path, because
   its CIST does not run that VLAN's tree and feeding the vector in would
   elect a root from a tree it is not running. The link-level receive path
   handles BPDU guard, protocol migration, and auto-edge loss on both sides of
   the boundary, the same as for any other BPDU the port hears. A
-  boundary SSTP outcome does not clear a PVST loop-guard mark because it is not
-  applied to a tree. The boundary withholds the vector alone. The
+  boundary SSTP outcome clears no tree-level loop-guard mark. The
   neighbor relationship still converges over the IEEE-addressed frame both
   sides exchange, so the report covers every VLAN but VLAN 1. It is raised
   per port and VLAN through a hit set, scoped
