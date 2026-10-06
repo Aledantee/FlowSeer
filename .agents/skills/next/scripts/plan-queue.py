@@ -18,20 +18,21 @@ plan with work left, grouped:
                compound outcome
   replan       needs-decisions readiness, prerequisites finished, or an
                implemented plan whose review reads rework or that carries
-               that readiness; the next step is the plan skill, not
+               that readiness. The next step is the plan skill, not
                implement
   ready        planned, implementation-ready, every prerequisite finished
   waiting      a prerequisite phase is not finished by plan_record.py's
-               test; names it
+               test. The line names it
   retire       implemented, superseded, or abandoned on main and still on
-               disk; land's retire step never ran for it. A parent whose
-               phases have all landed reads implemented and ends here
+               disk. land's retire step never ran for it. A parent reads
+               implemented once none of its phases is left on disk and a
+               retired one carries a landed range, and ends here
 
 Within a group the oldest plan comes first, by the date in its filename. A
 plan another unmerged branch already changes is flagged
 `elsewhere:<branch>`, since implementing it here would land it twice. A
 plan counts as changed when its Markdown or its state file did.
-`large` marks a plan over the unit threshold; a phase line names its parent
+`large` marks a plan over the unit threshold. A phase line names its parent
 and how many phases the parent still has open.
 """
 
@@ -141,7 +142,7 @@ def queue(root: Path, large_units: int) -> list[dict]:
         ):
             # Finished and on main, yet still on disk: land's retire step
             # never ran for it. A superseded or abandoned plan retires
-            # whatever its review says; an implemented one needs an
+            # whatever its review says. An implemented one needs an
             # accepted review or none.
             group = "retire"
         elif state["phases"] or state["retired"]:
