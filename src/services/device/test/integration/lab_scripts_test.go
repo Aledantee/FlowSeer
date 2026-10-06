@@ -590,7 +590,7 @@ func TestTheLabStoreScriptDefaultsAnEmptyHTTPEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("starting the test proxy: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	requests := make(chan string, 1)
 	go func() {
 		_ = listener.(*net.TCPListener).SetDeadline(time.Now().Add(30 * time.Second))
@@ -599,7 +599,7 @@ func TestTheLabStoreScriptDefaultsAnEmptyHTTPEndpoint(t *testing.T) {
 			requests <- err.Error()
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 		line, err := bufio.NewReader(conn).ReadString('\n')
 		if err != nil {
