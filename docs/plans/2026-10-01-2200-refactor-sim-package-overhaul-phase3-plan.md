@@ -186,6 +186,22 @@ under Inventory, Sources.
   record and the code change together (`docs/doc-style.md:113-114`), and
   the simulation package shape record amends that one, so later plans read
   it. It holds no statement about a port in STP mode for U15 to change.
+- An MSTI agreement on a port that stays Designated for the CIST is judged
+  against that port's designated vector, as `D2009` Figure 13-20 runs
+  `recordAgreement()` in NOT_DESIGNATED with no `recordPriority()`.
+  (decided by the user, 2026-10-06)
+- A Designated port that a sync cuts requests its frame where the sync
+  sets `proposing`, as `D2009` Figure 13-25 (DESIGNATED_PROPOSE) does. The
+  carried limit on that proposal ends. (decided by the user, 2026-10-06)
+- Bridge detection behavior that predates this phase stays as it is. Each
+  case the review named is a Limits entry in `S/README.md`, and a later
+  plan brings detection to `D2009` Figures 13-18 and 13-25. (decided by
+  the user, 2026-10-06)
+- The review ends with a closing round that applies the three decisions
+  above, then one re-review. It is accepted unless that re-review finds a
+  behavior defect or a test that cannot fail. The six Review gaps items no
+  exported call shows stay recorded, as does any new comment or convention
+  item. (decided by the user, 2026-10-06)
 
 ## Requirements
 
@@ -1601,13 +1617,3 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
-- Parked by drive: the review of U1 to U15 ended `fixes needed` after three
-  fix rounds and a gap pass. No behavior finding from the rounds is open.
-  Six Review gaps items remain that no sequence of exported calls shows,
-  and three questions need a decision: the CIST test of an MSTI agreement
-  on a port that stays Designated, the proposal of a port a sync cuts, and
-  bridge detection behavior that predates the phase. The work is on
-  `parked/sim-p3-review`. Options: decide the three, run one closing round,
-  and accept unless it finds a behavior defect or a false test | accept
-  now with all of it recorded. Recommended: decide and close, because two
-  of the three let a port forward where the standard holds it.
