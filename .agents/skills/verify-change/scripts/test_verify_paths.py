@@ -62,6 +62,16 @@ class SymlinkedPathTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("module=real/pkg mode=full", result.stdout.splitlines())
 
+    def test_repository_scripts_and_uv_pin_select_hook_tooling(self):
+        (self.root / "tools/scripts/lib").mkdir(parents=True)
+        (self.root / "tools/scripts/lib/repo.py").write_text("")
+        (self.root / "uv.toml").write_text('required-version = ">=0.12.18"\n')
+        for path in ("tools/scripts/lib/repo.py", "uv.toml"):
+            with self.subTest(path=path):
+                result = self.select(path)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("hook_tooling=true", result.stdout.splitlines())
+
     def test_empty_argument_is_refused(self):
         result = self.select("")
         self.assertEqual(result.returncode, 2)

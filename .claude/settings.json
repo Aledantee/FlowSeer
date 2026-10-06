@@ -16,7 +16,8 @@
         "~/go/pkg/mod",
         "~/Library/pnpm/store",
         "~/Library/pnpm/package-manager-store",
-        "~/Library/Caches/pnpm"
+        "~/Library/Caches/pnpm",
+        "~/.cache/uv"
       ]
     },
     "network": {

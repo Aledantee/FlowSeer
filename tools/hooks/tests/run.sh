@@ -927,7 +927,7 @@ selection_output=$(select_verifier --)
 ok "verifier selection handles an empty changed-path set without a receipt"
 
 selection_output=$(select_verifier -- tools/hooks/tests/run.sh)
-[[ $selection_output == 'service_otel_integration=false' ]] || fail "$LINENO"
+[[ $selection_output == $'service_otel_integration=false\nhook_tooling=true' ]] || fail "$LINENO"
 [[ ! -e $selection_receipt ]] || fail "$LINENO"
 [[ ! -e $selection_side_effect ]] || fail "$LINENO"
 [[ ! -e $selection_go_side_effect ]] || fail "$LINENO"

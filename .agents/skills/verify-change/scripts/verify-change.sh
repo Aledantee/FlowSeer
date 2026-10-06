@@ -301,7 +301,7 @@ else
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
+          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*|tools/scripts/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -340,7 +340,7 @@ else
           fi
         fi
         ;;
-      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*)
+      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*|tools/scripts/*|uv.toml)
         hook_tooling=true
         ;;
     esac
@@ -483,6 +483,9 @@ if [[ $print_selection == true ]]; then
   if [[ $plan_state == true ]]; then
     printf 'plan_state=true\n'
   fi
+  if [[ $hook_tooling == true ]]; then
+    printf 'hook_tooling=true\n'
+  fi
   for module in "${modules[@]:-}"; do
     [[ -n $module ]] || continue
     if [[ $module == generated/* ]]; then
@@ -550,7 +553,7 @@ if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
 fi
 if [[ $hook_tooling == true ]]; then
-  required_tools+=(jq shellcheck go)
+  required_tools+=(jq shellcheck go uv)
 fi
 if [[ $web == true ]]; then
   required_tools+=(node)
@@ -968,6 +971,27 @@ if [[ $hook_tooling == true ]]; then
       exit 1
     fi
   done
+  # The repository scripts: compile every module, then run their suites.
+  # Compiling catches a module no test imports. The zero-test guard is the
+  # one the skill suites above have.
+  if [[ -d tools/scripts ]]; then
+    need_tool uv
+    repo_scripts=()
+    while IFS= read -r script; do
+      repo_scripts+=("$script")
+    done < <(find tools/scripts -name '*.py' -not -path '*/__pycache__/*' | sort)
+    run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile "${repo_scripts[@]}"
+    if ! test_output=$(run uv run tools/scripts/run.py test 2>&1); then
+      printf '%s\n' "$test_output"
+      exit 1
+    fi
+    printf '%s\n' "$test_output"
+    if [[ ! $test_output =~ Ran\ [1-9][0-9]*\ tests? ]]; then
+      printf '%s\n' "tools/scripts tests ran zero tests." >&2
+      printf '%s\n' "uv run tools/scripts/run.py test" >"$gate_file"
+      exit 1
+    fi
+  fi
 fi
 
 if [[ $service_otel_integration == true ]]; then
