@@ -80,7 +80,7 @@ type txKey struct {
 
 // portTx holds the BPDU transmit budget for one key. Outside PVST mode IEEE
 // 802.1Q meters transmission per port, not per spanning tree instance, which
-// is why this lives on Layer rather than inside a tree's per-port state; in
+// is why this lives on Layer rather than inside a tree's per-port state. In
 // PVST mode it is metered per VLAN's tree as well, which is what txKey's
 // tree component addresses.
 type portTx struct {
@@ -106,7 +106,7 @@ func (p *portState) loopGuardWatches(link *linkRecord) bool {
 
 // txKeyFor addresses the transmit budget tree t spends on the named port.
 // Outside PVST mode every tree resolves to the same key, since MSTP emits
-// only from the CIST and shares one budget per port; a PVST bridge emits one
+// only from the CIST and shares one budget per port. A PVST bridge emits one
 // BPDU per VLAN per port, so each tree meters its own.
 func (l *Layer) txKeyFor(t *tree, name string) txKey {
 	if l.pvst == nil {

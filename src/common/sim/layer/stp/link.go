@@ -116,7 +116,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 		}
 
 		// A port already up with unchanged point-to-point status does not restart its
-		// handshake; a speed change updates pathCost on every unfixed tree and recomputes.
+		// handshake. A speed change updates pathCost on every unfixed tree and recomputes.
 		if link.up && link.pointToPoint == p2p {
 			if link.linkPathCost != linkCost {
 				link.linkPathCost = linkCost

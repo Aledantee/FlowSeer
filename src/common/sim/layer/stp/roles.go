@@ -32,7 +32,7 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 }
 
 // boundary reports whether the named port is a boundary port: the CIST's most
-// recently received BPDU on it carried no MST configuration identifier, or
+// recently stored BPDU on it carried no MST configuration identifier, or
 // one from a different region. It answers false for a port the CIST does not
 // track, which for a plain RSTP bridge with no MSTI trees is moot since this
 // is only ever consulted from one.
@@ -47,9 +47,8 @@ func (l *Layer) boundary(name string) bool {
 
 // armHelloTimers starts the periodic hello on every tree that drives its own
 // transmission: the CIST alone outside PVST mode, since an MSTI's information
-// rides the CIST's BPDU, and every VLAN's tree inside it. A tree whose hello
-// timer stays zero never reaches Advance's hello loop, which is what keeps that
-// loop's walk over every tree behavior-neutral for RSTP and MSTP.
+// rides the CIST's BPDU, and every VLAN's tree inside it. Each port's
+// transmit record owns the timer, which setHelloRequests reads in transmit.
 func (l *Layer) armHelloTimers(now time.Time) {
 	for _, id := range l.treeOrder {
 		if l.pvst == nil && id != cistID {
@@ -85,7 +84,7 @@ func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) {
 // a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
 // and state outright rather than computing its own, which is the boundary
 // role rule (netsim reports the CIST's Root where the standard would say
-// Master; no separate Role value exists for it). A root change requests new
+// Master). No separate Role value exists for it. A root change requests new
 // information on eligible designated ports. The later transmit pass decides
 // whether that information is carried by the CIST or by an MSTI record.
 func (l *Layer) recompute(t *tree, now time.Time, flushes *[]layer.FlushTarget) {
@@ -230,7 +229,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 		default:
 			p.role = l.designatedOrBlocked(t, p, now)
 		}
-		// An agreement belongs to the role that earned it; any role change
+		// An agreement belongs to the role that earned it. Any role change
 		// requires a fresh handshake before the port can forward.
 		if p.role != oldRole {
 			p.agreed = false
