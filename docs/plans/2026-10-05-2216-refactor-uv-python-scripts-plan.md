@@ -155,8 +155,9 @@ and 9.
 Files: docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase2-plan.md
 
 Every Python script under `.agents/skills/*/scripts/` becomes a registered
-command with its tests, plan-file parsing is one module in `lib/`, and the
-POSIX-only calls are behind `lib/`. Claims requirement 7.
+command with its tests, the plan-state reader and unit headings are one
+module in `lib/`, and the POSIX-only calls are behind `lib/`. Claims
+requirement 7.
 
 ### U3. Hooks
 
