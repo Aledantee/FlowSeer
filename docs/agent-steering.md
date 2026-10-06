@@ -944,6 +944,23 @@ are independent. A decision that
 is the user's parks that plan in its Open questions and lets independent
 phases continue; the questions are asked together when the drive stops.
 
+Run every stage of one plan in one worktree, on one branch, and merge that
+branch into the coordinator's once, after the plan's last stage. `drive`
+first gave each stage a child worktree of its own and merged it when the
+stage settled, so a plan reached the coordinator's branch in four parts. A
+phase that then parked or went back to `plan` had its implementation
+already merged, where it held every other phase's land, and the verifier
+ran on each part without ever seeing the plan whole. A stage is still a
+fresh session: `orca-worker.sh start --join` opens a new terminal in the
+plan's worktree after `stop --keep-worktree` closed the last one. The
+stage workers write the plan's state on that branch, so the coordinator
+records the branch in the plan's state file and `plan_record.py`,
+`plan-state.py`, and `plan-queue.py` read the state from it until the
+merge. `finished` is the exception and reads the checkout only: a dependent
+phase forks from the coordinator's `HEAD`, so its prerequisite frees it
+once the prerequisite's code is there. Phases still land one by one, each
+from its own branch.
+
 Land a multi-phase plan phase by phase, the small-batch practice DORA's
 [working in small batches](https://dora.dev/capabilities/working-in-small-batches/)
 and [trunk-based development](https://dora.dev/capabilities/trunk-based-development/)

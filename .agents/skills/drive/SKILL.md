@@ -38,8 +38,9 @@ python3 .claude/skills/drive/scripts/plan-state.py <plan>
 Before the first dispatch:
 
 - This session is in a worktree on its own branch with a clean tree
-  (`git status --porcelain` empty). Every stage merges into this branch, so
-  a later phase's worktree holds the earlier ones.
+  (`git status --porcelain` empty). A plan's branch merges into this
+  branch once, after its last stage, so a later phase's worktree holds the
+  phases that finished before it started.
 - Do not drive a line flagged `elsewhere:<branch>`; name the branch.
 - Load `delegate`, discover the host, and read the quota with its
   `pool-usage.sh`. State all four rows (`claude`, `codex`, `google`,
@@ -50,11 +51,38 @@ Before the first dispatch:
 ## 2. Drive one plan
 
 Run the stages in order from the first that applies and whose "done when"
-the files do not already show. Each stage is one worker in a child worktree branched from
-this branch's `HEAD`, started with `orca-worker.sh start` with the table's
-`--role`, `--plan <path>`, and the stage name as `--unit`. A phase resumed
-from a parked branch starts with `--base parked/<slug>` instead
-(`references/parking.md`, Answer).
+the files do not already show. A plan has one child worktree and one branch
+for all its stages, and each stage is a new worker session in that
+worktree. Nothing merges here after a stage: a merge per stage would put a
+plan that later parks or goes back to `plan` on this branch in parts.
+
+The plan's first stage creates the worktree, branched from this branch's
+`HEAD`: start it with `orca-worker.sh start` with the table's `--role`,
+`--plan <path>`, and the stage name as `--unit`. A phase resumed from a
+parked branch starts with `--base parked/<slug>` instead
+(`references/parking.md`, Answer). Then record the `branch` that `start`
+printed, in this checkout, and commit it. Orca prefixes the name with the
+git user, so it is known only now, and a resumed drive reads it from this
+tree:
+
+```bash
+.claude/skills/plan/scripts/plan_record.py branch <plan> <branch>
+git commit -m "docs(plans): record the branch of <plan slug>" -- docs/plans/<plan slug>-plan.state.json
+```
+
+From then on `plan_record.py show` and `is`, `plan-state.py`, and
+`plan-queue.py` read the plan's state from that branch until it is merged
+here, so the "applies when" and "done when" commands below answer for the
+plan's worktree when run in this one.
+
+Each later stage joins the worktree under a lane name of its own, with the
+same flags and `--join <lane>`, the lane being any earlier lane of the
+plan. `orca-worker.sh status` prints those as `kept`, which is where a
+resumed drive finds the lane to join:
+
+```bash
+.claude/skills/delegate/scripts/orca-worker.sh start --lane <slug> --join <lane> --cli <cli> --model <id> --role <role> --plan <path> --unit <stage> --brief <file>
+```
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
@@ -63,8 +91,10 @@ from a parked branch starts with `--base parked/<slug>` instead
 | review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports review `accept` or `accept after fixes` |
 | compound | `.claude/skills/plan/scripts/plan_record.py is <plan> compound=null` | `compound` on the plan | `execute` | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null` |
 
-`$base` is the commit a lane's branch forked from, read from the `start`
-event it logged, with `$run` the `run` that `orca-worker.sh start` printed:
+`$base` is the commit the plan's branch forked from, read from the `start`
+event the plan's first lane logged, with `$run` the `run` that
+`orca-worker.sh start` printed for that lane. A joined lane's `start` event
+holds the worktree's `HEAD` at its join, which covers its own stage only:
 
 ```bash
 base=$(python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' "$run")
@@ -102,44 +132,53 @@ On `done` without the stage's report on the screen, wait again without
 After each stage:
 
 1. Check the worker's tree before its report, as `delegate` describes, and
-   run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>` before
-   the merge. A non-zero result stops this stage.
-2. After the implement stage, read the worker's ledger before the child
-   goes, since the merge does not bring it. Report every unit `passed` as
-   the per-unit gate `land` would have read; a `blocked` unit parks the plan
+   run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A
+   non-zero result stops this stage.
+2. After the implement stage, read the worker's ledger, which stays in the
+   plan's worktree and never merges. Report every unit `passed` as the
+   per-unit gate `land` would have read; a `blocked` unit parks the plan
    (step 4).
    `cat "$(git -C <child> rev-parse --git-dir)/flowseer-plan-status.json"`
-3. Merge the worker's branch here. First check whether the worker merged it
-   itself against its brief, with `$base` from this lane's `start` event and
-   `$branch` the `branch` from that event. On `self-merged`, name it in the
-   report and grade the lane with a `--note` saying so; items 4 to 7 still
-   run.
-   `[ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged`
-   When the worker was not self-merged, after the merge commit exists,
-   including a resolved conflict, run
-   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
-   A self-merged lane ran no coordinator `git merge`, so `ORIG_HEAD` may be
-   stale. Run `python3 .claude/skills/land/scripts/merge-check.py "$base..HEAD"`
-   for that case, using `$base` from the lane's `start` event or the base the
-   item already records.
-   A non-zero result stops the drive. Carry every `missing` block in the
-   report.
-4. Run the verifier once on the union of the changed paths, sandbox
-   disabled: `.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>`
-5. Grade the lane before stopping it, `accepted` when merged as left,
-   `amended` when the coordinator corrected the work, `--verify pass` when
-   the verifier ran green:
-   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
-6. Remove the child worktree: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
-7. Read the stage's "done when" with the matching
+3. Read the stage's "done when" with the matching
    `.claude/skills/plan/scripts/plan_record.py is` or `show` command. A stage
    that reports success and leaves the field unset, or set to a value other
    than an accept, parks the plan with that as its question. Do not run it
    again.
+4. Unless this was the plan's last stage, grade the lane and end it with its
+   worktree kept. Nothing was merged, so its verifier result is `none`:
+   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted --verify none`
+   `.claude/skills/delegate/scripts/orca-worker.sh stop <slug> --keep-worktree`
+
+After the last stage, once the compound stage's "done when" reads done and
+before `land`:
+
+1. Check whether a worker merged the plan's branch itself against its
+   brief, with `$base` from the plan's first lane and `$branch` the recorded
+   branch. On `self-merged`, name it in the report and grade the last lane
+   with a `--note` saying so; the items below still run.
+   `[ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged`
+2. Merge the plan's branch here: `git merge --no-ff --no-edit <branch>`,
+   sandbox disabled when the branch touched `.claude/` or `.agents/`. After
+   the merge commit exists, including a resolved conflict, run
+   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   A self-merged branch ran no coordinator `git merge`, so `ORIG_HEAD` may
+   be stale. Run `python3 .claude/skills/land/scripts/merge-check.py "$base..HEAD"`
+   for that case.
+   A non-zero result stops the drive. Carry every `missing` block in the
+   report.
+3. Run the verifier once on the union of the plan's changed paths, sandbox
+   disabled: `.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>`
+4. Grade the last lane, once, with that result: `accepted` when the branch
+   merged as the workers left it, `amended` when the coordinator corrected
+   the work, `--verify pass` when the verifier ran green. The plan's earlier
+   lanes keep the grade "After each stage" gave them.
+   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
+5. Remove the plan's worktree, its branch, and the state file of every lane
+   that ran in it: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
 
 End a turn only while waiting on a started lane, with a started successor,
-at a parked question, or when a failed lane check in step 1 or a failed
-merge-check in step 3 stops the drive. A turn that ends right after
+at a parked question, or when a failed lane check after a stage or a failed
+merge-check after the last stage stops the drive. A turn that ends right after
 announcing the next stage leaves nothing to wake it. Run each stage once:
 the skills' own caps (three verifier rounds on a unit, two reviewed rounds on
 a review's scope) decide when patching stops, and a parked question is what
@@ -157,10 +196,11 @@ guessing which side is right lands a phase twice. A round takes the phases its l
 its order, and runs step 2 on each from the stage the command printed.
 
 Load `references/concurrent-phases.md` when that last line names more than
-one phase that can run (not a `next: land` line): it says which run at once and how they split the cap. When a stage branch
-conflicts with one already merged, read
-`.claude/skills/implement/references/workers.md` whole: the branch goes back
-to its worker.
+one phase that can run (not a `next: land` line): it says which run at once and how they split the cap. When a phase's branch
+conflicts with one already merged, run `git merge --abort` and send the
+branch back to a worker: join the phase's worktree with a lane whose brief
+merges this branch's `HEAD` and resolves the conflict there, then run the
+"After the last stage" list again.
 
 A landed phase records its implementation range with
 `.claude/skills/plan/scripts/plan_record.py implemented <phase> ... --landed <first>..<last>`. A phase in
@@ -169,14 +209,18 @@ also read done. The parent has no stage. Its status is computed from its phase
 state.
 
 When the state command's last line reads `next: land <phases>`, land them
-before any new stage, as `land` describes for multi-phase plans. `land`
-stops while a lane is live and gates every plan this branch carries past
-`main`. From then on start no phase whose implement has not merged here.
-The phases the line names after `after` have merged their implement: a
-round takes those and runs their review and compound stages to done or
-parks. Once the line reads `next: land <phases>` with no `after` and no
-lane is live, run `land` once in this session on the phases owed. A phase that parks after its implement merged holds that
-land until its question is answered, so the drive goes to step 5. A
+before any new stage, as `land` describes for multi-phase plans. A phase
+owed a land that the state command still prints a `branch:` line for is
+not merged here yet: run step 2's "After the last stage" list on it first.
+`land` stops while a lane or child worktree remains and gates every plan
+this branch carries past `main`. From then on start no phase whose
+implement stage is not done. The phases the line names after `after` have
+a recorded branch that is not merged here, or were implemented in this
+checkout and await their review or compound. A round takes those, runs
+each one's remaining stages and the "After the last stage" list, or parks
+it. Once the line reads `next: land <phases>` with no `after` and no
+lane is live, run `land` once in this session on the phases owed. A phase that parks holds no
+land, since parking removes its worktree (`references/parking.md`). A
 fast-forward the harness refuses goes into step 5's
 report and the drive continues. Any other stop in `land` stops the drive.
 A pending fast-forward can outlive this session, so step 5 reads it off

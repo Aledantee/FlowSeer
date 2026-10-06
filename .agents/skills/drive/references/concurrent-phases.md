@@ -15,10 +15,15 @@ Run several at once when the quota allows and the phases are independent:
   each stage worker holds at least one worker of its own. A cap of three
   drives one phase with a budget of two; a cap of six drives up to three
   phases with a budget of one each.
-- Each phase moves through its stages on its own. Merge each stage as its
-  worker settles and run step 2's after-stage list for it; a phase's next
-  stage branches from this branch's `HEAD` at that moment, which then holds
-  whatever else has merged.
+- Each phase has its own worktree and branch and moves through its stages
+  there. Run step 2's "After each stage" list as each worker settles, and
+  start the phase's next stage with `--join`. Nothing merges here until a
+  phase's last stage is done, so a phase never sees another's unfinished
+  work, and a phase that starts later forks from a `HEAD` that holds only
+  finished phases.
+- Run step 2's "After the last stage" list for one phase at a time. Its
+  merge and verifier run are this checkout's, and two at once would verify
+  a union neither phase owns.
 - Recompute the cap when a phase finishes or parks, and start the next
   ready phase into the freed share, unless a finished phase is owed a land
   (`SKILL.md`, step 3).
