@@ -1617,3 +1617,15 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
+- Parked by drive: the closing round applied the three decisions of
+  2026-10-06 and its re-review found a behavior defect the round
+  introduced. The sync requests a frame on every port left proposing,
+  where the decision names a port the sync cuts, and a fabric hold-count
+  test was changed to match. Two questions also came up that no Decision
+  settles: a Root port that becomes Designated in the call still records an
+  MSTI agreement under another CIST root, and a role return restarts the
+  edge delay and requests no frame. The work is on `parked/sim-p3-review`.
+  Options: one more round on the defect under the same closing rule, with
+  the two questions recorded as limits | accept now with the defect
+  recorded. Recommended: one more round, because the defect changes frame
+  timing that other phases' tests will pin.
