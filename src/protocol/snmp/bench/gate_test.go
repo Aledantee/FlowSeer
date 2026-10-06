@@ -187,3 +187,32 @@ func TestGateFailsOnAnEmptyRun(t *testing.T) {
 		t.Errorf("gate exited %d on an empty run, want 1:\n%s", run.exit, run.output)
 	}
 }
+
+// TestGateTakesTheDefaultForAnEmptyVariable pins that a variable set to
+// the empty string behaves as if it were unset, which is what the
+// ${NAME:-default} reads in the shell file did. The stand-in go ignores
+// BENCH and COUNT, so the line the gate prints is where they show.
+func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
+	run := runGate(t, baselineTranscript(t), "BENCH=", "COUNT=")
+	if run.exit != 0 {
+		t.Errorf("gate exited %d with BENCH and COUNT empty, want 0:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "running micro benchmarks (BENCH=. COUNT=10)") {
+		t.Errorf("gate did not fall back to BENCH=. and COUNT=10:\n%s", run.output)
+	}
+
+}
+
+// TestGateReadsLinesByLineFeedOnly pins that a carriage return is not a
+// line break. A row that follows one on the same line is not a benchmark
+// row to benchstat, so a regression hidden behind one is not compared,
+// as it was not when grep fed benchstat in the shell file.
+func TestGateReadsLinesByLineFeedOnly(t *testing.T) {
+	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
+	hidden := strings.ReplaceAll(bad, "\n"+gatedBenchmark, "\njunk\r"+gatedBenchmark)
+
+	run := runGate(t, hidden)
+	if run.exit != 0 {
+		t.Errorf("gate exited %d on rows that follow a carriage return, want 0:\n%s", run.exit, run.output)
+	}
+}
