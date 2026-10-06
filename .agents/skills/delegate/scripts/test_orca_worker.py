@@ -1303,6 +1303,43 @@ else:
         self.assertFalse(child.exists())
         self.assertFalse((self.state_dir / "l1.json").exists())
 
+    def test_stop_kept_lane_refuses_while_joined_lane_has_a_live_terminal(self):
+        child = self.kept_lane()
+        joined = self.join()
+        self.assertEqual(joined.returncode, 0, joined.stderr)
+        graded = self.command("grade", "l2", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(graded.returncode, 0, graded.stderr)
+        self.git("merge", "wt1")
+        self.orca_log.unlink()
+        events = self.runlog_events()
+
+        result = self.command("stop", "l1")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("lane l2 still has a live terminal", result.stderr)
+        self.assertTrue(child.exists())
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertTrue((self.state_dir / "l2.json").exists())
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertEqual(self.runlog_events(), events)
+
+    def test_stop_refuses_to_keep_an_already_kept_lane(self):
+        child = self.kept_lane()
+        self.orca_log.unlink()
+        events = self.runlog_events()
+
+        result = self.command("stop", "l1", "--keep-worktree")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("lane l1 is already kept", result.stderr)
+        self.assertTrue(child.exists())
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual((state["terminal"], state["kept"]), ("", True))
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertEqual(self.runlog_events(), events)
+
     def test_failed_joined_start_closes_its_terminal_and_leaves_the_worktree(self):
         child = self.kept_lane()
         self.env["ORCA_STUB_FAIL"] = "pointer"
