@@ -1,7 +1,9 @@
 package integration_test
 
 import (
+	"bufio"
 	"bytes"
+	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -260,6 +262,13 @@ func TestTheLabSecretsScriptWritesOwnerOnlyFiles(t *testing.T) {
 	t.Parallel()
 
 	dir := generatedSecrets(t)
+	info, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("reading the mode of secrets/: %v", err)
+	}
+	if info.Mode().Perm() != 0o700 {
+		t.Errorf("secrets/ has mode %v, want drwx------", info.Mode().Perm())
+	}
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		t.Fatalf("listing %s: %v", dir, err)
@@ -341,8 +350,7 @@ func TestTheLabSecretsScriptQuotesTheDexEnvFile(t *testing.T) {
 
 // The lab password hashes meet the cost Dex requires.
 //
-// htpasswd defaults to cost 5 and Dex refuses anything below 10 at login, so a
-// default invocation yields a file that loads and a user who cannot sign in.
+// Dex refuses a hash with cost below 10 at login even when the file loads.
 func TestTheLabSecretsScriptHashesAtDexsCost(t *testing.T) {
 	t.Parallel()
 
@@ -492,11 +500,12 @@ func dirContents(t *testing.T, dir string) map[string]string {
 // labOpenFGA is a TLS server that answers the two requests the store script
 // makes, with the certificate the secrets script generated.
 type labOpenFGA struct {
-	server  *httptest.Server
-	calls   atomic.Int32
-	models  atomic.Pointer[string] // the body of the model request
-	auth    atomic.Pointer[string] // the Authorization header of the last request
-	storeID string                 // the answer to the create request; "" answers {}
+	server    *httptest.Server
+	calls     atomic.Int32
+	models    atomic.Pointer[string] // the body of the model request
+	storeAuth atomic.Pointer[string]
+	modelAuth atomic.Pointer[string]
+	storeID   string // the answer to the create request; "" answers {}
 }
 
 // startLabOpenFGA serves the tree's server.crt and returns the server.
@@ -513,18 +522,19 @@ func startLabOpenFGA(t *testing.T, tree, storeID string) *labOpenFGA {
 	f.server = httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.calls.Add(1)
 		auth := r.Header.Get("Authorization")
-		f.auth.Store(&auth)
 		body, _ := io.ReadAll(r.Body)
 
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/stores":
+			f.storeAuth.Store(&auth)
 			if f.storeID == "" {
 				_, _ = w.Write([]byte(`{}`))
 				return
 			}
 			_, _ = fmt.Fprintf(w, `{"id":%q}`, f.storeID)
 		case r.Method == http.MethodPost && r.URL.Path == "/stores/"+f.storeID+"/authorization-models":
+			f.modelAuth.Store(&auth)
 			model := string(body)
 			f.models.Store(&model)
 			_, _ = w.Write([]byte(`{"authorization_model_id":"M1"}`))
@@ -576,23 +586,57 @@ func TestTheLabStoreScriptDefaultsAnEmptyHTTPEndpoint(t *testing.T) {
 
 	skipUnlessLabScriptsRun(t)
 	tree := labTree(t)
-	f := startLabOpenFGA(t, tree, "S1")
-
-	run := runStoreScript(t, tree, f, "OPENFGA_HTTP_ENDPOINT=")
-	if strings.Contains(run.stderr, "unknown url type") || strings.Contains(run.stderr, "ValueError") {
-		t.Errorf("the store script did not use the default HTTP endpoint:\n%s", run.stderr)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("starting the test proxy: %v", err)
 	}
-	if !strings.Contains(run.stderr, "https://127.0.0.1:8080/stores") {
-		t.Errorf("the store script did not request the default HTTP endpoint:\n%s", run.stderr)
+	defer listener.Close()
+	requests := make(chan string, 1)
+	go func() {
+		_ = listener.(*net.TCPListener).SetDeadline(time.Now().Add(30 * time.Second))
+		conn, err := listener.Accept()
+		if err != nil {
+			requests <- err.Error()
+			return
+		}
+		defer conn.Close()
+		_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
+		line, err := bufio.NewReader(conn).ReadString('\n')
+		if err != nil {
+			requests <- err.Error()
+			return
+		}
+		requests <- strings.TrimSpace(line)
+		_, _ = io.WriteString(conn, "HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n")
+	}()
+
+	dir := filepath.Join(tree, labDir)
+	copyFile(t, labFixturePath(labStoreScript), filepath.Join(dir, labStoreScript))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "uv", "run", labStoreScript)
+	cmd.Dir = dir
+	run := startLabCommand(t, cmd, []string{
+		"OPENFGA_HTTP_ENDPOINT=",
+		"https_proxy=http://" + listener.Addr().String(),
+		"HTTPS_PROXY=http://" + listener.Addr().String(),
+		"no_proxy=", "NO_PROXY=",
+	})
+	if ctx.Err() != nil {
+		t.Fatal("the store script did not finish before the timeout")
+	}
+	_ = listener.Close()
+	if line := <-requests; line != "CONNECT 127.0.0.1:8080 HTTP/1.1" {
+		t.Errorf("the store script requested %q through the proxy, want CONNECT 127.0.0.1:8080", line)
+	}
+	if run.exit != 1 {
+		t.Errorf("the refused proxy connection gave exit %d, want 1:\n%s", run.exit, run.stderr)
 	}
 }
 
 // The store script authenticates to a server the lab CA signed, with the
 // preshared key, and prints the block an operator pastes into central's
 // configuration.
-//
-// The script's TLS context keeps the verifier's strict defaults, so this
-// fails if the generated chain lacks an extension Python asks for.
 func TestTheLabStoreScriptPrintsTheAuthorizationBlock(t *testing.T) {
 	t.Parallel()
 
@@ -611,8 +655,16 @@ func TestTheLabStoreScriptPrintsTheAuthorizationBlock(t *testing.T) {
 	}
 
 	key := strings.TrimSpace(secretFile(t, filepath.Join(tree, labDir, "secrets"), "openfga.key"))
-	if auth := f.auth.Load(); auth == nil || *auth != "Bearer "+key {
-		t.Errorf("the last request carried Authorization %v, want Bearer <openfga.key>", auth)
+	if calls := f.calls.Load(); calls != 2 {
+		t.Errorf("the server received %d requests, want 2", calls)
+	}
+	for route, auth := range map[string]*string{
+		"/stores":                         f.storeAuth.Load(),
+		"/stores/S1/authorization-models": f.modelAuth.Load(),
+	} {
+		if auth == nil || *auth != "Bearer "+key {
+			t.Errorf("%s carried Authorization %v, want Bearer <openfga.key>", route, auth)
+		}
 	}
 	want, err := os.ReadFile(filepath.Join(tree, modelRelPath))
 	if err != nil {
@@ -646,6 +698,87 @@ func otherCA(t *testing.T) string {
 	}
 
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}))
+}
+
+// A CA without key usage must be refused before the preshared key reaches the server.
+func TestTheLabStoreScriptRefusesAChainWithoutCAKeyUsage(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	tree := labTree(t)
+	secrets := filepath.Join(tree, labDir, "secrets")
+	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating the CA key: %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "CA without key usage"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("creating the CA certificate: %v", err)
+	}
+	ca, err := x509.ParseCertificate(caDER)
+	if err != nil {
+		t.Fatalf("parsing the CA certificate: %v", err)
+	}
+	for _, extension := range ca.Extensions {
+		if extension.Id.Equal([]int{2, 5, 29, 15}) {
+			t.Fatal("the CA certificate has a key usage extension")
+		}
+	}
+	serverKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("generating the server key: %v", err)
+	}
+	serverTemplate := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "127.0.0.1"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(time.Hour),
+		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1)},
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, serverTemplate, ca, &serverKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("creating the server certificate: %v", err)
+	}
+	keyDER, err := x509.MarshalPKCS8PrivateKey(serverKey)
+	if err != nil {
+		t.Fatalf("encoding the server key: %v", err)
+	}
+	for name, block := range map[string]*pem.Block{
+		"ca.crt":     {Type: "CERTIFICATE", Bytes: caDER},
+		"server.crt": {Type: "CERTIFICATE", Bytes: serverDER},
+		"server.key": {Type: "PRIVATE KEY", Bytes: keyDER},
+	} {
+		if err := os.WriteFile(filepath.Join(secrets, name), pem.EncodeToMemory(block), 0o600); err != nil {
+			t.Fatalf("writing %s: %v", name, err)
+		}
+	}
+
+	f := startLabOpenFGA(t, tree, "S1")
+	run := runStoreScript(t, tree, f)
+	if run.exit != 1 {
+		t.Errorf("the store script exited %d, want 1:\n%s", run.exit, run.stderr)
+	}
+	if calls := f.calls.Load(); calls != 0 {
+		t.Errorf("the server's handler ran %d times, want 0", calls)
+	}
+	for _, want := range []string{"CA cert does not include key usage extension", "write-lab-secrets.py"} {
+		if !strings.Contains(run.stderr, want) {
+			t.Errorf("the store script did not report %q:\n%s", want, run.stderr)
+		}
+	}
+	if count := strings.Count(run.stderr, "write-lab-secrets.py"); count != 1 {
+		t.Errorf("the store script named write-lab-secrets.py %d times, want once:\n%s", count, run.stderr)
+	}
 }
 
 // A server the lab CA did not sign is not talked to.

@@ -130,6 +130,36 @@ func TestTheLabProvisioningScriptWritesNothingOnBadInput(t *testing.T) {
 	}
 }
 
+// Quotes and backslashes would change the prototext value an edge reads.
+func TestTheLabProvisioningScriptRefusesUnescapedValues(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	anchor := base64.StdEncoding.EncodeToString([]byte("anchor"))
+	tests := []struct {
+		name string
+		key  string
+		url  string
+	}{
+		{name: "quoted setup key", key: `lab"key`, url: "https://central.example:8443"},
+		{name: "backslash in central URL", key: "lab-key", url: `https://central.example\path`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			created := createdJSON(t, tt.key, anchor)
+			run := runLabScript(t, t.TempDir(), labProvisioningScript, created, tt.url)
+			if run.exit != 1 {
+				t.Errorf("the provisioning script exited %d, want 1:\n%s", run.exit, run.stderr)
+			}
+			if run.stdout != "" {
+				t.Errorf("the provisioning script wrote to standard output on a failure:\n%s", run.stdout)
+			}
+		})
+	}
+}
+
 // Empty required arguments have the same usage failure as missing arguments.
 func TestTheLabProvisioningScriptRefusesEmptyArguments(t *testing.T) {
 	t.Parallel()
@@ -187,12 +217,28 @@ func TestTheLabRegistryScriptRendersTheEdge(t *testing.T) {
 		t.Errorf("the registry script wrote:\n%s\nwant:\n%s", run.stdout, want)
 	}
 
-	// sed replaced the first occurrence on a line, which leaves a placeholder
-	// that central then reads as an edge it never minted.
+	// Every occurrence must be replaced, or central reads a placeholder as an
+	// edge it never minted.
 	twice := writeTemplate(t, "a: \""+edgePlaceholder+"\" b: \""+edgePlaceholder+"\"\n")
 	run = runLabScriptWithEnv(t, t.TempDir(), []string{"FLOWSEER_REGISTRY_TEMPLATE=" + twice}, labRegistryScript, "edge-7")
 	if run.exit != 0 || strings.Contains(run.stdout, edgePlaceholder) {
 		t.Errorf("a placeholder survived the registry script (exit %d):\n%s", run.exit, run.stdout)
+	}
+}
+
+// An explicit template path takes precedence over the environment default.
+func TestTheLabRegistryScriptPrefersTheTemplateArgument(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	argument := writeTemplate(t, "argument: \""+edgePlaceholder+"\"\n")
+	environment := writeTemplate(t, "environment: \""+edgePlaceholder+"\"\n")
+	run := runLabScriptWithEnv(t, t.TempDir(), []string{"FLOWSEER_REGISTRY_TEMPLATE=" + environment}, labRegistryScript, "edge-7", argument)
+	if run.exit != 0 {
+		t.Fatalf("the registry script exited %d:\n%s", run.exit, run.stderr)
+	}
+	if want := "argument: \"edge-7\"\n"; run.stdout != want {
+		t.Errorf("the registry script wrote %q, want %q", run.stdout, want)
 	}
 }
 
