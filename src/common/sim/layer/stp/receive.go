@@ -513,9 +513,18 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		}
 		l.recordReceivedBPDU(p, b, internal, now)
 	}
+	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement())
+
+	var previousRootID bpdu.BridgeID
+	var previousRootCost uint32
+	var previousRootPort string
 	if internal && t.id == cistID && stored {
-		// CIST information is role-selected before MSTI records are judged. The
-		// final recompute below still advances every tree's state.
+		// CIST information is role-selected before MSTI records are judged. Keep
+		// the previous root values for recompute, which requests changed
+		// information after it elects the stored root.
+		previousRootID = t.rootID
+		previousRootCost = t.rootPathCost
+		previousRootPort = t.rootPort
 		l.electRoot(t, now)
 		l.assignRoles(t, now)
 	}
@@ -529,7 +538,6 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 		mstiProposals = l.receiveMSTIs(now, p.name, b, heldCISTVec, flushes)
 	}
 
-	l.recordAgreement(t, p, link, incoming, b.Role(), b.Agreement())
 	if l.mst != nil && link.external {
 		for _, id := range l.treeOrder {
 			mt := l.trees[id]
@@ -546,6 +554,11 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	}
 
 	l.propagateReceivedTC(t, p, link, b, now, flushes)
+	if internal && t.id == cistID && stored {
+		t.rootID = previousRootID
+		t.rootPathCost = previousRootCost
+		t.rootPort = previousRootPort
+	}
 
 	l.recomputeAll(now, flushes)
 

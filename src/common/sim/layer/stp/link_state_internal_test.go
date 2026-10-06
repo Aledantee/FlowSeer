@@ -687,6 +687,78 @@ func TestSyncTreeRequestsBoundaryMSTIInformation(t *testing.T) {
 	}
 }
 
+func TestInternalCISTRootChangeRequestsDesignatedPort(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 6, 12, 3, 0, 0, time.UTC)
+	region := MST{
+		Name: "region",
+		Instances: map[bpdu.MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+		},
+	}
+	l := newLayer(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Ports:    map[string]Port{"p1": {}, "p2": {}},
+		MST:      &region,
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+	p2 := l.cist().ports["p2"]
+	p2.role = bpdu.RoleDesignated
+	p2.state = StateDiscarding
+	p2.agreed = false
+	tx := l.tx(l.cist(), "p2")
+	tx.newInfo = false
+	tx.newInfoMsti = false
+
+	peerRoot := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+	b := bpdu.BPDU{
+		Version:        3,
+		Type:           bpdu.TypeRapid,
+		RootID:         peerRoot,
+		RegionalRootID: peerRoot,
+		BridgeID:       peerRoot,
+		PortID:         0x8001,
+		HelloTime:      2 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		RemainingHops:  20,
+		ConfigID:       l.configID,
+	}
+	b.SetRole(bpdu.RoleRoot)
+
+	var flushes []layer.FlushTarget
+	l.applyBPDU(l.cist(), l.cist().ports["p1"], now, b, &flushes)
+
+	if got := l.cist().ports["p1"].role; got != bpdu.RoleRoot {
+		t.Fatalf("p1 CIST role = %v, want Root", got)
+	}
+	if p2.role != bpdu.RoleDesignated || p2.state != StateDiscarding || p2.agreed {
+		t.Fatalf("p2 CIST state = role %v, state %v, agreed %t, want Designated/Discarding/false", p2.role, p2.state, p2.agreed)
+	}
+	if !tx.newInfo {
+		t.Errorf("p2 CIST transmit request = %+v, want newInfo", *tx)
+	}
+
+	worseRoot := bpdu.BridgeID{Priority: 61440, Address: peerRoot.Address}
+	worse := b
+	worse.RootID = worseRoot
+	worse.RegionalRootID = worseRoot
+	worse.SetAgreement(true)
+	l.applyBPDU(l.cist(), l.cist().ports["p1"], now.Add(time.Second), worse, &flushes)
+
+	p1 := l.cist().ports["p1"]
+	if p1.role != bpdu.RoleDesignated {
+		t.Fatalf("p1 CIST role after worse same-source BPDU = %v, want Designated", p1.role)
+	}
+	if p1.agreed {
+		t.Errorf("p1 CIST agreement after returning to Designated = true, want false")
+	}
+}
+
 func TestHeldRSTPRequestReleasesAtHoldCountOne(t *testing.T) {
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
 	l := newLayer(Config{TxHoldCount: 1, Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))
