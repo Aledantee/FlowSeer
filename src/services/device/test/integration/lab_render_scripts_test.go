@@ -130,6 +130,31 @@ func TestTheLabProvisioningScriptWritesNothingOnBadInput(t *testing.T) {
 	}
 }
 
+// Empty required arguments have the same usage failure as missing arguments.
+func TestTheLabProvisioningScriptRefusesEmptyArguments(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	created := createdJSON(t, "lab-setup-key", base64.StdEncoding.EncodeToString([]byte("anchor")))
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{name: "created JSON", args: []string{"", "https://central.example:8443"}},
+		{name: "central URL", args: []string{created, ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			run := runLabScript(t, t.TempDir(), labProvisioningScript, tt.args...)
+			if run.exit != 2 || !strings.Contains(run.stderr, "usage:") || run.stdout != "" {
+				t.Errorf("an empty %s gave exit %d, stderr %q, stdout %q", tt.name, run.exit, run.stderr, run.stdout)
+			}
+		})
+	}
+}
+
 // writeTemplate writes a registry template holding body and returns its path.
 func writeTemplate(t *testing.T, body string) string {
 	t.Helper()
@@ -198,5 +223,17 @@ func TestTheLabRegistryScriptRefusesTheShippedTemplate(t *testing.T) {
 	run = runLabScript(t, tree, labRegistryScript, "some-id", filepath.Join(".", "..", "lab", "registry.textproto"))
 	if run.exit != 1 {
 		t.Errorf("the registry script exited %d on a second spelling of the shipped path, want 1:\n%s", run.exit, run.stdout)
+	}
+}
+
+// An empty edge identifier has the same usage failure as a missing one.
+func TestTheLabRegistryScriptRefusesAnEmptyEdge(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	template := writeTemplate(t, "id: \""+edgePlaceholder+"\"\n")
+	run := runLabScript(t, t.TempDir(), labRegistryScript, "", template)
+	if run.exit != 2 || !strings.Contains(run.stderr, "usage:") || run.stdout != "" {
+		t.Errorf("an empty edge gave exit %d, stderr %q, stdout %q", run.exit, run.stderr, run.stdout)
 	}
 }
