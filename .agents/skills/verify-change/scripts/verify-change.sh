@@ -543,6 +543,9 @@ fi
 # below, which stay as the last line of defence for a gate this list
 # misses.
 required_tools=(python3 go)
+if ((${#markdown_files[@]})); then
+  required_tools+=(uv)
+fi
 if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
@@ -627,7 +630,8 @@ fi
 
 if ((${#markdown_files[@]})); then
   need_tool python3
-  run python3 "$script_dir/check-markdown-links.py" "${markdown_files[@]}"
+  need_tool uv
+  run uv run tools/scripts/run.py verify check-markdown-links "${markdown_files[@]}"
   run python3 .claude/skills/prose/scripts/check-prose.py --quiet "${markdown_files[@]}"
 fi
 

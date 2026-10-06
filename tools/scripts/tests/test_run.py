@@ -20,7 +20,7 @@ class RunTest(unittest.TestCase):
     def test_unknown_command_exits_2_and_prints_the_registry(self):
         result = invoke("verify", "no-such-check")
         self.assertEqual(result.returncode, 2)
-        self.assertIn("list", result.stderr.splitlines())
+        self.assertIn("verify check-markdown-links", result.stderr.splitlines())
 
     def test_unknown_group_exits_2(self):
         self.assertEqual(invoke("nope", "x").returncode, 2)
@@ -30,7 +30,7 @@ class RunTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         lines = result.stdout.splitlines()
         self.assertEqual(lines, sorted(lines))
-        self.assertEqual(lines[:2], ["list", "test"])
+        self.assertEqual(lines, ["list", "test", "verify check-markdown-links"])
 
     def test_test_fails_on_zero_tests(self):
         with tempfile.TemporaryDirectory() as empty:

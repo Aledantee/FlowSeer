@@ -1,13 +1,9 @@
-#!/usr/bin/env python3
 """Check relative Markdown links in explicitly selected files."""
-
-from __future__ import annotations
 
 import re
 import sys
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
-
 
 LINK = re.compile(r"!?\[[^\]]*\]\((?:<([^>]+)>|([^\s)]+))(?:\s+[^)]*)?\)")
 
@@ -35,10 +31,10 @@ def check_file(path: Path, root: Path) -> list[str]:
     return failures
 
 
-def main() -> int:
+def main(argv: list[str]) -> int:
     root = Path.cwd().resolve()
     failures: list[str] = []
-    for argument in sys.argv[1:]:
+    for argument in argv:
         path = Path(argument)
         if path.is_file():
             failures.extend(check_file(path, root))
@@ -46,8 +42,3 @@ def main() -> int:
         print("\n".join(failures), file=sys.stderr)
         return 1
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-
