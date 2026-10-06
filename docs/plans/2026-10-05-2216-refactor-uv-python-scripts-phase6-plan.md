@@ -142,6 +142,8 @@ the verifier compiles and tests Python under `tools/scripts/` and
   to `docs/dependencies/records/`, which does not exist yet, so each
   statement names the four versions and says the source is not yet
   reviewed, as the existing statements do.
+Ruled: Python statements live at `docs/dependencies/statements/pypi/<package>.md`. Why: the user answered the open question on 2026-10-06. Cost if wrong: a move of two files and the `required_by` of nothing else.
+Ruled: the statements are written and a person approves each one before the script's dependency block or lock exists. Why: the user answered the open question on 2026-10-06, which makes the earlier order (statements and block in one unit) obsolete. Cost if wrong: none beyond the wait for the approval.
 - The certificates keep the shell's keys, names, and lifetime and gain the
   extensions a strict verifier asks for. The CA is RSA 4096 with subject
   `CN=FlowSeer Lab CA`, and the server is RSA 2048 with subject
@@ -541,16 +543,6 @@ No unit names a file the phase 2 plan names in a `Files:` line.
   the case `src/protocol/smi/bench/bench-gate.sh:86` to `:97` guards. The
   port keeps the verdict. Adding the guard changes a verdict and is left
   to a person.
-- Is `docs/dependencies/statements/pypi/` the place for a Python
-  statement? Unconfirmed. The admission record names no directory, and the
-  plan takes the gate's `<ecosystem>/<name>.md` shape. Nothing checks the
-  two files until the gate reads script metadata, which is dependency
-  admission work.
-- The admission record has a person approve a statement "before the
-  manifest changes". The implementer writes both statements with an empty
-  `approved` and changes the block in the same unit, and the ruling is
-  asked for before the phase lands. A person who wants the ruling first
-  gives it before U3 starts.
 - Whether the Dex and OpenFGA containers accept the new chain is
   unverified. Both are Go programs and Go 1.27.1 loads and verifies it,
   but neither image was started. The manual lab run under Verification
