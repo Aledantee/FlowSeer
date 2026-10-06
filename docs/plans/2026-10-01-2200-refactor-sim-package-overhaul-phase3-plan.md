@@ -212,6 +212,17 @@ under Inventory, Sources.
 - A role return that restarts the edge delay and requests no frame
   (`S/roles.go`) is unverified and joins the bridge detection Limits for
   the later plan. (decided by the user, 2026-10-06)
+- An MSTI agreement is judged after CIST role selection for the same BPDU.
+  `D2009` permits that order and does not require it (Figures 13-20 and
+  13-21 give no condition between them), so it is the layer's own choice,
+  in line with the NOTE under 13.28.24 and with 13.16.4. (decided by the
+  user, 2026-10-06)
+- A topology change raised by a BPDU is handled before that BPDU's root
+  election for every BPDU class, so a port that does not send RSTP sets
+  `tcWhile` from the times of the root held before the BPDU. The standard
+  orders neither (`D2009` 13.29.11 and 13.29.33 d), Figure 13-28), so this
+  is the layer's own rule. One more round applies it under the closing
+  rule above. (decided by the user, 2026-10-06)
 
 ## Requirements
 
@@ -1627,15 +1638,3 @@ Line numbers hold at `7de7c8ea`. An item that U8 to U15 take is not listed.
 - src/common/sim/layer/stp/roles.go:40: `armHelloTimers` comment names the removed Advance hello loop; fails: the comment describes its current caller
 - src/common/sim/layer/stp/layer_test.go:1265: comment calls a TCN reply a Configuration BPDU; fails: it names the asserted frame
 - src/common/sim/layer/stp/layer_test.go:4332: comment promises a TCAck check absent from the assertions; fails: the test checks the promised bit
-- Parked by drive: the second closing round fixed the sync's frame request,
-  and each of its three mutations now fails a test. Its fix for an MSTI
-  agreement on a port that turns Designated in the call runs the CIST
-  election early in `applyBPDU`, and the re-review found that this changes
-  the timers a port that does not send RSTP reads for `tcWhile`. The work
-  is on `parked/sim-p3-review`. Options: take the early election out, keep
-  the rule for a port that stays Designated, and record the mid-call case
-  as a limit (returns `applyBPDU` to the order reviewed before, one
-  re-review) | fix the timer read and keep the early election (keeps the
-  mid-call rule, patches the path that just broke) | accept now with the
-  defect recorded. Recommended: take the early election out, because it is
-  the change that caused the defect and the case it serves is narrow.
