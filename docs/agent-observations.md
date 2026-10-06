@@ -25,3 +25,20 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ```
 
 ## Entries
+
+## 2026-10-06 implement: a verifier log under `$TMPDIR` was read back from another directory
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
+`.claude/skills/verify-change/SKILL.md`, "Send output you may need to a file
+under `$TMPDIR`".
+What happened: the verifier runs with the sandbox disabled, where `$TMPDIR`
+is a different directory from the sandboxed one. The coordinator wrote the
+run's log to `$TMPDIR/verify-u1.log` unsandboxed, then read
+`$TMPDIR/verify-u1.log` from a sandboxed command and got a file of that name
+left by an earlier session, whose last line read `FlowSeer verification
+passed.` The real run had failed. A lane was graded `--verify pass` on it
+before `ledger.py` refused the stale receipt. The step was followed as
+written. `delegate`, Write the brief, already rules `$TMPDIR` out for briefs
+for the same reason.
+Suggested change: in both places, name the session scratchpad directory for
+a log an unsandboxed command writes and a later command reads, and keep
+`$TMPDIR` for files one command writes and reads itself.
