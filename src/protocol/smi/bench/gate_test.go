@@ -304,7 +304,6 @@ func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 	if !strings.Contains(run.output, "regression above 1% vs baseline") {
 		t.Errorf("gate did not fall back to MIN_DELTA=1:\n%s", run.output)
 	}
-
 }
 
 // TestGateComparesMinDeltaLikeAwk pins the verdict for a MIN_DELTA that

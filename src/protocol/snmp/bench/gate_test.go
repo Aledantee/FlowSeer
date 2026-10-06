@@ -200,7 +200,6 @@ func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
 	if !strings.Contains(run.output, "running micro benchmarks (BENCH=. COUNT=10)") {
 		t.Errorf("gate did not fall back to BENCH=. and COUNT=10:\n%s", run.output)
 	}
-
 }
 
 // TestGateReadsLinesByLineFeedOnly pins that a carriage return is not a
