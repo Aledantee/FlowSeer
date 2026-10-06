@@ -1253,6 +1253,7 @@ func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	l := mustNewSTP(t, stp.Config{
 		Priority: 32768, Address: mustMAC(t, "02:00:00:00:00:02"),
+		HelloTime: 4 * time.Second, MaxAge: 24 * time.Second, ForwardDelay: 13 * time.Second,
 		Ports: map[string]stp.Port{"p1": {}, "p2": {AutoEdge: true}},
 	}, mustPortTable(t, "p1", "p2"))
 	l.LinkChange(start, "p1", true, true, 1_000_000_000)
@@ -1271,10 +1272,26 @@ func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
 	proposal.Type = bpdu.TypeRapid
 	proposal.SetRole(bpdu.RoleDesignated)
 	proposal.SetProposal(true)
-	cut := start.Add(5500 * time.Millisecond)
-	l.Receive(cut, "p1", proposal)
+	cut := start.Add(5250 * time.Millisecond)
+	cutEffects := l.Receive(cut, "p1", proposal)
 	if info := l.PortInfo("p2"); info.State != stp.StateDiscarding || info.Edge {
 		t.Fatalf("p2 after sync cut = %+v, want non-edge Discarding", info)
+	}
+	proposalSent := false
+	for _, emission := range cutEffects.Emissions {
+		if emission.Port != "p2" {
+			continue
+		}
+		decoded, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("decode p2 sync emission: %v", err)
+		}
+		if decoded.Proposal() {
+			proposalSent = true
+		}
+	}
+	if !proposalSent {
+		t.Fatalf("sync cut emissions = %v, want p2 proposal in the cut call", cutEffects.Emissions)
 	}
 	if next, ok := l.NextWake(); !ok || next.Before(cut) {
 		t.Errorf("NextWake after sync cut = (%v, %v), want no earlier than %v", next, ok, cut)
