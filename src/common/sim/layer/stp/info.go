@@ -24,7 +24,8 @@ const (
 
 	// BlockReasonLoopInconsistent marks a port whose received information
 	// expired while it held a non-designated role, which loop guard keeps
-	// discarding rather than letting it open a loop. The next BPDU clears it.
+	// discarding rather than letting it open a loop. A BPDU applied to that
+	// tree clears it, as does a link down. Under MSTP an MSTI reads the CIST mark.
 	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
 )
 
@@ -79,7 +80,8 @@ type PortInfo struct {
 // pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU disagreed
 // about the link, so it reads from p. BPDU guard outranks the rest because it
 // disables the port outright. PVID inconsistency outranks loop guard on the
-// arrival tree because the same frame can establish both marks.
+// arrival tree because a PVID-inconsistent frame can leave an existing
+// loop-guard mark in place while establishing the PVID mark.
 func (l *Layer) blockReason(p, cistP *portState, link *linkRecord) BlockReason {
 	switch {
 	case link.bpduGuardDisabled:
@@ -146,15 +148,15 @@ func (l *Layer) TopologyChanges() (uint64, time.Time) {
 }
 
 // BridgeID returns this bridge's identifier on the common tree, with the
-// priority in effect. Outside PVST mode that is the bridge's only identifier;
-// inside it, it is VLAN 1's, and every other VLAN's carries its own VLAN in
-// the system-ID extension.
+// priority in effect. Outside PVST mode that is the bridge's CIST identifier.
+// Inside it, it is VLAN 1's identifier
+// and every other VLAN's carries its own VLAN in the system-ID extension.
 func (l *Layer) BridgeID() bpdu.BridgeID {
 	return l.cist().bridgeID
 }
 
-// Times returns the max age, hello time, and forward delay in force: the root's
-// values as received on the root port, or this bridge's own while it is root.
+// Times returns the max age and forward delay received on the root port,
+// or this bridge's own values while it is root. Hello time is always local.
 func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 	return l.times(l.cist())
 }
@@ -196,7 +198,7 @@ func (l *Layer) instancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
 // VLANPortInfo returns runtime spanning tree information for the named port
 // within the tree that carries the given VLAN. On a bridge running one tree
 // every VLAN answers alike, which is what makes this usable as the per-VLAN
-// view in every mode; PVST is what makes the VLANs diverge. It returns a zero
+// view in every mode. PVST is what makes the VLANs diverge. It returns a zero
 // value when the VLAN has no tree of its own, which is also what
 // instancePortInfo answers for an unknown MSTID.
 func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
@@ -210,17 +212,13 @@ func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
 
 // TracksVLAN reports whether the layer runs a spanning tree for the given
 // VLAN. Outside PVST mode this is always true, since the CIST carries every
-// VLAN; under PVST it is true only for a VLAN with its own tree.
+// VLAN. Under PVST it is true only for a VLAN with its own tree.
 func (l *Layer) TracksVLAN(vid vlan.ID) bool {
 	_, ok := l.treeFor(vid)
 
 	return ok
 }
 
-// PVSTBoundary reports whether the named port faces a neighbor whose
-// spanning tree this bridge cannot simulate per VLAN: an MSTP neighbor on a
-// PVST bridge, or a PVST neighbor on one that is not. The mark survives
-// until the link goes down, since only that can replace the neighbor.
 // PVSTBoundary reports whether the named port faces a neighbor whose
 // spanning tree this bridge cannot simulate per VLAN: an MSTP neighbor on a
 // PVST bridge, or a PVST neighbor on one that is not. The mark survives
@@ -315,7 +313,7 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 
 // BadBPDU records that a frame received on the named port could not be
 // decoded as a BPDU. badBPDUs is link-owned, so it is bumped on the link
-// record alone; every tree's PortInfo answers from that same copy. An
+// record alone. Every tree's PortInfo answers from that same copy. An
 // untracked port is ignored.
 func (l *Layer) BadBPDU(port string) {
 	if link, ok := l.links[port]; ok {

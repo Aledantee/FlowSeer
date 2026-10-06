@@ -217,7 +217,7 @@ func newLayer(cfg Config) *Layer {
 		for _, name := range sortedNames {
 			key := l.txKeyFor(l.trees[id], name)
 			if _, ok := l.portTx[key]; !ok {
-				l.portTx[key] = &portTx{}
+				l.portTx[key] = &portTx{newInfo: true, newInfoMsti: true}
 			}
 		}
 	}
@@ -289,7 +289,7 @@ func pvstBridgeID(t Tree, vid vlan.ID, bridgePriority uint16, address netaddr.MA
 
 // addTree builds and registers one tree beside the CIST: an MST instance's or
 // a PVST VLAN's. treePorts carries that tree's own per-port overrides. Each
-// port's identifier reuses the CIST's index half so it stays bridge-global;
+// port's identifier reuses the CIST's index half so it stays bridge-global,
 // only its priority half, and its path cost, can differ per tree.
 func (l *Layer) addTree(id treeID, vid vlan.ID, bridgeID bpdu.BridgeID, treePorts map[string]InstancePort, sortedNames []string) {
 	t := &tree{

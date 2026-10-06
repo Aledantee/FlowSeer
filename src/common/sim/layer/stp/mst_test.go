@@ -365,10 +365,8 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 	}
 }
 
-// TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
-// between the region configuration and the wire: bpdu.Encode refuses to build an
-// MST BPDU whose version 3 length would not fit 16 bits, so a region that
-// validates must not be able to reach that count.
+// TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries checks the
+// bpdu.MaxMSTIRecords boundary used by MST.Validate.
 func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	t.Parallel()
 
@@ -377,8 +375,8 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 		t.Fatalf("port.Builder.Build: %v", err)
 	}
 
-	// 64 records is the most an MST BPDU can carry; the MSTID space runs to
-	// 4094, so a region can ask for more than the wire allows.
+	// An MSTID remains valid past the record count limit, so the 65th
+	// instance exercises the count check.
 	instances := make(map[bpdu.MSTID]stp.Instance, 65)
 	for id := bpdu.MSTID(1); id <= 65; id++ {
 		instances[id] = stp.Instance{Priority: 4096}
@@ -392,6 +390,11 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 
 	if got := errs.Attributes(err)["field"]; got != "mst.instances" {
 		t.Errorf("field = %v, want mst.instances", got)
+	}
+
+	delete(instances, 65)
+	if err := m.Validate(tbl, nil); err != nil {
+		t.Errorf("Validate() with 64 instances = %v, want acceptance", err)
 	}
 }
 

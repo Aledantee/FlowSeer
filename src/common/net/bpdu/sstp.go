@@ -49,7 +49,9 @@ const (
 //
 // Configuration BPDUs use version 0, wire type 0x00, and only the topology
 // change and acknowledgment flags. RST BPDUs use wire type 0x02 and a version
-// of at least 2. TCN BPDUs use version 0 and wire type 0x80 without a TLV.
+// of at least 2 and clear bit 7 of the flags (bit 8 in IEEE 802.1Q-2003
+// clause 14.6 g)). This codec models TCN BPDUs with version 0 and wire
+// type 0x80 without a TLV. The vendor TCN layout is unverified.
 // EncodeSSTP refuses a b whose ConfigID is non-nil: an MST BPDU has no SSTP
 // form.
 func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
@@ -93,7 +95,7 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 		}
 		payload[10] = version
 		payload[11] = bpduTypeWireRST
-		payload[12] = b.Flags
+		payload[12] = b.Flags &^ flagTopologyChangeAck
 	}
 
 	// putBody writes the RST body fields (root id through forward delay)
@@ -121,7 +123,8 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 // with their 50-octet layout, and TCN shapes with at least 12 octets. It
 // rejects, wrapping [ErrUnsupported], malformed LLC/SNAP headers, a protocol
 // identifier other than 0, a version below 2 on the RST shape, unsupported
-// wire types, and malformed Configuration or RST TLVs.
+// wire types, and malformed Configuration or RST TLVs. Configuration flags
+// retain only bits 0 and 7. RST flags have bit 7 cleared, as in [Decode].
 func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	if len(f.Payload) < sstpTCNLength {
 		return BPDU{}, 0, errs.From(ErrUnsupported).
@@ -201,10 +204,10 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	b := readBody(f.Payload[5:])
 	b.Version = version
 	b.Type = TypeRapid
-	b.Flags = f.Payload[12]
+	b.Flags = f.Payload[12] &^ flagTopologyChangeAck
 	if wireType == bpduTypeWireConfig {
 		b.Type = TypeConfiguration
-		b.Flags &= flagTopologyChange | flagTopologyChangeAck
+		b.Flags = f.Payload[12] & (flagTopologyChange | flagTopologyChangeAck)
 	}
 
 	vid := vlan.ID(binary.BigEndian.Uint16(f.Payload[48:50]))
