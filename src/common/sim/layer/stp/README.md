@@ -507,11 +507,19 @@ The implementation structures its logic around the standard state machines:
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clause 13.29 and draft P802.1aq/D1.5 clause 13.32, Figure 13-17. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
 
 An auto-edge port starts its edge delay when the common tree enters proposing.
-The delay restarts on a later entry to proposing, including a sync cut from
-Forwarding, but proposals on other trees do not restart it. Every admitted
-BPDU also restarts the port's delay, whether it arrives through IEEE or SSTP.
-These transitions follow P802.1aq/D1.5 Figures 13-16 RECEIVE and 13-25
-DESIGNATED_PROPOSE.
+A sync restarts it when that port was not proposing or was not Discarding
+(`syncTree` in `receive.go`). Proposals on other trees do not restart it.
+The restart on a cut from Forwarding with proposing already set is the layer's
+own rule. Draft P802.1aq/D1.5 Figure 13-25 DESIGNATED_PROPOSE requires
+proposing to be clear before entering that state.
+
+Every BPDU past BPDU guard restarts the delay in `receiveLink` (`link.go`),
+including SSTP outcomes not-admitted, untracked, boundary, and PVID-inconsistent.
+This follows draft Figure 13-16 RECEIVE, before tree admission is decided.
+Returning to the common tree's Designated role while proposing also restarts
+it (`assignRoles` in `roles.go`). `Mcheck` brings an expired delay to the call's
+instant on a non-edge, AutoEdge, proposing, Discarding common-tree port
+(`link.go`).
 
 ### Limits
 

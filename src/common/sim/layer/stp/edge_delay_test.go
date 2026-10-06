@@ -15,6 +15,7 @@ import (
 func edgeTestBPDU(t *testing.T, priority uint16, role bpdu.Role, proposal, agreement bool) bpdu.BPDU {
 	t.Helper()
 	b := legacyConfigBPDU(t, priority, "02:00:00:00:00:0a")
+	b.Version = 2
 	b.Type = bpdu.TypeRapid
 	b.SetRole(role)
 	b.SetProposal(proposal)
@@ -173,12 +174,22 @@ func TestReceivedBPDUsKeepAutoEdgePortNonEdge(t *testing.T) {
 					t.Fatalf("after BPDU %d at %v, port = %+v, want non-edge Discarding", i, received, info)
 				}
 			}
+			last := start.Add(9 * time.Second)
+			l.Advance(last.Add(3*time.Second - time.Nanosecond))
+			if info := l.PortInfo("p1"); info.Edge {
+				t.Fatalf("one nanosecond before expiry = %+v, want non-edge", info)
+			}
+			l.Advance(last.Add(3 * time.Second))
+			if info := l.PortInfo("p1"); !info.Edge {
+				t.Fatalf("at last BPDU plus MigrateTime = %+v, want edge", info)
+			}
 		})
 	}
 }
 
 func TestEdgeDelayCallSequences(t *testing.T) {
 	for _, mode := range []string{"rstp", "mstp", "pvst"} {
+		edgeExpiries := 0
 		for _, seed := range []uint64{1, 7, 29, 101, 115} {
 			t.Run(fmt.Sprintf("%s/%d", mode, seed), func(t *testing.T) {
 				start := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
@@ -201,40 +212,82 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 				log := func(at time.Time, operation string) {
 					calls = append(calls, fmt.Sprintf("%s %s", at.Sub(start), operation))
 				}
+				var p2LastReset time.Time
+				p2WasEdge := false
+				checkP2 := func(at time.Time) {
+					t.Helper()
+					info := l.PortInfo("p2")
+					if l.PortLinked("p2") && info.Edge {
+						if !p2LastReset.IsZero() && at.Before(p2LastReset.Add(3*time.Second)) {
+							fail("p2 became edge at %v before last reset %v plus MigrateTime: %+v", at.Sub(start), p2LastReset.Sub(start), info)
+						}
+						if !p2WasEdge {
+							edgeExpiries++
+						}
+					}
+					p2WasEdge = info.Edge
+				}
+				log(start, "LinkChange p2 up point-to-point")
+				l.LinkChange(start, "p2", true, true, 1_000_000_000)
+				p2LastReset = start
+				checkP2(start)
 				log(start, "LinkChange quiet up point-to-point")
 				l.LinkChange(start, "quiet", true, true, 1_000_000_000)
+				checkP2(start)
 				log(start, "LinkChange heard up point-to-point")
 				l.LinkChange(start, "heard", true, true, 1_000_000_000)
+				checkP2(start)
 				now := start
 				heardNext := start.Add(time.Second)
+				heardLast := start
 				heardBPDU := edgeTestBPDU(t, 61440, bpdu.RoleDesignated, false, false)
 				quietChecked := false
+				var silenceUntil time.Time
 				for step := range 320 {
 					wake, hasWake := l.NextWake()
 					if hasWake && wake.Before(now) {
 						fail("step %d NextWake %v before %v", step, wake, now)
 					}
 					next := now.Add(time.Duration(rng.IntN(200)+50) * time.Millisecond)
+					if !silenceUntil.IsZero() {
+						next = silenceUntil
+					}
 					switch {
-					case !heardNext.After(next) && (!hasWake || !wake.Before(heardNext)):
+					case silenceUntil.IsZero() && !heardNext.After(next) && (!hasWake || !wake.Before(heardNext)):
 						now = heardNext
 						log(now, "Receive heard RST Designated")
 						l.Receive(now, "heard", heardBPDU)
+						heardLast = now
 						heardNext = heardNext.Add(2 * time.Second)
 					case hasWake && !wake.After(next):
 						now = wake
 						log(now, "Advance at NextWake")
 						l.Advance(now)
+						if !quietChecked && !now.Before(start.Add(3*time.Second)) {
+							if info := l.PortInfo("quiet"); !info.Edge || info.Role != bpdu.RoleDesignated {
+								fail("quiet port at first wake after edge delay = %+v", info)
+							}
+							quietChecked = true
+						}
 						if later, ok := l.NextWake(); ok && !later.After(now) {
 							fail("step %d Advance at wake %v left wake %v", step, now, later)
 						}
 					default:
 						now = next
+						if !silenceUntil.IsZero() {
+							log(now, "end driven-port silence")
+							silenceUntil = time.Time{}
+							heardNext = now
+							break
+						}
 						port := []string{"p1", "p2"}[rng.IntN(2)]
-						switch operation := rng.IntN(9); operation {
+						switch operation := rng.IntN(10); operation {
 						case 0, 1:
 							up, pointToPoint := rng.IntN(4) != 0, rng.IntN(2) == 0
 							log(now, fmt.Sprintf("LinkChange %s up=%t point-to-point=%t", port, up, pointToPoint))
+							if port == "p2" && (!up || !l.PortLinked(port) || l.PortInfo(port).PointToPoint != pointToPoint) {
+								p2LastReset = now
+							}
 							l.LinkChange(now, port, up, pointToPoint, 1_000_000_000)
 						case 2, 3, 4:
 							role := []bpdu.Role{bpdu.RoleDesignated, bpdu.RoleRoot}[rng.IntN(2)]
@@ -242,6 +295,9 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 							proposal, agreement := rng.IntN(2) == 0, rng.IntN(2) == 0
 							b := edgeTestBPDU(t, priority, role, proposal, agreement)
 							log(now, fmt.Sprintf("Receive %s RST priority=%d role=%v proposal=%t agreement=%t", port, priority, role, proposal, agreement))
+							if port == "p2" && l.PortLinked(port) {
+								p2LastReset = now
+							}
 							l.Receive(now, port, b)
 						case 5:
 							b := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
@@ -249,6 +305,9 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 								b.Type = bpdu.TypeTopologyChangeNotification
 							}
 							log(now, fmt.Sprintf("Receive %s legacy type=%v", port, b.Type))
+							if port == "p2" && l.PortLinked(port) {
+								p2LastReset = now
+							}
 							l.Receive(now, port, b)
 						case 6:
 							log(now, fmt.Sprintf("Mcheck %s", port))
@@ -261,10 +320,16 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 								b.Version, b.ConfigID, b.RegionalRootID, b.RemainingHops = 3, &cid, b.RootID, 20
 								b.MSTIs = []bpdu.MSTIRecord{{MSTID: 1, RegionalRootID: b.RootID, RemainingHops: 20}}
 								log(now, fmt.Sprintf("Receive %s MST with MSTI", port))
+								if port == "p2" && l.PortLinked(port) {
+									p2LastReset = now
+								}
 								l.Receive(now, port, b)
 							case "pvst":
 								b := edgeTestBPDU(t, 4096, bpdu.RoleDesignated, true, false)
 								log(now, fmt.Sprintf("ReceiveSSTP %s VLAN 10", port))
+								if port == "p2" && l.PortLinked(port) {
+									p2LastReset = now
+								}
 								l.ReceiveSSTP(now, port, stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, b)
 							default:
 								log(now, "Advance")
@@ -273,30 +338,27 @@ func TestEdgeDelayCallSequences(t *testing.T) {
 						case 8:
 							log(now, "Advance")
 							l.Advance(now)
+						case 9:
+							silenceUntil = now.Add(time.Duration(rng.IntN(8)+1) * time.Second)
+							log(now, fmt.Sprintf("service wakes until %s with driven ports silent", silenceUntil.Sub(start)))
 						}
 					}
 					if next, ok := l.NextWake(); ok && next.Before(now) {
 						fail("step %d NextWake %v before %v", step, next, now)
 					}
-					if info := l.PortInfo("heard"); info.Edge {
+					if info := l.PortInfo("heard"); info.Edge && now.Before(heardLast.Add(3*time.Second)) {
 						fail("step %d heard port became edge: %+v", step, info)
 					}
-					if !quietChecked && !now.Before(start.Add(3*time.Second)) {
-						log(now, "Advance at or after quiet edge delay")
-						l.Advance(now)
-						if info := l.PortInfo("quiet"); !info.Edge || info.Role != bpdu.RoleDesignated {
-							fail("quiet port at first Advance after edge delay = %+v", info)
-						}
-						quietChecked = true
-					}
-					if info := l.PortInfo("heard"); info.Edge {
-						fail("step %d heard port became edge after Advance: %+v", step, info)
-					}
+					checkP2(now)
 				}
 				if !quietChecked {
 					fail("quiet port never reached edge delay")
 				}
 			})
 		}
+		if edgeExpiries == 0 {
+			t.Errorf("%s: p2 reached no edge-delay expiry", mode)
+		}
+		t.Logf("%s: p2 edge-delay expiries = %d", mode, edgeExpiries)
 	}
 }
