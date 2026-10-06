@@ -321,5 +321,7 @@ verdict.
 - .agents/skills/next/scripts/plan-queue.py:206: the `changed_here.update` line removed; fails: a phase implemented on its unmerged branch whose branch record is already on `main` is grouped `retire`, not `unchecked`; class: gap
 - .agents/skills/drive/scripts/plan-state.py:112: `open_plans` reading with `load`; fails: a plan without phases implemented on its unmerged branch is listed `planned`; class: gap
 - .agents/skills/drive/scripts/plan-state.py:95: `plan not in owed` removed; fails: a phase owed a land on an unmerged branch prints `next: land <phase> after <phase>`; class: gap
-- .agents/skills/delegate/scripts/orca-worker.sh:579: the live-lane refusal of a removing `stop` disabled; fails: `stop <kept lane>` while a joined lane's terminal is live removes that lane's checkout; class: gap
-- .agents/skills/delegate/scripts/orca-worker.sh:572: the already-kept refusal of `stop --keep-worktree` disabled; fails: a second `stop <lane> --keep-worktree` on a kept lane exits 0; class: gap
+- .agents/skills/delegate/scripts/orca-worker.sh:583: the live-lane refusal of a removing `stop` disabled; fails: `stop <kept lane>` while a joined lane's terminal is live removes that lane's checkout; class: gap
+- .agents/skills/delegate/scripts/orca-worker.sh:576: the already-kept refusal of `stop --keep-worktree` disabled; fails: a second `stop <lane> --keep-worktree` on a kept lane exits 0; class: gap
+- .agents/skills/drive/SKILL.md:157: "grade the last lane with a `--note` saying so" beside item 4's "Grade the last lane, once"; fails: a literal reader grades a self-merged plan's last lane in item 1 and again in item 4; class: convention
+- .agents/skills/drive/SKILL.md:208: "the plan's last lane for items 4 and 5"; fails: on `self-merged`, item 1's "last lane" still reads as the lane the conflict paragraph already graded; class: convention
