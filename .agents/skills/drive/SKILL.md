@@ -154,8 +154,8 @@ before `land`:
 
 1. Check whether a worker merged the plan's branch itself against its
    brief, with `$base` from the plan's first lane and `$branch` the recorded
-   branch. On `self-merged`, name it in the report and grade the last lane
-   with a `--note` saying so; the items below still run.
+   branch. On `self-merged`, name it in the report and carry a `--note`
+   saying so into item 4's one grade. The items below still run.
    `[ "$(git rev-list --count "$base..$branch")" -gt 0 ] && git merge-base --is-ancestor "$branch" HEAD && echo self-merged`
 2. Merge the plan's branch here: `git merge --no-ff --no-edit <branch>`,
    sandbox disabled when the branch touched `.claude/` or `.agents/`. After
@@ -205,7 +205,7 @@ still-live lane `--outcome accepted --verify none` and stop it with
 `--keep-worktree` before the join, both as "After each stage" item 4 spells
 them. Join the phase's worktree with a lane whose brief merges this branch's
 `HEAD` and resolves the conflict there. The lane that resolves the conflict is
-the plan's last lane for items 4 and 5 of "After the last stage". Run that
+the plan's last lane for the whole "After the last stage" list. Run that
 list again.
 
 A landed phase records its implementation range with
