@@ -80,3 +80,20 @@ Suggested change: say in the brief that a worker edits files under
 `.agents/skills` with the Edit tool, and say in `fix-loop.md` and
 `delegate`'s merge step what `land` step 3 already says: a merge touching
 `.agents/skills` runs with the sandbox disabled.
+
+## 2026-10-06 next: the queue ignores dependencies between plans and work already started
+Skill or agent: `.claude/skills/next/SKILL.md`, steps 1 and 2, with `.claude/skills/next/scripts/plan-queue.py`.
+What happened: the user asked that plans be ordered by their expected
+dependencies, so that no work is done twice. The queue orders only by group
+and date, and it reads only declared phase prerequisites. A plan that
+changes files another plan builds on, such as the plan state file change
+under the skills that the uv scripts phases also edit, is not ordered
+before it. The `elsewhere` flag reads only unmerged branches with commits.
+When `next` ran, `git branch --no-merged main` printed nothing, yet a
+session in `worktree-review-plan-state` was already reviewing the plan
+state file change. This session then reviewed it again, and `main` retired
+the plan first (`cf3b2aca`). The step was followed as written.
+Suggested change: in `plan-queue.py`, order a plan after an open plan whose
+Units name files it also names, and flag a plan as `elsewhere` when another
+worktree's ledger or branch name points at it, even with no commits yet.
+In `next` step 2, skip such a plan and name the worktree.
