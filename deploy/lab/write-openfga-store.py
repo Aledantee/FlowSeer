@@ -74,8 +74,8 @@ def field(response: str, name: str) -> str:
 
 
 def run() -> int:
-    http_endpoint = os.environ.get("OPENFGA_HTTP_ENDPOINT", "https://127.0.0.1:8080")
-    grpc_endpoint = os.environ.get("OPENFGA_GRPC_ENDPOINT", "https://127.0.0.1:8081")
+    http_endpoint = os.environ.get("OPENFGA_HTTP_ENDPOINT") or "https://127.0.0.1:8080"
+    grpc_endpoint = os.environ.get("OPENFGA_GRPC_ENDPOINT") or "https://127.0.0.1:8081"
 
     if not MODEL_FILE.is_file():
         print(f"Model file not found: {MODEL_FILE}", file=sys.stderr)

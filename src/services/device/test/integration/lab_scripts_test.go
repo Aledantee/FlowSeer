@@ -540,7 +540,7 @@ func startLabOpenFGA(t *testing.T, tree, storeID string) *labOpenFGA {
 }
 
 // runStoreScript runs the store script in the tree against the fake server.
-func runStoreScript(t *testing.T, tree string, f *labOpenFGA) labRun {
+func runStoreScript(t *testing.T, tree string, f *labOpenFGA, env ...string) labRun {
 	t.Helper()
 
 	dir := filepath.Join(tree, labDir)
@@ -550,7 +550,41 @@ func runStoreScript(t *testing.T, tree string, f *labOpenFGA) labRun {
 	cmd := exec.Command("uv", "run", name)
 	cmd.Dir = dir
 
-	return startLabCommand(t, cmd, []string{"OPENFGA_HTTP_ENDPOINT=" + f.server.URL})
+	return startLabCommand(t, cmd, append([]string{"OPENFGA_HTTP_ENDPOINT=" + f.server.URL}, env...))
+}
+
+// An empty gRPC endpoint takes the same default as an unset endpoint.
+func TestTheLabStoreScriptDefaultsAnEmptyGRPCEndpoint(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	tree := labTree(t)
+	f := startLabOpenFGA(t, tree, "S1")
+
+	run := runStoreScript(t, tree, f, "OPENFGA_GRPC_ENDPOINT=")
+	if run.exit != 0 {
+		t.Fatalf("the store script exited %d:\n%s", run.exit, run.stderr)
+	}
+	if !strings.Contains(run.stdout, `endpoint: "https://127.0.0.1:8081"`) {
+		t.Errorf("the printed block lacks the default endpoint:\n%s", run.stdout)
+	}
+}
+
+// An empty HTTP endpoint uses the default URL before it sends a request.
+func TestTheLabStoreScriptDefaultsAnEmptyHTTPEndpoint(t *testing.T) {
+	t.Parallel()
+
+	skipUnlessLabScriptsRun(t)
+	tree := labTree(t)
+	f := startLabOpenFGA(t, tree, "S1")
+
+	run := runStoreScript(t, tree, f, "OPENFGA_HTTP_ENDPOINT=")
+	if strings.Contains(run.stderr, "unknown url type") || strings.Contains(run.stderr, "ValueError") {
+		t.Errorf("the store script did not use the default HTTP endpoint:\n%s", run.stderr)
+	}
+	if !strings.Contains(run.stderr, "https://127.0.0.1:8080/stores") {
+		t.Errorf("the store script did not request the default HTTP endpoint:\n%s", run.stderr)
+	}
 }
 
 // The store script authenticates to a server the lab CA signed, with the

@@ -44,6 +44,8 @@ def main() -> int:
     parser.add_argument("edge", help="the edge identifier CreateEdge returned")
     parser.add_argument("template", nargs="?", help="the template to render (default: registry.textproto beside this script)")
     args = parser.parse_args()
+    if not args.edge:
+        parser.error("argument edge: expected a non-empty value")
 
     shipped = Path(__file__).resolve().parent / "registry.textproto"
     template = Path(args.template or os.environ.get("FLOWSEER_REGISTRY_TEMPLATE") or shipped)

@@ -89,12 +89,16 @@ def render(created: Path, central: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Render the EdgeProvisioning an agent reads.")
-    parser.add_argument("created", type=Path, help="the JSON body CreateEdge returned")
+    parser.add_argument("created", help="the JSON body CreateEdge returned")
     parser.add_argument("central_url", help="the URL the agent enrolls against")
     args = parser.parse_args()
+    if not args.created:
+        parser.error("argument created: expected a non-empty value")
+    if not args.central_url:
+        parser.error("argument central_url: expected a non-empty value")
 
     try:
-        text = render(args.created, args.central_url)
+        text = render(Path(args.created), args.central_url)
     except ProvisioningError as error:
         print(f"write-provisioning: {error}", file=sys.stderr)
         return 1
