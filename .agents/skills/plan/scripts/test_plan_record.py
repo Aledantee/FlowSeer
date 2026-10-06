@@ -154,6 +154,12 @@ class PlanRecordTest(unittest.TestCase):
         path.write_text(json.dumps(state), encoding="utf-8")
         self.assertIn("missing key 'branch'", self.record("check", code=1).stderr)
 
+    def test_check_rejects_a_branch_that_is_not_a_branch_name(self):
+        for plan in (PARENT, FIRST, PHASE, PLAIN):
+            self.record("init", plan)
+        self.put(PLAIN, branch="a b")
+        self.assertIn("branch must be null or a branch-name-safe string", self.record("check", code=1).stderr)
+
     def test_reads_follow_an_unmerged_branch(self):
         self.followed_branch()
         self.record("implemented", PLAIN, *RUN)

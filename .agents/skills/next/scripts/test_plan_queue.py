@@ -393,6 +393,22 @@ class PlanQueueTest(unittest.TestCase):
         row = self.rows()[PHASE]
         self.assertEqual((row["group"], row["branch"]), ("land", None))
 
+    def test_phase_on_its_recorded_branch_is_unchecked_when_main_holds_the_record(self):
+        # The commit that recorded the branch is on main, so a diff of the
+        # plans against main lists nothing here.
+        self.git("checkout", "-q", "-b", "stage", "main")
+        self.write("stage-code", "stage\n")
+        self.implement(PHASE, self.commit("stage code"))
+        self.commit("phase implemented on its branch")
+        self.git("checkout", "-q", "main")
+        self.record("branch", PHASE, "stage")
+        self.commit("branch recorded on main")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "--no-edit", "main")
+        self.assertEqual(self.git("diff", "--name-only", "main...HEAD", "--", "docs/plans"), "")
+        row = self.rows()[PHASE]
+        self.assertEqual((row["group"], row["status"], row["branch"]), ("unchecked", "implemented", "stage"))
+
     def test_row_carries_the_title_and_the_unit_count(self):
         row = self.rows()[PHASE]
         self.assertEqual((row["title"], row["units"]), ("Phase", 2))
