@@ -10,8 +10,8 @@ The files one lab run needs: the device service, its registry and edge agent, an
 | `provisioning.textproto` | `EdgeProvisioning`: the credentials central issues to an edge |
 | `compose.yaml` | Container definitions for Postgres, OpenFGA, and Dex |
 | `dex/config.yaml` | Dex identity provider configuration |
-| `write-lab-secrets.sh` | Generates TLS certificates, keys, and user credentials under `secrets/` |
-| `write-openfga-store.sh` | Creates the OpenFGA store, writes the authorization model, and prints the `authorization` block |
+| `write-lab-secrets.py` | Generates TLS certificates, keys, and user credentials under `secrets/` |
+| `write-openfga-store.py` | Creates the OpenFGA store, writes the authorization model, and prints the `authorization` block |
 
 The provisioning file is the only file that holds an edge credential. Its placeholders fail validation on purpose, so an agent given an unedited file refuses it at load and names the field, instead of failing later somewhere less obvious.
 
@@ -26,7 +26,7 @@ Run every command from this directory. Compose publishes each port on `127.0.0.1
 1. Generate secrets and certificates. The script refuses to overwrite an existing `secrets/` directory, which `.gitignore` keeps out of the repository:
 
 ```bash
-./write-lab-secrets.sh
+uv run --locked write-lab-secrets.py
 ```
 
 `credentials.txt` holds the preshared key, the client secret, and one password per lab user.
@@ -40,10 +40,10 @@ docker compose up -d --wait
 3. Create the OpenFGA store and write the authorization model:
 
 ```bash
-./write-openfga-store.sh
+uv run write-openfga-store.py
 ```
 
-The script prints an `authorization` block. Paste it over the `authorization` section of `central.textproto`, which replaces the placeholder ids and the key path. Central validates the store and model identifiers at startup (`src/services/device/internal/authz/openfga/checker.go:153`) and refuses to start while `PLACEHOLDER_STORE_ID` or `PLACEHOLDER_MODEL_ID` remains. The block's `ca_file` is the lab CA. The `authentication` section needs the same file as its own `ca_file`, because Dex serves a certificate the system trust store does not know.
+The script prints an `authorization` block. Paste it over the `authorization` section of `central.textproto`, which replaces the placeholder ids and the key path. Central validates the store and model identifiers at startup (`src/services/device/internal/authz/openfga/checker.go:153`) and refuses to start while `PLACEHOLDER_STORE_ID` or `PLACEHOLDER_MODEL_ID` remains. The block's `ca_file` is the lab CA. The `authentication` section needs the same file as its own `ca_file`, because Dex serves a certificate the system trust store does not know. The script refuses a `secrets/` whose CA has no key usage extension, which is what an earlier version of the secrets script wrote. Delete `secrets/`, run the secrets script again, and recreate the containers, since the keys and hashes change with the directory.
 
 4. Request an operator token for each lab user by password grant, with the cross-client audience scope. `alice` belongs to the groups `acme` and `globex`, and `admin` to `flowseer-platform`:
 
@@ -420,7 +420,7 @@ A user leaves a group by editing `dex/config.yaml` and restarting the container.
 
 ## Secret files
 
-`write-lab-secrets.sh` creates every file owner-only. Compose bind-mounts `server.key` into the OpenFGA and Dex containers, which run as non-root users, and both read it on the Colima setup the tier tests use. Another Docker host may map file ownership differently. If a container cannot read the key, loosen the mode of `secrets/server.key` there only.
+`write-lab-secrets.py` creates every file owner-only. Compose bind-mounts `server.key` into the OpenFGA and Dex containers, which run as non-root users, and both read it on the Colima setup the tier tests use. Another Docker host may map file ownership differently. If a container cannot read the key, loosen the mode of `secrets/server.key` there only.
 
 ## Testing
 
