@@ -4,3 +4,6 @@ allowBuilds:
   # vue-demi's install script only switches between its Vue 2 and Vue 3
   # builds; the default already targets Vue 3.
   vue-demi: false
+# A version waits 14 days after publication before it may be resolved
+# (docs/conventions/dependencies.md, "Change a pin"). The unit is minutes.
+minimumReleaseAge: 20160

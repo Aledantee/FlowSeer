@@ -10,7 +10,7 @@ approved: 2026-10-02
 
 ## Why it is required
 
-No file under `frontend/web/src/` imports `@vueuse/core`. `motion-v` at `2.5.1` declares it as a peer dependency with the range `>=10.0.0` (`frontend/web/pnpm-lock.yaml`, `motion-v@2.5.1`, `peerDependencies`), so the application must install it for `motion-v` to resolve. The pinned direct requirement is `@vueuse/core` at `14.4.0` in `frontend/web/package.json`.
+No file under `frontend/web/src/` imports `@vueuse/core`. `motion-v` at `2.4.4` declares it as a peer dependency with the range `>=10.0.0` (`frontend/web/pnpm-lock.yaml`, `motion-v@2.4.4`, `peerDependencies`), so the application must install it for `motion-v` to resolve. The pinned direct requirement is `@vueuse/core` at `14.4.0` in `frontend/web/package.json`.
 
 ## Why it is safe
 
