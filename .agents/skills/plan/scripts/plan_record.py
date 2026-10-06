@@ -18,6 +18,7 @@ one for a plan sent back to `plan`.
     plan_record.py replan <plan> [--needs-decisions]
     plan_record.py supersede <plan> --by <path>
     plan_record.py abandon <plan>
+    plan_record.py branch <plan> <name> | --clear
     plan_record.py retire <plan>
     plan_record.py show <plan> [--json]
     plan_record.py is <plan> <field>=<value> | <field>!=<value>
@@ -59,6 +60,7 @@ VERDICTS = ("accept", "accept after fixes", "fixes needed", "rework")
 ACCEPTED = ("accept", "accept after fixes")
 MOVED = ("status", "artifact_readiness", "review", "review_rounds", "compound", "superseded_by", "parent")
 SHA = re.compile(r"[0-9a-f]{7,40}")
+BRANCH = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
 TIME = re.compile(r"\d{4}-\d\d-\d\dT\d\d:\d\d(:\d\d)?Z")
 BLANK = {
     "contract": CONTRACT,
@@ -69,6 +71,7 @@ BLANK = {
     "compound": None,
     "outcome": None,
     "superseded_by": None,
+    "branch": None,
     "parent": None,
     "after": [],
     "landed": None,
@@ -179,6 +182,8 @@ def shape_faults(state: object) -> list[str]:
          "outcome must be null or {units, from, to, note} with a positive count and UTC times"),
         (state["superseded_by"] is None or (isinstance(state["superseded_by"], str) and state["superseded_by"] != ""),
          "superseded_by must be null or a path"),
+        (state["branch"] is None or (isinstance(state["branch"], str) and BRANCH.fullmatch(state["branch"]) is not None),
+         "branch must be null or a branch-name-safe string"),
         (state["parent"] is None or is_plan(state["parent"]), "parent must be null or a plan path"),
         (state["landed"] is None or is_range(state["landed"]), "landed must be null or {first, last} commit ids"),
     ]
@@ -204,6 +209,8 @@ def combination_faults(plan: str, state: dict, states: dict[str, dict], on_disk:
         faults.append("status is implemented with parent set and landed null; an implemented phase carries its range")
     if (state["phases"] or state["retired"]) and parent:
         faults.append("phases or retired is non-empty with parent set; a phase has no phases of its own")
+    if (state["phases"] or state["retired"]) and state["branch"]:
+        faults.append("branch is set on a plan with phases or retired; a parent has no branch")
     if (state["phases"] or state["retired"]) and status in ("implemented", "partially-implemented"):
         faults.append(f"a parent's status is computed from its phases; the stored status must not be {status!r}")
     if (status == "superseded") != (state["superseded_by"] is not None):
@@ -295,6 +302,38 @@ def load(plan: str, root: Path | None = None) -> dict:
     return state
 
 
+def branch_to_follow(state: dict, root: Path) -> str | None:
+    branch = state["branch"]
+    if branch is None:
+        return None
+    ref = f"refs/heads/{branch}"
+    if git(root, "show-ref", "--verify", "--quiet", ref).returncode != 0:
+        return None
+    if git(root, "merge-base", "--is-ancestor", ref, "HEAD").returncode == 0:
+        return None
+    return branch
+
+
+def followed(plan: str, root: Path | None = None) -> dict:
+    root = root or tree_root()
+    state = load(plan, root)
+    branch = branch_to_follow(state, root)
+    if branch is None:
+        return state
+    out = git(root, "show", f"refs/heads/{branch}:{state_path(plan)}")
+    if out.returncode != 0:
+        raise InvalidState(f"{state_path(plan)} on branch {branch}: {out.stderr.strip()}")
+    try:
+        there = json.loads(out.stdout)
+    except ValueError as error:
+        raise InvalidState(f"{state_path(plan)} on branch {branch}: not valid JSON: {error}") from error
+    faults = shape_faults(there)
+    if faults:
+        raise InvalidState(f"{state_path(plan)} on branch {branch}: {'; '.join(faults)}")
+    there["branch"] = branch
+    return there
+
+
 def computed_status(state: dict) -> str:
     if state["status"] != "planned" or not (state["phases"] or state["retired"]):
         return state["status"]
@@ -304,7 +343,7 @@ def computed_status(state: dict) -> str:
 
 def status(plan: str, root: Path | None = None) -> str:
     """The plan's status, a parent's computed from its phases."""
-    return computed_status(load(plan, root))
+    return computed_status(followed(plan, root))
 
 
 def on_main(sha: str, root: Path | None = None) -> bool:
@@ -468,6 +507,16 @@ def cmd_after(root: Path, args: argparse.Namespace) -> None:
     print(f"plan state: {plan} runs after {', '.join(state['after']) or 'nothing'}")
 
 
+def cmd_branch(root: Path, args: argparse.Namespace) -> None:
+    plan = plan_arg(root, args.plan)
+    state = stored(root, plan)
+    if args.name and (not BRANCH.fullmatch(args.name) or git(root, "check-ref-format", "--branch", args.name).returncode):
+        fail(f"{args.name!r} is not a branch-name-safe string")
+    state["branch"] = None if args.clear else args.name
+    transition(root, {plan: state})
+    print(f"plan state: {plan} branch: {state['branch'] or 'null'}")
+
+
 def cmd_implemented(root: Path, args: argparse.Namespace) -> None:
     plan = plan_arg(root, args.plan)
     state = stored(root, plan)
@@ -583,7 +632,11 @@ def cmd_retire(root: Path, args: argparse.Namespace) -> None:
 
 def cmd_show(root: Path, args: argparse.Namespace) -> None:
     plan = plan_arg(root, args.plan)
-    state = stored(root, plan)
+    try:
+        checkout = load(plan, root)
+        state = followed(plan, root)
+    except StateError as error:
+        fail(str(error), 2)
     state["status"] = computed_status(state)
     if args.json:
         print(json.dumps(state, indent=2))
@@ -591,7 +644,12 @@ def cmd_show(root: Path, args: argparse.Namespace) -> None:
     print(plan)
     for key in BLANK:
         value = state[key]
-        print(f"  {key}: {value if isinstance(value, (str, int)) else json.dumps(value)}")
+        if key == "branch" and value and git(root, "show-ref", "--verify", "--quiet", f"refs/heads/{value}").returncode:
+            print(f"  branch: {value} (missing, read from this checkout)")
+        else:
+            print(f"  {key}: {value if isinstance(value, (str, int)) else json.dumps(value)}")
+    if branch_to_follow(checkout, root):
+        print(f"  read from: {checkout['branch']}")
 
 
 def cmd_is(root: Path, args: argparse.Namespace) -> None:
@@ -601,7 +659,10 @@ def cmd_is(root: Path, args: argparse.Namespace) -> None:
     field = field.removesuffix("!")
     if not sep or field not in BLANK:
         fail(f"{args.test!r} is not <field>=<value> over {', '.join(BLANK)}", 2)
-    state = stored(root, plan)
+    try:
+        state = followed(plan, root)
+    except StateError as error:
+        fail(str(error), 2)
     value = computed_status(state) if field == "status" else state[field]
     text = value if isinstance(value, str) else json.dumps(value)
     sys.exit(0 if (text == wanted) != negated else 1)
@@ -647,6 +708,9 @@ def main(argv: list[str]) -> None:
     command("ready", cmd_ready, "set readiness to implementation-ready")
     after = command("after", cmd_after, "replace a phase's prerequisites")
     after.add_argument("paths", nargs="*", metavar="PLAN")
+    branch = command("branch", cmd_branch, "record or clear the plan's work branch")
+    branch.add_argument("name", nargs="?", help="local branch name")
+    branch.add_argument("--clear", action="store_true")
     implemented = command("implemented", cmd_implemented, "record a finished implement run")
     run_times(implemented)
     implemented.add_argument("--landed", metavar="FIRST..LAST", help="a phase's commit range")
@@ -672,6 +736,8 @@ def main(argv: list[str]) -> None:
     check.add_argument("paths", nargs="*", metavar="PATH")
 
     args = parser.parse_args(argv[1:])
+    if args.command == "branch" and (bool(args.name) == args.clear):
+        parser.error("branch takes a name or --clear")
     try:
         root = tree_root()
     except StateError as error:

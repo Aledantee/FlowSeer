@@ -12,6 +12,7 @@
     "note": "U7 and U8 remain. U1 to U6 landed. The review of U1 to U6 found the MSTI periodic-transmit loop, the proposal sync, the point-to-point re-entry, and the inherited port priority, which U7 and U8 add."
   },
   "superseded_by": null,
+  "branch": null,
   "parent": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md",
   "after": [
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md"

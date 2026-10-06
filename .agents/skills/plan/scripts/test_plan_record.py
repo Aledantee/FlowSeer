@@ -26,6 +26,7 @@ EMPTY = {
     "compound": None,
     "outcome": None,
     "superseded_by": None,
+    "branch": None,
     "parent": None,
     "after": [],
     "landed": None,
@@ -99,6 +100,99 @@ class PlanRecordTest(unittest.TestCase):
     def land(self, plan, sha):
         self.record("implemented", plan, *RUN, "--landed", f"{sha}..{sha}")
 
+    def followed_branch(self, plan=PLAIN):
+        self.git("checkout", "-q", "main")
+        if plan == FIRST:
+            self.phases()
+        else:
+            self.record("init", plan)
+        self.record("branch", plan, "work")
+        self.commit("record branch")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "main")
+
+    def test_branch_sets_and_clears_a_name(self):
+        self.record("init", PLAIN)
+        self.record("branch", PLAIN, "alice/x-implement")
+        self.assertEqual(self.state(PLAIN)["branch"], "alice/x-implement")
+        self.assertIn("branch: alice/x-implement", self.record("show", PLAIN).stdout)
+        self.record("is", PLAIN, "branch=alice/x-implement")
+        self.record("branch", PLAIN, "--clear")
+        self.assertIsNone(self.state(PLAIN)["branch"])
+
+    def test_branch_refuses_an_unsafe_name(self):
+        self.record("init", PLAIN)
+        refused = self.record("branch", PLAIN, "a b", code=1)
+        self.assertIn("branch", refused.stderr)
+        self.assertIsNone(self.state(PLAIN)["branch"])
+
+    def test_branch_refuses_a_parent(self):
+        self.phases()
+        refused = self.record("branch", PARENT, "work", code=1)
+        self.assertIn("phases", refused.stderr)
+        self.assertIsNone(self.state(PARENT)["branch"])
+
+    def test_check_requires_the_branch_key(self):
+        for plan in (PARENT, FIRST, PHASE, PLAIN):
+            self.record("init", plan)
+        path = self.root / plan_record.state_path(PLAIN)
+        state = self.state(PLAIN)
+        del state["branch"]
+        path.write_text(json.dumps(state), encoding="utf-8")
+        self.assertIn("missing key 'branch'", self.record("check", code=1).stderr)
+
+    def test_reads_follow_an_unmerged_branch(self):
+        self.followed_branch()
+        self.record("implemented", PLAIN, *RUN)
+        self.record("branch", PLAIN, "--clear")
+        self.commit("implemented on work")
+        self.git("checkout", "-q", "main")
+        self.record("is", PLAIN, "status=implemented")
+        self.assertEqual(plan_record.status(PLAIN, self.root), "implemented")
+        self.assertEqual(plan_record.followed(PLAIN, self.root)["branch"], "work")
+        self.assertIn("read from: work", self.record("show", PLAIN).stdout)
+        self.assertEqual(self.state(PLAIN)["status"], "planned")
+
+    def test_reads_checkout_after_branch_merges(self):
+        self.followed_branch()
+        self.record("implemented", PLAIN, *RUN)
+        self.commit("implemented on work")
+        self.git("checkout", "-q", "main")
+        self.git("merge", "-q", "work")
+        self.put(PLAIN, **{**self.state(PLAIN), "status": "planned"})
+        self.assertEqual(plan_record.status(PLAIN, self.root), "planned")
+        self.record("is", PLAIN, "status=planned")
+        self.assertNotIn("read from:", self.record("show", PLAIN).stdout)
+
+    def test_missing_branch_reads_checkout(self):
+        self.record("init", PLAIN)
+        self.record("branch", PLAIN, "gone")
+        self.record("is", PLAIN, "status=planned")
+        self.assertEqual(plan_record.status(PLAIN, self.root), "planned")
+        self.assertIn("branch: gone (missing, read from this checkout)", self.record("show", PLAIN).stdout)
+
+    def test_followed_file_with_shape_fault_names_branch(self):
+        self.followed_branch()
+        path = self.root / plan_record.state_path(PLAIN)
+        state = self.state(PLAIN)
+        del state["branch"]
+        path.write_text(json.dumps(state), encoding="utf-8")
+        self.commit("invalid state on work")
+        self.git("checkout", "-q", "main")
+        with self.assertRaises(plan_record.InvalidState) as raised:
+            plan_record.followed(PLAIN, self.root)
+        self.assertIn("work", str(raised.exception))
+
+    def test_finished_does_not_follow_an_unmerged_phase(self):
+        self.followed_branch(FIRST)
+        self.land(FIRST, self.on_work)
+        self.record("review", FIRST, "accept")
+        self.record("compound", FIRST, "no lesson")
+        self.commit("finish phase on work")
+        self.git("checkout", "-q", "main")
+        self.assertEqual(plan_record.status(FIRST, self.root), "implemented")
+        self.assertFalse(plan_record.finished(FIRST, self.root))
+
     def test_init_writes_every_key_of_the_contract(self):
         self.record("init", PLAIN)
         written = (self.root / plan_record.state_path(PLAIN)).read_text(encoding="utf-8")
@@ -113,6 +207,7 @@ class PlanRecordTest(unittest.TestCase):
             '  "compound": null,\n'
             '  "outcome": null,\n'
             '  "superseded_by": null,\n'
+            '  "branch": null,\n'
             '  "parent": null,\n'
             '  "after": [],\n'
             '  "landed": null,\n'
