@@ -132,7 +132,16 @@ left behind, whose first terminal is closed. Whether Orca accepts that, and
 whether the new terminal's checkout is the kept lane's path and branch, is
 what a `drive` that joins its stages depends on.
 
-Observed: pending the live check.
+Observed on Orca 1.4.221, with two `claude` lanes: after `stop <first>
+--keep-worktree`, `git worktree list` still named the checkout and `status`
+printed the lane as `kept`. `start --lane <second> --join <first>` exited 0,
+and its JSON line carried the first lane's `worktree`, `path`, and `branch`
+with a new `terminal` and `run`. The second worker took its brief there, and
+a `stop <second>` without the flag removed the checkout, the branch, and
+both state files. `orca terminal show` on the first terminal afterwards
+reports it `orphaned` with `exitCause.kind: operator_close`, so a closed
+terminal's handle stays readable and is not reused. Other Orca versions and
+the `codex`, `agy`, and `omp` lanes are unverified for a join.
 
 ## When a step fails
 
