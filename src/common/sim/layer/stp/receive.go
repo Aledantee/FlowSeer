@@ -103,15 +103,13 @@ func (l *Layer) cistPortVector(p *portState) priorityVector {
 // receiveMSTIs stores the MSTI records an internal BPDU carries into each
 // named instance's port state, one instance at a time by the same
 // same-source-or-superior rule the CIST uses, and carries each record's own
-// topology change bit into that instance the way Receive carries the CIST's:
-// unconditionally, not gated on superiority, since a change notification is
-// evidence about the fabric rather than a claim this port might reject. A
+// topology change bit into that instance independently of superiority,
+// when the receiving port is active and RestrictedTCN is clear. A
 // record for an instance this bridge does not configure is ignored: the
 // fabric's bridges are not required to share the same instance set. The
-// designated bridge and port a record implies reuse the sending bridge's own
-// address and the CIST port identifier's index half, since MSTI bridge and
-// port identifiers differ from the CIST's only in their priority nibble
-// (clause 13.7).
+// designated bridge identifier reuses the sender's address, and the port
+// identifier reuses the CIST port's index. Each carries the instance's
+// own priority.
 func (l *Layer) receiveMSTIs(now time.Time, port string, b bpdu.BPDU, heldCISTVec priorityVector, flushes *[]layer.FlushTarget) []bpdu.MSTID {
 	link := l.links[port]
 	cistConsistent := b.RootID == heldCISTVec.rootID &&
@@ -271,7 +269,7 @@ func (l *Layer) Receive(now time.Time, port string, b bpdu.BPDU) layer.Effects {
 
 // SSTPArrival describes how the switch classified one SSTP BPDU before
 // handing it to ReceiveSSTP. ArrivalVID is the VLAN the switch classified the
-// frame into; TLVVID is the VLAN the BPDU's own trailing TLV names, which the
+// frame into. TLVVID is the VLAN the BPDU's own trailing TLV names, which the
 // PVID check compares against ArrivalVID. Admitted is the bridge's ingress
 // admission answer for ArrivalVID on this port: the layer holds no VLAN
 // table of its own, so it takes that answer as given rather than deriving a
@@ -290,29 +288,29 @@ const (
 	// SSTPApplied means the BPDU was applied to the tree of
 	// SSTPArrival.ArrivalVID.
 	SSTPApplied SSTPOutcome = "applied"
-	// SSTPGuarded means BPDU guard fired or already held the port disabled;
-	// the frame was not applied to any tree.
+	// SSTPGuarded means BPDU guard fired or already held the port disabled.
+	// The frame was not applied to any tree.
 	SSTPGuarded SSTPOutcome = "bpdu-guard"
 	// SSTPBoundary means this bridge does not run PVST, so its CIST does not
-	// run the VLAN the BPDU named; the port is marked a PVST boundary and
+	// run the VLAN the BPDU named. The port is marked a PVST boundary and
 	// nothing is applied.
 	SSTPBoundary SSTPOutcome = "pvst-boundary"
 	// SSTPNotAdmitted means the bridge does not admit ArrivalVID on this
-	// port; the frame was not applied to any tree.
+	// port. The frame was not applied to any tree.
 	SSTPNotAdmitted SSTPOutcome = "vlan-not-admitted"
 	// SSTPUntrackedVLAN means this bridge runs PVST but has no tree for
-	// ArrivalVID; the frame was not applied to any tree.
+	// ArrivalVID. The frame was not applied to any tree.
 	SSTPUntrackedVLAN SSTPOutcome = "vlan-untracked"
-	// SSTPPVIDInconsistent means TLVVID disagreed with ArrivalVID; the
+	// SSTPPVIDInconsistent means TLVVID disagreed with ArrivalVID. The
 	// arrival VLAN's port is held discarding rather than applied.
 	SSTPPVIDInconsistent SSTPOutcome = "pvid-inconsistent"
 	// SSTPPortDown means the port is not one the layer tracks, or is held
-	// down; the BPDU was not processed at all.
+	// down. The BPDU was not processed at all.
 	SSTPPortDown SSTPOutcome = "port-down"
 )
 
 // ReceiveSSTP processes an SSTP BPDU received on a port. The link half of a
-// receive — BPDU guard, protocol migration, and auto-edge loss — always runs
+// receive, including BPDU guard, protocol migration, and auto-edge loss, runs
 // before anything below decides what happens to a tree, whatever that decision
 // turns out to be: a caller that could skip the link half by declining to call
 // this function is the hole BPDU guard exists to close. Loop-guard recovery is
@@ -428,7 +426,7 @@ func (l *Layer) ReceiveSSTP(now time.Time, port string, arrival SSTPArrival, b b
 // applyBPDU applies one received BPDU to one tree: the classification, the
 // information it carries, the agreement and topology-change flags it sets,
 // and the proposal handshake it answers. Receive runs it on the CIST, which
-// is where an IEEE-addressed BPDU belongs in every mode; ReceiveSSTP runs it
+// is where an IEEE-addressed BPDU belongs in every mode. ReceiveSSTP runs it
 // on the tree of the VLAN an SSTP BPDU arrived on. The link-level half of a
 // receive, which runs once per frame whatever tree it belongs to, stays with
 // the two callers.
@@ -438,15 +436,14 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 	// A BPDU is internal when it names this bridge's own region: an MST BPDU
 	// (ConfigID set) whose configuration identifier equals this bridge's. An
 	// RST or Configuration BPDU, and an MST BPDU from a different region, are
-	// external. The classification is written only on the CIST's port state
-	// because it is a property of the link, not of a tree running over it;
-	// boundary reads it through l.cist() regardless of which tree's applyBPDU
-	// call observed the frame.
+	// external. The classification lives on the link record and changes
+	// only when this call stores CIST information. boundary reads that
+	// stored classification.
 	internal := l.mst != nil && b.ConfigID != nil && *b.ConfigID == *l.configID
 
 	if internal {
 		// Internal information ages by hop count, re-originated one hop
-		// short of what was received; a record that has already reached the
+		// short of what was received. A record that has already reached the
 		// bound is discarded rather than stored, so a BPDU naming a regional
 		// root that no longer exists stops refreshing on every hop and the
 		// port's own information ages out.

@@ -575,11 +575,17 @@ func TestEmissionsLeaveByTreeThenPort(t *testing.T) {
 		}
 		root.SetRole(bpdu.RoleDesignated)
 		root.SetProposal(true)
-		l.Receive(now.Add(4*time.Second), "p1", root)
+		l.Receive(now.Add(4*time.Second), "p2", root)
 		l.Advance(now.Add(15 * time.Second))
 		l.Advance(now.Add(30 * time.Second))
 		l.Advance(now.Add(45 * time.Second))
 		l.Advance(now.Add(50 * time.Second))
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated {
+			t.Fatalf("p1 = %+v, want Designated", info)
+		}
+		if info := l.PortInfo("p2"); info.Role != bpdu.RoleRoot {
+			t.Fatalf("p2 = %+v, want Root", info)
+		}
 		flagged := root
 		flagged.RootID = bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:02")}
 		flagged.RootPathCost = 100_000
@@ -587,7 +593,7 @@ func TestEmissionsLeaveByTreeThenPort(t *testing.T) {
 		flagged.PortID = 0x8001
 		flagged.SetRole(bpdu.RoleRoot)
 		flagged.SetTopologyChange(true)
-		effects := l.Receive(now.Add(31*time.Second), "p3", flagged)
+		effects := l.Receive(now.Add(50500*time.Millisecond), "p3", flagged)
 		var order []string
 		for _, emission := range effects.Emissions {
 			decoded, _ := decodeTestEmission(t, emission)
@@ -655,7 +661,7 @@ func TestTopologyChangeLeavesAtOnceAndTwice(t *testing.T) {
 		}
 	}
 
-	firstAt := now.Add(50*time.Second + 500*time.Millisecond)
+	firstAt := now.Add(51*time.Second + 500*time.Millisecond)
 	flagged := root
 	flagged.RootPathCost = 100_000
 	flagged.BridgeID = bpdu.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:03")}
@@ -705,6 +711,9 @@ func TestTopologyChangeLeavesAtOnceAndTwice(t *testing.T) {
 					t.Fatal("origin p3's hello was flagged")
 				}
 				flaggedPorts[emission.Port]++
+				if !at.Equal(firstAt.Add(2 * time.Second)) {
+					t.Fatalf("%s second flagged frame at %v, want %v", emission.Port, at, firstAt.Add(2*time.Second))
+				}
 				lastFlaggedAt = at
 			} else if emission.Port == "p2" {
 				unflaggedDesignated++
@@ -783,32 +792,32 @@ func TestTopologyChangeLeavesAtOnceAndTwice(t *testing.T) {
 func TestDetectionTransmitsOnTheDetectingPort(t *testing.T) {
 	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
 	t.Run("rstp agreement", func(t *testing.T) {
-		l := mustNewSTP(t, stp.Config{Ports: map[string]stp.Port{"p1": {}, "p2": {}}}, mustPortTable(t, "p1", "p2"))
+		l := mustNewSTP(t, stp.Config{Address: mustMAC(t, "00:11:22:33:44:01"), Ports: map[string]stp.Port{"p1": {}}}, mustPortTable(t, "p1"))
 		l.LinkChange(now, "p1", true, true, 1_000_000_000)
-		l.LinkChange(now, "p2", true, true, 1_000_000_000)
 		peer := bpdu.BPDU{
-			Version:      2,
-			Type:         bpdu.TypeRapid,
-			RootID:       bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:01")},
-			BridgeID:     bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:01")},
-			PortID:       0x8001,
-			HelloTime:    2 * time.Second,
-			MaxAge:       20 * time.Second,
-			ForwardDelay: 15 * time.Second,
+			Version: 2, Type: bpdu.TypeRapid,
+			RootID:       bpdu.BridgeID{Priority: 32768, Address: mustMAC(t, "00:11:22:33:44:01")},
+			BridgeID:     bpdu.BridgeID{Priority: 61440, Address: mustMAC(t, "00:11:22:33:44:02")},
+			RootPathCost: 20_000, PortID: 0x8001,
+			HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
 		}
-		peer.SetRole(bpdu.RoleDesignated)
-		peer.SetProposal(true)
+		peer.SetRole(bpdu.RoleRoot)
+		peer.SetProposal(false)
+		peer.SetAgreement(true)
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+			t.Fatalf("before agreement = %+v, want Designated/Discarding", info)
+		}
 		effects := l.Receive(now.Add(100*time.Millisecond), "p1", peer)
-		for _, emission := range effects.Emissions {
-			if emission.Port != "p1" {
-				continue
-			}
-			decoded, _ := decodeTestEmission(t, emission)
-			if decoded.TopologyChange() {
-				return
-			}
+		if info := l.PortInfo("p1"); info.Role != bpdu.RoleDesignated || info.State != stp.StateForwarding {
+			t.Fatalf("after agreement = %+v, want Designated/Forwarding", info)
 		}
-		t.Fatal("RSTP detecting port emitted no flagged BPDU")
+		if len(effects.Emissions) != 1 {
+			t.Fatalf("agreement emitted %d frames, want one", len(effects.Emissions))
+		}
+		decoded, _ := decodeTestEmission(t, effects.Emissions[0])
+		if !decoded.TopologyChange() || !decoded.Forwarding() || decoded.Role() != bpdu.RoleDesignated {
+			t.Fatalf("detecting frame = %+v, want flagged Designated/Forwarding", decoded)
+		}
 	})
 
 	t.Run("legacy TCN", func(t *testing.T) {
@@ -880,26 +889,16 @@ func TestLegacyPortReportsAChangeAtItsHello(t *testing.T) {
 		}
 	}
 
-	tcnCount := 0
 	for second := 102; second <= 136; second += 2 {
 		at := now.Add(time.Duration(second) * time.Second)
 		effects = l.Receive(at, "p1", legacy)
-		for _, emission := range effects.Emissions {
-			if emission.Port != "p1" {
-				continue
-			}
-			decoded, _ := decodeTestEmission(t, emission)
-			if decoded.Type != bpdu.TypeTopologyChangeNotification {
-				continue
-			}
-			if second > 134 {
-				t.Fatalf("TCN at %s is past the 35-second timer", at)
-			}
-			tcnCount++
+		want := 1
+		if second == 136 {
+			want = 0
 		}
-	}
-	if tcnCount == 0 {
-		t.Fatal("legacy Root port emitted no TCNs at its hellos")
+		if got := countPortType(t, effects, "p1", bpdu.TypeTopologyChangeNotification); got != want {
+			t.Fatalf("TCNs at %ds = %d, want %d", second, got, want)
+		}
 	}
 }
 
@@ -926,8 +925,6 @@ func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
 		Priority: 0,
 		Address:  mustMAC(t, "00:aa:bb:cc:dd:01"),
 	})
-	peer.HelloTime = 60 * time.Second
-	peer.MaxAge = 120 * time.Second
 	if _, outcome := l.ReceiveSSTP(start.Add(3500*time.Millisecond), "p1", stp.SSTPArrival{
 		ArrivalVID: 10,
 		TLVVID:     10,
@@ -936,21 +933,38 @@ func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
 		t.Fatalf("VLAN 10 root Configuration outcome = %q, want applied", outcome)
 	}
 
-	l.Advance(start.Add(15 * time.Second))
-	l.Advance(start.Add(30 * time.Second))
+	arrival := stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}
+	refresh := func(at time.Time) layer.Effects {
+		t.Helper()
+		effects, outcome := l.ReceiveSSTP(at, "p1", arrival, peer)
+		if outcome != stp.SSTPApplied {
+			t.Fatalf("root refresh at %v = %v, want applied", at, outcome)
+		}
+		if info := l.VLANPortInfo(10, "p1"); info.Role != bpdu.RoleRoot {
+			t.Fatalf("root refresh at %v = %+v, want Root", at, info)
+		}
+		return effects
+	}
+	for second := 4; second <= 34; second += 2 {
+		at := start.Add(time.Duration(second) * time.Second)
+		if second == 16 {
+			l.Advance(start.Add(15 * time.Second))
+		}
+		refresh(at)
+		l.Advance(at)
+	}
 	if info := l.VLANPortInfo(10, "p1"); info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding || info.SendRSTP {
 		t.Fatalf("VLAN 10 p1 = %v/%v RSTP=%t, want Root/Forwarding/STP", info.Role, info.State, info.SendRSTP)
 	}
 	cistAck := cistPeer
 	cistAck.SetTopologyChangeAck(true)
-	l.Receive(start.Add(30500*time.Millisecond), "p1", cistAck)
+	l.Receive(start.Add(34500*time.Millisecond), "p1", cistAck)
 
 	vlanAck := peer
 	vlanAck.SetTopologyChangeAck(true)
-	if _, outcome := l.ReceiveSSTP(start.Add(30600*time.Millisecond), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, vlanAck); outcome != stp.SSTPApplied {
+	if _, outcome := l.ReceiveSSTP(start.Add(34600*time.Millisecond), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, vlanAck); outcome != stp.SSTPApplied {
 		t.Fatalf("initial VLAN 10 acknowledgment = %v, want applied", outcome)
 	}
-	l.Advance(start.Add(34 * time.Second))
 
 	flagged := peer
 	flagged.Version = 2
@@ -976,7 +990,7 @@ func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
 		}
 	}
 
-	effects = l.Advance(start.Add(36 * time.Second))
+	effects = refresh(start.Add(36 * time.Second))
 	var tcnCount int
 	for _, emission := range effects.Emissions {
 		if emission.Port != "p1" {
@@ -1005,7 +1019,7 @@ func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
 		t.Fatalf("p1 VLAN 10 TCN count = %d, want one", tcnCount)
 	}
 
-	effects = l.Advance(start.Add(38 * time.Second))
+	effects = refresh(start.Add(38 * time.Second))
 	var repeatedTCN int
 	for _, emission := range effects.Emissions {
 		if emission.Port != "p1" {
@@ -1036,7 +1050,7 @@ func TestVLANTreeReportsAChangeInSTPMode(t *testing.T) {
 		t.Fatalf("VLAN 10 acknowledgment emitted immediately: %+v", effects.Emissions)
 	}
 
-	effects = l.Advance(start.Add(40 * time.Second))
+	effects = refresh(start.Add(40 * time.Second))
 	for _, emission := range effects.Emissions {
 		if emission.Port == "p1" {
 			t.Fatalf("p1 emitted after VLAN 10 acknowledgment: %+v", effects.Emissions)
