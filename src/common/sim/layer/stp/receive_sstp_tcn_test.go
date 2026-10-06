@@ -9,7 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
-func receiveGapPVST(t *testing.T, first stp.Port) (*stp.Layer, time.Time) {
+func receivePVSTLayer(t *testing.T, first stp.Port) (*stp.Layer, time.Time) {
 	t.Helper()
 
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
@@ -28,40 +28,40 @@ func receiveGapPVST(t *testing.T, first stp.Port) (*stp.Layer, time.Time) {
 	return l, now
 }
 
-func receiveGapTCN(l *stp.Layer, at time.Time) (stp.SSTPOutcome, bool) {
+func receiveSSTPTCN(l *stp.Layer, at time.Time) (stp.SSTPOutcome, bool) {
 	fx, outcome := l.ReceiveSSTP(at, "l1", stp.SSTPArrival{ArrivalVID: 10, Admitted: true},
 		bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
-	return outcome, receiveGapHasFID(fx.Flush, "l2", vlan.ID(10))
+	return outcome, hasReceiveFlushFID(fx.Flush, "l2", vlan.ID(10))
 }
 
 func TestInactiveSSTPTCNDoesNotPropagate(t *testing.T) {
-	l, now := receiveGapPVST(t, stp.Port{})
+	l, now := receivePVSTLayer(t, stp.Port{})
 	l.LinkChange(now.Add(33*time.Second), "l1", true, false, 1_000_000_000)
 	if got := l.VLANPortInfo(10, "l1"); got.State == stp.StateForwarding {
 		t.Fatalf("VLAN 10 l1 = %+v, want inactive", got)
 	}
-	outcome, flushed := receiveGapTCN(l, now.Add(34*time.Second))
+	outcome, flushed := receiveSSTPTCN(l, now.Add(34*time.Second))
 	if outcome != stp.SSTPApplied || flushed {
 		t.Fatalf("inactive SSTP TCN outcome=%q flushed VLAN 10=%t, want applied/false", outcome, flushed)
 	}
 }
 
 func TestRestrictedSSTPTCNDoesNotPropagate(t *testing.T) {
-	l, now := receiveGapPVST(t, stp.Port{RestrictedTCN: true})
+	l, now := receivePVSTLayer(t, stp.Port{RestrictedTCN: true})
 	l.LinkChange(now.Add(33*time.Second), "l1", true, false, 1_000_000_000)
 	l.Advance(now.Add(49 * time.Second))
 	l.Advance(now.Add(65 * time.Second))
 	if got := l.VLANPortInfo(10, "l1"); got.State != stp.StateForwarding {
 		t.Fatalf("VLAN 10 l1 = %+v, want active", got)
 	}
-	outcome, flushed := receiveGapTCN(l, now.Add(66*time.Second))
+	outcome, flushed := receiveSSTPTCN(l, now.Add(66*time.Second))
 	if outcome != stp.SSTPApplied || flushed {
 		t.Fatalf("restricted SSTP TCN outcome=%q flushed VLAN 10=%t, want applied/false", outcome, flushed)
 	}
 }
 
 func TestSSTPTCNClearsOnlyArrivalTreeLoopGuard(t *testing.T) {
-	l, now := receiveGapPVST(t, stp.Port{LoopGuard: true})
+	l, now := receivePVSTLayer(t, stp.Port{LoopGuard: true})
 	l.LinkChange(now.Add(33*time.Second), "l1", true, true, 1_000_000_000)
 	root := bpdu.BridgeID{Priority: 1, Address: mustMAC(t, "00:11:22:33:44:01")}
 	b := sstpConfigurationBPDU(root)
@@ -77,7 +77,7 @@ func TestSSTPTCNClearsOnlyArrivalTreeLoopGuard(t *testing.T) {
 			t.Fatalf("VLAN %d block reason = %q, want loop guard", vid, got)
 		}
 	}
-	outcome, _ := receiveGapTCN(l, now.Add(42*time.Second))
+	outcome, _ := receiveSSTPTCN(l, now.Add(42*time.Second))
 	if outcome != stp.SSTPApplied {
 		t.Fatalf("SSTP TCN outcome = %q, want applied", outcome)
 	}
@@ -92,7 +92,7 @@ func TestSSTPTCNClearsOnlyArrivalTreeLoopGuard(t *testing.T) {
 func TestIEEEReceiveClearsOnlyCISTLoopGuard(t *testing.T) {
 	for _, shape := range []string{"aged", "TCN"} {
 		t.Run(shape, func(t *testing.T) {
-			l, now := receiveGapPVST(t, stp.Port{LoopGuard: true})
+			l, now := receivePVSTLayer(t, stp.Port{LoopGuard: true})
 			l.LinkChange(now.Add(33*time.Second), "l1", true, true, 1_000_000_000)
 			root := bpdu.BridgeID{Priority: 1, Address: mustMAC(t, "00:11:22:33:44:01")}
 			b := sstpConfigurationBPDU(root)

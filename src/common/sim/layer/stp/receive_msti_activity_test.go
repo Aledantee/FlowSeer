@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 )
 
-func receiveGapMST(t *testing.T) (*stp.Layer, stp.MST, time.Time) {
+func receiveMSTLayer(t *testing.T) (*stp.Layer, stp.MST, time.Time) {
 	t.Helper()
 
 	now := time.Date(2026, 10, 6, 12, 0, 0, 0, time.UTC)
@@ -25,21 +25,21 @@ func receiveGapMST(t *testing.T) (*stp.Layer, stp.MST, time.Time) {
 	return l, region, now
 }
 
-func receiveGapMSTBPDU(region stp.MST) bpdu.BPDU {
+func receiveMSTBPDU(region stp.MST) bpdu.BPDU {
 	peer := bpdu.BridgeID{Priority: 61440}
 	b := agreementBPDU(region.ConfigID(), peer, 0, peer, peer, 0x8001, bpdu.RoleDesignated, false,
 		agreementRecord(peer, bpdu.RoleDesignated, false, false))
 	return b
 }
 
-func receiveGapMSTIFlag(b *bpdu.BPDU) {
+func setReceiveMSTIFlag(b *bpdu.BPDU) {
 	var flags bpdu.BPDU
 	flags.SetRole(bpdu.RoleDesignated)
 	flags.SetTopologyChange(true)
 	b.MSTIs[0].Flags = flags.Flags
 }
 
-func receiveGapHasFID(flushes []layer.FlushTarget, port string, fid vlan.ID) bool {
+func hasReceiveFlushFID(flushes []layer.FlushTarget, port string, fid vlan.ID) bool {
 	for _, target := range flushes {
 		if target.Port == port && slices.Contains(target.FIDs, fid) {
 			return true
@@ -49,21 +49,21 @@ func receiveGapHasFID(flushes []layer.FlushTarget, port string, fid vlan.ID) boo
 }
 
 func TestInactiveMSTIRecordDoesNotPropagateTopologyChange(t *testing.T) {
-	l, region, now := receiveGapMST(t)
+	l, region, now := receiveMSTLayer(t)
 	l.LinkChange(now.Add(33*time.Second), "p1", true, true, 1_000_000_000)
 	if got := l.VLANPortInfo(10, "p1"); got.State == stp.StateForwarding {
 		t.Fatalf("MSTI p1 = %+v, want inactive", got)
 	}
-	b := receiveGapMSTBPDU(region)
-	receiveGapMSTIFlag(&b)
+	b := receiveMSTBPDU(region)
+	setReceiveMSTIFlag(&b)
 	fx := l.Receive(now.Add(34*time.Second), "p1", b)
-	if receiveGapHasFID(fx.Flush, "p2", 10) {
+	if hasReceiveFlushFID(fx.Flush, "p2", 10) {
 		t.Fatalf("inactive MSTI flag flushed VLAN 10 on p2: %+v", fx.Flush)
 	}
 }
 
 func TestMSTIRecordHelloTimeHasOneSecondFloor(t *testing.T) {
-	l, region, now := receiveGapMST(t)
+	l, region, now := receiveMSTLayer(t)
 	l.LinkChange(now.Add(33*time.Second), "p1", true, true, 1_000_000_000)
 	root := bpdu.BridgeID{Priority: 4096, Address: mustMAC(t, "00:11:22:33:44:01")}
 	b := agreementBPDU(region.ConfigID(), root, 0, root, root, 0x8001, bpdu.RoleDesignated, false,
