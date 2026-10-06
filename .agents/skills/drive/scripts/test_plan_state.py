@@ -232,6 +232,18 @@ class PlanStateTest(unittest.TestCase):
         self.assertEqual(self.stages()[second], "implement")
         self.assertEqual(self.report()[-1], f"next: land {first} after {second}")
 
+    def test_land_owed_from_an_unmerged_branch_does_not_wait_for_itself(self):
+        first = self.phase(1)
+        self.commit("phases")
+        self.git("checkout", "-q", "-b", "stage")
+        self.finish(first, self.on_work)
+        self.commit("first done on its branch")
+        self.git("checkout", "-q", "work")
+        self.record("branch", first, "stage")
+        self.commit("branch recorded")
+        self.assertEqual(self.stages(), {first: "land"})
+        self.assertEqual(self.report()[-1], f"next: land {first}")
+
     def test_land_owed_does_not_wait_for_a_parked_phase(self):
         # Parking removes the phase's worktree and keeps its work on
         # parked/<slug>, off this branch, so nothing of it stands in land's way.
@@ -278,6 +290,23 @@ class PlanStateTest(unittest.TestCase):
             sorted(tuple(line.split()) for line in out.stdout.splitlines()),
             [("partially-implemented", "plan", PLAIN), ("planned", "parent", PARENT)],
         )
+
+    def test_plan_implemented_on_its_recorded_branch_is_listed_as_planned(self):
+        # The stage wrote its state on a branch not merged here, so the plan
+        # is read from the branch and is finished there. The checkout alone
+        # would list it planned.
+        self.write(PLAIN, "# Plain - Plan\n")
+        self.record("init", PLAIN)
+        self.commit("plain")
+        self.git("checkout", "-q", "-b", "stage")
+        self.record("implemented", PLAIN, *RUN)
+        self.commit("plain implemented on its branch")
+        self.git("checkout", "-q", "work")
+        self.record("branch", PLAIN, "stage")
+        self.commit("branch recorded")
+        out = self.run_script()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual([tuple(line.split()) for line in out.stdout.splitlines()], [("planned", "plan", PARENT)])
 
     def test_plan_without_a_state_file_stops_the_report(self):
         self.write(PLAIN, "# Plain - Plan\n")
