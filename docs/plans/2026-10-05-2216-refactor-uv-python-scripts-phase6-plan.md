@@ -31,8 +31,9 @@ the verifier compiles and tests Python under `tools/scripts/` and
 - Each stays in its directory as `<name>.py` with its own metadata block
   and imports nothing from `tools/scripts/`, as the record decides. The
   block is the one `tools/scripts/run.py:1` to `:4` carries:
-  `requires-python = "==3.13.*"` and `dependencies = []`. No script gets a
-  shebang or an executable bit. Why: the record starts every script as
+  `requires-python = "==3.13.*"` and `dependencies = []`, except in
+  `write-lab-secrets.py`, whose block the Decisions below give. No script
+  gets a shebang or an executable bit. Why: the record starts every script as
   `uv run <path>`, and `uv help run` says a file ending in `.py` "will be
   treated as a script". uv 0.12.23 passes the environment and the exit
   status through and writes nothing of its own to either stream once the
@@ -61,49 +62,153 @@ the verifier compiles and tests Python under `tools/scripts/` and
 - The `dex.env` assertion is restated against the written file. The test
   runs the secrets script, reads `secrets/dex.env`, and requires every line
   to match `^[A-Z_]+='[^']+'$`, each hash line to hold
-  `$2y$10$` and 53 more characters, and `bcrypt.CompareHashAndPassword` to
+  `$2b$10$` and 53 more characters, and `bcrypt.CompareHashAndPassword` to
   accept the hash with the password `credentials.txt` gives for that user.
   Why: the old test matched a here-document's source line. The new one
   holds the property itself, that a bcrypt hash reaches Dex unsubstituted.
   `golang.org/x/crypto` is already required (`go.mod:40`), and its
-  `bcrypt` reads any minor version byte, `y` included
-  (`bcrypt/bcrypt.go:274` to `:277` at v0.57.0).
+  `bcrypt` reads any minor version byte, `b` and `y` included
+  (`bcrypt/bcrypt.go:274` to `:277` at v0.57.0). The shell file writes
+  `$2y$`, so the run against it takes the prefix `$2y$10$`. That is the
+  one expectation that differs between the two runs.
 - The task files (`src/protocol/smi/bench/Taskfile.yml:54`,
   `src/protocol/snmp/bench/Taskfile.yml:132`) call `uv run bench-gate.py`.
-- `openssl` stays a subprocess for the certificate work, with the argument
-  lists `write-lab-secrets.sh:47` to `:65` holds. Why: the script generates
-  two RSA keys, a self-signed CA, and a server certificate signed by it,
-  and Python 3.13 has no API for any of them. `dir(ssl)` holds no name that
-  creates a key, a request, or a signature. A cryptography package is not
-  added. The process substitution at `:65` becomes a file in a
-  `tempfile.TemporaryDirectory()` outside `secrets/`.
-- `htpasswd` stays a subprocess too, as `["htpasswd", "-niB", "-C", "10",
-  "dummy"]` with the password on standard input. Why: Python 3.13 has no
-  bcrypt. `import crypt` fails with `No module named 'crypt'`, and no name
-  in `hashlib.algorithms_available` holds `bcrypt`. That Dex refuses a cost
-  below 10 is carried from `write-lab-secrets.sh:81` to `:82` and is
-  unverified here.
+- The lab scripts start neither `openssl` nor `htpasswd`. Third-party
+  packages declared in the script's metadata block do that work. Why: uv
+  exists so a script can add dependencies. This replaces two earlier
+  Decisions of this plan, that `openssl` and `htpasswd` each stay a
+  subprocess. (decided by the user, 2026-10-06)
+- The packages are `cryptography==50.0.1` for the keys and certificates and
+  `bcrypt==5.0.0` for the password hashes, both in the block of
+  `write-lab-secrets.py` and nowhere else. Why: Python 3.13 has neither.
+  `dir(ssl)` holds no name that creates a key or a signature, and `import
+  crypt` fails with `No module named 'crypt'`. `cryptography` has no
+  password-hashing bcrypt of its own. Its only use of the name is the
+  extra `bcrypt>=3.1.5; extra == "ssh"`
+  (https://pypi.org/pypi/cryptography/50.0.1/json, `requires_dist`), so one
+  package cannot do both jobs. The versions are the newest past the 14-day
+  wait of the
+  [dependency admission record](../architecture/2026-10-01-dependency-admission-direction.md)
+  on 2026-10-06. PyPI gives these upload times
+  (`https://pypi.org/pypi/<name>/json`, `releases`): `cryptography` 50.0.1
+  on 2026-08-25 and 50.0.2 on 2026-09-30, `bcrypt` 5.0.0 on 2025-09-25.
+  50.0.2 is six days old and leaves the wait on 2026-10-14. Taking it then
+  is a pin move with its own reason, as that record requires, and is not
+  part of this plan.
+- The dependency tree is four versions: `cryptography` 50.0.1, `bcrypt`
+  5.0.0, `cffi` 2.1.1 (uploaded 2026-08-03), and `pycparser` 3.0 (uploaded
+  2026-01-21). `cryptography` requires `cffi>=2.0.0` on CPython and `cffi`
+  requires `pycparser` (the same PyPI records). The OSV batch query
+  (https://api.osv.dev/v1/querybatch, ecosystem `PyPI`) returned no
+  advisory for any of the four on 2026-10-06, and none for `cryptography`
+  50.0.2.
+- The pin is a lock file beside the script, `write-lab-secrets.py.lock`,
+  written by `uv lock --script deploy/lab/write-lab-secrets.py`. The block
+  also holds `[tool.uv]` with `exclude-newer` set to the day 14 days before
+  the lock is written. Why: the
+  [repository scripting record](../architecture/2026-10-05-repository-scripting-direction.md)
+  names that command as the hash pin, and `uv help lock` says it locks the
+  script "to a `.lock` file adjacent to the script itself". Under uv
+  0.12.23 the file holds a `sha256` for the source archive and every wheel
+  of all four packages, and a run from an empty cache with one digest
+  altered exits 1 with `Hash mismatch`. `exclude-newer` makes uv enforce
+  the wait as pnpm's `minimumReleaseAge` does: with the cutoff
+  `2026-09-22T00:00:00Z`, `uv lock --script` refuses `cryptography==50.0.2`
+  and names its upload time. The lock records the cutoff under `[options]`.
+- The secrets script is started as `uv run --locked write-lab-secrets.py`,
+  in the README and in the test. Why: a plain `uv run` rewrites a lock that
+  no longer matches the block and exits 0, and it resolves without a pin
+  when the lock file is missing. With `--locked`, uv 0.12.23 exits 1 on a
+  stale lock ("The lockfile at `uv.lock` needs to be updated") and 2 on a
+  missing one. The other scripts have no dependency and no lock, and
+  `--locked` fails for them, so they keep the plain `uv run`. One more
+  property of that uv version: `uv lock --script` keeps the digests of an
+  existing lock without checking them, so a lock is regenerated by deleting
+  the file first.
+- Each of the two direct dependencies gets a statement at
+  `docs/dependencies/statements/pypi/<name>.md` with `ecosystem: pypi`,
+  `required_by` naming `deploy/lab/write-lab-secrets.py`, `criteria: run`,
+  `verdict: keep`, and an empty `approved`. Why: the admission record gives
+  every direct dependency a statement and names no directory. The shape
+  `statements/<ecosystem>/<name>.md` is the one the gate builds
+  (`tools/deps/inventory/statements.go`, `statementPath`), and `go` and
+  `npm` are the lower-case OSV ecosystem names, which makes this one
+  `pypi`. The criterion is `run` because nothing under `deploy/lab/` is in
+  the non-test build of a package under `src/`. `approved` stays empty
+  because a person rules on a statement, and
+  `docs/dependencies/README.md` says an empty value "means that the verdict
+  still needs that ruling". Unconfirmed, repeated under Open questions.
+  `cffi` and `pycparser` are transitive. Their per-version records belong
+  to `docs/dependencies/records/`, which does not exist yet, so each
+  statement names the four versions and says the source is not yet
+  reviewed, as the existing statements do.
+- The certificates keep the shell's keys, names, and lifetime and gain the
+  extensions a strict verifier asks for. The CA is RSA 4096 with subject
+  `CN=FlowSeer Lab CA`, and the server is RSA 2048 with subject
+  `CN=localhost`. Both are signed with SHA-256, valid 365 days, with a
+  random serial. The CA carries a critical `basicConstraints` of `CA:TRUE`,
+  a critical `keyUsage` of `keyCertSign` and `cRLSign`, a subject key
+  identifier, and an authority key identifier. The server carries a
+  critical `basicConstraints` of `CA:FALSE`, a critical `keyUsage` of
+  `digitalSignature` and `keyEncipherment`, the subject alternative names
+  `DNS:localhost` and `IP:127.0.0.1`, the extended key usages `serverAuth`
+  and `clientAuth`, and both key identifiers. Keys are written as
+  unencrypted PKCS #8 PEM (`-----BEGIN PRIVATE KEY-----`), which is what
+  `openssl req -nodes` writes under OpenSSL 3.6.5. Why: the builder calls are the ones the package's own
+  tutorial uses for a root and a leaf
+  (https://cryptography.io/en/50.0.1/x509/tutorial/, "Creating a CA
+  hierarchy"). A chain built this way under `cryptography` 50.0.1 verifies
+  for `localhost` and `127.0.0.1` in Python 3.13.2 (OpenSSL 3.0.16, the
+  interpreter uv installs) with `ssl.VERIFY_X509_STRICT` set, and in Go
+  1.27.1 through `x509.Certificate.Verify` and `tls.LoadX509KeyPair`, whose
+  `parsePrivateKey` tries PKCS #8 first (`crypto/tls/tls.go:361`). No CSR
+  file and no serial file is written, so nothing needs removing afterwards.
+- The hash is `bcrypt.hashpw(password, bcrypt.gensalt(rounds=10))`, which
+  writes `$2b$10$` and 53 more characters. Why: the wheel's stub declares
+  `gensalt(rounds: int = 12, prefix: bytes = b"2b")`
+  (`bcrypt/__init__.pyi` in 5.0.0), and `gensalt(prefix=b"2y")` raises
+  `Supported prefixes are b'2a' or b'2b'`, so the `$2y$` of `htpasswd`
+  cannot be kept. Dex reads either. At the tag of the lab's image,
+  `dexidp/dex:v2.45.1` (`deploy/lab/compose.yaml:62`), a static password
+  login calls `checkCost` and then `bcrypt.CompareHashAndPassword` from
+  `golang.org/x/crypto` (`server/server.go:568` to `:575`), and `checkCost`
+  refuses a cost below `bcrypt.DefaultCost`, which is 10
+  (`server/api.go:175` to `:187`,
+  https://raw.githubusercontent.com/dexidp/dex/v2.45.1/server/api.go).
+  That source is the tag on the forge. The image digest was not read.
+- After this phase the lab scripts start no process. `json`, `urllib`,
+  `base64`, and `secrets` cover what `jq`, `curl`, `base64 -d`, `xxd`, and
+  `openssl rand` did, as the next Decisions state. The processes that
+  remain in the phase are `go test -bench` and `benchstat` in the SMI
+  gate, `go test -bench` in the SNMP gate, and `snmpwalk` in the capture
+  script.
 - `secrets.token_hex` replaces the four `openssl rand -hex` calls
   (`write-lab-secrets.sh:70`, `:74`, `:78`, `:79`). Why: its documentation
   reads "The string has *nbytes* random bytes, each byte converted to two
   hex digits", and the module's reads "cryptographically strong
   pseudo-random numbers suitable for managing secrets" (`pydoc secrets`
-  under Python 3.13.2). `openssl` is then called 3 times, down from 7.
+  under Python 3.13.2).
 - `json` and `urllib` replace `jq` and `curl` in the lab scripts, and
   `base64` and `bytes` replace `base64 -d` and `xxd`.
 - `write-openfga-store.py` verifies the server against `secrets/ca.crt`
-  with `ssl.create_default_context(cafile=...)` and clears
-  `ssl.VERIFY_X509_STRICT` on it. Why: Python 3.13 sets that flag by
-  default, and with it the lab chain is refused. Against a server holding
-  a certificate the three `openssl` calls above produce, `urlopen` fails
-  with `CA cert does not include key usage extension` (OpenSSL 3.6.5) or
-  `Missing Authority Key Identifier` (LibreSSL 3.3.6, the macOS
-  `/usr/bin/openssl`). With the flag cleared both chains verify, and a
-  different CA still fails with `unable to get local issuer certificate`.
-  That is the check `curl --cacert` made. Changing the generated
-  certificates was the alternative. It needs two extension sets that
-  differ between the two `openssl` builds, and it breaks every existing
-  `secrets/` directory. U3's test pins this with the script's own output.
+  with `ssl.create_default_context(cafile=...)` and changes no flag on it.
+  Why: Python 3.13 sets `ssl.VERIFY_X509_STRICT` by default, and the chain
+  the secrets script now writes passes it. A different CA still fails with
+  `unable to get local issuer certificate`, which is the check
+  `curl --cacert` made. Clearing the flag was this plan's earlier answer,
+  taken because two `openssl` builds needed two extension sets. One
+  generator removes that reason.
+- A `secrets/` directory the shell script wrote is not accepted by the
+  store script. Its CA has no key usage and its server certificate no
+  authority key identifier, and the strict default refuses the chain with
+  `CA cert does not include key usage extension` or `Missing Authority Key
+  Identifier`. The store script prints that reason and exits 1. The remedy
+  is to delete `secrets/`, run the secrets script, and recreate the
+  containers, since the preshared key, the client secret, and the hashes
+  change with the directory. Why: `AGENTS.md`, Agent behavior, rules out a
+  path that preserves a landed shape, and the directory is untracked lab
+  state. Running containers and the operator's `curl --cacert` lines are
+  not affected by the old chain.
 - `deploy/lab/README.md`, `docs/runbooks/lab-icx7150-first-write.md`, and
   the snmp integration README name the new commands.
 - The runbook's blocks stay shell, and only the two script paths in them
@@ -128,7 +233,7 @@ the verifier compiles and tests Python under `tools/scripts/` and
 2. The lab secrets script writes owner-only files. Example: every file
    under the output directory has mode `0600` on POSIX.
 3. `dex.env` holds each value literally. Example: a generated bcrypt hash
-   `$2y$10$...` appears in the file unchanged and single-quoted.
+   `$2b$10$...` appears in the file unchanged and single-quoted.
 4. The store script authenticates to a server the lab CA signed and prints
    the `authorization` block. Example: against a TLS server holding the
    generated `server.crt`, answering `{"id":"S1"}` and
@@ -149,8 +254,14 @@ the verifier compiles and tests Python under `tools/scripts/` and
 
 - The verifier. It is a policy surface, and compiling package-local Python
   there belongs to the phase that ports it.
-- The certificates the secrets script generates. They keep today's
-  extensions.
+- The statement gate. `tools/deps/inventory/statements.go` walks
+  `statements/go/` and `statements/npm/` and reads Go manifests and the
+  pnpm lockfile, so it neither checks nor rejects a file under
+  `statements/pypi/`. Reading script metadata blocks there is dependency
+  admission work.
+- `src/edge/netpen/layers/harvest.py`, which declares `scapy>=2.5` with no
+  lock and no statement.
+- Moving `cryptography` to 50.0.2 once its wait ends.
 - The operator's own `curl`, `jq`, and `buf curl` lines in
   `deploy/lab/README.md` and the runbook.
 - The in-container script
@@ -218,52 +329,85 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/protocol/s
 
 ### U3. Lab secrets and store scripts
 
-Files: deploy/lab/write-lab-secrets.py, deploy/lab/write-lab-secrets.sh, deploy/lab/write-openfga-store.py, deploy/lab/write-openfga-store.sh, deploy/lab/README.md, deploy/lab/central.textproto, src/services/device/test/integration/lab_fixtures_test.go, src/services/device/test/integration/lab_scripts_test.go
+Files: deploy/lab/write-lab-secrets.py, deploy/lab/write-lab-secrets.py.lock, deploy/lab/write-lab-secrets.sh, deploy/lab/write-openfga-store.py, deploy/lab/write-openfga-store.sh, deploy/lab/README.md, deploy/lab/central.textproto, docs/dependencies/statements/pypi/cryptography.md, docs/dependencies/statements/pypi/bcrypt.md, docs/dependencies/README.md, src/services/device/test/integration/lab_fixtures_test.go, src/services/device/test/integration/lab_scripts_test.go
 After: none
-Change: `write-lab-secrets.py` sets `os.umask(0o077)` before anything
-else, requires `openssl` and `htpasswd` on `PATH`, refuses an existing
-`secrets/` beside itself, and removes the directory when any step fails.
-It writes the nine files the shell leaves, with the same line formats, and
-creates the ones it writes itself with mode `0600` and `O_EXCL`. A value
-holding a single quote fails the run before `dex.env` is written.
+Change: `write-lab-secrets.py` carries the block the Decisions give:
+`requires-python = "==3.13.*"`, `dependencies = ["cryptography==50.0.1",
+"bcrypt==5.0.0"]`, and `[tool.uv]` with `exclude-newer`. Its lock file is
+committed beside it. The script sets `os.umask(0o077)` before anything
+else, refuses an existing `secrets/` beside itself, and removes the
+directory when any step fails. It starts no process and checks for no tool
+on `PATH`. It builds the two keys and the two certificates the Decisions
+describe, and hashes each password with `bcrypt` at cost 10. It writes the
+nine files the shell leaves, with the same line formats, and creates every
+one with mode `0600` and `O_EXCL`. A value holding a single quote fails
+the run before `dex.env` is written. The two statements are written from
+the facts in the Decisions, with the three sections
+`docs/dependencies/README.md` lists, and that README names
+`statements/pypi/` and says the gate does not read it.
 `write-openfga-store.py` keeps the environment variables, the file checks,
 the two requests, the failure messages, and the printed block of the
-shell, and starts no process. An HTTP error status is read as a response
-body, as `curl -sS` reads it. `lab_scripts_test.go` holds
+shell, and starts no process. It verifies with the default context. A
+certificate the context refuses exits 1 with the verifier's reason and one
+line naming `write-lab-secrets.py` as the way to a new `secrets/`. An HTTP
+error status is read as a response body, as `curl -sS` reads it.
+`lab_scripts_test.go` holds
 `runLabScript(t, tree, name, args...)`, which copies a script to
 `<tree>/deploy/lab/` and starts the interpreter the first line of a `.sh`
 file names (`bash` for the secrets and store scripts, which use
-`BASH_SOURCE`) and `uv run` for a `.py` name. A `sync.Once` generates one
+`BASH_SOURCE`) and `uv run` for a `.py` name. A `.py` with a
+`<name>.py.lock` beside it has the lock copied with it and is started as
+`uv run --locked`, so a lock that no longer matches the block fails every
+test that runs the script. A `sync.Once` generates one
 `secrets/` for the package in an `os.MkdirTemp` directory that a new
 `TestMain` removes, since a `t.TempDir()` ends with the first test that
 asked. The package has no `TestMain` today. The four tests at `lab_fixtures_test.go:377` to `:443` move
 there, restated, and `heredocBody` is deleted. The README (`:13`, `:14`,
 `:29`, `:43`, `:423`) and `central.textproto:4` name the Python files as
-`uv run write-lab-secrets.py` and `uv run write-openfga-store.py`. Both
-shell files are deleted.
-Tests: in `lab_scripts_test.go`, skipping when `openssl` or `htpasswd` is
-absent and on Windows.
+`uv run --locked write-lab-secrets.py` and `uv run write-openfga-store.py`.
+The README has no prerequisite list that names `openssl` or `htpasswd`, so
+none is edited. Step 3 gains one sentence: the store script refuses a
+`secrets/` whose CA has no key usage extension. Both shell files are
+deleted.
+Tests: in `lab_scripts_test.go`, skipping on Windows. The run against the
+shell file also skips when `openssl` or `htpasswd` is absent, and for the
+store tests when `curl` or `jq` is. The Python run has no tool skip. A
+test that changes `secrets/` copies the generated directory into its own
+tree first, since the other tests read the shared one in parallel. It downloads the four packages from PyPI the first
+time a host runs it and reads uv's cache after that.
 `TestTheLabSecretsScriptWritesOwnerOnlyFiles`: `secrets/` holds exactly
 `ca.crt`, `ca.key`, `server.crt`, `server.key`, `openfga.key`,
 `dex_client.secret`, `openfga.env`, `dex.env`, and `credentials.txt`, each
 `0600`. `TestTheLabSecretsScriptQuotesTheDexEnvFile`, as the Decision
-states it. `TestTheLabSecretsScriptHashesAtDexsCostFromStdin`:
-`bcrypt.Cost` of each hash is 10, and the script's text holds the
-`htpasswd` argument list with no further element. The test finds the
-line holding `htpasswd`, removes `[`, `]`, `"`, `,`, and `)`, and requires
-the fields from `htpasswd` on to start with `htpasswd -niB -C 10 dummy`
-and, in the Python file, to end there. One body then reads both files.
+states it. `TestTheLabSecretsScriptHashesAtDexsCost` replaces
+`TestTheLabSecretsScriptHashesAtDexsCostFromStdin`: `bcrypt.Cost` of each
+hash is 10. The `htpasswd` argument check goes with the process it read.
+`TestTheLabSecretsScriptStartsNoProcess`, which has no shell run: the
+Python file's text does not import `subprocess`, which is what keeps a password out of a process
+list. `TestTheLabSecretsScriptWritesAStrictChain`, against the Python
+output only: `crypto/x509` parses `ca.crt` as a CA with valid basic
+constraints, `KeyUsageCertSign`, a 4096-bit RSA key, and a subject key
+identifier. `server.crt` has a 2048-bit RSA key, the DNS name `localhost`,
+the address `127.0.0.1`, `ExtKeyUsageServerAuth` and
+`ExtKeyUsageClientAuth`, an authority key identifier equal to the CA's
+subject key identifier, and a lifetime of 365 days. It verifies against a
+pool holding `ca.crt` for both names, and `tls.LoadX509KeyPair` loads it
+with `server.key`.
 `TestTheLabReadmeReadsOnlyFilesTheSecretsScriptWrites`: every
 `secrets/<name>` in the README exists in the generated directory.
 `TestTheLabSecretsScriptRefusesAnExistingDirectory`: a second run exits 1
 and changes no file. `TestTheLabStoreScriptPrintsTheAuthorizationBlock`:
 requirement 4's example, with the model body equal to `model.json`
 copied into the tree, served by an `httptest` server whose certificate is
-the generated `server.crt`. This is the test that fails if the strict flag
-is left set. `TestTheLabStoreScriptFailsWithoutAStoreId`: a `{}` answer
-exits 1. `TestTheLabStoreScriptStartsNoProcess` replaces the `curl`
-argument test: the script's text does not import `subprocess`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- deploy/lab/write-lab-secrets.py deploy/lab/write-lab-secrets.sh deploy/lab/write-openfga-store.py deploy/lab/write-openfga-store.sh deploy/lab/README.md deploy/lab/central.textproto src/services/device/test/integration/lab_fixtures_test.go src/services/device/test/integration/lab_scripts_test.go`
+the generated `server.crt`. The script's context keeps the strict
+default, so this test fails if the chain lacks an extension Python asks
+for. `TestTheLabStoreScriptRefusesAnotherCa`: with `secrets/ca.crt`
+replaced by a CA the test builds with `crypto/x509`, the script exits 1
+(non-zero for the shell, which leaves with the status of `curl`) and the
+server's handler is never called. `TestTheLabStoreScriptFailsWithoutAStoreId`: a `{}` answer
+exits 1. `TestTheLabStoreScriptStartsNoProcess`, which has no shell run, replaces
+the `curl` argument test: the script's text does not import `subprocess`.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- deploy/lab/write-lab-secrets.py deploy/lab/write-lab-secrets.py.lock deploy/lab/write-lab-secrets.sh deploy/lab/write-openfga-store.py deploy/lab/write-openfga-store.sh deploy/lab/README.md deploy/lab/central.textproto docs/dependencies/statements/pypi/cryptography.md docs/dependencies/statements/pypi/bcrypt.md docs/dependencies/README.md src/services/device/test/integration/lab_fixtures_test.go src/services/device/test/integration/lab_scripts_test.go`
 
 ### U4. Lab registry and provisioning scripts
 
@@ -287,7 +431,10 @@ The runbook (`:163`, `:197`, `:223`), the README (`:18`, `:97`, `:99`), and
 `registry.textproto:6` and `:8` name the Python files, and the two runbook
 commands become `uv run "$FLOWSEER_REPO"/deploy/lab/<name>.py ...`. Both
 shell files are deleted.
-Tests: in `lab_render_scripts_test.go`, through U3's `runLabScript`.
+Neither script has a dependency or a lock file, so both keep
+`dependencies = []` and the plain `uv run`.
+Tests: in `lab_render_scripts_test.go`, through U3's `runLabScript`, which
+adds `--locked` only for a script with a lock beside it.
 `TestTheLabProvisioningScriptKeepsAnchorBytes`: requirement 5's example
 with a second anchor of bytes `0x00` to `0x1f`, read back with `prototext`
 into `EdgeProvisioning`, the message `lab_fixtures_test.go:90` already
@@ -350,8 +497,9 @@ No unit names a file the phase 2 plan names in a `Files:` line.
   `go test -C src/protocol/snmp/bench -run TestGate .` pass, with
   `benchstat` on `PATH`.
 - `go test ./src/services/device/test/integration/ -run
-  'TestTheLab|TestTheRunbook'` passes with `openssl`, `htpasswd`, `buf`,
-  and `jq` on `PATH`.
+  'TestTheLab|TestTheRunbook'` passes with `buf` and `jq` on `PATH`, and
+  with PyPI reachable or the four packages in uv's cache.
+- `uv lock --check --script deploy/lab/write-lab-secrets.py` exits 0.
 - `go test ./src/protocol/snmp/test/integration/ -run TestCapture` passes.
 - `git ls-files '*.sh' -- src/protocol/smi/bench src/protocol/snmp/bench
   deploy/lab src/protocol/snmp/test/integration/scripts` prints nothing.
@@ -364,13 +512,17 @@ No unit names a file the phase 2 plan names in a `Files:` line.
 ## Definition of done
 
 - [ ] The verifier is green for every changed path.
-- [ ] Each test ran against the shell file before that file was deleted,
-      and the implement report names the command and its last line.
+- [ ] Each test that has a shell run ran against the shell file before
+      that file was deleted, and the implement report names the command
+      and its last line.
 - [ ] Every line the verifier lists as a removed test, an added skip, or a
       changed fixture carries its reason: the four moved lab tests, the
       Windows and missing-tool skips, and `manifest.yaml`.
 - [ ] `deploy/lab/README.md`, the runbook, and the snmp integration README
       name the Python commands.
+- [ ] A person has set `approved` in both `statements/pypi/` files before
+      the phase lands. The implementer leaves it empty and says so in the
+      report.
 - [ ] This plan's outcome is recorded with
       `.claude/skills/plan/scripts/plan_record.py implemented <plan>
       --units <n> --from <t> --to <t>` or `partial`, or with the command
@@ -389,7 +541,28 @@ No unit names a file the phase 2 plan names in a `Files:` line.
   the case `src/protocol/smi/bench/bench-gate.sh:86` to `:97` guards. The
   port keeps the verdict. Adding the guard changes a verdict and is left
   to a person.
-- Dex's minimum bcrypt cost of 10 is unverified. The port keeps `-C 10`.
+- Is `docs/dependencies/statements/pypi/` the place for a Python
+  statement? Unconfirmed. The admission record names no directory, and the
+  plan takes the gate's `<ecosystem>/<name>.md` shape. Nothing checks the
+  two files until the gate reads script metadata, which is dependency
+  admission work.
+- The admission record has a person approve a statement "before the
+  manifest changes". The implementer writes both statements with an empty
+  `approved` and changes the block in the same unit, and the ruling is
+  asked for before the phase lands. A person who wants the ruling first
+  gives it before U3 starts.
+- Whether the Dex and OpenFGA containers accept the new chain is
+  unverified. Both are Go programs and Go 1.27.1 loads and verifies it,
+  but neither image was started. The manual lab run under Verification
+  settles it.
+- Where the verifier runs U3's tests without network and with an empty uv
+  cache, `uv run --locked` cannot fetch the packages and the tests fail.
+  `uv run --locked --offline` passes once the cache holds them. If that
+  blocks the verifier, the implementer reports it and does not add a skip.
+- uv installs the platform wheels, which hold compiled extensions. The
+  lock pins their digests and the digest of each source archive. Reading
+  that source is the review the admission record asks for and is not part
+  of this plan.
 - The first `TestTheLab*` run generates a 4096-bit RSA key, which takes
   seconds. If that is too slow for the targeted verifier run, the
   implementer reports it and does not shrink the key.
