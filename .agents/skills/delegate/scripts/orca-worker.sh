@@ -47,16 +47,20 @@ children() {
     | json '"\n".join(d["result"]["worktree"]["childWorktreeIds"])'
 }
 child_info() {
-  local child=$1 file lane terminal
+  local child=$1 file lane terminal kept_lane=''
   for file in "$state_dir"/*.json; do
     [[ -f $file ]] || continue
     lane=${file##*/}; lane=${lane%.json}
     [[ $(field "$lane" worktree) == "$child" ]] || continue
+    if is_kept "$lane"; then
+      [[ -n $kept_lane ]] || kept_lane=$lane
+      continue
+    fi
     terminal=$(field "$lane" terminal)
     printf '%s\t%s\n' "$lane" "$terminal"
     return 0
   done
-  printf '%s\t\n' "$child"
+  printf '%s\t\n' "${kept_lane:-$child}"
 }
 # A kept lane has closed its terminal and left the worktree for a later lane.
 # Every other lane whose state names a worktree has a live terminal.
