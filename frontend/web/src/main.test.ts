@@ -16,6 +16,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.doUnmock('./navigation/frame')
   localStorage.clear()
   document.documentElement.removeAttribute('lang')
   document.body.replaceChildren()
@@ -95,6 +96,22 @@ describe('main entrypoint', () => {
       addEventListener: () => {},
       removeEventListener: () => {},
     }))
+    let movedCalls = 0
+    vi.doMock('./navigation/frame', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./navigation/frame')>()
+      return {
+        ...actual,
+        createFrame: () => {
+          const frame = actual.createFrame()
+          const moved = frame.moved
+          frame.moved = () => {
+            movedCalls += 1
+            moved()
+          }
+          return frame
+        },
+      }
+    })
     localStorage.clear()
     localStorage.setItem('flowseer.locale', 'en')
     history.replaceState(null, '', '/login')
@@ -123,6 +140,7 @@ describe('main entrypoint', () => {
     await new Promise((resolve) => setTimeout(resolve, 600))
     observer.disconnect()
     expect(location.pathname).toBe('/dashboard')
+    expect(movedCalls).toBe(0)
     expect(transforms).toEqual([])
   })
 
