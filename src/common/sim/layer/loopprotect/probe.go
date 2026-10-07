@@ -54,8 +54,25 @@ type Probe struct {
 // loop-protection probe group, with src as the sending switch's MAC. The
 // payload puts its fixed fields ahead of the variable-length port name:
 // version, originating MAC, VID, sequence number, port-name length, port
-// name. The frame is not padded to the 60-octet Ethernet minimum.
-func Encode(p Probe, src netaddr.MAC) ethernet.Frame {
+// name. The frame is not padded to the 60-octet Ethernet minimum. Encode
+// refuses a port name that is empty or longer than 255 octets, the two names
+// Decode cannot return.
+func Encode(p Probe, src netaddr.MAC) (ethernet.Frame, error) {
+	if len(p.Port) == 0 || len(p.Port) > maxProbePortNameLength {
+		return ethernet.Frame{}, errs.New().
+			Attr("reason", reasonUnsupportedProbe).
+			Attr("length", len(p.Port)).
+			Attr("max", maxProbePortNameLength).
+			Msgf("loop protection probe port name of %d octets is outside 1 to %d", len(p.Port), maxProbePortNameLength)
+	}
+
+	return encode(p, src), nil
+}
+
+// encode builds the frame for a probe whose port name is already known to be
+// 1 to 255 octets. Layer.Advance calls it directly: Config.Validate bounds
+// the length and the port table holds no empty name.
+func encode(p Probe, src netaddr.MAC) ethernet.Frame {
 	name := []byte(p.Port)
 	payload := make([]byte, probeHeaderLength+len(name))
 
@@ -86,10 +103,24 @@ func SetProbeVID(f ethernet.Frame, vid vlan.ID) ethernet.Frame {
 	return f
 }
 
-// Decode parses f's payload as a loop-protection probe. It refuses a wrong
-// version, a payload shorter than 14 octets, a zero name length, a name
+// Decode parses f's payload as a loop-protection probe. It refuses a frame
+// whose destination is not the probe group or whose EtherType is not 0x88b5
+// before it reads the payload, then a wrong version, a payload shorter than 14 octets, a zero name length, a name
 // running past the payload, and trailing octets after the name.
 func Decode(f ethernet.Frame) (Probe, error) {
+	if f.Dst != groupAddress {
+		return Probe{}, errs.New().
+			Attr("reason", reasonUnsupportedProbe).
+			Attr("dst", f.Dst.String()).
+			Msgf("loop protection probe destination %s is not the probe group %s", f.Dst, groupAddress)
+	}
+	if f.EtherType != etherType {
+		return Probe{}, errs.New().
+			Attr("reason", reasonUnsupportedProbe).
+			Attr("ether_type", uint16(f.EtherType)).
+			Msgf("loop protection probe EtherType 0x%04x is not 0x%04x", uint16(f.EtherType), uint16(etherType))
+	}
+
 	if len(f.Payload) < probeHeaderLength {
 		return Probe{}, errs.New().
 			Attr("reason", reasonUnsupportedProbe).

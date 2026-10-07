@@ -29,6 +29,7 @@ and `F` is `src/common/sim/fabric`. Source labels are defined under
 Inventory, Sources.
 
 - The parent's Decisions apply.
+- The corpus case `troubleshooting/leave-last-member-query` configures its switch to drop unregistered multicast, so an expired group gives Dropped with no egress after two last member query intervals. Why: expiry at read time makes an expired group unregistered, and the case asks whether forwarding to the last member stops, which default flooding would hide. (decided by the user, 2026-10-07)
 - `mcast` owns the restore of its retained state, as `Restore(prev, keep)`
   on the layer `New` built from the target. Why: the switch replays each
   entry as an IGMPv2 or MLDv1 report (`V/derive.go:298-310`), which discards
@@ -289,6 +290,12 @@ sequence `0xa1b2c3d4`, name length 8, and the name `et-0/0/7`.
   `TestOlderVersionHostBlockIgnoredUntilTimerExpires` (`M/layer_test.go:963`)
   applies a `BLOCK` one second after the group timer ran out and expects
   the `EXCLUDE` row, which pins entry 11.
+- U2. `TestMulticastLeaveTimingThroughForward` in
+  `src/common/sim/device/vswitch/switch_test.go` checks default unregistered
+  flooding after membership expires. Its earlier no-egress expectation
+  depended on the expired group remaining registered. `resolveMcast` in
+  `src/common/sim/device/vswitch/switch.go` applies the configured flood
+  policy once registration ends.
 - U3. `TestBehaviorMatrix` (`M/config_test.go:275-290`) asserts the length
   of a list it just wrote. `TestDiffCoversEveryConfigField` holds the field
   list.
@@ -454,12 +461,12 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit, with the contract
+- [x] Verifier green for every changed path of every unit, with the contract
       gate in `test/conformance/sim` untouched.
-- [ ] Each Correctness entry has its failing-first test or its strike.
-- [ ] The READMEs of `M` and `LP` name their sources, sections, and Limits,
+- [x] Each Correctness entry has its failing-first test or its strike.
+- [x] The READMEs of `M` and `LP` name their sources, sections, and Limits,
       and the virtual-device record is amended.
-- [ ] No plan label in code, comments, or commit messages. This plan's
+- [x] No plan label in code, comments, or commit messages. This plan's
       `status` is set, and the parent's U5 `Landed:` holds the range.
 
 ## Open questions
@@ -478,3 +485,9 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   string for `Configured` and `Aging`
   (`src/common/sim/layer/bridge/fdb.go:44,56`). Phase 7's inventory does not
   list it.
+
+## Review gaps
+
+Follow-ups a review left open. They do not hold the verdict.
+
+- src/common/sim/layer/mcast/state.go:97: `if gps.igmpV1HostUntil.After(now) && kind == recToInclude { return }` is unreachable, since `applyToPort` (`src/common/sim/layer/mcast/layer.go:475`) returns on the same condition before its one call of `applyRecord`; fails: deleting the three lines changes no test and no behaviour; class: convention

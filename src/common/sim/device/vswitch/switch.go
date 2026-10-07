@@ -282,6 +282,7 @@ type pvstBoundaryHit struct {
 type mcastQueryUnobservedHit struct {
 	vid   vlan.ID
 	group netip.Addr
+	now   time.Time
 }
 
 // neighborUnresolvedHit names one interface and address a forward or peek
@@ -643,22 +644,23 @@ func (s *Switch) Entries() []bridge.Entry {
 	return s.bridge.Entries()
 }
 
-// Groups returns the multicast membership entries for vid.
-func (s *Switch) Groups(vid vlan.ID) []mcast.Entry {
+// Groups returns the multicast membership entries for vid as of now without aging stored state.
+func (s *Switch) Groups(vid vlan.ID, now time.Time) []mcast.Entry {
 	if s.mcast == nil {
 		return nil
 	}
 
-	return s.mcast.Groups(vid)
+	return s.mcast.Groups(vid, now)
 }
 
-// RouterPorts returns the multicast router ports for vid.
-func (s *Switch) RouterPorts(vid vlan.ID) []mcast.RouterPort {
+// RouterPorts returns static and unexpired multicast router ports for vid as of now
+// without aging stored state.
+func (s *Switch) RouterPorts(vid vlan.ID, now time.Time) []mcast.RouterPort {
 	if s.mcast == nil {
 		return nil
 	}
 
-	return s.mcast.RouterPorts(vid)
+	return s.mcast.RouterPorts(vid, now)
 }
 
 // Learn validates and preloads the switch's bridge forwarding database with the
@@ -909,7 +911,7 @@ func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
 				Scope:   mcastGroupScope(s.nodeID, hit.vid, hit.group),
 				Message: fmt.Sprintf("multicast group %s on vlan %d has an expected query that was never observed", hit.group, hit.vid),
 			},
-			facts: s.mcastConstructionEvidence(hit.vid),
+			facts: s.mcastConstructionEvidence(hit.vid, hit.now),
 		})
 	}
 	slices.SortFunc(issues, func(a, b runtimeIssue) int { return a.issue.Scope.Compare(b.issue.Scope) })
@@ -1084,12 +1086,12 @@ func pvstBoundaryScope(nodeID, portName string, vid vlan.ID) analysis.Scope {
 	return analysis.ProtocolScope(nodeID, string(stp.LayerName), fmt.Sprintf("%s/%d", portName, vid))
 }
 
-func (s *Switch) mcastConstructionEvidence(vid vlan.ID) []trace.Fact {
+func (s *Switch) mcastConstructionEvidence(vid vlan.ID, now time.Time) []trace.Fact {
 	if s.mcast == nil {
 		return nil
 	}
 	var evidence []trace.Fact
-	for _, r := range s.mcast.RouterPorts(vid) {
+	for _, r := range s.mcast.RouterPorts(vid, now) {
 		if p, ok := s.ports.Port(r.Port); ok {
 			evidence = append(evidence, port.ForwardingFact(r.Port, p, p.Forwards(), ""))
 		}
@@ -1613,20 +1615,27 @@ func (s *Switch) forwardMulticastControl(
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
-		return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
+		return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID, now)), mcast.ReasonNoRouterPort)
 	}
 
-	if hdr.HopLimit != 1 || !hdr.Src.IsLinkLocalUnicast() || !hasRouterAlert(payload) {
+	if hdr.HopLimit != 1 || !hasRouterAlert(payload) {
 		return badMulticastControl(in)
 	}
 	message, err := mld.Decode(hdr, payload)
 	if err != nil {
 		if errors.Is(err, mld.ErrUnsupported) {
+			if !hdr.Src.IsLinkLocalUnicast() {
+				return badMulticastControl(in)
+			}
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 			in.Steps = append(in.Steps, multicastControlStep(mcast.RuleControlUnsupported, "mld", false, "unsupported", nil))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
+		return badMulticastControl(in)
+	}
+	validSource := hdr.Src.IsLinkLocalUnicast() || hdr.Src.IsUnspecified() && (message.Type == mld.ReportV1 || message.Type == mld.ReportV2)
+	if !validSource {
 		return badMulticastControl(in)
 	}
 
@@ -1641,7 +1650,7 @@ func (s *Switch) forwardMulticastControl(
 		return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 	}
 
-	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID)), mcast.ReasonNoRouterPort)
+	return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID, now)), mcast.ReasonNoRouterPort)
 }
 
 func multicastControlStep(ruleID trace.RuleID, proto string, admitted bool, reason trace.Reason, message trace.Fact) trace.Step {
@@ -1767,7 +1776,7 @@ func (s *Switch) resolveMcast(now time.Time, vid vlan.ID, f ethernet.Frame) ([]s
 	ports, registered, pending := s.mcast.Resolve(vid, hdr.Dst, hdr.Src, now)
 	if registered {
 		if pending {
-			s.recordMcastQueryUnobserved(vid, hdr.Dst)
+			s.recordMcastQueryUnobserved(vid, hdr.Dst, now)
 		}
 		return ports, true
 	}
@@ -3726,8 +3735,8 @@ func (s *Switch) recordLAGSelection(lagName string, sel lag.Selection) {
 // recordMcastQueryUnobserved notes that the forward or peek call in progress
 // resolved (vid, group) while its expected query had gone unobserved, so
 // wrapResult can raise mcast-query-unobserved for that group.
-func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr) {
-	s.mcastQueryUnobservedHits = append(s.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group})
+func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr, now time.Time) {
+	s.mcastQueryUnobservedHits = append(s.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group, now: now})
 }
 
 // recordNeighborUnresolved notes that the forward or peek call in progress

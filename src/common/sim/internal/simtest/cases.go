@@ -1845,7 +1845,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 	frame := expectedFact("bridge.frame", `src="00:11:22:33:44:fe";dst="01:00:5e:06:06:06";ether_type=2048;tags=[];payload_len=24`)
 	fdbLearned := expectedFact("bridge.fdb_decision", `fid=10;mac="00:11:22:33:44:fe";present=true;port="p9";static=false`)
 	groupDestination := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=true;reason="group-destination"`)
-	membership := expectedFact("mcast.membership_decision", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=true;decided=true;ports=["p9"]`)
+	membership := expectedFact("mcast.membership_decision", `fid=10;group="239.6.6.6";source="10.9.9.9";registered=false;decided=true;ports=["p9"]`)
 	dropDecision := expectedFact("bridge.egress_decision", `port="";member="";fid=10;eligible=false;reason="no-egress"`)
 
 	expectedSteps := []StepExpectation{
@@ -1865,7 +1865,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 		UseCase:       UseCaseTroubleshooting,
 		Question:      "After the sole member of a group leaves and the router's group-specific query is observed, does forwarding to that member stop at the last member query time or run for the full membership interval?",
 		FalseAnswer:   "Forwarding continues for the full membership interval after a queried leave",
-		CurrentResult: "p1 joins group 239.6.6.6, leaves, and an observed group-specific query from router port p9 arrives at the leave time; two last member query intervals later (2s, well short of the 260s membership interval) a frame to the group no longer resolves p1 and drops with reason \"no-egress\"",
+		CurrentResult: "p1 joins group 239.6.6.6, leaves, and an observed group-specific query from router port p9 arrives at the leave time; two last member query intervals later (2s, well short of the 260s membership interval) the group is unregistered and resolves only ingress router port p9; with unregistered flooding disabled, the frame drops with reason \"no-egress\"",
 		ExpectedMetadata: &MetadataExpectation{
 			Status: analysis.Complete,
 			Scope:  analysis.NodeScope(""),
@@ -1921,6 +1921,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 						LastMemberQueryInterval: time.Second,
 						LastMemberQueryCount:    2,
 						RouterPorts:             []string{"p9"},
+						FloodUnregistered:       new(false),
 					}}},
 				},
 			}

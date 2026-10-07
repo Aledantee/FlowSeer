@@ -2,6 +2,7 @@ package mcast_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -87,6 +88,53 @@ func igmpRecord(now time.Time, layer *mcast.Layer, kind igmp.RecordType, group n
 	})
 }
 
+func TestDeletedSourceQueryDoesNotAttachToReaddedSource(t *testing.T) {
+	l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, mcastPortTable(t))
+	t0 := time.Unix(129000, 0)
+	group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+	igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(time.Second), l, igmp.BlockOldSources, group, []netip.Addr{source})
+	if _, registered, pending := l.Resolve(vid, group, source, t0.Add(4*time.Second)); !registered || !pending {
+		t.Fatalf("BLOCK registered, pending = %v, %v, want true, true", registered, pending)
+	}
+	igmpRecord(t0.Add(5*time.Second), l, igmp.ChangeToExcludeMode, group, nil)
+	if e := mustEntry(t, l.Groups(vid, t0.Add(5*time.Second))); e.Mode != mcast.Exclude || len(e.Sources) != 0 {
+		t.Fatalf("TO_EX state = %+v, want EXCLUDE with no source records", e)
+	}
+	igmpRecord(t0.Add(6*time.Second), l, igmp.ModeIsExclude, group, []netip.Addr{source})
+	e := mustEntry(t, l.Groups(vid, t0.Add(6*time.Second)))
+	if expires, exists := sourceExpiry(t, e, source); !exists || !expires.Equal(t0.Add(266*time.Second)) {
+		t.Fatalf("readded source expiry, exists = %v, %v, want t0+266s, true", expires, exists)
+	}
+	if ports, registered, pending := l.Resolve(vid, group, source, t0.Add(7*time.Second)); !slices.Equal(ports, []string{memberPort, "1/1/8"}) || !registered || pending {
+		t.Errorf("Resolve = %v, %v, %v, want member and router, registered, no pending query", ports, registered, pending)
+	}
+}
+
+func TestObservedSourceQueryEndsObligationWithoutLoweringTimer(t *testing.T) {
+	l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}, MembershipInterval: 10 * time.Second}}}, mcastPortTable(t))
+	t0 := time.Unix(130000, 0)
+	group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+	igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(time.Second), l, igmp.ModeIsExclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(2*time.Second), l, igmp.BlockOldSources, group, []netip.Addr{source})
+	now := t0.Add(9 * time.Second)
+	e := mustEntry(t, l.Groups(vid, now))
+	if expires, exists := sourceExpiry(t, e, source); e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t0.Add(11*time.Second)) || !exists || !expires.Equal(t0.Add(10*time.Second)) {
+		t.Fatalf("query fixture = %+v, want EXCLUDE with group expiry t0+11s and source expiry t0+10s", e)
+	}
+	if _, registered, pending := l.Resolve(vid, group, source, now); !registered || !pending {
+		t.Fatalf("before query registered, pending = %v, %v, want true, true", registered, pending)
+	}
+	l.Learn(now, vid, "1/1/8", source, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{source}})
+	if expires, _ := sourceExpiry(t, mustEntry(t, l.Groups(vid, now)), source); !expires.Equal(t0.Add(10 * time.Second)) {
+		t.Errorf("source expiry = %v, want unchanged t0+10s", expires)
+	}
+	if _, registered, pending := l.Resolve(vid, group, source, now); !registered || pending {
+		t.Errorf("after query registered, pending = %v, %v, want true, false", registered, pending)
+	}
+}
+
 func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 	t.Parallel()
 
@@ -108,10 +156,138 @@ func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 		t.Errorf("Resolve() = (%v, %v, %v), want (%v, true, false)", got, registered, pending, want)
 	}
 
-	entries := layer.Groups(vid)
+	entries := layer.Groups(vid, now)
 	if len(entries) != 1 || entries[0].Group != group || entries[0].Port != "1/1/1" ||
 		entries[0].Mode != mcast.Exclude || !entries[0].GroupExpires.Equal(now.Add(mcast.DefaultMembershipInterval)) {
 		t.Errorf("Groups() = %+v, want EXCLUDE({},{}) with default group timer", entries)
+	}
+}
+
+func TestResolveIgnoresExpiredState(t *testing.T) {
+	t.Parallel()
+	l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+	t0 := time.Unix(1_000, 0)
+	group := netip.MustParseAddr("239.1.1.1")
+	source := netip.MustParseAddr("10.1.1.1")
+	l.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.ReportV2, Group: group})
+	l.Learn(t0, vid, "1/1/4", source, igmp.Message{Type: igmp.Query})
+	if ports, registered, pending := l.Resolve(vid, group, source, t0.Add(5*time.Second)); !slices.Equal(ports, []string{memberPort, "1/1/4"}) || !registered || pending {
+		t.Fatalf("live Resolve = (%v, %v, %v), want both ports, registered and no pending query", ports, registered, pending)
+	}
+	for _, now := range []time.Time{t0.Add(260 * time.Second), t0.Add(300 * time.Second)} {
+		if ports, registered, pending := l.Resolve(vid, group, source, now); len(ports) != 0 || registered || pending {
+			t.Errorf("expired Resolve at %s = (%v, %v, %v), want no ports, unregistered and no pending query", now, ports, registered, pending)
+		}
+	}
+}
+
+func TestReadsMatchAdvance(t *testing.T) {
+	t.Parallel()
+	t0 := time.Unix(1_000, 0)
+	group := netip.MustParseAddr("239.1.1.1")
+	running := netip.MustParseAddr("10.1.1.1")
+	blocked := netip.MustParseAddr("10.1.1.2")
+	for _, name := range []string{"exclude group expiry", "include source expiry", "exclude source expiry", "router expiry", "expired router with live obligation"} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			snooping := mcast.VLANSnooping{MembershipInterval: 10 * time.Second, RouterPortInterval: 10 * time.Second, RouterPorts: []string{"1/1/8"}}
+			if name == "expired router with live obligation" {
+				snooping.RouterPorts = nil
+			}
+			l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: snooping}}, mcastPortTable(t))
+			now := t0.Add(11 * time.Second)
+			switch name {
+			case "exclude group expiry":
+				igmpRecord(t0, l, igmp.ModeIsExclude, group, []netip.Addr{blocked})
+				igmpRecord(t0.Add(5*time.Second), l, igmp.AllowNewSources, group, []netip.Addr{running})
+				igmpRecord(t0.Add(6*time.Second), l, igmp.ChangeToIncludeMode, group, nil)
+			case "include source expiry":
+				igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{blocked})
+				igmpRecord(t0.Add(5*time.Second), l, igmp.AllowNewSources, group, []netip.Addr{running})
+			case "exclude source expiry":
+				igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{running})
+				igmpRecord(t0.Add(5*time.Second), l, igmp.ModeIsExclude, group, []netip.Addr{running, blocked})
+			case "router expiry":
+				l.Learn(t0, vid, "1/1/4", running, igmp.Message{Type: igmp.Query})
+				igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{running})
+				igmpRecord(t0.Add(time.Second), l, igmp.BlockOldSources, group, []netip.Addr{running})
+			case "expired router with live obligation":
+				l.Learn(t0, vid, "1/1/4", running, igmp.Message{Type: igmp.Query})
+				igmpRecord(t0.Add(5*time.Second), l, igmp.ModeIsInclude, group, []netip.Addr{running})
+				igmpRecord(t0.Add(6*time.Second), l, igmp.BlockOldSources, group, []netip.Addr{running})
+			}
+			beforeGroups, beforeRouters := l.Groups(vid, t0.Add(6*time.Second)), l.RouterPorts(vid, t0.Add(6*time.Second))
+			if len(beforeGroups) != 1 || len(beforeRouters) == 0 {
+				t.Fatalf("live fixture = (%+v, %+v), want one group and router ports", beforeGroups, beforeRouters)
+			}
+			wantGroups := []mcast.Entry{{Group: group, Port: memberPort, Mode: mcast.Include, Sources: []mcast.SourceEntry{{Address: running, Expires: t0.Add(15 * time.Second)}}}}
+			switch name {
+			case "exclude source expiry":
+				wantGroups = []mcast.Entry{{Group: group, Port: memberPort, Mode: mcast.Exclude, GroupExpires: t0.Add(15 * time.Second), Sources: []mcast.SourceEntry{{Address: running}, {Address: blocked}}}}
+			case "router expiry":
+				wantGroups = nil
+			}
+			if got := l.Groups(vid, now); !reflect.DeepEqual(got, wantGroups) {
+				t.Errorf("expired Groups = %+v, want %+v", got, wantGroups)
+			}
+			if name == "expired router with live obligation" {
+				if _, _, pending := l.Resolve(vid, group, running, t0.Add(9*time.Second)); !pending {
+					t.Fatal("live router has no pending query, want the unmatched BLOCK obligation")
+				}
+				if got, registered, pending := l.Resolve(vid, group, running, now); !slices.Equal(got, []string{memberPort}) || !registered || pending {
+					t.Errorf("expired-router Resolve = (%v, %v, %v), want member only, registered and no pending query", got, registered, pending)
+				}
+			}
+			aged := l.Clone()
+			aged.Advance(now)
+			for _, source := range []netip.Addr{running, blocked} {
+				got, registered, pending := l.Resolve(vid, group, source, now)
+				want, wantRegistered, wantPending := aged.Resolve(vid, group, source, now)
+				if !slices.Equal(got, want) || registered != wantRegistered || pending != wantPending {
+					t.Errorf("Resolve(%s) = (%v, %v, %v), aged = (%v, %v, %v)", source, got, registered, pending, want, wantRegistered, wantPending)
+				}
+			}
+			if got, want := l.Groups(vid, now), aged.Groups(vid, now); !reflect.DeepEqual(got, want) {
+				t.Errorf("Groups = %+v, aged = %+v", got, want)
+			}
+			if got, want := l.RouterPorts(vid, now), aged.RouterPorts(vid, now); !reflect.DeepEqual(got, want) {
+				t.Errorf("RouterPorts = %+v, aged = %+v", got, want)
+			}
+			if got := l.Groups(vid, t0.Add(6*time.Second)); !reflect.DeepEqual(got, beforeGroups) {
+				t.Errorf("reads changed stored groups: %+v, want %+v", got, beforeGroups)
+			}
+			if got := l.RouterPorts(vid, t0.Add(6*time.Second)); !reflect.DeepEqual(got, beforeRouters) {
+				t.Errorf("reads changed stored routers: %+v, want %+v", got, beforeRouters)
+			}
+		})
+	}
+}
+
+func TestLearnAgesBeforeRecord(t *testing.T) {
+	t.Parallel()
+	for _, protocol := range []string{"IGMP", "MLD"} {
+		t.Run(protocol, func(t *testing.T) {
+			t.Parallel()
+			l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+			t0 := time.Unix(1_000, 0)
+			now := t0.Add(300 * time.Second)
+			group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+			if protocol == "IGMP" {
+				l.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.ReportV2, Group: group})
+				igmpRecord(now, l, igmp.ModeIsExclude, group, []netip.Addr{source})
+			} else {
+				group, source = netip.MustParseAddr("ff05::1"), netip.MustParseAddr("2001:db8::1")
+				l.LearnMLD(t0, vid, memberPort, netip.MustParseAddr("fe80::1"), mld.Message{Type: mld.ReportV1, Group: group})
+				l.LearnMLD(now, vid, memberPort, netip.MustParseAddr("fe80::1"), mld.Message{Type: mld.ReportV2, Records: []mld.AddressRecord{{Type: mld.ModeIsExclude, Group: group, Sources: []netip.Addr{source}}}})
+			}
+			e := mustEntry(t, l.Groups(vid, now))
+			if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(now.Add(260*time.Second)) || !reflect.DeepEqual(e.Sources, []mcast.SourceEntry{{Address: source}}) {
+				t.Errorf("state after IS_EX = %+v, want EXCLUDE({}, {%s}) with fresh group timer", e, source)
+			}
+			if ports, registered, pending := l.Resolve(vid, group, source, now); len(ports) != 0 || !registered || pending {
+				t.Errorf("Resolve blocked source = (%v, %v, %v), want no ports, registered and no pending query", ports, registered, pending)
+			}
+		})
 	}
 }
 
@@ -146,13 +322,13 @@ func TestRouterPortLearningRequiresProtocolSource(t *testing.T) {
 
 	layer.Learn(now, vid, "1/1/1", netip.IPv4Unspecified(), igmp.Message{Type: igmp.Query})
 	layer.LearnMLD(now, vid, "1/1/2", netip.MustParseAddr("2001:db8::1"), mld.Message{Type: mld.Query})
-	if got := layer.RouterPorts(vid); len(got) != 0 {
+	if got := layer.RouterPorts(vid, now); len(got) != 0 {
 		t.Fatalf("router ports after ineligible sources = %+v, want none", got)
 	}
 
 	layer.Learn(now, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
 	layer.LearnMLD(now, vid, "1/1/2", netip.MustParseAddr("fe80::2"), mld.Message{Type: mld.Query})
-	routers := layer.RouterPorts(vid)
+	routers := layer.RouterPorts(vid, now)
 	if len(routers) != 2 || routers[0].Port != "1/1/2" || routers[1].Port != "1/1/4" {
 		t.Errorf("RouterPorts() = %+v, want 1/1/2 and 1/1/4", routers)
 	}
@@ -176,37 +352,132 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	}}, mcastPortTable(t))
 	layer.Advance(time.Unix(1_000_000, 0))
 
-	routers := layer.RouterPorts(vid)
+	routers := layer.RouterPorts(vid, time.Unix(1_000_000, 0))
 	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Configured ||
 		routers[0].Lifetime != mcast.Static || !routers[0].Expires.IsZero() {
 		t.Errorf("RouterPorts() = %+v, want one non-expiring Configured, Static port", routers)
 	}
 }
 
-func TestInstallObservedRouterPort(t *testing.T) {
+func TestRestore(t *testing.T) {
 	t.Parallel()
-
-	const vidStatic vlan.ID = 20
-	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-		vid:       {RouterPortInterval: 999 * time.Second},
-		vidStatic: {RouterPorts: []string{"1/1/4"}},
-	}}, mcastPortTable(t))
-	// expires is unrelated to vid's RouterPortInterval, proving InstallObserved carries the
-	// given expiry through rather than computing one from the VLAN's interval.
-	expires := time.Unix(5_000, 0)
-
-	layer.InstallObserved(vid, "1/1/4", expires)
-	routers := layer.RouterPorts(vid)
-	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Observed ||
-		routers[0].Lifetime != mcast.Aging || !routers[0].Expires.Equal(expires) {
-		t.Errorf("RouterPorts() = %+v, want one Observed, Aging port with the given expiry", routers)
-	}
-
-	// A static router port refuses the override.
-	layer.InstallObserved(vidStatic, "1/1/4", expires)
-	routers2 := layer.RouterPorts(vidStatic)
-	if len(routers2) != 1 || routers2[0].Origin != mcast.Configured || routers2[0].Lifetime != mcast.Static {
-		t.Errorf("RouterPorts() = %+v, want the static port left alone", routers2)
+	t0 := time.Unix(5_000, 0)
+	group := netip.MustParseAddr("239.1.1.1")
+	running := netip.MustParseAddr("10.0.0.9")
+	blocked := netip.MustParseAddr("10.0.0.8")
+	allow := func(vlan.ID, string) bool { return true }
+	for _, name := range []string{"include", "exclude", "multiple ports", "compatibility", "pending group", "pending source", "independent", "keep refusal", "unsnooped VLAN", "LAG member", "departed port", "router expiry", "static router", "configured router"} {
+		t.Run(name, func(t *testing.T) {
+			ports := mcastPortTable(t)
+			prev := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, ports)
+			report := func(l *mcast.Layer, now time.Time, kind igmp.RecordType, sources ...netip.Addr) {
+				l.Learn(now, vid, memberPort, netip.Addr{}, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: kind, Group: group, Sources: sources}}})
+			}
+			report(prev, t0, igmp.ModeIsInclude, running)
+			if name == "multiple ports" {
+				prev.Learn(t0.Add(time.Second), vid, "1/1/2", running, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{blocked}}}})
+			}
+			prev.Learn(t0, vid, memberPort, running, igmp.Message{Type: igmp.Query})
+			if name == "exclude" {
+				report(prev, t0.Add(time.Second), igmp.ModeIsExclude, running, blocked)
+			}
+			if name == "compatibility" || name == "pending group" {
+				prev.Learn(t0, vid, memberPort, running, igmp.Message{Type: igmp.ReportV2, Group: group})
+			}
+			if name == "pending group" {
+				prev.Learn(t0.Add(time.Second), vid, memberPort, running, igmp.Message{Type: igmp.Leave, Group: group})
+			}
+			if name == "pending source" {
+				report(prev, t0.Add(time.Second), igmp.BlockOldSources, running)
+			}
+			before := prev.Groups(vid, t0.Add(time.Second))
+			wantCount := 1
+			if name == "multiple ports" {
+				wantCount = 2
+			}
+			if len(before) != wantCount {
+				t.Fatalf("source Groups = %+v, want %d memberships", before, wantCount)
+			}
+			cfg := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {MembershipInterval: 999 * time.Second, RouterPortInterval: 999 * time.Second}}}
+			keep := allow
+			switch name {
+			case "keep refusal":
+				keep = func(vlan.ID, string) bool { return false }
+			case "unsnooped VLAN":
+				cfg.VLANs = map[vlan.ID]mcast.VLANSnooping{20: {}}
+			case "LAG member", "departed port":
+				b := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG})
+				if name == "LAG member" {
+					b.Add(port.Port{Name: memberPort, Kind: port.Physical, LagParent: "lag1"})
+				}
+				var err error
+				ports, err = b.Build()
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "static router":
+				v := cfg.VLANs[vid]
+				v.RouterPorts = []string{memberPort}
+				cfg.VLANs[vid] = v
+			}
+			next := mustNewMcast(t, cfg, ports)
+			next.Restore(prev, keep)
+			switch name {
+			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
+				if got, routers := next.Groups(vid, t0.Add(time.Second)), next.RouterPorts(vid, t0.Add(time.Second)); len(got) != 0 || len(routers) != 0 {
+					t.Fatalf("restored Groups = %+v, routers = %+v, want none", got, routers)
+				}
+			default:
+				if got := next.Groups(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, before) {
+					t.Fatalf("restored Groups = %+v, want %+v", got, before)
+				}
+			}
+			switch name {
+			case "include":
+				if before[0].Mode != mcast.Include || !reflect.DeepEqual(before[0].Sources, []mcast.SourceEntry{{Address: running, Expires: t0.Add(260 * time.Second)}}) {
+					t.Fatalf("include fixture = %+v", before)
+				}
+			case "exclude":
+				if before[0].Mode != mcast.Exclude || !before[0].GroupExpires.Equal(t0.Add(261*time.Second)) || !reflect.DeepEqual(before[0].Sources, []mcast.SourceEntry{{Address: blocked}, {Address: running, Expires: t0.Add(260 * time.Second)}}) {
+					t.Fatalf("exclude fixture = %+v", before)
+				}
+			case "router expiry", "configured router":
+				want := []mcast.RouterPort{{Port: memberPort, Origin: mcast.Observed, Lifetime: mcast.Aging, Expires: t0.Add(260 * time.Second)}}
+				if got := next.RouterPorts(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, want) {
+					t.Fatalf("routers = %+v, want %+v", got, want)
+				}
+			case "static router":
+				want := []mcast.RouterPort{{Port: memberPort, Origin: mcast.Configured, Lifetime: mcast.Static}}
+				if got := next.RouterPorts(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, want) {
+					t.Fatalf("routers = %+v, want %+v", got, want)
+				}
+			case "compatibility":
+				report(next, t0.Add(time.Second), igmp.ChangeToExcludeMode, blocked)
+				if got := next.Groups(vid, t0.Add(time.Second)); len(got) != 1 || len(got[0].Sources) != 0 {
+					t.Fatalf("compatibility state = %+v, want empty sources", got)
+				}
+				report(next, t0.Add(261*time.Second), igmp.ChangeToExcludeMode, blocked)
+				if got := next.Groups(vid, t0.Add(261*time.Second)); len(got) != 1 || len(got[0].Sources) != 1 {
+					t.Fatalf("after compatibility deadline = %+v, want one source", got)
+				}
+			case "pending group", "pending source":
+				if _, _, pending := prev.Resolve(vid, group, running, t0.Add(4*time.Second)); !pending {
+					t.Fatal("source fixture has no pending query")
+				}
+				if _, _, pending := next.Resolve(vid, group, running, t0.Add(4*time.Second)); !pending {
+					t.Fatal("restored query is not pending")
+				}
+			case "independent":
+				report(next, t0.Add(time.Second), igmp.AllowNewSources, blocked)
+				next.Advance(t0.Add(300 * time.Second))
+				if got := prev.Groups(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, before) {
+					t.Fatalf("source Groups = %+v, want unchanged %+v", got, before)
+				}
+				if got := prev.RouterPorts(vid, t0.Add(time.Second)); len(got) != 2 || !got[0].Expires.Equal(t0.Add(260*time.Second)) {
+					t.Fatalf("source routers changed: %+v", got)
+				}
+			}
+		})
 	}
 }
 
@@ -225,10 +496,10 @@ func TestLearningIgnoresUnsnoopedVLANsAndPhysicalLAGMembers(t *testing.T) {
 	if layer.Snooped(20) || !layer.Snooped(vid) {
 		t.Errorf("Snooped() reported wrong configured VLANs")
 	}
-	if got := layer.Groups(vid); len(got) != 0 {
+	if got := layer.Groups(vid, now); len(got) != 0 {
 		t.Errorf("Groups() = %+v, want none", got)
 	}
-	if got := layer.RouterPorts(vid); len(got) != 0 {
+	if got := layer.RouterPorts(vid, now); len(got) != 0 {
 		t.Errorf("RouterPorts() = %+v, want none", got)
 	}
 }
@@ -250,7 +521,7 @@ func TestLegacyReportsLearnMembership(t *testing.T) {
 		Type: mld.ReportV1, Group: netip.MustParseAddr("ff05::1"),
 	})
 
-	groups := layer.Groups(vid)
+	groups := layer.Groups(vid, now)
 	if len(groups) != 3 {
 		t.Fatalf("Groups() = %+v, want three legacy memberships", groups)
 	}
@@ -298,7 +569,7 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 				layer.Learn(now.Add(time.Second), vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.Leave, Group: group})
 			}
 
-			got := len(layer.Groups(vid))
+			got := len(layer.Groups(vid, now.Add(time.Second)))
 			want := 1
 			if tt.fast {
 				want = 0
@@ -307,29 +578,6 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 				t.Errorf("membership count = %d, want %d", got, want)
 			}
 		})
-	}
-}
-
-func TestRetainDropsDepartedPortsAndPreservesExpiries(t *testing.T) {
-	t.Parallel()
-
-	group := netip.MustParseAddr("239.1.1.1")
-	t0 := time.Unix(10_000, 0)
-	ports := mcastPortTable(t)
-	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
-	for _, name := range []string{"1/1/1", "1/1/2"} {
-		layer.Learn(t0, vid, name, netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
-	}
-	layer.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
-
-	wantExpiry := t0.Add(mcast.DefaultMembershipInterval)
-	layer.Retain(ports, func(_ vlan.ID, name string) bool { return name != "1/1/2" })
-	groups := layer.Groups(vid)
-	if len(groups) != 1 || groups[0].Port != "1/1/1" || !groups[0].GroupExpires.Equal(wantExpiry) {
-		t.Errorf("Groups() after Retain = %+v, want retained 1/1/1 with original group timer", groups)
-	}
-	if routers := layer.RouterPorts(vid); len(routers) != 1 || routers[0].Port != "1/1/4" {
-		t.Errorf("RouterPorts() after Retain = %+v, want retained router", routers)
 	}
 }
 
@@ -345,13 +593,12 @@ func TestLayerCloneIsIndependent(t *testing.T) {
 	original.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
 
 	clone := original.Clone()
-	clone.Retain(ports, func(_ vlan.ID, name string) bool { return name != "1/1/1" })
 	original.Learn(t0, vid, "1/1/2", netip.MustParseAddr("10.0.0.2"), igmp.Message{Type: igmp.ReportV2, Group: group})
 
 	if got, registered, _ := original.Resolve(vid, group, other, t0); !registered || !slices.Equal(got, []string{"1/1/1", "1/1/2", "1/1/4"}) {
 		t.Errorf("original Resolve() = (%v, %v), want independent original state", got, registered)
 	}
-	if got, registered, _ := clone.Resolve(vid, group, other, t0); registered || !slices.Equal(got, []string{"1/1/4"}) {
+	if got, registered, _ := clone.Resolve(vid, group, other, t0); !registered || !slices.Equal(got, []string{"1/1/1", "1/1/4"}) {
 		t.Errorf("clone Resolve() = (%v, %v), want independent clone state", got, registered)
 	}
 }
@@ -373,11 +620,25 @@ func TestLayerCloneDeepCopiesSourceRecords(t *testing.T) {
 		}},
 	})
 
-	if got := mustEntry(t, layer.Groups(vid)); len(got.Sources) != 1 {
+	if got := mustEntry(t, layer.Groups(vid, t0.Add(time.Second))); len(got.Sources) != 1 {
 		t.Errorf("original Sources = %+v, want unaffected by clone mutation", got.Sources)
 	}
-	if got := mustEntry(t, clone.Groups(vid)); len(got.Sources) != 2 {
+	if got := mustEntry(t, clone.Groups(vid, t0.Add(time.Second))); len(got.Sources) != 2 {
 		t.Errorf("clone Sources = %+v, want the new source added", got.Sources)
+	}
+
+	original := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, mcastPortTable(t))
+	s2 := netip.MustParseAddr("10.1.1.2")
+	igmpRecord(t0, original, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+	igmpRecord(t0.Add(time.Second), original, igmp.BlockOldSources, group, []netip.Addr{s1, s2})
+	clone = original.Clone()
+	clone.Learn(t0.Add(2*time.Second), vid, "1/1/8", s1, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{s1}})
+	original.Learn(t0.Add(2*time.Second), vid, "1/1/8", s1, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{s2}})
+	if _, _, pending := original.Resolve(vid, group, s1, t0.Add(3*time.Second)); !pending {
+		t.Error("original pending = false, want independent s1 obligation")
+	}
+	if _, _, pending := clone.Resolve(vid, group, s2, t0.Add(3*time.Second)); !pending {
+		t.Error("clone pending = false, want independent s2 obligation")
 	}
 }
 
@@ -407,7 +668,7 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 		igmpRecord(t1, layer, igmp.ModeIsInclude, group, []netip.Addr{s2})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -427,7 +688,7 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
 		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer t1+GMI", e)
 		}
@@ -453,7 +714,7 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		// state: EXCLUDE(X={s1: t0+GMI}, Y={s2: 0}), group timer t1+GMI
 		igmpRecord(t2, layer, igmp.ModeIsInclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer unchanged at t1+GMI", e)
 		}
@@ -479,7 +740,7 @@ func TestCurrentStateRecordRules(t *testing.T) {
 		// state: EXCLUDE(X={s1: t0+GMI}, Y={s2: 0}), group timer t1+GMI
 		igmpRecord(t2, layer, igmp.ModeIsExclude, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t2.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer refreshed to t2+GMI", e)
 		}
@@ -527,7 +788,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 		igmpRecord(t1, layer, igmp.AllowNewSources, group, []netip.Addr{s2})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -550,7 +811,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
 		igmpRecord(t1, layer, igmp.BlockOldSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE unchanged", e.Mode)
 		}
@@ -573,7 +834,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
 		igmpRecord(t1, layer, igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE with group timer t1+GMI", e)
 		}
@@ -599,7 +860,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
 		igmpRecord(t1, layer, igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t1))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE", e.Mode)
 		}
@@ -627,7 +888,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		igmpRecord(t1, layer, igmp.ModeIsExclude, group, []netip.Addr{s1, s2})
 		igmpRecord(t2, layer, igmp.AllowNewSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer unchanged at t1+GMI", e)
 		}
@@ -653,7 +914,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
 		igmpRecord(t2, layer, igmp.BlockOldSources, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer untouched at t1+GMI", e)
 		}
@@ -679,7 +940,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
 		igmpRecord(t2, layer, igmp.ChangeToExcludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t2.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer refreshed to t2+GMI", e)
 		}
@@ -708,7 +969,7 @@ func TestFilterModeAndSourceListChangeRecordRules(t *testing.T) {
 		// state: EXCLUDE(X={s1}, Y={s2}), group timer t1+GMI
 		igmpRecord(t2, layer, igmp.ChangeToIncludeMode, group, []netip.Addr{s2, s3})
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t2))
 		if e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t1.Add(gmi)) {
 			t.Fatalf("state = %+v, want EXCLUDE, group timer untouched at t1+GMI", e)
 		}
@@ -751,7 +1012,7 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 
 		layer.Advance(t0.Add(gmi))
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t0.Add(gmi)))
 		if e.Mode != mcast.Include {
 			t.Fatalf("mode = %v, want INCLUDE after group timer expiry", e.Mode)
 		}
@@ -774,7 +1035,7 @@ func TestGroupTimerExpiryMovesExcludeToInclude(t *testing.T) {
 
 		layer.Advance(t0.Add(gmi))
 
-		if entries := layer.Groups(vid); entryExists(entries) {
+		if entries := layer.Groups(vid, t0.Add(gmi)); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -797,7 +1058,7 @@ func TestSourceTimerExpiry(t *testing.T) {
 
 		layer.Advance(t0.Add(gmi))
 
-		if entries := layer.Groups(vid); entryExists(entries) {
+		if entries := layer.Groups(vid, t0.Add(gmi)); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -816,7 +1077,7 @@ func TestSourceTimerExpiry(t *testing.T) {
 
 		layer.Advance(t0.Add(1000 * time.Second))
 
-		e := mustEntry(t, layer.Groups(vid))
+		e := mustEntry(t, layer.Groups(vid, t0.Add(1000*time.Second)))
 		if e.Mode != mcast.Exclude {
 			t.Fatalf("mode = %v, want EXCLUDE unchanged", e.Mode)
 		}
@@ -938,7 +1199,7 @@ func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 				layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: g})
 			}
 
-			e := mustEntry(t, layer.Groups(vid))
+			e := mustEntry(t, layer.Groups(vid, t0))
 			if e.Mode != mcast.Exclude || len(e.Sources) != 0 || !e.GroupExpires.Equal(t0.Add(gmi)) {
 				t.Fatalf("join state = %+v, want EXCLUDE({},{}) per IS_EX({})", e)
 			}
@@ -949,7 +1210,7 @@ func TestLegacyReportAndLeaveMapToCompatibilityRecords(t *testing.T) {
 				layer.Learn(t1, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.Leave, Group: g})
 			}
 
-			e = mustEntry(t, layer.Groups(vid))
+			e = mustEntry(t, layer.Groups(vid, t1))
 			if e.Mode != mcast.Exclude || len(e.Sources) != 0 {
 				t.Fatalf("leave state = %+v, want EXCLUDE({},{}) per TO_IN({})", e)
 			}
@@ -975,15 +1236,16 @@ func TestOlderVersionHostBlockIgnoredUntilTimerExpires(t *testing.T) {
 	layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 
 	igmpRecord(t0, layer, igmp.BlockOldSources, group, []netip.Addr{s1})
-	if e := mustEntry(t, layer.Groups(vid)); len(e.Sources) != 0 {
+	if e := mustEntry(t, layer.Groups(vid, t0)); len(e.Sources) != 0 {
 		t.Errorf("sources after BLOCK during older-host timer = %+v, want ignored", e.Sources)
 	}
 
 	after := t0.Add(gmi).Add(time.Second)
+	igmpRecord(t0.Add(5*time.Second), layer, igmp.ModeIsExclude, group, nil)
 	igmpRecord(after, layer, igmp.BlockOldSources, group, []netip.Addr{s1})
-	e := mustEntry(t, layer.Groups(vid))
-	if exp, ok := sourceExpiry(t, e, s1); !ok || !exp.Equal(t0.Add(gmi)) {
-		t.Errorf("s1 expiry after the timer expired = (%v, %v), want the current group timer t0+GMI", exp, ok)
+	e := mustEntry(t, layer.Groups(vid, after))
+	if exp, ok := sourceExpiry(t, e, s1); !ok || !exp.Equal(t0.Add(15*time.Second)) {
+		t.Errorf("s1 expiry after the timer expired = (%v, %v), want the refreshed group timer t0+15s", exp, ok)
 	}
 }
 
@@ -1089,6 +1351,21 @@ func TestLeaveTimingFollowsObservedQueries(t *testing.T) {
 			t.Errorf("pending at t+3s = true, want false with no router port")
 		}
 	})
+
+	t.Run("late query ends the obligation", func(t *testing.T) {
+		layer := build(t, true)
+		t0 := time.Unix(93_000, 0)
+		source := netip.MustParseAddr("10.0.0.1")
+		layer.Learn(t0.Add(-time.Second), vid, memberPort, source, igmp.Message{Type: igmp.ReportV2, Group: group})
+		layer.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.Leave, Group: group})
+		if _, registered, pending := layer.Resolve(vid, group, source, t0.Add(5*time.Second)); !registered || !pending {
+			t.Fatal("leave fixture is not registered and pending")
+		}
+		layer.Learn(t0.Add(10*time.Second), vid, "1/1/8", source, igmp.Message{Type: igmp.Query, Group: group})
+		if _, registered, pending := layer.Resolve(vid, group, source, t0.Add(11*time.Second)); !registered || pending {
+			t.Errorf("registered, pending = %v, %v, want true, false", registered, pending)
+		}
+	})
 }
 
 // --- fast leave ---
@@ -1108,7 +1385,7 @@ func TestFastLeave(t *testing.T) {
 		layer.Learn(t0, vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
 		layer.Learn(t0.Add(time.Second), vid, "1/1/1", netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.Leave, Group: group})
 
-		if entries := layer.Groups(vid); entryExists(entries) {
+		if entries := layer.Groups(vid, t0.Add(time.Second)); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})
@@ -1122,7 +1399,7 @@ func TestFastLeave(t *testing.T) {
 		igmpRecord(t0, layer, igmp.ModeIsInclude, group, []netip.Addr{s1})
 		igmpRecord(t0.Add(time.Second), layer, igmp.ModeIsInclude, group, nil)
 
-		if entries := layer.Groups(vid); entryExists(entries) {
+		if entries := layer.Groups(vid, t0.Add(time.Second)); entryExists(entries) {
 			t.Errorf("Groups() = %+v, want 1/1/1 removed", entries)
 		}
 	})

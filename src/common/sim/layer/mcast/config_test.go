@@ -271,20 +271,3 @@ func TestLastMemberQueryCountDiffUsesEffectiveValue(t *testing.T) {
 		t.Errorf("Diff(zero, 3) = %+v, want one last_member_query_count change", got)
 	}
 }
-
-func TestBehaviorMatrix(t *testing.T) {
-	t.Parallel()
-
-	fields := []string{
-		"VLANs.FloodUnregistered",
-		"VLANs.FastLeave",
-		"VLANs.RouterPorts",
-		"VLANs.MembershipInterval",
-		"VLANs.RouterPortInterval",
-		"VLANs.LastMemberQueryInterval",
-		"VLANs.LastMemberQueryCount",
-	}
-	if len(fields) != 7 {
-		t.Fatalf("unexpected number of mcast fields: %d", len(fields))
-	}
-}
