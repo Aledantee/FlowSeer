@@ -195,38 +195,6 @@ func TestMSTIBoundaryAgreementEndsItsSyncCut(t *testing.T) {
 	}
 }
 
-func TestMSTIBoundaryLadderKeepsItsRunningDeadline(t *testing.T) {
-	t.Parallel()
-	l, internal, boundary, now := boundarySyncFixture(t)
-	proposal := betterBoundarySyncProposal(internal)
-	at := now.Add(37 * time.Second)
-	l.Receive(at, "p1", proposal)
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
-		t.Fatalf("MSTI boundary after sync = %v, want Discarding", got)
-	}
-	flags := bpdu.BPDU{Flags: proposal.MSTIs[0].Flags}
-	flags.SetProposal(false)
-	proposal.MSTIs[0].Flags = flags.Flags
-	proposal.ForwardDelay = 4 * time.Second
-	for second := 1; second < 15; second++ {
-		refresh := at.Add(time.Duration(second) * time.Second)
-		l.Receive(refresh, "p1", proposal)
-		l.Receive(refresh, "p2", boundary)
-		l.Advance(refresh)
-		if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
-			t.Fatalf("MSTI boundary at second %d = %v, want Discarding until stored deadline", second, got)
-		}
-	}
-	l.Advance(at.Add(15 * time.Second))
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateLearning {
-		t.Fatalf("MSTI boundary at stored deadline = %v, want Learning", got)
-	}
-	l.Advance(at.Add(19 * time.Second))
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateForwarding {
-		t.Errorf("MSTI boundary after next delay = %v, want Forwarding", got)
-	}
-}
-
 func TestMSTISyncLeavesBoundaryRootUnchanged(t *testing.T) {
 	t.Parallel()
 

@@ -333,7 +333,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 				if p.boundarySyncState == StateDiscarding || cistP.state == StateForwarding {
 					p.state = p.boundarySyncState
 				}
-				if p.fwdDelayTimer.IsZero() {
+				if p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay)) {
 					p.fwdDelayTimer = now.Add(fwdDelay)
 				}
 			} else {
