@@ -55,7 +55,7 @@ For an entry that holds, place the fix where `docs/agent-steering.md`,
   An exception is its own conditional, never a clause appended to the rule.
 - The step was followed as written and still failed, or the same rule was
   violated more than once: the fix is enforcement, a hook under
-  `tools/hooks/` or a check in the verifier, and the prose only names it.
+  `tools/scripts/hooks/` or a check in the verifier, and the prose only names it.
 - The step never fired: remove it.
 - A new skill candidate: write the skill only when the sequence has recurred
   and has several conditional steps; otherwise add a step to an existing
@@ -99,14 +99,13 @@ read as a complete, followable step, and does it contradict `AGENTS.md`,
 
 Run at the end of every pass and on `audit`:
 
-1. For each rule under "Enforced rules" in `AGENTS.md`, name the hook script
+1. For each rule under "Enforced rules" in `AGENTS.md`, name the hook command
    or verifier check that enforces it. A rule with none is a finding.
-2. For each script in `tools/hooks/`, name its registration in
-   `.claude/settings.json` and in `.codex/hooks.json`, and the case in
-   `tools/scripts/tests/hooks/` that pins it. A script registered in one
-   runtime only is a finding unless the other runtime has no such event.
-3. Run `uv run tools/scripts/run.py test tools/scripts/tests/hooks` and
-   `shellcheck` over the hook scripts.
+2. For each command in `tools/scripts/hooks/__init__.py`, name its
+   registration in `.claude/settings.json` and in `.codex/hooks.json`, and the
+   case in `tools/scripts/tests/hooks/` that pins it. A command registered in
+   one runtime only is a finding unless the other runtime has no such event.
+3. Run `uv run tools/scripts/run.py test tools/scripts/tests/hooks`.
 4. Read the phase size from each plan's state with
    `uv run tools/scripts/run.py plan record show <plan> --json`. The
    `outcome` object carries the unit count and verification span. For plans

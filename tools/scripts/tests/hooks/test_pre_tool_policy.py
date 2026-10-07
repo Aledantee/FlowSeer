@@ -67,7 +67,6 @@ class PreToolPolicyTest(HookCase):
             ".golangci.yml",
             ".claude/settings.json",
             ".codex/hooks.json",
-            "tools/hooks/new-guard.sh",
             "test/conformance/a11y/a11y_policy_test.go",
             ".agents/skills/verify-change/scripts/verify-change.sh",
             ".claude/skills/verify-change/scripts/verify-change.sh",
@@ -177,7 +176,7 @@ class PreToolPolicyTest(HookCase):
                     self.assertEqual(Hook(name, command, self).decide("{malformed"), "deny")
 
     @across("pre-tool-policy")
-    def test_input_is_rejected_where_jq_rejects_it_and_accepted_elsewhere(self, hook):
+    def test_null_and_false_are_rejected_and_every_other_json_value_is_read_as_an_event(self, hook):
         """null and false are malformed input, and every other JSON value is read as an event"""
         for text in ("", "not json", "null", "false", " null "):
             with self.subTest(input=text):

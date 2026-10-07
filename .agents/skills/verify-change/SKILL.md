@@ -48,7 +48,7 @@ checked in which mode, whether the OpenTelemetry tier would run, whether the
 protobuf gates would run, whether `tools/buf/` is verified with
 `go -C tools/buf mod verify`, and whether the hook tooling gates would run
 (`hook_tooling=true`, which a `tools/scripts/` path, an `.agents/`, `.claude/`,
-or `.codex/` path, `AGENTS.md`, or `tools/hooks/` selects).
+or `.codex/` path, or `AGENTS.md` selects).
 
 ## Read the verdict
 

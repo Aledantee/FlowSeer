@@ -14,7 +14,7 @@ coordinator's checks after the merge are the only gate the branch gets.
    after the merge.
 
 ```bash
-git diff --name-only <base>..<branch> -- generated buf.lock AGENTS.md buf.yaml tools/hooks .claude/settings.json .codex/hooks.json
+git diff --name-only <base>..<branch> -- generated buf.lock AGENTS.md buf.yaml tools/scripts/hooks .claude/settings.json .codex/hooks.json
 git diff --name-only --diff-filter=d <base>..<branch> -- spec/proto ':!*.proto' ':!*/README.md'
 ```
 

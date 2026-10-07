@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook worktree-guard cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks worktree-guard"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook worktree-guard cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 2; }; exec uv run \"$root/tools/scripts/run.py\" hooks worktree-guard"
           },
           {
             "type": "command",
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/worktree-guard.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook worktree-guard.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook worktree-guard cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 2; }; exec uv run \"$root/tools/scripts/run.py\" hooks worktree-guard"
           },
           {
             "type": "command",

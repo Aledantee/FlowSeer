@@ -6,8 +6,6 @@ import unittest
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[2]
-REPOSITORY = SCRIPTS.parents[1]
-SHELL_LISTING = REPOSITORY / "tools" / "hooks" / "tree-state.sh"
 IDENTITY = {
     "GIT_AUTHOR_NAME": "t",
     "GIT_AUTHOR_EMAIL": "t@example.com",
@@ -37,12 +35,6 @@ def command(root: Path) -> bytes:
     return done.stdout
 
 
-def shell(root: Path) -> bytes:
-    return subprocess.run(
-        [str(SHELL_LISTING), str(root)], capture_output=True, check=True, stdin=subprocess.DEVNULL
-    ).stdout
-
-
 class TreeStateTest(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -66,35 +58,31 @@ class TreeStateTest(unittest.TestCase):
         write(self.root, "data.bin", "bytes\n")
         write(self.root, "sub/go.mod", "module sub // changed\n")
 
-    def test_listing_equals_the_shell_listing_byte_for_byte(self):
+    def test_listing_equals_the_recorded_listing_byte_for_byte(self):
         self.edit_tree()
-        listing = command(self.root)
-        self.assertEqual(listing, shell(self.root))
-        lines = listing.decode().splitlines()
-        self.assertEqual(lines, sorted(lines, key=str.encode))
-        self.assertIn("deleted\tgone.go", lines)
+        # Each hash is the blob hash of the file's content. Digits sort before
+        # the letters of "deleted", so the deletion comes last.
         self.assertEqual(
-            {line.split("\t")[1] for line in lines},
-            {"gone.go", "fresh.go", "kept.go", "sub/go.mod", "with space.md"},
+            command(self.root),
+            b"5f28fc0e865a4b9f7dab27b8d54e61b74104ff4c\twith space.md\n"
+            b"7b0049ec600200786cbad75596fcba2fbee9543c\tsub/go.mod\n"
+            b"940e67e3477df27f1a7ab589d2a841452adf05d6\tkept.go\n"
+            b"9b45bb475705990f2e59576d53868d3062bac43a\tfresh.go\n"
+            b"deleted\tgone.go\n",
         )
 
     def test_a_name_that_only_ends_in_a_listed_name_is_not_listed(self):
         write(self.root, "mygo.mod", "x\n")
         write(self.root, "sub/buf.lock", "x\n")
         write(self.root, "sub/xbuf.lock", "x\n")
-        listing = command(self.root)
-        self.assertEqual(listing, shell(self.root))
-        self.assertEqual([line.split("\t")[1] for line in listing.decode().splitlines()], ["sub/buf.lock"])
+        self.assertEqual(command(self.root), b"587be6b4c3f93f93c489c0111bba5596147a26cb\tsub/buf.lock\n")
 
     def test_a_carriage_return_inside_a_path_survives(self):
         write(self.root, "a\rb.go", "package a\n")
-        listing = command(self.root)
-        self.assertEqual(listing, shell(self.root))
-        self.assertTrue(listing.endswith(b"\ta\rb.go\n"), listing)
+        self.assertEqual(command(self.root), b"2a93cdef549545101b086408d9ee767fda0c02c2\ta\rb.go\n")
 
     def test_a_clean_tree_prints_nothing(self):
         self.assertEqual(command(self.root), b"")
-        self.assertEqual(shell(self.root), b"")
 
     def test_a_merge_lists_only_what_differs_from_the_other_side(self):
         git(self.root, "switch", "-q", "-c", "feature")
@@ -109,15 +97,11 @@ class TreeStateTest(unittest.TestCase):
         git(self.root, "merge", "-q", "--no-ff", "--no-commit", "feature")
         write(self.root, "touched.go", "package touched // edited after the merge\n")
 
-        listing = command(self.root)
-
-        self.assertEqual(listing, shell(self.root))
-        self.assertEqual([line.split("\t")[1] for line in listing.decode().splitlines()], ["touched.go"])
+        self.assertEqual(command(self.root), b"719d65ba30e2eda6fd53cf92caceaa30eef359da\ttouched.go\n")
 
     def test_a_directory_that_is_not_a_repository_prints_nothing(self):
         with tempfile.TemporaryDirectory() as bare:
             self.assertEqual(command(Path(bare)), b"")
-            self.assertEqual(shell(Path(bare)), b"")
 
     def test_a_missing_root_exits_2(self):
         done = subprocess.run(

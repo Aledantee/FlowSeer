@@ -1,7 +1,7 @@
 """Fixtures and process helpers the hook suites share.
 
-A hook case reaches its hook through `implementations`, so the same case runs
-against every form of the hook that exists and fails when none does.
+A hook case reaches its hook through `implementations`, which fails for a
+hook the `hooks` group does not register.
 """
 
 import functools
@@ -18,9 +18,9 @@ from typing import NamedTuple
 import run
 
 REPO = Path(__file__).resolve().parents[4]
-HOOKS_DIR = REPO / "tools" / "hooks"
 RUN_PY = REPO / "tools" / "scripts" / "run.py"
 HOOK_GROUP = REPO / "tools" / "scripts" / "hooks" / "__init__.py"
+HOOKS_DIR = HOOK_GROUP.parent
 BASH = shutil.which("bash") or "bash"
 
 # A hook that waits on its input outlives this many seconds only when it is stuck.
@@ -35,22 +35,20 @@ class Result(NamedTuple):
 
 
 def registered() -> set[str]:
-    """Names the `hooks` command group registers, or none before it exists."""
-    if not HOOK_GROUP.is_file():
-        return set()
+    """Names the `hooks` command group registers."""
     return set(run.read_commands(HOOK_GROUP))
 
 
 def implementations(name: str) -> list[list[str]]:
-    """Argument lists that start the hook `name`: the shell script while it exists, the command once registered."""
-    found = []
-    script = HOOKS_DIR / f"{name}.sh"
-    if script.is_file():
-        found.append([str(script)])
-    if name in registered():
-        # Resolved here because a case may give the hook a PATH that does not hold uv.
-        found.append([shutil.which("uv") or "uv", "run", str(RUN_PY), "hooks", name])
-    return found
+    """The argument list that starts the hook `name`, in a list of one.
+
+    A name the group does not register fails, so a case for a hook that does
+    not exist cannot pass silently.
+    """
+    if name not in registered():
+        raise AssertionError(f"no implementation of the hook {name}")
+    # Resolved here because a case may give the hook a PATH that does not hold uv.
+    return [[shutil.which("uv") or "uv", "run", str(RUN_PY), "hooks", name]]
 
 
 def isolated_env(**extra: str) -> dict[str, str]:
@@ -173,21 +171,17 @@ class Hook:
 
 
 def across(name: str):
-    """Run a case once for each implementation of the hook `name`, each on a fresh fixture.
+    """Run a case against the hook `name`, which receives it as a Hook.
 
-    The case receives a Hook. No implementation fails the case, so a hook that
-    neither form provides cannot pass silently.
+    A hook the `hooks` group does not register fails the case, so a hook that
+    does not exist cannot pass silently.
     """
 
     def decorate(case):
         @functools.wraps(case)
         def wrapper(self):
-            commands = implementations(name)
-            self.assertTrue(commands, f"no implementation of the hook {name}")
-            for number, command in enumerate(commands):
+            for command in implementations(name):
                 with self.subTest(hook=" ".join(command)):
-                    if number:
-                        self.fresh()
                     case(self, Hook(name, command, self))
 
         return wrapper
@@ -198,8 +192,7 @@ def across(name: str):
 class HookCase(unittest.TestCase):
     """A repository in a directory with a space, and the payload shapes the runtimes send.
 
-    `fresh` starts the fixture over, which `across` does between the forms of
-    one hook so that the second does not see what the first wrote.
+    `fresh` starts the fixture over.
     """
 
     def setUp(self):
@@ -289,9 +282,9 @@ class HookCase(unittest.TestCase):
         return str(directory)
 
     def bare_path(self, name: str) -> str:
-        """A PATH of the tools the shell hooks use and a `go` that answers nothing, so no Go tool directory is added to it."""
+        """A PATH of git, the bash the stubs start under, and a `go` that answers nothing, so no Go tool directory is added to it."""
         directory = self.parent / name
-        path = self.path_of(directory, "bash", "cat", "jq", "git", "dirname", "basename", "grep", "awk", "sort", "sed")
+        path = self.path_of(directory, "bash", "git")
         self.stub(directory, "go", "exit 0")
         return path
 
