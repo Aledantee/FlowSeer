@@ -158,9 +158,14 @@ def main(argv: list[str]) -> int:
         parser.error("unknown cli " + args.cli)
     if args.effort and args.cli == "agy":
         parser.error("--effort cannot be applied on agy; agy takes the level in the model id")
+    directory = Path(args.dir).resolve()
+    # A directory that cannot be entered stops the command before it touches
+    # an artifact, so an earlier lane's evidence survives a mistyped --dir.
+    if not (directory.is_dir() and os.access(directory, os.X_OK)):
+        print(f"bench: --dir {args.dir} is not an enterable directory", file=sys.stderr)
+        return 2
     try:
         prompt = Path(args.brief).read_bytes().decode("utf-8").rstrip("\n")
-        directory = Path(args.dir).resolve()
         out = Path(args.out)
         if not out.is_absolute():
             out = directory / out
