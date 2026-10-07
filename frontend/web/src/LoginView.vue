@@ -8,6 +8,7 @@ import BrandMark from './components/BrandMark.vue'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import { takeEntrance } from './navigation/entrance'
+import { useFrame } from './navigation/frame'
 import { isWorkEmail, nextPath, signIn } from './session/session'
 import { UiButton, UiCard, UiField, UiInput, useMotionFeedback } from './ui'
 
@@ -15,6 +16,8 @@ const { t } = useI18n({ useScope: 'global' })
 const route = useRoute()
 const router = useRouter()
 const { play, reduced } = useMotionFeedback()
+const frame = useFrame()
+frame.sidebar.value = 'login'
 
 watchEffect(() => {
   document.title = t('view.login.documentTitle', { brand: BRAND })
@@ -74,157 +77,129 @@ async function submit() {
 </script>
 
 <template>
-  <!-- The console's own frame: its sidebar holds the sign-in form, its top
-       bar is empty, and its page says what the console is. Signing in fills
-       the same frame in. -->
-  <div
-    :class="{ 'is-entering': entering }"
-    class="login shell brand-glow max-[800px]:flex-col"
-  >
-    <aside
-      class="sidebar login-sidebar login-glass border-r border-chrome-border max-[800px]:border-r-0 max-[800px]:border-b bg-card/45 text-foreground backdrop-blur-2xl backdrop-saturate-150 max-[800px]:pb-6"
-    >
+  <Teleport defer to="#frame-sidebar">
+    <div :class="{ 'is-entering': entering }">
       <div class="enter-fade">
         <div class="product-brand" translate="no">
           <BrandMark />
           <span>{{ BRAND }}</span>
         </div>
       </div>
-
-      <form
-        class="login-form flex flex-col gap-5 my-auto px-3 max-[800px]:mt-6 max-[800px]:px-0"
-        novalidate
-        :aria-busy="signingIn ? 'true' : undefined"
-        @submit.prevent="submit"
-      >
-        <div class="enter-rise" :style="{ '--enter-delay': '0.04s' }">
-          <h1 class="m-0 text-2xl font-semibold tracking-tight">
-            {{ t('view.login.title', { brand: BRAND }) }}
-          </h1>
-          <p class="mt-1.5 mb-0 text-md text-muted-foreground">
-            {{ t('view.login.lead') }}
-          </p>
-        </div>
-        <!-- The height holds a line for the error, so nothing below moves
-             when one appears. -->
-        <div
-          class="enter-rise min-h-[88px]"
-          :style="{ '--enter-delay': '0.08s' }"
-        >
-          <div ref="field">
-            <UiField :label="t('view.login.email')" :error="error">
-              <div class="relative">
-                <UiInput
-                  v-model="email"
-                  class="login-email !h-11 !pr-12 !text-md"
-                  type="email"
-                  name="email"
-                  autocomplete="email"
-                  inputmode="email"
-                  :readonly="signingIn"
-                  :placeholder="t('view.login.emailPlaceholder')"
-                />
-                <!-- The action appears once the address can be sent. Enter
-                     still submits without it and reports what is wrong. -->
-                <Transition name="login-send">
-                  <UiButton
-                    v-if="sendable || signingIn"
-                    variant="primary"
-                    size="icon"
-                    type="submit"
-                    class="login-submit absolute top-1.5 right-1.5 cursor-pointer"
-                    :loading="signingIn"
-                    :aria-label="t('view.login.submit')"
-                    :title="t('view.login.submit')"
-                  >
-                    <AppIcon name="arrow" />
-                  </UiButton>
-                </Transition>
-              </div>
-            </UiField>
-          </div>
-        </div>
-        <span class="sr-only" role="status">{{
-          signingIn ? t('view.login.signingIn') : ''
-        }}</span>
-      </form>
-
-      <div
-        class="flex items-center gap-1 -mx-2 pb-3 max-[800px]:absolute max-[800px]:top-2.5 max-[800px]:right-3 max-[800px]:m-0 max-[800px]:p-0"
-      >
-        <ThemeSwitcher />
-        <LocaleSwitcher />
-      </div>
-    </aside>
-
-    <div class="main-shell login-main">
-      <!-- Where the console keeps its top bar. Empty here. -->
-      <div class="shrink-0 h-[54px] max-[800px]:hidden"></div>
-      <main
-        class="login-page flex-1 min-h-0 overflow-auto rounded-tl-[18px] max-[800px]:rounded-tl-none border-t border-l max-[800px]:border-l-0 border-chrome-border bg-background/55 text-foreground backdrop-blur-2xl backdrop-saturate-150 px-[34px] pt-[31px] pb-10 max-[1150px]:px-6 max-[800px]:px-5"
-      >
-        <div class="max-w-[880px]">
-          <div class="enter-rise" :style="{ '--enter-delay': '0.06s' }">
-            <h2 class="m-0 text-2xl font-bold tracking-tight text-balance">
-              {{ t('view.login.aboutTitle') }}
-            </h2>
-            <p
-              class="mt-2 mb-0 max-w-[62ch] text-md text-muted-foreground text-pretty"
-            >
-              {{ t('view.login.aboutLead', { brand: BRAND }) }}
-            </p>
-          </div>
-          <ul
-            class="enter-rise grid grid-cols-2 max-[1150px]:grid-cols-1 gap-4 m-0 mt-7 p-0 list-none"
-            :style="{ '--enter-delay': '0.1s' }"
-          >
-            <li v-for="area in AREAS" :key="area">
-              <UiCard class="login-area h-full bg-card/60">
-                <div class="flex items-center gap-2.5 text-md font-semibold">
-                  <span class="inline-flex text-accent-foreground"
-                    ><AppIcon :name="area"
-                  /></span>
-                  {{ t(`view.common.pages.${area}`) }}
-                </div>
-                <p class="mt-1.5 mb-0 text-base text-muted-foreground">
-                  {{ t(`view.login.about.${area}`) }}
-                </p>
-              </UiCard>
-            </li>
-          </ul>
-          <p
-            class="login-line enter-fade mt-10 mb-0 text-base text-muted-foreground"
-            :style="{ '--enter-delay': '0.14s' }"
-          >
-            {{ t(`view.login.lines.${line}`) }}
-          </p>
-        </div>
-      </main>
     </div>
-  </div>
+
+    <form
+      class="login-form flex flex-col gap-5 my-auto px-3 max-[800px]:mt-6 max-[800px]:px-0"
+      :class="{ 'is-entering': entering }"
+      novalidate
+      :aria-busy="signingIn ? 'true' : undefined"
+      @submit.prevent="submit"
+    >
+      <div class="enter-rise" :style="{ '--enter-delay': '0.04s' }">
+        <h1 class="m-0 text-2xl font-semibold tracking-tight">
+          {{ t('view.login.title', { brand: BRAND }) }}
+        </h1>
+        <p class="mt-1.5 mb-0 text-md text-muted-foreground">
+          {{ t('view.login.lead') }}
+        </p>
+      </div>
+      <!-- The height holds a line for the error, so nothing below moves
+             when one appears. -->
+      <div
+        class="enter-rise min-h-[88px]"
+        :style="{ '--enter-delay': '0.08s' }"
+      >
+        <div ref="field">
+          <UiField :label="t('view.login.email')" :error="error">
+            <div class="relative">
+              <UiInput
+                v-model="email"
+                class="login-email !h-11 !pr-12 !text-md"
+                type="email"
+                name="email"
+                autocomplete="email"
+                inputmode="email"
+                :readonly="signingIn"
+                :placeholder="t('view.login.emailPlaceholder')"
+              />
+              <!-- The action appears once the address can be sent. Enter
+                     still submits without it and reports what is wrong. -->
+              <Transition name="login-send">
+                <UiButton
+                  v-if="sendable || signingIn"
+                  variant="primary"
+                  size="icon"
+                  type="submit"
+                  class="login-submit absolute top-1.5 right-1.5 cursor-pointer"
+                  :loading="signingIn"
+                  :aria-label="t('view.login.submit')"
+                  :title="t('view.login.submit')"
+                >
+                  <AppIcon name="arrow" />
+                </UiButton>
+              </Transition>
+            </div>
+          </UiField>
+        </div>
+      </div>
+      <span class="sr-only" role="status">{{
+        signingIn ? t('view.login.signingIn') : ''
+      }}</span>
+    </form>
+
+    <div
+      class="flex items-center gap-1 -mx-2 pb-3 max-[800px]:absolute max-[800px]:top-2.5 max-[800px]:right-3 max-[800px]:m-0 max-[800px]:p-0"
+      :class="{ 'is-entering': entering }"
+    >
+      <ThemeSwitcher />
+      <LocaleSwitcher />
+    </div>
+  </Teleport>
+  <Teleport defer to="#frame-page">
+    <main
+      class="login-page flex-1 min-h-0 overflow-auto rounded-tl-[18px] max-[800px]:rounded-tl-none border-t border-l max-[800px]:border-l-0 border-chrome-border bg-background/55 text-foreground backdrop-blur-2xl backdrop-saturate-150 px-[34px] pt-[31px] pb-10 max-[1150px]:px-6 max-[800px]:px-5"
+      :class="{ 'is-entering': entering }"
+    >
+      <div class="max-w-[880px]">
+        <div class="enter-rise" :style="{ '--enter-delay': '0.06s' }">
+          <h2 class="m-0 text-2xl font-bold tracking-tight text-balance">
+            {{ t('view.login.aboutTitle') }}
+          </h2>
+          <p
+            class="mt-2 mb-0 max-w-[62ch] text-md text-muted-foreground text-pretty"
+          >
+            {{ t('view.login.aboutLead', { brand: BRAND }) }}
+          </p>
+        </div>
+        <ul
+          class="enter-rise grid grid-cols-2 max-[1150px]:grid-cols-1 gap-4 m-0 mt-7 p-0 list-none"
+          :style="{ '--enter-delay': '0.1s' }"
+        >
+          <li v-for="area in AREAS" :key="area">
+            <UiCard class="login-area h-full bg-card/60">
+              <div class="flex items-center gap-2.5 text-md font-semibold">
+                <span class="inline-flex text-accent-foreground"
+                  ><AppIcon :name="area"
+                /></span>
+                {{ t(`view.common.pages.${area}`) }}
+              </div>
+              <p class="mt-1.5 mb-0 text-base text-muted-foreground">
+                {{ t(`view.login.about.${area}`) }}
+              </p>
+            </UiCard>
+          </li>
+        </ul>
+        <p
+          class="login-line enter-fade mt-10 mb-0 text-base text-muted-foreground"
+          :style="{ '--enter-delay': '0.14s' }"
+        >
+          {{ t(`view.login.lines.${line}`) }}
+        </p>
+      </div>
+    </main>
+  </Teleport>
 </template>
 
 <style scoped>
-/* Wider than the console's sidebar, which only has to fit a menu. The page
-   morph narrows it on the way in. */
-@media (min-width: 801px) {
-  .login-sidebar {
-    width: 320px;
-  }
-
-  .login-main {
-    margin-left: 320px;
-  }
-}
-
-/* A lit inner edge, the part of frosted glass a flat border cannot show. */
-.login-glass {
-  --glass-shadow:
-    inset -1px 0 0 rgb(from var(--foreground) r g b / 10%), var(--shadow-xl);
-
-  box-shadow: var(--glass-shadow);
-}
-
 /* The button's own transition covers colours only, so a press and a hover
    would snap. */
 .login-submit {

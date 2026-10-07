@@ -108,7 +108,8 @@ discovered. Only nodes that are not healthy carry a status badge, so a degraded
 or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
-desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
+desktop. The page panel slides toward the 64px rail, whose content changes
+in place and centers the FlowSeer mark.
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
 the navigation links above the content.
 
@@ -163,8 +164,9 @@ OIDC tokens
 to `/dashboard`. A signed-in visitor who opens `/login` goes straight to
 `/dashboard`.
 
-The login page uses the console's own frame, so signing in fills the same
-frame in. Its sidebar holds the sign-in form in a frosted column, its top bar
+The login page and console fill one `AppFrame.vue` instance. Signing in keeps
+the same sidebar and page panel elements in the document while their content
+changes. The login sidebar holds the sign-in form in a frosted column, its top bar
 is empty, and its page says what the console is: a heading, one sentence, and
 the four areas of the menu. Under them is one line picked at random per visit
 from `view.login.lines` in the catalogs, most of them jokes. The send button is
@@ -182,6 +184,11 @@ short loading state on the button.
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.
+- `src/navigation/AppFrame.vue` owns the persistent shell. Views fill its
+  `frame-skip`, `frame-sidebar`, `frame-topbar`, and `frame-page` regions with
+  Teleport. `src/navigation/frame.ts` exposes `useFrame()` so views can set
+  the sidebar mode, read the frame elements and top bar height, and move the
+  page panel when the sidebar collapses.
 - `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
 - `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.

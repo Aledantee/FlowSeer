@@ -166,7 +166,7 @@ no target to teleport into, so `main.test.ts` fails on a missing form.
 
 ### U3. The console view in the frame
 
-Files: frontend/web/src/FleetView.vue, frontend/web/src/FleetView.test.ts, frontend/web/src/FleetView.locale.test.ts, frontend/web/src/FleetView.motion.test.ts, frontend/web/src/App.vue, frontend/web/src/style.css, frontend/web/src/theme/brand-glow.css, frontend/web/src/main.test.ts
+Files: frontend/web/src/FleetView.vue, frontend/web/src/FleetView.test.ts, frontend/web/src/FleetView.locale.test.ts, frontend/web/src/FleetView.motion.test.ts, frontend/web/src/components/GlobalSearch.test.ts, frontend/web/src/App.vue, frontend/web/src/style.css, frontend/web/src/theme/brand-glow.css, frontend/web/src/main.test.ts
 After: U2
 Change: `App.vue` renders `AppFrame` around `RouterView`. `FleetView.vue`
 teleports the skip link into `frame-skip`, the brand, the menu, and the
@@ -176,8 +176,10 @@ and the panes, the dock, and the assistant into `frame-page`. It sets
 gates. It reads `topbarHeight`, `sidebarElement`, and `mainElement` from
 the frame where it used its own refs. The sidebar's `layout` wrapper and
 the main area's wrapper are gone from its template. In `style.css` the
-selector `.main-shell > main.panes` becomes `#frame-page > main.panes`, the
-panes gain `background: var(--background)`, the sidebar's width rules key
+selector `.main-shell > main.panes` becomes `#frame-page main.panes` because
+`UiAiContextLayer` renders a `div.contents` between the region and the panes
+(`frontend/web/src/ui/ai/UiAiContextLayer.vue`). The panes gain
+`background: var(--background)`, the sidebar's width rules key
 on the frame's state, and the frosted column rule arrives from the login
 view. `brand-glow.css` loses the selectors for elements that no longer
 carry their own glow.
@@ -191,6 +193,8 @@ eight cases keep their assertions, which is requirement 5.
 proof that injection survives the Teleport. `main.test.ts` keeps its two
 assertions that `#workspace-sidebar` is absent on the login page, and gains
 the cases of requirements 1, 3, and 6.
+`GlobalSearch.test.ts` also mounts `FleetView`, so its search result case uses
+the same frame helper.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web`
 
 ### U4. The record of the frame
@@ -241,3 +245,7 @@ slides.
   names motion-v 2.5.1, and `frontend/web/pnpm-lock.yaml` holds 2.4.4. This
   plan relies on 2.4.4. The solution's version line is stale and is
   `compound`'s to refresh, not this phase's.
+
+## Review gaps
+
+- frontend/web/src/navigation/frame.ts:11: `layoutDependency` is a writable `Ref` on the context, so a view can start the panel animation without `moved()`; fails: the Decision that `moved()` is the only thing that starts it; class: convention
