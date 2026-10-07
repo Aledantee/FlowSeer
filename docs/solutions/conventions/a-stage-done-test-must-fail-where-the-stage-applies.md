@@ -38,7 +38,7 @@ state["readiness"] = "needs-decisions" if args.needs_decisions else "implementat
 
 (`tools/scripts/skills/plan/record.py`, `cmd_replan`). The fix makes the
 done test name the field the stage's worker changes, `status!=implemented`,
-beside the readiness (`.agents/skills/drive/SKILL.md:61`, commit `a1ce89ad`).
+beside the readiness (`.agents/skills/drive/SKILL.md:120-134`, commit `a1ce89ad`).
 
 ## The condition broke inside its own quotes
 

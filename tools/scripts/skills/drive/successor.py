@@ -203,7 +203,7 @@ def check_clean_tree():
     if status is None or status.returncode:
         detail = "" if status is None else (status.stdout + status.stderr).rstrip("\n")
         raise Refusal(f"cannot inspect the working tree: {detail}")
-    # git's stderr counts as well, as the combined output did in the shell version.
+    # A warning on git's stderr also means the tree is not known to be clean.
     dirty = (status.stdout + status.stderr).rstrip("\n")
     if dirty:
         raise Refusal(f"working tree is dirty: {dirty}")
@@ -238,8 +238,8 @@ def coordinator_command(cli: str, model: str, effort: str | None, parent: str, i
     except orca_worker.WorkerError:
         raise Refusal("cannot build the coordinator launch line") from None
     prompt = shlex.quote(f"Read .claude/skills/drive/SKILL.md and drive {parent}.")
-    # Claude and Codex document the initial prompt as a positional argument.
-    # agy has no positional prompt and documents --prompt-interactive for it.
+    # Unverified CLI contracts: Claude and Codex accept a positional prompt,
+    # and agy accepts its initial prompt through --prompt-interactive.
     return f"{launch} --prompt-interactive {prompt}" if cli == "agy" else f"{launch} {prompt}"
 
 

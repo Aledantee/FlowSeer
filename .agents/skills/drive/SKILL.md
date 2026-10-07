@@ -260,8 +260,8 @@ Exit handling:
 - Exit 0: report in one line that the drive and its closing question continue
   in the named terminal, and end the turn.
 - Exit 1: continue the drive in this session.
-- Exit 2: stop the drive and report that a successor may be running with the
-  printed handle.
+- Exit 2: stop the drive and report that a successor may be running. Name the
+  handle when one was created.
 
 When no further phase can run, go to step 5. A coordinator on another
 runtime does not hand off.
