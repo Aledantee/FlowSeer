@@ -23,6 +23,10 @@ const operator = ref<string | null>(savedOperator())
 
 export const sessionOperator = readonly(operator)
 
+// Who the development shortcut on the login page signs in as. The session
+// has no roles yet, so the address is all that marks the administrator.
+export const DEV_ADMIN = 'admin@flowseer.dev'
+
 export function isWorkEmail(value: string): boolean {
   // HTML's email grammar, with at least two domain labels for a work address.
   // https://html.spec.whatwg.org/multipage/input.html#email-state-(type=email)

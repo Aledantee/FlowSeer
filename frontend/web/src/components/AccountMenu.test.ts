@@ -61,17 +61,21 @@ async function mountMenu(signedIn: boolean, locale: WebLocale = 'en') {
   dispose = () => app.unmount()
   await router.isReady()
   await nextTick()
+  // Signed out there is no menu: the theme and language controls are
+  // buttons in the top bar.
   const trigger = host.querySelector<HTMLButtonElement>(
     'button.account-trigger',
   )
-  if (!trigger) throw new Error('Missing account menu trigger')
+  if (signedIn && !trigger) throw new Error('Missing account menu trigger')
   async function open() {
     trigger?.click()
     await settle()
   }
   async function choose(item: string) {
-    await open()
-    const entry = document.body.querySelector<HTMLElement>(`.account-${item}`)
+    if (trigger) await open()
+    const entry = (trigger ? document.body : host).querySelector<HTMLElement>(
+      `.account-${item}`,
+    )
     if (!entry) throw new Error(`Missing account menu item ${item}`)
     entry.click()
     await settle()
@@ -95,6 +99,7 @@ describe('AccountMenu', () => {
         '[role="menu"][data-state="closed"] { animation-name: account-exit; }'
       document.head.append(exitStyle)
       const { open, trigger } = await mountMenu(true)
+      if (!trigger) throw new Error('Missing account menu trigger')
       await open()
       const focusTrigger = vi.spyOn(trigger, 'focus')
       const menu = document.body.querySelector<HTMLElement>('[role="menu"]')
@@ -227,19 +232,32 @@ describe('AccountMenu', () => {
     expect(router.currentRoute.value.path).toBe('/login')
   })
 
-  it('offers help, the bug report, and log out only to a signed-in visitor', async () => {
+  it('shows a signed-out visitor the theme and language controls instead of the account', async () => {
     const signedOut = await mountMenu(false)
-    expect(signedOut.trigger.getAttribute('aria-label')).toBe('Preferences')
-    await signedOut.open()
-    expect(signedOut.items()).toEqual([
-      'Switch to dark mode',
-      'DESwitch language to Deutsch',
-    ])
+    expect(signedOut.trigger).toBeNull()
+    expect(
+      [...signedOut.host.querySelectorAll('button')].map(
+        (button) => button.className.match(/account-\w+/)?.[0],
+      ),
+    ).toEqual(['account-theme', 'account-locale'])
+    const theme = signedOut.host.querySelector('button.account-theme')
+    expect(theme?.getAttribute('role')).toBe('switch')
+    expect(theme?.getAttribute('aria-label')).toBe('Dark mode')
+    expect(theme?.getAttribute('aria-checked')).toBe('false')
+    expect(
+      signedOut.host
+        .querySelector('button.account-locale')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim(),
+    ).toBe('ENSwitch language to Deutsch')
     dispose()
     document.body.replaceChildren()
 
     const signedIn = await mountMenu(true)
-    expect(signedIn.trigger.getAttribute('aria-label')).toBe('Operator account')
+    expect(signedIn.trigger?.getAttribute('aria-label')).toBe(
+      'Operator account',
+    )
+    expect(signedIn.host.querySelector('button.account-theme')).toBeNull()
     await signedIn.open()
     expect(signedIn.items()).toEqual([
       'Help',
@@ -251,7 +269,7 @@ describe('AccountMenu', () => {
   })
 
   it('switches the theme, stores the choice, and announces it', async () => {
-    const { choose, status, items, open } = await mountMenu(false)
+    const { host, choose, status } = await mountMenu(false)
     expect(document.documentElement.dataset.theme).toBe('light')
     expect(status('theme')).toBe('')
 
@@ -260,8 +278,16 @@ describe('AccountMenu', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(localStorage.getItem('flowseer.theme')).toBe('dark')
     expect(status('theme')).toBe('Dark mode enabled.')
+    expect(
+      host.querySelector('button.account-theme')?.getAttribute('aria-checked'),
+    ).toBe('true')
+  })
+
+  it('names the theme the menu item switches to', async () => {
+    const { choose, items, open } = await mountMenu(true)
+    await choose('theme')
     await open()
-    expect(items()[0]).toBe('Switch to light mode')
+    expect(items()[2]).toBe('Switch to light mode')
   })
 
   it('still switches the theme and says so when storage refuses the choice', async () => {
@@ -289,25 +315,29 @@ describe('AccountMenu', () => {
     expect(document.documentElement.dataset.theme).toBe('dark')
   })
 
-  it('switches the language, stores the choice, and names each language in its own', async () => {
-    const warn = vi.spyOn(console, 'warn')
-    const { i18n, open, status } = await mountMenu(false)
-    await open()
-    const name = document.body.querySelector('.account-locale [lang="de"]')
-    expect(name?.getAttribute('translate')).toBe('no')
-    expect(name?.textContent).toBe('Deutsch')
-    document.body.querySelector<HTMLElement>('.account-locale')?.click()
-    await settle()
+  it.each([true, false])(
+    'switches the language, stores the choice, and names each language in its own (signed in: %s)',
+    async (signedIn) => {
+      const warn = vi.spyOn(console, 'warn')
+      const { host, i18n, open, status, trigger } = await mountMenu(signedIn)
+      const root = trigger ? document.body : host
+      await open()
+      const name = root.querySelector('.account-locale [lang="de"]')
+      expect(name?.getAttribute('translate')).toBe('no')
+      expect(name?.textContent).toBe('Deutsch')
+      root.querySelector<HTMLElement>('.account-locale')?.click()
+      await settle()
 
-    expect(i18n.global.locale.value).toBe('de')
-    expect(localStorage.getItem('flowseer.locale')).toBe('de')
-    expect(status('locale')).toBe('Sprache auf Deutsch umgestellt.')
-    await open()
-    expect(
-      document.body.querySelector('.account-locale [lang="en"]')?.textContent,
-    ).toBe('English')
-    expect(i18nWarnings(warn.mock.calls)).toEqual([])
-  })
+      expect(i18n.global.locale.value).toBe('de')
+      expect(localStorage.getItem('flowseer.locale')).toBe('de')
+      expect(status('locale')).toBe('Sprache auf Deutsch umgestellt.')
+      await open()
+      expect(
+        root.querySelector('.account-locale [lang="en"]')?.textContent,
+      ).toBe('English')
+      expect(i18nWarnings(warn.mock.calls)).toEqual([])
+    },
+  )
 
   it('still switches the language and says so when storage refuses the choice', async () => {
     vi.stubGlobal('localStorage', {

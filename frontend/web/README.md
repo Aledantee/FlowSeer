@@ -127,14 +127,17 @@ page and site scope. Both selectors use themed popovers with arrow-key
 navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
 site scope. The available tenant list is independent of site filtering.
 
-The account menu ends the top bar on both the login page and the console. The
+The account control ends the top bar on both the login page and the console. The
 frame renders it once, so it and the theme it holds stay in place through
-sign-in and logout. Its theme item names the mode it switches to, and the
+sign-in and logout. On the login page there is no account, so the control is
+two buttons: a dark-mode switch and a language button that shows the current
+language's code. Signed in, it is the account menu, which holds the same two
+choices as items. The theme item names the mode it switches to, and the
 theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
-and charcoal in dark mode. Its language item shows the other language's code and offers that language by its own name,
+and charcoal in dark mode. The language item shows the other language's code and offers that language by its own name,
 such as `Switch language to Deutsch`. Choosing it changes every view without a reload and announces
-the change in a status region. Signed in, the menu also holds Help, Report a bug, and Log out. Help opens a keyboard-accessible dialog explaining
+the change in a status region. The menu also holds Help, Report a bug, and Log out. Help opens a keyboard-accessible dialog explaining
 scope, device lookup, and site assignment. Report a bug
 opens a report form and copies its summary, description, and page path for sharing.
 It does not submit to a service or include tenant/site query parameters.
@@ -147,6 +150,12 @@ is contained in the content area.
 
 A signed-out visitor lands on the login page, signs in, and reaches the
 console. Logging out from the account menu returns to the login page.
+
+A development build (`pnpm dev`) adds a button under the email field that
+skips the form and signs in as `admin@flowseer.dev`. The session has no
+roles, so the address is the only thing that marks the administrator. The
+button reads `import.meta.env.DEV`, which Vite sets to `false` in a
+production build.
 
 ```mermaid
 flowchart LR

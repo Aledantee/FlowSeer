@@ -197,8 +197,7 @@
       "initials": "OP",
       "label": "Operatorkonto",
       "logout": "Abmelden",
-      "operator": "Operator",
-      "preferences": "Einstellungen"
+      "operator": "Operator"
     },
     "clients": {
       "accessPoint": "Zugangspunkt",
@@ -497,6 +496,7 @@
       "aboutLead": "{brand} zeigt die Geräte, Clients und Verbindungen jedes Standorts, damit Sie den Ausfall finden, bevor ihn jemand meldet.",
       "aboutTitle": "Alle Netzwerke, die Sie betreiben, in einer Konsole.",
       "documentTitle": "Anmelden · {brand}",
+      "devSkip": "Anmeldung als Admin überspringen (nur Dev)",
       "email": "Geschäftliche E-Mail-Adresse",
       "emailInvalid": "Geben Sie eine E-Mail-Adresse wie name{'@'}firma.de ein.",
       "emailPlaceholder": "name{'@'}firma.de",

@@ -197,8 +197,7 @@
       "initials": "OP",
       "label": "Operator account",
       "logout": "Log out",
-      "operator": "Operator",
-      "preferences": "Preferences"
+      "operator": "Operator"
     },
     "clients": {
       "accessPoint": "Access point",
@@ -497,6 +496,7 @@
       "aboutLead": "{brand} shows the devices, clients, and links at each site, so you find the failing one before a user reports it.",
       "aboutTitle": "See every network you run in one console.",
       "documentTitle": "Sign in · {brand}",
+      "devSkip": "Skip login as admin (dev only)",
       "email": "Work email",
       "emailInvalid": "Enter an email address such as name{'@'}company.com.",
       "emailPlaceholder": "name{'@'}company.com",

@@ -36,6 +36,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 async function mountLogin(start = '/login', locale: WebLocale = 'en') {
@@ -118,6 +119,21 @@ describe('LoginView', () => {
 
     expect(sessionOperator.value).toBe('ada@example.com')
     expect(router.currentRoute.value.fullPath).toBe('/dashboard')
+  })
+
+  it('skips the login as the development administrator', async () => {
+    const { host, router } = await mountLogin('/login?next=/devices/sw-01')
+    host.querySelector<HTMLButtonElement>('button.login-dev-skip')?.click()
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.fullPath).toBe('/devices/sw-01'),
+    )
+    expect(sessionOperator.value).toBe('admin@flowseer.dev')
+  })
+
+  it('offers no login shortcut outside a development build', async () => {
+    vi.stubEnv('DEV', false)
+    const { host } = await mountLogin()
+    expect(host.querySelector('button.login-dev-skip')).toBeNull()
   })
 
   it('returns to the console page the visitor asked for', async () => {

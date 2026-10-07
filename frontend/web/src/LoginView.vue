@@ -6,7 +6,7 @@ import { BRAND } from './brand'
 import AppIcon from './components/AppIcon.vue'
 import BrandMark from './components/BrandMark.vue'
 import { useFrame } from './navigation/frame'
-import { isWorkEmail, nextPath, signIn } from './session/session'
+import { DEV_ADMIN, isWorkEmail, nextPath, signIn } from './session/session'
 import { UiButton, UiCard, UiField, UiInput, useMotionFeedback } from './ui'
 
 const { t } = useI18n({ useScope: 'global' })
@@ -15,6 +15,9 @@ const router = useRouter()
 const { play } = useMotionFeedback()
 const frame = useFrame()
 frame.sidebar.value = 'login'
+// Vite replaces the flag at build time, so a production bundle drops the
+// shortcut.
+const dev = import.meta.env.DEV
 
 watchEffect(() => {
   document.title = t('view.login.documentTitle', { brand: BRAND })
@@ -112,6 +115,15 @@ async function submit() {
           </UiField>
         </div>
       </div>
+      <UiButton
+        v-if="dev"
+        variant="ghost"
+        size="sm"
+        class="login-dev-skip self-start cursor-pointer"
+        @click="enterConsole(DEV_ADMIN)"
+      >
+        {{ t('view.login.devSkip') }}
+      </UiButton>
     </form>
   </Teleport>
   <Teleport defer to="#frame-page">

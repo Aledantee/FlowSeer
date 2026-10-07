@@ -330,10 +330,12 @@ it('reverses the morph on logout and fades the form in the same sidebar', async 
   ).not.toContain('translate')
 })
 
-it('preserves the account menu and its theme without transforming its ancestors', async () => {
+it('preserves the account control and its theme without transforming its ancestors', async () => {
   const mounted = await mountLogin()
-  const account = mounted.host.querySelector<HTMLButtonElement>(
-    'button.account-trigger',
+  // The control's root outlives the swap between the signed-out buttons and
+  // the account menu.
+  const account = mounted.host.querySelector<HTMLElement>(
+    'header.topbar .account-control',
   )
   const shell = mounted.host.querySelector<HTMLElement>('.main-shell')
   const header = mounted.host.querySelector('header.topbar')
@@ -383,8 +385,10 @@ it('preserves the account menu and its theme without transforming its ancestors'
     await nextTick()
     await advanceMotion(30)
     await advanceMotion(200)
-    expect(mounted.host.querySelector('button.account-trigger')).toBe(account)
+    expect(mounted.host.querySelector('.account-control')).toBe(account)
     expect(account.isConnected).toBe(true)
+    expect(account.querySelector('button.account-trigger')).toBeNull()
+    expect(account.querySelector('button.account-theme')).not.toBeNull()
     expect(document.documentElement.dataset.theme).toBe(chosen)
     for (const ancestor of ancestors)
       expect(ancestor.getAttribute('style') ?? '').not.toMatch(/transform\s*:/)

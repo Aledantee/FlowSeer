@@ -13,9 +13,11 @@ import {
   UiDropdownMenu,
   UiDropdownMenuItem,
   UiDropdownMenuSeparator,
+  UiTooltip,
 } from '../ui'
 
-// Signed out, the menu holds only what the login page can use.
+// Signed out there is no account, so the theme and language controls stand
+// in the top bar on their own.
 defineProps<{ signedIn?: boolean }>()
 
 const { t, locale } = useI18n({ useScope: 'global' })
@@ -68,42 +70,82 @@ async function logOut() {
 
 <template>
   <div class="account-control shrink-0 text-chrome-foreground">
-    <UiDropdownMenu align="end" :side-offset="6" @close-auto-focus="menuClosed">
+    <div v-if="!signedIn" class="flex items-center gap-1.5">
+      <UiTooltip
+        :label="
+          theme === 'dark'
+            ? t('view.themeSwitcher.switchToLight')
+            : t('view.themeSwitcher.switchToDark')
+        "
+      >
+        <button
+          class="account-theme grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
+          type="button"
+          role="switch"
+          :aria-label="t('view.themeSwitcher.label')"
+          :aria-checked="theme === 'dark'"
+          @click="toggleTheme"
+        >
+          <AppIcon :name="theme === 'dark' ? 'moon' : 'sun'" />
+        </button>
+      </UiTooltip>
+      <UiTooltip
+        :label="t('view.localeSwitcher.label', { language: nameOf(other) })"
+        identifier
+      >
+        <template #label>
+          <I18nT keypath="view.localeSwitcher.label" scope="global">
+            <template #language>
+              <span :lang="other" translate="no">{{ nameOf(other) }}</span>
+            </template>
+          </I18nT>
+        </template>
+        <button
+          class="account-locale grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover cursor-pointer text-xs font-semibold"
+          type="button"
+          @click="toggleLocale"
+        >
+          <span translate="no" aria-hidden="true">{{
+            current.toUpperCase()
+          }}</span>
+          <span class="sr-only">
+            <I18nT keypath="view.localeSwitcher.label" scope="global">
+              <template #language>
+                <span :lang="other" translate="no">{{ nameOf(other) }}</span>
+              </template>
+            </I18nT>
+          </span>
+        </button>
+      </UiTooltip>
+    </div>
+    <UiDropdownMenu
+      v-else
+      align="end"
+      :side-offset="6"
+      @close-auto-focus="menuClosed"
+    >
       <template #trigger>
         <button
           ref="trigger"
           class="account-trigger grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover aria-expanded:bg-chrome-hover cursor-pointer"
           type="button"
-          :aria-label="
-            signedIn
-              ? t('view.accountMenu.label')
-              : t('view.accountMenu.preferences')
-          "
-          :title="
-            signedIn
-              ? t('view.accountMenu.operator')
-              : t('view.accountMenu.preferences')
-          "
+          :aria-label="t('view.accountMenu.label')"
+          :title="t('view.accountMenu.operator')"
         >
           <span
-            class="avatar grid place-items-center w-[26px] h-[26px] rounded-full bg-chrome-surface text-chrome-foreground text-2xs font-semibold [&>svg]:w-3.5 [&>svg]:h-3.5"
+            class="avatar grid place-items-center w-[26px] h-[26px] rounded-full bg-chrome-surface text-chrome-foreground text-2xs font-semibold"
             aria-hidden="true"
-            ><template v-if="signedIn">{{
-              t('view.accountMenu.initials')
-            }}</template
-            ><AppIcon v-else name="account"
-          /></span>
+            >{{ t('view.accountMenu.initials') }}</span
+          >
         </button>
       </template>
-      <template v-if="signedIn">
-        <UiDropdownMenuItem class="account-help" @select="pending = 'help'">
-          <AppIcon name="help" /> {{ t('view.help.trigger') }}
-        </UiDropdownMenuItem>
-        <UiDropdownMenuItem class="account-report" @select="pending = 'report'">
-          <AppIcon name="bug" /> {{ t('view.reportBug.trigger') }}
-        </UiDropdownMenuItem>
-        <UiDropdownMenuSeparator />
-      </template>
+      <UiDropdownMenuItem class="account-help" @select="pending = 'help'">
+        <AppIcon name="help" /> {{ t('view.help.trigger') }}
+      </UiDropdownMenuItem>
+      <UiDropdownMenuItem class="account-report" @select="pending = 'report'">
+        <AppIcon name="bug" /> {{ t('view.reportBug.trigger') }}
+      </UiDropdownMenuItem>
+      <UiDropdownMenuSeparator />
       <UiDropdownMenuItem class="account-theme" @select="toggleTheme">
         <AppIcon :name="theme === 'dark' ? 'sun' : 'moon'" />
         {{
@@ -133,12 +175,10 @@ async function logOut() {
           </I18nT>
         </span>
       </UiDropdownMenuItem>
-      <template v-if="signedIn">
-        <UiDropdownMenuSeparator />
-        <UiDropdownMenuItem class="account-logout" @select="logOut">
-          <AppIcon name="logout" /> {{ t('view.accountMenu.logout') }}
-        </UiDropdownMenuItem>
-      </template>
+      <UiDropdownMenuSeparator />
+      <UiDropdownMenuItem class="account-logout" @select="logOut">
+        <AppIcon name="logout" /> {{ t('view.accountMenu.logout') }}
+      </UiDropdownMenuItem>
     </UiDropdownMenu>
     <HelpDialog v-model:open="helpOpen" @close-auto-focus="dialogClosed" />
     <ReportBugDialog

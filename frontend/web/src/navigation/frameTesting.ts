@@ -33,7 +33,8 @@ export async function mountInFrame(
 }
 
 // Opens the frame's account menu and chooses one of its items. The menu is
-// portalled, so the item is read from the body.
+// portalled, so the item is read from the body. Signed out, the theme and
+// language controls stand in the top bar and are pressed there.
 export async function chooseAccountItem(
   item: 'help' | 'report' | 'theme' | 'locale' | 'logout',
   root: ParentNode = document,
@@ -42,7 +43,15 @@ export async function chooseAccountItem(
   const trigger = root.querySelector<HTMLButtonElement>(
     'header.topbar button.account-trigger',
   )
-  if (!trigger) throw new Error('Missing account menu trigger')
+  if (!trigger) {
+    const control = root.querySelector<HTMLButtonElement>(
+      `header.topbar button.account-${item}`,
+    )
+    if (!control) throw new Error('Missing account menu trigger')
+    control.click()
+    await settle()
+    return
+  }
   trigger.click()
   await settle()
   const entry = document.body.querySelector<HTMLElement>(`.account-${item}`)

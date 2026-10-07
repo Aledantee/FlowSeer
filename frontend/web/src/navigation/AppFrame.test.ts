@@ -23,7 +23,7 @@ afterEach(() => {
 })
 
 for (const mode of ['login', 'menu', 'collapsed'] as const)
-  it(`ends the top bar with one account menu in ${mode} mode`, async () => {
+  it(`ends the top bar with the account controls in ${mode} mode`, async () => {
     let frame: ReturnType<typeof useFrame> | undefined
     const child = defineComponent({
       setup() {
@@ -40,12 +40,20 @@ for (const mode of ['login', 'menu', 'collapsed'] as const)
     await nextTick()
     const header = mounted.host.querySelector('header.topbar')
     expect(header).not.toBeNull()
-    expect(header?.querySelectorAll('button.account-trigger')).toHaveLength(1)
     const buttons = [...(header?.querySelectorAll('button') ?? [])]
-    const account = header?.querySelector('button.account-trigger')
-    if (mode === 'login') expect(buttons).toEqual([account])
-    else expect(buttons.at(-1)).toBe(account)
-    expect(mounted.host.querySelector('aside .account-trigger')).toBeNull()
+    const triggers = header?.querySelectorAll('button.account-trigger')
+    // Signed out, the theme and language controls stand in for the account.
+    if (mode === 'login') {
+      expect(triggers).toHaveLength(0)
+      expect(buttons).toEqual([
+        header?.querySelector('button.account-theme'),
+        header?.querySelector('button.account-locale'),
+      ])
+    } else {
+      expect(triggers).toHaveLength(1)
+      expect(buttons.at(-1)).toBe(triggers?.[0])
+    }
+    expect(mounted.host.querySelector('aside .account-control')).toBeNull()
   })
 
 it('keeps five regions in one frame and clears teleported content on unmount', async () => {
