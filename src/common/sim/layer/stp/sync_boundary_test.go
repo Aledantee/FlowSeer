@@ -221,3 +221,44 @@ func TestMSTISyncLeavesBoundaryRootUnchanged(t *testing.T) {
 		t.Errorf("boundary MSTI after sync = %+v, want role %v state %v", got, before.Role, before.State)
 	}
 }
+
+func TestCutMSTIBoundaryTakesTheCISTRootState(t *testing.T) {
+	t.Parallel()
+	l, internal, boundary, now := boundarySyncFixture(t)
+	l.Receive(now.Add(37*time.Second), "p1", betterBoundarySyncProposal(internal))
+	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
+		t.Fatalf("MSTI p2 before selection = %v, want Discarding", got)
+	}
+	boundary.RootID.Priority = 0
+	boundary.RegionalRootID = boundary.RootID
+	l.Receive(now.Add(38*time.Second), "p2", boundary)
+	if got := l.PortInfo("p2"); got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
+		t.Fatalf("CIST p2 = %+v, want Root Forwarding", got)
+	}
+	if got := l.VLANPortInfo(10, "p2"); got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
+		t.Errorf("MSTI p2 = %+v, want Root Forwarding with CIST", got)
+	}
+}
+
+func TestMSTIBoundaryReentryReadsTheCISTState(t *testing.T) {
+	t.Parallel()
+	l, internal, boundary, now := boundarySyncFixture(t)
+	l.Receive(now.Add(37*time.Second), "p1", betterBoundarySyncProposal(internal))
+	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
+		t.Fatalf("MSTI p2 before internal receive = %v, want Discarding", got)
+	}
+	inside := boundary
+	inside.ConfigID = internal.ConfigID
+	inside.RemainingHops = 20
+	l.Receive(now.Add(38*time.Second), "p2", inside)
+	if got := l.PortInfo("p2"); got.State != stp.StateForwarding {
+		t.Fatalf("internal CIST p2 = %+v, want internal Forwarding", got)
+	}
+	l.Receive(now.Add(39*time.Second), "p2", boundary)
+	if got := l.PortInfo("p2"); got.State != stp.StateForwarding {
+		t.Fatalf("boundary CIST p2 = %+v, want boundary Forwarding", got)
+	}
+	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateForwarding {
+		t.Errorf("MSTI p2 after boundary reentry = %v, want Forwarding with CIST", got)
+	}
+}

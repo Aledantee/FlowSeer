@@ -461,3 +461,96 @@ func TestProposalCutsOnlyTheUnsyncedPortsOfTheCISTAndOfAnMSTI(t *testing.T) {
 		})
 	}
 }
+
+func TestMSTIRootWithholdsAgreementForAnUnsyncedBoundary(t *testing.T) {
+	t.Parallel()
+	l, region, now := syncMSTBridge(t)
+	l.LinkChange(now, "p2", false, true, 0)
+	l.Receive(now, "p3", syncBPDU(syncMAC(0xf0), syncMAC(0xf0), 61440, 0, bpdu.RoleDesignated))
+	tr := l.trees[treeID(1)]
+	if p := tr.ports["p3"]; !l.boundary("p3") || p.role != bpdu.RoleDesignated || !p.synced {
+		t.Fatalf("boundary p3 = %+v, want synced Designated", p)
+	}
+	b := syncMSTBPDU(region.ConfigID(), syncMAC(2), 20_000, 30_000, bpdu.RoleDesignated, syncMSTFlags{})
+	l.Receive(now.Add(time.Second), "p1", b)
+	if p := tr.ports["p3"]; p.synced || p.state != StateForwarding {
+		t.Fatalf("boundary p3 synced=%v state=%v, want false/Forwarding", p.synced, p.state)
+	}
+	l.requestNewInfo(tr, tr.ports["p1"])
+	fx := l.Receive(now.Add(2*time.Second), "p1", b)
+	rerootState(t, tr, "p1", bpdu.RoleRoot, StateForwarding)
+	rerootAgreement(t, fx, "p1", true, false)
+}
+
+func TestSyncedDiscardingPortProposesAndTransmitsAfterSync(t *testing.T) {
+	t.Parallel()
+	l, now := rerootPair(t)
+	agree := syncBPDU(syncMAC(1), syncMAC(3), 4096, 1_000_000, bpdu.RoleRoot)
+	agree.SetAgreement(true)
+	l.Receive(now, "p3", agree)
+	rerootState(t, l.cist(), "p3", bpdu.RoleDesignated, StateForwarding)
+	b := syncBPDU(syncMAC(1), syncMAC(3), 4096, 30_000, bpdu.RoleDesignated)
+	l.Receive(now.Add(time.Second), "p3", b)
+	rerootState(t, l.cist(), "p3", bpdu.RoleAlternate, StateDiscarding)
+	b.RootPathCost = 1_000_000
+	at := now.Add(2 * time.Second)
+	l.Receive(at, "p3", b)
+	proposal := rerootBPDU(4096, 20_000)
+	proposal.SetProposal(true)
+	p := l.cist().ports["p3"]
+	if p.role != bpdu.RoleDesignated || p.state != StateDiscarding || !p.synced || p.proposing || !l.links["p3"].sendRSTP {
+		t.Fatalf("p3 before sync = %+v, want synced Discarding Designated without proposal in rapid mode", p)
+	}
+	fx := l.Receive(at.Add(time.Second), "p1", proposal)
+	if !p.proposing {
+		t.Error("p3 proposing = false, want true after sync")
+	}
+	for _, emission := range fx.Emissions {
+		if emission.Port != "p3" {
+			continue
+		}
+		b, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("Decode p3: %v", err)
+		}
+		if !b.Proposal() || b.Role() != bpdu.RoleDesignated {
+			t.Errorf("p3 frame proposal=%v role=%v, want true/Designated", b.Proposal(), b.Role())
+		}
+		return
+	}
+	t.Fatal("no p3 frame requested by sync")
+}
+
+func TestSyncedMSTIBoundaryCompletesTheCISTLadder(t *testing.T) {
+	t.Parallel()
+	l, region, now := syncMSTBridge(t)
+	boundary := syncBPDU(syncMAC(0xf0), syncMAC(0xf0), 61440, 0, bpdu.RoleDesignated)
+	l.Receive(now, "p3", boundary)
+	b := syncMSTBPDU(region.ConfigID(), syncMAC(2), 30_000, 20_000, bpdu.RoleDesignated, syncMSTFlags{cistProposal: true})
+	at := now.Add(time.Second)
+	l.Receive(at, "p1", b)
+	tr := l.trees[treeID(1)]
+	rerootState(t, l.cist(), "p3", bpdu.RoleDesignated, StateDiscarding)
+	rerootState(t, tr, "p3", bpdu.RoleDesignated, StateDiscarding)
+	b.SetProposal(false)
+	l.Receive(at.Add(time.Second), "p1", b)
+	if !tr.ports["p3"].synced {
+		t.Fatal("MSTI boundary synced=false before proposal, want true")
+	}
+	flags := bpdu.BPDU{Flags: b.MSTIs[0].Flags}
+	flags.SetProposal(true)
+	b.MSTIs[0].Flags = flags.Flags
+	l.Receive(at.Add(2*time.Second), "p1", b)
+	flags.SetProposal(false)
+	b.MSTIs[0].Flags = flags.Flags
+	for step, want := range []State{StateLearning, StateForwarding} {
+		refresh := at.Add(time.Duration(step*4+3) * time.Second)
+		l.Receive(refresh, "p1", b)
+		l.Receive(refresh, "p3", boundary)
+		deadline := at.Add(time.Duration((step+1)*4+1) * time.Second)
+		l.Advance(deadline)
+		l.Receive(deadline, "p1", b)
+		rerootState(t, l.cist(), "p3", bpdu.RoleDesignated, want)
+		rerootState(t, tr, "p3", bpdu.RoleDesignated, want)
+	}
+}

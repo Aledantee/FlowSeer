@@ -525,3 +525,58 @@ func TestRerootLeavesAnMSTIBoundaryOnTheCISTState(t *testing.T) {
 		t.Errorf("boundary MSTI state = %v, want CIST %v unchanged from %v", got, l.cist().ports["p3"].state, before)
 	}
 }
+
+func TestRerootCutsARecentRootInLearningOnASharedLink(t *testing.T) {
+	t.Parallel()
+	l, now := rerootBridge(nil, nil)
+	l.LinkChange(now, "p1", true, false, 1_000_000_000)
+	l.Receive(now, "p1", rerootBPDU(4096, 0))
+	l.Advance(now.Add(4 * time.Second))
+	rerootState(t, l.cist(), "p1", bpdu.RoleRoot, StateLearning)
+	l.Receive(now.Add(5*time.Second), "p2", rerootBPDU(0, 0))
+	rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateDiscarding)
+	rerootState(t, l.cist(), "p2", bpdu.RoleRoot, StateForwarding)
+}
+
+func TestRootDeadlineIsStoredBeforeMcheckReturns(t *testing.T) {
+	t.Parallel()
+	l, now := rerootPair(t)
+	at := now.Add(12 * time.Second)
+	l.Mcheck(at, "p1")
+	p := l.cist().ports["p1"]
+	rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateForwarding)
+	if p.pendingRootDeadline || p.rootDeadline != at.Add(15*time.Second) {
+		t.Errorf("p1 pending=%v deadline=%v, want false/%v", p.pendingRootDeadline, p.rootDeadline, at.Add(15*time.Second))
+	}
+}
+
+func TestRootDeadlineIsStoredBeforeLinkChangeReturns(t *testing.T) {
+	t.Parallel()
+	l, now := rerootPair(t)
+	at := now.Add(12 * time.Second)
+	l.LinkChange(at, "p3", true, true, 10_000_000_000)
+	p := l.cist().ports["p1"]
+	rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateForwarding)
+	if p.pendingRootDeadline || p.rootDeadline != at.Add(15*time.Second) {
+		t.Errorf("p1 pending=%v deadline=%v, want false/%v", p.pendingRootDeadline, p.rootDeadline, at.Add(15*time.Second))
+	}
+}
+
+func TestMSTIBoundaryRootLeavesAnInternalRecentRootForwarding(t *testing.T) {
+	t.Parallel()
+	l, region, now := syncMSTBridge(t)
+	l.LinkChange(now, "p2", true, false, 100_000_000)
+	b := syncMSTBPDU(region.ConfigID(), syncMAC(3), 1_000_000, 10_000, bpdu.RoleDesignated, syncMSTFlags{})
+	l.Receive(now, "p2", b)
+	tr := l.trees[treeID(1)]
+	rerootState(t, tr, "p1", bpdu.RoleRoot, StateForwarding)
+	at := now.Add(time.Second)
+	foreign := syncBPDU(syncMAC(1), syncMAC(3), 0, 0, bpdu.RoleDesignated)
+	l.Receive(at, "p2", foreign)
+	l.LinkChange(at, "p2", true, false, 10_000_000_000)
+	rerootState(t, tr, "p2", bpdu.RoleRoot, StateDiscarding)
+	if !l.boundary("p2") || tr.rootPort != "p2" {
+		t.Fatalf("MSTI root port=%q boundary=%v, want p2/true", tr.rootPort, l.boundary("p2"))
+	}
+	rerootState(t, tr, "p1", bpdu.RoleDesignated, StateForwarding)
+}
