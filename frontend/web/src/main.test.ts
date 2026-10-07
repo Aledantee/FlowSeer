@@ -191,6 +191,10 @@ describe('main entrypoint', () => {
       expect(region).not.toBeNull()
       return region?.className
     })
+    const loginPage = document.body.querySelector('main.login-page')
+    expect(loginPage).not.toBeNull()
+    for (const name of loginPage?.classList ?? [])
+      expect(name).not.toMatch(/(?:^|:)(?:bg|backdrop)-/)
     const input = document.body.querySelector<HTMLInputElement>(
       'input[type="email"]',
     )
@@ -214,7 +218,7 @@ describe('main entrypoint', () => {
     expect(page?.querySelector('.rounded-panel.bg-card')).not.toBeNull()
     for (const element of page?.querySelectorAll('[class]') ?? [])
       for (const name of element.classList)
-        expect(name).not.toMatch(/^bg-card\//)
+        expect(name).not.toMatch(/(?:^|:)bg-card\//)
     expect(sidebar?.querySelector('a[href^="/devices"]')).not.toBeNull()
     expect(sidebar?.querySelector('form.login-form')).toBeNull()
     expect(mainShell?.style.transform).toBe('')

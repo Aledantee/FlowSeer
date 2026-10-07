@@ -96,7 +96,7 @@ describe('palette module and contrast gate', () => {
     }
   })
 
-  it('builds seven glow stops with the ribbon above the radial', () => {
+  it('builds seven glow stops, each ribbon and highlight over its own radial', () => {
     const achromatic: PaletteSource = {
       ...source,
       families: {
@@ -105,10 +105,12 @@ describe('palette module and contrast gate', () => {
           light: [
             [0, 0],
             [1, 0],
+            [0.5, 0],
           ],
           dark: [
             [0, 0],
             [1, 0],
+            [0.5, 0],
           ],
         },
       },
@@ -116,13 +118,24 @@ describe('palette module and contrast gate', () => {
         background: { light: 'neutral-2', dark: 'neutral-2' },
         chrome: { light: 'neutral-1', dark: 'neutral-1' },
         accent: { light: 'neutral-2', dark: 'neutral-2' },
-        primary: { light: 'neutral-2', dark: 'neutral-2' },
+        primary: { light: 'neutral-3', dark: 'neutral-3' },
         foreground: { light: 'neutral-1', dark: 'neutral-1' },
       },
     }
     const stops = glowStops(achromatic, 'dark', glow)
     expect(stops).toHaveLength(7)
-    const expected = [0.18, 0, 0.50636, 0.4834, 0.1476, 0.34932, 0.34932]
+    const [orange] = toSrgb(resolve(achromatic, 'primary', 'dark'))
+    expect(orange).toBeGreaterThan(0.2)
+    expect(orange).toBeLessThan(0.8)
+    const expected = [
+      0.18,
+      0,
+      0.50636,
+      0.37 * orange + 0.1134,
+      0.1476,
+      0.34932,
+      0.246 * orange + 0.10332,
+    ]
     stops.forEach((stop, index) => {
       for (const channel of stop)
         expect(channel).toBeCloseTo(expected[index], 6)
@@ -154,7 +167,12 @@ describe('palette module and contrast gate', () => {
           ([, background]) => background === 'background',
         )
         expect(panelPairs).toHaveLength(7)
-        for (const [foreground, , minimum] of panelPairs) {
+        const canvasPairs: [string, string, number][] = [
+          ['warning-border', 'background', 3],
+          ['danger-border', 'background', 3],
+          ['danger-foreground', 'background', 4.5],
+        ]
+        for (const [foreground, , minimum] of [...panelPairs, ...canvasPairs]) {
           expect(
             contrast(toSrgb(resolve(source, foreground, theme)), panelGround),
             `${foreground} on ${theme} panel stop ${index}`,

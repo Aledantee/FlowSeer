@@ -29,20 +29,32 @@ describe('frame chrome sources', () => {
       expect(read(file), file).not.toContain('backdrop-blur-2xl')
   })
 
-  it('lets the frame panel paint behind the panes', () => {
-    const panes = read('style.css').match(
-      /#frame-page main\.panes\s*\{([^}]*)\}/,
-    )
-    expect(panes).not.toBeNull()
-    expect(panes?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
-  })
+  for (const selector of ['#frame-page main.panes', '.pane', '.pane-scroll'])
+    it(`lets the frame panel paint behind ${selector}`, () => {
+      const escaped = selector.replace(/[.#]/g, '\\$&')
+      const rule = read('style.css').match(
+        new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`),
+      )
+      expect(rule).not.toBeNull()
+      expect(rule?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
+    })
 
   it('lets the frame panel paint behind the topology canvas', () => {
-    const canvas = read('components/topology/TopologyGraph.vue').match(
-      /\.topology-graph\s*\{([^}]*)\}/,
+    const [template = '', block = ''] = read(
+      'components/topology/TopologyGraph.vue',
+    ).split('<style')
+    const style = block.slice(block.indexOf('>') + 1)
+    expect(template).not.toMatch(/topology-graph [^"]*\bbg-/)
+    expect(template).not.toContain('bg-color=')
+    const canvas =
+      /^\.topology-graph(?:\s+:deep\(\.vue-flow(?:__(?:pane|background|container))?\))?$/
+    const rules = [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)].filter(
+      ([, selector]) =>
+        (selector ?? '').split(',').some((part) => canvas.test(part.trim())),
     )
-    expect(canvas).not.toBeNull()
-    expect(canvas?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
+    expect(rules.length).toBeGreaterThan(0)
+    for (const [, selector, body] of rules)
+      expect(body, selector).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
   })
 
   it('does not collapse the page region into its parent', () => {

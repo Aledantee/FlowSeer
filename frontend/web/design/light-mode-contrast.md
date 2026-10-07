@@ -89,11 +89,17 @@ gated token is:
 | `glass-panel` | `ring`                    | 7.70:1  | 7.26:1  | 3:1     |
 | `glass-panel` | `input`                   | 4.98:1  | 3.37:1  | 3:1     |
 | `glass-panel` | `graph-edge`              | 4.98:1  | 6.66:1  | 3:1     |
+| `glass-panel` | `warning-border`          | 4.64:1  | 4.39:1  | 3:1     |
+| `glass-panel` | `danger-border`           | 3.74:1  | 6.42:1  | 3:1     |
+| `glass-panel` | `danger-foreground`       | 8.00:1  | 6.42:1  | 4.5:1   |
 
 The table rounds to two decimal places. The gate asserts unrounded ratios
 using `over`, `glowStops`, and `contrast` in `src/theme/palette.ts`. It
 includes the glow's highlights without relying on blur. It does not model
 the surface's `saturate(150%)`, which needs a browser check.
+The last three rows are the link strokes and the error text that the
+topology canvas draws directly on the panel
+(`src/components/topology/TopologyLink.vue`, `TopologyGraph.vue`).
 `input` is gated on the panel and solid cards. The login field on the glass
 has its own solid card fill (`src/ui/form/UiInput.vue`).
 

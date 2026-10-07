@@ -325,6 +325,9 @@ describe('fleet view', () => {
   it('leaves the top bar to the frame and insets the split pane by its header', async () => {
     const { host } = await mountAt('/dashboard')
     expect(host.querySelector('header.topbar .topbar-glass')).toBeNull()
+    expect(host.querySelector('header.topbar')?.className).not.toMatch(
+      /(?:^|[\s:])backdrop-/,
+    )
     window.dispatchEvent(workspaceShortcut())
     await settle()
     expect(
