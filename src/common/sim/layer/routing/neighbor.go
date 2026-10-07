@@ -145,8 +145,8 @@ type advertisement struct {
 
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
 // (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
-// hold queue pushes out is still reported, as a [HeldEvicted] exit in [Layer.DrainExits] after the next
-// [Layer.Advance], not silently dropped and not reported as a resolution that failed.
+// hold queue pushes out is reported as a [HeldEvicted] exit in [Layer.DrainExits]
+// after [Layer.Advance] or a committing lookup retires its failed neighbor entry.
 func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
@@ -156,7 +156,7 @@ func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []held
 	return queue, evicted
 }
 
-// neighborLookup is the outcome [vrfState.resolveNeighbor] found for one address: a resolved
+// neighborLookup is the outcome [Layer.resolveNeighbor] found for one address: a resolved
 // MAC ready to forward on, or the state that explains why not. origin is the zero value when no
 // entry exists to have one.
 type neighborLookup struct {
@@ -169,8 +169,26 @@ type neighborLookup struct {
 
 // resolveNeighbor judges the entry at now without writing when commit is clear.
 // held is called only when the lookup queues a frame.
-func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, iface Interface, commit bool, held func() heldEntry) neighborLookup {
+func (l *Layer) resolveNeighbor(vs *vrfState, now time.Time, key neighborKey, iface Interface, commit bool, held func() heldEntry) neighborLookup {
 	entry, ok := vs.neighbors[key]
+	if ok && entry.origin == observed && (entry.state == NeighborIncomplete || entry.state == NeighborProbe) && entry.sent >= 3 && !entry.expiry.IsZero() && !entry.expiry.After(now) {
+		// Exhausted cycles are deleted before subsequent traffic resolves again
+		// (RFC 4861 section 7.3.3), even without a preceding Advance.
+		if commit {
+			for _, h := range entry.evicted {
+				if hf, valid := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); valid {
+					l.exits = append(l.exits, hf)
+				}
+			}
+			for _, h := range entry.queue {
+				if hf, valid := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); valid {
+					l.exits = append(l.exits, hf)
+				}
+			}
+			delete(vs.neighbors, key)
+		}
+		ok = false
+	}
 	if !ok {
 		if vs.policy.Mode != NeighborObserved {
 			return neighborLookup{state: NeighborUnobserved}

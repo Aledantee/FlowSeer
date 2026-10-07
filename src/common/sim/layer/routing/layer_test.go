@@ -1942,3 +1942,43 @@ func TestOriginateUsesEgressSource(t *testing.T) {
 		})
 	}
 }
+
+func TestOriginatePrefersAppropriateScope(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, egressGlobal, otherGlobal, dst, want string }{
+		{"global via link-local gateway", "2001:db8:2::1/64", "", "2001:db8:3::5", "2001:db8:2::1"},
+		{"link-local destination", "2001:db8:2::1/64", "", "fe80::2", "fe80::1"},
+		{"VRF scope fallback", "", "2001:db8:1::1/64", "2001:db8:3::5", "2001:db8:1::1"},
+		{"only link-local source", "", "", "2001:db8:3::5", "fe80::1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			prefixes := []netip.Prefix{netip.MustParsePrefix("fe80::1/64")}
+			if test.egressGlobal != "" {
+				prefixes = append(prefixes, netip.MustParsePrefix(test.egressGlobal))
+			}
+			interfaces := map[string]routing.Interface{"vlan10": {VLAN: 10, Prefixes: prefixes}}
+			if test.otherGlobal != "" {
+				interfaces["a0"] = routing.Interface{VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix(test.otherGlobal)}}
+			}
+			l := mustNewRouting(t, routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+				Interfaces: interfaces,
+				Routes:     []routing.Route{{Prefix: netip.MustParsePrefix("2001:db8:3::/64"), NextHop: netip.MustParseAddr("fe80::2"), Interface: "vlan10"}},
+			}}})
+			res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr(test.dst), 17, nil, true)
+			if res.Reason != routing.ReasonNeighborPending || res.Hold == 0 {
+				t.Fatalf("result = %+v", res)
+			}
+			exits := l.FailHeld()
+			if len(exits) != 1 {
+				t.Fatalf("exits = %+v", exits)
+			}
+			hdr, _, err := ip.Decode(exits[0].Frame.Payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hdr.Src != netip.MustParseAddr(test.want) {
+				t.Fatalf("source = %s, want %s", hdr.Src, test.want)
+			}
+		})
+	}
+}

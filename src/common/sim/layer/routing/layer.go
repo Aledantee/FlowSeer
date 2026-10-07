@@ -930,7 +930,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrf.resolveNeighbor(now, key, l.ifaces[targetIface], commit, func() heldEntry {
+	lookup := l.resolveNeighbor(vrf, now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// heldHdr is already encoded above, so finishHeld need not (and must not) decrement it
 		// again once resolution completes.
 		pcp, dei := f.Priority()
@@ -992,7 +992,9 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 // for transmission towards dst within the named VRF.
 //
 // The route hashes the family's unspecified address and dst, with flow label zero.
-// The source is the egress address whose longest prefix holds the on-link next hop,
+// For a non-link-local destination, a non-link-local source is preferred when the
+// VRF has one of the family (RFC 6724 section 5 rule 2). Among eligible addresses,
+// the source is the egress address whose longest prefix holds the on-link next hop,
 // else the egress interface's first address of the family, else the VRF's first
 // (RFC 1122 section 3.3.4.3 and RFC 6724 section 5 rule 5). The datagram transmits
 // with hop limit 64, directly on connected prefixes and via a gateway otherwise.
@@ -1035,11 +1037,15 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	var srcAddr, firstAddr netip.Addr
 	for _, name := range ifaceNames {
 		for _, p := range vrfState.interfaces[name].Prefixes {
-			if p.Addr().Is4() == dst.Is4() && !firstAddr.IsValid() {
+			if p.Addr().Is4() != dst.Is4() {
+				continue
+			}
+			if !firstAddr.IsValid() || (!dst.IsLinkLocalUnicast() && firstAddr.IsLinkLocalUnicast() && !p.Addr().IsLinkLocalUnicast()) {
 				firstAddr = p.Addr()
 			}
 		}
 	}
+	preferScope := !dst.IsLinkLocalUnicast() && firstAddr.IsValid() && !firstAddr.IsLinkLocalUnicast()
 	if sel != nil {
 		route := sel.route()
 		target := dst
@@ -1049,7 +1055,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		bestBits := -1
 		var egressFirst netip.Addr
 		for _, p := range vrfState.interfaces[route.Interface].Prefixes {
-			if p.Addr().Is4() != dst.Is4() {
+			if p.Addr().Is4() != dst.Is4() || (preferScope && p.Addr().IsLinkLocalUnicast()) {
 				continue
 			}
 			if !egressFirst.IsValid() {
@@ -1143,7 +1149,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrfState.resolveNeighbor(now, key, l.ifaces[targetIface], commit, func() heldEntry {
+	lookup := l.resolveNeighbor(vrfState, now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// hdr's hop limit is already 64, the egress form Originate's direct path below encodes
 		// unchanged, so nothing is decremented before queuing (contrast Route's closure, which
 		// decrements here because its direct path does too). pcp and dei are left at their zero
