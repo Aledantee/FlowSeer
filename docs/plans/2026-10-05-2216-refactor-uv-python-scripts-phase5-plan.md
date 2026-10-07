@@ -296,3 +296,20 @@ flowchart LR
 None blocks implementation. Live Windows CLI availability and Orca terminal
 launch support remain unverified and outside this phase. Phase 7 owns the
 Windows acceptance run. No policy-surface edit is needed in these units.
+
+## Review gaps
+
+Open follow-ups from the review. None holds the verdict. Each needs a
+source change, which the follow-up pass does not make.
+
+- tools/scripts/skills/delegate/orca_worker.py:483: `--role ""` passes the parser; fails: `start --role ""` creates the worktree and terminal before the run log refuses the role; class: hardening
+- tools/scripts/skills/delegate/orca_worker.py:143: `Worker.log` lets `SystemExit` from `runlog.main` pass; fails: `start --plan=-x` exits 2 with the lane live and no rollback; class: hardening
+- tools/scripts/skills/delegate/orca_worker.py:210: the reachability lookup is unguarded; fails: an `orca status` reply without `runtime` prints `'runtime'` in place of the not-reachable sentence; class: hardening
+- tools/scripts/skills/delegate/orca_worker.py:57: strict UTF-8 decode of tool output; fails: one invalid byte in a terminal screen exits 1 with no wait outcome (whether Orca emits one is unverified); class: hardening
+- tools/scripts/skills/tune/bench.py:164: `is_dir()` can raise before the refusal; fails: a `--dir` with a 300-character component exits 1 with a traceback where exit 2 is documented; class: hardening
+- tools/scripts/skills/tune/bench.py:65: a JSON line that is not an object is read with `.get`; fails: codex stdout line `null` ends in a traceback with no result JSON (the shell did the same); class: hardening
+- tools/scripts/skills/delegate/pool_usage.py:546: `for lim in limits` runs outside the `try`; fails: `{"reports":[{"provider":"zai","limits":null}]}` raises out of the reader, so `tune discover-host` exits 1 after four rows (the shell reader did the same); class: hardening
+- tools/scripts/skills/web_component/check_tools.py:88: `pnpm.cmd` is the only name tried on Windows; fails: a host with `pnpm.exe` and no `.cmd` shim reads `missing pnpm` (unverified, no Windows run); class: hardening
+- tools/scripts/skills/web_component/check_tools.py:22: `version()` strips only `\n`; fails: `v22.12.0\r\n` from node on Windows reads `invalid node` (unverified, no Windows run); class: hardening
+- tools/scripts/skills/web_component/check_tools.py:30: `http.client.HTTPException` is not caught; fails: a non-HTTP listener on port 6006 gives `--storybook-probe` a traceback in place of its diagnostic (unverified against the 3.13 source); class: hardening
+- tools/scripts/skills/diagnose/hitl_loop.py:48: `input()` returns a final line that has no newline; fails: a last answer cut off by EOF prints the full report and exits 0, where the shell `read` exited 1; class: hardening
