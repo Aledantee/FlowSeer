@@ -877,8 +877,8 @@ U1, U2, and U3 are a chain because each edits
   verifier on every changed path. R1 holds for each new test.
 - `go test ./src/common/sim/device/vswitch/ -run
   TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` passes from U1 on, with
-  `git diff 20926da9 -- src/common/sim/device/vswitch/switch_test.go`
-  empty.
+  `git diff 3368d139 -- src/common/sim/device/vswitch/switch_test.go`
+  empty. `3368d139` is this branch's merge of the drive branch.
 
 ## Definition of done
 
