@@ -194,8 +194,88 @@ func TestCopiesToVLANUsesTunnelAndKeepsInnerTags(t *testing.T) {
 	if got[0].VLAN != outputVLAN {
 		t.Errorf("tunnel copy VLAN = %d, want %d", got[0].VLAN, outputVLAN)
 	}
-	if !slices.Equal(got[0].Frame.Tags, []vlan.Tag{inner}) {
-		t.Errorf("tunnel copy tags = %+v, want inner tag %+v", got[0].Frame.Tags, inner)
+	if want := received.Tags; !slices.Equal(got[0].Frame.Tags, want) {
+		t.Errorf("tunnel copy tags = %+v, want both received tags %+v", got[0].Frame.Tags, want)
+	}
+}
+
+func TestCopiesToVLANKeepsServiceTagUnderStackedFrame(t *testing.T) {
+	t.Parallel()
+
+	outputVLAN := vlan.ID(99)
+	service := vlan.Tag{TPID: uint16(ethernet.EtherTypeProviderBridging), PCP: 5, VID: 100}
+	customer := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 3, VID: 20}
+	received := ethernet.Frame{
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Tags:      []vlan.Tag{service, customer},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	cfg := Config{Mirrors: []Mirror{{Name: "m2", SelectAll: true, OutputVLAN: &outputVLAN}}}
+	switchports := map[string]Switchport{
+		"1/1/24": {Tagged: []vlan.ID{99}},
+		"1/1/4":  {Untagged: []vlan.ID{99}},
+	}
+
+	got := copies(cfg, switchports, "1/1/1", vlan.ID(100), received, nil)
+	if len(got) != 2 {
+		t.Fatalf("copies returned %d copies, want 2", len(got))
+	}
+	wantTagged := []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 99}, service, customer}
+	if !slices.Equal(got[0].Frame.Tags, wantTagged) {
+		t.Errorf("tagged copy tags = %+v, want %+v", got[0].Frame.Tags, wantTagged)
+	}
+	if want := []vlan.Tag{service, customer}; !slices.Equal(got[1].Frame.Tags, want) {
+		t.Errorf("untagged copy tags = %+v, want %+v", got[1].Frame.Tags, want)
+	}
+}
+
+func TestCopiesToVLANKeepsCustomerTagFromTunnelIngress(t *testing.T) {
+	t.Parallel()
+
+	outputVLAN := vlan.ID(99)
+	customer := vlan.Tag{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, DEI: true, VID: 10}
+	received := ethernet.Frame{
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		Tags:      []vlan.Tag{customer},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	cfg := Config{Mirrors: []Mirror{{Name: "m2", SelectAll: true, OutputVLAN: &outputVLAN}}}
+	switchports := map[string]Switchport{
+		"1/1/1":  {Tunnel: &Tunnel{VID: 200}},
+		"1/1/24": {Tagged: []vlan.ID{99}},
+		"1/1/4":  {Untagged: []vlan.ID{99}},
+	}
+
+	got := copies(cfg, switchports, "1/1/1", vlan.ID(200), received, nil)
+	if len(got) != 2 {
+		t.Fatalf("copies returned %d copies, want 2", len(got))
+	}
+	wantTagged := []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), PCP: 5, DEI: true, VID: 99}, customer}
+	if !slices.Equal(got[0].Frame.Tags, wantTagged) {
+		t.Errorf("tagged copy tags = %+v, want %+v", got[0].Frame.Tags, wantTagged)
+	}
+	if want := []vlan.Tag{customer}; !slices.Equal(got[1].Frame.Tags, want) {
+		t.Errorf("untagged copy tags = %+v, want %+v", got[1].Frame.Tags, want)
+	}
+}
+
+func TestCopiesToPortSkipsFrameFromOutputPort(t *testing.T) {
+	t.Parallel()
+
+	received := ethernet.Frame{
+		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
+		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
+		EtherType: ethernet.EtherTypeIPv4,
+	}
+	cfg := Config{Mirrors: []Mirror{{Name: "m1", SelectAll: true, OutputPort: "1/1/4"}}}
+
+	if got := copies(cfg, nil, "1/1/4", vlan.ID(10), received, nil); len(got) != 0 {
+		t.Errorf("copies returned %d copies for a frame from the output port, want 0", len(got))
+	}
+	if got := copies(cfg, nil, "1/1/1", vlan.ID(10), received, nil); len(got) != 1 {
+		t.Errorf("copies returned %d copies for a frame from another port, want 1", len(got))
 	}
 }
 
