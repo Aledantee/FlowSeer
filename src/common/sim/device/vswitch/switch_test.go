@@ -2376,6 +2376,43 @@ func loopProtectTestSwitch(t *testing.T) *vswitch.Switch {
 	})
 }
 
+// mustEncodeProbe encodes p for a frame sent from src and fails the test on
+// an encode error.
+func mustEncodeProbe(t *testing.T, p loopprotect.Probe, src netaddr.MAC) ethernet.Frame {
+	t.Helper()
+
+	f, err := loopprotect.Encode(p, src)
+	if err != nil {
+		t.Fatalf("loopprotect.Encode(%+v): %v", p, err)
+	}
+
+	return f
+}
+
+// TestLoopProtectProbeNeedsProbeEtherType proves that a frame to the probe
+// group is a probe only when its EtherType says so: a frame whose payload
+// names this switch and its port but carries EtherType 0x0800 is no action
+// and is relayed like any other frame to an unregistered group.
+func TestLoopProtectProbeNeedsProbeEtherType(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	frame := mustEncodeProbe(t, loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}, mac)
+	frame.EtherType = 0x0800
+
+	res := sw.Forward(now, "1/1/1", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("outcome = %s, want %s", res.Outcome, trace.Flooded)
+	}
+	if traceHasRuleID(res.Steps, "loopprotect.probe.return") || traceHasRuleID(res.Steps, "loopprotect.port.block") {
+		t.Errorf("a frame with EtherType 0x0800 took a loop-protection action: %+v", res.Steps)
+	}
+	if len(res.Egress) == 0 {
+		t.Errorf("a frame with EtherType 0x0800 was not relayed: %+v", res)
+	}
+}
+
 // TestLoopProtectOwnProbeConsumedNotFlooded proves that a probe this switch
 // sent, returned by an unmanaged loop, is consumed by the loop-protection
 // interception rather than relayed: the mechanism only works if the switch
@@ -2387,7 +2424,7 @@ func TestLoopProtectOwnProbeConsumedNotFlooded(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	frame := loopprotect.Encode(probe, mac)
+	frame := mustEncodeProbe(t, probe, mac)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -2417,7 +2454,7 @@ func TestLoopProtectForeignProbeFloodsWithOneClassificationStep(t *testing.T) {
 
 	foreignMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
 	probe := loopprotect.Probe{OriginMAC: foreignMAC, VID: 0, Sequence: 1, Port: "1/1/1"}
-	frame := loopprotect.Encode(probe, foreignMAC)
+	frame := mustEncodeProbe(t, probe, foreignMAC)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
@@ -2449,7 +2486,7 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	frame := loopprotect.Encode(probe, mac)
+	frame := mustEncodeProbe(t, probe, mac)
 
 	first := sw.Forward(now, "1/1/1", frame)
 	if first.Outcome != trace.Consumed {
@@ -2497,7 +2534,7 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "lag1"}
-	res := sw.Forward(now, "lag1", loopprotect.Encode(probe, mac))
+	res := sw.Forward(now, "lag1", mustEncodeProbe(t, probe, mac))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("probe outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -2743,7 +2780,7 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 10, Sequence: 1, Port: "1/1/1"}
 	// Delivered untagged, so bridge ingress classifies it by the port's
 	// PVID (20) rather than by the VID 10 the payload names as sent.
-	frame := loopprotect.Encode(probe, mac)
+	frame := mustEncodeProbe(t, probe, mac)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -2799,7 +2836,7 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 20, Sequence: 1, Port: "1/1/1"}
 	// Delivered untagged, so bridge ingress classifies it by the port's
 	// PVID (10) even though the port also untags egress for VLAN 20.
-	frame := loopprotect.Encode(probe, mac)
+	frame := mustEncodeProbe(t, probe, mac)
 
 	res := sw.Forward(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
@@ -3013,7 +3050,7 @@ func TestLoopProtectAppliedActionFlushesLearnedEntries(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
 	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
 	data := ethernet.Frame{Dst: host, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
@@ -3043,7 +3080,7 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
 	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
 	if err != nil {
@@ -3079,7 +3116,7 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", loopprotect.Encode(probe, mac))
+	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
 	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}

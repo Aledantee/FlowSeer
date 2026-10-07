@@ -45,7 +45,10 @@ func returnedProbe(sendPort string, vid vlan.ID) loopprotect.Probe {
 func assertProbeFrame(t *testing.T, e layer.Emission, sequence uint32) {
 	t.Helper()
 
-	want := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	want, err := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
 	if !reflect.DeepEqual(e.Frame, want) {
 		t.Errorf("emission for %s vid %d carries frame %+v, want %+v", e.Port, e.VID, e.Frame, want)
 	}

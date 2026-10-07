@@ -78,6 +78,49 @@ func main() {
 }
 ```
 
+## Probe frame
+
+The format is this simulator's own, and this section is its specification.
+No vendor document defines it.
+
+A probe is an Ethernet II frame, 14 octets of header and a payload of 14
+octets plus the port name, unpadded. The destination is `03:46:53:4c:50:00`,
+a locally administered group address returned by `GroupAddress`. The
+EtherType is `0x88b5`, which the IANA IEEE 802 Numbers registry lists as
+"IEEE Std 802 - Local Experimental Ethertype"
+(https://www.iana.org/assignments/ieee-802-numbers/ieee-802-numbers.txt).
+IEEE Std 802, which defines that range, was not read, so what it requires of
+a frame under the EtherType is unverified.
+
+| Payload offset | Octets | Field |
+| --- | --- | --- |
+| 0 | 1 | Version, always 1 |
+| 1 | 6 | Originating switch MAC |
+| 7 | 2 | VLAN ID the probe was sent on, big endian |
+| 9 | 4 | Sequence number of the sending port, big endian |
+| 13 | 1 | Port name length, 1 to 255 |
+| 14 | length | Port name, the sending port |
+
+The fixture is the frame below, 36 octets. It reads as destination
+`03:46:53:4c:50:00`, source `aa:bb:cc:dd:ee:ff`, EtherType `0x88b5`, version 1,
+origin `02:11:22:33:44:55`, VLAN `0x0141`, sequence `0xa1b2c3d4`, name length
+8, and the name `et-0/0/7`. `TestEncodeMatchesFixture` and `TestDecodeFixture`
+hold it as literal octets.
+
+```text
+03 46 53 4c 50 00 aa bb cc dd ee ff 88 b5 01 02
+11 22 33 44 55 01 41 a1 b2 c3 d4 08 65 74 2d 30
+2f 30 2f 37
+```
+
+`Decode` refuses, before it reads the payload, a frame whose destination is
+not the probe group or whose EtherType is not `0x88b5`. It then refuses a
+payload shorter than 14 octets, a version other than 1, a name length of
+zero, a name running past the payload, and octets after the name. `Encode`
+refuses a port name that is empty or longer than 255 octets, the two names
+`Decode` cannot return. `Config.Validate` bounds the names a layer probes, so
+the layer's own emission cannot fail to encode.
+
 ## Detection
 
 A probe whose payload names this switch's own MAC as the originator is a
