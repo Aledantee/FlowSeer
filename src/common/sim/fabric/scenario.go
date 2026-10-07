@@ -54,12 +54,12 @@ type FaultAction struct {
 	Fault Fault
 }
 
-// Validate verifies that both endpoints of the cable fault are non-empty.
+// Validate rejects empty endpoint nodes and invalid fault parameters.
 func (f FaultAction) Validate() error {
 	if f.A.Node == "" || f.B.Node == "" {
 		return errs.Msg("fault endpoints must have node specified")
 	}
-	return nil
+	return validateFault(f.Fault)
 }
 
 // McheckAction specifies a target virtual switch port to run protocol migration check.
@@ -214,11 +214,12 @@ func (a Action) Normalize() (Action, error) {
 func (a Action) Clone() Action {
 	cp := a
 	if a.Inject != nil {
-		injCopy := *a.Inject
+		injCopy := a.Inject.clone()
 		cp.Inject = &injCopy
 	}
 	if a.Fault != nil {
 		fCopy := *a.Fault
+		fCopy.Fault = a.Fault.Fault.Clone()
 		cp.Fault = &fCopy
 	}
 	if a.Mcheck != nil {

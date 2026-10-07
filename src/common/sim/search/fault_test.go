@@ -1,8 +1,10 @@
 package search
 
 import (
+	"math"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,7 +14,7 @@ import (
 func sampleFaultConfig() TimedFaultDomainConfig {
 	t0 := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	return TimedFaultDomainConfig{
-		Faults: []FaultSpec{
+		Faults: []fabric.FaultAction{
 			{
 				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -42,7 +44,10 @@ func TestTimedFaultDomainStableTotalOrderOverRandomizedInput(t *testing.T) {
 	t.Parallel()
 
 	baseCfg := sampleFaultConfig()
-	domBase := NewTimedFaultDomain(baseCfg)
+	domBase, err := NewTimedFaultDomain(baseCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var canonical []Tuple
 	domBase.Enumerate(func(c Candidate) bool {
@@ -66,10 +71,13 @@ func TestTimedFaultDomainStableTotalOrderOverRandomizedInput(t *testing.T) {
 			shuffledTimes[i], shuffledTimes[j] = shuffledTimes[j], shuffledTimes[i]
 		})
 
-		shuffledDom := NewTimedFaultDomain(TimedFaultDomainConfig{
+		shuffledDom, err := NewTimedFaultDomain(TimedFaultDomainConfig{
 			Faults: shuffledFaults,
 			Times:  shuffledTimes,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		var trialTuples []Tuple
 		shuffledDom.Enumerate(func(c Candidate) bool {
@@ -87,7 +95,10 @@ func TestTimedFaultDomainSizeEqualsEnumeratedCount(t *testing.T) {
 	t.Parallel()
 
 	cfg := sampleFaultConfig()
-	dom := NewTimedFaultDomain(cfg)
+	dom, err := NewTimedFaultDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	expectedSize := len(cfg.Faults) * len(cfg.Times)
 	if dom.Size() != expectedSize {
@@ -117,7 +128,7 @@ func TestTimedFaultDomainEmptyYieldsNothingAndZeroSize(t *testing.T) {
 			Times: []time.Time{t0},
 		}},
 		{"empty-times", TimedFaultDomainConfig{
-			Faults: []FaultSpec{
+			Faults: []fabric.FaultAction{
 				{A: fabric.Endpoint{Node: "sw1"}, B: fabric.Endpoint{Node: "sw2"}, Fault: fabric.Fault{Kind: fabric.FaultCut}},
 			},
 		}},
@@ -126,7 +137,10 @@ func TestTimedFaultDomainEmptyYieldsNothingAndZeroSize(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dom := NewTimedFaultDomain(tc.cfg)
+			dom, err := NewTimedFaultDomain(tc.cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if dom.Size() != 0 {
 				t.Fatalf("dom.Size() = %d, want 0", dom.Size())
 			}
@@ -146,13 +160,19 @@ func TestTimedFaultDomainDuplicateTuplesCollapse(t *testing.T) {
 	t.Parallel()
 
 	cleanCfg := sampleFaultConfig()
-	cleanDom := NewTimedFaultDomain(cleanCfg)
+	cleanDom, err := NewTimedFaultDomain(cleanCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dupCfg := TimedFaultDomainConfig{
 		Faults: append(slices.Clone(cleanCfg.Faults), cleanCfg.Faults[0], cleanCfg.Faults[1]),
 		Times:  append(slices.Clone(cleanCfg.Times), cleanCfg.Times[0], cleanCfg.Times[2]),
 	}
-	dupDom := NewTimedFaultDomain(dupCfg)
+	dupDom, err := NewTimedFaultDomain(dupCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if dupDom.Size() != cleanDom.Size() {
 		t.Fatalf("dupDom.Size() = %d, want %d (collapse to clean size)", dupDom.Size(), cleanDom.Size())
@@ -177,7 +197,10 @@ func TestTimedFaultDomainEarlyStop(t *testing.T) {
 	t.Parallel()
 
 	cfg := sampleFaultConfig()
-	dom := NewTimedFaultDomain(cfg)
+	dom, err := NewTimedFaultDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stopAfter := 4
 	var count int
@@ -188,5 +211,84 @@ func TestTimedFaultDomainEarlyStop(t *testing.T) {
 
 	if count != stopAfter {
 		t.Fatalf("yielded %d items, want %d", count, stopAfter)
+	}
+}
+
+func TestTimedFaultDomainGeneratedIndexOverflow(t *testing.T) {
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Index: math.MaxInt, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
+	if _, err := NewTimedFaultDomain(cfg); err == nil {
+		t.Fatal("generated fault index overflow accepted")
+	}
+	cfg.Times = nil
+	dom, err := NewTimedFaultDomain(cfg)
+	if err != nil || dom.Size() != 0 {
+		t.Fatalf("empty domain = %v,%v", dom, err)
+	}
+}
+
+func TestTimedFaultDomainRejectsMalformedDimensions(t *testing.T) {
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	base := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
+	for _, tc := range []struct {
+		name string
+		edit func(*TimedFaultDomainConfig)
+		want string
+	}{
+		{"endpoint", func(c *TimedFaultDomainConfig) { c.Faults[0].A.Node = "" }, "endpoints"},
+		{"fault kind", func(c *TimedFaultDomainConfig) { c.Faults[0].Fault.Kind = "invalid" }, "unsupported fault"},
+		{"fault parameters", func(c *TimedFaultDomainConfig) { c.Faults[0].Fault.N = 1 }, "parameters"},
+		{"time", func(c *TimedFaultDomainConfig) { c.Times[0] = time.Time{} }, "time"},
+		{"action kind", func(c *TimedFaultDomainConfig) {
+			c.BaseTraffic[0] = fabric.Action{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}}}
+		}, "must be injection"},
+		{"action time", func(c *TimedFaultDomainConfig) { c.BaseTraffic[0].At = time.Time{} }, "timestamp"},
+		{"origin", func(c *TimedFaultDomainConfig) { c.BaseTraffic[0].Inject.Origin.Node = "" }, "origin"},
+		{"duplicate identity", func(c *TimedFaultDomainConfig) {
+			c.BaseTraffic[0].Index = 7
+			c.BaseTraffic = append(c.BaseTraffic, c.BaseTraffic[0])
+		}, "duplicate action"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := base
+			cfg.Faults = slices.Clone(base.Faults)
+			cfg.Times = slices.Clone(base.Times)
+			cfg.BaseTraffic = (Candidate{Actions: base.BaseTraffic}).Clone().Actions
+			if err := cfg.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("Validate=%v, want %s", err, tc.want)
+			}
+			if dom, err := NewTimedFaultDomain(cfg); err == nil || dom != nil {
+				t.Fatalf("constructor=%v,%v", dom, err)
+			}
+		})
+	}
+}
+
+func TestTimedFaultDomainCanonicalFullTimeIdentity(t *testing.T) {
+	base := time.Date(1600, 1, 1, 0, 0, 0, 0, time.UTC)
+	later := base.Add(math.MaxInt64).Add(math.MaxInt64).Add(2)
+	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a/b", Port: "c"}, B: fabric.Endpoint{Node: "a", Port: "b/c"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{later, base.In(time.FixedZone("east", 3600)), base}}
+	dom, err := NewTimedFaultDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dom.Size() != 2 {
+		t.Fatalf("Size=%d, want 2", dom.Size())
+	}
+	var tuples []Tuple
+	dom.Enumerate(func(c Candidate) bool {
+		tuples = append(tuples, c.Tuple)
+		if c.Actions[0].At.Location() != time.UTC {
+			t.Errorf("time location=%s", c.Actions[0].At.Location())
+		}
+		return true
+	})
+	want := []Tuple{"a/b:c--a:b/c@1600-01-01T00:00:00Z:Cut", "a/b:c--a:b/c@2184-07-20T23:34:33.709551616Z:Cut"}
+	if !slices.Equal(tuples, want) {
+		t.Fatalf("tuples=%v, want %v", tuples, want)
 	}
 }

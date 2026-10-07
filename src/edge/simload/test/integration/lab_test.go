@@ -189,20 +189,6 @@ type timedSource struct {
 	ids  map[fabric.FlowID]struct{}
 }
 
-type offsetSource struct {
-	stream.Source
-	offset time.Duration
-}
-
-func (source offsetSource) Next() (time.Duration, ethernet.Frame, bool) {
-	at, frame, ok := source.Source.Next()
-	return at + source.offset, frame, ok
-}
-
-func (source offsetSource) Clone() stream.Source {
-	return offsetSource{Source: source.Source.Clone(), offset: source.offset}
-}
-
 func (source timedSource) Receive(ctx context.Context) <-chan rawsocket.Frame {
 	in := source.Source.Receive(ctx)
 	out := make(chan rawsocket.Frame)
@@ -303,8 +289,12 @@ func TestInterleavedSourcesAlternateEveryMillisecond(t *testing.T) {
 	if err != nil {
 		t.Fatalf("source: %v", err)
 	}
-	first := offsetSource{Source: base.Clone()}
-	second := offsetSource{Source: base.Clone(), offset: time.Millisecond}
+	first := base.Clone()
+	spec.Start = time.Millisecond
+	second, err := spec.Source()
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i, source := range []stream.Source{first, second, first, second} {
 		at, _, ok := source.Next()
 		if !ok || at != time.Duration(i)*time.Millisecond {
@@ -365,6 +355,7 @@ func TestICX7150Comparison(t *testing.T) {
 					Frame: ethernet.Frame{Src: config.txMAC, Dst: config.rxMAC, EtherType: ethernet.EtherType(0x88b5), Payload: make([]byte, 90)},
 					Rate:  stream.Rate{FramesPerSecond: uint64(1000 / len(tc.counts))},
 					Count: count,
+					Start: time.Duration(i) * time.Millisecond,
 				}
 				if got := spec.Frame.WireOctets(); got != 128 {
 					t.Fatalf("flow %d wire octets = %d, want 128", id, got)
@@ -373,7 +364,6 @@ func TestICX7150Comparison(t *testing.T) {
 				if err != nil {
 					t.Fatalf("flow %d source: %v", id, err)
 				}
-				source = offsetSource{Source: source, offset: time.Duration(i) * time.Millisecond}
 				if err := lab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "tx"}, Source: source.Clone(), Flow: id, Retention: fabric.RetainAggregate}); err != nil {
 					t.Fatalf("attach flow %d: %v", id, err)
 				}

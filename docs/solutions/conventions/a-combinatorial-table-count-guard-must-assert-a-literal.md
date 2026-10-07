@@ -128,6 +128,25 @@ The same test independently requires 4,128 rows and two boundary-expectation
 hits (`:140-147`). Count the cases that reach each concrete oracle even when
 all generated rows execute.
 
+## Count representation axes and successful yields separately
+
+`TestUDPSizeValidationInEitherOrder` crosses value versus pointer variations,
+declaration order, and a size below versus at the UDP packet boundary. Four of
+its eight rows refuse, and each accepted row yields two frames.
+`src/common/sim/stream/stream_test.go:169-170` pins both counts independently:
+
+```go
+if cases != 8 || yields != 8 {
+    t.Fatalf("cases/yields = %d/%d, want 8/8", cases, yields)
+}
+```
+
+Commit `412266d2` records that dropping the pointer axis produced `4/4` and:
+
+```text
+--- FAIL: TestUDPSizeValidationInEitherOrder (0.00s)
+```
+
 ## What this does not cover
 
 This rule applies to combinatorial tables and property matrices that filter

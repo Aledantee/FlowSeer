@@ -1459,7 +1459,7 @@ func TestLoadPoeStatusMapping(t *testing.T) {
 			}
 
 			var searchingAssumptions []analysis.Assumption
-			for _, a := range res.Metadata.Assumptions() {
+			for _, a := range res.Metadata.AssumptionsFor(portScope) {
 				if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
 					searchingAssumptions = append(searchingAssumptions, a)
 				}
@@ -1589,7 +1589,7 @@ func TestLoadPoePowerClassWithoutDelivery(t *testing.T) {
 			}
 
 			var searchingAssumptions []analysis.Assumption
-			for _, a := range res.Metadata.Assumptions() {
+			for _, a := range res.Metadata.AssumptionsFor(portScope) {
 				if a.Scope.Compare(portScope) == 0 && a.Statement == "absence is inferred from the searching status" {
 					searchingAssumptions = append(searchingAssumptions, a)
 				}
