@@ -2,6 +2,7 @@ package mcast_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -183,30 +184,125 @@ func TestStaticRouterPortsNeverExpire(t *testing.T) {
 	}
 }
 
-func TestInstallObservedRouterPort(t *testing.T) {
+func TestRestore(t *testing.T) {
 	t.Parallel()
-
-	const vidStatic vlan.ID = 20
-	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{
-		vid:       {RouterPortInterval: 999 * time.Second},
-		vidStatic: {RouterPorts: []string{"1/1/4"}},
-	}}, mcastPortTable(t))
-	// expires is unrelated to vid's RouterPortInterval, proving InstallObserved carries the
-	// given expiry through rather than computing one from the VLAN's interval.
-	expires := time.Unix(5_000, 0)
-
-	layer.InstallObserved(vid, "1/1/4", expires)
-	routers := layer.RouterPorts(vid)
-	if len(routers) != 1 || routers[0].Port != "1/1/4" || routers[0].Origin != mcast.Observed ||
-		routers[0].Lifetime != mcast.Aging || !routers[0].Expires.Equal(expires) {
-		t.Errorf("RouterPorts() = %+v, want one Observed, Aging port with the given expiry", routers)
-	}
-
-	// A static router port refuses the override.
-	layer.InstallObserved(vidStatic, "1/1/4", expires)
-	routers2 := layer.RouterPorts(vidStatic)
-	if len(routers2) != 1 || routers2[0].Origin != mcast.Configured || routers2[0].Lifetime != mcast.Static {
-		t.Errorf("RouterPorts() = %+v, want the static port left alone", routers2)
+	t0 := time.Unix(5_000, 0)
+	group := netip.MustParseAddr("239.1.1.1")
+	running := netip.MustParseAddr("10.0.0.9")
+	blocked := netip.MustParseAddr("10.0.0.8")
+	allow := func(vlan.ID, string) bool { return true }
+	for _, name := range []string{"include", "exclude", "multiple ports", "compatibility", "pending group", "pending source", "independent", "keep refusal", "unsnooped VLAN", "LAG member", "departed port", "router expiry", "static router", "configured router"} {
+		t.Run(name, func(t *testing.T) {
+			ports := mcastPortTable(t)
+			prev := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, ports)
+			report := func(l *mcast.Layer, now time.Time, kind igmp.RecordType, sources ...netip.Addr) {
+				l.Learn(now, vid, memberPort, netip.Addr{}, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: kind, Group: group, Sources: sources}}})
+			}
+			report(prev, t0, igmp.ModeIsInclude, running)
+			if name == "multiple ports" {
+				prev.Learn(t0.Add(time.Second), vid, "1/1/2", running, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{blocked}}}})
+			}
+			prev.Learn(t0, vid, memberPort, running, igmp.Message{Type: igmp.Query})
+			if name == "exclude" {
+				report(prev, t0.Add(time.Second), igmp.ModeIsExclude, running, blocked)
+			}
+			if name == "compatibility" || name == "pending group" {
+				prev.Learn(t0, vid, memberPort, running, igmp.Message{Type: igmp.ReportV2, Group: group})
+			}
+			if name == "pending group" {
+				prev.Learn(t0.Add(time.Second), vid, memberPort, running, igmp.Message{Type: igmp.Leave, Group: group})
+			}
+			if name == "pending source" {
+				report(prev, t0.Add(time.Second), igmp.BlockOldSources, running)
+			}
+			before := prev.Groups(vid)
+			wantCount := 1
+			if name == "multiple ports" {
+				wantCount = 2
+			}
+			if len(before) != wantCount {
+				t.Fatalf("source Groups = %+v, want %d memberships", before, wantCount)
+			}
+			cfg := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {MembershipInterval: 999 * time.Second, RouterPortInterval: 999 * time.Second}}}
+			keep := allow
+			switch name {
+			case "keep refusal":
+				keep = func(vlan.ID, string) bool { return false }
+			case "unsnooped VLAN":
+				cfg.VLANs = map[vlan.ID]mcast.VLANSnooping{20: {}}
+			case "LAG member", "departed port":
+				b := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG})
+				if name == "LAG member" {
+					b.Add(port.Port{Name: memberPort, Kind: port.Physical, LagParent: "lag1"})
+				}
+				var err error
+				ports, err = b.Build()
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "static router":
+				v := cfg.VLANs[vid]
+				v.RouterPorts = []string{memberPort}
+				cfg.VLANs[vid] = v
+			}
+			next := mustNewMcast(t, cfg, ports)
+			next.Restore(prev, keep)
+			switch name {
+			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
+				if got, routers := next.Groups(vid), next.RouterPorts(vid); len(got) != 0 || len(routers) != 0 {
+					t.Fatalf("restored Groups = %+v, routers = %+v, want none", got, routers)
+				}
+			default:
+				if got := next.Groups(vid); !reflect.DeepEqual(got, before) {
+					t.Fatalf("restored Groups = %+v, want %+v", got, before)
+				}
+			}
+			switch name {
+			case "include":
+				if before[0].Mode != mcast.Include || !reflect.DeepEqual(before[0].Sources, []mcast.SourceEntry{{Address: running, Expires: t0.Add(260 * time.Second)}}) {
+					t.Fatalf("include fixture = %+v", before)
+				}
+			case "exclude":
+				if before[0].Mode != mcast.Exclude || !before[0].GroupExpires.Equal(t0.Add(261*time.Second)) || !reflect.DeepEqual(before[0].Sources, []mcast.SourceEntry{{Address: blocked}, {Address: running, Expires: t0.Add(260 * time.Second)}}) {
+					t.Fatalf("exclude fixture = %+v", before)
+				}
+			case "router expiry", "configured router":
+				want := []mcast.RouterPort{{Port: memberPort, Origin: mcast.Observed, Lifetime: mcast.Aging, Expires: t0.Add(260 * time.Second)}}
+				if got := next.RouterPorts(vid); !reflect.DeepEqual(got, want) {
+					t.Fatalf("routers = %+v, want %+v", got, want)
+				}
+			case "static router":
+				want := []mcast.RouterPort{{Port: memberPort, Origin: mcast.Configured, Lifetime: mcast.Static}}
+				if got := next.RouterPorts(vid); !reflect.DeepEqual(got, want) {
+					t.Fatalf("routers = %+v, want %+v", got, want)
+				}
+			case "compatibility":
+				report(next, t0.Add(time.Second), igmp.ChangeToExcludeMode, blocked)
+				if got := next.Groups(vid); len(got) != 1 || len(got[0].Sources) != 0 {
+					t.Fatalf("compatibility state = %+v, want empty sources", got)
+				}
+				report(next, t0.Add(261*time.Second), igmp.ChangeToExcludeMode, blocked)
+				if got := next.Groups(vid); len(got) != 1 || len(got[0].Sources) != 1 {
+					t.Fatalf("after compatibility deadline = %+v, want one source", got)
+				}
+			case "pending group", "pending source":
+				if _, _, pending := prev.Resolve(vid, group, running, t0.Add(4*time.Second)); !pending {
+					t.Fatal("source fixture has no pending query")
+				}
+				if _, _, pending := next.Resolve(vid, group, running, t0.Add(4*time.Second)); !pending {
+					t.Fatal("restored query is not pending")
+				}
+			case "independent":
+				report(next, t0.Add(time.Second), igmp.AllowNewSources, blocked)
+				next.Advance(t0.Add(300 * time.Second))
+				if got := prev.Groups(vid); !reflect.DeepEqual(got, before) {
+					t.Fatalf("source Groups = %+v, want unchanged %+v", got, before)
+				}
+				if got := prev.RouterPorts(vid); len(got) != 2 || !got[0].Expires.Equal(t0.Add(260*time.Second)) {
+					t.Fatalf("source routers changed: %+v", got)
+				}
+			}
+		})
 	}
 }
 
@@ -310,29 +406,6 @@ func TestLeaveAndDoneRespectFastLeave(t *testing.T) {
 	}
 }
 
-func TestRetainDropsDepartedPortsAndPreservesExpiries(t *testing.T) {
-	t.Parallel()
-
-	group := netip.MustParseAddr("239.1.1.1")
-	t0 := time.Unix(10_000, 0)
-	ports := mcastPortTable(t)
-	layer := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, ports)
-	for _, name := range []string{"1/1/1", "1/1/2"} {
-		layer.Learn(t0, vid, name, netip.MustParseAddr("10.0.0.1"), igmp.Message{Type: igmp.ReportV2, Group: group})
-	}
-	layer.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
-
-	wantExpiry := t0.Add(mcast.DefaultMembershipInterval)
-	layer.Retain(ports, func(_ vlan.ID, name string) bool { return name != "1/1/2" })
-	groups := layer.Groups(vid)
-	if len(groups) != 1 || groups[0].Port != "1/1/1" || !groups[0].GroupExpires.Equal(wantExpiry) {
-		t.Errorf("Groups() after Retain = %+v, want retained 1/1/1 with original group timer", groups)
-	}
-	if routers := layer.RouterPorts(vid); len(routers) != 1 || routers[0].Port != "1/1/4" {
-		t.Errorf("RouterPorts() after Retain = %+v, want retained router", routers)
-	}
-}
-
 func TestLayerCloneIsIndependent(t *testing.T) {
 	t.Parallel()
 
@@ -345,13 +418,12 @@ func TestLayerCloneIsIndependent(t *testing.T) {
 	original.Learn(t0, vid, "1/1/4", netip.MustParseAddr("10.0.0.254"), igmp.Message{Type: igmp.Query})
 
 	clone := original.Clone()
-	clone.Retain(ports, func(_ vlan.ID, name string) bool { return name != "1/1/1" })
 	original.Learn(t0, vid, "1/1/2", netip.MustParseAddr("10.0.0.2"), igmp.Message{Type: igmp.ReportV2, Group: group})
 
 	if got, registered, _ := original.Resolve(vid, group, other, t0); !registered || !slices.Equal(got, []string{"1/1/1", "1/1/2", "1/1/4"}) {
 		t.Errorf("original Resolve() = (%v, %v), want independent original state", got, registered)
 	}
-	if got, registered, _ := clone.Resolve(vid, group, other, t0); registered || !slices.Equal(got, []string{"1/1/4"}) {
+	if got, registered, _ := clone.Resolve(vid, group, other, t0); !registered || !slices.Equal(got, []string{"1/1/1", "1/1/4"}) {
 		t.Errorf("clone Resolve() = (%v, %v), want independent clone state", got, registered)
 	}
 }

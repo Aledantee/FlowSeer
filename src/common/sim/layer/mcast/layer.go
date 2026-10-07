@@ -115,8 +115,33 @@ type vlanState struct {
 // The caller must serialize calls.
 type Layer struct {
 	cfg    Config
-	ports  port.Table
+	ports  map[string]struct{}
 	byVLAN map[vlan.ID]*vlanState
+}
+
+// Restore copies group state and observed router ports from prev for VLANs both
+// layers snoop, restricted to this layer's logical ports that keep admits.
+// It preserves every deadline and pending query without sharing mutable state.
+// Configured router ports are not copied, and this layer's static ports prevail.
+// The target configuration governs subsequent learning. Both layers must be non-nil.
+func (l *Layer) Restore(prev *Layer, keep func(vlan.ID, string) bool) {
+	for vid, state := range l.byVLAN {
+		old, ok := prev.byVLAN[vid]
+		if !ok {
+			continue
+		}
+		for key, gps := range old.groups {
+			if _, ok := l.ports[key.port]; ok && keep(vid, key.port) {
+				state.groups[key] = cloneGroupPortState(gps)
+			}
+		}
+		for name, router := range old.routers {
+			if _, ok := l.ports[name]; !ok || !keep(vid, name) || router.origin != Observed || state.routers[name].lifetime == Static {
+				continue
+			}
+			state.routers[name] = router
+		}
+	}
 }
 
 // New builds an empty snooping layer and installs valid static router ports from cfg.
@@ -131,8 +156,13 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 func newLayer(cfg Config, ports port.Table) *Layer {
 	l := &Layer{
 		cfg:    cfg.Clone(),
-		ports:  ports.Clone(),
+		ports:  make(map[string]struct{}),
 		byVLAN: make(map[vlan.ID]*vlanState, len(cfg.VLANs)),
+	}
+	for _, p := range ports.Ports() {
+		if p.LagParent == "" {
+			l.ports[p.Name] = struct{}{}
+		}
 	}
 
 	for vid, vlanCfg := range cfg.VLANs {
@@ -145,7 +175,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 			routers:            make(map[string]routerPortState, len(vlanCfg.RouterPorts)),
 		}
 		for _, name := range vlanCfg.RouterPorts {
-			if logicalPort(ports, name) {
+			if _, ok := l.ports[name]; ok {
 				state.routers[name] = routerPortState{origin: Configured, lifetime: Static}
 			}
 		}
@@ -159,7 +189,7 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
 		cfg:    l.cfg.Clone(),
-		ports:  l.ports.Clone(),
+		ports:  maps.Clone(l.ports),
 		byVLAN: make(map[vlan.ID]*vlanState, len(l.byVLAN)),
 	}
 	for vid, state := range l.byVLAN {
@@ -192,7 +222,8 @@ func (l *Layer) Snooped(vid vlan.ID) bool {
 // Messages for unsnooped VLANs, unknown ports, and physical LAG members have no effect.
 func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.Addr, message igmp.Message) {
 	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
+	_, logical := l.ports[portName]
+	if !ok || !logical {
 		return
 	}
 
@@ -217,7 +248,8 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 // Router-port learning requires an IPv6 link-local source.
 func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source netip.Addr, message mld.Message) {
 	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
+	_, logical := l.ports[portName]
+	if !ok || !logical {
 		return
 	}
 
@@ -380,43 +412,6 @@ func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
 	return entries
 }
 
-// Retain replaces the port table and drops entries for which keep reports false.
-// Timers of retained entries are preserved.
-func (l *Layer) Retain(ports port.Table, keep func(vid vlan.ID, port string) bool) {
-	l.ports = ports.Clone()
-	for vid, state := range l.byVLAN {
-		for key := range state.groups {
-			if !keep(vid, key.port) {
-				delete(state.groups, key)
-			}
-		}
-		for name := range state.routers {
-			if !keep(vid, name) {
-				delete(state.routers, name)
-			}
-		}
-	}
-}
-
-// InstallObserved installs a router port record carrying its own expiry,
-// reported as [Observed] and [Aging]. It does nothing for an unsnooped vid, a
-// non-logical port, or a port a static [Config] entry already claims: a
-// caller reconstructing runtime state after a derive should not be able to
-// override configuration. Unlike [Layer.Learn], the expiry is not computed
-// from the VLAN's RouterPortInterval, so a caller carrying forward a record
-// from another layer can preserve its original deadline.
-func (l *Layer) InstallObserved(vid vlan.ID, portName string, expires time.Time) {
-	state, ok := l.byVLAN[vid]
-	if !ok || !logicalPort(l.ports, portName) {
-		return
-	}
-	if router := state.routers[portName]; router.lifetime == Static {
-		return
-	}
-
-	state.routers[portName] = routerPortState{expires: expires, origin: Observed, lifetime: Aging}
-}
-
 // learnLegacyJoin applies an IGMPv1/v2 or MLDv1 report, which RFC 3810 §8.3.2 maps to
 // IS_EX({}), and (re)starts the older-version-host timer for the group on the port.
 func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState) {
@@ -462,12 +457,6 @@ func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanSt
 	} else {
 		state.groups[key] = gps
 	}
-}
-
-func logicalPort(ports port.Table, name string) bool {
-	p, ok := ports.Port(name)
-
-	return ok && p.LagParent == ""
 }
 
 func learnRouter(now time.Time, portName string, state *vlanState) {

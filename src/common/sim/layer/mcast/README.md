@@ -123,11 +123,9 @@ An IGMP query learns its ingress as a router port when its IPv4 source is not
 and its `Lifetime` (`Static` or `Aging`) names whether `Advance` removes it. The
 two axes separate origin from expiry: a record from configuration is always
 `Configured` and `Static`, and one a learned query installs is always `Observed`
-and `Aging`, but the fields are independent so a caller reconstructing runtime
-state — `InstallObserved` — can install an `Observed`, `Aging` record
-carrying an expiry of its own choosing rather than one the layer computes.
-`InstallObserved` refuses to override a port a static `Config` entry already
-claims.
+and `Aging`. `Restore` copies an observed router port with its original expiry,
+even when the target's `RouterPortInterval` differs. It leaves a target static
+router port in place and copies no configured record from the previous layer.
 
 `mcast.Entry`, the learned group membership record `Groups` returns, has no
 `Origin` field: nothing in `Config` can preload a group membership, so every
@@ -137,10 +135,10 @@ that never varies would document a distinction nothing ever makes.
 ## Aging and snapshots
 
 Learned router-port entries expire after their configured interval (default
-260 seconds, same as `MembershipInterval`), or, when installed through
-`InstallObserved`, after the expiry the caller gave. `Advance(now)` removes
+260 seconds, same as `MembershipInterval`). A record copied by `Restore`
+keeps its original expiry. `Advance(now)` removes
 every `Aging` router port whose expiry has passed, and the group timer and
-source timer expiry above, in one pass; it does not touch `Static` router
+source timer expiry above, in one pass. It does not touch `Static` router
 ports. `Groups` and `RouterPorts` return sorted snapshots, and `Clone`
 preserves every timer in an independent layer.
 
@@ -151,13 +149,22 @@ the returned router ports, and how a pending query surfaces as an issue.
 
 ## State retention
 
-Multicast snooping runtime state is snoop-driven and preserved across derivation
-whenever both switches have multicast snooping enabled. `vswitch.Derive` retains
-the layer across derivation with per-entry filtering (`Retain`), pruning entries
-whose VLAN, port, or spanning-tree forwarding state was lost, and replaying the
-surviving records via `InstallObserved` and group learning to keep expiries
-intact. Derivation reports `Retention().Mcast` as kept with per-entry drops rather
-than an all-or-nothing rebuild.
+`Restore(prev, keep)` copies each port's group state on VLANs both layers snoop
+when the port is logical in the target and `keep(vid, port)` admits it. The copy
+preserves the filter mode, group and source deadlines, compatibility deadline,
+and pending queries. Its maps are independent of `prev`. The target's settings
+apply to subsequent learning.
+
+For example, `TestRestore` in `layer_test.go` restores `INCLUDE {10.0.0.9}`
+with its source deadline unchanged into a layer with a different membership
+interval. Replaying it as a legacy report would discard that source filter.
+
+`vswitch.Derive` calls `Restore` with a predicate that checks port forwarding,
+VLAN membership, and spanning-tree forwarding. It reports `Retention().Mcast`
+as kept whenever both switches have multicast snooping enabled, including when
+individual entries are dropped. `TestDeriveKeepsSourceSpecificMulticast` in
+`src/common/sim/device/vswitch/derive_internal_test.go` checks the surviving
+source filter and its forwarding result after an unrelated VLAN edit.
 
 `RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the multicast snooping runtime state depends on: its own configuration as
