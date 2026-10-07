@@ -115,7 +115,12 @@ change, and the phase returns to the user with U1, U2, U4, and U5 landed.
   port, which is then synced, which clears its timer, which retires the
   request. A port state changes within one call in the layer, so the whole
   chain runs in one evaluation and nothing is left to store. `reRooted`
-  (Rules 11) holds once that evaluation has run.
+  (Rules 11) therefore holds for every Root port that is not Forwarding
+  once that evaluation has run, which is the only port that reads it. A
+  Designated port that already forwards when it takes the Root role raises
+  no request in either figure, since REROOT needs `!forward`, so the port
+  that left the Root role keeps forwarding beside it with its timer
+  running. The layer does the same.
 - A recent Root port is cut whenever the tree's Root port is not Forwarding,
   also while the backup delay holds that Root port back. Why: `Q2003` Figure
   13-17 enters REROOT without reading `rbWhile`. `D2009` Figure 13-24 adds
@@ -166,7 +171,7 @@ change, and the phase returns to the user with U1, U2, U4, and U5 landed.
 R1. Every Correctness entry ends as a test that fails before its fix, or as
 a test that pins today's behavior and fails under the mutation the entry
 names. Example: with a proposal also collected before the `continue` at
-`src/common/sim/layer/stp/receive.go:167`, U4's test fails.
+`src/common/sim/layer/stp/receive.go:173`, U4's test fails.
 
 R2. A proposal leaves a synced port forwarding and cuts one that is not.
 Example: a PVST bridge whose ports have each stored a VLAN 1 BPDU has, on
@@ -222,8 +227,11 @@ R9. A recent Root port stops forwarding before the new Root port starts.
 Example: an RSTP bridge has a Root port `p1` that forwards and an Alternate
 port `p2`. A BPDU on `p2` names a better root, so `p2` becomes Root and `p1`
 Designated. After the call `p1` is Discarding and proposing, and `p2` is
-Forwarding. Where `p1` lost the Root role one forward delay or longer
-before `p2` gained it, `p1` is still Forwarding after the call.
+Forwarding. In the second form the information on both ports ages out
+first, so the bridge is the root and `p1` is Designated and still
+Forwarding. One forward delay or longer after that, a BPDU with no Proposal
+flag on `p2` names a better root. After the call `p2` is Root and
+Forwarding and `p1` is still Forwarding.
 
 R10. A port that was a Backup port within the last two Hello Times does not
 forward on the reroot. Example: `p2` is a Backup port and at `t` a BPDU on
@@ -408,8 +416,13 @@ the Decisions and Units cite are as of commit `daaa04a0`.
     isolate) && !operEdge && (learn || forward)` and there clears `learn`,
     `forward`, and `disputed` and sets `fdWhile = forwardDelay`. `Q2003` Figure 13-17 enters
     LISTEN on `(learn || forward) && !operEdge && (role != RootPort) &&
-    ((sync && !synced) || (reRoot && (rrWhile != 0)))`. The discarded port is
-    then not synced and neither learning nor forwarding, which is an entry
+    ((sync && !synced) || (reRoot && (rrWhile != 0)))`. Neither state touches
+    `synced`. A port that left the Root role has lost it before, in UPDATE:
+    `Q2003` Figure 13-14 has `synced = FALSE` there, and `D2009` Figure 13-20
+    has `synced = synced && agreed` after the assignment of Rules 3. In the
+    layer `trackDesignatedVector` does it
+    (`src/common/sim/layer/stp/roles.go:257-258`). Once discarded the port
+    is neither learning nor forwarding and not synced, which is an entry
     term of DESIGNATED_SYNCED (Rules 14), and with its timer at zero it
     leaves the request: `D2009` DESIGNATED_RETIRED on `reRoot && (rrWhile ==
     0)`, and `Q2003` REROOTED on `reRoot && (((role == RootPort) && forward)
@@ -625,32 +638,40 @@ flowchart TD
 ### U1. A new Root port forwards on the reroot
 Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/reroot_internal_test.go, src/common/sim/layer/stp/reroot_test.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/agreement_test.go
 After: none
-Change: a tree port holds a recent-root deadline and a recent-backup
-deadline, each zero when clear. Role assignment starts the first, at the
-tree's forward delay from now, on a port that leaves the Root role for
-Designated, and the second, at twice the Hello Time from now, on a port
-that leaves the Backup role. It runs twice in one receive
-(`src/common/sim/layer/stp/receive.go:543`, `:584`), so both key on the
-role change, which the second run does not see. The link-down branch of
-`LinkChange` writes the Disabled role itself
-(`src/common/sim/layer/stp/link.go:81`), so it starts the recent-backup
-deadline there for a port that was Backup. A deadline that has passed
-reads as clear.
+Change: a tree port holds the instant it left the Root role for
+Designated and the instant it left the Backup role, each zero when clear.
+Its recent-root deadline is the first instant plus the forward delay
+`times` returns for the tree when the deadline is read, and its
+recent-backup deadline is the second plus twice the Hello Time read the
+same way. Storing the instant keeps a deadline on the delay the ladder
+uses, since the first role assignment of a receive runs while the port
+still holds the previous Forward Delay
+(`src/common/sim/layer/stp/receive.go:527-530`, `:543`, `:579-582`). Role
+assignment records both instants. It runs twice in one receive (`:543`,
+`:584`), so both key on the role change, which the second run does not
+see. `LinkChange` writes a role itself in two places, the Disabled role
+on a link that goes down (`src/common/sim/layer/stp/link.go:81`) and the
+Designated role on an up link whose point-to-point status changes
+(`:160`), so it records the Backup instant in both for a port that was
+Backup. A deadline that has passed reads as clear.
 
 `updatePortStates` then works in this order for a tree, as the diagram
 under Rules draws it. First it clears the recent-root deadline of every
-Disabled, Alternate, and Backup port, and of every Designated port its
-existing pass marks synced because it is Discarding, holds an agreement, or
-is an edge (Rules 14). Second, when the tree's Root port is not Forwarding,
-it cuts every non-edge Designated port whose recent-root deadline is
-running and that is not Discarding: the port is Discarding with its ladder
+Disabled, Alternate, and Backup port, of every boundary MSTI port, and of
+every Designated port its existing pass marks synced because it is
+Discarding, holds an agreement, or is an edge (Rules 14). Second, when the
+port the tree's election named holds the Root role, is not a boundary MSTI
+port, and is not Forwarding, it cuts every non-edge Designated port whose
+recent-root deadline is running and that is not Discarding: the port is
+Discarding with its ladder
 restarted, proposes and requests a frame as `syncTree` has a cut port do,
 is synced, and has its deadline cleared (Rules 12 and 15). A boundary MSTI
 port is passed over. Third, the Root port is Forwarding when its
 recent-backup deadline is clear, its link is point-to-point, and its port
 sends RSTP, and it climbs the forward-delay ladder otherwise (Rules 16 and
 17). `reRooted` needs no test of its own there, since the first two steps
-leave no other port with a running deadline.
+leave no other port with a running deadline whenever the Root port is not
+Forwarding (Decisions).
 
 `Advance` recomputes a tree whose Root port is not Forwarding once that
 port's recent-backup deadline passes, and `NextWake` reports the deadline
@@ -679,8 +700,19 @@ agreement before the new Root port is selected and expects it Forwarding
 after, which fails if an agreement leaves the deadline running. It holds
 R10 with its `NextWake`
 assertion, a second form in which the port goes down as a Backup port and
-comes up to become Root inside the delay, and a third in which the Backup
-port becomes Root after the delay and forwards in that call. One case
+comes up to become Root inside the delay, and a third in which the port
+leaves the Backup role for Designated, becomes Root more than twice the
+Hello Time later, and forwards in that call. A fourth has the Backup port
+on an up link whose point-to-point status changes and then become Root
+inside the delay. One case joins R9 and R10: a recent Backup port becomes
+Root while a recent Root port still forwards, and the recent Root port is
+Discarding in that call while the new one waits, which fails if the cut
+waits on the backup delay. One sends R9's first BPDU to a Designated port
+that already forwards and expects both ports Forwarding after the call
+with the former Root port's instant still set, which pins the case the
+Decisions name. One has the BPDU that moves the Root role carry a Forward
+Delay of 4 seconds over a stored 15, and expects the port that left the
+role cut by a reroot 3 seconds later and not by one 5 seconds later. One case
 repeats R8 with the new Root port's link not point-to-point and expects it
 Discarding with a ladder running. One runs R9's first form on an MSTP
 bridge whose recent Root port is an MSTI's and expects a boundary port of
@@ -730,7 +762,7 @@ lost `synced` to a worse vector, no proposal has arrived, and the frame on
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/sync_internal_test.go`
 
 ### U3. An MSTI's sync takes in a boundary port
-Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/sync_boundary_test.go
+Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/sync_boundary_test.go, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U2
 Change: `syncTree` no longer passes over a boundary port for an MSTI. A
 boundary port that holds the Designated role and is not synced for the MSTI
@@ -744,6 +776,10 @@ any other, and `isSynced` reads the MSTI port's own flag there in place of
 the CIST's state and agreement. U1's reroot cut still passes over a
 boundary MSTI port. A boundary port with any other role, and a PVST tree,
 are untouched: every boundary branch keeps its `l.mst != nil` operand.
+`docs/architecture/2026-09-10-virtual-device-direction.md:583-586` says a
+boundary port's answer for an MSTI's VLAN traces back to the CIST. The
+unit amends that sentence to name the MSTI's own cut as the one case where
+the answer is less forward than the CIST's.
 Tests: `sync_boundary_test.go` holds R4, stepping one forward delay at a
 time and asserting Learning before Forwarding. A second case ends the cut
 with a BPDU from the other region on `p2` that carries the Agreement flag
@@ -758,18 +794,18 @@ The unit runs `go test ./src/common/sim/device/vswitch/
 ./src/common/sim/fabric/ ./test/conformance/sim/...` before its verifier.
 This rule has not been probed there (Tests under Inventory), so a test it
 moves is added to the unit's files and named in the commit body.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/agreement_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/sync_boundary_test.go`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/agreement_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/sync_boundary_test.go docs/architecture/2026-09-10-virtual-device-direction.md`
 ### U4. A record that is not stored starts no handshake
 Files: src/common/sim/layer/stp/receive_msti_proposal_test.go
 After: none
 Change: no code changes. The behavior of
-`src/common/sim/layer/stp/receive.go:161-172` gains the test it lacks.
+`src/common/sim/layer/stp/receive.go:167-178` gains the test it lacks.
 Tests: `receive_msti_proposal_test.go` holds R5, and a second case in which
 the stored source repeats its record with one remaining hop and the
 Proposal flag, with the same two expectations. The CIST's port `p2` is
 Alternate in both, so the CIST requests no frame of its own. Each case is seen to fail
-with the proposal collected before the `continue` it pins, at `:167` and at
-`:171`, before the mutation is reverted. The assertion is on the frames of
+with the proposal collected before the `continue` it pins, at `:173` and at
+`:177`, before the mutation is reverted. The assertion is on the frames of
 the call, since a port's state alone would also hold if the proposal were
 answered and found nothing to cut.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/receive_msti_proposal_test.go`
