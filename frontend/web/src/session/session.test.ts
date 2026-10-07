@@ -65,6 +65,43 @@ describe('nextPath', () => {
 })
 
 describe('isWorkEmail', () => {
+  it('requires HTML email local characters and dotted domain labels', () => {
+    for (const value of [
+      'ada@example..com',
+      'ada@-example.com',
+      'ada@example-.com',
+      'ada@example.-com',
+      'ada@example.com-',
+      'ada@.example.com',
+      'ada@example.com.',
+      'ada@example_com.net',
+      'ada@exam!ple.com',
+      'ada@example/com.net',
+      'ada(hi)@example.com',
+      '"ada"@example.com',
+      'ada@例.com',
+      `ada@${'a'.repeat(64)}.com`,
+      'ada@example.com\n',
+      'ada@example.com\r',
+      'ada@example.com\r\n',
+      'ada@example',
+      'ada@',
+      '@example.com',
+      'ada@@example.com',
+    ])
+      expect(isWorkEmail(value), value).toBe(false)
+    for (const value of [
+      'ada+tag@example.com',
+      'ADA@EXAMPLE.COM',
+      'ada@a.b',
+      'ada@ex-ample.co.uk',
+      `ada@${'a'.repeat(63)}.com`,
+      '.ada..@example.com',
+      "a.!#$%&'*+/=?^_`{|}~-@example.com",
+    ])
+      expect(isWorkEmail(value), value).toBe(true)
+  })
+
   it('accepts an address with a domain and rejects the rest', () => {
     expect(isWorkEmail('ada@example.com')).toBe(true)
     expect(isWorkEmail('ada')).toBe(false)

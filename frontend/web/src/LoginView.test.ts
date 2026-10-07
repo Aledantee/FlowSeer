@@ -165,6 +165,25 @@ describe('LoginView', () => {
     expect(sessionOperator.value).toBeNull()
   })
 
+  it('hides send and reports malformed domain labels without signing in', async () => {
+    const { host, router, input, submit, alert } = await mountLogin()
+    for (const value of [
+      'ada@example..com',
+      'ada@-example.com',
+      'ada@example-.com',
+      'ada@example.-com',
+      'ada@example.com-',
+    ]) {
+      await submit(value)
+      expect(host.querySelector('button.login-submit'), value).toBeNull()
+      expect(alert()).toBe('Enter an email address such as name@company.com.')
+      expect(input.getAttribute('aria-invalid')).toBe('true')
+      expect(sessionOperator.value).toBeNull()
+      expect(localStorage.getItem('flowseer.session')).toBeNull()
+      expect(router.currentRoute.value.path).toBe('/login')
+    }
+  })
+
   it('offers the send action only once the address can be sent', async () => {
     const { host, input } = await mountLogin()
     const type = async (value: string) => {

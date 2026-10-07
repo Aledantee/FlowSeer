@@ -24,7 +24,11 @@ const operator = ref<string | null>(savedOperator())
 export const sessionOperator = readonly(operator)
 
 export function isWorkEmail(value: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+  // HTML's email grammar, with at least two domain labels for a work address.
+  // https://html.spec.whatwg.org/multipage/input.html#email-state-(type=email)
+  return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+(?![\s\S])/.test(
+    value,
+  )
 }
 
 // A session the browser cannot store still lasts until the page reloads.

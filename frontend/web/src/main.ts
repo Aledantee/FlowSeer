@@ -6,6 +6,7 @@ import LoginView from './LoginView.vue'
 import { aiRegistry, createMockAiHandler, installFlowSeerAi } from './ai'
 import { createWebI18n } from './i18n'
 import { bindDocumentLang, initialLocale } from './i18n/locale'
+import { installEntrance } from './navigation/entrance'
 import { installPageMorph } from './navigation/morph'
 import { CONSOLE_HOME, LOGIN_PATH, sessionRedirect } from './session/session'
 import '@fontsource-variable/inter/standard.css'
@@ -25,6 +26,7 @@ const router = createRouter({
   ],
 })
 router.beforeEach(sessionRedirect)
+installEntrance(router)
 installPageMorph(router)
 installFlowSeerAi()
 // No model backend exists yet; the preview answers summaries from fixtures.
