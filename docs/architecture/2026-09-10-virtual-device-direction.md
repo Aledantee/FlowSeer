@@ -260,11 +260,10 @@ A retained record's provenance and its lifetime are two separate axes.
 `Lifetime` is `Static` or `Aging`, naming whether it expires on its own. The
 two vary independently: a configured record can still age out, and an
 observed one can be pinned past the interval that would otherwise expire it.
-A single `Static` boolean cannot say both at once, which is why
-`restoreMulticastState` used to synthesize a fabricated IGMP query just to
-get an aging router port back — there was no way to install an observed
-record with its own expiry directly. A record with only one reachable
-origin, such as `mcast.Entry`, keeps no `Origin` field; its package README
+A single `Static` boolean cannot say both at once. Multicast's `Restore`
+copies an observed router port with its original deadline while the target's
+static configuration takes precedence. A record with only one reachable
+origin, such as `mcast.Entry`, keeps no `Origin` field. Its package README
 says why, because splitting an axis nothing ever disagrees about would add a
 field with one value forever.
 
@@ -274,8 +273,14 @@ its own `Config`: spanning tree's roles depend on link state and speed that
 live on the port table, and LAG's member selection depends on the switch's
 base MAC, which reaches the layer only as a normalization input. Each
 capability layer exports `RetentionKey(...) string`, a canonical encoding of
-every normalized input its runtime state actually depends on, and `Derive`
-retains a layer only when the current switch's key and the target's agree.
+every normalized input its runtime state actually depends on. For layers
+other than multicast, `Derive` retains a layer only when the current switch's
+key and the target's agree. Multicast restores state per entry on VLANs both
+layers snoop, restricted to target logical ports admitted by the switch's
+port forwarding, VLAN membership, and spanning-tree predicate. Its key names
+only the difference in the retention report. `mcast.Layer.Restore` copies
+the whole group state and each observed router port with their deadlines,
+while the target's static router ports take precedence.
 Both keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
 and MAC assignment that decide what a field becomes; see [validate and
@@ -1028,3 +1033,15 @@ Marker generation and reception and preserving frame order across a detached
 link's conversations. Open vSwitch supplies the distribution and fallback
 choices that the README identifies. Equivalence to the published standard
 remains unverified because that text was not read.
+
+### 2026-10-07: Multicast restores complete state per entry
+
+`mcast.Layer.Restore` owns multicast retention because a legacy-report replay
+loses source filters and pending queries. It copies each admitted port's group
+state with every deadline unchanged, including an INCLUDE state's source timers
+when its group timer is zero. Observed router ports keep their expiry and yield
+to target static configuration. The target's intervals govern later learning.
+`TestRestore` in `src/common/sim/layer/mcast/layer_test.go` checks the copy and
+its independence. `TestDeriveKeepsSourceSpecificMulticast` in
+`src/common/sim/device/vswitch/derive_internal_test.go` checks that an unrelated
+VLAN edit keeps `INCLUDE {10.0.0.9}` and its forwarding result.
