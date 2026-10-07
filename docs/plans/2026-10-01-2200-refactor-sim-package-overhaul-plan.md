@@ -14,9 +14,10 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 The simulator under `src/common/netsim` becomes `src/common/sim`: a tree whose
 shape takes further device kinds and media, whose capability packages share
 one contract, whose protocols follow their standards, and whose known defects
-are fixed with a test each. The means is twelve phases: a move with no
+are fixed with a test each. The means is thirteen phases: a move with no
 behaviour change, then the contract, then one phase per package cluster from
-the layers up to the fabric.
+the layers up to the fabric, and one for the spanning tree behaviors the
+third phase left open.
 
 Stop condition: if the device seam in U9 and U10 cannot carry what `fabric`
 reads from a switch today without `fabric` importing a capability package,
@@ -52,9 +53,10 @@ before U10 starts.
   claim read from the cited lines at commit `61775c73`. A unit starts an
   entry by writing its failing test. An entry whose test passes is struck
   with a note, since most entries were read and not run.
-- This plan stays whole as a parent. Why: the twelve clusters below have
-  disjoint packages inside a wave, which `go list -deps` confirms for the
-  layer packages (only `traffic` imports a sibling, `bridge`).
+- This plan stays whole as a parent. Why: the clusters below have disjoint
+  packages inside a wave, which `go list -deps` confirms for the layer
+  packages (only `traffic` imports a sibling, `bridge`). U13 returns to
+  `layer/stp`, which no other open phase owns.
 
 ## Requirements
 
@@ -123,8 +125,6 @@ unless a comment at its head states why it is one unit. Example:
 
 ### U1. Move the tree to `src/common/sim`
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase1-plan.md
-After: none
-Landed: `d2c52250..bd684278`
 Change: every package sits at its final path and every doc names it. No
 behaviour changes.
 Tests: the existing suites pass at the new paths.
@@ -132,8 +132,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim
 
 ### U2. Capability contract and surface trim
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md
-After: U1
-Landed: `414ffd79..6a2ea03a`
 Change: `sim/layer` holds the shared contract types, every capability
 package has the contract's shape, rule identifiers belong to their
 producers, fact types and dead exports are gone, and the BPDU codec lives
@@ -143,8 +141,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U3. Spanning tree to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md
-After: U2
-Landed: `a8a26462..3f90b02d`
 Change: `layer/stp` follows IEEE 802.1D and 802.1Q for RSTP, MSTP, and
 legacy interoperation, with link state owned once per port.
 Tests: one failing-first test per inventory entry, and known-bytes BPDU
@@ -153,8 +149,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U4. Link aggregation and physical layer to standard
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md
-After: U2
-Landed: `9077fffa..db130681`
 Change: `layer/lag` follows IEEE 802.1AX, and `layer/phy` resolves speed,
 duplex, and PoE within the stated bounds.
 Tests: one failing-first test per inventory entry.
@@ -162,8 +156,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U5. Multicast snooping and loop protection
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase5-plan.md
-After: U2
-Landed:
 Change: `layer/mcast` ages lazily and restores retained state with its
 source filters, and `layer/loopprotect` arms its timers on every path.
 Tests: one failing-first test per inventory entry.
@@ -171,8 +163,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U6. Routing, neighbor resolution, and filtering
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase6-plan.md
-After: U2
-Landed:
 Change: `layer/routing` resolves neighbors as ARP and Neighbor Discovery
 specify, a held frame carries what its release needs, and `layer/filter`
 never widens a rule it cannot evaluate.
@@ -181,8 +171,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U7. Relay, port table, and traffic
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase7-plan.md
-After: U2
-Landed:
 Change: `layer/bridge`, `sim/port`, and `layer/traffic` keep static entries
 authoritative, validate deterministically, and mirror stacked tags intact.
 Tests: one failing-first test per inventory entry.
@@ -190,8 +178,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U8. Analysis, trace, stream, and search
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase8-plan.md
-After: U2
-Landed:
 Change: stream sources yield independent frames, alignment and minimization
 name the journey they judged, and the leaves drop what nothing uses.
 Tests: one failing-first test per inventory entry.
@@ -199,8 +185,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U9. Switch composition
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase9-plan.md
-After: U3, U4, U5, U6, U7
-Landed:
 Change: `device/vswitch` has one receive entry returning the result with its
 emissions, copies, and drops, drives its layers through the contract, forks
 and derives every capability, and is split into files by subject.
@@ -210,8 +194,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U10. Fabric, device seam, and cable
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase10-plan.md
-After: U8, U9
-Landed:
 Change: `fabric` drives switches and hosts through `sim/device`, the cable
 model is `medium/cable`, every input is a queue event, and a held frame
 continues its own journey.
@@ -220,8 +202,6 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U11. Network model boundary
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md
-After: U9, U10
-Landed:
 Change: `netmodel.Load` takes one input value and is a coordinator over
 per-layer loaders, and an input it cannot translate raises an issue instead
 of widening a rule.
@@ -230,15 +210,22 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/202
 
 ### U12. Corpus, load transmitter, and documentation close-out
 Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md
-After: U10, U11
-Landed:
 Change: the corpus and `simload` use the final APIs, their own defects are
 fixed, and the READMEs and direction records match the tree.
 Tests: one failing-first test per inventory entry, and `check-prose.py` on
 every README in the tree.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md`
 
-Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 | U10 | U11 | U12
+### U13. Spanning tree handshake scope and inherited priority
+Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md
+Change: in `layer/stp` a proposal cuts only the Designated ports that are
+not synced, an inherited port priority follows the bridge port through
+every normalize, and the sync at a boundary port and a proposal in an MSTI
+record that is not stored are decided and pinned.
+Tests: one failing-first test per inventory entry.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md`
+
+Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 U13 | U10 | U11 | U12
 
 ## Verification
 
@@ -260,8 +247,8 @@ and needs the switch powered on.
 ## Definition of done
 
 - [ ] Verifier green for every changed path of every phase.
-- [ ] Each phase plan reads `implemented` and its `Landed:` line here holds
-      the commit range.
+- [ ] Each phase plan reads `implemented` and its state file holds the
+      commit range.
 - [ ] Package READMEs, `CONCEPTS.md`, `GOALS.md`, and the three simulation
       records match the tree.
 - [ ] The package shape record, accepted 2026-10-01, is amended wherever a
