@@ -197,7 +197,8 @@
       "initials": "OP",
       "label": "Operator account",
       "logout": "Log out",
-      "operator": "Operator"
+      "operator": "Operator",
+      "preferences": "Preferences"
     },
     "clients": {
       "accessPoint": "Access point",
@@ -529,8 +530,7 @@
       "reportText": "Report text",
       "summary": "Summary",
       "title": "Report a bug",
-      "trigger": "Report a bug",
-      "triggerLabel": "Report bug"
+      "trigger": "Report a bug"
     },
     "scopeSwitcher": {
       "searchPlaceholder": "Search…",

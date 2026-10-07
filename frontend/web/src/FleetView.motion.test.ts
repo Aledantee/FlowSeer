@@ -239,25 +239,21 @@ describe('FleetView motion layout', () => {
     expect(distance).toBeLessThan(140)
   })
 
-  it('keeps the switches and their ancestors still while the panel and breadcrumb move', async () => {
+  it('keeps the account menu and its ancestors still while the panel and breadcrumb move', async () => {
     installMotionClock()
     const { host } = await mountFleet()
-    const theme = host.querySelector('header.topbar button.theme-switcher')
-    const locale = host.querySelector('header.topbar button.locale-switcher')
+    const account = host.querySelector('header.topbar button.account-trigger')
     const header = host.querySelector('header.topbar')
     const shell = host.querySelector('.main-shell')
-    if (!theme || !locale || !header || !shell)
-      throw new Error('Missing frame switches')
+    if (!account || !header || !shell) throw new Error('Missing account menu')
     const ancestors = new Set<Element>([header, shell])
-    for (const button of [theme, locale]) {
-      for (
-        let parent = button.parentElement;
-        parent;
-        parent = parent.parentElement
-      ) {
-        ancestors.add(parent)
-        if (parent === header) break
-      }
+    for (
+      let parent = account.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      ancestors.add(parent)
+      if (parent === header) break
     }
     const transforms: string[] = []
     const observer = new MutationObserver((records) => {
@@ -288,11 +284,8 @@ describe('FleetView motion layout', () => {
           host.querySelector<HTMLElement>(region)?.style.transform,
         ).toContain('translate')
       await advanceMotion(200)
-      expect(host.querySelector('header.topbar button.theme-switcher')).toBe(
-        theme,
-      )
-      expect(host.querySelector('header.topbar button.locale-switcher')).toBe(
-        locale,
+      expect(host.querySelector('header.topbar button.account-trigger')).toBe(
+        account,
       )
       for (const ancestor of ancestors)
         expect(ancestor.getAttribute('style') ?? '').not.toMatch(

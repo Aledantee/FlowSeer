@@ -1,18 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  UiButton,
-  UiDialog,
-  UiField,
-  UiInput,
-  UiTextarea,
-  UiTooltip,
-} from '../ui'
-import AppIcon from './AppIcon.vue'
+import { UiButton, UiDialog, UiField, UiInput, UiTextarea } from '../ui'
 
 const { t } = useI18n({ useScope: 'global' })
-const open = ref(false)
+const open = defineModel<boolean>('open', { default: false })
+const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
 const summary = ref('')
 const description = ref('')
 const page = ref('')
@@ -28,12 +21,13 @@ const feedback = computed(() =>
       : '',
 )
 
-function openReport() {
+// Each opening reports the page the visitor is on and starts without a notice.
+watch(open, (value) => {
+  if (!value) return
   page.value = window.location.pathname
   outcome.value = ''
   fallback.value = ''
-  open.value = true
-}
+})
 
 async function copyReport() {
   const report = t('view.reportBug.report', {
@@ -53,20 +47,11 @@ async function copyReport() {
 </script>
 
 <template>
-  <UiDialog v-model:open="open" :title="t('view.reportBug.title')">
-    <template #trigger>
-      <UiTooltip :label="t('view.reportBug.trigger')">
-        <button
-          class="help-button max-[560px]:hidden grid place-items-center w-11 h-11 p-0 bg-transparent border-0 text-chrome-foreground rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
-          type="button"
-          :aria-label="t('view.reportBug.triggerLabel')"
-          @click="openReport"
-        >
-          <AppIcon name="bug" />
-        </button>
-      </UiTooltip>
-    </template>
-
+  <UiDialog
+    v-model:open="open"
+    :title="t('view.reportBug.title')"
+    @close-auto-focus="emit('closeAutoFocus', $event)"
+  >
     <p class="text-sm text-muted-foreground mb-4">
       {{ t('view.reportBug.intro') }}
     </p>

@@ -52,9 +52,11 @@ A view talks to the frame through `useFrame()` in
 `menu`, or `collapsed`. It calls `moved()` when the page panel should
 animate to a new place. The animation's dependency is read-only for views.
 
-Controls that are the same on every page belong to the frame. The theme
-and language switches are one pair of elements in the frame's top bar, last
-on the right, and no view renders its own.
+Controls that are the same on every page belong to the frame. The account
+menu is one element in the frame's top bar, last on the right, and no view
+renders its own. It holds the theme and language choices on every page, and
+adds Help, Report a bug, and Log out outside the login mode
+(`frontend/web/src/components/AccountMenu.vue`).
 
 ### The panel moves, the sidebar does not scale
 

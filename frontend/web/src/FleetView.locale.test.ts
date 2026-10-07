@@ -9,7 +9,7 @@ import { devices, filterDevices, sites, tenants } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Port } from './domain/telemetry'
 import DevicePorts from './components/DevicePorts.vue'
-import { mountInFrame } from './navigation/frameTesting'
+import { chooseAccountItem, mountInFrame } from './navigation/frameTesting'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
 import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
@@ -426,22 +426,13 @@ describe('FleetView shell in German', () => {
   })
 })
 
-function topBarButton(host: HTMLElement, label: string) {
-  const button = [
-    ...host.querySelectorAll<HTMLButtonElement>('.topbar-tools button'),
-  ].find((item) => item.getAttribute('aria-label') === label)
-  if (!button) throw new Error(`Missing top bar button ${label}`)
-  return button
-}
-
 const dialog = () => document.body.querySelector('[role="dialog"]')
 
 describe('top bar dialogs in German', () => {
   it('opens the help dialog', async () => {
     const { host } = await mountLocale('/dashboard', 'de')
 
-    topBarButton(host, 'Hilfe').click()
-    await settle()
+    await chooseAccountItem('help', host)
 
     const dlg = dialog()
     if (!dlg) throw new Error('Help dialog was not rendered')
@@ -472,8 +463,7 @@ describe('top bar dialogs in German', () => {
     try {
       const { host, setLocale } = await mountLocale('/dashboard', 'de')
 
-      topBarButton(host, 'Fehler melden').click()
-      await settle()
+      await chooseAccountItem('report', host)
       expect(dialog()?.textContent).toContain('Fehler melden')
       expect(dialog()?.textContent).toContain('Zusammenfassung')
       expect(dialog()?.textContent).toContain('Was ist passiert?')
@@ -521,8 +511,7 @@ describe('top bar dialogs in German', () => {
     try {
       const { host } = await mountLocale('/dashboard', 'de')
 
-      topBarButton(host, 'Fehler melden').click()
-      await settle()
+      await chooseAccountItem('report', host)
       document.body
         .querySelector('form')
         ?.dispatchEvent(
@@ -714,19 +703,15 @@ describe('inventory in German', () => {
   })
 })
 
-describe('language switch in the top bar', () => {
+describe('language switch in the account menu', () => {
   it('turns the navigation and heading German with no remount', async () => {
     const { host } = await mountLocale('/devices', 'en')
     const inventory = host.querySelector('#inventory-title')
     const heading = host.querySelector('h1')
-    const button = host.querySelector<HTMLButtonElement>(
-      'header.topbar button.locale-switcher',
-    )
-    if (!button) throw new Error('Missing language switch')
     expect(heading?.textContent?.trim()).toBe('Devices')
     expect(inventory?.textContent).toContain('Device inventory')
 
-    button.click()
+    await chooseAccountItem('locale', host)
     await settle()
 
     expect(host.querySelector('#inventory-title')).toBe(inventory)
@@ -740,10 +725,9 @@ describe('language switch in the top bar', () => {
       'Clients',
       'Standorte',
     ])
-    expect(button.textContent).toContain('Sprache auf English umstellen')
     expect(localStorage.getItem('flowseer.locale')).toBe('de')
 
-    button.click()
+    await chooseAccountItem('locale', host)
     await settle()
 
     expect(heading?.textContent?.trim()).toBe('Devices')

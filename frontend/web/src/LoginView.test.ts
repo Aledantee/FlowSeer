@@ -279,7 +279,7 @@ describe('LoginView', () => {
 
     expect(host.querySelector('#frame-sidebar form.login-form')).not.toBeNull()
     expect(
-      host.querySelector('#frame-sidebar button.theme-switcher'),
+      host.querySelector('#frame-sidebar button.account-trigger'),
     ).toBeNull()
     const page = host.querySelector('#frame-page > main.login-page')
     expect(page?.querySelector('h2')?.textContent?.trim()).toBe(

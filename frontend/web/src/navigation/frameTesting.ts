@@ -31,3 +31,22 @@ export async function mountInFrame(
   await nextTick()
   return { host, router, registry, i18n, dispose: () => app.unmount() }
 }
+
+// Opens the frame's account menu and chooses one of its items. The menu is
+// portalled, so the item is read from the body.
+export async function chooseAccountItem(
+  item: 'help' | 'report' | 'theme' | 'locale' | 'logout',
+  root: ParentNode = document,
+) {
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20))
+  const trigger = root.querySelector<HTMLButtonElement>(
+    'header.topbar button.account-trigger',
+  )
+  if (!trigger) throw new Error('Missing account menu trigger')
+  trigger.click()
+  await settle()
+  const entry = document.body.querySelector<HTMLElement>(`.account-${item}`)
+  if (!entry) throw new Error(`Missing account menu item ${item}`)
+  entry.click()
+  await settle()
+}

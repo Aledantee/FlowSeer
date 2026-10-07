@@ -13,10 +13,7 @@ import type { ComponentPublicInstance, Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './components/AppIcon.vue'
-import AccountMenu from './components/AccountMenu.vue'
 import BrandMark from './components/BrandMark.vue'
-import ReportBugButton from './components/ReportBugButton.vue'
-import HelpButton from './components/HelpButton.vue'
 import GlobalSearch, {
   type SearchPage,
   type TextPart,
@@ -1096,9 +1093,6 @@ onUnmounted(() => clearInterval(timer))
           <span>{{ t('ui.aiAssistant.title') }}</span>
         </button>
       </UiTooltip>
-      <HelpButton />
-      <ReportBugButton />
-      <AccountMenu />
     </div>
   </Teleport>
   <Teleport defer to="#frame-page">

@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import FleetView from './FleetView.vue'
 import { isMac } from './navigation/shortcuts'
 import type { AiRegistry } from './ai'
-import { mountInFrame } from './navigation/frameTesting'
+import { chooseAccountItem, mountInFrame } from './navigation/frameTesting'
 import * as clientsDomain from './domain/clients'
 import type { Band } from './domain/clients'
 
@@ -164,11 +164,7 @@ describe('FleetView workspace shortcuts', () => {
   it('does not run a workspace shortcut behind a modal dialog', async () => {
     await mountFleet('/dashboard')
 
-    const reportBug = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Report bug"]',
-    )
-    expect(reportBug).not.toBeNull()
-    reportBug?.click()
+    await chooseAccountItem('report')
     await settle()
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
@@ -438,14 +434,6 @@ describe('fleet view', () => {
     )
 
     expect(severity?.classList).toContain('text-sm')
-  })
-
-  it('owns bug-button phone visibility in the component utility', async () => {
-    const { host } = await mountAt('/dashboard')
-    const button = host.querySelector('[aria-label="Report bug"]')
-
-    expect(button?.classList).toContain('max-[560px]:hidden')
-    expect(button?.classList).not.toContain('report-bug-button')
   })
 
   it('fills in the tenant of a selected site so the scope never reads all tenants', async () => {

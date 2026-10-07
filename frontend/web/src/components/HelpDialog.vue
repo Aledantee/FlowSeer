@@ -1,28 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { UiDialog, UiTooltip } from '../ui'
-import AppIcon from './AppIcon.vue'
+import { UiDialog } from '../ui'
 import { BRAND } from '../brand'
 
 const { t } = useI18n({ useScope: 'global' })
-const open = ref(false)
+const open = defineModel<boolean>('open', { default: false })
+const emit = defineEmits<{ closeAutoFocus: [event: Event] }>()
 </script>
 
 <template>
-  <UiDialog v-model:open="open" :title="t('view.help.title')">
-    <template #trigger>
-      <UiTooltip :label="t('view.help.trigger')">
-        <button
-          class="help-button grid place-items-center w-11 h-11 p-0 bg-transparent border-0 text-chrome-foreground rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
-          type="button"
-          :aria-label="t('view.help.trigger')"
-          @click="open = true"
-        >
-          <AppIcon name="help" />
-        </button>
-      </UiTooltip>
-    </template>
+  <UiDialog
+    v-model:open="open"
+    :title="t('view.help.title')"
+    @close-auto-focus="emit('closeAutoFocus', $event)"
+  >
     <div class="space-y-4 text-sm text-foreground">
       <div>
         <h3 class="font-medium text-foreground mb-1">

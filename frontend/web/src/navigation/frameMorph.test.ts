@@ -6,7 +6,7 @@ import FleetView from '../FleetView.vue'
 import LoginView from '../LoginView.vue'
 import { sessionRedirect, signOut } from '../session/session'
 import { FRAME_MOVE_SECONDS, useFrame } from './frame'
-import { mountInFrame } from './frameTesting'
+import { chooseAccountItem, mountInFrame } from './frameTesting'
 
 let dispose = () => {}
 let motionClock = 0
@@ -330,32 +330,28 @@ it('reverses the morph on logout and fades the form in the same sidebar', async 
   ).not.toContain('translate')
 })
 
-it('preserves the switches and their theme without transforming their ancestors', async () => {
+it('preserves the account menu and its theme without transforming its ancestors', async () => {
   const mounted = await mountLogin()
-  const theme = mounted.host.querySelector<HTMLButtonElement>(
-    'button.theme-switcher',
+  const account = mounted.host.querySelector<HTMLButtonElement>(
+    'button.account-trigger',
   )
-  const locale = mounted.host.querySelector('button.locale-switcher')
   const shell = mounted.host.querySelector<HTMLElement>('.main-shell')
   const header = mounted.host.querySelector('header.topbar')
-  if (!theme || !locale || !shell || !header)
-    throw new Error('Missing switches')
-  const beforeClick = theme.getAttribute('aria-checked')
-  expect(['true', 'false']).toContain(beforeClick)
-  theme.click()
-  await nextTick()
-  const checked = theme.getAttribute('aria-checked')
-  expect(checked).toBe(beforeClick === 'true' ? 'false' : 'true')
+  if (!account || !shell || !header) throw new Error('Missing account menu')
+  const beforeChoice = document.documentElement.dataset.theme
+  expect(['dark', 'light']).toContain(beforeChoice)
+  await chooseAccountItem('theme', mounted.host)
+  const chosen = document.documentElement.dataset.theme
+  expect(chosen).toBe(beforeChoice === 'dark' ? 'light' : 'dark')
   const ancestors = new Set<Element>([shell, header])
-  for (const button of [theme, locale])
-    for (
-      let parent = button.parentElement;
-      parent;
-      parent = parent.parentElement
-    ) {
-      ancestors.add(parent)
-      if (parent === header) break
-    }
+  for (
+    let parent = account.parentElement;
+    parent;
+    parent = parent.parentElement
+  ) {
+    ancestors.add(parent)
+    if (parent === header) break
+  }
   const styles: string[] = []
   const observer = new MutationObserver((records) => {
     for (const record of records)
@@ -375,7 +371,7 @@ it('preserves the switches and their theme without transforming their ancestors'
     await submit(mounted.host, mounted.router)
     await advanceMotion(30)
     expect(translation(mounted.host)).toBeGreaterThan(0)
-    expect(theme.getAttribute('aria-checked')).toBe(checked)
+    expect(document.documentElement.dataset.theme).toBe(chosen)
     await advanceMotion(200)
     mounted.host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
     await nextTick()
@@ -387,10 +383,9 @@ it('preserves the switches and their theme without transforming their ancestors'
     await nextTick()
     await advanceMotion(30)
     await advanceMotion(200)
-    expect(mounted.host.querySelector('button.theme-switcher')).toBe(theme)
-    expect(mounted.host.querySelector('button.locale-switcher')).toBe(locale)
-    expect(theme.isConnected && locale.isConnected).toBe(true)
-    expect(theme.getAttribute('aria-checked')).toBe(checked)
+    expect(mounted.host.querySelector('button.account-trigger')).toBe(account)
+    expect(account.isConnected).toBe(true)
+    expect(document.documentElement.dataset.theme).toBe(chosen)
     for (const ancestor of ancestors)
       expect(ancestor.getAttribute('style') ?? '').not.toMatch(/transform\s*:/)
     expect(styles.every((style) => !/transform\s*:/.test(style))).toBe(true)

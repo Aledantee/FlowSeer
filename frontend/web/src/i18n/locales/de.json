@@ -197,7 +197,8 @@
       "initials": "OP",
       "label": "Operatorkonto",
       "logout": "Abmelden",
-      "operator": "Operator"
+      "operator": "Operator",
+      "preferences": "Einstellungen"
     },
     "clients": {
       "accessPoint": "Zugangspunkt",
@@ -529,8 +530,7 @@
       "reportText": "Berichtstext",
       "summary": "Zusammenfassung",
       "title": "Fehler melden",
-      "trigger": "Fehler melden",
-      "triggerLabel": "Fehler melden"
+      "trigger": "Fehler melden"
     },
     "scopeSwitcher": {
       "searchPlaceholder": "Suchen…",
