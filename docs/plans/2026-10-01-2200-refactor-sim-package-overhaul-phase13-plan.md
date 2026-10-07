@@ -262,3 +262,17 @@ assigns.
   and stated in `S/README.md` under Limits if the layer keeps its own rule.
 - Unverified: the published IEEE Std 802.1Q-2011 for every clause cited
   here, as the parent's Open questions say of each protocol phase.
+- Parked by drive: the second fix round built the recent-root deadline as
+  decided and closed every follow-up. One case of the Decision's stated
+  consequence fails: when the Root port's information has aged and no
+  `Advance` has run, the port leaves the Root role in a later call and
+  under another delay than when `Advance` ran first, so the stored
+  deadline differs. A host that honours `NextWake` reaches it only when a
+  frame and that wake fall at one instant. The work is on
+  `parked/sim13-review`. Options: scope the consequence to a port that has
+  already left the Root role and state the rest as a limit (the code
+  stands and the review is accepted) | take it to `plan`, expiring
+  received information at every entry point so no call depends on a prior
+  `Advance` (the cause, and it reaches loop guard and every timer read) |
+  stop, leaving the branch as it is. Recommended: scope it and accept,
+  because the cause predates this phase and is wider than its units.
