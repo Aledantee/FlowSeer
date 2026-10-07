@@ -776,8 +776,8 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 	hdr, payload, err := ip.Decode(f.Payload)
 	// The egress frame keeps the EtherType, so a header whose family the
 	// EtherType does not name would leave with a label no receiver can parse.
-	if err == nil && !((hdr.Version() == 4 && f.EtherType == ethernet.EtherTypeIPv4) ||
-		(hdr.Version() == 6 && f.EtherType == ethernet.EtherTypeIPv6)) {
+	if err == nil && (hdr.Version() != 4 || f.EtherType != ethernet.EtherTypeIPv4) &&
+		(hdr.Version() != 6 || f.EtherType != ethernet.EtherTypeIPv6) {
 		err = errs.New().Attr("field", "version").Msg("IP version disagrees with the frame's EtherType")
 	}
 	classifyReason := trace.Reason("")
