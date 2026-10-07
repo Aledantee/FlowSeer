@@ -32,6 +32,7 @@ this phase keeps the states and timers.
 Sources.
 
 - The parent's Decisions apply.
+- A Neighbor Solicitation for an address the receiving interface does not hold is refused and teaches nothing, as `R4861` 7.2.3 says. `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget` becomes two tests: one with a local target, showing the Source Link-Layer Address option resolves the solicitor's source and not the target it asks about; one with a non-local target, showing no entry and no answer. (decided by the user, 2026-10-07)
 - The neighbor table runs the states of `R4861` 7.3.2 for both families, and
   `NeighborFailed` goes. Why: 7.3.3 says an entry whose resolution failed
   "SHOULD be deleted, so that subsequent traffic to that neighbor invokes
@@ -473,8 +474,7 @@ link-local, the second by name. `N` drops such a prefix from the later
 interface by name and raises `netmodel.routing.address_conflict`, and the
 rule list above `TestLoad_RoutedPortRefusalRulesBecomeIssues` gains the
 rule with its row. `RetentionKey` writes the quoted node identity inside
-its `config=` section, as `filter.RetentionKey` does
-(`F/config.go:383-385`), so the switch reports the difference as `config`
+its `config=` section, so the switch reports the difference as `config`
 (`V/retention.go:39-57`). `Originate` selects its route over the family's
 unspecified address and the destination, then takes its source from the
 egress interface: the address whose prefix holds the on-link next hop,
@@ -573,6 +573,8 @@ on layout
 (`docs/solutions/conventions/a-codec-round-trip-cannot-locate-a-field-on-the-wire.md`).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer src/common/sim/device/vswitch src/common/sim/fabric src/common/sim/internal/simtest src/common/sim/netmodel docs/architecture/2026-09-10-virtual-device-direction.md`
 
+Migrated sending assertions: `TestNormalize`, `TestObserveOverrideClearedNonReachableStateIsUnchanged`, `TestCloneIsolatesNeighborState`, `TestAdvancePastReachableExpiryAndResolutionFailureLeavesStaleAndAbsent`, `TestFailHeldReturnsWaitingExitsFirstAndClearsThem`, `TestHeldTokensSurviveEvictionAndTimeout`, `troubleshooting/neighbor-resolution-pending`, `TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame`, `TestARPObservationReleasesHeldFrameOnRoutedPort`, `TestSubInterfaceObservationBindsOnlyItsOuterVID`, `TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort`, `TestARPObservationReleasesHeldFrameOnVLANInterface`, `TestReleasedFrameCarriesIngressPCPAndDEI`, `TestHeldFrameTimesOutWithDropStep`, `TestNDPInvalidHopLimitDoesNotObserve`, `TestNDPReachesNeighborPathNotMulticastPath`, `TestMLDReportReachesMulticastPathNotNeighborPath`, `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget`, `TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason`, `TestWakeAgeForwardStopConditionInvariance`, `TestAggregateHeldFrameReleaseKeepsItsProvenance`, `TestFabricReleasesHeldFrameOnObservedARPReply`, `TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost`, `TestFabricReleasedFrameQueuesAtItsIngressPriority`, `TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey`, and `TestFingerprintNeighborResolutionState`.
+
 ### U5. Receiving and answering
 Files: src/common/sim/layer/routing/, src/common/sim/device/vswitch/, src/common/sim/fabric/, src/common/sim/internal/simtest/, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U4
@@ -647,6 +649,11 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Open questions
 
+- `filter.RetentionKey` writes `env.NodeID` raw after `node_id=` in
+  `src/common/sim/layer/filter/config.go:407`. The comparison to a quoted
+  filter identity was false. Routing still requires a quoted node identity
+  inside `config=` so embedded newlines cannot create dependency sections.
+
 - No phase of the parent owns ICMP error generation. The Address
   Unreachable error of `R4861` 7.2.2 stays a stated Limit until a plan
   takes it.
@@ -670,3 +677,15 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   for an absent next hop and an undecoded header
   (`R/fact.go:29-37,53,70`). Changing it rewrites every lookup expectation
   in the corpus.
+
+## Review gaps
+
+Follow-ups of the review. None holds the verdict, and each needs a change
+to shipped code, which the follow-up pass does not make.
+
+- src/common/sim/layer/routing/receive.go:147: `ndpReceiver` and `isSolicitedNode` (`:162`) have one caller each (`docs/code-style.md`, Scope and simplicity); class: convention
+- src/common/sim/layer/routing/receive.go:43: a peer frame with a new sender address and a local target adds a Stale entry nothing removes (`:101` for a solicitation), with no bound on the table; class: hardening
+- src/common/sim/layer/routing/receive.go:64: the receive rule reads the Ethernet destination and the Solicited check below it reads the IPv6 destination, so an all-nodes frame with a unicast IPv6 destination confirms reachability; class: hardening
+- src/common/sim/layer/routing/receive.go:67: no check that the IPv6 Next Header is 58 before `ndp.Decode`; class: hardening
+- src/common/sim/layer/routing/receive.go:54: a group or zero sender hardware address is cached and answered, and so is one in a solicitation's option; class: hardening
+- src/common/sim/device/vswitch/switch.go:1413: `receiveAndRelease` saves two hit lists and not `mcastQueryUnobservedHits`, so a held frame released to a cached group MAC charges a multicast query hit to the observing frame; class: hardening

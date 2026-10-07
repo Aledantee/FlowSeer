@@ -24,6 +24,8 @@ type Env struct {
 // (STP) frames, VID 0 indicates the frame leaves untagged without a VLAN membership
 // check; for loop-protection frames, VID 0 requests transmission onto the port's
 // native/untagged VLAN.
+// Routing emissions use Port alone for untagged egress, Port and VID for
+// tagged egress, and VID alone for relay into that bridge VLAN.
 type Emission struct {
 	Port  string
 	VID   vlan.ID

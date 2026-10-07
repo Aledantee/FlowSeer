@@ -41,9 +41,10 @@ type ruleDecisionFactValue string
 func (f ruleDecisionFactValue) TypeID() string    { return "filter.rule_decision" }
 func (f ruleDecisionFactValue) Canonical() string { return string(f) }
 
-func ruleDecisionFact(set, rule string, action Action, dir Direction, iface string) trace.Fact {
+func ruleDecisionFact(set, rule string, index int, action Action, dir Direction, iface string) trace.Fact {
 	return ruleDecisionFactValue("set=" + strconv.Quote(set) +
 		";rule=" + strconv.Quote(rule) +
+		";index=" + strconv.Itoa(index) +
 		";action=" + strconv.Quote(string(action)) +
 		";direction=" + strconv.Quote(string(dir)) +
 		";interface=" + strconv.Quote(iface))
@@ -55,9 +56,17 @@ func (f matchFactValue) TypeID() string    { return "filter.match" }
 func (f matchFactValue) Canonical() string { return string(f) }
 
 func matchFact(proto uint8, src, dst netip.Addr, srcPort, dstPort uint16) trace.Fact {
+	var srcText, dstText string
+	if src.IsValid() {
+		srcText = src.String()
+	}
+	if dst.IsValid() {
+		dstText = dst.String()
+	}
+
 	return matchFactValue("proto=" + strconv.FormatUint(uint64(proto), 10) +
-		";src=" + strconv.Quote(src.String()) +
-		";dst=" + strconv.Quote(dst.String()) +
+		";src=" + strconv.Quote(srcText) +
+		";dst=" + strconv.Quote(dstText) +
 		";src_port=" + strconv.FormatUint(uint64(srcPort), 10) +
 		";dst_port=" + strconv.FormatUint(uint64(dstPort), 10))
 }
@@ -230,11 +239,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
-			ruleKey := rule.Name
-			if ruleKey == "" {
-				ruleKey = strconv.Itoa(idx)
-			}
-			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, In, iface)
+			decFact := ruleDecisionFact(setName, rule.Name, idx, rule.Action, In, iface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -261,7 +266,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 		}
 	}
 
-	if set.Stateful {
+	if set.Stateful && decoded {
 		res.Decision = DecisionDeferred
 		res.Action = set.Default
 		res.tuple = tuple
@@ -272,7 +277,7 @@ func (l *Layer) EvaluateIngress(iface string, f ethernet.Frame) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := ruleDecisionFact(setName, "default", set.Default, In, iface)
+	decFact := ruleDecisionFact(setName, "default", -1, set.Default, In, iface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -327,12 +332,8 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 					}
 					break
 				}
-				fwdRuleKey := rule.Name
-				if fwdRuleKey == "" {
-					fwdRuleKey = strconv.Itoa(idx)
-				}
-				fwdDecFact := ruleDecisionFact(egressSetName, fwdRuleKey, Accept, In, egressIface)
-				stateDecFact := ruleDecisionFact(ingressSetName, "state", Accept, In, ingressIface)
+				fwdDecFact := ruleDecisionFact(egressSetName, rule.Name, idx, Accept, In, egressIface)
+				stateDecFact := ruleDecisionFact(ingressSetName, "state", -1, Accept, In, ingressIface)
 				step := trace.Step{
 					Layer:   LayerName,
 					Op:      trace.OpFilter,
@@ -352,7 +353,7 @@ func (l *Layer) ResolveDeferred(ingressRes Result, egressIface string) Result {
 
 	ruleID := RuleDefault
 	op := opForAction(ingressSet.Default)
-	decFact := ruleDecisionFact(ingressSetName, "default", ingressSet.Default, In, ingressIface)
+	decFact := ruleDecisionFact(ingressSetName, "default", -1, ingressSet.Default, In, ingressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -398,11 +399,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 
 	for idx, rule := range set.Rules {
 		if ruleMatches(rule.Match, decoded, hdr, tuple, icmpHdr, tcpHdr) {
-			ruleKey := rule.Name
-			if ruleKey == "" {
-				ruleKey = strconv.Itoa(idx)
-			}
-			decFact := ruleDecisionFact(setName, ruleKey, rule.Action, Out, egressIface)
+			decFact := ruleDecisionFact(setName, rule.Name, idx, rule.Action, Out, egressIface)
 			ruleID := ruleIDForAction(rule.Action)
 			op := opForAction(rule.Action)
 			step := trace.Step{
@@ -429,7 +426,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 		}
 	}
 
-	if set.Stateful {
+	if set.Stateful && decoded {
 		ingressScope := Scope(l.nodeID, ingressIface, Out)
 		res.consult(ingressScope)
 
@@ -447,12 +444,8 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 						}
 						break
 					}
-					fwdRuleKey := rule.Name
-					if fwdRuleKey == "" {
-						fwdRuleKey = strconv.Itoa(idx)
-					}
-					fwdDecFact := ruleDecisionFact(ingressSetName, fwdRuleKey, Accept, Out, ingressIface)
-					stateDecFact := ruleDecisionFact(setName, "state", Accept, Out, egressIface)
+					fwdDecFact := ruleDecisionFact(ingressSetName, rule.Name, idx, Accept, Out, ingressIface)
+					stateDecFact := ruleDecisionFact(setName, "state", -1, Accept, Out, egressIface)
 					step := trace.Step{
 						Layer:   LayerName,
 						Op:      trace.OpFilter,
@@ -473,7 +466,7 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 
 	ruleID := RuleDefault
 	op := opForAction(set.Default)
-	decFact := ruleDecisionFact(setName, "default", set.Default, Out, egressIface)
+	decFact := ruleDecisionFact(setName, "default", -1, set.Default, Out, egressIface)
 	step := trace.Step{
 		Layer:   LayerName,
 		Op:      op,
@@ -498,8 +491,14 @@ func (l *Layer) EvaluateEgress(egressIface, ingressIface string, f ethernet.Fram
 }
 
 func extractPacket(f ethernet.Frame) (ip.Header, tuple, *icmp.Header, *tcp.Header, bool) {
+	if f.EtherType != ethernet.EtherTypeIPv4 && f.EtherType != ethernet.EtherTypeIPv6 {
+		return ip.Header{}, tuple{}, nil, nil, false
+	}
+
 	hdr, payload, err := ip.Decode(f.Payload)
-	if err != nil {
+	if err != nil ||
+		f.EtherType == ethernet.EtherTypeIPv4 && hdr.Version() != 4 ||
+		f.EtherType == ethernet.EtherTypeIPv6 && hdr.Version() != 6 {
 		return ip.Header{}, tuple{}, nil, nil, false
 	}
 

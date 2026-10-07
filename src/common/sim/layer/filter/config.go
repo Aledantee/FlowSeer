@@ -123,9 +123,10 @@ type Config struct {
 	Bindings []Binding
 }
 
-// Normalize returns a deep copy of c with canonical slice order and non-nil
-// maps. Rule order inside a set is preserved because first-match evaluation
-// is order-dependent.
+// Normalize returns a deep copy of c with canonical binding order and non-nil
+// maps. It masks each prefix, sorts and deduplicates Src, Dst, SrcPorts, and
+// DstPorts, and copies Protocol by value. Rule order inside a set is preserved
+// because first-match evaluation is order-dependent.
 func (c Config) Normalize(_ layer.Env) Config {
 	out := Config{
 		Sets:     make(map[string]RuleSet, len(c.Sets)),
@@ -143,12 +144,14 @@ func (c Config) Normalize(_ layer.Env) Config {
 				Name:   r.Name,
 				Action: r.Action,
 				Match: Match{
-					Protocol: r.Match.Protocol,
-					Src:      slices.Clone(r.Match.Src),
-					Dst:      slices.Clone(r.Match.Dst),
-					SrcPorts: slices.Clone(r.Match.SrcPorts),
-					DstPorts: slices.Clone(r.Match.DstPorts),
+					Src:      normalizePrefixes(r.Match.Src),
+					Dst:      normalizePrefixes(r.Match.Dst),
+					SrcPorts: normalizePorts(r.Match.SrcPorts),
+					DstPorts: normalizePorts(r.Match.DstPorts),
 				},
+			}
+			if r.Match.Protocol != nil {
+				normRule.Match.Protocol = new(*r.Match.Protocol)
 			}
 			if r.Match.ICMP != nil {
 				var codeCopy *uint8
@@ -186,6 +189,26 @@ func (c Config) Normalize(_ layer.Env) Config {
 	return out
 }
 
+func normalizePrefixes(prefixes []netip.Prefix) []netip.Prefix {
+	out := slices.Clone(prefixes)
+	for i, prefix := range out {
+		out[i] = prefix.Masked()
+	}
+	slices.SortFunc(out, netip.Prefix.Compare)
+	return slices.Compact(out)
+}
+
+func normalizePorts(ports []PortRange) []PortRange {
+	out := slices.Clone(ports)
+	slices.SortFunc(out, func(a, b PortRange) int {
+		if c := cmp.Compare(a.Start, b.Start); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.End, b.End)
+	})
+	return slices.Compact(out)
+}
+
 // Clone returns an independent deep copy of c.
 func (c Config) Clone() Config {
 	return c.Normalize(layer.Env{})
@@ -218,7 +241,7 @@ func (c Config) Validate(_ layer.Env) error {
 			}
 
 			for _, p := range r.Match.Src {
-				if !p.IsValid() {
+				if !p.IsValid() || p.Addr().Is4In6() {
 					return errs.New().
 						Attr("set", name).
 						Attr("rule_index", i).
@@ -226,7 +249,7 @@ func (c Config) Validate(_ layer.Env) error {
 				}
 			}
 			for _, p := range r.Match.Dst {
-				if !p.IsValid() {
+				if !p.IsValid() || p.Addr().Is4In6() {
 					return errs.New().
 						Attr("set", name).
 						Attr("rule_index", i).

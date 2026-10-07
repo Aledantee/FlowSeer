@@ -193,6 +193,34 @@ The candidate is chosen by hashing the packet's layer 3 flow with FNV-1a
 2. Destination address (4 or 16 octets).
 3. IPv6 flow label (4 octets, big-endian uint32). IPv4 contributes nothing here.
 
+`Originate` hashes the family's unspecified address and the destination, with
+flow label zero. Selecting the egress first lets it choose a source on that
+interface, as [RFC 1122 section 3.3.4.3](https://www.rfc-editor.org/rfc/rfc1122#section-3.3.4.3)
+suggests and [RFC 6724 Rule 5](https://www.rfc-editor.org/rfc/rfc6724#section-5)
+prefers. A destination wider than link-local scope prefers a non-link-local
+source of the same family whenever the VRF has one. A destination of link-local
+scope or narrower prefers a link-local source on the egress interface when it
+has one ([RFC 6724 sections 3.1 and 5 Rule 2](https://www.rfc-editor.org/rfc/rfc6724#section-3.1)).
+This includes IPv6 multicast scopes 0, 1, and 2. The layer departs from
+[RFC 6724 section 3.2](https://www.rfc-editor.org/rfc/rfc6724#section-3.2)
+by treating IPv4 multicast `224.0.0.0/24` as link-local and `127/8` as global
+([linkLocalScope](layer.go)).
+The caller's payload contributes nothing to selection.
+
+```mermaid
+flowchart TD
+    route[Select egress with unspecified source hash] --> scope[Keep eligible source scopes]
+    scope --> prefix{Egress prefix contains on-link next hop?}
+    prefix -- Yes --> matched[Use address with longest matching prefix]
+    prefix -- No --> family{Egress has address of destination family?}
+    family -- Yes --> egress[Use egress first address of family]
+    family -- No --> vrf[Use VRF first address of family by interface name]
+```
+
+For `192.0.2.5` via `10.0.2.254` on `b0` at `10.0.2.1/24`, the source is
+`10.0.2.1`, even when `a0` has `10.0.1.1/24`.
+
+
 Nothing else enters. No protocol octet, no ports. This is what a router nobody
 configured hashes: Cisco CEF's default per-destination load sharing takes the
 source and destination addresses with no transport fields, and Linux's default
@@ -247,8 +275,7 @@ or below. Flows near a region's lower edge do move, which is the 1/4 to 1/2 abov
 There is no bucket table and no remembered state, unlike the bond hash in
 `lag`, which persists a flow across a member's return. The routing table is
 rebuilt whole on every `Derive`, and hash-threshold gives the disruption bound
-with nothing to keep. `Originate` selects the same way, over the source address
-it chose and the destination, so it reads nothing from the caller's payload.
+with nothing to keep.
 
 ## Recursive next hops
 
@@ -299,94 +326,107 @@ input.
 A withdrawal, a `neighbor-miss`, and a `neighbor-pending` are three different
 answers. A withdrawn route means no chain of routes reaches the next hop, and
 it is decided once, when the table is built. A `neighbor-miss` means the VRF
-will never resolve the next hop to a MAC address — it does not observe
-neighbors at all, or it already tried and gave up. A `neighbor-pending` means
-the table reached the next hop and resolution is still in progress; the next
-section describes when a lookup lands on which of the two.
+cannot solicit the next hop: it does not observe neighbors at all, or the
+interface has no address of the required family. A `neighbor-pending` means
+the table reached the next hop and resolution is still in progress.
 
 ## Neighbor lifecycle
 
-A neighbor entry occupies one of five states: `Unobserved` (no entry — the
-zero value; under `NeighborDisabled`, a lookup that finds nothing reports it
-directly, rendered by the trace as an empty `state`), `Incomplete`,
-`Reachable`, `Stale`, and `Failed`. The set is RFC 4861 section 7.3.2's IPv6
-state machine, which netsim also runs for ARP: Linux keeps one neighbour table
-for both families, and inventing a second vocabulary for IPv4 would buy
-nothing a shared one does not already say. `Delay` and `Probe` are
-deliberately absent — both exist only to schedule a unicast solicitation
-toward Neighbor Unreachability Detection, and netsim never solicits, so no
-input can reach either one. A state a test can never drive is worse than no
-state at all.
+Observed entries follow [RFC 4861](https://www.rfc-editor.org/rfc/rfc4861.txt)
+sections 7.2.2, 7.3.3, and Appendix C. ARP uses this same machine, with
+[RFC 826](https://www.rfc-editor.org/rfc/rfc826.txt)'s request layout and
+[RFC 1122](https://www.rfc-editor.org/rfc/rfc1122.txt) section 2.3.2.1's
+request rate and unicast polling rule. Configured entries stay `Reachable`
+with no expiry and ignore observations.
 
-A configured `routing.Neighbor` enters the table as `Reachable` with no
-expiry, so a static binding never ages out; that is `New`'s job, not the state
-machine's. Every entry also carries an internal origin, `configured` or
-`observed`, in the same vocabulary `bridge.Origin` and `mcast.Origin` use for
-their own retained records; `Observe` reads it to refuse ever overwriting a
-configured binding, and the `routing.neighbor_decision` trace fact a lookup
-produces names it alongside the state and the bound MAC. There is no second,
-exported `Lifetime` field here: the five-state machine above already answers
-"does this age" with more precision than a boolean would, so the origin axis
-stands alone. Everything else on the table is driven by three calls:
+```mermaid
+stateDiagram-v2
+    [*] --> Incomplete: frame held, solicitation sent
+    Incomplete --> Incomplete: RetransTimer, fewer than 3 sent
+    Incomplete --> [*]: RetransTimer after the third
+    Incomplete --> Reachable: solicited reply
+    Incomplete --> Stale: other message with an address
+    Reachable --> Stale: ReachableTime
+    Stale --> Delay: frame sent on cached MAC
+    Delay --> Probe: 5 seconds, unicast solicitation
+    Delay --> Reachable: solicited reply
+    Probe --> Probe: RetransTimer, fewer than 3 sent
+    Probe --> Reachable: solicited reply
+    Probe --> [*]: RetransTimer after the third
+```
 
-- **`Layer.Observe(now, Advertisement)`** applies RFC 4861 section 7.2.5 to
-  an observed link-layer address binding, over both families through one
-  family-neutral record. `Advertisement` carries the interface, the address,
-  the MAC, whether a link-layer address was supplied at all, and the
-  solicited, override, and router flags. If no entry exists for the address,
-  Observe does nothing — "there is no need to create an entry if none exists,
-  since the recipient has apparently not initiated any communication with the
-  target." An `Incomplete` entry records the address and moves to `Reachable`
-  when the advertisement is solicited or to `Stale` otherwise (Override is
-  ignored in this case). Elsewhere, Override clear and a differing address
-  moves a `Reachable` entry to `Stale` without adopting the new address, and
-  leaves any other state untouched; Override set (or no address supplied, or
-  the address already matches) updates the cache, landing on `Reachable` when
-  solicited or `Stale` when the update changed the address.
+`Unobserved` is the zero value for an absent entry. A committing lookup
+under `NeighborObserved` holds the frame and returns the first solicitation
+in `Result.Emissions`. Without an egress address of the target's family,
+it returns `neighbor-miss` and emits nothing. The source address is the
+egress address whose prefix contains the target, else the interface's first address
+of that family. ARP broadcasts a request. IPv6 sends a Neighbor Solicitation
+to the solicited-node group, with the source link-layer option. Its group
+uses the target's low 24 bits ([RFC 4291](https://www.rfc-editor.org/rfc/rfc4291.txt)
+section 2.7.1), mapped to Ethernet by
+[RFC 2464](https://www.rfc-editor.org/rfc/rfc2464.txt) section 7.
 
-  ARP has no solicited or override flags of its own, so the switch maps
-  them: a reply becomes `{Solicited: true, Override: true, Router: false}`
-  and a request's sender fields become
-  `{Solicited: false, Override: true, Router: false}`. RFC 826's merge rule
-  overwrites a known sender's hardware address unconditionally, which is what
-  `Override: true` produces under rule II regardless of which family sent it;
-  `Solicited` then carries the one difference the RFC 4861 table needs: a
-  reply confirms the forward path a solicitation was sent on, and a request
-  only refreshes the binding.
+`Advance` returns at most one due solicitation per neighbor at its input
+time and schedules the next one `RetransTimer` later. After the third
+unanswered solicitation, it deletes the entry and reports held frames as
+`HeldTimedOut`. Later traffic can start resolution again. A lookup judges
+reachability at its own time, even without prior aging. A committing Stale
+lookup forwards and starts Delay. Delay and Probe forward on the cached
+MAC. Probes send to that MAC, and for IPv6 to the target IP address.
+`NextWake` reports the earliest Incomplete, Delay, or Probe deadline.
 
-- **`Layer.Advance(now)`** and **`Layer.DrainExits()`** turn a state change into an effect.
-  `Advance` applies RFC 4861 reachability expiry to move `Reachable` entries whose
-  expiry has passed to `Stale`, then settles hold queues across all VRFs. Every frame that
-  leaves a hold queue is reported by `DrainExits`, each carrying the
-  `HeldCause` that says how it left: `HeldReleased`, `HeldTimedOut`, or
-  `HeldEvicted`. An `Incomplete` entry whose resolution deadline has passed
-  becomes `Failed` and its held frames exit `HeldTimedOut`, still carried
-  rather than discarded — nothing here ever generates the retransmissions RFC
-  4861 counts against, so `Failed` names a timeout and never an exhausted
-  solicitation count. Any entry that already holds frames and is no longer
-  `Incomplete` (because `Observe` resolved it since the previous `Advance`) has
-  them exit `HeldReleased`. Calling `DrainExits` drains waiting exits, so calling
-  it again before anything else changes reports nothing further. Exits are
-  ordered by VRF name, then interface, then address, so a caller turning them
-  into emissions or trace steps does not inherit Go map order.
-  `Layer.NextWake()` reports the earliest `Incomplete` deadline.
+`Receive(now, iface, frame)` processes only frames addressed to the
+interface's MAC, ARP broadcast, or IPv6 all-nodes and local solicited-node
+MACs. [ndp.Decode](../../../net/ndp/ndp.go) checks hop limit 255, checksum,
+code zero, minimum message length, a unicast target, and option lengths up
+to the first matching link-layer option. An unspecified solicitation source
+must have no source link-layer option. For that source, [Receive](receive.go)
+checks that the destination is solicited-node multicast. It rejects solicited advertisements
+to multicast IPv6 destinations. These checks implement part of
+[RFC 4861](https://www.rfc-editor.org/rfc/rfc4861.txt) section 7.1.
 
-  One slice with a cause on each element, rather than one slice per cause: a
-  reader that switches on the cause cannot silently inherit a meaning from
-  whichever slice it drained, which is how an evicted frame came to be
-  reported as a neighbor miss. What a caller then does with a released frame,
-  and whether that succeeds, is the caller's own answer to report — it is not
-  a fourth cause here.
+ARP reception follows [RFC 826](https://www.rfc-editor.org/rfc/rfc826.txt):
+merge an existing sender before checking the target, create a Stale sender
+entry when the interface holds the target, and answer a local request.
+A reply confirms an existing entry, while a request supplies an unsolicited
+override update. An ARP probe's zero sender address changes no entry
+([RFC 5227](https://www.rfc-editor.org/rfc/rfc5227.txt) section 2.1.1).
 
-A `Stale` entry forwards on its cached MAC and stays `Stale`. RFC 4861
-section 7.3.2 says of `STALE` that "until traffic is sent to the neighbor, no
-attempt should be made to verify its reachability," and real gear would move
-to `Delay` and start probing on the next send; netsim has no probe to send,
-so it forwards and leaves the state alone. Treating a `Stale` hit as a drop
-would reintroduce exactly the invented failure this lifecycle exists to
-remove.
+A Neighbor Solicitation for a local target learns its IP source from the
+Source Link-Layer Address option as RFC 4861 section 7.2.3 specifies.
+A non-local target is discarded before learning. The answer follows
+section 7.2.4, with Router and Override set, and Solicited set only for a
+specified source. A specified source receives a unicast answer at its
+option's MAC, else its cached MAC. An unspecified source receives an
+all-nodes advertisement and leaves no entry.
+
+Advertisements apply section 7.2.5 only to existing observed entries.
+An Incomplete entry needs a Target Link-Layer Address option, then becomes
+Reachable for a solicited advertisement or Stale otherwise. Override clear
+with a changed MAC makes a Reachable entry Stale without changing its MAC,
+and leaves other states alone. A solicited update under Override, an equal
+MAC, or no supplied MAC confirms reachability. An unsolicited changed MAC
+makes the entry Stale. Configured entries never change. `NeighborDisabled`
+answers solicitations while keeping the configured table unchanged.
+
+`DrainExits` reports each queued frame once, as `HeldReleased`,
+`HeldTimedOut`, or `HeldEvicted`. Within one `Advance`, exits are ordered by
+VRF, interface, and address. A committing lookup or `Receive` appends an
+exhausted entry's exits at call time.
+`Advance` releases queues whose entries resolved. `FailHeld` returns waiting
+exits and remaining held frames, then deletes Incomplete entries.
 
 ### The hold queue
+
+Each queued frame receives a `HoldToken`, starting at 1 for each layer.
+`Result.Hold` returns it at enqueue and `HeldFrame.Token` returns it on
+release, eviction, or timeout, so a caller can match an exit to its call.
+Tokens are never reused within a layer. `Clone` copies the counter and
+the queued tokens, so both forks mint the same next token. A rebuilt layer
+starts at 1 after `FailHeld` returns its predecessor's frames.
+`HeldFrame.Ingress` names the interface passed to `Route`, and is empty
+for `Originate`, on every cause. A non-committing call returns a zero
+`Hold` because it queues no frame.
 
 Under `NeighborObserved`, a `Route` or `Originate` call that misses the
 table and is told to `commit` creates an `Incomplete` entry (if one does not
@@ -398,8 +438,9 @@ defaults to 3 rather than the permitted minimum of 1, because an analysis
 library is asked which of several frames arrived, and a depth of 1 answers
 that for the last one only.
 
-The replaced frame is not discarded: it surfaces in `DrainExits` after the next `Advance` as a
-`HeldEvicted` exit, under its own reason `neighbor-hold-overflow`. That reason
+The replaced frame surfaces in `DrainExits` after the next `Advance` or a
+committing lookup or `Receive` retires its exhausted neighbor entry, as a
+`HeldEvicted` exit under its own reason `neighbor-hold-overflow`. That reason
 is deliberately not `neighbor-miss`, because the neighbor may well resolve,
 and on a queue that overflowed because frames kept arriving it usually does —
 often on the same `Advance` that reports the eviction.
@@ -408,20 +449,44 @@ often on the same `Advance` that reports the eviction.
 `neighbor-pending` without creating an entry or queuing anything, so
 `Switch.Peek` can be called any number of times without perturbing what a
 later commit sees, and two consecutive comparisons of the same pair of
-switches agree. Under `NeighborDisabled`, or against an entry already
-`Failed`, both values of `commit` report `neighbor-miss` and change nothing —
-there is nothing pending to preview.
+switches agree. Under `NeighborDisabled`, both values of `commit` report `neighbor-miss`
+and change nothing.
 
 ### Policy
 
-`VRF.NeighborPolicy` holds `Mode` (`NeighborObserved`, the zero value, or
-`NeighborDisabled`), `ReachableTime`, `ResolutionTimeout`, and `HoldDepth`.
-Left at zero, the timers and depth normalize to the RFC 4861 section 10
-defaults: `ReachableTime` 30 seconds, `ResolutionTimeout` 3 seconds
-(`MAX_MULTICAST_SOLICIT` × `RETRANS_TIMER`, 3 × 1 second), and `HoldDepth` 3.
-`NeighborDisabled` is for a VRF — a host stack, say — that never resolves an
-address it was not told about: every miss there is `neighbor-miss`, never
-`neighbor-pending`.
+`VRF.NeighborPolicy` holds `Mode`, `ReachableTime`, `RetransTimer`, and
+`HoldDepth`. Defaults are 30 seconds, 1 second, and 3 frames respectively.
+The delay is 5 seconds and each resolution or probe cycle sends at most
+3 solicitations, from RFC 4861 section 10. `NeighborDisabled` never
+solicits or holds a frame for an absent binding.
+
+### Limits
+
+- Neither `Receive` nor `ndp.Decode` checks IPv6 Next Header 58. The
+  [switch reception predicate](../../device/vswitch/switch.go) checks it.
+- `ndp.Decode` stops option validation at the first matching link-layer
+  option. Options after it are unchecked, unlike RFC 4861 section 7.1.
+- The layer returns no ICMP error for any drop, including no-route, hop
+  limit, neighbor-miss, and hold overflow. RFC 4861 section 7.2.2 requires
+  an ICMP Address Unreachable error for each packet queued by failed
+  resolution.
+- No Router Solicitation, Router Advertisement, Redirect, Duplicate Address
+  Detection, proxy or anycast advertisement, or IsRouter entry flag.
+- No MLD group join. RFC 4861 section 7.2.1 requires joining all-nodes
+  and each assigned address's solicited-node group. The switch hands the
+  layer frames its interface receives. A snooping VLAN that does not flood unregistered groups sends
+  the layer's solicitation only to listeners and router ports.
+- `ReachableTime` is the configured value, without the randomization RFC
+  4861 section 6.3.2 describes, so simulations repeat.
+- No upper-layer reachability hint from RFC 4861 section 7.3.1. Only a
+  solicited reply confirms reachability.
+- Every ARP reply counts as solicited. RFC 826's intent for an unrequested
+  reply is unverified.
+- No removal of an unused entry.
+- A unicast Neighbor Advertisement is not sent when neither the
+  solicitation's source link-layer option nor a resolved cache entry
+  supplies the destination MAC. RFC 4861 section 7.2.4 calls for resolving
+  that source first, which the layer does not initiate on receipt.
 
 ## State retention
 

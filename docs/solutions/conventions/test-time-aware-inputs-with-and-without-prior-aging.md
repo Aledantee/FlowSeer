@@ -10,8 +10,9 @@ severity: high
 applies_when:
   - "Testing a time-aware operation that must give the same answer whether or not its caller first ages stored state"
   - "Reviewing a compatibility guard or shortcut that reads stored timers before an input reaches the aging helper"
-related_components: [conformance-gates]
-tags: [testing, timers, state-machine, multicast]
+  - "An aging fix at one entry point leaves another path able to reuse or revive expired state"
+related_components: [conformance-gates, src/common/sim/layer/routing]
+tags: [testing, timers, state-machine, multicast, property-tests]
 ---
 
 # Test time-aware inputs with and without prior aging
@@ -24,9 +25,8 @@ Commit `bd46dfa7` removed that shape from `learnGroupRecord` and
 
 The time-aware multicast contract is already decided in
 [`2026-09-10-virtual-device-direction.md`](../../architecture/2026-09-10-virtual-device-direction.md)
-at lines 519-523.
-The reusable lesson is how to test it at input boundaries, including
-guards that can prevent the shared transition code from running.
+at lines 519-523. Test it at input boundaries, including guards before the
+shared transition code.
 
 ## Compare two copies at the same time
 
@@ -79,15 +79,44 @@ if got, want := unaged.Groups(vid, now), aged.Groups(vid, now); !reflect.DeepEqu
 }
 ```
 
-Commit `bd46dfa7` quotes the failing mutation:
+## Cover every entry point into the same mechanism
 
+A lookup fix can leave reception able to revive the expired entry. Commit
+`3e6aed96` records a failing mutation that retains retirement in lookup
+and `Advance` but removes it from reception. Extend the comparison across
+entry points and states when another path exposes the same missed property.
+
+`TestNeighborEntryPointsMatchPriorAdvance` enumerates seven state and
+transmission-count scenarios against committing and read-only routing calls,
+ARP reception, and Neighbor Discovery reception in both address families
+(`src/common/sim/layer/routing/neighbor_internal_test.go:156-181`). Its
+literal count guard requires 105 cases (`:315-317`).
+
+For example, seed an exhausted Probe entry with a held frame and deliver a
+solicitation without a link-layer option at `t0+40s` to both copies. Retain
+the exits drained by the first `Advance`. Compare results, emissions,
+neighbors, next wake, and exit causes by token, then assert read-only calls
+leave both copies unchanged (`:212-225,279-309`). The concrete timeout
+assertion at `:221-224` is:
+
+```go
+if !slices.ContainsFunc(agedExits, func(exit HeldFrame) bool {
+    return exit.Cause == HeldTimedOut && exit.Token == queued.Hold
+}) {
+    t.Fatalf("Advance exits %v omit timed-out token %d", agedExits, queued.Hold)
+}
+```
+
+Commit `3e6aed96` quotes the reception-only mutation's failure:
 ```text
---- FAIL: TestLearnExpiredCompatibilityMatchesAdvance/IGMP/TO_IN (0.00s)
+--- FAIL: TestNeighborEntryPointsMatchPriorAdvance/2001:db8:10::11/probe-exhausted/solicitation-no-option (0.00s)
 ```
 
 ## Scope
 
 Apply this comparison when caller aging must be optional. It does not
 establish the protocol's transition rules or prove every table row
-discriminates a particular guard. The concrete expected assertions and
-the recorded mutation establish that for the IGMP `TO_IN` case.
+discriminates a particular guard. Preserve side effects from prior aging
+when comparing paths, since equal final state can hide a missing timeout
+exit. The routing comparison checks exit causes and uniqueness, but does
+not compare exit ordering or every held-frame field (`:298-309`).

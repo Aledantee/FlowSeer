@@ -94,7 +94,7 @@ const (
 	ReasonTTLExpired trace.Reason = "ttl-expired"
 
 	// ReasonNeighborMiss indicates a frame dropped because the VRF does not resolve neighbors,
-	// or because a prior resolution attempt for the next hop already failed.
+	// or because the egress interface has no address of the next hop's family.
 	ReasonNeighborMiss trace.Reason = "neighbor-miss"
 
 	// ReasonNeighborHoldOverflow indicates a frame dropped because a newer frame for the same
@@ -123,12 +123,39 @@ const (
 // Result records the trace steps, egress interface, outcome reason, egress frame, and
 // equal-cost candidate set produced by layer 3 routing or packet origination.
 type Result struct {
+	// Emissions carries solicitations created by a committing neighbor lookup.
+	Emissions []layer.Emission
+	// VRF names the known routing context, including refused lookups.
+	VRF string
+	// NextHop is the on-link neighbor lookup address once a route is selected.
+	NextHop netip.Addr
+	// Hold identifies the frame queued by a committing call. Zero means none was queued.
+	Hold            HoldToken
 	Steps           []trace.Step
 	Reason          trace.Reason
 	Interface       string
 	candidates      []candidate
 	Frame           ethernet.Frame
 	consultedScopes []analysis.Scope
+}
+
+// Outcome reports whether routing forwarded, consumed, held, or dropped the frame.
+func (r Result) Outcome() trace.Outcome {
+	switch r.Reason {
+	case "":
+		return trace.Forwarded
+	case ReasonNotRouted:
+		return trace.Consumed
+	case ReasonNeighborPending:
+		return trace.Held
+	default:
+		return trace.Dropped
+	}
+}
+
+// Status returns Complete because routing reports a definite domain outcome.
+func (r Result) Status() analysis.Status {
+	return analysis.Complete
 }
 
 // candidate is one route of the equal-cost set a lookup chose from: the routes whose prefix
@@ -272,7 +299,7 @@ func (vs *vrfState) clone() *vrfState {
 // and Ethernet frames, maintaining per-VRF forwarding and neighbor tables.
 //
 // A Layer is not safe for concurrent use: [Layer.Route] and [Layer.Originate] mutate the
-// neighbor table and its hold queues when called with commit set, and [Layer.Observe]
+// neighbor table and its hold queues when called with commit set, and [Layer.Receive]
 // and [Layer.Advance] always do.
 type Layer struct {
 	nodeID   string
@@ -282,6 +309,7 @@ type Layer struct {
 	ifaces   map[string]Interface
 	vrfs     map[string]*vrfState
 	exits    []HeldFrame
+	lastHold HoldToken
 }
 
 // New normalizes and constructs a [Layer] from the provided configuration and
@@ -632,7 +660,7 @@ func candidateSet(entries []routeEntry) []candidate {
 }
 
 func (l *Layer) result(vrf string) Result {
-	var result Result
+	result := Result{VRF: vrf}
 	result.consult(analysis.ProtocolScope(l.nodeID, string(LayerName), vrf))
 	return result
 }
@@ -748,7 +776,7 @@ func (l *Layer) Interface(name string) (Interface, bool) {
 // the frame with [ReasonTTLExpired] (RFC 1812 section 5.3.1). If no route matches the
 // destination, Route drops with [ReasonNoRoute] (RFC 1812 section 5.2.4.3). If the next
 // hop's neighbor entry cannot resolve it, either because the VRF never resolves neighbors
-// or because a prior resolution attempt already failed, Route drops with
+// or because the egress interface has no address of the next hop's family, Route drops with
 // [ReasonNeighborMiss]; if the next hop is simply unresolved yet under [NeighborObserved],
 // Route reports [ReasonNeighborPending] instead — see the package README's "Neighbor
 // lifecycle" section.
@@ -776,14 +804,15 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 	hdr, payload, err := ip.Decode(f.Payload)
 	// The egress frame keeps the EtherType, so a header whose family the
 	// EtherType does not name would leave with a label no receiver can parse.
-	if err == nil && (hdr.Version() == 4) != (f.EtherType == ethernet.EtherTypeIPv4) {
+	if err == nil && (hdr.Version() != 4 || f.EtherType != ethernet.EtherTypeIPv4) &&
+		(hdr.Version() != 6 || f.EtherType != ethernet.EtherTypeIPv6) {
 		err = errs.New().Attr("field", "version").Msg("IP version disagrees with the frame's EtherType")
 	}
 	classifyReason := trace.Reason("")
 	if err != nil {
 		classifyReason = ReasonBadHeader
 	}
-	var res Result
+	res := Result{VRF: vrfName}
 	res.Steps = append(res.Steps, trace.Step{
 		Layer:   LayerName,
 		Op:      trace.OpClassify,
@@ -877,6 +906,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 
 	targetIface := matchedRoute.Interface
 	res.Interface = targetIface
+	res.NextHop = targetAddr
 
 	// Encode before resolving, in the egress form both paths use: heldHdr's hop limit is already
 	// decremented, the same value the direct path's newHdr computes below, so one encode here
@@ -900,13 +930,16 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrf.resolveNeighbor(now, key, commit, func() heldEntry {
+	lookup := l.resolveNeighbor(vrf, now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// heldHdr is already encoded above, so finishHeld need not (and must not) decrement it
 		// again once resolution completes.
 		pcp, dei := f.Priority()
-		return heldEntry{iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload, pcp: pcp, dei: dei}
+		l.lastHold++
+		res.Hold = l.lastHold
+		return heldEntry{token: res.Hold, ingress: iface, iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload, pcp: pcp, dei: dei}
 	})
 
+	res.Emissions = lookup.emissions
 	if lookup.state == NeighborIncomplete {
 		res.Reason = ReasonNeighborPending
 		res.Steps = append(res.Steps, trace.Step{
@@ -958,24 +991,43 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 // Originate builds and encapsulates an IP datagram generated by the device itself
 // for transmission towards dst within the named VRF.
 //
-// The source address is chosen among the VRF's interface addresses matching the destination
-// family by longest matching prefix (RFC 6724 section 5 rule 8; RFC 1122 section 3.3.4.3),
-// falling back to the first configured address of that family. The datagram transmits with
-// hop limit 64 direct on connected prefixes and via gateway otherwise (RFC 1122 section 3.3.1.1).
+// The route hashes the family's unspecified address and dst, with flow label zero.
+// Destinations wider than link-local scope prefer a non-link-local source when
+// the VRF has one of the family. Destinations at link-local scope or narrower
+// prefer a link-local egress source (RFC 6724 sections 3.1 and 5 rule 2).
+// Among eligible addresses,
+// the source is the egress address whose longest prefix holds the on-link next hop,
+// else the egress interface's first address of the family, else the VRF's first
+// (RFC 1122 section 3.3.4.3 and RFC 6724 section 5 rule 5). The datagram transmits
+// with hop limit 64, directly on connected prefixes and via a gateway otherwise.
 //
 // now and commit govern the neighbor lookup exactly as they do for [Layer.Route]: now is the
 // instant the neighbor lifecycle reasons against, and with commit clear Originate never creates
 // an entry or queues a frame.
 func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol uint8, payload []byte, commit bool) Result {
+	res := l.result(vrf)
 	vrfState, ok := l.vrfs[vrf]
 	if !ok {
-		res := l.result(vrf)
 		res.Steps = []trace.Step{
 			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
 			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
 		}
 		res.Reason = ReasonNoRoute
 		return res
+	}
+
+	// The source depends on the selected egress, so route selection hashes an
+	// unspecified source rather than a source from a not-yet-selected interface.
+	hashSrc := netip.IPv6Unspecified()
+	if dst.Is4() {
+		hashSrc = netip.IPv4Unspecified()
+	}
+	sel := selectRoute(vrfState.lookup(dst), hashSrc, dst, 0)
+	if sel != nil {
+		res.NextHop = dst
+		if nextHop := sel.route().resolvedNextHop; nextHop.IsValid() {
+			res.NextHop = nextHop
+		}
 	}
 
 	ifaceNames := make([]string, 0, len(vrfState.interfaces))
@@ -984,24 +1036,43 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	}
 	slices.Sort(ifaceNames)
 
-	var (
-		srcAddr   netip.Addr
-		bestBits  = -1
-		firstAddr netip.Addr
-	)
-
+	var srcAddr, firstAddr netip.Addr
 	for _, name := range ifaceNames {
-		iface := vrfState.interfaces[name]
-		for _, p := range iface.Prefixes {
-			if (dst.Is4() && p.Addr().Is4()) || (dst.Is6() && p.Addr().Is6()) {
-				if !firstAddr.IsValid() {
-					firstAddr = p.Addr()
-				}
-				if p.Contains(dst) && p.Bits() > bestBits {
-					bestBits = p.Bits()
-					srcAddr = p.Addr()
-				}
+		for _, p := range vrfState.interfaces[name].Prefixes {
+			if p.Addr().Is4() != dst.Is4() {
+				continue
 			}
+			if !firstAddr.IsValid() || (!linkLocalScope(dst) && firstAddr.IsLinkLocalUnicast() && !p.Addr().IsLinkLocalUnicast()) {
+				firstAddr = p.Addr()
+			}
+		}
+	}
+	preferScope := !linkLocalScope(dst) && firstAddr.IsValid() && !firstAddr.IsLinkLocalUnicast()
+	if sel != nil {
+		route := sel.route()
+		preferLocal := linkLocalScope(dst) && slices.ContainsFunc(vrfState.interfaces[route.Interface].Prefixes, func(p netip.Prefix) bool {
+			return p.Addr().Is4() == dst.Is4() && p.Addr().IsLinkLocalUnicast()
+		})
+		target := dst
+		if route.resolvedNextHop.IsValid() {
+			target = route.resolvedNextHop
+		}
+		bestBits := -1
+		var egressFirst netip.Addr
+		for _, p := range vrfState.interfaces[route.Interface].Prefixes {
+			if p.Addr().Is4() != dst.Is4() || (preferScope && p.Addr().IsLinkLocalUnicast()) || (preferLocal && !p.Addr().IsLinkLocalUnicast()) {
+				continue
+			}
+			if !egressFirst.IsValid() {
+				egressFirst = p.Addr()
+			}
+			if p.Contains(target) && p.Bits() > bestBits {
+				srcAddr = p.Addr()
+				bestBits = p.Bits()
+			}
+		}
+		if !srcAddr.IsValid() {
+			srcAddr = egressFirst
 		}
 	}
 
@@ -1009,7 +1080,6 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		srcAddr = firstAddr
 	}
 	if !srcAddr.IsValid() {
-		res := l.result(vrf)
 		res.Steps = []trace.Step{
 			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
 			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Dst: dst}, false, ReasonNoRoute)}},
@@ -1018,11 +1088,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		return res
 	}
 
-	// An originated datagram carries no flow label, so the address pair is the whole hash
-	// input and nothing is read from the caller's payload.
-	sel := selectRoute(vrfState.lookup(dst), srcAddr, dst, 0)
 	if sel == nil {
-		res := l.result(vrf)
 		res.Steps = []trace.Step{
 			{Layer: LayerName, Op: trace.OpLookup, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "ip", Key: dst.String()}, Outputs: []trace.Fact{routeSnapshot(vrf, dst, nil)}},
 			{Layer: LayerName, Op: trace.OpDrop, RuleID: RuleNoRoute, Subject: trace.Subject{Kind: "vrf", Key: vrf}, Outputs: []trace.Fact{packetSnapshot("", ethernet.Frame{}, ip.Header{Src: srcAddr, Dst: dst}, false, ReasonNoRoute)}},
@@ -1064,8 +1130,6 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		etherType = ethernet.EtherTypeIPv6
 	}
 
-	res := l.result(vrf)
-
 	// Encode before resolving. A datagram Encode refuses is refused the same way whether or not
 	// its next hop is known: queued on an unresolved next hop it would be re-encoded at release,
 	// fail there, and leave the hold queue by a path nothing reports. The bytes are kept for the
@@ -1090,15 +1154,18 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrfState.resolveNeighbor(now, key, commit, func() heldEntry {
+	lookup := l.resolveNeighbor(vrfState, now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// hdr's hop limit is already 64, the egress form Originate's direct path below encodes
 		// unchanged, so nothing is decremented before queuing (contrast Route's closure, which
 		// decrements here because its direct path does too). pcp and dei are left at their zero
 		// value: Originate has no ingress frame to read a priority from, since the datagram is
 		// generated by the device itself rather than received and forwarded.
-		return heldEntry{iface: targetIface, etherType: etherType, header: hdr, payload: payload}
+		l.lastHold++
+		res.Hold = l.lastHold
+		return heldEntry{token: res.Hold, iface: targetIface, etherType: etherType, header: hdr, payload: payload}
 	})
 
+	res.Emissions = lookup.emissions
 	if lookup.state == NeighborIncomplete {
 		res.Steps = slices.Clone(steps)
 		res.Steps = append(res.Steps, trace.Step{
@@ -1145,16 +1212,27 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 	return res
 }
 
+// linkLocalScope includes multicast interface-local and link-local destinations
+// in the scope comparison with unicast sources (RFC 6724 section 3.1),
+// including IPv6 multicast scope 0. The layer departs from section 3.2 by
+// treating IPv4 224.0.0.0/24 as link-local and 127/8 as global.
+func linkLocalScope(addr netip.Addr) bool {
+	if addr.Is6() && addr.IsMulticast() {
+		return addr.As16()[1]&15 <= 2
+	}
+	return addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast()
+}
+
 // RetentionKey returns a canonical encoding of every normalized input the layer's
-// runtime state depends on: its own configuration as Diff sees it and the port link
-// states for interfaces that reference a port.
+// runtime state depends on: the node identity, its own configuration as Diff sees
+// it, and the port link states for interfaces that reference a port.
 func RetentionKey(cfg Config, env layer.Env) string {
 	if len(cfg.VRFs) == 0 {
 		return ""
 	}
 	norm := cfg.Normalize(env)
 	var b strings.Builder
-	b.WriteString("config=")
+	fmt.Fprintf(&b, "config=node_id=%q;", env.NodeID)
 	var ifacePorts []string
 	vrfNames := make([]string, 0, len(norm.VRFs))
 	for name := range norm.VRFs {

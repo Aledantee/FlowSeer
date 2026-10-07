@@ -1519,8 +1519,14 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
-	if _, ok := fab.Step(); !ok {
-		t.Fatal("fab.Step failed")
+	for {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("fab.Step failed before reply")
+		}
+		neighbors := fab.Snapshot().Devices["sw1"].Neighbors
+		if len(neighbors) == 1 && neighbors[0].State == routing.NeighborReachable {
+			break
+		}
 	}
 
 	snap2 := fab.Snapshot()
@@ -1536,15 +1542,21 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 	// Advance expiry alone: inject another ARP reply 10 seconds later from sw2.
 	// This updates the neighbor entry's internal expiry to (tLater + ReachableTime),
 	// but resolution state remains Reachable, MAC remains unchanged, hold depth remains 0.
+	confirmAt := snap2.Clock.Add(10 * time.Second)
 	if _, err := fab.Inject(Injection{
-		At:     snap2.Clock.Add(10 * time.Second),
+		At:     confirmAt,
 		Origin: Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame:  replyFrame,
 	}); err != nil {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
-	if _, ok := fab.Step(); !ok {
-		t.Fatal("fab.Step failed")
+	for fab.Snapshot().Clock.Before(confirmAt) {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("fab.Step failed before later confirmation")
+		}
+	}
+	if got := fab.Snapshot().Clock; !got.Equal(confirmAt) {
+		t.Fatalf("clock = %s, want confirmation at %s", got, confirmAt)
 	}
 
 	snap3 := fab.Snapshot()

@@ -3,6 +3,8 @@ package filter_test
 import (
 	"encoding/binary"
 	"net/netip"
+	"reflect"
+	"strings"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -235,7 +237,7 @@ func TestStatefulReplyReverseMatchAcceptsAndNamesForwardRule(t *testing.T) {
 	for _, f := range step.Inputs {
 		if f.TypeID() == "filter.rule_decision" {
 			canon := f.Canonical()
-			if canon == `set="lan-in";rule="allow-lan-to-srv-https";action="accept";direction="in";interface="vlan10"` {
+			if canon == `set="lan-in";rule="allow-lan-to-srv-https";index=0;action="accept";direction="in";interface="vlan10"` {
 				foundForwardRuleFact = true
 			}
 		}
@@ -248,7 +250,7 @@ func TestStatefulReplyReverseMatchAcceptsAndNamesForwardRule(t *testing.T) {
 	if len(step.Outputs) != 1 || step.Outputs[0].TypeID() != "filter.rule_decision" {
 		t.Fatalf("step outputs invalid: %+v", step.Outputs)
 	}
-	wantOutput := `set="srv-in";rule="state";action="accept";direction="in";interface="vlan20"`
+	wantOutput := `set="srv-in";rule="state";index=-1;action="accept";direction="in";interface="vlan20"`
 	if step.Outputs[0].Canonical() != wantOutput {
 		t.Errorf("step output = %q, want %q", step.Outputs[0].Canonical(), wantOutput)
 	}
@@ -333,7 +335,7 @@ func TestStatelessSetNeverConsultsCounterpart(t *testing.T) {
 	if len(resOwn.Steps) != 1 || resOwn.Steps[0].RuleID != filter.RuleAccept {
 		t.Errorf("own rule step rule ID = %v, want %v", resOwn.Steps[0].RuleID, filter.RuleAccept)
 	}
-	wantOutput := `set="srv-in-own-rule";rule="srv-accept-reply";action="accept";direction="in";interface="vlan30"`
+	wantOutput := `set="srv-in-own-rule";rule="srv-accept-reply";index=0;action="accept";direction="in";interface="vlan30"`
 	if resOwn.Steps[0].Outputs[0].Canonical() != wantOutput {
 		t.Errorf("own rule step output = %q, want %q", resOwn.Steps[0].Outputs[0].Canonical(), wantOutput)
 	}
@@ -779,5 +781,157 @@ func TestLayerCloneDecidesAsSource(t *testing.T) {
 	resCloneBlock := cloned.EvaluateIngress("vlan10", frameBlocked)
 	if resOrigBlock.Decision != resCloneBlock.Decision {
 		t.Errorf("blocked decision mismatch: orig=%v, clone=%v", resOrigBlock.Decision, resCloneBlock.Decision)
+	}
+}
+
+func TestUndecodedStatefulFrameTakesDefault(t *testing.T) {
+	for _, dir := range []filter.Direction{filter.In, filter.Out} {
+		t.Run(string(dir), func(t *testing.T) {
+			cfg := filter.Config{
+				Sets: map[string]filter.RuleSet{
+					"local": {Stateful: true, Default: filter.Drop},
+					"peer":  {Stateful: true, Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept}}},
+				},
+				Bindings: []filter.Binding{{Interface: "local", Direction: dir, Set: "local"}, {Interface: "peer", Direction: dir, Set: "peer"}},
+			}
+			l, err := filter.New(cfg, layer.Env{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			frame := ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: []byte{0x45, 0, 0, 4}}
+			var got filter.Result
+			if dir == filter.In {
+				got = l.EvaluateIngress("local", frame)
+				if got.Decision != filter.DecisionDrop {
+					t.Errorf("ingress decision = %s, want drop without deferral", got.Decision)
+				}
+				got = l.ResolveDeferred(got, "peer")
+			} else {
+				got = l.EvaluateEgress("local", "peer", frame)
+			}
+			if got.Decision != filter.DecisionDrop || len(got.Steps) != 1 || got.Steps[0].RuleID != filter.RuleDefault {
+				t.Fatalf("result = %+v, want drop under default", got)
+			}
+			if len(got.ConsultedScopes()) != 1 {
+				t.Errorf("scopes = %v, want only local scope", got.ConsultedScopes())
+			}
+		})
+	}
+}
+
+func TestUndecodedMatchFactHasEmptyAddresses(t *testing.T) {
+	l, err := filter.New(filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop}}, Bindings: []filter.Binding{{Interface: "i", Direction: filter.In, Set: "s"}}}, layer.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := l.EvaluateIngress("i", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: []byte{0x45, 0, 0, 4}})
+	want := `proto=0;src="";dst="";src_port=0;dst_port=0`
+	if got.Steps[0].Inputs[0].Canonical() != want {
+		t.Errorf("match = %q, want %q", got.Steps[0].Inputs[0].Canonical(), want)
+	}
+}
+
+func TestFilterRequiresEtherTypeFamilyMatch(t *testing.T) {
+	for _, family := range []int{4, 6} {
+		hdr := ip.Header{Protocol: 17, HopLimit: 64}
+		if family == 4 {
+			hdr.Src = netip.MustParseAddr("192.0.2.1")
+			hdr.Dst = netip.MustParseAddr("192.0.2.2")
+			hdr.V4 = &ip.V4{}
+		} else {
+			hdr.Src = netip.MustParseAddr("2001:db8::1")
+			hdr.Dst = netip.MustParseAddr("2001:db8::2")
+			hdr.V6 = &ip.V6{}
+		}
+		payload, err := hdr.Encode(nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, etherType := range []ethernet.EtherType{ethernet.EtherTypeIPv4, ethernet.EtherTypeIPv6, 0x0806, 0x88b5} {
+			t.Run(strings.Join([]string{hdr.Src.String(), etherType.String()}, "/"), func(t *testing.T) {
+				cfg := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: filter.Match{Protocol: new(uint8(17))}}}}}, Bindings: []filter.Binding{{Interface: "i", Direction: filter.In, Set: "s"}, {Interface: "i", Direction: filter.Out, Set: "s"}}}
+				l, err := filter.New(cfg, layer.Env{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				frame := ethernet.Frame{EtherType: etherType, Payload: payload}
+				want := filter.DecisionDrop
+				if family == 4 && etherType == ethernet.EtherTypeIPv4 || family == 6 && etherType == ethernet.EtherTypeIPv6 {
+					want = filter.DecisionAccept
+				}
+				for _, got := range []filter.Result{l.EvaluateIngress("i", frame), l.EvaluateEgress("i", "peer", frame)} {
+					if got.Decision != want {
+						t.Errorf("decision = %s, want %s", got.Decision, want)
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestRuleDecisionSeparatesNameAndIndex(t *testing.T) {
+	for _, name := range []string{"default", "state", ""} {
+		t.Run(name, func(t *testing.T) {
+			cfg := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Accept, Rules: []filter.Rule{
+				{Action: filter.Drop, Match: filter.Match{Protocol: new(uint8(6))}},
+				{Name: name, Action: filter.Accept, Match: filter.Match{Protocol: new(uint8(17))}},
+			}}}, Bindings: []filter.Binding{{Interface: "i", Direction: filter.In, Set: "s"}, {Interface: "i", Direction: filter.Out, Set: "s"}}}
+			l, err := filter.New(cfg, layer.Env{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			frame := makeUDPFrame(t, netip.MustParseAddr("192.0.2.1"), netip.MustParseAddr("192.0.2.2"), 1, 2)
+			for _, got := range []filter.Result{l.EvaluateIngress("i", frame), l.EvaluateEgress("i", "peer", frame)} {
+				want := `;rule="` + name + `";index=1;action=`
+				if !strings.Contains(got.Steps[0].Outputs[0].Canonical(), want) {
+					t.Errorf("decision fact = %q, want %q", got.Steps[0].Outputs[0].Canonical(), want)
+				}
+			}
+			got := l.EvaluateIngress("i", ethernet.Frame{})
+			if !strings.Contains(got.Steps[0].Outputs[0].Canonical(), `;rule="default";index=-1;action=`) {
+				t.Errorf("default fact = %q, want index -1", got.Steps[0].Outputs[0].Canonical())
+			}
+		})
+	}
+}
+
+func TestNormalizeCopiesProtocol(t *testing.T) {
+	proto := new(uint8(17))
+	cfg := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: filter.Match{Protocol: proto}}}}}, Bindings: []filter.Binding{{Interface: "i", Direction: filter.In, Set: "s"}}}
+	norm := cfg.Normalize(layer.Env{})
+	l, err := filter.New(cfg, layer.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	*proto = 6
+	if got := *norm.Sets["s"].Rules[0].Match.Protocol; got != 17 {
+		t.Errorf("normalized protocol = %d, want 17", got)
+	}
+	frame := makeUDPFrame(t, netip.MustParseAddr("192.0.2.1"), netip.MustParseAddr("192.0.2.2"), 1, 2)
+	if got := l.EvaluateIngress("i", frame); got.Decision != filter.DecisionAccept {
+		t.Errorf("decision = %s, want accept", got.Decision)
+	}
+}
+
+func TestNormalizeCanonicalizesMatchLists(t *testing.T) {
+	prefixes := []netip.Prefix{netip.MustParsePrefix("10.0.2.0/24"), netip.MustParsePrefix("10.0.1.5/24"), netip.MustParsePrefix("10.0.2.0/24"), netip.MustParsePrefix("10.0.1.128/25")}
+	ports := []filter.PortRange{{Start: 80, End: 90}, {Start: 1, End: 100}, {Start: 80, End: 90}, {Start: 80, End: 100}}
+	want := filter.Match{Src: []netip.Prefix{netip.MustParsePrefix("10.0.1.0/24"), netip.MustParsePrefix("10.0.1.128/25"), netip.MustParsePrefix("10.0.2.0/24")}, SrcPorts: []filter.PortRange{{Start: 1, End: 100}, {Start: 80, End: 90}, {Start: 80, End: 100}}}
+	want.Dst = append([]netip.Prefix(nil), want.Src...)
+	want.DstPorts = append([]filter.PortRange(nil), want.SrcPorts...)
+	a := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: filter.Match{Src: prefixes, Dst: prefixes, SrcPorts: ports, DstPorts: ports}}}}}}
+	b := filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: want}}}}}
+	got := a.Normalize(layer.Env{}).Sets["s"].Rules[0].Match
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("normalized match = %+v, want %+v", got, want)
+	}
+	if changes := filter.Diff(a, b); len(changes) != 0 {
+		t.Errorf("Diff = %+v, want empty", changes)
+	}
+	if filter.RetentionKey(a, layer.Env{}) != filter.RetentionKey(b, layer.Env{}) {
+		t.Error("retention keys differ")
+	}
+	if prefixes[1].String() != "10.0.1.5/24" || len(ports) != 4 {
+		t.Error("Normalize mutated source lists")
 	}
 }
