@@ -37,6 +37,14 @@ describe('frame chrome sources', () => {
     expect(panes?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
   })
 
+  it('lets the frame panel paint behind the topology canvas', () => {
+    const canvas = read('components/topology/TopologyGraph.vue').match(
+      /\.topology-graph\s*\{([^}]*)\}/,
+    )
+    expect(canvas).not.toBeNull()
+    expect(canvas?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
+  })
+
   it('does not collapse the page region into its parent', () => {
     const style = read('navigation/AppFrame.vue').split('<style')[1] ?? ''
     const rules = [...style.matchAll(/([^{}]+)\{([^{}]*)\}/g)]

@@ -426,7 +426,6 @@ function edgesChanged(changes: EdgeChange[]) {
 .topology-graph {
   position: relative;
   height: 100%;
-  background: var(--background);
 }
 .topology-graph :deep(.vue-flow__background) {
   color: var(--input);
