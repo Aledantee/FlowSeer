@@ -643,18 +643,23 @@ flowchart TD
 ### U1. A new Root port forwards on the reroot
 Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/reroot_internal_test.go, src/common/sim/layer/stp/reroot_test.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/agreement_test.go
 After: none
-Change: a tree port holds the instant it left the Root role for
-Designated and the instant it left the Backup role, each zero when clear.
-Its recent-root deadline is the first instant plus the forward delay
-`times` returns for the tree when the deadline is read, and its
-recent-backup deadline is the second plus twice the Hello Time read the
-same way. Storing the instant keeps a deadline on the delay the ladder
-uses, since the first role assignment of a receive runs while the port
-still holds the previous Forward Delay
-(`src/common/sim/layer/stp/receive.go:527-530`, `:543`, `:579-582`). Role
-assignment records both instants. It runs twice in one receive (`:543`,
-`:584`), so both key on the role change, which the second run does not
-see. `LinkChange` writes a role itself in two places, the Disabled role
+Change: a tree port holds its recent-root deadline and the instant it left
+the Backup role, each zero when clear. A port that leaves the Root role for
+Designated takes its recent-root deadline once, at the end of that call:
+the call's instant plus the forward delay `times` returns for the tree
+then. Nothing reads the delay for that deadline afterwards, so whether a
+later reroot cuts the port is the same with and without an `Advance` in
+between (Decisions). The end of the call is where the delay the ladder
+uses is in force, since the first role assignment of a receive runs while
+the port still holds the previous Forward Delay
+(`src/common/sim/layer/stp/receive.go:527-530`, `:543`, `:579-582`). Until
+the call ends the port counts as a recent Root port, so the cut of the
+same call reaches it. The recent-backup deadline is the Backup instant
+plus twice the Hello Time `times` returns when the deadline is read. Role
+assignment marks the port that left the Root role and records the Backup
+instant. It runs twice in one receive (`:543`, `:584`), so both key on the
+role change, which the second run does not see.
+`LinkChange` writes a role itself in two places, the Disabled role
 on a link that goes down (`src/common/sim/layer/stp/link.go:81`) and the
 Designated role on an up link whose point-to-point status changes
 (`:160`), so it records the Backup instant in both for a port that was
@@ -714,10 +719,17 @@ Root while a recent Root port still forwards, and the recent Root port is
 Discarding in that call while the new one waits, which fails if the cut
 waits on the backup delay. One sends R9's first BPDU to a Designated port
 that already forwards and expects both ports Forwarding after the call
-with the former Root port's instant still set, which pins the case the
+with the former Root port's deadline still set, which pins the case the
 Decisions name. One has the BPDU that moves the Root role carry a Forward
 Delay of 4 seconds over a stored 15, and expects the port that left the
-role cut by a reroot 3 seconds later and not by one 5 seconds later. One case
+role cut by a reroot 3 seconds later and not by one 5 seconds later. A
+generated test states the deadline's rule as a property: for a port that
+left the Root role, a reroot at any later instant decides the cut the same
+way with and without an `Advance` before it. It runs over a next Root port
+whose Forward Delay is shorter than, equal to, and longer than the one in
+force when the port left, over the old Root port's information fresh and
+aged, and over the CIST, an MSTI, and a PVST VLAN tree. It fails when the
+deadline is read against the delay `times` returns at the reroot. One case
 repeats R8 with the new Root port's link not point-to-point and expects it
 Discarding with a ladder running. One runs R9's first form on an MSTP
 bridge whose recent Root port is an MSTI's and expects a boundary port of
