@@ -1634,7 +1634,8 @@ func (s *Switch) forwardMulticastControl(
 
 		return badMulticastControl(in)
 	}
-	if !hdr.Src.IsLinkLocalUnicast() && !(hdr.Src.IsUnspecified() && (message.Type == mld.ReportV1 || message.Type == mld.ReportV2)) {
+	validSource := hdr.Src.IsLinkLocalUnicast() || hdr.Src.IsUnspecified() && (message.Type == mld.ReportV1 || message.Type == mld.ReportV2)
+	if !validSource {
 		return badMulticastControl(in)
 	}
 
