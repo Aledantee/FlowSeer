@@ -485,6 +485,71 @@ Waves: U1 U3 U4 | U2 | U5
 
 ## Open questions
 
+- Blocked: should this phase add the Root port's `reRooted` forwarding
+  rule, or return to planning? `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN`
+  (`src/common/sim/device/vswitch/switch_test.go:7647-7651`) fails after
+  `l2` goes down: `sw2 MSTI 1 on l1 after l2 down = role Root state
+  Discarding, want Root Forwarding`. Reproduce with `go test
+  ./src/common/sim/... ./test/conformance/sim/...`. Fabric and simulator
+  conformance pass. No expectation outside `layer/stp` has been changed.
+
+  The standard permits immediate forwarding in this fixture. This follows
+  from `Q2003` 13.25.10 (printed page 190, PDF page 205), 13.26.16 and
+  13.26.18 (printed page 194, PDF page 209), and Figures 13-14, 13-16,
+  and 13-17 (printed pages 201, 203, and 204, PDF pages 216, 218, and
+  219). `D2009` 13.28.19 (printed page 60, PDF page 58), 13.29.22 and
+  13.29.24 (printed page 66, PDF page 64), and Figures 13-20 and
+  13-24 to 13-26 (printed pages 75, 78, and 79, PDF pages 73, 76,
+  and 77) give the same result for the CIST and MSTIs. These figure pages
+  were rendered and inspected. `UNH` has no test of this failover or
+  second-Designated-port sync. Its synchronization discussion concerns
+  migration delay (PDF page 44).
+
+  | Transition | Effect in this fixture |
+  | --- | --- |
+  | Port Information UPDATE on `p3` | The higher root path cost makes its designated vector worse. Its agreement and `synced` become false. UPDATE does not restart `rrWhile`. |
+  | SUPERIOR_DESIGNATED on a receiving port | Records the proposal and agreement and retains `synced` only with `agreed`. This is separate from a local designated-vector UPDATE. |
+  | DESIGNATED_SYNCED | A prior agreement or Discarding state clears `rrWhile`. The previously agreed `p3` therefore has `rrWhile` zero before failover. |
+  | DESIGNATED_DISCARD | Requires an unsatisfied sync, a nonzero reroot timer, or a dispute. Losing `agreed` alone does not discard `p3`. |
+  | ROOT_PROPOSED | Calls `setSyncTree` on a proposal with no sent agreement. The link-down input carries no proposal and does not take this transition. |
+  | ROOT_AGREED | Sends Agreement when `allSynced` holds. It does not gate Root forwarding. |
+  | ROOT_LEARN and ROOT_FORWARD | Permit rapid forwarding with `reRooted`, no backup delay, and RSTP enabled, independently of `allSynced`. |
+
+  ```mermaid
+  flowchart LR
+      alternate["l1: Alternate, rrWhile zero"] --> root["l2 down: l1 becomes Root"]
+      root --> reroot["setReRootTree: reRoot true, timers unchanged"]
+      reroot --> ready["Other ports have rrWhile zero: reRooted true"]
+      ready --> learn["ROOT_LEARN"]
+      learn --> forward["ROOT_FORWARD"]
+  ```
+
+  The failed Root port becomes Disabled, which clears its reroot timer.
+  The new Root was Alternate, not Backup, so no backup delay applies.
+  `p3` can retire its reroot request with its timer already zero even
+  though UPDATE has cleared `synced`. In `Q2003` these transitions are
+  REROOT, LEARN, and FORWARD in Figure 13-17. The draft names the latter
+  two ROOT_LEARN and ROOT_FORWARD.
+
+  The layer instead gates Root forwarding on `isSynced`
+  (`src/common/sim/layer/stp/roles.go:319-326`), which rejects a forwarding
+  Designated port without an agreement (`roles.go:25-26`). Its port state
+  has no `reRoot`, `rrWhile`, or `rbWhile`
+  (`src/common/sim/layer/stp/portstate.go:32-78`). U1 requires `p3` to lose
+  its agreement and stored `synced` on this worse vector
+  (`roles.go:261-264`). Reading the stored flag in `isSynced`, as U1
+  specifies, would still reject it. Keeping either flag would violate
+  U1 and R3. Delaying the switch test would pin the layer's missing
+  reroot rule instead of the standard.
+
+  Options:
+  - Add a bounded Root reroot unit to this phase (recommended). Preserve
+    U1's vector and proposal rules and the switch expectation. Specify
+    the timers, transition order, and mutation tests before implementation.
+    This expands the phase beyond its current Units.
+  - Return the phase to planning and stop implementation. Keep the failing
+    switch expectation and committed U1 for the revised plan to resolve.
+    U2 to U5 remain pending.
 - Does a VLAN tree's inherited bridge priority follow the bridge's through
   every normalize, as a tree port's priority does after U4? No unit needs
   the answer. Following it changes what `PVST.Normalize` returns, which
