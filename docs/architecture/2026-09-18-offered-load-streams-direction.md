@@ -47,7 +47,8 @@ be compared.
   `ethernet.Frame.WireOctets` gives and the fabric charges for
   serialization, so a stream at a link's full rate fits it exactly. A
   consumer reads a stream as a `stream.Source`, whose `Next` yields each
-  frame with its offset from the stream's start, never an absolute time:
+  independent, encodable frame with its offset from the consumer epoch,
+  including the spec's start offset, never an absolute time:
   the fabric and the transmitter each add their own epoch, and `Clone`
   lets a fork continue from the same position.
 - A stream is a source the run pulls from. The fabric holds attached sources

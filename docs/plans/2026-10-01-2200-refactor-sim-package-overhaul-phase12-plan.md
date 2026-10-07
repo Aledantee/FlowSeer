@@ -95,8 +95,10 @@ becomes `src/edge/simload`. No entry has a test in the tree.
 
 ### Design
 
-- `preflightSources` walks a cloned stream to check payload size
-  (`E/run.go:200-221`). Phase 8 gives a source a way to state it.
+- ~~Give sources minimum-payload metadata to replace `preflightSources`.~~
+  `src/edge/simload/run.go`, `preflightSources`, checks each frame's signature
+  space and encoding before sockets open. A minimum payload alone cannot
+  replace per-frame validation, so the source API keeps this preflight.
 - `flowAccumulator` keeps every sequence number in a map
   (`E/stats.go:44-50,163-167`). Sequences are contiguous, so ranges do.
 - `Sign` allocates a payload and the caller re-encodes the frame

@@ -9,6 +9,11 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 
 # Analysis, Trace, Stream, and Search - Plan
 
+Implemented all six units. Verification ran from 2026-10-07T20:02:49Z to
+2026-10-07T20:47:09Z. Landed: `1992f7c9..c885895c`. Independent source frames,
+fabric-owned locations and alignment, validated search accounting, and exact
+minimization targets are covered by the closure evidence below.
+
 ## Goal
 
 Stream sources yield independent frames, alignment and minimization name the journey
@@ -31,8 +36,8 @@ and `Journey.Origin.Of`.
   order (`src/common/sim/analysis/scope.go`, `TestScopeOrderingAndRendering`).
 - `fabric` owns alignment and the location of a behavioral difference. Why: it already
   selects scenario descendants and pairs injection groups
-  (`src/common/sim/fabric/compare.go`, `collectScenarioJourneys`,
-  `collectInjectionJourneys`). Alignment must use that pairing, including one-sided
+  (`src/common/sim/fabric/compare.go`, `collectScenarioJourneys`, and
+  `src/common/sim/fabric/comparison_location.go`, `pairJourneys`). Alignment must use that pairing, including one-sided
   descendants, rather than zip the two flat reports. Protocol emissions without an
   `Origin.Of` remain represented by their final effect, as the [provenance
   solution](../solutions/architecture-patterns/comparing-two-forked-executions-attributes-observables-by-provenance.md)
@@ -248,6 +253,8 @@ minimum-payload API expectation because per-frame preflight remains necessary. R
 the inventory and record the outcome under the title. Tests: examples and consumer
 suites pass. Check old names and tuple tokens in tests and `testdata/`. No golden holds
 these tuples. Run the prose checker on every changed doc.
+No new behavior tests: this unit changes documentation only. Existing examples,
+consumer suites, and the tagged lab tests check the final APIs.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/README.md src/common/sim/analysis/README.md src/common/sim/trace/README.md src/common/sim/stream/README.md src/common/sim/search/README.md src/common/sim/fabric/README.md docs/architecture/2026-09-10-virtual-device-direction.md docs/architecture/2026-09-18-offered-load-streams-direction.md docs/architecture/2026-09-10-network-simulation-prior-art-research.md docs/solutions/conventions/a-search-dimension-with-no-behavioral-effect-is-dishonest-coverage.md docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase8-plan.md`
 
 Waves: U1 U2 U3 | U4 | U5 | U6
@@ -268,6 +275,44 @@ flowchart LR
 
 Original entry numbers are preserved. A struck claim has no behavior fix, and its reason
 is the closure. Assigned claims get failing-first tests.
+
+### Closure evidence
+
+The source and tests below close every assigned inventory claim. The commits
+record the mutations and quoted failing runs, since the corrected tree alone
+cannot show a regression test failed before its fix.
+Paths in the table are under `src/common/sim/`.
+
+| Claims | Current guard | Failing-first evidence |
+| --- | --- | --- |
+| Shared source frames, yielded-frame mutation | `stream/source_test.go`, `TestSourceFramesIndependent` covers no, MAC, size, and UDP variations plus cloned cursors. | `412266d2`, template-value copy: `--- FAIL: TestSourceFramesIndependent (0.00s)` |
+| UDP/size order | `stream/stream_test.go`, `TestUDPSizeValidationInEitherOrder` pins both orders and pointer forms. | `412266d2`, earlier-size-only check: `--- FAIL: TestUDPSizeValidationInEitherOrder (0.00s)` |
+| Source offset | `stream/stream_test.go`, `TestFrameRateOffsets` and `TestSpecStartValidation`, plus `TestTransmitStartSetsFirstDeadline` in repository-root path `src/edge/simload/cmd/simload/main_test.go` and the tagged interleaving test in repository-root path `src/edge/simload/test/integration/lab_test.go`. | `412266d2`, omit Start: `--- FAIL: TestFrameRateOffsets (0.00s)` |
+| AssumptionsFor absent | `analysis/analysis_test.go`, `TestMetadataAssumptionsForOverlappingScopes`, and `metadata_internal_test.go`, `TestMetadataAssumptionsForSharesNoStorage`. The port filters retain exact scope and statement checks. | `1992f7c9`, nil return: `--- FAIL: TestMetadataAssumptionsForOverlappingScopes (0.00s)`, shallow evidence: `--- FAIL: TestMetadataAssumptionsForSharesNoStorage (0.00s)` |
+| Extra journey omitted, journey index absent, alignment ownership and one-journey coverage | `fabric/align_test.go`, `TestAlignAncestryAndBehavior`, `TestGlobalDifferenceLocations`, and `TestAlignOriginalIndicesAndDiagnosticVerdicts`. `fabric.Align` owns pairing and original report indices. | `71e930c8`, disable alignment: `--- FAIL: TestAlignAncestryAndBehavior (0.00s)` and `--- FAIL: TestAlignOriginalIndicesAndDiagnosticVerdicts (0.00s)` |
+| Different target accepted | `search/minimize_test.go`, `TestMinimizePreservesInjectionIdentity`, mirror/global targets, and exact values. | `c5956593`, observable-only acceptance: `--- FAIL: TestMinimizePreservesInjectionIdentity (0.02s)` |
+| Time identity/rendering | `search/fault_test.go`, `TestTimedFaultDomainCanonicalFullTimeIdentity` pins full UTC times outside UnixNano range. | `1ad039c1`, UnixNano keys: `--- FAIL: TestTimedFaultDomainCanonicalFullTimeIdentity (0.00s)` |
+| Comparison error lost | `search/search_test.go`, `TestSearchAccountsEveryCandidateAndFirstError`, and `TestTimedFaultDomainUncabledPairError`. | `1ad039c1`, count errors as inconclusive: `--- FAIL: TestSearchAccountsEveryCandidateAndFirstError (0.01s)` |
+| Endpoint hash collision and endpoint rendering | `search/l2_test.go`, `TestL2EndpointCanonicalIdentity` pins delimiter-bearing endpoints in tuples and source MACs. | `1ad039c1`, slash joining: `--- FAIL: TestL2EndpointCanonicalIdentity (0.00s)` |
+| Limits/domain validation, fault structs, empty L3 struct | `search/domain.go` validates actions and limits. `search/domain_test.go`, `search/fault_test.go`, and `search/l2_test.go` pin domain refusals. `search/search_test.go`, `TestSearchRejectsLimitsBeforeEnumeration` pins limits. Candidates use fabric actions, and the unused routed interface and double are absent. | `1ad039c1`, missing action-kind guard: `--- FAIL: TestCandidateValidationAndStableIndices (0.00s)`, missing budget guard: `--- FAIL: TestSearchRejectsLimitsBeforeEnumeration (0.00s)` |
+| Zero retention | `search/search_test.go`, `TestSearchCountsOnlyAndUnlimitedRetention` pins zero and -1 separately. | `1ad039c1`, zero as unlimited: `--- FAIL: TestSearchCountsOnlyAndUnlimitedRetention (0.01s)` |
+| Generator surface residues | `stream/variation.go` closes variations with private `apply`. The custom double and its unreachable guard are removed. `stream/variation_internal_test.go` retains direct refusal coverage. | `412266d2`, decode refusal returns empty frame: `--- FAIL: TestUDPPortVariationApplyRejectsShortUDPDatagram (0.00s)` |
+
+Struck entries retain their stated no-change reasons below. The analysis README
+uses `errors.New` like `analysis/example_test.go`. `trace/TestVocabulary` pins
+the existing held/queue literals, and `analysis/doc.go` states verdict ownership.
+The phase 12 minimum-payload expectation is struck because
+`src/edge/simload/run.go`, `preflightSources`, still validates every frame.
+
+Exact values cost one retained injection in
+`search/minimize_test.go:732`, `TestMinimizeExactValuesCanRetainOtherwiseRemovableAction`:
+two injections remain because dropping shared learning changes displayed FDB
+counts from 2/2 to 1/1. The fixed-point test still reduces three injections to
+one. Both returned candidates replay against their original target and values.
+
+The following tables retain the pre-implementation inventory at `06c14cac`.
+Deleted names and defect descriptions identify the original claims. The closure
+table above is the current evidence.
 
 ### Correctness
 
@@ -297,7 +342,7 @@ is the closure. Assigned claims get failing-first tests.
 | Disposition placement | ~~Move to a comparison leaf.~~ Both comparison producers return `analysis.Disposition`, and the accepted shape record keeps that shared leaf. The virtual-device record remains proposed. Clarify the package comment. | U1 |
 | Fault structs repeat fabric | Use `fabric.Action` and `fabric.FaultAction`. | U4 |
 | Alignment has no search dependency | Move to `fabric` with its comparison pairing. Amend the record. | U3, U6 |
-| Concrete exported generator | ~~Hide `SplitMix64`.~~ Phase 2 already uses private `splitMix64` in `Variation.Apply` (`src/common/sim/stream/variation.go`, `src/common/sim/stream/splitmix.go`). | Closed |
+| Concrete exported generator | ~~Hide `SplitMix64`.~~ The generator is private `splitMix64` in variation `apply` (`src/common/sim/stream/variation.go`, `src/common/sim/stream/splitmix.go`). | Closed |
 | Source offset | `Spec.Start` is parsed but unread. Include it in `Next` and remove the lab wrapper (`src/edge/simload/cmd/simload/main.go`, `src/edge/simload/run.go`, lab test). | U2 |
 | Minimum payload | ~~Add source metadata.~~ `src/edge/simload/run.go`, `preflightSources`, checks every frame's signature space and encoding before sockets open. A minimum alone cannot replace that check. Keep it. Strike phase 12's API expectation in U6 before this plan is retired. | Closed |
 | Generator surface residues | Private `apply` removes an exported method with an inaccessible generator argument. Remove the custom-variation guard and its test double, since the external variation set is closed (`src/common/sim/stream/variation.go`). | U2 |
@@ -329,13 +374,21 @@ Documentation-only re-planning runs:
 
 ## Definition of done
 
-- [ ] Parent U8 is satisfied, including exact journey targets.
-- [ ] Every inventory entry has failing-first evidence or a struck reason.
-- [ ] Every changed path has a green verifier receipt.
-- [ ] README examples and the amended direction record match the APIs.
-- [ ] This plan reads `implemented` with an outcome note under its title.
-- [ ] No plan labels or unused interfaces enter code.
+- [x] Parent U8 is satisfied, including exact journey targets.
+- [x] Every inventory entry has failing-first evidence or a struck reason.
+- [x] Every changed path has a green verifier receipt.
+- [x] README examples and the amended direction record match the APIs.
+- [x] This plan reads `implemented` with an outcome note under its title.
+- [x] No plan labels or unused interfaces enter code.
 
 ## Open questions
 
 None.
+
+## Review gaps
+
+These follow-ups do not hold the verdict. Each needs a change to non-test source.
+
+- src/common/sim/stream/stream.go:68: the type switch in `Spec.Validate` has no default arm, so `struct{ stream.SizeVariation }` from another package satisfies `Variation`, passes with `Sizes: []int{20}` on a one-tag template, and `Next` panics in `SizeVariation.apply`; fails: an embedding wrapper must be refused by `Validate`; class: hardening
+- src/common/sim/stream/variation.go:15: "The set of variations is closed to this package", repeated in `src/common/sim/stream/README.md`; fails: a type embedding a variation implements the interface through the promoted `apply`; class: convention
+- src/common/sim/fabric/compare_journey.go:23: the `Origin.Kind` and `Origin.Mirror` branches of `diffJourney` have no path from `Compare`, since `pairJourneys` pairs journeys only on equal kind and mirror name and roots are injections; fails: only `TestJourneyDifferenceFields` reaches them by calling `diffJourney` directly; class: convention

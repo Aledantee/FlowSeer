@@ -93,6 +93,17 @@ func (m Metadata) Assumptions() []Assumption {
 	return result
 }
 
+// AssumptionsFor returns independent canonical assumptions whose scopes overlap scope.
+func (m Metadata) AssumptionsFor(scope Scope) []Assumption {
+	var result []Assumption
+	for _, assumption := range m.assumptions {
+		if assumption.Scope.Overlaps(scope) {
+			result = append(result, assumption.Canonical())
+		}
+	}
+	return result
+}
+
 // Clone returns an independent deep copy of m. It rebuilds the evidence
 // catalog and returns independent slices for issues and assumptions so
 // modifications to the caller's slices cannot affect m.

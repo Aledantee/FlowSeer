@@ -1,7 +1,8 @@
 # stream
 
-`stream.Source` returns Ethernet frames one at a time at offsets from its own
-start. A source can replay a capture or generate traffic from a `stream.Spec`.
+`stream.Source` returns independent, encodable Ethernet frames at nondecreasing
+offsets from the consumer epoch. A source can replay a capture or generate
+traffic from a `stream.Spec`.
 
 ## Replay a capture
 
@@ -79,14 +80,17 @@ func firstFrame() (time.Duration, ethernet.Frame, error) {
 ```
 
 The first ten frames are 672 ns apart: an untagged minimum frame occupies 84
-wire octets. The next burst begins at 1.00672 ms. `Next` returns offsets from
-the stream's start; a consumer adds `Spec.Start` to its own epoch. It returns
+wire octets. The next burst begins at 1.00672 ms. `Next` includes `Spec.Start`
+in its offsets, so a consumer adds only its own epoch. It returns
 `ok == false` after the count. `Clone` copies the current cursor, so advancing
-one iterator does not advance the other.
+one iterator does not advance the other. Each yield owns its tags and payload,
+including yields from a cloned cursor (`TestSourceFramesIndependent` in
+`source_test.go`). A 10 fps source with `Start: time.Second` yields offsets
+of 1 s and 1.1 s, as `TestFrameRateOffsets` checks.
 
 Exactly one rate and one end (`Count` or `Duration`) must be set. `Normalize`
 turns a duration into a ceiling count and defaults a zero burst to one. A frame
-whose `Encode` fails, an invalid variation, negative burst or gap, and timing
+whose `Encode` fails, an invalid variation, negative start, burst or gap, and timing
 beyond `time.Duration` are rejected by `Validate` and `Source`.
 
 Variations run in list order on each frame, after the template. `MACVariation`
@@ -100,12 +104,9 @@ spacing cannot use the template's wire size for frames of varying sizes.
 A UDP port change passes through `udp.Encode` and `ip.Header.Encode`
 so both checksums are recomputed; it never patches a byte in place. The
 template must re-encode to an IP packet of the same length, with its UDP length
-covering the full IP payload. Earlier size variations must leave the whole IP
-packet intact.
-The set of variations is closed to this package, because `Variation.Apply` takes
-the unexported generator. A UDP port variation cannot follow a variation type
-that `Spec.Validate` does not list, since that type's effect on the IP packet is
-unknown.
+covering the full IP payload. Every size in a spec containing a UDP variation
+must retain the whole IP packet, regardless of declaration order or pointer form.
+The set of variations is closed through its private `apply` method.
 The port variation preserves bytes after the IP packet, including Ethernet
 padding, and refuses fragmented IPv4 templates.
 

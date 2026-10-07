@@ -2,7 +2,6 @@ package stream
 
 import (
 	"bytes"
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -67,9 +66,7 @@ func (s *captureSource) Next() (time.Duration, ethernet.Frame, bool) {
 	}
 	captured := s.frames[s.next]
 	s.next++
-	frame := captured.frame
-	frame.Tags = slices.Clone(frame.Tags)
-	frame.Payload = bytes.Clone(frame.Payload)
+	frame := copyFrame(captured.frame)
 	return captured.at, frame, true
 }
 

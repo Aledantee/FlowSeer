@@ -1,6 +1,7 @@
 package search
 
 import (
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
@@ -12,12 +13,17 @@ import (
 // Search returns coverage progress, the exact slice of untested tuples when halted early
 // by candidate budget, and full replay specifications only for retained differences up to
 // lim.MaxDifferences. Discarded candidates contribute to summary counters only.
-func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) Result {
+// Invalid limits return an error before enumeration. Candidate failures increment
+// Result.Errors and retain only the first wrapped error with its tuple in Result.Err.
+func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) (Result, error) {
+	if err := lim.Validate(); err != nil {
+		return Result{}, err
+	}
 	total := dom.Size()
 	if total == 0 {
 		return Result{
 			Coverage: Coverage{Tested: 0, Total: 0},
-		}
+		}, nil
 	}
 
 	res := Result{
@@ -33,11 +39,24 @@ func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) Result {
 		res.Coverage.Tested++
 
 		sc := cand.ToScenario(lim.Budget)
-		cmp := fabric.Compare(current, candidate, sc, lim.Budget)
+		cand.Actions = sc.Actions
+		var comparisonErr error
+		var cmp fabric.Comparison
+		if comparisonErr = cand.Validate(); comparisonErr == nil {
+			cmp = fabric.Compare(current, candidate, sc, lim.Budget)
+			comparisonErr = cmp.Err
+		}
+		if comparisonErr != nil {
+			res.Errors++
+			if res.Err == nil {
+				res.Err = errs.Wrapf(comparisonErr, "candidate %q", cand.Tuple)
+			}
+			return true
+		}
 		switch cmp.Disposition {
 		case analysis.Different:
 			res.TotalDifferences++
-			if lim.MaxDifferences <= 0 || len(res.Differences) < lim.MaxDifferences {
+			if lim.MaxDifferences == -1 || len(res.Differences) < lim.MaxDifferences {
 				res.Differences = append(res.Differences, RetainedDifference{
 					Tuple:      cand.Tuple,
 					Candidate:  cand.Clone(),
@@ -54,5 +73,5 @@ func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) Result {
 		return true
 	})
 
-	return res
+	return res, nil
 }
