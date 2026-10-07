@@ -96,6 +96,15 @@ change, and the phase returns to the user with U1, U3, and U4 landed.
   alone, every test under `src/common/sim` outside `layer/stp` passes
   (Correctness 1 and 4). The device path adds no rule (Completeness), and
   a test there would edit files that phase rewrites in the same wave.
+- The phase gains a Root reroot unit ahead of its sync rule. A new Root
+  port forwards when the tree is re-rooted, which the standard separates
+  from sync (`Q2003` 13.25.10 and Figure 13-17, `D2009` Figure 13-24), and
+  `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` holds as written. The
+  re-plan specifies the reroot state, its timers, and the transition order
+  before implementation resumes. (decided by the user, 2026-10-07)
+- A VLAN tree's inherited bridge priority follows the bridge through every
+  normalize, as a tree port's inherited priority does. (decided by the
+  user, 2026-10-07)
 
 ## Requirements
 

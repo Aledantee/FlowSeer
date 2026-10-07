@@ -205,3 +205,8 @@ specifying a lifetime.
 The switch accepts reports from `::` under RFC 4541 §3, but requires a
 link-local source for queries and Done. What a snooping switch should do
 with a query or Done from `::` is unverified.
+A group query obligation ends on an observed group query or on a record
+that sets the group timer, and not when the EXCLUDE state it belongs to
+ends. After a change to INCLUDE with no group query observed, `Resolve`
+reports the obligation pending for as long as a host keeps refreshing a
+source (`obligationPending` in `state.go`).
