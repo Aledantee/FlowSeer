@@ -170,6 +170,12 @@ change, and the phase returns to the user with U1, U2, U4, and U5 landed.
   the delay for it afterwards, so the cut does not depend on a prior
   `Advance`. This replaces the read-time delay in the reroot unit's text.
   (decided by the user, 2026-10-07)
+- The recent-root deadline's independence from a prior `Advance` covers a
+  port that has already left the Root role. Which call a port leaves the
+  role in still depends on `Advance` when the Root port's information has
+  aged, because received information expires only in `Advance`. That is
+  stated under Limits in `S/README.md` and left to a later plan. The
+  review is accepted with it. (decided by the user, 2026-10-07)
 
 ## Requirements
 
