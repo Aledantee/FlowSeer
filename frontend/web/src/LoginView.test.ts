@@ -35,6 +35,7 @@ afterEach(() => {
   signOut()
   localStorage.clear()
   document.body.replaceChildren()
+  vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -226,6 +227,50 @@ describe('LoginView', () => {
 
     expect(sessionOperator.value).toBe('ada@example.com')
     expect(router.currentRoute.value.fullPath).toBe('/dashboard')
+  })
+
+  it('animates invalid-submit feedback horizontally when motion is allowed', async () => {
+    reducedMotion = false
+    const { host, submit, alert } = await mountLogin()
+    const field = host.querySelector('.login-form [class*="min-h-"] > div')
+    if (!(field instanceof HTMLElement)) throw new Error('Missing email field')
+    expect(field.getAnimations()).toHaveLength(0)
+    await submit('ada@example')
+    expect(alert()).toBe('Enter an email address such as name@company.com.')
+    expect(sessionOperator.value).toBeNull()
+    const animations = field.getAnimations()
+    expect(animations).toHaveLength(1)
+    const animation = animations[0]
+    if (!(animation?.effect instanceof KeyframeEffect))
+      throw new Error('Missing native feedback')
+    expect(animation.playState).toBe('running')
+    expect(
+      animation.effect.getKeyframes().map((keyframe) => keyframe.transform),
+    ).toEqual(['translateX(-8px)', 'translateX(0px)'])
+    expect(animation.effect.getTiming().duration).toBe(280)
+  })
+
+  it('keeps sign-in loading until the 450 ms handover boundary', async () => {
+    reducedMotion = false
+    const { host, router, input } = await mountLogin()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    input.value = 'ada@example.com'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    host
+      .querySelector('form.login-form')
+      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await nextTick()
+    const button = host.querySelector<HTMLButtonElement>('button.login-submit')
+    expect(button?.getAttribute('aria-busy')).toBe('true')
+    await vi.advanceTimersByTimeAsync(449)
+    expect(router.currentRoute.value.path).toBe('/login')
+    expect(sessionOperator.value).toBeNull()
+    expect(button?.disabled).toBe(true)
+    expect(input.readOnly).toBe(true)
+    await vi.advanceTimersByTimeAsync(1)
+    await nextTick()
+    expect(sessionOperator.value).toBe('ada@example.com')
+    expect(router.currentRoute.value.path).toBe('/dashboard')
   })
 
   it('marks the field and keeps the layout when Enter sends a bad address', async () => {

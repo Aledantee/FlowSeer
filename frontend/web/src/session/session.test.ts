@@ -111,6 +111,23 @@ describe('isWorkEmail', () => {
 })
 
 describe('session storage', () => {
+  it('stays signed out and redirects the console when storage reads throw', async () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+      removeItem: () => {},
+      clear: () => {},
+    })
+    vi.resetModules()
+    const fresh = await import('./session')
+    expect(fresh.sessionOperator.value).toBeNull()
+    expect(fresh.sessionRedirect(to('/devices'))).toEqual({
+      path: '/login',
+      query: { next: '/devices' },
+    })
+  })
+
   it('restores the operator a reload finds in storage', async () => {
     signIn('ada@example.com')
     vi.resetModules()
