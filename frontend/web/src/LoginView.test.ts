@@ -1,13 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
-import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
+import { h, nextTick } from 'vue'
+import { RouterView } from 'vue-router'
 import LoginView from './LoginView.vue'
-import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
 import { i18nWarnings } from './i18n/testing'
+import { mountInFrame } from './navigation/frameTesting'
 import { sessionOperator, signOut } from './session/session'
-import { UiAppRoot } from './ui'
 
 let dispose = () => {}
 
@@ -41,28 +40,27 @@ afterEach(() => {
 
 async function mountLogin(start = '/login', locale: WebLocale = 'en') {
   const page = { render: () => h('p', 'console') }
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
+  const {
+    host,
+    router,
+    i18n,
+    dispose: unmount,
+  } = await mountInFrame(
+    RouterView,
+    start,
+    [
       { path: '/', component: page },
       { path: '/login', component: LoginView },
       { path: '/dashboard', component: page },
       { path: '/devices/:deviceId', component: page },
     ],
-  })
-  await router.push(start)
-  const host = document.createElement('div')
-  document.body.append(host)
-  const app = createApp({
-    render: () => h(UiAppRoot, {}, () => h(RouterView)),
-  })
-  const i18n = createWebI18n(locale)
-  app.use(i18n).use(router).mount(host)
-  dispose = () => app.unmount()
-  await router.isReady()
-  await nextTick()
+    locale,
+  )
+  dispose = unmount
   const input = host.querySelector<HTMLInputElement>('input[type="email"]')
-  const form = host.querySelector<HTMLFormElement>('form.login-form')
+  const form = host.querySelector<HTMLFormElement>(
+    '#frame-sidebar form.login-form',
+  )
   if (!input || !form) throw new Error('Missing login form')
   return {
     host,
@@ -227,10 +225,8 @@ describe('LoginView', () => {
   it('uses the console frame: the form in the sidebar, the description on the page', async () => {
     const { host } = await mountLogin()
 
-    expect(
-      host.querySelector('.shell > aside.sidebar form.login-form'),
-    ).not.toBeNull()
-    const page = host.querySelector('.shell > .main-shell > main.login-page')
+    expect(host.querySelector('#frame-sidebar form.login-form')).not.toBeNull()
+    const page = host.querySelector('#frame-page > main.login-page')
     expect(page?.querySelector('h2')?.textContent?.trim()).toBe(
       'See every network you run in one console.',
     )
