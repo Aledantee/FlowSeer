@@ -1189,13 +1189,26 @@ only a change under `generated/` or to the module graph keeps the
 parallel Bash calls would have raced on, and the verifier rewrites the
 listing after a pass so verified content is not marked again.
 
-The Stop gate ran in 20 seconds on an empty Go build cache and 3 on a warm
-one on 2026-10-03 (`tools/hooks/stop-check.sh` fed `{"cwd":"<root>"}` on
-standard input, with `GOCACHE` set to an empty directory), against the 30-second `timeout` both runtime configs
-set. A command hook cancelled at its timeout has its output discarded and
+The shell Stop gate ran in 20 seconds on an empty Go build cache and 3 on a
+warm one on 2026-10-03. The `hooks stop-check` command that replaced it ran in
+11.1 seconds on empty Go and uv caches and in 1.0 on warm ones on 2026-10-07
+(arm64 macOS, Go 1.27.1, uv 0.12.23), against the 30-second `timeout` both
+runtime configs set. The timeout stays at 30 while the cold run takes at most
+24 seconds. Past that, both configs take twice the cold time, rounded up to ten
+seconds. A command hook cancelled at its timeout has its output discarded and
 renders no decision ([Hooks](https://code.claude.com/docs/en/hooks), checked
-2026-10-03), so a run past the timeout would read as a pass. Measure again
-when a conformance package is added.
+2026-10-03), so a run past the timeout would read as a pass. The command that
+reproduces both timings, run from the repository root:
+
+```bash
+cache=$(mktemp -d) && mkdir "$cache/go" "$cache/uv"
+# Cold: empty Go build cache and empty uv cache.
+time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
+# Warm: the same command again.
+time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
+```
+
+Measure again when a conformance package is added.
 
 The integration branch is `main`. `--base master` and `master..HEAD` fail
 in this repository.

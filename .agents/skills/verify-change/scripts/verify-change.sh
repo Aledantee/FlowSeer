@@ -1065,14 +1065,13 @@ fi
 # dirty path is by now verified or named in the marker, so the listing it
 # compares against is rewritten here, or the next Bash call would mark the
 # content this run just passed.
-if [[ -x $root/tools/hooks/tree-state.sh ]]; then
-  tree_state=$(mktemp "$git_dir/flowseer-tree-state.XXXXXX")
-  if "$root/tools/hooks/tree-state.sh" "$root" >"$tree_state"; then
-    mv "$tree_state" "$git_dir/flowseer-tree-state"
-  else
-    rm -f "$tree_state"
-  fi
+tree_state=$(mktemp "$git_dir/flowseer-tree-state.XXXXXX")
+if ! uv run "$run_py" hooks tree-state "$root" >"$tree_state"; then
+  rm -f "$tree_state"
+  echo "verify-change: hooks tree-state failed; the dirty marker would mark verified files again" >&2
+  exit 1
 fi
+mv "$tree_state" "$git_dir/flowseer-tree-state"
 {
   printf 'verified_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'base=%s\n' "$base"

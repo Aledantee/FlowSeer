@@ -32,8 +32,8 @@ git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | 
 
 ```bash
 git diff --name-only --diff-filter=d <base>..<branch> -- 'spec/proto/*.proto' | while read -r f; do
-  jq -n --arg cwd "$PWD" --arg f "$PWD/$f" '{cwd:$cwd,tool_input:{file_path:$f}}' | tools/hooks/proto-check.sh; done
-git diff -U0 <base>..<branch> | sed -n 's/^+\([^+].*\)/\1/p' | jq -Rs '{tool_input:{file_path:"<branch>",content:.}}' | tools/hooks/suppression-warn.sh
+  jq -n --arg cwd "$PWD" --arg f "$PWD/$f" '{cwd:$cwd,tool_input:{file_path:$f}}' | uv run tools/scripts/run.py hooks proto-check; done
+git diff -U0 <base>..<branch> | sed -n 's/^+\([^+].*\)/\1/p' | jq -Rs '{tool_input:{file_path:"<branch>",content:.}}' | uv run tools/scripts/run.py hooks suppression-warn
 ```
 
 4. Fix a reported message-sync gap before the verifier runs. Remove a

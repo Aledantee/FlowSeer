@@ -55,7 +55,8 @@
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/pre-tool-policy.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "pre-tool-policy"]
           }
         ]
       },
@@ -68,7 +69,8 @@
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/protect-generated-bash.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "protect-generated-bash"]
           }
         ]
       }
@@ -79,19 +81,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/go-format.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "go-format"]
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/proto-check.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "proto-check"]
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/suppression-warn.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "suppression-warn"]
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "mark-verification-dirty"]
           }
         ]
       },
@@ -100,11 +106,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/mark-verification-dirty.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "mark-verification-dirty"]
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/commit-message-check.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "commit-message-check"]
           }
         ]
       }
@@ -114,7 +122,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/stop-check.sh\"",
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "stop-check"],
             "timeout": 30
           }
         ]

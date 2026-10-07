@@ -89,7 +89,7 @@ before stating what a run covered or explaining why a path selected a gate.
 
 The marker hook records every edit by path: an editor edit from the tool
 call, a Bash write by comparing the content hashes of the dirty paths
-(`tools/hooks/tree-state.sh`) with the listing stored after the previous
+(`uv run tools/scripts/run.py hooks tree-state`) with the listing stored after the previous
 Bash call. A command's text decides nothing. A passing run records its scope
 in the worktree's git metadata, clears the marker lines it verified, and
 rewrites that listing; `land` reads the receipt.

@@ -21,7 +21,7 @@
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/pre-tool-policy.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook pre-tool-policy.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook pre-tool-policy cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 2; }; exec uv run \"$root/tools/scripts/run.py\" hooks pre-tool-policy"
           }
         ]
       },
@@ -34,7 +34,7 @@
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/protect-generated-bash.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook protect-generated-bash.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook protect-generated-bash cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 2; }; exec uv run \"$root/tools/scripts/run.py\" hooks protect-generated-bash"
           }
         ]
       }
@@ -45,19 +45,19 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/go-format.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook go-format.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook go-format cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks go-format"
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/proto-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook proto-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook proto-check cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks proto-check"
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/suppression-warn.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook suppression-warn.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook suppression-warn cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks suppression-warn"
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/mark-verification-dirty.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook mark-verification-dirty.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook mark-verification-dirty cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks mark-verification-dirty"
           }
         ]
       },
@@ -66,11 +66,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/mark-verification-dirty.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook mark-verification-dirty.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook mark-verification-dirty cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks mark-verification-dirty"
           },
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/commit-message-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook commit-message-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\""
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook commit-message-check cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks commit-message-check"
           }
         ]
       }
@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/stop-check.sh; [ -n \"$root\" ] && [ -x \"$hook\" ] || { echo \"FlowSeer hook stop-check.sh cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH)\" >&2; exit 1; }; exec \"$hook\"",
+            "command": "root=$(git rev-parse --show-toplevel 2>/dev/null); [ -n \"$root\" ] && [ -f \"$root/tools/scripts/run.py\" ] && command -v uv >/dev/null 2>&1 || { echo \"FlowSeer hook stop-check cannot run from $PWD: repository root ${root:-unresolved}, git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)\" >&2; exit 1; }; exec uv run \"$root/tools/scripts/run.py\" hooks stop-check",
             "timeout": 30
           }
         ]
