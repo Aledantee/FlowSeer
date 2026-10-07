@@ -313,7 +313,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			emissions = append(emissions, layer.Emission{
 				Port:  name,
 				VID:   vid,
-				Frame: Encode(probe, l.mac),
+				Frame: encode(probe, l.mac),
 			})
 		}
 	}

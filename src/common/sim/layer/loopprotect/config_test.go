@@ -1,10 +1,12 @@
 package loopprotect_test
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
@@ -110,6 +112,41 @@ func TestValidate(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name: "VLAN 0 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{0}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "VLAN 4095 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{4095}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "VLAN 5000 member",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{5000}},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "valid VLAN members",
+			cfg: loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{1, 4094}},
+				},
+			},
+		},
+		{
 			name: "manual with disable is fine",
 			cfg: loopprotect.Config{
 				Ports: map[string]loopprotect.Port{
@@ -126,6 +163,32 @@ func TestValidate(t *testing.T) {
 			err := tc.cfg.Validate(layer.Env{Ports: tbl})
 			if (err != nil) != tc.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateRefusesVLANOutsideRange(t *testing.T) {
+	t.Parallel()
+
+	tbl := testPortTable(t)
+
+	for _, vid := range []vlan.ID{0, 4095, 5000} {
+		t.Run(strconv.Itoa(int(vid)), func(t *testing.T) {
+			t.Parallel()
+
+			cfg := loopprotect.Config{
+				Ports: map[string]loopprotect.Port{
+					"1/1/1": {Action: loopprotect.Block, VLANs: []vlan.ID{10, vid}},
+				},
+			}
+
+			err := cfg.Validate(layer.Env{Ports: tbl})
+			if err == nil {
+				t.Fatalf("Validate() = nil, want an error for VLAN %d", vid)
+			}
+			if got := errs.Attributes(err)["field"]; got != "ports.1/1/1.vlans" {
+				t.Errorf("field = %v, want ports.1/1/1.vlans", got)
 			}
 		})
 	}
