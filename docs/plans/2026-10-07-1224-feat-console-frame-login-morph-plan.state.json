@@ -11,9 +11,7 @@
   "parent": null,
   "after": [],
   "landed": null,
-  "phases": [
-    "docs/plans/2026-10-07-1224-feat-console-frame-login-morph-phase3-plan.md"
-  ],
+  "phases": [],
   "retired": [
     {
       "plan": "docs/plans/2026-10-07-1224-feat-console-frame-login-morph-phase1-plan.md",
@@ -29,6 +27,14 @@
       "landed": {
         "first": "21c3082d",
         "last": "3da8d949"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-07-1224-feat-console-frame-login-morph-phase3-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "2ae32ce5",
+        "last": "2abd9f1e"
       }
     }
   ]
