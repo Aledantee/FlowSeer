@@ -51,6 +51,9 @@ it('keeps four regions in one frame and clears teleported content on unmount', a
       ?.classList.contains('sidebar-collapsed'),
   ).toBe(true)
   expect(mounted.host.querySelector('aside')?.id).toBe('workspace-sidebar')
+  expect(mounted.host.querySelector('.main-notch')?.classList).toContain(
+    'brand-glow',
+  )
   visible.value = false
   await nextTick()
   expect(mounted.host.querySelector('#frame-sidebar')).not.toBeNull()

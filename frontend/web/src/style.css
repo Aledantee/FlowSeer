@@ -205,10 +205,6 @@ html:has(.shell) {
 }
 
 @media (max-width: 800px) {
-  .login-sidebar {
-    padding: 10px 18px 24px;
-  }
-
   .sidebar {
     position: relative;
     width: 100%;
@@ -337,6 +333,14 @@ html:has(.shell) {
   color: var(--chrome-foreground);
 }
 
+.topbar-glass {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(24px) saturate(140%);
+}
+
 /* Chrome-coloured wedge that reads as a rounded inner corner where the
    sidebar and top bar meet. It carries the shared glow so it stays
    continuous with both surfaces. */
@@ -348,7 +352,6 @@ html:has(.shell) {
   width: 18px;
   height: 18px;
   pointer-events: none;
-  background: var(--chrome);
   backdrop-filter: blur(24px) saturate(140%);
   mask-image: radial-gradient(
     circle at bottom right,
