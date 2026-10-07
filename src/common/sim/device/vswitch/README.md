@@ -335,8 +335,8 @@ explicit calls:
 - `SetOperStatus(port, state)` rewrites the port in the switch's and the
   relay's tables and tells the protocol layers nothing, since only the caller
   knows whether a member's change moves its LAG; it follows with `LinkChange`.
-  An invalid link state returns a structured error without changing either
-  table.
+  An invalid link state or an absent port returns a structured error without
+  changing either table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `ClearLoopProtect(now, port)` manually lifts the loop-protection action
   applied to the named port.

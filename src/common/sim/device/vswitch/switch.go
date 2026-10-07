@@ -3514,8 +3514,8 @@ const IssuePVSTBoundary analysis.IssueCode = "stp-pvst-boundary"
 
 // LinkChange notifies the protocol layers of a link transition on the named port.
 //
-// An invalid operational state records a fault on operErr. LinkChange returns
-// nothing and the fault has no exported reader.
+// An invalid operational state or an absent port records a fault on operErr.
+// LinkChange returns nothing and the fault has no exported reader.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]PointToPoint)
@@ -3709,8 +3709,8 @@ func (s *Switch) MemberInfo(member string) lag.MemberInfo {
 // nothing: only the caller knows whether a member's change moves its LAG or
 // what the link's speed and kind are, so the caller follows with LinkChange.
 // SetOperStatus returns a structured validation error when state is outside
-// the [port.LinkState] domain or the port is absent. It leaves both tables
-// unchanged.
+// the [port.LinkState] domain or the port is absent. On refusal, it leaves both
+// tables unchanged.
 func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
 	tbl, err := s.ports.WithOperStatus(portName, state)
 	if err != nil {
