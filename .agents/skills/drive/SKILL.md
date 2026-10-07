@@ -43,8 +43,8 @@ Before the first dispatch:
   phases that finished before it started.
 - Do not drive a line flagged `elsewhere:<branch>`; name the branch.
 - Load `delegate`, discover the host, and read the quota with its
-  `pool-usage.sh`. State all four rows (`claude`, `codex`, `google`,
-  `synthetic`) before the first dispatch; a quota line that names two pools
+  `delegate pool-usage`. State all five rows (`claude`, `codex`, `google`,
+  `synthetic`, `zai`) before the first dispatch. A quota line that names two pools
   routed on two pools. No usable pool means no drive: say which window is
   exhausted and when it resets.
 

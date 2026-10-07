@@ -1,31 +1,246 @@
-import ast
 import contextlib
+import importlib
 import io
 import json
 import os
+import socket
+import subprocess
+import sys
+import time
 from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
 
-from lib import repo
+import run as dispatcher
+from skills.delegate import pool_usage
 
 
-SCRIPT = repo.root(Path(__file__).parent) / ".agents/skills/delegate/scripts/pool-usage.sh"
-source = SCRIPT.read_text().split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
-tree = ast.parse(source)
-tree.body = [node for node in tree.body if not isinstance(node, ast.Expr)]
-POOL = {}
-exec(compile(tree, str(SCRIPT), "exec"), POOL)
+POOL = vars(pool_usage)
 
 
 class PoolUsageTest(unittest.TestCase):
+    def test_import_has_no_output_or_process(self):
+        output, errors = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors), \
+                mock.patch.object(subprocess, "Popen", side_effect=AssertionError("process on import")), \
+                mock.patch.object(subprocess, "run", side_effect=AssertionError("command on import")), \
+                mock.patch.object(pool_usage.threading.Thread, "start",
+                                  side_effect=AssertionError("thread on import")), \
+                mock.patch.object(pool_usage.urllib.request, "urlopen",
+                                  side_effect=AssertionError("network on import")):
+            importlib.reload(pool_usage)
+        self.assertEqual((output.getvalue(), errors.getvalue()), ("", ""))
+
+    def pipe_read(self, mode, *, timeout=1, fragments=False):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = Path(directory) / "peer.py"
+            fixture.write_text('''
+import json, os, sys
+mode = sys.argv[1]
+os.write(1, b'{"method":"retained/notification"}\\n')
+for line in sys.stdin.buffer:
+    message = json.loads(line)
+    method = message['method']
+    if method == 'initialized':
+        continue
+    if mode == 'eof':
+        sys.exit(0)
+    if mode == 'timeout':
+        continue
+    result = {
+        'initialize': {},
+        'account/read': {'account': {'type': 'chatgpt', 'planType': 'prolite'}},
+        'model/list': {'data': [{'id': 'gpt-6-sol'}], 'nextCursor': None},
+        'account/rateLimits/read': {'rateLimits': {'primary': {'usedPercent': 25}}},
+    }[method]
+    wire = (json.dumps({'method': 'unrelated/notification'}) + '\\n' +
+            json.dumps({'id': -1, 'result': {}}) + '\\n' +
+            json.dumps({'id': message['id'], 'result': result}) + '\\n').encode()
+    os.write(1, wire)
+''', encoding="utf-8")
+            processes = []
+            popen = subprocess.Popen
+
+            class FragmentedPipe:
+                def __init__(self, stream):
+                    self.stream = stream
+
+                def read(self, size):
+                    return self.stream.read(min(size, 3))
+
+                def close(self):
+                    self.stream.close()
+
+            def launch(argv, **kwargs):
+                process = popen([sys.executable, str(fixture), mode], **kwargs)
+                processes.append(process)
+                if fragments:
+                    process.stdout = FragmentedPipe(process.stdout)
+                return process
+
+            with mock.patch.object(pool_usage.shutil, "which", return_value=sys.executable), \
+                    mock.patch.object(subprocess, "Popen", side_effect=launch):
+                started = time.monotonic()
+                info = pool_usage.codex_read(timeout=timeout)
+                elapsed = time.monotonic() - started
+            process = processes[0]
+            self.assertIsNotNone(process.returncode)
+            self.assertTrue(process.stdin.closed)
+            stream = process.stdout.stream if fragments else process.stdout
+            self.assertTrue(stream.closed)
+            return info, elapsed
+
+    def test_rpc_fragmented_lines_keep_request_ids(self):
+        info, _ = self.pipe_read("reply", fragments=True)
+        self.assertEqual(info, {
+            "signed_in": True, "plan": "prolite", "models": ["gpt-6-sol"],
+            "windows": {"primary": 25}, "resets": {}, "error": None,
+        })
+
+    def test_rpc_batched_lines_ignore_notifications_and_unrelated_ids(self):
+        info, _ = self.pipe_read("reply")
+        self.assertEqual(info["windows"], {"primary": 25})
+        self.assertEqual(info["models"], ["gpt-6-sol"])
+        self.assertIsNone(info["error"])
+
+    def test_rpc_eof_reports_failure_and_reaps_server(self):
+        info, elapsed = self.pipe_read("eof")
+        self.assertEqual(info["error"], "unreadable codex app-server quota")
+        self.assertIsNone(info["signed_in"])
+        self.assertLess(elapsed, 2)
+
+    def test_rpc_timeout_reports_failure_and_reaps_server(self):
+        info, elapsed = self.pipe_read("timeout", timeout=0.1)
+        self.assertEqual(info["error"], "unreadable codex app-server quota")
+        self.assertIsNone(info["signed_in"])
+        self.assertLess(elapsed, 2)
+
+    def test_cleanup_kills_and_reaps_after_terminate_timeout(self):
+        process = mock.Mock(stdin=io.BytesIO(), stdout=io.BytesIO())
+        process.wait.side_effect = [subprocess.TimeoutExpired("fixture", 5), 0]
+        with mock.patch.object(pool_usage.shutil, "which", return_value="fixture"), \
+                mock.patch.object(subprocess, "Popen", return_value=process):
+            info = pool_usage.codex_read()
+        self.assertEqual(info["error"], "unreadable codex app-server quota")
+        self.assertEqual(process.mock_calls, [
+            mock.call.terminate(), mock.call.wait(timeout=5), mock.call.kill(), mock.call.wait(),
+        ])
+        self.assertTrue(process.stdin.closed)
+        self.assertTrue(process.stdout.closed)
+
+    def test_cleanup_bounds_join_and_leaves_stdout_with_reader(self):
+        process = mock.Mock(stdin=io.BytesIO(), stdout=mock.Mock())
+        chunks = mock.Mock()
+        chunks.get.return_value = b""
+        with mock.patch.object(pool_usage.shutil, "which", return_value="fixture"), \
+                mock.patch.object(subprocess, "Popen", return_value=process), \
+                mock.patch.object(pool_usage.queue, "Queue", return_value=chunks), \
+                mock.patch.object(pool_usage.threading, "Thread") as thread:
+            info = pool_usage.codex_read()
+        self.assertEqual(info["error"], "unreadable codex app-server quota")
+        self.assertTrue(thread.call_args.kwargs["daemon"])
+        thread.return_value.start.assert_called_once_with()
+        thread.return_value.join.assert_called_once_with(timeout=5)
+        process.stdout.close.assert_not_called()
+        process.terminate.assert_called_once_with()
+        process.wait.assert_called_once_with(timeout=5)
+        process.kill.assert_not_called()
+        self.assertTrue(process.stdin.closed)
+
+    def test_descendant_stdout_does_not_hold_command_exit(self):
+        # The control socket holds the descendant alive past the five-second join.
+        with socket.socket() as control, tempfile.TemporaryDirectory() as directory:
+            control.bind(("127.0.0.1", 0))
+            control.listen()
+            control.settimeout(8)
+            peer = Path(directory) / "peer.py"
+            peer.write_text('''
+import json, subprocess, sys
+descendant = "import socket,sys; s=socket.create_connection(('127.0.0.1',int(sys.argv[1]))); s.sendall(b'ready'); s.recv(1)"
+subprocess.Popen([sys.executable, '-c', descendant, sys.argv[1]], stdin=subprocess.DEVNULL)
+for line in sys.stdin:
+    msg = json.loads(line)
+    if msg['method'] == 'initialize':
+        print(json.dumps({'id': msg['id'], 'result': {}}), flush=True)
+    elif msg['method'] == 'account/read':
+        print(json.dumps({'id': msg['id'], 'result': {'account': None}}), flush=True)
+''', encoding="utf-8")
+            driver = '''
+import json, subprocess, sys
+from unittest import mock
+from skills.delegate import pool_usage
+popen = subprocess.Popen
+with mock.patch.object(pool_usage.shutil, 'which', return_value=sys.executable), mock.patch.object(subprocess, 'Popen', side_effect=lambda argv, **kwargs: popen([sys.executable, sys.argv[1], sys.argv[2]], **kwargs)):
+    print(json.dumps(pool_usage.codex_read(timeout=1)), flush=True)
+'''
+            env = {**os.environ, "PYTHONPATH": str(Path(pool_usage.__file__).resolve().parents[2])}
+            process = subprocess.Popen(
+                [sys.executable, "-B", "-c", driver, str(peer), str(control.getsockname()[1])],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+            )
+            connection = None
+            try:
+                connection, _ = control.accept()
+                connection.settimeout(8)
+                self.assertEqual(connection.recv(5), b"ready")
+                try:
+                    stdout, stderr = process.communicate(timeout=8)
+                except subprocess.TimeoutExpired:
+                    self.fail("command exit waited for descendant-held stdout")
+                self.assertEqual(process.returncode, 0, stderr)
+                self.assertEqual(json.loads(stdout)["error"], "no ChatGPT subscription sign-in")
+                self.assertIs(json.loads(stdout)["signed_in"], False)
+            finally:
+                if connection is not None:
+                    connection.sendall(b"x")
+                    self.assertEqual(connection.recv(1), b"")
+                    connection.close()
+                if process.poll() is None:
+                    process.kill()
+                process.communicate(timeout=8)
+
     def row(self, function):
         output = io.StringIO()
         with contextlib.redirect_stdout(output):
             POOL[function]()
         return {pool: json.loads(row) for pool, row in
                 (line.split(": ", 1) for line in output.getvalue().splitlines())}
+
+    def test_full_rows_match_fixed_replies_and_registry(self):
+        replies = [
+            (json.dumps({"result": {"rateLimits": {
+                "claude": {"status": "ok", "session": {"usedPercent": 0}},
+                "codex": {"status": "ok", "weekly": {"usedPercent": 85}},
+            }}}), None),
+            (json.dumps({"loggedIn": True, "subscriptionType": "max"}), None),
+            (json.dumps({"command": {"data": {"groups": [{"buckets": [
+                {"id": "gemini-5h", "remaining_fraction": 0.5},
+            ]}]}}}), None),
+            (json.dumps({"reports": [{"provider": "zai", "metadata": {"planType": "lite"},
+                                     "limits": []}]}), None),
+        ]
+        info = {"signed_in": True, "plan": "prolite", "models": ["gpt-6-sol"], "error": None}
+        output = io.StringIO()
+        with mock.patch.object(POOL["shutil"], "which", return_value="fixture"), \
+                mock.patch.dict(POOL, {
+                    "run": mock.Mock(side_effect=replies),
+                    "codex_read": mock.Mock(return_value=info),
+                    "synthetic_key": lambda: None,
+                    "registry_pools": lambda: {
+                        "claude": {"plans": {"max": {"capacity": {"session": 20}}}},
+                        "codex": {"plans": {"prolite": {"capacity": 5}}},
+                    },
+                }), contextlib.redirect_stdout(output):
+            self.assertEqual(dispatcher.main(["delegate", "pool-usage"]), 0)
+        expected = (
+            'claude: {"signed_in": true, "windows": {"session": 0}, "plan": "max", "capacity": {"session": 20}, "worst": {"window": "session", "used": 0}, "slots": {"session": 6}, "source": "orca"}\n'
+            'codex: {"signed_in": true, "windows": {"weekly": 85}, "plan": "prolite", "capacity": 5, "models": ["gpt-6-sol"], "worst": {"window": "weekly", "used": 85}, "slots": {"weekly": 0}, "source": "orca"}\n'
+            'google: {"signed_in": true, "windows": {"gemini-5h": 50}, "plan": null, "capacity": 1, "worst": {"window": "gemini-5h", "used": 50}, "slots": {"gemini-5h": 1}, "source": "agy"}\n'
+            'synthetic: {"signed_in": false, "windows": null, "plan": null, "capacity": 1, "slots": null, "source": "synthetic-api", "error": "no key in SYNTHETIC_API_KEY or opencode auth.json"}\n'
+            'zai: {"signed_in": true, "windows": null, "plan": "lite", "capacity": 1, "plan_unlisted": true, "slots": null, "source": "omp"}\n'
+        )
+        self.assertEqual(output.getvalue().encode(), expected.encode())
 
     def test_native_fallback_without_orca(self):
         with mock.patch.object(POOL["shutil"], "which", return_value=None), \
@@ -206,8 +421,8 @@ class PoolUsageTest(unittest.TestCase):
     def codex_row(self, account, quota=None, quota_error=False, model_pages=None,
                   timeout=30, requests_path=None, read_quota=True, orca_windows=None):
         with tempfile.TemporaryDirectory() as directory:
-            cli = Path(directory) / "codex"
-            cli.write_text("#!/usr/bin/env python3\n" +
+            cli = Path(directory) / "codex.py"
+            cli.write_text(
                            f"account={account!r}\nquota={quota!r}\n"
                            f"quota_error={quota_error!r}\nmodel_pages={model_pages!r}\n"
                            f"requests_path={requests_path!r}\n" + '''
@@ -258,11 +473,13 @@ for line in sys.stdin:
         print(json.dumps({'id': msg['id'], 'error': {'message': 'unknown method'}}), flush=True)
         continue
     print(json.dumps({'method': 'unrelated/notification'}), flush=True)
-    # Multiple messages in one write exercises the buffered stdio reader.
     print(json.dumps({'id': msg['id'], 'result': result}), flush=True)
 ''')
-            cli.chmod(0o755)
-            with mock.patch.dict(os.environ, {"PATH": directory + os.pathsep + os.environ["PATH"]}):
+            popen = subprocess.Popen
+            with mock.patch.object(pool_usage.shutil, "which", return_value=sys.executable), \
+                    mock.patch.object(pool_usage.subprocess, "Popen",
+                                      side_effect=lambda argv, **kwargs:
+                                      popen([sys.executable, str(cli)], **kwargs)):
                 output = io.StringIO()
                 with contextlib.redirect_stdout(output):
                     if orca_windows is not None:

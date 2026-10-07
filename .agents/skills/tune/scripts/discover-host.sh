@@ -34,7 +34,7 @@ echo "pools:"
 # The prepaid pools, each read from the source that owns its numbers.
 # Orca's `unavailable` row for antigravity says only that Orca cannot read
 # it, so it is not used.
-"$(dirname "$0")/../../delegate/scripts/pool-usage.sh" | sed 's/^/  /'
+uv run "$(dirname "$0")/../../../../tools/scripts/run.py" delegate pool-usage | sed 's/^/  /'
 
 # omp serves the synthetic pool by pinning an id with --model; list the
 # synthetic ids it offers, without the `synthetic/` selector prefix. The

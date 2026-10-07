@@ -18,7 +18,7 @@ does and stops the row reporting it.
 | --- | --- | --- |
 | `~/.claude/models/registry.yaml` | The registry every project on this machine reads | this skill |
 | `~/.claude/models/evidence.md` | Source and date per registry number | this skill |
-| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `discover-host.sh` (`pool-usage.sh` prints fresh rows and writes no file) |
+| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `discover-host.sh` (`delegate pool-usage` prints fresh rows and writes no file) |
 | `.claude/models/registry.yaml` in a project | What that project lays over the machine-wide file, committed. In this repository it is the full registry with its calibration records, beside its own `evidence.md` | a person, or this skill on request |
 
 The effective registry is the machine-wide file with the project file laid

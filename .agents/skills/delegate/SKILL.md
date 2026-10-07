@@ -42,7 +42,7 @@ followed by `@<level>`. Every step below matches the model id before the
 `@` against pool rows, `exclude`, vendors, and executors. Resolve each
 lane in this order:
 
-1. Drop models whose pool row, as `scripts/pool-usage.sh` printed it for
+1. Drop models whose pool row, as `delegate pool-usage` printed it for
    this wave (`~/.claude/models/host.yaml` holds the session-start rows),
    shows `signed_in` false or null, or at or over the pool's limit on a window that applies to
    the model. Drop a model that a row carrying `models` does not list, or
@@ -128,7 +128,7 @@ Run this immediately before each wave, and first on `timeout` (the
 quiet-worker check) or whenever a delegated session goes quiet:
 
 ```bash
-.claude/skills/delegate/scripts/pool-usage.sh    # unsandboxed
+uv run tools/scripts/run.py delegate pool-usage    # unsandboxed
 ```
 
 A pool is usable when signed in and every window that applies to the lane

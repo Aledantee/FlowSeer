@@ -1081,7 +1081,7 @@ when a wave gets cut off or when quota sits idle.
 
 Orca reads usage only for the providers it has credentials for. Its
 `unavailable` status describes its view, not the pool. The
-[`pool-usage.sh`](../.agents/skills/delegate/scripts/pool-usage.sh) reader uses
+[`delegate pool-usage`](../tools/scripts/skills/delegate/pool_usage.py) reader uses
 each pool's own source. When Orca is absent or cannot supply Claude or Codex
 windows, native CLI queries read subscription usage through the CLI's own
 sign-in. This prevents an absent runtime from excluding installed, signed-in

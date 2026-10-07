@@ -1,48 +1,19 @@
-#!/usr/bin/env bash
-# Print, as one YAML flow map per line, the sign-in state, plan, capacity,
-# plan_unlisted, models, slots, and used percent of every window of the prepaid pools
-# (claude, codex, google, synthetic, zai). Each pool is read from the source
-# that owns its numbers, because no single tool sees them all:
-#
-#   claude, codex  orca account list --json      (rateLimits), falling back
-#                  to native CLI usage when Orca cannot supply its windows
-#   google         agy -p /quota                 (answers without a model turn)
-#   synthetic      GET api.synthetic.new/v2/quotas (rolling five-hour request
-#                  limit and weekly credit limit; the call is not counted)
-#   zai            omp usage --provider zai --json (Z.ai GLM Lite plan quota;
-#                  omp owns the credential and the numbers)
-#
-# Orca also lists `antigravity` with status `unavailable`. That status means
-# Orca cannot read its usage, not that the pool is down, so it is never
-# consulted for it. A failed read leaves an `error`. Windows that were read
-# stay in the row. `windows: null` means none were read. `plan: null` beside
-# an `error` means the plan is unknown and counts capacity 1. A failed read
-# does not mark the pool signed out unless the source itself says so.
-#
-# The synthetic pool is served through omp, but omp keeps no auth file, so
-# the key still comes from SYNTHETIC_API_KEY, else from the `synthetic` entry
-# that resides in ~/.local/share/opencode/auth.json. It is sent only to
-# api.synthetic.new and never printed.
-#
-# Run unsandboxed: orca uses a local socket, agy the network and the keyring,
-# and the synthetic read needs the network.
-# The effective registry is ~/.claude/models/registry.yaml overlaid by
-# .claude/models/registry.yaml in the working directory.
+"""Read five prepaid pool rows, retaining provider failures as row data."""
 
-set -uo pipefail
-
-python3 - <<'PY'
-import datetime
+import argparse
 import ast
+import datetime
 import json
 import math
 import os
+from pathlib import Path
+import queue
 import re
 import shutil
-import selectors
-import time
-import tempfile
 import subprocess
+import tempfile
+import threading
+import time
 import urllib.error
 import urllib.request
 
@@ -137,7 +108,7 @@ def flow_value(text):
 
 def read_registry(path):
     try:
-        with open(path, encoding="utf-8") as registry:
+        with Path(path).open(encoding="utf-8") as registry:
             lines = registry.readlines()
     except (OSError, ValueError):
         return {}
@@ -161,8 +132,8 @@ def read_registry(path):
 
 def registry_pools():
     pools = {}
-    paths = [os.path.expanduser("~/.claude/models/registry.yaml"),
-             os.path.join(os.getcwd(), ".claude/models/registry.yaml")]
+    paths = [Path("~/.claude/models/registry.yaml").expanduser(),
+             Path(os.getcwd()) / ".claude/models/registry.yaml"]
     for path in paths:
         pools.update(read_registry(path))
     return pools
@@ -240,8 +211,9 @@ def iso(ms):
 
 def orca_pools():
     result = None
-    if shutil.which("orca"):
-        out, _ = run(["orca", "account", "list", "--json"])
+    orca = shutil.which("orca")
+    if orca:
+        out, _ = run([orca, "account", "list", "--json"])
         try:
             result = json.loads(out)["result"]
             if not isinstance(result, dict) or not isinstance(result.get("rateLimits"), dict):
@@ -272,9 +244,10 @@ def orca_pools():
 
 
 def claude_auth():
-    if not shutil.which("claude"):
+    claude = shutil.which("claude")
+    if not claude:
         return None
-    out, _ = run(["claude", "auth", "status"], ok_codes=(0, 1))
+    out, _ = run([claude, "auth", "status"], ok_codes=(0, 1))
     try:
         auth = json.loads(out)
         if not isinstance(auth.get("loggedIn"), bool):
@@ -292,7 +265,8 @@ def claude_plan():
 
 
 def claude_pool():
-    if not shutil.which("claude"):
+    claude = shutil.which("claude")
+    if not claude:
         emit("claude", None, "claude-cli", error="claude not installed")
         return
     auth = claude_auth()
@@ -307,7 +281,7 @@ def claude_pool():
     # /usage is a local command. Stream output carries its structured report,
     # while ordinary JSON output keeps only the rendered text.
     with tempfile.TemporaryDirectory(prefix="flowseer-pool-usage-") as scratch:
-        out, _ = run(["claude", "-p", "/usage", "--output-format", "stream-json",
+        out, _ = run([claude, "-p", "/usage", "--output-format", "stream-json",
                       "--verbose", "--no-session-persistence", "--tools", ""], cwd=scratch)
     try:
         messages = [json.loads(line) for line in out.splitlines() if line.strip()]
@@ -343,15 +317,31 @@ def claude_pool():
 def codex_read(timeout=30, quota=True):
     info = {"signed_in": None, "plan": None, "models": None,
             "windows": None, "resets": {}, "error": None}
-    if not shutil.which("codex"):
+    codex = shutil.which("codex")
+    if not codex:
         info["error"] = "codex not installed"
         return info
     proc = None
-    selector = selectors.DefaultSelector()
+    reader = None
     try:
-        proc = subprocess.Popen(["codex", "app-server"], stdin=subprocess.PIPE,
-                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        selector.register(proc.stdout, selectors.EVENT_READ)
+        proc = subprocess.Popen([codex, "app-server"], stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                bufsize=0)
+        chunks = queue.Queue()
+        stdout = proc.stdout
+
+        def read_stdout():
+            try:
+                while chunk := stdout.read(65536):
+                    chunks.put(chunk)
+            except OSError:
+                pass
+            finally:
+                stdout.close()
+                chunks.put(b"")
+
+        reader = threading.Thread(target=read_stdout, daemon=True)
+        reader.start()
         buffer = b""
 
         def request(rid, method, params=None):
@@ -371,9 +361,12 @@ def codex_read(timeout=30, quota=True):
                             raise ValueError(reply["error"].get("message", "request failed"))
                         return reply["result"]
                 remaining = deadline - time.monotonic()
-                if remaining <= 0 or not selector.select(remaining):
+                if remaining <= 0:
                     raise TimeoutError("codex app-server timed out")
-                chunk = os.read(proc.stdout.fileno(), 65536)
+                try:
+                    chunk = chunks.get(timeout=remaining)
+                except queue.Empty:
+                    raise TimeoutError("codex app-server timed out") from None
                 if not chunk:
                     raise OSError("codex app-server exited")
                 buffer += chunk
@@ -412,7 +405,6 @@ def codex_read(timeout=30, quota=True):
         info["error"] = ("unreadable codex app-server quota" if quota
                           else "unreadable codex app-server account")
     finally:
-        selector.close()
         if proc is not None:
             proc.terminate()
             try:
@@ -424,7 +416,10 @@ def codex_read(timeout=30, quota=True):
                 proc.stdin.close()
             except OSError:
                 pass
-            proc.stdout.close()
+            # A descendant can hold stdout open after the server is reaped.
+            # Only its reader closes it, so cleanup cannot block on the read.
+            if reader is not None:
+                reader.join(timeout=5)
     return info
 
 
@@ -463,15 +458,16 @@ def codex_pool(timeout=30):
 
 
 def google_pool():
-    if not shutil.which("agy"):
+    agy = shutil.which("agy")
+    if not agy:
         emit("google", False, "agy", error="agy not installed")
         return
-    out, err = run(["agy", "-p", "/quota", "--output-format", "json", "--print-timeout", "60s"])
+    out, err = run([agy, "-p", "/quota", "--output-format", "json", "--print-timeout", "60s"])
     try:
         groups = json.loads(out)["command"]["data"]["groups"]
     except (TypeError, ValueError, KeyError):
-        # The quota command is newer than the sign-in check it replaces here.
-        models, _ = run(["agy", "models"])
+        # A readable model list still establishes sign-in when quota is unreadable.
+        models, _ = run([agy, "models"])
         emit("google", models is not None, "agy", error=err or "unreadable /quota reply")
         return
     windows, resets = {}, {}
@@ -487,7 +483,7 @@ def synthetic_key():
     if key:
         return key
     try:
-        auth = json.load(open(os.path.expanduser("~/.local/share/opencode/auth.json")))
+        auth = json.loads(Path("~/.local/share/opencode/auth.json").expanduser().read_text(encoding="utf-8"))
         return auth["synthetic"]["key"]
     except (OSError, ValueError, KeyError, TypeError):
         return None
@@ -528,10 +524,11 @@ def zai_pool():
     # Z.ai (GLM) is served through omp, which reads its own credential store
     # and exposes the plan's quota through `omp usage --json`. omp owns the
     # numbers, so read them from it rather than calling api.z.ai directly.
-    if not shutil.which("omp"):
+    omp = shutil.which("omp")
+    if not omp:
         emit("zai", None, "omp", error="omp not installed")
         return
-    out, err = run(["omp", "usage", "--provider", "zai", "--json"])
+    out, err = run([omp, "usage", "--provider", "zai", "--json"])
     plan = None
     try:
         reports = json.loads(out)["reports"]
@@ -560,8 +557,11 @@ def zai_pool():
     emit("zai", True, "omp", windows or None, resets, plan=plan)
 
 
-orca_pools()
-google_pool()
-synthetic_pool()
-zai_pool()
-PY
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="run.py delegate pool-usage")
+    parser.parse_args(argv)
+    orca_pools()
+    google_pool()
+    synthetic_pool()
+    zai_pool()
+    return 0

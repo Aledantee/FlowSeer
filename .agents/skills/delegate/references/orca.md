@@ -155,7 +155,7 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   else is reported to the user with the screen text.
 - `wait` prints `limited`: the lane is quiet and its screen names a limit.
   Read the screen. A worker waiting for its pool's window to reset has not
-  finished: read the pool's row with `pool-usage.sh` and wait again with
+  finished: read the pool's row with `delegate pool-usage` and wait again with
   `--max` past the reset, or grade the lane `blocked` and dispatch the work
   on another pool. A finished report that only mentions a limit is handled
   as `idle`. The match is a broad pattern, since no CLI's wording of that
@@ -183,7 +183,7 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 - `keys` says it takes 200 characters at most: write the text to a file and
   send it with `tell <slug> <file>`.
 - `wait` keeps running on a quiet worker, or prints `timeout`: rule out
-  causes in cost order once. The provider's quota (`pool-usage.sh`), then
+  causes in cost order once. The provider's quota (`delegate pool-usage`), then
   the screen for a prompt or a mangled instruction, then `git status` in the
   worker's checkout, where a written file with no commit means the worker is
   still testing. Wait again after that check.
