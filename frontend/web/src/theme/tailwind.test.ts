@@ -7,6 +7,20 @@ describe('tailwind theme and utilities', () => {
   const cssPath = path.resolve(__dirname, 'tailwind.css')
   const css = fs.readFileSync(cssPath, 'utf-8')
 
+  it('generates glass surface and panel backgrounds from semantic tokens', async () => {
+    const compiler = await compile(css, {
+      base: path.dirname(cssPath),
+      onDependency: () => {},
+    })
+    const output = compiler.build(['bg-glass', 'bg-glass-panel'])
+    expect(output).toMatch(
+      /\.bg-glass\s*\{\s*background-color: var\(--glass\);\s*\}/,
+    )
+    expect(output).toMatch(
+      /\.bg-glass-panel\s*\{\s*background-color: var\(--glass-panel\);\s*\}/,
+    )
+  })
+
   it('generates semantic color utilities and excludes default palette', async () => {
     const compiler = await compile(css, {
       base: path.dirname(cssPath),

@@ -276,6 +276,14 @@
     }
   },
   "semantic": {
+    "glass": {
+      "light": { "ref": "neutral-2", "alpha": 0.45 },
+      "dark": { "ref": "neutral-2", "alpha": 0.6 }
+    },
+    "glass-panel": {
+      "light": { "ref": "neutral-5", "alpha": 0.55 },
+      "dark": { "ref": "neutral-1", "alpha": 0.55 }
+    },
     "background": { "light": "neutral-5", "dark": "neutral-1" },
     "foreground": { "light": "neutral-12", "dark": "neutral-12" },
     "muted-foreground": { "light": "neutral-11", "dark": "neutral-11" },
