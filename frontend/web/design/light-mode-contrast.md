@@ -1,10 +1,12 @@
 # Light-mode contrast audit
 
-> Note: The measured ratios, hex values, and audit observations in this document predate the migration to semantic scale-step tokens and the lighter neutral-5 canvas.
+> The September measurements, hex values, and browser observations predate
+> semantic scale-step tokens, the lighter neutral-5 canvas, and the shared
+> glass surface. The composited glass gate below uses the current palette.
 
 Audited on 7 September 2026. The light theme uses darker neutral surfaces with
 stronger foreground colors to reduce glare without sacrificing small-text
-legibility. The shared glass frame and rounded inner corner retain their layout.
+legibility.
 
 ## Findings and corrections
 
@@ -65,6 +67,42 @@ and status pairs. Light-mode status outlines have additional checks. Both themes
 pass. Decorative separators are not used as the sole indication of a control or
 state and are not assigned the control-outline contrast requirement.
 
+## Composited glass gate
+
+`src/theme/palette.test.ts` composites `glass` over each of seven glow stops,
+then `glass-panel` over the glass. It reads the palette from
+`design/palette-source.json` and checks its glow parameters against
+`src/theme/brand-glow.css`. The lowest ratio across those stops for each
+gated token is:
+
+| Surface       | Token                     | Light   | Dark    | Minimum |
+| ------------- | ------------------------- | ------- | ------- | ------- |
+| `glass`       | `foreground`              | 10.96:1 | 8.93:1  | 4.5:1   |
+| `glass`       | `muted-foreground`        | 5.05:1  | 5.02:1  | 4.5:1   |
+| `glass`       | `chrome-foreground`       | 10.96:1 | 8.93:1  | 4.5:1   |
+| `glass`       | `chrome-muted-foreground` | 5.05:1  | 5.02:1  | 4.5:1   |
+| `glass`       | `chrome-ring`             | 7.82:1  | 5.48:1  | 4.5:1   |
+| `glass-panel` | `foreground`              | 10.80:1 | 11.84:1 | 7:1     |
+| `glass-panel` | `muted-foreground`        | 4.98:1  | 6.66:1  | 4.5:1   |
+| `glass-panel` | `accent-foreground`       | 7.70:1  | 7.26:1  | 4.5:1   |
+| `glass-panel` | `primary-text`            | 7.80:1  | 5.66:1  | 4.5:1   |
+| `glass-panel` | `ring`                    | 7.70:1  | 7.26:1  | 3:1     |
+| `glass-panel` | `input`                   | 4.98:1  | 3.37:1  | 3:1     |
+| `glass-panel` | `graph-edge`              | 4.98:1  | 6.66:1  | 3:1     |
+| `glass-panel` | `warning-border`          | 4.64:1  | 4.39:1  | 3:1     |
+| `glass-panel` | `danger-border`           | 3.74:1  | 6.42:1  | 3:1     |
+| `glass-panel` | `danger-foreground`       | 8.00:1  | 6.42:1  | 4.5:1   |
+
+The table rounds to two decimal places. The gate asserts unrounded ratios
+using `over`, `glowStops`, and `contrast` in `src/theme/palette.ts`. It
+includes the glow's highlights without relying on blur. It does not model
+the surface's `saturate(150%)`, which needs a browser check.
+The last three rows are the link strokes and the error text that the
+topology canvas draws directly on the panel
+(`src/components/topology/TopologyLink.vue`, `TopologyGraph.vue`).
+`input` is gated on the panel and solid cards. The login field on the glass
+has its own solid card fill (`src/ui/form/UiInput.vue`).
+
 ## Rendered checks
 
 Tools: axe-core 4.12.1 through agent-browser, the repository's sRGB contrast
@@ -87,15 +125,11 @@ range, then restored the text.
 | Desktop, 1280 × 850, collapsed | 5.42:1               |
 | Phone, 390 × 844, expanded     | 5.21:1               |
 
-A scrolled Chromium check at 520px also compared the header with isolation
-enabled and disabled: the header pixels were identical. Disabling backdrop blur
-changed the header pixels, confirming that blur operates with the current
-isolated stacking context.
-
-The contrast samples cover the default unscrolled frame in Chromium. They do not prove
+These sampled navigation ratios predate the shared glass surface. They cover
+the September default unscrolled frame in Chromium. They do not prove
 contrast for every scroll position, tenant image, operating-system control, or
 browser renderer. Automated results and semantic-pair tests supplement visual
-inspection; this audit is not a claim of whole-application WCAG conformance.
+inspection. This audit is not a claim of whole-application WCAG conformance.
 
 ## Verification
 
@@ -108,5 +142,6 @@ pnpm build
 ```
 
 The repository's diff-aware verifier also covers every changed file. Palette
-source ramps and the historical Radix capture remain reference material; the
-semantic tokens in `src/style.css` are the rendered console palette.
+source ramps and the historical Radix capture remain reference material.
+`src/theme/semantic.css` holds the current semantic tokens generated from
+`design/palette-source.json`.

@@ -156,7 +156,7 @@ async function submit() {
   </Teleport>
   <Teleport defer to="#frame-page">
     <main
-      class="login-page flex-1 min-h-0 overflow-auto rounded-tl-[18px] max-[800px]:rounded-tl-none border-t border-l max-[800px]:border-l-0 border-chrome-border bg-background/55 text-foreground backdrop-blur-2xl backdrop-saturate-150 px-[34px] pt-[31px] pb-10 max-[1150px]:px-6 max-[800px]:px-5"
+      class="login-page flex-1 min-h-0 overflow-auto px-[34px] pt-[31px] pb-10 max-[1150px]:px-6 max-[800px]:px-5"
       :class="{ 'is-entering': entering }"
     >
       <div class="max-w-[880px]">

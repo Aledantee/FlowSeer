@@ -7,6 +7,8 @@
 }
 
 @theme inline {
+  --color-glass: var(--glass);
+  --color-glass-panel: var(--glass-panel);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);

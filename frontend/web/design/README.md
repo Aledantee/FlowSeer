@@ -47,6 +47,8 @@ The chart families complement the brand without conflating coral with errors.
 | Token                     | Light             | Dark             |
 | ------------------------- | ----------------- | ---------------- |
 | `background`              | neutral-5         | neutral-1        |
+| `glass`                   | neutral-2 at 45%  | neutral-2 at 60% |
+| `glass-panel`             | neutral-5 at 55%  | neutral-1 at 55% |
 | `foreground`              | neutral-12        | neutral-12       |
 | `muted-foreground`        | neutral-11        | neutral-11       |
 | `card`                    | neutral-2         | neutral-2        |
@@ -162,31 +164,36 @@ teal-to-orange illumination from the m3connect Personio login
 The console uses three broad, softly shaded diagonal ribbons with uneven spacing
 in place of the reference’s repeating vertical panels. Feathered highlights give
 the ribbons a slight folded-light effect without sharp dividers. The effect uses
-CSS gradients only; it does not load that image.
+CSS gradients only. It does not load that image.
 
-Apply `brand-glow` to every connected chrome surface:
+`AppFrame.vue` applies `brand-glow` to `.shell`, beneath one glass surface
+shared by the login page and console:
 
 ```html
-<aside class="sidebar brand-glow">...</aside>
-<header class="topbar">
-  <span class="topbar-glass brand-glow" aria-hidden="true"></span>
+<div class="shell relative brand-glow">
+  <div
+    class="frame-glass pointer-events-none absolute inset-0 bg-glass backdrop-blur-2xl backdrop-saturate-150"
+    aria-hidden="true"
+  ></div>
   ...
-</header>
+</div>
 ```
 
 The layered gradients share viewport coordinates through `background-attachment:
 fixed`, `background-position: left top`, and `background-size: 100vw
 var(--glow-height)`. This prevents the pattern from restarting at the sidebar
-edge, including when the sidebar collapses. The rounded content corner inherits
-the same background and uses a radial mask to cut out the inner curve. The glow stays
-within the navigation frame, with a longer vertical fade down the sidebar.
+edge, including when the sidebar collapses. The glow extends beneath the
+translucent `bg-glass-panel` page panel. The panel starts below the top bar
+and owns its rounded corner and border. The collapse tab shares the glow
+coordinates and covers them with an inset `--glass` shadow
+(`src/style.css`).
 
 Defaults are 30% color strength, a 560px fade height, and a 112-degree ribbon
 angle controlled by `--glow-ribbon-angle`. Ribbon positions are intentionally
-asymmetric gradient stops; avoid a repeating pattern that makes the chrome
+asymmetric gradient stops. Avoid a repeating pattern that makes the chrome
 look segmented.
 `--glow-base`, `--glow-teal`, and `--glow-orange` use the console's theme-specific navigation background, cyan,
-and coral tokens. The root owns these parameters so the sidebar, top bar, rounded corner, and
+and coral tokens. The root owns these parameters so the shell and
 collapse tab inherit the same values. For example, adjust the light theme at
 the root:
 
@@ -197,11 +204,14 @@ the root:
 }
 ```
 
-Light mode uses neutral gray navigation and 13% glow strength; dark
+Light mode uses neutral gray navigation and 13% glow strength. Dark
 mode uses charcoal and 30%. Keep text legible across both treatments. The effect
-stays static and fades into the navigation background. The top bar applies backdrop blur to scrolling content. Changing
-its strength requires checking text and control contrast across the rendered
-bands, not only against the base background token.
+stays static and fades into the navigation background. The empty glass
+surface blurs the glow behind the sidebar, top bar, and page panel. Changing
+the glow strength requires checking text and control contrast across the
+rendered bands. `src/theme/palette.test.ts` gates glass and panel contrast
+over seven glow stops without blur. Browser checks still need to cover the
+surface's saturation effect.
 
 ## Light-mode comfort
 
@@ -224,8 +234,7 @@ tokens generated into `src/theme/semantic.css` from `design/palette-source.json`
 referencing scale steps. Foundation tokens, typography, shape, and active contrast
 pairs can also be inspected interactively in Storybook (`pnpm storybook`).
 
-The connected frame keeps its shared ribbons and rounded inner corner. Content
-scrolls behind a translucent top-bar layer with 24px backdrop blur. Its measured
-height reserves content spacing on desktop and mobile. Required control outlines
-use `--input`; decorative panel separators use `--border` and do not carry
+The connected frame keeps its shared ribbons beneath the glass. Content
+scrolls within the page panel below the top bar. Required control outlines
+use `--input`. Decorative panel separators use `--border` and do not carry
 interaction or state meaning. Status badges retain explicit text labels.

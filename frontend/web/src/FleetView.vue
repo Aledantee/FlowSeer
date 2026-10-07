@@ -106,7 +106,6 @@ const labels = useLabels()
 const { play, reduced } = useMotionFeedback()
 const frame = useFrame()
 const navigation = ref<ComponentPublicInstance | null>(null)
-const topbarHeight = frame.topbarHeight
 const layoutDependency = frame.layoutDependency
 const route = useRoute()
 const router = useRouter()
@@ -964,7 +963,6 @@ onUnmounted(() => clearInterval(timer))
     <header
       class="topbar sticky top-0 z-(--z-sticky) flex items-center justify-between min-h-[54px] px-6 py-2.5 max-[1150px]:px-6 max-[800px]:px-5 max-[650px]:flex-wrap max-[650px]:pt-1.5 max-[650px]:pb-2.5 max-[650px]:gap-1 max-[560px]:min-h-[50px] max-[560px]:px-3.5"
     >
-      <span class="topbar-glass brand-glow" aria-hidden="true"></span>
       <div
         class="topbar-start flex items-center gap-3 min-w-0 flex-1 max-[650px]:basis-full max-[560px]:gap-[9px]"
       >
@@ -1111,7 +1109,7 @@ onUnmounted(() => clearInterval(timer))
           side="right"
         >
           <div
-            class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
+            class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--pane-inset-top)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
             role="separator"
             aria-orientation="vertical"
             :aria-label="t('view.fleet.resizeSplit')"
@@ -1147,7 +1145,7 @@ onUnmounted(() => clearInterval(timer))
               :style="
                 slot === panes.mainSlot.value
                   ? undefined
-                  : { '--topbar-height': `${topbarHeight + 36}px` }
+                  : { '--pane-inset-top': '36px' }
               "
               @pointerdown="
                 activePane = slot === panes.mainSlot.value ? 'main' : 'side'
@@ -1158,7 +1156,7 @@ onUnmounted(() => clearInterval(timer))
             >
               <header
                 v-if="slot !== panes.mainSlot.value && sideTitle"
-                class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
+                class="pane-header absolute z-[6] top-[calc(var(--pane-inset-top)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
               >
                 <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
                 <span
@@ -1289,7 +1287,7 @@ onUnmounted(() => clearInterval(timer))
         </template>
         <aside
           v-if="wide && assistantOpen"
-          class="assistant-pane flex-[0_0_20rem] lg:flex-[0_0_24rem] border-l border-border bg-card z-[4] flex flex-col pt-[var(--topbar-height)]"
+          class="assistant-pane flex-[0_0_20rem] lg:flex-[0_0_24rem] border-l border-border bg-card z-[4] flex flex-col pt-[var(--pane-inset-top)]"
           data-ai-assistant-column
         >
           <UiAiAssistant
@@ -1332,7 +1330,7 @@ onUnmounted(() => clearInterval(timer))
   content: '';
   position: absolute;
   z-index: 7;
-  top: var(--topbar-height);
+  top: var(--pane-inset-top);
   right: 0;
   left: 0;
   height: 2px;
