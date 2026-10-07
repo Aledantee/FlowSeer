@@ -59,6 +59,7 @@ it('keeps four regions in one frame and clears teleported content on unmount', a
 })
 
 const pageClasses = [
+  'bg-glass-panel',
   'flex',
   'min-h-0',
   'flex-1',
@@ -90,6 +91,59 @@ for (const mode of ['login', 'menu', 'collapsed'] as const)
     expect(mounted.host.querySelector('.main-notch')).toBeNull()
     expect(mounted.host.querySelector('#frame-topbar')?.textContent).toBe('')
   })
+
+it('paints one empty glass surface before the frame regions', async () => {
+  const child = defineComponent({ setup: () => () => null })
+  const mounted = await mountInFrame(child, '/test', [
+    { path: '/test', component: child },
+  ])
+  dispose = mounted.dispose
+  const shell = mounted.host.querySelector('.shell')
+  const glass = shell?.querySelector('.frame-glass')
+  expect(glass).not.toBeNull()
+  expect(shell?.firstElementChild).toBe(glass)
+  expect(glass?.childNodes.length).toBe(0)
+  expect(glass?.getAttribute('aria-hidden')).toBe('true')
+  expect(shell?.classList).toContain('relative')
+  for (const name of [
+    'pointer-events-none',
+    'absolute',
+    'inset-0',
+    'bg-glass',
+    'backdrop-blur-2xl',
+    'backdrop-saturate-150',
+  ])
+    expect(glass?.classList).toContain(name)
+})
+
+it('keeps the sidebar classes constant while the shell carries its mode', async () => {
+  let frame: ReturnType<typeof useFrame> | undefined
+  const child = defineComponent({
+    setup() {
+      frame = useFrame()
+      frame.sidebar.value = 'login'
+      return () => null
+    },
+  })
+  const mounted = await mountInFrame(child, '/test', [
+    { path: '/test', component: child },
+  ])
+  dispose = mounted.dispose
+  const sidebar = mounted.host.querySelector('aside.sidebar')
+  expect(sidebar).not.toBeNull()
+  const classes = sidebar?.className
+  for (const mode of ['login', 'menu', 'collapsed'] as const) {
+    if (!frame) throw new Error('Missing frame context')
+    frame.sidebar.value = mode
+    await nextTick()
+    expect(sidebar?.className).toBe(classes)
+    const shell = mounted.host.querySelector('.shell')
+    expect(shell?.classList.contains('sidebar-login')).toBe(mode === 'login')
+    expect(shell?.classList.contains('sidebar-collapsed')).toBe(
+      mode === 'collapsed',
+    )
+  }
+})
 
 it('keeps the layout dependency read-only for views', async () => {
   let frame: ReturnType<typeof useFrame> | undefined
