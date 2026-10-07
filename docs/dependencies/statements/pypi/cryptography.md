@@ -10,7 +10,7 @@ approved: 2026-10-06
 
 ## Why it is required
 
-`deploy/lab/write-lab-secrets.py` creates the lab's RSA keys and its CA and server certificates, and the plan that introduces it ([phase 6 plan](../../../plans/2026-10-05-2216-refactor-uv-python-scripts-phase6-plan.md), Decisions) pins `cryptography==50.0.1` in the script's metadata block. Python 3.13 has no module that creates a key or a signature: `dir(ssl)` holds no such name. The script is started through `uv run`, as the [repository scripting record](../../../architecture/2026-10-05-repository-scripting-direction.md) decides.
+`deploy/lab/write-lab-secrets.py` creates the lab's RSA keys and its CA and server certificates, and the uv port of the lab scripts (2026-10-06, decided by the user) pins `cryptography==50.0.1` in the script's metadata block. Python 3.13 has no module that creates a key or a signature: `dir(ssl)` holds no such name. The script is started through `uv run`, as the [repository scripting record](../../../architecture/2026-10-05-repository-scripting-direction.md) decides.
 
 ## Why it is safe
 

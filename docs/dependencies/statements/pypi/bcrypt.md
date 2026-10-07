@@ -10,7 +10,7 @@ approved: 2026-10-06
 
 ## Why it is required
 
-`deploy/lab/write-lab-secrets.py` writes a bcrypt hash of each lab user's password into `dex.env`, and the plan that introduces it ([phase 6 plan](../../../plans/2026-10-05-2216-refactor-uv-python-scripts-phase6-plan.md), Decisions) pins `bcrypt==5.0.0` in the script's metadata block. Python 3.13 has no bcrypt: `import crypt` fails with `No module named 'crypt'`. `cryptography` does not replace it, since its only use of the name is the optional `ssh` extra.
+`deploy/lab/write-lab-secrets.py` writes a bcrypt hash of each lab user's password into `dex.env`, and the uv port of the lab scripts (2026-10-06, decided by the user) pins `bcrypt==5.0.0` in the script's metadata block. Python 3.13 has no bcrypt: `import crypt` fails with `No module named 'crypt'`. `cryptography` does not replace it, since its only use of the name is the optional `ssh` extra.
 
 ## Why it is safe
 
