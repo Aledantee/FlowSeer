@@ -11,6 +11,7 @@ applies_when:
   - "Writing or debugging component mount tests in frontend/web/ under Vitest with happy-dom that exercise motion-v surfaces (`UiMotion`, `UiMotionConfig`, `useMotionFeedback`)."
   - "A test needs the reduced-motion path of a mounted motion surface, or needs the normal path and the same file also holds reduced-motion cases."
   - "A mount test asserts on a layout animation and needs geometry or a controlled clock that happy-dom does not provide."
+  - "A happy-dom mount test unmounts a page while a JavaScript-driven entrance animation is still running."
 related_components: [web-console, testing]
 tags: [vue, vitest, happy-dom, motion, animations, testing]
 ---
@@ -108,6 +109,25 @@ from `performance.now()`
 `performance.now()` for every later case in the file. A fixed wall-clock wait is
 not reliable: on a loaded host the 140 ms layout animation can finish before the
 test samples. Do not mock motion-v.
+
+## Cancellation during teardown
+
+happy-dom's `Animation.cancel()` rejects the animation's `finished` promise
+with `AbortError: The animation was canceled.` when playback is active
+(`frontend/web/node_modules/.pnpm/happy-dom@20.14.5/node_modules/happy-dom/lib/animation/Animation.js:153-162`).
+The relevant line is:
+
+```js
+this.#rejectFinished?.(new this[PropertySymbol.window].DOMException('The animation was canceled.', DOMExceptionNameEnum.abortError));
+```
+
+An entrance driven by a JavaScript animation can therefore leave an unhandled
+rejection when a mount test unmounts the page before it finishes. For a page
+entrance that tests routinely interrupt, use CSS keyframes as the login page
+does (`frontend/web/src/style.css:33-83`). Its template applies the entrance
+classes only on eligible arrivals (`frontend/web/src/LoginView.vue:26,79-83`).
+The lockfile pins the happy-dom version used for this behavior
+(`frontend/web/pnpm-lock.yaml`).
 
 ## What this does not cover
 
