@@ -33,6 +33,22 @@ func sampleL2Config() L2TrafficDomainConfig {
 	}
 }
 
+func TestL2TrafficDomainCanonicalizesTimeLocation(t *testing.T) {
+	cfg := sampleL2Config()
+	cfg.At = time.Date(2026, 1, 1, 12, 0, 0, 0, time.FixedZone("UTC+2", 2*60*60))
+	domain, err := NewL2TrafficDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var candidate Candidate
+	domain.Enumerate(func(c Candidate) bool { candidate = c; return false })
+	want := time.Date(2026, 1, 1, 10, 0, 0, 0, time.UTC)
+	action := candidate.Actions[0]
+	if action.At != want || action.At.Location() != time.UTC || action.Inject.At != want || action.Inject.At.Location() != time.UTC {
+		t.Fatalf("action/injection times = %v/%v, want 2026-01-01 10:00:00 UTC", action.At, action.Inject.At)
+	}
+}
+
 func TestL2TrafficDomainStableTotalOrderOverRandomizedInput(t *testing.T) {
 	t.Parallel()
 
