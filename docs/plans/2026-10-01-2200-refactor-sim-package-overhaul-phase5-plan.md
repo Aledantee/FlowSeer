@@ -289,6 +289,12 @@ sequence `0xa1b2c3d4`, name length 8, and the name `et-0/0/7`.
   `TestOlderVersionHostBlockIgnoredUntilTimerExpires` (`M/layer_test.go:963`)
   applies a `BLOCK` one second after the group timer ran out and expects
   the `EXCLUDE` row, which pins entry 11.
+- U2. `TestMulticastLeaveTimingThroughForward` in
+  `src/common/sim/device/vswitch/switch_test.go` checks default unregistered
+  flooding after membership expires. Its earlier no-egress expectation
+  depended on the expired group remaining registered. `resolveMcast` in
+  `src/common/sim/device/vswitch/switch.go` applies the configured flood
+  policy once registration ends.
 - U3. `TestBehaviorMatrix` (`M/config_test.go:275-290`) asserts the length
   of a list it just wrote. `TestDiffCoversEveryConfigField` holds the field
   list.
