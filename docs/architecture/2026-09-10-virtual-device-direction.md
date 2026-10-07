@@ -273,15 +273,18 @@ its own `Config`: spanning tree's roles depend on link state and speed that
 live on the port table, and LAG's member selection depends on the switch's
 base MAC, which reaches the layer only as a normalization input. Each
 capability layer exports `RetentionKey(...) string`, a canonical encoding of
-every normalized input its runtime state actually depends on. For layers
-other than multicast, `Derive` retains a layer only when the current switch's
-key and the target's agree. Multicast restores state per entry on VLANs both
+every normalized input its runtime state actually depends on. `Derive` gates
+STP, LoopProtect, LAG, and routing state retention on equality of the current
+and target keys. Traffic calls `Retain` whenever both switches have a traffic
+layer. The bridge filtering database is reseeded per eligible dynamic entry
+([`derive.go`](../../src/common/sim/device/vswitch/derive.go)).
+Multicast restores state per entry on VLANs both
 layers snoop, restricted to target logical ports admitted by the switch's
 port forwarding, VLAN membership, and spanning-tree predicate. Its key names
 only the difference in the retention report. `mcast.Layer.Restore` copies
 the whole group state and each observed router port with their deadlines,
 while the target's static router ports take precedence.
-Both keys are computed from constructed switches, never from a raw target
+Dependency keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
 and MAC assignment that decide what a field becomes; see [validate and
 derive judge what New
