@@ -2206,3 +2206,47 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 		}
 	})
 }
+
+func TestAlignEquivalentReturnsFalse(t *testing.T) {
+	cfg, src, dst := makeTwoSwitchConfigs(t)
+	a, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := a.Fork()
+	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
+	if comparison.Disposition != analysis.Equivalent {
+		t.Fatalf("disposition = %s, want Equivalent", comparison.Disposition)
+	}
+	if alignment, ok := fabric.Align(comparison); ok || alignment.Trace != nil || alignment.Location.Area != "" {
+		t.Errorf("alignment = %+v, %t, want zero alignment, false", alignment, ok)
+	}
+}
+
+func TestAlignNamesFirstDifferingTraceEntry(t *testing.T) {
+	cfg, src, dst := makeTwoSwitchConfigs(t)
+	changed := cfg.Clone()
+	changed.Switches["sw1"].Bridge.VLAN.Table[20] = "VLAN20"
+	changed.Switches["sw1"].Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: new(vlan.ID(20)), Untagged: []vlan.ID{20}}
+	a, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := fabric.New(statedPhysical(changed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
+	if comparison.Disposition != analysis.Different {
+		t.Fatalf("disposition = %s, want Different, error %v", comparison.Disposition, comparison.Err)
+	}
+	alignment, ok := fabric.Align(comparison)
+	if !ok || alignment.Trace == nil || alignment.Trace.EntryIndex != 2 || alignment.Trace.CurrentJourney != 0 || alignment.Trace.ExpectedJourney != 0 {
+		t.Fatalf("alignment = %+v trace %+v, want first switch hop entry 2, journey 0/0", alignment, alignment.Trace)
+	}
+	if alignment.Location.Injection == nil || alignment.Location.Injection.Index != 1 || !alignment.Location.Injection.At.Equal(injection.At) {
+		t.Errorf("location = %+v, want injection 1 at %s", alignment.Location, injection.At)
+	}
+}
