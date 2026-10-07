@@ -9,67 +9,80 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// emissionKind says why a BPDU is sent, which decides whether it carries
-// agreement flags. A proposal flag follows the port and tree it describes,
-// whatever the reason.
-type emissionKind uint8
+// transmit runs the one transmit pass at the end of a state transition. The
+// pass walks trees before ports, so every tree has settled before a frame is
+// built from the port's final state.
+func (l *Layer) transmit(now time.Time, emissions *[]layer.Emission) {
+	for _, id := range l.treeOrder {
+		if l.pvst == nil && id != cistID {
+			continue
+		}
+		t := l.trees[id]
+		for _, name := range l.portNames {
+			p := t.ports[name]
+			link := l.links[name]
+			tx := l.tx(t, name)
+			if !link.up || link.bpduGuardDisabled {
+				tx.count = 0
+				tx.tick = time.Time{}
+				tx.helloWhen = time.Time{}
 
-const (
-	// emissionDesignated is a hello or a proposal from a Designated port.
-	emissionDesignated emissionKind = iota
-	// emissionAgreement answers a proposal. Every tree whose port is Root or
-	// Alternate, and in sync, carries the Agreement flag.
-	emissionAgreement
-	// emissionTopology reports a topology change from a Root port. It carries
-	// the agreement state of emissionAgreement, and toward a bridge that does
-	// not send RSTP it is a TCN BPDU.
-	emissionTopology
-)
+				continue
+			}
 
-// agreement reports whether an emission of this kind carries the Agreement
-// flag of a port that agrees.
-func (k emissionKind) agreement() bool {
-	return k == emissionAgreement || k == emissionTopology
-}
+			l.advanceTransmitCount(tx, now)
+			l.setHelloRequests(t, p, tx, now)
+			if !l.transmitRequested(p, tx) || tx.count >= int(l.txHoldCount) {
+				continue
+			}
 
-// proposes reports whether the port asks its peer to agree: a Designated
-// port that is blocked, has no agreement, and sends RSTP on a point-to-point
-// link.
-func proposes(lk *linkRecord, p *portState) bool {
-	return p.role == bpdu.RoleDesignated && lk.pointToPoint && lk.sendRSTP &&
-		p.state == StateDiscarding && !p.agreed
-}
+			msg, ok := l.transmitBPDU(t, p, now)
+			if !ok {
+				continue
+			}
 
-// agrees reports whether a Root or Alternate port of tree t can tell its peer
-// that it is in sync. An Alternate or Backup port blocks, so it is in sync by
-// construction. A Root port is in sync when every other Designated port of the
-// tree is blocked or has an agreement of its own.
-func (l *Layer) agrees(t *tree, p *portState) bool {
-	switch p.role {
-	case bpdu.RoleAlternate, bpdu.RoleBackup:
-		return true
-	case bpdu.RoleRoot:
-		return l.isSynced(t, p.name)
-	case bpdu.RoleDisabled, bpdu.RoleDesignated:
+			built, err := l.frames(t, p, msg)
+			if err != nil {
+				continue
+			}
+			if len(built) == 0 {
+				continue
+			}
+
+			for _, f := range built {
+				*emissions = append(*emissions, layer.Emission{Port: p.name, VID: f.vid, Frame: f.frame})
+			}
+
+			p.txBPDUs++
+			wasZero := tx.count == 0
+			tx.count++
+			if wasZero {
+				tx.tick = now.Add(time.Second)
+			}
+			tx.helloWhen = now.Add(l.helloTime)
+			tx.newInfo = false
+			if msg.Type == bpdu.TypeRapid {
+				tx.newInfoMsti = false
+			}
+		}
 	}
-
-	return false
 }
 
-func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, emissions *[]layer.Emission) {
-	// SSTP has no legacy shape: bpdu.EncodeSSTP forces a version of at least 2 and
-	// bpdu.DecodeSSTP refuses anything else, so a non-CIST tree that migrated to
-	// legacy STP has no frame it can send. It builds and meters nothing
-	// rather than sending a per-VLAN frame whose header would contradict its
-	// content.
-	lk := l.link(p.name)
-	if l.pvst != nil && t.id != cistID && !lk.sendRSTP {
-		return
+func (l *Layer) settleHelloTimers(now time.Time) {
+	for _, id := range l.treeOrder {
+		if l.pvst == nil && id != cistID {
+			continue
+		}
+		for _, name := range l.portNames {
+			tx := l.tx(l.trees[id], name)
+			for !tx.helloWhen.IsZero() && tx.helloWhen.Before(now) {
+				tx.helloWhen = tx.helloWhen.Add(l.helloTime)
+			}
+		}
 	}
+}
 
-	tx := l.tx(t, p.name)
-	tx.topologyOwed = false
-
+func (l *Layer) advanceTransmitCount(tx *portTx, now time.Time) {
 	for tx.count > 0 && !tx.tick.After(now) {
 		tx.count--
 		tx.tick = tx.tick.Add(time.Second)
@@ -77,41 +90,70 @@ func (l *Layer) emit(t *tree, p *portState, now time.Time, kind emissionKind, em
 	if tx.count == 0 {
 		tx.tick = time.Time{}
 	}
+}
 
-	if tx.count < int(l.txHoldCount) {
-		built, err := l.frames(t, p, l.makeBPDU(t, p, now, kind))
-		if err != nil {
-			// MST.Validate rejects a region with more instances than one
-			// BPDU can carry, so this is unreachable for a Layer built
-			// through New; the handling exists so that a future caller
-			// building a Layer another way degrades to sending nothing
-			// rather than to sending an empty frame.
-			return
-		}
+func (l *Layer) setHelloRequests(t *tree, p *portState, tx *portTx, now time.Time) {
+	if tx.helloWhen.IsZero() || tx.helloWhen.After(now) {
+		return
+	}
 
-		for _, f := range built {
-			*emissions = append(*emissions, layer.Emission{Port: p.name, VID: f.vid, Frame: f.frame})
+	if t.id == cistID || l.pvst != nil {
+		if p.role == bpdu.RoleDesignated || (p.role == bpdu.RoleRoot && activeAt(p.tcWhile, now)) {
+			tx.newInfo = true
 		}
-		// A Configuration or RST BPDU spends the acknowledgment, which only the
-		// Configuration shape carries. A TCN BPDU does not.
-		if kind != emissionTopology || lk.sendRSTP {
-			lk.tcAck = false
+	}
+	if l.pvst == nil && t.id == cistID {
+		for _, id := range l.treeOrder {
+			if id == cistID {
+				continue
+			}
+			mp := l.trees[id].ports[p.name]
+			if mp.role == bpdu.RoleDesignated || (mp.role == bpdu.RoleRoot && activeAt(mp.tcWhile, now)) {
+				tx.newInfoMsti = true
+			}
 		}
-		p.txBPDUs++
-		wasZero := tx.count == 0
-		tx.count++
-		if wasZero {
-			tx.tick = now.Add(time.Second)
-		}
-	} else {
-		switch kind {
-		case emissionDesignated:
-			tx.pendingDesignated = true
-		case emissionAgreement:
-			tx.pendingAgreement = true
-		case emissionTopology:
-			tx.pendingTopology = true
-		}
+	}
+	tx.helloWhen = now.Add(l.helloTime)
+}
+
+func activeAt(when, now time.Time) bool {
+	return !when.IsZero() && when.After(now)
+}
+
+func (l *Layer) transmitRequested(p *portState, tx *portTx) bool {
+	if tx.newInfo {
+		return true
+	}
+	if !tx.newInfoMsti || !l.links[p.name].sendRSTP {
+		return false
+	}
+	if l.pvst != nil || !l.mstiMasterPort(p.name) {
+		return true
+	}
+
+	return false
+}
+
+func (l *Layer) mstiMasterPort(name string) bool {
+	if l.mst == nil || !l.links[name].external {
+		return false
+	}
+
+	return l.cist().ports[name].role == bpdu.RoleRoot
+}
+
+func (l *Layer) transmitBPDU(t *tree, p *portState, now time.Time) (bpdu.BPDU, bool) {
+	link := l.links[p.name]
+	if link.sendRSTP {
+		return l.makeBPDU(t, p, now), true
+	}
+	switch p.role {
+	case bpdu.RoleRoot:
+		return bpdu.BPDU{Version: 0, Type: bpdu.TypeTopologyChangeNotification}, true
+	case bpdu.RoleDesignated:
+		return l.makeBPDU(t, p, now), true
+	default:
+		return bpdu.BPDU{}, false
 	}
 }
 
@@ -124,16 +166,12 @@ type taggedFrame struct {
 }
 
 // frames builds the wire form of one BPDU for tree t on port p. Outside PVST
-// mode that is the single IEEE-addressed frame, untagged. Inside it, every
-// tree sends its BPDU to the SSTP address on its own VLAN, and VLAN 1's tree
-// sends a second, IEEE-addressed and untagged, which is the one an RSTP or
-// MSTP neighbor converges with — unless the port has migrated to legacy STP,
-// in which case the SSTP copy is dropped and only the IEEE Configuration BPDU
-// goes out: SSTP has no legacy shape to carry it in, so sending the SSTP copy
-// would relabel a legacy BPDU under a version-2 RST header. emit already
-// withholds a non-CIST tree's frame entirely on a migrated port, so this
-// branch is only ever reached with the link's sendRSTP true there. The two frames are
-// one transmission and spend one budget slot between them.
+// mode that is the single IEEE-addressed frame, untagged. In PVST mode a
+// non-CIST tree always sends its SSTP frame on its own VLAN. VLAN 1's tree
+// sends an SSTP frame while the port sends RSTP, plus the IEEE-addressed frame
+// the neighboring RSTP or MSTP bridge converges with. A migrated VLAN 1 tree
+// sends only the IEEE-addressed frame. The two VLAN 1 frames are one
+// transmission and spend one budget slot between them.
 func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error) {
 	if l.pvst == nil {
 		frame, err := bpdu.Encode(b, l.address)
@@ -145,7 +183,8 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 	}
 
 	var built []taggedFrame
-	if l.link(p.name).sendRSTP {
+	link := l.links[p.name]
+	if t.id != cistID || link.sendRSTP {
 		sstp, err := bpdu.EncodeSSTP(b, t.vid, l.address)
 		if err != nil {
 			return nil, err
@@ -163,6 +202,18 @@ func (l *Layer) frames(t *tree, p *portState, b bpdu.BPDU) ([]taggedFrame, error
 	}
 
 	return append(built, taggedFrame{frame: ieee}), nil
+}
+
+// edgeDelay is the time without a BPDU after which a port may be detected as
+// an edge: migrateTime on a point-to-point link, the max age in force on a
+// shared one.
+func (l *Layer) edgeDelay(t *tree, link *linkRecord) time.Duration {
+	if link.pointToPoint {
+		return migrateTime
+	}
+	maxAge, _, _ := l.times(t)
+
+	return maxAge
 }
 
 // instanceRemainingHops computes the hop count an MSTI tree originates with:
@@ -192,12 +243,10 @@ func (l *Layer) instanceRemainingHops(t *tree) uint8 {
 // internal cost, and per-instance bridge and port priority. It is called only
 // while building the CIST's own BPDU: an MST bridge always emits its MSTI
 // records alongside the CIST, on every up port, boundary ports included,
-// because a port is classified internal or external only on reception. Each
-// record carries its own tree's Proposal flag, and its Agreement flag when
-// the BPDU answers a proposal.
-func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind) []bpdu.MSTIRecord {
+// because a port is classified internal or external only on reception.
+func (l *Layer) gatherMSTIRecords(now time.Time, p *portState) []bpdu.MSTIRecord {
 	var recs []bpdu.MSTIRecord
-	lk := l.link(p.name)
+	link := l.links[p.name]
 
 	for _, id := range l.treeOrder {
 		if id == cistID {
@@ -212,19 +261,25 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind
 
 		// Flags reuses the CIST's own role/learning/forwarding bit layout
 		// (SetRole/SetLearning/SetForwarding/SetTopologyChange), applied to
-		// this instance port's role and state and its own topology change
-		// timer rather than the CIST's, so the record says
+		// this instance port's role and state and this instance's own
+		// topology change timer rather than the CIST's, so the record says
 		// what the sender's per-instance port is doing and lets a peer
 		// reconverge that instance without waiting on its filtering database
 		// to age out. A zero-value BPDU used only to borrow its bit-setting
 		// methods never gets encoded itself.
 		var flags bpdu.BPDU
 		flags.SetRole(mp.role)
+		if link.pointToPoint && link.sendRSTP && mp.role == bpdu.RoleDesignated && mp.state == StateDiscarding && !mp.agreed {
+			flags.SetProposal(true)
+		}
+		if link.pointToPoint && link.sendRSTP && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) && l.isSynced(mt, p.name) {
+			flags.SetAgreement(true)
+		}
 		flags.SetLearning(mp.state == StateLearning || mp.state == StateForwarding)
 		flags.SetForwarding(mp.state == StateForwarding)
-		flags.SetTopologyChange(mp.tcRunning(now))
-		flags.SetProposal(proposes(lk, mp))
-		flags.SetAgreement(kind.agreement() && l.agrees(mt, mp))
+		if !mp.tcWhile.IsZero() && mp.tcWhile.After(now) {
+			flags.SetTopologyChange(true)
+		}
 
 		recs = append(recs, bpdu.MSTIRecord{
 			MSTID:                mstid,
@@ -240,9 +295,7 @@ func (l *Layer) gatherMSTIRecords(now time.Time, p *portState, kind emissionKind
 	return recs
 }
 
-func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, kind emissionKind) bpdu.BPDU {
-	lk := l.link(p.name)
-	sendRSTP := lk.sendRSTP
+func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time) bpdu.BPDU {
 	var msgAge time.Duration
 	maxAge, hello, fwdDelay := l.times(t)
 
@@ -268,42 +321,44 @@ func (l *Layer) makeBPDU(t *tree, p *portState, now time.Time, kind emissionKind
 		ForwardDelay: fwdDelay,
 	}
 
-	if !sendRSTP {
-		// A Root port tells a bridge that does not send RSTP with a TCN BPDU,
-		// which carries nothing else.
-		if kind == emissionTopology {
-			return bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}
-		}
+	link := l.links[p.name]
+	if !link.sendRSTP {
 		b.Version = 0
 		b.Type = bpdu.TypeConfiguration
-		b.SetTopologyChangeAck(lk.tcAck)
 	} else {
 		b.Version = 2
 		b.Type = bpdu.TypeRapid
-		b.SetProposal(proposes(lk, p))
-		b.SetAgreement(kind.agreement() && l.agrees(t, p))
+		p.tcAck = false
 	}
 
 	b.SetRole(p.role)
+	b.SetProposal(link.pointToPoint && link.sendRSTP && p.role == bpdu.RoleDesignated && p.state == StateDiscarding && !p.agreed)
+	b.SetAgreement(link.pointToPoint && link.sendRSTP && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) && l.isSynced(t, p.name))
 	b.SetLearning(p.state == StateLearning || p.state == StateForwarding)
 	b.SetForwarding(p.state == StateForwarding)
-	b.SetTopologyChange(p.tcRunning(now))
+	if !p.tcWhile.IsZero() && p.tcWhile.After(now) {
+		b.SetTopologyChange(true)
+	}
+	if p.tcAck && !link.sendRSTP {
+		b.SetTopologyChangeAck(true)
+		p.tcAck = false
+	}
 
-	// Only the CIST drives emission (see recomputeAll), so this is also the
-	// one place that attaches the region's configuration identifier and every
-	// instance's MSTI record. t is always the CIST here. The MST shape is
-	// version 3, so it is withheld on a port that has migrated to legacy STP
+	// Under MSTP only the CIST drives transmission, so this attaches the
+	// region's configuration identifier and every instance's MSTI record.
+	// PVST builds a separate BPDU for each VLAN and never enters this branch.
+	// The MST shape is version 3, so it is withheld on a port that has migrated to legacy STP
 	// (sendRSTP false, which already forced Version 0 and Configuration
 	// above): bpdu.Encode picks the MST shape whenever ConfigID is set regardless
 	// of Version and Type, and a legacy peer needs a Configuration BPDU, not
 	// version 3.
-	if l.mst != nil && sendRSTP {
+	if l.mst != nil && link.sendRSTP {
 		cid := *l.configID
 		b.ConfigID = &cid
 		b.RegionalRootID = t.regionalRootID
 		b.InternalRootPathCost = t.internalRootPathCost
 		b.RemainingHops = l.instanceRemainingHops(t)
-		b.MSTIs = l.gatherMSTIRecords(now, p, kind)
+		b.MSTIs = l.gatherMSTIRecords(now, p)
 	}
 
 	return b

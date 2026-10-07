@@ -151,7 +151,7 @@ The harness:
 
 ```sh
 # 1. From a workstation that can reach the device:
-src/protocol/snmp/test/integration/scripts/capture-snmprec.sh \
+uv run src/protocol/snmp/test/integration/scripts/capture-snmprec.py \
     --target 10.0.0.5 \
     --community public \
     > src/protocol/snmp/test/integration/testdata/snmprec/cisco/ios-xe.snmprec

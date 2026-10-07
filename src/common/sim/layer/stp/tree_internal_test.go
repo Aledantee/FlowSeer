@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // TestTreeForAnswersForEveryVLAN asserts that one tree carries every VLAN,
@@ -53,10 +55,9 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	}.Normalize(layer.Env{}))
 
 	p := l.cist().ports["1/1/1"]
-	lk := l.link("1/1/1")
-	lk.up = true
-	lk.pointToPoint = true
-	lk.edge = true
+	l.links["1/1/1"].up = true
+	l.links["1/1/1"].pointToPoint = true
+	l.links["1/1/1"].edge = true
 	p.role = bpdu.RoleRoot
 	p.rcvInfoValid = true
 	p.rcvHelloTime = 2 * time.Second
@@ -75,8 +76,8 @@ func TestLoopGuardIgnoresAnEdgePort(t *testing.T) {
 	// The same expiry on a non-edge port does arm the guard, so the assertion
 	// above is about the edge clause and not about the trigger never firing.
 	q := l.cist().ports["1/1/2"]
-	l.link("1/1/2").up = true
-	l.link("1/1/2").pointToPoint = true
+	l.links["1/1/2"].up = true
+	l.links["1/1/2"].pointToPoint = true
 	q.cfg.LoopGuard = true
 	q.role = bpdu.RoleRoot
 	q.rcvInfoValid = true
@@ -349,13 +350,8 @@ func TestLoopGuardHoldsAnInternalMSTIPortOutOfForwarding(t *testing.T) {
 	}
 }
 
-// TestRawAndDesignatedVectorsShareShape pins that rawVector and
-// designatedVector build the same six-component shape for the same port and
-// tree state, since designatedOrBlocked compares them directly. Before the
-// fix, a CIST internal port's rawVector left externalRootPathCost at zero
-// while designatedVector filled it from the tree's own root path cost, so
-// identical received and offered information compared as though the
-// received one were superior.
+// TestRawAndDesignatedVectorsShareShape checks that identical received and
+// offered information compares equally on internal and boundary ports.
 func TestRawAndDesignatedVectorsShareShape(t *testing.T) {
 	t.Parallel()
 
@@ -412,10 +408,7 @@ func TestRawAndDesignatedVectorsShareShape(t *testing.T) {
 }
 
 // TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer
-// pins the same bug through the code path that consumes the two vectors:
-// before the fix, a CIST internal port's own nonzero root path cost never
-// reached the comparison against a received vector, so a worse peer whose
-// only advantage was a lower designated bridge identifier still won.
+// checks that an internal port compares external root cost before bridge ID.
 func TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer(t *testing.T) {
 	t.Parallel()
 
@@ -432,8 +425,8 @@ func TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer(t
 	tr.internalRootPathCost = 0
 
 	p := tr.ports["1/1/1"]
-	l.link("1/1/1").up = true
-	l.link("1/1/1").external = false
+	l.links["1/1/1"].up = true
+	l.links["1/1/1"].external = false
 	p.rcvInfoValid = true
 	p.rcvTime = t0
 	p.rcvHelloTime = 2 * time.Second
@@ -453,12 +446,8 @@ func TestDesignatedOrBlockedElectsDesignatedOnCISTInternalPortFacingAWorsePeer(t
 	}
 }
 
-// TestExternalRootPortReportsItselfAsRegionalRoot pins that a bridge whose
-// CIST root port is a boundary port is this region's own CIST regional root:
-// before the fix, candidateVector copied the peer's own claimed root as this
-// region's regional root instead, so this bridge advertised a bridge in the
-// other region as its own region's regional root and never reached the
-// isRegionalRoot branch that would have originated MaxHops.
+// TestExternalRootPortReportsItselfAsRegionalRoot checks that a bridge with a
+// boundary CIST root port originates this region's regional root and MaxHops.
 func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 	t.Parallel()
 
@@ -486,7 +475,7 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 	l.Receive(t0.Add(time.Second), "1/1/1", peer)
 
 	cist := l.cist()
-	if !l.link("1/1/1").external {
+	if !l.links["1/1/1"].external {
 		t.Fatal("port not classified external from a peer carrying no ConfigID")
 	}
 	if cist.rootPort != "1/1/1" {
@@ -503,11 +492,8 @@ func TestExternalRootPortReportsItselfAsRegionalRoot(t *testing.T) {
 	}
 }
 
-// TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal pins the bug
-// where a port's region-internal received information (regional root,
-// internal cost, remaining hops) survived a later BPDU that reclassified the
-// port external, so a boundary bridge re-originated a stale, decreasing hop
-// count instead of MaxHops.
+// TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal checks that a
+// boundary port no longer carries the previous region's root, cost, or hops.
 func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 	t.Parallel()
 
@@ -521,10 +507,9 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 
 	cist := l.cist()
 	p := cist.ports["1/1/1"]
-	lk := l.link("1/1/1")
-	lk.up = true
-	lk.pointToPoint = true
-	lk.external = false
+	l.links["1/1/1"].up = true
+	l.links["1/1/1"].pointToPoint = true
+	l.links["1/1/1"].external = false
 	p.rcvInfoValid = true
 	p.rcvRootID = bpdu.BridgeID{Priority: 4096}
 	p.rcvRootPathCost = 0
@@ -554,7 +539,7 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 
 	l.Receive(t0.Add(time.Second), "1/1/1", b)
 
-	if !lk.external {
+	if !l.links["1/1/1"].external {
 		t.Fatal("port not classified external after a foreign-region BPDU")
 	}
 	if p.rcvRegionalRootID != (bpdu.BridgeID{}) || p.rcvInternalRootPathCost != 0 || p.rcvRemainingHops != 0 {
@@ -575,14 +560,13 @@ func TestReceiveClearsInternalOnlyFieldsWhenAPortTurnsExternal(t *testing.T) {
 	}
 }
 
-// settledRegion returns two bridges of one region joined on A's p1 and B's p1,
-// with B's p2 an open Designated port, run until every timer the start-up
-// started has run out. A is the root, so B's p1 is the Root port of every tree.
-// A's hellos are replayed to B every hello time, so B's stored information
-// about A never ages out, until both instances are well past their forward
-// delay ladders.
-func settledRegion(t *testing.T) (a, b *Layer, now time.Time) {
-	t.Helper()
+// TestMSTITopologyChangeBitReachesAndFlushesThePeer pins that a per-instance
+// topology change is carried on the wire and acted on. Bridge A raises a
+// change on MSTI 1 alone; the BPDU it emits must carry the bit in MSTI 1's
+// record and none in MSTI 2's; bridge B receiving it must flush MSTI 1's
+// VLAN on its other ports and leave MSTI 2's VLAN alone.
+func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
+	t.Parallel()
 
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	region := MST{
@@ -593,14 +577,14 @@ func settledRegion(t *testing.T) (a, b *Layer, now time.Time) {
 		},
 	}
 
-	a = newLayer(Config{
+	a := newLayer(Config{
 		Priority: 4096,
 		Ports:    map[string]Port{"p1": {}},
 		MST:      &region,
 	}.Normalize(layer.Env{}))
 	a.LinkChange(t0, "p1", true, true, 1_000_000_000)
 
-	b = newLayer(Config{
+	b := newLayer(Config{
 		Priority: 32768,
 		Ports:    map[string]Port{"p1": {}, "p2": {}},
 		MST:      &region,
@@ -608,10 +592,14 @@ func settledRegion(t *testing.T) (a, b *Layer, now time.Time) {
 	b.LinkChange(t0, "p1", true, true, 1_000_000_000)
 	b.LinkChange(t0, "p2", true, true, 1_000_000_000)
 
-	now = t0
-	for range 20 {
+	// Converge and settle on A's hellos, refreshed every hello time so B's
+	// stored information about A never ages out, until both instances are
+	// well past their forward delay ladders.
+	now := t0
+	for i := 0; i < 20; i++ {
 		now = now.Add(2 * time.Second)
-		for _, e := range a.Advance(now).Emissions {
+		fx := a.Advance(now)
+		for _, e := range fx.Emissions {
 			dec, err := bpdu.Decode(e.Frame)
 			if err != nil {
 				t.Fatalf("decode A's emission: %v", err)
@@ -622,27 +610,12 @@ func settledRegion(t *testing.T) (a, b *Layer, now time.Time) {
 	}
 
 	if info := b.PortInfo("p1"); info.Role != bpdu.RoleRoot {
-		t.Fatalf("B's p1 role = %v, want Root", info.Role)
-	}
-	if info := b.PortInfo("p2"); info.State != StateForwarding {
-		t.Fatalf("B's p2 state = %v, want Forwarding", info.State)
+		t.Fatalf("B's p1 role = %v, want Root before the topology change under test", info.Role)
 	}
 
-	return a, b, now
-}
-
-// TestMSTITopologyChangeBitReachesAndFlushesThePeer pins that a per-instance
-// topology change is carried on the wire and acted on. Bridge A raises a
-// change on MSTI 1 alone; the BPDU it emits must carry the bit in MSTI 1's
-// record and none in MSTI 2's; bridge B receiving it must flush MSTI 1's
-// VLAN on its other ports and leave MSTI 2's VLAN alone.
-func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
-	t.Parallel()
-
-	a, b, now := settledRegion(t)
-
-	// Start MSTI 1's timer alone on A's port, as a role or state change on an
-	// instance-only internal port would, without touching the CIST's own.
+	// Raise a topology change on MSTI 1 alone on A, as recompute would from
+	// an instance-only role or state change on an internal port, without
+	// touching the CIST's own timer.
 	a.trees[treeID(1)].ports["p1"].tcWhile = now.Add(10 * time.Second)
 
 	now = now.Add(2 * time.Second)
@@ -687,12 +660,301 @@ func TestMSTITopologyChangeBitReachesAndFlushesThePeer(t *testing.T) {
 	}
 }
 
+func TestPVSTDoesNotInheritCISTAgreement(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+
+	peer := bpdu.BPDU{
+		RootID:       l.cist().bridgeID,
+		BridgeID:     bpdu.BridgeID{Priority: 61440},
+		PortID:       0x8001,
+		HelloTime:    2 * time.Second,
+		MaxAge:       20 * time.Second,
+		ForwardDelay: 15 * time.Second,
+	}
+	peer.SetRole(bpdu.RoleRoot)
+	peer.SetAgreement(true)
+	l.applyBPDU(l.cist(), l.cist().ports["p1"], now, peer, &[]layer.FlushTarget{})
+	if p := l.cist().ports["p1"]; !p.agreed || p.role != bpdu.RoleDesignated {
+		t.Fatalf("VLAN 1 port = role %v, agreed %v, want Designated and agreed", p.role, p.agreed)
+	}
+
+	if got := l.trees[treeID(10)].ports["p1"].state; got != StateDiscarding {
+		t.Errorf("VLAN 10 state after a VLAN 1 agreement = %v, want Discarding", got)
+	}
+}
+
+func TestPVSTDoesNotInheritCISTTopologyChange(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}, "p2": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	for _, id := range l.treeOrder {
+		tr := l.trees[id]
+		tr.ports["p1"].tcActive = true
+		tr.ports["p2"].tcActive = true
+	}
+
+	b := bpdu.BPDU{}
+	b.SetTopologyChange(true)
+	var flushes []layer.FlushTarget
+	l.propagateReceivedTC(l.cist(), l.cist().ports["p1"], l.links["p1"], b, now, &flushes)
+
+	if p := l.trees[treeID(10)].ports["p2"]; !p.tcWhile.IsZero() {
+		t.Errorf("VLAN 10 topology-change timer = %v after a VLAN 1 flag, want zero", p.tcWhile)
+	}
+}
+
+func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}},
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	l.cist().ports["p1"].role = bpdu.RoleRoot
+	l.trees[treeID(10)].ports["p1"].role = bpdu.RoleRoot
+	l.cist().ports["p1"].state = StateDiscarding
+	l.trees[treeID(10)].ports["p1"].state = StateDiscarding
+
+	b := bpdu.BPDU{}
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
+	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}); len(answered) != 1 || answered[0] != l.cist() {
+		t.Fatalf("proposal answered %d trees, want only the CIST", len(answered))
+	}
+
+	if got := l.trees[treeID(10)].ports["p1"].state; got != StateDiscarding {
+		t.Errorf("VLAN 10 state after a VLAN 1 proposal = %v, want Discarding", got)
+	}
+}
+
+func TestAgreementClearsOnRoleChangesAndUnknownSenderRoles(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{Ports: map[string]Port{"p1": {}}}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	p := l.cist().ports["p1"]
+	p.role = bpdu.RoleRoot
+	p.agreed = true
+	l.assignRoles(l.cist(), now)
+	if p.role != bpdu.RoleDesignated || p.agreed {
+		t.Fatalf("role change to Designated left role=%v agreed=%t, want Designated/false", p.role, p.agreed)
+	}
+
+	p.agreed = true
+	l.recordAgreement(l.cist(), p, l.links["p1"], designatedVector(l.cist(), p, false), bpdu.Role("unknown"), true)
+	if p.agreed {
+		t.Error("unknown sender role left agreed=true, want false")
+	}
+}
+
+func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	region := MST{
+		Name: "region-1",
+		Instances: map[bpdu.MSTID]Instance{
+			1: {VLANs: []vlan.ID{10}},
+			2: {VLANs: []vlan.ID{20}},
+			3: {VLANs: []vlan.ID{30}},
+			4: {VLANs: []vlan.ID{40}},
+		},
+	}
+	portBuilder := port.NewBuilder()
+	portBuilder.Add(port.Port{Name: "p1", Kind: port.Physical})
+	portBuilder.Add(port.Port{Name: "p2", Kind: port.Physical})
+	ports, err := portBuilder.Build()
+	if err != nil {
+		t.Fatalf("build ports: %v", err)
+	}
+	l, err := New(Config{
+		Priority: 32768,
+		Address:  netaddr.MAC{0, 0, 0, 0, 0, 2},
+		Ports:    map[string]Port{"p1": {}, "p2": {}},
+		MST:      &region,
+	}, layer.Env{Ports: ports})
+	if err != nil {
+		t.Fatalf("New() = %v", err)
+	}
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.LinkChange(now, "p2", true, true, 1_000_000_000)
+
+	root := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+	mstiRoot := bpdu.BridgeID{Priority: 4097, Address: root.Address}
+	cid := region.ConfigID()
+	peer := bpdu.BPDU{
+		Version:        3,
+		Type:           bpdu.TypeRapid,
+		RootID:         root,
+		BridgeID:       root,
+		PortID:         0x8001,
+		HelloTime:      10 * time.Second,
+		MaxAge:         20 * time.Second,
+		ForwardDelay:   15 * time.Second,
+		RegionalRootID: root,
+		ConfigID:       &cid,
+		RemainingHops:  20,
+		MSTIs: []bpdu.MSTIRecord{
+			{MSTID: 1, RegionalRootID: mstiRoot, BridgePriority: 0x10, PortPriority: 0x80, RemainingHops: 20},
+			{MSTID: 2, RegionalRootID: mstiRoot, BridgePriority: 0x10, PortPriority: 0x80, RemainingHops: 20},
+			{MSTID: 3, RegionalRootID: mstiRoot, BridgePriority: 0x10, PortPriority: 0x80, RemainingHops: 20},
+			{MSTID: 4, RegionalRootID: mstiRoot, BridgePriority: 0x10, PortPriority: 0x80, RemainingHops: 20},
+		},
+	}
+	peer.SetRole(bpdu.RoleDesignated)
+	peer.SetProposal(true)
+	l.Receive(now, "p1", peer)
+	l.Advance(now.Add(16 * time.Second))
+	l.Receive(now.Add(16*time.Second), "p1", peer)
+	l.Advance(now.Add(32 * time.Second))
+
+	if got := l.PortInfo("p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("CIST p1 = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("MSTI p1 = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p2"); got.Role != bpdu.RoleDesignated || got.State != StateForwarding {
+		t.Fatalf("MSTI p2 = %v/%v, want Designated/Forwarding", got.Role, got.State)
+	}
+	if gotRoot, _, gotPort := l.Root(); gotRoot != root || gotPort != "p1" {
+		t.Fatalf("CIST root = %v via %q, want %v via p1", gotRoot, gotPort, root)
+	}
+	beforeMSTITimer := l.trees[treeID(1)].ports["p1"].tcWhile
+	if !l.cist().ports["p1"].tcWhile.IsZero() {
+		t.Fatalf("CIST p1 topology-change timer = %v, want no active timer before the MSTI-only change", l.cist().ports["p1"].tcWhile)
+	}
+
+	flagged := peer
+	flagged.BridgeID = bpdu.BridgeID{Priority: 32768, Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
+	flagged.PortID = 0x8002
+	flagged.RootPathCost = 20_000
+	flagged.MSTIs[0].BridgePriority = 0x80
+	flagged.MSTIs[0].InternalRootPathCost = 20_000
+	flagged.SetProposal(false)
+	var mstiFlags bpdu.BPDU
+	mstiFlags.SetRole(bpdu.RoleDesignated)
+	mstiFlags.SetTopologyChange(true)
+	flagged.MSTIs[0].Flags = mstiFlags.Flags
+
+	callNow := now.Add(36 * time.Second)
+	effects := l.Receive(callNow, "p2", flagged)
+	if got := l.VLANPortInfo(10, "p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
+		t.Fatalf("MSTI p1 after flagged receive = %v/%v, want Root/Forwarding", got.Role, got.State)
+	}
+	if got := l.VLANPortInfo(10, "p2"); got.Role != bpdu.RoleDesignated || got.State != StateForwarding {
+		t.Fatalf("MSTI p2 after flagged receive = %v/%v, want Designated/Forwarding", got.Role, got.State)
+	}
+	if afterMSTITimer := l.trees[treeID(1)].ports["p1"].tcWhile; !afterMSTITimer.After(beforeMSTITimer) {
+		t.Fatalf("MSTI p1 topology-change timer = %v, want a new timer after %v", afterMSTITimer, beforeMSTITimer)
+	}
+
+	var rootFrames []layer.Emission
+	for _, emission := range effects.Emissions {
+		if emission.Port == "p1" {
+			rootFrames = append(rootFrames, emission)
+		}
+	}
+	if len(rootFrames) != 1 {
+		t.Fatalf("Receive emitted %d frames on the CIST Root port, want one: %+v", len(rootFrames), effects.Emissions)
+	}
+	decoded, err := bpdu.Decode(rootFrames[0].Frame)
+	if err != nil {
+		t.Fatalf("decode CIST topology-change frame: %v", err)
+	}
+	if decoded.RootID != root || decoded.Role() != bpdu.RoleRoot {
+		t.Fatalf("CIST frame root/role = %v/%v, want %v/Root", decoded.RootID, decoded.Role(), root)
+	}
+	if decoded.TopologyChange() {
+		t.Fatal("CIST frame carried a CIST topology-change bit for an MSTI-only change")
+	}
+	if len(decoded.MSTIs) != 4 {
+		t.Fatalf("CIST frame MSTI records = %+v, want four ordered records", decoded.MSTIs)
+	}
+	for i, record := range decoded.MSTIs {
+		if record.MSTID != bpdu.MSTID(i+1) {
+			t.Fatalf("CIST frame MSTI record %d = %d, want %d", i, record.MSTID, i+1)
+		}
+		if flagged := (bpdu.BPDU{Flags: record.Flags}).TopologyChange(); flagged != (i == 0) {
+			t.Fatalf("CIST frame MSTI %d TC = %t, want %t", record.MSTID, flagged, i == 0)
+		}
+	}
+}
+
+func TestAdvanceEmitsReelectedRootAfterExpiry(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{Ports: map[string]Port{"p1": {}, "p2": {}, "p3": {}}}.Normalize(layer.Env{}))
+	for _, name := range []string{"p1", "p2", "p3"} {
+		l.LinkChange(now, name, true, true, 1_000_000_000)
+	}
+
+	oldRoot := bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+	newRoot := bpdu.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
+	receive := func(at time.Time, port string, root bpdu.BridgeID) {
+		peer := bpdu.BPDU{
+			Version: 2, Type: bpdu.TypeRapid,
+			RootID: root, BridgeID: root, PortID: 0x8001,
+			HelloTime: 2 * time.Second, MaxAge: 20 * time.Second,
+			ForwardDelay: 15 * time.Second,
+		}
+		peer.SetRole(bpdu.RoleDesignated)
+		l.Receive(at, port, peer)
+	}
+	receive(now, "p1", oldRoot)
+	receive(now.Add(4*time.Second), "p3", newRoot)
+	if _, _, port := l.Root(); port != "p1" {
+		t.Fatalf("root port before p1 expiry = %q, want p1", port)
+	}
+
+	effects := l.Advance(now.Add(7 * time.Second))
+	if root, _, port := l.Root(); root != newRoot || port != "p3" {
+		t.Fatalf("root after p1 expiry = %v via %q, want %v via p3", root, port, newRoot)
+	}
+	count := 0
+	for _, emission := range effects.Emissions {
+		if emission.Port != "p2" {
+			continue
+		}
+		count++
+		decoded, err := bpdu.Decode(emission.Frame)
+		if err != nil {
+			t.Fatalf("decode emission: %v", err)
+		}
+		if decoded.RootID != newRoot {
+			t.Fatalf("p2 emission root = %v, want newly elected %v", decoded.RootID, newRoot)
+		}
+	}
+	if count == 0 {
+		t.Fatal("root change emitted no BPDU on p2")
+	}
+}
+
 // TestBoundaryFlipClearsAStaleForwardDelayTimer pins that a port flipping
 // from internal to boundary clears any live fwdDelayTimer an MSTI's own
 // ladder was running, at the same recompute that mirrors its role and state
 // from the CIST. Left set, the next wake would advance the instance port on
-// a timer behind a state recompute already overwrote, counting a forward
-// transition with nothing behind it.
+// a timer behind a state recompute already overwrote, raising a topology
+// change with nothing behind it.
 func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	t.Parallel()
 
@@ -754,6 +1016,67 @@ func TestBoundaryFlipClearsAStaleForwardDelayTimer(t *testing.T) {
 	}
 	if !mstiPort.fwdDelayTimer.IsZero() {
 		t.Errorf("MSTI 1's forward delay timer = %v, want to stay cleared on a boundary port", mstiPort.fwdDelayTimer)
+	}
+}
+
+func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	region := MST{Instances: map[bpdu.MSTID]Instance{1: {VLANs: []vlan.ID{10}}}}
+	l := newLayer(Config{
+		Ports: map[string]Port{"p1": {}},
+		MST:   &region,
+	}.Normalize(layer.Env{}))
+	l.LinkChange(now, "p1", true, true, 1_000_000_000)
+	l.links["p1"].external = true
+	cistP := l.cist().ports["p1"]
+	msti := l.trees[treeID(1)]
+	mstiP := msti.ports["p1"]
+	cistP.role = bpdu.RoleDesignated
+	cistP.state = StateForwarding
+	mstiP.role = bpdu.RoleDesignated
+	mstiP.state = StateDiscarding
+
+	var flushes []layer.FlushTarget
+	l.recompute(msti, now, &flushes)
+	if mstiP.state != StateForwarding || !mstiP.tcActive || msti.topologyChangeCount != 1 {
+		t.Fatalf("boundary activation state=%v active=%t changes=%d, want Forwarding/true/1", mstiP.state, mstiP.tcActive, msti.topologyChangeCount)
+	}
+
+	timer := mstiP.tcWhile
+	flushes = nil
+	cistP.tcActive = true
+	cistP.tcWhile = timer
+	cistP.tcAck = true
+	l.syncTree(l.cist(), "upstream", now)
+	if !cistP.tcActive || cistP.tcWhile != timer || !cistP.tcAck {
+		t.Errorf("CIST sync cut active=%t timer=%v ack=%t, want true/%v/true", cistP.tcActive, cistP.tcWhile, cistP.tcAck, timer)
+	}
+	l.recompute(msti, now.Add(time.Second), &flushes)
+	if mstiP.state != StateDiscarding || !mstiP.tcActive || mstiP.tcWhile != timer || len(flushes) != 0 {
+		t.Errorf("boundary cut state=%v active=%t timer=%v flush=%v, want Discarding/true/%v/empty", mstiP.state, mstiP.tcActive, mstiP.tcWhile, flushes, timer)
+	}
+	cistP.state = StateForwarding
+	l.recompute(msti, now.Add(2*time.Second), &flushes)
+	if msti.topologyChangeCount != 1 || mstiP.tcWhile != timer {
+		t.Errorf("boundary resume changes=%d timer=%v, want 1/%v", msti.topologyChangeCount, mstiP.tcWhile, timer)
+	}
+	cistP.state = StateDiscarding
+	l.recompute(msti, now.Add(2500*time.Millisecond), &flushes)
+	if mstiP.state != StateDiscarding || !mstiP.tcActive || mstiP.tcWhile != timer || len(flushes) != 0 {
+		t.Errorf("boundary state mirror active=%t timer=%v flush=%v, want true/%v/empty", mstiP.tcActive, mstiP.tcWhile, flushes, timer)
+	}
+	cistP.state = StateForwarding
+	l.recompute(msti, now.Add(2750*time.Millisecond), &flushes)
+	if msti.topologyChangeCount != 1 || mstiP.tcWhile != timer {
+		t.Errorf("boundary mirror resume changes=%d timer=%v, want 1/%v", msti.topologyChangeCount, mstiP.tcWhile, timer)
+	}
+	cistP.role = bpdu.RoleAlternate
+	cistP.state = StateDiscarding
+	l.recompute(msti, now.Add(3*time.Second), &flushes)
+	if mstiP.tcActive || !mstiP.tcWhile.IsZero() || len(flushes) != 1 {
+		t.Errorf("boundary role loss active=%t timer=%v flush=%v, want false/zero/one", mstiP.tcActive, mstiP.tcWhile, flushes)
 	}
 }
 

@@ -1,7 +1,7 @@
 # Outcome records for phase plans, planless work, and Orca
 
 Load this at Finish when
-`.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null` succeeds,
+`uv run tools/scripts/run.py plan record is <plan> parent!=null` succeeds,
 when the request skipped the plan, or when running in Orca.
 
 ## Phase plan
@@ -9,7 +9,7 @@ when the request skipped the plan, or when running in Orca.
 Record this phase's outcome and commit range with:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>
+uv run tools/scripts/run.py plan record implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>
 ```
 
 The command writes the phase state and its range. The parent computes its
@@ -27,7 +27,7 @@ even for a small change, since it is then the only implementation signal
 `land` has:
 
 ```bash
-.claude/skills/verify-change/scripts/ledger.py checkpoint --replace implemented "<request in a few words>"
+uv run tools/scripts/run.py verify ledger checkpoint --replace implemented "<request in a few words>"
 ```
 
 In Orca the card entry below is written as well.

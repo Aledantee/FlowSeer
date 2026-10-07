@@ -131,11 +131,19 @@ func (e Ethernet) Canonical() string {
 	}
 	settingStr := "<nil>"
 	if e.Setting != nil {
-		settingStr = fmt.Sprintf("speed=%d,duplex=%q,autoneg=%t", e.Setting.SpeedBPS, string(e.Setting.Duplex), e.Setting.AutoNegotiation)
+		duplex := e.Setting.Duplex
+		if duplex == "" {
+			duplex = Unknown
+		}
+		settingStr = fmt.Sprintf("speed=%d,duplex=%q,autoneg=%t", e.Setting.SpeedBPS, string(duplex), e.Setting.AutoNegotiation)
 	}
 	obsStr := "<nil>"
 	if e.Observed != nil {
-		obsStr = fmt.Sprintf("speed=%d,duplex=%q", e.Observed.SpeedBPS, string(e.Observed.Duplex))
+		duplex := e.Observed.Duplex
+		if duplex == "" {
+			duplex = Unknown
+		}
+		obsStr = fmt.Sprintf("speed=%d,duplex=%q", e.Observed.SpeedBPS, string(duplex))
 	}
 
 	return fmt.Sprintf("speeds=[%s],autoneg_sup=%s,setting={%s},observed={%s}",
@@ -149,8 +157,8 @@ const (
 	// SourceObserved resolves from the reported active speed.
 	SourceObserved Source = "observed"
 
-	// sourceSetting resolves from the configured speed with auto-negotiation off.
-	sourceSetting Source = "setting"
+	// SourceSetting resolves from the configured speed with auto-negotiation off.
+	SourceSetting Source = "setting"
 
 	// SourceNegotiated resolves to the highest supported speed at full duplex
 	// with auto-negotiation on.
@@ -173,7 +181,7 @@ type Resolved struct {
 // speed overrides any setting, since the source's report is the link as it
 // runs, not as it was asked to run.
 func (e Ethernet) Resolve() Resolved {
-	if e.Observed != nil {
+	if e.Observed != nil && e.Observed.SpeedBPS > 0 {
 		return Resolved{SpeedBPS: e.Observed.SpeedBPS, Duplex: e.Observed.Duplex, Source: SourceObserved}
 	}
 	if e.Setting == nil {
@@ -190,7 +198,7 @@ func (e Ethernet) Resolve() Resolved {
 		return Resolved{Source: SourceUnresolved}
 	}
 
-	return Resolved{SpeedBPS: e.Setting.SpeedBPS, Duplex: e.Setting.Duplex, Source: sourceSetting}
+	return Resolved{SpeedBPS: e.Setting.SpeedBPS, Duplex: e.Setting.Duplex, Source: SourceSetting}
 }
 
 // Resolve computes every port's active speed and duplex. It returns nil when

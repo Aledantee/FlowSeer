@@ -266,11 +266,12 @@ type PortAllocation struct {
 }
 
 // GroupAllocation records a group's budget, the power allocated from it, and
-// the unallocated remainder, in nanowatts.
+// the unallocated minimum and maximum remainders, in nanowatts.
 type GroupAllocation struct {
-	BudgetNanowatts    uint64
-	AllocatedNanowatts uint64
-	RemainderNanowatts uint64
+	BudgetNanowatts       uint64
+	AllocatedNanowatts    uint64
+	RemainderMinNanowatts uint64
+	RemainderMaxNanowatts uint64
 }
 
 // Allocate distributes each group's budget over its ports, critical priority
@@ -279,7 +280,7 @@ type GroupAllocation struct {
 // Allocation follows the PoE truth table:
 //   - Disabled ports with no attached device yield [PowerNoDevice] 0..0 nW.
 //   - Disabled ports with an attached device yield [PowerDenied] with [ReasonDisabled] 0..0 nW.
-//   - Disabled ports with uncertain device state yield [PowerUnknown] 0..0 nW.
+//   - Disabled ports with uncertain device state yield [PowerDenied] with [ReasonDisabled] 0..0 nW.
 //   - Enabled ports with no attached device yield [PowerNoDevice] 0..0 nW.
 //   - Enabled ports with an attached device whose class exceeds the port's maximum class
 //     yield [PowerDenied] with reason "class-unsupported" 0..0 nW.
@@ -293,7 +294,8 @@ type GroupAllocation struct {
 //     maximum remainders yield [PowerUnknown] 0..P nW, decrementing minimum remainder.
 //   - Enabled ports with an attached device of unknown class, or whose device attachment is
 //     unreported, yield [PowerUnknown] 0..D nW (where D is the largest class power fitting
-//     the port's limit up to its maximum class), decrementing minimum remainder.
+//     the port's limit up to its maximum class, clamped to the group's maximum remainder),
+//     decrementing minimum remainder.
 //
 // Minimum remainder subtraction saturates at zero. Allocate returns empty maps when
 // the PoE capability is absent.
@@ -333,10 +335,8 @@ func (c Config) Allocate() Allocation {
 				switch p.PD {
 				case PDAbsent:
 					result.Ports[name] = PortAllocation{State: PowerNoDevice}
-				case PDAttached:
+				case PDAttached, PDUnknown:
 					result.Ports[name] = PortAllocation{State: PowerDenied, Denial: ReasonDisabled}
-				case PDUnknown:
-					result.Ports[name] = PortAllocation{State: PowerUnknown}
 				}
 
 				continue
@@ -350,7 +350,7 @@ func (c Config) Allocate() Allocation {
 					result.Ports[name] = PortAllocation{
 						State:        PowerUnknown,
 						MinNanowatts: 0,
-						MaxNanowatts: d,
+						MaxNanowatts: min(d, remMax),
 					}
 					remMin = subSat(remMin, d)
 
@@ -401,16 +401,17 @@ func (c Config) Allocate() Allocation {
 				result.Ports[name] = PortAllocation{
 					State:        PowerUnknown,
 					MinNanowatts: 0,
-					MaxNanowatts: d,
+					MaxNanowatts: min(d, remMax),
 				}
 				remMin = subSat(remMin, d)
 			}
 		}
 
 		result.Groups[groupName] = GroupAllocation{
-			BudgetNanowatts:    budget,
-			AllocatedNanowatts: allocated,
-			RemainderNanowatts: remMax,
+			BudgetNanowatts:       budget,
+			AllocatedNanowatts:    allocated,
+			RemainderMinNanowatts: remMin,
+			RemainderMaxNanowatts: remMax,
 		}
 	}
 

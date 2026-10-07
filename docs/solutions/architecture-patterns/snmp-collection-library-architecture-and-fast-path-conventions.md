@@ -306,16 +306,16 @@ never re-enters the main dependency graph and `no_gosnmp_test.go` stays green
 build-tagged (`snmp_bench_fanout`, `snmp_bench_gc`, `snmp_bench_netsnmp`,
 `snmp_bench_macro`).
 
-`bench-gate.sh` runs the micro benchmarks at `COUNT=10`, filters to the FlowSeer
+`bench-gate.py` runs the micro benchmarks at `COUNT=10`, filters to the FlowSeer
 arm, and benchstat-compares against committed
 `src/protocol/snmp/bench/testdata/baseline-micro.txt`
-(`src/protocol/snmp/bench/bench-gate.sh:35`, `:51`, `:53`). Only deterministic
+(`src/protocol/snmp/bench/bench-gate.py:45`, `:104`, `:46`). Only deterministic
 metrics hard-fail — `allocs/op` and `B/op`; `sec/op` is advisory unless
 `GATE_NS=1` (local only), and throughput/GC/RSS are not gated at all, because
-gating noisy metrics erodes trust in the gate (`:7`, `:69`, `:78`). It keys off
+gating noisy metrics erodes trust in the gate (`:12`, `:71`, `:78`). It keys off
 benchstat's own significance verdict so high-variance benchmarks read `~` and do
-not false-trip (`:18`), and it **never rewrites the baseline** — rebaselining is a
-deliberate reviewed commit (`:25`).
+not false-trip (`:23`), and it **never rewrites the baseline** — rebaselining is a
+deliberate reviewed commit (`:30`).
 
 The committed baseline, re-measured on darwin/arm64 on 2026-09-27, records
 `BenchmarkGet/impl=flowseer` at 55 allocs/op and 1800 B/op, `BenchmarkGetNext`
@@ -352,7 +352,7 @@ you have not first seen in a profile (`src/protocol/snmp/bench/Taskfile.yml`,
 | Misbehaving-responder scenarios | `misbehaving_responder_test.go:196`+ | always on |
 | No gosnmp identifier leaks | `no_gosnmp_test.go:14` | always on |
 | Integration t1–t4 | `src/protocol/snmp/test/integration/` | tags `snmp_integration_t1..t4` |
-| Perf | `src/protocol/snmp/bench/bench-gate.sh` | `task bench:gate` |
+| Perf | `src/protocol/snmp/bench/bench-gate.py` | `task bench:gate` |
 
 Bare `go test ./...` includes the offline integration harness. Select exactly
 one tag to run an external tier; selecting two tier tags produces a deliberate
@@ -383,7 +383,7 @@ run *and* in the rendered document. It has bitten this repo once.
 **A gate that false-trips gets switched off.** Narrowing to `allocs/op` and `B/op`
 is why the perf gate is usable on shared hardware; widening it to `ns/op` would
 produce regressions from `ColdStart` variance (±680% on the committed baseline,
-`bench-gate.sh:8`). Letting the gate rewrite the baseline would convert every
+`bench-gate.py:13`). Letting the gate rewrite the baseline would convert every
 regression into a silent rebaseline.
 
 **Generated code drifting from its generator is unreviewable.** `-check` makes

@@ -11,45 +11,50 @@ import (
 // empty value means no guard is holding the port, whatever its role and state.
 type BlockReason string
 
-// TreeKind says what the identifier of a spanning tree names. An MSTI's number
-// and a PVST VLAN's share a range, so the number alone does not tell two trees
-// apart.
+const (
+	// BlockReasonBPDUGuard marks a port BPDU guard disabled because a BPDU
+	// arrived on it. Only a link down and up clears it.
+	BlockReasonBPDUGuard BlockReason = "bpdu-guard"
+
+	// BlockReasonPVIDInconsistent marks a port whose peer disagrees about
+	// which VLAN a link carries: an SSTP BPDU arrived naming a VLAN other
+	// than the one the switch classified the frame into. The next consistent
+	// BPDU on the arrival VLAN clears it.
+	BlockReasonPVIDInconsistent BlockReason = "pvid-inconsistent"
+
+	// BlockReasonLoopInconsistent marks a port whose received information
+	// expired while it held a non-designated role, which loop guard keeps
+	// discarding rather than letting it open a loop. A BPDU applied to that
+	// tree clears it, as does a link down. Under MSTP an MSTI reads the CIST mark.
+	BlockReasonLoopInconsistent BlockReason = "loop-inconsistent"
+)
+
+// TreeKind identifies the spanning tree model a tree belongs to.
 type TreeKind string
 
 const (
-	// TreeCIST is the common and internal spanning tree of a bridge that does
-	// not run PVST. Its identifier is 0.
-	TreeCIST TreeKind = "cist"
-	// TreeMSTI is a multiple spanning tree instance, identified by its MSTID.
-	TreeMSTI TreeKind = "msti"
-	// TreeVLAN is the tree of one VLAN under PVST, identified by the VLAN. The
-	// tree of VLAN 1 is the one that takes the CIST's place there.
-	TreeVLAN TreeKind = "vlan"
+	// TreeCIST identifies the Common and Internal Spanning Tree.
+	TreeCIST TreeKind = "CIST"
+
+	// TreeMSTI identifies a Multiple Spanning Tree Instance.
+	TreeMSTI TreeKind = "MSTI"
+
+	// TreeVLAN identifies a Per-VLAN Spanning Tree.
+	TreeVLAN TreeKind = "VLAN"
 )
 
-// TreeRef identifies the spanning tree a PortInfo describes.
+// TreeRef identifies one spanning tree instance within a layer snapshot.
 type TreeRef struct {
 	Kind TreeKind
 	ID   uint16
 }
 
-// treeRef names tree t by what this bridge runs it for.
-func (l *Layer) treeRef(t *tree) TreeRef {
-	switch {
-	case l.pvst != nil:
-		return TreeRef{Kind: TreeVLAN, ID: uint16(t.vid)}
-	case t.id == cistID:
-		return TreeRef{Kind: TreeCIST}
-	default:
-		return TreeRef{Kind: TreeMSTI, ID: uint16(t.id)}
-	}
-}
-
 // PortInfo summarizes the runtime spanning tree status of one port.
 type PortInfo struct {
-	// Tree names the tree this snapshot belongs to. It rides here so a trace
-	// fact can name the blocking tree rather than leaving a reader to infer
-	// it.
+	// Tree names the tree this snapshot belongs to: TreeCIST for the CIST,
+	// TreeMSTI for an MSTI, or TreeVLAN for a PVST tree. It rides here so a
+	// trace fact can name the blocking instance rather than leaving a reader
+	// to infer it.
 	Tree               TreeRef
 	Role               bpdu.Role
 	State              State
@@ -70,22 +75,20 @@ type PortInfo struct {
 }
 
 // blockReason names the guard holding the port out of the active topology.
-// bpduGuardDisabled is a link fact, read from the port's link record.
-// loopInconsistent is read through loopMark: the CIST's port state carries it
-// for every tree outside PVST, and each tree carries its own under PVST.
+// bpduGuardDisabled is link-owned and disables every tree. loopInconsistent is
+// tree-owned under PVST, while an MST bridge reads the CIST mark for each MSTI.
 // pvidInconsistent is tree-owned, set on the VLAN whose SSTP BPDU disagreed
-// about the link, so it reads from p. BPDU guard outranks the rest: it
-// disables the port outright, so nothing below it can be the decisive reason.
-// A PVID-inconsistent BPDU is applied to no tree, so it clears no loop-guard
-// mark, and both can hold at once. The order between them only fixes what a
-// reader sees then.
-func (l *Layer) blockReason(p *portState, lk *linkRecord) BlockReason {
+// about the link, so it reads from p. BPDU guard outranks the rest because it
+// disables the port outright. PVID inconsistency outranks loop guard on the
+// arrival tree because a PVID-inconsistent frame can leave an existing
+// loop-guard mark in place while establishing the PVID mark.
+func (l *Layer) blockReason(p, cistP *portState, link *linkRecord) BlockReason {
 	switch {
-	case lk.bpduGuardDisabled:
+	case link.bpduGuardDisabled:
 		return BlockReasonBPDUGuard
 	case p.pvidInconsistent:
 		return BlockReasonPVIDInconsistent
-	case l.loopMark(p).loopInconsistent:
+	case p.loopInconsistent || (l.pvst == nil && cistP != nil && cistP.loopInconsistent):
 		return BlockReasonLoopInconsistent
 	default:
 		return ""
@@ -145,30 +148,25 @@ func (l *Layer) TopologyChanges() (uint64, time.Time) {
 }
 
 // BridgeID returns this bridge's identifier on the common tree, with the
-// priority in effect. Outside PVST mode that is the bridge's only identifier;
-// inside it, it is VLAN 1's, and every other VLAN's carries its own VLAN in
-// the system-ID extension.
+// priority in effect. Outside PVST mode that is the bridge's CIST identifier.
+// Inside it, it is VLAN 1's identifier
+// and every other VLAN's carries its own VLAN in the system-ID extension.
 func (l *Layer) BridgeID() bpdu.BridgeID {
 	return l.cist().bridgeID
 }
 
-// Times returns the max age and forward delay in force: the root's values as
-// received on the root port, or this bridge's own while it is root. The hello
-// time is always this bridge's own, since Hello Time is a per-bridge value the
-// root does not impose (P802.1aq/D1.5 Table 13-5, UNH-IOL RSTP.op.4.3).
+// Times returns the max age and forward delay received on the root port,
+// or this bridge's own values while it is root. Hello time is always local.
 func (l *Layer) Times() (maxAge, hello, forwardDelay time.Duration) {
 	return l.times(l.cist())
 }
 
-// times returns the timers in force for one tree. Max age and forward delay
-// follow the root (P802.1aq/D1.5 13.28.9 and 13.29.33 f, draft text), and the
-// hello time is the bridge's own. Outside PVST an MSTI runs on the CIST's
-// times: an MSTI record carries no timers, and 13.28.9 takes FwdDelay from the
-// CIST's designatedTimes. A PVST VLAN's tree stores its own root's.
+// times returns the timers in force for one tree.
 func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
-	if l.pvst == nil {
-		t = l.cist()
+	if l.pvst == nil && t.id != cistID {
+		return l.times(l.cist())
 	}
+
 	if t.rootPort != "" {
 		if rp, ok := t.ports[t.rootPort]; ok && rp.rcvInfoValid {
 			return rp.rcvMaxAge, l.helloTime, rp.rcvForwardDelay
@@ -176,14 +174,6 @@ func (l *Layer) times(t *tree) (maxAge, hello, forwardDelay time.Duration) {
 	}
 
 	return l.maxAge, l.helloTime, l.forwardDelay
-}
-
-// forwardDelayOf returns the Forward Delay in force for tree t, the step of
-// the forward-delay ladder.
-func (l *Layer) forwardDelayOf(t *tree) time.Duration {
-	_, _, forwardDelay := l.times(t)
-
-	return forwardDelay
 }
 
 // PortInfo returns runtime spanning tree information for the named port. If the
@@ -208,7 +198,7 @@ func (l *Layer) instancePortInfo(mstid bpdu.MSTID, port string) PortInfo {
 // VLANPortInfo returns runtime spanning tree information for the named port
 // within the tree that carries the given VLAN. On a bridge running one tree
 // every VLAN answers alike, which is what makes this usable as the per-VLAN
-// view in every mode; PVST is what makes the VLANs diverge. It returns a zero
+// view in every mode. PVST is what makes the VLANs diverge. It returns a zero
 // value when the VLAN has no tree of its own, which is also what
 // instancePortInfo answers for an unknown MSTID.
 func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
@@ -222,7 +212,7 @@ func (l *Layer) VLANPortInfo(vid vlan.ID, port string) PortInfo {
 
 // TracksVLAN reports whether the layer runs a spanning tree for the given
 // VLAN. Outside PVST mode this is always true, since the CIST carries every
-// VLAN; under PVST it is true only for a VLAN with its own tree.
+// VLAN. Under PVST it is true only for a VLAN with its own tree.
 func (l *Layer) TracksVLAN(vid vlan.ID) bool {
 	_, ok := l.treeFor(vid)
 
@@ -234,26 +224,21 @@ func (l *Layer) TracksVLAN(vid vlan.ID) bool {
 // PVST bridge, or a PVST neighbor on one that is not. The mark survives
 // until the link goes down, since only that can replace the neighbor.
 func (l *Layer) PVSTBoundary(port string) bool {
-	lk := l.link(port)
+	link, ok := l.links[port]
+	if !ok {
+		return false
+	}
 
-	return lk != nil && lk.pvstBoundary
+	return link.pvstBoundary
 }
 
 // PortLinked reports whether the layer would process a BPDU arriving on the
 // named port rather than treat it as SSTPPortDown: the port is one this
-// layer tracks and its link record currently holds the link up. ReceiveSSTP
-// makes exactly this check before doing anything else with a frame, and it
-// is the one read-only distinction the other accessors do not make directly:
-// a PortInfo snapshot carries no link bit, and it renders a port whose link
-// went down through the same Disabled and Discarding values a port that
-// never came up shows. A caller can still recover the answer from a
-// snapshot, but only by re-deriving this layer's own role and guard rules —
-// that a down port clears its guards, so a Disabled port reporting BPDU
-// guard is up — which is the coupling this accessor exists to spare it.
+// layer tracks and its link is currently up.
 func (l *Layer) PortLinked(port string) bool {
-	lk := l.link(port)
+	link, ok := l.links[port]
 
-	return lk != nil && lk.up
+	return ok && link.up
 }
 
 // portInfo renders a PortInfo snapshot for one port within one tree. The
@@ -265,14 +250,11 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	if !ok {
 		return PortInfo{}
 	}
-	// The link facts and counters come from the port's link record. Every
-	// tree is built from l.portNames, so it always exists for any port a
-	// tree tracks; the zero value below only guards that invariant, not a
-	// case this simulator reaches.
-	lk := l.link(port)
-	if lk == nil {
-		lk = &linkRecord{}
+	link := l.links[port]
+	if link == nil {
+		link = &linkRecord{}
 	}
+	cistP := l.cist().ports[port]
 
 	var desigRoot, desig bpdu.BridgeID
 	var desigPort uint16
@@ -294,23 +276,47 @@ func (l *Layer) portInfo(t *tree, port string) PortInfo {
 	case bpdu.RoleDisabled:
 	}
 
+	var treeRef TreeRef
+	switch {
+	case l.pvst != nil:
+		vid := uint16(t.id)
+		if t.id == cistID {
+			vid = 1
+		}
+		treeRef = TreeRef{Kind: TreeVLAN, ID: vid}
+	case t.id == cistID:
+		treeRef = TreeRef{Kind: TreeCIST, ID: 0}
+	default:
+		treeRef = TreeRef{Kind: TreeMSTI, ID: uint16(t.id)}
+	}
+
 	return PortInfo{
-		Tree:               l.treeRef(t),
+		Tree:               treeRef,
 		Role:               p.role,
 		State:              p.state,
-		BlockReason:        l.blockReason(p, lk),
+		BlockReason:        l.blockReason(p, cistP, link),
 		Priority:           uint8(p.portID >> 8),
 		PathCost:           p.pathCost,
 		DesignatedRoot:     desigRoot,
 		Designated:         desig,
 		DesignatedPort:     desigPort,
 		DesignatedCost:     desigCost,
-		PointToPoint:       lk.pointToPoint,
-		Edge:               lk.edge,
+		PointToPoint:       link.pointToPoint,
+		Edge:               link.edge,
 		ForwardTransitions: p.forwardTransitions,
 		TxBPDUs:            p.txBPDUs,
-		RxBPDUs:            lk.rxBPDUs,
-		BadBPDUs:           lk.badBPDUs,
-		SendRSTP:           lk.sendRSTP,
+		RxBPDUs:            link.rxBPDUs,
+		BadBPDUs:           link.badBPDUs,
+		SendRSTP:           link.sendRSTP,
+	}
+}
+
+// BadBPDU records that a frame received on the named port could not be
+// decoded as a BPDU. badBPDUs is link-owned, so it is bumped on the link
+// record alone. Every tree's PortInfo answers from that same copy. An
+// untracked port is ignored.
+func (l *Layer) BadBPDU(port string) {
+	if link, ok := l.links[port]; ok {
+		link.badBPDUs++
 	}
 }

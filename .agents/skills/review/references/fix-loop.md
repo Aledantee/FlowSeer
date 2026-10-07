@@ -138,7 +138,7 @@ remedy is `review` again.
    one worker, and each brief names the other workers' files as closed to
    it. A fix brief carries findings only. Cleanup the review did not report
    (comment style, plan labels) waits for the follow-up pass, since two
-   workers that reword the same comment lines fail `merge-check.py` with a
+   workers that reword the same comment lines fail `land merge-check` with a
    lost change.
 
    Brief each worker with:
@@ -178,7 +178,7 @@ remedy is `review` again.
    result stops the round. Merge each worker's branch, with the sandbox
    disabled when it touched `.claude/` or `.agents/` (`land`, step 3). After the merge commit
    exists, including a resolved conflict, run
-   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   `uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD`.
    A non-zero result also stops the round. Carry every `missing` block in the
    report, then run the verifier once on the union of the changed paths,
    before anything is reviewed again.
@@ -210,7 +210,7 @@ remedy is `review` again.
    5.11 to 1.95 (https://arxiv.org/html/2603.11078v1).
 
 After the round settles, record the round count with
-`.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"
+`uv run tools/scripts/run.py plan record review <plan> "<verdict>"
 --rounds <n>` (`SKILL.md` step 5).
 
 When the coordinator applied a security or behavior fix itself (`SKILL.md`

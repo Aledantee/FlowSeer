@@ -1,7 +1,7 @@
 # flowseer.store.device.v1.DeviceServiceConfig for the lab run.
 #
 # Nothing here is a secret. The addresses are loopback for the lab run, and
-# the authorization ids are stand-ins for the block write-openfga-store.sh
+# the authorization ids are stand-ins for the block write-openfga-store.py
 # prints once the store exists.
 
 state_dir: "/var/lib/flowseer/device"

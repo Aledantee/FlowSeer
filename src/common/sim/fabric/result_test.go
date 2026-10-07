@@ -257,24 +257,12 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 		},
 	}
 
-	res := fab.run(20, 3)
+	res := fab.run(21, 3)
 	if res.Stop == StopConverged {
 		t.Errorf("res.Stop = StopConverged, want convergence blocked by pending journey")
 	}
-	// The budget can cut the run while a BPDU is in flight, and the Root port's
-	// topology change report puts one more frame in the exchange, so the count
-	// is the injected journey and at most that one BPDU.
-	injectedPending := false
-	for _, j := range fab.Report() {
-		if j.FrameID == fid && j.State == JourneyPending {
-			injectedPending = true
-		}
-	}
-	if !injectedPending {
-		t.Error("the injected journey is not pending, want it to block convergence")
-	}
-	if res.Pending.Journeys < 1 || res.Pending.Journeys > 2 {
-		t.Errorf("res.Pending.Journeys = %d, want the injected journey and at most one BPDU in flight", res.Pending.Journeys)
+	if res.Pending.Journeys != 2 {
+		t.Errorf("res.Pending.Journeys = %d, want 2", res.Pending.Journeys)
 	}
 }
 

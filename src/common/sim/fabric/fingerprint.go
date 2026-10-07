@@ -231,7 +231,9 @@ func (s Snapshot) Fingerprint() string {
 				b.WriteString(",")
 				b.WriteString(strconv.FormatUint(ga.AllocatedNanowatts, 10))
 				b.WriteString(",")
-				b.WriteString(strconv.FormatUint(ga.RemainderNanowatts, 10))
+				b.WriteString(strconv.FormatUint(ga.RemainderMinNanowatts, 10))
+				b.WriteString(",")
+				b.WriteString(strconv.FormatUint(ga.RemainderMaxNanowatts, 10))
 			}
 			b.WriteString("}")
 		}
@@ -317,9 +319,9 @@ func (s Snapshot) Fingerprint() string {
 }
 
 func encodeFingerprintPortInfo(info stp.PortInfo) string {
-	return fmt.Sprintf("tree_kind=%s,tree_id=%d,role=%s,state=%s,reason=%s,prio=%d,cost=%d,root=%s,desig=%s,desig_port=%d,desig_cost=%d,p2p=%t,edge=%t,send_rstp=%t",
+	return fmt.Sprintf("tree_kind=%s,tree_id=%s,role=%s,state=%s,reason=%s,prio=%d,cost=%d,root=%s,desig=%s,desig_port=%d,desig_cost=%d,p2p=%t,edge=%t,send_rstp=%t",
 		escapeFingerprint(string(info.Tree.Kind)),
-		info.Tree.ID,
+		escapeFingerprint(strconv.FormatUint(uint64(info.Tree.ID), 10)),
 		escapeFingerprint(string(info.Role)),
 		escapeFingerprint(string(info.State)),
 		escapeFingerprint(string(info.BlockReason)),

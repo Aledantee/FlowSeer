@@ -15,15 +15,15 @@ The brief names the skill to run, this branch as the scope, the plan path or
 the request in a few words, and asks for the checkpoint:
 
 - With a plan, the worker records the plan state with
-  `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n> --from <t> --to <t>`,
-  `.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"`, or
-  `.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"` on its
+  `uv run tools/scripts/run.py plan record implemented <plan> --units <n> --from <t> --to <t>`,
+  `uv run tools/scripts/run.py plan record review <plan> "<verdict>"`, or
+  `uv run tools/scripts/run.py plan record compound <plan> "<outcome>"` on its
   branch, and the merge of that branch brings
   the checkpoint here.
 - Without a plan, the checkpoints file lives in the worker's own git
   directory, so the worker reports the line (`implemented:`, `review:`, or
   `compound:`) and this session writes it to its own checkpoints file with
-  `.claude/skills/verify-change/scripts/ledger.py checkpoint <key> "<value>"`
+  `uv run tools/scripts/run.py verify ledger checkpoint <key> "<value>"`
   after checking the worker's tree as `delegate` describes. A review worker
   also reports its `gaps:` and `rounds:` lines, and this session writes them
   the same way with keys `gaps` and `rounds`, since the next review reads its
@@ -43,7 +43,7 @@ Before merging the worker's branch, run
 `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
 result stops the merge. After the merge commit exists, including a resolved
 conflict, run
-`python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+`uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD`.
 A non-zero result also stops the merge. Carry every `missing` block in the
 report. Remove the child and start step 1 again from the top: the checkpoint
 on disk gates the merge, not the answer, and the merged commit makes the

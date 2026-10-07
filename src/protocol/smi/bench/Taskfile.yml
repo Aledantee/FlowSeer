@@ -51,7 +51,7 @@ tasks:
       COUNT=10`, keep the preamble and the benchmark rows, commit the new
       testdata/baseline-micro.txt. The gate never rewrites it.
     cmds:
-      - COUNT={{.COUNT}} BENCH={{.BENCH | default "."}} GATE_NS={{.GATE_NS | default "0"}} MIN_DELTA={{.MIN_DELTA | default "1"}} sh bench-gate.sh
+      - COUNT={{.COUNT}} BENCH={{.BENCH | default "."}} GATE_NS={{.GATE_NS | default "0"}} MIN_DELTA={{.MIN_DELTA | default "1"}} uv run bench-gate.py
 
   test:
     desc: 'The suite''s own tests: the fixture pins, the recovery corpus, and the gate script.'

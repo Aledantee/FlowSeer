@@ -14,9 +14,10 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 The simulator under `src/common/netsim` becomes `src/common/sim`: a tree whose
 shape takes further device kinds and media, whose capability packages share
 one contract, whose protocols follow their standards, and whose known defects
-are fixed with a test each. The means is twelve phases: a move with no
+are fixed with a test each. The means is thirteen phases: a move with no
 behaviour change, then the contract, then one phase per package cluster from
-the layers up to the fabric.
+the layers up to the fabric, and one for the spanning tree behaviors the
+third phase left open.
 
 Stop condition: if the device seam in U9 and U10 cannot carry what `fabric`
 reads from a switch today without `fabric` importing a capability package,
@@ -52,9 +53,10 @@ before U10 starts.
   claim read from the cited lines at commit `61775c73`. A unit starts an
   entry by writing its failing test. An entry whose test passes is struck
   with a note, since most entries were read and not run.
-- This plan stays whole as a parent. Why: the twelve clusters below have
-  disjoint packages inside a wave, which `go list -deps` confirms for the
-  layer packages (only `traffic` imports a sibling, `bridge`).
+- This plan stays whole as a parent. Why: the clusters below have disjoint
+  packages inside a wave, which `go list -deps` confirms for the layer
+  packages (only `traffic` imports a sibling, `bridge`). U13 returns to
+  `layer/stp`, which no other open phase owns.
 
 ## Requirements
 
@@ -214,7 +216,16 @@ Tests: one failing-first test per inventory entry, and `check-prose.py` on
 every README in the tree.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md`
 
-Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 | U10 | U11 | U12
+### U13. Spanning tree handshake scope and inherited priority
+Files: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md
+Change: in `layer/stp` a proposal cuts only the Designated ports that are
+not synced, an inherited port priority follows the bridge port through
+every normalize, and the sync at a boundary port and a proposal in an MSTI
+record that is not stored are decided and pinned.
+Tests: one failing-first test per inventory entry.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md`
+
+Waves: U1 | U2 | U3 U4 U5 U6 U7 U8 | U9 U13 | U10 | U11 | U12
 
 ## Verification
 
@@ -236,8 +247,8 @@ and needs the switch powered on.
 ## Definition of done
 
 - [ ] Verifier green for every changed path of every phase.
-- [ ] Each phase plan reads `implemented` and its `Landed:` line here holds
-      the commit range.
+- [ ] Each phase plan reads `implemented` and its state file holds the
+      commit range.
 - [ ] Package READMEs, `CONCEPTS.md`, `GOALS.md`, and the three simulation
       records match the tree.
 - [ ] The package shape record, accepted 2026-10-01, is amended wherever a

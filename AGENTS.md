@@ -48,11 +48,10 @@ Binding on humans and agents equally; each doc states its own scope.
   artifacts pass; request the policy change explicitly and separately.
 - `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
   `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
-  verifier's scripts (`.agents/skills/verify-change/scripts/`,
-  `.agents/skills/prose/scripts/`), `tools/scripts/run.py`,
-  `tools/scripts/lib/`, `tools/scripts/verify/`, `tools/scripts/hooks/`, and
-  merge-gate configuration are policy
-  surfaces; changes require explicit guardrail review.
+  verifier's script (`.agents/skills/verify-change/scripts/`),
+  `tools/scripts/run.py`, `tools/scripts/lib/`, `tools/scripts/verify/`,
+  `tools/scripts/hooks/`, and merge-gate configuration are policy surfaces;
+  changes require explicit guardrail review.
 
 ## Isolation
 

@@ -12,8 +12,6 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md",
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase5-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase6-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase7-plan.md",
@@ -21,7 +19,8 @@
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase9-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase10-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase11-plan.md",
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md"
+    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase12-plan.md",
+    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md"
   ],
   "retired": [
     {
@@ -38,6 +37,22 @@
       "landed": {
         "first": "414ffd79",
         "last": "6a2ea03a"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "a8a26462",
+        "last": "3f90b02d"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "9077fffa",
+        "last": "db130681"
       }
     }
   ]

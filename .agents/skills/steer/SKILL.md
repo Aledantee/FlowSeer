@@ -107,7 +107,7 @@ Run at the end of every pass and on `audit`:
    runtime only is a finding unless the other runtime has no such event.
 3. Run `tools/hooks/tests/run.sh` and `shellcheck` over the hook scripts.
 4. Read the phase size from each plan's state with
-   `.claude/skills/plan/scripts/plan_record.py show <plan> --json`. The
+   `uv run tools/scripts/run.py plan record show <plan> --json`. The
    `outcome` object carries the unit count and verification span. For plans
    that `land` retired, read the same outcome line in the retire commit. Look
    for a phase that ran past one session, or a run of phases with one or two
@@ -119,13 +119,13 @@ Run at the end of every pass and on `audit`:
    retire commit, so read both places:
 
    ```bash
-   { for plan in docs/plans/*-plan.md; do .claude/skills/plan/scripts/plan_record.py show "$plan" --json; done; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
+   { for plan in docs/plans/*-plan.md; do uv run tools/scripts/run.py plan record show "$plan" --json; done; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
    ```
 5. Sweep the plans `land` should have retired. Every `retire` line is a
    plan finished on `main` and still on disk:
 
    ```bash
-   python3 .claude/skills/next/scripts/plan-queue.py | grep '^retire'
+   uv run tools/scripts/run.py next plan-queue | grep '^retire'
    ```
 
    Retire each as `land/references/retire-plan.md` describes, one commit

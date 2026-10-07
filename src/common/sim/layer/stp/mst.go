@@ -14,13 +14,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// mstDigestKey is the fixed 16-byte HMAC-MD5 signature key IEEE 802.1Q
-// clause 13.7 defines for the MST configuration digest. The all-zero table
-// and the VID-10/VID-20 table below, keyed with this constant, are what
-// prove the digest is computed the standard way:
-//
-//	all-zero table -> ac36177f50283cd4b83821d8ab26de62
-//	VID 10 on MSTID 1, VID 20 on MSTID 2, rest zero -> 9357ebb7a8d74dd5fef4f2bab50531aa
+// mstDigestKey is the fixed HMAC-MD5 signature key in IEEE 802.1Q-2003
+// clause 13.7, Table 13-1. Table 13-2 supplies the all-zero table digest
+// ac36177f50283cd4b83821d8ab26de62.
 var mstDigestKey = [16]byte{
 	0x13, 0xAC, 0x06, 0xA6, 0x2E, 0x47, 0xFD, 0x51,
 	0xF9, 0x5D, 0x2B, 0xA2, 0x43, 0xCD, 0x03, 0x46,
@@ -37,9 +33,7 @@ type InstancePort struct {
 // TypeID returns the fact type identifier for InstancePort.
 func (p InstancePort) TypeID() string { return "stp.mst.instance_port" }
 
-// Canonical returns the canonical string representation of the InstancePort
-// fact. It reads Priority as it stands, so a value that has not been through
-// [Config.Normalize] has not yet inherited the bridge port's priority.
+// Canonical returns the canonical string representation of the InstancePort fact.
 func (p InstancePort) Canonical() string {
 	return fmt.Sprintf("priority=%d,path_cost=%d", p.Priority, p.PathCost)
 }
@@ -110,7 +104,7 @@ func (m MST) ConfigID() bpdu.ConfigID {
 		inst := m.Instances[id]
 		for _, vid := range inst.VLANs {
 			// Validate refuses an out-of-range VID before an instance
-			// reaches here; the bound stays as defense in depth.
+			// reaches here. The bound also protects direct ConfigID calls.
 			if int(vid) < len(table) {
 				table[vid] = uint16(id)
 			}
@@ -178,8 +172,9 @@ func effectiveInstancePriority(p uint16, present bool) uint16 {
 // Normalize returns a normalized copy of the MST region configuration,
 // filling MaxHops with 20, each instance's priority with the default bridge
 // priority, and sorting each instance's VLANs. An instance port's priority is
-// left untouched: only [Config.Normalize] knows the bridge ports, so it
-// fills the priority an instance port leaves unset.
+// left untouched. Config.Normalize reads PriorityPresent when inheriting
+// the common port priority. MST.Normalize leaves that inheritance to
+// Config.Normalize.
 func (m MST) Normalize() MST {
 	cloned := m.Clone()
 	cloned.MaxHops = effectiveMaxHops(cloned.MaxHops)
@@ -224,10 +219,8 @@ func (m MST) Validate(ports port.Table, stpPorts map[string]Port) error {
 			Msgf("MST max hops %d is outside 6 through 40", maxHops)
 	}
 
-	// One BPDU carries the CIST and every instance, and an MST BPDU holds at
-	// most bpdu.MaxMSTIRecords records, so a region with more instances has no
-	// wire form. Refusing it here keeps a configuration that validates from
-	// producing a BPDU that cannot be sent.
+	// IEEE 802.1Q-2003 clause 13.14 caps a bridge at 64 MSTIs and an MST
+	// BPDU at 64 records. The codec enforces the same cap.
 	if len(m.Instances) > bpdu.MaxMSTIRecords {
 		return errs.New().
 			Attr("field", "mst.instances").

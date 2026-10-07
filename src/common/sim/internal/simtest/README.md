@@ -98,9 +98,10 @@ established across the library:
   opposite link. A third case sharing the fixture,
   `planning/mstp-vlan-instances-diverge-instance-blocks-alternate`, proves
   MSTI 1 does not merely leave l1 unused: a frame seeded behind l1 for VLAN
-  10 is dropped `port-blocked` there, carrying a gate fact for `tree_kind="msti"` and `tree_id=1` in
-  state Alternate and Discarding, disproving the false answer that MSTI 1
-  elected l2 without ever putting l1 into a blocking state.
+  10 is dropped `port-blocked` there, carrying a gate fact for
+  `tree_kind="MSTI";tree_id=1` in state Alternate and Discarding,
+  disproving the false answer that MSTI 1 elected l2 without ever putting
+  l1 into a blocking state.
 - `troubleshooting/active-backup-no-failback`: An active-backup bond with no
   configured `Primary` moves from member `a` to member `b` when `a` goes
   down, and stays on `b` with cause `last-active` once `a` recovers,

@@ -88,6 +88,11 @@ done
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 root=$(git rev-parse --show-toplevel)
 cd "$root"
+# The checks run through the run.py of the checkout that holds this script,
+# so a fixture repository with no tools/scripts of its own verifies the same
+# way. $script_dir keeps the logical path when the script is started through
+# the .claude/skills link, so only git can name the root from it.
+run_py=$(git -C "$script_dir" rev-parse --show-toplevel)/tools/scripts/run.py
 # An argument may be spelled through a symlinked directory: .claude/skills
 # links to .agents/skills, where git tracks the files. git lists nothing
 # beyond a symlink, so a directory spelled that way expands to no files, and
@@ -216,6 +221,17 @@ run() {
 
 gate_label() {
   local label=$1 arg
+  # A run.py command is named by its group and command, so the label does
+  # not carry the checkout's path or the launcher's flags.
+  if [[ $label == uv ]]; then
+    for arg in "$@"; do
+      if [[ $arg == */run.py ]]; then
+        while [[ $1 != "$arg" ]]; do shift; done
+        printf 'run.py%s%s' "${2:+ $2}" "${3:+ $3}"
+        return
+      fi
+    done
+  fi
   shift
   for arg in "$@"; do
     [[ $arg == -* ]] && continue
@@ -542,21 +558,18 @@ fi
 # reads as one of them. The list mirrors the per-gate need_tool calls
 # below, which stay as the last line of defence for a gate this list
 # misses.
-required_tools=(python3 go)
-if ((${#markdown_files[@]})); then
-  required_tools+=(uv)
-fi
+required_tools=(uv go)
 if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
 if ((${#modules[@]})); then
-  required_tools+=(go golangci-lint)
+  required_tools+=(go golangci-lint python3)
 fi
 if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
 fi
 if [[ $hook_tooling == true ]]; then
-  required_tools+=(jq shellcheck go uv)
+  required_tools+=(jq shellcheck go python3)
 fi
 if [[ $web == true ]]; then
   required_tools+=(node)
@@ -585,13 +598,13 @@ if ((${#missing_tools[@]})); then
   exit 1
 fi
 
-need_tool python3
+need_tool uv
 need_tool go
-run python3 "$script_dir/check-plan-status.py"
+run uv run --quiet "$run_py" verify check-plan-status
 if [[ $plan_state == true ]]; then
   # The whole tree, not the named paths: a state file is legal only beside
   # its parent's and its phases', which the run may not name.
-  run python3 "$script_dir/../../plan/scripts/plan_record.py" check
+  run uv run --quiet "$run_py" verify check-plan-state
 fi
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
@@ -607,9 +620,9 @@ fi
 # the implementer's report with a reason per line, and the reviewer reads
 # the reasons.
 if [[ $full == true ]]; then
-  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base")
+  test_changes=$(uv run --quiet "$run_py" verify check-test-integrity "$base")
 else
-  test_changes=$(python3 "$script_dir/check-test-integrity.py" "$base" -- "${paths[@]}")
+  test_changes=$(uv run --quiet "$run_py" verify check-test-integrity "$base" -- "${paths[@]}")
 fi
 if [[ -n $test_changes ]]; then
   echo "Test changes to account for:"
@@ -629,10 +642,9 @@ if [[ $web == true ]]; then
 fi
 
 if ((${#markdown_files[@]})); then
-  need_tool python3
   need_tool uv
-  run uv run tools/scripts/run.py verify check-markdown-links "${markdown_files[@]}"
-  run python3 .claude/skills/prose/scripts/check-prose.py --quiet "${markdown_files[@]}"
+  run uv run --quiet "$run_py" verify check-markdown-links "${markdown_files[@]}"
+  run uv run --quiet "$run_py" verify check-prose --quiet "${markdown_files[@]}"
 fi
 
 if ((${#go_files[@]})); then
@@ -953,38 +965,10 @@ if [[ $hook_tooling == true ]]; then
   if [[ -x tools/hooks/tests/run.sh ]]; then
     run tools/hooks/tests/run.sh
   fi
-  # A skill script with no test_*.py beside it (plan-deviations.py,
-  # plan-queue.py) is imported by nothing, so a syntax error in one passes
-  # the shellcheck and unittest gates below. Compiling every skill script
-  # parses each; the set is tiny. -Xpycache_prefix sends the bytecode to
-  # the throwaway build dir: PYTHONDONTWRITEBYTECODE does not stop
-  # py_compile from writing a __pycache__ beside the source. The flag is
-  # attached so the gate label stays `python3 py_compile`.
-  run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile .claude/skills/*/scripts/*.py
-  for test_dir in .claude/skills/*/scripts; do
-    test_files=("$test_dir"/test_*.py)
-    [[ -f ${test_files[0]} ]] || continue
-    if ! test_output=$(run env PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$test_dir" -p 'test_*.py' 2>&1); then
-      printf '%s\n' "$test_output"
-      exit 1
-    fi
-    printf '%s\n' "$test_output"
-    if [[ ! $test_output =~ Ran\ [1-9][0-9]*\ tests? ]]; then
-      printf '%s\n' "Python tests in $test_dir ran zero tests." >&2
-      printf '%s\n' "python3 -m unittest $test_dir" >"$gate_file"
-      exit 1
-    fi
-  done
-  # The repository scripts: compile every module, then run their suites.
-  # Compiling catches a module no test imports. The zero-test guard is the
-  # one the skill suites above have.
+  # The repository scripts: run their suites. The suite compiles every
+  # module (test_compile.py), so a module no test imports still parses.
   if [[ -d tools/scripts ]]; then
     need_tool uv
-    repo_scripts=()
-    while IFS= read -r script; do
-      repo_scripts+=("$script")
-    done < <(find tools/scripts -name '*.py' -not -path '*/__pycache__/*' | sort)
-    run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile "${repo_scripts[@]}"
     if ! test_output=$(run uv run tools/scripts/run.py test 2>&1); then
       printf '%s\n' "$test_output"
       exit 1

@@ -4,7 +4,7 @@ Load this when `$(git rev-parse --git-dir)/flowseer-plan-status.json` exists
 before the first edit.
 
 A ledger naming another plan is replaced only after the user confirms
-(`ledger.py init --force`).
+(`verify ledger init --force`).
 
 A ledger naming this plan is read before the first edit, and every `passed`
 commit is checked:

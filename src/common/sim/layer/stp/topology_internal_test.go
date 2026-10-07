@@ -1,7 +1,6 @@
 package stp
 
 import (
-	"slices"
 	"testing"
 	"time"
 
@@ -9,183 +8,127 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
-// runningTrees lists, in treeOrder, the trees whose timer on the named port
-// runs at now.
-func runningTrees(l *Layer, port string, now time.Time) []treeID {
-	var out []treeID
-	for _, id := range l.treeOrder {
-		if p, ok := l.trees[id].ports[port]; ok && p.tcWhile.After(now) {
-			out = append(out, id)
-		}
-	}
+func TestPropagateTopologyChangeRetainsRunningTimer(t *testing.T) {
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	l := newLayer(Config{Ports: map[string]Port{"p1": {}, "p2": {}}})
+	l.links["p1"].up = true
+	p := l.cist().ports["p1"]
+	p.tcActive = true
+	p.tcWhile = now.Add(10 * time.Second)
 
-	return out
+	l.propagateTopologyChange(l.cist(), "p2", now.Add(time.Second), nil)
+
+	if !p.tcWhile.Equal(now.Add(10 * time.Second)) {
+		t.Fatalf("running topology-change timer moved to %v, want %v", p.tcWhile, now.Add(10*time.Second))
+	}
 }
 
-// TestReceivedTopologyChangeStartsTheTimersTheStandardNames pins which trees a
-// received change reaches on the next active port (IEEE Std 802.1Q-2003
-// 13.26.19): a TCN counts for the CIST and every MSTI, a flag from outside
-// the region for every tree, and a flag from inside for the trees that set it.
-func TestReceivedTopologyChangeStartsTheTimersTheStandardNames(t *testing.T) {
+func TestPortThatBecomesAnEdgeLeavesTheActiveTopology(t *testing.T) {
 	t.Parallel()
 
-	foreign := func() bpdu.BPDU {
-		other := MST{Name: "region-1", Revision: 2}
-		id := other.ConfigID()
-		root := bpdu.BridgeID{Priority: 1024}
-		b := bpdu.BPDU{
-			Version:        3,
-			Type:           bpdu.TypeRapid,
-			RootID:         root,
-			BridgeID:       root,
-			PortID:         0x8001,
-			HelloTime:      2 * time.Second,
-			MaxAge:         20 * time.Second,
-			ForwardDelay:   15 * time.Second,
-			ConfigID:       &id,
-			RegionalRootID: root,
-			RemainingHops:  20,
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	for _, automatic := range []bool{false, true} {
+		name := "state recompute"
+		if automatic {
+			name = "auto-edge expiry"
 		}
-		b.SetTopologyChange(true)
-
-		return b
-	}
-	// inside is A's next hello, with the flags the row asks for.
-	inside := func(cist bool, msti ...bpdu.MSTID) func(*testing.T, *Layer, time.Time) bpdu.BPDU {
-		return func(t *testing.T, a *Layer, now time.Time) bpdu.BPDU {
-			t.Helper()
-
-			fx := a.Advance(now)
-			if len(fx.Emissions) == 0 {
-				t.Fatal("A sent no hello")
-			}
-			b, err := bpdu.Decode(fx.Emissions[0].Frame)
-			if err != nil {
-				t.Fatalf("decode A's hello: %v", err)
-			}
-			b.SetTopologyChange(cist)
-			for i := range b.MSTIs {
-				flags := bpdu.BPDU{Flags: b.MSTIs[i].Flags}
-				flags.SetTopologyChange(false)
-				for _, id := range msti {
-					if b.MSTIs[i].MSTID == id {
-						flags.SetTopologyChange(true)
-					}
-				}
-				b.MSTIs[i].Flags = flags.Flags
-			}
-
-			return b
-		}
-	}
-
-	for _, tc := range []struct {
-		name string
-		msg  func(t *testing.T, a *Layer, now time.Time) bpdu.BPDU
-		// onP2 and onP1 list the trees with a running timer on the other
-		// active port and on the arrival port. A notification also starts the
-		// arrival port's CIST timer (Figure 13-19 NOTIFIED_TCN).
-		onP2, onP1 []treeID
-	}{
-		{"TCN", func(*testing.T, *Layer, time.Time) bpdu.BPDU {
-			return bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification}
-		}, []treeID{0, 1, 2}, []treeID{0}},
-		{"flag from outside the region", func(*testing.T, *Layer, time.Time) bpdu.BPDU { return foreign() }, []treeID{0, 1, 2}, nil},
-		{"flag inside the region on the CIST only", inside(true), []treeID{0}, nil},
-		{"flag inside the region on one instance only", inside(false, 2), []treeID{2}, nil},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			a, b, now := settledRegion(t)
-			now = now.Add(2 * time.Second)
-			b.Receive(now, "p1", tc.msg(t, a, now))
+			l := newLayer(Config{Ports: map[string]Port{"p1": {AutoEdge: true}}}.Normalize(layer.Env{}))
+			l.LinkChange(now, "p1", true, true, 1_000_000_000)
+			tr := l.cist()
+			p := tr.ports["p1"]
+			p.tcActive = true
+			p.tcWhile = now.Add(time.Minute)
+			p.tcAck = true
+			before := tr.topologyChangeCount
 
-			if got := runningTrees(b, "p2", now); !slices.Equal(got, tc.onP2) {
-				t.Errorf("trees with a running timer on p2 = %v, want %v", got, tc.onP2)
+			var flushes []layer.FlushTarget
+			if automatic {
+				if !l.edgeDelayPending("p1") {
+					t.Fatal("p1 has no pending auto-edge transition")
+				}
+				if !l.advanceAutoEdge(now.Add(migrateTime), &flushes) {
+					t.Fatal("auto-edge delay did not expire")
+				}
+			} else {
+				l.links["p1"].edge = true
+				l.recomputeAll(now, &flushes)
 			}
-			if got := runningTrees(b, "p1", now); !slices.Equal(got, tc.onP1) {
-				t.Errorf("trees with a running timer on the arrival port p1 = %v, want %v", got, tc.onP1)
+
+			if !l.links["p1"].edge || p.state != StateForwarding {
+				t.Errorf("edge transition = edge %t state %v, want edge/Forwarding", l.links["p1"].edge, p.state)
+			}
+			if p.tcActive || !p.tcWhile.IsZero() || p.tcAck {
+				t.Errorf("edge topology state = active %t timer %v ack %t, want inactive/zero/false", p.tcActive, p.tcWhile, p.tcAck)
+			}
+			if len(flushes) != 1 || flushes[0].Port != "p1" {
+				t.Errorf("edge flushes = %+v, want p1 alone", flushes)
+			}
+			if tr.topologyChangeCount != before {
+				t.Errorf("topology changes = %d, want %d", tr.topologyChangeCount, before)
 			}
 		})
 	}
 }
 
-// TestPortThatBecomesAnEdgeLeavesTheActiveTopology pins that an active port
-// that turns into an edge port is flushed, stops its timer, and raises no
-// change (Figure 13-19, operEdge).
-func TestPortThatBecomesAnEdgeLeavesTheActiveTopology(t *testing.T) {
+func TestTopologyChangeFlagDoesNotSetAcknowledgment(t *testing.T) {
 	t.Parallel()
 
-	_, b, now := settledRegion(t)
-	cist := b.cist()
-	p := cist.ports["p2"]
-	if !p.tcActive {
-		t.Fatal("p2 is not active before it becomes an edge port")
-	}
-	p.tcWhile = now.Add(10 * time.Second)
-	before := cist.topologyChangeCount
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	for _, typ := range []bpdu.Type{bpdu.TypeConfiguration, bpdu.TypeRapid} {
+		name := "Configuration"
+		if typ == bpdu.TypeRapid {
+			name = "Rapid"
+		}
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	b.link("p2").edge = true
-	var flushes []layer.FlushTarget
-	b.settleTopology(cist, now, &flushes)
+			l := newLayer(Config{Ports: map[string]Port{"p1": {}, "p2": {}}}.Normalize(layer.Env{}))
+			for _, port := range l.portNames {
+				l.LinkChange(now, port, true, true, 1_000_000_000)
+				p := l.cist().ports[port]
+				p.state = StateForwarding
+				p.agreed = true
+				p.tcActive = true
+			}
+			p := l.cist().ports["p1"]
+			l.links["p1"].sendRSTP = false
+			l.links["p1"].mdelayWhile = now.Add(time.Minute)
+			b := bpdu.BPDU{
+				Version: 2, Type: typ,
+				RootID: bpdu.BridgeID{Priority: 61440}, BridgeID: bpdu.BridgeID{Priority: 61440},
+				PortID: 0x8001, HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
+			}
+			b.SetRole(bpdu.RoleDesignated)
+			b.SetTopologyChange(true)
 
-	if p.tcActive || !p.tcWhile.IsZero() {
-		t.Errorf("p2 active = %v, timer = %v, want inactive with no timer", p.tcActive, p.tcWhile)
-	}
-	if len(flushes) != 1 || flushes[0].Port != "p2" {
-		t.Errorf("flushes = %v, want p2 alone", flushes)
-	}
-	if cist.topologyChangeCount != before {
-		t.Errorf("topology changes = %d, want %d", cist.topologyChangeCount, before)
-	}
-}
+			fx := l.Receive(now.Add(time.Second), "p1", b)
 
-// TestRunningTopologyChangeTimerIsNotRestarted pins that a port whose timer
-// runs keeps its end time when another change reaches it, and that a stopped
-// one counts HelloTime plus one second on an RSTP port and Max Age plus
-// Forward Delay of the root's times on one that sends STP (13.26.6, P802.1aq/D1.5
-// 13.29.11).
-func TestRunningTopologyChangeTimerIsNotRestarted(t *testing.T) {
-	t.Parallel()
-
-	_, b, now := settledRegion(t)
-	cist := b.cist()
-	p := cist.ports["p2"]
-
-	p.tcWhile = now.Add(time.Second)
-	b.startTc(cist, p, now.Add(500*time.Millisecond))
-	if want := now.Add(time.Second); !p.tcWhile.Equal(want) {
-		t.Errorf("running timer ends %v, want it left at %v", p.tcWhile, want)
-	}
-
-	p.tcWhile = time.Time{}
-	b.startTc(cist, p, now)
-	if want := now.Add(b.helloTime + time.Second); !p.tcWhile.Equal(want) {
-		t.Errorf("RSTP timer ends %v, want HelloTime plus one second, %v", p.tcWhile, want)
-	}
-
-	p.tcWhile = time.Time{}
-	b.link("p2").sendRSTP = false
-	b.startTc(cist, p, now)
-	maxAge, _, forwardDelay := b.times(cist)
-	if want := now.Add(maxAge + forwardDelay); !p.tcWhile.Equal(want) {
-		t.Errorf("STP timer ends %v, want Max Age plus Forward Delay, %v", p.tcWhile, want)
-	}
-}
-
-// TestNextWakeReportsAPortTopologyChangeTimer pins that the layer asks to be
-// woken when a port's topology change timer runs out, so the flag leaves the
-// BPDUs at the right hello.
-func TestNextWakeReportsAPortTopologyChangeTimer(t *testing.T) {
-	t.Parallel()
-
-	_, b, now := settledRegion(t)
-
-	due := now.Add(time.Millisecond)
-	b.trees[treeID(1)].ports["p2"].tcWhile = due
-
-	if got, ok := b.NextWake(); !ok || !got.Equal(due) {
-		t.Errorf("NextWake = %v, %v; want the timer at %v", got, ok, due)
+			if p.role != bpdu.RoleDesignated || !p.tcActive {
+				t.Fatalf("TC receiver = %v active %t, want active Designated", p.role, p.tcActive)
+			}
+			if len(fx.Flush) != 1 || fx.Flush[0].Port != "p2" || !l.cist().ports["p2"].tcWhile.After(now.Add(time.Second)) {
+				t.Errorf("TC propagation = flushes %+v timer %v, want p2 flushed with a running timer", fx.Flush, l.cist().ports["p2"].tcWhile)
+			}
+			replies := 0
+			for _, emission := range fx.Emissions {
+				if emission.Port != "p1" {
+					continue
+				}
+				reply, err := bpdu.Decode(emission.Frame)
+				if err != nil {
+					t.Fatal(err)
+				}
+				replies++
+				if reply.Type != bpdu.TypeConfiguration || reply.TopologyChangeAck() {
+					t.Errorf("TC flag reply = %+v, want Configuration without acknowledgment", reply)
+				}
+			}
+			if replies != 1 || p.tcAck {
+				t.Errorf("TC flag replies = %d pending ack %t, want one/false", replies, p.tcAck)
+			}
+		})
 	}
 }

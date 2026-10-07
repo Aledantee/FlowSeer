@@ -29,13 +29,13 @@ in dependency order:
   change. Its Units are the phases, headed like any unit (`### U1.
   <phase name>`, never `### P1.`, since the queue's unit count reads
   `### U` headings). Each has `Files:` naming the phase plan
-  path. Run `.claude/skills/plan/scripts/plan_record.py init <parent>` first,
+  path. Run `uv run tools/scripts/run.py plan record init <parent>` first,
   since a phase cannot join a parent without a state file. Then initialize
   the phases, prerequisites before their dependents, each with
-  `.claude/skills/plan/scripts/plan_record.py init <phase> --parent <parent>
+  `uv run tools/scripts/run.py plan record init <phase> --parent <parent>
   [--after <prerequisite>...]`. The phase state carries its prerequisites and
   landed range, so the parent has no prerequisite or range line to edit.
-  `.claude/skills/plan/scripts/plan_record.py show <parent>` computes the parent's status from its phase
+  `uv run tools/scripts/run.py plan record show <parent>` computes the parent's status from its phase
   state and retired entries.
 - Phase prerequisites name real dependencies only, like `After:` between
   units. Phases whose packages are disjoint run at once in separate worktrees
@@ -47,8 +47,8 @@ in dependency order:
   Decisions, and Requirements, this line under its title: `> Re-planned by
   plan when its turn comes; the tree will have moved.`, and a state that
   starts with `--needs-decisions`. `implement` refuses such a plan until
-  `.claude/skills/plan/scripts/plan_record.py ready <phase>` records that it
-  is ready. When a phase lands, `.claude/skills/plan/scripts/plan_record.py
+  `uv run tools/scripts/run.py plan record ready <phase>` records that it
+  is ready. When a phase lands, `uv run tools/scripts/run.py plan record
   implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>`
   records its range.
 

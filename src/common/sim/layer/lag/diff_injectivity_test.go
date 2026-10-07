@@ -32,6 +32,9 @@ func TestDiffMemberSubjectKeysAreInjectiveAcrossLAGs(t *testing.T) {
 		if change.Field != "priority" {
 			continue
 		}
+		if change.Subject.Kind != "lag_member" {
+			t.Errorf("member subject kind = %q, want lag_member", change.Subject.Kind)
+		}
 		if _, duplicate := keys[change.Subject.Key]; duplicate {
 			t.Errorf("duplicate member subject key %q", change.Subject.Key)
 		}

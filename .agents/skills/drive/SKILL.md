@@ -10,7 +10,7 @@ This session coordinates: it reads the state, dispatches, merges, verifies,
 and records. Every stage that reads or writes code runs in a worker session
 of its own, as `delegate` describes, from a fresh context and the plan file.
 All plan state is in places other skills keep: each plan's state file, read
-with `.claude/skills/plan/scripts/plan_record.py show <plan>` (a parent's
+with `uv run tools/scripts/run.py plan record show <plan>` (a parent's
 lists its phases and retired entries), the plan's Open questions, and the
 branches. Running `drive` again therefore continues a drive.
 
@@ -20,7 +20,7 @@ The argument names a plan. Without one, run `next` first and drive what the
 user picks there.
 
 ```bash
-python3 .claude/skills/drive/scripts/plan-state.py <plan>
+uv run tools/scripts/run.py drive plan-state <plan>
 ```
 
 - A parent plan: it prints, per phase, the next stage (`plan`, `implement`,
@@ -66,12 +66,12 @@ git user, so it is known only now, and a resumed drive reads it from this
 tree:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py branch <plan> <branch>
+uv run tools/scripts/run.py plan record branch <plan> <branch>
 git commit -m "docs(plans): record the branch of <plan slug>" -- docs/plans/<plan slug>-plan.state.json
 ```
 
-From then on `plan_record.py show` and `is`, `plan-state.py`, and
-`plan-queue.py` read the plan's state from that branch until it is merged
+From then on `plan record show` and `is`, `drive plan-state`, and
+`next plan-queue` read the plan's state from that branch until it is merged
 here, so the "applies when" and "done when" commands below answer for the
 plan's worktree when run in this one.
 
@@ -86,10 +86,10 @@ resumed drive finds the lane to join:
 
 | Stage | Applies when | Worker runs | Role | Done when |
 | --- | --- | --- | --- | --- |
-| re-plan | `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=needs-decisions`, or `.claude/skills/plan/scripts/plan_record.py show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` and `.claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready` both exit 0 |
-| implement | `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`, a phase's `landed` range is set, and every unit in the worker's ledger is `passed` |
-| review | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `.claude/skills/plan/scripts/plan_record.py show <plan>` reports review `accept` or `accept after fixes` |
-| compound | `.claude/skills/plan/scripts/plan_record.py is <plan> compound=null` | `compound` on the plan | `execute` | `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null` |
+| re-plan | `uv run tools/scripts/run.py plan record is <plan> readiness=needs-decisions`, or `uv run tools/scripts/run.py plan record show <plan>` reports status `implemented` and review `rework` | `plan` on this plan, against this tree | `plan` | `uv run tools/scripts/run.py plan record is <plan> status!=implemented` and `uv run tools/scripts/run.py plan record is <plan> readiness=implementation-ready` both exit 0 |
+| implement | `uv run tools/scripts/run.py plan record is <plan> status!=implemented` | `implement` on the plan | `execute`, or `execute-sensitive` by path | `uv run tools/scripts/run.py plan record is <plan> status=implemented`, a phase's `landed` range is set, and every unit in the worker's ledger is `passed` |
+| review | `uv run tools/scripts/run.py plan record show <plan>` reports no accepted review | `review` of the worker's branch against `<base>`, with the plan path, and step 6's fix loop | `review-seam` | `uv run tools/scripts/run.py plan record show <plan>` reports review `accept` or `accept after fixes` |
+| compound | `uv run tools/scripts/run.py plan record is <plan> compound=null` | `compound` on the plan | `execute` | `uv run tools/scripts/run.py plan record is <plan> compound!=null` |
 
 `$base` is the commit the plan's branch forked from, read from the `start`
 event the plan's first lane logged, with `$run` the `run` that
@@ -97,7 +97,7 @@ event the plan's first lane logged, with `$run` the `run` that
 holds the worktree's `HEAD` at its join, which covers its own stage only:
 
 ```bash
-base=$(python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' "$run")
+base=$(uv run --quiet tools/scripts/run.py delegate runlog start-base --run "$run")
 ```
 
 Load `references/review-stage.md` before starting a review stage worker.
@@ -121,10 +121,10 @@ Wait on the lane as `delegate` describes, with
 `wait <slug> --until '<test>'`, the test being the state command for the
 stage's "Done when":
 
-- re-plan: `.claude/skills/plan/scripts/plan_record.py is <plan> status!=implemented && .claude/skills/plan/scripts/plan_record.py is <plan> readiness=implementation-ready`
-- implement: `.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
-- review: `.claude/skills/plan/scripts/plan_record.py is <plan> review=accept || .claude/skills/plan/scripts/plan_record.py is <plan> "review=accept after fixes"`
-- compound: `.claude/skills/plan/scripts/plan_record.py is <plan> compound!=null`
+- re-plan: `uv run tools/scripts/run.py plan record is <plan> status!=implemented && uv run tools/scripts/run.py plan record is <plan> readiness=implementation-ready`
+- implement: `uv run tools/scripts/run.py plan record is <plan> status=implemented`
+- review: `uv run tools/scripts/run.py plan record is <plan> review=accept || uv run tools/scripts/run.py plan record is <plan> "review=accept after fixes"`
+- compound: `uv run tools/scripts/run.py plan record is <plan> compound!=null`
 
 On `done` without the stage's report on the screen, wait again without
 `--until`.
@@ -140,7 +140,7 @@ After each stage:
    (step 4).
    `cat "$(git -C <child> rev-parse --git-dir)/flowseer-plan-status.json"`
 3. Read the stage's "done when" with the matching
-   `.claude/skills/plan/scripts/plan_record.py is` or `show` command. A stage
+   `uv run tools/scripts/run.py plan record is` or `show` command. A stage
    that reports success and leaves the field unset, or set to a value other
    than an accept, parks the plan with that as its question. Do not run it
    again.
@@ -160,9 +160,9 @@ before `land`:
 2. Merge the plan's branch here: `git merge --no-ff --no-edit <branch>`,
    sandbox disabled when the branch touched `.claude/` or `.agents/`. After
    the merge commit exists, including a resolved conflict, run
-   `python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+   `uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD`.
    A self-merged branch ran no coordinator `git merge`, so `ORIG_HEAD` may
-   be stale. Run `python3 .claude/skills/land/scripts/merge-check.py "$base..HEAD"`
+   be stale. Run `uv run tools/scripts/run.py land merge-check "$base..HEAD"`
    for that case.
    A non-zero result stops the drive. Carry every `missing` block in the
    report.
@@ -190,7 +190,7 @@ Re-run the state command at the start of every round and after a compaction,
 and take the order from its output. An exit 2 with "not a plan file" for a
 parent that a `docs(plans): retire <slug>` commit deleted means its last
 phase landed: go to step 5, as step 1 says. On any other exit 2, or when
-`.claude/skills/plan/scripts/plan_record.py check` names a fault, stop and
+`uv run tools/scripts/run.py verify check-plan-state` names a fault, stop and
 report it: a hand-edit or a merge left a state no command writes, and
 guessing which side is right lands a phase twice. A round takes the phases its last line names that are not parked, in
 its order, and runs step 2 on each from the stage the command printed.
@@ -209,7 +209,7 @@ the plan's last lane for the whole "After the last stage" list. Run that
 list again.
 
 A landed phase records its implementation range with
-`.claude/skills/plan/scripts/plan_record.py implemented <phase> ... --landed <first>..<last>`. A phase in
+`uv run tools/scripts/run.py plan record implemented <phase> ... --landed <first>..<last>`. A phase in
 another's `after` releases that dependent once its review and compound stages
 also read done. The parent has no stage. Its status is computed from its phase
 state.
