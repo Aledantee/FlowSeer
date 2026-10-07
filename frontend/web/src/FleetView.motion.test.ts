@@ -1,13 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { nextTick } from 'vue'
 import FleetView from './FleetView.vue'
-import { createAiRegistry } from './ai'
-import type { AiRegistry } from './ai'
-import { UiAppRoot } from './ui'
-import { aiRegistryKey } from './ui/ai/context'
-import { createWebI18n } from './i18n'
+import { mountInFrame } from './navigation/frameTesting'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
@@ -139,34 +134,17 @@ async function finishAnimations(...elements: HTMLElement[]) {
 }
 
 async function mountFleet() {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      {
-        path: '/:view(dashboard|devices|clients|sites|topology)',
-        component: FleetView,
-      },
-      { path: '/devices/:deviceId', component: FleetView },
-    ],
-  })
-  const registry: AiRegistry = createAiRegistry()
-  const app = createApp({
-    render() {
-      return h(UiAppRoot, {}, () => h(FleetView))
+  const mounted = await mountInFrame(FleetView, '/dashboard', [
+    {
+      path: '/:view(dashboard|devices|clients|sites|topology)',
+      component: FleetView,
     },
-  })
-  app.use(createWebI18n())
-  await router.push('/dashboard')
-  app.use(router)
-  app.provide(aiRegistryKey, registry)
-  await router.isReady()
-  app.mount(host)
-  dispose = () => app.unmount()
+    { path: '/devices/:deviceId', component: FleetView },
+  ])
+  dispose = mounted.dispose
   await nextTick()
   await wait(20)
-  return { host, router }
+  return mounted
 }
 
 function parseTranslateY(transform: string | undefined): number | null {
@@ -178,7 +156,7 @@ function parseTranslateY(transform: string | undefined): number | null {
 }
 
 describe('FleetView motion layout', () => {
-  it('animates the sidebar size and main-shell position', async () => {
+  it('moves the main shell when the sidebar collapses and scales nothing', async () => {
     installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
@@ -188,13 +166,16 @@ describe('FleetView motion layout', () => {
 
     expect(
       host.querySelector<HTMLElement>('.sidebar')?.style.transform,
-    ).toContain('scale(')
-    expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
-    ).toContain('translate')
-    expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).not.toContain('scale(')
+    const transform =
+      host.querySelector<HTMLElement>('.main-shell')?.style.transform ?? ''
+    expect(transform).toContain('translate')
+    expect(transform).not.toContain('scale(')
+    const offset = /translate(?:3d)?\((-?[\d.]+)px/.exec(transform)
+    expect(offset).not.toBeNull()
+    const distance = Math.abs(Number(offset?.[1]))
+    expect(distance).toBeGreaterThan(0)
+    expect(distance).toBeLessThan(140)
   })
 
   it('stops layout transforms after the user enables reduced motion', async () => {

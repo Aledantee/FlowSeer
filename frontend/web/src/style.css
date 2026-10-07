@@ -140,6 +140,13 @@ html:has(.shell) {
   padding: 10px 18px 0;
 }
 
+.login-glass {
+  --glass-shadow:
+    inset -1px 0 0 rgb(from var(--foreground) r g b / 10%), var(--shadow-xl);
+
+  box-shadow: var(--glass-shadow);
+}
+
 .product-brand {
   display: flex;
   align-items: center;
@@ -198,6 +205,10 @@ html:has(.shell) {
 }
 
 @media (max-width: 800px) {
+  .login-sidebar {
+    padding: 10px 18px 24px;
+  }
+
   .sidebar {
     position: relative;
     width: 100%;
@@ -226,6 +237,14 @@ html:has(.shell) {
 }
 
 @media (min-width: 801px) {
+  .login-sidebar {
+    width: 320px;
+  }
+
+  .login-sidebar + .main-shell {
+    margin-left: 320px;
+  }
+
   .sidebar-collapsed .sidebar {
     --sidebar-inset: 8px;
     width: 64px;
@@ -303,6 +322,10 @@ html:has(.shell) {
   .main-shell {
     margin-left: 0;
   }
+
+  .login-sidebar + .main-shell #frame-topbar {
+    display: none;
+  }
 }
 
 .topbar {
@@ -314,26 +337,10 @@ html:has(.shell) {
   color: var(--chrome-foreground);
 }
 
-.topbar-glass {
-  --glow-bar-fade: linear-gradient(
-    to bottom,
-    var(--foreground) 35%,
-    transparent
-  );
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  backdrop-filter: blur(24px) saturate(140%);
-}
-
 /* Chrome-coloured wedge that reads as a rounded inner corner where the
    sidebar and top bar meet. It carries the shared glow so it stays
    continuous with both surfaces. */
 .main-notch {
-  /* The wedge sits where both fades have already run out, so it carries the
-     glow without any bars. */
-  --glow-bar-fade: linear-gradient(transparent, transparent);
   position: absolute;
   z-index: 3;
   top: var(--topbar-height);
@@ -341,6 +348,7 @@ html:has(.shell) {
   width: 18px;
   height: 18px;
   pointer-events: none;
+  background: var(--chrome);
   backdrop-filter: blur(24px) saturate(140%);
   mask-image: radial-gradient(
     circle at bottom right,
@@ -357,13 +365,14 @@ html:has(.shell) {
 
 /* The main area holds one pane, or two side by side; each pane scrolls on
    its own and runs up under the glass top bar. */
-.main-shell > main.panes {
+#frame-page main.panes {
   display: flex;
   flex: 1;
   max-width: none;
   margin-top: calc(-1 * var(--topbar-height));
   padding: 0;
   overflow: hidden;
+  background: var(--background);
 }
 
 .pane {

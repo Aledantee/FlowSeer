@@ -1,9 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createApp, nextTick } from 'vue'
 import FleetView from './FleetView.vue'
-import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
 import { DOCK_KEY } from './navigation/dock'
 import * as fleetDomain from './domain/fleet'
@@ -11,8 +9,7 @@ import { devices, filterDevices, sites, tenants } from './domain/fleet'
 import { clientsOf, signalQuality } from './domain/clients'
 import type { Port } from './domain/telemetry'
 import DevicePorts from './components/DevicePorts.vue'
-import { createAiRegistry } from './ai'
-import { aiRegistryKey } from './ui/ai/context'
+import { mountInFrame } from './navigation/frameTesting'
 import { createWebI18n } from './i18n'
 import type { WebLocale } from './i18n'
 import { i18nWarnings, unmarkedIdentifiers } from './i18n/testing'
@@ -77,32 +74,20 @@ async function settle() {
 }
 
 async function mountLocale(path: string, locale: WebLocale) {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
+  const mounted = await mountInFrame(
+    FleetView,
+    path,
+    [
       {
         path: '/:view(dashboard|devices|clients|sites|topology)',
         component: FleetView,
       },
       { path: '/devices/:deviceId', component: FleetView },
     ],
-  })
-  const registry = createAiRegistry()
-  const i18n = createWebI18n(locale)
-  const app = createApp({
-    render() {
-      return h(UiAppRoot, {}, () => h(FleetView))
-    },
-  })
-  await router.push(path)
-  app.use(i18n)
-  app.use(router)
-  app.provide(aiRegistryKey, registry)
-  await router.isReady()
-  app.mount(host)
-  dispose = () => app.unmount()
+    locale,
+  )
+  const { host, router, registry, i18n } = mounted
+  dispose = mounted.dispose
   await settle()
   return {
     host,

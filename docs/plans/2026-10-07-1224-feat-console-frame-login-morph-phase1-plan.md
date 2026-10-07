@@ -176,8 +176,10 @@ and the panes, the dock, and the assistant into `frame-page`. It sets
 gates. It reads `topbarHeight`, `sidebarElement`, and `mainElement` from
 the frame where it used its own refs. The sidebar's `layout` wrapper and
 the main area's wrapper are gone from its template. In `style.css` the
-selector `.main-shell > main.panes` becomes `#frame-page > main.panes`, the
-panes gain `background: var(--background)`, the sidebar's width rules key
+selector `.main-shell > main.panes` becomes `#frame-page main.panes` because
+`UiAiContextLayer` renders a `div.contents` between the region and the panes
+(`frontend/web/src/ui/ai/UiAiContextLayer.vue`). The panes gain
+`background: var(--background)`, the sidebar's width rules key
 on the frame's state, and the frosted column rule arrives from the login
 view. `brand-glow.css` loses the selectors for elements that no longer
 carry their own glow.
