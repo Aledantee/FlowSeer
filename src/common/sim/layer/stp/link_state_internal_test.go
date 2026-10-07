@@ -690,6 +690,89 @@ func TestSyncTreeRequestsBoundaryMSTIInformation(t *testing.T) {
 	}
 }
 
+func TestBoundaryMSTISyncStateIsBoundedByCIST(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		cist State
+		want State
+	}{
+		{name: "discarding CIST", cist: StateDiscarding, want: StateDiscarding},
+		{name: "learning CIST", cist: StateLearning, want: StateLearning},
+		{name: "forwarding CIST", cist: StateForwarding, want: StateLearning},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l := newLayer(Config{
+				Ports: map[string]Port{"p2": {}},
+				MST: &MST{Name: "region", Instances: map[bpdu.MSTID]Instance{
+					1: {VLANs: []vlan.ID{10}},
+				}},
+			}.Normalize(layer.Env{}))
+			l.LinkChange(now, "p2", true, true, 1_000_000_000)
+			l.links["p2"].external = true
+			l.cist().ports["p2"].state = tc.cist
+			mt := l.trees[treeID(1)]
+			p := mt.ports["p2"]
+			p.boundarySyncState = StateLearning
+			p.fwdDelayTimer = now.Add(15 * time.Second)
+			l.updatePortStates(mt, now, nil)
+
+			if got := l.VLANPortInfo(10, "p2").State; got != tc.want {
+				t.Errorf("MSTI state = %v, want %v", got, tc.want)
+			}
+			if p.boundarySyncState != StateLearning || p.fwdDelayTimer != now.Add(15*time.Second) {
+				t.Errorf("own ladder = (%v, %v), want Learning with deadline %v", p.boundarySyncState, p.fwdDelayTimer, now.Add(15*time.Second))
+			}
+		})
+	}
+}
+
+func TestBoundaryMSTIDesignatedVectorKeepsOnlyValidAgreement(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 7, 12, 1, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name     string
+		priority uint16
+		agreed   bool
+	}{
+		{name: "same vector", priority: 4097, agreed: true},
+		{name: "better vector", priority: 1, agreed: true},
+		{name: "worse vector", priority: 8193, agreed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l := newLayer(Config{
+				Ports: map[string]Port{"p2": {}},
+				MST: &MST{Name: "region", Instances: map[bpdu.MSTID]Instance{
+					1: {VLANs: []vlan.ID{10}},
+				}},
+			}.Normalize(layer.Env{}))
+			l.LinkChange(now, "p2", true, true, 1_000_000_000)
+			l.links["p2"].external = true
+			mt := l.trees[treeID(1)]
+			p := mt.ports["p2"]
+			p.state = StateForwarding
+			p.agreed = true
+			p.synced = true
+			mt.rootID.Priority = 4097
+			p.designatedVec = designatedVector(mt, p, true)
+			p.designatedVecSet = true
+			mt.rootID.Priority = tc.priority
+			l.assignRoles(mt, now)
+
+			if p.agreed != tc.agreed || p.synced != tc.agreed {
+				t.Errorf("boundary agreement = %t, synced = %t, want both %t", p.agreed, p.synced, tc.agreed)
+			}
+		})
+	}
+}
+
 func TestInternalCISTRootChangeRequestsDesignatedPort(t *testing.T) {
 	t.Parallel()
 

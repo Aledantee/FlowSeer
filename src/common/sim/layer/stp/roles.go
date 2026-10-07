@@ -14,14 +14,6 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 		}
 		link := l.links[name]
 		if p.role == bpdu.RoleDesignated && !link.edge {
-			if l.mst != nil && t.id != cistID && l.boundary(name) {
-				cistP := l.cist().ports[name]
-				if cistP != nil && cistP.state != StateDiscarding && !cistP.agreed {
-					return false
-				}
-
-				continue
-			}
 			if !p.synced {
 				return false
 			}
@@ -82,7 +74,7 @@ func (l *Layer) recomputeAll(now time.Time, flushes *[]layer.FlushTarget) {
 
 // recompute runs one tree's root election and role and state assignment. On
 // a boundary port, an MSTI tree (t.id != cistID) takes the CIST port's role
-// and state outright rather than computing its own, which is the boundary
+// and bounds its state by the CIST's, which is the boundary
 // role rule (netsim reports the CIST's Root where the standard would say
 // Master). No separate Role value exists for it. A root change requests new
 // information on eligible designated ports. The later transmit pass decides
@@ -201,6 +193,7 @@ func (l *Layer) assignRoles(t *tree, now time.Time) {
 			if p.role != oldRole {
 				p.agreed = false
 			}
+			l.trackDesignatedVector(t, p, oldRole, link.external)
 
 			continue
 		}
@@ -332,8 +325,20 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			if !ok {
 				cistP = &portState{}
 			}
+			if p.role != bpdu.RoleDesignated || p.agreed || link.edge || p.boundarySyncState == StateForwarding {
+				p.boundarySyncState = ""
+			}
 			p.state = cistP.state
-			p.fwdDelayTimer = time.Time{}
+			if p.boundarySyncState != "" {
+				if p.boundarySyncState == StateDiscarding || cistP.state == StateForwarding {
+					p.state = p.boundarySyncState
+				}
+				if p.fwdDelayTimer.IsZero() || p.fwdDelayTimer.After(now.Add(fwdDelay)) {
+					p.fwdDelayTimer = now.Add(fwdDelay)
+				}
+			} else {
+				p.fwdDelayTimer = time.Time{}
+			}
 			if oldState != StateForwarding && p.state == StateForwarding {
 				p.forwardTransitions++
 				if !link.edge && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleDesignated) {
@@ -346,6 +351,7 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 
 			continue
 		}
+		p.boundarySyncState = ""
 
 		switch p.role {
 		case bpdu.RoleDisabled, bpdu.RoleAlternate, bpdu.RoleBackup:

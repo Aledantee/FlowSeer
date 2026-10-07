@@ -57,6 +57,11 @@ type portState struct {
 
 	fwdDelayTimer time.Time
 
+	// boundarySyncState holds an MSTI's own ladder during a boundary sync cut.
+	// Empty means it follows the CIST. Keeping the ladder separate lets the
+	// CIST bound the visible state without erasing the MSTI's progress.
+	boundarySyncState State
+
 	// The deadlines use the tree's current timers, including times received
 	// after the role assignment that records these instants.
 	leftRootAt   time.Time

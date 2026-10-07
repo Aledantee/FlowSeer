@@ -154,6 +154,18 @@ func (l *Layer) advanceForwardDelay(now time.Time, flushes *[]layer.FlushTarget)
 				continue
 			}
 			p.fwdDelayTimer = time.Time{}
+			if l.mst != nil && id != cistID && l.boundary(name) && p.boundarySyncState != "" {
+				switch p.boundarySyncState {
+				case StateDiscarding:
+					p.boundarySyncState = StateLearning
+					p.fwdDelayTimer = now.Add(fwdDelay)
+				case StateLearning:
+					p.boundarySyncState = StateForwarding
+				case StateForwarding:
+				}
+				stateChanged = true
+				continue
+			}
 			switch p.role {
 			case bpdu.RoleDesignated, bpdu.RoleRoot:
 				switch p.state {

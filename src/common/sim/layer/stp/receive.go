@@ -13,9 +13,6 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 		if otherName == rootPort {
 			continue
 		}
-		if l.mst != nil && t.id != cistID && l.boundary(otherName) {
-			continue
-		}
 		otherP := t.ports[otherName]
 		if otherP == nil {
 			continue
@@ -30,6 +27,11 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 			wasProposing := otherP.proposing
 			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
+			if l.mst != nil && t.id != cistID && l.boundary(otherName) && !otherP.synced {
+				otherP.boundarySyncState = StateDiscarding
+				_, _, delay := l.times(t)
+				otherP.fwdDelayTimer = now.Add(delay)
+			}
 			otherP.synced = true
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
 			if otherP.proposing && (!wasProposing || !wasDiscarding) {
