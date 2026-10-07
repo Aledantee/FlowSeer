@@ -28,6 +28,7 @@ import (
 func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
 	c, end := s.beginCall(now, true)
 	defer end()
+	s.copies = nil
 
 	return s.wrapResult(c, s.forward(c.now, ingress, f, c.commit))
 }
@@ -56,9 +57,6 @@ func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...stri
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
-	if mutate {
-		s.copies = nil
-	}
 	if s.isMirrorOutputPort(ingress) {
 		mirror := s.mirrorForOutput(ingress)
 		res := bridge.Result{
@@ -413,7 +411,7 @@ func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.
 	copies := s.traffic.Copies(switchports, resolvedIngress, res.FID, received, egress)
 	copies = s.readyMirrorCopies(now, &res, copies, mutate)
 	if mutate {
-		s.copies = copies
+		s.call.copies = append(s.call.copies, copies...)
 	}
 
 	return res

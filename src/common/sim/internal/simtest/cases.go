@@ -496,7 +496,7 @@ func caseShadowingPartialUnknownPort() Case {
 				Payload:   []byte("shadow-test"),
 			}
 
-			fwdUnknown := sw.Forward(now, "1/1/2", frame)
+			fwdUnknown := sw.Receive(now, "1/1/2", frame)
 
 			return ExecutionResult{
 				Outcome:     fwdUnknown.Outcome,
@@ -505,7 +505,7 @@ func caseShadowingPartialUnknownPort() Case {
 				Metadata:    loadRes.Metadata,
 				Switch:      sw,
 				ModelResult: &loadRes,
-				Forward:     &fwdUnknown,
+				Forward:     &fwdUnknown.ForwardResult,
 			}, nil
 		},
 	}
@@ -617,7 +617,7 @@ func caseTroubleshootingUnicastForwarding() Case {
 				Payload:   []byte("troubleshoot-test"),
 			}
 
-			fwd := sw.Forward(now, "1/1/1", frame)
+			fwd := sw.Receive(now, "1/1/1", frame)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -625,7 +625,7 @@ func caseTroubleshootingUnicastForwarding() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -1569,15 +1569,15 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 			// Both flows land on distinct members: flow1 takes the front of
 			// the enabled list (member-a, bucket 28), and flow2 takes the
 			// new front after the rotation (member-b, bucket 253).
-			sw.Forward(now, "in", flow1)
-			sw.Forward(now, "in", flow2)
+			sw.Receive(now, "in", flow1)
+			sw.Receive(now, "in", flow2)
 
 			// member-a faults. Only the bucket it held (flow1's) needs
 			// reassignment; flow2's bucket was never on member-a.
 			sw.LinkChange(now.Add(time.Second), "member-a", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-			sw.Forward(now.Add(2*time.Second), "in", flow1)
+			sw.Receive(now.Add(2*time.Second), "in", flow1)
 
-			fwd := sw.Forward(now.Add(2*time.Second), "in", flow2)
+			fwd := sw.Receive(now.Add(2*time.Second), "in", flow2)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1585,7 +1585,7 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -1678,13 +1678,13 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 			frame := ethernet.Frame{Dst: dst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("x")}
 
 			now := time.Unix(1700000000, 0)
-			sw.Forward(now, "in", frame)
+			sw.Receive(now, "in", frame)
 
 			sw.LinkChange(now.Add(time.Second), "a", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-			sw.Forward(now.Add(2*time.Second), "in", frame)
+			sw.Receive(now.Add(2*time.Second), "in", frame)
 
 			sw.LinkChange(now.Add(3*time.Second), "a", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
-			fwd := sw.Forward(now.Add(4*time.Second), "in", frame)
+			fwd := sw.Receive(now.Add(4*time.Second), "in", frame)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1692,7 +1692,7 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -1802,7 +1802,7 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				return ExecutionResult{}, err
 			}
 			joinFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}
-			sw.Forward(now, "p1", joinFrame)
+			sw.Receive(now, "p1", joinFrame)
 
 			dataFrame := func(src netip.Addr) (ethernet.Frame, error) {
 				hdr := ip.Header{Src: src, Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
@@ -1817,13 +1817,13 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(now.Add(time.Second), "p9", frameS1)
+			sw.Receive(now.Add(time.Second), "p9", frameS1)
 
 			frameS2, err := dataFrame(s2)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fwd := sw.Forward(now.Add(time.Second), "p9", frameS2)
+			fwd := sw.Receive(now.Add(time.Second), "p9", frameS2)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1831,7 +1831,7 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -1943,7 +1943,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket})
+			sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket})
 
 			leavePayload, err := igmp.Encode(igmp.Message{Type: igmp.Leave, Group: group})
 			if err != nil {
@@ -1954,7 +1954,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket})
+			sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket})
 
 			queryPayload, err := igmp.Encode(igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group})
 			if err != nil {
@@ -1965,7 +1965,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket})
+			sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket})
 
 			dataHdr := ip.Header{Src: netip.MustParseAddr("10.9.9.9"), Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
 			dataPacket, err := dataHdr.Encode([]byte("data"))
@@ -1974,8 +1974,8 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			}
 			dataFrame := ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: dataPacket}
 
-			sw.Forward(leaveAt.Add(time.Second), "p9", dataFrame)
-			fwd := sw.Forward(leaveAt.Add(2*time.Second), "p9", dataFrame)
+			sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame)
+			fwd := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1983,7 +1983,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -2139,7 +2139,7 @@ func casePlanningECMPCandidatesRecorded() Case {
 				return ExecutionResult{}, err
 			}
 
-			fwd := sw.Forward(time.Unix(1700000000, 0), "in", ethernet.Frame{
+			fwd := sw.Receive(time.Unix(1700000000, 0), "in", ethernet.Frame{
 				Dst:       routerMAC,
 				Src:       hostMAC,
 				EtherType: ethernet.EtherTypeIPv4,
@@ -2152,7 +2152,7 @@ func casePlanningECMPCandidatesRecorded() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -2273,18 +2273,14 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				return ExecutionResult{}, err
 			}
 
-			fwd := sw.Forward(now, "in", ethernet.Frame{
+			fwd := sw.Receive(now, "in", ethernet.Frame{
 				Dst:       routerMAC,
 				Src:       hostMAC,
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
 
-			// Observe an ARP reply for the pending destination, so the case's own
-			// execution proves the hold above is releasable rather than a disguised,
-			// permanent drop. The observing Forward already flushes the neighbor's hold
-			// queue, so the Wake below is a no-op; it stays to make a future change that
-			// moved the release onto Wake visible here rather than silent.
+			// The reply arrives on the retransmit deadline, after the second solicitation.
 			replyMsg := arp.Message{
 				HardwareType: 1,
 				ProtocolType: 0x0800,
@@ -2298,12 +2294,12 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(now.Add(time.Second), "out", reply)
-			sw.Wake(now.Add(time.Second))
+			received := sw.Receive(now.Add(time.Second), "out", reply)
+			advanced := sw.Advance(now.Add(time.Second))
 
 			var emissions []vswitch.Emission
 			solicitations := 0
-			for _, emission := range sw.Drain() {
+			for _, emission := range append(append(fwd.Emissions, received.Emissions...), advanced.Emissions...) {
 				if !emission.Protocol {
 					emissions = append(emissions, emission)
 					continue
@@ -2314,8 +2310,8 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				}
 				solicitations++
 			}
-			if solicitations != 1 {
-				return ExecutionResult{}, errs.Msgf("solicitations = %d, want 1", solicitations)
+			if solicitations != 2 {
+				return ExecutionResult{}, errs.Msgf("solicitations = %d, want 2", solicitations)
 			}
 			if len(emissions) != 1 {
 				return ExecutionResult{}, errs.Msgf("released emissions = %d, want 1", len(emissions))
@@ -2326,7 +2322,7 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 			if emissions[0].Port != "out" || emissions[0].Protocol {
 				return ExecutionResult{}, errs.Msgf("released emission = {Port: %v, Protocol: %v}, want {Port: out, Protocol: false}", emissions[0].Port, emissions[0].Protocol)
 			}
-			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+			if failures := append(append(fwd.Drops, received.Drops...), advanced.Drops...); len(failures) != 0 {
 				return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
 			}
 
@@ -2336,7 +2332,7 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -2447,7 +2443,7 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				return ExecutionResult{}, err
 			}
 
-			fwd := sw.Forward(time.Unix(1700000000, 0), "in", ethernet.Frame{
+			fwd := sw.Receive(time.Unix(1700000000, 0), "in", ethernet.Frame{
 				Dst:       routerMAC,
 				Src:       hostMAC,
 				EtherType: ethernet.EtherTypeIPv4,
@@ -2460,7 +2456,7 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}

@@ -66,7 +66,7 @@ func main() {
 		Payload:   []byte("hello"),
 	}
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	fmt.Printf("Outcome: %s, Egress count: %d, Status: %s\n", res.Outcome, len(res.Egress), res.Metadata.Status())
 
 	nextCfg := swCfg.Clone()
@@ -96,6 +96,41 @@ func main() {
 	}
 }
 ```
+
+## Per-call output
+
+`Receive` returns forwarding, emissions, mirror copies, and held-frame drops
+in one `Output`, so a caller can account for every frame the arrival caused.
+`ReceiveMirrored` handles a mirror arrival without policing it or creating
+another generation of copies. `Advance` returns timer output without a
+forwarding result. These entries leave their output in the returned value.
+
+```go
+out := sw.Receive(now, "1/1/1", frame)
+fmt.Printf("%s: %d emissions, %d copies, %d held-frame drops\n",
+    out.Outcome, len(out.Emissions), len(out.Copies), len(out.Drops))
+```
+
+```mermaid
+flowchart LR
+    arrival[Receive] --> timers[Advance all layers to now]
+    timers --> police[Ingress policer]
+    police --> forward[Forward frame]
+    forward --> output[Output]
+    police -->|refused| output
+```
+
+The layer table in `layers.go` advances spanning tree, LAG, loop protection,
+bridge, multicast, and routing in that order. It also supplies `NextWake`.
+A refused frame still meets due timers. The public aging comparison in
+`output_test.go` checks the former root port's reroot state at `T+5s` and
+`T+16s` against a switch advanced before the BPDU at `T`.
+
+`Forward` retains its direct forwarding semantics. `Age` and `Wake` retain
+their respective layer subsets. These entries, `Start`, `LinkChange`,
+`Mcheck`, and `Derive` leave output for `Drain`, `Copies`, and
+`DrainNeighborFailures`. A call to `Receive` or `Advance` preserves that
+earlier pending output separately from its own returned value.
 
 ## Capability ladder
 

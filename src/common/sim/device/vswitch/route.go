@@ -356,7 +356,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
 				for _, eg := range res.Egress {
 					if eg.Dropped == "" {
-						s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
+						s.call.emissions = append(s.call.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
 					}
 				}
 				return
@@ -372,7 +372,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 			if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
 				return
 			}
-			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
+			s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
 		}()
 	}
 }
@@ -411,7 +411,7 @@ func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
 // recordHeldExitDrop records a held frame the routing layer itself refused, so the subject is
 // the interface it was held on rather than a port: no egress was attempted.
 func (s *Switch) recordHeldExitDrop(hf routing.HeldFrame, reason trace.Reason) {
-	s.neighborFailures = append(s.neighborFailures, NeighborDrop{
+	s.call.drops = append(s.call.drops, NeighborDrop{
 		Step: trace.Step{
 			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
@@ -433,7 +433,7 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 		// No port was chosen, so the interface is the most specific thing the drop is about.
 		subject = trace.Subject{Kind: "interface", Key: hf.Interface}
 	}
-	s.neighborFailures = append(s.neighborFailures, NeighborDrop{
+	s.call.drops = append(s.call.drops, NeighborDrop{
 		Step: trace.Step{
 			Layer:   routing.LayerName,
 			Op:      trace.OpDrop,
@@ -494,7 +494,7 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 
 				continue
 			}
-			s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, PCP: eg.PCP})
+			s.call.emissions = append(s.call.emissions, Emission{Port: eg.Port, Frame: eg.Frame, PCP: eg.PCP})
 		}
 
 		return
@@ -526,5 +526,5 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 
 	// A routed port has no bridge egress decision to read a priority off, so the frame keeps the
 	// one it arrived with, which is what the live path transmits for the same frame.
-	s.emissions = append(s.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame, PCP: hf.PCP})
+	s.call.emissions = append(s.call.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame, PCP: hf.PCP})
 }

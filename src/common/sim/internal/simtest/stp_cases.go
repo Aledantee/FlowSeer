@@ -917,8 +917,8 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 
 			// Two forward delays carry both uplinks through Learning to
 			// Forwarding, one rung per timer.
-			sw.Wake(stpCaseStart.Add(16 * time.Second))
-			sw.Wake(stpCaseStart.Add(32 * time.Second))
+			sw.Advance(stpCaseStart.Add(16 * time.Second))
+			sw.Advance(stpCaseStart.Add(32 * time.Second))
 
 			// p2 hears the root bridge itself and becomes the root port, which
 			// fixes this bridge's own path cost to the root.
@@ -926,7 +926,7 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(stpCaseStart.Add(33*time.Second), "p2", rootClaim)
+			sw.Receive(stpCaseStart.Add(33*time.Second), "p2", rootClaim)
 
 			// A second bridge claims the same root on p1 at a cost that beats
 			// this bridge's own, so storing the claim would make p1 Alternate
@@ -937,9 +937,9 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(stpCaseStart.Add(34*time.Second), "p1", staleClaim)
+			sw.Receive(stpCaseStart.Add(34*time.Second), "p1", staleClaim)
 
-			fwd := sw.Forward(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
+			fwd := sw.Receive(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -947,7 +947,7 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 		ID:      "troubleshooting/stale-root-ages-out",
@@ -997,11 +997,11 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
 
 			// A frame the forwarding database resolves to p1 now meets a port
 			// the guard has disabled.
-			fwd := sw.Forward(stpCaseStart.Add(2*time.Second), "p9", stpCaseDataFrame())
+			fwd := sw.Receive(stpCaseStart.Add(2*time.Second), "p9", stpCaseDataFrame())
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1009,7 +1009,7 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 		ID:      "troubleshooting/bpdu-guard-disables-edge",
@@ -1065,13 +1065,13 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Forward(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
 
 			// The link breaks in the receive direction only: nothing more
 			// arrives, and three hello times later the information expires.
-			sw.Wake(stpCaseStart.Add(9 * time.Second))
+			sw.Advance(stpCaseStart.Add(9 * time.Second))
 
-			fwd := sw.Forward(stpCaseStart.Add(10*time.Second), "p9", stpCaseDataFrame())
+			fwd := sw.Receive(stpCaseStart.Add(10*time.Second), "p9", stpCaseDataFrame())
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1079,7 +1079,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 		ID:      "troubleshooting/loop-guard-unidirectional-link",

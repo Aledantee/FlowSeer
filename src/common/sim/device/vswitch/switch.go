@@ -35,8 +35,9 @@ type PowerResult struct {
 // Switch simulates a network device composed of a port table and optional
 // physical-layer, bridge, link aggregation, spanning tree, multicast snooping,
 // layer 3 routing, and traffic subsystems.
-// [Switch.Copies] returns and clears the mirror copies produced by the most recent
-// [Switch.Forward]; [Switch.Peek] does not produce or change pending copies.
+// [Switch.Receive], [Switch.ReceiveMirrored], and [Switch.Advance] return their
+// output directly. [Switch.Forward] leaves mirror copies for [Switch.Copies].
+// [Switch.Peek] does not produce or change pending copies.
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {

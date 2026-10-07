@@ -228,7 +228,7 @@ func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 			}
 
 			now := time.Unix(1700000000, 0)
-			fwd := sw.Forward(now, "1/1/1", frame)
+			fwd := sw.Receive(now, "1/1/1", frame)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -236,7 +236,7 @@ func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}
@@ -385,7 +385,7 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 			}
 
 			now := time.Unix(1700000000, 0)
-			fwd := sw.Forward(now, "1/1/2", frame)
+			fwd := sw.Receive(now, "1/1/2", frame)
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -393,7 +393,7 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd,
+				Forward:  &fwd.ForwardResult,
 			}, nil
 		},
 	}

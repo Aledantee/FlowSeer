@@ -14,13 +14,17 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// call owns only the issues raised by its frame. Child frames use a fresh call
-// because their dependencies do not belong to the observing frame's result.
+// Child frames isolate their issues while returning their output to the parent.
 type call struct {
+	emissions                []Emission
+	copies                   []traffic.Copy
+	drops                    []NeighborDrop
+	pending                  bool
 	now                      time.Time
 	commit                   bool
 	lagRebalanceHits         map[string]lag.Selection
@@ -31,9 +35,23 @@ type call struct {
 
 func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {
 	parent := s.call
-	c := &call{now: now, commit: commit}
+	c := &call{now: now, commit: commit, pending: true}
 	s.call = c
-	return c, func() { s.call = parent }
+	return c, func() {
+		s.call = parent
+		if !c.commit {
+			return
+		}
+		if parent != nil {
+			parent.emissions = append(parent.emissions, c.emissions...)
+			parent.copies = append(parent.copies, c.copies...)
+			parent.drops = append(parent.drops, c.drops...)
+		} else if c.pending {
+			s.emissions = append(s.emissions, c.emissions...)
+			s.copies = append(s.copies, c.copies...)
+			s.neighborFailures = append(s.neighborFailures, c.drops...)
+		}
+	}
 }
 
 // pvstBoundaryHit names one port and VLAN a journey crossed while the port

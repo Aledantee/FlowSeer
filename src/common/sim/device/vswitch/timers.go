@@ -41,15 +41,14 @@ func (s *Switch) Age(now time.Time) {
 	_, end := s.beginCall(now, true)
 	defer end()
 
-	if s.bridge != nil {
-		s.bridge.Advance(now)
-	}
-	if s.mcast != nil {
-		s.mcast.Advance(now)
-	}
-	if s.routing != nil {
-		s.emitRouting(now, s.routing.Advance(now).Emissions)
-		s.applyRoutingExits(now, s.routing.DrainExits())
+	for _, entry := range s.layers(now) {
+		if !entry.age {
+			continue
+		}
+		fx := entry.advance(now)
+		if entry.apply != nil {
+			entry.apply(fx)
+		}
 	}
 }
 
@@ -66,7 +65,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		// tagged, untagged where it is the port's untagged VLAN, and not at
 		// all where the port does not carry it.
 		if em.VID == 0 {
-			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+			s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 
 			continue
 		}
@@ -74,7 +73,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
@@ -116,13 +115,13 @@ func (s *Switch) applyLoopProtectEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	for _, em := range fx.Emissions {
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
 	for _, lagName := range fx.Changed {
 		s.updateLagState(now, lagName)
@@ -158,26 +157,19 @@ func (s *Switch) Wake(now time.Time) {
 	_, end := s.beginCall(now, true)
 	defer end()
 
-	if s.stp != nil {
-		fx := s.stp.Advance(now)
-		s.applySTPEffects(fx)
-	}
-	if s.lag != nil {
-		fx := s.lag.Advance(now)
-		s.applyLAGEffects(now, fx)
-	}
-	if s.loopprotect != nil {
-		fx := s.loopprotect.Advance(now)
-		s.applyLoopProtectEffects(fx)
-	}
-	if s.routing != nil {
-		s.emitRouting(now, s.routing.Advance(now).Emissions)
-		s.applyRoutingExits(now, s.routing.DrainExits())
+	for _, entry := range s.layers(now) {
+		if entry.timer == nil {
+			continue
+		}
+		fx := entry.advance(now)
+		if entry.apply != nil {
+			entry.apply(fx)
+		}
 	}
 }
 
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
-// and reports whether any timer is currently active across spanning tree and link aggregation.
+// and reports whether any timer is active across the switch's timed layers.
 func (s *Switch) NextWake() (time.Time, bool) {
 	var (
 		earliest time.Time
@@ -194,17 +186,10 @@ func (s *Switch) NextWake() (time.Time, bool) {
 		}
 	}
 
-	if s.stp != nil {
-		update(s.stp.NextWake())
-	}
-	if s.lag != nil {
-		update(s.lag.NextWake())
-	}
-	if s.loopprotect != nil {
-		update(s.loopprotect.NextWake())
-	}
-	if s.routing != nil {
-		update(s.routing.NextWake())
+	for _, entry := range s.layers(time.Time{}) {
+		if entry.timer != nil {
+			update(entry.timer.NextWake())
+		}
 	}
 
 	return earliest, hasTimer
