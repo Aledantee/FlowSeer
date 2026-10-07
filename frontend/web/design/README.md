@@ -47,8 +47,8 @@ The chart families complement the brand without conflating coral with errors.
 | Token                     | Light             | Dark             |
 | ------------------------- | ----------------- | ---------------- |
 | `background`              | neutral-5         | neutral-1        |
-| `glass`                   | neutral-2 at 45%   | neutral-2 at 60%  |
-| `glass-panel`             | neutral-5 at 55%   | neutral-1 at 55%  |
+| `glass`                   | neutral-2 at 45%  | neutral-2 at 60% |
+| `glass-panel`             | neutral-5 at 55%  | neutral-1 at 55% |
 | `foreground`              | neutral-12        | neutral-12       |
 | `muted-foreground`        | neutral-11        | neutral-11       |
 | `card`                    | neutral-2         | neutral-2        |

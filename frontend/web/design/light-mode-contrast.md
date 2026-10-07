@@ -75,20 +75,20 @@ then `glass-panel` over the glass. It reads the palette from
 `src/theme/brand-glow.css`. The lowest ratio across those stops for each
 gated token is:
 
-| Surface | Token | Light | Dark | Minimum |
-| --- | --- | --- | --- | --- |
-| `glass` | `foreground` | 10.96:1 | 8.93:1 | 4.5:1 |
-| `glass` | `muted-foreground` | 5.05:1 | 5.02:1 | 4.5:1 |
-| `glass` | `chrome-foreground` | 10.96:1 | 8.93:1 | 4.5:1 |
-| `glass` | `chrome-muted-foreground` | 5.05:1 | 5.02:1 | 4.5:1 |
-| `glass` | `chrome-ring` | 7.82:1 | 5.48:1 | 4.5:1 |
-| `glass-panel` | `foreground` | 10.80:1 | 11.84:1 | 7:1 |
-| `glass-panel` | `muted-foreground` | 4.98:1 | 6.66:1 | 4.5:1 |
-| `glass-panel` | `accent-foreground` | 7.70:1 | 7.26:1 | 4.5:1 |
-| `glass-panel` | `primary-text` | 7.80:1 | 5.66:1 | 4.5:1 |
-| `glass-panel` | `ring` | 7.70:1 | 7.26:1 | 3:1 |
-| `glass-panel` | `input` | 4.98:1 | 3.37:1 | 3:1 |
-| `glass-panel` | `graph-edge` | 4.98:1 | 6.66:1 | 3:1 |
+| Surface       | Token                     | Light   | Dark    | Minimum |
+| ------------- | ------------------------- | ------- | ------- | ------- |
+| `glass`       | `foreground`              | 10.96:1 | 8.93:1  | 4.5:1   |
+| `glass`       | `muted-foreground`        | 5.05:1  | 5.02:1  | 4.5:1   |
+| `glass`       | `chrome-foreground`       | 10.96:1 | 8.93:1  | 4.5:1   |
+| `glass`       | `chrome-muted-foreground` | 5.05:1  | 5.02:1  | 4.5:1   |
+| `glass`       | `chrome-ring`             | 7.82:1  | 5.48:1  | 4.5:1   |
+| `glass-panel` | `foreground`              | 10.80:1 | 11.84:1 | 7:1     |
+| `glass-panel` | `muted-foreground`        | 4.98:1  | 6.66:1  | 4.5:1   |
+| `glass-panel` | `accent-foreground`       | 7.70:1  | 7.26:1  | 4.5:1   |
+| `glass-panel` | `primary-text`            | 7.80:1  | 5.66:1  | 4.5:1   |
+| `glass-panel` | `ring`                    | 7.70:1  | 7.26:1  | 3:1     |
+| `glass-panel` | `input`                   | 4.98:1  | 3.37:1  | 3:1     |
+| `glass-panel` | `graph-edge`              | 4.98:1  | 6.66:1  | 3:1     |
 
 The table rounds to two decimal places. The gate asserts unrounded ratios
 using `over`, `glowStops`, and `contrast` in `src/theme/palette.ts`. It
