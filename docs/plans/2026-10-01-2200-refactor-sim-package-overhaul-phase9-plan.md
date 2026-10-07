@@ -632,10 +632,12 @@ Tests: `output_test.go`, each failing first. `TestReceiveReturnsTheRelease`
 (R6's example). `TestReceiveAdvancesBeforeTheFrame` holds a frame, calls
 `Receive` of an unrelated frame one retransmit interval later, and finds
 the second solicitation in its `Emissions`.
-`TestReceiveAdvancesAgedInformationBeforeABPDU` is the example of
-`L/stp/README.md` (Limits): a root port ages at `T`, a BPDU arrives at `T`
-with no `Advance` between, and the port's deadline is the one the README
-gives for `Advance` first. `TestPolicedArrivalStillAdvances` refuses a
+`TestReceiveAdvancesAgedInformationBeforeABPDU` builds two switches from
+identical inputs following `L/stp/README.md` (Limits), advances one at `T`
+before handing both the same BPDU at `T`, and compares each tree's port
+roles and states, `Output` including `Emissions`, and `NextWake` at `T`,
+`T+5s`, and `T+16s` after a reroot that would cut the former root port.
+`TestPolicedArrivalStillAdvances` refuses a
 frame while a hello is due and finds the BPDU in `Emissions` beside the
 drop. `TestReceivePolicesAndReceiveMirroredDoesNot` exhausts a bucket,
 compares the two entries, and asserts that `ReceiveMirrored` returns no
