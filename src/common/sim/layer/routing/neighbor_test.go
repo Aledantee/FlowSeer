@@ -11,8 +11,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 var (
@@ -903,5 +905,172 @@ func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
 	// Subsequent DrainExits must be empty: FailHeld already consumed the waiting exit.
 	if drained := l.DrainExits(); len(drained) != 0 {
 		t.Errorf("DrainExits() after FailHeld returned %d exits, want 0", len(drained))
+	}
+}
+
+func TestHeldTokensIdentifySelectiveRelease(t *testing.T) {
+	t.Parallel()
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{})
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Interfaces["vlan99"] = routing.Interface{VLAN: 99, MAC: lifecycleDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.99.1/24")}}
+	l := mustNewRouting(t, cfg)
+	firstAddr := netip.MustParseAddr("10.0.99.2")
+	secondAddr := netip.MustParseAddr("10.0.99.6")
+	first := routeToV4(t, l, testNow, firstAddr, []byte{1}, true)
+	second := routeToV4(t, l, testNow, secondAddr, []byte{2}, true)
+	if first.Hold != 1 || second.Hold != 2 {
+		t.Fatalf("hold tokens = %d, %d, want 1, 2", first.Hold, second.Hold)
+	}
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan99", Addr: secondAddr, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	exits := advanceAndDrain(l, testNow)
+	if len(exits) != 1 || exits[0].Token != 2 || exits[0].Ingress != "vlan10" || exits[0].Cause != routing.HeldReleased {
+		t.Fatalf("exits = %+v, want token 2 released from vlan10", exits)
+	}
+	_, payload, err := ip.Decode(exits[0].Frame.Payload)
+	if err != nil || len(payload) != 1 || payload[0] != 2 || exits[0].Frame.Dst != lifecycleHostMAC {
+		t.Fatalf("released frame = %+v, payload = %v, error = %v, want frame 2 for resolved MAC", exits[0], payload, err)
+	}
+	for _, entry := range l.Neighbors() {
+		if entry.Addr == firstAddr && entry.HoldDepth == 1 && entry.State == routing.NeighborIncomplete {
+			return
+		}
+	}
+	t.Fatal("first neighbor has no incomplete entry holding frame 1")
+}
+
+func TestHeldTokensSurviveEvictionAndTimeout(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 1, ResolutionTimeout: time.Second})
+	first := routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
+	second := routeToV4(t, l, testNow, lifecycleDstV4, []byte{2}, true)
+	third := l.Originate(testNow, routing.DefaultVRF, lifecycleDstV6, 17, []byte{3}, true)
+	exits := advanceAndDrain(l, testNow.Add(time.Second))
+	if first.Hold != 1 || second.Hold != 2 || third.Hold != 3 || len(exits) != 3 {
+		t.Fatalf("tokens = %d, %d, %d, exits = %+v, want tokens 1..3 and three exits", first.Hold, second.Hold, third.Hold, exits)
+	}
+	for i, want := range []struct {
+		token   routing.HoldToken
+		ingress string
+		cause   routing.HeldCause
+	}{
+		{1, "vlan10", routing.HeldEvicted}, {2, "vlan10", routing.HeldTimedOut}, {3, "", routing.HeldTimedOut},
+	} {
+		if got := exits[i]; got.Token != want.token || got.Ingress != want.ingress || got.Cause != want.cause {
+			t.Errorf("exit %d = %+v, want %+v", i, got, want)
+		}
+	}
+	fourth := routeToV4(t, l, testNow.Add(time.Second), netip.MustParseAddr("10.0.10.98"), []byte{4}, true)
+	if fourth.Hold != 4 {
+		t.Errorf("token after exits = %d, want 4", fourth.Hold)
+	}
+	failed := l.FailHeld()
+	if len(failed) != 1 || failed[0].Token != 4 || failed[0].Ingress != "vlan10" || failed[0].Cause != routing.HeldTimedOut {
+		t.Errorf("FailHeld = %+v, want token 4 timed out from vlan10", failed)
+	}
+}
+
+func TestClonePreservesHoldSequence(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+	first := routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
+	clone := l.Clone()
+	for _, fork := range []*routing.Layer{l, clone} {
+		second := routeToV4(t, fork, testNow, lifecycleDstV4, []byte{2}, true)
+		if first.Hold != 1 || second.Hold != 2 {
+			t.Fatalf("tokens = %d, %d, want 1, 2", first.Hold, second.Hold)
+		}
+		exits := fork.FailHeld()
+		if len(exits) != 2 || exits[0].Token != 1 || exits[1].Token != 2 {
+			t.Fatalf("fork exits = %+v, want tokens 1 and 2", exits)
+		}
+	}
+}
+
+func TestClonePreservesIncompleteWake(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: 2 * time.Second})
+	routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
+	clone := l.Clone()
+	wake, ok := l.NextWake()
+	cloneWake, cloneOK := clone.NextWake()
+	if !ok || !cloneOK || wake != testNow.Add(2*time.Second) || cloneWake != wake {
+		t.Fatalf("wake = %v, %t, clone wake = %v, %t, want both at +2s", wake, ok, cloneWake, cloneOK)
+	}
+}
+
+func TestRoutingResultOutcome(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		reason  trace.Reason
+		outcome trace.Outcome
+	}{
+		{"forwarded", "", trace.Forwarded},
+		{"consumed", routing.ReasonNotRouted, trace.Consumed},
+		{"held", routing.ReasonNeighborPending, trace.Held},
+		{"dropped", routing.ReasonNoRoute, trace.Dropped},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			res := routing.Result{Reason: tc.reason}
+			if res.Outcome() != tc.outcome || res.Status() != analysis.Complete {
+				t.Errorf("outcome = %v, status = %v, want %v, Complete", res.Outcome(), res.Status(), tc.outcome)
+			}
+		})
+	}
+}
+
+func TestRoutingResultMetadata(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+	cfg := standardSwitchConfig()
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Routes = []routing.Route{
+		{Prefix: netip.MustParsePrefix("192.0.2.0/24"), NextHop: netip.MustParseAddr("198.51.100.1")},
+		{Prefix: netip.MustParsePrefix("198.51.100.0/24"), NextHop: netip.MustParseAddr("10.0.20.7")},
+	}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+	forwarding := mustNewRouting(t, cfg)
+	disabled := mustNewLifecycleLayer(t, routing.NeighborPolicy{Mode: routing.NeighborDisabled})
+	for _, tc := range []struct {
+		name    string
+		result  routing.Result
+		vrf     string
+		nextHop netip.Addr
+	}{
+		{"bad header", l.Route(testNow, "vlan10", ethernet.Frame{}, false), routing.DefaultVRF, netip.Addr{}},
+		{"local", routeToV4(t, l, testNow, netip.MustParseAddr("10.0.10.1"), nil, false), routing.DefaultVRF, netip.Addr{}},
+		{"no route", routeToV4(t, l, testNow, netip.MustParseAddr("192.0.2.1"), nil, false), routing.DefaultVRF, netip.Addr{}},
+		{"pending", routeToV4(t, l, testNow, lifecycleDstV4, nil, false), routing.DefaultVRF, lifecycleDstV4},
+		{"originated", l.Originate(testNow, routing.DefaultVRF, lifecycleDstV6, 17, nil, false), routing.DefaultVRF, lifecycleDstV6},
+		{"unknown interface", l.Route(testNow, "unknown", ethernet.Frame{}, false), "", netip.Addr{}},
+		{"unknown VRF", l.Originate(testNow, "tenant", lifecycleDstV4, 17, nil, false), "tenant", netip.Addr{}},
+		{"forwarded", routeToV4(t, forwarding, testNow, netip.MustParseAddr("10.0.20.7"), nil, true), routing.DefaultVRF, netip.MustParseAddr("10.0.20.7")},
+		{"recursive", routeToV4(t, forwarding, testNow, netip.MustParseAddr("192.0.2.9"), nil, true), routing.DefaultVRF, netip.MustParseAddr("10.0.20.7")},
+		{"recursive originated", forwarding.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("192.0.2.9"), 17, nil, true), routing.DefaultVRF, netip.MustParseAddr("10.0.20.7")},
+		{"neighbor miss", routeToV4(t, disabled, testNow, lifecycleDstV4, nil, true), routing.DefaultVRF, lifecycleDstV4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.result.VRF != tc.vrf || tc.result.NextHop != tc.nextHop {
+				t.Errorf("VRF = %q, next hop = %v, want %q, %v", tc.result.VRF, tc.result.NextHop, tc.vrf, tc.nextHop)
+			}
+			if tc.result.Hold != 0 {
+				t.Errorf("hold = %d, want zero for a preview or unqueued result", tc.result.Hold)
+			}
+		})
+	}
+}
+
+func TestRoutePeekDoesNotMintHold(t *testing.T) {
+	t.Parallel()
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+	for range 2 {
+		peek := routeToV4(t, l, testNow, lifecycleDstV4, nil, false)
+		if peek.Hold != 0 || peek.Outcome() != trace.Held || len(l.Neighbors()) != 0 {
+			t.Fatalf("peek = %+v, neighbors = %+v, want Held with zero token and no entry", peek, l.Neighbors())
+		}
+	}
+	committed := routeToV4(t, l, testNow, lifecycleDstV4, nil, true)
+	if committed.Hold != 1 {
+		t.Errorf("first committed hold = %d, want 1", committed.Hold)
 	}
 }

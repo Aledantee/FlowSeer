@@ -289,6 +289,7 @@ type mcastQueryUnobservedHit struct {
 // call in progress found pending: a next hop with no resolved link-layer
 // address yet, distinct from a definite miss.
 type neighborUnresolvedHit struct {
+	vrf   string
 	iface string
 	addr  netip.Addr
 }
@@ -934,15 +935,11 @@ func (s *Switch) neighborUnresolvedIssues() []runtimeIssue {
 			continue
 		}
 		seen[hit] = struct{}{}
-		vrf, ok := s.vrfForInterface(hit.iface)
-		if !ok {
-			continue
-		}
 		issues = append(issues, runtimeIssue{
 			issue: analysis.Issue{
 				Code:    IssueNeighborUnresolved,
 				Status:  analysis.Incomplete,
-				Scope:   routing.NeighborLookupScope(s.nodeID, vrf, hit.iface, hit.addr),
+				Scope:   routing.NeighborLookupScope(s.nodeID, hit.vrf, hit.iface, hit.addr),
 				Message: fmt.Sprintf("neighbor %s on interface %q has not been resolved", hit.addr, hit.iface),
 			},
 		})
@@ -989,23 +986,6 @@ func (s *Switch) neighborObservationAllowed(iface string) bool {
 	}
 
 	return vrf.NeighborPolicy.Mode != routing.NeighborDisabled
-}
-
-// neighborPendingAddr extracts the address a Held [routing.Result] was
-// waiting to resolve. [routing.Layer.Route] and [routing.Layer.Originate]
-// both append the neighbor-pending step last, naming the address in the same
-// trace.Subject shape, so recovering it here needs no change to either.
-func neighborPendingAddr(res routing.Result) (netip.Addr, bool) {
-	if len(res.Steps) == 0 {
-		return netip.Addr{}, false
-	}
-	last := res.Steps[len(res.Steps)-1]
-	if last.RuleID != trace.RuleID(routing.ReasonNeighborPending) {
-		return netip.Addr{}, false
-	}
-
-	addr, err := netip.ParseAddr(last.Subject.Key)
-	return addr, err == nil
 }
 
 // recordPVSTBoundaries notes every port of the journey in progress that faces
@@ -1979,17 +1959,9 @@ func (s *Switch) assembleRouteResult(
 	if len(ingressFilterRes.ConsultedScopes()) > 0 {
 		routeScopes = append(routeScopes, ingressFilterRes.ConsultedScopes()...)
 	}
-	if routeRes.Reason != "" {
-		outcome := trace.Dropped
-		switch routeRes.Reason {
-		case routing.ReasonNotRouted:
-			outcome = trace.Consumed
-		case routing.ReasonNeighborPending:
-			// A pending neighbor holds a frame that has neither arrived nor failed.
-			outcome = trace.Held
-			if addr, ok := neighborPendingAddr(routeRes); ok {
-				s.recordNeighborUnresolved(routeRes.Interface, addr)
-			}
+	if outcome := routeRes.Outcome(); outcome != trace.Forwarded {
+		if outcome == trace.Held {
+			s.recordNeighborUnresolved(routeRes.VRF, routeRes.Interface, routeRes.NextHop)
 		}
 		steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps))
 		steps = append(steps, ingressSteps...)
@@ -3740,10 +3712,10 @@ func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr, now t
 }
 
 // recordNeighborUnresolved notes that the forward or peek call in progress
-// resolved (iface, addr) as pending, so wrapResult can raise
+// resolved (vrf, iface, addr) as pending, so wrapResult can raise
 // neighbor-unresolved for that lookup.
-func (s *Switch) recordNeighborUnresolved(iface string, addr netip.Addr) {
-	s.neighborUnresolvedHits = append(s.neighborUnresolvedHits, neighborUnresolvedHit{iface: iface, addr: addr})
+func (s *Switch) recordNeighborUnresolved(vrf, iface string, addr netip.Addr) {
+	s.neighborUnresolvedHits = append(s.neighborUnresolvedHits, neighborUnresolvedHit{vrf: vrf, iface: iface, addr: addr})
 }
 
 // lagSelector adapts a switch's LAG layer to [bridge.Selector] and

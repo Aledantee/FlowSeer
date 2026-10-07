@@ -64,6 +64,8 @@ const (
 // them from the frame it was given, and Originate's closure leaves them at their zero value,
 // since a self-originated datagram never arrived tagged in the first place.
 type heldEntry struct {
+	token     HoldToken
+	ingress   string
 	iface     string
 	etherType ethernet.EtherType
 	header    ip.Header
@@ -88,6 +90,10 @@ const (
 	HeldEvicted HeldCause = "evicted"
 )
 
+// HoldToken identifies a queued frame for the lifetime of one layer. Zero means no hold.
+// A token is a value and is safe for concurrent use.
+type HoldToken uint64
+
 // HeldFrame is one frame [Layer.DrainExits] reports leaving a neighbor entry's hold queue, with Cause
 // naming how it left: under [HeldReleased] Frame is ready to leave by Interface, and under the
 // other two causes Frame carries no resolved destination and exists to name what was held. Port
@@ -98,6 +104,10 @@ const (
 // frame arrived with (zero for a self-originated frame), so a caller that releases it can carry
 // the same priority the live, non-held path would have used.
 type HeldFrame struct {
+	// Token is the token returned when the frame was queued.
+	Token HoldToken
+	// Ingress is Route's interface, or empty for an originated frame, on every cause.
+	Ingress   string
 	Interface string
 	Port      string
 	Cause     HeldCause
@@ -371,6 +381,8 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC, cause HeldCause) (HeldF
 		return HeldFrame{}, false
 	}
 	return HeldFrame{
+		Token:     h.token,
+		Ingress:   h.ingress,
 		Interface: h.iface,
 		Port:      l.ifaces[h.iface].Port,
 		Cause:     cause,
@@ -427,6 +439,7 @@ func (l *Layer) Clone() *Layer {
 		ifaces:   make(map[string]Interface, len(l.ifaces)),
 		vrfs:     make(map[string]*vrfState, len(l.vrfs)),
 		exits:    slices.Clone(l.exits),
+		lastHold: l.lastHold,
 	}
 	for k, v := range l.byVLAN {
 		cp.byVLAN[k] = v

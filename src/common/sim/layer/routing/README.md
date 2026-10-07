@@ -406,6 +406,16 @@ remove.
 
 ### The hold queue
 
+Each queued frame receives a `HoldToken`, starting at 1 for each layer.
+`Result.Hold` returns it at enqueue and `HeldFrame.Token` returns it on
+release, eviction, or timeout, so a caller can match an exit to its call.
+Tokens are never reused within a layer. `Clone` copies the counter and
+the queued tokens, so both forks mint the same next token. A rebuilt layer
+starts at 1 after `FailHeld` returns its predecessor's frames.
+`HeldFrame.Ingress` names the interface passed to `Route`, and is empty
+for `Originate`, on every cause. A non-committing call returns a zero
+`Hold` because it queues no frame.
+
 Under `NeighborObserved`, a `Route` or `Originate` call that misses the
 table and is told to `commit` creates an `Incomplete` entry (if one does not
 already exist) and appends the frame to that neighbor's hold queue, bounded
