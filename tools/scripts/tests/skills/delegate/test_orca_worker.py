@@ -54,6 +54,12 @@ pointer_file = Path(os.environ["ORCA_STUB_POINTER_FILE"])
 if args and args[0] == "status":
     print(json.dumps({{"result": {{"runtime": {{"reachable": True}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
+    # ORCA_STUB_READ_FAIL: "always", or "once" for the first read only.
+    read_fail = os.environ.get("ORCA_STUB_READ_FAIL")
+    failed_once = Path(str(log_file) + ".read-failed")
+    if read_fail == "always" or (read_fail == "once" and not failed_once.exists()):
+        failed_once.write_text("failed")
+        sys.exit(1)
     if args[args.index("--terminal") + 1] == "":
         print("esc to interrupt")
     elif failure == "terminal-read":
@@ -111,7 +117,9 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
         exclude.mkdir()
     print(json.dumps({{"result": {{"terminal": {{"handle": "term-1"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
-    if failure == "terminal-wait-exited":
+    if "ORCA_STUB_WAIT_REPLY" in os.environ:
+        print(os.environ["ORCA_STUB_WAIT_REPLY"])
+    elif failure == "terminal-wait-exited":
         print(json.dumps({{"result": {{"wait": {{"status": "exited"}}}}}}))
     elif failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
@@ -124,7 +132,12 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
     if failure == "terminal-show":
         sys.exit(1)
-    status = {{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
+    if failure == "terminal-show-live":
+        # The reply of Orca 1.4.221 for a live terminal: no status field.
+        terminal = {{"handle": "term-1", "ptyId": "pty-1", "orphaned": False, "connected": True, "writable": True, "title": "l1", "preview": "", "agentWait": None}}
+        print(json.dumps({{"result": {{"terminal": terminal}}}}))
+        sys.exit(0)
+    status ={{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
     print(json.dumps({{"result": {{"terminal": {{"status": status}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "show":
     # ORCA_STUB_CHILDREN_FROM: the query, counting from 1, that first reports the children.
@@ -1472,6 +1485,117 @@ else:
                 self.assertTrue(child.is_dir())
                 self.assertNotIn("terminal close", self.orca_calls())
                 self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_accepts_a_terminal_reply_without_status(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-show-live"
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["terminal"], "term-1")
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def assert_unusable_startup_wait_reply_starts(self, reply):
+        self.env["ORCA_STUB_WAIT_REPLY"] = reply
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal wait --terminal term-1"), 1)
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_treats_a_null_wait_result_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts('{"result": null}')
+
+    def test_start_treats_a_null_wait_object_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts('{"result": {"wait": null}}')
+
+    def test_start_treats_a_wait_reply_that_is_an_array_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts("[]")
+
+    def test_wait_treats_an_unusable_wait_reply_as_no_status(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        for reply in ('{"result": null}', '{"result": {"wait": null}}', "[]", '{"result": {"wait": "exited"}}'):
+            with self.subTest(reply=reply):
+                self.clock.write_text("0")
+                self.env["ORCA_STUB_WAIT_REPLY"] = reply
+                result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+                self.assert_wait(result, ["idle", "> done"], 5)
+
+    def test_read_keys_and_tell_refuse_a_kept_lane_before_any_orca_call_or_write(self):
+        child = self.kept_lane()
+        self.orca_log.unlink()
+        note = self.root / "note.md"
+        note.write_text("note")
+        exclude = self.repo / ".git" / "info" / "exclude"
+        for argv, message in ((("read", "l1"), "no lane named l1; status lists them"),
+                              (("keys", "l1", "y"), "keys SLUG TEXT"),
+                              (("tell", "l1", str(note)), "tell SLUG FILE")):
+            with self.subTest(command=argv[0]):
+                result = self.command(*argv)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(self.orca_calls(), "")
+                self.assertNotIn("/.orca-note.md", exclude.read_text().splitlines())
+                self.assertFalse((child / ".orca-note.md").exists())
+
+    def test_tell_refuses_a_missing_file_before_writing_anything(self):
+        child = self.live_lane()
+        missing = self.root / "missing.md"
+        result = self.command("tell", "l1", str(missing))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(f"file {missing} not found", result.stderr)
+        self.assertEqual(self.orca_calls(), "")
+        exclude = self.repo / ".git" / "info" / "exclude"
+        self.assertNotIn("/.orca-note.md", exclude.read_text().splitlines() if exclude.exists() else [])
+        self.assertFalse((child / ".orca-note.md").exists())
+
+    def test_stop_treats_an_unreadable_screen_as_not_working(self):
+        state_file, _, _ = self.graded_lane()
+        self.env["ORCA_STUB_READ_FAIL"] = "always"
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        self.assertFalse(state_file.exists())
+
+    def test_stop_treats_a_checkout_git_cannot_read_as_clean(self):
+        state_file, _, _ = self.graded_lane()
+        state = json.loads(state_file.read_text())
+        state["path"] = str(self.root / "gone")
+        state_file.write_text(json.dumps(state))
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        self.assertFalse(state_file.exists())
+
+    def test_tell_delivers_after_a_failed_screen_read_before_the_pointer(self):
+        child = self.live_lane()
+        note = self.root / "note.md"
+        note.write_text("note")
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.command("tell", "l1", str(note))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((child / ".orca-note.md").read_text(), "note")
+        self.assertEqual(self.orca_calls().count("terminal send --terminal term-1"), 1)
+
+    def test_start_sends_the_pointer_again_after_a_failed_screen_read(self):
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("--text Read .orca-brief.md"), 2)
+
+    def test_start_continues_codex_startup_after_a_failed_screen_read(self):
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_names_the_exited_cli_when_its_screen_cannot_be_read(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-exited"
+        self.env["ORCA_STUB_READ_FAIL"] = "always"
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("agy exited at startup", result.stderr)
+        self.assertFalse((self.state_dir / "l1.json").exists())
 
 
 if __name__ == "__main__":
