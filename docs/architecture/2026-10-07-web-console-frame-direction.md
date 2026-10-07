@@ -53,9 +53,10 @@ A view talks to the frame through `useFrame()` in
 animate to a new place. The animation's dependency is read-only for views.
 
 Controls that are the same on every page belong to the frame. The account
-menu is one element in the frame's top bar, last on the right, and no view
-renders its own. It holds the theme and language choices on every page, and
-adds Help, Report a bug, and Log out outside the login mode
+control is one element in the frame's top bar, last on the right, and no view
+renders its own. In the login mode it is a theme switch and a language
+button, since there is no account to show. Outside it, it is the account
+menu, which holds the same two choices beside Help, Report a bug, and Log out
 (`frontend/web/src/components/AccountMenu.vue`).
 
 ### The panel moves, the sidebar does not scale

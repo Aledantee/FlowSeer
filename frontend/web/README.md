@@ -186,11 +186,12 @@ fade from opacity 0 to 1 over 160 ms, set by `FRAME_MOVE_SECONDS` in
 `src/navigation/frame.ts`. The fade descends through `display: contents`
 wrappers because they have no box to paint, and skips `display: none` elements.
 Below 801px or with reduced motion, the content fades without movement.
-The account menu stays mounted and still. The login page appears without an
+The account control's root stays mounted and still while its content swaps
+between the signed-out buttons and the account menu. The login page appears without an
 entrance on a fresh visit. `src/main.ts` mounts after the router resolves the
 initial route, so a signed-in reload does not morph.
-The login sidebar holds the sign-in form in a frosted column, its top bar
-shows only that menu. `src/LoginView.vue` illustrates a site's gateway, switch,
+The login sidebar holds the sign-in form in a frosted column, and its top bar
+shows only the theme and language buttons. `src/LoginView.vue` illustrates a site's gateway, switch,
 and access point as a connected path, with an example traffic trend. The
 preview is labeled as example data and stacks vertically in narrow panels.
 Its copy describes inspecting connections, device health, and ports.

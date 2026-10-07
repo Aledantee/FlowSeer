@@ -200,8 +200,15 @@ describe('FleetView motion layout', () => {
       if (!element) throw new Error(`Missing moving element: ${selector}`)
       return element
     })
-    host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
+    toggle?.click()
     await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
     await advanceMotion(30)
     for (const element of elements)
       expect(
@@ -221,8 +228,14 @@ describe('FleetView motion layout', () => {
     installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
     toggle?.click()
     await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
     await advanceMotion(30)
 
     expect(
