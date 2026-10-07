@@ -1087,3 +1087,37 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 		t.Fatalf("DiffScenarios missing change for nested key %q: %+v", wantScenarioKey, scChanges)
 	}
 }
+
+func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
+	original := Action{
+		At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Kind: ActionInject,
+		Inject: &Injection{Frame: ethernet.Frame{Tags: []vlan.Tag{{VID: 10}}, Payload: []byte{1}}, Packet: &Packet{Payload: []byte{2}}},
+	}
+	clone := original.Clone()
+	clone.Inject.Frame.Tags[0].VID = 20
+	clone.Inject.Frame.Payload[0] = 3
+	clone.Inject.Packet.Payload[0] = 4
+	if original.Inject.Frame.Tags[0].VID != 10 || original.Inject.Frame.Payload[0] != 1 || original.Inject.Packet.Payload[0] != 2 {
+		t.Fatal("clone shares injection buffers")
+	}
+	fault := Action{Kind: ActionFault, Fault: &FaultAction{Fault: Fault{Kind: FaultLoseSequence, Sequence: []uint{1, 3}}}}
+	copyFault := fault.Clone()
+	copyFault.Fault.Fault.Sequence[0] = 2
+	if fault.Fault.Fault.Sequence[0] != 1 {
+		t.Fatal("clone shares loss sequence")
+	}
+}
+
+func TestFaultActionValidateFaultParameters(t *testing.T) {
+	base := FaultAction{A: Endpoint{Node: "a"}, B: Endpoint{Node: "b"}, Fault: Fault{Kind: FaultCut}}
+	if err := base.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	for _, fault := range []Fault{{Kind: "unknown"}, {Kind: FaultCut, N: 1}, {Kind: FaultLoseEveryNth}, {Kind: FaultLoseSequence, Sequence: []uint{0}}} {
+		action := base
+		action.Fault = fault
+		if err := action.Validate(); err == nil {
+			t.Errorf("fault %+v accepted", fault)
+		}
+	}
+}

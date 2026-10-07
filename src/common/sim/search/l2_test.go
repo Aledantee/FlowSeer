@@ -1,6 +1,8 @@
 package search
 
 import (
+	"encoding/binary"
+	"fmt"
 	"math/rand/v2"
 	"slices"
 	"testing"
@@ -35,7 +37,10 @@ func TestL2TrafficDomainStableTotalOrderOverRandomizedInput(t *testing.T) {
 	t.Parallel()
 
 	baseCfg := sampleL2Config()
-	domBase := NewL2TrafficDomain(baseCfg)
+	domBase, err := NewL2TrafficDomain(baseCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var canonical []Tuple
 	domBase.Enumerate(func(c Candidate) bool {
@@ -69,13 +74,16 @@ func TestL2TrafficDomainStableTotalOrderOverRandomizedInput(t *testing.T) {
 			shuffledShapes[i], shuffledShapes[j] = shuffledShapes[j], shuffledShapes[i]
 		})
 
-		shuffledDom := NewL2TrafficDomain(L2TrafficDomainConfig{
+		shuffledDom, err := NewL2TrafficDomain(L2TrafficDomainConfig{
 			Sources:      shuffledSrcs,
 			Destinations: shuffledDsts,
 			VLANs:        shuffledVLANs,
 			Shapes:       shuffledShapes,
 			At:           baseCfg.At,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
 
 		var trialTuples []Tuple
 		shuffledDom.Enumerate(func(c Candidate) bool {
@@ -93,7 +101,10 @@ func TestL2TrafficDomainSizeEqualsEnumeratedCount(t *testing.T) {
 	t.Parallel()
 
 	cfg := sampleL2Config()
-	dom := NewL2TrafficDomain(cfg)
+	dom, err := NewL2TrafficDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	expectedSize := len(cfg.Sources) * len(cfg.Destinations) * len(cfg.VLANs) * len(cfg.Shapes)
 	if dom.Size() != expectedSize {
@@ -143,7 +154,10 @@ func TestL2TrafficDomainEmptyYieldsNothingAndZeroSize(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			dom := NewL2TrafficDomain(tc.cfg)
+			dom, err := NewL2TrafficDomain(tc.cfg)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if dom.Size() != 0 {
 				t.Fatalf("dom.Size() = %d, want 0", dom.Size())
 			}
@@ -163,7 +177,10 @@ func TestL2TrafficDomainDuplicateTuplesCollapse(t *testing.T) {
 	t.Parallel()
 
 	cleanCfg := sampleL2Config()
-	cleanDom := NewL2TrafficDomain(cleanCfg)
+	cleanDom, err := NewL2TrafficDomain(cleanCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	dupCfg := L2TrafficDomainConfig{
 		Sources:      append(slices.Clone(cleanCfg.Sources), cleanCfg.Sources[0], cleanCfg.Sources[1]),
@@ -172,7 +189,10 @@ func TestL2TrafficDomainDuplicateTuplesCollapse(t *testing.T) {
 		Shapes:       append(slices.Clone(cleanCfg.Shapes), cleanCfg.Shapes[0]),
 		At:           cleanCfg.At,
 	}
-	dupDom := NewL2TrafficDomain(dupCfg)
+	dupDom, err := NewL2TrafficDomain(dupCfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if dupDom.Size() != cleanDom.Size() {
 		t.Fatalf("dupDom.Size() = %d, want %d (collapse to clean size)", dupDom.Size(), cleanDom.Size())
@@ -197,7 +217,10 @@ func TestL2TrafficDomainEarlyStop(t *testing.T) {
 	t.Parallel()
 
 	cfg := sampleL2Config()
-	dom := NewL2TrafficDomain(cfg)
+	dom, err := NewL2TrafficDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	stopAfter := 3
 	var count int
@@ -223,7 +246,10 @@ func TestL2TrafficDomainEtherTypeZeroCollapsesWithIPv4(t *testing.T) {
 			{EtherType: ethernet.EtherTypeIPv4, Payload: []byte("payload")},
 		},
 	}
-	dom := NewL2TrafficDomain(cfg)
+	dom, err := NewL2TrafficDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if dom.Size() != 1 {
 		t.Fatalf("dom.Size() = %d, want 1", dom.Size())
 	}
@@ -236,7 +262,80 @@ func TestL2TrafficDomainEtherTypeZeroCollapsesWithIPv4(t *testing.T) {
 	if len(candidates) != 1 {
 		t.Fatalf("len(candidates) = %d, want 1", len(candidates))
 	}
-	if candidates[0].Scenario[0].Frame.EtherType != ethernet.EtherTypeIPv4 {
-		t.Errorf("EtherType = 0x%04x, want 0x%04x", candidates[0].Scenario[0].Frame.EtherType, ethernet.EtherTypeIPv4)
+	if candidates[0].Actions[0].Inject.Frame.EtherType != ethernet.EtherTypeIPv4 {
+		t.Errorf("EtherType = 0x%04x, want 0x%04x", candidates[0].Actions[0].Inject.Frame.EtherType, ethernet.EtherTypeIPv4)
+	}
+}
+
+func TestL2TrafficDomainRejectsMalformedDimensions(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		edit func(*L2TrafficDomainConfig)
+	}{
+		{"source", func(c *L2TrafficDomainConfig) { c.Sources = []fabric.Endpoint{{Port: "p"}} }},
+		{"VLAN", func(c *L2TrafficDomainConfig) { c.VLANs = []vlan.ID{4095} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := sampleL2Config()
+			if err := cfg.Validate(); err != nil {
+				t.Fatal(err)
+			}
+			tc.edit(&cfg)
+			if err := cfg.Validate(); err == nil {
+				t.Fatal("invalid dimension accepted")
+			}
+			if dom, err := NewL2TrafficDomain(cfg); err == nil || dom != nil {
+				t.Fatalf("constructor=%v,%v", dom, err)
+			}
+		})
+	}
+}
+
+func TestL2TrafficDomainCrossProductOverflow(t *testing.T) {
+	const count = 132000
+	cfg := L2TrafficDomainConfig{Sources: make([]fabric.Endpoint, count), Destinations: make([]netaddr.MAC, count), VLANs: make([]vlan.ID, 4094), Shapes: make([]FrameShape, count)}
+	for i := range count {
+		cfg.Sources[i] = fabric.Endpoint{Node: fmt.Sprint(i)}
+		cfg.Destinations[i] = netaddr.MAC{2, 0, byte(i >> 24), byte(i >> 16), byte(i >> 8), byte(i)}
+		payload := make([]byte, 4)
+		binary.BigEndian.PutUint32(payload, uint32(i))
+		cfg.Shapes[i] = FrameShape{Payload: payload}
+	}
+	for i := range cfg.VLANs {
+		cfg.VLANs[i] = vlan.ID(i + 1)
+	}
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("overflow accepted")
+	}
+	if dom, err := NewL2TrafficDomain(cfg); err == nil || dom != nil {
+		t.Fatalf("constructor=%v,%v", dom, err)
+	}
+	cfg.Shapes = nil
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("empty domain refused: %v", err)
+	}
+}
+
+func TestL2EndpointCanonicalIdentity(t *testing.T) {
+	cfg := L2TrafficDomainConfig{Sources: []fabric.Endpoint{{Node: "a/b", Port: "c"}, {Node: "a", Port: "b/c"}}, Destinations: []netaddr.MAC{{2, 0, 0, 0, 0, 1}}, VLANs: []vlan.ID{0}, Shapes: []FrameShape{{}}}
+	dom, err := NewL2TrafficDomain(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var candidates []Candidate
+	dom.Enumerate(func(c Candidate) bool { candidates = append(candidates, c); return true })
+	if len(candidates) != 2 {
+		t.Fatalf("candidates=%d, want 2", len(candidates))
+	}
+	want := []Tuple{"a:b/c -> 02:00:00:00:00:01 etype:0x0800", "a/b:c -> 02:00:00:00:00:01 etype:0x0800"}
+	if candidates[0].Tuple != want[0] || candidates[1].Tuple != want[1] {
+		t.Fatalf("tuples=%v/%v, want %v", candidates[0].Tuple, candidates[1].Tuple, want)
+	}
+	if candidates[0].Actions[0].Inject.Frame.Src == candidates[1].Actions[0].Inject.Frame.Src {
+		t.Fatal("source MAC collision")
+	}
+	epoch := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	if !candidates[0].Actions[0].At.Equal(epoch) {
+		t.Fatalf("default epoch=%s", candidates[0].Actions[0].At)
 	}
 }

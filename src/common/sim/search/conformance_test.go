@@ -89,7 +89,7 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 	cur, h2MAC := buildSearchConformanceFabric(t, 10)
 	cand, _ := buildSearchConformanceFabric(t, 20)
 
-	domain := search.NewL2TrafficDomain(search.L2TrafficDomainConfig{
+	domain, err := search.NewL2TrafficDomain(search.L2TrafficDomainConfig{
 		Sources:      []fabric.Endpoint{{Node: "h1"}},
 		Destinations: []netaddr.MAC{h2MAC},
 		VLANs:        []vlan.ID{10, 20, 30},
@@ -98,6 +98,9 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 			{EtherType: ethernet.EtherTypeIPv4, Payload: []byte("frame-2")},
 		},
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	total := domain.Size()
 	if total != 6 {
@@ -105,12 +108,16 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 	}
 
 	limits := search.Limits{
-		MaxCandidates: 4,
-		Budget:        10,
+		MaxCandidates:  4,
+		MaxDifferences: -1,
+		Budget:         10,
 	}
 
 	// 1. Current-first execution
-	resCurFirst := search.Search(cur, cand, domain, limits)
+	resCurFirst, err := search.Search(cur, cand, domain, limits)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if resCurFirst.Coverage.Total != total {
 		t.Errorf("Coverage.Total = %d, want %d", resCurFirst.Coverage.Total, total)
@@ -123,7 +130,10 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 	}
 
 	// 2. Candidate-first execution
-	resCandFirst := search.Search(cand, cur, domain, limits)
+	resCandFirst, err := search.Search(cand, cur, domain, limits)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if resCandFirst.Coverage.Total != resCurFirst.Coverage.Total {
 		t.Errorf("Coverage.Total mismatch across evaluations: %d vs %d",
@@ -137,6 +147,10 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 		t.Errorf("len(Remainder) mismatch across evaluations: %d vs %d",
 			len(resCandFirst.Remainder), len(resCurFirst.Remainder))
 	}
+	if len(resCurFirst.Differences) == 0 || len(resCandFirst.Differences) == 0 {
+		t.Fatal("search retained no differences")
+	}
+
 	if len(resCurFirst.Differences) != len(resCandFirst.Differences) {
 		t.Errorf("Differences count mismatch: %d vs %d",
 			len(resCurFirst.Differences), len(resCandFirst.Differences))

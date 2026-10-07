@@ -2,7 +2,6 @@ package fabric
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -39,7 +38,7 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 	forkA := a.Fork()
 	forkB := b.Fork()
 
-	normSc := cloneScenarioForReplay(scenario)
+	normSc := scenario.Clone()
 	if normSc.Name == "" {
 		normSc.Name = "compare-scenario"
 	}
@@ -127,22 +126,6 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 		Replay:      replaySpecs,
 		Steps:       [2]int{runResA.Steps, runResB.Steps},
 	}
-}
-
-func cloneScenarioForReplay(s Scenario) Scenario {
-	cp := s.Clone()
-	cp.Actions = make([]Action, len(s.Actions))
-	for i, a := range s.Actions {
-		aCp := a.Clone()
-		if a.Inject != nil {
-			injCp := *a.Inject
-			injCp.Frame = cloneFrame(a.Inject.Frame)
-			injCp.Packet = clonePacket(a.Inject.Packet)
-			aCp.Inject = &injCp
-		}
-		cp.Actions[i] = aCp
-	}
-	return cp
 }
 
 func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunResult, []FrameID, error) {
@@ -333,17 +316,6 @@ func diffFabricRuns(actions []Action, injFIDsA, injFIDsB []FrameID, journeysA, j
 	}
 
 	return analysis.Difference{}, DifferenceLocation{}, false
-}
-
-func clonePacket(p *Packet) *Packet {
-	if p == nil {
-		return nil
-	}
-	cp := *p
-	if p.Payload != nil {
-		cp.Payload = slices.Clone(p.Payload)
-	}
-	return &cp
 }
 
 func sameCable(a, b *Cable) bool {

@@ -44,6 +44,7 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 		maxTrials = DefaultMinimizationLimit
 	}
 
+	cand.Actions = cand.ToScenario(budget).Actions
 	initialCmp := runCompare(current, candidate, cand, budget)
 	if initialCmp.Disposition != analysis.Different {
 		return cand, Minimal
@@ -56,53 +57,26 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 	for {
 		changed := false
 
-		// 1. Reduce injections in scenario in fixed index order
-		idx := 0
-		for idx < len(reduced.Scenario) {
-			if len(reduced.Scenario) <= 1 && len(reduced.Faults) == 0 {
-				idx++
-				continue
-			}
-
-			if trials >= maxTrials {
-				reduced.Tuple = computeCandidateTuple(reduced)
-				return reduced, LimitReached
-			}
-
-			trial := copyCandidateWithoutScenarioIndex(reduced, idx)
-			trials++
-
-			cmp := runCompare(current, candidate, trial, budget)
-			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-				reduced = trial
-				changed = true
-			} else {
-				idx++
-			}
-		}
-
-		// 2. Reduce faults in fixed index order
-		fIdx := 0
-		for fIdx < len(reduced.Faults) {
-			if len(reduced.Scenario) == 0 && len(reduced.Faults) <= 1 {
-				fIdx++
-				continue
-			}
-
-			if trials >= maxTrials {
-				reduced.Tuple = computeCandidateTuple(reduced)
-				return reduced, LimitReached
-			}
-
-			trial := copyCandidateWithoutFaultIndex(reduced, fIdx)
-			trials++
-
-			cmp := runCompare(current, candidate, trial, budget)
-			if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
-				reduced = trial
-				changed = true
-			} else {
-				fIdx++
+		for _, kind := range []fabric.ActionKind{fabric.ActionInject, fabric.ActionFault} {
+			idx := 0
+			for idx < len(reduced.Actions) {
+				if reduced.Actions[idx].Kind != kind || len(reduced.Actions) <= 1 {
+					idx++
+					continue
+				}
+				if trials >= maxTrials {
+					reduced.Tuple = computeCandidateTuple(reduced)
+					return reduced, LimitReached
+				}
+				trial := copyCandidateWithoutActionIndex(reduced, idx)
+				trials++
+				cmp := runCompare(current, candidate, trial, budget)
+				if cmp.Disposition == analysis.Different && cmp.Difference.Observable == targetObservable {
+					reduced = trial
+					changed = true
+				} else {
+					idx++
+				}
 			}
 		}
 
@@ -116,39 +90,34 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 }
 
 func computeCandidateTuple(c Candidate) Tuple {
-	parts := make([]string, 0, len(c.Scenario)+len(c.Faults))
-	for _, inj := range c.Scenario {
-		var vid vlan.ID
-		if len(inj.Frame.Tags) > 0 {
-			vid = inj.Frame.Tags[0].VID
+	parts := make([]string, 0, len(c.Actions))
+	for _, kind := range []fabric.ActionKind{fabric.ActionInject, fabric.ActionFault} {
+		for _, action := range c.Actions {
+			if action.Kind != kind {
+				continue
+			}
+			if kind == fabric.ActionFault {
+				parts = append(parts, string(formatFaultTuple(*action.Fault, action.At)))
+				continue
+			}
+			inj := action.Inject
+			var vid vlan.ID
+			if len(inj.Frame.Tags) > 0 {
+				vid = inj.Frame.Tags[0].VID
+			}
+			etype := inj.Frame.EtherType
+			if etype == 0 {
+				etype = ethernet.EtherTypeIPv4
+			}
+			parts = append(parts, string(formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, etype, inj.Frame.Payload)))
 		}
-		etype := inj.Frame.EtherType
-		if etype == 0 {
-			etype = ethernet.EtherTypeIPv4
-		}
-		parts = append(parts, string(formatL2Tuple(inj.Origin, inj.Frame.Dst, vid, etype, inj.Frame.Payload)))
-	}
-	for _, f := range c.Faults {
-		parts = append(parts, string(formatFaultTuple(FaultSpec{A: f.A, B: f.B, Fault: f.Fault}, f.At)))
-	}
-	if len(parts) == 0 {
-		return Tuple("")
-	}
-	if len(parts) == 1 {
-		return Tuple(parts[0])
 	}
 	return Tuple(strings.Join(parts, "; "))
 }
 
-func copyCandidateWithoutScenarioIndex(c Candidate, removeIdx int) Candidate {
+func copyCandidateWithoutActionIndex(c Candidate, removeIdx int) Candidate {
 	cp := c.Clone()
-	cp.Scenario = append(cp.Scenario[:removeIdx], cp.Scenario[removeIdx+1:]...)
-	return cp
-}
-
-func copyCandidateWithoutFaultIndex(c Candidate, removeIdx int) Candidate {
-	cp := c.Clone()
-	cp.Faults = append(cp.Faults[:removeIdx], cp.Faults[removeIdx+1:]...)
+	cp.Actions = append(cp.Actions[:removeIdx], cp.Actions[removeIdx+1:]...)
 	return cp
 }
 

@@ -164,8 +164,8 @@ func TestMinimizePaddedCounterexampleReducesToMinimal(t *testing.T) {
 	}
 
 	paddedCandidate := Candidate{
-		Tuple:    "padded-candidate",
-		Scenario: []fabric.Injection{inj0, inj1, inj2, inj3},
+		Tuple:   "padded-candidate",
+		Actions: []fabric.Action{{At: inj0.At, Kind: fabric.ActionInject, Inject: &inj0}, {At: inj1.At, Kind: fabric.ActionInject, Inject: &inj1}, {At: inj2.At, Kind: fabric.ActionInject, Inject: &inj2}, {At: inj3.At, Kind: fabric.ActionInject, Inject: &inj3}},
 	}
 
 	initialCmp := runCompare(cur, cand, paddedCandidate, 10)
@@ -178,11 +178,11 @@ func TestMinimizePaddedCounterexampleReducesToMinimal(t *testing.T) {
 	if minimality != Minimal {
 		t.Fatalf("minimality = %v, want %v", minimality, Minimal)
 	}
-	if len(reduced.Scenario) != 1 {
-		t.Fatalf("len(reduced.Scenario) = %d, want 1 (reduced to single critical injection)", len(reduced.Scenario))
+	if len(reduced.Actions) != 1 {
+		t.Fatalf("len(reduced.Actions) = %d, want 1 (reduced to single critical injection)", len(reduced.Actions))
 	}
-	if string(reduced.Scenario[0].Frame.Payload) != "critical" {
-		t.Errorf("retained injection payload = %q, want 'critical'", string(reduced.Scenario[0].Frame.Payload))
+	if string(reduced.Actions[0].Inject.Frame.Payload) != "critical" {
+		t.Errorf("retained injection payload = %q, want 'critical'", string(reduced.Actions[0].Inject.Frame.Payload))
 	}
 
 	// Verify reduced candidate still exhibits the exact same observable
@@ -226,10 +226,14 @@ func TestMinimizeLimitReachedReportedWithPartialReduction(t *testing.T) {
 		makeInj(3, "pad-3", "h3", h1MAC),
 		makeInj(4, "pad-4", "h3", h1MAC),
 	}
+	actions := make([]fabric.Action, len(candInjs))
+	for i := range candInjs {
+		actions[i] = fabric.Action{At: candInjs[i].At, Kind: fabric.ActionInject, Inject: &candInjs[i]}
+	}
 
 	paddedCandidate := Candidate{
-		Tuple:    "padded-candidate",
-		Scenario: candInjs,
+		Tuple:   "padded-candidate",
+		Actions: actions,
 	}
 
 	// Max 1 trial: will only attempt 1 removal and halt
@@ -238,8 +242,8 @@ func TestMinimizeLimitReachedReportedWithPartialReduction(t *testing.T) {
 	if minimality != LimitReached {
 		t.Fatalf("minimality = %v, want %v", minimality, LimitReached)
 	}
-	if len(reduced.Scenario) >= len(candInjs) || len(reduced.Scenario) == 1 {
-		t.Fatalf("len(reduced.Scenario) = %d, want partial reduction (between 2 and %d)", len(reduced.Scenario), len(candInjs)-1)
+	if len(reduced.Actions) >= len(candInjs) || len(reduced.Actions) == 1 {
+		t.Fatalf("len(reduced.Actions) = %d, want partial reduction (between 2 and %d)", len(reduced.Actions), len(candInjs)-1)
 	}
 }
 
@@ -252,8 +256,8 @@ func TestMinimizeRejectsReductionThatChangesObservable(t *testing.T) {
 	// Only 1 critical injection
 	cand1 := Candidate{
 		Tuple: "only-critical",
-		Scenario: []fabric.Injection{
-			{
+		Actions: []fabric.Action{
+			{At: t0, Kind: fabric.ActionInject, Inject: &fabric.Injection{
 				At:     t0,
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
@@ -262,7 +266,7 @@ func TestMinimizeRejectsReductionThatChangesObservable(t *testing.T) {
 					EtherType: ethernet.EtherTypeIPv4,
 					Payload:   []byte("critical"),
 				},
-			},
+			}},
 		},
 	}
 
@@ -270,8 +274,8 @@ func TestMinimizeRejectsReductionThatChangesObservable(t *testing.T) {
 	if minimality != Minimal {
 		t.Errorf("minimality = %v, want %v", minimality, Minimal)
 	}
-	if len(reduced.Scenario) != 1 {
-		t.Errorf("critical element was removed: %d elements remain", len(reduced.Scenario))
+	if len(reduced.Actions) != 1 {
+		t.Errorf("critical element was removed: %d elements remain", len(reduced.Actions))
 	}
 }
 
@@ -305,10 +309,14 @@ func TestMinimizeLimitReachedUpdatesReducedTuple(t *testing.T) {
 		makeInj(3, "pad-3", "h3", h1MAC),
 		makeInj(4, "pad-4", "h3", h1MAC),
 	}
+	actions := make([]fabric.Action, len(candInjs))
+	for i := range candInjs {
+		actions[i] = fabric.Action{At: candInjs[i].At, Kind: fabric.ActionInject, Inject: &candInjs[i]}
+	}
 
 	paddedCandidate := Candidate{
-		Tuple:    "original-unminimized-tuple",
-		Scenario: candInjs,
+		Tuple:   "original-unminimized-tuple",
+		Actions: actions,
 	}
 
 	reduced, minimality := MinimizeWithLimit(cur, cand, paddedCandidate, 10, 1)
@@ -460,8 +468,8 @@ func TestMinimizeFixedPointSecondPassRemovals(t *testing.T) {
 	}
 
 	candidate := Candidate{
-		Tuple:    "fixed-point-test",
-		Scenario: []fabric.Injection{injA, injB, injC},
+		Tuple:   "fixed-point-test",
+		Actions: []fabric.Action{{At: injA.At, Kind: fabric.ActionInject, Inject: &injA}, {At: injB.At, Kind: fabric.ActionInject, Inject: &injB}, {At: injC.At, Kind: fabric.ActionInject, Inject: &injC}},
 	}
 
 	// Verify that a single pass (3 trials: try injA [fail], try injB [succeed], try injC [fail])
@@ -470,8 +478,8 @@ func TestMinimizeFixedPointSecondPassRemovals(t *testing.T) {
 	if singlePassMinimality != LimitReached {
 		t.Fatalf("single pass minimality = %v, want %v", singlePassMinimality, LimitReached)
 	}
-	if len(singlePassReduced.Scenario) != 2 {
-		t.Fatalf("single pass len = %d, want 2 (injA unremovable on pass 1)", len(singlePassReduced.Scenario))
+	if len(singlePassReduced.Actions) != 2 {
+		t.Fatalf("single pass len = %d, want 2 (injA unremovable on pass 1)", len(singlePassReduced.Actions))
 	}
 
 	// Full fixed-point minimization repeats passes until 0 removals, successfully removing injA on pass 2:
@@ -479,10 +487,10 @@ func TestMinimizeFixedPointSecondPassRemovals(t *testing.T) {
 	if minimality != Minimal {
 		t.Fatalf("minimality = %v, want %v", minimality, Minimal)
 	}
-	if len(reduced.Scenario) != 1 {
-		t.Fatalf("len(reduced.Scenario) = %d, want 1; both A and B should be removed by fixed-point", len(reduced.Scenario))
+	if len(reduced.Actions) != 1 {
+		t.Fatalf("len(reduced.Actions) = %d, want 1; both A and B should be removed by fixed-point", len(reduced.Actions))
 	}
-	if string(reduced.Scenario[0].Frame.Payload) != "critical" {
-		t.Errorf("remaining injection payload = %q, want 'critical'", string(reduced.Scenario[0].Frame.Payload))
+	if string(reduced.Actions[0].Inject.Frame.Payload) != "critical" {
+		t.Errorf("remaining injection payload = %q, want 'critical'", string(reduced.Actions[0].Inject.Frame.Payload))
 	}
 }
