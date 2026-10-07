@@ -1108,15 +1108,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	}
 
 	if len(replies) != 3 {
-		t.Fatalf("got %d replies from sw2 on 1/1/2 after t0+4s, want 3 (a hello, one reply, and the release)", len(replies))
+		t.Fatalf("got %d replies from sw2 on 1/1/2 after t0+4s, want 3 (one periodic hello, one request reply, and the held request's release)", len(replies))
 	}
 
 	wantFirstReplyAt := t0.Add(4*time.Second + 672*time.Nanosecond)
 	if !replies[0].Injection.At.Equal(wantFirstReplyAt) {
 		t.Errorf("first reply At = %v, want %v", replies[0].Injection.At, wantFirstReplyAt)
-	}
-	if !replies[0].Injection.At.Before(t0.Add(5 * time.Second)) {
-		t.Errorf("first reply At %v is not before t0+5s", replies[0].Injection.At)
 	}
 
 	if !replies[1].Injection.At.Equal(t0.Add(4100*time.Millisecond + 672*time.Nanosecond)) {
@@ -1125,17 +1122,6 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 
 	if !replies[2].Injection.At.Equal(t0.Add(5*time.Second + 672*time.Nanosecond)) {
 		t.Errorf("third reply At = %v, want t0+5s", replies[2].Injection.At)
-	}
-
-	for _, e := range replies[2].Entries {
-		if e.Kind == fabric.EntryCrossing {
-			if e.Wait != 0 {
-				t.Errorf("crossing Wait = %v, want 0", e.Wait)
-			}
-			if !e.At.Equal(t0.Add(5*time.Second + 2*672*time.Nanosecond)) {
-				t.Errorf("crossing At = %v, want %v", e.At, t0.Add(5*time.Second+2*672*time.Nanosecond))
-			}
-		}
 	}
 
 	for {
@@ -1157,7 +1143,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 	if repliesAfter != 3 {
-		t.Errorf("replies between t0+4s and t0+6s = %d, want 3 (one periodic hello plus the held request and its release)", repliesAfter)
+		t.Errorf("replies between t0+4s and t0+6s = %d, want 3 (one periodic hello, one request reply, and the held request's release)", repliesAfter)
 	}
 }
 

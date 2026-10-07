@@ -1,6 +1,6 @@
 // Package stp implements the Rapid Spanning Tree Protocol and Multiple
-// Spanning Tree Protocol (IEEE 802.1D-2004, carried into 802.1Q clause 13)
-// for the virtual switch. It calculates loop-free topologies, elects roots,
+// Spanning Tree Protocol using IEEE 802.1Q-2003 clause 13 and the
+// P802.1aq/D1.5 draft for the virtual switch. It elects roots
 // and drives state transitions. A nil MST configuration leaves the
 // bridge on plain RSTP with the CIST as its only tree.
 package stp
@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	// DefaultBridgePriority is the IEEE 802.1D recommended default bridge priority (32768).
+	// DefaultBridgePriority is the default bridge priority (32768).
 	DefaultBridgePriority uint16 = 32768
 
 	// DefaultHelloTime is the standard hello timer interval of 2 seconds.
@@ -31,13 +31,16 @@ const (
 	// DefaultPortPriority is the standard administrative port priority (128).
 	DefaultPortPriority uint8 = 128
 
-	// MaxPathCost is the largest administrative or operational path cost IEEE 802.1D permits.
+	// MaxPathCost is the largest administrative or operational path cost the layer accepts.
 	MaxPathCost uint32 = 200_000_000
 
-	// DefaultTxHoldCount is the standard transmit hold count limit of 6 BPDUs per second.
+	// DefaultTxHoldCount is the default transmit counter limit of 6.
+	// Draft P802.1aq/D1.5 Table 13-5 gives the default. Figure 13-15
+	// decreases the counter by one per second.
 	DefaultTxHoldCount uint8 = 6
 
-	// migrateTime is the protocol migration delay of 3 seconds (IEEE 802.1D-2004 Table 17-1).
+	// migrateTime is the protocol migration delay of 3 seconds
+	// (draft P802.1aq/D1.5 clause 13.26.6 and Table 13-5).
 	migrateTime time.Duration = 3 * time.Second
 
 	// defaultMaxHops is the IEEE 802.1Q recommended default MST region maximum hop count (20).
@@ -109,7 +112,7 @@ func (m PointToPointMode) TypeID() string { return "stp.point_to_point" }
 func (m PointToPointMode) Canonical() string { return string(effectivePointToPoint(m)) }
 
 // Config defines the spanning tree configuration of a virtual switch. A
-// non-nil MST selects the Multiple Spanning Tree Protocol region it names; a
+// non-nil MST selects the Multiple Spanning Tree Protocol region it names. A
 // non-nil PVST selects Per-VLAN Rapid Spanning Tree instead. A Config with
 // both is invalid. Neither set leaves the bridge running plain Rapid
 // Spanning Tree.
@@ -250,9 +253,10 @@ func (c Config) Normalize(_ layer.Env) Config {
 	return cloned
 }
 
-// defaultPathCost returns the IEEE 802.1D-2004 recommended path cost for the
-// given link speed in bits per second. A speed between two rows takes the cost
-// of the row at or below it. A zero or unknown speed returns 20,000.
+// defaultPathCost returns the layer's path cost for the given link speed in
+// bits per second. IEEE 802.1D-2004 was not read, so attribution of these
+// costs to its recommended values is unverified. A speed between two rows
+// takes the cost of the row at or below it. A zero or unknown speed returns 20,000.
 func defaultPathCost(speedBPS uint64) uint32 {
 	switch {
 	case speedBPS >= 100_000_000_000:
@@ -270,15 +274,15 @@ func defaultPathCost(speedBPS uint64) uint32 {
 	}
 }
 
-// ValidateTimers checks the individual and relational IEEE bounds after applying
-// standard defaults to omitted timer values.
+// ValidateTimers checks the layer's individual and relational timer bounds
+// after applying defaults to omitted values.
 func (c Config) ValidateTimers() error {
 	helloTime := effectiveHelloTime(c.HelloTime)
 	maxAge := effectiveMaxAge(c.MaxAge)
 	forwardDelay := effectiveForwardDelay(c.ForwardDelay)
 
-	// The BPDU carries each timer in 1/256 s in 16 bits and 802.1D-2004
-	// clause 17.14 bounds them; a value outside would encode as another.
+	// These are the layer's configured timer bounds. IEEE 802.1D-2004
+	// clause 17.14 was not read, so that attribution is unverified.
 	for _, t := range []struct {
 		name    string
 		value   time.Duration
@@ -316,8 +320,8 @@ func (c Config) ValidateTimers() error {
 }
 
 // Validate checks the configuration against the port table: bridge priority must
-// be a multiple of 4096, effective timers must satisfy IEEE bounds, every configured
-// port must exist in the port table, and no configured port may be a LAG member.
+// be a multiple of 4096 and effective timers must satisfy ValidateTimers.
+// Every configured port must exist in the port table and may not be a LAG member.
 func (c Config) Validate(env layer.Env) error {
 	if c.MST != nil && c.PVST != nil {
 		return errs.New().
