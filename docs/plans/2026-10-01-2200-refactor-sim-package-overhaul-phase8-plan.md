@@ -9,6 +9,11 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 
 # Analysis, Trace, Stream, and Search - Plan
 
+Implemented all six units. Verification ran from 2026-10-07T20:02:49Z to
+2026-10-07T20:47:09Z. Landed: `1992f7c9..c885895c`. Independent source frames,
+fabric-owned locations and alignment, validated search accounting, and exact
+minimization targets are covered by the closure evidence below.
+
 ## Goal
 
 Stream sources yield independent frames, alignment and minimization name the journey
@@ -371,9 +376,9 @@ Documentation-only re-planning runs:
 
 - [x] Parent U8 is satisfied, including exact journey targets.
 - [x] Every inventory entry has failing-first evidence or a struck reason.
-- [ ] Every changed path has a green verifier receipt.
+- [x] Every changed path has a green verifier receipt.
 - [x] README examples and the amended direction record match the APIs.
-- [ ] This plan reads `implemented` with an outcome note under its title.
+- [x] This plan reads `implemented` with an outcome note under its title.
 - [x] No plan labels or unused interfaces enter code.
 
 ## Open questions
