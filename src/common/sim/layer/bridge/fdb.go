@@ -43,9 +43,8 @@ type Counters struct {
 type Origin string
 
 const (
-	// Configured is the zero value: an operator or a preloaded seed
-	// installed the record.
-	Configured Origin = ""
+	// Configured is a record installed by an operator or a preloaded seed.
+	Configured Origin = "configured"
 
 	// Observed is a record ingress learning installed from a live frame.
 	Observed Origin = "observed"
@@ -55,9 +54,8 @@ const (
 type Lifetime string
 
 const (
-	// Aging is the zero value: [Layer.Advance] removes the record once it has
-	// sat longer than the bridge's configured aging time.
-	Aging Lifetime = ""
+	// Aging is a record that expires after the bridge's configured aging time.
+	Aging Lifetime = "aging"
 
 	// Static is a record [Layer.Advance] never removes.
 	Static Lifetime = "static"
@@ -88,7 +86,7 @@ type fdbKey struct {
 	mac netaddr.MAC
 }
 
-// Counters returns a snapshot of the forwarding database lifecycle counters.
+// Counters returns the forwarding database lifecycle counters as of the last write.
 func (b *Layer) Counters() Counters {
 	return b.counters
 }
@@ -138,7 +136,8 @@ func (b *Layer) Flush(targets []layer.FlushTarget) {
 // LAG member is stored under the LAG, as the relay learns it, so a later lookup
 // treats the aggregation as one port. Invalid or duplicate seeds leave the table unchanged.
 // Aging seeds count as learned and are bounded by MaxEntries, evicting the
-// oldest dynamic entry when the table exceeds the bound. Static seeds count nothing.
+// oldest dynamic entry when the table exceeds the bound. An aging seed for an existing
+// static entry changes nothing. Static seeds count nothing.
 func (b *Layer) Learn(seeds []Seed) error {
 	normalized, err := NormalizeSeeds(b.cfg, layer.Env{Ports: b.ports}, seeds)
 	if err != nil {
@@ -156,7 +155,11 @@ func (b *Layer) Learn(seeds []Seed) error {
 			continue
 		}
 
-		if !exists || existing.Lifetime == Static {
+		if exists && existing.Lifetime == Static {
+			continue
+		}
+
+		if !exists {
 			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
 				b.evictOldestDynamic()
 			}
@@ -176,7 +179,8 @@ func (b *Layer) Learn(seeds []Seed) error {
 	return nil
 }
 
-// Entries returns all active forwarding database entries sorted by filtering database ID then MAC address.
+// Entries returns the forwarding database as of its last write, sorted by FID then MAC.
+// It does not expire entries.
 func (b *Layer) Entries() []Entry {
 	entries := make([]Entry, 0, len(b.fdb))
 	for _, e := range b.fdb {
@@ -213,13 +217,17 @@ func (b *Layer) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 // Advance removes dynamic forwarding database entries older than the configured aging time relative to now. The returned layer.Effects is always empty.
 func (b *Layer) Advance(now time.Time) layer.Effects {
 	for key, e := range b.fdb {
-		if e.Lifetime != Static && now.Sub(e.LearnedAt) > b.agingTime {
+		if b.expired(e, now) {
 			delete(b.fdb, key)
 			b.dynamic--
 			b.counters.Expired++
 		}
 	}
 	return layer.Effects{}
+}
+
+func (b *Layer) expired(e Entry, now time.Time) bool {
+	return e.Lifetime == Aging && now.Sub(e.LearnedAt) > b.agingTime
 }
 
 func (b *Layer) evictOldestDynamic() (Entry, bool) {

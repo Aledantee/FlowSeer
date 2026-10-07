@@ -98,18 +98,30 @@ its own customer filtering and service classification.
 the classified VID. Without it every entry uses FID 0. Entries name logical
 ports, including a LAG when reception or a seed names its member.
 
-`Origin` records `Configured` (the empty string) or `Observed`.
-`Lifetime` independently records `Aging` (the empty string) or `Static`.
+`Origin` records `Configured` (`"configured"`) or `Observed` (`"observed"`).
+`Lifetime` independently records `Aging` (`"aging"`) or `Static` (`"static"`).
+`NormalizeSeeds` fills either empty field with its named default and refuses
+unknown values at `seeds.<i>.origin` or `seeds.<i>.lifetime`.
 `Advance(now)` expires aging entries only when their age exceeds
-`AgingTime`. Callers must advance before forwarding to retire expired
-records. Neither forwarding lookup nor `Entries()` ages the table.
-`Entries()` sorts its snapshot by FID and MAC.
+`AgingTime`. Destination lookup treats such entries as absent at
+`Ingress.Now`, as Q2003 8.10.3 requires of aged dynamic information.
+Lookup writes nothing. `Entries()` and `Counters()` report the table as of
+its last write, and `Entries()` sorts its snapshot by FID and MAC.
 
 Ingress learns individual source addresses when learning is permitted,
-refreshes aging records, and preserves static records. Flood VLANs disable
-this learning. `Learn` validates the entire seed slice before writes.
-Aging seeds count as learned when inserted and can currently replace an
-existing static entry. Seed validation is in [seed.go](seed.go).
+refreshes aging records, and preserves static records. An expired source
+entry is removed and learned anew, counting one expiry and one learn.
+A non-learning call changes neither entries nor counters. With VLAN
+awareness, at least one switchport must carry the VID, per Q2003 8.8 d.
+That port can differ from the ingress port. VLAN-unaware learning uses FID
+0 as before. Flood VLANs disable learning.
+
+`Learn` validates the entire seed slice before writes. Aging seeds count as
+learned when inserted. An aging seed for an existing static key changes
+nothing and counts nothing, preserving the static control required by
+Q2003 8.10.1 c 1 and Table 8-5. Seed validation is in [seed.go](seed.go).
+`TestAgingSeedPreservesStaticEntry` and `TestSourceLearningAtFrameTime` in
+[fdb_time_test.go](fdb_time_test.go) exercise these lifecycle rules.
 
 `MaxEntries` bounds aging entries alone. Eviction removes the oldest aging
 entry, with FID and then MAC breaking equal-time ties, so map iteration
@@ -208,6 +220,13 @@ and `ingress_admission_test.go` check cross-cutting contracts.
 - An outer TPID other than `0x8100` is payload on a port without a tunnel.
   The [virtual-device direction](../../../../../docs/architecture/2026-09-10-virtual-device-direction.md)
   chooses one C-VLAN component. Tunnel ports follow OVS `dot1q-tunnel`.
+- A seed's port must relate to its FID through PVID, tagged or untagged
+  membership, or a tunnel ([seed.go](seed.go)). Q2003 8.8 permits learning
+  on a port that admits ingress even without egress membership.
+  [Derive](../../device/vswitch/derive.go) replays learned entries as seeds
+  and can therefore drop such an entry. The
+  [loader](../../netmodel/netmodel.go) uses seed refusal to report collected
+  forwarding entries that contradict the VLAN configuration.
 
 IEEE 802.1Q editions after 2003 and IEEE 802.1ad were not read. Their
 requirements are unverified. The cited 2012 textual convention supplies

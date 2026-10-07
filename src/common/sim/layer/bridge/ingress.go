@@ -389,12 +389,18 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 		return Ingress{}, res, false
 	}
 
-	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) {
+	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) && b.hasVLANMember(classifiedFID) {
 		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
 		if b.fdbScope.Compare(analysis.WholeScope()) != 0 {
 			res.ConsultScopes(fdbLookupScope(b.fdbScope, classifiedFID, f.Src))
 		}
 		existing, exists := b.fdb[srcKey]
+		if exists && b.expired(existing, now) {
+			delete(b.fdb, srcKey)
+			b.dynamic--
+			b.counters.Expired++
+			exists = false
+		}
 		if !exists {
 			var (
 				evicted    Entry
@@ -483,6 +489,18 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 	}
 
 	return in, Result{}, true
+}
+
+func (b *Layer) hasVLANMember(fid vlan.ID) bool {
+	if b.cfg.VLAN == nil {
+		return true
+	}
+	for _, switchport := range b.cfg.VLAN.Switchports {
+		if switchport.CarriesVID(fid) {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Layer) consultForwardingPath(res *Result, name string) {

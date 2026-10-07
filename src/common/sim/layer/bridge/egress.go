@@ -47,7 +47,7 @@ func (b *Layer) Egress(in Ingress, f ethernet.Frame) Result {
 			if b.fdbScope.Compare(analysis.WholeScope()) != 0 {
 				res.ConsultScopes(fdbLookupScope(b.fdbScope, in.FID, f.Dst))
 			}
-			if entry, exists := b.fdb[dstKey]; exists {
+			if entry, exists := b.fdb[dstKey]; exists && !b.expired(entry, in.Now) {
 				isHit = true
 				hitPort = entry.Port
 				res.Steps = append(res.Steps, trace.Step{
