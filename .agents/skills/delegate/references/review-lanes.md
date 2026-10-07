@@ -10,7 +10,7 @@ The run log names the model that executed each unit, with `$plan` the
 plan's path:
 
 ```bash
-python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; events=list(runlog.read()); grades={}; [grades.__setitem__(e.get("run"), e.get("outcome")) for e in events if e.get("event") == "grade"]; [print(e.get("unit") or "-", e.get("model") or e.get("agent")) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grades.get(e.get("run")) in {"accepted", "amended"}]' "$plan"
+uv run --quiet tools/scripts/run.py delegate runlog executors --plan "$plan"
 ```
 
 - The last `grade` event for a run wins. A rejected or blocked executor did
@@ -38,7 +38,7 @@ being the coordinator's registry model id, and exits nonzero on a revision
 git cannot resolve:
 
 ```bash
-python3 -B -c 'import subprocess, sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; git = lambda *a: subprocess.run(["git", *a], capture_output=True, text=True, check=True).stdout.split(); events = list(runlog.read()); grade = {e["run"]: e.get("outcome") for e in events if e.get("event") == "grade"}; head = {e["run"]: e["head"] for e in events if e.get("event") == "end"}; runs = [(set(git("rev-list", e["base"] + ".." + head[e["run"]])), e.get("model") or e.get("agent"), e["at"]) for e in events if e.get("event") == "start" and e["role"].startswith("execute") and e.get("plan") == sys.argv[1] and grade.get(e["run"]) in {"accepted", "amended"} and e["run"] in head]; [print(c[:12], max((r for r in runs if c in r[0]), key=lambda r: (-len(r[0]), r[2]), default=(None, sys.argv[3]))[1]) for c in git("rev-list", "--no-merges", sys.argv[2])]' "$plan" "$base..$head" "$coordinator"
+uv run --quiet tools/scripts/run.py delegate runlog writers --plan "$plan" --range "$base..$head" --coordinator "$coordinator"
 ```
 
 Split by the added lines that survive at head, not by commit, since a fix

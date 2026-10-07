@@ -24,7 +24,7 @@ review left: the plan's
 `## Review gaps` section, or for planless work the last `gaps:` line of
 `$(git rev-parse --git-dir)/flowseer-checkpoints`. Read the recorded
 round count beside it: for a plan with
-`.claude/skills/plan/scripts/plan_record.py show <plan>`, or for planless
+`uv run tools/scripts/run.py plan record show <plan>`, or for planless
 work the last `rounds:` line of that file. A run on a scope with a recorded verdict is a new review that
 continues that count (`references/fix-loop.md`, When to stop, says when it
 starts at zero again). Step 3 carries the record's items into the reviewer
@@ -61,7 +61,7 @@ external convention or library a finding could cite (`go.mod`, `buf.lock`,
 the semantic-convention version `docs/conventions/observability.md` names),
 so the reviewer checks rather than recalls, and the items of the record
 (step 1) as the previous round's findings. When
-`.claude/skills/plan/scripts/plan_record.py is <plan> status=planned`
+`uv run tools/scripts/run.py plan record is <plan> status=planned`
 succeeds because work is mid-flight, say so in the brief. State
 whose input the change reads and whether that author is trusted, quoting
 the plan's Out of scope (`plan`, step 3). Without one, files contributors
@@ -184,7 +184,7 @@ judged, zeros included, sandbox disabled (the log lives under
 `~/.claude/models`).
 
 ```bash
-python3 .claude/skills/delegate/scripts/runlog.py review --model claude-opus-5-5 \
+uv run tools/scripts/run.py delegate runlog review --model claude-opus-5-5 \
   --role review-unit --agent <agent id or run> --plan docs/plans/<plan>.md \
   --findings 4 --held 3 --unverified 1
 ```
@@ -251,7 +251,7 @@ plan's paths), record the verdict where `land` reads it (`land`, step 1). With
 a plan, run:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>" [--rounds <n>]
+uv run tools/scripts/run.py plan record review <plan> "<verdict>" [--rounds <n>]
 ```
 
 The command stores the verdict and, when supplied, the round count. Write the
@@ -264,14 +264,14 @@ applicable, and review-fix-test flag in the record. Commit that with a
 message naming the review and a body that lists the open items, so they
 outlive the plan's retirement. Then run the verifier on the plan path so the
 receipt post-dates the commit. Planless work runs
-`.claude/skills/verify-change/scripts/ledger.py checkpoint review "<verdict>"`,
+`uv run tools/scripts/run.py verify ledger checkpoint review "<verdict>"`,
 which appends the line to `$(git rev-parse --git-dir)/flowseer-checkpoints`
 and needs no commit or run, then writes the record and the round count the
 same way:
 
 ```bash
-.claude/skills/verify-change/scripts/ledger.py checkpoint gaps "<item> | <item>"
-.claude/skills/verify-change/scripts/ledger.py checkpoint rounds "<n>"
+uv run tools/scripts/run.py verify ledger checkpoint gaps "<item> | <item>"
+uv run tools/scripts/run.py verify ledger checkpoint rounds "<n>"
 ```
 
 Never pass `--replace`, since it rewrites the whole file and drops the
@@ -325,7 +325,7 @@ reruns the recorded mutation on the merged tree and closes the item only
 when the suite fails. It closes the follow-ups it fixed the same way, and
 deletes a convention item when the corrected lines stand at its
 `path:line`. Then it runs
-`.claude/skills/plan/scripts/plan_record.py review <plan> "accept after fixes"
+`uv run tools/scripts/run.py plan record review <plan> "accept after fixes"
 --rounds <n>` as above. A security, behavior, or blocking false-test finding
 left unfixed leaves `fixes needed`, and so does
 an open Requirement question. A round that was not clean is settled as

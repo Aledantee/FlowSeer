@@ -38,7 +38,7 @@ report `runtime.reachable: true`.
     below, which prints the `run`:
 
     ```bash
-    python3 .claude/skills/delegate/scripts/runlog.py start --lane <slug> --cli claude --role <role> --worktree <path> --branch <branch> --base "$base" --model <id> --plan <plan> --unit <stage>
+    uv run tools/scripts/run.py delegate runlog start --lane <slug> --cli claude --role <role> --worktree <path> --branch <branch> --base "$base" --model <id> --plan <plan> --unit <stage>
     ```
 
   - A later stage of a plan whose first stage ran this way cannot join that
@@ -55,8 +55,8 @@ report `runtime.reachable: true`.
     classifier refuses what a stage needs: the verifier with the sandbox
     disabled, a commit or edit that touches a policy surface, a test
     mutation, and git in a stage worker's worktree.
-  - After the merge it runs `runlog.py end --run <run> --head <sha>`, and
-    `runlog.py grade --run <run> --outcome <outcome> --verify <result>` in
+  - After the merge it runs `delegate runlog end --run <run> --head <sha>`, and
+    `delegate runlog grade --run <run> --outcome <outcome> --verify <result>` in
     place of `orca-worker.sh grade`. `git worktree remove <path>` takes the
     place of `orca-worker.sh stop`. When the harness refuses it, the
     report names the path. The rest of the calling skill's after-stage

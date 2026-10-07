@@ -33,8 +33,9 @@ set -uo pipefail
 
 die() { local msg="$*"; echo "orca-worker: ${msg#orca-worker: }" >&2; exit 1; }
 need() { command -v "$1" >/dev/null || die "$1 not on PATH"; }
-need orca; need python3; need git
+need orca; need python3; need git; need uv
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+run_py=$(git -C "$script_dir" rev-parse --show-toplevel)/tools/scripts/run.py
 
 json() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv[1], {"d": d}))' "$1" 2>/dev/null; }
 state_dir=$(git rev-parse --path-format=absolute --git-common-dir)/orca-workers
@@ -149,11 +150,11 @@ model_check_lane() {
     echo "not checked: $cli"
     return 0
   fi
-  start_data=$(python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; events = [event for event in runlog.read() if event.get("event") == "start" and event.get("run") == sys.argv[2]]; event = events[-1] if events else {}; print("\t".join((event.get("model", ""), event.get("at", ""))))' "$script_dir" "$run_id") \
+  start_data=$(uv run --quiet "$run_py" delegate runlog last-start --run "$run_id") \
     || die "cannot read start event for lane $lane"
   IFS=$'\t' read -r model at <<<"$start_data"
   [[ -n $model && -n $at ]] || die "lane $lane has no start model and time"
-  python3 "$script_dir/model_check.py" "$path" "$model" "$at"
+  uv run --quiet "$run_py" delegate model-check "$path" "$model" "$at"
 }
 
 cmd=${1:-}; shift || true
@@ -236,7 +237,7 @@ case "$cmd" in
       local reason="$*" head_sha end_out cleanup_failed='' state_out='' kids
       if [[ -n $run_id ]]; then
         head_sha=$(git -C "$path" rev-parse HEAD 2>/dev/null) || head_sha=$base_sha
-        end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
+        end_out=$(uv run --quiet "$run_py" delegate runlog end --run "$run_id" --head "$head_sha" 2>&1) \
           || reason="${reason}; run log end failed: $end_out"
       fi
       if [[ -n $term ]] && ! orca terminal close --terminal "$term" --json >/dev/null 2>&1; then
@@ -332,7 +333,7 @@ case "$cmd" in
     [[ -n $agent ]] && start_args+=(--agent "$agent")
     [[ -n $plan ]] && start_args+=(--plan "$plan")
     [[ -n $unit ]] && start_args+=(--unit "$unit")
-    run_out=$(python3 "$script_dir/runlog.py" "${start_args[@]}" 2>&1) || undo "run log start failed: $run_out"
+    run_out=$(uv run --quiet "$run_py" delegate runlog "${start_args[@]}") || undo "run log start failed: $run_out"
     run_id=$run_out
 
     # The brief goes in a file in the worker's checkout and the terminal gets
@@ -557,7 +558,7 @@ case "$cmd" in
       --verify "$verify"
     )
     [[ -n $note ]] && grade_args+=(--note "$note")
-    out=$(python3 "$script_dir/runlog.py" "${grade_args[@]}" 2>&1) || die "$out"
+    out=$(uv run --quiet "$run_py" delegate runlog "${grade_args[@]}" 2>&1) || die "$out"
     ;;
   stop)
     name=${1:-}; [[ -n $name ]] || die "stop SLUG [--stalled] [--keep-worktree]"
@@ -576,9 +577,7 @@ case "$cmd" in
     [[ $kept == false || $keep == false ]] || die "lane $name is already kept; stop it without --keep-worktree to remove the worktree"
     run_id=$(field "$name" run)
     [[ -n $run_id ]] || die "lane $name has no run; cannot verify grade"
-    # -B: a bytecode cache beside runlog.py would leave the tree untracked.
-    python3 -B -c 'import sys; sys.path.insert(0, sys.argv[1]); import runlog; sys.exit(0 if any(e.get("event") == "grade" and e.get("run") == sys.argv[2] for e in runlog.read()) else 1)' \
-      "$script_dir" "$run_id" || die "lane $name has no grade event; grade it before stop"
+    uv run --quiet "$run_py" delegate runlog has-grade --run "$run_id" || die "lane $name has no grade event; grade it before stop"
     # Removing the worktree takes every lane's checkout with it.
     if [[ $keep == false ]] && other=$(live_lane_on "$wt" "$name"); then
       die "lane $other still has a live terminal in $path; stop it first, nothing removed"
@@ -612,7 +611,7 @@ case "$cmd" in
       # still leaves the run ended. A kept lane ran both when it was kept.
       orca terminal close --terminal "$term" --json >/dev/null 2>&1 \
         || die "terminal close failed for $name; nothing removed"
-      end_out=$(python3 "$script_dir/runlog.py" end --run "$run_id" --head "$head_sha" 2>&1) \
+      end_out=$(uv run --quiet "$run_py" delegate runlog end --run "$run_id" --head "$head_sha" 2>&1) \
         || die "run log end failed after $name's terminal closed: $end_out"
     fi
     if [[ $keep == true ]]; then

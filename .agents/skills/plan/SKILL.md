@@ -35,12 +35,12 @@ which no worker may edit (`delegate`, Write the brief, item 6). Every
 decision carries its reason.
 
 Load `references/replan-phase.md` before re-planning a phase plan. Use
-`.claude/skills/plan/scripts/plan_record.py show <plan>` to confirm its
+`uv run tools/scripts/run.py plan record show <plan>` to confirm its
 `parent` state before loading the reference. It holds the checks that the tree
 is fit to plan from.
 
 Load `references/replan-implemented.md` before re-planning a plan for which
-`.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
+`uv run tools/scripts/run.py plan record is <plan> status=implemented`
 succeeds and the review sent it back. It holds the command, the Units list,
 and the ledger reset.
 
@@ -86,11 +86,11 @@ Path: `docs/plans/<date>-<type>-<slug>-plan.md`, `<date>` from
 `date +%Y-%m-%d-%H%M`, `<type>` the commit type the work will carry (`feat`,
 `fix`, `refactor`, `perf`, `docs`, `chore`). Scripts in `drive`, `next`,
 `implement`, and `verify-change` read the plan's state file through
-`.claude/skills/plan/scripts/plan_record.py`, the `### U1.` unit headings, and the `Files:` and `After:`
+`uv run tools/scripts/run.py plan record`, the `### U1.` unit headings, and the `Files:` and `After:`
 lines, so copy their shape exactly. Initialize the state file with:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
+uv run tools/scripts/run.py plan record init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
 ```
 
 ```yaml
@@ -107,12 +107,12 @@ amends: <path of the plan or direction record this one changes, if any>
 The state file beside the plan holds `status`, `readiness`, `review`,
 `review_rounds`, `compound`, `outcome`, `superseded_by`, `branch`, `parent`, `after`,
 `landed`, `phases`, and `retired`. Read it with
-`.claude/skills/plan/scripts/plan_record.py show <plan>`. Use
-`.claude/skills/plan/scripts/plan_record.py branch <plan> <name>` to record
+`uv run tools/scripts/run.py plan record show <plan>`. Use
+`uv run tools/scripts/run.py plan record branch <plan> <name>` to record
 the plan's work branch, or `branch <plan> --clear` to clear it. Use
-`.claude/skills/plan/scripts/plan_record.py ready <plan>` when a plan is
-ready. Use `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by
-<path>` or `.claude/skills/plan/scripts/plan_record.py abandon <plan>` for
+`uv run tools/scripts/run.py plan record ready <plan>` when a plan is
+ready. Use `uv run tools/scripts/run.py plan record supersede <plan> --by
+<path>` or `uv run tools/scripts/run.py plan record abandon <plan>` for
 those final states.
 
 The body, in this order; leave out an empty section:
@@ -148,7 +148,7 @@ The commands that prove the whole change, and any manual or lab check.
 ## Definition of done
 Checklist: verifier green for every changed path, package README and
 convention docs updated in the same change, this plan's outcome recorded with
-`.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+`uv run tools/scripts/run.py plan record implemented <plan> --units <n>
 --from <t> --to <t>` or `partial`, no plan labels in code.
 
 ## Open questions
@@ -252,7 +252,7 @@ the options that fit:
   lands it before the next); implement the ready phase plan, naming its
   path, in a fresh session; stop here. `implement` does not run a parent
   plan, whose units are plan files.
-- `.claude/skills/plan/scripts/plan_record.py show <plan>` reports
+- `uv run tools/scripts/run.py plan record show <plan>` reports
   `readiness: needs-decisions`: ask the unresolved design questions
   instead; do not offer the plan for implementation until they are
   answered. Open questions alone do not block the offer: name them in the

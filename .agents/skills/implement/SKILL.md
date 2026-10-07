@@ -15,7 +15,7 @@ argument-hint: "[plan path]"
 ## 1. Orient
 
 Read the plan's Goal, Decisions, and Units; the rest when a unit cites it.
-When `.claude/skills/plan/scripts/plan_record.py is <plan>
+When `uv run tools/scripts/run.py plan record is <plan>
 readiness=needs-decisions` succeeds, the plan is not executable:
 say why and ask the user whether to run `plan` to settle it (recommended)
 or stop here. A parent plan, whose Units name other plan files, is not
@@ -23,7 +23,7 @@ executable here either: ask whether to run `drive` on it (recommended,
 since it lands each phase before the next starts), implement its ready
 phase plan, naming the path, or stop here. Offer `plan` only when no phase
 plan is ready and the next one needs re-planning. Check the plan's status with
-`.claude/skills/plan/scripts/plan_record.py show <plan>` against the current
+`uv run tools/scripts/run.py plan record show <plan>` against the current
 tree; the tree wins about what exists. Record a mismatch
 in the plan's Open questions before touching code.
 
@@ -36,12 +36,12 @@ The ledger is `$(git rev-parse --git-dir)/flowseer-plan-status.json`; its
 shape is in `verify-change`'s `SKILL.md`. Load `references/resume.md` when it
 exists before the first edit. A plan with no ledger gets one, every unit
 `pending`, before the first edit; a planless request keeps no ledger. Every
-write goes through `.claude/skills/verify-change/scripts/ledger.py`, which
+write goes through `uv run tools/scripts/run.py verify ledger`, which
 resolves the git directory and recomputes `resume`. Read it with `show` or the
 Read tool; never write it by hand.
 
 ```bash
-.claude/skills/verify-change/scripts/ledger.py init <plan> U1 U2 U3
+uv run tools/scripts/run.py verify ledger init <plan> U1 U2 U3
 ```
 
 A unit added to the plan after the ledger exists has no entry, and `set`
@@ -50,12 +50,12 @@ refuses a unit the ledger does not list. Copy each `passed` unit's
 with every unit in plan order and mark the landed ones again:
 
 ```bash
-.claude/skills/verify-change/scripts/ledger.py init --force <plan> U1 U2 U3 U4
-.claude/skills/verify-change/scripts/ledger.py set U1 passed --commit <commit> --verified-at <verified_at>
+uv run tools/scripts/run.py verify ledger init --force <plan> U1 U2 U3 U4
+uv run tools/scripts/run.py verify ledger set U1 passed --commit <commit> --verified-at <verified_at>
 ```
 
 Carry each unit's `--note` over the same way, and mark each `blocked` unit
-again with `ledger.py set <unit> blocked --note <note>`, since a fresh
+again with `verify ledger set <unit> blocked --note <note>`, since a fresh
 ledger would otherwise name it as the unit to resume. Do this between units, with
 none `in_progress`: a unit marked `in_progress` again takes the current
 `HEAD` as its base, and `passed` then no longer counts the commits it made
@@ -76,7 +76,7 @@ Group the units into waves from their `After` lines: a wave is every unit
 whose prerequisites have landed. A wave of two or more units runs in workers,
 as many at once as `delegate`'s Wave size allows (or the budget a `drive`
 brief names). Load `references/workers.md` before the first such wave, and for
-any plan for which `.claude/skills/plan/scripts/plan_record.py is <plan>
+any plan for which `uv run tools/scripts/run.py plan record is <plan>
 parent!=null` succeeds. A wave of one unit runs here, except in a plan with a
 non-null parent state, which runs it in a worker as well. Running
 independent units serially needs a reason in the report, such as no pool with
@@ -84,7 +84,7 @@ headroom.
 
 For each unit:
 
-1. Re-read the unit, run `ledger.py set <unit> in_progress`, then inspect the
+1. Re-read the unit, run `verify ledger set <unit> in_progress`, then inspect the
    current source and tests for its files.
 2. Make the smallest change that satisfies it, through the editor tools, which
    run the format and schema hooks a Bash write skips. A Bash command that
@@ -138,7 +138,7 @@ For each unit:
    When a unit leaves the package red until the next unit lands, verify those
    units together and say so.
 6. Once that run's last line reads `FlowSeer verification passed.` (quote it
-   verbatim in the report), run `ledger.py set U1 passed`, which records `HEAD`
+   verbatim in the report), run `verify ledger set U1 passed`, which records `HEAD`
    and the receipt's `verified_at` and moves `resume` on. It refuses a commit
    with nothing committed since the unit went `in_progress`, since a commit
    from an earlier round is not this unit's. Add `--note` only for
@@ -146,7 +146,7 @@ For each unit:
    worktree comment to the unit that landed.
 
 A unit still red after three verifier rounds is `blocked`
-(`ledger.py set U1 blocked --note "<reason>"`), and the Finish question offers
+(`verify ledger set U1 blocked --note "<reason>"`), and the Finish question offers
 taking it back to `plan`. It holds back only the units whose `After` chain
 reaches it: every other unit still runs in its wave. Example: with U1
 blocked, U5 (`After: none`) runs and U2 (`After: U1`) waits.
@@ -166,7 +166,7 @@ cost more than a few file reads.
 ## 3. Finish
 
 Load `references/outcome-records.md` when
-`.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null` succeeds,
+`uv run tools/scripts/run.py plan record is <plan> parent!=null` succeeds,
 when the request skipped the plan, or when the session runs in Orca.
 
 1. Read the final diff against the plan's Definition of done and
@@ -174,9 +174,9 @@ when the request skipped the plan, or when the session runs in Orca.
    history references, and planning identifiers from comments.
 2. Record the outcome in the reference's records. Planless work stops at
    that and has no plan to edit. With a plan, record a finished run with
-   `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+   `uv run tools/scripts/run.py plan record implemented <plan> --units <n>
    --from <t> --to <t> [--landed <first>..<last>]`, or an open run with
-   `.claude/skills/plan/scripts/plan_record.py partial <plan> --units <n>
+   `uv run tools/scripts/run.py plan record partial <plan> --units <n>
    --from <t> --to <t> --note <units left and why>`. Read the arguments from
    the ledger: `--units` is the count of `passed` units, and `--from` and
    `--to` are the first and last of their `verified_at` values. A phase's
@@ -200,7 +200,7 @@ when the request skipped the plan, or when the session runs in Orca.
    and skips this item:
 
    ```bash
-   .claude/skills/implement/scripts/plan-deviations.py <plan> main -- <paths>
+   uv run tools/scripts/run.py implement plan-deviations <plan> main -- <paths>
    ```
 
    Report every path under "Changed, named by no unit" and every entry under

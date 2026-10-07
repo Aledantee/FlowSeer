@@ -285,7 +285,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts 
 
 ### U6. Skill and document references
 
-Files: .agents/skills/compound/SKILL.md, .agents/skills/delegate/SKILL.md, .agents/skills/delegate/references/no-orca.md, .agents/skills/delegate/references/review-lanes.md, .agents/skills/diagnose/SKILL.md, .agents/skills/drive/SKILL.md, .agents/skills/implement/SKILL.md, .agents/skills/implement/references/outcome-records.md, .agents/skills/implement/references/resume.md, .agents/skills/implement/references/workers.md, .agents/skills/land/SKILL.md, .agents/skills/land/references/missing-checkpoint.md, .agents/skills/land/references/retire-plan.md, .agents/skills/next/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/plan/references/phases.md, .agents/skills/plan/references/replan-implemented.md, .agents/skills/plan/references/replan-phase.md, .agents/skills/prose/SKILL.md, .agents/skills/review/SKILL.md, .agents/skills/review/references/fix-loop.md, .agents/skills/review/references/subject-review.md, .agents/skills/steer/SKILL.md, .agents/skills/tune/SKILL.md, .agents/skills/tune/references/calibration.md, .agents/skills/verify-change/SKILL.md, .agents/skills/verify-change/references/gate-coverage.md, docs/README.md, docs/agent-steering.md, docs/agent-observations.md, docs/doc-style.md, docs/code-style-python.md
+Files: .agents/skills/compound/SKILL.md, .agents/skills/delegate/SKILL.md, .agents/skills/delegate/references/no-orca.md, .agents/skills/delegate/references/review-lanes.md, .agents/skills/diagnose/SKILL.md, .agents/skills/drive/SKILL.md, .agents/skills/drive/references/parking.md, .agents/skills/implement/SKILL.md, .agents/skills/implement/references/outcome-records.md, .agents/skills/implement/references/resume.md, .agents/skills/implement/references/workers.md, .agents/skills/land/SKILL.md, .agents/skills/land/references/missing-checkpoint.md, .agents/skills/land/references/retire-plan.md, .agents/skills/next/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/plan/references/phases.md, .agents/skills/plan/references/replan-implemented.md, .agents/skills/plan/references/replan-phase.md, .agents/skills/prose/SKILL.md, .agents/skills/review/SKILL.md, .agents/skills/review/references/fix-loop.md, .agents/skills/review/references/subject-review.md, .agents/skills/steer/SKILL.md, .agents/skills/tune/SKILL.md, .agents/skills/tune/references/calibration.md, .agents/skills/verify-change/SKILL.md, .agents/skills/verify-change/references/gate-coverage.md, docs/README.md, docs/agent-steering.md, docs/agent-observations.md, docs/doc-style.md, docs/code-style-python.md
 After: U3, U4, U5
 Change: every line that starts or links a moved script names its command
 (`uv run tools/scripts/run.py plan record show <plan>`) or its new path,
@@ -298,8 +298,15 @@ Markdown checks need `uv` and the suite compiles every module.
 argument rule, the module-level rule scoped to command and library modules
 with the `run.py` bytecode flag as its one exception, and the once-per-host
 `uv python install 3.13`.
-Tests: `grep -rnE '(model_check|runlog|catalogue|field|merge-check|plan-state|plan-queue|plan-deviations|plan_record|check-prose|check-plan-status|check-test-integrity|ledger|test_[a-z_]+)\.py' .agents docs AGENTS.md tools --exclude-dir=plans --exclude-dir=solutions --exclude-dir=architecture --exclude-dir=research`
-prints only paths under `tools/scripts/`, and the Markdown checks pass.
+Tests: `grep -rnE '(model_check|runlog|catalogue|field|merge-check|plan-state|plan-queue|plan-deviations|plan_record|check-prose|check-plan-status|check-test-integrity|ledger|test_[a-z_]+)\.py' .agents docs AGENTS.md tools --exclude-dir=plans --exclude-dir=solutions --exclude-dir=architecture --exclude-dir=research | grep -vE 'tools/scripts/|verify-change\.sh:[0-9]+: .*\(test_compile\.py\)'`
+prints nothing, and the Markdown checks pass. Why the filter: a line that
+points under `tools/scripts/` (a link to `test_pool_usage.py`, a path in
+`prose/SKILL.md`, the hook test's `tools/scripts/tests/test_run.py`) is a
+current reference, and so is the one comment in the approved verifier that
+names `test_compile.py`. Every other line, such as a bare old script name or a
+legacy `.claude/skills/*/scripts/` path in `parking.md` or any other U6 file,
+still prints. A stale name on a line that also holds a `tools/scripts/` path is
+not caught, so the review reads U6's diff for that case.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills docs/README.md docs/agent-steering.md docs/agent-observations.md docs/doc-style.md docs/code-style-python.md`
 
 Waves: U1 U2 | U3 U4 U5 | U6
@@ -333,3 +340,15 @@ Waves: U1 U2 | U3 U4 U5 | U6
 - Does `uv run` 0.12.23 write to stderr at default verbosity? Unverified.
   The sandbox here refuses its cache, so no run could check it. `--quiet`
   covers either answer.
+
+## Review gaps
+
+Follow-ups the review left open. None holds the verdict. The first four need
+a change to a policy surface, which the review's fix loop may not make.
+
+- tools/scripts/lib/lock.py:59: `except OSError` retries every error of `msvcrt.locking` until a 60 s deadline, where Decisions say to retry the `LK_LOCK` timeout and re-raise any other error; fails: a permanent error is raised at once, and a timeout is retried past 60 s; class: convention
+- tools/scripts/run.py:41: `read_commands` returns the first `COMMANDS` assignment and never reads a later one; fails: `COMMANDS = {"old": "mod"}` followed by `COMMANDS = dict(new="mod")` exits 2 naming the file; class: hardening
+- tools/scripts/run.py:30: only `ast.Assign` is read, so `COMMANDS: dict[str, str] = {"x": "mod"}` is refused as "has no COMMANDS mapping"; fails: an annotated literal lists and dispatches, or is refused with a message that names the annotation; class: gap
+- tools/scripts/run.py:29: a `SyntaxError` from `ast.parse` escapes `read_commands`, so `list` exits 1 with a traceback; fails: a group `__init__.py` holding `COMMANDS = {"x": "mod"` exits 2 naming the file; class: gap
+- tools/scripts/skills/delegate/model_check.py:139, tools/scripts/skills/land/merge_check.py:481, tools/scripts/skills/tune/catalogue.py:61, tools/scripts/skills/tune/field.py:526: `def main(argv):` without the `main(argv: list[str]) -> int` annotations `docs/code-style-python.md` names; fails: every command module's `main` carries them; class: convention
+- .agents/skills/delegate/scripts/orca-worker.sh:337: `run_id=$run_out` accepts an empty standard output from a start that exits 0; fails: an empty run id reaches `undo`; class: hardening
