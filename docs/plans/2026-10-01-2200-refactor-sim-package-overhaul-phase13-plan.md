@@ -901,6 +901,19 @@ U1, U2, and U3 are a chain because each edits
 - Unverified: IEEE Std 802.1D, 1998 Edition, 17.15, for the definition of
   the two timers (Sources). The figures cited under Rules 13 and 17 give
   every assignment the units build.
+- Review, R9: a recent-root deadline is read against the forward delay
+  `times` returns at the read (U1), and `times` keeps a Root port's received
+  Forward Delay until `Advance` expires its information
+  (`src/common/sim/layer/stp/info.go:165-177`). A former Root port whose
+  deadline passed under the delay in force is therefore still cut when the
+  Root port's information has aged with no `Advance` and the next Root
+  carries a longer delay, and is not cut when `Advance` ran first. One fix
+  round settled passed deadlines at the five entry points
+  (`src/common/sim/layer/stp/portstate.go:107-116`) and left this path. The
+  least code that meets R9 fixes the deadline once, from the delay in force
+  at the end of the call in which the port left the Root role, and needs no
+  settle and no read of `times` afterwards. That replaces U1's read-time
+  delay, so the choice is the plan's.
 
 ## Review gaps
 
@@ -911,3 +924,6 @@ U1, U2, and U3 are a chain because each edits
 - src/common/sim/layer/stp/receive.go:30: `syncTree` starts the boundary ladder for a synced Discarding port too; fails: a boundary MSTI port that is Discarding with the CIST reaches Forwarding with the CIST's ladder and not later; class: gap
 - src/common/sim/layer/stp/roles.go:328: a boundary port keeps its MSTI cut through a role change; fails: a boundary port under an MSTI cut that takes the CIST's Root role reads the CIST's state; class: gap
 - src/common/sim/layer/stp/roles.go:354: a port that stops being a boundary port keeps `boundarySyncState`; fails: a port cut as a boundary port, then internal, then a boundary port again reads the CIST's state; class: gap
+- src/common/sim/layer/stp/advance.go:60: the settle call removed from `Advance`, and likewise from `LinkChange` (`link.go:52`) and `Mcheck` (`link.go:14`); fails: a Root port that ages out or goes down while an Alternate carries a longer Forward Delay leaves a former Root port whose deadline had passed forwarding; class: gap
+- src/common/sim/layer/stp/reroot_internal_test.go:175: `TestRerootDelayChangesPreserveExpiry` takes its first delay from the configured value alone; fails: a former Root port that left for a Root port already forwarding, whose received Forward Delay is the delay in force; class: gap
+- src/common/sim/layer/stp/README.md:541: "a longer received delay cannot revive an expired timer" is false while the Root port's information has aged with no `Advance`, and `portstate.go:107-117` is `107-116`; fails: the sentence read against the tree; class: convention
