@@ -720,7 +720,7 @@ describe('language switch in the top bar', () => {
     const inventory = host.querySelector('#inventory-title')
     const heading = host.querySelector('h1')
     const button = host.querySelector<HTMLButtonElement>(
-      '.topbar-tools button.locale-switcher',
+      'header.topbar button.locale-switcher',
     )
     if (!button) throw new Error('Missing language switch')
     expect(heading?.textContent?.trim()).toBe('Devices')

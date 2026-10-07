@@ -16,7 +16,6 @@ beforeEach(() => {
 })
 
 afterEach(() => {
-  Reflect.deleteProperty(document, 'startViewTransition')
   vi.doUnmock('./navigation/frame')
   localStorage.clear()
   document.documentElement.removeAttribute('lang')
@@ -25,121 +24,53 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-describe('main entrypoint', () => {
-  it.each(['/login', '/', '/topology'])(
-    'enters login on initial arrival from %s only',
-    async (start) => {
-      localStorage.clear()
-      history.replaceState(null, '', start)
-      const appEl = document.createElement('div')
-      appEl.id = 'app'
-      document.body.append(appEl)
-      await import('./main')
-      await vi.waitFor(() => {
-        expect(
-          document.body
-            .querySelector('form.login-form')
-            ?.classList.contains('is-entering'),
-        ).toBe(true)
-      })
-      const { signIn, signOut } = await import('./session/session')
-      signIn('ada@example.com')
-      history.pushState(null, '', '/dashboard')
-      window.dispatchEvent(new PopStateEvent('popstate'))
-      await vi.waitFor(() =>
-        expect(
-          document.body.querySelector('#workspace-sidebar'),
-        ).not.toBeNull(),
-      )
-      signOut()
-      history.pushState(null, '', '/login')
-      window.dispatchEvent(new PopStateEvent('popstate'))
-      await vi.waitFor(() => {
-        expect(document.body.querySelector('form.login-form')).not.toBeNull()
-        expect(document.body.querySelector('.is-entering')).toBeNull()
-      })
-    },
-  )
+function countFrameMoves() {
+  let movedCalls = 0
+  vi.doMock('./navigation/frame', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('./navigation/frame')>()
+    return {
+      ...actual,
+      createFrame: () => {
+        const frame = actual.createFrame()
+        const moved = frame.moved
+        frame.moved = () => {
+          movedCalls += 1
+          moved()
+        }
+        return frame
+      },
+    }
+  })
+  return () => movedCalls
+}
 
-  it.each(['morph', 'unavailable', 'reduced'])(
-    'renders logout without entrance and settles its morph with %s',
-    async (mode) => {
-      localStorage.clear()
-      localStorage.setItem('flowseer.session', 'ada@example.com')
-      localStorage.setItem('flowseer.locale', 'en')
-      history.replaceState(null, '', '/dashboard')
-      vi.stubGlobal('matchMedia', (query: string) => ({
-        matches:
-          query.includes('min-width') ||
-          (mode === 'reduced' && query.includes('reduce')),
-        media: query,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        addListener: () => {},
-        removeListener: () => {},
-      }))
-      let updateDone: Promise<void> | undefined
-      let loginRenderedAtCompletion = false
-      const pictured = vi.fn((update: () => Promise<void>) => {
-        const finished = update().then(() => {
-          loginRenderedAtCompletion =
-            document.body.querySelector('form.login-form') !== null
-        })
-        updateDone = finished
-        return {
-          ready: Promise.resolve(),
-          finished,
-          updateCallbackDone: finished,
-          skipTransition() {},
-        }
-      })
-      Object.defineProperty(document, 'startViewTransition', {
-        configurable: true,
-        value: mode === 'unavailable' ? undefined : pictured,
-      })
-      const appEl = document.createElement('div')
-      appEl.id = 'app'
-      document.body.append(appEl)
-      await import('./main')
-      await vi.waitFor(() =>
-        expect(
-          document.body.querySelector('button.account-trigger'),
-        ).not.toBeNull(),
-      )
-      document.body
-        .querySelector<HTMLButtonElement>('button.account-trigger')
-        ?.click()
-      await vi.waitFor(() =>
-        expect(document.body.querySelector('.account-logout')).not.toBeNull(),
-      )
-      document.body.querySelector<HTMLElement>('.account-logout')?.click()
-      await vi.waitFor(() => {
-        expect(location.pathname).toBe('/login')
-        expect(document.body.querySelector('form.login-form')).not.toBeNull()
-      })
-      expect(document.body.querySelector('.is-entering')).toBeNull()
-      expect(localStorage.getItem('flowseer.session')).toBeNull()
-      expect(pictured).toHaveBeenCalledTimes(mode === 'morph' ? 1 : 0)
-      if (mode === 'morph') {
-        if (!updateDone) throw new Error('Missing transition update')
-        let deadline: ReturnType<typeof setTimeout> | undefined
-        try {
-          await Promise.race([
-            updateDone,
-            new Promise<never>((_, reject) => {
-              deadline = setTimeout(
-                () => reject(new Error('Transition update did not settle')),
-                1000,
-              )
-            }),
-          ])
-        } finally {
-          clearTimeout(deadline)
-        }
-        expect(loginRenderedAtCompletion).toBe(true)
-      }
-    },
-  )
+describe('main entrypoint', () => {
+  it('renders the login form and clears the session on logout', async () => {
+    localStorage.setItem('flowseer.session', 'ada@example.com')
+    localStorage.setItem('flowseer.locale', 'en')
+    history.replaceState(null, '', '/dashboard')
+    const appEl = document.createElement('div')
+    appEl.id = 'app'
+    document.body.append(appEl)
+    await import('./main')
+    await vi.waitFor(() =>
+      expect(
+        document.body.querySelector('button.account-trigger'),
+      ).not.toBeNull(),
+    )
+    document.body
+      .querySelector<HTMLButtonElement>('button.account-trigger')
+      ?.click()
+    await vi.waitFor(() =>
+      expect(document.body.querySelector('.account-logout')).not.toBeNull(),
+    )
+    document.body.querySelector<HTMLElement>('.account-logout')?.click()
+    await vi.waitFor(() => {
+      expect(location.pathname).toBe('/login')
+      expect(document.body.querySelector('form.login-form')).not.toBeNull()
+    })
+    expect(localStorage.getItem('flowseer.session')).toBeNull()
+  })
 
   it('starts in German when browser languages prefer de and storage is empty, and binds document lang', async () => {
     localStorage.clear()
@@ -221,33 +152,20 @@ describe('main entrypoint', () => {
         expect(name).not.toMatch(/(?:^|:)bg-card\//)
     expect(sidebar?.querySelector('a[href^="/devices"]')).not.toBeNull()
     expect(sidebar?.querySelector('form.login-form')).toBeNull()
-    expect(mainShell?.style.transform).toBe('')
+    expect(page instanceof HTMLElement ? page.style.transform : undefined).toBe(
+      '',
+    )
     expect(localStorage.getItem('flowseer.session')).toBe('ada@example.com')
   })
 
-  it('starts no panel animation when sign-in uses the handover', async () => {
+  it('starts one frame move on sign-in', async () => {
     vi.stubGlobal('matchMedia', (query: string) => ({
       matches: query.includes('min-width'),
       media: query,
       addEventListener: () => {},
       removeEventListener: () => {},
     }))
-    let movedCalls = 0
-    vi.doMock('./navigation/frame', async (importOriginal) => {
-      const actual = await importOriginal<typeof import('./navigation/frame')>()
-      return {
-        ...actual,
-        createFrame: () => {
-          const frame = actual.createFrame()
-          const moved = frame.moved
-          frame.moved = () => {
-            movedCalls += 1
-            moved()
-          }
-          return frame
-        },
-      }
-    })
+    const movedCalls = countFrameMoves()
     localStorage.clear()
     localStorage.setItem('flowseer.locale', 'en')
     history.replaceState(null, '', '/login')
@@ -255,29 +173,42 @@ describe('main entrypoint', () => {
     appEl.id = 'app'
     document.body.append(appEl)
     await import('./main')
-    await new Promise((resolve) => setTimeout(resolve, 100))
+    await vi.waitFor(() =>
+      expect(appEl.querySelector('form.login-form')).not.toBeNull(),
+    )
     const input = document.body.querySelector<HTMLInputElement>(
       'input[type="email"]',
     )
     const form = document.body.querySelector<HTMLFormElement>('form.login-form')
-    const mainShell = document.body.querySelector<HTMLElement>('.main-shell')
-    if (!input || !form || !mainShell) throw new Error('Missing sign-in frame')
-    const transforms: string[] = []
-    const observer = new MutationObserver(() => {
-      if (mainShell.style.transform) transforms.push(mainShell.style.transform)
-    })
-    observer.observe(mainShell, {
-      attributes: true,
-      attributeFilter: ['style'],
-    })
+    const page = document.body.querySelector<HTMLElement>('#frame-page')
+    if (!input || !form || !page) throw new Error('Missing sign-in frame')
     input.value = 'ada@example.com'
     input.dispatchEvent(new Event('input', { bubbles: true }))
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    await new Promise((resolve) => setTimeout(resolve, 600))
-    observer.disconnect()
+    await vi.waitFor(() => expect(location.pathname).toBe('/dashboard'))
     expect(location.pathname).toBe('/dashboard')
-    expect(movedCalls).toBe(0)
-    expect(transforms).toEqual([])
+    expect(movedCalls()).toBe(1)
+  })
+
+  it('mounts the resolved console route without a frame move on reload', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: query.includes('min-width'),
+      addEventListener() {},
+      removeEventListener() {},
+    }))
+    const movedCalls = countFrameMoves()
+    localStorage.setItem('flowseer.session', 'ada@example.com')
+    history.replaceState(null, '', '/dashboard')
+    const appEl = document.createElement('div')
+    appEl.id = 'app'
+    document.body.append(appEl)
+    await import('./main')
+    await vi.waitFor(() =>
+      expect(appEl.querySelector('button.account-trigger')).not.toBeNull(),
+    )
+    expect(location.pathname).toBe('/dashboard')
+    expect(appEl.querySelector('form.login-form')).toBeNull()
+    expect(movedCalls()).toBe(0)
   })
 
   it('sends a signed-out visitor from a console page to login', async () => {

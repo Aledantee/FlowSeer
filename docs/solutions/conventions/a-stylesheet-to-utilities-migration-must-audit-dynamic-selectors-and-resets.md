@@ -33,18 +33,18 @@ In Phase 5 of the web design system (`86517ce2..b3edbbe0`), four failure classes
 Moving the console into a persistent frame exposed the same test gap. The old
 `.main-shell > main.panes` selector never matched because `UiAiContextLayer`
 rendered a `div.contents` between the two elements. The replacement selector
-is `#frame-page main.panes` (`frontend/web/src/style.css:332`,
+is `#frame-page main.panes` (`frontend/web/src/style.css:250-256`,
 `frontend/web/src/ui/ai/UiAiContextLayer.vue:314`). The frame's glass is held
-by utility classes in `frontend/web/src/navigation/AppFrame.vue:26-27`,
-with the translucent panel at `:49-50`. Its mount tests hold those classes
+by utility classes in `frontend/web/src/navigation/AppFrame.vue:69-72`,
+with the translucent panel at `:104-111`. Its mount tests hold those classes
 (`frontend/web/src/navigation/AppFrame.test.ts`).
 `frontend/web/src/navigation/chrome.test.ts` holds the removal of separate
 view blur and the panes' background, so the frame owns both surfaces.
 The topology canvas also had its own opaque ground, which covered that panel
 because `.pane.canvas-view .pane-scroll` has no padding
-(`frontend/web/src/style.css:379-385`). The canvas now leaves its root
-background unset (`frontend/web/src/components/topology/TopologyGraph.vue:425-432`).
-`frontend/web/src/navigation/chrome.test.ts:42-58` scans the canvas template
+(`frontend/web/src/style.css:297-308`). The canvas leaves its root
+background unset (`frontend/web/src/components/topology/TopologyGraph.vue:425-429`).
+`frontend/web/src/navigation/chrome.test.ts:70-86` scans the canvas template
 and root rules for a replacement ground. A browser check is still needed to
 judge how the composited panel looks behind the canvas.
 
@@ -54,7 +54,7 @@ judge how the composited panel looks behind the canvas.
 2. **Audit stylesheet removals against runtime class mutations, not static template strings.** When removing a CSS selector, check script blocks for reactive class toggles (`:class`), string interpolations, and DOM manipulations (`classList.add`).
 3. **Base resets must preserve native accessibility affordances.** If a reset layer clears browser default button outlines, restore visible keyboard focus explicitly in the base layer using `:focus-visible` and design tokens (`outline: 2px solid var(--ring); outline-offset: 2px;`).
 4. **Token linting requires shorthand expansion and regex blacklists.** A token gate must enable `expandShorthand` and `recurseLonghand`, inspect SVG presentation properties (`fill`, `stroke`), ban named colors, and disallow literal color function calls (`rgb()`, `hsl()`) in complex values like gradients.
-5. **Check computed styles after DOM moves.** A passing class assertion proves the element exists but cannot prove that its CSS selector matches or that its glass rule still paints. In this workspace `main.ts` imports `style.css`, while the happy-dom mount tests load the views directly (`frontend/web/src/main.ts:15`, `frontend/web/src/FleetView.test.ts:1-7,68-80`).
+5. **Check computed styles after DOM moves.** A passing class assertion proves the element exists but cannot prove that its CSS selector matches or that its glass rule still paints. In this workspace `main.ts` imports `style.css`, while the happy-dom mount tests load the views directly (`frontend/web/src/main.ts:13`, `frontend/web/src/FleetView.test.ts:1-7,66-78`).
 
 ## How to apply
 
@@ -112,14 +112,14 @@ When dissolving a stylesheet into utilities:
 ## Evidence
 
 - `frontend/web/src/theme/tailwind.css` (`button:focus-visible`) enforces the token ring outline.
-- `frontend/web/src/theme/tailwind.test.ts:80-90` verifies Preflight base resets and button focus emission.
+- `frontend/web/src/theme/tailwind.test.ts:80-92` verifies Preflight base resets and button focus emission.
 - `frontend/web/.stylelintrc.json:12-39` configures strict-value with shorthand expansion, SVG `fill`/`stroke`, and disallowed literal color functions.
 - `frontend/web/src/WorkspacePage.vue:1042-1045` restores `tbody tr.peeked` row highlighting dropped in `ed5cf507`.
-- `frontend/web/src/FleetView.vue:964` and `1329-1347` hold mobile topbar wrapping at 650px/560px and `.active-pane` indicator borders.
+- `frontend/web/src/navigation/AppFrame.vue:85-87` holds topbar wrapping at 650px and padding at 560px. `frontend/web/src/FleetView.vue:1336-1354` holds `.active-pane` indicator borders.
 - `frontend/web/src/components/topology/TopologyLink.vue:220-222` holds link hover feedback.
 - Review fix commits `1a2ad4b6`, `40969da9`, `e7d740ec`, and `a42a4a68` restored these dropped behaviors after review.
-- `frontend/web/src/FleetView.vue:1097-1104` and `frontend/web/src/ui/ai/UiAiContextLayer.vue:314` show the wrapper between the frame region and `main.panes`. The prior direct-child selector is in `8e8c2200`.
-- `frontend/web/src/components/topology/TopologyGraph.vue:425-432` leaves the canvas root transparent. `frontend/web/src/navigation/chrome.test.ts:42-58` holds the absence of an opaque root ground.
+- `frontend/web/src/FleetView.vue:1104-1113` and `frontend/web/src/ui/ai/UiAiContextLayer.vue:314` show the wrapper between the frame region and `main.panes`. The prior direct-child selector is in `8e8c2200`.
+- `frontend/web/src/components/topology/TopologyGraph.vue:425-429` leaves the canvas root transparent. `frontend/web/src/navigation/chrome.test.ts:70-86` holds the absence of an opaque root ground.
 
 ## What this does not cover
 

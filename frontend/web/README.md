@@ -109,7 +109,8 @@ or offline device stands out; every node opens the same device details. Traffic 
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. The page panel slides toward the 64px rail, whose content changes
-in place and centers the FlowSeer mark.
+in place and centers the FlowSeer mark. Expanding fades the sidebar labels
+in over the panel's 160 ms movement (`src/FleetView.vue`).
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
 the navigation links above the content.
 
@@ -126,7 +127,10 @@ page and site scope. Both selectors use themed popovers with arrow-key
 navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
 site scope. The available tenant list is independent of site filtering.
 
-The icon-only theme switch at the top right crossfades and rotates between
+The theme and language switches end the top bar on both the login page and
+the console, after the console's account menu. The frame renders them once
+so they keep their state through sign-in and logout. The icon-only theme
+switch crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
 reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
@@ -168,29 +172,37 @@ to `/dashboard`. A signed-in visitor who opens `/login` goes straight to
 
 The login page and console fill one `AppFrame.vue` instance. Signing in keeps
 the same sidebar and page panel elements in the document while their content
-changes. The login sidebar holds the sign-in form in a frosted column, its top bar
-is empty, and its page says what the console is: a heading, one sentence, and
+changes. The frame owns the top bar and its theme and language switches.
+`src/navigation/AppFrame.vue` moves the panel when the mode crosses between
+login and console. The breadcrumb moves with the panel when the console
+sidebar collapses or expands. The nearest content boxes in each region
+fade from opacity 0 to 1 over 160 ms, set by `FRAME_MOVE_SECONDS` in
+`src/navigation/frame.ts`. The fade descends through `display: contents`
+wrappers because they have no box to paint, and skips `display: none` elements.
+Below 801px or with reduced motion, the content fades without movement.
+The switches stay mounted and still. The login page appears without an
+entrance on a fresh visit. `src/main.ts` mounts after the router resolves the
+initial route, so a signed-in reload does not morph.
+The login sidebar holds the sign-in form in a frosted column, its top bar
+shows only those switches, and its page says what the console is: a heading, one sentence, and
 the four areas of the menu. Under them is one line picked at random per visit
 from `view.login.lines` in the catalogs, most of them jokes. The send button is
 inside the email field and appears once the address is well formed. Enter with
 anything else marks the field, shakes it, and says what is wrong.
 
-The change between the login page and the console is a View Transitions morph
-(`src/navigation/morph.ts`) that carries the brand mark, the sidebar, and the
-main area across, so the sidebar narrows and the page fills.
-The page's content animates in only when a visit starts
-on it (`src/navigation/entrance.ts`). A visitor who prefers reduced motion gets
-no entrance, and a plain route change, and sign-in skips the
-short loading state on the button.
-
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.
-- `src/navigation/AppFrame.vue` owns the persistent shell. Views fill its
-  `frame-skip`, `frame-sidebar`, `frame-topbar`, and `frame-page` regions with
-  Teleport. `src/navigation/frame.ts` exposes `useFrame()` so views can set
+- `src/navigation/AppFrame.vue` owns the persistent shell and top bar, with
+  one theme and language switch. Views fill its `frame-skip`, `frame-sidebar`,
+  `frame-topbar`, `frame-topbar-tools`, and `frame-page` regions with
+  Teleport. The console puts its breadcrumb in `frame-topbar` and its controls
+  through the account menu in `frame-topbar-tools`. At 650px and below the
+  controls and switches share the first row, with the breadcrumb below.
+  `src/navigation/frame.ts` exposes `useFrame()` so views can set
   the sidebar mode, read the frame elements, and move the
-  page panel when the sidebar collapses.
+  page panel and breadcrumb when the sidebar collapses. The switches stay
+  outside both moving regions.
 - `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
 - `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.
@@ -847,6 +859,7 @@ states, and replacement of a single site assignment. Browser checks cover the
 interactive preview; production accessibility and fleet-scale performance remain
 to be evaluated when those features are implemented.
 
-The account icon sits at the far right of the top bar. Clicking it opens
-a popover containing logout; Escape or an outside click dismisses it. Logout
-remains disabled until sign-in is connected.
+The account icon sits before the theme and language switches in the top bar.
+Clicking it opens a menu with Log out. Escape or an outside click dismisses it.
+Log out clears the preview session and returns to `/login`
+(`src/components/AccountMenu.vue`).
