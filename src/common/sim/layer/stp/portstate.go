@@ -44,11 +44,29 @@ type portState struct {
 	proposing bool
 	agreed    bool
 
+	// synced is the stored flag that decides whether a sync cuts a Designated
+	// port. designatedVec is the vector the port last held as Designated, and
+	// designatedVecSet is false until role assignment has recorded one.
+	synced           bool
+	designatedVec    priorityVector
+	designatedVecSet bool
+
 	tcWhile  time.Time
 	tcActive bool
 	tcAck    bool
 
 	fwdDelayTimer time.Time
+
+	// boundarySyncState holds an MSTI's own ladder during a boundary sync cut.
+	// Empty means it follows the CIST. Keeping the ladder separate lets the
+	// CIST bound the visible state without erasing the MSTI's progress.
+	boundarySyncState State
+
+	// A departure stays pending until the call ends so its own reroot can
+	// still cut the port before the final received delay is available.
+	rootDeadline        time.Time
+	pendingRootDeadline bool
+	leftBackupAt        time.Time
 
 	rcvInfoValid    bool
 	rcvRootID       bpdu.BridgeID
@@ -69,6 +87,59 @@ func (p *portState) clone() *portState {
 	cp := *p
 
 	return &cp
+}
+
+func recentDeadline(start time.Time, delay time.Duration, now time.Time) time.Time {
+	if start.IsZero() {
+		return time.Time{}
+	}
+	deadline := start.Add(delay)
+	if !deadline.After(now) {
+		return time.Time{}
+	}
+	return deadline
+}
+
+func (p *portState) recentRootDeadline(now time.Time) time.Time {
+	if p.rootDeadline.After(now) {
+		return p.rootDeadline
+	}
+	return time.Time{}
+}
+
+func (p *portState) clearRecentRoot() {
+	p.rootDeadline = time.Time{}
+	p.pendingRootDeadline = false
+}
+
+func (l *Layer) finishRecentRootDeadlines(now time.Time) {
+	for _, id := range l.treeOrder {
+		t := l.trees[id]
+		for _, p := range t.ports {
+			if p.pendingRootDeadline {
+				p.clearRecentRoot()
+				if p.role == bpdu.RoleDesignated {
+					_, _, delay := l.times(t)
+					p.rootDeadline = now.Add(delay)
+				}
+			}
+		}
+	}
+}
+
+func (l *Layer) recentBackupDeadline(t *tree, p *portState, now time.Time) time.Time {
+	_, hello, _ := l.times(t)
+	return recentDeadline(p.leftBackupAt, 2*hello, now)
+}
+
+func (p *portState) recordRoleChange(oldRole bpdu.Role, now time.Time) {
+	if oldRole == bpdu.RoleRoot && p.role == bpdu.RoleDesignated {
+		p.rootDeadline = time.Time{}
+		p.pendingRootDeadline = true
+	}
+	if oldRole == bpdu.RoleBackup && p.role != bpdu.RoleBackup {
+		p.leftBackupAt = now
+	}
 }
 
 // txKey addresses one transmit budget. Outside PVST mode every tree resolves

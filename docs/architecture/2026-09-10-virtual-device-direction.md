@@ -582,8 +582,12 @@ bounded equivalence under a resource contract:
   layer maps the VLAN to a tree. With no region configured, one tree, the
   CIST, carries every VLAN, so the answers agree; with a region configured, a
   VLAN an instance claims maps to that MSTI instead, and a boundary port's
-  answer for it still traces back to the CIST because an MSTI takes the CIST
-  port's role there. The port identifier and the port key set stay
+  answer for it traces back to the CIST because an MSTI takes the CIST
+  port's role there. During an MSTI's own sync cut on a Designated boundary
+  port, its state is the less forward of its own ladder and the CIST's state
+  to suppress temporary loops. An agreement or the end of that ladder
+  restores the CIST's answer (`src/common/sim/layer/stp/sync_boundary_test.go`).
+  The port identifier and the port key set stay
   bridge-global: the identifier appears on the wire, and the key set's order
   reaches the caller as the order of `Effects.Flush`.
 
