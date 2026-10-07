@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, h, ref, shallowRef, useTemplateRef } from 'vue'
 import {
+  ComboboxAnchor,
   ComboboxContent,
   ComboboxEmpty,
   ComboboxGroup,
@@ -262,21 +263,25 @@ function UiCustomComboboxTrigger(
     @update:open="onOpenUpdate"
     @highlight="onHighlight"
   >
-    <UiCustomComboboxTrigger
-      v-if="$slots.trigger"
-      as-child
-      :anchor="setTrigger"
-    >
-      <slot name="trigger" />
-    </UiCustomComboboxTrigger>
-    <slot v-else name="input">
-      <ComboboxInput
-        ref="input"
-        :placeholder="resolvedPlaceholder"
-        :display-value="displayValue"
-        class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
-      />
-    </slot>
+    <!-- The popup positions against this anchor and stays off the page
+         without one. -->
+    <ComboboxAnchor as-child>
+      <UiCustomComboboxTrigger
+        v-if="$slots.trigger"
+        as-child
+        :anchor="setTrigger"
+      >
+        <slot name="trigger" />
+      </UiCustomComboboxTrigger>
+      <slot v-else name="input">
+        <ComboboxInput
+          ref="input"
+          :placeholder="resolvedPlaceholder"
+          :display-value="displayValue"
+          class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
+        />
+      </slot>
+    </ComboboxAnchor>
     <ComboboxPortal>
       <ComboboxContent
         position="popper"
