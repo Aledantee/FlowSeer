@@ -497,8 +497,8 @@ func extractPacket(f ethernet.Frame) (ip.Header, tuple, *icmp.Header, *tcp.Heade
 
 	hdr, payload, err := ip.Decode(f.Payload)
 	if err != nil ||
-		!(f.EtherType == ethernet.EtherTypeIPv4 && hdr.Version() == 4 ||
-			f.EtherType == ethernet.EtherTypeIPv6 && hdr.Version() == 6) {
+		f.EtherType == ethernet.EtherTypeIPv4 && hdr.Version() != 4 ||
+		f.EtherType == ethernet.EtherTypeIPv6 && hdr.Version() != 6 {
 		return ip.Header{}, tuple{}, nil, nil, false
 	}
 
