@@ -23,8 +23,8 @@ A filename search misses inline programs that import the module without its
 
 ## Evidence
 
-The Phase 2 plan's U6 check required a filename suffix
-(`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase2-plan.md:301`):
+The uv scripts Phase 2 plan's U6 check (2026-10-05, retired with its
+land; its text at `7d2d5e46`) required a filename suffix:
 
 ```text
 (model_check|runlog|catalogue|field|merge-check|plan-state|plan-queue|plan-deviations|plan_record|check-prose|check-plan-status|check-test-integrity|ledger|test_[a-z_]+)\.py

@@ -28,9 +28,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## 2026-10-07 plan: a filename scan missed inline module imports
 Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks.
-What happened: U6 of
-`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase2-plan.md:301`
-searched old script names only with a `.py` suffix. The inline programs removed
+What happened: U6 of the uv scripts Phase 2 plan (2026-10-05, retired
+with its land; its text at `7d2d5e46`) searched old script names only with a `.py` suffix. The inline programs removed
 by `cfce3311` from `.agents/skills/drive/SKILL.md` and
 `.agents/skills/delegate/references/review-lanes.md` used `import runlog` and
 inserted the old directory into `sys.path`. The prescribed scan could not
