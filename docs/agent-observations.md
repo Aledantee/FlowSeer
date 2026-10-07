@@ -54,3 +54,23 @@ for the same reason.
 Suggested change: in both places, name the session scratchpad directory for
 a log an unsandboxed command writes and a later command reads, and keep
 `$TMPDIR` for files one command writes and reads itself.
+
+## 2026-10-07 drive: policy-surface units cannot be approved edit by edit inside workers
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 4 (park on a change to
+a policy surface) and `.claude/skills/delegate/SKILL.md`, Orca worker.
+What happened: the uv scripts Phase 2 plan (2026-10-05, retired at
+`b8648d37`) said each `run.py` edit "prompts the person". On a Codex worker
+the hook's `ask` failed as `PreToolUse hook returned unsupported
+permissionDecision:ask`, and the edit went through with no prompt. On a
+Claude worker started by `orca-worker.sh` (launch line carries
+`--dangerously-skip-permissions`) five Edit calls on `tools/scripts/run.py`
+returned no prompt either, while a Write that created `tools/scripts/lib/lock.py`
+and a later Edit on `run.py` in another lane did prompt. Why the Claude
+cases differ is not known. The drive fell back to per-unit approval: the
+worker stopped uncommitted, the coordinator showed the user the diff, and
+the approval named the blobs (`git hash-object`) the commit had to match.
+Suggested change: `drive` names the fallback (stop uncommitted, approve by
+blob hash per unit) instead of parking, and routes a unit whose `Files:`
+line names a policy surface to a Claude worker only, since Codex cannot
+answer `ask`. `delegate` records in Orca worker that the prompt is not
+reliable under the launch flags.
