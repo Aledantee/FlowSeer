@@ -459,7 +459,10 @@ func (b *Layer) learnSource(res *Result, in Ingress, now time.Time, f ethernet.F
 				res.ConsultScopes(analysis.FieldScope(b.fdbScope, "fdb"))
 			}
 			if b.cfg.MaxEntries > 0 && b.dynamic >= b.cfg.MaxEntries {
-				evicted, wasEvicted = b.evictOldestDynamic()
+				b.Advance(now)
+				if b.dynamic >= b.cfg.MaxEntries {
+					evicted, wasEvicted = b.evictOldestDynamic()
+				}
 			}
 			b.fdb[srcKey] = Entry{
 				FID:       in.FID,
