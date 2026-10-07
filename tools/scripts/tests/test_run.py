@@ -146,6 +146,37 @@ class FixtureRegistryTest(FixtureCase):
                     self.assertEqual(result.returncode, 2, result.stderr)
                     self.assertIn(str(Path("zeta") / "__init__.py"), result.stderr)
 
+    def test_an_annotated_commands_is_read(self):
+        self.fixture.write("zeta/__init__.py", 'COMMANDS: dict[str, str] = {"a": "mod"}\n')
+        result = self.fixture.run("list")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("zeta a", result.stdout.splitlines())
+
+    def test_a_second_commands_assignment_exits_2_naming_the_file(self):
+        sources = {
+            "plain then plain": 'COMMANDS = {"a": "mod"}\nCOMMANDS = {"b": "mod"}\n',
+            "plain then annotated": 'COMMANDS = {"a": "mod"}\nCOMMANDS: dict[str, str] = {"b": "mod"}\n',
+            "annotated then plain": 'COMMANDS: dict[str, str] = {"a": "mod"}\nCOMMANDS = {"b": "mod"}\n',
+        }
+        for label, source in sources.items():
+            with self.subTest(label):
+                self.fixture.write("zeta/__init__.py", source)
+                result = self.fixture.run("list")
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn(str(Path("zeta") / "__init__.py"), result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
+    def test_a_group_init_with_a_syntax_error_exits_2_naming_the_file_without_a_traceback(self):
+        self.fixture.group("good", '{"a": "mod"}', mod=ECHO)
+        self.fixture.write("zeta/__init__.py", "COMMANDS = {\n")
+        for args in (("list",), ("good", "a"), ("other", "b")):
+            with self.subTest(args=args):
+                result = self.fixture.run(*args)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertTrue(result.stderr.startswith("run.py: "), result.stderr)
+                self.assertIn(str(Path("zeta") / "__init__.py"), result.stderr)
+                self.assertNotIn("Traceback", result.stderr)
+
     def test_a_missing_commands_exits_2_naming_the_file(self):
         self.fixture.write("zeta/__init__.py", "OTHER = {}\n")
         result = self.fixture.run("list")

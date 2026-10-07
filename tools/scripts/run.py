@@ -26,20 +26,33 @@ class RegistryError(Exception):
 
 def read_commands(init: Path) -> dict[str, str]:
     """Return the COMMANDS literal of a group's __init__.py without running it."""
-    for node in ast.parse(init.read_text(encoding="utf-8"), str(init)).body:
-        targets = node.targets if isinstance(node, ast.Assign) else []
-        if not any(isinstance(target, ast.Name) and target.id == "COMMANDS" for target in targets):
+    try:
+        body = ast.parse(init.read_text(encoding="utf-8"), str(init)).body
+    except SyntaxError as error:
+        raise RegistryError(f"{init} is not valid Python: {error}") from error
+    assigned = []
+    for node in body:
+        if isinstance(node, ast.Assign):
+            targets = node.targets
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+        else:
             continue
-        value = node.value
-        pairs = list(zip(value.keys, value.values)) if isinstance(value, ast.Dict) else []
-        if not isinstance(value, ast.Dict) or not all(
-            isinstance(part, ast.Constant) and isinstance(part.value, str)
-            for pair in pairs
-            for part in pair
-        ):
-            raise RegistryError(f"{init} must hold COMMANDS as a dict literal of strings")
-        return {key.value: item.value for key, item in pairs}
-    raise RegistryError(f"{init} has no COMMANDS mapping")
+        if any(isinstance(target, ast.Name) and target.id == "COMMANDS" for target in targets):
+            assigned.append(node.value)
+    if not assigned:
+        raise RegistryError(f"{init} has no COMMANDS mapping")
+    if len(assigned) > 1:
+        raise RegistryError(f"{init} assigns COMMANDS more than once")
+    value = assigned[0]
+    pairs = list(zip(value.keys, value.values)) if isinstance(value, ast.Dict) else []
+    if not isinstance(value, ast.Dict) or not all(
+        isinstance(part, ast.Constant) and isinstance(part.value, str)
+        for pair in pairs
+        for part in pair
+    ):
+        raise RegistryError(f"{init} must hold COMMANDS as a dict literal of strings")
+    return {key.value: item.value for key, item in pairs}
 
 
 def collect_groups(scripts: Path = SCRIPTS) -> dict[str, dict[str, str]]:
