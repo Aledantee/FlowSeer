@@ -81,6 +81,11 @@ agreement clear on first or returns to the user.
 - A VLAN tree's inherited bridge priority follows the bridge through every
   normalize, as a tree port's inherited priority does. (decided by the
   user, 2026-10-07)
+- A port that leaves the Root role takes its recent-root deadline once, at
+  the end of that call, from the forward delay in force then. Nothing reads
+  the delay for it afterwards, so the cut does not depend on a prior
+  `Advance`. This replaces the read-time delay in the reroot unit's text.
+  (decided by the user, 2026-10-07)
 
 ## Requirements
 
@@ -257,17 +262,3 @@ assigns.
   and stated in `S/README.md` under Limits if the layer keeps its own rule.
 - Unverified: the published IEEE Std 802.1Q-2011 for every clause cited
   here, as the parent's Open questions say of each protocol phase.
-- Parked by drive: the review recorded `fixes needed` after one fix round.
-  One behavior finding is open, low in severity: the deadline for cutting
-  a recent Root port is read against the forward delay in force at the
-  read, which is stale when the Root port's information has aged with no
-  `Advance` since, so the same input cuts the port or not depending on a
-  prior `Advance`. The work and the review record, with ten follow-ups, are
-  on `parked/sim13-review`. Options: fix the deadline once, from the delay
-  in force when the port left the Root role (the least code, and it
-  replaces U1's read-time delay) | keep the read-time delay and make the
-  read judge the delay in force at that instant (keeps U1's wording, and
-  it is the second fix of this mechanism and the scope's last round) |
-  record it as a limit and accept (a caller that advances at every wake
-  never sees it). Recommended: fix the deadline once, because it removes
-  the dependence on `Advance` instead of patching the read again.
