@@ -62,7 +62,7 @@ and carries no `Origin.Of` back to the scenario, so there is no sound way to say
 whether side A's extra BPDU is a real divergence or just a timer at a different
 phase. Such state is compared only by its **final effect** — the converged device
 state (spanning-tree roles, neighbors, forwarding database) — not per emitted item
-(`compare.go:210`, the removed per-journey protocol block). Trying to include it by
+(`diffFabricRuns` in `src/common/sim/fabric/compare.go`). Trying to include it by
 threshold re-introduces the pre-existing-history false difference above.
 
 ## What it does not cover

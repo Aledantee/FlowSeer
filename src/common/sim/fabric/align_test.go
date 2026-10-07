@@ -415,3 +415,37 @@ func TestAlignOriginalIndicesAndDiagnosticVerdicts(t *testing.T) {
 		t.Error("error comparison alignment = true, want false")
 	}
 }
+
+func TestAlignInconclusiveDiscardsBehavioralLocation(t *testing.T) {
+	a := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryInjection}, {Kind: EntryHop, Device: "sw"}}}
+	b := a.clone()
+	b.Entries[1].Device = "other"
+	comparison := locationComparison([]Journey{a}, []Journey{b}, []FrameID{10}, []FrameID{10}, []Action{locationAction(7)}, RunResult{Status: analysis.Incomplete}, RunResult{Status: analysis.Complete}, Snapshot{}, Snapshot{})
+	wantLocation := DifferenceLocation{Area: DifferenceJourney, Injection: new(InjectionLocation{Index: 7, At: time.Date(2026, 1, 1, 0, 0, 7, 0, time.UTC)}), Lineage: []LineageStep{{Kind: OriginInjection}}, Subject: "journey", Field: "Entries[1].Device"}
+	wantDifference := analysis.Difference{Observable: "path", Current: "sw", Expected: "other"}
+	if comparison.Disposition != analysis.Inconclusive || !reflect.DeepEqual(comparison.Location, wantLocation) || comparison.Difference != wantDifference {
+		t.Fatalf("comparison = %+v, want Inconclusive with location %+v and difference %+v", comparison, wantLocation, wantDifference)
+	}
+	alignment, ok := Align(comparison)
+	if !ok || alignment.Trace == nil || alignment.Trace.EntryIndex != 1 || alignment.Trace.CurrentJourney != 0 || alignment.Trace.ExpectedJourney != 0 || alignment.Trace.Injection.Index != 7 {
+		t.Fatalf("alignment = %+v, trace %+v, %t, want entry 1, journeys 0/0, injection 7", alignment, alignment.Trace, ok)
+	}
+	if !reflect.DeepEqual(alignment.Location, DifferenceLocation{}) {
+		t.Errorf("location = %+v, want zero location", alignment.Location)
+	}
+}
+
+func TestAlignExtraEntryAfterMatchingPrefix(t *testing.T) {
+	a := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryInjection}, {Kind: EntryHop, Device: "sw"}}}
+	b := a.clone()
+	b.Entries = append(b.Entries, Entry{Kind: EntryDelivery, Device: "sink"})
+	complete := RunResult{Status: analysis.Complete}
+	comparison := locationComparison([]Journey{a}, []Journey{b}, []FrameID{10}, []FrameID{10}, []Action{locationAction(1)}, complete, complete, Snapshot{}, Snapshot{})
+	if comparison.Disposition != analysis.Different || comparison.Location.Field != "Entries.Length" {
+		t.Fatalf("comparison = %+v, want Different at Entries.Length", comparison)
+	}
+	alignment, ok := Align(comparison)
+	if !ok || alignment.Trace == nil || alignment.Trace.EntryIndex != 2 || alignment.Trace.CurrentJourney != 0 || alignment.Trace.ExpectedJourney != 0 || alignment.Trace.Injection.Index != 1 {
+		t.Errorf("alignment = %+v, trace %+v, %t, want entry 2, journeys 0/0, injection 1", alignment, alignment.Trace, ok)
+	}
+}

@@ -1183,7 +1183,10 @@ behavioral snapshots:
 - **Path**: Crossing endpoints, link speeds, cable media, and delivery destination hosts.
 - **Timing**: Event timestamps (`At`), propagation latency, serialization delay,
   and queue wait durations.
-- **Multiplicity**: Number of primary journeys, mirror copies, and delivery records.
+- **Multiplicity**: Injection and delivery counts at `Injections.Length` and
+  `Deliveries.Length`. A descendant present on only one side reports the located
+  lineage's presence at `Location.Field == "Journey"`, with `Current` and
+  `Expected` set to `"true"` or `"false"` (`diffFabricRuns` in `compare.go`).
 - **Drop reason and location**: Discard reasons and drop endpoints.
 - **Journey rewrite**: Priority Code Point (PCP) alterations and forwarded frame rewrites.
 - **Journey terminal**: Acceptance state (`Delivered`, `Dropped`, `Rejected`, `Looped`),
