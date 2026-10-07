@@ -57,6 +57,11 @@ type portState struct {
 
 	fwdDelayTimer time.Time
 
+	// The deadlines use the tree's current timers, including times received
+	// after the role assignment that records these instants.
+	leftRootAt   time.Time
+	leftBackupAt time.Time
+
 	rcvInfoValid    bool
 	rcvRootID       bpdu.BridgeID
 	rcvRootPathCost uint32
@@ -76,6 +81,36 @@ func (p *portState) clone() *portState {
 	cp := *p
 
 	return &cp
+}
+
+func recentDeadline(start time.Time, delay time.Duration, now time.Time) time.Time {
+	if start.IsZero() {
+		return time.Time{}
+	}
+	deadline := start.Add(delay)
+	if !deadline.After(now) {
+		return time.Time{}
+	}
+	return deadline
+}
+
+func (l *Layer) recentRootDeadline(t *tree, p *portState, now time.Time) time.Time {
+	_, _, delay := l.times(t)
+	return recentDeadline(p.leftRootAt, delay, now)
+}
+
+func (l *Layer) recentBackupDeadline(t *tree, p *portState, now time.Time) time.Time {
+	_, hello, _ := l.times(t)
+	return recentDeadline(p.leftBackupAt, 2*hello, now)
+}
+
+func (p *portState) recordRoleChange(oldRole bpdu.Role, now time.Time) {
+	if oldRole == bpdu.RoleRoot && p.role == bpdu.RoleDesignated {
+		p.leftRootAt = now
+	}
+	if oldRole == bpdu.RoleBackup && p.role != bpdu.RoleBackup {
+		p.leftBackupAt = now
+	}
 }
 
 // txKey addresses one transmit budget. Outside PVST mode every tree resolves

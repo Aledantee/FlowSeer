@@ -206,12 +206,14 @@ func TestARoleChangeCostsALadderPortItsSyncedFlag(t *testing.T) {
 		t.Fatalf("VLAN 10 p3 role = %v, want Root", p3.role)
 	}
 
-	// The better information on p3 ages out while p1 stays fresh, so p3 is
-	// Designated again while it still forwards.
+	// With no received information left, the bridge is root and raises no
+	// reroot request when p3 takes the Designated role.
 	for range 13 {
 		at = at.Add(time.Second)
-		l.ReceiveSSTP(at, "p1", syncSSTP(10), syncBPDU(root, bridge, 4096|10, 20_000, bpdu.RoleDesignated))
 		l.Advance(at)
+	}
+	if tr.rootPort != "" {
+		t.Fatalf("VLAN 10 root port = %q, want the bridge itself as root", tr.rootPort)
 	}
 	if p3.role != bpdu.RoleDesignated || p3.state != StateForwarding {
 		t.Fatalf("VLAN 10 p3 = %v/%v, want Designated/Forwarding", p3.role, p3.state)
@@ -222,7 +224,7 @@ func TestARoleChangeCostsALadderPortItsSyncedFlag(t *testing.T) {
 
 	repeat := syncBPDU(root, bridge, 4096|10, 20_000, bpdu.RoleDesignated)
 	repeat.SetProposal(true)
-	l.ReceiveSSTP(at.Add(time.Second), "p1", syncSSTP(10), repeat)
+	l.ReceiveSSTP(at.Add(15*time.Second), "p1", syncSSTP(10), repeat)
 	if p3.state != StateDiscarding {
 		t.Errorf("VLAN 10 p3 state = %v, want Discarding after a repeated proposal", p3.state)
 	}

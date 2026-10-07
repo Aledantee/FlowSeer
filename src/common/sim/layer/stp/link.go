@@ -78,7 +78,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 				if tp == nil {
 					continue
 				}
+				oldRole := tp.role
 				tp.role = bpdu.RoleDisabled
+				tp.recordRoleChange(oldRole, now)
 				tp.state = StateDiscarding
 				tp.rcvInfoValid = false
 				tp.agreed = false
@@ -157,7 +159,9 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			if !tp.pathCostFixed {
 				tp.pathCost = linkCost
 			}
+			oldRole := tp.role
 			tp.role = bpdu.RoleDesignated
+			tp.recordRoleChange(oldRole, now)
 			tp.agreed = false
 			tp.designatedVecSet = false
 			tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP

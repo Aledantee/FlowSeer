@@ -735,7 +735,7 @@ func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}); len(answered) != 1 || answered[0] != l.cist() {
+	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now); len(answered) != 1 || answered[0] != l.cist() {
 		t.Fatalf("proposal answered %d trees, want only the CIST", len(answered))
 	}
 

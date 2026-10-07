@@ -66,17 +66,8 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 	}
 }
 
-func (l *Layer) handleProposal(t *tree, p *portState, link *linkRecord, now time.Time, flushes *[]layer.FlushTarget) {
+func (l *Layer) handleProposal(t *tree, p *portState, now time.Time) {
 	l.syncTree(t, p.name, now)
-	if p.role == bpdu.RoleRoot && link.pointToPoint && l.isSynced(t, p.name) && link.sendRSTP {
-		if p.state != StateForwarding {
-			p.state = StateForwarding
-			p.forwardTransitions++
-			if !link.edge {
-				l.detectTopologyChange(t, p, now, flushes)
-			}
-		}
-	}
 }
 
 func (l *Layer) recordAgreement(t *tree, p *portState, link *linkRecord, incoming priorityVector, role bpdu.Role, agreement bool) {
@@ -583,7 +574,7 @@ func (l *Layer) applyBPDU(t *tree, p *portState, now time.Time, b bpdu.BPDU, flu
 
 	l.recomputeAll(now, flushes)
 
-	answered := l.answerProposals(t, p, link, b, mstiProposals, now, flushes)
+	answered := l.answerProposals(t, p, link, b, mstiProposals, now)
 	for _, answeredTree := range answered {
 		l.requestNewInfo(answeredTree, answeredTree.ports[p.name])
 	}
@@ -645,11 +636,11 @@ func (l *Layer) recordReceivedBPDU(p *portState, b bpdu.BPDU, internal bool, now
 	}
 }
 
-func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time, flushes *[]layer.FlushTarget) []*tree {
+func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.BPDU, mstiProposals []bpdu.MSTID, now time.Time) []*tree {
 	var answered []*tree
 	if b.Proposal() && b.Role() == bpdu.RoleDesignated && (p.role == bpdu.RoleRoot || p.role == bpdu.RoleAlternate) {
 		answered = append(answered, t)
-		l.handleProposal(t, p, link, now, flushes)
+		l.handleProposal(t, p, now)
 		if l.mst != nil && link.external {
 			for _, id := range l.treeOrder {
 				mt := l.trees[id]
@@ -657,7 +648,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 					continue
 				}
 				if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-					l.handleProposal(mt, mp, link, now, flushes)
+					l.handleProposal(mt, mp, now)
 					answered = append(answered, mt)
 				}
 			}
@@ -666,7 +657,7 @@ func (l *Layer) answerProposals(t *tree, p *portState, link *linkRecord, b bpdu.
 	for _, mstid := range mstiProposals {
 		if mt, ok := l.trees[treeID(mstid)]; ok {
 			if mp, ok := mt.ports[p.name]; ok && (mp.role == bpdu.RoleRoot || mp.role == bpdu.RoleAlternate) {
-				l.handleProposal(mt, mp, link, now, flushes)
+				l.handleProposal(mt, mp, now)
 				answered = append(answered, mt)
 			}
 		}

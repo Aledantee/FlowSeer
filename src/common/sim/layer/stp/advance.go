@@ -28,6 +28,9 @@ func (l *Layer) NextWake() (time.Time, bool) {
 
 		for _, p := range t.ports {
 			update(p.fwdDelayTimer)
+			if p.name == t.rootPort && p.role == bpdu.RoleRoot && p.state != StateForwarding {
+				update(l.recentBackupDeadline(t, p, time.Time{}))
+			}
 			update(p.tcWhile)
 			if p.rcvInfoValid {
 				update(p.rcvTime.Add(3 * p.rcvHelloTime))
@@ -63,8 +66,17 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 		autoEdgeFired := l.advanceAutoEdge(now, &flushes)
 		stateChanged := l.advanceForwardDelay(now, &flushes)
 		l.clearExpiredTCWhile(now)
+		backupExpired := false
+		for _, id := range l.treeOrder {
+			t := l.trees[id]
+			p := t.ports[t.rootPort]
+			if p != nil && p.role == bpdu.RoleRoot && p.state != StateForwarding &&
+				!p.leftBackupAt.IsZero() && l.recentBackupDeadline(t, p, now).IsZero() {
+				backupExpired = true
+			}
+		}
 
-		if agedOut || stateChanged || autoEdgeFired {
+		if agedOut || stateChanged || autoEdgeFired || backupExpired {
 			l.recomputeAll(now, &flushes)
 		}
 	}()

@@ -425,30 +425,30 @@ func TestAgreementWaitsForRoleSelection(t *testing.T) {
 
 		fx := l.Receive(now.Add(35*time.Second), "p1", b)
 		afterPort := l.PortInfo("p1")
-		if afterPort.Role != bpdu.RoleRoot || afterPort.State != stp.StateDiscarding {
-			t.Errorf("p1 after agreement = (role %v, state %v), want Root Discarding", afterPort.Role, afterPort.State)
+		if afterPort.Role != bpdu.RoleRoot || afterPort.State != stp.StateForwarding {
+			t.Errorf("p1 after agreement = (role %v, state %v), want Root Forwarding", afterPort.Role, afterPort.State)
 		}
-		if afterPort.ForwardTransitions != beforePort.ForwardTransitions {
-			t.Errorf("p1 forward transitions = %d, want unchanged at %d", afterPort.ForwardTransitions, beforePort.ForwardTransitions)
+		if afterPort.ForwardTransitions != beforePort.ForwardTransitions+1 {
+			t.Errorf("p1 forward transitions = %d, want %d", afterPort.ForwardTransitions, beforePort.ForwardTransitions+1)
 		}
 		afterChanges, _ := l.TopologyChanges()
-		if afterChanges != beforeChanges {
-			t.Errorf("topology changes = %d, want unchanged at %d", afterChanges, beforeChanges)
+		if afterChanges != beforeChanges+1 {
+			t.Errorf("topology changes = %d, want %d", afterChanges, beforeChanges+1)
 		}
-		if len(fx.Flush) != 0 {
-			t.Errorf("Flush = %v, want empty", fx.Flush)
+		if len(fx.Flush) == 0 {
+			t.Errorf("Flush = %v, want a topology-change flush", fx.Flush)
 		}
 		for _, emission := range fx.Emissions {
 			decoded, err := bpdu.Decode(emission.Frame)
 			if err != nil {
 				t.Fatalf("Decode emission: %v", err)
 			}
-			if decoded.TopologyChange() {
-				t.Errorf("emission on %s carries topology change", emission.Port)
+			if !decoded.TopologyChange() {
+				t.Errorf("emission on %s has no topology change", emission.Port)
 			}
 		}
-		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateDiscarding {
-			t.Errorf("MSTI p1 state = %v, want Discarding", got)
+		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateForwarding {
+			t.Errorf("MSTI p1 state = %v, want Forwarding", got)
 		}
 	})
 
