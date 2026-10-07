@@ -1271,6 +1271,9 @@ func routedSwitchedPhysicalInterface(name string, vid uint32) *interfacev1.Inter
 //     cfg.STP whenever bridgeState is nil, the "requested STP layer has no
 //     bridge state" branch above, so cfg.STP is never non-nil while
 //     cfg.Bridge is nil).
+//  20. routing.Config.Validate: one non-link-local subnet on two interfaces.
+//     SameSubnetOnTwoInterfaces pins the address guard that keeps the first
+//     interface by name and drops only the conflicting later prefix.
 func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 	for _, test := range []struct {
 		name string
@@ -1282,6 +1285,33 @@ func TestLoad_RoutedPortRefusalRulesBecomeIssues(t *testing.T) {
 		input             loadInput
 		check             func(t *testing.T, loaded netmodel.Result)
 	}{
+		{
+			name: "SameSubnetOnTwoInterfaces",
+			input: loadInput{
+				ifaces: []*interfacev1.Interface{routedPhysicalInterface("b0"), routedPhysicalInterface("a0")},
+				addrs: []*ipv1.InterfaceAddress{
+					ipv1.InterfaceAddress_builder{InterfaceName: ptr("b0"), Address: protoIPv4Addr([4]byte{10, 0, 1, 2}), Prefix: protoIPv4Prefix([4]byte{10, 0, 1, 0}, 24)}.Build(),
+					ipv1.InterfaceAddress_builder{InterfaceName: ptr("a0"), Address: protoIPv4Addr([4]byte{10, 0, 1, 1}), Prefix: protoIPv4Prefix([4]byte{10, 0, 1, 0}, 24)}.Build(),
+					ipv1.InterfaceAddress_builder{InterfaceName: ptr("b0"), Address: protoIPv4Addr([4]byte{10, 0, 2, 2}), Prefix: protoIPv4Prefix([4]byte{10, 0, 2, 0}, 24)}.Build(),
+				},
+			},
+			check: func(t *testing.T, loaded netmodel.Result) {
+				if !slices.ContainsFunc(loaded.Metadata.Issues(), func(issue analysis.Issue) bool { return issue.Code == netmodel.IssueConflictAddress }) {
+					t.Errorf("issues = %+v, want address conflict", loaded.Metadata.Issues())
+				}
+				if loaded.Spec.Config.Routing == nil {
+					t.Fatal("missing routing config")
+				}
+				vrf := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF]
+				if got := vrf.Interfaces["a0"].Prefixes; len(got) != 1 || got[0] != netip.MustParsePrefix("10.0.1.1/24") {
+					t.Errorf("a0 prefixes = %v", got)
+				}
+				if got := vrf.Interfaces["b0"].Prefixes; len(got) != 1 || got[0] != netip.MustParsePrefix("10.0.2.2/24") {
+					t.Errorf("b0 prefixes = %v, want only 10.0.2.2/24", got)
+				}
+			},
+		},
+
 		{
 			name: "RoutedPortConfiguredAsBridgeSwitchport",
 			input: loadInput{

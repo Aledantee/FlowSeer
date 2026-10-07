@@ -1825,13 +1825,24 @@ func Load(
 		for _, conflict := range addressConflicts {
 			addConflict(conflict.key.scope, "ip_address", conflict.key.display, conflict.detail(), IssueConflictAddress)
 		}
+		claimedSubnets := make(map[netip.Prefix]string)
 		for _, key := range sortedKeys(addressRows) {
 			addr := addressRows[key]
 			name := addr.GetInterfaceName()
 			iface := vrf.Interfaces[name]
 			ip, _ := parseIP(addr.GetAddress())
 			length, _ := parsePrefix(addr.GetPrefix(), ip)
-			iface.Prefixes = append(iface.Prefixes, netip.PrefixFrom(ip, length))
+			prefix := netip.PrefixFrom(ip, length)
+			subnet := prefix.Masked()
+			if !subnet.Addr().IsLinkLocalUnicast() {
+				if prev, ok := claimedSubnets[subnet]; ok && prev != name {
+					addConflict(routingScope, "ip_address", name+"/"+ip.String(),
+						fmt.Sprintf("subnet %s already claimed by %q", subnet, prev), IssueConflictAddress)
+					continue
+				}
+				claimedSubnets[subnet] = name
+			}
+			iface.Prefixes = append(iface.Prefixes, prefix)
 			vrf.Interfaces[name] = iface
 		}
 

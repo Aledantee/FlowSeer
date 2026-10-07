@@ -473,8 +473,7 @@ link-local, the second by name. `N` drops such a prefix from the later
 interface by name and raises `netmodel.routing.address_conflict`, and the
 rule list above `TestLoad_RoutedPortRefusalRulesBecomeIssues` gains the
 rule with its row. `RetentionKey` writes the quoted node identity inside
-its `config=` section, as `filter.RetentionKey` does
-(`F/config.go:383-385`), so the switch reports the difference as `config`
+its `config=` section, so the switch reports the difference as `config`
 (`V/retention.go:39-57`). `Originate` selects its route over the family's
 unspecified address and the destination, then takes its source from the
 egress interface: the address whose prefix holds the on-link next hop,
@@ -646,6 +645,11 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
       `status` is set, and the parent's U6 `Landed:` holds the range.
 
 ## Open questions
+
+- `filter.RetentionKey` writes `env.NodeID` raw after `node_id=` in
+  `src/common/sim/layer/filter/config.go:407`. The comparison to a quoted
+  filter identity was false. Routing still requires a quoted node identity
+  inside `config=` so embedded newlines cannot create dependency sections.
 
 - No phase of the parent owns ICMP error generation. The Address
   Unreachable error of `R4861` 7.2.2 stays a stated Limit until a plan

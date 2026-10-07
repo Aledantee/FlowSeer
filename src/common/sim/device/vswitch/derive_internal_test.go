@@ -1384,3 +1384,24 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		}
 	})
 }
+
+func TestDeriveRoutingRebuildsAcrossNodeIdentities(t *testing.T) {
+	ports, err := port.NewBuilder().Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{Ports: ports, Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+		Interfaces: map[string]routing.Interface{"eth1": {Port: "eth1", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}}},
+	}}}}
+	cur, err := NewWithSpec(ConstructionSpec{Config: cfg, NodeID: "before"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := Derive(cur, ConstructionSpec{Config: cfg, NodeID: "after"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention().Routing; got.Kept || got.Difference != "config" {
+		t.Fatalf("routing retention = %+v, want rebuild for config", got)
+	}
+}

@@ -263,6 +263,7 @@ func (c Config) Validate(env layer.Env) error {
 		}
 		slices.Sort(ifaceNames)
 
+		claimedSubnets := make(map[netip.Prefix]string)
 		for _, ifaceName := range ifaceNames {
 			if ifaceName == "" {
 				return errs.New().
@@ -373,10 +374,23 @@ func (c Config) Validate(env layer.Env) error {
 						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q address %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", ifaceName, p)
 				}
+				subnet := p.Masked()
+				if !subnet.Addr().IsLinkLocalUnicast() {
+					if prev, ok := claimedSubnets[subnet]; ok && prev != ifaceName {
+						return errs.New().
+							Attr("vrf", vrfName).
+							Attr("interface", ifaceName).
+							Attr("claimed_by", prev).
+							Attr("prefix", subnet).
+							Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
+							Msgf("subnet %s is claimed by interfaces %q and %q", subnet, prev, ifaceName)
+					}
+					claimedSubnets[subnet] = ifaceName
+				}
 			}
 		}
 
-		seenRoutes := make(map[Route]struct{}, len(vrf.Routes))
+		seenRoutes := make(map[routeKey]struct{}, len(vrf.Routes))
 		for _, r := range vrf.Routes {
 			if !r.Prefix.IsValid() || r.Prefix != r.Prefix.Masked() {
 				return errs.New().
@@ -393,7 +407,7 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", r.Prefix)
 			}
-			if _, dup := seenRoutes[r]; dup {
+			if _, dup := seenRoutes[keyOfRoute(r)]; dup {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
@@ -402,9 +416,9 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("next_hop", r.NextHop).
 					Attr("interface", r.Interface).
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
-					Msgf("route %s appears twice in VRF %q with the same preference, metric, next hop, and interface", r.Prefix, vrfName)
+					Msgf("route %s appears twice in VRF %q with the same next hop and interface", r.Prefix, vrfName)
 			}
-			seenRoutes[r] = struct{}{}
+			seenRoutes[keyOfRoute(r)] = struct{}{}
 
 			if !r.NextHop.IsValid() && r.Interface == "" {
 				return errs.New().

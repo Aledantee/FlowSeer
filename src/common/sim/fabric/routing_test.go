@@ -87,7 +87,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 			"h1": {
 				Address: macH1,
 				IP: &fabric.HostIP{
-					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.5.7/24"), netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
 						netip.MustParseAddr("10.0.10.1"): swMAC,
@@ -182,6 +182,10 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode delivered IP payload: %v", err)
 	}
+	if hdr.Src != netip.MustParseAddr("10.0.10.7") {
+		t.Errorf("delivered source = %s, want 10.0.10.7 on the gateway subnet", hdr.Src)
+	}
+
 	if hdr.HopLimit != 63 {
 		t.Errorf("delivered HopLimit = %d, want 63", hdr.HopLimit)
 	}

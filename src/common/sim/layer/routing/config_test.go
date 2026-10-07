@@ -3,6 +3,7 @@ package routing_test
 import (
 	"fmt"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,10 +87,67 @@ func TestValidate(t *testing.T) {
 	ports := newTestPortTable(t)
 
 	tests := []struct {
-		name    string
-		mutate  func(*routing.Config)
-		wantErr bool
+		name      string
+		mutate    func(*routing.Config)
+		wantErr   bool
+		wantField string
 	}{
+		{
+			name: "routes differing only by metric",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				r := vrf.Routes[0]
+				r.Metric++
+				vrf.Routes = append(vrf.Routes, r)
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.routes.10.0.30.0/24",
+		},
+		{
+			name: "routes differing only by preference",
+			mutate: func(c *routing.Config) {
+				vrf := c.VRFs[routing.DefaultVRF]
+				r := vrf.Routes[0]
+				r.Preference++
+				vrf.Routes = append(vrf.Routes, r)
+				c.VRFs[routing.DefaultVRF] = vrf
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.routes.10.0.30.0/24",
+		},
+		{
+			name: "same subnet on two interfaces",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.2/24")}},
+				}}
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.interfaces.b0.prefixes",
+		},
+		{
+			name: "link-local addresses claiming a global subnet",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/0")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::2/0")}},
+				}}
+			},
+			wantErr:   true,
+			wantField: "vrfs.default.interfaces.b0.prefixes",
+		},
+
+		{
+			name: "link-local subnet on two interfaces",
+			mutate: func(c *routing.Config) {
+				c.VRFs[routing.DefaultVRF] = routing.VRF{Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/64")}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix("fe80::1/64")}},
+				}}
+			},
+		},
 		{
 			name:    "valid configuration",
 			mutate:  func(_ *routing.Config) {},
@@ -606,6 +664,9 @@ func TestValidate(t *testing.T) {
 			cfg := validBaseConfig()
 			tt.mutate(&cfg)
 			err := cfg.Validate(layer.Env{Ports: ports})
+			if tt.wantField != "" && errs.Attributes(err)["field"] != tt.wantField {
+				t.Errorf("field = %v, want %s", errs.Attributes(err)["field"], tt.wantField)
+			}
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -1269,5 +1330,18 @@ func TestRoutingSnapshotFactsAreLosslessAndImmutable(t *testing.T) {
 	}
 	if interfaceFactA.Canonical() == interfaceFactB.Canonical() {
 		t.Errorf("different interfaces share canonical form %q", interfaceFactA.Canonical())
+	}
+}
+
+func TestRetentionKeyIncludesQuotedNodeIdentity(t *testing.T) {
+	t.Parallel()
+	cfg := validBaseConfig()
+	first := routing.RetentionKey(cfg, layer.Env{NodeID: "sw1"})
+	second := routing.RetentionKey(cfg, layer.Env{NodeID: "sw2\nport-state=evil"})
+	if first == second {
+		t.Fatal("different node identities share a retention key")
+	}
+	if !strings.HasPrefix(second, `config=node_id="sw2\nport-state=evil";`) {
+		t.Fatalf("key = %q, want quoted identity inside config", second)
 	}
 }

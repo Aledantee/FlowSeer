@@ -193,6 +193,25 @@ The candidate is chosen by hashing the packet's layer 3 flow with FNV-1a
 2. Destination address (4 or 16 octets).
 3. IPv6 flow label (4 octets, big-endian uint32). IPv4 contributes nothing here.
 
+`Originate` hashes the family's unspecified address and the destination, with
+flow label zero. Selecting the egress first lets it choose a source on that
+interface, as [RFC 1122 section 3.3.4.3](https://www.rfc-editor.org/rfc/rfc1122#section-3.3.4.3)
+suggests and [RFC 6724 Rule 5](https://www.rfc-editor.org/rfc/rfc6724#section-5)
+prefers. The caller's payload contributes nothing to selection.
+
+```mermaid
+flowchart TD
+    route[Select egress with unspecified source hash] --> prefix{Egress prefix contains on-link next hop?}
+    prefix -- Yes --> matched[Use address with longest matching prefix]
+    prefix -- No --> family{Egress has address of destination family?}
+    family -- Yes --> egress[Use egress first address of family]
+    family -- No --> vrf[Use VRF first address of family by interface name]
+```
+
+For `192.0.2.5` via `10.0.2.254` on `b0` at `10.0.2.1/24`, the source is
+`10.0.2.1`, even when `a0` has `10.0.1.1/24`.
+
+
 Nothing else enters. No protocol octet, no ports. This is what a router nobody
 configured hashes: Cisco CEF's default per-destination load sharing takes the
 source and destination addresses with no transport fields, and Linux's default
@@ -247,8 +266,7 @@ or below. Flows near a region's lower edge do move, which is the 1/4 to 1/2 abov
 There is no bucket table and no remembered state, unlike the bond hash in
 `lag`, which persists a flow across a member's return. The routing table is
 rebuilt whole on every `Derive`, and hash-threshold gives the disruption bound
-with nothing to keep. `Originate` selects the same way, over the source address
-it chose and the destination, so it reads nothing from the caller's payload.
+with nothing to keep.
 
 ## Recursive next hops
 

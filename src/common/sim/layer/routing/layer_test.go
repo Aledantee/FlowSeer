@@ -1089,9 +1089,9 @@ func TestOriginate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ip.Decode: %v", err)
 		}
-		// First address of IPv4 family in sorted order is 10.0.0.1.
-		if decodedHdr.Src != netip.MustParseAddr("10.0.0.1") {
-			t.Errorf("src addr = %s, want 10.0.0.1", decodedHdr.Src)
+		// The gateway is on the egress interface's /24 subnet.
+		if decodedHdr.Src != netip.MustParseAddr("10.0.10.1") {
+			t.Errorf("src addr = %s, want 10.0.10.1", decodedHdr.Src)
 		}
 		if decodedHdr.HopLimit != 64 {
 			t.Errorf("hop limit = %d, want 64", decodedHdr.HopLimit)
@@ -1133,13 +1133,18 @@ func TestRouteRefusesEtherTypeFamilyMismatch(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := l.Route(testNow, "vlan10", frame, true)
-	if res.Reason != routing.ReasonBadHeader {
-		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
-	}
-	last := res.Steps[len(res.Steps)-1]
-	if last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonBadHeader) {
-		t.Errorf("last step = %+v, want drop bad-header", last)
+	for _, etherType := range []ethernet.EtherType{ethernet.EtherTypeIPv4, 0x88b5} {
+		t.Run(fmt.Sprintf("etherType_%04x", uint16(etherType)), func(t *testing.T) {
+			frame.EtherType = etherType
+			res := l.Route(testNow, "vlan10", frame, true)
+			if res.Reason != routing.ReasonBadHeader {
+				t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonBadHeader)
+			}
+			last := res.Steps[len(res.Steps)-1]
+			if last.Op != trace.OpDrop || last.RuleID != trace.RuleID(routing.ReasonBadHeader) {
+				t.Errorf("last step = %+v, want drop bad-header", last)
+			}
+		})
 	}
 }
 
@@ -1867,3 +1872,73 @@ var (
 	gatewayB6    = netip.MustParseAddr("2001:db8:20::fe")
 	gatewayC6    = netip.MustParseAddr("2001:db8:30::fe")
 )
+
+func TestOriginateUsesEgressSource(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct{ name, first, egress, gateway, destination, want string }{
+		{"IPv4 on-link next hop", "10.0.1.1/24", "10.0.2.1/24", "10.0.2.254", "192.0.2.5", "10.0.2.1"},
+		{"IPv6 on-link next hop", "2001:db8:1::1/64", "2001:db8:2::1/64", "2001:db8:2::fe", "2001:db8:3::5", "2001:db8:2::1"},
+		{"egress family fallback", "10.0.1.1/24", "10.0.2.1/24", "10.0.3.254", "192.0.2.5", "10.0.2.1"},
+		{"VRF family fallback", "10.0.1.1/24", "2001:db8:2::1/64", "", "192.0.2.5", "10.0.1.1"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			dst := netip.MustParseAddr(test.destination)
+			hop := dst
+			bits := 64
+			if dst.Is4() {
+				bits = 24
+			}
+			r := routing.Route{Prefix: netip.PrefixFrom(dst, bits).Masked(), Interface: "b0"}
+			if test.gateway != "" {
+				hop = netip.MustParseAddr(test.gateway)
+				r.NextHop = hop
+			}
+			cfg := routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"a0": {VLAN: 10, Prefixes: []netip.Prefix{netip.MustParsePrefix(test.first)}},
+					"b0": {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix(test.egress)}},
+				},
+				Routes:         []routing.Route{r},
+				NeighborPolicy: routing.NeighborPolicy{Mode: routing.NeighborDisabled},
+			}}}
+			if test.name != "VRF family fallback" {
+				vrf := cfg.VRFs[routing.DefaultVRF]
+				vrf.Neighbors = []routing.Neighbor{{Interface: "b0", Addr: hop, MAC: netaddr.MAC{0x02, 0, 0, 0, 0, 7}}}
+				cfg.VRFs[routing.DefaultVRF] = vrf
+			}
+
+			l := mustNewRouting(t, cfg)
+			res := l.Originate(testNow, routing.DefaultVRF, dst, 17, nil, false)
+			if test.name != "VRF family fallback" {
+				if res.Reason != "" || res.Interface != "b0" {
+					t.Fatalf("result = %+v, want forwarded on b0", res)
+				}
+				hdr, _, err := ip.Decode(res.Frame.Payload)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if hdr.Src != netip.MustParseAddr(test.want) {
+					t.Fatalf("source = %s, want %s", hdr.Src, test.want)
+				}
+				return
+			}
+			if res.Reason != routing.ReasonNeighborMiss || res.Interface != "b0" {
+				t.Fatalf("result = %+v, want neighbor miss on b0 via %s", res, hop)
+			}
+
+			// The packet snapshot records the selected source even on a neighbor miss.
+			want := `src="` + test.want + `"`
+			found := false
+			for _, step := range res.Steps {
+				for _, fact := range step.Inputs {
+					if strings.Contains(fact.Canonical(), want) {
+						found = true
+					}
+				}
+			}
+			if !found {
+				t.Fatalf("steps = %+v, want %s", res.Steps, want)
+			}
+		})
+	}
+}
