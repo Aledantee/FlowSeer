@@ -113,7 +113,8 @@ component contract and its story, accessibility, i18n, token, and
 verifier gates. Its references hold the overlay and motion rules agents
 most often break, each traced to a failure fixed in this repository or to
 a primary source.
-Its `check-tools.sh` reports missing tools rather than installing them.
+Its `uv run tools/scripts/run.py web-component check-tools` command reports
+missing tools rather than installing them.
 It replaced a Storybook MCP server: the server's docs tools returned props
 and story source an agent reads directly from the colocated files, needed
 a running Storybook and two experimental feature flags, and served only

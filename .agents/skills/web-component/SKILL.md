@@ -38,7 +38,7 @@ does not repeat.
 From the worktree root:
 
 ```bash
-.agents/skills/web-component/scripts/check-tools.sh
+uv run tools/scripts/run.py web-component check-tools
 ```
 
 - **Exit 1** means a required tool is missing. Stop and ask the user

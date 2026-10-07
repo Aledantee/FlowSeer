@@ -31,7 +31,30 @@ fixed. Try these in order and take the first that reaches the bug:
 | A flaky failure | the same test with `-count=200 -failfast`, then with `-cpu 1,4` |
 | A regression between two commits | `git bisect run <the test command>`, after committing or copying aside any open work |
 | The same input through the old and the new code | a throwaway test in `$TMPDIR` that diffs the two outputs |
-| A step only a person can take: a lab device, a browser, a power cycle | a copy of `.claude/skills/diagnose/scripts/hitl-loop.sh` |
+| A step only a person can take: a lab device, a browser, a power cycle | `uv run tools/scripts/run.py diagnose hitl-loop --steps <json-file>` |
+
+For a manual loop, save this complete example as `$TMPDIR/hitl-steps.json`:
+
+```json
+[
+  {"step": "Power on the switch and wait for the console prompt."},
+  {"capture": "FAILED", "question": "Run the command under test. Did it fail? (y/n)"},
+  {"capture": "OUTPUT", "question": "Paste the last line of output (or 'none'):"}
+]
+```
+
+Ask the person to run it from the worktree root:
+
+```bash
+uv run tools/scripts/run.py diagnose hitl-loop --steps "$TMPDIR/hitl-steps.json"
+```
+
+The [manual-loop command](../../../tools/scripts/skills/diagnose/hitl_loop.py)
+validates every step before prompting. Captures print as `KEY=VALUE` in
+order, preserving literal answers and trimming surrounding spaces and tabs.
+EOF or interruption exits nonzero without a complete report. Captures echo
+typed observations. Keep passwords and keys out of capture questions.
+The command prompts only. It does not write to a device.
 
 Two things make a healthy test fail before the bug is reached:
 
