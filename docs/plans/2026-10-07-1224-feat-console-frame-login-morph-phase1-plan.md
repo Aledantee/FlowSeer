@@ -248,7 +248,4 @@ slides.
 
 ## Review gaps
 
-- frontend/web/src/main.test.ts:91: call `frame.moved()` in the console view's setup; fails: "starts no panel animation when sign-in uses the handover", and the transform assertion at `:87`; class: false test
-- frontend/web/src/navigation/AppFrame.vue:26: remove the watch that sets `topbarHeight` to 54 in `login` mode; fails: a case that reads 54 once the console's taller top bar has left the region; class: gap
-- frontend/web/src/LoginView.vue:20: remove `frame.sidebar.value = 'login'`; fails: a case that mounts the login view after the console and finds no `workspace-sidebar` id; class: gap
 - frontend/web/src/navigation/frame.ts:11: `layoutDependency` is a writable `Ref` on the context, so a view can start the panel animation without `moved()`; fails: the Decision that `moved()` is the only thing that starts it; class: convention
