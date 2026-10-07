@@ -105,13 +105,17 @@ Full handoff.
   message the worker must act on goes through `tell`, which submits it.
   Longer text through `keys` arrives with only its tail. `tell` copies a file into the
   checkout as `.orca-note.md` and submits a pointer to it, as `start` does
-  with the brief, and fails when no new pointer reaches the screen.
+  with the brief, and fails when no new pointer reaches the screen. A screen
+  read that fails counts as an empty screen. `read`, `keys`, and `tell` refuse
+  a kept lane, which has no terminal, before any Orca call, and `tell` refuses
+  a missing file before it writes anything.
 - `grade` appends a `grade` event (`accepted`, `amended`, `rejected`, or
   `blocked`, with verifier outcome `pass`, `fail`, or `none`) for the lane's
   `run` to the run log. Re-grading appends another; scorers read the last.
 - `stop` refuses a lane that has no `grade` event for its `run`, is
-  mid-turn (unless `--stalled`, after `wait` printed `stalled`),
-  whose checkout is dirty, whose branch is not merged into this one, or
+  mid-turn (unless `--stalled`, after `wait` printed `stalled`; a screen
+  read that fails counts as not mid-turn),
+  whose checkout is dirty (a checkout `git status` cannot read counts as clean), whose branch is not merged into this one, or
   whose worktree still has Orca child worktrees of its own: Orca drops a
   removed worktree's lineage, so those children would turn top-level. Before
   removing the lane, it writes an `end` event with the branch head to the run

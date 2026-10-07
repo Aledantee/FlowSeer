@@ -74,6 +74,23 @@ def screen(term: str) -> str:
     return checked(["orca", "terminal", "read", "--terminal", term, "--screen"])
 
 
+def blank_screen(term: str) -> str:
+    # A terminal that cannot be read shows nothing, so a failed read matches no
+    # hint and the caller's later checks decide.
+    try:
+        return screen(term)
+    except WorkerError:
+        return ""
+
+
+def wait_field(stdout: str, key: str):
+    # A wait reply that is not {"result": {"wait": {...}}} carries no field.
+    try:
+        return json.loads(stdout)["result"]["wait"][key]
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
 def working(value: str) -> bool:
     return re.search(r"esc( to)? (interrupt|cancel)", value, re.I) is not None
 
@@ -163,7 +180,7 @@ class Worker:
         except OSError as error:
             raise WorkerError(f"cannot write the brief into {path}: {error}") from error
         pointer = f"Read {name} in this directory and carry it out. Never commit or delete that file."
-        before = 0 if start else sum(f"Read {name}" in line for line in screen(term).split("\n"))
+        before = 0 if start else sum(f"Read {name}" in line for line in blank_screen(term).split("\n"))
         send_error = ""
         for _ in range(2):
             result = run(["orca", "terminal", "send", "--terminal", term, "--text", pointer, "--enter", "--wait-submit", "20", "--json"])
@@ -171,11 +188,11 @@ class Worker:
                 send_error = f"; send failed: {(result.stdout + result.stderr).rstrip()}"
                 continue
             time.sleep(2)
-            if sum(f"Read {name}" in line for line in screen(term).split("\n")) > before:
+            if sum(f"Read {name}" in line for line in blank_screen(term).split("\n")) > before:
                 return
             time.sleep(2)
         label = "pointer" if start else "message"
-        raise WorkerError(f"{label} not on screen after two submissions{send_error}: {tail(screen(term), 8)}")
+        raise WorkerError(f"{label} not on screen after two submissions{send_error}: {tail(blank_screen(term), 8)}")
 
     def start(self, args):
         line = launch_line(args.cli, args.model, args.effort)
@@ -223,16 +240,12 @@ class Worker:
             if not term:
                 raise WorkerError("terminal create returned no handle")
             waited = run(["orca", "terminal", "wait", "--terminal", term, "--for", "tui-idle", "--timeout-ms", "90000", "--json"])
-            try:
-                unsatisfied = json.loads(waited.stdout)["result"]["wait"].get("satisfied") is False
-            except (ValueError, KeyError):
-                unsatisfied = False
-            if unsatisfied:
+            if wait_field(waited.stdout, "satisfied") is False:
                 run(["orca", "terminal", "wait", "--terminal", term, "--for", "tui-idle", "--timeout-ms", "180000", "--json"])
             if args.cli == "codex":
                 for _ in range(4):
                     time.sleep(2)
-                    value = screen(term)
+                    value = blank_screen(term)
                     if "restart Codex" in value:
                         raise WorkerError("Codex updated itself and exited at startup")
                     if "Skip until next version" in value:
@@ -246,17 +259,17 @@ class Worker:
                     time.sleep(1)
                     checked(["orca", "terminal", "send", "--terminal", term, "--text", "", "--enter", "--json"])
                 time.sleep(2)
-                if re.search("hooks need review", screen(term), re.I):
+                if re.search("hooks need review", blank_screen(term), re.I):
                     raise WorkerError("still shows the hooks review after four rounds")
             try:
                 shown = reply("terminal", "show", "--terminal", term, "--json")
-            except WorkerError as error:
+                status = shown["terminal"].get("status") or shown.get("status")
+            except (WorkerError, ValueError, KeyError, TypeError, AttributeError) as error:
                 raise WorkerError(f"terminal show failed: {error}") from error
-            status = shown["terminal"].get("status") or shown.get("status")
-            if not status:
-                raise WorkerError("terminal show returned no status")
+            # The terminal object of Orca 1.4.221 has no status field, so only
+            # an explicit exited refuses.
             if status == "exited":
-                raise WorkerError(f"{args.cli} exited at startup: {tail(screen(term), 5)}")
+                raise WorkerError(f"{args.cli} exited at startup: {tail(blank_screen(term), 5)}")
             log_args = ["start", "--lane", args.lane, "--cli", args.cli, "--role", args.role, "--worktree", path, "--branch", branch, "--base", base_sha]
             for key in ("model", "effort", "agent", "plan", "unit"):
                 if getattr(args, key):
@@ -319,11 +332,7 @@ class Worker:
         show = True
         while True:
             waited = run(["orca", "terminal", "wait", "--terminal", term, "--for", "tui-idle", "--timeout-ms", str(min(60000, max(1, int((deadline - time.monotonic()) * 1000)))), "--json"])
-            try:
-                status = json.loads(waited.stdout)["result"]["wait"]["status"]
-            except (ValueError, KeyError):
-                status = ""
-            if status == "exited":
+            if wait_field(waited.stdout, "status") == "exited":
                 outcome = "exited"
                 break
             try:
@@ -412,7 +421,7 @@ class Worker:
             other = self.live_on(wt, args.lane)
             if other:
                 raise WorkerError(f"lane {other['name']} still has a live terminal in {path}; stop it first, nothing removed")
-        if not kept and not args.stalled and working(screen(term)):
+        if not kept and not args.stalled and working(blank_screen(term)):
             raise WorkerError(f"{args.lane} is still working; wait for it, or pass --stalled after wait printed stalled")
         if not args.keep_worktree:
             try:
@@ -423,7 +432,9 @@ class Worker:
                 raise WorkerError(f"{args.lane} has child worktrees of its own; merge and remove them first, nothing removed: {' '.join(children)}")
         for name in (".orca-brief.md", ".orca-note.md"):
             (Path(path) / name).unlink(missing_ok=True)
-        dirty = checked(["git", "-C", path, "status", "--porcelain"])
+        # A checkout git cannot read counts as clean, and the steps after it decide.
+        status = run(["git", "-C", path, "status", "--porcelain"])
+        dirty = "" if status.returncode else status.stdout.rstrip("\n")
         if dirty:
             raise WorkerError(f"{path} is dirty; nothing removed: {dirty}")
         branch = state["branch"]
@@ -538,11 +549,21 @@ def main(argv: list[str]) -> int:
                 if args.note:
                     grade += ["--note", args.note]
                 worker.log(*grade)
+            # A kept lane has an empty terminal, so each of these refuses
+            # before it calls Orca or writes a file.
             elif args.command == "tell":
+                if not (state.get("terminal") and state.get("path")):
+                    raise WorkerError("tell SLUG FILE")
+                if not Path(args.file).is_file():
+                    raise WorkerError(f"file {args.file} not found")
                 worker.deliver(state["terminal"], state["path"], args.file, ".orca-note.md")
             elif args.command == "read":
+                if not state.get("terminal"):
+                    raise WorkerError(f"no lane named {args.lane}; status lists them")
                 print(checked(["orca", "terminal", "read", "--terminal", state["terminal"], "--screen", "--limit", str(args.lines)]))
             elif args.command == "keys":
+                if not state.get("terminal"):
+                    raise WorkerError("keys SLUG TEXT")
                 if len(args.text) > 200:
                     raise WorkerError("keys takes 200 characters at most; write the text to a file and use tell")
                 checked(["orca", "terminal", "send", "--terminal", state["terminal"], "--text", args.text, "--json"])
