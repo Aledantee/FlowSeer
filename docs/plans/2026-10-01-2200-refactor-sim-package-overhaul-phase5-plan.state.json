@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/test-time-aware-inputs-with-and-without-prior-aging.md",
   "outcome": {
     "units": 5,
     "from": "2026-10-07T10:47:28Z",
