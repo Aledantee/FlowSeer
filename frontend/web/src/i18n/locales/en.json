@@ -509,7 +509,6 @@
         "story": "Every packet has a story. Most of them are short.",
         "uptime": "Five nines, give or take a few nines."
       },
-      "signingIn": "Signing you in",
       "submit": "Continue with single sign-on",
       "title": "Sign in to {brand}"
     },

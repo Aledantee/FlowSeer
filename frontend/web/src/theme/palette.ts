@@ -39,6 +39,52 @@ export interface ResolvedColor {
 
 export type Srgb = [number, number, number]
 
+export interface Glow {
+  baseAlpha: number
+  strength: Record<Theme, number>
+  largestAlpha: { teal: number; orange: number; highlight: number }
+  tokens: Record<
+    Theme,
+    { base: string; teal: string; orange: string; highlight: string }
+  >
+}
+
+export function over(top: Srgb, alpha: number, under: Srgb): Srgb {
+  return [
+    top[0] * alpha + under[0] * (1 - alpha),
+    top[1] * alpha + under[1] * (1 - alpha),
+    top[2] * alpha + under[2] * (1 - alpha),
+  ]
+}
+
+export function glowStops(
+  source: PaletteSource,
+  theme: Theme,
+  glow: Glow,
+): Srgb[] {
+  const tokens = glow.tokens[theme]
+  const chrome = toSrgb(resolve(source, tokens.base, theme))
+  const base = over(
+    chrome,
+    glow.baseAlpha,
+    toSrgb(resolve(source, 'background', theme)),
+  )
+  const teal = toSrgb(resolve(source, tokens.teal, theme))
+  const orange = toSrgb(resolve(source, tokens.orange, theme))
+  const highlight = toSrgb(resolve(source, tokens.highlight, theme))
+  const tealRadial = over(teal, glow.strength[theme], base)
+  const orangeRadial = over(orange, glow.strength[theme], base)
+  return [
+    base,
+    chrome,
+    over(teal, glow.largestAlpha.teal, tealRadial),
+    over(orange, glow.largestAlpha.orange, orangeRadial),
+    over(highlight, glow.largestAlpha.highlight, base),
+    over(highlight, glow.largestAlpha.highlight, tealRadial),
+    over(highlight, glow.largestAlpha.highlight, orangeRadial),
+  ]
+}
+
 export type ContrastPair = [string, string, number]
 
 const surfaces = ['background', 'card', 'subtle', 'hover', 'card-header']

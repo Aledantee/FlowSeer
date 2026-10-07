@@ -279,6 +279,26 @@
     }
   },
   "semantic": {
+    "glass": {
+      "light": {
+        "ref": "neutral-2",
+        "alpha": 0.45
+      },
+      "dark": {
+        "ref": "neutral-2",
+        "alpha": 0.6
+      }
+    },
+    "glass-panel": {
+      "light": {
+        "ref": "neutral-5",
+        "alpha": 0.55
+      },
+      "dark": {
+        "ref": "neutral-1",
+        "alpha": 0.55
+      }
+    },
     "background": {
       "light": "neutral-5",
       "dark": "neutral-1"
@@ -464,6 +484,8 @@
   },
   "semantics": {
     "light": {
+      "--glass": "oklch(0.94 0.0033 250.9 / 0.45)",
+      "--glass-panel": "oklch(0.859 0.0085 250.9 / 0.55)",
       "--background": "oklch(0.859 0.0085 250.9)",
       "--foreground": "oklch(0.241 0.011 250.9)",
       "--muted-foreground": "oklch(0.446 0.0155 250.9)",
@@ -510,6 +532,8 @@
       "--shadow-color": "oklch(0.241 0.011 250.9)"
     },
     "dark": {
+      "--glass": "oklch(0.264 0.0045 250.9 / 0.6)",
+      "--glass-panel": "oklch(0.234 0.0047 250.9 / 0.55)",
       "--background": "oklch(0.234 0.0047 250.9)",
       "--foreground": "oklch(0.949 0.0029 250.9)",
       "--muted-foreground": "oklch(0.771 0.0154 250.9)",
