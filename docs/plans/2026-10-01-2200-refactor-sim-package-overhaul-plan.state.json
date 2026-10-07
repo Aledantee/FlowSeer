@@ -12,7 +12,6 @@
   "after": [],
   "landed": null,
   "phases": [
-    "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase5-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase6-plan.md",
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase7-plan.md",
@@ -46,6 +45,14 @@
       "landed": {
         "first": "a8a26462",
         "last": "3f90b02d"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase4-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "9077fffa",
+        "last": "db130681"
       }
     }
   ]
