@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net/netip"
@@ -9490,6 +9491,67 @@ func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
 	}
 	if failures := sw.DrainNeighborFailures(); len(failures) != 1 {
 		t.Fatalf("neighbor failures = %d, want 1", len(failures))
+	}
+}
+
+func TestRoutingSolicitationDoesNotChargeMulticastQueryToHeldFrame(t *testing.T) {
+	sw := buildIPv6MulticastRoutingSwitch(t)
+	group := netip.MustParseAddr("ff02::1:ff00:77")
+	groupMAC := netaddr.MAC{0x33, 0x33, 0xff, 0, 0, 0x77}
+	peer := netip.MustParseAddr("fe80::2")
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, netip.MustParseAddr("ff02::1"), mcastRouterMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+		mld.Message{Type: mld.Query, Version: mld.V1}))
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, group, macH1, groupMAC, 1, true,
+		mld.Message{Type: mld.ReportV1, Group: group}))
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, netip.MustParseAddr("ff02::2"), macH1, netaddr.MAC{0x33, 0x33, 0, 0, 0, 2}, 1, true,
+		mld.Message{Type: mld.Done, Group: group}))
+	now := fixedTime.Add(3 * time.Second)
+	probe := sw.Peek(now, "1/1/2", ethernet.Frame{
+		Src: macH1, Dst: groupMAC, EtherType: ethernet.EtherTypeIPv6,
+		Payload: makeIPv6Packet(t, peer, group, 64, []byte("multicast")),
+	})
+	if !hasIssueCode(probe.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Fatalf("multicast probe issues = %+v, want mcast-query-unobserved", probe.Metadata.Issues())
+	}
+	sw.Drain()
+	dst := netip.MustParseAddr("2001:db8:20::77")
+	held := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv6,
+		Payload: makeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), dst, 64, []byte("hold")),
+	})
+	if held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+	if hasIssueCode(held.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Errorf("held frame issues = %+v, want no mcast-query-unobserved", held.Metadata.Issues())
+	}
+	emissions := sw.Drain()
+	if len(emissions) != 1 || emissions[0].Port != "1/1/2" || !emissions[0].Protocol {
+		t.Fatalf("solicitation emissions = %+v, want one protocol frame on 1/1/2", emissions)
+	}
+	solicitationPayload := emissions[0].Frame.Payload
+	hdr, payload, err := ip.Decode(solicitationPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ndp.Decode(hdr, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Dst != group || msg.Type != ndp.NeighborSolicitation || msg.Target != dst {
+		t.Errorf("emitted destination/message = %s/%+v, want %s solicitation for %s", hdr.Dst, msg, group, dst)
+	}
+	observing := sw.Forward(now.Add(time.Second), "1/1/2", makeARPReply(t,
+		netip.MustParseAddr("10.0.20.2"), netip.MustParseAddr("10.0.20.1"), macH1, macRouter))
+	if hasIssueCode(observing.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Errorf("observing frame issues = %+v, want no mcast-query-unobserved", observing.Metadata.Issues())
+	}
+	emissions = sw.Drain()
+	if len(emissions) != 1 || emissions[0].Port != "1/1/2" || !emissions[0].Protocol || !bytes.Equal(emissions[0].Frame.Payload, solicitationPayload) {
+		t.Fatalf("retransmission emissions = %+v, want the same solicitation on 1/1/2", emissions)
 	}
 }
 
