@@ -270,3 +270,61 @@ func TestReceiveAnswerUsesOptionThenCacheAndDisabledNeverLearns(t *testing.T) {
 		})
 	}
 }
+
+func TestReceiveSolicitedReplyInDelayRestoresReachability(t *testing.T) {
+	l := captureReceiver(t, false, routing.NeighborObserved)
+	dst := netip.MustParseAddr("2001:db8::7")
+	mac := netaddr.MAC{2, 0, 0, 0, 0, 7}
+	l.Originate(testNow, routing.DefaultVRF, dst, 17, nil, true)
+	msg := ndp.Message{Type: ndp.NeighborAdvertisement, Target: dst, LinkLayerAddr: mac, HasLinkLayerAddr: true, Solicited: true, Override: true}
+	frame := receiveNDPFrame(t, dst.String(), "2001:db8::1", netaddr.MAC{0, 0, 0x5e, 0, 0x53, 1}, msg)
+	l.Receive(testNow, "vlan10", frame)
+	l.Advance(testNow)
+	l.Originate(testNow.Add(30*time.Second), routing.DefaultVRF, dst, 17, nil, true)
+	if l.Neighbors()[0].State != routing.NeighborDelay {
+		t.Fatalf("neighbors %v, want Delay", l.Neighbors())
+	}
+	l.Receive(testNow.Add(31*time.Second), "vlan10", frame)
+	if l.Neighbors()[0].State != routing.NeighborReachable {
+		t.Fatalf("solicited reply leaves %v, want Reachable", l.Neighbors())
+	}
+}
+
+func TestReceiveSolicitationWithoutOptionFromIncompleteGetsNoAnswer(t *testing.T) {
+	l := captureReceiver(t, false, routing.NeighborObserved)
+	src := netip.MustParseAddr("2001:db8::7")
+	l.Originate(testNow, routing.DefaultVRF, src, 17, nil, true)
+	frame := receiveNDPFrame(t, src.String(), "2001:db8::1", netaddr.MAC{0, 0, 0x5e, 0, 0x53, 1}, ndp.Message{Type: ndp.NeighborSolicitation, Target: netip.MustParseAddr("2001:db8::1")})
+	if fx := l.Receive(testNow, "vlan10", frame); len(fx.Emissions) != 0 {
+		t.Fatalf("Incomplete source without option got answer %+v", fx)
+	}
+	if l.Neighbors()[0].State != routing.NeighborIncomplete {
+		t.Fatalf("source changed: %v", l.Neighbors())
+	}
+}
+
+func TestReceiveAllNodesAdvertisementUpdatesExistingEntry(t *testing.T) {
+	l := captureReceiver(t, false, routing.NeighborObserved)
+	dst := netip.MustParseAddr("2001:db8::7")
+	l.Originate(testNow, routing.DefaultVRF, dst, 17, nil, true)
+	mac := netaddr.MAC{2, 0, 0, 0, 0, 7}
+	msg := ndp.Message{Type: ndp.NeighborAdvertisement, Target: dst, LinkLayerAddr: mac, HasLinkLayerAddr: true, Solicited: true, Override: true}
+	l.Receive(testNow, "vlan10", receiveNDPFrame(t, dst.String(), "2001:db8::1", netaddr.MAC{0, 0, 0x5e, 0, 0x53, 1}, msg))
+	msg.Solicited = false
+	msg.LinkLayerAddr[5] = 8
+	l.Receive(testNow, "vlan10", receiveNDPFrame(t, dst.String(), "ff02::1", netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, msg))
+	entries := l.Neighbors()
+	if len(entries) != 1 || entries[0].State != routing.NeighborStale || entries[0].MAC != msg.LinkLayerAddr {
+		t.Fatalf("all-nodes update: %v, want Stale at %v", entries, msg.LinkLayerAddr)
+	}
+}
+
+func TestReceiveOtherStationsSolicitedNodeMACIsIgnored(t *testing.T) {
+	l := captureReceiver(t, false, routing.NeighborObserved)
+	msg := ndp.Message{Type: ndp.NeighborSolicitation, Target: netip.MustParseAddr("2001:db8::1"), LinkLayerAddr: netaddr.MAC{2, 0, 0, 0, 0, 7}, HasLinkLayerAddr: true}
+	frame := receiveNDPFrame(t, "2001:db8::7", "ff02::1:ff00:1", netaddr.MAC{0x33, 0x33, 0xff, 0, 0, 8}, msg)
+	fx := l.Receive(testNow, "vlan10", frame)
+	if len(fx.Emissions) != 0 || len(l.Neighbors()) != 0 {
+		t.Fatalf("other station group learned or answered: %+v/%v", fx, l.Neighbors())
+	}
+}
