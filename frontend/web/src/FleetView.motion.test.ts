@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { nextTick } from 'vue'
+import { createApp, h, nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from './FleetView.vue'
 import { mountInFrame } from './navigation/frameTesting'
 import { FRAME_MOVE_SECONDS } from './navigation/frame'
+import { UiAppRoot } from './ui'
+import { UiMotionConfig } from './ui/motion'
+import AppFrame from './navigation/AppFrame.vue'
+import { createWebI18n } from './i18n'
+import { createAiRegistry } from './ai'
+import { aiRegistryKey } from './ui/ai/context'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
@@ -30,13 +37,17 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
     function (this: HTMLElement) {
       const element = this instanceof HTMLElement ? this : undefined
-      const collapsed = element
-        ?.closest('.shell')
-        ?.classList.contains('sidebar-collapsed')
-      const isPanel =
-        element?.id === 'frame-page' || element?.id === 'frame-topbar'
+      // The nav measures its own class before Vue patches it after the shell update.
+      const collapsed =
+        element?.tagName === 'NAV'
+          ? element.classList.contains('max-[800px]:!hidden')
+          : element?.closest('.shell')?.classList.contains('sidebar-collapsed')
+      const movesWithSidebar = element?.matches(
+        '#frame-page, #frame-topbar, .sidebar nav',
+      )
       const width = collapsed ? 64 : 204
-      const left = isPanel ? width : 0
+      const left = movesWithSidebar ? width : 0
+      const top = element?.tagName === 'NAV' && !collapsed ? 28 : 0
       const navLink = element?.closest('nav a')
       if (navLink) {
         const navItems = [
@@ -63,14 +74,14 @@ beforeEach(() => {
         } as DOMRect
       }
       return {
-        bottom: 64,
+        bottom: top + 64,
         height: 64,
         left,
         right: left + width,
-        top: 0,
+        top,
         width,
         x: left,
-        y: 0,
+        y: top,
         toJSON: () => ({}),
       } as DOMRect
     },
@@ -158,6 +169,54 @@ function parseTranslateY(transform: string | undefined): number | null {
 }
 
 describe('FleetView motion layout', () => {
+  it('ends panel, breadcrumb, and nav collapse moves within 160 ms', async () => {
+    installMotionClock()
+    // UiAppRoot's 140 ms fallback would conceal a missing frame transition.
+    const host = document.createElement('div')
+    document.body.append(host)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/dashboard', component: FleetView }],
+    })
+    const app = createApp({
+      render: () =>
+        h(UiAppRoot, {}, () =>
+          h(UiMotionConfig, { transition: { duration: 0.45 } }, () =>
+            h(AppFrame, {}, () => h(FleetView)),
+          ),
+        ),
+    })
+    await router.push('/dashboard')
+    app.use(createWebI18n('en')).use(router)
+    app.provide(aiRegistryKey, createAiRegistry())
+    await router.isReady()
+    app.mount(host)
+    dispose = () => app.unmount()
+    await nextTick()
+    await advanceMotion(0)
+    const selectors = ['#frame-page', '#frame-topbar', '.sidebar nav']
+    const elements = selectors.map((selector) => {
+      const element = host.querySelector<HTMLElement>(selector)
+      if (!element) throw new Error(`Missing moving element: ${selector}`)
+      return element
+    })
+    host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
+    await nextTick()
+    await advanceMotion(30)
+    for (const element of elements)
+      expect(
+        element.style.transform,
+        element.id || element.className,
+      ).toContain('translate')
+    // 250 ms is past the frame duration and inside motion's 450 ms default.
+    await advanceMotion(220)
+    for (const element of elements)
+      expect(
+        element.style.transform,
+        element.id || element.className,
+      ).not.toContain('translate')
+  })
+
   it('moves the page panel when the sidebar collapses and scales nothing', async () => {
     installMotionClock()
     const { host } = await mountFleet()
