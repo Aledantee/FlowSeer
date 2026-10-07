@@ -62,10 +62,11 @@ type portState struct {
 	// CIST bound the visible state without erasing the MSTI's progress.
 	boundarySyncState State
 
-	// Running deadlines use the tree's current timers. Expired recent-root
-	// instants are cleared before an input can change those timers.
-	leftRootAt   time.Time
-	leftBackupAt time.Time
+	// A departure stays pending until the call ends so its own reroot can
+	// still cut the port before the final received delay is available.
+	rootDeadline        time.Time
+	pendingRootDeadline bool
+	leftBackupAt        time.Time
 
 	rcvInfoValid    bool
 	rcvRootID       bpdu.BridgeID
@@ -99,17 +100,28 @@ func recentDeadline(start time.Time, delay time.Duration, now time.Time) time.Ti
 	return deadline
 }
 
-func (l *Layer) recentRootDeadline(t *tree, p *portState, now time.Time) time.Time {
-	_, _, delay := l.times(t)
-	return recentDeadline(p.leftRootAt, delay, now)
+func (p *portState) recentRootDeadline(now time.Time) time.Time {
+	if p.rootDeadline.After(now) {
+		return p.rootDeadline
+	}
+	return time.Time{}
 }
 
-func (l *Layer) settleRecentRootTimers(now time.Time) {
+func (p *portState) clearRecentRoot() {
+	p.rootDeadline = time.Time{}
+	p.pendingRootDeadline = false
+}
+
+func (l *Layer) finishRecentRootDeadlines(now time.Time) {
 	for _, id := range l.treeOrder {
 		t := l.trees[id]
 		for _, p := range t.ports {
-			if !p.leftRootAt.IsZero() && l.recentRootDeadline(t, p, now).IsZero() {
-				p.leftRootAt = time.Time{}
+			if p.pendingRootDeadline {
+				p.clearRecentRoot()
+				if p.role == bpdu.RoleDesignated {
+					_, _, delay := l.times(t)
+					p.rootDeadline = now.Add(delay)
+				}
 			}
 		}
 	}
@@ -122,7 +134,8 @@ func (l *Layer) recentBackupDeadline(t *tree, p *portState, now time.Time) time.
 
 func (p *portState) recordRoleChange(oldRole bpdu.Role, now time.Time) {
 	if oldRole == bpdu.RoleRoot && p.role == bpdu.RoleDesignated {
-		p.leftRootAt = now
+		p.rootDeadline = time.Time{}
+		p.pendingRootDeadline = true
 	}
 	if oldRole == bpdu.RoleBackup && p.role != bpdu.RoleBackup {
 		p.leftBackupAt = now

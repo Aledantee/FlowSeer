@@ -533,15 +533,20 @@ The implementation structures its logic around the standard state machines:
 ### Reroot, sync, and agreement
 
 A new Root port can forward before the tree is synced because reroot prevents
-two recent Root ports from forwarding together. Each tree port tracks a
-recent-root timer for the forward delay in force after leaving Root for
-Designated, and a recent-backup timer for twice the local HelloTime after
-leaving Backup
-(`src/common/sim/layer/stp/portstate.go:102-130`). A running recent-root
-timer follows the current forward delay. Every time-aware entry point clears
-expired recent-root instants before changing the tree's times, so a longer
-received delay cannot revive an expired timer
-(`src/common/sim/layer/stp/portstate.go:107-117`). IEEE 802.1Q-2003
+two recent Root ports from forwarding together. A port leaving Root for
+Designated counts as a recent Root during that call, so the same call's cut
+can reach it (`src/common/sim/layer/stp/portstate.go:135-138`,
+`src/common/sim/layer/stp/roles.go:293`). At the end of the call it stores
+the call's instant plus the tree's Forward Delay then
+(`src/common/sim/layer/stp/portstate.go:115-128`). Later reads compare that
+stored deadline with the current instant without reading Forward Delay
+again (`src/common/sim/layer/stp/portstate.go:103-107`). For example, a port
+leaving Root at 12:00:00 with a final delay of 15 seconds has a deadline of
+12:00:15 even if a later BPDU carries 30 seconds. Its cut decision is the
+same with and without a prior `Advance`
+(`TestRecentRootCutIsIndependentOfAdvance` in `recent_root_property_test.go`).
+The recent-backup timer uses twice the local HelloTime after leaving Backup
+(`src/common/sim/layer/stp/portstate.go:130-142`). IEEE 802.1Q-2003
 Figures 13-16 and 13-17 and draft P802.1aq/D1.5 Figures 13-24 through 13-26
 assign these timers. The layer clears the recent-root timer of Disabled,
 Alternate, and Backup ports and of a Designated port that is Discarding,
@@ -620,6 +625,7 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - No disputed flag (draft P802.1aq/D1.5 clause 13.29.17) and no Master role (IEEE role MIB tables define only Root, Alternate, Designated, and Backup, so a boundary port MSTI role mirrors the CIST).
 - Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
 - The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
+- A boundary MSTI ladder keeps each running deadline when received Forward Delay changes. Its next step takes the delay in force when that step starts (`src/common/sim/layer/stp/roles.go:336-337`, `src/common/sim/layer/stp/advance.go:159-162`, `TestMSTIBoundaryLadderKeepsItsRunningDeadline` in `sync_boundary_test.go`).
 - Completing the forward-delay ladder leaves `agreed` false (`src/common/sim/layer/stp/advance.go:170-183`). IEEE Figure 13-17 FORWARD makes no agreement assignment. Draft Figure 13-25 DESIGNATED_FORWARD assigns `agreed = sendRSTP`, so a later vector change can preserve that draft port's agreement and `synced` where the layer loses them.
 - A change of designated times alone leaves agreement and `synced` unchanged. The layer tracks designated vectors but stores no designated times (`src/common/sim/layer/stp/roles.go:244-261`). Draft clause 13.29.33 k) requests UPDATE on a times change too, and Figure 13-20 then updates both flags.
 - Reroot forwarding requires the Root port's link to be point-to-point and its port to send RSTP (`src/common/sim/layer/stp/roles.go:362-366`). IEEE Figure 13-17 reads the bridge's Force Protocol Version instead. Draft Figure 13-24 reads `rstpVersion`, defined from ForceProtocolVersion by clause 13.28.20. The layer has no Force Protocol Version.
