@@ -7,9 +7,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// TraceLocation names a causal divergence in the original reports. A missing
-// journey has index -1. EntryIndex is an original entry index on the current
-// side, or on the expected side when the current side has no such entry.
+// TraceLocation names the first entry whose trace facts differ in the original
+// reports. A missing journey has index -1. EntryIndex is an original entry index
+// on the current side, or on the expected side when the current side has no such entry.
 // Treat Lineage as immutable during concurrent reads.
 type TraceLocation struct {
 	Injection       InjectionLocation
@@ -19,7 +19,8 @@ type TraceLocation struct {
 	EntryIndex      int
 }
 
-// Alignment separates the behavioral target from an optional diagnostic cause.
+// Alignment carries the behavioral target and an optional trace location.
+// Trace can name a different journey than Location.
 // Treat contained slices and pointers as immutable during concurrent reads.
 type Alignment struct {
 	Location DifferenceLocation
@@ -28,6 +29,9 @@ type Alignment struct {
 
 // Align always retains a Different comparison's behavioral location. Inconclusive
 // comparisons can name a diagnostic trace without asserting behavioral difference.
+// Trace follows pairJourneys order: injection ordinal, with one-sided journeys
+// before paired journeys within each injection. Entries compare at their original
+// positions, so a queue diagnostic present on only one side differs at its own index.
 func Align(comparison Comparison) (Alignment, bool) {
 	if comparison.Disposition == analysis.Equivalent {
 		return Alignment{}, false

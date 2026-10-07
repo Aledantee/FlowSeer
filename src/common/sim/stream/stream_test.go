@@ -107,6 +107,13 @@ func TestSpecStartValidation(t *testing.T) {
 	}
 }
 
+func TestSpecRejectsNegativeStartWithTwoFrames(t *testing.T) {
+	spec := stream.Spec{Rate: stream.Rate{FramesPerSecond: 10}, Count: 2, Start: -1}
+	if err := spec.Validate(); err == nil || err.Error() != "stream start must be nonnegative" {
+		t.Errorf("Validate() = %v, want stream start must be nonnegative", err)
+	}
+}
+
 func TestUDPSizeValidationInEitherOrder(t *testing.T) {
 	frame := udpFrame(t)
 	frame.Payload = append(frame.Payload, bytes.Repeat([]byte{0xa5}, 46-len(frame.Payload))...)
