@@ -485,3 +485,9 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   string for `Configured` and `Aging`
   (`src/common/sim/layer/bridge/fdb.go:44,56`). Phase 7's inventory does not
   list it.
+
+## Review gaps
+
+Follow-ups a review left open. They do not hold the verdict.
+
+- src/common/sim/layer/mcast/state.go:97: `if gps.igmpV1HostUntil.After(now) && kind == recToInclude { return }` is unreachable, since `applyToPort` (`src/common/sim/layer/mcast/layer.go:475`) returns on the same condition before its one call of `applyRecord`; fails: deleting the three lines changes no test and no behaviour; class: convention
