@@ -2995,8 +2995,10 @@ func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 	savedLAG := s.lagRebalanceHits
 	savedNeighbor := s.neighborUnresolvedHits
+	savedMcast := s.mcastQueryUnobservedHits
 	s.lagRebalanceHits = nil
 	s.neighborUnresolvedHits = nil
+	s.mcastQueryUnobservedHits = nil
 	for _, em := range emissions {
 		if em.Port == "" {
 			res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
@@ -3022,6 +3024,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 	}
 	s.lagRebalanceHits = savedLAG
 	s.neighborUnresolvedHits = savedNeighbor
+	s.mcastQueryUnobservedHits = savedMcast
 }
 
 // applyRoutingExits turns the routing layer's hold-queue exits into what
