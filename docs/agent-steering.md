@@ -113,7 +113,8 @@ component contract and its story, accessibility, i18n, token, and
 verifier gates. Its references hold the overlay and motion rules agents
 most often break, each traced to a failure fixed in this repository or to
 a primary source.
-Its `check-tools.sh` reports missing tools rather than installing them.
+Its `uv run tools/scripts/run.py web-component check-tools` command reports
+missing tools rather than installing them.
 It replaced a Storybook MCP server: the server's docs tools returned props
 and story source an agent reads directly from the colocated files, needed
 a running Storybook and two experimental feature flags, and served only
@@ -171,7 +172,7 @@ bodies stay near 150 lines. The ones over 150 lines keep
 material every invocation reads: `plan`
 its file template, which scripts parse, `land` its merge gate, `implement`
 its Finish order, `review` the reviewer log it writes on every run, and
-`delegate` the routing steps, the `orca-worker.sh` surface, and the brief
+`delegate` the routing steps, the `delegate orca-worker` surface, and the brief
 checklist that `implement`, `drive`, and `land` cite. A load trigger names
 a condition the reader has already checked. An "in Orca" test defined only
 inside the file it gates, or a pool trigger naming a row that does not
@@ -951,7 +952,7 @@ stage settled, so a plan reached the coordinator's branch in four parts. A
 phase that then parked or went back to `plan` had its implementation
 already merged, where it held every other phase's land, and the verifier
 ran on each part without ever seeing the plan whole. A stage is still a
-fresh session: `orca-worker.sh start --join` opens a new terminal in the
+fresh session: `delegate orca-worker start --join` opens a new terminal in the
 plan's worktree after `stop --keep-worktree` closed the last one. The
 stage workers write the plan's state on that branch, so the coordinator
 records the branch in the plan's state file and `plan record`,
@@ -1035,7 +1036,7 @@ them about `orca orchestration`: `worker-start` pins Claude, Codex, and
 Cursor ids only and a dispatch into an `agy` or `opencode` terminal sat
 unsubmitted, `check --wait` is re-armed by every heartbeat, a dispatch
 carries a capability token a context compaction can lose, and a card's
-status lags the dispatch queue. `delegate/scripts/orca-worker.sh` meets
+status lags the dispatch queue. `delegate orca-worker` meets
 the first three without orchestration: `orca terminal create --command` takes
 any CLI's launch line with the model on it, the wait is confirmed against
 the worker's screen, and a lane is a terminal and a branch with no token.
@@ -1081,7 +1082,7 @@ when a wave gets cut off or when quota sits idle.
 
 Orca reads usage only for the providers it has credentials for. Its
 `unavailable` status describes its view, not the pool. The
-[`pool-usage.sh`](../.agents/skills/delegate/scripts/pool-usage.sh) reader uses
+[`delegate pool-usage`](../tools/scripts/skills/delegate/pool_usage.py) reader uses
 each pool's own source. When Orca is absent or cannot supply Claude or Codex
 windows, native CLI queries read subscription usage through the CLI's own
 sign-in. This prevents an absent runtime from excluding installed, signed-in
@@ -1100,7 +1101,7 @@ verifier, and the verifier runs one at a time; it is a starting value,
 to be raised if merges keep pace and lowered if a wave's merges back up.
 
 A report a worker prints is only as long as its terminal keeps. A review
-lane's six findings came back as three, because `orca-worker.sh read`
+lane's six findings came back as three, because `delegate orca-worker read`
 returns the last screens. `delegate`'s brief now gives a report-only lane
 a scratchpad file to write. The path was measured on `agy`. Whether a
 Codex worker's sandbox lets it write there is unverified.

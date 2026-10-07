@@ -16,7 +16,7 @@ Release a settled worker with `worker-release`.
 A lane's terminal runs in its child worktree, so this worktree's list holds
 coordinators and terminals the person opened, not lanes. After a `drive`
 hand-off the predecessor coordinators stay open in this worktree:
-each successor terminal is titled `drive`, the title `successor.sh` passes
+each successor terminal is titled `drive`, the title `drive successor` passes
 to `orca terminal create`. A terminal with that title other than this one
 is an earlier coordinator and is expected. Leave it open and name it in
 the report. The terminal the drive began in carries whatever title the
@@ -37,7 +37,7 @@ child's path and branch:
 orca worktree list --json   # entries whose parentWorktreeId is this worktree
 ```
 
-`.claude/skills/delegate/scripts/orca-worker.sh status` (unsandboxed) must
+`uv run tools/scripts/run.py delegate orca-worker status` (unsandboxed) must
 also list no lane of this task; grade a merged lane still listed (`delegate`,
 the outcome table), then stop it with `stop <slug>`, which removes its
 checkout and branch. The script keeps lane state in the git common

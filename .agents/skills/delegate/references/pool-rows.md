@@ -1,11 +1,11 @@
 # Reading pool rows
 
 Load this when reading a `google`, `synthetic`, `zai`, or Fable row from
-`scripts/pool-usage.sh`, a window at 0%, a row whose source failed, a row
+`delegate pool-usage`, a window at 0%, a row whose source failed, a row
 with `plan_unlisted`, or when the `claude` pool is past its limit
 (`usable_below`, `SKILL.md` Wave size).
 
-`pool-usage.sh` reads each pool from the source that owns its numbers and
+`delegate pool-usage` reads each pool from the source that owns its numbers and
 prints one row per pool with `signed_in`, the used percent of every window,
 and the `worst` one with its reset time:
 
@@ -19,7 +19,7 @@ and the `worst` one with its reset time:
 - `orca account list` also carries an `antigravity` row with
   `status: unavailable`. It means Orca cannot read that usage (no Gemini CLI
   sign-in), nothing about the pool. Never drop `google` on it: a pool is out
-  only when its own `pool-usage.sh` row shows `signed_in: false` or a window
+  only when its own `delegate pool-usage` row shows `signed_in: false` or a window
   over the threshold.
 - A failed read leaves an `error`. Report it. Windows that were read stay
   in the row. `windows: null` means none were read. A row with `plan: null`
