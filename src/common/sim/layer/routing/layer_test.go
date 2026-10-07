@@ -1844,7 +1844,7 @@ func TestPeekAndCommitAgreeOnSelection(t *testing.T) {
 // datagram Encode will never accept has to be refused while its caller is still there to be told.
 func TestOriginateRefusesAnUnencodableDatagramBeforeQueuingIt(t *testing.T) {
 	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{RetransTimer: time.Second})
 
 	// A 20-octet IPv4 header over 65516 octets of payload totals 65536, one past what the
 	// total-length field can carry.

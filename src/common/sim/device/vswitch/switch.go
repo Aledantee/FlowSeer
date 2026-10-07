@@ -1307,6 +1307,9 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 
 				pcp, dei := f.Priority()
 				routeRes := s.routing.Route(now, ifaceName, f, mutate)
+				if mutate {
+					s.emitRouting(now, routeRes.Emissions)
+				}
 				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes, mutate)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
@@ -1369,6 +1372,9 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 						}
 					}
 					routeRes := s.routing.Route(now, iface, f, mutate)
+					if mutate {
+						s.emitRouting(now, routeRes.Emissions)
+					}
 					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes, mutate)
 					res.Consult(in.ConsultedPorts()...)
 					res.ConsultScopes(in.ConsultedScopes()...)
@@ -1532,7 +1538,7 @@ func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
 	s.neighborUnresolvedHits = nil
 
 	s.routing.Observe(now, adv)
-	s.routing.Advance(now)
+	s.emitRouting(now, s.routing.Advance(now).Emissions)
 	s.applyRoutingExits(now, s.routing.DrainExits())
 
 	s.lagRebalanceHits = savedLAGRebalanceHits
@@ -2221,7 +2227,7 @@ func (s *Switch) Age(now time.Time) {
 		s.mcast.Advance(now)
 	}
 	if s.routing != nil {
-		s.routing.Advance(now)
+		s.emitRouting(now, s.routing.Advance(now).Emissions)
 		s.applyRoutingExits(now, s.routing.DrainExits())
 	}
 }
@@ -3106,6 +3112,38 @@ func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	}
 }
 
+func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
+	savedLAG := s.lagRebalanceHits
+	savedNeighbor := s.neighborUnresolvedHits
+	s.lagRebalanceHits = nil
+	s.neighborUnresolvedHits = nil
+	for _, em := range emissions {
+		if em.Port == "" {
+			res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
+			for _, eg := range res.Egress {
+				if eg.Dropped == "" {
+					s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
+				}
+			}
+			continue
+		}
+		frame := em.Frame
+		if tags, ok := subInterfaceTag(routing.Interface{Port: em.Port, VLAN: em.VID}, 0, false); ok {
+			frame.Tags = append(tags, frame.Tags...)
+		}
+		if s.ports.Transmit(em.Port, len(frame.Payload)) != "" {
+			continue
+		}
+		p, _ := s.ports.Port(em.Port)
+		if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
+			continue
+		}
+		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
+	}
+	s.lagRebalanceHits = savedLAG
+	s.neighborUnresolvedHits = savedNeighbor
+}
+
 // applyRoutingExits turns the routing layer's hold-queue exits into what
 // an observing forward, [Switch.Wake], or [Switch.Age] caller can observe: a released frame becomes an Emission
 // with Protocol false, since it is ordinary data the switch is finally able
@@ -3481,7 +3519,7 @@ func (s *Switch) Wake(now time.Time) {
 		s.applyLoopProtectEffects(fx)
 	}
 	if s.routing != nil {
-		s.routing.Advance(now)
+		s.emitRouting(now, s.routing.Advance(now).Emissions)
 		s.applyRoutingExits(now, s.routing.DrainExits())
 	}
 }

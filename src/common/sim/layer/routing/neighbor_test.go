@@ -1,7 +1,10 @@
 package routing_test
 
 import (
+	"bytes"
+	"io"
 	"net/netip"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -10,12 +13,191 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/pcap"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func neighborCapture(t *testing.T) [][]byte {
+	t.Helper()
+	f, err := os.Open("testdata/neighbor.pcap")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	})
+	r, err := pcap.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var frames [][]byte
+	for {
+		record, err := r.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if record.LinkType != 1 {
+			t.Fatalf("link type = %d, want Ethernet", record.LinkType)
+		}
+		frames = append(frames, record.Data)
+	}
+	if len(frames) != 5 {
+		t.Fatalf("capture frames = %d, want 5", len(frames))
+	}
+	return frames
+}
+
+func TestNeighborSolicitationMatchesCapture(t *testing.T) {
+	frames := neighborCapture(t)
+	for _, test := range []struct {
+		name, target string
+		record       int
+	}{
+		{"ARP", "192.0.2.7", 0},
+		{"NDP", "2001:db8::1:800:200e:8c6c", 2},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := neighborLifecycleConfig(routing.NeighborPolicy{})
+			vrf := cfg.VRFs[routing.DefaultVRF]
+			iface := vrf.Interfaces["vlan10"]
+			iface.MAC = netaddr.MAC{0, 0, 0x5e, 0, 0x53, 1}
+			iface.Prefixes = []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24"), netip.MustParsePrefix("2001:db8::1/64")}
+			vrf.Interfaces["vlan10"] = iface
+			l := mustNewRouting(t, cfg)
+			dst := netip.MustParseAddr(test.target)
+			peek := l.Originate(testNow, routing.DefaultVRF, dst, 17, []byte{1}, false)
+			if len(peek.Emissions) != 0 || len(l.Neighbors()) != 0 {
+				t.Fatal("preview mutates neighbor resolution")
+			}
+			res := l.Originate(testNow, routing.DefaultVRF, dst, 17, []byte{1}, true)
+			if res.Reason != routing.ReasonNeighborPending || res.Hold == 0 || len(res.Emissions) != 1 {
+				t.Fatalf("result = %+v, want held frame and one solicitation", res)
+			}
+			em := res.Emissions[0]
+			if em.Port != "" || em.VID != 10 {
+				t.Errorf("egress = %q/%d, want VLAN 10", em.Port, em.VID)
+			}
+			wire, err := em.Frame.Encode()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(wire, frames[test.record]) {
+				t.Errorf("wire = % x, want capture % x", wire, frames[test.record])
+			}
+			if wake, ok := l.NextWake(); !ok || !wake.Equal(testNow.Add(time.Second)) {
+				t.Errorf("wake = %s/%t, want one second", wake, ok)
+			}
+		})
+	}
+}
+
+func TestNeighborRetransmissionsDeleteAndRestart(t *testing.T) {
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
+	if len(res.Emissions) != 1 {
+		t.Errorf("first emissions = %d, want 1", len(res.Emissions))
+	}
+	for second := 1; second <= 2; second++ {
+		fx := l.Advance(testNow.Add(time.Duration(second) * time.Second))
+		if len(fx.Emissions) != 1 || len(l.DrainExits()) != 0 {
+			t.Fatalf("second %d effects = %+v, want retransmission and no exit", second, fx)
+		}
+		if len(l.Advance(testNow.Add(time.Duration(second)*time.Second)).Emissions) != 0 {
+			t.Fatal("duplicate retransmission at same time")
+		}
+	}
+	fx := l.Advance(testNow.Add(3 * time.Second))
+	exits := l.DrainExits()
+	if len(fx.Emissions) != 0 || len(exits) != 1 || exits[0].Cause != routing.HeldTimedOut || exits[0].Token != res.Hold {
+		t.Fatalf("timeout effects = %+v, exits = %+v", fx, exits)
+	}
+	if len(l.Neighbors()) != 0 {
+		t.Fatal("failed resolution retains neighbor")
+	}
+	if _, ok := l.NextWake(); ok {
+		t.Fatal("failed resolution retains timer")
+	}
+	retry := routeToV4(t, l, testNow.Add(3*time.Second), lifecycleDstV4, []byte{2}, true)
+	if retry.Reason != routing.ReasonNeighborPending || len(retry.Emissions) != 1 {
+		t.Fatalf("retry = %+v, want a new solicitation", retry)
+	}
+}
+
+func TestNeighborLazyReachabilityAndProbes(t *testing.T) {
+	for _, family := range []string{"IPv4", "IPv6"} {
+		t.Run(family, func(t *testing.T) {
+			l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+			dst := lifecycleDstV4
+			route := routeToV4
+			if family == "IPv6" {
+				dst = lifecycleDstV6
+				route = routeToV6
+			}
+			route(t, l, testNow, dst, []byte{1}, true)
+			mac := lifecycleHostMAC
+			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: dst, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			l.Advance(testNow)
+			l.DrainExits()
+			aged := l.Clone()
+			aged.Advance(testNow.Add(31 * time.Second))
+			peek := route(t, l, testNow.Add(31*time.Second), dst, []byte{2}, false)
+			wantState(t, peek, "stale")
+			if l.Neighbors()[0].State != routing.NeighborReachable {
+				t.Fatal("preview ages stored entry")
+			}
+			for _, engine := range []*routing.Layer{l, aged} {
+				res := route(t, engine, testNow.Add(31*time.Second), dst, []byte{2}, true)
+				if res.Frame.Dst != mac || string(engine.Neighbors()[0].State) != "delay" {
+					t.Fatalf("route = %+v, neighbors = %+v, want cached forwarding and delay", res, engine.Neighbors())
+				}
+				if wake, ok := engine.NextWake(); !ok || !wake.Equal(testNow.Add(36*time.Second)) {
+					t.Fatalf("delay wake = %s/%t", wake, ok)
+				}
+			}
+			for second := 36; second <= 38; second++ {
+				fx := l.Advance(testNow.Add(time.Duration(second) * time.Second))
+				if len(fx.Emissions) != 1 || fx.Emissions[0].Frame.Dst != mac || string(l.Neighbors()[0].State) != "probe" {
+					t.Fatalf("probe effects = %+v, neighbors = %+v", fx, l.Neighbors())
+				}
+				if family == "IPv6" {
+					hdr, _, err := ip.Decode(fx.Emissions[0].Frame.Payload)
+					if err != nil || hdr.Dst != dst {
+						t.Fatalf("probe header = %+v/%v, want target destination", hdr, err)
+					}
+				}
+				res := route(t, l, testNow.Add(time.Duration(second)*time.Second), dst, []byte{3}, true)
+				if res.Frame.Dst != mac || res.Reason != "" {
+					t.Fatal("probe does not forward cached MAC")
+				}
+			}
+			l.Advance(testNow.Add(39 * time.Second))
+			if len(l.Neighbors()) != 0 {
+				t.Fatal("exhausted probes retain entry")
+			}
+		})
+	}
+}
+
+func TestNeighborDelayedWakeDoesNotBurst(t *testing.T) {
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
+	routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
+	fx := l.Advance(testNow.Add(time.Hour))
+	if len(fx.Emissions) != 1 || len(l.DrainExits()) != 0 {
+		t.Fatalf("late wake = %+v, want one retransmission", fx)
+	}
+	if wake, ok := l.NextWake(); !ok || !wake.Equal(testNow.Add(time.Hour+time.Second)) {
+		t.Fatalf("late wake timer = %s/%t", wake, ok)
+	}
+}
 
 var (
 	lifecycleDeviceMAC = netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
@@ -416,45 +598,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	}
 }
 
-// TestWakeFailsAnIncompleteEntryAfterResolutionTimeout verifies that nothing observed
-// within ResolutionTimeout moves the entry to Failed and reports its held frames as failed
-// rather than discarding them silently.
-func TestWakeFailsAnIncompleteEntryAfterResolutionTimeout(t *testing.T) {
-	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: 3 * time.Second})
-
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("held"), true)
-	if res.Reason != routing.ReasonNeighborPending {
-		t.Fatalf("reason = %q, want pending", res.Reason)
-	}
-
-	// Before the deadline, nothing happens.
-	eff := advanceAndDrain(l, testNow.Add(2*time.Second))
-	if len(eff) != 0 {
-		t.Fatalf("exits before the deadline = %+v, want none", eff)
-	}
-
-	eff = advanceAndDrain(l, testNow.Add(3*time.Second))
-	if len(eff) != 1 {
-		t.Fatalf("exits = %+v, want 1", eff)
-	}
-	if eff[0].Cause != routing.HeldTimedOut {
-		t.Errorf("cause = %q, want %q", eff[0].Cause, routing.HeldTimedOut)
-	}
-	if eff[0].Interface != "vlan10" {
-		t.Errorf("timed-out interface = %q, want vlan10", eff[0].Interface)
-	}
-
-	after := routeToV4(t, l, testNow.Add(3*time.Second), lifecycleDstV4, []byte("data"), true)
-	if after.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason after timeout = %q, want %q", after.Reason, routing.ReasonNeighborMiss)
-	}
-	wantState(t, after, "failed")
-}
-
-// TestStaleEntryForwardsWithoutChangingState is the package README's rule: netsim forwards a
-// Stale entry's cached address without probing, and Stale stays Stale.
-func TestStaleEntryForwardsWithoutChangingState(t *testing.T) {
+func TestStalePeekLeavesStoredStateUnchanged(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
@@ -463,7 +607,7 @@ func TestStaleEntryForwardsWithoutChangingState(t *testing.T) {
 	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true})
 
 	for i := range 3 {
-		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), false)
 		if res.Reason != "" {
 			t.Fatalf("attempt %d reason = %q, want empty", i, res.Reason)
 		}
@@ -472,32 +616,9 @@ func TestStaleEntryForwardsWithoutChangingState(t *testing.T) {
 		}
 		wantState(t, res, "stale")
 	}
-}
-
-// TestFailedEntryResolvesAgainOnLaterObservation covers the hop the package README's
-// "Neighbor lifecycle" section and layer_test.go's switch-facing tests both rely on: a Failed
-// entry is not a dead end, because a later advertisement can still move it to Reachable.
-func TestFailedEntryResolvesAgainOnLaterObservation(t *testing.T) {
-	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
-
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
-	l.Advance(testNow.Add(time.Second))
-	if res := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true); res.Reason != routing.ReasonNeighborMiss {
-		t.Fatalf("reason after timeout = %q, want %q", res.Reason, routing.ReasonNeighborMiss)
+	if l.Neighbors()[0].State != routing.NeighborStale {
+		t.Fatal("peek writes stale state")
 	}
-
-	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0d}
-	l.Observe(testNow.Add(time.Second), routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
-
-	res := routeToV4(t, l, testNow.Add(time.Second), lifecycleDstV4, []byte("data"), true)
-	if res.Reason != "" {
-		t.Fatalf("reason = %q, want empty", res.Reason)
-	}
-	if res.Frame.Dst != mac {
-		t.Errorf("dst = %s, want %s", res.Frame.Dst, mac)
-	}
-	wantState(t, res, "reachable")
 }
 
 // TestCloneIsolatesNeighborState is evidence Clone copies the runtime table rather than sharing
@@ -505,7 +626,7 @@ func TestFailedEntryResolvesAgainOnLaterObservation(t *testing.T) {
 // observing on the clone must not resolve the original's entry.
 func TestCloneIsolatesNeighborState(t *testing.T) {
 	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: time.Second})
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{RetransTimer: time.Second})
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 
 	clone := l.Clone()
@@ -758,7 +879,7 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 	portDst := netip.MustParseAddr("10.0.50.99")
 	portNeighborMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
 
-	cfg := neighborLifecycleConfig(routing.NeighborPolicy{ResolutionTimeout: time.Second})
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{RetransTimer: time.Second})
 	vrf := cfg.VRFs[routing.DefaultVRF]
 	vrf.Interfaces["routed1"] = routing.Interface{
 		Port:     "port1",
@@ -812,8 +933,8 @@ func mustNewLifecycleLayer(t *testing.T, policy routing.NeighborPolicy) *routing
 func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
-		ReachableTime:     30 * time.Second,
-		ResolutionTimeout: 10 * time.Second,
+		ReachableTime: 30 * time.Second,
+		RetransTimer:  10 * time.Second,
 	})
 
 	reachableDst := netip.MustParseAddr("10.0.10.88")
@@ -871,7 +992,7 @@ func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *
 func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
-		ResolutionTimeout: 2 * time.Second,
+		RetransTimer: 2 * time.Second,
 	})
 
 	dst1 := netip.MustParseAddr("10.0.10.100")
@@ -940,7 +1061,7 @@ func TestHeldTokensIdentifySelectiveRelease(t *testing.T) {
 
 func TestHeldTokensSurviveEvictionAndTimeout(t *testing.T) {
 	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 1, ResolutionTimeout: time.Second})
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{HoldDepth: 1, RetransTimer: time.Second})
 	first := routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
 	second := routeToV4(t, l, testNow, lifecycleDstV4, []byte{2}, true)
 	third := l.Originate(testNow, routing.DefaultVRF, lifecycleDstV6, 17, []byte{3}, true)
@@ -988,7 +1109,7 @@ func TestClonePreservesHoldSequence(t *testing.T) {
 
 func TestClonePreservesIncompleteWake(t *testing.T) {
 	t.Parallel()
-	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{ResolutionTimeout: 2 * time.Second})
+	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{RetransTimer: 2 * time.Second})
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
 	clone := l.Clone()
 	wake, ok := l.NextWake()

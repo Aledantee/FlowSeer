@@ -1582,7 +1582,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 	}
 }
 
-// Changing NeighborPolicy.ResolutionTimeout rebuilds the routing layer and
+// Changing NeighborPolicy.RetransTimer rebuilds the routing layer and
 // reports held frames as failed.
 func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
@@ -1659,7 +1659,7 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	targetCfg := cfg.Clone()
 	sw1Cfg := targetCfg.Switches["sw1"]
 	vrf := sw1Cfg.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	sw1Cfg.Routing.VRFs[routing.DefaultVRF] = vrf
 	targetCfg.Switches["sw1"] = sw1Cfg
 

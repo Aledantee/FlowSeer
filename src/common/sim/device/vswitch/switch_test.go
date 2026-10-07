@@ -5555,10 +5555,10 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	// Perturb NeighborPolicy.ResolutionTimeout to change routing retention key
+	// Perturb NeighborPolicy.RetransTimer to change routing retention key
 	nextCfg := cur.Config()
 	vrf := nextCfg.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
 
 	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})

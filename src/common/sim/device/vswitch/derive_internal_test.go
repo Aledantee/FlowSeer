@@ -833,7 +833,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 							},
 						},
 						NeighborPolicy: routing.NeighborPolicy{
-							ResolutionTimeout: 3 * time.Second,
+							RetransTimer: 3 * time.Second,
 							HoldDepth:         3,
 						},
 					},
@@ -867,10 +867,10 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				wantMatch: "port-state",
 			},
 			{
-				name: "resolution timeout",
+				name: "retransmission timer",
 				mutate: func(c *Config) {
 					v := c.Routing.VRFs[routing.DefaultVRF]
-					v.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+					v.NeighborPolicy.RetransTimer = 10 * time.Second
 					c.Routing.VRFs[routing.DefaultVRF] = v
 				},
 				wantMatch: "config",
@@ -1211,7 +1211,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 						},
 					},
 					NeighborPolicy: routing.NeighborPolicy{
-						ResolutionTimeout: 3 * time.Second,
+						RetransTimer: 3 * time.Second,
 						HoldDepth:         3,
 					},
 				},
@@ -1248,7 +1248,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 
 	changedSpec := base.Clone()
 	vrf := changedSpec.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	changedSpec.Routing.VRFs[routing.DefaultVRF] = vrf
 
 	derived, err := Derive(cur, ConstructionSpec{Config: changedSpec})
@@ -1299,7 +1299,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 						},
 					},
 					NeighborPolicy: routing.NeighborPolicy{
-						ResolutionTimeout: 3 * time.Second,
+						RetransTimer: 3 * time.Second,
 						HoldDepth:         3,
 					},
 				},
@@ -1356,11 +1356,11 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		}
 	})
 
-	t.Run("changing ResolutionTimeout rebuilds and held frame is reported failed", func(t *testing.T) {
+	t.Run("changing RetransTimer rebuilds and held frame is reported failed", func(t *testing.T) {
 		cur := plantState()
 		tgt := base.Clone()
 		vrf := tgt.Routing.VRFs[routing.DefaultVRF]
-		vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+		vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 		tgt.Routing.VRFs[routing.DefaultVRF] = vrf
 
 		derived, err := Derive(cur, ConstructionSpec{Config: tgt})

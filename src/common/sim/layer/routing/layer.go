@@ -123,6 +123,8 @@ const (
 // Result records the trace steps, egress interface, outcome reason, egress frame, and
 // equal-cost candidate set produced by layer 3 routing or packet origination.
 type Result struct {
+	// Emissions carries solicitations created by a committing neighbor lookup.
+	Emissions []layer.Emission
 	// VRF names the known routing context, including refused lookups.
 	VRF string
 	// NextHop is the on-link neighbor lookup address once a route is selected.
@@ -928,7 +930,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 
 	res.consult(NeighborLookupScope(l.nodeID, vrfName, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrf.resolveNeighbor(now, key, commit, func() heldEntry {
+	lookup := vrf.resolveNeighbor(now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// heldHdr is already encoded above, so finishHeld need not (and must not) decrement it
 		// again once resolution completes.
 		pcp, dei := f.Priority()
@@ -937,6 +939,7 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 		return heldEntry{token: res.Hold, ingress: iface, iface: targetIface, etherType: f.EtherType, header: heldHdr, payload: payload, pcp: pcp, dei: dei}
 	})
 
+	res.Emissions = lookup.emissions
 	if lookup.state == NeighborIncomplete {
 		res.Reason = ReasonNeighborPending
 		res.Steps = append(res.Steps, trace.Step{
@@ -1140,7 +1143,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 
 	res.consult(NeighborLookupScope(l.nodeID, vrf, targetIface, targetAddr))
 	key := neighborKey{iface: targetIface, addr: targetAddr}
-	lookup := vrfState.resolveNeighbor(now, key, commit, func() heldEntry {
+	lookup := vrfState.resolveNeighbor(now, key, l.ifaces[targetIface], commit, func() heldEntry {
 		// hdr's hop limit is already 64, the egress form Originate's direct path below encodes
 		// unchanged, so nothing is decremented before queuing (contrast Route's closure, which
 		// decrements here because its direct path does too). pcp and dei are left at their zero
@@ -1151,6 +1154,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		return heldEntry{token: res.Hold, iface: targetIface, etherType: etherType, header: hdr, payload: payload}
 	})
 
+	res.Emissions = lookup.emissions
 	if lookup.state == NeighborIncomplete {
 		res.Steps = slices.Clone(steps)
 		res.Steps = append(res.Steps, trace.Step{

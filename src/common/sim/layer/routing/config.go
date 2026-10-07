@@ -65,32 +65,29 @@ const (
 	NeighborDisabled Mode = "disabled"
 )
 
-// Default neighbor policy timers and depth, from RFC 4861 section 10: REACHABLE_TIME is
-// 30,000 milliseconds, and the resolution timeout is MAX_MULTICAST_SOLICIT (3 transmissions)
-// times RETRANS_TIMER (1,000 milliseconds). HoldDepth defaults above section 7.2.2's permitted
-// minimum of one, because an analysis library is asked which of several frames arrived, and a
-// depth of one answers that for the last one only.
+// Default neighbor timers follow RFC 4861 section 10. HoldDepth exceeds section
+// 7.2.2's minimum of one so a caller can account for several queued frames.
 const (
-	defaultReachableTime     = 30 * time.Second
-	defaultResolutionTimeout = 3 * time.Second
-	defaultHoldDepth         = 3
+	defaultReachableTime = 30 * time.Second
+	defaultRetransTimer  = time.Second
+	defaultHoldDepth     = 3
 )
 
 // NeighborPolicy configures how a VRF's neighbor table resolves and holds. The zero value
 // normalizes to the RFC 4861 section 10 defaults under [NeighborObserved].
 type NeighborPolicy struct {
-	Mode              Mode
-	ReachableTime     time.Duration
-	ResolutionTimeout time.Duration
-	HoldDepth         int
+	Mode          Mode
+	ReachableTime time.Duration
+	RetransTimer  time.Duration
+	HoldDepth     int
 }
 
 func (p NeighborPolicy) normalize() NeighborPolicy {
 	if p.ReachableTime == 0 {
 		p.ReachableTime = defaultReachableTime
 	}
-	if p.ResolutionTimeout == 0 {
-		p.ResolutionTimeout = defaultResolutionTimeout
+	if p.RetransTimer == 0 {
+		p.RetransTimer = defaultRetransTimer
 	}
 	if p.HoldDepth == 0 {
 		p.HoldDepth = defaultHoldDepth
@@ -538,12 +535,12 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("field", "vrfs."+vrfName+".neighbor_policy.hold_depth").
 					Msgf("VRF %q neighbor policy hold depth %d cannot be negative under NeighborObserved", vrfName, policy.HoldDepth)
 			}
-			if policy.ResolutionTimeout < 0 {
+			if policy.RetransTimer < 0 {
 				return errs.New().
 					Attr("vrf", vrfName).
-					Attr("resolution_timeout", policy.ResolutionTimeout).
-					Attr("field", "vrfs."+vrfName+".neighbor_policy.resolution_timeout").
-					Msgf("VRF %q neighbor policy resolution timeout cannot be negative under NeighborObserved", vrfName)
+					Attr("retrans_timer", policy.RetransTimer).
+					Attr("field", "vrfs."+vrfName+".neighbor_policy.retrans_timer").
+					Msgf("VRF %q neighbor policy retransmission timer cannot be negative under NeighborObserved", vrfName)
 			}
 			if policy.ReachableTime < 0 {
 				return errs.New().

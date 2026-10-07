@@ -26,12 +26,8 @@ import (
 //     list counts because appendHeld moves a frame there inside the same call that queues it, so
 //     an evicted frame is never observable in queue and would otherwise look like an exit for a
 //     frame that never entered.
-//   - discardHeld removes a frame from the entered multiset rather than producing an exit. A
-//     derive boundary discards held frames unconditionally, and the fork that discarded them is a
-//     different run from the one that queued them; TestDiscardHeldThenWakePastDeadlineFailsTheEntry
-//     pins that decision.
 type conservationOp struct {
-	// kind is queue, queue-oversize, queue-route, queue-route-badheader, resolve, discard, wake,
+	// kind is queue, queue-oversize, queue-route, queue-route-badheader, resolve, fail-held, wake,
 	// or timeout.
 	kind string
 	// neighbor indexes conservationAddrs or conservationAddrsV6, depending on kind; ignored by
@@ -72,13 +68,13 @@ func qrBad(n int) conservationOp {
 func r(n int) conservationOp { return conservationOp{kind: "resolve", neighbor: n} }
 
 var (
-	opDiscard = conservationOp{kind: "discard"}
-	opWake    = conservationOp{kind: "wake"}
-	opTimeout = conservationOp{kind: "timeout"}
+	opFailHeld = conservationOp{kind: "fail-held"}
+	opWake     = conservationOp{kind: "wake"}
+	opTimeout  = conservationOp{kind: "timeout"}
 )
 
 // conservationLayer builds a single-VRF, single-interface layer holding at most depth frames per
-// neighbor, with a resolution timeout the driver can step past deliberately. The interface carries
+// neighbor, with a retransmission timer the driver can step past deliberately. The interface carries
 // both an IPv4 and an IPv6 prefix, so it routes queue-route and queue-route-badheader's IPv6
 // destinations on-link the same way it already routes the IPv4 ones.
 func conservationLayer(t *testing.T, depth int) *Layer {
@@ -95,7 +91,7 @@ func conservationLayer(t *testing.T, depth int) *Layer {
 					},
 				},
 			},
-			NeighborPolicy: NeighborPolicy{ResolutionTimeout: time.Second, HoldDepth: depth},
+			NeighborPolicy: NeighborPolicy{RetransTimer: time.Second, HoldDepth: depth},
 		},
 	}}, layer.Env{NodeID: "sw1"})
 	if err != nil {
@@ -138,14 +134,14 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 		{"overflow at depth 1", 1, []conservationOp{q(0), q(0), q(0), r(0), opWake}},
 		{"overflow then time out", 1, []conservationOp{q(0), q(0), q(0), opTimeout}},
 		{"overflow at depth 2 across neighbors", 2, []conservationOp{q(0), q(1), q(0), q(0), q(1), r(1), opWake, opTimeout}},
-		{"discard mid-run", 3, []conservationOp{q(0), q(1), opDiscard, q(2), r(2), opWake}},
-		{"discard after an overflow", 1, []conservationOp{q(0), q(0), opDiscard, q(0), r(0), opWake}},
+		{"fail-held mid-run", 3, []conservationOp{q(0), q(1), opFailHeld, q(2), r(2), opWake}},
+		{"fail-held after an overflow", 1, []conservationOp{q(0), q(0), opFailHeld, q(0), r(0), opWake}},
 		{"resolve one of three", 2, []conservationOp{q(0), q(1), q(2), r(1), opWake, opTimeout}},
 		{"queue after a resolve drains", 2, []conservationOp{q(0), r(0), opWake, q(0), opTimeout}},
 		{"queue onto a failed entry", 2, []conservationOp{q(0), opTimeout, q(0), q(0), opWake}},
 		{"an unencodable datagram never enters", 3, []conservationOp{q(0), qBig(0), q(0), r(0), opWake}},
 		{"an unencodable datagram on a full queue", 1, []conservationOp{qBig(0), q(0), q(0), opTimeout}},
-		{"interleaved everything", 3, []conservationOp{q(0), q(1), r(0), q(2), opWake, q(1), q(1), q(1), q(1), opDiscard, q(2), opTimeout}},
+		{"interleaved everything", 3, []conservationOp{q(0), q(1), r(0), q(2), opWake, q(1), q(1), q(1), q(1), opFailHeld, q(2), opTimeout}},
 		{"route then originate on the same neighbor", 3, []conservationOp{qr(0), q(0), r(0), opWake}},
 		{"queue via route then time out", 2, []conservationOp{qr(0), qr(1), opTimeout}},
 		{"an unencodable datagram via route never enters", 3, []conservationOp{qr(0), qrBad(0), qr(0), r(0), opWake}},
@@ -169,11 +165,6 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 			if dup := firstDuplicate(run.exited); dup != 0 {
 				t.Fatalf("sequence %d: payload %d exited twice", i, dup)
 			}
-			for _, marker := range run.discarded {
-				if slices.Contains(run.exited, marker) {
-					t.Errorf("sequence %d: payload %d was discarded but still reported an exit", i, marker)
-				}
-			}
 		})
 	}
 
@@ -188,13 +179,12 @@ func TestHoldQueueConservesEveryFrame(t *testing.T) {
 }
 
 // conservationRun is what one sequence produced: the payload markers observed in a hold queue,
-// the markers DrainExits reported leaving one, the markers discardHeld took out of the accounting, and
+// the markers DrainExits and FailHeld reported leaving one, and
 // a count per cause.
 type conservationRun struct {
-	entered   []byte
-	exited    []byte
-	discarded []byte
-	causes    map[HeldCause]int
+	entered []byte
+	exited  []byte
+	causes  map[HeldCause]int
 }
 
 func runConservation(t *testing.T, depth int, ops []conservationOp) conservationRun {
@@ -288,14 +278,18 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 				MAC:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, byte(op.neighbor + 1)},
 				HasMAC:    true, Solicited: true, Override: true,
 			})
-		case "discard":
-			run.discarded = append(run.discarded, held()...)
-			l.discardHeld()
+		case "fail-held":
+			for _, hf := range l.FailHeld() {
+				run.exited = append(run.exited, hf.Frame.Payload[len(hf.Frame.Payload)-1])
+				run.causes[hf.Cause]++
+			}
 		case "wake":
 			drain(now)
 		case "timeout":
-			now = now.Add(2 * time.Second)
-			drain(now)
+			for range 3 {
+				now = now.Add(time.Second)
+				drain(now)
+			}
 		default:
 			t.Fatalf("unknown op kind %q", op.kind)
 		}
@@ -305,12 +299,11 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 	// Drain whatever the sequence left behind, so a frame still sitting in a queue at the end is
 	// not mistaken for one that conserved.
 	drain(now)
-	now = now.Add(2 * time.Second)
-	drain(now)
-
-	for _, m := range run.discarded {
-		run.entered = slices.DeleteFunc(run.entered, func(e byte) bool { return e == m })
+	for range 3 {
+		now = now.Add(time.Second)
+		drain(now)
 	}
+
 	return run
 }
 
@@ -339,7 +332,7 @@ func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	vs.neighbors[key] = &neighborEntry{}
 
 	calls := 0
-	lookup := vs.resolveNeighbor(time.Now(), key, true, func() heldEntry {
+	lookup := vs.resolveNeighbor(time.Now(), key, Interface{}, true, func() heldEntry {
 		calls++
 		return heldEntry{}
 	})
@@ -358,62 +351,21 @@ func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	}
 }
 
-// TestDiscardHeldThenWakePastDeadlineFailsTheEntry verifies that expiry still moves an
-// incomplete entry to Failed after discardHeld empties its held-frame queue.
-func TestDiscardHeldThenWakePastDeadlineFailsTheEntry(t *testing.T) {
-	t.Parallel()
+func TestFailHeldDeletesIncompleteEntry(t *testing.T) {
 	l := conservationLayer(t, 3)
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	dst := conservationAddrs[0]
-
-	route := func(commit bool) Result {
-		hdr := ip.Header{
-			Src:      netip.MustParseAddr("10.0.10.99"),
-			Dst:      dst,
-			HopLimit: 64,
-			Protocol: 17,
-			V4:       &ip.V4{},
-		}
-		b, err := hdr.Encode([]byte("data"))
-		if err != nil {
-			t.Fatalf("encode: %v", err)
-		}
-		return l.Route(now, "vlan10", ethernet.Frame{
-			Src:       conservationSenderMAC,
-			Dst:       conservationDeviceMAC,
-			EtherType: ethernet.EtherTypeIPv4,
-			Payload:   b,
-		}, commit)
+	res := l.Originate(now, DefaultVRF, conservationAddrs[0], 17, []byte{1}, true)
+	if res.Hold == 0 {
+		t.Fatal("frame is not held")
 	}
-
-	res := route(true)
-	if res.Reason != ReasonNeighborPending {
-		t.Fatalf("reason = %q, want pending", res.Reason)
+	exits := l.FailHeld()
+	if len(exits) != 1 || exits[0].Cause != HeldTimedOut || exits[0].Token != res.Hold {
+		t.Fatalf("exits = %+v", exits)
 	}
-	if _, ok := l.NextWake(); !ok {
-		t.Fatal("NextWake reports no timer before discardHeld, want one")
-	}
-
-	l.discardHeld()
-
-	// discardHeld leaves state and expiry alone: the entry is still Incomplete, still pending.
-	after := route(false)
-	if after.Reason != ReasonNeighborPending {
-		t.Fatalf("reason after discardHeld = %q, want still pending", after.Reason)
-	}
-
-	now = now.Add(time.Second)
-	l.Advance(now)
-	eff := l.DrainExits()
-	if len(eff) != 0 {
-		t.Fatalf("exits = %+v, want none: discardHeld left no frames to report", eff)
+	if len(l.Neighbors()) != 0 {
+		t.Fatal("FailHeld retains incomplete entry")
 	}
 	if _, ok := l.NextWake(); ok {
-		t.Error("NextWake still reports a timer once the entry failed, want none")
-	}
-
-	final := route(true)
-	if final.Reason != ReasonNeighborMiss {
-		t.Fatalf("reason after expiry = %q, want %q (the entry reached Failed on its own)", final.Reason, ReasonNeighborMiss)
+		t.Fatal("FailHeld retains timer")
 	}
 }

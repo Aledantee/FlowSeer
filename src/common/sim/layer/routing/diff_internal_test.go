@@ -24,7 +24,7 @@ func TestFactTypeIDsUnique(t *testing.T) {
 		routeMetricFact(0),
 		neighborModeFact(""),
 		reachableTimeFact(0),
-		resolutionTimeoutFact(0),
+		retransTimerFact(0),
 		holdDepthFact(0),
 		packetDecisionFact(""),
 		routeDecisionFact(""),
