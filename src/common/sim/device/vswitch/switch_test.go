@@ -6149,7 +6149,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/1", "1/1/2", "1/1/3"}) {
 		t.Errorf("query ports = %v, want [1/1/1 1/1/2 1/1/3]", got)
 	}
-	if routers := sw.RouterPorts(10); len(routers) != 1 || routers[0].Port != "1/1/4" {
+	if routers := sw.RouterPorts(10, fixedTime); len(routers) != 1 || routers[0].Port != "1/1/4" {
 		t.Fatalf("RouterPorts(10) = %+v, want 1/1/4", routers)
 	}
 
@@ -6162,7 +6162,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("report ports = %v, want [1/1/4]", got)
 	}
-	if groups := sw.Groups(10); len(groups) != 1 || groups[0].Group != group || groups[0].Port != "1/1/1" {
+	if groups := sw.Groups(10, fixedTime.Add(time.Second)); len(groups) != 1 || groups[0].Group != group || groups[0].Port != "1/1/1" {
 		t.Errorf("Groups(10) = %+v, want 239.1.1.1 on 1/1/1", groups)
 	}
 	legacyGroup := netip.MustParseAddr("239.1.1.2")
@@ -6172,7 +6172,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 		igmp.Message{Type: igmp.ReportV1, Group: legacyGroup},
 	)
 	sw.Forward(fixedTime.Add(2*time.Second), "1/1/2", legacy)
-	if groups := sw.Groups(10); len(groups) != 2 {
+	if groups := sw.Groups(10, fixedTime.Add(2*time.Second)); len(groups) != 2 {
 		t.Errorf("Groups(10) after IGMPv1 report = %+v, want two memberships", groups)
 	}
 	if entries := sw.Entries(); len(entries) != 3 {
@@ -6184,6 +6184,90 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonNoRouterPort {
 		t.Errorf("report before query = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonNoRouterPort)
 	}
+}
+
+func TestMulticastReportIgnoresExpiredRouterPorts(t *testing.T) {
+	for _, protocol := range []string{"IGMP", "MLD"} {
+		t.Run(protocol, func(t *testing.T) {
+			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
+			group := netip.MustParseAddr("239.1.1.1")
+			query := makeIGMPControlFrame(t,
+				netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
+				mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2},
+			)
+			report := makeIGMPControlFrame(t,
+				netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 1,
+				igmp.Message{Type: igmp.ReportV2, Group: group},
+			)
+			if protocol == "MLD" {
+				group = netip.MustParseAddr("ff05::1")
+				query = makeMLDControlFrame(t,
+					netip.MustParseAddr("fe80::4"), netip.MustParseAddr("ff02::1"),
+					mcastRouterMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+					mld.Message{Type: mld.Query, Version: mld.V1},
+				)
+				report = makeMLDControlFrame(t,
+					netip.MustParseAddr("fe80::1"), group,
+					mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+					mld.Message{Type: mld.ReportV1, Group: group},
+				)
+			}
+			sw.Forward(fixedTime, "1/1/4", query)
+			if routers := sw.RouterPorts(10, fixedTime); len(routers) != 1 || routers[0].Port != "1/1/4" {
+				t.Fatalf("live router ports = %+v, want 1/1/4", routers)
+			}
+			if ports := mcastForwardedPorts(sw.Forward(fixedTime.Add(time.Second), "1/1/1", report)); !slices.Equal(ports, []string{"1/1/4"}) {
+				t.Fatalf("live report ports = %v, want [1/1/4]", ports)
+			}
+			res := sw.Forward(fixedTime.Add(300*time.Second), "1/1/1", report)
+			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonNoRouterPort || len(mcastForwardedPorts(res)) != 0 {
+				t.Errorf("expired report = %s/%s, ports %v, want Dropped/no-router-port and no ports", res.Outcome, res.Reason, mcastForwardedPorts(res))
+			}
+		})
+	}
+}
+
+func TestMulticastQueryEvidenceIgnoresExpiredRouterPorts(t *testing.T) {
+	cfg := mcastSwitchConfig(t, nil)
+	snooping := cfg.Mcast.VLANs[10]
+	snooping.RouterPortInterval = 10 * time.Second
+	snooping.RouterPorts = []string{"1/1/3"}
+	cfg.Mcast.VLANs[10] = snooping
+	sw := mustSwitch(t, cfg)
+	group := netip.MustParseAddr("239.1.1.1")
+	sw.Forward(fixedTime, "1/1/4", makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
+		mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2},
+	))
+	if routers := sw.RouterPorts(10, fixedTime); len(routers) != 2 {
+		t.Fatalf("live routers = %+v, want configured and learned router ports", routers)
+	}
+	sw.Forward(fixedTime.Add(time.Second), "1/1/1", makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 1,
+		igmp.Message{Type: igmp.ReportV2, Group: group},
+	))
+	sw.Forward(fixedTime.Add(2*time.Second), "1/1/1", makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("224.0.0.2"), mcastHostMAC, netaddr.MAC{1, 0, 0x5e, 0, 0, 2}, 1,
+		igmp.Message{Type: igmp.Leave, Group: group},
+	))
+	res := sw.Peek(fixedTime.Add(15*time.Second), "1/1/2", ethernet.Frame{
+		Src: mcastHostMAC, Dst: mcastGroupMAC, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, netip.MustParseAddr("10.0.0.1"), group, 32, []byte("data")),
+	})
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code != vswitch.IssueMcastQueryUnobserved {
+			continue
+		}
+		if len(issue.Evidence) != 1 {
+			t.Fatalf("query issue evidence = %v, want only the configured router port", issue.Evidence)
+		}
+		evidence, ok := res.Metadata.Evidence().Lookup(issue.Evidence[0])
+		if !ok || !strings.Contains(evidence.Context, `name=\"1/1/3\"`) || strings.Contains(evidence.Context, "1/1/4") {
+			t.Errorf("query issue evidence = %+v, found %v, want configured port 1/1/3", evidence, ok)
+		}
+		return
+	}
+	t.Fatalf("issues = %+v, want mcast-query-unobserved for the live group", res.Metadata.Issues())
 }
 
 func TestMulticastControlTraceDescribesGroupRecordTransition(t *testing.T) {
@@ -6303,8 +6387,8 @@ func TestIGMPControlRejectsBadFramesWithoutState(t *testing.T) {
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
-			if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-				t.Errorf("bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+				t.Errorf("bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 			}
 		})
 	}
@@ -6324,8 +6408,8 @@ func TestMalformedMLDCandidateDoesNotLearn(t *testing.T) {
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
-	if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-		t.Errorf("truncated MLD control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+	if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+		t.Errorf("truncated MLD control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 	}
 }
 
@@ -6353,8 +6437,8 @@ func TestUnsupportedIGMPFloodsWithoutSnoopingMutation(t *testing.T) {
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
 		t.Errorf("unsupported IGMP ports = %v, want every other VLAN port", got)
 	}
-	if len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-		t.Errorf("unsupported IGMP changed snooping state: groups=%+v routers=%+v", sw.Groups(10), sw.RouterPorts(10))
+	if len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+		t.Errorf("unsupported IGMP changed snooping state: groups=%+v routers=%+v", sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 	}
 	if entries := sw.Entries(); len(entries) != 1 || entries[0].MAC != mcastHostMAC {
 		t.Errorf("Entries() = %+v, want ordinary MAC learning", entries)
@@ -6382,8 +6466,8 @@ func TestUnsupportedMLDFloodsWithoutSnoopingMutation(t *testing.T) {
 			t.Errorf("unsupported MLD frame on %s = %+v, want unchanged %+v", egress.Port, got, frame)
 		}
 	}
-	if len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-		t.Errorf("unsupported MLD changed snooping state: groups=%+v routers=%+v", sw.Groups(10), sw.RouterPorts(10))
+	if len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+		t.Errorf("unsupported MLD changed snooping state: groups=%+v routers=%+v", sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 	}
 	if entries := sw.Entries(); len(entries) != 1 || entries[0].MAC != mcastHostMAC {
 		t.Errorf("Entries() = %+v, want ordinary MAC learning", entries)
@@ -6414,8 +6498,8 @@ func TestMLDControlValidatesOuterHeader(t *testing.T) {
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
-			if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 {
-				t.Errorf("bad MLD changed state: entries=%+v groups=%+v", sw.Entries(), sw.Groups(10))
+			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 {
+				t.Errorf("bad MLD changed state: entries=%+v groups=%+v", sw.Entries(), sw.Groups(10, fixedTime))
 			}
 		})
 	}
@@ -6446,8 +6530,8 @@ func TestMLDRouterAlertValidation(t *testing.T) {
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
-			if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-				t.Errorf("invalid Router Alert changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+				t.Errorf("invalid Router Alert changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 			}
 		})
 	}
@@ -6474,8 +6558,8 @@ func TestSnoopedControlPrecedesRoutedVLANOwnership(t *testing.T) {
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
-	if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-		t.Errorf("routed bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+	if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+		t.Errorf("routed bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 	}
 }
 
@@ -6548,8 +6632,40 @@ func TestPeekLeavesMulticastAndMACTablesUntouched(t *testing.T) {
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	)
 	sw.Peek(fixedTime, "1/1/1", report)
-	if len(sw.Entries()) != 0 || len(sw.Groups(10)) != 0 || len(sw.RouterPorts(10)) != 0 {
-		t.Errorf("Peek changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10), sw.RouterPorts(10))
+	if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
+		t.Errorf("Peek changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
+	}
+	query := makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
+		mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2},
+	)
+	sw.Forward(fixedTime, "1/1/4", query)
+	sw.Forward(fixedTime, "1/1/1", report)
+	beforeMACs := sw.Entries()
+	beforeGroups, beforeRouters := sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime)
+	if len(beforeMACs) != 2 || len(beforeGroups) != 1 || len(beforeRouters) != 1 {
+		t.Fatalf("live state = (%+v, %+v, %+v), want two MACs, one group and one router", beforeMACs, beforeGroups, beforeRouters)
+	}
+	now := fixedTime.Add(300 * time.Second)
+	data := ethernet.Frame{
+		Src: mcastHostMAC, Dst: mcastGroupMAC, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, netip.MustParseAddr("10.0.0.1"), group, 32, []byte("data")),
+	}
+	if ports := mcastForwardedPorts(sw.Peek(now, "1/1/3", data)); !slices.Equal(ports, []string{"1/1/1", "1/1/2", "1/1/4"}) {
+		t.Errorf("expired data Peek ports = %v, want unregistered flood", ports)
+	}
+	sw.Peek(now, "1/1/2", report)
+	if groups, routers := sw.Groups(10, now), sw.RouterPorts(10, now); len(groups) != 0 || len(routers) != 0 {
+		t.Errorf("expired reads = (%+v, %+v), want no groups or routers", groups, routers)
+	}
+	if got := sw.Entries(); !reflect.DeepEqual(got, beforeMACs) {
+		t.Errorf("Peek changed MACs = %+v, want %+v", got, beforeMACs)
+	}
+	if got := sw.Groups(10, fixedTime); !reflect.DeepEqual(got, beforeGroups) {
+		t.Errorf("reads changed stored groups = %+v, want %+v", got, beforeGroups)
+	}
+	if got := sw.RouterPorts(10, fixedTime); !reflect.DeepEqual(got, beforeRouters) {
+		t.Errorf("reads changed stored routers = %+v, want %+v", got, beforeRouters)
 	}
 }
 
@@ -6637,7 +6753,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
-	if groups := kept.Groups(10); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
+	if groups := kept.Groups(10, fixedTime); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("derived Groups(10) = %+v, want retained entry with original expiry", groups)
 	}
 
@@ -6647,7 +6763,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive removing snooped VLAN: %v", err)
 	}
-	if groups := dropped.Groups(10); len(groups) != 0 {
+	if groups := dropped.Groups(10, fixedTime); len(groups) != 0 {
 		t.Errorf("derived Groups(10) = %+v, want none after snooping removal", groups)
 	}
 
@@ -6667,10 +6783,10 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}
-	if groups := retained.Groups(10); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
+	if groups := retained.Groups(10, fixedTime); len(groups) != 1 || groups[0].GroupExpires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("Groups(10) after configuration change = %+v, want retained original expiry", groups)
 	}
-	routers := retained.RouterPorts(10)
+	routers := retained.RouterPorts(10, fixedTime)
 	if len(routers) != 2 || routers[0].Port != "1/1/3" || routers[0].Lifetime != mcast.Static ||
 		routers[1].Port != "1/1/4" || routers[1].Lifetime == mcast.Static || routers[1].Expires != fixedTime.Add(mcast.DefaultMembershipInterval) {
 		t.Errorf("RouterPorts(10) after configuration change = %+v, want new static 1/1/3 and retained learned 1/1/4", routers)
@@ -6987,8 +7103,11 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 			t.Errorf("egress at t+1s = false, want true")
 		}
 		res2 := sw.Forward(leaveAt.Add(2*time.Second), "p9", dataFrame(t, other))
-		if slices.Contains(mcastForwardedPorts(res2), "p1") {
-			t.Errorf("egress at t+2s = true, want false")
+		if groups := sw.Groups(10, leaveAt.Add(2*time.Second)); len(groups) != 0 {
+			t.Errorf("groups at t+2s = %+v, want expired membership removed from the read", groups)
+		}
+		if res2.Outcome != trace.Flooded || !slices.Equal(mcastForwardedPorts(res2), []string{"p1"}) {
+			t.Errorf("forward at t+2s = %s, ports %v, want unregistered flood to p1", res2.Outcome, mcastForwardedPorts(res2))
 		}
 	})
 
@@ -9355,7 +9474,7 @@ func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
 		ndp.Message{Type: ndp.NeighborAdvertisement, Target: dst, Solicited: true, Override: true, LinkLayerAddr: learnedMAC, HasLinkLayerAddr: true})
 	sw.Forward(fixedTime.Add(time.Second), "1/1/2", na)
 
-	if got := sw.Groups(20); len(got) != 0 {
+	if got := sw.Groups(20, fixedTime.Add(time.Second)); len(got) != 0 {
 		t.Errorf("mcast groups on vlan20 after NDP = %+v, want none: NDP must not reach multicast control", got)
 	}
 
@@ -9396,7 +9515,7 @@ func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
 		mld.Message{Type: mld.ReportV1, Group: group})
 	sw.Forward(fixedTime.Add(time.Second), "1/1/1", report)
 
-	if got := sw.Groups(10); len(got) != 1 {
+	if got := sw.Groups(10, fixedTime.Add(time.Second)); len(got) != 1 {
 		t.Fatalf("mcast groups on vlan10 after MLD report = %+v, want the reported group learned", got)
 	}
 

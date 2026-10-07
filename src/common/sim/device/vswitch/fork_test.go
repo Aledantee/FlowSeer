@@ -134,15 +134,15 @@ func probeSwitchMcast(t *testing.T) {
 	}
 
 	sw.Forward(now, "1/1/1", frame)
-	if got := len(sw.Groups(10)); got == 0 {
+	if got := len(sw.Groups(10, now)); got == 0 {
 		t.Fatal("source group 10 membership count = 0, want at least 1")
 	}
-	if len(fork.Groups(10)) != 0 {
+	if len(fork.Groups(10, now)) != 0 {
 		t.Errorf("fork learned multicast group from source IGMP forward")
 	}
 
 	fork.Forward(now, "1/1/2", frame)
-	for _, g := range sw.Groups(10) {
+	for _, g := range sw.Groups(10, now) {
 		if g.Port == "1/1/2" {
 			t.Errorf("source learned port 1/1/2 membership from fork")
 		}
