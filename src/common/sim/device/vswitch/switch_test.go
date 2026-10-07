@@ -6474,6 +6474,29 @@ func TestUnsupportedMLDFloodsWithoutSnoopingMutation(t *testing.T) {
 	}
 }
 
+func TestUnsupportedMLDRequiresLinkLocalSource(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	for _, source := range []netip.Addr{netip.MustParseAddr("fe80::1"), netip.MustParseAddr("2001:db8::1")} {
+		t.Run(source.String(), func(t *testing.T) {
+			frame := makeMLDControlFrame(t, source, group,
+				mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+				mld.Message{Type: mld.ReportV1, Group: group})
+			setMLDType(t, &frame, 200)
+			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
+			res := sw.Forward(fixedTime, "1/1/1", frame)
+			if source.IsLinkLocalUnicast() {
+				if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
+					t.Errorf("unsupported MLD ports = %v, want every other VLAN port", got)
+				}
+			} else {
+				if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl || len(mcastForwardedPorts(res)) != 0 {
+					t.Errorf("Forward = %s/%s, ports = %v, want Dropped/%s with no forwarded ports", res.Outcome, res.Reason, mcastForwardedPorts(res), mcast.ReasonBadControl)
+				}
+			}
+		})
+	}
+}
+
 func TestMLDReportAcceptsUnspecifiedSource(t *testing.T) {
 	group := netip.MustParseAddr("ff05::1")
 	for _, version := range []mld.Type{mld.ReportV1, mld.ReportV2} {

@@ -88,6 +88,53 @@ func igmpRecord(now time.Time, layer *mcast.Layer, kind igmp.RecordType, group n
 	})
 }
 
+func TestDeletedSourceQueryDoesNotAttachToReaddedSource(t *testing.T) {
+	l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, mcastPortTable(t))
+	t0 := time.Unix(129000, 0)
+	group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+	igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(time.Second), l, igmp.BlockOldSources, group, []netip.Addr{source})
+	if _, registered, pending := l.Resolve(vid, group, source, t0.Add(4*time.Second)); !registered || !pending {
+		t.Fatalf("BLOCK registered, pending = %v, %v, want true, true", registered, pending)
+	}
+	igmpRecord(t0.Add(5*time.Second), l, igmp.ChangeToExcludeMode, group, nil)
+	if e := mustEntry(t, l.Groups(vid, t0.Add(5*time.Second))); e.Mode != mcast.Exclude || len(e.Sources) != 0 {
+		t.Fatalf("TO_EX state = %+v, want EXCLUDE with no source records", e)
+	}
+	igmpRecord(t0.Add(6*time.Second), l, igmp.ModeIsExclude, group, []netip.Addr{source})
+	e := mustEntry(t, l.Groups(vid, t0.Add(6*time.Second)))
+	if expires, exists := sourceExpiry(t, e, source); !exists || !expires.Equal(t0.Add(266*time.Second)) {
+		t.Fatalf("readded source expiry, exists = %v, %v, want t0+266s, true", expires, exists)
+	}
+	if ports, registered, pending := l.Resolve(vid, group, source, t0.Add(7*time.Second)); !slices.Equal(ports, []string{memberPort, "1/1/8"}) || !registered || pending {
+		t.Errorf("Resolve = %v, %v, %v, want member and router, registered, no pending query", ports, registered, pending)
+	}
+}
+
+func TestObservedSourceQueryEndsObligationWithoutLoweringTimer(t *testing.T) {
+	l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}, MembershipInterval: 10 * time.Second}}}, mcastPortTable(t))
+	t0 := time.Unix(130000, 0)
+	group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+	igmpRecord(t0, l, igmp.ModeIsInclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(time.Second), l, igmp.ModeIsExclude, group, []netip.Addr{source})
+	igmpRecord(t0.Add(2*time.Second), l, igmp.BlockOldSources, group, []netip.Addr{source})
+	now := t0.Add(9 * time.Second)
+	e := mustEntry(t, l.Groups(vid, now))
+	if expires, exists := sourceExpiry(t, e, source); e.Mode != mcast.Exclude || !e.GroupExpires.Equal(t0.Add(11*time.Second)) || !exists || !expires.Equal(t0.Add(10*time.Second)) {
+		t.Fatalf("query fixture = %+v, want EXCLUDE with group expiry t0+11s and source expiry t0+10s", e)
+	}
+	if _, registered, pending := l.Resolve(vid, group, source, now); !registered || !pending {
+		t.Fatalf("before query registered, pending = %v, %v, want true, true", registered, pending)
+	}
+	l.Learn(now, vid, "1/1/8", source, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{source}})
+	if expires, _ := sourceExpiry(t, mustEntry(t, l.Groups(vid, now)), source); !expires.Equal(t0.Add(10 * time.Second)) {
+		t.Errorf("source expiry = %v, want unchanged t0+10s", expires)
+	}
+	if _, registered, pending := l.Resolve(vid, group, source, now); !registered || pending {
+		t.Errorf("after query registered, pending = %v, %v, want true, false", registered, pending)
+	}
+}
+
 func TestResolveReturnsMembersAndRouterPorts(t *testing.T) {
 	t.Parallel()
 

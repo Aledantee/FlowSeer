@@ -13,6 +13,29 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 )
 
+func TestIGMPv1CompatibilityIgnoresBlockAndExcludeSources(t *testing.T) {
+	for _, kind := range []igmp.RecordType{igmp.BlockOldSources, igmp.ChangeToExcludeMode} {
+		name := "BLOCK"
+		if kind == igmp.ChangeToExcludeMode {
+			name = "TO_EX"
+		}
+		t.Run(name, func(t *testing.T) {
+			l := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {}}}, mcastPortTable(t))
+			t0 := time.Unix(128000, 0)
+			group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+			l.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.ReportV1, Group: group})
+			if e := mustEntry(t, l.Groups(vid, t0)); e.Mode != mcast.Exclude || len(e.Sources) != 0 {
+				t.Fatalf("IGMPv1 state = %+v, want EXCLUDE with no source records", e)
+			}
+			// RFC 3376 section 7.3.2 applies the IGMPv2 BLOCK and TO_EX rules in IGMPv1 mode.
+			igmpRecord(t0.Add(time.Second), l, kind, group, []netip.Addr{source})
+			if e := mustEntry(t, l.Groups(vid, t0.Add(time.Second))); e.Mode != mcast.Exclude || len(e.Sources) != 0 {
+				t.Errorf("state = %+v, want EXCLUDE with no source records", e)
+			}
+		})
+	}
+}
+
 func TestLearnExpiredCompatibilityMatchesAdvance(t *testing.T) {
 	for _, protocol := range []string{"IGMP", "MLD"} {
 		for _, fastLeave := range []bool{false, true} {

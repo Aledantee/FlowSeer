@@ -197,8 +197,11 @@ input the multicast snooping runtime state depends on: its own configuration as
 ## Limits
 
 The layer emits no query and takes LMQT from configuration. One
-`MembershipInterval` stands for both GMI and the Older Host Present Interval.
-A learned router port uses the configured `RouterPortInterval`.
+`MembershipInterval` stands for both GMI and the Older Host Present Interval
+(RFC 3376 §8.13) or Older Version Host Present Timeout (RFC 3810 §9.13).
+A learned router port uses the layer's configured `RouterPortInterval` as
+its lifetime. RFC 4541 §2.1.1 item 1 describes router-port discovery without
+specifying a lifetime.
 The switch accepts reports from `::` under RFC 4541 §3, but requires a
 link-local source for queries and Done. What a snooping switch should do
 with a query or Done from `::` is unverified.
