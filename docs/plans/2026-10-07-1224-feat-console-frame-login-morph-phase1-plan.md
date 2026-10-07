@@ -245,3 +245,10 @@ slides.
   names motion-v 2.5.1, and `frontend/web/pnpm-lock.yaml` holds 2.4.4. This
   plan relies on 2.4.4. The solution's version line is stale and is
   `compound`'s to refresh, not this phase's.
+
+## Review gaps
+
+- frontend/web/src/main.test.ts:91: call `frame.moved()` in the console view's setup; fails: "starts no panel animation when sign-in uses the handover", and the transform assertion at `:87`; class: false test
+- frontend/web/src/navigation/AppFrame.vue:26: remove the watch that sets `topbarHeight` to 54 in `login` mode; fails: a case that reads 54 once the console's taller top bar has left the region; class: gap
+- frontend/web/src/LoginView.vue:20: remove `frame.sidebar.value = 'login'`; fails: a case that mounts the login view after the console and finds no `workspace-sidebar` id; class: gap
+- frontend/web/src/navigation/frame.ts:11: `layoutDependency` is a writable `Ref` on the context, so a view can start the panel animation without `moved()`; fails: the Decision that `moved()` is the only thing that starts it; class: convention
