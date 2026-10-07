@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
+	"go.aledante.io/FlowSeer/src/common/net/ndp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
@@ -36,6 +37,254 @@ type conservationOp struct {
 	// neighbor indexes conservationAddrs or conservationAddrsV6, depending on kind; ignored by
 	// the ops that take no neighbor.
 	neighbor int
+}
+
+func TestOriginateScopeMatrix(t *testing.T) {
+	t.Parallel()
+	destinations := []string{"fe80::99", "2001:db8:9::99", "ff01::2", "ff02::2", "ff05::2", "ff0e::2", "169.254.9.99", "192.0.2.99", "224.0.0.2", "239.1.2.3"}
+	// RFC 6724 sections 3.1 and 3.2 map address scopes onto multicast scopes.
+	scope := func(a netip.Addr) int {
+		if a.Is6() && a.IsMulticast() {
+			return int(a.As16()[1] & 15)
+		}
+		if a.Is4() && netip.MustParsePrefix("224.0.0.0/24").Contains(a) {
+			return 2
+		}
+		if netip.MustParsePrefix("fe80::/10").Contains(a) || netip.MustParsePrefix("169.254.0.0/16").Contains(a) {
+			return 2
+		}
+		return 14
+	}
+	count := 0
+	for _, destination := range destinations {
+		for mask := range 16 {
+			for _, gateway := range []string{"", "local", "global"} {
+				count++
+				t.Run(fmt.Sprintf("%s/%04b/%s", destination, mask, gateway), func(t *testing.T) {
+					dst := netip.MustParseAddr(destination)
+					addresses := []string{"fe80::1/64", "2001:db8:1::1/64", "fe80::2/64", "2001:db8:2::1/64"}
+					localHop, globalHop := "fe80::99", "2001:db8:1::99"
+					if dst.Is4() {
+						addresses = []string{"169.254.1.1/24", "198.51.100.1/24", "169.254.2.1/24", "203.0.113.1/24"}
+						localHop, globalHop = "169.254.1.99", "198.51.100.99"
+					}
+					interfaces := map[string]Interface{"vlan10": {VLAN: 10, MAC: conservationDeviceMAC}, "a0": {VLAN: 20}}
+					var all, egress []netip.Addr
+					for i, address := range addresses {
+						if mask&(1<<i) == 0 {
+							continue
+						}
+						name := "vlan10"
+						if i >= 2 {
+							name = "a0"
+						}
+						iface := interfaces[name]
+						p := netip.MustParsePrefix(address)
+						iface.Prefixes = append(iface.Prefixes, p)
+						interfaces[name] = iface
+						all = append(all, p.Addr())
+						if name == "vlan10" {
+							egress = append(egress, p.Addr())
+						}
+					}
+					hop := dst
+					route := Route{Prefix: netip.PrefixFrom(dst, dst.BitLen()), Interface: "vlan10"}
+					if gateway != "" {
+						hop = netip.MustParseAddr(globalHop)
+						if gateway == "local" {
+							hop = netip.MustParseAddr(localHop)
+						}
+						route.NextHop = hop
+					}
+					l, err := New(Config{VRFs: map[string]VRF{DefaultVRF: {Interfaces: interfaces, Routes: []Route{route}}}}, layer.Env{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					// Isolate source selection even when the egress has no address
+					// from which it could solicit this neighbor.
+					l.vrfs[DefaultVRF].neighbors[neighborKey{iface: "vlan10", addr: hop}] = &neighborEntry{origin: configured, state: NeighborReachable, mac: conservationSenderMAC}
+					res := l.Originate(time.Time{}, DefaultVRF, dst, 17, nil, false)
+					if len(all) == 0 {
+						if res.Reason != ReasonNoRoute {
+							t.Fatalf("without sources: %+v", res)
+						}
+						return
+					}
+					hdr, _, err := ip.Decode(res.Frame.Payload)
+					if err != nil {
+						t.Fatalf("result %+v: %v", res, err)
+					}
+					wide := scope(dst) > 2
+					eligible := func(a netip.Addr) bool {
+						if wide && slices.ContainsFunc(all, func(a netip.Addr) bool { return scope(a) > 2 }) {
+							return scope(a) > 2
+						}
+						if !wide && slices.ContainsFunc(egress, func(a netip.Addr) bool { return scope(a) == 2 }) {
+							return scope(a) == 2
+						}
+						return true
+					}
+					if !slices.Contains(all, hdr.Src) || hdr.Src.Is4() != dst.Is4() || !eligible(hdr.Src) {
+						t.Fatalf("source %s violates destination scope %d, VRF %v, egress %v", hdr.Src, scope(dst), all, egress)
+					}
+					if slices.ContainsFunc(egress, eligible) && !slices.Contains(egress, hdr.Src) {
+						t.Fatalf("source %s bypasses eligible egress %v", hdr.Src, egress)
+					}
+				})
+			}
+		}
+	}
+	if count != 480 {
+		t.Fatalf("ran %d cases, want 480", count)
+	}
+}
+
+func TestNeighborEntryPointsMatchPriorAdvance(t *testing.T) {
+	t.Parallel()
+	count := 0
+	for _, dst := range []netip.Addr{conservationAddrs[0], conservationAddrsV6[0]} {
+		for _, scenario := range []struct {
+			name  string
+			state NeighborState
+			sent  int
+		}{
+			{"incomplete-exhausted", NeighborIncomplete, 3},
+			{"incomplete-due", NeighborIncomplete, 1},
+			{"probe-exhausted", NeighborProbe, 3},
+			{"probe-due", NeighborProbe, 1},
+			{"delay-expired", NeighborDelay, 0},
+			{"reachable-expired", NeighborReachable, 0},
+			{"stale", NeighborStale, 0},
+		} {
+			entries := []string{"route", "route-read", "originate", "originate-read"}
+			if dst.Is4() {
+				entries = append(entries, "arp-local", "arp-other", "arp-reply")
+			} else {
+				entries = append(entries, "solicitation", "solicitation-no-option", "advertisement", "advertisement-override")
+			}
+			for _, point := range entries {
+				count++
+				t.Run(fmt.Sprintf("%s/%s/%s", dst, scenario.name, point), func(t *testing.T) {
+					unaged := conservationLayer(t, 1)
+					t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+					unaged.Originate(t0, DefaultVRF, dst, 17, []byte{1}, true)
+					unaged.Originate(t0, DefaultVRF, dst, 17, []byte{2}, true)
+					if scenario.state == NeighborIncomplete {
+						for sent := 1; sent < scenario.sent; sent++ {
+							unaged.Advance(t0.Add(time.Duration(sent) * time.Second))
+						}
+					} else {
+						unaged.observe(t0, advertisement{Interface: "vlan10", Addr: dst, MAC: conservationSenderMAC, HasMAC: true, Override: true, Solicited: scenario.state == NeighborReachable})
+						unaged.Advance(t0)
+						unaged.DrainExits()
+						if scenario.state == NeighborDelay || scenario.state == NeighborProbe {
+							unaged.Originate(t0, DefaultVRF, dst, 17, nil, true)
+						}
+						if scenario.state == NeighborProbe {
+							for sent := 1; sent <= scenario.sent; sent++ {
+								unaged.Advance(t0.Add(time.Duration(4+sent) * time.Second))
+							}
+						}
+					}
+					entry := unaged.vrfs[DefaultVRF].neighbors[neighborKey{iface: "vlan10", addr: dst}]
+					if entry.state != scenario.state || entry.origin != observed {
+						t.Fatalf("seed = %+v, want observed %s", entry, scenario.state)
+					}
+					now := t0.Add(40 * time.Second)
+					aged := unaged.Clone()
+					aged.Advance(now)
+					agedExits := aged.DrainExits()
+					before := unaged.Clone()
+					beforeAged := aged.Clone()
+					invoke := func(l *Layer) (Result, layer.Effects) {
+						commit := point != "route-read" && point != "originate-read"
+						if point == "originate" || point == "originate-read" {
+							return l.Originate(now, DefaultVRF, dst, 17, []byte{3}, commit), layer.Effects{}
+						}
+						hdr := ip.Header{Src: dst, Dst: netip.MustParseAddr("10.0.10.1"), HopLimit: 255, Protocol: 58, V4: &ip.V4{}}
+						etherType := ethernet.EtherTypeIPv4
+						if dst.Is6() {
+							hdr.Dst, hdr.V4, hdr.V6 = netip.MustParseAddr("2001:db8:10::1"), nil, &ip.V6{}
+							etherType = ethernet.EtherTypeIPv6
+						}
+						var body []byte
+						var err error
+						switch {
+						case point == "route" || point == "route-read":
+							hdr.Src, hdr.Dst, hdr.Protocol, hdr.HopLimit = hdr.Dst, dst, 17, 64
+							body = []byte{3}
+						case dst.Is4():
+							msg := arp.Message{HardwareType: 1, ProtocolType: 0x0800, Operation: arp.Request, SenderAddr: dst, SenderMAC: conservationSenderMAC, TargetAddr: hdr.Dst, TargetMAC: conservationDeviceMAC}
+							if point == "arp-other" {
+								msg.TargetAddr = netip.MustParseAddr("10.0.10.98")
+							}
+							if point == "arp-reply" {
+								msg.Operation = arp.Reply
+							}
+							frame, encodeErr := arp.Encode(msg, conservationDeviceMAC)
+							if encodeErr != nil {
+								t.Fatal(encodeErr)
+							}
+							return Result{}, l.Receive(now, "vlan10", frame)
+						default:
+							msg := ndp.Message{Type: ndp.NeighborSolicitation, Target: hdr.Dst, HasLinkLayerAddr: point != "solicitation-no-option", LinkLayerAddr: conservationSenderMAC}
+							if point == "advertisement" || point == "advertisement-override" {
+								msg.Type, msg.Target, msg.Solicited, msg.Override = ndp.NeighborAdvertisement, dst, point == "advertisement", true
+							}
+							body, err = ndp.Encode(hdr, msg)
+							if err != nil {
+								t.Fatal(err)
+							}
+						}
+						packet, err := hdr.Encode(body)
+						if err != nil {
+							t.Fatal(err)
+						}
+						frame := ethernet.Frame{Src: conservationSenderMAC, Dst: conservationDeviceMAC, EtherType: etherType, Payload: packet}
+						if point == "route" || point == "route-read" {
+							return l.Route(now, "vlan10", frame, commit), layer.Effects{}
+						}
+						return Result{}, l.Receive(now, "vlan10", frame)
+					}
+					got, gotFX := invoke(unaged)
+					want, wantFX := invoke(aged)
+					if got.Reason != want.Reason || !reflect.DeepEqual(got.Frame, want.Frame) || !reflect.DeepEqual(got.Emissions, want.Emissions) || (got.Hold != 0) != (want.Hold != 0) || !reflect.DeepEqual(gotFX, wantFX) {
+						t.Errorf("results differ: %+v/%+v vs %+v/%+v", got, gotFX, want, wantFX)
+					}
+					if (point == "route-read" || point == "originate-read") && (!reflect.DeepEqual(unaged, before) || !reflect.DeepEqual(aged, beforeAged)) {
+						t.Error("non-committing call changed layer")
+					}
+					unaged.Advance(now)
+					aged.Advance(now)
+					agedExits = append(agedExits, aged.DrainExits()...)
+					if !reflect.DeepEqual(unaged.Neighbors(), aged.Neighbors()) {
+						t.Errorf("neighbors differ: %v vs %v", unaged.Neighbors(), aged.Neighbors())
+					}
+					gotWake, gotTimer := unaged.NextWake()
+					wantWake, wantTimer := aged.NextWake()
+					if gotWake != wantWake || gotTimer != wantTimer {
+						t.Errorf("wake differs: %v/%t vs %v/%t", gotWake, gotTimer, wantWake, wantTimer)
+					}
+					causes := func(exits []HeldFrame) map[HoldToken]HeldCause {
+						out := map[HoldToken]HeldCause{}
+						for _, exit := range exits {
+							if _, exists := out[exit.Token]; exists {
+								t.Errorf("duplicate exit %d", exit.Token)
+							}
+							out[exit.Token] = exit.Cause
+						}
+						return out
+					}
+					if gotExits := causes(unaged.DrainExits()); !reflect.DeepEqual(gotExits, causes(agedExits)) {
+						t.Errorf("exits differ: %v vs %v", gotExits, causes(agedExits))
+					}
+				})
+			}
+		}
+	}
+	if count != 105 {
+		t.Fatalf("ran %d cases, want 105", count)
+	}
 }
 
 var conservationAddrs = []netip.Addr{

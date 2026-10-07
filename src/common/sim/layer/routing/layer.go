@@ -992,8 +992,10 @@ func (l *Layer) Route(now time.Time, iface string, f ethernet.Frame, commit bool
 // for transmission towards dst within the named VRF.
 //
 // The route hashes the family's unspecified address and dst, with flow label zero.
-// For a non-link-local destination, a non-link-local source is preferred when the
-// VRF has one of the family (RFC 6724 section 5 rule 2). Among eligible addresses,
+// Destinations wider than link-local scope prefer a non-link-local source when
+// the VRF has one of the family. Destinations at link-local scope or narrower
+// prefer a link-local egress source (RFC 6724 sections 3.1 and 5 rule 2).
+// Among eligible addresses,
 // the source is the egress address whose longest prefix holds the on-link next hop,
 // else the egress interface's first address of the family, else the VRF's first
 // (RFC 1122 section 3.3.4.3 and RFC 6724 section 5 rule 5). The datagram transmits
@@ -1040,14 +1042,17 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 			if p.Addr().Is4() != dst.Is4() {
 				continue
 			}
-			if !firstAddr.IsValid() || (!dst.IsLinkLocalUnicast() && firstAddr.IsLinkLocalUnicast() && !p.Addr().IsLinkLocalUnicast()) {
+			if !firstAddr.IsValid() || (!linkLocalScope(dst) && firstAddr.IsLinkLocalUnicast() && !p.Addr().IsLinkLocalUnicast()) {
 				firstAddr = p.Addr()
 			}
 		}
 	}
-	preferScope := !dst.IsLinkLocalUnicast() && firstAddr.IsValid() && !firstAddr.IsLinkLocalUnicast()
+	preferScope := !linkLocalScope(dst) && firstAddr.IsValid() && !firstAddr.IsLinkLocalUnicast()
 	if sel != nil {
 		route := sel.route()
+		preferLocal := linkLocalScope(dst) && slices.ContainsFunc(vrfState.interfaces[route.Interface].Prefixes, func(p netip.Prefix) bool {
+			return p.Addr().Is4() == dst.Is4() && p.Addr().IsLinkLocalUnicast()
+		})
 		target := dst
 		if route.resolvedNextHop.IsValid() {
 			target = route.resolvedNextHop
@@ -1055,7 +1060,7 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		bestBits := -1
 		var egressFirst netip.Addr
 		for _, p := range vrfState.interfaces[route.Interface].Prefixes {
-			if p.Addr().Is4() != dst.Is4() || (preferScope && p.Addr().IsLinkLocalUnicast()) {
+			if p.Addr().Is4() != dst.Is4() || (preferScope && p.Addr().IsLinkLocalUnicast()) || (preferLocal && !p.Addr().IsLinkLocalUnicast()) {
 				continue
 			}
 			if !egressFirst.IsValid() {
@@ -1205,6 +1210,15 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 		Payload:   pktBytes,
 	}
 	return res
+}
+
+// linkLocalScope includes multicast interface-local and link-local destinations
+// in the scope comparison with unicast sources (RFC 6724 section 3.1).
+func linkLocalScope(addr netip.Addr) bool {
+	if addr.Is6() && addr.IsMulticast() {
+		return addr.As16()[1]&15 <= 2
+	}
+	return addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast()
 }
 
 // RetentionKey returns a canonical encoding of every normalized input the layer's

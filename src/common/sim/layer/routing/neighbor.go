@@ -167,13 +167,11 @@ type neighborLookup struct {
 	ok        bool
 }
 
-// resolveNeighbor judges the entry at now without writing when commit is clear.
-// held is called only when the lookup queues a frame.
-func (l *Layer) resolveNeighbor(vs *vrfState, now time.Time, key neighborKey, iface Interface, commit bool, held func() heldEntry) neighborLookup {
+// retireNeighbor deletes exhausted observed cycles before traffic can reuse them
+// (RFC 4861 section 7.3.3). With commit clear it only reports retirement.
+func (l *Layer) retireNeighbor(vs *vrfState, now time.Time, key neighborKey, commit bool) bool {
 	entry, ok := vs.neighbors[key]
 	if ok && entry.origin == observed && (entry.state == NeighborIncomplete || entry.state == NeighborProbe) && entry.sent >= 3 && !entry.expiry.IsZero() && !entry.expiry.After(now) {
-		// Exhausted cycles are deleted before subsequent traffic resolves again
-		// (RFC 4861 section 7.3.3), even without a preceding Advance.
 		if commit {
 			for _, h := range entry.evicted {
 				if hf, valid := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); valid {
@@ -187,6 +185,16 @@ func (l *Layer) resolveNeighbor(vs *vrfState, now time.Time, key neighborKey, if
 			}
 			delete(vs.neighbors, key)
 		}
+		return true
+	}
+	return false
+}
+
+// resolveNeighbor judges the entry at now without writing when commit is clear.
+// held is called only when the lookup queues a frame.
+func (l *Layer) resolveNeighbor(vs *vrfState, now time.Time, key neighborKey, iface Interface, commit bool, held func() heldEntry) neighborLookup {
+	entry, ok := vs.neighbors[key]
+	if l.retireNeighbor(vs, now, key, commit) {
 		ok = false
 	}
 	if !ok {
@@ -236,7 +244,9 @@ func (l *Layer) observe(now time.Time, adv advertisement) {
 		return
 	}
 	vs := l.vrfs[vrfName]
-	entry, ok := vs.neighbors[neighborKey{iface: adv.Interface, addr: adv.Addr}]
+	key := neighborKey{iface: adv.Interface, addr: adv.Addr}
+	l.retireNeighbor(vs, now, key, true)
+	entry, ok := vs.neighbors[key]
 	if !ok || entry.origin == configured {
 		return
 	}
@@ -310,6 +320,9 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, row := range rows {
 		entry := row.entry
 		vs := l.vrfs[row.vrfName]
+		if l.retireNeighbor(vs, now, row.key, true) {
+			continue
+		}
 		for _, h := range entry.evicted {
 			if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldEvicted); ok {
 				l.exits = append(l.exits, hf)
@@ -326,15 +339,7 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 					entry.state = NeighborProbe
 					entry.sent = 0
 				}
-				if entry.sent >= 3 {
-					for _, h := range entry.queue {
-						if hf, ok := l.finishHeld(h, netaddr.MAC{}, HeldTimedOut); ok {
-							l.exits = append(l.exits, hf)
-						}
-					}
-					delete(vs.neighbors, row.key)
-					continue
-				}
+
 				em, ok := solicitation(l.ifaces[row.key.iface], row.key.addr, entry.mac, entry.state == NeighborProbe)
 				if ok {
 					fx.Emissions = append(fx.Emissions, em)
