@@ -901,3 +901,13 @@ U1, U2, and U3 are a chain because each edits
 - Unverified: IEEE Std 802.1D, 1998 Edition, 17.15, for the definition of
   the two timers (Sources). The figures cited under Rules 13 and 17 give
   every assignment the units build.
+
+## Review gaps
+
+- src/common/sim/layer/stp/roles.go:17: `isSynced` passes over a boundary MSTI port; fails: an MSTI Root port's record carries no Agreement while a Designated boundary port has lost `synced` to a worse vector and no proposal has arrived; class: gap
+- src/common/sim/layer/stp/roles.go:288: the reroot cut drops its test that the tree's Root port is not a boundary MSTI port; fails: an MSTI whose elected root port is a boundary port below Forwarding leaves an internal recent Root port forwarding; class: gap
+- src/common/sim/layer/stp/roles.go:292: the reroot cut passes over a recent Root port that is Learning; fails: a Root port in Learning on a shared link that leaves the role for Designated is Discarding once another port is Root; class: gap
+- src/common/sim/layer/stp/receive.go:24: `syncTree` passes over every synced port, a Discarding one included; fails: a synced Discarding Designated port that is not proposing proposes and requests a frame after a sync; class: gap
+- src/common/sim/layer/stp/receive.go:30: `syncTree` starts the boundary ladder for a synced Discarding port too; fails: a boundary MSTI port that is Discarding with the CIST reaches Forwarding with the CIST's ladder and not later; class: gap
+- src/common/sim/layer/stp/roles.go:328: a boundary port keeps its MSTI cut through a role change; fails: a boundary port under an MSTI cut that takes the CIST's Root role reads the CIST's state; class: gap
+- src/common/sim/layer/stp/roles.go:354: a port that stops being a boundary port keeps `boundarySyncState`; fails: a port cut as a boundary port, then internal, then a boundary port again reads the CIST's state; class: gap
