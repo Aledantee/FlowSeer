@@ -960,13 +960,11 @@ if [[ $hook_tooling == true ]]; then
   run jq empty .codex/hooks.json
   # Glob every skill's scripts so a shell script added to any skill is
   # linted without editing this line.
-  hook_scripts=(tools/hooks/*.sh tools/hooks/tests/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
+  hook_scripts=(tools/hooks/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
-  if [[ -x tools/hooks/tests/run.sh ]]; then
-    run tools/hooks/tests/run.sh
-  fi
-  # The repository scripts: run their suites. The suite compiles every
-  # module (test_compile.py), so a module no test imports still parses.
+  # The repository scripts: run their suites, the hook suite among them. The
+  # suite compiles every module (test_compile.py), so a module no test imports
+  # still parses.
   if [[ -d tools/scripts ]]; then
     need_tool uv
     if ! test_output=$(run uv run tools/scripts/run.py test 2>&1); then
