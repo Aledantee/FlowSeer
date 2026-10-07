@@ -200,3 +200,41 @@ it('keeps the layout dependency read-only for views', async () => {
   frame?.moved()
   expect(frame?.layoutDependency.value).toBe(1)
 })
+
+it('bumps login crossings synchronously and leaves console moves to the view', async () => {
+  vi.stubGlobal('matchMedia', (query: string) => ({
+    matches: query.includes('min-width'),
+    addEventListener() {},
+    removeEventListener() {},
+  }))
+  let frame: ReturnType<typeof useFrame> | undefined
+  const child = defineComponent({
+    setup() {
+      frame = useFrame()
+      frame.sidebar.value = 'menu'
+      return () => null
+    },
+  })
+  const mounted = await mountInFrame(child, '/test', [
+    { path: '/test', component: child },
+  ])
+  dispose = mounted.dispose
+  if (!frame) throw new Error('Missing frame context')
+  const dependency = frame.layoutDependency.value
+  for (const mode of ['collapsed', 'menu'] as const) {
+    frame.sidebar.value = mode
+    await nextTick()
+    expect(
+      mounted.host
+        .querySelector('.shell')
+        ?.classList.contains('sidebar-collapsed'),
+    ).toBe(mode === 'collapsed')
+    expect(frame.layoutDependency.value).toBe(dependency)
+  }
+  frame.sidebar.value = 'login'
+  expect(frame.layoutDependency.value).toBe(dependency + 1)
+  await nextTick()
+  frame.sidebar.value = 'menu'
+  expect(frame.layoutDependency.value).toBe(dependency + 2)
+  await nextTick()
+})

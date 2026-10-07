@@ -1,13 +1,50 @@
 <script setup lang="ts">
-import { onMounted, provide, ref } from 'vue'
+import { nextTick, onMounted, provide, ref, watch } from 'vue'
 import ThemeSwitcher from '../components/ThemeSwitcher.vue'
 import LocaleSwitcher from '../components/LocaleSwitcher.vue'
-import { UiMotion } from '../ui'
-import { createFrame, frameContext } from './frame'
+import { UiMotion, useMotionFeedback } from '../ui'
+import {
+  createFrame,
+  frameContext,
+  frameMove,
+  FRAME_MOVE_SECONDS,
+} from './frame'
 
 const frame = createFrame()
 provide(frameContext, frame)
 const main = ref<HTMLElement | null>(null)
+const { play, reduced } = useMotionFeedback()
+
+watch(
+  frame.sidebar,
+  async (mode, previous, onCleanup) => {
+    if (
+      !frame.mainElement.value ||
+      (mode === 'login') === (previous === 'login')
+    )
+      return
+    if (window.matchMedia('(min-width: 801px)').matches && !reduced.value)
+      frame.moved()
+    let cancelled = false
+    onCleanup(() => {
+      cancelled = true
+    })
+    // Deferred Teleports fill the arriving regions in the navigation's render.
+    await nextTick()
+    if (cancelled) return
+    const regions = [
+      frame.sidebarElement.value?.querySelector('#frame-sidebar'),
+      ...['topbar', 'topbar-tools', 'page'].map((region) =>
+        frame.mainElement.value?.querySelector(`#frame-${region}`),
+      ),
+    ]
+    for (const region of regions)
+      for (const child of region?.children ?? [])
+        if (child instanceof HTMLElement)
+          play(child, { opacity: [0, 1] }, FRAME_MOVE_SECONDS)
+  },
+  { flush: 'sync' },
+)
 
 onMounted(() => {
   frame.mainElement.value = main.value
@@ -45,6 +82,7 @@ onMounted(() => {
           id="frame-topbar"
           as="div"
           layout="position"
+          :transition="frameMove"
           :layout-dependency="frame.layoutDependency.value"
           class="min-w-0 flex-1 empty:hidden max-[651px]:order-last max-[651px]:basis-full"
         ></UiMotion>
@@ -60,6 +98,7 @@ onMounted(() => {
         id="frame-page"
         as="div"
         layout="position"
+        :transition="frameMove"
         :layout-dependency="frame.layoutDependency.value"
         class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[18px] border-t border-l border-chrome-border bg-glass-panel max-[800px]:rounded-tl-none max-[800px]:border-l-0"
       ></UiMotion>

@@ -29,4 +29,6 @@ installFlowSeerAi()
 aiRegistry.onRequest(createMockAiHandler())
 const i18n = createWebI18n(initialLocale())
 bindDocumentLang(i18n.global)
-createApp(App).use(i18n).use(router).mount('#app')
+const app = createApp(App).use(i18n).use(router)
+// A resolved initial route mounts its frame without a login-to-console morph.
+void router.isReady().then(() => app.mount('#app'))
