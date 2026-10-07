@@ -190,10 +190,12 @@ The account menu stays mounted and still. The login page appears without an
 entrance on a fresh visit. `src/main.ts` mounts after the router resolves the
 initial route, so a signed-in reload does not morph.
 The login sidebar holds the sign-in form in a frosted column, its top bar
-shows only that menu, and its page says what the console is: a heading, one sentence, and
-the four areas of the menu. Under them is one line picked at random per visit
-from `view.login.lines` in the catalogs, most of them jokes. The send button is
-inside the email field and appears once the address is well formed. Enter with
+shows only that menu. `src/LoginView.vue` illustrates a site's gateway, switch,
+and access point as a connected path, with an example traffic trend. The
+preview is labeled as example data and stacks vertically in narrow panels.
+Its copy describes inspecting connections, device health, and ports.
+The send button is inside the email field and appears once the address is
+well formed. Enter with
 anything else marks the field, shakes it, and says what is wrong.
 
 ## Structure
