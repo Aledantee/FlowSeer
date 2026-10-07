@@ -1480,8 +1480,8 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 	}
 
 	// Both runs take the same injections, so the only difference between them is whether the
-	// binding was configured up front. Netsim never solicits, so the reply is what resolves the
-	// held run's next hop; the configured run ignores it, because Receive never overwrites a
+	// binding was configured up front. The injected reply resolves the held run's next hop.
+	// The configured run ignores it, because Receive never overwrites a
 	// configured binding.
 	run := func(t *testing.T, neighbors []routing.Neighbor) vlan.PCP {
 		t.Helper()

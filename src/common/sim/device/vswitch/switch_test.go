@@ -9462,12 +9462,19 @@ func TestHeldFrameTimesOutWithDropStep(t *testing.T) {
 	if failures[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborMiss) {
 		t.Errorf("rule = %v, want %v", failures[0].Step.RuleID, routing.ReasonNeighborMiss)
 	}
+	if got := failures[0].Step.Subject; got != (trace.Subject{Kind: "interface", Key: "vlan20"}) {
+		t.Errorf("drop subject = %+v, want interface vlan20", got)
+	}
+	outputs := failures[0].Step.Outputs
+	if len(outputs) != 1 || outputs[0].TypeID() != "routing.egress_decision" ||
+		outputs[0].Canonical() != `interface="vlan20";port="";member="";reason="neighbor-miss"` {
+		t.Errorf("drop outputs = %+v, want egress decision naming vlan20 and neighbor-miss", outputs)
+	}
 }
 
 // TestNDPInvalidHopLimitDoesNotObserve covers a Neighbor Advertisement whose
-// hop limit is not 255: the codec refuses to decode it, so the guard never
-// calls Observe and the held frame still times out exactly as if nothing had
-// arrived.
+// hop limit is not 255: routing.Layer.Receive ignores the frame, so the held
+// frame still times out on schedule.
 func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
@@ -9633,16 +9640,8 @@ func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
 	}
 }
 
-// TestNDPSolicitationResolvesItsOwnSourceNotTheTarget covers RFC 4861
-// section 7.2.3: a Neighbor Solicitation's Source Link-Layer Address option
-// names the solicitor's own address, carried in the IPv6 header's source,
-// not the Target field the solicitation is asking about. The switch holds a
-// frame for heldDst and a separate frame for solicitorAddr. An unrelated
-// host at solicitorAddr then solicits heldDst, carrying its own MAC in the
-// SLLA option. That must refresh only the entry for solicitorAddr — the
-// solicitation's actual source — releasing the frame held for it; the frame
-// held for heldDst must still be pending, and later time out, because a
-// solicitation asking about an address is not evidence of who holds it.
+// TestARPReplyForOtherStationLeavesStaleEntryStale proves a reply addressed
+// to another station does not confirm a stale neighbor's reachability.
 func TestARPReplyForOtherStationLeavesStaleEntryStale(t *testing.T) {
 	sw := buildHeldEgressSwitch(t, 3)
 	addr := netip.MustParseAddr("10.0.20.77")
@@ -9667,6 +9666,9 @@ func TestARPReplyForOtherStationLeavesStaleEntryStale(t *testing.T) {
 	}
 }
 
+// TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld proves a
+// non-local solicitation is discarded before learning its source, as RFC 4861
+// section 7.2.3 requires.
 func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -9709,6 +9711,9 @@ func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.
 	}
 }
 
+// TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget proves a local
+// solicitation learns its source and leaves the other next hop unresolved,
+// as RFC 4861 section 7.2.3 requires.
 func TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 

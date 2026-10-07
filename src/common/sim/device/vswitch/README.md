@@ -304,7 +304,7 @@ Drop reasons recorded in traces and egress records:
 | `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
-| `neighbor-miss`    | Next hop's VRF disables resolution, or its interface lacks a source address |
+| `neighbor-miss`    | Next hop's VRF disables resolution, its interface lacks a source address, or its resolution timed out without an answer |
 | `neighbor-pending` | Next hop's neighbor entry is newly or still unresolved (not a drop; outcome `Held`) |
 | `neighbor-hold-overflow` | Held frame evicted to make room in the hold queue for a newer one |
 | `held-interface-unknown` | Held frame released onto an interface the routing configuration no longer resolves |
@@ -525,8 +525,8 @@ Exported constructors validate and normalize configurations:
 - A forward or peek that used a balanced-mode LAG selection old enough that
   unmodeled rebalancing could have moved it raises `lag-rebalance-unmodeled`
   on that LAG's aggregator scope, only for the journeys that went through it.
-- A forward or peek that found a next hop pending — a neighbor netsim never
-  asked about, rather than one it knows has no answer — raises
+- A forward or peek that found a next hop pending, whose solicitation has
+  no answer yet, raises
   `neighbor-unresolved` on `routing.NeighborLookupScope(nodeID, vrf, iface,
   addr)`.
 - A forward or peek that resolved multicast membership while an expected
