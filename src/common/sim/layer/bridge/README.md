@@ -183,12 +183,13 @@ Port snapshots and consulted scopes accompany results for analysis
 ([dependency_test.go](dependency_test.go)).
 
 `Clone` copies runtime FDB state, counters, and the gate-entry slice.
-It retains the gate objects and scopes, shares immutable configuration and
-port definitions, and clears selector and resolver bindings.
-The enclosing device must rebind those to its own layers.
+It keeps every gate scope, shares immutable configuration and port definitions,
+and clears gate, selector, and resolver bindings. The enclosing device must
+rebind those to its own layers ([gate_test.go](gate_test.go)).
 `RetentionKey` includes normalized configuration and port link states.
-`SetOperStatus` replaces the layer's port table through a builder after
-validating the state ([layer.go](layer.go)).
+`SetOperStatus` uses `port.Table.WithOperStatus` to replace the port table.
+It refuses an absent port at `ports.<name>` and an invalid state at
+`ports.<name>.oper_status`, leaving the table unchanged ([layer.go](layer.go)).
 
 ## Files
 

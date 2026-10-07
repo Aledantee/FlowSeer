@@ -311,6 +311,58 @@ func (c Config) Normalize(_ layer.Env) Config {
 // a VLAN in both tagged and untagged sets, a VLAN identifier outside 1 through 4094, and any
 // switchport when the VLAN table is absent or empty.
 func (c Config) Validate(env layer.Env) error {
+	if err := c.validateRelay(env); err != nil {
+		return err
+	}
+
+	if c.VLAN == nil {
+		return nil
+	}
+
+	if len(c.VLAN.Switchports) > 0 && len(c.VLAN.Table) == 0 {
+		var names []string
+		for name := range c.VLAN.Switchports {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+
+		return errs.New().
+			Attr("field", "vlan.table").
+			Attr("port", names[0]).
+			Msgf("switchport %q configured with no VLAN table", names[0])
+	}
+
+	var ids []vlan.ID
+	for id := range c.VLAN.Table {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+
+	for _, id := range ids {
+		if !id.Valid() {
+			return errs.New().
+				Attr("field", "vlan.table."+strconv.Itoa(int(id))).
+				Attr("vlan", id).
+				Msgf("VLAN ID %d outside valid range 1..4094", id)
+		}
+	}
+
+	var portNames []string
+	for name := range c.VLAN.Switchports {
+		portNames = append(portNames, name)
+	}
+	slices.Sort(portNames)
+
+	for _, name := range portNames {
+		if err := c.validateSwitchport(env, name, c.VLAN.Switchports[name]); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c Config) validateRelay(env layer.Env) error {
 	if c.AgingTime < 0 {
 		return errs.New().
 			Attr("field", "aging_time").
@@ -364,184 +416,160 @@ func (c Config) Validate(env layer.Env) error {
 		}
 	}
 
-	if c.VLAN == nil {
-		return nil
-	}
+	return nil
+}
 
-	if len(c.VLAN.Switchports) > 0 && len(c.VLAN.Table) == 0 {
-		var names []string
-		for name := range c.VLAN.Switchports {
-			names = append(names, name)
-		}
-		slices.Sort(names)
-
+func (c Config) validateSwitchport(env layer.Env, name string, sw Switchport) error {
+	p, ok := env.Ports.Port(name)
+	if !ok {
 		return errs.New().
-			Attr("field", "vlan.table").
-			Attr("port", names[0]).
-			Msgf("switchport %q configured with no VLAN table", names[0])
+			Attr("field", "vlan.switchports."+name).
+			Attr("port", name).
+			Msgf("switchport %q not found in port table", name)
 	}
 
-	for id := range c.VLAN.Table {
-		if !id.Valid() {
-			return errs.New().
-				Attr("field", "vlan.table."+strconv.Itoa(int(id))).
-				Attr("vlan", id).
-				Msgf("VLAN ID %d outside valid range 1..4094", id)
+	if p.LagParent != "" {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name).
+			Attr("port", name).
+			Attr("member", name).
+			Msgf("switchport %q is a member of LAG %q", name, p.LagParent)
+	}
+
+	switch sw.Admission {
+	case "", All, TaggedOnly, UntaggedAndPriorityTaggedOnly:
+	default:
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".admission").
+			Attr("port", name).
+			Attr("admission", sw.Admission).
+			Msgf("unknown admission %q on switchport %q", sw.Admission, name)
+	}
+
+	switch sw.PriorityTags {
+	case "", PriorityTagsNever, PriorityTagsIfNonzero, PriorityTagsAlways:
+	default:
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".priority_tags").
+			Attr("port", name).
+			Attr("priority_tags", sw.PriorityTags).
+			Msgf("unknown priority-tag policy %q on switchport %q", sw.PriorityTags, name)
+	}
+
+	if sw.Tunnel != nil {
+		if err := c.validateTunnel(name, sw); err != nil {
+			return err
 		}
 	}
 
-	var portNames []string
-	for name := range c.VLAN.Switchports {
-		portNames = append(portNames, name)
+	if sw.PVID != nil && !sw.PVID.Valid() {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".pvid").
+			Attr("port", name).
+			Attr("vlan", *sw.PVID).
+			Msgf("PVID %d on switchport %q outside valid range 1..4094", *sw.PVID, name)
 	}
-	slices.Sort(portNames)
-
-	for _, name := range portNames {
-		sw := c.VLAN.Switchports[name]
-
-		p, ok := env.Ports.Port(name)
-		if !ok {
-			return errs.New().
-				Attr("field", "vlan.switchports."+name).
-				Attr("port", name).
-				Msgf("switchport %q not found in port table", name)
-		}
-
-		if p.LagParent != "" {
-			return errs.New().
-				Attr("field", "vlan.switchports."+name).
-				Attr("port", name).
-				Attr("member", name).
-				Msgf("switchport %q is a member of LAG %q", name, p.LagParent)
-		}
-
-		switch sw.Admission {
-		case "", All, TaggedOnly, UntaggedAndPriorityTaggedOnly:
-		default:
-			return errs.New().
-				Attr("field", "vlan.switchports."+name+".admission").
-				Attr("port", name).
-				Attr("admission", sw.Admission).
-				Msgf("unknown admission %q on switchport %q", sw.Admission, name)
-		}
-
-		switch sw.PriorityTags {
-		case "", PriorityTagsNever, PriorityTagsIfNonzero, PriorityTagsAlways:
-		default:
-			return errs.New().
-				Attr("field", "vlan.switchports."+name+".priority_tags").
-				Attr("port", name).
-				Attr("priority_tags", sw.PriorityTags).
-				Msgf("unknown priority-tag policy %q on switchport %q", sw.PriorityTags, name)
-		}
-
-		if sw.Tunnel != nil {
-			if sw.PVID != nil {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tunnel").
-					Attr("port", name).
-					Msgf("tunnel switchport %q cannot have PVID configured", name)
-			}
-
-			if len(sw.Tagged) > 0 {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tunnel").
-					Attr("port", name).
-					Msgf("tunnel switchport %q cannot have tagged VLANs configured", name)
-			}
-
-			if len(sw.Untagged) > 0 {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tunnel").
-					Attr("port", name).
-					Msgf("tunnel switchport %q cannot have untagged VLANs configured", name)
-			}
-
-			if !sw.Tunnel.VID.Valid() {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tunnel.vid").
-					Attr("port", name).
-					Attr("vlan", sw.Tunnel.VID).
-					Msgf("tunnel VLAN ID %d on switchport %q outside valid range 1..4094", sw.Tunnel.VID, name)
-			}
-			if _, ok := c.VLAN.Table[sw.Tunnel.VID]; !ok {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tunnel.vid").
-					Attr("port", name).
-					Attr("vlan", sw.Tunnel.VID).
-					Msgf("tunnel VLAN ID %d on switchport %q absent from VLAN table", sw.Tunnel.VID, name)
-			}
-
-			for _, vid := range sw.Tunnel.CustomerVIDs {
-				if !vid.Valid() {
-					return errs.New().
-						Attr("field", "vlan.switchports."+name+".tunnel.customer_vids").
-						Attr("port", name).
-						Attr("vlan", vid).
-						Msgf("customer VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
-				}
-			}
-		}
-
-		if sw.PVID != nil && !sw.PVID.Valid() {
+	if sw.PVID != nil {
+		if _, ok := c.VLAN.Table[*sw.PVID]; !ok {
 			return errs.New().
 				Attr("field", "vlan.switchports."+name+".pvid").
 				Attr("port", name).
 				Attr("vlan", *sw.PVID).
-				Msgf("PVID %d on switchport %q outside valid range 1..4094", *sw.PVID, name)
+				Msgf("PVID %d on switchport %q absent from VLAN table", *sw.PVID, name)
 		}
-		if sw.PVID != nil {
-			if _, ok := c.VLAN.Table[*sw.PVID]; !ok {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".pvid").
-					Attr("port", name).
-					Attr("vlan", *sw.PVID).
-					Msgf("PVID %d on switchport %q absent from VLAN table", *sw.PVID, name)
-			}
-		}
+	}
 
-		for _, vid := range sw.Tagged {
-			if !vid.Valid() {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tagged").
-					Attr("port", name).
-					Attr("vlan", vid).
-					Msgf("tagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
-			}
-			if _, ok := c.VLAN.Table[vid]; !ok {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".tagged."+strconv.Itoa(int(vid))).
-					Attr("port", name).
-					Attr("vlan", vid).
-					Msgf("tagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
-			}
+	for _, vid := range sw.Tagged {
+		if !vid.Valid() {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".tagged").
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("tagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
 		}
-
-		for _, vid := range sw.Untagged {
-			if !vid.Valid() {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".untagged").
-					Attr("port", name).
-					Attr("vlan", vid).
-					Msgf("untagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
-			}
-			if _, ok := c.VLAN.Table[vid]; !ok {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name+".untagged."+strconv.Itoa(int(vid))).
-					Attr("port", name).
-					Attr("vlan", vid).
-					Msgf("untagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
-			}
+		if _, ok := c.VLAN.Table[vid]; !ok {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".tagged."+strconv.Itoa(int(vid))).
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("tagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
 		}
+	}
 
-		for _, vid := range sw.Tagged {
-			if slices.Contains(sw.Untagged, vid) {
-				return errs.New().
-					Attr("field", "vlan.switchports."+name).
-					Attr("port", name).
-					Attr("vlan", vid).
-					Msgf("VLAN %d cannot be both tagged and untagged on switchport %q", vid, name)
-			}
+	for _, vid := range sw.Untagged {
+		if !vid.Valid() {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".untagged").
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("untagged VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
+		}
+		if _, ok := c.VLAN.Table[vid]; !ok {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".untagged."+strconv.Itoa(int(vid))).
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("untagged VLAN ID %d on switchport %q absent from VLAN table", vid, name)
+		}
+	}
+
+	for _, vid := range sw.Tagged {
+		if slices.Contains(sw.Untagged, vid) {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name).
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("VLAN %d cannot be both tagged and untagged on switchport %q", vid, name)
+		}
+	}
+
+	return nil
+}
+
+func (c Config) validateTunnel(name string, sw Switchport) error {
+	if sw.PVID != nil {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".tunnel").
+			Attr("port", name).
+			Msgf("tunnel switchport %q cannot have PVID configured", name)
+	}
+
+	if len(sw.Tagged) > 0 {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".tunnel").
+			Attr("port", name).
+			Msgf("tunnel switchport %q cannot have tagged VLANs configured", name)
+	}
+
+	if len(sw.Untagged) > 0 {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".tunnel").
+			Attr("port", name).
+			Msgf("tunnel switchport %q cannot have untagged VLANs configured", name)
+	}
+
+	if !sw.Tunnel.VID.Valid() {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".tunnel.vid").
+			Attr("port", name).
+			Attr("vlan", sw.Tunnel.VID).
+			Msgf("tunnel VLAN ID %d on switchport %q outside valid range 1..4094", sw.Tunnel.VID, name)
+	}
+	if _, ok := c.VLAN.Table[sw.Tunnel.VID]; !ok {
+		return errs.New().
+			Attr("field", "vlan.switchports."+name+".tunnel.vid").
+			Attr("port", name).
+			Attr("vlan", sw.Tunnel.VID).
+			Msgf("tunnel VLAN ID %d on switchport %q absent from VLAN table", sw.Tunnel.VID, name)
+	}
+
+	for _, vid := range sw.Tunnel.CustomerVIDs {
+		if !vid.Valid() {
+			return errs.New().
+				Attr("field", "vlan.switchports."+name+".tunnel.customer_vids").
+				Attr("port", name).
+				Attr("vlan", vid).
+				Msgf("customer VLAN ID %d on switchport %q outside valid range 1..4094", vid, name)
 		}
 	}
 

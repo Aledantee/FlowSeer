@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -166,8 +165,9 @@ func newLayer(cfg Config, ports port.Table) *Layer {
 
 // Clone returns an independent copy of the bridge for executable forking.
 // Immutable configuration, scopes, and port definitions are shared; active
-// forwarding records, gates, counters, and dynamic entry counts are deep-copied.
-// Dynamic selector and resolver bindings are reset so the enclosing switch can
+// forwarding records, gate entries, counters, and dynamic entry counts
+// are deep-copied.
+// Gate, selector, and resolver bindings are reset so the enclosing switch can
 // rebind them to its own layers.
 func (b *Layer) Clone() *Layer {
 	cp := &Layer{
@@ -188,6 +188,9 @@ func (b *Layer) Clone() *Layer {
 	}
 	if b.gates != nil {
 		cp.gates = slices.Clone(b.gates)
+		for i := range cp.gates {
+			cp.gates[i].gate = nil
+		}
 	}
 	return cp
 }
@@ -247,39 +250,16 @@ func (b *Layer) SetFDBScope(scope analysis.Scope) {
 
 // SetOperStatus updates the operational link state of the named port in the
 // bridge's port table. It returns a structured validation error when state is
-// outside the [port.LinkState] domain and leaves the table unchanged.
+// outside the [port.LinkState] domain or the port is absent. It leaves the
+// table unchanged.
 func (b *Layer) SetOperStatus(portName string, state port.LinkState) error {
-	if err := validateOperStatus(portName, state); err != nil {
-		return err
-	}
-
-	builder := port.NewBuilder()
-	for _, p := range b.ports.Ports() {
-		if p.Name == portName {
-			p.OperStatus = state
-		}
-		builder.Add(p)
-	}
-	tbl, err := builder.Build()
+	tbl, err := b.ports.WithOperStatus(portName, state)
 	if err != nil {
 		return err
 	}
 	b.ports = tbl
 
 	return nil
-}
-
-func validateOperStatus(portName string, state port.LinkState) error {
-	switch state {
-	case "", port.Unknown, port.Up, port.Down:
-		return nil
-	default:
-		return errs.New().
-			Attr("field", "ports."+portName+".oper_status").
-			Attr("name", portName).
-			Attr("oper_status", state).
-			Msgf("port %q has invalid oper status %q", portName, state)
-	}
 }
 
 // gateFact takes the deciding gate as a parameter rather than reading a

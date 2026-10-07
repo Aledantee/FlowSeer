@@ -495,3 +495,16 @@ func TestValidateEnumDomains(t *testing.T) {
 		t.Fatal("Validate() succeeded for invalid Admission, want error")
 	}
 }
+
+func TestValidateVLANTableUsesAscendingOrder(t *testing.T) {
+	cfg := bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{0: "zero", 5000: "too-high"}}}
+	for i := range 100 {
+		err := cfg.Validate(layer.Env{})
+		if err == nil {
+			t.Fatal("Validate accepted invalid VLAN table")
+		}
+		if got := errs.Attributes(err)["field"]; got != "vlan.table.0" {
+			t.Fatalf("Validate call %d field = %v, want vlan.table.0", i, got)
+		}
+	}
+}
