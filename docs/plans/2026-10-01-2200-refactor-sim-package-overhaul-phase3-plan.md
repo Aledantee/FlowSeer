@@ -5,7 +5,7 @@ date: 2026-10-01
 artifact_contract: flowseer-plan/v1
 artifact_readiness: implementation-ready
 status: implemented
-review: fixes needed
+review: accept after fixes
 execution: code
 parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
@@ -1603,18 +1603,25 @@ nothing reaches, which is a source change.
 
 The second closing round of 2026-10-06 applied the three later Decisions of
 that date and closed every item the first closing round recorded. Its
-re-review found one behavior defect in the round's own fix, so the verdict
-stays `fixes needed`. Line numbers below hold at the commit that records
-this.
+re-review found one behavior defect in the round's own fix. Line numbers
+below hold at `2c7bea6c`.
 
-- src/common/sim/layer/stp/receive.go:528: behavior: the CIST root is elected before `receiveMSTIs` and `propagateReceivedTC` run and is restored only at `:557`, so `times` (`S/info.go:170`) reads the new root port inside that window; fails: a port that does not send RSTP starts `tcWhile` from the root's timers held before the call when a stored internal BPDU carries the topology change flag and moves the root port, as it did before the round
 - src/common/sim/layer/stp/receive.go:29: `||` to `&&`, or either operand dropped; fails: a port cut while proposing and not Discarding, and a Discarding port that starts proposing, each request a frame
 - src/common/sim/layer/stp/receive.go:50: condition dropped from the boundary mirror; fails: a boundary MSTI port already proposing and Discarding gets no request
 - src/common/sim/layer/stp/receive.go:521: `stored` dropped from the early election; fails: a BPDU that is not stored leaves the CIST roles to the recompute
 - src/common/sim/layer/stp/receive.go:558: one restore line removed; fails: a root port that moves between two ports of one root still requests changed information
 - src/common/sim/layer/stp/link_state_internal_test.go:652: pins the mirror request on `tx.newInfoMsti` alone, and no emission differs because `:30` sets `newInfo` on the same record; fails: an emission that carries the MSTI record
 - src/common/sim/layer/stp/agreement_test.go:295: passes with the designated vector used for every role; fails: a port that ends the call Alternate
-- src/common/sim/fabric/stp_test.go:1118: cannot fail once `:1115` passes; fails: nothing, the assertion at `:1115` carries it
-- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md:1126: "Keep the earlier mutation" refers to text the plan no longer holds; fails: both mutations stated as mutations
-- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md:1108: A2 says "A CIST port that remains Designated"; fails: a port that ends the call Designated
-- src/common/sim/layer/stp/README.md:410: names Designated and Root only; fails: Alternate and Backup, which use the stored vector too
+
+The third closing round of 2026-10-06 applied the last Decision of that
+date: `applyBPDU` restores the root and the received times held before the
+BPDU ahead of every topology-change call the BPDU raises. It also corrected
+the four wording items the second round recorded. Its re-review found no
+behavior defect and no test that cannot fail, so the verdict is `accept
+after fixes` under the closing rule in Decisions. The items above stay
+recorded, and the re-review added the three below. Their line numbers hold
+at the commit that records this.
+
+- src/common/sim/layer/stp/receive.go:521: `stored` to `stored && t.id == cistID`, or to `stored && !internal`; fails: an SSTP BPDU with new times and the flag on a VLAN tree's unchanged root port, and an internal MST BPDU with new times and the flag on the unchanged CIST root port, each start a legacy port's `tcWhile` from the times held before
+- docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md:1139: the timer rule names no test and no mutation; fails: the three tests in `S/receive_cist_test.go` and the mutations that pin them (root restore moved after `propagateReceivedTC`, previous-times write removed)
+- src/common/sim/layer/stp/README.md:473: "raised by a BPDU" also reads as covering a change detected by a state transition the BPDU causes, which uses the new root's times; fails: "a topology change flag received in a BPDU or an MSTI record"
