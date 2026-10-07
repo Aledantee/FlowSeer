@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 beforeEach(() => {
+  vi.resetModules()
   vi.stubGlobal('matchMedia', (query: string) => ({
     matches: query.includes('reduce') || query.includes('min-width'),
     media: query,
@@ -25,6 +26,7 @@ afterEach(() => {
 describe('main entrypoint', () => {
   it('starts in German when browser languages prefer de and storage is empty, and binds document lang', async () => {
     localStorage.clear()
+    localStorage.setItem('flowseer.session', 'ada@example.com')
     document.documentElement.removeAttribute('lang')
     const appEl = document.createElement('div')
     appEl.id = 'app'
@@ -46,5 +48,48 @@ describe('main entrypoint', () => {
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(document.documentElement.lang).toBe('en')
+  })
+
+  it('takes a signed-out visitor from the start address through login into the console', async () => {
+    localStorage.clear()
+    localStorage.setItem('flowseer.locale', 'en')
+    history.replaceState(null, '', '/')
+    const appEl = document.createElement('div')
+    appEl.id = 'app'
+    document.body.append(appEl)
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 100))
+
+    await import('./main')
+    await settle()
+
+    expect(location.pathname + location.search).toBe('/login')
+    expect(document.body.querySelector('#workspace-sidebar')).toBeNull()
+    const input = document.body.querySelector<HTMLInputElement>(
+      'input[type="email"]',
+    )
+    const form = document.body.querySelector<HTMLFormElement>('form.login-form')
+    if (!input || !form) throw new Error('Missing login form')
+    input.value = 'ada@example.com'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await settle()
+
+    expect(location.pathname).toBe('/dashboard')
+    expect(document.body.querySelector('#workspace-sidebar')).not.toBeNull()
+    expect(localStorage.getItem('flowseer.session')).toBe('ada@example.com')
+  })
+
+  it('sends a signed-out visitor from a console page to login', async () => {
+    localStorage.clear()
+    history.replaceState(null, '', '/topology')
+    const appEl = document.createElement('div')
+    appEl.id = 'app'
+    document.body.append(appEl)
+
+    await import('./main')
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    expect(location.pathname + location.search).toBe('/login?next=/topology')
+    expect(document.body.querySelector('#workspace-sidebar')).toBeNull()
   })
 })

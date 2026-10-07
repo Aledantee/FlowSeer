@@ -14,6 +14,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './components/AppIcon.vue'
 import AccountMenu from './components/AccountMenu.vue'
+import BrandMark from './components/BrandMark.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
 import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
@@ -884,39 +885,7 @@ onUnmounted(() => clearInterval(timer))
         :aria-label="BRAND"
         :title="BRAND"
       >
-        <svg
-          class="flowseer-mark"
-          viewBox="0 0 32 32"
-          fill="none"
-          aria-hidden="true"
-        >
-          <g transform="translate(16 16) skewX(-13) translate(-16 -16)">
-            <rect
-              x="5.5"
-              y="4.5"
-              width="5"
-              height="23"
-              rx="1.5"
-              fill="var(--accent)"
-            />
-            <rect
-              x="13.5"
-              y="0"
-              width="5"
-              height="32"
-              rx="1.5"
-              fill="var(--accent)"
-            />
-            <rect
-              x="21.5"
-              y="7.5"
-              width="5"
-              height="17"
-              rx="1.5"
-              fill="var(--primary)"
-            />
-          </g>
-        </svg>
+        <BrandMark />
         <span>{{ BRAND }}</span>
       </UiMotion>
       <UiMotion

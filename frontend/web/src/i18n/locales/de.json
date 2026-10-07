@@ -197,7 +197,6 @@
       "initials": "OP",
       "label": "Operatorkonto",
       "logout": "Abmelden",
-      "logoutUnavailable": "Abmelden ist erst möglich, wenn die Anmeldung angebunden ist",
       "operator": "Operator"
     },
     "clients": {
@@ -486,6 +485,33 @@
       "scopeHeading": "Bereich wählen",
       "title": "Hilfe zum Arbeitsbereich",
       "trigger": "Hilfe"
+    },
+    "login": {
+      "about": {
+        "clients": "Wer verbunden ist, wo, auf welchem Band und mit welcher Signalqualität.",
+        "devices": "Jeder Switch, jedes Gateway und jeder Access Point mit Zustand, Ports und Datenverkehr.",
+        "sites": "Jeder Standort mit seinen Geräten und deren Zustand, samt Umzügen zwischen Standorten.",
+        "topology": "Wie die Geräte miteinander verbunden sind, als Karte zum Untersuchen."
+      },
+      "aboutLead": "{brand} zeigt die Geräte, Clients und Verbindungen jedes Standorts, damit Sie den Ausfall finden, bevor ihn jemand meldet.",
+      "aboutTitle": "Alle Netzwerke, die Sie betreiben, in einer Konsole.",
+      "documentTitle": "Anmelden · {brand}",
+      "email": "Geschäftliche E-Mail-Adresse",
+      "emailInvalid": "Geben Sie eine E-Mail-Adresse wie name{'@'}firma.de ein.",
+      "emailPlaceholder": "name{'@'}firma.de",
+      "emailRequired": "Geben Sie Ihre geschäftliche E-Mail-Adresse ein.",
+      "lead": "Die Anmeldung erfolgt über den Identitätsanbieter Ihrer Organisation.",
+      "lines": {
+        "amber": "Irgendwo blinkt gerade ein Switch gelb.",
+        "dns": "Es ist nicht DNS. Es kann nicht DNS sein. Es war DNS.",
+        "fine": "Dem Netzwerk geht es gut. Dem Netzwerk geht es immer gut.",
+        "layerEight": "Probleme auf Schicht 8 bleiben außerhalb des Auftrags.",
+        "story": "Jedes Paket hat eine Geschichte. Die meisten sind kurz.",
+        "uptime": "Fünf Neunen, plus minus ein paar Neunen."
+      },
+      "signingIn": "Anmeldung läuft",
+      "submit": "Weiter mit Single Sign-on",
+      "title": "Bei {brand} anmelden"
     },
     "localeSwitcher": {
       "changed": "Sprache auf {language} umgestellt.",
