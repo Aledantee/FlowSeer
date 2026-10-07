@@ -81,8 +81,8 @@ func (f untrustedFact) Canonical() string { return f.value }
 
 func TestVocabulary(t *testing.T) {
 	t.Run("outcomes", func(t *testing.T) {
-		if trace.Forwarded != "Forwarded" || trace.Flooded != "Flooded" || trace.Dropped != "Dropped" || trace.Consumed != "Consumed" {
-			t.Errorf("unexpected outcomes: %q %q %q %q", trace.Forwarded, trace.Flooded, trace.Dropped, trace.Consumed)
+		if trace.Forwarded != "Forwarded" || trace.Flooded != "Flooded" || trace.Dropped != "Dropped" || trace.Consumed != "Consumed" || trace.Held != "Held" {
+			t.Errorf("unexpected outcomes: %q %q %q %q %q", trace.Forwarded, trace.Flooded, trace.Dropped, trace.Consumed, trace.Held)
 		}
 	})
 
@@ -96,6 +96,7 @@ func TestVocabulary(t *testing.T) {
 			trace.OpRewrite,
 			trace.OpTransmit,
 			trace.OpDrop,
+			trace.OpQueue,
 		}
 
 		expected := []string{
@@ -107,6 +108,7 @@ func TestVocabulary(t *testing.T) {
 			"rewrite",
 			"transmit",
 			"drop",
+			"queue",
 		}
 
 		for i, op := range ops {
