@@ -470,6 +470,14 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Open questions
 
+- Blocked: `caseTroubleshootingLeaveLastMemberQuery` in
+  `src/common/sim/internal/simtest/cases.go` configures default unregistered
+  flooding but expects an expired group to remain registered and drop.
+  With expiry at read time, the isolated corpus test reports
+  `outcome = Flooded, want Dropped`, `reason = , want no-egress`, and
+  `step count = 6, want 4`. Correcting that case requires a file outside
+  the implementation brief's allowed paths. The expiry requirement remains
+  unchanged.
 - Unverified: what IEEE Std 802 requires of a frame under a local
   experimental EtherType. `IANA` is the source read, and the README cites
   it.
