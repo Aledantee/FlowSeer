@@ -1,4 +1,4 @@
-"""Host reports retain shell fixture sections without live provider reads."""
+"""Host reports include CLI versions, pool rows, and model IDs without live reads."""
 
 from contextlib import redirect_stdout, redirect_stderr
 from datetime import datetime, timezone
@@ -59,7 +59,7 @@ class DiscoverHostTest(unittest.TestCase):
             self.assertEqual(discover_host.main([]), 0)
         return stdout.getvalue(), calls
 
-    def test_shell_fixture_sections_and_ids(self):
+    def test_report_sections_versions_and_model_ids(self):
         text, calls = self.report(tools=("claude", "codex", "agy", "omp", "orca"),
                                   status='{"result":{"runtime":{"reachable":true}}}',
                                   models='{"models":[{"id":"hf:a/b"},{"id":"plain"}]}',

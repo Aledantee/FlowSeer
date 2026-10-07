@@ -46,6 +46,8 @@ class HitlLoopTests(unittest.TestCase):
     def test_invalid_steps_before_prompting(self):
         cases = [[], {}, [1], [{"step": ""}], [{"step": 1}],
                  [{"step": "go", "extra": "field"}], [{"capture": "a", "question": "q"}],
+                 [{"capture": "Ab", "question": "q"}], [{"capture": "A-B", "question": "q"}],
+                 [{"capture": "1A", "question": "q"}], [{"capture": "_A", "question": "q"}],
                  [{"capture": "A", "question": ""}], [{"capture": "A"}],
                  [{"capture": 4, "question": "q"}]]
         for invalid in cases:
