@@ -1,6 +1,7 @@
 ---
 title: Comparing Two Forked Executions Attributes Each Observable by Provenance, and What Has No Provenance Link Cannot Be Compared Per Item
 date: 2026-09-19
+last_verified: 2026-10-07
 category: architecture-patterns
 module: src/common/sim/fabric
 problem_type: architecture_pattern
@@ -10,6 +11,7 @@ applies_when:
   - "Diffing two independently forked or independently aged executions of a simulator, replayer, or interpreter, where each side carries pre-existing history plus the inputs under comparison."
   - "Deciding which produced items (journeys, events, records) belong to the change under test versus the shared history, and how to pair them across the two sides."
   - "Finding that a comparison over-reports differences from pre-existing state, or that a comparison block never fires because the items it looks for are never in its input set."
+  - "Preserving a located difference during minimization when equal group counts could hide which side contains the item."
 related_components: [netsim, analysis]
 tags: [comparison, provenance, differential, fork, false-difference]
 ---
@@ -52,6 +54,37 @@ produce a difference even when both groups have the same size.
 both directions. Pre-existing history and its during-run descendants are excluded
 because their provenance never reaches an input root. Mirror copies and released
 held frames are included because theirs does.
+
+## Presence values must belong to the located item
+
+An equal-size pair of groups can contain different descendants. Reporting both
+group sizes as `2` for a missing `span-a` journey loses which side contains it.
+The minimizer compares both the location and displayed values, so an accepted
+trial could exchange sides while retaining the same target. Report presence for
+the located lineage instead: current `true`, expected `false`, with the values
+reversed when the sides swap.
+
+`src/common/sim/fabric/compare.go:265-267` returns:
+
+```go
+location.Field = "Journey"
+return analysis.Difference{Observable: "multiplicity", Current: strconv.FormatBool(pair.current >= 0), Expected: strconv.FormatBool(pair.expected >= 0)}, location, true
+```
+
+`src/common/sim/fabric/compare_internal_test.go:33-34` pins both orientations:
+
+```go
+{"current", "true", "false", tc.a, tc.b},
+{"expected", "false", "true", tc.b, tc.a},
+```
+
+The acceptance condition at `src/common/sim/search/minimize.go:102` includes
+`comparison.Difference == result.Difference`. Commit `585549da` records restoring
+the group-count result and observing:
+
+```text
+--- FAIL: TestDiffFabricRunsOneSidedJourneyPresence (0.00s)
+```
 
 ## What cannot be compared per item
 

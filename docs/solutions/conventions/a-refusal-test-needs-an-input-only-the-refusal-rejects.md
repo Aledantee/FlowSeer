@@ -1,7 +1,7 @@
 ---
 title: A Refusal Test Needs an Input Only the Refusal Rejects
 date: 2026-09-16
-last_verified: 2026-10-03
+last_verified: 2026-10-07
 category: conventions
 module: src/common/net/udp
 problem_type: convention
@@ -160,6 +160,36 @@ Mutations run on 2026-10-03, darwin, against
 - Mutating `stateful_retention_key` (`layer_contract_test.go:79`) to require the full
   signature of `retention_key` leaves the gate green because its fixture declares
   the contract's `RetentionKey`.
+
+## Signed bounds can be refused by unsigned overflow
+
+With `Count: 1` and `Start: -1`, deleting the negative-start guard still makes
+`Spec.Validate` refuse. Its last-offset calculation converts `Start` to `uint64`
+and exceeds `MaxInt64` (`src/common/sim/stream/stream.go:128-130`):
+
+```go
+base += uint64(s.Start)
+if base > math.MaxInt64 {
+    return errs.Msg("stream last offset exceeds time.Duration")
+}
+```
+
+Use two frames at 10 fps instead. The 100 ms spacing plus the converted `-1`
+wraps to 99,999,999 ns, which passes that unrelated bound. The test at
+`src/common/sim/stream/stream_test.go:110-114` also pins the refusal message:
+
+```go
+spec := stream.Spec{Rate: stream.Rate{FramesPerSecond: 10}, Count: 2, Start: -1}
+if err := spec.Validate(); err == nil || err.Error() != "stream start must be nonnegative" {
+    t.Errorf("Validate() = %v, want stream start must be nonnegative", err)
+}
+```
+
+Commit `dce8bf2c` records deleting the `Start < 0` guard and observing:
+
+```text
+--- FAIL: TestSpecRejectsNegativeStartWithTwoFrames (0.00s)
+```
 
 ## What this does not cover
 
