@@ -36,6 +36,7 @@ afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+  vi.unstubAllEnvs()
 })
 
 async function mountLogin(start = '/login', locale: WebLocale = 'en') {
@@ -118,6 +119,21 @@ describe('LoginView', () => {
 
     expect(sessionOperator.value).toBe('ada@example.com')
     expect(router.currentRoute.value.fullPath).toBe('/dashboard')
+  })
+
+  it('skips the login as the development administrator', async () => {
+    const { host, router } = await mountLogin('/login?next=/devices/sw-01')
+    host.querySelector<HTMLButtonElement>('button.login-dev-skip')?.click()
+    await vi.waitFor(() =>
+      expect(router.currentRoute.value.fullPath).toBe('/devices/sw-01'),
+    )
+    expect(sessionOperator.value).toBe('admin@flowseer.dev')
+  })
+
+  it('offers no login shortcut outside a development build', async () => {
+    vi.stubEnv('DEV', false)
+    const { host } = await mountLogin()
+    expect(host.querySelector('button.login-dev-skip')).toBeNull()
   })
 
   it('returns to the console page the visitor asked for', async () => {
@@ -257,21 +273,25 @@ describe('LoginView', () => {
     expect(holder?.contains(host.querySelector('[role="alert"]'))).toBe(true)
   })
 
-  it('shows one randomly picked line on the page and follows a locale switch', async () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.2)
+  it('retranslates the network preview and labels its data as an example', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { host, i18n } = await mountLogin()
-
-    const line = host.querySelector('.login-page .login-line')
-    expect(line?.textContent?.trim()).toBe(
-      "It's not DNS. There's no way it's DNS. It was DNS.",
-    )
+    const page = host.querySelector('#frame-page > main.login-page')
+    expect(page?.textContent).toContain('Example network')
+    expect(page?.textContent).toContain('Gateway')
+    expect(page?.textContent).toContain('Traffic at a glance')
 
     i18n.global.locale.value = 'de'
     await nextTick()
 
-    expect(line?.textContent?.trim()).toBe(
-      'Es ist nicht DNS. Es kann nicht DNS sein. Es war DNS.',
+    expect(page?.querySelector('h2')?.textContent?.trim()).toBe(
+      'Das Netz sehen. Zusammenhänge verstehen.',
     )
+    expect(page?.textContent).toContain('Beispielnetzwerk')
+    expect(page?.textContent).toContain('Datenverkehr im Überblick')
+    expect(page?.textContent).not.toContain('Example network')
+    expect(page?.textContent).not.toContain('Traffic at a glance')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 
   it('uses the console frame: the form in the sidebar, the description on the page', async () => {
@@ -279,16 +299,21 @@ describe('LoginView', () => {
 
     expect(host.querySelector('#frame-sidebar form.login-form')).not.toBeNull()
     expect(
-      host.querySelector('#frame-sidebar button.theme-switcher'),
+      host.querySelector('#frame-sidebar button.account-trigger'),
     ).toBeNull()
     const page = host.querySelector('#frame-page > main.login-page')
     expect(page?.querySelector('h2')?.textContent?.trim()).toBe(
-      'See every network you run in one console.',
+      'See the network. Follow the connection.',
     )
+    expect(host.querySelectorAll('h1')).toHaveLength(1)
+    expect(page?.getAttribute('tabindex')).toBe('0')
     expect(
-      [...(page?.querySelectorAll('.login-area') ?? [])].map((area) =>
-        area.querySelector('.font-semibold')?.textContent?.trim(),
+      [...(page?.querySelectorAll('.login-path h3') ?? [])].map((heading) =>
+        heading.textContent?.trim(),
       ),
-    ).toEqual(['Devices', 'Clients', 'Sites', 'Topology'])
+    ).toEqual(['Gateway', 'Switch', 'Access point'])
+    expect(page?.querySelector('figure figcaption')?.textContent).toContain(
+      'Example network',
+    )
   })
 })

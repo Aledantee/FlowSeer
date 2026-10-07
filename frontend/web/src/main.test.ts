@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { chooseAccountItem } from './navigation/frameTesting'
 
 beforeEach(() => {
   vi.resetModules()
@@ -88,11 +89,7 @@ describe('main entrypoint', () => {
     expect(document.documentElement.lang).toBe('de')
     expect(document.body.textContent).toContain('ARBEITSBEREICH')
 
-    const switcher = document.body.querySelector<HTMLButtonElement>(
-      'button.locale-switcher',
-    )
-    if (!switcher) throw new Error('Missing locale switcher button')
-    switcher.click()
+    await chooseAccountItem('locale')
     await new Promise((resolve) => setTimeout(resolve, 50))
 
     expect(document.documentElement.lang).toBe('en')

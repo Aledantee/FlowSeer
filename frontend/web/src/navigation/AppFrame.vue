@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, provide, ref, watch } from 'vue'
-import ThemeSwitcher from '../components/ThemeSwitcher.vue'
-import LocaleSwitcher from '../components/LocaleSwitcher.vue'
+import AccountMenu from '../components/AccountMenu.vue'
 import { UiMotion, useMotionFeedback } from '../ui'
 import {
   createFrame,
@@ -97,8 +96,7 @@ onMounted(() => {
         <div
           class="flex items-center gap-1.5 shrink-0 ml-auto max-[651px]:ml-0"
         >
-          <ThemeSwitcher />
-          <LocaleSwitcher />
+          <AccountMenu :signed-in="frame.sidebar.value !== 'login'" />
         </div>
       </header>
       <UiMotion

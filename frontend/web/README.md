@@ -107,8 +107,8 @@ by side beneath them. Links are drawn dashed and a legend marks them as assumed 
 discovered. Only nodes that are not healthy carry a status badge, so a degraded
 or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
-A curved tab midway down the sidebar edge collapses navigation to icons on
-desktop. The page panel slides toward the 64px rail, whose content changes
+The console opens with its navigation collapsed to icons. A curved tab
+midway down the sidebar edge expands and collapses it on desktop. The page panel slides toward the 64px rail, whose content changes
 in place and centers the FlowSeer mark. Expanding fades the sidebar labels
 in over the panel's 160 ms movement (`src/FleetView.vue`).
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
@@ -127,18 +127,18 @@ page and site scope. Both selectors use themed popovers with arrow-key
 navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
 site scope. The available tenant list is independent of site filtering.
 
-The theme and language switches end the top bar on both the login page and
-the console, after the console's account menu. The frame renders them once
-so they keep their state through sign-in and logout. The icon-only theme
-switch crossfades and rotates between
-sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
-reduced motion the icons crossfade without rotating. The theme follows the system preference until
+The account control ends the top bar on both the login page and the console. The
+frame renders it once, so it and the theme it holds stay in place through
+sign-in and logout. On the login page there is no account, so the control is
+two buttons: a dark-mode switch and a language button that shows the current
+language's code. Signed in, it is the account menu, which holds the same two
+choices as items. The theme item names the mode it switches to, and the
+theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
-and charcoal in dark mode. The language switch beside it is one button of the same size. It shows the
-active language code, and its tooltip and accessible name offer the other language by its own name,
-such as `Switch language to Deutsch`. Pressing it changes every view without a reload and announces
-the change in a status region. Help opens a keyboard-accessible dialog explaining
-scope, device lookup, and site assignment. The adjacent bug button
+and charcoal in dark mode. The language item shows the other language's code and offers that language by its own name,
+such as `Switch language to Deutsch`. Choosing it changes every view without a reload and announces
+the change in a status region. The menu also holds Help, Report a bug, and Log out. Help opens a keyboard-accessible dialog explaining
+scope, device lookup, and site assignment. Report a bug
 opens a report form and copies its summary, description, and page path for sharing.
 It does not submit to a service or include tenant/site query parameters.
 
@@ -150,6 +150,12 @@ is contained in the content area.
 
 A signed-out visitor lands on the login page, signs in, and reaches the
 console. Logging out from the account menu returns to the login page.
+
+A development build (`pnpm dev`) adds a button under the email field that
+skips the form and signs in as `admin@flowseer.dev`. The session has no
+roles, so the address is the only thing that marks the administrator. The
+button reads `import.meta.env.DEV`, which Vite sets to `false` in a
+production build.
 
 ```mermaid
 flowchart LR
@@ -172,7 +178,7 @@ to `/dashboard`. A signed-in visitor who opens `/login` goes straight to
 
 The login page and console fill one `AppFrame.vue` instance. Signing in keeps
 the same sidebar and page panel elements in the document while their content
-changes. The frame owns the top bar and its theme and language switches.
+changes. The frame owns the top bar and its account menu.
 `src/navigation/AppFrame.vue` moves the panel when the mode crosses between
 login and console. The breadcrumb moves with the panel when the console
 sidebar collapses or expands. The nearest content boxes in each region
@@ -180,28 +186,31 @@ fade from opacity 0 to 1 over 160 ms, set by `FRAME_MOVE_SECONDS` in
 `src/navigation/frame.ts`. The fade descends through `display: contents`
 wrappers because they have no box to paint, and skips `display: none` elements.
 Below 801px or with reduced motion, the content fades without movement.
-The switches stay mounted and still. The login page appears without an
+The account control's root stays mounted and still while its content swaps
+between the signed-out buttons and the account menu. The login page appears without an
 entrance on a fresh visit. `src/main.ts` mounts after the router resolves the
 initial route, so a signed-in reload does not morph.
-The login sidebar holds the sign-in form in a frosted column, its top bar
-shows only those switches, and its page says what the console is: a heading, one sentence, and
-the four areas of the menu. Under them is one line picked at random per visit
-from `view.login.lines` in the catalogs, most of them jokes. The send button is
-inside the email field and appears once the address is well formed. Enter with
+The login sidebar holds the sign-in form in a frosted column, and its top bar
+shows only the theme and language buttons. `src/LoginView.vue` illustrates a site's gateway, switch,
+and access point as a connected path, with an example traffic trend. The
+preview is labeled as example data and stacks vertically in narrow panels.
+Its copy describes inspecting connections, device health, and ports.
+The send button is inside the email field and appears once the address is
+well formed. Enter with
 anything else marks the field, shakes it, and says what is wrong.
 
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.
 - `src/navigation/AppFrame.vue` owns the persistent shell and top bar, with
-  one theme and language switch. Views fill its `frame-skip`, `frame-sidebar`,
+  one account menu. Views fill its `frame-skip`, `frame-sidebar`,
   `frame-topbar`, `frame-topbar-tools`, and `frame-page` regions with
-  Teleport. The console puts its breadcrumb in `frame-topbar` and its controls
-  through the account menu in `frame-topbar-tools`. At 650px and below the
-  controls and switches share the first row, with the breadcrumb below.
+  Teleport. The console puts its breadcrumb in `frame-topbar` and its search
+  and assistant controls in `frame-topbar-tools`. At 650px and below the
+  controls and the account menu share the first row, with the breadcrumb below.
   `src/navigation/frame.ts` exposes `useFrame()` so views can set
   the sidebar mode, read the frame elements, and move the
-  page panel and breadcrumb when the sidebar collapses. The switches stay
+  page panel and breadcrumb when the sidebar collapses. The account menu stays
   outside both moving regions.
 - `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
 - `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
@@ -324,7 +333,7 @@ const tabs = [
 </template>
 ```
 
-Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpButton`, `ReportBugButton`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
+Application switchers (`ScopeSwitcher`, `TenantSwitcher`), menus (`AccountMenu`), command palettes (`GlobalSearch`), dialogs (`HelpDialog`, `ReportBugDialog`), and scrollers (`UiScrollArea`) run on these Reka primitives, replacing legacy native dialogs, manual positioning math, and custom scrollers.
 
 Overlays stack on the z-index tokens in `src/theme/tokens.css`: `--z-overlay` (50) for dialogs, popovers, and menus, `--z-toast` (60) for the toast viewport, and `--z-sticky` (10) for the top bar and table headers. Their entrances and exits are CSS keyframes, declared in `src/theme/tailwind.css` as `--animate-overlay-in/out` for popovers, menus, and select lists, `--animate-dialog-in/out` for dialog content, and `--animate-fade-in/out` for scrims and toasts. Each wrapper applies them on `data-[state=open]` and `data-[state=closed]` of its content element. The keyframes matter because Reka's `Presence` keeps a closing node mounted until its `animationend` and ignores CSS transitions, so an exit written as a transition never plays. Under reduced motion every pair switches to a fade of the same duration. Dialog entry uses `--animate-dialog-fade-in`, which runs the fade at the dialog's 160 ms. Tooltips and combobox lists do not animate, and the command dialog content has an exit fade only. `UiAppRoot` (`src/ui/app/UiAppRoot.vue`) mounts `ConfigProvider`, `TooltipProvider`, and `UiMotionConfig` once for the whole view tree. It passes the active Composer locale to Reka.
 
@@ -395,7 +404,7 @@ FlowSeer uses vue-i18n in Composition mode with English and German catalogs:
 - `src/i18n/index.ts` exports `createWebI18n(locale = 'en')` with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats. Each call returns a fresh plugin instance because vue-i18n binds its lifecycle to the app: `install` wraps `app.unmount` to call `i18n.dispose()`, so sharing an instance disposes it when the first app unmounts.
 - `src/main.ts` installs one plugin instance on the Vue application before mount, created with the locale `initialLocale()` resolves. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
 - `src/i18n/locale.ts` picks the starting locale. A saved choice wins, then the first entry of `navigator.languages` whose primary subtag is `en` or `de` without regard to case, then `en`. A tag such as `den` does not match, since only its first letters equal `de`. The choice lives in `localStorage` under `flowseer.locale`, and blocked storage reads as nothing saved. `bindDocumentLang` keeps `<html lang>` equal to the Composer locale, including after a switch.
-- `src/components/LocaleSwitcher.vue` sets the Composer locale and saves it. When the browser refuses to save, the locale still changes and the status region says the choice was not saved. Storybook keeps its own locale toolbar and does not read `flowseer.locale`.
+- `src/components/AccountMenu.vue` sets the Composer locale from its language item and saves it. When the browser refuses to save, the locale still changes and the status region says the choice was not saved. Storybook keeps its own locale toolbar and does not read `flowseer.locale`.
 - Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`. That keeps translated template text and headless primitives synchronized.
 - In Storybook, the `withLocale` decorator watches `reactive(context.globals).locale` and updates the active Composer. The Storybook toolbar provides English and German options without per-story provider wrappers.
 - Component defaults belong to `ui.<owner>.<suffix>` in `src/i18n/locales/en.json` and `de.json`. Identifiers, keys, and slot content remain caller data, while the owning component renders localized display text.
@@ -859,7 +868,10 @@ states, and replacement of a single site assignment. Browser checks cover the
 interactive preview; production accessibility and fleet-scale performance remain
 to be evaluated when those features are implemented.
 
-The account icon sits before the theme and language switches in the top bar.
-Clicking it opens a menu with Log out. Escape or an outside click dismisses it.
+The account icon ends the top bar. Clicking it opens a menu with Help, Report
+a bug, the theme and language items, and Log out. Signed out, it shows a
+person icon and only the theme and language items. Help and Report a bug open
+their dialogs once the menu has closed, and closing a dialog returns focus to
+the account icon. Escape or an outside click dismisses it.
 Log out clears the preview session and returns to `/login`
 (`src/components/AccountMenu.vue`).

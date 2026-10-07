@@ -200,8 +200,15 @@ describe('FleetView motion layout', () => {
       if (!element) throw new Error(`Missing moving element: ${selector}`)
       return element
     })
-    host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
+    toggle?.click()
     await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
     await advanceMotion(30)
     for (const element of elements)
       expect(
@@ -221,8 +228,14 @@ describe('FleetView motion layout', () => {
     installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
     toggle?.click()
     await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
     await advanceMotion(30)
 
     expect(
@@ -239,25 +252,21 @@ describe('FleetView motion layout', () => {
     expect(distance).toBeLessThan(140)
   })
 
-  it('keeps the switches and their ancestors still while the panel and breadcrumb move', async () => {
+  it('keeps the account menu and its ancestors still while the panel and breadcrumb move', async () => {
     installMotionClock()
     const { host } = await mountFleet()
-    const theme = host.querySelector('header.topbar button.theme-switcher')
-    const locale = host.querySelector('header.topbar button.locale-switcher')
+    const account = host.querySelector('header.topbar button.account-trigger')
     const header = host.querySelector('header.topbar')
     const shell = host.querySelector('.main-shell')
-    if (!theme || !locale || !header || !shell)
-      throw new Error('Missing frame switches')
+    if (!account || !header || !shell) throw new Error('Missing account menu')
     const ancestors = new Set<Element>([header, shell])
-    for (const button of [theme, locale]) {
-      for (
-        let parent = button.parentElement;
-        parent;
-        parent = parent.parentElement
-      ) {
-        ancestors.add(parent)
-        if (parent === header) break
-      }
+    for (
+      let parent = account.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      ancestors.add(parent)
+      if (parent === header) break
     }
     const transforms: string[] = []
     const observer = new MutationObserver((records) => {
@@ -288,11 +297,8 @@ describe('FleetView motion layout', () => {
           host.querySelector<HTMLElement>(region)?.style.transform,
         ).toContain('translate')
       await advanceMotion(200)
-      expect(host.querySelector('header.topbar button.theme-switcher')).toBe(
-        theme,
-      )
-      expect(host.querySelector('header.topbar button.locale-switcher')).toBe(
-        locale,
+      expect(host.querySelector('header.topbar button.account-trigger')).toBe(
+        account,
       )
       for (const ancestor of ancestors)
         expect(ancestor.getAttribute('style') ?? '').not.toMatch(
@@ -418,6 +424,10 @@ describe('FleetView motion layout', () => {
     const icons = nav.querySelectorAll<SVGElement>('a > svg')
     expect(labels).toHaveLength(8)
     expect(icons).toHaveLength(5)
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav, ...labels)
 
     toggle.click()
     await nextTick()
@@ -501,6 +511,10 @@ describe('FleetView motion layout', () => {
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     const nav = host.querySelector<HTMLElement>('nav')
     if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav)
     nav.style.opacity = '0.37'
 
     toggle.click()
