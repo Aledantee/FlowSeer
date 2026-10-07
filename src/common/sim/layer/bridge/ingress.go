@@ -76,6 +76,9 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 	if receive.Reason != "" {
 		res.Reason = receive.Reason
 		res.Ingress = receive.Resolved.Name
+		if res.Ingress == "" {
+			res.Ingress = ingress
+		}
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   LayerName,
 			Op:      trace.OpDrop,
@@ -103,19 +106,54 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 		return Ingress{}, res, false
 	}
 
-	var (
-		classifiedFID    vlan.ID
-		ingressPCP       vlan.PCP
-		ingressDEI       bool
-		remainingTags    []vlan.Tag
-		ingressTPID      uint16
-		isTagged         bool
-		isPriorityTagged bool
-		isUntagged       bool
-	)
+	in, ok := b.classifyIngress(&res, f)
+	if !ok {
+		return Ingress{}, res, false
+	}
+	ingressLearns, ingressForwards, ingressGate := b.ingressGate(&res, in.FID)
 
+	if !ingressLearns && !ingressForwards {
+		res.Reason = ReasonPortBlocked
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   LayerName,
+			Op:      trace.OpDrop,
+			RuleID:  RulePortBlocked,
+			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+			Inputs:  facts(ingressGate),
+			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonPortBlocked, false)},
+		})
+
+		return Ingress{}, res, false
+	}
+
+	if learn && ingressLearns {
+		b.learnSource(&res, in, now, f)
+	}
+	if !ingressForwards {
+		res.Reason = ReasonPortBlocked
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   LayerName,
+			Op:      trace.OpDrop,
+			RuleID:  RulePortBlocked,
+			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+			Inputs:  facts(ingressGate),
+			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonPortBlocked, false)},
+		})
+
+		return Ingress{}, res, false
+	}
+
+	in.Port = res.Ingress
+	in.Steps = res.Steps
+	in.Now = now
+	in.Commit = commit
+	in.consultedPorts = res.ConsultedPorts()
+	in.consultedScopes = res.ConsultedScopes()
+	return in, Result{}, true
+}
+
+func (b *Layer) classifyIngress(res *Result, f ethernet.Frame) (Ingress, bool) {
 	if b.cfg.VLAN == nil {
-		classifiedFID = 0
 		res.FID = 0
 		res.Steps = append(res.Steps, trace.Step{
 			Layer:   LayerName,
@@ -125,209 +163,230 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 			Inputs:  []trace.Fact{frameSnapshot(f)},
 			Outputs: []trace.Fact{vlanSnapshot(res.Ingress, 0, 0, false, "untagged")},
 		})
-	} else {
-		sw, swOk := b.cfg.VLAN.Switchports[res.Ingress]
+		return Ingress{}, true
+	}
+	sw, ok := b.cfg.VLAN.Switchports[res.Ingress]
+	if sw.Tunnel != nil {
+		return b.classifyTunnel(res, f, sw)
+	}
+	return b.classifyOrdinary(res, f, sw, ok)
+}
 
-		if sw.Tunnel != nil {
-			ingressTPID = sw.Tunnel.EffectiveTPID()
-			if len(f.Tags) > 0 {
-				outer := f.Tags[0]
-				if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
-					ingressPCP = outer.PCP
-					ingressDEI = outer.DEI
-					if outer.VID != 0 && len(sw.Tunnel.CustomerVIDs) > 0 && !slices.Contains(sw.Tunnel.CustomerVIDs, outer.VID) {
-						res.Reason = ReasonCustomerVLAN
-						res.Steps = append(res.Steps,
-							trace.Step{
-								Layer:   LayerNameVLAN,
-								Op:      trace.OpFilter,
-								RuleID:  RuleCustomerVLANFilter,
-								Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-								Inputs:  []trace.Fact{frameSnapshot(f)},
-								Outputs: []trace.Fact{vlanSnapshot(res.Ingress, outer.VID, outer.PCP, outer.DEI, "customer-rejected")},
-							},
-							trace.Step{
-								Layer:   LayerNameVLAN,
-								Op:      trace.OpDrop,
-								RuleID:  RuleCustomerVLAN,
-								Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-								Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", outer.VID, ReasonCustomerVLAN, false)},
-							},
-						)
-
-						return Ingress{}, res, false
-					}
-				}
-			}
-
-			classifiedFID = sw.Tunnel.VID
-			remainingTags = f.Tags
-
-			res.FID = classifiedFID
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerNameVLAN,
-				Op:      trace.OpClassify,
-				RuleID:  RuleVLANTunnelClassify,
-				Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
-				Inputs:  []trace.Fact{frameSnapshot(f)},
-				Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "tunnel")},
-			})
-
-			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
-				res.Reason = ReasonUndefinedVLAN
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:   LayerNameVLAN,
-					Op:      trace.OpDrop,
-					RuleID:  RuleVLANUndefined,
-					Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
-					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonUndefinedVLAN, false)},
-				})
-
-				return Ingress{}, res, false
-			}
-		} else {
-			if len(f.Tags) > 0 {
-				outer := f.Tags[0]
-				if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
-					ingressPCP = outer.PCP
-					ingressDEI = outer.DEI
-					remainingTags = f.Tags[1:]
-					if outer.VID != 0 {
-						isTagged = true
-						classifiedFID = outer.VID
-					} else {
-						isPriorityTagged = true
-					}
-				} else {
-					isUntagged = true
-					remainingTags = f.Tags
-				}
-			} else {
-				isUntagged = true
-			}
-
-			admission := sw.Admission
-			if admission == "" {
-				admission = All
-			}
-			switch admission {
-			case TaggedOnly:
-				if !isTagged {
-					res.Reason = ReasonAdmission
-					res.Steps = append(res.Steps,
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpFilter,
-							RuleID:  RuleAdmissionFilter,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Inputs:  []trace.Fact{admission},
-							Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "admission-rejected")},
-						},
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpDrop,
-							RuleID:  RuleAdmission,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonAdmission, false)},
-						},
-					)
-
-					return Ingress{}, res, false
-				}
-			case UntaggedAndPriorityTaggedOnly:
-				if isTagged {
-					res.Reason = ReasonAdmission
-					res.Steps = append(res.Steps,
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpFilter,
-							RuleID:  RuleAdmissionFilter,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Inputs:  []trace.Fact{admission},
-							Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "admission-rejected")},
-						},
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpDrop,
-							RuleID:  RuleAdmission,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonAdmission, false)},
-						},
-					)
-
-					return Ingress{}, res, false
-				}
-			case All:
-			}
-
-			if isPriorityTagged || isUntagged {
-				if !swOk || sw.PVID == nil {
-					res.Reason = ReasonNoPVID
-					res.Steps = append(res.Steps, trace.Step{
+func (b *Layer) classifyTunnel(res *Result, f ethernet.Frame, sw Switchport) (Ingress, bool) {
+	in := Ingress{}
+	in.TPID = sw.Tunnel.EffectiveTPID()
+	if len(f.Tags) > 0 {
+		outer := f.Tags[0]
+		if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
+			in.PCP = outer.PCP
+			in.DEI = outer.DEI
+			if outer.VID != 0 && len(sw.Tunnel.CustomerVIDs) > 0 && !slices.Contains(sw.Tunnel.CustomerVIDs, outer.VID) {
+				res.Reason = ReasonCustomerVLAN
+				res.Steps = append(res.Steps,
+					trace.Step{
 						Layer:   LayerNameVLAN,
-						Op:      trace.OpDrop,
-						RuleID:  RuleNoPVID,
+						Op:      trace.OpFilter,
+						RuleID:  RuleCustomerVLANFilter,
 						Subject: trace.Subject{Kind: "port", Key: res.Ingress},
 						Inputs:  []trace.Fact{frameSnapshot(f)},
-						Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", 0, ReasonNoPVID, false)},
-					})
+						Outputs: []trace.Fact{vlanSnapshot(res.Ingress, outer.VID, outer.PCP, outer.DEI, "customer-rejected")},
+					},
+					trace.Step{
+						Layer:   LayerNameVLAN,
+						Op:      trace.OpDrop,
+						RuleID:  RuleCustomerVLAN,
+						Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+						Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", outer.VID, ReasonCustomerVLAN, false)},
+					},
+				)
 
-					return Ingress{}, res, false
-				}
-				classifiedFID = *sw.PVID
-			}
-
-			res.FID = classifiedFID
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerNameVLAN,
-				Op:      trace.OpClassify,
-				RuleID:  RuleVLANClassify,
-				Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
-				Inputs:  []trace.Fact{frameSnapshot(f)},
-				Outputs: []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, ingressTagForm(isTagged, isPriorityTagged))},
-			})
-
-			if sw.IngressFiltering {
-				isMember := slices.Contains(sw.Tagged, classifiedFID) || slices.Contains(sw.Untagged, classifiedFID)
-				if !isMember {
-					res.Reason = ReasonIngressFilter
-					res.Steps = append(res.Steps,
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpFilter,
-							RuleID:  RuleIngressFilter,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Inputs:  []trace.Fact{vlanSnapshot(res.Ingress, classifiedFID, ingressPCP, ingressDEI, "classified")},
-							Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonIngressFilter, false)},
-						},
-						trace.Step{
-							Layer:   LayerNameVLAN,
-							Op:      trace.OpDrop,
-							RuleID:  RuleIngressFilter,
-							Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-							Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonIngressFilter, false)},
-						},
-					)
-
-					return Ingress{}, res, false
-				}
-			}
-
-			if _, exists := b.cfg.VLAN.Table[classifiedFID]; !exists {
-				res.Reason = ReasonUndefinedVLAN
-				res.Steps = append(res.Steps, trace.Step{
-					Layer:   LayerNameVLAN,
-					Op:      trace.OpDrop,
-					RuleID:  RuleVLANUndefined,
-					Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(classifiedFID))},
-					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonUndefinedVLAN, false)},
-				})
-
-				return Ingress{}, res, false
+				return Ingress{}, false
 			}
 		}
 	}
 
+	in.FID = sw.Tunnel.VID
+	in.RemainingTags = f.Tags
+
+	res.FID = in.FID
+	res.Steps = append(res.Steps, trace.Step{
+		Layer:   LayerNameVLAN,
+		Op:      trace.OpClassify,
+		RuleID:  RuleVLANTunnelClassify,
+		Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(in.FID))},
+		Inputs:  []trace.Fact{frameSnapshot(f)},
+		Outputs: []trace.Fact{vlanSnapshot(res.Ingress, in.FID, in.PCP, in.DEI, "tunnel")},
+	})
+
+	if _, exists := b.cfg.VLAN.Table[in.FID]; !exists {
+		res.Reason = ReasonUndefinedVLAN
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   LayerNameVLAN,
+			Op:      trace.OpDrop,
+			RuleID:  RuleVLANUndefined,
+			Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(in.FID))},
+			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonUndefinedVLAN, false)},
+		})
+
+		return Ingress{}, false
+	}
+	return in, true
+}
+
+func (b *Layer) classifyOrdinary(res *Result, f ethernet.Frame, sw Switchport, swOk bool) (Ingress, bool) {
+	in := Ingress{}
+	var isTagged, isPriorityTagged, isUntagged bool
+	if len(f.Tags) > 0 {
+		outer := f.Tags[0]
+		if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
+			in.PCP = outer.PCP
+			in.DEI = outer.DEI
+			in.RemainingTags = f.Tags[1:]
+			if outer.VID != 0 {
+				isTagged = true
+				in.FID = outer.VID
+			} else {
+				isPriorityTagged = true
+			}
+		} else {
+			isUntagged = true
+			in.RemainingTags = f.Tags
+		}
+	} else {
+		isUntagged = true
+	}
+
+	if !admitIngress(res, in, sw.Admission, isTagged) {
+		return Ingress{}, false
+	}
+
+	if isPriorityTagged || isUntagged {
+		if !swOk || sw.PVID == nil {
+			res.Reason = ReasonNoPVID
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:   LayerNameVLAN,
+				Op:      trace.OpDrop,
+				RuleID:  RuleNoPVID,
+				Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+				Inputs:  []trace.Fact{frameSnapshot(f)},
+				Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", 0, ReasonNoPVID, false)},
+			})
+
+			return Ingress{}, false
+		}
+		in.FID = *sw.PVID
+	}
+
+	res.FID = in.FID
+	res.Steps = append(res.Steps, trace.Step{
+		Layer:   LayerNameVLAN,
+		Op:      trace.OpClassify,
+		RuleID:  RuleVLANClassify,
+		Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(in.FID))},
+		Inputs:  []trace.Fact{frameSnapshot(f)},
+		Outputs: []trace.Fact{vlanSnapshot(res.Ingress, in.FID, in.PCP, in.DEI, ingressTagForm(isTagged, isPriorityTagged))},
+	})
+
+	if sw.IngressFiltering {
+		isMember := slices.Contains(sw.Tagged, in.FID) || slices.Contains(sw.Untagged, in.FID)
+		if !isMember {
+			res.Reason = ReasonIngressFilter
+			res.Steps = append(res.Steps,
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpFilter,
+					RuleID:  RuleIngressFilter,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Inputs:  []trace.Fact{vlanSnapshot(res.Ingress, in.FID, in.PCP, in.DEI, "classified")},
+					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonIngressFilter, false)},
+				},
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpDrop,
+					RuleID:  RuleIngressFilter,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonIngressFilter, false)},
+				},
+			)
+
+			return Ingress{}, false
+		}
+	}
+
+	if _, exists := b.cfg.VLAN.Table[in.FID]; !exists {
+		res.Reason = ReasonUndefinedVLAN
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   LayerNameVLAN,
+			Op:      trace.OpDrop,
+			RuleID:  RuleVLANUndefined,
+			Subject: trace.Subject{Kind: "vlan", Key: strconv.Itoa(int(in.FID))},
+			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonUndefinedVLAN, false)},
+		})
+
+		return Ingress{}, false
+	}
+	return in, true
+}
+
+func admitIngress(res *Result, in Ingress, policy Admission, isTagged bool) bool {
+	admission := policy
+	if admission == "" {
+		admission = All
+	}
+	switch admission {
+	case TaggedOnly:
+		if !isTagged {
+			res.Reason = ReasonAdmission
+			res.Steps = append(res.Steps,
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpFilter,
+					RuleID:  RuleAdmissionFilter,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Inputs:  []trace.Fact{admission},
+					Outputs: []trace.Fact{vlanSnapshot(res.Ingress, in.FID, in.PCP, in.DEI, "admission-rejected")},
+				},
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpDrop,
+					RuleID:  RuleAdmission,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonAdmission, false)},
+				},
+			)
+
+			return false
+		}
+	case UntaggedAndPriorityTaggedOnly:
+		if isTagged {
+			res.Reason = ReasonAdmission
+			res.Steps = append(res.Steps,
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpFilter,
+					RuleID:  RuleAdmissionFilter,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Inputs:  []trace.Fact{admission},
+					Outputs: []trace.Fact{vlanSnapshot(res.Ingress, in.FID, in.PCP, in.DEI, "admission-rejected")},
+				},
+				trace.Step{
+					Layer:   LayerNameVLAN,
+					Op:      trace.OpDrop,
+					RuleID:  RuleAdmission,
+					Subject: trace.Subject{Kind: "port", Key: res.Ingress},
+					Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", in.FID, ReasonAdmission, false)},
+				},
+			)
+
+			return false
+		}
+	case All:
+	}
+
+	return true
+}
+
+func (b *Layer) ingressGate(res *Result, classifiedFID vlan.ID) (bool, bool, trace.Fact) {
 	// The gate runs after classification, so it is asked about the VLAN the
 	// frame was classified into rather than about the port alone. A frame that
 	// never passed classification is not a spanning-tree question, which is why
@@ -375,24 +434,14 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 		ingressGate = firstFact
 	}
 
-	if !ingressLearns && !ingressForwards {
-		res.Reason = ReasonPortBlocked
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   LayerName,
-			Op:      trace.OpDrop,
-			RuleID:  RulePortBlocked,
-			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-			Inputs:  facts(ingressGate),
-			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonPortBlocked, false)},
-		})
+	return ingressLearns, ingressForwards, ingressGate
+}
 
-		return Ingress{}, res, false
-	}
-
-	if learn && ingressLearns && !f.Src.IsGroup() && !b.isFloodVLAN(classifiedFID) && b.hasVLANMember(classifiedFID) {
-		srcKey := fdbKey{fid: classifiedFID, mac: f.Src}
+func (b *Layer) learnSource(res *Result, in Ingress, now time.Time, f ethernet.Frame) {
+	if !f.Src.IsGroup() && !b.isFloodVLAN(in.FID) && b.hasVLANMember(in.FID) {
+		srcKey := fdbKey{fid: in.FID, mac: f.Src}
 		if b.fdbScope.Compare(analysis.WholeScope()) != 0 {
-			res.ConsultScopes(fdbLookupScope(b.fdbScope, classifiedFID, f.Src))
+			res.ConsultScopes(fdbLookupScope(b.fdbScope, in.FID, f.Src))
 		}
 		existing, exists := b.fdb[srcKey]
 		if exists && b.expired(existing, now) {
@@ -413,7 +462,7 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 				evicted, wasEvicted = b.evictOldestDynamic()
 			}
 			b.fdb[srcKey] = Entry{
-				FID:       classifiedFID,
+				FID:       in.FID,
 				MAC:       f.Src,
 				Port:      res.Ingress,
 				Origin:    Observed,
@@ -427,7 +476,7 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 				Op:      trace.OpLearn,
 				RuleID:  RuleLearn,
 				Subject: trace.Subject{Kind: "mac", Key: f.Src.String()},
-				Outputs: []trace.Fact{fdbSnapshot(classifiedFID, f.Src, true, res.Ingress, false)},
+				Outputs: []trace.Fact{fdbSnapshot(in.FID, f.Src, true, res.Ingress, false)},
 			})
 			if wasEvicted {
 				res.Steps = append(res.Steps, trace.Step{
@@ -459,36 +508,6 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 			})
 		}
 	}
-
-	if !ingressForwards {
-		res.Reason = ReasonPortBlocked
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   LayerName,
-			Op:      trace.OpDrop,
-			RuleID:  RulePortBlocked,
-			Subject: trace.Subject{Kind: "port", Key: res.Ingress},
-			Inputs:  facts(ingressGate),
-			Outputs: []trace.Fact{egressSnapshot(res.Ingress, "", classifiedFID, ReasonPortBlocked, false)},
-		})
-
-		return Ingress{}, res, false
-	}
-
-	in := Ingress{
-		Port:            res.Ingress,
-		FID:             classifiedFID,
-		PCP:             ingressPCP,
-		DEI:             ingressDEI,
-		RemainingTags:   remainingTags,
-		TPID:            ingressTPID,
-		Steps:           res.Steps,
-		Now:             now,
-		Commit:          commit,
-		consultedPorts:  res.ConsultedPorts(),
-		consultedScopes: res.ConsultedScopes(),
-	}
-
-	return in, Result{}, true
 }
 
 func (b *Layer) hasVLANMember(fid vlan.ID) bool {

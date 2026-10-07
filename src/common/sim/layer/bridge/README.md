@@ -49,12 +49,18 @@ flowchart TD
     member --> transmit["Tag form and transmit: 8.6.4 c-d, 8.6.8"]
 ```
 
-The second diagram describes the unicast checks. Replication excludes the
-ingress, member ports, and VLAN nonmembers before it checks port status.
-It then records the replication step and checks each surviving candidate's
-gate, protection, MTU, and LAG selection. A down candidate records
-`port` / `port.status.down` without an `Egress` record. A down unicast
-hit records `relay` / `port-down` with a dropped `Egress`.
+Both paths exclude the reception port before the per-port decision in
+`decideEgress`. It checks port status, VLAN membership, forwarding gates,
+protected-port isolation, payload MTU, and LAG member selection in that
+order. Q2003 8.4.1 excludes disabled ports from relaying. Clauses 8.6.2
+through 8.6.4 govern topology, destination filtering, and egress membership.
+
+Replication supplies only logical VLAN members and records down ports
+before its replication step. Other per-port decisions follow that step.
+Both paths record `relay` / `port-down` with a forwarding input fact and
+an egress output decision. A unicast refusal also records a dropped
+`Egress`. A flood omits `Egress` for down ports so the fabric does not
+count a discard on each unavailable member.
 
 ## Configuration and sources
 
@@ -149,7 +155,7 @@ rules carry no drop reason.
 | `relay` | `port-blocked` | `port-blocked` for a learning/forwarding gate refusal |
 | `relay` | `learn`, `move`, `evict` | FDB lifecycle decisions |
 | `relay` | `flood-vlan`, `unicast-hit`, `unicast-miss`, `group-destination` | Destination selection |
-| `relay` | `same-port`, `port-down` | `same-port` or `port-down` for a unicast hit |
+| `relay` | `same-port`, `port-down` | `same-port` for a unicast hit, `port-down` on either path |
 | `vlan` | `not-member`, `vlan-tag-form` | `not-member` or successful egress tag rewrite |
 | `relay` | `protected`, `mtu-exceeded`, `no-member` | `protected`, `mtu-exceeded`, or `no-member` |
 | `relay` | `flood`, `transmit` | Replication or successful transmission |

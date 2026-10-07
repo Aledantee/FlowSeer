@@ -28,10 +28,38 @@ func (b *Layer) Egress(in Ingress, f ethernet.Frame) Result {
 		copy(res.Steps, in.Steps)
 	}
 
-	var (
-		isHit   bool
-		hitPort string
-	)
+	res, hitPort, resolved := b.lookupDestination(res, in, f)
+	if resolved {
+		return res
+	}
+	if hitPort != "" {
+		if hitPort == in.Port {
+			res.Reason = ReasonSamePort
+			res.Steps = append(res.Steps, trace.Step{
+				Layer:   LayerName,
+				Op:      trace.OpDrop,
+				RuleID:  RuleSamePort,
+				Subject: trace.Subject{Kind: "port", Key: in.Port},
+				Outputs: []trace.Fact{egressSnapshot(in.Port, "", in.FID, ReasonSamePort, false)},
+			})
+			return res
+		}
+		destPort, _ := b.ports.Port(hitPort)
+		decision := b.decideEgress(in, f, destPort)
+		mergeEgressDecision(&res, decision)
+		res.Outcome = decision.Outcome
+		res.Reason = decision.Reason
+		return res
+	}
+	ports := make([]string, 0, b.ports.Len())
+	for _, candidate := range b.ports.Ports() {
+		ports = append(ports, candidate.Name)
+	}
+	return b.replicate(res, in, f, ports, ReasonNoEgress, LayerName, RuleFlood, nil)
+}
+
+func (b *Layer) lookupDestination(res Result, in Ingress, f ethernet.Frame) (Result, string, bool) {
+	var hitPort string
 	if !f.Dst.IsGroup() {
 		if b.isFloodVLAN(in.FID) {
 			res.Steps = append(res.Steps, trace.Step{
@@ -48,7 +76,6 @@ func (b *Layer) Egress(in Ingress, f ethernet.Frame) Result {
 				res.ConsultScopes(fdbLookupScope(b.fdbScope, in.FID, f.Dst))
 			}
 			if entry, exists := b.fdb[dstKey]; exists && !b.expired(entry, in.Now) {
-				isHit = true
 				hitPort = entry.Port
 				res.Steps = append(res.Steps, trace.Step{
 					Layer:   LayerName,
@@ -89,197 +116,12 @@ func (b *Layer) Egress(in Ingress, f ethernet.Frame) Result {
 				if len(ports) == 0 {
 					emptyReason = trace.Reason("unregistered")
 				}
-				return b.replicate(res, in, f, ports, emptyReason, b.resolverLayer, b.resolverRule, membership)
+				return b.replicate(res, in, f, ports, emptyReason, b.resolverLayer, b.resolverRule, membership), "", true
 			}
 		}
 	}
 
-	if isHit {
-		if hitPort == in.Port {
-			res.Reason = ReasonSamePort
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RuleSamePort,
-				Subject: trace.Subject{Kind: "port", Key: in.Port},
-				Outputs: []trace.Fact{egressSnapshot(in.Port, "", in.FID, ReasonSamePort, false)},
-			})
-
-			return res
-		}
-
-		destPort, exists := b.ports.Port(hitPort)
-		if !exists {
-			res.Reason = port.ReasonPortDown
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RulePortDown,
-				Subject: trace.Subject{Kind: "port", Key: hitPort},
-				Outputs: []trace.Fact{port.ForwardingFact(hitPort, port.Port{}, false, port.ReasonPortDown)},
-			})
-
-			return res
-		}
-		res.Consult(b.egressDependencies(destPort)...)
-
-		txReason := b.ports.Transmit(destPort.Name, len(f.Payload))
-		if txReason == port.ReasonPortDown {
-			res.Reason = port.ReasonPortDown
-			res.Egress = append(res.Egress, Egress{
-				Port:    destPort.Name,
-				PCP:     in.PCP,
-				Dropped: port.ReasonPortDown,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RulePortDown,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Inputs:  []trace.Fact{port.ForwardingFact(destPort.Name, destPort, false, port.ReasonPortDown)},
-				Outputs: []trace.Fact{egressSnapshot(destPort.Name, "", in.FID, port.ReasonPortDown, false)},
-			})
-
-			return res
-		}
-
-		egressFrame, isMember := b.buildEgressFrame(destPort.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
-		if b.cfg.VLAN != nil && !isMember {
-			res.Reason = ReasonNotMember
-			res.Egress = append(res.Egress, Egress{
-				Port:    destPort.Name,
-				PCP:     in.PCP,
-				Dropped: ReasonNotMember,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerNameVLAN,
-				Op:      trace.OpDrop,
-				RuleID:  RuleNotMember,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Inputs:  []trace.Fact{vlanSnapshot(destPort.Name, in.FID, in.PCP, in.DEI, "not-member")},
-				Outputs: []trace.Fact{egressSnapshot(destPort.Name, "", in.FID, ReasonNotMember, false)},
-			})
-
-			return res
-		}
-
-		egressForwards := true
-		var egressDenyForwards trace.Fact
-		for _, entry := range b.gates {
-			if entry.scope.Compare(analysis.WholeScope()) != 0 {
-				res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", destPort.Name))
-			}
-			if entry.gate == nil {
-				continue
-			}
-			forwards := entry.gate.Forwards(destPort.Name, in.FID)
-			egressForwards = egressForwards && forwards
-			if !forwards && egressDenyForwards == nil {
-				egressDenyForwards = b.gateFact(entry.gate, destPort.Name, in.FID, entry.gate.Learns(destPort.Name, in.FID), false)
-			}
-		}
-		if !egressForwards {
-			gate := egressDenyForwards
-			res.Reason = ReasonPortBlocked
-			res.Egress = append(res.Egress, Egress{
-				Port:    destPort.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: ReasonPortBlocked,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RulePortBlocked,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Inputs:  facts(gate),
-				Outputs: []trace.Fact{egressSnapshot(destPort.Name, "", in.FID, ReasonPortBlocked, false)},
-			})
-
-			return res
-		}
-
-		if b.isProtected(in.Port) && b.isProtected(destPort.Name) {
-			res.Reason = ReasonProtected
-			res.Egress = append(res.Egress, Egress{
-				Port:    destPort.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: ReasonProtected,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RuleProtected,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Outputs: []trace.Fact{egressSnapshot(destPort.Name, "", in.FID, ReasonProtected, false)},
-			})
-
-			return res
-		}
-
-		if txReason == port.ReasonMTUExceeded {
-			res.Reason = port.ReasonMTUExceeded
-			res.Egress = append(res.Egress, Egress{
-				Port:    destPort.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: port.ReasonMTUExceeded,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RuleMTUExceeded,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Inputs:  []trace.Fact{port.ForwardingFact(destPort.Name, destPort, false, port.ReasonMTUExceeded)},
-				Outputs: []trace.Fact{egressSnapshot(destPort.Name, "", in.FID, port.ReasonMTUExceeded, false)},
-			})
-
-			return res
-		}
-
-		member, selection, ok := b.selectMember(&res, in, destPort, egressFrame, in.PCP)
-		if !ok {
-			res.Reason = ReasonNoMember
-
-			return res
-		}
-
-		if b.cfg.VLAN != nil {
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerNameVLAN,
-				Op:      trace.OpRewrite,
-				RuleID:  RuleVLANTagForm,
-				Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-				Inputs:  []trace.Fact{frameSnapshot(f)},
-				Outputs: []trace.Fact{frameSnapshot(egressFrame), vlanSnapshot(destPort.Name, in.FID, in.PCP, in.DEI, "egress")},
-			})
-		}
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   LayerName,
-			Op:      trace.OpTransmit,
-			RuleID:  RuleTransmit,
-			Subject: trace.Subject{Kind: "port", Key: destPort.Name},
-			Inputs:  facts(frameSnapshot(egressFrame), selection),
-			Outputs: []trace.Fact{egressSnapshot(destPort.Name, member, in.FID, "", true)},
-		})
-		res.Egress = append(res.Egress, Egress{
-			Port:   destPort.Name,
-			Member: member,
-			Frame:  egressFrame,
-			PCP:    in.PCP,
-		})
-		res.Outcome = trace.Forwarded
-
-		return res
-	}
-
-	ports := make([]string, 0, b.ports.Len())
-	for _, candidate := range b.ports.Ports() {
-		ports = append(ports, candidate.Name)
-	}
-
-	return b.replicate(res, in, f, ports, ReasonNoEgress, LayerName, RuleFlood, nil)
+	return res, hitPort, false
 }
 
 // EgressTo replicates f to the requested logical ports after applying the same
@@ -314,38 +156,26 @@ func (b *Layer) replicate(
 		noCandidateReason = emptyReason
 	}
 	candidates := make([]port.Port, 0, len(ports))
-	txReasons := make([]trace.Reason, 0, len(ports))
-	egressFrames := make([]ethernet.Frame, 0, len(ports))
+	decisions := make([]Result, 0, len(ports))
 	seen := make(map[string]struct{}, len(ports))
 	for _, name := range ports {
 		if _, ok := seen[name]; ok {
 			continue
 		}
 		seen[name] = struct{}{}
-
 		candidate, ok := b.ports.Port(name)
-		if !ok || candidate.LagParent != "" || candidate.Name == in.Port {
+		if !ok || candidate.LagParent != "" || candidate.Name == in.Port || !b.carriesVID(candidate.Name, in.FID) {
 			continue
 		}
-		egressFrame, isMember := b.buildEgressFrame(candidate.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
-		if !isMember {
-			continue
-		}
-		res.Consult(b.egressDependencies(candidate)...)
-		txReason := b.ports.Transmit(candidate.Name, len(f.Payload))
-		if txReason == port.ReasonPortDown {
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   port.LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  port.RuleStatusDown,
-				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-				Inputs:  []trace.Fact{port.ForwardingFact(candidate.Name, candidate, false, txReason)},
-			})
+		decision := b.decideEgress(in, f, candidate)
+		res.Consult(decision.ConsultedPorts()...)
+		if decision.Reason == port.ReasonPortDown {
+			decision.Egress = nil
+			mergeEgressDecision(&res, decision)
 			continue
 		}
 		candidates = append(candidates, candidate)
-		txReasons = append(txReasons, txReason)
-		egressFrames = append(egressFrames, egressFrame)
+		decisions = append(decisions, decision)
 	}
 
 	if len(candidates) == 0 {
@@ -375,111 +205,11 @@ func (b *Layer) replicate(
 	})
 
 	var transmitted int
-	for i, candidate := range candidates {
-		txReason := txReasons[i]
-		egressFrame := egressFrames[i]
-		floodForwards := true
-		var floodDenyForwards trace.Fact
-		for _, entry := range b.gates {
-			if entry.scope.Compare(analysis.WholeScope()) != 0 {
-				res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", candidate.Name))
-			}
-			if entry.gate == nil {
-				continue
-			}
-			forwards := entry.gate.Forwards(candidate.Name, in.FID)
-			floodForwards = floodForwards && forwards
-			if !forwards && floodDenyForwards == nil {
-				floodDenyForwards = b.gateFact(entry.gate, candidate.Name, in.FID, entry.gate.Learns(candidate.Name, in.FID), false)
-			}
+	for _, decision := range decisions {
+		mergeEgressDecision(&res, decision)
+		if decision.Outcome == trace.Forwarded {
+			transmitted++
 		}
-		if !floodForwards {
-			gate := floodDenyForwards
-			res.Egress = append(res.Egress, Egress{
-				Port:    candidate.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: ReasonPortBlocked,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RulePortBlocked,
-				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-				Inputs:  facts(gate),
-				Outputs: []trace.Fact{egressSnapshot(candidate.Name, "", in.FID, ReasonPortBlocked, false)},
-			})
-
-			continue
-		}
-
-		if b.isProtected(in.Port) && b.isProtected(candidate.Name) {
-			res.Egress = append(res.Egress, Egress{
-				Port:    candidate.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: ReasonProtected,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RuleProtected,
-				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-				Outputs: []trace.Fact{egressSnapshot(candidate.Name, "", in.FID, ReasonProtected, false)},
-			})
-
-			continue
-		}
-
-		if txReason == port.ReasonMTUExceeded {
-			res.Egress = append(res.Egress, Egress{
-				Port:    candidate.Name,
-				Frame:   egressFrame,
-				PCP:     in.PCP,
-				Dropped: port.ReasonMTUExceeded,
-			})
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  RuleMTUExceeded,
-				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-				Inputs:  []trace.Fact{port.ForwardingFact(candidate.Name, candidate, false, port.ReasonMTUExceeded)},
-				Outputs: []trace.Fact{egressSnapshot(candidate.Name, "", in.FID, port.ReasonMTUExceeded, false)},
-			})
-
-			continue
-		}
-
-		member, selection, ok := b.selectMember(&res, in, candidate, egressFrame, in.PCP)
-		if !ok {
-			continue
-		}
-
-		if b.cfg.VLAN != nil {
-			res.Steps = append(res.Steps, trace.Step{
-				Layer:   LayerNameVLAN,
-				Op:      trace.OpRewrite,
-				RuleID:  RuleVLANTagForm,
-				Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-				Inputs:  []trace.Fact{frameSnapshot(f)},
-				Outputs: []trace.Fact{frameSnapshot(egressFrame), vlanSnapshot(candidate.Name, in.FID, in.PCP, in.DEI, "egress")},
-			})
-		}
-		res.Steps = append(res.Steps, trace.Step{
-			Layer:   LayerName,
-			Op:      trace.OpTransmit,
-			RuleID:  RuleTransmit,
-			Subject: trace.Subject{Kind: "port", Key: candidate.Name},
-			Inputs:  facts(frameSnapshot(egressFrame), selection),
-			Outputs: []trace.Fact{egressSnapshot(candidate.Name, member, in.FID, "", true)},
-		})
-		res.Egress = append(res.Egress, Egress{
-			Port:   candidate.Name,
-			Member: member,
-			Frame:  egressFrame,
-			PCP:    in.PCP,
-		})
-		transmitted++
 	}
 
 	if transmitted > 0 {
@@ -487,11 +217,7 @@ func (b *Layer) replicate(
 		return res
 	}
 
-	if len(res.Egress) > 0 {
-		res.Reason = res.Egress[0].Dropped
-	} else {
-		res.Reason = port.ReasonMTUExceeded
-	}
+	res.Reason = res.Egress[0].Dropped
 
 	return res
 }
@@ -647,4 +373,108 @@ func (b *Layer) isFloodVLAN(fid vlan.ID) bool {
 
 func (b *Layer) isProtected(port string) bool {
 	return slices.Contains(b.cfg.ProtectedPorts, port)
+}
+
+func (b *Layer) carriesVID(name string, fid vlan.ID) bool {
+	if b.cfg.VLAN == nil {
+		return true
+	}
+	sw, ok := b.cfg.VLAN.Switchports[name]
+	return ok && sw.CarriesVID(fid)
+}
+
+func mergeEgressDecision(res *Result, decision Result) {
+	res.Consult(decision.ConsultedPorts()...)
+	res.ConsultScopes(decision.ConsultedScopes()...)
+	res.Steps = append(res.Steps, decision.Steps...)
+	res.Egress = append(res.Egress, decision.Egress...)
+}
+
+func (b *Layer) decideEgress(in Ingress, f ethernet.Frame, p port.Port) Result {
+	res := Result{Trace: trace.Trace{Outcome: trace.Dropped}}
+	res.Consult(b.egressDependencies(p)...)
+	txReason := b.ports.Transmit(p.Name, len(f.Payload))
+	if txReason == port.ReasonPortDown {
+		recordEgressDrop(&res, in, p.Name, ethernet.Frame{}, LayerName, RulePortDown, port.ReasonPortDown,
+			port.ForwardingFact(p.Name, p, false, port.ReasonPortDown))
+		return res
+	}
+	egressFrame, isMember := b.buildEgressFrame(p.Name, in.FID, f, in.PCP, in.DEI, in.RemainingTags, in.TPID)
+	if !isMember {
+		recordEgressDrop(&res, in, p.Name, ethernet.Frame{}, LayerNameVLAN, RuleNotMember, ReasonNotMember,
+			vlanSnapshot(p.Name, in.FID, in.PCP, in.DEI, "not-member"))
+		return res
+	}
+	forwards, gate := b.egressGate(&res, p.Name, in.FID)
+	if !forwards {
+		recordEgressDrop(&res, in, p.Name, egressFrame, LayerName, RulePortBlocked, ReasonPortBlocked, gate)
+		return res
+	}
+	if b.isProtected(in.Port) && b.isProtected(p.Name) {
+		recordEgressDrop(&res, in, p.Name, egressFrame, LayerName, RuleProtected, ReasonProtected, nil)
+		return res
+	}
+	if txReason == port.ReasonMTUExceeded {
+		recordEgressDrop(&res, in, p.Name, egressFrame, LayerName, RuleMTUExceeded, port.ReasonMTUExceeded,
+			port.ForwardingFact(p.Name, p, false, port.ReasonMTUExceeded))
+		return res
+	}
+	member, selection, ok := b.selectMember(&res, in, p, egressFrame, in.PCP)
+	if !ok {
+		res.Reason = ReasonNoMember
+		return res
+	}
+	if b.cfg.VLAN != nil {
+		res.Steps = append(res.Steps, trace.Step{
+			Layer:   LayerNameVLAN,
+			Op:      trace.OpRewrite,
+			RuleID:  RuleVLANTagForm,
+			Subject: trace.Subject{Kind: "port", Key: p.Name},
+			Inputs:  []trace.Fact{frameSnapshot(f)},
+			Outputs: []trace.Fact{frameSnapshot(egressFrame), vlanSnapshot(p.Name, in.FID, in.PCP, in.DEI, "egress")},
+		})
+	}
+	res.Steps = append(res.Steps, trace.Step{
+		Layer:   LayerName,
+		Op:      trace.OpTransmit,
+		RuleID:  RuleTransmit,
+		Subject: trace.Subject{Kind: "port", Key: p.Name},
+		Inputs:  facts(frameSnapshot(egressFrame), selection),
+		Outputs: []trace.Fact{egressSnapshot(p.Name, member, in.FID, "", true)},
+	})
+	res.Egress = append(res.Egress, Egress{Port: p.Name, Member: member, Frame: egressFrame, PCP: in.PCP})
+	res.Outcome = trace.Forwarded
+	return res
+}
+
+func recordEgressDrop(res *Result, in Ingress, name string, f ethernet.Frame, layer trace.Layer, rule trace.RuleID, reason trace.Reason, input trace.Fact) {
+	res.Reason = reason
+	res.Egress = append(res.Egress, Egress{Port: name, Frame: f, PCP: in.PCP, Dropped: reason})
+	res.Steps = append(res.Steps, trace.Step{
+		Layer:   layer,
+		Op:      trace.OpDrop,
+		RuleID:  rule,
+		Subject: trace.Subject{Kind: "port", Key: name},
+		Inputs:  facts(input),
+		Outputs: []trace.Fact{egressSnapshot(name, "", in.FID, reason, false)},
+	})
+}
+
+func (b *Layer) egressGate(res *Result, name string, fid vlan.ID) (bool, trace.Fact) {
+	forwards := true
+	var denial trace.Fact
+	for _, entry := range b.gates {
+		if entry.scope.Compare(analysis.WholeScope()) != 0 {
+			res.ConsultScopes(analysis.FieldScope(entry.scope, "ports", name))
+		}
+		if entry.gate == nil {
+			continue
+		}
+		allowed := entry.gate.Forwards(name, fid)
+		forwards = forwards && allowed
+		if !allowed && denial == nil {
+			denial = b.gateFact(entry.gate, name, fid, entry.gate.Learns(name, fid), false)
+		}
+	}
+	return forwards, denial
 }
