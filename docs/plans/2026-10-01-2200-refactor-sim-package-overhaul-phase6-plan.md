@@ -646,6 +646,18 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Open questions
 
+- Active neighbor resolution needs a decision about existing test
+  expectations. At `4c11b059`, the corpus case
+  `troubleshooting/neighbor-resolution-pending` fails with
+  `released emissions = 2, want 1`. Its assertion in
+  `src/common/sim/internal/simtest/cases.go:2306` counts all drained
+  emissions, including the new protocol solicitation. Existing timeout
+  tests also expect one absolute deadline. Options: migrate the affected
+  assertions to active resolution, preserving the specified behavior, or
+  revise the sending requirements before resuming. Partial code remains
+  unverified on `parked/routing-solicit`, with sending coverage and
+  documentation unfinished. Receiving depends on the blocked sending unit.
+
 - `filter.RetentionKey` writes `env.NodeID` raw after `node_id=` in
   `src/common/sim/layer/filter/config.go:407`. The comparison to a quoted
   filter identity was false. Routing still requires a quoted node identity
