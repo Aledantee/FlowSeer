@@ -384,3 +384,11 @@ Documentation-only re-planning runs:
 ## Open questions
 
 None.
+
+## Review gaps
+
+These follow-ups do not hold the verdict. Each needs a change to non-test source.
+
+- src/common/sim/stream/stream.go:68: the type switch in `Spec.Validate` has no default arm, so `struct{ stream.SizeVariation }` from another package satisfies `Variation`, passes with `Sizes: []int{20}` on a one-tag template, and `Next` panics in `SizeVariation.apply`; fails: an embedding wrapper must be refused by `Validate`; class: hardening
+- src/common/sim/stream/variation.go:15: "The set of variations is closed to this package", repeated in `src/common/sim/stream/README.md`; fails: a type embedding a variation implements the interface through the promoted `apply`; class: convention
+- src/common/sim/fabric/compare_journey.go:23: the `Origin.Kind` and `Origin.Mirror` branches of `diffJourney` have no path from `Compare`, since `pairJourneys` pairs journeys only on equal kind and mirror name and roots are injections; fails: only `TestJourneyDifferenceFields` reaches them by calling `diffJourney` directly; class: convention
