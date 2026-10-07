@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/pcap"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -487,5 +488,27 @@ func TestRunScenarioRefusesActionsWithAttachedStream(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "attached stream") {
 		t.Fatalf("RunScenario error = %v, want attached stream refusal", err)
+	}
+}
+
+func TestAttachedStreamJourneyOwnsFrame(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	frame := flowFrame(src, dst)
+	frame.Tags = []vlan.Tag{{VID: 1}}
+	wantPayload := bytes.Clone(frame.Payload)
+	source := streamSource(t, frame, 1, 1)
+	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1, Retention: fabric.RetainJourney}); err != nil {
+		t.Fatal(err)
+	}
+	fab.Run(1000)
+	frame.Tags[0].VID = 2
+	frame.Payload[0] ^= 0xff
+	journeys := fab.Report()
+	if len(journeys) != 1 {
+		t.Fatalf("journeys = %d, want 1", len(journeys))
+	}
+	got := journeys[0].Injection.Frame
+	if got.Tags[0].VID != 1 || !bytes.Equal(got.Payload, wantPayload) {
+		t.Fatal("retained journey shares template frame")
 	}
 }

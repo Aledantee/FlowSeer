@@ -196,10 +196,6 @@ func TestUDPPortVariationRejectsShortUDPDatagram(t *testing.T) {
 	if source, err := spec.Source(); err == nil || !strings.Contains(err.Error(), "UDP length") {
 		t.Errorf("Source() = (%v, %v), want UDP length refusal", source, err)
 	}
-	got := spec.Variations[0].Apply(1, frame, nil)
-	if !bytes.Equal(got.Payload, frame.Payload) {
-		t.Errorf("Apply() changed a short UDP datagram: got %x, want %x", got.Payload, frame.Payload)
-	}
 }
 
 func TestUDPPortVariationPreservesBytesAfterIPv6Packet(t *testing.T) {

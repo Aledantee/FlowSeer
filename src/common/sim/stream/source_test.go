@@ -1,8 +1,11 @@
 package stream_test
 
 import (
+	"bytes"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
@@ -70,5 +73,45 @@ func TestSourceCloneCursor(t *testing.T) {
 	at, _, ok = source.Next()
 	if !ok || at != 100*time.Millisecond {
 		t.Errorf("original next = (%s, %t), want (100ms, true)", at, ok)
+	}
+}
+
+func TestSourceFramesIndependent(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		variations []stream.Variation
+	}{
+		{name: "none"},
+		{name: "MAC", variations: []stream.Variation{stream.MACVariation{Field: stream.MACSource, Count: 1}}},
+		{name: "size", variations: []stream.Variation{stream.SizeVariation{Sizes: []int{68}}}},
+		{name: "UDP", variations: []stream.Variation{stream.UDPPortVariation{Dst: true, Count: 1}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			frame := udpFrame(t)
+			frame.Tags = []vlan.Tag{{VID: 7}}
+			frame.Payload = append(frame.Payload, make([]byte, 46-len(frame.Payload))...)
+			spec := variationSpec(frame, 4, tc.variations...)
+			source := variationSource(t, spec)
+			clone := source.Clone()
+			_, first, _ := source.Next()
+			_, second, _ := source.Next()
+			want := bytes.Clone(first.Payload)
+			first.Tags[0].VID = 8
+			first.Payload[0] ^= 0xff
+			if second.Tags[0].VID != 7 || !bytes.Equal(second.Payload, want) {
+				t.Fatal("second yield shares first frame")
+			}
+			second.Tags[0].VID = 9
+			second.Payload[0] ^= 0xff
+			if spec.Frame.Tags[0].VID != 7 || spec.Frame.Payload[0] != want[0] {
+				t.Fatal("yield changed template")
+			}
+			for _, cursor := range []stream.Source{source, clone} {
+				_, got, ok := cursor.Next()
+				if !ok || got.Tags[0].VID != 7 || !bytes.Equal(got.Payload, want) {
+					t.Fatal("cursor shares yielded frame")
+				}
+			}
+		})
 	}
 }
