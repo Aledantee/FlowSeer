@@ -2,6 +2,7 @@ package mcast_test
 
 import (
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -11,6 +12,109 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 )
+
+func TestLearnExpiredCompatibilityMatchesAdvance(t *testing.T) {
+	for _, protocol := range []string{"IGMP", "MLD"} {
+		for _, fastLeave := range []bool{false, true} {
+			for _, action := range []string{"IS_IN", "IS_EX", "TO_IN", "TO_EX", "ALLOW", "BLOCK", "empty_TO_IN", "empty_IS_IN", "leave", "legacy", "group_query", "source_query", "suppressed_query"} {
+				name := protocol + "/" + action
+				if fastLeave {
+					name += "/fast_leave"
+				}
+				t.Run(name, func(t *testing.T) {
+					cfg := mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}, FastLeave: fastLeave}}}
+					unaged := mustNewMcast(t, cfg, mcastPortTable(t))
+					t0 := time.Unix(127000, 0)
+					group, source := netip.MustParseAddr("239.1.1.1"), netip.MustParseAddr("10.1.1.1")
+					if protocol == "MLD" {
+						group, source = netip.MustParseAddr("ff05::1"), netip.MustParseAddr("2001:db8::1")
+						unaged.LearnMLD(t0, vid, memberPort, source, mld.Message{Type: mld.ReportV1, Group: group})
+						unaged.LearnMLD(t0.Add(10*time.Second), vid, "1/1/8", netip.MustParseAddr("fe80::8"), mld.Message{Type: mld.Query, Group: group})
+					} else {
+						unaged.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.ReportV1, Group: group})
+						unaged.Learn(t0.Add(10*time.Second), vid, "1/1/8", source, igmp.Message{Type: igmp.Query, Group: group})
+					}
+					before := mustEntry(t, unaged.Groups(vid, t0.Add(10*time.Second)))
+					if before.Mode != mcast.Exclude || !before.GroupExpires.Equal(t0.Add(12*time.Second)) {
+						t.Fatalf("fixture = %+v, want EXCLUDE expiring at t0+12s", before)
+					}
+					now := t0.Add(20 * time.Second)
+					aged := unaged.Clone()
+					aged.Advance(now)
+					kind := igmp.ModeIsInclude
+					sources := []netip.Addr{source}
+					switch action {
+					case "IS_EX":
+						kind = igmp.ModeIsExclude
+					case "TO_IN", "empty_TO_IN":
+						kind = igmp.ChangeToIncludeMode
+					case "TO_EX":
+						kind = igmp.ChangeToExcludeMode
+					case "ALLOW":
+						kind = igmp.AllowNewSources
+					case "BLOCK":
+						kind = igmp.BlockOldSources
+					}
+					if action == "empty_TO_IN" || action == "empty_IS_IN" {
+						sources = nil
+					}
+					for _, l := range []*mcast.Layer{aged, unaged} {
+						if protocol == "MLD" {
+							message := mld.Message{Type: mld.ReportV2, Records: []mld.AddressRecord{{Type: mld.RecordType(kind), Group: group, Sources: sources}}}
+							if action == "leave" {
+								message = mld.Message{Type: mld.Done, Group: group}
+							} else if action == "legacy" {
+								message = mld.Message{Type: mld.ReportV1, Group: group}
+							} else if action == "group_query" || action == "source_query" || action == "suppressed_query" {
+								message = mld.Message{Type: mld.Query, Group: group, Suppress: action == "suppressed_query"}
+								if action == "source_query" {
+									message.Sources = sources
+								}
+							}
+							l.LearnMLD(now, vid, memberPort, netip.MustParseAddr("fe80::1"), message)
+						} else {
+							message := igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: kind, Group: group, Sources: sources}}}
+							if action == "leave" {
+								message = igmp.Message{Type: igmp.Leave, Group: group}
+							} else if action == "legacy" {
+								message = igmp.Message{Type: igmp.ReportV2, Group: group}
+							} else if action == "group_query" || action == "source_query" || action == "suppressed_query" {
+								message = igmp.Message{Type: igmp.Query, Group: group, Suppress: action == "suppressed_query"}
+								if action == "source_query" {
+									message.Sources = sources
+								}
+							}
+							l.Learn(now, vid, memberPort, source, message)
+						}
+					}
+					if got, want := unaged.Groups(vid, now), aged.Groups(vid, now); !reflect.DeepEqual(got, want) {
+						t.Errorf("unaged Groups = %+v, want aged Groups %+v", got, want)
+					}
+					gotPorts, gotRegistered, gotPending := unaged.Resolve(vid, group, source, now)
+					wantPorts, wantRegistered, wantPending := aged.Resolve(vid, group, source, now)
+					if !reflect.DeepEqual(gotPorts, wantPorts) || gotRegistered != wantRegistered || gotPending != wantPending {
+						t.Errorf("unaged Resolve = %v, %v, %v, want aged %v, %v, %v", gotPorts, gotRegistered, gotPending, wantPorts, wantRegistered, wantPending)
+					}
+					if action == "group_query" || action == "source_query" || action == "suppressed_query" {
+						unaged.Advance(now)
+					}
+					if !reflect.DeepEqual(unaged, aged) {
+						t.Error("unaged stored state differs from aged state")
+					}
+					if action == "TO_IN" {
+						entry := mustEntry(t, unaged.Groups(vid, now))
+						if entry.Mode != mcast.Include || len(entry.Sources) != 1 || entry.Sources[0].Address != source || !entry.Sources[0].Expires.Equal(now.Add(260*time.Second)) {
+							t.Errorf("TO_IN state = %+v, want INCLUDE with source expiring in 260s", entry)
+						}
+						if ports, registered, pending := unaged.Resolve(vid, group, source, now); !reflect.DeepEqual(ports, []string{memberPort, "1/1/8"}) || !registered || pending {
+							t.Errorf("Resolve = %v, %v, %v, want member and router, registered, no pending query", ports, registered, pending)
+						}
+					}
+				})
+			}
+		}
+	}
+}
 
 func TestLeaveDoesNotStartCompatibilityTimer(t *testing.T) {
 	for _, protocol := range []string{"IGMP", "MLD"} {

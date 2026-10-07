@@ -450,14 +450,6 @@ func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vl
 // port's group state outright, since that is the state the table would reach once the
 // source and group timers expired.
 func learnLeave(now time.Time, group netip.Addr, portName string, state *vlanState) {
-	if gps := state.groups[groupKey{group: group, port: portName}]; gps != nil && gps.igmpV1HostUntil.After(now) {
-		return
-	}
-	if state.fastLeave {
-		delete(state.groups, groupKey{group: group, port: portName})
-
-		return
-	}
 	applyToPort(now, group, portName, state, recToInclude, nil, 0)
 }
 
@@ -465,14 +457,6 @@ func learnLeave(now time.Time, group netip.Addr, portName string, state *vlanSta
 // is shaped like a leave — a MODE_IS_INCLUDE or CHANGE_TO_INCLUDE_MODE carrying no sources —
 // gets the same fast-leave shortcut as a legacy leave.
 func learnGroupRecord(now time.Time, portName string, kind recordKind, group netip.Addr, sources []netip.Addr, state *vlanState) {
-	if gps := state.groups[groupKey{group: group, port: portName}]; kind == recToInclude && gps != nil && gps.igmpV1HostUntil.After(now) {
-		return
-	}
-	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
-		delete(state.groups, groupKey{group: group, port: portName})
-
-		return
-	}
 	applyToPort(now, group, portName, state, kind, sources, 0)
 }
 
@@ -487,6 +471,14 @@ func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanSt
 	}
 	if gps == nil {
 		gps = newGroupPortState()
+	}
+	if kind == recToInclude && gps.igmpV1HostUntil.After(now) {
+		return
+	}
+	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
+		delete(state.groups, key)
+
+		return
 	}
 
 	applyRecord(now, state.membershipInterval, gps, kind, sources, legacyVersion)
