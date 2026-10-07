@@ -201,7 +201,10 @@ prefers. A destination wider than link-local scope prefers a non-link-local
 source of the same family whenever the VRF has one. A destination of link-local
 scope or narrower prefers a link-local source on the egress interface when it
 has one ([RFC 6724 sections 3.1 and 5 Rule 2](https://www.rfc-editor.org/rfc/rfc6724#section-3.1)).
-This includes IPv6 multicast scopes 1 and 2 and IPv4 multicast `224.0.0.0/24`.
+This includes IPv6 multicast scopes 0, 1, and 2. The layer departs from
+[RFC 6724 section 3.2](https://www.rfc-editor.org/rfc/rfc6724#section-3.2)
+by treating IPv4 multicast `224.0.0.0/24` as link-local and `127/8` as global
+([linkLocalScope](layer.go)).
 The caller's payload contributes nothing to selection.
 
 ```mermaid
@@ -374,7 +377,12 @@ MAC. Probes send to that MAC, and for IPv6 to the target IP address.
 
 `Receive(now, iface, frame)` processes only frames addressed to the
 interface's MAC, ARP broadcast, or IPv6 all-nodes and local solicited-node
-MACs. It ignores malformed messages, including the validity checks of
+MACs. [ndp.Decode](../../../net/ndp/ndp.go) checks hop limit 255, checksum,
+code zero, minimum message length, a unicast target, and option lengths up
+to the first matching link-layer option. An unspecified solicitation source
+must have no source link-layer option. For that source, [Receive](receive.go)
+checks that the destination is solicited-node multicast. It rejects solicited advertisements
+to multicast IPv6 destinations. These checks implement part of
 [RFC 4861](https://www.rfc-editor.org/rfc/rfc4861.txt) section 7.1.
 
 ARP reception follows [RFC 826](https://www.rfc-editor.org/rfc/rfc826.txt):
@@ -402,7 +410,9 @@ makes the entry Stale. Configured entries never change. `NeighborDisabled`
 answers solicitations while keeping the configured table unchanged.
 
 `DrainExits` reports each queued frame once, as `HeldReleased`,
-`HeldTimedOut`, or `HeldEvicted`, in VRF/interface/address order.
+`HeldTimedOut`, or `HeldEvicted`. Within one `Advance`, exits are ordered by
+VRF, interface, and address. A committing lookup or `Receive` appends an
+exhausted entry's exits at call time.
 `Advance` releases queues whose entries resolved. `FailHeld` returns waiting
 exits and remaining held frames, then deletes Incomplete entries.
 
@@ -429,8 +439,8 @@ library is asked which of several frames arrived, and a depth of 1 answers
 that for the last one only.
 
 The replaced frame surfaces in `DrainExits` after the next `Advance` or a
-committing lookup retires its failed neighbor entry, as a `HeldEvicted` exit
-under its own reason `neighbor-hold-overflow`. That reason
+committing lookup or `Receive` retires its exhausted neighbor entry, as a
+`HeldEvicted` exit under its own reason `neighbor-hold-overflow`. That reason
 is deliberately not `neighbor-miss`, because the neighbor may well resolve,
 and on a queue that overflowed because frames kept arriving it usually does —
 often on the same `Advance` that reports the eviction.
@@ -452,12 +462,19 @@ solicits or holds a frame for an absent binding.
 
 ### Limits
 
-- Failed resolution returns no ICMP Address Unreachable error, which RFC
-  4861 section 7.2.2 requires for each queued packet.
+- Neither `Receive` nor `ndp.Decode` checks IPv6 Next Header 58. The
+  [switch reception predicate](../../device/vswitch/switch.go) checks it.
+- `ndp.Decode` stops option validation at the first matching link-layer
+  option. Options after it are unchecked, unlike RFC 4861 section 7.1.
+- The layer returns no ICMP error for any drop, including no-route, hop
+  limit, neighbor-miss, and hold overflow. RFC 4861 section 7.2.2 requires
+  an ICMP Address Unreachable error for each packet queued by failed
+  resolution.
 - No Router Solicitation, Router Advertisement, Redirect, Duplicate Address
   Detection, proxy or anycast advertisement, or IsRouter entry flag.
-- No MLD group join. The switch hands the layer frames its interface
-  receives. A snooping VLAN that does not flood unregistered groups sends
+- No MLD group join. RFC 4861 section 7.2.1 requires joining all-nodes
+  and each assigned address's solicited-node group. The switch hands the
+  layer frames its interface receives. A snooping VLAN that does not flood unregistered groups sends
   the layer's solicitation only to listeners and router ports.
 - `ReachableTime` is the configured value, without the randomization RFC
   4861 section 6.3.2 describes, so simulations repeat.

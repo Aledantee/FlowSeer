@@ -94,7 +94,7 @@ const (
 	ReasonTTLExpired trace.Reason = "ttl-expired"
 
 	// ReasonNeighborMiss indicates a frame dropped because the VRF does not resolve neighbors,
-	// or because a prior resolution attempt for the next hop already failed.
+	// or because the egress interface has no address of the next hop's family.
 	ReasonNeighborMiss trace.Reason = "neighbor-miss"
 
 	// ReasonNeighborHoldOverflow indicates a frame dropped because a newer frame for the same
@@ -776,7 +776,7 @@ func (l *Layer) Interface(name string) (Interface, bool) {
 // the frame with [ReasonTTLExpired] (RFC 1812 section 5.3.1). If no route matches the
 // destination, Route drops with [ReasonNoRoute] (RFC 1812 section 5.2.4.3). If the next
 // hop's neighbor entry cannot resolve it, either because the VRF never resolves neighbors
-// or because a prior resolution attempt already failed, Route drops with
+// or because the egress interface has no address of the next hop's family, Route drops with
 // [ReasonNeighborMiss]; if the next hop is simply unresolved yet under [NeighborObserved],
 // Route reports [ReasonNeighborPending] instead — see the package README's "Neighbor
 // lifecycle" section.
@@ -1213,7 +1213,9 @@ func (l *Layer) Originate(now time.Time, vrf string, dst netip.Addr, protocol ui
 }
 
 // linkLocalScope includes multicast interface-local and link-local destinations
-// in the scope comparison with unicast sources (RFC 6724 section 3.1).
+// in the scope comparison with unicast sources (RFC 6724 section 3.1),
+// including IPv6 multicast scope 0. The layer departs from section 3.2 by
+// treating IPv4 224.0.0.0/24 as link-local and 127/8 as global.
 func linkLocalScope(addr netip.Addr) bool {
 	if addr.Is6() && addr.IsMulticast() {
 		return addr.As16()[1]&15 <= 2

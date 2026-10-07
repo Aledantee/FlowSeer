@@ -41,8 +41,15 @@ type conservationOp struct {
 
 func TestOriginateScopeMatrix(t *testing.T) {
 	t.Parallel()
-	destinations := []string{"fe80::99", "2001:db8:9::99", "ff01::2", "ff02::2", "ff05::2", "ff0e::2", "169.254.9.99", "192.0.2.99", "224.0.0.2", "239.1.2.3"}
-	// RFC 6724 sections 3.1 and 3.2 map address scopes onto multicast scopes.
+	destinations := []string{"fe80::99", "2001:db8:9::99", "169.254.9.99", "127.0.0.1", "192.0.2.99", "224.0.0.2", "224.0.1.1", "239.1.2.3"}
+	for scope := range 16 {
+		destinations = append(destinations, fmt.Sprintf("ff0%x::2", scope))
+	}
+	// RFC 6724 section 3.1 maps link-local unicast to multicast scope 2 and
+	// global unicast to scope 14. Section 3.2 assigns IPv4 link-local scope
+	// to 169.254/16 and 127/8, and global scope to all other IPv4 addresses.
+	// The layer departs from section 3.2 by treating 224.0.0.0/24 as
+	// link-local and 127/8 as global. It also accepts IPv6 multicast scope 0.
 	scope := func(a netip.Addr) int {
 		if a.Is6() && a.IsMulticast() {
 			return int(a.As16()[1] & 15)
@@ -68,7 +75,14 @@ func TestOriginateScopeMatrix(t *testing.T) {
 						addresses = []string{"169.254.1.1/24", "198.51.100.1/24", "169.254.2.1/24", "203.0.113.1/24"}
 						localHop, globalHop = "169.254.1.99", "198.51.100.99"
 					}
-					interfaces := map[string]Interface{"vlan10": {VLAN: 10, MAC: conservationDeviceMAC}, "a0": {VLAN: 20}}
+					other := []string{"169.254.3.1/24", "198.18.1.1/24", "169.254.4.1/24", "198.18.2.1/24"}
+					if dst.Is4() {
+						other = []string{"fe80::3/64", "2001:db8:3::1/64", "fe80::4/64", "2001:db8:4::1/64"}
+					}
+					interfaces := map[string]Interface{
+						"vlan10": {VLAN: 10, MAC: conservationDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix(other[0]), netip.MustParsePrefix(other[1])}},
+						"a0":     {VLAN: 20, Prefixes: []netip.Prefix{netip.MustParsePrefix(other[2]), netip.MustParsePrefix(other[3])}},
+					}
 					var all, egress []netip.Addr
 					for i, address := range addresses {
 						if mask&(1<<i) == 0 {
@@ -134,8 +148,8 @@ func TestOriginateScopeMatrix(t *testing.T) {
 			}
 		}
 	}
-	if count != 480 {
-		t.Fatalf("ran %d cases, want 480", count)
+	if count != 1152 {
+		t.Fatalf("ran %d cases, want 1152", count)
 	}
 }
 
@@ -168,7 +182,8 @@ func TestNeighborEntryPointsMatchPriorAdvance(t *testing.T) {
 					unaged := conservationLayer(t, 1)
 					t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 					unaged.Originate(t0, DefaultVRF, dst, 17, []byte{1}, true)
-					unaged.Originate(t0, DefaultVRF, dst, 17, []byte{2}, true)
+					queued := unaged.Originate(t0, DefaultVRF, dst, 17, []byte{2}, true)
+					held := unaged.vrfs[DefaultVRF].neighbors[neighborKey{iface: "vlan10", addr: dst}].queue[0]
 					if scenario.state == NeighborIncomplete {
 						for sent := 1; sent < scenario.sent; sent++ {
 							unaged.Advance(t0.Add(time.Duration(sent) * time.Second))
@@ -190,10 +205,25 @@ func TestNeighborEntryPointsMatchPriorAdvance(t *testing.T) {
 					if entry.state != scenario.state || entry.origin != observed {
 						t.Fatalf("seed = %+v, want observed %s", entry, scenario.state)
 					}
+					if scenario.state == NeighborProbe && scenario.sent == 3 {
+						// Probe normally has no queue. A held frame exercises the
+						// timeout exit contract in both exhausted states.
+						entry.queue = []heldEntry{held}
+					}
 					now := t0.Add(40 * time.Second)
 					aged := unaged.Clone()
 					aged.Advance(now)
 					agedExits := aged.DrainExits()
+					if scenario.sent == 3 {
+						if _, exists := aged.vrfs[DefaultVRF].neighbors[neighborKey{iface: "vlan10", addr: dst}]; exists {
+							t.Fatal("Advance retained exhausted neighbor")
+						}
+						if !slices.ContainsFunc(agedExits, func(exit HeldFrame) bool {
+							return exit.Cause == HeldTimedOut && exit.Token == queued.Hold
+						}) {
+							t.Fatalf("Advance exits %v omit timed-out token %d", agedExits, queued.Hold)
+						}
+					}
 					before := unaged.Clone()
 					beforeAged := aged.Clone()
 					invoke := func(l *Layer) (Result, layer.Effects) {
@@ -733,6 +763,81 @@ func TestNeighborLookupMatchesPriorAdvance(t *testing.T) {
 					})
 				}
 			}
+		}
+	}
+}
+
+func TestNeighborReachableDeadlineLookup(t *testing.T) {
+	t.Parallel()
+	l := conservationLayer(t, 3)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	dst := conservationAddrsV6[0]
+	l.Originate(t0, DefaultVRF, dst, 17, nil, true)
+	l.observe(t0, advertisement{Interface: "vlan10", Addr: dst, MAC: conservationSenderMAC, HasMAC: true, Solicited: true, Override: true})
+	vs := l.vrfs[DefaultVRF]
+	key := neighborKey{iface: "vlan10", addr: dst}
+	now := t0.Add(vs.policy.ReachableTime)
+	got := l.resolveNeighbor(vs, now, key, l.ifaces["vlan10"], true, nil)
+	if got.state != NeighborStale || !got.ok || vs.neighbors[key].state != NeighborDelay {
+		t.Fatalf("deadline lookup %+v, entry %+v, want stale lookup and Delay entry", got, vs.neighbors[key])
+	}
+}
+
+func TestNeighborIncompleteRetransmissionsAndTimeoutInterface(t *testing.T) {
+	t.Parallel()
+	for _, dst := range []netip.Addr{conservationAddrs[0], conservationAddrsV6[0]} {
+		t.Run(dst.String(), func(t *testing.T) {
+			l := conservationLayer(t, 3)
+			t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+			first := l.Originate(t0, DefaultVRF, dst, 17, []byte{1}, true)
+			if len(first.Emissions) != 1 {
+				t.Fatalf("first solicitation: %+v", first)
+			}
+			for sent := 1; sent < 3; sent++ {
+				fx := l.Advance(t0.Add(time.Duration(sent) * time.Second))
+				if len(fx.Emissions) != 1 || !reflect.DeepEqual(fx.Emissions[0].Frame, first.Emissions[0].Frame) {
+					t.Fatalf("solicitation %d differs from first: %+v", sent+1, fx)
+				}
+			}
+			l.Advance(t0.Add(3 * time.Second))
+			exits := l.DrainExits()
+			if len(exits) != 1 || exits[0].Cause != HeldTimedOut || exits[0].Token != first.Hold || exits[0].Interface != "vlan10" {
+				t.Fatalf("timeout exits %+v, want timed-out token %d on vlan10", exits, first.Hold)
+			}
+		})
+	}
+}
+
+func TestNeighborProbeNextWake(t *testing.T) {
+	t.Parallel()
+	l := conservationLayer(t, 3)
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	dst := conservationAddrsV6[0]
+	l.Originate(t0, DefaultVRF, dst, 17, nil, true)
+	l.observe(t0, advertisement{Interface: "vlan10", Addr: dst, MAC: conservationSenderMAC, HasMAC: true, Override: true})
+	l.Advance(t0)
+	l.Originate(t0, DefaultVRF, dst, 17, nil, true)
+	for second := 5; second < 8; second++ {
+		now := t0.Add(time.Duration(second) * time.Second)
+		l.Advance(now)
+		if l.Neighbors()[0].State != NeighborProbe {
+			t.Fatalf("neighbors %v, want Probe", l.Neighbors())
+		}
+		if wake, ok := l.NextWake(); !ok || wake != now.Add(time.Second) {
+			t.Fatalf("probe wake %v/%t, want %v", wake, ok, now.Add(time.Second))
+		}
+	}
+}
+
+func TestValidateAllowsTwoAddressesOnOneInterfaceSubnet(t *testing.T) {
+	t.Parallel()
+	for _, addresses := range [][]string{{"192.0.2.1/24", "192.0.2.2/24"}, {"2001:db8::1/64", "2001:db8::2/64"}} {
+		cfg := Config{VRFs: map[string]VRF{DefaultVRF: {Interfaces: map[string]Interface{"vlan10": {
+			VLAN: 10, MAC: conservationDeviceMAC,
+			Prefixes: []netip.Prefix{netip.MustParsePrefix(addresses[0]), netip.MustParsePrefix(addresses[1])},
+		}}}}}
+		if err := cfg.Validate(layer.Env{}); err != nil {
+			t.Fatalf("one interface with addresses %v: %v", addresses, err)
 		}
 	}
 }

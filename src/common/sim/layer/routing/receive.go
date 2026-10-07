@@ -15,6 +15,8 @@ import (
 // Receive processes ARP and Neighbor Discovery addressed to iface, ignoring
 // malformed frames and frames for another receiver. Replies are returned as
 // emissions. Resolved held frames leave through Advance and DrainExits.
+// Receive also queues timed-out and evicted exits for DrainExits when it
+// retires an exhausted entry.
 // NeighborDisabled answers requests without changing the neighbor table.
 // Receive is not safe for concurrent use.
 func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) layer.Effects {

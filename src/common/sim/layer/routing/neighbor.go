@@ -146,7 +146,8 @@ type advertisement struct {
 // appendHeld appends h to queue, dropping the oldest entry once the queue exceeds depth
 // (RFC 4861 section 7.2.2) and returning it as evicted rather than discarding it: a frame the
 // hold queue pushes out is reported as a [HeldEvicted] exit in [Layer.DrainExits]
-// after [Layer.Advance] or a committing lookup retires its failed neighbor entry.
+// after [Layer.Advance], or when a committing lookup or [Layer.Receive]
+// retires its exhausted neighbor entry.
 func appendHeld(queue []heldEntry, h heldEntry, depth int) (kept, evicted []heldEntry) {
 	queue = append(queue, h)
 	if len(queue) > depth {
@@ -299,7 +300,9 @@ func (l *Layer) observe(now time.Time, adv advertisement) {
 
 // Advance returns due solicitations and probes, at most one per neighbor at now.
 // Each next transmission is scheduled one RetransTimer after now. Failed entries
-// are deleted and held frames wait for DrainExits, in VRF/interface/address order.
+// are deleted and held frames wait for DrainExits. Exits from one Advance
+// are ordered by VRF, interface, and address. A committing lookup or Receive
+// appends an exhausted entry's exits when called.
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	var rows []neighborTableEntry
 	for vrfName, vs := range l.vrfs {
@@ -400,7 +403,9 @@ func (l *Layer) finishHeld(h heldEntry, mac netaddr.MAC, cause HeldCause) (HeldF
 
 // neighborTableEntry names one row Advance acts on, keyed for the total order below: a Go map
 // iterates its VRFs and neighbors in random order, and hold-queue exits are ordered for sequence
-// consumption. The order is by VRF name, then interface, then address.
+// consumption. Within one Advance, the order is by VRF name, then interface,
+// then address. A committing lookup or Receive appends the retired entry's
+// exits at call time.
 type neighborTableEntry struct {
 	vrfName string
 	key     neighborKey

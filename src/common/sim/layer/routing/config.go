@@ -219,10 +219,11 @@ func comparePrefix(a, b netip.Prefix) int {
 // routes with neither next hop nor interface, next hops whose address family differs from
 // their route's prefix, unspecified or multicast next hops,
 // routes or neighbors referencing interfaces outside their VRF, neighbor address families
-// mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
+// mismatching all interface prefixes, duplicate neighbor entries within a VRF,
+// and one subnet on two interfaces of a VRF, except link-local subnets.
 //
 // A prefix may carry several routes, which is how an equal-cost set is configured. Two routes
-// collide only when they agree on prefix, preference, metric, next hop, and interface alike.
+// collide when they agree on prefix, next hop, and interface.
 //
 // A next hop that is not on-link is valid configuration: [New] resolves it against the VRF's
 // own table and withdraws the route from the forwarding table when it cannot, which is where
