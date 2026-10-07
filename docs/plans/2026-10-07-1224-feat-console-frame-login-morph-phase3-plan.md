@@ -47,14 +47,14 @@ that the panel moves by a transform, and that View Transitions go.
   once. Why: an instance per view unmounts and remounts on sign-in, and
   `ThemeSwitcher` keeps its theme, its storage flag, and its status text in
   component state (`frontend/web/src/components/ThemeSwitcher.vue:20-31`).
-- The frame also owns the three controls that follow the switches in the
-  console (`HelpButton`, `ReportBugButton`, `AccountMenu`). On the login
-  page they are present, `invisible`, and `inert`. Why: the switches are
-  not the last controls in the console's row
-  (`frontend/web/src/FleetView.vue:1089-1093`), so their distance from the
-  right edge is the width of what follows them. `ReportBugButton` hides at
-  560px and below, so a reserved width would be two numbers no test can
-  hold. The same elements on both pages are something a test can read.
+- The theme and language switches are the last two controls on the right
+  of the top bar on both pages. In the console they come after Help,
+  Report bug, and the account menu. On the login page they sit flush right
+  with no gap. (decided by the user, 2026-10-07)
+- Help, Report bug, and the account menu stay in the console view's own
+  top bar content. Why: with the switches last, nothing follows them, so
+  no decision here needs those controls in the frame. Keyboard order
+  follows DOM order, so the switches are reached after the account menu.
 - The top bar stops moving with the panel. The layout animation moves from
   `.main-shell` to two frame elements that share the frame's layout
   dependency: the page panel `#frame-page` and the top bar's start region
@@ -128,25 +128,23 @@ that the panel moves by a transform, and that View Transitions go.
    page is still `aria-checked` in the console. Through sign-in, a
    collapse, and logout, neither `.main-shell`, `header.topbar`, nor any
    ancestor of the switches inside the header gets an inline transform.
-7. The top bar has one shape on both pages. Example: at `/login`
-   `header.topbar` holds the two switches and, after them, an `inert`
-   group with the class `invisible` that contains the help, bug, and
-   account buttons. At `/dashboard` the group has neither. `aside.sidebar`
-   holds no switch on either page.
+7. The switches end the top bar on both pages. Example: at `/login` the
+   only buttons in `header.topbar` are the theme switch and then the
+   language switch. At `/dashboard` the header's last three buttons in
+   document order are the account trigger, the theme switch, and the
+   language switch. `aside.sidebar` holds no switch on either page.
 8. Expanding the sidebar fades its labels in. Example: at 1280px with
    motion allowed, collapsing and then expanding gives every `.nav-text` an
    opacity animation from 0 to 1 lasting 160 ms and gives no link's icon
    one. With reduced motion the expand starts no animation.
 9. One constant sets the duration. Example: `FRAME_MOVE_SECONDS` in
-   `frontend/web/src/navigation/frame.ts` is `0.16`, and the tests for
-   requirements 1, 3, and 8 read it.
+   `navigation/frame.ts` is `0.16`, and the motion tests read it.
 10. A page load is not a morph. Example: the app starts signed in at
     `/dashboard` with motion allowed, and `moved()` is never called.
 
 ## Out of scope
 
 - An exit animation for the departing view's content.
-- Help, the bug report, or the account menu usable on the login page.
 
 ## Units
 
@@ -190,20 +188,22 @@ height, and wrap classes the console's header has today, as a flex row
 without `justify-between`. Its children in order: `#frame-topbar`, a
 `UiMotion` with `layout="position"` that grows to fill the row.
 `#frame-topbar-tools`, a `display: contents` region. A block with the two
-switches and then the group of `HelpButton`, `ReportBugButton`, and
-`AccountMenu`, with the 6px gap the row has today and `ml-auto`. In login
-mode the group carries `invisible` and `inert`. At 650px and below the
-start region takes the second row and takes no row while it is empty.
+switches, with the 6px gap the row has today and `ml-auto`, so it is flush
+right when the regions are empty. At 650px and below the tools and the
+switches share the first row, right-aligned, on both pages. The start
+region takes the second row and takes no row while it is empty.
 `.main-shell` becomes a plain `div`, and `#frame-page` becomes the
 `UiMotion` with `layout="position"`. `FleetView.vue` teleports the
-contents of `.topbar-start` to `#frame-topbar` and `.topbar-tools`, now
-holding the search and the assistant button, to `#frame-topbar-tools`. It
-has no `header` and none of the five controls. `LoginView.vue` drops the
+contents of `.topbar-start` to `#frame-topbar` and `.topbar-tools`, which
+keeps its controls up to the account menu, to `#frame-topbar-tools`. It
+has no `header` and neither switch. `LoginView.vue` drops the
 switches and their wrapper from the sidebar. `style.css` loses the rule
 that hides `#frame-topbar` in login mode below 801px, and the scoped
 `min-height` on `#frame-topbar` goes. The README's structure list and
-sign-in section describe the header, the frame's five controls, and the
-two regions.
+sign-in section describe the header, the frame's switches, and the two
+regions. Its paragraph on the theme and language switches says they end
+the row, and "The account icon sits at the far right of the top bar" is
+corrected.
 Tests: `AppFrame.test.ts`: requirement 7 in the three modes, the header
 holds exactly one of each switch, and `#frame-page` keeps its class list.
 `FleetView.motion.test.ts`: the collapse cases read `#frame-page` instead
@@ -211,9 +211,11 @@ of `.main-shell`, the geometry mock gives `#frame-page` and `#frame-topbar`
 the box `.main-shell` had, and a new case holds requirement 6's last
 sentence for a collapse. `main.test.ts`: the sign-in case reads
 `#frame-page`. `LoginView.test.ts`: the sidebar region holds no
-`button.theme-switcher`. `FleetView.locale.test.ts`: `topBarButton` and
-the language switch lookup search `header.topbar` instead of
-`.topbar-tools`. No suite loads the stylesheet or computes a width, so a
+`button.theme-switcher`. `FleetView.locale.test.ts`: the language switch
+lookup searches `header.topbar` instead of `.topbar-tools`. No case in
+`FleetView.test.ts`, `FleetView.locale.test.ts`, `main.test.ts`, or
+`components/*.test.ts` asserts the tools' order today, so requirement 7 is
+its first holder. No suite loads the stylesheet or computes a width, so a
 person checks the wrap at 650px and the switches' place at 1280px, 800px,
 560px, and 390px on both pages.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web`
@@ -228,9 +230,8 @@ transition of that duration with the ease `[0.2, 0, 0, 1]` that
 `frameMove`. `AppFrame.vue` watches the mode as Decisions describes, calls
 `moved()` under the two gates, and after `nextTick` plays opacity 0 to 1
 over the constant on each element child of `#frame-sidebar`,
-`#frame-topbar`, `#frame-topbar-tools`, and `#frame-page`, and on the
-control group when the console arrives. `moved()` stays the only writer of
-the layout dependency. `main.ts` mounts after `router.isReady()`. The
+`#frame-topbar`, `#frame-topbar-tools`, and `#frame-page`. `moved()` stays
+the only writer of the dependency. `main.ts` mounts after `isReady()`. The
 README's sign-in section describes the morph, its reduced-motion form, and
 the login page appearing without an entrance. The solution's "140 ms
 layout animation" becomes 160.
@@ -288,8 +289,8 @@ stands still, and the login top bar shows only the two switches.
 - The verifier is green for every changed path.
 - The README and the solution change in the units that change behaviour.
 - The outcome is recorded with `uv run tools/scripts/run.py plan record
-  implemented <plan> --units 4 --from <t> --to <t>`, or `partial`.
-- No plan label appears in code, comments, or commit messages.
+  implemented <plan> --units 4 --from <t> --to <t>`, or `partial`, and no
+  plan label appears in code, comments, or commit messages.
 
 ## Open questions
 
