@@ -164,8 +164,10 @@ With neither `MST` nor `PVST` configured there is exactly one tree, the CIST,
 and every VLAN maps to it, so the two answers always agree. Once a region is
 configured, a VLAN an instance claims maps to that MSTI instead, and a
 boundary port's answer for it still traces back to the CIST because an MSTI
-takes the CIST port's role there. A VLAN no instance claims keeps mapping to
-the CIST on every port. Under `PVST` every VLAN maps to a tree of its own.
+takes the CIST port's role there. An MSTI's own sync cut can hold that VLAN
+less forward than the CIST until an agreement or its ladder ends. A VLAN no
+instance claims keeps mapping to the CIST on every port. Under `PVST` every
+VLAN maps to a tree of its own.
 
 `VLANPortInfo` gives the same per-VLAN view of a port that `PortInfo` gives of
 the common tree, and works in every mode: on a bridge running one tree every
@@ -191,9 +193,12 @@ ways and let the two disagree.
 Each VLAN runs the RSTP machine. `PVST.Trees` holds one `Tree` per VLAN, with
 the per-port priority and path cost overrides `InstancePort` already carries,
 and `PVST.Normalize` fills a tree that names no priority from the bridge's own,
-so a bridge configured to be root is root on every VLAN it does not override. A
-tree's bridge identifier carries its VLAN in the low 12 bits of the system-ID
-extension, the way an MSTI carries its MSTID, which is what the multiple-of-4096
+so a bridge configured to be root is root on every VLAN it does not override.
+It leaves the tree's `PriorityPresent` false, so another normalization follows
+a changed bridge priority. `Config.Normalize` does the same for an MSTI or
+VLAN port that inherits the bridge port's priority
+(`src/common/sim/layer/stp/config.go:219-246`). A tree's bridge identifier
+carries its VLAN in the low 12 bits of the system-ID extension, the way an MSTI carries its MSTID, which is what the multiple-of-4096
 rule on a tree priority reserves those bits for.
 
 `Normalize` also inserts a default VLAN 1 tree whenever `Trees` omits one,
@@ -416,11 +421,18 @@ P802.1aq/D1.5 permits CIST role selection before the MSTI agreement and does
 not require that order. That draft's Figures 13-20 and 13-21 give no condition
 between them, so the layer keeps that order.
 
-On a boundary port, MSTI sync reads the CIST port's state and agreement. MSTI
-sync leaves that port's state unchanged. CIST sync mirrors its resulting state
-to the boundary MSTIs in the same receive call. The layer's boundary role and
-state mirror is the limit of this model, so the standard's separate Master and
-disputed mechanisms are not represented.
+An MSTI's sync cuts a Designated boundary port that is not synced for that
+MSTI, even while the CIST forwards there. During the cut the MSTI state is
+the less forward of its own forward-delay ladder and the CIST's state. An
+agreement or the end of that ladder restores the CIST's state
+(`src/common/sim/layer/stp/receive.go:30-34`,
+`src/common/sim/layer/stp/roles.go:323-341`). An agreement received from
+another region is copied from the CIST to every MSTI, as IEEE 802.1Q-2003
+clause 13.26.9 and draft P802.1aq/D1.5 clause 13.29.16 specify. The independent
+cut follows the Designated discard rule in IEEE Figure 13-17 and draft
+Figure 13-25. IEEE clause 13.24.25 permits different MSTI states to suppress
+temporary loops. The layer still mirrors the CIST's role at the boundary and
+represents neither a separate Master role nor the disputed flag.
 
 See "How long received information lives" above for hop aging, which applies
 to internal information on both the CIST and every MSTI.
@@ -491,15 +503,18 @@ flooding to relearn entries. Narrowing it would need a target that can express
 
 ## Standards and state machines
 
-The layer implements the state machines defined in IEEE Std 802.1Q-2003
+The layer implements the state machines defined in [IEEE Std 802.1Q-2003][q2003]
 (incorporating IEEE Std 802.1s-2002) and follows the unified RSTP and MSTP state
-machine consolidation from the IEEE P802.1aq/D1.5 draft (May 2009). Conformance
+machine consolidation from the [IEEE P802.1aq/D1.5 draft][d2009] (May 2009). Conformance
 test behavior is drawn from the UNH-IOL Rapid Spanning Tree Conformance Test
 Suite (referencing IEEE Std 802.1Q-2011). Frame encoding offsets are
 cross-checked against the Wireshark dissector (`epan/dissectors/packet-bpdu.c`).
 PVST and SSTP behavior is modelled on observation from [CISCO], [PVID], and
 [EXT]. Published editions of IEEE Std 802.1D-2004 and IEEE Std 802.1Q-2011 were
 not read and are unverified.
+
+[q2003]: https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf
+[d2009]: https://www.ieee802.org/1/files/public/docs2009/aq-seaman-merged-spanning-tree-protocols-0509.pdf
 
 [CISCO]: https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol-stp-8021d/218321-configure-stp-with-loop-guard-and-bpdu-s.html
 [PVID]: https://web.archive.org/web/20241113152806/https://www.cisco.com/c/en/us/support/docs/lan-switching/spanning-tree-protocol/24063-pvid-inconsistency-24063.html
@@ -510,10 +525,71 @@ The implementation structures its logic around the standard state machines:
 
 - Port Role Selection (PRS): IEEE 802.1Q-2003 clauses 13.9 through 13.11 and 13.32, Figure 13-15. Compares the six-part priority vector (Root ID, External Path Cost, Regional Root ID, Internal Path Cost, Designated Bridge ID, Designated Port ID) to elect the root and assign port roles.
 - Port Information (PIM): IEEE 802.1Q-2003 clause 13.31, Figure 13-14, and draft P802.1aq/D1.5 clause 13.35, Figure 13-20. Stored information expires after 3 x HelloTime of silence. An arriving BPDU outside its message-age or hop-count bound is discarded.
-- Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.33, Figures 13-16 and 13-17, and draft P802.1aq/D1.5 clause 13.37, Figures 13-24 through 13-26. Computes proposal and agreement handshakes and steps the forward delay ladder.
+- Port Role Transitions (PRTM): IEEE 802.1Q-2003 clause 13.33, Figures 13-16 and 13-17, and draft P802.1aq/D1.5 clause 13.37, Figures 13-24 through 13-26. Separates reroot forwarding from proposal sync and Agreement, and steps the forward-delay ladder.
 - Port Transmit (PTM): IEEE 802.1Q-2003 clause 13.30, Figure 13-13, and draft P802.1aq/D1.5 clause 13.34, Figure 13-19, with clauses 13.28.13 and 13.28.14. It settles overdue hello records before an event, then runs one deterministic tree-then-port transmit pass. It sends periodic hellos from each transmit record's timer, bounds each transmit record by txHoldCount, and clears only the requests carried by the BPDU shape it sent. Disabled records hold both requests through TRANSMIT_INIT. Port-up initialization follows draft TRANSMIT_INIT. A point-to-point status change on an up port requests both kinds of information without resetting the record's budget. The status-change request and overdue hello settlement are the layer's own rules.
 - Topology Change (TCM): IEEE 802.1Q-2003 clauses 13.17, 13.21, 13.26, and Figure 13-19, and P802.1aq/D1.5 clauses 13.19, 13.29.11, 13.29.13, and 13.29.26, and Figure 13-28. Detects a non-edge Root or Designated port when it first becomes active in Forwarding, requests a frame on the detecting port in either protocol mode, starts tcWhile only when stopped, and propagates every received TCN to active non-edge ports while flushing their tree VLANs. The detection request is made by `detectTopologyChange`. Temporary sync cuts preserve activity and tcWhile, so resuming Forwarding detects no change. Under PVST an IEEE-addressed TCN applies to VLAN 1 only. Under MSTP it applies to the CIST and every active MSTI. A Designated receiver sets TCAck, an Alternate receiver propagates nothing, and RSTP tcWhile is HelloTime + 1 second. Legacy STP tcWhile is the root's Max Age + Forward Delay. [PVID] supplies the PVST address mapping, and [EXT] supplies the observed per-VLAN TCN and acknowledgment behavior.
 - Port Protocol Migration (PPM): IEEE 802.1Q-2003 clause 13.29 and draft P802.1aq/D1.5 clause 13.32, Figure 13-17. Manages migration between RSTP/MSTP and legacy STP, tracked by mdelayWhile.
+
+### Reroot, sync, and agreement
+
+A new Root port can forward before the tree is synced because reroot prevents
+two recent Root ports from forwarding together. Each tree port tracks a
+recent-root timer for the forward delay in force after leaving Root for
+Designated, and a recent-backup timer for twice the local HelloTime after
+leaving Backup
+(`src/common/sim/layer/stp/portstate.go:102-118`). IEEE 802.1Q-2003
+Figures 13-16 and 13-17 and draft P802.1aq/D1.5 Figures 13-24 through 13-26
+assign these timers. The layer clears the recent-root timer of Disabled,
+Alternate, and Backup ports and of a Designated port that is Discarding,
+agreed, or edge (`src/common/sim/layer/stp/roles.go:277-284`).
+
+IEEE Figure 13-17 and draft Figures 13-24 and 13-25 separate the reroot cut
+from the Root port's learning and forwarding conditions. The layer evaluates
+that sequence within one call, so it stores no `reRoot` flag:
+
+```mermaid
+flowchart TD
+    root{"Tree's Root port not Forwarding?"}
+    cut["Discard non-edge Designated ports with running recent-root timers, restart their ladders, propose, mark synced, and clear those timers"]
+    backup{"Recent-backup timer clear, point-to-point link, and sendRSTP?"}
+    forward["Root port Forwarding"]
+    ladder["Root port climbs the forward-delay ladder"]
+    root -- yes --> cut --> backup
+    backup -- yes --> forward
+    backup -- no --> ladder
+```
+
+A Designated port that already forwards when it becomes Root raises no reroot
+cut. A former Root port whose timer has expired can also keep forwarding.
+UNH-IOL RSTP.op.5.2 Part A checks a Root-to-Alternate-to-Root return after
+better information ages out. `reroot_test.go` replays its BPDUs through
+`Receive` and `Advance`.
+
+A proposal on a Root or Alternate port syncs its tree. It cuts only non-edge
+Designated ports that are not synced, so one holding an agreement keeps
+forwarding (`src/common/sim/layer/stp/receive.go:21-45`). IEEE Figure 13-17
+and draft Figure 13-25 read `sync && !synced` on the discard transition.
+The layer stores `synced` per tree port. Discarding, agreement, or edge status
+sets it, and leaving Discarding keeps it. Taking the Designated role from
+another role, or changing its designated vector without an agreement,
+clears it on a port that is already learning or forwarding. IEEE Figure 13-17
+and draft Figure 13-25 set the flag, while IEEE Figure 13-14 and draft
+Figure 13-20 UPDATE invalidate it.
+
+An agreement survives a designated-vector change only if the new vector is
+better than or equal to the old one, as IEEE Figure 13-14 and draft
+Figure 13-20 UPDATE require
+(`src/common/sim/layer/stp/roles.go:249-258`). A worse vector loses the
+agreement because the peer agreed to the better one.
+
+On a point-to-point port sending RSTP, Root and Alternate BPDUs carry
+Agreement when every other non-edge Designated port of that tree has its
+stored `synced` flag set (`src/common/sim/layer/stp/roles.go:10-23`,
+`src/common/sim/layer/stp/transmit.go:275-276`,
+`src/common/sim/layer/stp/transmit.go:335-336`). The Root port's forwarding
+state does not decide Agreement. IEEE Figure 13-17 AGREES and draft
+Figures 13-24 and 13-26 read `allSynced`. The layer excludes the Root port
+itself, as draft clause 13.28.2 does, whereas IEEE clause 13.25.1 includes it.
 
 An auto-edge port starts its edge delay when the common tree enters proposing.
 A sync sets proposing. When it cuts a port, it requests that tree's information
@@ -540,23 +616,28 @@ The layer deliberately departs from or fixes ambiguous areas of the standards:
 - No disputed flag (draft P802.1aq/D1.5 clause 13.29.17) and no Master role (IEEE role MIB tables define only Root, Alternate, Designated, and Backup, so a boundary port MSTI role mirrors the CIST).
 - Hello Time remains configurable on the bridge, while later standard text fixes it to 2 seconds. The bridge arms hello transmission using its local HelloTime and transmits its own HelloTime in BPDUs.
 - The forward delay ladder steps by the Forward Delay in force on every port. Draft P802.1aq/D1.5 clause 13.28.8 steps an RSTP port by HelloTime, but UNH RSTP.op.4.2 expects a port lacking agreement to hold traffic until forward delay expires. Because sources disagree, the ladder steps by the root Forward Delay in force.
+- Completing the forward-delay ladder leaves `agreed` false (`src/common/sim/layer/stp/advance.go:169-182`). IEEE Figure 13-17 FORWARD makes no agreement assignment. Draft Figure 13-25 DESIGNATED_FORWARD assigns `agreed = sendRSTP`, so a later vector change can preserve that draft port's agreement and `synced` where the layer loses them.
+- A change of designated times alone leaves agreement and `synced` unchanged. The layer tracks designated vectors but stores no designated times (`src/common/sim/layer/stp/roles.go:244-261`). Draft clause 13.29.33 k) requests UPDATE on a times change too, and Figure 13-20 then updates both flags.
+- Reroot forwarding requires the Root port's link to be point-to-point and its port to send RSTP (`src/common/sim/layer/stp/roles.go:362-366`). IEEE Figure 13-17 reads the bridge's Force Protocol Version instead. Draft Figure 13-24 reads `rstpVersion`, defined from ForceProtocolVersion by clause 13.28.20. The layer has no Force Protocol Version.
+- The reroot cut does not wait on the new Root port's recent-backup delay (`src/common/sim/layer/stp/roles.go:287-309`). This follows IEEE Figure 13-17 REROOT. Draft Figure 13-24 adds `rbWhile == 0` to that transition.
+- An MSTI port loses its recent-root timer when it becomes a boundary port and is excluded from the MSTI reroot cut (`src/common/sim/layer/stp/roles.go:277-279`, `src/common/sim/layer/stp/roles.go:292-294`). The draft's Master Port has no assignment holding the timer at FwdDelay, but Figure 13-23 keeps a timer inherited from an earlier Root role until it expires or MASTER_SYNCED clears it.
+- A boundary port holding the CIST's Root role keeps the CIST's state through an MSTI sync (`src/common/sim/layer/stp/roles.go:328-341`). The layer has no Master role and does not maintain `synced` for an MSTI port in the Root role. Draft Figure 13-23 MASTER_DISCARD can cut it, and MASTER_LEARN and MASTER_FORWARD wait for its ladder or `allSynced`, which clause 13.28.2 makes depend on the MSTI Root port too.
+- The layer stores no `agree` flag for an Agreement it sent. Every proposal on a Root or Alternate port starts sync (`src/common/sim/layer/stp/receive.go:641-665`), and transmitted Agreement is computed from `isSynced`. IEEE Figure 13-17 and draft Figures 13-24 and 13-26 enter PROPOSED on `proposed && !agree`. IEEE Figure 13-14 and draft Figure 13-20 preserve `agree` through received information only while that information is better than or equal to the stored vector.
 - A port losing auto-edge returns to Discarding and proposes again across all trees, standing in for the disputed mechanism. Draft Figure 13-16 only clears operEdge.
-- A proposal cuts every other non-edge Designated port in its tree, including a port holding an agreement. `syncTree` clears the agreement and sets Discarding (`src/common/sim/layer/stp/receive.go:24-36`).
 - An auto-edge port whose CIST proposing flag was cleared by an agreement or a Configuration BPDU does not become an edge again when it later returns to Designated by a role change. It follows the forward-delay ladder instead. Draft Figure 13-16 clears operEdge on receipt and Figure 13-25 enters DESIGNATED_PROPOSE when the port is not forwarding, agreed, proposing, or edge, then sets proposing.
 - An AdminEdge port keeps edge when it receives a BPDU because `receiveLink` assigns `link.edge` from `link.adminEdge`. Draft Figure 13-16 clears operEdge on every received BPDU.
 - A shared-link port never runs automatic edge detection because `edgeDelayPending` requires point-to-point operation. Draft Figure 13-18's AutoEdge transition requires only an expired edge delay, AutoEdge, sendRSTP, and proposing.
 - `advanceAutoEdge` opens every tree's port when the shared edge delay expires, whatever role the tree assigned to that port. Draft Figure 13-18 changes one port-level operEdge result, while Figure 13-25 qualifies each tree's transitions by selected role.
 - A received Forward Delay of zero is stored as received, so the forward-delay ladder can complete in two calls at one instant. Draft `recordTimes()` copies the received Forward Delay, and the port-role diagrams for a port that does not send RSTP use that value for the ladder, so the zero case remains unnormalized here. Draft P802.1aq/D1.5 clause 13.28.8 defines that port-role behavior.
 - Unverified: A CIST port that returns to Designated by a role change while `proposing` is still set restarts its edge delay and requests no frame (`assignRoles` in `roles.go`). With a Hello Time of 4 seconds, an auto-edge port can become an edge having sent no BPDU since it became Designated. Draft Figure 13-20 (UPDATE) sets `newInfoXst`.
-- An MSTI proposal's sync skips a boundary port, leaving its CIST-derived state and agreement (`src/common/sim/layer/stp/receive.go:16-18`). CIST sync mirrors its own cut to the boundary MSTIs (`src/common/sim/layer/stp/receive.go:38-58`).
-- An MSTI proposal in a record that is not stored is ignored. `receiveMSTIs` returns from the inferior, different-source path before collecting the proposal (`src/common/sim/layer/stp/receive.go:161-167`, `src/common/sim/layer/stp/receive.go:193-195`).
+- CIST sync mirrors its cut, cleared agreement, proposing state, and information request to boundary MSTIs (`src/common/sim/layer/stp/receive.go:46-64`). This is the layer's boundary mirror rule. An MSTI's own sync can cut its Designated boundary port independently.
+- An MSTI proposal in a record that is not stored is ignored. `receiveMSTIs` skips inferior information from a different source before collecting proposals (`src/common/sim/layer/stp/receive.go:160-166`, `src/common/sim/layer/stp/receive.go:192-194`). IEEE Figure 13-14 and draft Figure 13-20 record proposals only for superior or repeated Designated information. A record with at most one remaining hop is also discarded before storing or acting on its proposal (`src/common/sim/layer/stp/receive.go:169-170`). IEEE clause 13.26.24 stores that hop count decremented by one and ages the information at once. Neither document decides whether the proposal is acted on before that aging.
+- The same-source test compares whole bridge and port identifiers, including priority bits (`src/common/sim/layer/stp/receive.go:152`, `src/common/sim/layer/stp/receive.go:493`). Draft clause 13.11 compares only the bridge address and port number. A sender changing priority bits to a worse vector can therefore be rejected here when the draft treats it as superior information.
 - A Designated port receiving worse information without Agreement requests a frame when no proposal was answered (`applyBPDU` in `receive.go`). The sender's role is not tested. This is the layer's own substitute for the draft Figure 13-20 dispute path.
 - `Mcheck` requests information on a port Designated for the CIST (`link.go`). This request is the layer's own. Draft Figure 13-17 changes only migration variables in CHECKING_RSTP.
 - A Designated port whose root information changes while it forwards or holds an agreement sends the change at its next hello. Draft Figure 13-20 UPDATE and clause 13.29.33 j) and k) request a frame at once.
-- An MSTI Root port cannot complete sync while a boundary port forwards for the CIST without agreement. It sends no agreement and reaches Forwarding through the forward-delay ladder. Draft Figure 13-25 would discard that MSTI's boundary port independently.
 - On a port in STP mode VLAN 1's tree sends to the IEEE address alone, where [PVID] also sends its BPDUs to the SSTP address. A native VLAN other than 1 is not modelled. The IEEE-addressed BPDU is always assigned to VLAN 1.
 - Port priority configurations that are not multiples of 16 are accepted. The layer extracts and transmits the high four bits as port priority (IEEE 802.1Q-2003 clause 13.24.21).
-- Normalization marks an inherited MSTI or VLAN port priority present. Normalizing the returned configuration after changing the bridge port priority keeps that inherited value (`src/common/sim/layer/stp/config.go:221-228`, `src/common/sim/layer/stp/config.go:239-246`).
 
 ## State retention
 
