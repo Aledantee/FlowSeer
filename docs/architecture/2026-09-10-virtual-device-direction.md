@@ -813,8 +813,8 @@ bounded equivalence under a resource contract:
 
 ### Neighbor resolution and held frames
 
-Amendment 2026-10-07: active sending is implemented in
-`src/common/sim/layer/routing/neighbor.go` and `solicitation.go`.
+Amendment 2026-10-07: sending and reception are implemented in
+`src/common/sim/layer/routing/neighbor.go`, `solicitation.go`, and `receive.go`.
 
 - **A miss either starts resolution or cannot solicit.** An observed VRF
   holds the frame and emits a solicitation on its first committing miss.
@@ -829,14 +829,18 @@ Amendment 2026-10-07: active sending is implemented in
   Configured entries never change. `Unobserved` means no entry exists.
 - **The wire formats live in two packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
-  Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
-  hold no neighbor table and no lifecycle of their own; that state lives in
-  `routing.Layer`, which applies one RFC 4861 section 7.2.5 merge rule to
-  both families. ARP has no solicited or override flags of its own, so the
-  switch maps a reply or a request onto the flags the layer takes.
-- **Routing returns solicitations and probes to the switch.** The switch
-  reads ARP and Neighbor Discovery frames as they pass and applies the
-  existing advertisement merge rule. It sends routing emissions as protocol
+  Ethernet or ICMPv6 directly and encodes or decodes one message shape. They
+  hold no neighbor table or lifecycle. That state lives in
+  `routing.Layer.Receive`. ARP follows RFC 826 reception, merging an existing
+  sender before checking whether the target is local. A reply confirms the
+  sender as a solicited override update, and a request is unsolicited.
+  Neighbor Discovery follows RFC 4861 sections 7.1 and 7.2.3 to 7.2.5,
+  discarding a non-local solicitation before learning its source.
+- **Routing returns neighbor protocol emissions to the switch.** The switch
+  hands received ARP and Neighbor Discovery frames to the layer. A local
+  solicitation is answered, including under `NeighborDisabled`, while only
+  an observed VRF learns bindings. The layer admits only the interface's
+  unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs. It sends routing emissions as protocol
   frames at priority zero, with the same VLAN, routed-port, and
   sub-interface egress paths as a released frame. A host stack remains
   `NeighborDisabled`, since fabric hosts do not process these control frames.
@@ -852,7 +856,7 @@ Amendment 2026-10-07: active sending is implemented in
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
   BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
-  solicitation or probe. The fabric seam that injects emissions needs to tell a held user frame apart from a frame
+  solicitation, probe, or answer. The fabric seam that injects emissions needs to tell a held user frame apart from a frame
   the switch originated.
 
 ### Semantic traces and producer-owned facts

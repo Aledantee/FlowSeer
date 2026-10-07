@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -272,12 +273,16 @@ func runConservation(t *testing.T, depth int, ops []conservationOp) conservation
 				Payload:   b,
 			}, true)
 		case "resolve":
-			l.Observe(now, Advertisement{
-				Interface: "vlan10",
-				Addr:      conservationAddrs[op.neighbor],
-				MAC:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, byte(op.neighbor + 1)},
-				HasMAC:    true, Solicited: true, Override: true,
-			})
+			frame, err := arp.Encode(arp.Message{
+				HardwareType: 1, ProtocolType: 0x0800,
+				Operation: arp.Reply, SenderAddr: conservationAddrs[op.neighbor],
+				SenderMAC:  netaddr.MAC{0x02, 0, 0, 0, 0, byte(op.neighbor + 1)},
+				TargetAddr: netip.MustParseAddr("10.0.10.1"), TargetMAC: conservationDeviceMAC,
+			}, conservationDeviceMAC)
+			if err != nil {
+				t.Fatal(err)
+			}
+			l.Receive(now, "vlan10", frame)
 		case "fail-held":
 			for _, hf := range l.FailHeld() {
 				run.exited = append(run.exited, hf.Frame.Payload[len(hf.Frame.Payload)-1])

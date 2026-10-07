@@ -299,7 +299,7 @@ func (vs *vrfState) clone() *vrfState {
 // and Ethernet frames, maintaining per-VRF forwarding and neighbor tables.
 //
 // A Layer is not safe for concurrent use: [Layer.Route] and [Layer.Originate] mutate the
-// neighbor table and its hold queues when called with commit set, and [Layer.Observe]
+// neighbor table and its hold queues when called with commit set, and [Layer.Receive]
 // and [Layer.Advance] always do.
 type Layer struct {
 	nodeID   string

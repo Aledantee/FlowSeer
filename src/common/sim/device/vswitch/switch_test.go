@@ -3893,29 +3893,10 @@ func TestNeighborDisabledMisses(t *testing.T) {
 	}
 }
 
-// TestNeighborDisabledDoesNotObserve exercises neighborObservationAllowed's
-// gate over a NeighborDisabled VRF, but does not pin it: the VRF here holds
-// only the statically configured binding for ipH2, and
-// [routing.Layer.Observe] already refuses to overwrite a configured binding
-// regardless of mode (see the origin guard in routing/neighbor.go), so the
-// static MAC survives this test whether or not the switch-side mode gate
-// exists. Stubbing neighborObservationAllowed to always return true still
-// leaves this test passing.
-//
-// The gate still stands for what the origin guard does not cover: an
-// observed (non-configured) entry on a VRF whose mode is NeighborDisabled.
-// That state is not constructible through any exported path today. An
-// entry gets origin "observed" only by resolving through
-// [routing.vrfState.resolveNeighbor], which creates one only under
-// [routing.NeighborObserved]; the only way to reach NeighborDisabled from
-// NeighborObserved is a config change through [Derive], and any diff in
-// [routing.Config] — a NeighborPolicy.Mode change included — rebuilds the
-// routing layer from scratch (see derive.go's routing.Diff check), which
-// seeds only configured neighbors, discarding whatever was observed under
-// the old mode. So there is no sequence of exported calls that leaves a
-// NeighborDisabled VRF holding an observed entry for the gate to protect
-// against here; TestDeriveRebuildsRoutingWhenNeighborPolicyChanges pins the
-// rebuild-on-policy-change half of that argument directly.
+// TestNeighborDisabledDoesNotObserve checks that receipt preserves the
+// configured binding. TestReceiveAnswerUsesOptionThenCacheAndDisabledNeverLearns
+// in routing/receive_test.go pins the disabled policy's refusal to learn a
+// solicitation's source when no configured binding exists.
 func TestNeighborDisabledDoesNotObserve(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -9555,7 +9536,7 @@ func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
 // TestMLDReportReachesMulticastPathNotNeighborPath covers the converse of
 // TestNDPReachesNeighborPathNotMulticastPath: an MLD report is a multicast
 // control candidate carrying a Hop-by-Hop header, so it is learned as
-// multicast group state and never reaches [routing.Layer.Observe] — a
+// multicast group state and never reaches [routing.Layer.Receive] — a
 // separately held frame on the same switch still times out on schedule,
 // proving the report never touched it.
 func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
@@ -9600,7 +9581,73 @@ func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
 // solicitation's actual source — releasing the frame held for it; the frame
 // held for heldDst must still be pending, and later time out, because a
 // solicitation asking about an address is not evidence of who holds it.
-func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
+func TestARPReplyForOtherStationLeavesStaleEntryStale(t *testing.T) {
+	sw := buildHeldEgressSwitch(t, 3)
+	addr := netip.MustParseAddr("10.0.20.77")
+	mac := netaddr.MAC{2, 0, 0, 0, 0x20, 0x77}
+	holdFrameToward(t, sw, fixedTime, addr, []byte("held"))
+	request, err := arp.Encode(arp.Message{
+		HardwareType: 1, ProtocolType: 0x0800, Operation: arp.Request,
+		SenderAddr: addr, SenderMAC: mac, TargetAddr: netip.MustParseAddr("10.0.20.88"),
+	}, netaddr.MAC{255, 255, 255, 255, 255, 255})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Forward(fixedTime.Add(time.Millisecond), "1/1/2", request)
+	before := sw.Neighbors()
+	if len(before) != 1 || before[0].State != routing.NeighborStale {
+		t.Fatalf("setup = %+v, want stale neighbor", before)
+	}
+	reply := makeARPReply(t, addr, netip.MustParseAddr("10.0.20.88"), mac, netaddr.MAC{2, 0, 0, 0, 0x20, 0x88})
+	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", reply)
+	if after := sw.Neighbors(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("neighbors = %+v, want stale unchanged %+v", after, before)
+	}
+}
+
+func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.T) {
+	sw := buildIPv6MulticastRoutingSwitch(t)
+	src := netip.MustParseAddr("2001:db8:10::7")
+	other := netip.MustParseAddr("2001:db8:20::77")
+	solicitor := netip.MustParseAddr("2001:db8:20::7")
+	mac := netaddr.MAC{0x02, 0, 0, 0, 0x10, 0x07}
+	for _, dst := range []netip.Addr{other, solicitor} {
+		frame := ethernet.Frame{
+			Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv6,
+			Payload: makeIPv6Packet(t, src, dst, 64, []byte("held")),
+		}
+		if res := sw.Forward(fixedTime, "1/1/1", frame); res.Outcome != trace.Held {
+			t.Fatalf("outcome = %v, want Held", res.Outcome)
+		}
+	}
+	before := sw.Neighbors()
+	if len(before) != 2 {
+		t.Fatalf("neighbors = %+v, want two pending entries", before)
+	}
+	ns := makeNDPFrame(t, solicitor, netip.MustParseAddr("2001:db8:20::1"), mac, macRouter, 255,
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: other, LinkLayerAddr: mac, HasLinkLayerAddr: true})
+	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", ns)
+	if emissions := dataAfterSolicitations(t, sw.Drain(), 2); len(emissions) != 0 {
+		t.Fatalf("emissions = %d, want no advertisement or release", len(emissions))
+	}
+	if after := sw.Neighbors(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("neighbors = %+v, want unchanged pending entries %+v", after, before)
+	}
+	for _, entry := range sw.Neighbors() {
+		if entry.State != routing.NeighborIncomplete || entry.HoldDepth != 1 || entry.MAC != (netaddr.MAC{}) {
+			t.Fatalf("neighbor = %+v, want no learned binding and one pending frame", entry)
+		}
+	}
+	// A source without a pending entry must not be added either.
+	ns = makeNDPFrame(t, netip.MustParseAddr("2001:db8:20::8"), netip.MustParseAddr("2001:db8:20::1"), mac, macRouter, 255,
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: other, LinkLayerAddr: mac, HasLinkLayerAddr: true})
+	sw.Forward(fixedTime.Add(3*time.Millisecond), "1/1/2", ns)
+	if len(sw.Neighbors()) != 2 || len(sw.Drain()) != 0 {
+		t.Fatal("non-local solicitation created an entry or answer")
+	}
+}
+
+func TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -9619,17 +9666,28 @@ func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	// The solicitation's own IP destination is the router's interface
-	// address, as a real solicited-node multicast one would resolve to on
-	// this link: it must not be either held address, or the switch's
-	// ordinary forwarding of the NDP packet itself — observation is a side
-	// effect, not an interception — would queue a second frame on whichever
-	// entry it named and confuse the counts below.
+	// A local IP destination keeps the solicitation's ordinary forwarding
+	// path from adding another frame to either neighbor's hold queue.
+	if data := dataAfterSolicitations(t, sw.Drain(), 2); len(data) != 0 {
+		t.Fatalf("setup released %d frames, want both held", len(data))
+	}
 	ns := makeNDPFrame(t, solicitorAddr, netip.MustParseAddr("2001:db8:20::1"), solicitorMAC, macRouter, 255,
-		ndp.Message{Type: ndp.NeighborSolicitation, Target: heldDst, LinkLayerAddr: solicitorMAC, HasLinkLayerAddr: true})
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: netip.MustParseAddr("2001:db8:20::1"), LinkLayerAddr: solicitorMAC, HasLinkLayerAddr: true})
 	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", ns)
 
-	emissions := dataAfterSolicitations(t, sw.Drain(), 2)
+	all := sw.Drain()
+	if len(all) != 2 {
+		t.Fatalf("emissions = %d, want advertisement and released frame", len(all))
+	}
+	hdrAnswer, body, err := ip.Decode(all[0].Frame.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, err := ndp.Decode(hdrAnswer, body)
+	if err != nil || answer.Type != ndp.NeighborAdvertisement || answer.Target != netip.MustParseAddr("2001:db8:20::1") {
+		t.Fatalf("answer = %+v, error = %v, want local-target advertisement", answer, err)
+	}
+	emissions := all[1:]
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: the solicitation must resolve its own source address, not the target it asked about", len(emissions))
 	}
@@ -9642,6 +9700,11 @@ func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	}
 	if hdr.Dst != solicitorAddr {
 		t.Errorf("released packet dst = %s, want %s: the target's held frame must not have been the one released", hdr.Dst, solicitorAddr)
+	}
+	for _, entry := range sw.Neighbors() {
+		if entry.Addr == heldDst && (entry.State != routing.NeighborIncomplete || entry.HoldDepth != 1) {
+			t.Fatalf("other neighbor = %+v, want incomplete with one held frame", entry)
+		}
 	}
 
 	assertSolicitationSchedule(t, sw, fixedTime, false)
@@ -10173,7 +10236,7 @@ func TestReleasedFrameCarriesIngressPriorityOntoEgress(t *testing.T) {
 
 			// The baseline is a switch that never held: the binding is configured, so the same
 			// frame forwards straight through and its priority rides res.Egress, which is what
-			// the fabric transmits on the live path. Observe alone would not do — an
+			// the fabric transmits on the live path. Receive alone would not do — an
 			// advertisement for an address nothing routed to creates no entry.
 			live := newSwitch(t, []routing.Neighbor{{Interface: tc.iface, Addr: tc.dst, MAC: learnedMAC}})
 			res := live.Forward(fixedTime, "1/1/1", taggedFrame(t, tc.dst))

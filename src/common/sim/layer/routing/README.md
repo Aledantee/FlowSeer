@@ -366,15 +366,34 @@ lookup forwards and starts Delay. Delay and Probe forward on the cached
 MAC. Probes send to that MAC, and for IPv6 to the target IP address.
 `NextWake` reports the earliest Incomplete, Delay, or Probe deadline.
 
-`Observe` applies the advertisement merge rules of RFC 4861 section 7.2.5
-only to existing observed entries. An Incomplete entry with a MAC becomes
-Reachable for a solicited advertisement and Stale otherwise. Elsewhere,
-Override clear with a changed MAC makes a Reachable entry Stale without
-changing its MAC, and leaves other states alone. A solicited update under
-Override, an equal MAC, or no supplied MAC confirms reachability. An
-unsolicited changed MAC makes the entry Stale. The switch maps ARP replies
-to solicited override advertisements and requests to unsolicited override
-advertisements.
+`Receive(now, iface, frame)` processes only frames addressed to the
+interface's MAC, ARP broadcast, or IPv6 all-nodes and local solicited-node
+MACs. It ignores malformed messages, including the validity checks of
+[RFC 4861](https://www.rfc-editor.org/rfc/rfc4861.txt) section 7.1.
+
+ARP reception follows [RFC 826](https://www.rfc-editor.org/rfc/rfc826.txt):
+merge an existing sender before checking the target, create a Stale sender
+entry when the interface holds the target, and answer a local request.
+A reply confirms an existing entry, while a request supplies an unsolicited
+override update. An ARP probe's zero sender address changes no entry
+([RFC 5227](https://www.rfc-editor.org/rfc/rfc5227.txt) section 2.1.1).
+
+A Neighbor Solicitation for a local target learns its IP source from the
+Source Link-Layer Address option as RFC 4861 section 7.2.3 specifies.
+A non-local target is discarded before learning. The answer follows
+section 7.2.4, with Router and Override set, and Solicited set only for a
+specified source. A specified source receives a unicast answer at its
+option's MAC, else its cached MAC. An unspecified source receives an
+all-nodes advertisement and leaves no entry.
+
+Advertisements apply section 7.2.5 only to existing observed entries.
+An Incomplete entry needs a Target Link-Layer Address option, then becomes
+Reachable for a solicited advertisement or Stale otherwise. Override clear
+with a changed MAC makes a Reachable entry Stale without changing its MAC,
+and leaves other states alone. A solicited update under Override, an equal
+MAC, or no supplied MAC confirms reachability. An unsolicited changed MAC
+makes the entry Stale. Configured entries never change. `NeighborDisabled`
+answers solicitations while keeping the configured table unchanged.
 
 `DrainExits` reports each queued frame once, as `HeldReleased`,
 `HeldTimedOut`, or `HeldEvicted`, in VRF/interface/address order.
@@ -440,6 +459,10 @@ solicits or holds a frame for an absent binding.
 - Every ARP reply counts as solicited. RFC 826's intent for an unrequested
   reply is unverified.
 - No removal of an unused entry.
+- A unicast Neighbor Advertisement is not sent when neither the
+  solicitation's source link-layer option nor a resolved cache entry
+  supplies the destination MAC. RFC 4861 section 7.2.4 calls for resolving
+  that source first, which the layer does not initiate on receipt.
 
 ## State retention
 

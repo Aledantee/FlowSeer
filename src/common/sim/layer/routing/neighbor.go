@@ -41,7 +41,7 @@ const (
 
 // neighborOrigin distinguishes a statically configured binding from one learned by observation,
 // in the same Configured/Observed vocabulary [bridge.Origin] and [mcast.Origin] use for their own
-// retained records. [Layer.Observe] reads it to refuse ever overwriting a configured binding,
+// retained records. [Layer.Receive] reads it to refuse ever overwriting a configured binding,
 // which is what keeps config.go's claim that "a static binding never ages out" true; a lookup
 // otherwise answers the same for either origin. It is surfaced on [neighborSnapshot]'s trace fact
 // but not on any exported type: a neighbor entry's lifetime is already the state machine's five
@@ -131,12 +131,9 @@ func (e *neighborEntry) clone() *neighborEntry {
 	return &cp
 }
 
-// Advertisement is a family-neutral record of one observed link-layer address binding, decoded
-// from an ARP reply or request or a Neighbor Advertisement or Solicitation. Solicited, Override,
-// and Router carry the RFC 4861 section 7.2.5 flags directly; an ARP reply maps to
-// {Solicited: true, Override: true, Router: false} and an ARP request's sender fields map to
-// {Solicited: false, Override: true, Router: false} — see the package README for why.
-type Advertisement struct {
+// ARP has no solicited or override flags. A reply confirms reachability,
+// while a request supplies an unsolicited override binding (RFC 826).
+type advertisement struct {
 	Interface string
 	Addr      netip.Addr
 	MAC       netaddr.MAC
@@ -214,16 +211,8 @@ func (vs *vrfState) resolveNeighbor(now time.Time, key neighborKey, iface Interf
 	}
 }
 
-// Observe applies the RFC 4861 section 7.2.5 rules for receipt of a Neighbor Advertisement to
-// adv, which also serves an ARP reply or request mapped as the package README describes. If no
-// entry exists for adv's interface and address, the advertisement is silently discarded per
-// section 7.2.5: "There is no need to create an entry if none exists, since the recipient has
-// apparently not initiated any communication with the target." A configured binding is likewise
-// left alone: [New] installs it Reachable with no expiry so it never ages out, and an
-// advertisement adopting its address or handing it an expiry would falsify that. Observe changes
-// state alone; the frames an entry's transition frees or gives up on are reported by [Layer.DrainExits]
-// after the next [Layer.Advance].
-func (l *Layer) Observe(now time.Time, adv Advertisement) {
+// observe applies the advertisement rules of RFC 4861 section 7.2.5.
+func (l *Layer) observe(now time.Time, adv advertisement) {
 	vrfName, ok := l.ifaceVRF[adv.Interface]
 	if !ok {
 		return

@@ -12,7 +12,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -949,45 +948,6 @@ func (s *Switch) neighborUnresolvedIssues() []runtimeIssue {
 	return issues
 }
 
-// vrfForInterface returns the name of the VRF configured with the named
-// routed interface. [routing.Layer] keeps this association unexported, so
-// this mirrors it from the switch's own normalized configuration rather than
-// asking the layer for something it does not expose.
-func (s *Switch) vrfForInterface(iface string) (string, bool) {
-	if s.cfg.Routing == nil {
-		return "", false
-	}
-	for name, vrf := range s.cfg.Routing.VRFs {
-		if _, ok := vrf.Interfaces[iface]; ok {
-			return name, true
-		}
-	}
-
-	return "", false
-}
-
-// neighborObservationAllowed reports whether an ARP or Neighbor Discovery
-// frame observed on iface may rewrite the neighbor table, mirroring the
-// switch's own configuration the way [Switch.vrfForInterface] does: a VRF
-// configured [routing.NeighborDisabled] never holds a frame for resolution
-// (RFC 4861 section 7.2.2's hold-and-resolve cycle never runs for it), and
-// README describes it as never resolving an address it was not told about,
-// so an observed frame must not rewrite that table either. An interface
-// outside any VRF, or a VRF the config omits, allows observation: nothing
-// names a mode to disable.
-func (s *Switch) neighborObservationAllowed(iface string) bool {
-	vrfName, ok := s.vrfForInterface(iface)
-	if !ok {
-		return true
-	}
-	vrf, ok := s.cfg.Routing.VRFs[vrfName]
-	if !ok {
-		return true
-	}
-
-	return vrf.NeighborPolicy.Mode != routing.NeighborDisabled
-}
-
 // recordPVSTBoundaries notes every port of the journey in progress that faces
 // a spanning tree neighbor whose per-VLAN trees this switch cannot simulate,
 // so pvstBoundaryIssues can report the VLANs that go unheard across it.
@@ -1157,33 +1117,14 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		}
 	}
 
-	// Observation is a side effect, not an interception: an ARP or Neighbor
-	// Discovery frame still takes its ordinary path below, unlike the
-	// multicast control redirect at forwardMulticastControl, so a switch
-	// that swallowed an ARP broadcast would not break the resolution it is
-	// modeling. mutate gates the write the way it gates every other
-	// mutation on this path, so Peek never observes.
-	if mutate && s.routing != nil {
-		if f.EtherType == ethernet.EtherTypeARP {
-			if msg, err := arp.Decode(f); err == nil {
-				if iface, ok := s.observationInterface(now, ingress, f); ok && s.neighborObservationAllowed(iface) {
-					s.observeAndRelease(now, arpAdvertisement(iface, msg))
-				}
-			}
-		} else if f.EtherType == ethernet.EtherTypeIPv6 && len(f.Payload) > ip.V6HeaderLen &&
-			f.Payload[6] == protocolICMPv6 {
-			switch f.Payload[ip.V6HeaderLen] {
-			case byte(ndp.NeighborSolicitation), byte(ndp.NeighborAdvertisement):
-				if hdr, icmpPayload, err := ip.Decode(f.Payload); err == nil {
-					if msg, err := ndp.Decode(hdr, icmpPayload); err == nil {
-						if iface, ok := s.observationInterface(now, ingress, f); ok && s.neighborObservationAllowed(iface) {
-							if adv, ok := ndpAdvertisement(iface, hdr, msg); ok {
-								s.observeAndRelease(now, adv)
-							}
-						}
-					}
-				}
-			}
+	// Reception is a side effect. Control frames keep their ordinary path.
+	neighborFrame := f.EtherType == ethernet.EtherTypeARP ||
+		(f.EtherType == ethernet.EtherTypeIPv6 && len(f.Payload) > ip.V6HeaderLen &&
+			f.Payload[6] == protocolICMPv6 &&
+			(f.Payload[ip.V6HeaderLen] == byte(ndp.NeighborSolicitation) || f.Payload[ip.V6HeaderLen] == byte(ndp.NeighborAdvertisement)))
+	if mutate && s.routing != nil && neighborFrame {
+		if iface, ok := s.observationInterface(now, ingress, f); ok {
+			s.receiveAndRelease(now, iface, f)
 		}
 	}
 
@@ -1416,7 +1357,7 @@ func multicastControlCandidate(f ethernet.Frame) bool {
 }
 
 // observationInterface finds the routed interface an ARP or Neighbor Discovery
-// frame arrived on, for [Layer.Observe] alone: it never mutates the bridge's
+// frame arrived on, for [routing.Layer.Receive] alone: it never mutates the bridge's
 // forwarding database or admits the frame anywhere, so calling it ahead of
 // the routed-port and bridge blocks below cannot pre-empt what either one
 // decides. A routed port resolves through the same [routing.Layer.ByPortVLAN]
@@ -1444,72 +1385,11 @@ func (s *Switch) observationInterface(now time.Time, ingress string, f ethernet.
 	return s.routing.ByVLAN(in.FID)
 }
 
-// arpAdvertisement maps an ARP message observed on iface onto the
-// family-neutral [routing.Advertisement] the neighbor state machine takes.
-// An ARP reply maps to {Solicited: true, Override: true}, which is what
-// makes RFC 4861 section 7.2.5 rule II reproduce RFC 826's unconditional
-// merge rule for a reply; an ARP request's sender fields map to
-// {Solicited: false, Override: true}, since a request only refreshes a
-// binding rather than confirming the forward path. See the arp package
-// README for the mapping's derivation.
-func arpAdvertisement(iface string, m arp.Message) routing.Advertisement {
-	return routing.Advertisement{
-		Interface: iface,
-		Addr:      m.SenderAddr,
-		MAC:       m.SenderMAC,
-		HasMAC:    true,
-		Solicited: m.Operation == arp.Reply,
-		Override:  true,
-	}
-}
-
-// ndpAdvertisement maps a Neighbor Solicitation or Advertisement observed on
-// iface onto a [routing.Advertisement]. The two message types bind the
-// LinkLayerAddr option to different addresses: on an Advertisement it is the
-// Target Link-Layer Address, confirming the address named by m.Target, but
-// on a Solicitation it is the Source Link-Layer Address, naming the
-// solicitor's own address (RFC 4861 section 4.3), carried in the IPv6
-// header's source, not in m.Target — the solicitation asks about m.Target,
-// it does not vouch for who holds it. RFC 4861 section 7.2.3 updates the
-// entry for the solicitation's IP source address, so hdr is required to
-// recover it; a solicitation from the unspecified address (duplicate
-// address detection) names no one to bind and reports ok false. A
-// solicitation's Source Link-Layer Address option refreshes a binding
-// rather than confirming a forward path, so it maps like an ARP request:
-// {Solicited: false, Override: true}. The ndp package already leaves
-// Router, Solicited, and Override false for a solicitation (RFC 4861
-// sections 4.3 and 4.4), so an Advertisement's fields carry over with a
-// direct copy.
-func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Advertisement, bool) {
-	if m.Type == ndp.NeighborSolicitation {
-		if hdr.Src.IsUnspecified() {
-			return routing.Advertisement{}, false
-		}
-		return routing.Advertisement{
-			Interface: iface,
-			Addr:      hdr.Src,
-			MAC:       m.LinkLayerAddr,
-			HasMAC:    m.HasLinkLayerAddr,
-			Solicited: false,
-			Override:  true,
-		}, true
-	}
-	return routing.Advertisement{
-		Interface: iface,
-		Addr:      m.Target,
-		MAC:       m.LinkLayerAddr,
-		HasMAC:    m.HasLinkLayerAddr,
-		Solicited: m.Solicited,
-		Override:  m.Override,
-		Router:    m.Router,
-	}, true
-}
-
-// observeAndRelease applies adv and flushes whatever it freed or gave up on
+// receiveAndRelease processes frame and flushes whatever it freed or gave up on
 // in the same call, rather than leaving a resolved entry's queue for a
 // caller to notice. [routing.Layer.NextWake] reports a timer for an
 // Incomplete, Delay, or Probe entry, so a fabric run that scheduled a wake for the old
-// deadline cancels it the moment Observe resolves the entry. Settling on
+// deadline cancels it the moment Receive resolves the entry. Settling on
 // Wake, Age, or an observing Forward flushes that queue and any other entry
 // whose resolution deadline has separately passed by now.
 //
@@ -1518,7 +1398,7 @@ func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Adver
 // never traversed. It is a queued frame going out an egress interface of
 // its own, not the frame forward is currently processing. Left alone that
 // would charge the release's LAG rebalance or neighbor-unresolved issues to
-// the observing frame's result, so observeAndRelease saves
+// the observing frame's result, so receiveAndRelease saves
 // s.lagRebalanceHits and s.neighborUnresolvedHits, then clears both to their
 // zero value before the release runs, so the release always writes into a
 // fresh map and slice rather than one this call is about to hand back:
@@ -1530,14 +1410,14 @@ func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Adver
 // frame's own processing, which runs after this call returns, then records
 // its own hits onto the state this call restores, exactly as if the release
 // in between had never happened.
-func (s *Switch) observeAndRelease(now time.Time, adv routing.Advertisement) {
+func (s *Switch) receiveAndRelease(now time.Time, iface string, frame ethernet.Frame) {
 	savedLAGRebalanceHits := s.lagRebalanceHits
 	savedNeighborUnresolvedHits := s.neighborUnresolvedHits
 
 	s.lagRebalanceHits = nil
 	s.neighborUnresolvedHits = nil
 
-	s.routing.Observe(now, adv)
+	s.emitRouting(now, s.routing.Receive(now, iface, frame).Emissions)
 	s.emitRouting(now, s.routing.Advance(now).Emissions)
 	s.applyRoutingExits(now, s.routing.DrainExits())
 

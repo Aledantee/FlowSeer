@@ -32,6 +32,7 @@ this phase keeps the states and timers.
 Sources.
 
 - The parent's Decisions apply.
+- A Neighbor Solicitation for an address the receiving interface does not hold is refused and teaches nothing, as `R4861` 7.2.3 says. `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget` becomes two tests: one with a local target, showing the Source Link-Layer Address option resolves the solicitor's source and not the target it asks about; one with a non-local target, showing no entry and no answer. (decided by the user, 2026-10-07)
 - The neighbor table runs the states of `R4861` 7.3.2 for both families, and
   `NeighborFailed` goes. Why: 7.3.3 says an entry whose resolution failed
   "SHOULD be deleted, so that subsequent traffic to that neighbor invokes
@@ -676,16 +677,3 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   for an absent next hop and an undecoded header
   (`R/fact.go:29-37,53,70`). Changing it rewrites every lookup expectation
   in the corpus.
-
-- Receiving is blocked by `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget`
-  in `src/common/sim/device/vswitch/switch_test.go`. It requires a
-  solicitation for an address the interface does not hold to resolve its
-  source's held frame. The receiving unit requires that input to create
-  no entry and send no answer, following RFC 4861 section 7.2.3. Changing
-  the target to a local address would change what this test proves.
-  A local-target guard at the observation site makes
-  `go test ./src/common/sim/device/vswitch -run ^TestNDPSolicitationResolvesItsOwnSourceNotTheTarget$ -count=1`
-  fail with `emissions = 0, want 1: the solicitation must resolve its own source address, not the target it asked about`.
-  Options: retire that conflicting expectation and add separate local-target
-  learning and non-local-target refusal coverage, or revise the receiving
-  requirement. Neither preserves this assertion's existing intent.

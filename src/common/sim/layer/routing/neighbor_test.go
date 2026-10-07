@@ -145,7 +145,7 @@ func TestNeighborLazyReachabilityAndProbes(t *testing.T) {
 			}
 			route(t, l, testNow, dst, []byte{1}, true)
 			mac := lifecycleHostMAC
-			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: dst, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: dst, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 			l.Advance(testNow)
 			l.DrainExits()
 			aged := l.Clone()
@@ -327,10 +327,10 @@ func TestRouteMissCreatesIncompleteEntryAndQueuesTheFrame(t *testing.T) {
 	wantState(t, res, "incomplete")
 }
 
-// TestObserveIncompleteMovesToReachableOnSolicitedAdvertisement and its IPv6 subtest cover the
+// TestReceiveIncompleteMovesToReachableOnSolicitedAdvertisement and its IPv6 subtest cover the
 // RFC 4861 section 7.2.5 INCOMPLETE branch: a solicited advertisement with a link-layer address
 // moves the entry to Reachable and records the MAC, for both families the state machine serves.
-func TestObserveIncompleteMovesToReachableOnSolicitedAdvertisement(t *testing.T) {
+func TestReceiveIncompleteMovesToReachableOnSolicitedAdvertisement(t *testing.T) {
 	t.Parallel()
 
 	t.Run("IPv4", func(t *testing.T) {
@@ -341,7 +341,7 @@ func TestObserveIncompleteMovesToReachableOnSolicitedAdvertisement(t *testing.T)
 		}
 
 		observedMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}
-		l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
+		receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
 
 		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 		if res.Reason != "" {
@@ -361,7 +361,7 @@ func TestObserveIncompleteMovesToReachableOnSolicitedAdvertisement(t *testing.T)
 		}
 
 		observedMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x66}
-		l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV6, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
+		receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
 
 		res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 		if res.Reason != "" {
@@ -374,17 +374,17 @@ func TestObserveIncompleteMovesToReachableOnSolicitedAdvertisement(t *testing.T)
 	})
 }
 
-// TestObserveIncompleteMovesToStaleOnUnsolicitedAdvertisement covers the INCOMPLETE branch's
+// TestReceiveIncompleteMovesToStaleOnUnsolicitedAdvertisement covers the INCOMPLETE branch's
 // unsolicited half: the entry still records the address but starts Stale rather than Reachable.
-func TestObserveIncompleteMovesToStaleOnUnsolicitedAdvertisement(t *testing.T) {
+func TestReceiveIncompleteMovesToStaleOnUnsolicitedAdvertisement(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
 	observedMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x77}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: false, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: observedMAC, HasMAC: true, Solicited: false, Override: true})
 
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	if res.Reason != "" {
 		t.Fatalf("reason = %q, want empty", res.Reason)
 	}
@@ -394,38 +394,38 @@ func TestObserveIncompleteMovesToStaleOnUnsolicitedAdvertisement(t *testing.T) {
 	wantState(t, res, "stale")
 }
 
-// TestObserveIncompleteWithoutLinkLayerAddressIsDiscarded covers RFC 4861 section 7.2.5's
+// TestReceiveIncompleteWithoutLinkLayerAddressIsDiscarded covers RFC 4861 section 7.2.5's
 // INCOMPLETE rule that a target link-layer address option is required: "the receiving node
 // SHOULD silently discard the received advertisement."
-func TestObserveIncompleteWithoutLinkLayerAddressIsDiscarded(t *testing.T) {
+func TestReceiveIncompleteWithoutLinkLayerAddressIsDiscarded(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, HasMAC: false, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, HasMAC: false, Solicited: true, Override: true})
 
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	if res.Reason != routing.ReasonNeighborPending {
 		t.Fatalf("reason = %q, want pending (entry must stay Incomplete)", res.Reason)
 	}
 	wantState(t, res, "incomplete")
 }
 
-// TestObserveOverrideClearedReachableMovesToStale is RFC 4861 section 7.2.5 rule I.a: Override
+// TestReceiveOverrideClearedReachableMovesToStale is RFC 4861 section 7.2.5 rule I.a: Override
 // clear and a differing link-layer address moves a Reachable entry to Stale without adopting
 // the new address.
-func TestObserveOverrideClearedReachableMovesToStale(t *testing.T) {
+func TestReceiveOverrideClearedReachableMovesToStale(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
 	originalMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x01}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: originalMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: originalMAC, HasMAC: true, Solicited: true, Override: true})
 
 	differentMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x02}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: differentMAC, HasMAC: true, Solicited: false, Override: false})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: differentMAC, HasMAC: true, Solicited: false, Override: false})
 
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	if res.Reason != "" {
 		t.Fatalf("reason = %q, want empty", res.Reason)
 	}
@@ -435,24 +435,24 @@ func TestObserveOverrideClearedReachableMovesToStale(t *testing.T) {
 	wantState(t, res, "stale")
 }
 
-// TestObserveOverrideClearedNonReachableStateIsUnchanged is RFC 4861 section 7.2.5 rule I.b:
+// TestReceiveOverrideClearedNonReachableStateIsUnchanged is RFC 4861 section 7.2.5 rule I.b:
 // "the received advertisement should be ignored and MUST NOT update the cache" when the entry
 // is not Reachable.
-func TestObserveOverrideClearedNonReachableStateIsUnchanged(t *testing.T) {
+func TestReceiveOverrideClearedNonReachableStateIsUnchanged(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
 	staleMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x03}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: staleMAC, HasMAC: true, Solicited: false, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: staleMAC, HasMAC: true, Solicited: false, Override: true})
 
-	before := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	before := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	wantState(t, before, "stale")
 
 	differentMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x04}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: differentMAC, HasMAC: true, Solicited: false, Override: false})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: differentMAC, HasMAC: true, Solicited: false, Override: false})
 
-	after := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	after := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	if after.Reason != "" {
 		t.Fatalf("reason = %q, want empty", after.Reason)
 	}
@@ -462,48 +462,48 @@ func TestObserveOverrideClearedNonReachableStateIsUnchanged(t *testing.T) {
 	wantState(t, after, "delay")
 }
 
-// TestObserveOverrideSetUnsolicitedUpdateMovesToStale is RFC 4861 section 7.2.5 rule II: "If
+// TestReceiveOverrideSetUnsolicitedUpdateMovesToStale is RFC 4861 section 7.2.5 rule II: "If
 // the Solicited flag is zero and the link-layer address was updated with a different address,
 // the state MUST be set to STALE."
-func TestObserveOverrideSetUnsolicitedUpdateMovesToStale(t *testing.T) {
+func TestReceiveOverrideSetUnsolicitedUpdateMovesToStale(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
 	firstMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x05}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: firstMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: firstMAC, HasMAC: true, Solicited: true, Override: true})
 
 	secondMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x06}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: secondMAC, HasMAC: true, Solicited: false, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: secondMAC, HasMAC: true, Solicited: false, Override: true})
 
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	if res.Frame.Dst != secondMAC {
 		t.Errorf("frame dst = %s, want the updated MAC %s", res.Frame.Dst, secondMAC)
 	}
 	wantState(t, res, "stale")
 }
 
-// TestObserveOverrideSetUnsolicitedNoChangeLeavesStateUnchanged is RFC 4861 section 7.2.5
+// TestReceiveOverrideSetUnsolicitedNoChangeLeavesStateUnchanged is RFC 4861 section 7.2.5
 // rule II's last sentence: "There is no need to update the state for unsolicited advertisements
 // that do not change the contents of the cache."
-func TestObserveOverrideSetUnsolicitedNoChangeLeavesStateUnchanged(t *testing.T) {
+func TestReceiveOverrideSetUnsolicitedNoChangeLeavesStateUnchanged(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
-	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x07}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: mac, HasMAC: true, Solicited: false, Override: true})
 
-	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
+	res := routeToV6(t, l, testNow, lifecycleDstV6, []byte("data"), true)
 	wantState(t, res, "reachable")
 	wantMACInFact(t, res, mac)
 }
 
-// TestObserveARPFlagMappings pins the two ARP-to-RFC-4861 mappings the package README
+// TestReceiveARPFlagMappings pins the two ARP-to-RFC-4861 mappings the package README
 // documents: a reply's {Solicited: true, Override: true} confirms the forward path, and a
 // request's sender fields carry {Solicited: false, Override: true}.
-func TestObserveARPFlagMappings(t *testing.T) {
+func TestReceiveARPFlagMappings(t *testing.T) {
 	t.Parallel()
 
 	t.Run("reply reaches Reachable", func(t *testing.T) {
@@ -512,7 +512,7 @@ func TestObserveARPFlagMappings(t *testing.T) {
 		routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 
 		mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x08}
-		l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true, Router: false})
+		receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true, Router: false})
 
 		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 		wantState(t, res, "reachable")
@@ -524,25 +524,25 @@ func TestObserveARPFlagMappings(t *testing.T) {
 		routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 
 		mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x09}
-		l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true, Router: false})
+		receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true, Router: false})
 
 		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 		wantState(t, res, "stale")
 	})
 }
 
-// TestObserveWithNoEntryChangesNothing is RFC 4861 section 7.2.5: "If no entry exists, the
+// TestReceiveWithNoEntryChangesNothing is RFC 4861 section 7.2.5: "If no entry exists, the
 // advertisement SHOULD be silently discarded." An advertisement for an address nothing was ever
 // routed to must not leave any trace on a later lookup.
-func TestObserveWithNoEntryChangesNothing(t *testing.T) {
+func TestReceiveWithNoEntryChangesNothing(t *testing.T) {
 	t.Parallel()
 	observed := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
 	baseline := mustNewLifecycleLayer(t, routing.NeighborPolicy{})
 
-	observed.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, observed, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV6, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
 
-	gotRes := routeToV4(t, observed, testNow, lifecycleDstV4, []byte("data"), true)
-	wantRes := routeToV4(t, baseline, testNow, lifecycleDstV4, []byte("data"), true)
+	gotRes := routeToV6(t, observed, testNow, lifecycleDstV6, []byte("data"), true)
+	wantRes := routeToV6(t, baseline, testNow, lifecycleDstV6, []byte("data"), true)
 	if gotRes.Reason != wantRes.Reason {
 		t.Fatalf("reason = %q, want %q", gotRes.Reason, wantRes.Reason)
 	}
@@ -567,7 +567,7 @@ func TestHoldQueueDropsOldestAtDepth(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0b}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	eff := advanceAndDrain(l, testNow)
 	evicted := exitsWithCause(eff, routing.HeldEvicted)
@@ -605,7 +605,7 @@ func TestStalePeekLeavesStoredStateUnchanged(t *testing.T) {
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0c}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: false, Override: true})
 
 	for i := range 3 {
 		res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), false)
@@ -633,7 +633,7 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	clone := l.Clone()
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0e}
-	clone.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, clone, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	// A peek (commit false) so checking the original's state does not itself queue a second
 	// frame on it.
@@ -644,7 +644,7 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 	assertRoutingRetries(t, l, testNow, time.Second, 1)
 	eff := advanceAndDrain(l, testNow.Add(3*time.Second))
 	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 1 {
-		t.Fatalf("original timed out = %d, want 1 (unaffected by the clone's Observe)", len(timedOut))
+		t.Fatalf("original timed out = %d, want 1 (unaffected by the clone's Receive)", len(timedOut))
 	}
 
 	cloneRes := routeToV4(t, clone, testNow, lifecycleDstV4, []byte("data"), true)
@@ -661,7 +661,7 @@ const orderingTrials = 50
 
 // twoVRFOrderingConfig builds two VRFs of two VLAN interfaces each, so an ordering test can
 // cover the two sort keys ahead of the address. Interface names and VLAN IDs are unique across
-// VRFs because [routing.Layer.Observe] resolves a VRF from the interface name alone and the
+// VRFs because [routing.Layer.Receive] resolves a VRF from the interface name alone and the
 // config refuses a VLAN claimed twice. The higher-numbered pair sits in the lower-named VRF on
 // purpose: sorting by interface or address alone then produces a different order from sorting by
 // VRF first, so the test can tell the two apart.
@@ -701,8 +701,8 @@ func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 			if res := routeToV4(t, l, testNow, addr99, []byte{99}, true); res.Reason != routing.ReasonNeighborPending {
 				t.Fatalf("trial %d: addr99 reason = %q, want pending", trial, res.Reason)
 			}
-			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
-			l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: addr98, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+			receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: addr99, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 			wantReleaseOrder(t, trial, advanceAndDrain(l, testNow), 98, 99)
 		}
@@ -732,7 +732,7 @@ func TestWakeReleasesInDeterministicOrder(t *testing.T) {
 				if res := l.Originate(testNow, ifaceVRF[iface], q.addr, 17, []byte{q.marker}, true); res.Reason != routing.ReasonNeighborPending {
 					t.Fatalf("trial %d: %s reason = %q, want pending", trial, iface, res.Reason)
 				}
-				l.Observe(testNow, routing.Advertisement{Interface: iface, Addr: q.addr, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+				receiveBinding(t, l, testNow, receivedBinding{Interface: iface, Addr: q.addr, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 			}
 
 			wantReleaseOrder(t, trial, advanceAndDrain(l, testNow), 4, 3, 2, 1)
@@ -768,7 +768,7 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x21}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	eff := advanceAndDrain(l, testNow)
 	released := exitsWithCause(eff, routing.HeldReleased)
@@ -789,10 +789,10 @@ func TestOriginatePendingResolutionKeepsHopLimit64(t *testing.T) {
 	}
 }
 
-// TestObserveDoesNotOverwriteConfiguredBinding asserts that a configured binding never
+// TestReceiveDoesNotOverwriteConfiguredBinding asserts that a configured binding never
 // adopts an observed MAC or gains an expiry. A solicited, overriding advertisement
 // leaves a configured entry unchanged, because static bindings never age out.
-func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
+func TestReceiveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	t.Parallel()
 	configuredMAC := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
 	observedMAC := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x30}
@@ -803,7 +803,7 @@ func TestObserveDoesNotOverwriteConfiguredBinding(t *testing.T) {
 	cfg.VRFs[routing.DefaultVRF] = vrf
 	l := mustNewRouting(t, cfg)
 
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: observedMAC, HasMAC: true, Solicited: true, Override: true})
 
 	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 	if res.Frame.Dst != configuredMAC {
@@ -829,7 +829,7 @@ func TestAgeMovesReachableToStaleAfterReachableTime(t *testing.T) {
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x31}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: mac, HasMAC: true, Solicited: true, Override: true})
 
 	res := routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
 	wantState(t, res, "reachable")
@@ -905,7 +905,7 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 	if res := l.Route(testNow, "routed1", portFrame, true); res.Reason != routing.ReasonNeighborPending {
 		t.Fatalf("reason = %q, want %q", res.Reason, routing.ReasonNeighborPending)
 	}
-	l.Observe(testNow, routing.Advertisement{Interface: "routed1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "routed1", Addr: portDst, MAC: portNeighborMAC, HasMAC: true, Solicited: true, Override: true})
 	portEff := advanceAndDrain(l, testNow)
 	if len(portEff) != 1 {
 		t.Fatalf("port exits = %+v, want exactly one", portEff)
@@ -915,7 +915,7 @@ func TestWakeReportsPortForARoutedPortButNotAVLANInterface(t *testing.T) {
 	}
 
 	routeToV4(t, l, testNow, lifecycleDstV4, []byte("data"), true)
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x0a}, HasMAC: true, Solicited: true, Override: true})
 	vlanEff := advanceAndDrain(l, testNow)
 	if len(vlanEff) != 1 {
 		t.Fatalf("vlan exits = %+v, want exactly one", vlanEff)
@@ -944,7 +944,7 @@ func TestAdvancePastReachableExpiryAndResolutionFailureLeavesStaleAndAbsent(t *t
 
 	mac := netaddr.MAC{0x02, 0x11, 0x22, 0x33, 0x44, 0x55}
 	routeToV4(t, l, testNow, reachableDst, []byte("reachable-frame"), true)
-	l.Observe(testNow, routing.Advertisement{
+	receiveBinding(t, l, testNow, receivedBinding{
 		Interface: "vlan10",
 		Addr:      reachableDst,
 		MAC:       mac,
@@ -1049,7 +1049,7 @@ func TestHeldTokensIdentifySelectiveRelease(t *testing.T) {
 	if first.Hold != 1 || second.Hold != 2 {
 		t.Fatalf("hold tokens = %d, %d, want 1, 2", first.Hold, second.Hold)
 	}
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan99", Addr: secondAddr, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan99", Addr: secondAddr, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
 	exits := advanceAndDrain(l, testNow)
 	if len(exits) != 1 || exits[0].Token != 2 || exits[0].Ingress != "vlan10" || exits[0].Cause != routing.HeldReleased {
 		t.Fatalf("exits = %+v, want token 2 released from vlan10", exits)
@@ -1301,7 +1301,7 @@ func TestProbeReplyRestoresReachabilityAndConfiguredEntryNeverProbes(t *testing.
 	cfg.VRFs[routing.DefaultVRF] = vrf
 	l := mustNewRouting(t, cfg)
 	routeToV4(t, l, testNow, lifecycleDstV4, nil, true)
-	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow, receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
 	l.Advance(testNow)
 	l.DrainExits()
 	routeToV4(t, l, testNow.Add(31*time.Second), lifecycleDstV4, nil, true)
@@ -1309,7 +1309,7 @@ func TestProbeReplyRestoresReachabilityAndConfiguredEntryNeverProbes(t *testing.
 	if len(fx.Emissions) != 1 {
 		t.Fatalf("probes = %+v, want one", fx.Emissions)
 	}
-	l.Observe(testNow.Add(36*time.Second), routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	receiveBinding(t, l, testNow.Add(36*time.Second), receivedBinding{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
 	if _, ok := l.NextWake(); ok {
 		t.Fatal("confirmed probe retains timer")
 	}
