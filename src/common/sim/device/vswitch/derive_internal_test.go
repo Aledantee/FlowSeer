@@ -52,7 +52,7 @@ func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
 	source := netip.MustParseAddr("10.0.0.9")
 	cur.mcast.Learn(t0, 10, "1/1/1", source, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{source}}}})
 	want := []mcast.Entry{{Group: group, Port: "1/1/1", Mode: mcast.Include, Sources: []mcast.SourceEntry{{Address: source, Expires: t0.Add(260 * time.Second)}}}}
-	if got := cur.Groups(10); !reflect.DeepEqual(got, want) {
+	if got := cur.Groups(10, t0); !reflect.DeepEqual(got, want) {
 		t.Fatalf("source Groups = %+v, want %+v", got, want)
 	}
 	target := base.Clone()
@@ -63,7 +63,7 @@ func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := next.Groups(10); !reflect.DeepEqual(got, want) {
+	if got := next.Groups(10, t0); !reflect.DeepEqual(got, want) {
 		t.Errorf("derived Groups = %+v, want %+v", got, want)
 	}
 	for _, src := range []netip.Addr{source, netip.MustParseAddr("10.0.0.8")} {
@@ -645,7 +645,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				Type:  igmp.ReportV2,
 				Group: group2,
 			})
-			if groups := sw.mcast.Groups(vid10); len(groups) != 2 {
+			if groups := sw.mcast.Groups(vid10, fixedTime); len(groups) != 2 {
 				t.Fatalf("planted groups count = %d, want 2", len(groups))
 			}
 			return sw
@@ -695,7 +695,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				if !ret.Kept {
 					t.Errorf("Mcast rebuilt under %q, want retained: %+v", m.name, ret)
 				}
-				groups := derived.mcast.Groups(vid10)
+				groups := derived.mcast.Groups(vid10, fixedTime)
 				if len(groups) != 2 {
 					t.Fatalf("groups count = %d, want 2 retained", len(groups))
 				}
@@ -720,7 +720,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast rebuilt under unrelated edit, want retained: %+v", derived.Retention().Mcast)
 			}
-			if groups := derived.mcast.Groups(vid10); len(groups) != 2 {
+			if groups := derived.mcast.Groups(vid10, fixedTime); len(groups) != 2 {
 				t.Errorf("groups count = %d, want 2", len(groups))
 			}
 		})
@@ -739,7 +739,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			groups := derived.mcast.Groups(vid10)
+			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
 				t.Errorf("groups after port 1/1/1 down = %+v, want only group2 on 1/1/2", groups)
 			}
@@ -759,7 +759,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			groups := derived.mcast.Groups(vid10)
+			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
 				t.Errorf("groups after port 1/1/1 oper down = %+v, want only group2 on 1/1/2", groups)
 			}
@@ -776,7 +776,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			if groups := derived.mcast.Groups(vid10); len(groups) != 0 {
+			if groups := derived.mcast.Groups(vid10, fixedTime); len(groups) != 0 {
 				t.Errorf("groups after vlan removed = %+v, want none", groups)
 			}
 		})

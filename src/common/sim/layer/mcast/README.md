@@ -63,7 +63,10 @@ deletes the port's router state outright instead of going through `TO_IN`.
 
 ### Timer expiry (§6.5)
 
-`Advance(now)` applies the expiry rules lazily relative to `now`:
+`Resolve`, `Groups`, and `RouterPorts` read state as of their `now` without
+writing. `Learn` and `LearnMLD` age a port's state before applying a record,
+so a report uses the transition for the mode its timers leave at that time.
+`Advance(now)` removes what the reads already ignore:
 
 - A group timer expiring while the port is in `EXCLUDE` moves it to `INCLUDE`.
   Sources with a running timer are kept with their timer; sources at a zero
@@ -74,9 +77,9 @@ deletes the port's router state outright instead of going through `TO_IN`.
 - A source timer expiring while the port is in `EXCLUDE` moves that source
   from `X` to `Y`; the record stays, now at a zero timer.
 
-`Resolve` computes the same rules against the `now` it is given without
-requiring a prior `Advance` call, so a caller's aging cadence does not change the
-forwarding answer.
+For example, a report and query learned at `t0` on the default intervals
+leave no membership or learned router port at `t0 + 300s`, even without an
+`Advance` call. `TestResolveIgnoresExpiredState` in `layer_test.go` checks it.
 
 ### Forwarding (§6.3)
 
@@ -89,10 +92,12 @@ forwarding answer.
 | `EXCLUDE` | no record | forward |
 
 `Resolve(vid, group, source, now)` applies this table per source and returns
-the union of admitted member ports and router ports. `registered` is true when
-any port holds router state for the group, regardless of whether the queried
-source is admitted on it — a learned router port appears in the returned
-ports without setting `registered`.
+the union of admitted member ports and static or unexpired learned router
+ports. `registered` is true when any port's group timer runs in `EXCLUDE` or
+any of its source timers runs, regardless of whether the queried source is
+admitted on it. A learned router port appears in the returned ports without
+setting `registered`. Only that live group state and the live router ports
+can produce a pending query.
 
 ## Queries and the unobserved-query issue
 
@@ -139,8 +144,11 @@ Learned router-port entries expire after their configured interval (default
 keeps its original expiry. `Advance(now)` removes
 every `Aging` router port whose expiry has passed, and the group timer and
 source timer expiry above, in one pass. It does not touch `Static` router
-ports. `Groups` and `RouterPorts` return sorted snapshots, and `Clone`
-preserves every timer in an independent layer.
+ports. `Groups(vid, now)` and `RouterPorts(vid, now)` return sorted snapshots
+of the state left by expiry at `now`, without changing stored state.
+`fabric.Snapshot` passes the fabric clock. `Clone` preserves every timer in
+an independent layer. `TestReadsMatchAdvance` in `layer_test.go` compares
+reads with and without aging first.
 
 `Resolve` is intentionally narrower than a bridge forwarding policy. It
 returns the admitted port union, membership registration, and the pending-

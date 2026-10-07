@@ -1875,8 +1875,8 @@ func (f *Fabric) Snapshot() Snapshot {
 			groups = make(map[vlan.ID][]mcast.Entry, len(cfg.Mcast.VLANs))
 			routerPorts = make(map[vlan.ID][]mcast.RouterPort, len(cfg.Mcast.VLANs))
 			for vid := range cfg.Mcast.VLANs {
-				groups[vid] = sw.Groups(vid)
-				routerPorts[vid] = sw.RouterPorts(vid)
+				groups[vid] = sw.Groups(vid, f.clock)
+				routerPorts[vid] = sw.RouterPorts(vid, f.clock)
 			}
 		}
 		devices[name] = Device{

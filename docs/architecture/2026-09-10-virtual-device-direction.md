@@ -513,6 +513,11 @@ bounded equivalence under a resource contract:
   tell whether one was sent and lost or never existed. With no router port
   there is no querier to have sent one, so the full membership interval is
   the real behavior and the result stays Complete.
+  Multicast state is read as of a time: `Resolve`, `Groups`, and
+  `RouterPorts` ignore expired state without writing, and a fabric snapshot
+  uses the fabric clock. Learning ages a port's state before applying a
+  record, so its timers determine the transition even without a prior
+  `Advance` call (`src/common/sim/layer/mcast/layer.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 

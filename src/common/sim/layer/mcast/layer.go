@@ -271,9 +271,8 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 }
 
 // Advance applies the RFC 3376 §6.5 timer-expiry rules and removes learned router ports whose
-// expiry is not after now. The returned layer.Effects is always empty. It is the only place aging
-// mutates stored state; Resolve computes the same rules lazily against the now it is given,
-// so a caller need not call Advance first.
+// expiry is not after now. The returned layer.Effects is always empty. Reads ignore expired
+// state without requiring Advance, and learning ages a port's state before applying a record.
 func (l *Layer) Advance(now time.Time) layer.Effects {
 	for _, state := range l.byVLAN {
 		for key, gps := range state.groups {
@@ -333,13 +332,15 @@ func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now ti
 	}
 
 	admitted := make(map[string]struct{}, len(state.routers))
-	for name := range state.routers {
-		admitted[name] = struct{}{}
+	for name, router := range state.routers {
+		if router.lifetime == Static || router.expires.After(now) {
+			admitted[name] = struct{}{}
+		}
 	}
 
-	hasRouter := len(state.routers) > 0
+	hasRouter := len(admitted) > 0
 	for key, gps := range state.groups {
-		if key.group != group {
+		if key.group != group || !groupPortActive(gps, now) {
 			continue
 		}
 		registered = true
@@ -360,15 +361,33 @@ func (l *Layer) Resolve(vid vlan.ID, group netip.Addr, source netip.Addr, now ti
 	return resolved, registered, pending
 }
 
-// Groups returns a deterministic snapshot of router state on vid.
-func (l *Layer) Groups(vid vlan.ID) []Entry {
+func groupPortActive(gps *groupPortState, now time.Time) bool {
+	if gps.mode == Exclude && gps.groupExpires.After(now) {
+		return true
+	}
+	for _, expires := range gps.sources {
+		if !expires.IsZero() && expires.After(now) {
+			return true
+		}
+	}
+	return false
+}
+
+// Groups returns a deterministic snapshot of router state on vid as of now, without
+// changing stored state. Expired sources and groups follow the same rules as Advance.
+func (l *Layer) Groups(vid vlan.ID, now time.Time) []Entry {
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.groups) == 0 {
 		return nil
 	}
 
-	entries := make([]Entry, 0, len(state.groups))
+	var entries []Entry
 	for key, gps := range state.groups {
+		if !groupPortActive(gps, now) {
+			continue
+		}
+		gps = cloneGroupPortState(gps)
+		ageGroupPortState(gps, now)
 		sources := make([]SourceEntry, 0, len(gps.sources))
 		for addr, expires := range gps.sources {
 			sources = append(sources, SourceEntry{Address: addr, Expires: expires})
@@ -394,15 +413,19 @@ func (l *Layer) Groups(vid vlan.ID) []Entry {
 	return entries
 }
 
-// RouterPorts returns a deterministic snapshot of static and learned router ports on vid.
-func (l *Layer) RouterPorts(vid vlan.ID) []RouterPort {
+// RouterPorts returns a deterministic snapshot of static and unexpired learned router
+// ports on vid as of now, without changing stored state.
+func (l *Layer) RouterPorts(vid vlan.ID, now time.Time) []RouterPort {
 	state, ok := l.byVLAN[vid]
 	if !ok || len(state.routers) == 0 {
 		return nil
 	}
 
-	entries := make([]RouterPort, 0, len(state.routers))
+	var entries []RouterPort
 	for name, router := range state.routers {
+		if router.lifetime != Static && !router.expires.After(now) {
+			continue
+		}
 		entries = append(entries, RouterPort{Port: name, Expires: router.expires, Origin: router.origin, Lifetime: router.lifetime})
 	}
 	slices.SortFunc(entries, func(a, b RouterPort) int {
@@ -446,6 +469,12 @@ func learnGroupRecord(now time.Time, portName string, kind recordKind, group net
 func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, startsOlderHost bool) {
 	key := groupKey{group: group, port: portName}
 	gps := state.groups[key]
+	if gps != nil {
+		ageGroupPortState(gps, now)
+		if gps.isEmptyInclude() {
+			gps = nil
+		}
+	}
 	if gps == nil {
 		gps = newGroupPortState()
 	}
