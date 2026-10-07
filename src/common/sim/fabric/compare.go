@@ -265,7 +265,7 @@ func diffFabricRuns(actions []Action, injFIDsA, injFIDsB []FrameID, journeysA, j
 		location := pair.location
 		if pair.current < 0 || pair.expected < 0 {
 			location.Field = "Journey"
-			return analysis.Difference{Observable: "multiplicity", Current: strconv.Itoa(pair.currentCount), Expected: strconv.Itoa(pair.expectedCount)}, location, true
+			return analysis.Difference{Observable: "multiplicity", Current: strconv.FormatBool(pair.current >= 0), Expected: strconv.FormatBool(pair.expected >= 0)}, location, true
 		}
 		if diff, field, found := diffJourney(journeysA[pair.current], journeysB[pair.expected]); found {
 			location.Field = field
