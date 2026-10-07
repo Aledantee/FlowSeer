@@ -1,7 +1,7 @@
 # Units in workers
 
 Load this before the first wave of two or more units, and for any plan for
-which `.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null`
+which `uv run tools/scripts/run.py plan record is <plan> parent!=null`
 succeeds. A plan whose state has no parent and whose units chain
 one after another, with no wave wider than one, does not need it.
 
@@ -14,12 +14,12 @@ role's `fit` order whose pool has room, whatever its CLI, else where its
 "Orca or native" section says; when that is this session, the units run
 one at a time here and the rest of this file does not apply. A wave wider
 than the cap runs in rounds, the cap recomputed before each. A phase plan,
-identified with `.claude/skills/plan/scripts/plan_record.py is <phase> parent!=null`, runs even a wave of
+identified with `uv run tools/scripts/run.py plan record is <phase> parent!=null`, runs even a wave of
 one in a worker, so a fresh context per unit keeps the
 coordinator's own context to the ledger. A plain plan runs a wave of one
 here.
 
-Run `ledger.py set <unit> in_progress` when the unit is dispatched, before
+Run `verify ledger set <unit> in_progress` when the unit is dispatched, before
 its branch is merged: `passed` counts the commits after the `HEAD` that
 call recorded, and a unit marked after its merge has none.
 
@@ -43,7 +43,7 @@ worker: run `git merge --abort`, `tell` the worker to rebase on the merged
 tree, then check and merge it again once it settles. The worker knows why
 each of its lines changed, and a conflict resolved here mixes its change
 with the coordinator's guesses. After the merge commit exists, run
-`python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD`.
+`uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD`.
 A non-zero result stops the wave. Carry every `missing` block in the report,
 then run the focused tests of the merged packages, and
 release the worker and remove its worktree as `delegate` describes. A
@@ -51,5 +51,5 @@ merged unit stays `in_progress` in the ledger: `passed` needs a
 `verified_at`, and only the verifier writes one. Once the wave has
 settled, run the verifier once on the union of the wave's changed paths,
 then write every unit of the wave `passed` with that run's `verified_at`
-and the merge commit. `ledger.py` recomputes `resume` for the next wave on
+and the merge commit. `verify ledger` recomputes `resume` for the next wave on
 that write.

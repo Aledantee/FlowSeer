@@ -1,6 +1,6 @@
 ---
 name: prose
-description: Writes or edits FlowSeer prose (Markdown docs, READMEs, plans, solutions, skills, commit and PR text, agent reports) so it follows docs/doc-style.md, and checks Markdown with check-prose.py. Use before writing or rewriting any document, when asked to clean up, de-slop, or tighten prose, or when verify-change reports a provenance finding. Not for code comments' placement rules (code-style.md) or schema contract phrasing (code-style-proto.md).
+description: Writes or edits FlowSeer prose (Markdown docs, READMEs, plans, solutions, skills, commit and PR text, agent reports) so it follows docs/doc-style.md, and checks Markdown with `verify check-prose`. Use before writing or rewriting any document, when asked to clean up, de-slop, or tighten prose, or when verify-change reports a provenance finding. Not for code comments' placement rules (code-style.md) or schema contract phrasing (code-style-proto.md).
 argument-hint: "[paths to check or rewrite]"
 ---
 
@@ -26,7 +26,7 @@ the mechanical ones.
 ## Check
 
 ```bash
-python3 .claude/skills/prose/scripts/check-prose.py <files.md>
+uv run tools/scripts/run.py verify check-prose <files.md>
 ```
 
 | Finding | Severity | Fix |
@@ -49,7 +49,7 @@ Only literal markers of an agent run fail:
   or `user-directed)`, or `User-directed.` as a sentence of its own
 - a run tool's transcript or session history, in the forms
   `per the <name> transcript`, `<name> transcript shows`, and
-  `<name> session history`, where `RUN_NAMES` in `scripts/check-prose.py`
+  `<name> session history`, where `RUN_NAMES` in `tools/scripts/verify/check_prose.py`
   lists the names (`claude`, `codex`, `worker`, …)
 
 Softer cues also occur in product prose, so they print as
@@ -57,7 +57,7 @@ Softer cues also occur in product prose, so they print as
 `the user chose X over Y`, `the review agent found`, and the
 `user-approved` and `user-confirmed` tags, which double as product state
 labels. Matching is per line, so a marker wrapped across two lines is not
-caught. `scripts/test_check_prose.py` holds a flagged case for every
+caught. `tools/scripts/tests/verify/test_check_prose.py` holds a flagged case for every
 marker and the product phrases that must pass. Add a case there when you
 change a marker.
 

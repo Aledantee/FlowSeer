@@ -36,7 +36,7 @@ run's log to `$TMPDIR/verify-u1.log` unsandboxed, then read
 `$TMPDIR/verify-u1.log` from a sandboxed command and got a file of that name
 left by an earlier session, whose last line read `FlowSeer verification
 passed.` The real run had failed. A lane was graded `--verify pass` on it
-before `ledger.py` refused the stale receipt. The step was followed as
+before `verify ledger` refused the stale receipt. The step was followed as
 written. `delegate`, Write the brief, already rules `$TMPDIR` out for briefs
 for the same reason.
 Suggested change: in both places, name the session scratchpad directory for

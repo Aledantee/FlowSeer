@@ -223,7 +223,7 @@ under `review-unit` and do not copy it into those roles.
 
 ## Cost figures
 
-For a comparable estimate, `field.py` applies the same formula to each
+For a comparable estimate, `tune field` applies the same formula to each
 transcript using the registry's prices per million tokens:
 
 ```text

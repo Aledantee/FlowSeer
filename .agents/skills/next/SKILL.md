@@ -12,10 +12,10 @@ chosen skill do the work.
 ## 1. List the open plans
 
 ```bash
-python3 .claude/skills/next/scripts/plan-queue.py
+uv run tools/scripts/run.py next plan-queue
 ```
 
-The script reads every plan's state file through `plan_record.py`, the
+The script reads every plan's state file through `plan record`, the
 units' `Files:` lines, the ledger of this worktree and of every other, and
 the unmerged branches that change a plan. Take the
 queue from its output, never from plans read
@@ -27,13 +27,13 @@ them:
 | `land` | implemented on this branch with an accepted review and a compound outcome, still on disk | `land`, or `drive` on the parent for a phase |
 | `in-progress` | partially implemented, named by this worktree's ledger, or an unblocked phase of a parent with landed phases | `implement` |
 | `unchecked` | implemented with a review verdict that is neither an accept nor `rework`, or implemented on this branch with no review or no compound outcome | `review` (from step 1, with step 6 for `fixes needed`), or `compound` |
-| `replan` | readiness `needs-decisions` with prerequisites finished, or an implemented plan whose review reads `rework` or that carries that readiness | `plan`, which ends with `plan_record.py ready` for a planned plan and `plan_record.py replan` for an implemented one, then `implement` |
+| `replan` | readiness `needs-decisions` with prerequisites finished, or an implemented plan whose review reads `rework` or that carries that readiness | `plan`, which ends with `plan record ready` for a planned plan and `plan record replan` for an implemented one, then `implement` |
 | `ready` | planned, implementation-ready, every prerequisite finished | `implement` |
 | `waiting` | a prerequisite phase is not finished: it has no landed range, or a range not on `main` while its review or compound outcome is open or one of its own prerequisites is not finished. The line names it | none yet |
 | `retire` | implemented, superseded, or abandoned on `main` and still on disk | `land/references/retire-plan.md`, or a `steer` sweep for several |
 
-`plan-queue.py` computes the group from the state files, the ledger, and the
-branches. `.claude/skills/plan/scripts/plan_record.py show <plan>` prints the
+`next plan-queue` computes the group from the state files, the ledger, and the
+branches. `uv run tools/scripts/run.py plan record show <plan>` prints the
 fields behind one line.
 
 The script also orders the lines, and that order is the one to take:
@@ -71,15 +71,15 @@ before recommending it:
   plan about the plan state file), do not recommend the candidate; name
   the branch and say the match is by name.
 - Read the plan's Goal and Open questions. Use
-  `.claude/skills/plan/scripts/plan_record.py show <plan>` to read its status
+  `uv run tools/scripts/run.py plan record show <plan>` to read its status
   and outcome. For `partially-implemented`, the outcome names the units that
   remain and why they stopped. A unit that stopped on a blocker (lab
   hardware, a decision, a three-round `blocked`) is not resumable by
   `implement`, so say what unblocks it instead.
-- The tree wins over the plan: use `.claude/skills/plan/scripts/plan_record.py show <plan>` and check that the first remaining unit's
+- The tree wins over the plan: use `uv run tools/scripts/run.py plan record show <plan>` and check that the first remaining unit's
   files are in the state the plan expects. Report a plan whose work landed
   under another plan as a mismatch, with the evidence. Resolve it with
-  `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by <path>`,
+  `uv run tools/scripts/run.py plan record supersede <plan> --by <path>`,
   not an implementation.
 
 ## 3. When no plan is open: read the goals
