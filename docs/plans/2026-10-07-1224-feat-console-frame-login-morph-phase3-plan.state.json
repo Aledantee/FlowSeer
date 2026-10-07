@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "compound: docs/solutions/conventions/a-layout-animation-needs-a-nonzero-source-box.md",
   "outcome": {
     "units": 4,
     "from": "2026-10-07T14:44:10Z",
