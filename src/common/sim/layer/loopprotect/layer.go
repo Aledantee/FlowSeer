@@ -328,9 +328,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 	return layer.Effects{Emissions: emissions}
 }
 
-// arm starts the probe cadence at the first call that reaches the layer, one
-// interval after now. Every method that takes the time calls it, so NextWake
-// reports a deadline whichever method set it.
+// arm starts the probe cadence one interval after the first Receive, Advance,
+// or LinkChange call that arms the layer.
 func (l *Layer) arm(now time.Time) {
 	if l.armed {
 		return
