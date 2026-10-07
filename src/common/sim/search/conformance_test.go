@@ -1,11 +1,14 @@
 package search_test
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -154,5 +157,31 @@ func TestConformanceSearchCoverageAccounting(t *testing.T) {
 	if len(resCurFirst.Differences) != len(resCandFirst.Differences) {
 		t.Errorf("Differences count mismatch: %d vs %d",
 			len(resCurFirst.Differences), len(resCandFirst.Differences))
+	}
+}
+
+func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
+	current, dst := buildSearchConformanceFabric(t, 10)
+	expected, _ := buildSearchConformanceFabric(t, 20)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	injection := fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 1}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("target")}}
+	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+	initial := fabric.Compare(current, expected, input.ToScenario(30), 30)
+	if initial.Disposition != analysis.Different {
+		t.Fatalf("initial disposition = %s, want Different", initial.Disposition)
+	}
+	result, err := search.Minimize(current, expected, input, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Minimality != search.Minimal || len(result.Candidate.Actions) != 1 || result.Candidate.Actions[0].Index != 1 {
+		t.Fatalf("minimization = %+v, want minimal original injection only", result)
+	}
+	if result.Candidate.Tuple != "h1: -> 02:00:00:00:00:02 etype:0x0800 payload:746172676574" {
+		t.Errorf("tuple = %q, want retained injection tuple", result.Candidate.Tuple)
+	}
+	replay := fabric.Compare(current, expected, result.Candidate.ToScenario(30), 30)
+	if replay.Disposition != analysis.Different || replay.Difference != initial.Difference || result.Difference != initial.Difference || !reflect.DeepEqual(replay.Location, initial.Location) || !reflect.DeepEqual(result.Target, initial.Location) {
+		t.Fatalf("replay = %s %+v %+v, result target %+v difference %+v, want initial target %+v difference %+v", replay.Disposition, replay.Location, replay.Difference, result.Target, result.Difference, initial.Location, initial.Difference)
 	}
 }
