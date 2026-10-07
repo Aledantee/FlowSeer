@@ -113,9 +113,11 @@ in place and centers the FlowSeer mark.
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
 the navigation links above the content.
 
-The sidebar, curved tab, and rounded inner corner share the top bar’s diagonal
-ribbons and fine highlights, forming one continuous navigation frame.
-The top bar blurs content scrolling beneath it. Both themes retain a tinted base
+The login page and console share one frosted glass surface over the shell's
+diagonal ribbons and fine highlights. It covers the sidebar, top bar, and page
+panel. The translucent page panel sits on that surface below the top bar,
+with solid cards and tables inside it (`src/navigation/AppFrame.vue`).
+The curved tab carries the same glass tint. Both themes retain a tinted base
 so controls remain readable when backdrop blur is unavailable.
 
 The FlowSeer icon and name sit at the top left of the sidebar. When multiple
@@ -187,7 +189,7 @@ short loading state on the button.
 - `src/navigation/AppFrame.vue` owns the persistent shell. Views fill its
   `frame-skip`, `frame-sidebar`, `frame-topbar`, and `frame-page` regions with
   Teleport. `src/navigation/frame.ts` exposes `useFrame()` so views can set
-  the sidebar mode, read the frame elements and top bar height, and move the
+  the sidebar mode, read the frame elements, and move the
   page panel when the sidebar collapses.
 - `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
 - `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
