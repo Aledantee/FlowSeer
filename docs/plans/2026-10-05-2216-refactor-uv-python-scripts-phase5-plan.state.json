@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-stage-done-test-must-fail-where-the-stage-applies.md",
   "outcome": {
     "units": 5,
     "from": "2026-10-07T10:49:44Z",

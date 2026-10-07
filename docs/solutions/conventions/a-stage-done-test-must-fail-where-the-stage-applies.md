@@ -1,6 +1,7 @@
 ---
 title: A Stage's Done Test Must Fail Wherever the Stage Applies, and Must Run Through the Wrapper That Polls It
 date: 2026-10-06
+last_verified: 2026-10-07
 category: conventions
 module: .agents/skills/drive
 problem_type: convention
@@ -17,7 +18,7 @@ tags: [skills, drive, state-machine, wait-condition, shell-quoting]
 
 `drive` picks its next stage from the files alone: it runs "the first that
 applies and whose 'done when' the files do not already show" and then waits
-on that stage's done test (`.agents/skills/drive/SKILL.md:52`, `:91-97`).
+on that stage's done test (`.agents/skills/drive/SKILL.md:53`, `:88-92`).
 That design has two silent failure modes. Both shipped with the move of plan
 state into `*-plan.state.json` files (2026-10-05, the plan, implement, drive,
 next, land, and review skills) and were fixed after it.
@@ -36,9 +37,9 @@ state.update(status="planned", review=None, review_rounds=0, compound=None, outc
 state["readiness"] = "needs-decisions" if args.needs_decisions else "implementation-ready"
 ```
 
-(`tools/scripts/skills/plan/record.py`, `cmd_replan`). The fix makes the
+(`tools/scripts/skills/plan/record.py:246`, `cmd_replan`). The fix makes the
 done test name the field the stage's worker changes, `status!=implemented`,
-beside the readiness (`.agents/skills/drive/SKILL.md:120-134`, commit `a1ce89ad`).
+beside the readiness (`.agents/skills/drive/SKILL.md:89`, commit `a1ce89ad`).
 
 ## The condition broke inside its own quotes
 
@@ -70,13 +71,13 @@ state, where the predicate returns 0 and the lane prints `done`.
 
 ## Evidence
 
-- `tools/scripts/skills/drive/plan_state.py`, `stage`, names the states the
+- `tools/scripts/skills/drive/plan_state.py:32`, `stage`, names the states the
   stage table must cover.
-- `tools/scripts/lib/plans.py`, `sent_back`, reads an implemented plan
+- `tools/scripts/lib/plans.py:340`, `sent_back`, reads an implemented plan
   with `rework` as owed a re-plan, with readiness untouched.
-- `tools/scripts/skills/drive/stage_done.py` reads the followed state and
+- `tools/scripts/skills/drive/stage_done.py:18` reads the followed state and
   requires both a non-implemented status and ready state for re-plan.
-- `tools/scripts/tests/skills/drive/test_stage_done.py` executes all four
+- `tools/scripts/tests/skills/drive/test_stage_done.py:96` executes all four
   documented wait predicates on pending and done states.
 - The old review condition under `bash -c '<test>'` failed with
   `unmatched '`. The corrected shell condition exited 0 on a plan whose
