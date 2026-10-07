@@ -237,10 +237,6 @@ html:has(.shell) {
   .main-shell {
     margin-left: 0;
   }
-
-  .sidebar-login #frame-topbar {
-    display: none;
-  }
 }
 
 .topbar {

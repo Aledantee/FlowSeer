@@ -5,8 +5,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { BRAND } from './brand'
 import AppIcon from './components/AppIcon.vue'
 import BrandMark from './components/BrandMark.vue'
-import LocaleSwitcher from './components/LocaleSwitcher.vue'
-import ThemeSwitcher from './components/ThemeSwitcher.vue'
 import { useFrame } from './navigation/frame'
 import { isWorkEmail, nextPath, signIn } from './session/session'
 import { UiButton, UiCard, UiField, UiInput, useMotionFeedback } from './ui'
@@ -115,13 +113,6 @@ async function submit() {
         </div>
       </div>
     </form>
-
-    <div
-      class="flex items-center gap-1 -mx-2 pb-3 max-[800px]:absolute max-[800px]:top-2.5 max-[800px]:right-3 max-[800px]:m-0 max-[800px]:p-0"
-    >
-      <ThemeSwitcher />
-      <LocaleSwitcher />
-    </div>
   </Teleport>
   <Teleport defer to="#frame-page">
     <main

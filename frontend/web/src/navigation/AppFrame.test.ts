@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref, Teleport } from 'vue'
 import type { Ref } from 'vue'
+import FleetView from '../FleetView.vue'
+import LoginView from '../LoginView.vue'
 import { useFrame } from './frame'
 import { mountInFrame } from './frameTesting'
 
@@ -20,7 +22,41 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-it('keeps four regions in one frame and clears teleported content on unmount', async () => {
+for (const mode of ['login', 'menu', 'collapsed'] as const)
+  it(`ends the top bar with one theme and language switch in ${mode} mode`, async () => {
+    let frame: ReturnType<typeof useFrame> | undefined
+    const child = defineComponent({
+      setup() {
+        frame = useFrame()
+        return () => h(mode === 'login' ? LoginView : FleetView)
+      },
+    })
+    const mounted = await mountInFrame(child, '/dashboard', [
+      { path: '/dashboard', component: child },
+    ])
+    dispose = mounted.dispose
+    if (!frame) throw new Error('Missing frame context')
+    frame.sidebar.value = mode
+    await nextTick()
+    const header = mounted.host.querySelector('header.topbar')
+    expect(header).not.toBeNull()
+    expect(header?.querySelectorAll('button.theme-switcher')).toHaveLength(1)
+    expect(header?.querySelectorAll('button.locale-switcher')).toHaveLength(1)
+    const buttons = [...(header?.querySelectorAll('button') ?? [])]
+    const theme = header?.querySelector('button.theme-switcher')
+    const locale = header?.querySelector('button.locale-switcher')
+    if (mode === 'login') expect(buttons).toEqual([theme, locale])
+    else
+      expect(buttons.slice(-3)).toEqual([
+        header?.querySelector('button.account-trigger'),
+        theme,
+        locale,
+      ])
+    expect(mounted.host.querySelector('aside .theme-switcher')).toBeNull()
+    expect(mounted.host.querySelector('aside .locale-switcher')).toBeNull()
+  })
+
+it('keeps five regions in one frame and clears teleported content on unmount', async () => {
   const visible = ref(true)
   const child = defineComponent({
     setup() {
@@ -28,12 +64,13 @@ it('keeps four regions in one frame and clears teleported content on unmount', a
       frame.sidebar.value = 'collapsed'
       return () =>
         visible.value
-          ? ['skip', 'sidebar', 'topbar', 'page'].map((region) =>
-              h(
-                Teleport,
-                { to: `#frame-${region}`, defer: true },
-                h('span', region),
-              ),
+          ? ['skip', 'sidebar', 'topbar', 'topbar-tools', 'page'].map(
+              (region) =>
+                h(
+                  Teleport,
+                  { to: `#frame-${region}`, defer: true },
+                  h('span', region),
+                ),
             )
           : null
     },
@@ -42,7 +79,7 @@ it('keeps four regions in one frame and clears teleported content on unmount', a
     { path: '/test', component: child },
   ])
   dispose = mounted.dispose
-  for (const region of ['skip', 'sidebar', 'topbar', 'page'])
+  for (const region of ['skip', 'sidebar', 'topbar', 'topbar-tools', 'page'])
     expect(
       mounted.host.querySelector(`#frame-${region} span`)?.textContent,
     ).toBe(region)
