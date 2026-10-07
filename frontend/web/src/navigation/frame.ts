@@ -3,6 +3,12 @@ import type { InjectionKey, Ref } from 'vue'
 
 export type SidebarMode = 'login' | 'menu' | 'collapsed'
 
+export const FRAME_MOVE_SECONDS = 0.16
+export const frameMove = {
+  duration: FRAME_MOVE_SECONDS,
+  ease: [0.2, 0, 0, 1] as [number, number, number, number],
+}
+
 export interface FrameContext {
   sidebar: Ref<SidebarMode>
   sidebarElement: Ref<HTMLElement | null>

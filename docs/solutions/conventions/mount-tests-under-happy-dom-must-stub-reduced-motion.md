@@ -107,7 +107,7 @@ from `performance.now()`
 (`FleetView.motion.test.ts:87`, `UiMotion.test.ts:22`,
 `UiMotion.reduced.test.ts:34`), because a leaked mocked clock freezes
 `performance.now()` for every later case in the file. A fixed wall-clock wait is
-not reliable: on a loaded host the 140 ms layout animation can finish before the
+not reliable: on a loaded host the 160 ms layout animation can finish before the
 test samples. Do not mock motion-v.
 
 ## Cancellation during teardown
