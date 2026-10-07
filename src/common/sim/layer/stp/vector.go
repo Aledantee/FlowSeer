@@ -7,6 +7,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 )
 
+func saturatingAdd(a, b uint32) uint32 {
+	if math.MaxUint32-a < b {
+		return math.MaxUint32
+	}
+	return a + b
+}
+
 // priorityVector is the six-component spanning tree priority vector IEEE
 // 802.1Q compares to elect roots and designated ports. An RSTP tree, and the
 // CIST on a boundary port, set regionalRootID from rootID and leave
@@ -60,10 +67,9 @@ func compareVectors(a, b priorityVector) int {
 // candidateVector builds the priority vector port p offers tree t towards
 // root election, from its received information and its own path cost. A CIST
 // port adds the cost to the external or the internal slot depending on
-// whether it is a boundary port; an MSTI port always adds it to the internal
+// whether it is a boundary port. An MSTI port always adds it to the internal
 // slot and mirrors rootID from regionalRootID, which is clause 13.11's MSTI
-// vector order (see priorityVector). external is the link record's boundary
-// classification of the port.
+// vector order (see priorityVector).
 func candidateVector(t *tree, p *portState, external bool) priorityVector {
 	cand := priorityVector{
 		rootID:   p.rcvRootID,
@@ -77,31 +83,18 @@ func candidateVector(t *tree, p *portState, external bool) priorityVector {
 		// region for this vector: it IS the CIST regional root here, not a
 		// name borrowed from the peer's region, so the regional root mirrors
 		// this tree's own bridge identifier and the internal cost stays zero.
-		cand.externalRootPathCost = addCost(p.rcvRootPathCost, p.pathCost)
+		cand.externalRootPathCost = saturatingAdd(p.rcvRootPathCost, p.pathCost)
 		cand.regionalRootID = t.bridgeID
 	case t.id == cistID:
 		cand.externalRootPathCost = p.rcvRootPathCost
 		cand.regionalRootID = p.rcvRegionalRootID
-		cand.internalRootPathCost = addCost(p.rcvInternalRootPathCost, p.pathCost)
+		cand.internalRootPathCost = saturatingAdd(p.rcvInternalRootPathCost, p.pathCost)
 	default:
 		cand.regionalRootID = p.rcvRootID
-		cand.internalRootPathCost = addCost(p.rcvRootPathCost, p.pathCost)
+		cand.internalRootPathCost = saturatingAdd(p.rcvRootPathCost, p.pathCost)
 	}
 
 	return cand
-}
-
-// addCost adds a port's path cost to a received root path cost. Costs have
-// four octets on the wire (IEEE Std 802.1Q-2003 14.2.4 and 14.2.5), which
-// say nothing of overflow, so a sum past the largest value stays there
-// rather than wrapping to a small one that would win the election.
-func addCost(received, own uint32) uint32 {
-	sum := received + own
-	if sum < received {
-		return math.MaxUint32
-	}
-
-	return sum
 }
 
 // rawVector builds the priority vector port p received, in the same shape as

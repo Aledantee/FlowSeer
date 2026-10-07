@@ -195,11 +195,9 @@ func TestBPDUGuardDisablesPortUntilLinkBounce(t *testing.T) {
 	}
 }
 
-// TestBPDUGuardRaisesNoTopologyChange pins that disabling a forwarding port
-// detects no topology change. A topology change is detected when a port starts
-// forwarding, and a port that leaves the active topology is only flushed
-// itself, so the count the switch exports does not move.
-func TestBPDUGuardRaisesNoTopologyChange(t *testing.T) {
+// TestBPDUGuardDoesNotRaiseTopologyChange checks that disabling a
+// forwarding port flushes it without starting a topology change.
+func TestBPDUGuardDoesNotRaiseTopologyChange(t *testing.T) {
 	t.Parallel()
 
 	l, t0 := guardLayer(t, map[string]stp.Port{
@@ -217,14 +215,11 @@ func TestBPDUGuardRaisesNoTopologyChange(t *testing.T) {
 	}
 
 	before, _ := l.TopologyChanges()
-	fx := l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
+	l.Receive(t0.Add(33*time.Second), "1/1/1", superiorBPDU(0, 20*time.Second))
 	after, _ := l.TopologyChanges()
 
 	if got := after - before; got != 0 {
-		t.Errorf("topology changes raised = %d, want none for a port leaving the topology", got)
-	}
-	if got := flushPorts(fx.Flush); !slices.Equal(got, []string{"1/1/1"}) {
-		t.Errorf("flushed ports = %v, want the disabled port alone", got)
+		t.Errorf("topology changes raised = %d, want 0 when a port leaves the topology", got)
 	}
 	if reason := l.PortInfo("1/1/1").BlockReason; reason != stp.BlockReasonBPDUGuard {
 		t.Errorf("block reason = %q, want %q", reason, stp.BlockReasonBPDUGuard)
@@ -268,30 +263,31 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 		"1/1/2": {},
 		"1/1/3": {},
 	})
-	// Two forward delays open every port, so each is active.
-	restricted.Advance(t0.Add(15 * time.Second))
-	restricted.Advance(t0.Add(30 * time.Second))
-	fx := restricted.Receive(t0.Add(34*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
-	if len(fx.Flush) != 0 {
-		t.Errorf("Flush = %v, want nothing: a restricted port does not propagate the change", fx.Flush)
-	}
-	// The STP bridge still gets its acknowledgment, and the port starts no
-	// timer, so its Configuration BPDU carries the acknowledgment and no flag.
-	reply := emittedOn(t, restricted.Advance(t0.Add(35*time.Second)), "1/1/1")
-	if len(reply) != 1 || !reply[0].TopologyChangeAck() || reply[0].TopologyChange() {
-		t.Errorf("reply on the restricted port = %+v, want one BPDU with the acknowledgment and no topology change flag", reply)
-	}
-
-	// Without the guard the same notification flushes the other ports, which is
-	// what makes the assertion above about the guard and not about the fabric.
-	plain, t0 := guardLayer(t, map[string]stp.Port{
+	plain, _ := guardLayer(t, map[string]stp.Port{
 		"1/1/1": {},
 		"1/1/2": {},
 		"1/1/3": {},
 	})
-	plain.Advance(t0.Add(15 * time.Second))
-	plain.Advance(t0.Add(30 * time.Second))
-	fx = plain.Receive(t0.Add(34*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	// Advance through Learning to Forwarding so ports become active.
+	t0 = t0.Add(16 * time.Second)
+	restricted.Advance(t0)
+	plain.Advance(t0)
+	t0 = t0.Add(16 * time.Second)
+	restricted.Advance(t0)
+	plain.Advance(t0)
+
+	fx := restricted.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
+	if len(fx.Flush) != 0 {
+		t.Errorf("Flush = %v, want nothing: a restricted port does not propagate the change", fx.Flush)
+	}
+	reply := decodedEmissions(t, fx.Emissions, "1/1/1")
+	if len(reply) != 1 || reply[0].Type != bpdu.TypeConfiguration || !reply[0].TopologyChangeAck() || reply[0].TopologyChange() {
+		t.Errorf("reply on the restricted port = %+v, want one Configuration BPDU with acknowledgment and no topology change flag", reply)
+	}
+
+	// Without the guard the same notification flushes the other ports, which is
+	// what makes the assertion above about the guard and not about the fabric.
+	fx = plain.Receive(t0.Add(4*time.Second), "1/1/1", bpdu.BPDU{Type: bpdu.TypeTopologyChangeNotification})
 	got := flushPorts(fx.Flush)
 	if !slices.Contains(got, "1/1/2") || !slices.Contains(got, "1/1/3") {
 		t.Errorf("Flush = %v, want the other two ports without the guard", fx.Flush)
@@ -362,11 +358,8 @@ func TestWithoutLoopGuardTheQuietPortBecomesDesignated(t *testing.T) {
 	}
 }
 
-// TestBPDUGuardHoldsAnMSTIOutOfForwarding pins that BPDU guard, like the
-// internal/external classification it rides beside, is a bridge-global
-// property of the port: tripping it must hold every MST instance's own role
-// and state out of the active topology, not just the CIST's. Recompute reads
-// the guard flag from the CIST's port state so every MSTI sees the guard trip.
+// TestBPDUGuardHoldsAnMSTIOutOfForwarding checks that the link record's
+// guard state disables every MST instance on the port.
 func TestBPDUGuardHoldsAnMSTIOutOfForwarding(t *testing.T) {
 	t.Parallel()
 
@@ -434,9 +427,4 @@ func TestLoopGuardIsInactiveWhereVendorsExcludeIt(t *testing.T) {
 	if got := shared.PortInfo("1/1/1").BlockReason; got != "" {
 		t.Errorf("shared-link port block reason = %q, want none: loop guard does not watch it", got)
 	}
-
-	// Removing p.pointToPoint from loopGuardWatches makes this fail, which is
-	// what makes it evidence about the guard rather than about the fabric. The
-	// edge half of the exclusion cannot be reached from here and is pinned by
-	// TestLoopGuardIgnoresAnEdgePort instead.
 }

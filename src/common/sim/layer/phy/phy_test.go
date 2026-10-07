@@ -52,6 +52,19 @@ func TestSpeedsResolvePerPort(t *testing.T) {
 		}
 	})
 
+	t.Run("fixed setting with observation of speed 0 resolves from setting", func(t *testing.T) {
+		e := phy.Ethernet{
+			SupportedSpeedsBPS: gigabitCapable,
+			Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
+			Observed:           &phy.Observed{SpeedBPS: 0, Duplex: phy.Full},
+		}
+		got := e.Resolve()
+		want := phy.Resolved{SpeedBPS: 100_000_000, Duplex: phy.Full, Source: phy.SourceSetting}
+		if got != want {
+			t.Errorf("Resolve() = %+v, want %+v", got, want)
+		}
+	})
+
 	t.Run("speed 2500 fails validation naming the port", func(t *testing.T) {
 		tbl := mustTable(t, port.Port{Name: "1/1/1", Kind: port.Physical})
 		cfg := phy.Config{Ethernet: map[string]phy.Ethernet{
@@ -99,7 +112,7 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		if pa := got.Ports["1/1/1"]; pa.Denial != phy.ReasonBudget || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
 			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, phy.ReasonBudget)
 		}
-		if g := got.Groups["1"]; g.BudgetNanowatts != 60_000_000_000 || g.AllocatedNanowatts != 60_000_000_000 || g.RemainderNanowatts != 0 {
+		if g := got.Groups["1"]; g.BudgetNanowatts != 60_000_000_000 || g.AllocatedNanowatts != 60_000_000_000 || g.RemainderMinNanowatts != 0 || g.RemainderMaxNanowatts != 0 {
 			t.Errorf("Groups[\"1\"] = %+v, want budget 60000, allocated 60000, remainder 0", g)
 		}
 	})
@@ -116,8 +129,8 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 				t.Errorf("Ports[%q] = %+v, want 30 W granted", name, pa)
 			}
 		}
-		if g := got.Groups["1"]; g.RemainderNanowatts != 0 {
-			t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 0", g.RemainderNanowatts)
+		if g := got.Groups["1"]; g.RemainderMinNanowatts != 0 || g.RemainderMaxNanowatts != 0 {
+			t.Errorf("Groups[\"1\"] remainders = (%d, %d), want (0, 0)", g.RemainderMinNanowatts, g.RemainderMaxNanowatts)
 		}
 	})
 
@@ -132,8 +145,8 @@ func TestPoeAllocationHonoursBudgetPriorityAndLimit(t *testing.T) {
 		if pa := got.Ports["1/1/1"]; pa.Denial != "limit" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
 			t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "limit")
 		}
-		if g := got.Groups["1"]; g.RemainderNanowatts != 60_000_000_000 {
-			t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 60000000000", g.RemainderNanowatts)
+		if g := got.Groups["1"]; g.RemainderMinNanowatts != 60_000_000_000 || g.RemainderMaxNanowatts != 60_000_000_000 {
+			t.Errorf("Groups[\"1\"] remainders = (%d, %d), want 60000000000", g.RemainderMinNanowatts, g.RemainderMaxNanowatts)
 		}
 	})
 
@@ -168,8 +181,8 @@ func TestClassAbovePortMaximum(t *testing.T) {
 	if pa := got.Ports["1/1/1"]; pa.Denial != "class-unsupported" || pa.MaxNanowatts != 0 || pa.State != phy.PowerDenied {
 		t.Errorf("Ports[\"1/1/1\"] = %+v, want denial %q", pa, "class-unsupported")
 	}
-	if g := got.Groups["1"]; g.RemainderNanowatts != 90_000_000_000 {
-		t.Errorf("Groups[\"1\"].RemainderNanowatts = %d, want 90000000000", g.RemainderNanowatts)
+	if g := got.Groups["1"]; g.RemainderMinNanowatts != 90_000_000_000 || g.RemainderMaxNanowatts != 90_000_000_000 {
+		t.Errorf("Groups[\"1\"] remainders = (%d, %d), want 90000000000", g.RemainderMinNanowatts, g.RemainderMaxNanowatts)
 	}
 }
 
@@ -215,6 +228,15 @@ func TestUnresolvedLinkDown(t *testing.T) {
 			t.Errorf("Resolve() = %+v, want zero speed with source %q", got, phy.SourceUnresolved)
 		}
 	})
+
+	t.Run("zero observation without a setting is unresolved", func(t *testing.T) {
+		e := phy.Ethernet{Observed: &phy.Observed{SpeedBPS: 0, Duplex: phy.Full}}
+		got := e.Resolve()
+		want := phy.Resolved{Source: phy.SourceUnresolved}
+		if got != want {
+			t.Errorf("Resolve() = %+v, want %+v", got, want)
+		}
+	})
 }
 
 func TestConfigResolve(t *testing.T) {
@@ -258,6 +280,13 @@ func TestValidate(t *testing.T) {
 		{
 			name:     "valid configuration",
 			cfg:      phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {SupportedSpeedsBPS: gigabitCapable}}, PoE: validPoE},
+			wantAttr: "",
+		},
+		{
+			name: "fixed speed with unreported supported speeds is accepted",
+			cfg: phy.Config{Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}},
+			}},
 			wantAttr: "",
 		},
 		{
@@ -488,7 +517,7 @@ func TestDiff(t *testing.T) {
 		}}
 
 		diffs := phy.Diff(a, b)
-		if got, want := len(diffs), 3; got != want {
+		if got, want := len(diffs), 2; got != want {
 			t.Fatalf("len(diffs) = %d, want %d", got, want)
 		}
 		if diffs[0].Field != "speed_bps" || diffs[0].From.TypeID() != "phy.speed_bps" || diffs[0].To.TypeID() != "phy.speed_bps" || diffs[0].From.Canonical() != "100000000" || diffs[0].To.Canonical() != "0" {
@@ -496,22 +525,6 @@ func TestDiff(t *testing.T) {
 		}
 		if diffs[1].Field != "auto_negotiation_enabled" || diffs[1].From.TypeID() != "phy.bool" || diffs[1].To.TypeID() != "phy.bool" || diffs[1].From.Canonical() != "false" || diffs[1].To.Canonical() != "true" {
 			t.Errorf("diffs[1] = %+v, want auto_negotiation_enabled false -> true", diffs[1])
-		}
-		if diffs[2].Field != "resolve_source" || diffs[2].From.TypeID() != "phy.string" || diffs[2].To.TypeID() != "phy.string" || diffs[2].From.Canonical() != "setting" || diffs[2].To.Canonical() != string(phy.SourceUnresolved) {
-			t.Errorf("diffs[2] = %+v, want resolve_source setting -> unresolved", diffs[2])
-		}
-	})
-
-	t.Run("present zero observation changes resolution source", func(t *testing.T) {
-		a := phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {}}}
-		b := phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": {Observed: &phy.Observed{}}}}
-
-		diffs := phy.Diff(a, b)
-		if len(diffs) != 1 {
-			t.Fatalf("len(Diff()) = %d, want 1: %+v", len(diffs), diffs)
-		}
-		if got := diffs[0]; got.Field != "resolve_source" || got.From.TypeID() != "phy.string" || got.To.TypeID() != "phy.string" || got.From.Canonical() != string(phy.SourceUnresolved) || got.To.Canonical() != string(phy.SourceObserved) {
-			t.Errorf("Diff()[0] = %+v, want resolve_source unresolved -> observed", got)
 		}
 	})
 
@@ -689,6 +702,25 @@ func TestNormalize(t *testing.T) {
 		}
 	})
 
+	t.Run("empty duplex defaults to Unknown in setting and observed", func(t *testing.T) {
+		raw := phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					Setting:  &phy.Setting{SpeedBPS: 1_000_000_000, AutoNegotiation: true},
+					Observed: &phy.Observed{SpeedBPS: 1_000_000_000},
+				},
+			},
+		}
+		norm := raw.Normalize(layer.Env{})
+		e := norm.Ethernet["1/1/1"]
+		if e.Setting.Duplex != phy.Unknown {
+			t.Errorf("Setting.Duplex = %q, want %q", e.Setting.Duplex, phy.Unknown)
+		}
+		if e.Observed.Duplex != phy.Unknown {
+			t.Errorf("Observed.Duplex = %q, want %q", e.Observed.Duplex, phy.Unknown)
+		}
+	})
+
 	t.Run("caller input immutability", func(t *testing.T) {
 		speeds := []uint64{1_000_000_000, 100_000_000}
 		raw := phy.Config{
@@ -802,13 +834,13 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 		}
 	})
 
-	t.Run("row 3: disabled and unknown yields PowerUnknown 0..0", func(t *testing.T) {
+	t.Run("row 3: disabled and unknown yields PowerDenied disabled 0..0", func(t *testing.T) {
 		cfg := phy.Config{PoE: &phy.PoE{
 			Groups: map[string]phy.Group{"1": {PowerNanowatts: 60_000_000_000}},
 			Ports:  map[string]phy.PsePort{"1/1/1": {Group: "1", Enabled: false, PD: phy.PDUnknown}},
 		}}
 		got := cfg.Allocate().Ports["1/1/1"]
-		want := phy.PortAllocation{State: phy.PowerUnknown, MinNanowatts: 0, MaxNanowatts: 0}
+		want := phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonDisabled, MinNanowatts: 0, MaxNanowatts: 0}
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
@@ -861,8 +893,8 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 		if got != want {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
-		if g := alloc.Groups["1"]; g.AllocatedNanowatts != 30_000_000_000 || g.RemainderNanowatts != 30_000_000_000 {
-			t.Errorf("Allocate() group = %+v, want allocated 30000 remainder 30000", g)
+		if g := alloc.Groups["1"]; g.AllocatedNanowatts != 30_000_000_000 || g.RemainderMinNanowatts != 30_000_000_000 || g.RemainderMaxNanowatts != 30_000_000_000 {
+			t.Errorf("Allocate() group = %+v, want allocated 30000 remainders (30000, 30000)", g)
 		}
 	})
 
@@ -917,6 +949,24 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 		}
 	})
 
+	t.Run("row 12: unknown device class power exceeding budget clamps to budget", func(t *testing.T) {
+		cfg := phy.Config{PoE: &phy.PoE{
+			Groups: map[string]phy.Group{"1": {PowerNanowatts: 20_000_000_000}},
+			Ports: map[string]phy.PsePort{
+				"1/1/1": {Group: "1", Enabled: true, MaxClass: 4, PD: phy.PDUnknown},
+			},
+		}}
+		alloc := cfg.Allocate()
+		got := alloc.Ports["1/1/1"]
+		want := phy.PortAllocation{State: phy.PowerUnknown, MinNanowatts: 0, MaxNanowatts: 20_000_000_000}
+		if got != want {
+			t.Errorf("Allocate() port = %+v, want %+v", got, want)
+		}
+		if g := alloc.Groups["1"]; g.RemainderMinNanowatts != 0 || g.RemainderMaxNanowatts != 20_000_000_000 {
+			t.Errorf("Allocate() group = %+v, want remMin 0, remMax 20W", g)
+		}
+	})
+
 	t.Run("acceptance example: 30W budget with critical unknown, low class 3, low class 1", func(t *testing.T) {
 		cfg := phy.Config{PoE: &phy.PoE{
 			Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
@@ -939,8 +989,8 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 		if p3.State != phy.PowerUnknown || p3.MinNanowatts != 0 || p3.MaxNanowatts != 4_000_000_000 {
 			t.Errorf("port 1/1/3 = %+v, want PowerUnknown 0..4000", p3)
 		}
-		if g := alloc.Groups["1"]; g.RemainderNanowatts != 30_000_000_000 || g.AllocatedNanowatts != 0 {
-			t.Errorf("group = %+v, want allocated 0 remainder 30000", g)
+		if g := alloc.Groups["1"]; g.RemainderMinNanowatts != 0 || g.RemainderMaxNanowatts != 30_000_000_000 || g.AllocatedNanowatts != 0 {
+			t.Errorf("group = %+v, want allocated 0 remainders (0, 30000)", g)
 		}
 	})
 
@@ -954,12 +1004,15 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 		}}
 		alloc := cfg.Allocate()
 		p1 := alloc.Ports["1/1/1"]
-		if p1.State != phy.PowerUnknown || p1.MinNanowatts != 0 || p1.MaxNanowatts != 30_000_000_000 {
-			t.Errorf("port 1/1/1 = %+v, want PowerUnknown 0..30000", p1)
+		if p1.State != phy.PowerUnknown || p1.MinNanowatts != 0 || p1.MaxNanowatts != 10_000_000_000 {
+			t.Errorf("port 1/1/1 = %+v, want PowerUnknown 0..10000", p1)
 		}
 		p2 := alloc.Ports["1/1/2"]
-		if p2.State != phy.PowerUnknown || p2.MinNanowatts != 0 || p2.MaxNanowatts != 30_000_000_000 {
-			t.Errorf("port 1/1/2 = %+v, want PowerUnknown 0..30000", p2)
+		if p2.State != phy.PowerUnknown || p2.MinNanowatts != 0 || p2.MaxNanowatts != 10_000_000_000 {
+			t.Errorf("port 1/1/2 = %+v, want PowerUnknown 0..10000", p2)
+		}
+		if g := alloc.Groups["1"]; g.RemainderMinNanowatts != 0 || g.RemainderMaxNanowatts != 10_000_000_000 {
+			t.Errorf("group = %+v, want remMin 0, remMax 10000", g)
 		}
 	})
 
@@ -1001,4 +1054,66 @@ func TestPoeAllocateTruthTable(t *testing.T) {
 			t.Errorf("Allocate() port = %+v, want %+v", got, want)
 		}
 	})
+}
+
+func TestUnknownDemandUsesRemainingMaximum(t *testing.T) {
+	tests := []struct {
+		name string
+		pd   phy.PDState
+	}{
+		{name: "attached device with unknown class", pd: phy.PDAttached},
+		{name: "unknown device state", pd: phy.PDUnknown},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := phy.Config{PoE: &phy.PoE{
+				Groups: map[string]phy.Group{"1": {PowerNanowatts: 50_000_000_000}},
+				Ports: map[string]phy.PsePort{
+					"1/1/1": {Group: "1", Priority: phy.PriorityCritical, Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
+					"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 4, PD: tc.pd},
+				},
+			}}
+			alloc := cfg.Allocate()
+			if got, want := alloc.Ports["1/1/1"], (phy.PortAllocation{State: phy.PowerDelivered, MinNanowatts: 30_000_000_000, MaxNanowatts: 30_000_000_000}); got != want {
+				t.Errorf("first port = %+v, want %+v", got, want)
+			}
+			if got, want := alloc.Ports["1/1/2"], (phy.PortAllocation{State: phy.PowerUnknown, MaxNanowatts: 20_000_000_000}); got != want {
+				t.Errorf("unknown demand = %+v, want %+v", got, want)
+			}
+			if got, want := alloc.Groups["1"], (phy.GroupAllocation{
+				BudgetNanowatts:       50_000_000_000,
+				AllocatedNanowatts:    30_000_000_000,
+				RemainderMinNanowatts: 0,
+				RemainderMaxNanowatts: 20_000_000_000,
+			}); got != want {
+				t.Errorf("group = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestDisabledUnknownDoesNotChargeBudget(t *testing.T) {
+	cfg := phy.Config{PoE: &phy.PoE{
+		Groups: map[string]phy.Group{"1": {PowerNanowatts: 30_000_000_000}},
+		Ports: map[string]phy.PsePort{
+			"1/1/1": {Group: "1", Priority: phy.PriorityCritical, Enabled: false, MaxClass: 4, PD: phy.PDUnknown},
+			"1/1/2": {Group: "1", Priority: phy.PriorityLow, Enabled: true, MaxClass: 4, PD: phy.PDAttached, PDClass: phy.Class(4)},
+		},
+	}}
+	alloc := cfg.Allocate()
+	if got, want := alloc.Ports["1/1/1"], (phy.PortAllocation{State: phy.PowerDenied, Denial: phy.ReasonDisabled}); got != want {
+		t.Errorf("disabled port = %+v, want %+v", got, want)
+	}
+	if got, want := alloc.Ports["1/1/2"], (phy.PortAllocation{State: phy.PowerDelivered, MinNanowatts: 30_000_000_000, MaxNanowatts: 30_000_000_000}); got != want {
+		t.Errorf("enabled port = %+v, want %+v", got, want)
+	}
+	if got, want := alloc.Groups["1"], (phy.GroupAllocation{
+		BudgetNanowatts:       30_000_000_000,
+		AllocatedNanowatts:    30_000_000_000,
+		RemainderMinNanowatts: 0,
+		RemainderMaxNanowatts: 0,
+	}); got != want {
+		t.Errorf("group = %+v, want %+v", got, want)
+	}
 }

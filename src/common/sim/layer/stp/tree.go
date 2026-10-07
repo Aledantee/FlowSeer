@@ -8,7 +8,7 @@ import (
 )
 
 // treeID identifies one spanning tree within the bridge. Rapid spanning tree
-// has a single tree, so CIST is the only value constructed; MSTP gives the
+// has a single tree, so CIST is the only value constructed. MSTP gives the
 // identifier the MSTID's range, and PVST the VLAN's. The two never share a
 // Layer, so the ranges cannot collide.
 type treeID uint16
@@ -19,7 +19,7 @@ type treeID uint16
 const cistID treeID = 0
 
 // tree holds the state one spanning tree computes over the bridge's ports: its
-// elected root, the timers and counters that belong to the computation, and the
+// elected root, topology-change count and last-change timestamp, and the
 // per-port role, state, and received information.
 //
 // The port identifier and the port key set are deliberately not here. Both are
@@ -35,7 +35,7 @@ type tree struct {
 	vid vlan.ID
 
 	// bridgeID is this bridge's identifier for the tree. Outside PVST mode
-	// the CIST's is the layer's own bridgeID; an MSTI can carry a different
+	// the CIST's is the layer's own bridgeID. An MSTI can carry a different
 	// one, and so can the CIST in PVST mode, where it carries VLAN 1 in the
 	// system-ID extension.
 	bridgeID bpdu.BridgeID
@@ -53,11 +53,6 @@ type tree struct {
 	regionalRootID       bpdu.BridgeID
 	internalRootPathCost uint32
 
-	helloTimer time.Time
-
-	// topologyChangeCount and lastTopologyChange record the topology changes
-	// this tree detected: a port that started forwarding. The timers that
-	// carry a change belong to the ports (portState.tcWhile).
 	topologyChangeCount uint64
 	lastTopologyChange  time.Time
 

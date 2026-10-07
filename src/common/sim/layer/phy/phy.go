@@ -40,9 +40,9 @@ func (c Config) Clone() Config {
 }
 
 // Normalize returns an independent copy of the configuration with standard defaults applied.
-// In the Ethernet configuration, supported speeds are sorted and deduplicated, and fixed settings
-// default Duplex to [Unknown] when unspecified. In the PoE configuration, unspecified port priority
-// defaults to [PriorityLow].
+// In the Ethernet configuration, supported speeds are sorted and deduplicated, and empty
+// duplex in every setting and observation defaults to [Unknown]. In the PoE configuration,
+// unspecified port priority defaults to [PriorityLow].
 func (c Config) Normalize(_ layer.Env) Config {
 	cp := Config{}
 	if c.Ethernet != nil {
@@ -53,10 +53,11 @@ func (c Config) Normalize(_ layer.Env) Config {
 				slices.Sort(e.SupportedSpeedsBPS)
 				e.SupportedSpeedsBPS = slices.Compact(e.SupportedSpeedsBPS)
 			}
-			if e.Setting != nil && !e.Setting.AutoNegotiation {
-				if e.Setting.Duplex == "" {
-					e.Setting.Duplex = Unknown
-				}
+			if e.Setting != nil && e.Setting.Duplex == "" {
+				e.Setting.Duplex = Unknown
+			}
+			if e.Observed != nil && e.Observed.Duplex == "" {
+				e.Observed.Duplex = Unknown
 			}
 			cp.Ethernet[name] = e
 		}

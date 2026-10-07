@@ -10,6 +10,28 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 )
 
+var capLACPFixture = []byte{
+	0x01, 0x80, 0xc2, 0x00, 0x00, 0x02, 0x00, 0x04, 0x96, 0x1f, 0x50, 0x6a, 0x88, 0x09, 0x01, 0x01,
+	0x01, 0x14, 0x91, 0xf4, 0x00, 0x04, 0x96, 0x1f, 0x50, 0x6a, 0x80, 0x00, 0x00, 0x00, 0x00, 0x12,
+	0x47, 0x00, 0x00, 0x00, 0x02, 0x14, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x3b, 0x00, 0x00, 0x00, 0x03, 0x10, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+}
+
+var secondLACPFixture = []byte{
+	0x01, 0x80, 0xc2, 0x00, 0x00, 0x02, 0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x88, 0x09, 0x01, 0x01,
+	0x01, 0x14, 0x12, 0x34, 0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0x11, 0x11, 0x22, 0x22, 0x33, 0x33,
+	0x44, 0x01, 0x02, 0x03, 0x02, 0x14, 0xab, 0xcd, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x45, 0x67,
+	0x56, 0x78, 0x67, 0x89, 0x9a, 0x0a, 0x0b, 0x0c, 0x03, 0x10, 0x0d, 0x0e, 0x0f, 0x10, 0x11, 0x12,
+	0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x04, 0x06, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
+	0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
+	0xb6, 0xb7, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5,
+	0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0, 0xd1,
+}
+
 func TestEncodeDecodeRoundTrip(t *testing.T) {
 	actor := lacp.Info{
 		SystemPriority: 32768,
@@ -98,20 +120,157 @@ func TestEncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
-func TestDecodeRefusals(t *testing.T) {
-	validFrame := lacp.Encode(lacp.PDU{
+func TestDecodeCAPFixtureAndEncodeOffsets(t *testing.T) {
+	frame := decodeFixture(t, capLACPFixture)
+	want := lacp.PDU{
 		Actor: lacp.Info{
-			SystemPriority: 32768,
-			SystemID:       netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a},
-			Key:            1,
-			PortPriority:   32768,
-			PortID:         1,
-			State:          lacp.StateActive | lacp.StateShortTimeout | lacp.StateAggregation,
+			SystemPriority: 0x91f4,
+			SystemID:       netaddr.MAC{0x00, 0x04, 0x96, 0x1f, 0x50, 0x6a},
+			Key:            0x8000,
+			PortID:         0x0012,
+			State:          0x47,
+		},
+		Partner:           lacp.Info{State: 0x3b},
+		CollectorMaxDelay: 2,
+	}
+
+	decoded, err := lacp.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode(CAP) failed: %v", err)
+	}
+	if decoded != want {
+		t.Fatalf("Decode(CAP) = %+v, want %+v", decoded, want)
+	}
+
+	encoded := lacp.Encode(decoded, frame.Src)
+	if !bytes.Equal(encoded.Payload, capLACPFixture[14:]) {
+		t.Fatalf("Encode(CAP) payload = %x, want fixture payload %x", encoded.Payload, capLACPFixture[14:])
+	}
+}
+
+func TestDecodeSecondFixtureAndEncodeOffsets(t *testing.T) {
+	frame := decodeFixture(t, secondLACPFixture)
+	want := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 0x1234,
+			SystemID:       netaddr.MAC{0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+			Key:            0x1111,
+			PortPriority:   0x2222,
+			PortID:         0x3333,
+			State:          0x44,
 		},
 		Partner: lacp.Info{
-			State: lacp.StateDefaulted,
+			SystemPriority: 0xabcd,
+			SystemID:       netaddr.MAC{0x10, 0x20, 0x30, 0x40, 0x50, 0x60},
+			Key:            0x4567,
+			PortPriority:   0x5678,
+			PortID:         0x6789,
+			State:          0x9a,
 		},
-	}, netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01})
+		CollectorMaxDelay: 0x0d0e,
+	}
+
+	decoded, err := lacp.Decode(frame)
+	if err != nil {
+		t.Fatalf("Decode(second fixture) failed: %v", err)
+	}
+	if decoded != want {
+		t.Fatalf("Decode(second fixture) = %+v, want %+v", decoded, want)
+	}
+
+	encoded := lacp.Encode(decoded, frame.Src)
+	fields := []struct {
+		name   string
+		offset int
+		length int
+	}{
+		{name: "actor system priority", offset: 4, length: 2},
+		{name: "actor system", offset: 6, length: 6},
+		{name: "actor key", offset: 12, length: 2},
+		{name: "actor port priority", offset: 14, length: 2},
+		{name: "actor port", offset: 16, length: 2},
+		{name: "actor state", offset: 18, length: 1},
+		{name: "partner system priority", offset: 24, length: 2},
+		{name: "partner system", offset: 26, length: 6},
+		{name: "partner key", offset: 32, length: 2},
+		{name: "partner port priority", offset: 34, length: 2},
+		{name: "partner port", offset: 36, length: 2},
+		{name: "partner state", offset: 38, length: 1},
+		{name: "collector max delay", offset: 44, length: 2},
+	}
+	for _, field := range fields {
+		if !bytes.Equal(encoded.Payload[field.offset:field.offset+field.length], secondLACPFixture[14+field.offset:14+field.offset+field.length]) {
+			t.Errorf("encoded %s at payload[%d:%d] = %x, want fixture %x", field.name, field.offset, field.offset+field.length, encoded.Payload[field.offset:field.offset+field.length], secondLACPFixture[14+field.offset:14+field.offset+field.length])
+		}
+	}
+}
+
+func TestDecodeAcceptsVersionTwoAndAdditionalTLV(t *testing.T) {
+	tests := []struct {
+		name   string
+		modify func([]byte)
+	}{
+		{
+			name: "version 2",
+			modify: func(wire []byte) {
+				wire[15] = 2
+			},
+		},
+		{
+			name: "actor TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[16] = 0x07
+			},
+		},
+		{
+			name: "partner TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[36] = 0x07
+			},
+		},
+		{
+			name: "collector TLV type 0x07",
+			modify: func(wire []byte) {
+				wire[56] = 0x07
+			},
+		},
+		{
+			name: "later TLV type 0x04 length 0x06",
+			modify: func(wire []byte) {
+				wire[72] = 0x04
+				wire[73] = 0x06
+			},
+		},
+	}
+	want := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 0x91f4,
+			SystemID:       netaddr.MAC{0x00, 0x04, 0x96, 0x1f, 0x50, 0x6a},
+			Key:            0x8000,
+			PortID:         0x0012,
+			State:          0x47,
+		},
+		Partner:           lacp.Info{State: 0x3b},
+		CollectorMaxDelay: 2,
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			wire := bytes.Clone(capLACPFixture)
+			tc.modify(wire)
+			got, err := lacp.Decode(decodeFixture(t, wire))
+			if err != nil {
+				t.Fatalf("Decode(modified CAP fixture) failed: %v", err)
+			}
+			if got != want {
+				t.Fatalf("Decode(modified CAP fixture) = %+v, want %+v", got, want)
+			}
+		})
+	}
+}
+
+func TestDecodeRefusals(t *testing.T) {
+	validFrame := decodeFixture(t, capLACPFixture)
 
 	tests := []struct {
 		name   string
@@ -133,28 +292,17 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
-			name: "subtype 2",
+			name: "empty payload",
 			modify: func(f ethernet.Frame) ethernet.Frame {
-				p := bytes.Clone(f.Payload)
-				p[0] = 2
-				f.Payload = p
+				f.Payload = nil
 				return f
 			},
 		},
 		{
-			name: "version 2",
+			name: "subtype 0x02",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
-				p[1] = 2
-				f.Payload = p
-				return f
-			},
-		},
-		{
-			name: "actor TLV type 2",
-			modify: func(f ethernet.Frame) ethernet.Frame {
-				p := bytes.Clone(f.Payload)
-				p[2] = 2
+				p[0] = lacp.SubtypeMarker
 				f.Payload = p
 				return f
 			},
@@ -169,10 +317,10 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
-			name: "partner TLV type 1",
+			name: "actor TLV length 21",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
-				p[22] = 1
+				p[3] = 21
 				f.Payload = p
 				return f
 			},
@@ -187,10 +335,10 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
-			name: "collector TLV type 4",
+			name: "partner TLV length 21",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
-				p[42] = 4
+				p[23] = 21
 				f.Payload = p
 				return f
 			},
@@ -205,19 +353,10 @@ func TestDecodeRefusals(t *testing.T) {
 			},
 		},
 		{
-			name: "terminator TLV type 1",
+			name: "collector TLV length 17",
 			modify: func(f ethernet.Frame) ethernet.Frame {
 				p := bytes.Clone(f.Payload)
-				p[58] = 1
-				f.Payload = p
-				return f
-			},
-		},
-		{
-			name: "terminator TLV length 1",
-			modify: func(f ethernet.Frame) ethernet.Frame {
-				p := bytes.Clone(f.Payload)
-				p[59] = 1
+				p[43] = 17
 				f.Payload = p
 				return f
 			},
@@ -236,4 +375,14 @@ func TestDecodeRefusals(t *testing.T) {
 			}
 		})
 	}
+}
+
+func decodeFixture(t *testing.T, wire []byte) ethernet.Frame {
+	t.Helper()
+
+	frame, err := ethernet.Decode(bytes.Clone(wire))
+	if err != nil {
+		t.Fatalf("ethernet.Decode(fixture) failed: %v", err)
+	}
+	return frame
 }

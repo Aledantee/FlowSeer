@@ -60,6 +60,10 @@ func hashTCP(basis uint32, f ethernet.Frame) uint32 {
 }
 
 func inspectTCPHashInput(f ethernet.Frame) tcpHashInput {
+	if f.EtherType != ethernet.EtherTypeIPv4 && f.EtherType != ethernet.EtherTypeIPv6 {
+		return tcpHashInput{}
+	}
+
 	hdr, payload, err := ip.Decode(f.Payload)
 	if err != nil {
 		return tcpHashInput{}

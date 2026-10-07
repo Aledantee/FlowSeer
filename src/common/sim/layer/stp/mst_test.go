@@ -365,11 +365,8 @@ func TestMSTValidateRejectsTheDigestCollisionVLAN(t *testing.T) {
 	}
 }
 
-// TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries guards the seam
-// between the region configuration and the wire: an MST BPDU carries at most
-// 64 MSTI Configuration Messages (IEEE 802.1Q-2003 13.14), so a region that
-// validates must not be able to reach a larger count. 64 instances validate
-// and 65 do not, the one property that differs.
+// TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries checks the
+// bpdu.MaxMSTIRecords boundary used by MST.Validate.
 func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	t.Parallel()
 
@@ -378,24 +375,26 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 		t.Fatalf("port.Builder.Build: %v", err)
 	}
 
-	region := func(n int) stp.MST {
-		instances := make(map[bpdu.MSTID]stp.Instance, n)
-		for id := bpdu.MSTID(1); int(id) <= n; id++ {
-			instances[id] = stp.Instance{Priority: 4096}
-		}
-		return stp.MST{Name: "region-1", Instances: instances}
+	// An MSTID remains valid past the record count limit, so the 65th
+	// instance exercises the count check.
+	instances := make(map[bpdu.MSTID]stp.Instance, 65)
+	for id := bpdu.MSTID(1); id <= 65; id++ {
+		instances[id] = stp.Instance{Priority: 4096}
 	}
 
-	if err := region(64).Validate(tbl, nil); err != nil {
-		t.Errorf("Validate() with 64 instances = %v, want nil", err)
-	}
-
-	err = region(65).Validate(tbl, nil)
+	m := stp.MST{Name: "region-1", Instances: instances}
+	err = m.Validate(tbl, nil)
 	if err == nil {
-		t.Fatal("Validate() with 65 instances = nil, want rejection of a region no BPDU can carry")
+		t.Fatal("Validate() = nil, want rejection of a region no BPDU can carry")
 	}
+
 	if got := errs.Attributes(err)["field"]; got != "mst.instances" {
 		t.Errorf("field = %v, want mst.instances", got)
+	}
+
+	delete(instances, 65)
+	if err := m.Validate(tbl, nil); err != nil {
+		t.Errorf("Validate() with 64 instances = %v, want acceptance", err)
 	}
 }
 

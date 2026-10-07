@@ -273,7 +273,8 @@ func TestDiff(t *testing.T) {
 			"lag1": {
 				Mode: lag.ActiveBackup,
 				Members: map[string]lag.Member{
-					"1/1/1": {Priority: 32768},
+					"1/1/1": {Priority: 32768, Key: 1},
+					"1/1/2": {Priority: 32768},
 				},
 			},
 		},
@@ -284,7 +285,8 @@ func TestDiff(t *testing.T) {
 			"lag1": {
 				Mode: lag.BalanceTCP,
 				Members: map[string]lag.Member{
-					"1/1/1": {Priority: 100},
+					"1/1/1": {Priority: 100, Key: 2},
+					"1/1/3": {Priority: 100},
 				},
 			},
 		},
@@ -307,7 +309,7 @@ func TestDiff(t *testing.T) {
 	}
 
 	memberKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/1")
-	from, to, ok := findChange("port", memberKey, "priority")
+	from, to, ok := findChange("lag_member", memberKey, "priority")
 	fromFact, okFrom := from.(trace.Fact)
 	toFact, okTo := to.(trace.Fact)
 	if !ok || !okFrom || !okTo || fromFact.Canonical() != strconv.Itoa(32768) || toFact.Canonical() != "100" {
@@ -315,6 +317,20 @@ func TestDiff(t *testing.T) {
 	}
 	if fromFact.TypeID() != "lag.port_priority" || toFact.TypeID() != "lag.port_priority" {
 		t.Errorf("priority change fact types = (%q, %q), want lag.port_priority", fromFact.TypeID(), toFact.TypeID())
+	}
+	from, to, ok = findChange("lag_member", memberKey, "key")
+	fromFact, okFrom = from.(trace.Fact)
+	toFact, okTo = to.(trace.Fact)
+	if !ok || !okFrom || !okTo || fromFact.Canonical() != "1" || toFact.Canonical() != "2" {
+		t.Errorf("key change: got (%v, %v, %v), want (1, 2, true)", from, to, ok)
+	}
+	removedKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/2")
+	if from, to, ok := findChange("lag_member", removedKey, ""); !ok || from != (lag.Member{Priority: 32768}) || to != nil {
+		t.Errorf("member removal: got (%v, %v, %v), want (%v, nil, true)", from, to, ok, lag.Member{Priority: 32768})
+	}
+	addedKey := strconv.Quote("lag1") + "/" + strconv.Quote("1/1/3")
+	if from, to, ok := findChange("lag_member", addedKey, ""); !ok || from != nil || to != (lag.Member{Priority: 100}) {
+		t.Errorf("member addition: got (%v, %v, %v), want (nil, %v, true)", from, to, ok, lag.Member{Priority: 100})
 	}
 }
 

@@ -20,19 +20,25 @@ func GroupAddressSSTP() netaddr.MAC {
 }
 
 const (
-	// sstpPayloadLength is the fixed SSTP payload length in octets: the
-	// 3-octet LLC header, the 5-octet SNAP header (OUI and PID), the
-	// 36-octet RST BPDU body, and the 6-octet originating-VLAN TLV.
-	sstpPayloadLength = 50
+	// sstpConfigurationPayloadLength is the fixed SSTP Configuration payload
+	// length in octets: the LLC/SNAP header, the 36-octet RST-layout body, and
+	// the 6-octet originating-VLAN TLV.
+	sstpConfigurationPayloadLength = 50
+
+	// sstpTCNLength is the length carried by the 802.3 field for an SSTP TCN:
+	// the LLC/SNAP header plus its four-octet BPDU body.
+	sstpTCNLength = 12
 
 	// sstpSNAPPID is the SNAP protocol identifier Cisco assigns to SSTP.
 	sstpSNAPPID = 0x010B
 )
 
 // EncodeSSTP serializes b into an SSTP (Cisco Per-VLAN Spanning Tree Plus)
-// BPDU: an IEEE 802.1D-2004 clause 9.3.3 RST BPDU carried in LLC/SNAP framing
-// addressed to [GroupAddressSSTP], with vid appended as a trailing
-// originating-VLAN TLV. The 50-octet payload is laid out as:
+// BPDU carried in LLC/SNAP framing addressed to [GroupAddressSSTP].
+// Configuration and RST BPDUs use the 50-octet payload layout with vid appended
+// as a trailing originating-VLAN TLV. A TCN uses the 12-octet LLC/SNAP and BPDU
+// prefix and is padded to the 802.3 minimum. The Configuration and RST layout
+// is:
 //   - octets 0-2: the LLC header AA AA 03
 //   - octets 3-5: the SNAP OUI 00-00-0C
 //   - octets 6-7: the SNAP PID 0x010B
@@ -41,30 +47,56 @@ const (
 //     four times)
 //   - octets 44-49: the TLV (type 0x0000, length 0x0002, vid)
 //
-// EncodeSSTP forces wire type 0x02 and a version of at least 2, matching the
-// RST shape [Encode] writes for the plain IEEE frame, and refuses a b whose
-// ConfigID is non-nil: an MST BPDU has no SSTP form. The frame is not padded
-// to the 802.3 minimum; 50 octets of payload plus the 14-octet Ethernet
-// header already reaches 64.
+// Configuration BPDUs use version 0, wire type 0x00, and only the topology
+// change and acknowledgment flags. RST BPDUs use wire type 0x02 and a version
+// of at least 2 and clear bit 7 of the flags (bit 8 in IEEE 802.1Q-2003
+// clause 14.6 g)). This codec models TCN BPDUs with version 0 and wire
+// type 0x80 without a TLV. The vendor TCN layout is unverified.
+// EncodeSSTP refuses a b whose ConfigID is non-nil: an MST BPDU has no SSTP
+// form.
 func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 	if b.ConfigID != nil {
 		return ethernet.Frame{}, errs.From(ErrUnsupported).
 			Msg("SSTP has no MST form: b.ConfigID must be nil")
 	}
 
-	payload := make([]byte, sstpPayloadLength)
+	if b.Type == TypeTopologyChangeNotification {
+		payload := make([]byte, minDataLength)
+		payload[0], payload[1], payload[2] = 0xAA, 0xAA, 0x03
+		payload[3], payload[4], payload[5] = 0x00, 0x00, 0x0C
+		binary.BigEndian.PutUint16(payload[6:8], sstpSNAPPID)
+		binary.BigEndian.PutUint16(payload[8:10], 0x0000)
+		payload[10] = 0
+		payload[11] = bpduTypeWireTCN
+
+		return ethernet.Frame{
+			Dst:       sstpGroupAddress,
+			Src:       src,
+			EtherType: ethernet.EtherType(sstpTCNLength),
+			Payload:   payload,
+		}, nil
+	}
+
+	payload := make([]byte, sstpConfigurationPayloadLength)
 	payload[0], payload[1], payload[2] = 0xAA, 0xAA, 0x03
 	payload[3], payload[4], payload[5] = 0x00, 0x00, 0x0C
 	binary.BigEndian.PutUint16(payload[6:8], sstpSNAPPID)
 
 	binary.BigEndian.PutUint16(payload[8:10], 0x0000)
-	version := b.Version
-	if version < 2 {
-		version = 2
+
+	if b.Type == TypeConfiguration {
+		payload[10] = 0
+		payload[11] = bpduTypeWireConfig
+		payload[12] = b.Flags & (flagTopologyChange | flagTopologyChangeAck)
+	} else {
+		version := b.Version
+		if version < 2 {
+			version = 2
+		}
+		payload[10] = version
+		payload[11] = bpduTypeWireRST
+		payload[12] = b.Flags &^ flagTopologyChangeAck
 	}
-	payload[10] = version
-	payload[11] = bpduTypeWireRST
-	payload[12] = b.Flags
 
 	// putBody writes the RST body fields (root id through forward delay)
 	// starting at relative offset 8 of the slice it is given. Slicing this
@@ -81,22 +113,23 @@ func EncodeSSTP(b BPDU, vid vlan.ID, src netaddr.MAC) (ethernet.Frame, error) {
 	return ethernet.Frame{
 		Dst:       sstpGroupAddress,
 		Src:       src,
-		EtherType: ethernet.EtherType(sstpPayloadLength),
+		EtherType: ethernet.EtherType(sstpConfigurationPayloadLength),
 		Payload:   payload,
 	}, nil
 }
 
 // DecodeSSTP deserializes an SSTP BPDU from the payload of an Ethernet
-// frame, the inverse of [EncodeSSTP]. It rejects, wrapping [ErrUnsupported]:
-// a payload shorter than 50 octets; an LLC header other than AA AA 03; an
-// SNAP OUI other than 00-00-0C; an SNAP PID other than 0x010B; a protocol
-// identifier other than 0; a version below 2; a wire type other than 0x02;
-// a TLV type other than 0; and a TLV length other than 2.
+// frame, the inverse of [EncodeSSTP]. It accepts Configuration and RST shapes
+// with their 50-octet layout, and TCN shapes with at least 12 octets. It
+// rejects, wrapping [ErrUnsupported], malformed LLC/SNAP headers, a protocol
+// identifier other than 0, a version below 2 on the RST shape, unsupported
+// wire types, and malformed Configuration or RST TLVs. Configuration flags
+// retain only bits 0 and 7. RST flags have bit 7 cleared, as in [Decode].
 func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
-	if len(f.Payload) < sstpPayloadLength {
+	if len(f.Payload) < sstpTCNLength {
 		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("have", len(f.Payload)).
-			Attr("min", sstpPayloadLength).
+			Attr("min", sstpTCNLength).
 			Msgf("SSTP BPDU payload length %d is too short", len(f.Payload))
 	}
 
@@ -127,17 +160,31 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	}
 
 	version := f.Payload[10]
-	if version < 2 {
+	wireType := f.Payload[11]
+	if wireType == bpduTypeWireTCN {
+		return BPDU{
+			Version: version,
+			Type:    TypeTopologyChangeNotification,
+		}, 0, nil
+	}
+
+	if wireType != bpduTypeWireConfig && wireType != bpduTypeWireRST {
+		return BPDU{}, 0, errs.From(ErrUnsupported).
+			Attr("type", wireType).
+			Msgf("unsupported SSTP BPDU type %d", wireType)
+	}
+
+	if len(f.Payload) < sstpConfigurationPayloadLength {
+		return BPDU{}, 0, errs.From(ErrUnsupported).
+			Attr("have", len(f.Payload)).
+			Attr("min", sstpConfigurationPayloadLength).
+			Msgf("SSTP BPDU payload length %d is too short", len(f.Payload))
+	}
+
+	if wireType == bpduTypeWireRST && version < 2 {
 		return BPDU{}, 0, errs.From(ErrUnsupported).
 			Attr("version", version).
 			Msgf("unsupported SSTP BPDU version %d, want at least 2", version)
-	}
-
-	wireType := f.Payload[11]
-	if wireType != bpduTypeWireRST {
-		return BPDU{}, 0, errs.From(ErrUnsupported).
-			Attr("type", wireType).
-			Msgf("unsupported SSTP BPDU type %d, want 2", wireType)
 	}
 
 	tlvType := binary.BigEndian.Uint16(f.Payload[44:46])
@@ -157,7 +204,11 @@ func DecodeSSTP(f ethernet.Frame) (BPDU, vlan.ID, error) {
 	b := readBody(f.Payload[5:])
 	b.Version = version
 	b.Type = TypeRapid
-	b.Flags = f.Payload[12]
+	b.Flags = f.Payload[12] &^ flagTopologyChangeAck
+	if wireType == bpduTypeWireConfig {
+		b.Type = TypeConfiguration
+		b.Flags = f.Payload[12] & (flagTopologyChange | flagTopologyChangeAck)
+	}
 
 	vid := vlan.ID(binary.BigEndian.Uint16(f.Payload[48:50]))
 

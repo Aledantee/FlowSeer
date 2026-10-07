@@ -580,11 +580,20 @@ func TestLACPConvergence(t *testing.T) {
 			},
 		}
 	}
+	lagMinLinksCfg := func() *lag.Config {
+		cfg := lagCfg()
+		lagConfig := cfg.LAGs["lag1"].Clone()
+		lagConfig.MinLinks = 2
+		cfg.LAGs["lag1"] = lagConfig
 
-	fab, _, _ := newLagTopology(t, t0, lagCfg(), lagCfg())
+		return cfg
+	}
 
-	// Run fabric to t0 + 3s.
-	target := t0.Add(3 * time.Second)
+	fab, _, _ := newLagTopology(t, t0, lagMinLinksCfg(), lagMinLinksCfg())
+
+	// Run fabric to t0 + 5s so both ends pass the aggregate wait and exchange
+	// synchronized actor state with MinLinks=2.
+	target := t0.Add(5 * time.Second)
 	for {
 		snap := fab.Snapshot()
 		if targetSettled(snap, target) {
@@ -612,6 +621,9 @@ func TestLACPConvergence(t *testing.T) {
 	swA := fab.Switch("A")
 	swB := fab.Switch("B")
 	infoA1 := swA.MemberInfo("1/1/1")
+	if infoA1.Status != lag.Current || infoA1.Actor.State != 0x3f {
+		t.Errorf("A:1/1/1 = %+v, want Current with actor state 0x3f", infoA1)
+	}
 	if !infoA1.Attached {
 		t.Errorf("A:1/1/1 Attached = false, want true")
 	}
@@ -691,14 +703,14 @@ func TestFallback(t *testing.T) {
 		Payload: []byte("fallback-test"),
 	}
 
-	// Case with Fallback true: at t0+6s h1's frames cross A:1/1/1.
+	// A slow LAG without a partner defaults at 3s, then waits two seconds before
+	// using one fallback member.
 	lagAFallback := &lag.Config{
 		LAGs: map[string]lag.LAG{
 			"lag1": {
 				Mode: lag.ActiveBackup,
 				LACP: lag.LACPConfig{
 					Mode:     lag.Active,
-					Fast:     true,
 					Fallback: true,
 				},
 			},
@@ -706,7 +718,7 @@ func TestFallback(t *testing.T) {
 	}
 	fabWithFallback, _, _ := newLagTopology(t, t0, lagAFallback, nil)
 
-	targetWith := t0.Add(6 * time.Second)
+	targetWith := t0.Add(5 * time.Second)
 	for {
 		snap := fabWithFallback.Snapshot()
 		if targetSettled(snap, targetWith) {
@@ -717,8 +729,12 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
+	if info := fabWithFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || !info.Enabled || info.Actor.State&0xc0 != 0x40 {
+		t.Fatalf("fallback member at 5s = %+v, want Defaulted and enabled without Expired", info)
+	}
+
 	fidWith, err := fabWithFallback.Inject(fabric.Injection{
-		At:     t0.Add(6*time.Second + 10*time.Millisecond),
+		At:     t0.Add(5*time.Second + 10*time.Millisecond),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  f,
 	})
@@ -748,7 +764,7 @@ func TestFallback(t *testing.T) {
 		t.Fatalf("frame with fallback crossed %q, want 1/1/1", crossed)
 	}
 
-	// Case without Fallback: at t0+7s a frame from h1 has a journey drop no-member.
+	// Without fallback, Defaulted members leave the frame with no egress member.
 	lagANoFallback := &lag.Config{
 		LAGs: map[string]lag.LAG{
 			"lag1": {
@@ -763,7 +779,7 @@ func TestFallback(t *testing.T) {
 	}
 	fabNoFallback, _, _ := newLagTopology(t, t0, lagANoFallback, nil)
 
-	targetWithout := t0.Add(7 * time.Second)
+	targetWithout := t0.Add(3 * time.Second)
 	for {
 		snap := fabNoFallback.Snapshot()
 		if targetSettled(snap, targetWithout) {
@@ -774,8 +790,12 @@ func TestFallback(t *testing.T) {
 		}
 	}
 
+	if info := fabNoFallback.Switch("A").MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Enabled {
+		t.Fatalf("member without fallback at 3s = %+v, want Defaulted and disabled", info)
+	}
+
 	fidWithout, err := fabNoFallback.Inject(fabric.Injection{
-		At:     t0.Add(7*time.Second + 10*time.Millisecond),
+		At:     t0.Add(3*time.Second + 10*time.Millisecond),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  f,
 	})

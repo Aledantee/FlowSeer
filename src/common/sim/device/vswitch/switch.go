@@ -164,13 +164,15 @@ type Emission struct {
 	// arrived tagged at priority 5 and left a routed or untagged access port
 	// would re-derive as 0 and overtake nothing, where the live, non-held
 	// path queues it at 5. A protocol frame leaves it at zero: a BPDU, an
-	// LACPDU and a loop-protect probe all go out either untagged or tagged at
-	// priority 0 by [bridge.Layer.OriginateFrame].
+	// LACPDU, and a loop-protect probe all go out either untagged or tagged at
+	// priority 0 by [bridge.Layer.OriginateFrame], while a Marker response
+	// preserves the request's tag stack and queues with PCP 0.
 	PCP vlan.PCP
 
-	// Protocol reports whether the frame is a BPDU, LACPDU, loop-protect
-	// probe, or other frame the switch generated for a protocol of its own,
-	// as opposed to a held user frame released once its next hop resolved.
+	// Protocol reports whether the frame is a BPDU, LACPDU, Marker response,
+	// loop-protect probe, or other frame the switch generated for a protocol
+	// of its own, as opposed to a held user frame released once its next hop
+	// resolved.
 	// [Fabric.injectEmission] reads it instead of assuming every emission
 	// is a protocol frame.
 	Protocol bool
@@ -1130,7 +1132,8 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 		return res
 	}
 
-	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 && f.Payload[0] == 1 {
+	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 &&
+		(f.Payload[0] == lacp.SubtypeLACP || f.Payload[0] == lacp.SubtypeMarker) {
 		p, ok := s.ports.Port(ingress)
 		if ok && p.LagParent != "" && p.Forwards() {
 			res := s.interceptLACP(now, ingress, f, mutate)
@@ -2457,12 +2460,23 @@ func (s *Switch) aggregatorScope(name string) analysis.Scope {
 
 func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
 	before := s.lag.PortInfo(ingress)
-	pdu, err := lacp.Decode(f)
-	if err != nil {
+	var pdu lacp.PDU
+	var marker layer.Effects
+	var unsupported bool
+	if f.Payload[0] == lacp.SubtypeMarker {
+		marker = s.lag.ReceiveMarker(now, ingress, f)
+		unsupported = len(marker.Emissions) == 0
+	} else {
+		var err error
+		pdu, err = lacp.Decode(f)
+		unsupported = err != nil
+	}
+	if unsupported {
 		if mutate {
 			s.lag.BadLACPDU(ingress)
 		}
 		after := s.lag.PortInfo(ingress)
+		dropInput := lag.SlowProtocolsDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)
 
 		return bridge.Result{
 			Trace: trace.Trace{
@@ -2474,7 +2488,7 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 						Op:      trace.OpDrop,
 						RuleID:  lag.RuleLACPDUUnsupported,
 						Subject: trace.Subject{Kind: "port", Key: ingress},
-						Inputs:  []trace.Fact{lag.LACPDecodeFact(f, false, lag.ReasonUnsupportedLACPDU)},
+						Inputs:  []trace.Fact{dropInput},
 						Outputs: []trace.Fact{lag.MemberTransitionFact(ingress, "bad-lacpdu", before, after)},
 					},
 				},
@@ -2483,11 +2497,24 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 		}
 	}
 
-	if mutate {
-		fx := s.lag.Receive(now, ingress, pdu)
-		s.applyLAGEffects(now, fx)
+	rule := lag.RuleLACPDUAdmit
+	var inputs []trace.Fact
+	var outputs []trace.Fact
+	if len(marker.Emissions) > 0 {
+		rule = lag.RuleMarkerRespond
+		if mutate {
+			s.applyLAGEffects(now, marker)
+		}
+		inputs = []trace.Fact{lag.SlowProtocolsDecodeFact(f, true, "")}
+		outputs = []trace.Fact{lag.MarkerResponseFact(f, marker.Emissions[0].Frame)}
+	} else {
+		if mutate {
+			fx := s.lag.Receive(now, ingress, pdu)
+			s.applyLAGEffects(now, fx)
+		}
+		inputs = []trace.Fact{lag.SlowProtocolsDecodeFact(f, true, "")}
+		outputs = []trace.Fact{lag.LACPDecisionFact(pdu, before, s.lag.PortInfo(ingress))}
 	}
-	after := s.lag.PortInfo(ingress)
 
 	return bridge.Result{
 		Trace: trace.Trace{
@@ -2496,10 +2523,10 @@ func (s *Switch) interceptLACP(now time.Time, ingress string, f ethernet.Frame, 
 				{
 					Layer:   lag.LayerName,
 					Op:      trace.OpClassify,
-					RuleID:  lag.RuleLACPDUAdmit,
+					RuleID:  rule,
 					Subject: trace.Subject{Kind: "port", Key: ingress},
-					Inputs:  []trace.Fact{lag.LACPDecodeFact(f, true, "")},
-					Outputs: []trace.Fact{lag.LACPDecisionFact(pdu, before, after)},
+					Inputs:  inputs,
+					Outputs: outputs,
 				},
 			},
 		},
@@ -2653,8 +2680,8 @@ func (s *Switch) interceptBPDU(now time.Time, ingress string, f ethernet.Frame, 
 // interceptSSTP handles a frame addressed to the per-VLAN BPDU group. Unlike
 // an IEEE-addressed BPDU, an SSTP BPDU means nothing without the VLAN it
 // arrived on: the tree it belongs to is chosen by that VLAN, and the check
-// that the peer agrees about the link compares it with the VLAN the BPDU
-// itself names.
+// that the peer agrees about the link compares it with the VLAN named by a
+// Configuration or RST BPDU. A TCN names no VLAN.
 //
 // The VLAN is resolved from the frame's own tag, or the port's untagged VLAN
 // when it carries none, rather than through the bridge's ingress pipeline the
@@ -2766,8 +2793,8 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 		// Peek cannot call ReceiveSSTP without mutating the link half of a
 		// receive, so it renders the same step Forward reaches through
 		// PortLinked, admitted, and tracked instead: PortLinked reproduces
-		// ReceiveSSTP's own first check (the port is tracked and its CIST
-		// copy has the link up), and every remaining outcome but that one
+		// ReceiveSSTP's own first check (the port is tracked and its link
+		// record is up), and every remaining outcome but that one
 		// follows from admitted and tracked alone once the frame has
 		// decoded.
 		switch {
@@ -2785,7 +2812,7 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 
 	inputs := []trace.Fact{
 		stp.BPDUDecodeFact(f, true, ""),
-		sstpVLANFact(tlvVID, arrivalVID),
+		sstpVLANFact(bpdu.Type, tlvVID, arrivalVID),
 	}
 	outputs := []trace.Fact{stp.BPDUDecisionFact(bpdu, before, after)}
 	subject := trace.Subject{Kind: "port", Key: resolvedPort}
@@ -2881,14 +2908,18 @@ func (s *Switch) interceptSSTP(now time.Time, ingress string, f ethernet.Frame, 
 	return admitResult
 }
 
-// sstpVLANFact records the two VLANs an SSTP BPDU is judged against: the one
-// its trailing TLV names and the one the bridge classified the frame into. A
-// trace that carries both is what makes a PVID inconsistency readable, since
-// the disagreement between them is the whole finding.
-func sstpVLANFact(tlvVID, arrivalVID vlan.ID) trace.Fact {
+// sstpVLANFact records the VLAN relationship an SSTP BPDU is judged against.
+// Configuration and RST BPDUs carry a TLV that is compared with the arrival
+// VLAN. A TCN carries no VLAN or TLV, so its fact names only the arrival VLAN.
+func sstpVLANFact(shape bpdu.Type, tlvVID, arrivalVID vlan.ID) trace.Fact {
+	canonical := fmt.Sprintf("tlv=%d,arrival=%d,consistent=%t", tlvVID, arrivalVID, tlvVID == arrivalVID)
+	if shape == bpdu.TypeTopologyChangeNotification {
+		canonical = fmt.Sprintf("tlv=none,arrival=%d", arrivalVID)
+	}
+
 	return runtimeFact{
 		typeID:    "stp.sstp.vlans",
-		canonical: fmt.Sprintf("tlv=%d,arrival=%d,consistent=%t", tlvVID, arrivalVID, tlvVID == arrivalVID),
+		canonical: canonical,
 	}
 }
 

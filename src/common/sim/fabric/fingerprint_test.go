@@ -115,6 +115,39 @@ func TestFingerprintFieldClassificationWalk(t *testing.T) {
 	checkFieldClasses(t, reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses)
 }
 
+func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
+	t.Parallel()
+
+	msti := baseSnapshotForTest()
+	dev := msti.Devices["sw1"]
+	info := dev.TreeRoles[10]["1/1/1"]
+	info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 10}
+	dev.TreeRoles[10]["1/1/1"] = info
+	msti.Devices["sw1"] = dev
+
+	perVLAN := cloneSnapshot(msti)
+	dev = perVLAN.Devices["sw1"]
+	info = dev.TreeRoles[10]["1/1/1"]
+	info.Tree = stp.TreeRef{Kind: stp.TreeVLAN, ID: 10}
+	dev.TreeRoles[10]["1/1/1"] = info
+	perVLAN.Devices["sw1"] = dev
+
+	if msti.Fingerprint() == perVLAN.Fingerprint() {
+		t.Fatal("MSTI 10 and VLAN 10 produced the same fingerprint")
+	}
+}
+
+func TestFingerprintEscapesTheTreeKind(t *testing.T) {
+	t.Parallel()
+
+	info := stp.PortInfo{Tree: stp.TreeRef{Kind: "a=b:c,tree_id=9", ID: 1}}
+	got := encodeFingerprintPortInfo(info)
+	const wantPrefix = "tree_kind=a%3Db%3Ac%2Ctree_id%3D9,tree_id=1,role="
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Errorf("encoding = %s, want prefix %s", got, wantPrefix)
+	}
+}
+
 func baseSnapshotForTest() Snapshot {
 	return Snapshot{
 		Clock: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
@@ -181,9 +214,10 @@ func baseSnapshotForTest() Snapshot {
 						},
 						Groups: map[string]phy.GroupAllocation{
 							"g1": {
-								BudgetNanowatts:    30_000_000_000,
-								AllocatedNanowatts: 5_000_000_000,
-								RemainderNanowatts: 25_000_000_000,
+								BudgetNanowatts:       30_000_000_000,
+								AllocatedNanowatts:    5_000_000_000,
+								RemainderMinNanowatts: 25_000_000_000,
+								RemainderMaxNanowatts: 25_000_000_000,
 							},
 						},
 					},
@@ -333,17 +367,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.Tree.ID = 2
-				dev.TreeRoles[10]["1/1/1"] = info
-				s.Devices["sw1"] = dev
-			},
-		},
-		{
-			name: "tree_roles_tree_kind",
-			mutate: func(s *Snapshot) {
-				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.Tree.Kind = stp.TreeVLAN
+				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -617,11 +641,21 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			},
 		},
 		{
-			name: "power_group_remainder",
+			name: "power_group_remainder_min",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				ga := dev.Power.Groups["g1"]
-				ga.RemainderNanowatts = 20_000_000_000
+				ga.RemainderMinNanowatts = 20_000_000_000
+				dev.Power.Groups["g1"] = ga
+				s.Devices["sw1"] = dev
+			},
+		},
+		{
+			name: "power_group_remainder_max",
+			mutate: func(s *Snapshot) {
+				dev := s.Devices["sw1"]
+				ga := dev.Power.Groups["g1"]
+				ga.RemainderMaxNanowatts = 20_000_000_000
 				dev.Power.Groups["g1"] = ga
 				s.Devices["sw1"] = dev
 			},
@@ -866,7 +900,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	mstSnap1 := cloneSnapshot(base)
 	mstDev1 := mstSnap1.Devices["sw1"]
 	mstDev1.TreeRoles[1] = map[string]stp.PortInfo{
-		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeCIST}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeCIST, ID: 0}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
 	}
 	mstDev1.TreeRoles[10] = map[string]stp.PortInfo{
 		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
@@ -1079,7 +1113,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				info := dev.TreeRoles[10]["1/1/1"]
-				info.Tree.ID = 2
+				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
 				dev.TreeRoles[10]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
@@ -1518,20 +1552,5 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 
 	if fp2 != fp3 {
 		t.Errorf("advancing neighbor expiry alone changed fingerprint:\n%s\nvs\n%s", fp2, fp3)
-	}
-}
-
-// TestFingerprintEscapesTheTreeKind pins that the tree kind passes through
-// escapeFingerprint, since ':' and '=' are delimiters of the encoding. A kind
-// that carried them raw would let one tree's text read as another's fields.
-func TestFingerprintEscapesTheTreeKind(t *testing.T) {
-	t.Parallel()
-
-	info := stp.PortInfo{Tree: stp.TreeRef{Kind: "a=b:c,tree_id=9", ID: 1}}
-	got := encodeFingerprintPortInfo(info)
-
-	const wantPrefix = "tree_kind=a%3Db%3Ac%2Ctree_id%3D9,tree_id=1,role="
-	if !strings.HasPrefix(got, wantPrefix) {
-		t.Errorf("encoding = %s, want prefix %s", got, wantPrefix)
 	}
 }

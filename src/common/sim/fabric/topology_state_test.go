@@ -73,13 +73,15 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 	delay := time.Microsecond
 
 	tests := []struct {
-		name       string
-		ethA, ethB phy.Ethernet
-		cable      fabric.Cable
-		wantOper   port.LinkState
-		wantReason trace.Reason
-		wantSpeed  uint64
-		wantSource phy.Source
+		name          string
+		ethA, ethB    phy.Ethernet
+		cable         fabric.Cable
+		wantOper      port.LinkState
+		wantReason    trace.Reason
+		wantSpeed     uint64
+		wantSource    phy.Source
+		wantPHYState  phy.LinkState
+		wantPHYReason trace.Reason
 	}{
 		{
 			name: "stated medium in range at the negotiated speed is Up",
@@ -102,8 +104,9 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 		{
 			name: "the negotiated speed without a row is Unknown reach-unknown",
 			ethA: autoEthernet(g1, g25), ethB: autoEthernet(g1, g25),
-			cable:    fabric.Cable{LengthMeters: 5, Medium: fabric.TwistedPair},
-			wantOper: port.Unknown, wantReason: fabric.ReasonReachUnknown,
+			cable:      fabric.Cable{LengthMeters: 5, Medium: fabric.TwistedPair},
+			wantOper:   port.Unknown,
+			wantReason: fabric.ReasonReachUnknown,
 		},
 		{
 			name: "the remaining lower candidate without a row is Unknown reach-unknown",
@@ -145,6 +148,24 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceObserved,
 		},
 		{
+			name: "both ends observed at 10 Gb/s over 100 Mb/s cable of unstated medium does not resolve",
+			ethA: func() phy.Ethernet {
+				e := autoEthernet(m100)
+				e.Observed = &phy.Observed{SpeedBPS: g10, Duplex: phy.Full}
+				return e
+			}(),
+			ethB: func() phy.Ethernet {
+				e := autoEthernet(m100)
+				e.Observed = &phy.Observed{SpeedBPS: g10, Duplex: phy.Full}
+				return e
+			}(),
+			cable:         fabric.Cable{LengthMeters: 2, TopSpeedBPS: m100},
+			wantOper:      port.Down,
+			wantReason:    phy.ReasonSpeedMismatch,
+			wantPHYState:  phy.LinkFailed,
+			wantPHYReason: phy.ReasonSpeedMismatch,
+		},
+		{
 			name: "no candidate leaves negotiation to decide",
 			ethA: phy.Ethernet{}, ethB: autoEthernet(g1),
 			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.TwistedPair},
@@ -166,6 +187,9 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 				}
 				if end.Speed.SpeedBPS != tc.wantSpeed || end.Speed.Source != tc.wantSource {
 					t.Errorf("end %v speed = %+v, want %d from %q", end.Endpoint, end.Speed, tc.wantSpeed, tc.wantSource)
+				}
+				if tc.wantPHYState != "" && (end.Speed.State != tc.wantPHYState || end.Speed.Reason != tc.wantPHYReason) {
+					t.Errorf("end %v PHY result = %+v, want state %q reason %q", end.Endpoint, end.Speed, tc.wantPHYState, tc.wantPHYReason)
 				}
 			}
 

@@ -580,10 +580,10 @@ func TestFactsOfAPVSTVLANAndAnMSTIDiffer(t *testing.T) {
 	if a == b {
 		t.Errorf("a PVST VLAN 10 fact and an MSTI 10 fact are the same text: %s", a)
 	}
-	if want := `state={tree_kind="vlan";tree_id=10;`; !strings.Contains(a, want) {
+	if want := `state={tree_kind="VLAN";tree_id=10;`; !strings.Contains(a, want) {
 		t.Errorf("PVST fact = %s, want it to contain %s", a, want)
 	}
-	if want := `state={tree_kind="msti";tree_id=10;`; !strings.Contains(b, want) {
+	if want := `state={tree_kind="MSTI";tree_id=10;`; !strings.Contains(b, want) {
 		t.Errorf("MSTI fact = %s, want it to contain %s", b, want)
 	}
 }
