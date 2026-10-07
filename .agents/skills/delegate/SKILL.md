@@ -114,7 +114,7 @@ Before the first dispatch of a session, unsandboxed:
 
 ```bash
 mkdir -p ~/.claude/models
-.claude/skills/tune/scripts/discover-host.sh > ~/.claude/models/host.yaml
+uv run tools/scripts/run.py tune discover-host > ~/.claude/models/host.yaml
 ```
 
 It records the agent CLIs, Orca reachability (`orca: reachable: true`

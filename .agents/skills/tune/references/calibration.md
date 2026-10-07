@@ -102,13 +102,13 @@ One worktree per lane, branched from the same commit:
 git worktree add -b bench-<lane> ~/Projects/worktrees/FlowSeer/bench-<lane> <base>
 ```
 
-omp lanes need no per-lane database: `bench.sh` runs omp with `--no-session`,
+omp lanes need no per-lane database: `tune bench` runs omp with `--no-session`,
 so overlapping lanes on the synthetic pool never share session state.
 
 ## Run a lane
 
 ```bash
-.claude/skills/tune/scripts/bench.sh --lane <name> --cli <claude|codex|agy|omp> \
+uv run tools/scripts/run.py tune bench --lane <name> --cli <claude|codex|agy|omp> \
   --model <id> [--effort <level>] \
   --brief <brief file> --dir <worktree> --out <json>
 ```
@@ -116,10 +116,12 @@ so overlapping lanes on the synthetic pool never share session state.
 A lane runs at one level, the model's recommended start, and a second
 level runs only as `SKILL.md` step 3b or step 4 allows. `agy` takes
 the level in the model id (`gemini-3.8-flash-<effort>`), and `omp` takes it
-through `--thinking`. `bench.sh` exits 2 on an `--effort` it cannot apply,
+through `--thinking`. `tune bench` exits 2 on an `--effort` it cannot apply,
 which only `agy` cannot. It records wall time, the CLI's reported usage, the
 exit code, and the `served_model`, `downgraded`, and `refused` fields the
-next section grades on.
+next section grades on. A failed child leaves the JSON result, raw stdout,
+and raw stderr before the command returns 1. Relative output paths resolve
+from `--dir`.
 
 ## Acceptance tests
 
@@ -160,7 +162,7 @@ total.
 
 ## Refusal and downgrade
 
-`bench.sh` writes three fields on every lane so a refusal or a silent model
+`tune bench` writes three fields on every lane so a refusal or a silent model
 swap is not read as a clean run:
 
 - `served_model`: the model ids the CLI reports actually answered, from
@@ -240,7 +242,7 @@ uncached input, 2,000 cache reads, 3,000 five-minute writes, 4,000 one-hour
 writes, and 500 output tokens at `[2, 10]` cost $0.0309.
 
 Mark every computed figure `est`. omp's reported cost takes precedence and
-is not estimated: `bench.sh` sums the inline cost each assistant
+is not estimated: `tune bench` sums the inline cost each assistant
 `message_end` line carries, and writes `usage: null` only when the CLI
 produced no output. A prepaid pool's marginal cost is zero below its cap, so also
 report what share of the pool's window the lane consumed when the pool
