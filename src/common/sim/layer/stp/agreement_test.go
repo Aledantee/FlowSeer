@@ -585,6 +585,7 @@ func TestMSTISyncLeavesABoundaryPort(t *testing.T) {
 	cistProposal := repeat
 	cistProposal.SetRole(bpdu.RoleDesignated)
 	cistProposal.SetProposal(true)
+	cistProposal.RootPathCost = 20_000
 	l.Receive(now.Add(40*time.Second), "p1", cistProposal)
 	if got := l.PortInfo("p2").State; got != stp.StateDiscarding {
 		t.Errorf("p2 CIST state after a boundary CIST proposal = %v, want Discarding", got)

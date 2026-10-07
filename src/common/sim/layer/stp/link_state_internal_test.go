@@ -610,6 +610,7 @@ func TestSyncTreeRequestsTheCutTree(t *testing.T) {
 		p := mt.ports["p2"]
 		p.role = bpdu.RoleDesignated
 		p.state = StateForwarding
+		p.synced = false
 		p.proposing = false
 		tx := l.tx(mt, "p2")
 		tx.newInfo = false
@@ -636,6 +637,7 @@ func TestSyncTreeRequestsTheCutTree(t *testing.T) {
 		p := vt.ports["p2"]
 		p.role = bpdu.RoleDesignated
 		p.state = StateForwarding
+		p.synced = false
 		p.proposing = false
 		tx := l.tx(vt, "p2")
 		tx.newInfo = false
@@ -671,6 +673,7 @@ func TestSyncTreeRequestsBoundaryMSTIInformation(t *testing.T) {
 		p := tr.ports["p2"]
 		p.role = bpdu.RoleDesignated
 		p.state = StateForwarding
+		p.synced = false
 		p.proposing = false
 	}
 	tx := l.tx(l.cist(), "p2")

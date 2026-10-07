@@ -349,7 +349,7 @@ on its transition.
 ## Units
 
 ### U1. A sync cuts only the Designated ports that are not synced
-Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/topology_activity_test.go, src/common/sim/layer/stp/layer_test.go, src/common/sim/layer/stp/edge_delay_test.go, src/common/sim/layer/stp/agreement_test.go
+Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/topology_activity_test.go, src/common/sim/layer/stp/layer_test.go, src/common/sim/layer/stp/edge_delay_test.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/tree_internal_test.go
 After: none
 Change: a tree port stores `synced` and the designated priority vector it
 last held as a Designated port. A Designated port is synced while it is
@@ -378,9 +378,16 @@ cuts. So do `TestSyncTreeRequestsTheCutTree` and
 (`src/common/sim/layer/stp/link_state_internal_test.go:588`, `:652`), which
 set a port Forwarding by hand and must also clear its `synced`.
 `TestMSTISyncLeavesABoundaryPort` keeps its boundary assertions until U2.
+Two tests in `tree_internal_test.go` also moved with the stored flag:
+`TestBoundaryStateMirrorMaintainsTopologyActivity` clears `synced` on the
+port it sets Forwarding by hand, and
+`TestMSTITopologyChangeNotifiesTheCISTRootPort` advances to 35 s before it
+reads the CIST's timer, since the CIST's Designated port now climbs the
+ladder through the repeated proposal and its topology change timer outlives
+the climb by a few seconds.
 Nothing covers a change of the designated times alone, which the layer
 does not see.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/link.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/sync_internal_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/topology_activity_test.go src/common/sim/layer/stp/layer_test.go src/common/sim/layer/stp/edge_delay_test.go src/common/sim/layer/stp/agreement_test.go`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/link.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/sync_internal_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/topology_activity_test.go src/common/sim/layer/stp/layer_test.go src/common/sim/layer/stp/edge_delay_test.go src/common/sim/layer/stp/agreement_test.go src/common/sim/layer/stp/tree_internal_test.go`
 
 ### U2. An MSTI's sync takes in a boundary port
 Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/sync_boundary_test.go

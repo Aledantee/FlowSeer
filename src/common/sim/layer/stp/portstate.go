@@ -44,6 +44,13 @@ type portState struct {
 	proposing bool
 	agreed    bool
 
+	// synced is the stored flag that decides whether a sync cuts a Designated
+	// port. designatedVec is the vector the port last held as Designated, and
+	// designatedVecSet is false until role assignment has recorded one.
+	synced           bool
+	designatedVec    priorityVector
+	designatedVecSet bool
+
 	tcWhile  time.Time
 	tcActive bool
 	tcAck    bool

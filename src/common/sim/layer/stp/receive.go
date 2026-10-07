@@ -22,9 +22,15 @@ func (l *Layer) syncTree(t *tree, rootPort string, now time.Time) {
 		}
 		otherLink := l.links[otherName]
 		if otherP.role == bpdu.RoleDesignated && !otherLink.edge {
+			// A port that is synced and past Discarding keeps its agreement,
+			// state, and proposing flag.
+			if otherP.synced && otherP.state != StateDiscarding {
+				continue
+			}
 			wasProposing := otherP.proposing
 			wasDiscarding := otherP.state == StateDiscarding
 			otherP.agreed = false
+			otherP.synced = true
 			otherP.proposing = otherLink.pointToPoint && otherLink.sendRSTP
 			if otherP.proposing && (!wasProposing || !wasDiscarding) {
 				l.requestNewInfo(t, otherP)

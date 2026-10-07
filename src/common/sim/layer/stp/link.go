@@ -159,6 +159,7 @@ func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, sp
 			}
 			tp.role = bpdu.RoleDesignated
 			tp.agreed = false
+			tp.designatedVecSet = false
 			tp.proposing = link.pointToPoint && !link.edge && link.sendRSTP
 			if id == cistID && tp.proposing {
 				link.edgeDelayWhile = now.Add(l.edgeDelay(t, link))

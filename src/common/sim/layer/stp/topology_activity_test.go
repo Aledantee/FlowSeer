@@ -37,7 +37,9 @@ func TestSyncCutRetainsTopologyActivity(t *testing.T) {
 		}
 	}
 	before, _ := l.TopologyChanges()
-	cut := l.Receive(now.Add(5500*time.Millisecond), "p1", root)
+	worse := root
+	worse.RootPathCost = 20_000
+	cut := l.Receive(now.Add(5500*time.Millisecond), "p1", worse)
 	if info := l.PortInfo("p2"); info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
 		t.Fatalf("p2 after sync = %v/%v, want Designated/Discarding", info.Role, info.State)
 	}
