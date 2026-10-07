@@ -120,8 +120,9 @@ through `--thinking`. `tune bench` exits 2 on an `--effort` it cannot apply,
 which only `agy` cannot. It records wall time, the CLI's reported usage, the
 exit code, and the `served_model`, `downgraded`, and `refused` fields the
 next section grades on. A failed child leaves the JSON result, raw stdout,
-and raw stderr before the command returns 1. Relative output paths resolve
-from `--dir`.
+and raw stderr before the command returns 1. A `--dir` that is not an
+enterable directory exits 2 before any earlier artifact is removed. Relative
+output paths resolve from `--dir`.
 
 ## Acceptance tests
 

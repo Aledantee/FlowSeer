@@ -108,10 +108,26 @@ class DiscoverHostTest(unittest.TestCase):
         with patch.object(discover_host.subprocess, "run", side_effect=OSError("cannot launch")):
             self.assertEqual(discover_host.output(["missing", "--version"]), "")
 
-    def test_failed_pool_reader(self):
+    def test_raising_pool_reader_keeps_printed_rows(self):
+        # pool_usage prints a row per pool as it goes and raises on a provider
+        # reply of an unexpected shape, so the rows printed before the raise
+        # belong in the report and the omp_models section still follows.
+        def pools(argv):
+            print('claude: {"signed_in": false}')
+            print('codex: {"signed_in": false}')
+            raise TypeError("limits is null")
+
+        def run(argv, **kwargs):
+            return subprocess.CompletedProcess(argv, 0, b'{"models":[{"id":"plain"}]}', b"")
+
         stdout, stderr = io.StringIO(), io.StringIO()
-        with patch.object(discover_host.shutil, "which", return_value=None), \
-                patch.object(discover_host.pool_usage, "main", return_value=1), \
+        with patch.object(discover_host.shutil, "which", side_effect=lambda name: "/bin/omp" if name == "omp" else None), \
+                patch.object(discover_host.subprocess, "run", side_effect=run), \
+                patch.object(discover_host.pool_usage, "main", side_effect=pools), \
                 redirect_stdout(stdout), redirect_stderr(stderr):
             self.assertEqual(discover_host.main([]), 1)
-        self.assertIn("pool usage failed", stderr.getvalue())
+        self.assertTrue(stdout.getvalue().endswith(
+            'pools:\n  claude: {"signed_in": false}\n  codex: {"signed_in": false}\n'
+            'omp_models:\n  synthetic: ["plain"]\n'), stdout.getvalue())
+        self.assertIn("discover-host: pool usage failed", stderr.getvalue())
+        self.assertIn("TypeError: limits is null", stderr.getvalue())

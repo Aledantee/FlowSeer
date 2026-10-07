@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import sys
+import traceback
 
 from skills.delegate import pool_usage
 
@@ -54,14 +55,19 @@ def main(argv: list[str]) -> int:
         print("  model_pinnable: [" + ", ".join("".join(pins).split(" ")) + "]")
     print("pools:")
     rows = io.StringIO()
+    failure = None
+    # The reader prints each pool as it goes and raises on a reply of an
+    # unexpected shape, so the rows already printed stay in the report.
     with redirect_stdout(rows):
-        code = pool_usage.main([])
+        try:
+            pool_usage.main([])
+        except Exception:
+            failure = traceback.format_exc()
     for row in rows.getvalue().split("\n"):
         if row:
             print("  " + row)
-    if code:
-        print("discover-host: pool usage failed", file=sys.stderr)
-        return code
+    if failure:
+        print("discover-host: pool usage failed\n" + failure, end="", file=sys.stderr)
     omp = shutil.which("omp")
     if omp:
         try:
@@ -76,4 +82,4 @@ def main(argv: list[str]) -> int:
         print("  synthetic: [" + ", ".join(json.dumps(model) for model in ids) + "]")
     else:
         print("omp_models: {synthetic: []}")
-    return 0
+    return 1 if failure else 0

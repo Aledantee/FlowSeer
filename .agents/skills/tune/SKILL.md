@@ -77,7 +77,9 @@ uv run tools/scripts/run.py tune discover-host > ~/.claude/models/host.yaml
 
 It writes which CLIs exist, which pools are signed in, what Orca can pin
 with `--model`, the synthetic model ids omp serves, and the Claude
-rate-limit windows.
+rate-limit windows. When a pool reader fails on an unexpected provider reply,
+the rows it printed before the failure stay under `pools:`, the failure is
+named on stderr, and the command exits 1 after the `omp_models` section.
 
 After discovery, compare each row's `plan` with the pool's `plans` table.
 For a row with `plan_unlisted`, fetch the vendor's plan page in that run, add

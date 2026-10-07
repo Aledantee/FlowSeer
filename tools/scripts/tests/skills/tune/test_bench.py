@@ -260,6 +260,31 @@ class BenchTest(unittest.TestCase):
         self.assertEqual(self.out.with_suffix(".raw.err").read_bytes(), b"")
         self.assertEqual(json.loads(self.out.read_text())["usage"]["input"], 0)
 
+    def test_unusable_directory_stops_before_any_artifact_is_touched(self):
+        # A --dir the command cannot enter must exit 2 with the earlier lane's
+        # evidence intact and no child started.
+        locked = self.root / "locked"
+        locked.mkdir()
+        locked.chmod(0)
+        self.addCleanup(locked.chmod, 0o700)
+        plain_file = self.root / "file"
+        plain_file.write_text("")
+        cases = [("missing", self.root / "missing"), ("file", plain_file)]
+        if os.geteuid() != 0:
+            cases.append(("locked", locked))
+        for name, directory in cases:
+            with self.subTest(directory=name):
+                artifacts = [self.out, self.out.with_suffix(".raw"), self.out.with_suffix(".raw.err")]
+                for artifact in artifacts:
+                    artifact.write_text("earlier lane")
+                self.worktree = directory
+                result = self.run_bench()
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("--dir", result.stderr)
+                self.assertEqual(self.calls, [])
+                self.assertEqual([artifact.read_text() for artifact in artifacts], ["earlier lane"] * 3)
+                self.assertEqual(result.stdout, "")
+
     def test_relative_output_is_resolved_from_directory(self):
         self.out = Path("relative.json")
         self.assertEqual(self.run_bench().returncode, 0)
