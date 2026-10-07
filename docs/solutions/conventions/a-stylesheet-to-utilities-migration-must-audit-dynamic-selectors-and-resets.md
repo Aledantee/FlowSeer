@@ -1,7 +1,7 @@
 ---
 title: A Stylesheet-to-Utilities Migration Must Audit Dynamic Selectors, Breakpoints, and Base Resets
 date: 2026-09-27
-last_verified: 2026-09-27
+last_verified: 2026-10-07
 category: conventions
 module: frontend/web
 problem_type: convention
@@ -11,6 +11,7 @@ applies_when:
   - "Dissolving legacy CSS stylesheets into utility classes or scoped component styles"
   - "Enabling or updating a global CSS reset layer such as Tailwind Preflight"
   - "Configuring stylelint declaration-strict-value rules to enforce design tokens"
+  - "Moving a Vue view into a shared frame or Teleport target while CSS selectors depend on direct DOM ancestry or chrome styles."
 related_components: [form_controls, conformance-gates]
 tags: [css, tailwind, preflight, stylelint, design-system, responsive, accessibility, refactor]
 ---
@@ -28,12 +29,21 @@ In Phase 5 of the web design system (`86517ce2..b3edbbe0`), four failure classes
 3. Vanished dynamic and interactive feedback: deleting legacy rules (`tbody tr.peeked`, `.pane.active-pane::before`, `.panes.docked`, `.topology-link:hover`) broke visual states toggled by runtime JavaScript or pointer interaction because static template scans missed dynamically bound class names.
 4. Token linting gate bypasses: `stylelint-declaration-strict-value` missed CSS color values in shorthand properties (`background`), SVG attributes (`fill`, `stroke`), named colors (`black`, `white`), and gradients (`rgb(...)`), providing false confidence of token compliance.
 
+Moving the console into a persistent frame exposed the same test gap. The old
+`.main-shell > main.panes` selector never matched because `UiAiContextLayer`
+rendered a `div.contents` between the two elements. The replacement selector
+is `#frame-page main.panes` (`frontend/web/src/style.css:371`,
+`frontend/web/src/ui/ai/UiAiContextLayer.vue:314`). The top bar glass also
+depends on both its span and its CSS rule (`frontend/web/src/FleetView.vue:967`,
+`frontend/web/src/style.css:336-342`).
+
 ## What is true and why
 
 1. **JSDOM and unit tests do not compute cascade, layout geometry, or pseudo-classes.** Unit tests assert DOM presence, attributes, and emitted events. They cannot verify whether a view computed zero width at a 390px viewport, whether an active indicator bar rendered, or whether keyboard focus was visibly outlined.
 2. **Audit stylesheet removals against runtime class mutations, not static template strings.** When removing a CSS selector, check script blocks for reactive class toggles (`:class`), string interpolations, and DOM manipulations (`classList.add`).
 3. **Base resets must preserve native accessibility affordances.** If a reset layer clears browser default button outlines, restore visible keyboard focus explicitly in the base layer using `:focus-visible` and design tokens (`outline: 2px solid var(--ring); outline-offset: 2px;`).
 4. **Token linting requires shorthand expansion and regex blacklists.** A token gate must enable `expandShorthand` and `recurseLonghand`, inspect SVG presentation properties (`fill`, `stroke`), ban named colors, and disallow literal color function calls (`rgb()`, `hsl()`) in complex values like gradients.
+5. **Check computed styles after DOM moves.** A passing class assertion proves the element exists but cannot prove that its CSS selector matches or that its glass rule still paints. In this workspace `main.ts` imports `style.css`, while the happy-dom mount tests load the views directly (`frontend/web/src/main.ts:14`, `frontend/web/src/FleetView.test.ts:325-333`).
 
 ## How to apply
 
@@ -97,6 +107,7 @@ When dissolving a stylesheet into utilities:
 - `frontend/web/src/FleetView.vue:897-903` and `1204-1227` restore mobile topbar wrapping at 650px/560px and `.active-pane` indicator borders.
 - `frontend/web/src/components/topology/TopologyLink.vue:164-167` restores link hover feedback.
 - Review fix commits `1a2ad4b6`, `40969da9`, `e7d740ec`, and `a42a4a68` restored these dropped behaviors after review.
+- `frontend/web/src/FleetView.vue:1099-1104` and `frontend/web/src/ui/ai/UiAiContextLayer.vue:314` show the wrapper between the frame region and `main.panes`. The prior direct-child selector is in `8e8c2200`.
 
 ## What this does not cover
 
