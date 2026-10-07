@@ -24,7 +24,7 @@ func TestAbsentIngressRetainsCallerPort(t *testing.T) {
 }
 
 func TestDownEgressDecisionOnUnicastAndFlood(t *testing.T) {
-	for _, mode := range []string{"unicast", "flood", "blocked", "all-down", "outside-vlan"} {
+	for _, mode := range []string{"unicast", "flood", "blocked", "all-down", "outside-vlan", "unicast-outside-vlan"} {
 		t.Run(mode, func(t *testing.T) {
 			cfg := bridge.Config{VLAN: &bridge.VLAN{
 				Table: map[vlan.ID]string{10: "ten", 20: "twenty"},
@@ -37,8 +37,11 @@ func TestDownEgressDecisionOnUnicastAndFlood(t *testing.T) {
 			if mode == "outside-vlan" {
 				cfg.VLAN.Switchports["1/1/3"] = bridge.Switchport{PVID: mustVLAN(20), Untagged: []vlan.ID{20}}
 			}
+			if mode == "unicast-outside-vlan" {
+				cfg.VLAN.Switchports["1/1/3"] = bridge.Switchport{PVID: mustVLAN(10)}
+			}
 			br := mustNewBridge(t, cfg, buildTestPorts(t, 3))
-			if mode == "unicast" {
+			if mode == "unicast" || mode == "unicast-outside-vlan" {
 				mustLearn(t, br, []bridge.Seed{{FID: 10, MAC: macB, Port: "1/1/3", Lifetime: bridge.Static}})
 			}
 			if err := br.SetOperStatus("1/1/3", port.Down); err != nil {
@@ -53,14 +56,14 @@ func TestDownEgressDecisionOnUnicastAndFlood(t *testing.T) {
 				br.SetGate(testGate{forwards: map[string]bool{"1/1/1": true}}, analysis.WholeScope())
 			}
 			dst := netaddr.MAC{255, 255, 255, 255, 255, 255}
-			if mode == "unicast" {
+			if mode == "unicast" || mode == "unicast-outside-vlan" {
 				dst = macB
 			}
 			res := br.Forward(testTime0, "1/1/1", ethernet.Frame{Src: macA, Dst: dst, Payload: []byte("frame")})
 			wantOutcome, wantReason := trace.Flooded, trace.Reason("")
 			wantPort, wantDrop := "1/1/2", trace.Reason("")
 			switch mode {
-			case "unicast":
+			case "unicast", "unicast-outside-vlan":
 				wantOutcome, wantReason, wantPort, wantDrop = trace.Dropped, port.ReasonPortDown, "1/1/3", port.ReasonPortDown
 			case "blocked":
 				wantOutcome, wantReason, wantDrop = trace.Dropped, bridge.ReasonPortBlocked, bridge.ReasonPortBlocked
@@ -77,12 +80,16 @@ func TestDownEgressDecisionOnUnicastAndFlood(t *testing.T) {
 			} else if len(res.Egress) != 1 || res.Egress[0].Port != wantPort || res.Egress[0].Dropped != wantDrop {
 				t.Errorf("Egress = %+v, want %s/%s alone", res.Egress, wantPort, wantDrop)
 			}
-			count := 0
-			for _, step := range res.Steps {
+			count, downIndex, replicateIndex := 0, -1, -1
+			for i, step := range res.Steps {
+				if step.Op == trace.OpReplicate {
+					replicateIndex = i
+				}
 				if step.Subject.Kind != "port" || step.Subject.Key != "1/1/3" {
 					continue
 				}
 				count++
+				downIndex = i
 				if mode == "outside-vlan" {
 					t.Errorf("outside VLAN port has step %+v", step)
 					continue
@@ -97,12 +104,50 @@ func TestDownEgressDecisionOnUnicastAndFlood(t *testing.T) {
 					t.Errorf("Outputs = %+v, want down egress decision", step.Outputs)
 				}
 			}
+			if mode == "flood" && (downIndex < 0 || replicateIndex < 0 || downIndex >= replicateIndex) {
+				t.Errorf("down step index = %d, replicate index = %d, want down before replication", downIndex, replicateIndex)
+			}
 			wantCount := 1
 			if mode == "outside-vlan" {
 				wantCount = 0
 			}
 			if count != wantCount {
 				t.Errorf("1/1/3 steps = %d, want %d", count, wantCount)
+			}
+		})
+	}
+}
+
+func TestEgressGateProtectedAndMTUPrecedence(t *testing.T) {
+	for _, blocked := range []bool{true, false} {
+		name := "protected-before-mtu"
+		if blocked {
+			name = "gate-before-protected"
+		}
+		t.Run(name, func(t *testing.T) {
+			builder := port.NewBuilder()
+			builder.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+			builder.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, MTU: 1500})
+			ports, err := builder.Build()
+			if err != nil {
+				t.Fatal(err)
+			}
+			br := mustNewBridge(t, bridge.Config{ProtectedPorts: []string{"1/1/1", "1/1/2"}}, ports)
+			mustLearn(t, br, []bridge.Seed{{MAC: macB, Port: "1/1/2", Lifetime: bridge.Static}})
+			if blocked {
+				br.SetGate(testGate{forwards: map[string]bool{"1/1/1": true}}, analysis.WholeScope())
+			}
+			res := br.Forward(testTime0, "1/1/1", ethernet.Frame{Src: macA, Dst: macB, Payload: make([]byte, 1501)})
+			wantReason, wantRule := bridge.ReasonProtected, bridge.RuleProtected
+			if blocked {
+				wantReason, wantRule = bridge.ReasonPortBlocked, bridge.RulePortBlocked
+			}
+			if res.Outcome != trace.Dropped || res.Reason != wantReason || len(res.Egress) != 1 || res.Egress[0].Port != "1/1/2" || res.Egress[0].Dropped != wantReason {
+				t.Fatalf("Result = %+v, want Dropped/%s and one dropped Egress on 1/1/2", res, wantReason)
+			}
+			step := res.Steps[len(res.Steps)-1]
+			if step.Layer != bridge.LayerName || step.RuleID != wantRule || step.Op != trace.OpDrop || step.Subject.Key != "1/1/2" {
+				t.Errorf("last step = %+v, want relay/%s/drop on 1/1/2", step, wantRule)
 			}
 		})
 	}

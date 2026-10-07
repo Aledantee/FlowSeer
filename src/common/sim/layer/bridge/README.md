@@ -8,7 +8,7 @@ has no I/O and is not safe for concurrent use ([layer.go](layer.go)).
 For example, `TestUntaggedIngressClassifiesToPVIDAndLearns` in
 [ingress_test.go](ingress_test.go) receives an untagged frame on `1/1/1`,
 classifies it into PVID 10, learns its source in FID 10, and floods to the
-other VLAN member. `TestEgressTagForm` in [egress_test.go](egress_test.go)
+other two VLAN members. `TestEgressTagForm` in [egress_test.go](egress_test.go)
 checks the tagged and untagged forms on transmission ports.
 
 A caller runs `Ingress(now, port, frame, learn, commit)`, then `Egress(in,
@@ -58,9 +58,9 @@ through 8.6.4 govern topology, destination filtering, and egress membership.
 Replication supplies only logical VLAN members and records down ports
 before its replication step. Other per-port decisions follow that step.
 Both paths record `relay` / `port-down` with a forwarding input fact and
-an egress output decision. A unicast refusal also records a dropped
-`Egress`. A flood omits `Egress` for down ports so the fabric does not
-count a discard on each unavailable member.
+an egress output decision. A per-port unicast refusal also records a dropped
+`Egress`. A same-port hit records no `Egress`. A flood omits `Egress` for
+down ports so the fabric does not count a discard on each unavailable member.
 
 ## Configuration and sources
 
@@ -116,36 +116,41 @@ its last write, and `Entries()` sorts its snapshot by FID and MAC.
 
 Ingress learns individual source addresses when learning is permitted,
 refreshes aging records, and preserves static records. An expired source
-entry is removed and learned anew, counting one expiry and one learn.
-A non-learning call changes neither entries nor counters. With VLAN
-awareness, at least one switchport must carry the VID, per Q2003 8.8 d.
+entry is removed and learned anew, counting one expiry and one learn for
+that source key. A non-learning call changes neither entries nor counters.
+With VLAN awareness, at least one switchport must carry the VID, per Q2003 8.8 d.
 That port can differ from the ingress port. VLAN-unaware learning uses FID
-0 as before. Flood VLANs disable learning.
+0. Flood VLANs disable learning.
 
 `Learn` validates the entire seed slice before writes. Aging seeds count as
 learned when inserted. An aging seed for an existing static key changes
 nothing and counts nothing, preserving the static control required by
 Q2003 8.10.1 c 1 and Table 8-5. Seed validation is in [seed.go](seed.go).
-`TestAgingSeedPreservesStaticEntry` and `TestSourceLearningAtFrameTime` in
+`TestAgingSeedPreservesStaticEntry`, `TestSourceLearningAtFrameTime`, and
+`TestFDBFrameTimeMatchesPriorAdvance` in
 [fdb_time_test.go](fdb_time_test.go) exercise these lifecycle rules.
 
-`MaxEntries` bounds aging entries alone. Eviction removes the oldest aging
-entry, with FID and then MAC breaking equal-time ties, so map iteration
-cannot change the victim. Static entries survive aging, eviction, and
+`MaxEntries` bounds aging entries alone. At the bound, a learning frame
+expires every entry past its aging time before applying the capacity limit
+([ingress.go](ingress.go)). An expired entry is never evicted. Eviction
+removes the oldest aging entry, with FID and then MAC breaking equal-time
+ties, so map iteration cannot change the victim. Static entries survive aging, eviction, and
 `Flush`. Flush targets union FIDs by port, and an empty FID list means every
 FID on that port. `Forget` can remove either lifetime.
 `Counters()` reports learned, expired, evicted, and moved counts.
 
 ## Trace rules and reasons
 
-The constants are in [layer.go](layer.go), with reasons and result records
-in [result.go](result.go). Facts retain the inputs and decisions needed
-for comparison ([fact.go](fact.go)). Successful classification and lookup
+Named rule constants are in [layer.go](layer.go), with reasons and result
+records in [result.go](result.go). Empty replication uses its drop reason,
+`no-egress` or `unregistered`, as the rule ID ([egress.go](egress.go)).
+Facts retain the inputs and decisions needed for comparison
+([fact.go](fact.go)). Successful classification and lookup
 rules carry no drop reason.
 
 | Layer | Rules | Decision or drop reason |
 | --- | --- | --- |
-| `relay` | `ingress-port-down` | Receive refusal, usually `port-down` |
+| `relay` | `ingress-port-down` | Receive refusal: `port-down` |
 | `relay` | `reserved-bridge-address` | `reserved-address` unless `ForwardBPDU` permits it |
 | `relay` | `default-vlan` | VLAN-unaware FID 0 |
 | `vlan` | `admission-filter`, `admission` | `admission` for a refused ingress tag form |
@@ -171,8 +176,10 @@ candidate it reports `no-egress`, or the supplied empty-list reason.
 `SetGate` replaces a gate for an equal analysis scope and appends a new
 scope. Every installed gate participates, so independent layers can each
 refuse learning or forwarding. A nil gate still contributes its scope.
-The first deciding gate supplies its semantic fact when available
-([gate_test.go](gate_test.go)).
+Ingress uses the first gate denying both learning and forwarding, else the
+first denying forwarding, else the first non-nil gate. Egress uses the
+first gate denying forwarding. Each supplies its semantic fact when available
+([ingress.go](ingress.go), [egress.go](egress.go), [gate_test.go](gate_test.go)).
 
 `SetSelector` supplies LAG member choice and its consulted scope.
 `SetGroupResolver` supplies logical ports for group destinations. A false
@@ -203,7 +210,8 @@ It refuses an absent port at `ports.<name>` and an invalid state at
 | [fact.go](fact.go), [result.go](result.go) | Forwarding facts, rules' reasons, result metadata |
 
 Tests are grouped by subject in `config_test.go`,
-`ingress_test.go`, `egress_test.go`, `gate_test.go`, `fdb_test.go`,
+`ingress_test.go`, `egress_test.go`, `egress_decision_test.go`,
+`gate_test.go`, `fdb_test.go`, `fdb_time_test.go`,
 `layer_test.go`, `diff_test.go`, and `group_resolver_test.go`.
 Shared fixtures and doubles live in [helpers_test.go](helpers_test.go).
 `fork_internal_test.go`, `diff_coverage_test.go`, `dependency_test.go`,
@@ -237,7 +245,7 @@ and `ingress_admission_test.go` check cross-cutting contracts.
 
 IEEE 802.1Q editions after 2003 and IEEE 802.1ad were not read. Their
 requirements are unverified. The cited 2012 textual convention supplies
-an admission enum, not verification of a later IEEE edition.
+an admission enum.
 
 [q2003]: https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf
 [ovs]: https://raw.githubusercontent.com/openvswitch/ovs/branch-3.3/vswitchd/vswitch.xml

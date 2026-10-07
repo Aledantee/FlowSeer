@@ -250,8 +250,8 @@ func (b *Layer) SetFDBScope(scope analysis.Scope) {
 
 // SetOperStatus updates the operational link state of the named port in the
 // bridge's port table. It returns a structured validation error when state is
-// outside the [port.LinkState] domain or the port is absent. It leaves the
-// table unchanged.
+// outside the [port.LinkState] domain or the port is absent. On refusal, the
+// table is unchanged.
 func (b *Layer) SetOperStatus(portName string, state port.LinkState) error {
 	tbl, err := b.ports.WithOperStatus(portName, state)
 	if err != nil {
