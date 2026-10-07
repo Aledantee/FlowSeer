@@ -83,9 +83,10 @@ func TestReceiveSSTPRunsTheLinkHalfForEveryOutcome(t *testing.T) {
 			p := l.trees[treeID(10)].ports["p1"]
 			wantRole, wantState := bpdu.RoleDesignated, StateDiscarding
 			wantReason := BlockReason("")
-			if tc.want == SSTPApplied {
+			switch tc.want {
+			case SSTPApplied:
 				wantRole, wantState = bpdu.RoleRoot, StateForwarding
-			} else if tc.want == SSTPPVIDInconsistent {
+			case SSTPPVIDInconsistent:
 				wantRole, wantReason = bpdu.RoleAlternate, BlockReasonPVIDInconsistent
 			}
 			info := l.VLANPortInfo(10, "p1")
