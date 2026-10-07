@@ -311,7 +311,7 @@ html:has(.shell) {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  --topbar-height: 54px;
+  --pane-inset-top: 0px;
 }
 
 @media (max-width: 800px) {
@@ -333,46 +333,12 @@ html:has(.shell) {
   color: var(--chrome-foreground);
 }
 
-.topbar-glass {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  backdrop-filter: blur(24px) saturate(140%);
-}
-
-/* Chrome-coloured wedge that reads as a rounded inner corner where the
-   sidebar and top bar meet. It carries the shared glow so it stays
-   continuous with both surfaces. */
-.main-notch {
-  position: absolute;
-  z-index: 3;
-  top: var(--topbar-height);
-  left: 0;
-  width: 18px;
-  height: 18px;
-  pointer-events: none;
-  backdrop-filter: blur(24px) saturate(140%);
-  mask-image: radial-gradient(
-    circle at bottom right,
-    transparent 18px,
-    var(--foreground) 18.5px
-  );
-}
-
-@media (max-width: 800px) {
-  .main-notch {
-    display: none;
-  }
-}
-
 /* The main area holds one pane, or two side by side; each pane scrolls on
-   its own and runs up under the glass top bar. */
+   its own and starts at the page panel's top edge. */
 #frame-page main.panes {
   display: flex;
   flex: 1;
   max-width: none;
-  margin-top: calc(-1 * var(--topbar-height));
   padding: 0;
   overflow: hidden;
   background: var(--background);
@@ -392,19 +358,19 @@ html:has(.shell) {
 .pane-scroll {
   height: 100%;
   overscroll-behavior-y: contain;
-  padding: calc(var(--topbar-height) + 31px) 34px 0;
-  scroll-padding-top: calc(var(--topbar-height) + 12px);
+  padding: calc(var(--pane-inset-top) + 31px) 34px 0;
+  scroll-padding-top: calc(var(--pane-inset-top) + 12px);
 }
 
 @media (max-width: 1150px) {
   .pane-scroll {
-    padding: calc(var(--topbar-height) + 26px) 24px 0;
+    padding: calc(var(--pane-inset-top) + 26px) 24px 0;
   }
 }
 
 @media (max-width: 800px) {
   .pane-scroll {
-    padding: calc(var(--topbar-height) + 25px) 20px 0;
+    padding: calc(var(--pane-inset-top) + 25px) 20px 0;
   }
 }
 
@@ -486,7 +452,7 @@ html:has(.shell) {
 .pane-divider::after {
   content: '';
   position: absolute;
-  inset: var(--topbar-height) 4px 0;
+  inset: var(--pane-inset-top) 4px 0;
   background: var(--border);
   transition: background 120ms ease;
 }
@@ -578,9 +544,9 @@ html:has(.shell) {
   height: 10px;
 }
 
-/* A page's bar runs from under the top bar to above the dock. */
+/* A page's bar runs from the pane's inset to above the dock. */
 .pane .scroll-bar[data-orientation='vertical'] {
-  top: var(--topbar-height) !important;
+  top: var(--pane-inset-top) !important;
 }
 
 .panes.docked .pane .scroll-bar[data-orientation='vertical'] {
