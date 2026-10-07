@@ -918,16 +918,29 @@ U1, U2, and U3 are a chain because each edits
 - Unverified: IEEE Std 802.1D, 1998 Edition, 17.15, for the definition of
   the two timers (Sources). The figures cited under Rules 13 and 17 give
   every assignment the units build.
-
-## Review gaps
-
-- src/common/sim/layer/stp/roles.go:17: `isSynced` passes over a boundary MSTI port; fails: an MSTI Root port's record carries no Agreement while a Designated boundary port has lost `synced` to a worse vector and no proposal has arrived; class: gap
-- src/common/sim/layer/stp/roles.go:288: the reroot cut drops its test that the tree's Root port is not a boundary MSTI port; fails: an MSTI whose elected root port is a boundary port below Forwarding leaves an internal recent Root port forwarding; class: gap
-- src/common/sim/layer/stp/roles.go:292: the reroot cut passes over a recent Root port that is Learning; fails: a Root port in Learning on a shared link that leaves the role for Designated is Discarding once another port is Root; class: gap
-- src/common/sim/layer/stp/receive.go:24: `syncTree` passes over every synced port, a Discarding one included; fails: a synced Discarding Designated port that is not proposing proposes and requests a frame after a sync; class: gap
-- src/common/sim/layer/stp/receive.go:30: `syncTree` starts the boundary ladder for a synced Discarding port too; fails: a boundary MSTI port that is Discarding with the CIST reaches Forwarding with the CIST's ladder and not later; class: gap
-- src/common/sim/layer/stp/roles.go:328: a boundary port keeps its MSTI cut through a role change; fails: a boundary port under an MSTI cut that takes the CIST's Root role reads the CIST's state; class: gap
-- src/common/sim/layer/stp/roles.go:354: a port that stops being a boundary port keeps `boundarySyncState`; fails: a port cut as a boundary port, then internal, then a boundary port again reads the CIST's state; class: gap
-- src/common/sim/layer/stp/advance.go:60: the settle call removed from `Advance`, and likewise from `LinkChange` (`link.go:52`) and `Mcheck` (`link.go:14`); fails: a Root port that ages out or goes down while an Alternate carries a longer Forward Delay leaves a former Root port whose deadline had passed forwarding; class: gap
-- src/common/sim/layer/stp/reroot_internal_test.go:175: `TestRerootDelayChangesPreserveExpiry` takes its first delay from the configured value alone; fails: a former Root port that left for a Root port already forwarding, whose received Forward Delay is the delay in force; class: gap
-- src/common/sim/layer/stp/README.md:541: "a longer received delay cannot revive an expired timer" is false while the Root port's information has aged with no `Advance`, and `portstate.go:107-117` is `107-116`; fails: the sentence read against the tree; class: convention
+- Review, the Decision on the recent-root deadline: which call a port leaves
+  the Root role in depends on a prior `Advance` when the Root port's
+  information has aged, so the deadline does too. `Advance` expires the
+  information and makes the bridge the root, and the port leaves in that
+  call under the bridge's own Forward Delay. Without it the port leaves in
+  the `Receive` that names the next Root port, under that port's received
+  Forward Delay (`src/common/sim/layer/stp/portstate.go:115-128`,
+  `src/common/sim/layer/stp/info.go:165-177`,
+  `src/common/sim/layer/stp/roles.go:129`). Example: the Root port `p2`
+  ages at `T`, a BPDU at `T` with a Forward Delay of 4 seconds makes a
+  forwarding `p1` the Root port, and a BPDU 10 seconds later makes `p3` the
+  Root port. With `Advance` at `T` first, `p2`'s deadline is `T` plus 15
+  seconds and the reroot cuts it. Without it the deadline is `T` plus 4
+  seconds and `p2` keeps forwarding. The Decision's rule holds in both
+  runs, and its consequence, that the cut does not depend on a prior
+  `Advance`, does not. `TestRecentRootCutIsIndependentOfAdvance`
+  (`src/common/sim/layer/stp/recent_root_property_test.go`) covers a port
+  that had left the role before the `Advance`, where the consequence
+  holds. No deadline taken at the end of a call removes the difference,
+  since the two runs differ in which call the port leaves in. The choice is
+  the plan's: the consequence covers only a port that has already left the
+  Root role, or the deadline is taken another way. The fabric queues a wake
+  at the instant `NextWake` reports
+  (`src/common/sim/fabric/run.go:1463-1484`), which includes that expiry
+  (`src/common/sim/layer/stp/advance.go:35-37`). Unverified: that the wake
+  runs before a frame due at the same instant.
