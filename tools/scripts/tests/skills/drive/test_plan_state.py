@@ -315,6 +315,15 @@ class PlanStateTest(unittest.TestCase):
                 self.assertEqual(out.returncode, 2)
                 self.assertIn("plan record init", out.stderr)
 
+    def test_two_arguments_print_usage_and_exit_two(self):
+        help_result = self.run_script("--help")
+        self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        self.assertIn("Usage:\n    run.py drive plan-state", help_result.stdout)
+        result = self.run_script(PARENT, "extra")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, help_result.stdout)
+        self.assertEqual(result.stderr, "")
+
 
 if __name__ == "__main__":
     unittest.main()

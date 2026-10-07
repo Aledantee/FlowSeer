@@ -312,6 +312,7 @@ import sys
 if sys.argv[1:3] == ["run", "--quiet"] and sys.argv[4:7] == ["delegate", "runlog", "start"]:
     print("launcher notice", file=sys.stderr)
     if {fail!r}:
+        print("launcher output")
         sys.exit(1)
 os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
 """)
@@ -330,8 +331,11 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.uv_start_wrapper(fail=True)
         result = self.start()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("launcher notice", result.stderr)
-        self.assertIn("run log start failed", result.stderr)
+        self.assertIn("launcher notice", result.stderr.splitlines())
+        failure_lines = [line for line in result.stderr.splitlines() if "run log start failed:" in line]
+        self.assertEqual(len(failure_lines), 1)
+        self.assertIn("run log start failed: launcher output", failure_lines[0])
+        self.assertNotIn("launcher notice", failure_lines[0])
         self.assertIn("terminal close --terminal term-1", self.orca_calls())
         self.assertIn("worktree rm --worktree id:wt1", self.orca_calls())
         self.assertFalse((self.root / "child-l1").exists())

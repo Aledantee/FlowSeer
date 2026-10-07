@@ -18,6 +18,15 @@ def units(text):
 
 
 class FilesFieldTest(unittest.TestCase):
+    def test_unit_headings_require_one_space_before_the_id(self):
+        self.assertEqual(units("###  U1. Name\nFiles: `pkg/invalid.go`\n"), {})
+        found = units(
+            "### U1. Name\nFiles: `pkg/a.go`\n"
+            "### U2: Name\nFiles: `pkg/b.go`\n"
+            "### U3a. Name\nFiles: `pkg/c.go`\n"
+        )
+        self.assertEqual(found, {"U1": ["pkg/a.go"], "U2": ["pkg/b.go"], "U3a": ["pkg/c.go"]})
+
     def test_bare_entries_read_like_quoted_ones(self):
         found = units(
             "### U1. Bare paths with asides\n\n"
