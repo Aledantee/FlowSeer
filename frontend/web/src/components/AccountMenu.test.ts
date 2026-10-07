@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import AccountMenu from './AccountMenu.vue'
@@ -10,14 +10,31 @@ import { sessionOperator, signIn, signOut } from '../session/session'
 import { UiAppRoot } from '../ui'
 
 let dispose = () => {}
+const initialPath = window.location.pathname
+let exitStyle: HTMLStyleElement | undefined
+
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', (query: string) =>
+    Object.assign(new EventTarget(), {
+      matches: query.includes('reduce'),
+      media: query,
+      onchange: null,
+      addListener() {},
+      removeListener() {},
+    }),
+  )
+})
 
 afterEach(() => {
   dispose()
   dispose = () => {}
+  exitStyle?.remove()
+  exitStyle = undefined
   signOut()
   localStorage.clear()
   document.body.replaceChildren()
   delete document.documentElement.dataset.theme
+  window.history.replaceState(null, '', initialPath)
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
@@ -69,6 +86,135 @@ async function mountMenu(signedIn: boolean, locale: WebLocale = 'en') {
 }
 
 describe('AccountMenu', () => {
+  it.each(['help', 'report'] as const)(
+    'opens %s only after the menu exit completes, keeps dialog focus, and restores the trigger on close',
+    async (item) => {
+      // A named exit holds Presence mounted until animationend.
+      exitStyle = document.createElement('style')
+      exitStyle.textContent =
+        '[role="menu"][data-state="closed"] { animation-name: account-exit; }'
+      document.head.append(exitStyle)
+      const { open, trigger } = await mountMenu(true)
+      await open()
+      const focusTrigger = vi.spyOn(trigger, 'focus')
+      const menu = document.body.querySelector<HTMLElement>('[role="menu"]')
+      expect(menu?.getAttribute('data-state')).toBe('open')
+      document.body.querySelector<HTMLElement>(`.account-${item}`)?.click()
+      await settle()
+
+      expect(menu?.isConnected).toBe(true)
+      expect(menu?.getAttribute('data-state')).toBe('closed')
+      expect(getComputedStyle(menu ?? trigger).animationName).toBe(
+        'account-exit',
+      )
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+
+      menu?.dispatchEvent(
+        Object.assign(new Event('animationend'), {
+          animationName: 'account-exit',
+        }),
+      )
+      await settle()
+      const dialog = document.body.querySelector('[role="dialog"]')
+      expect(dialog?.textContent).toContain(
+        item === 'help' ? 'Workspace help' : 'Report a bug',
+      )
+      expect(document.body.querySelector('[role="menu"]')).toBeNull()
+      // Reka's zero-delay trigger-focus timer must leave focus inside the dialog.
+      expect(dialog?.contains(document.activeElement)).toBe(true)
+      expect(focusTrigger).not.toHaveBeenCalled()
+
+      dialog?.querySelector<HTMLButtonElement>('[aria-label="Close"]')?.click()
+      await settle()
+      expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+      expect(document.activeElement).toBe(trigger)
+      expect(document.body.style.pointerEvents).not.toBe('none')
+    },
+  )
+
+  it('retranslates both theme announcements when the Composer locale changes', async () => {
+    const { choose, status, i18n } = await mountMenu(false)
+
+    await choose('theme')
+    expect(status('theme')).toBe('Dark mode enabled.')
+    i18n.global.locale.value = 'de'
+    await nextTick()
+    expect(status('theme')).toBe('Dunkler Modus aktiviert.')
+
+    await choose('theme')
+    expect(status('theme')).toBe('Heller Modus aktiviert.')
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(status('theme')).toBe('Light mode enabled.')
+  })
+
+  it('updates the announced language after an external locale change and a menu switch back to English', async () => {
+    const { choose, status, i18n } = await mountMenu(false)
+
+    await choose('locale')
+    expect(status('locale')).toBe('Sprache auf Deutsch umgestellt.')
+    i18n.global.locale.value = 'en'
+    await nextTick()
+    expect(status('locale')).toBe('Language set to English.')
+    i18n.global.locale.value = 'de'
+    await nextTick()
+    await choose('locale')
+    expect(status('locale')).toBe('Language set to English.')
+  })
+
+  it('follows system theme changes until the visitor chooses a theme', async () => {
+    const system = Object.assign(new EventTarget(), { matches: false })
+    vi.stubGlobal('matchMedia', (query: string) =>
+      query === '(prefers-color-scheme: dark)'
+        ? system
+        : Object.assign(new EventTarget(), { matches: true }),
+    )
+    const { choose } = await mountMenu(false)
+    expect(document.documentElement.dataset.theme).toBe('light')
+
+    system.matches = true
+    system.dispatchEvent(Object.assign(new Event('change'), { matches: true }))
+    await nextTick()
+    expect(document.documentElement.dataset.theme).toBe('dark')
+
+    await choose('theme')
+    expect(document.documentElement.dataset.theme).toBe('light')
+    system.dispatchEvent(Object.assign(new Event('change'), { matches: true }))
+    await nextTick()
+    expect(document.documentElement.dataset.theme).toBe('light')
+  })
+
+  it('reads the page on each bug report opening and clears the copy notice and fallback', async () => {
+    vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
+      new Error('blocked'),
+    )
+    window.history.pushState(null, '', '/first-page')
+    const { choose } = await mountMenu(true)
+    await choose('report')
+    const dialog = document.body.querySelector('[role="dialog"]')
+    expect(dialog?.textContent).toContain('Page: /first-page')
+    dialog
+      ?.querySelector('form')
+      ?.dispatchEvent(new Event('submit', { cancelable: true }))
+    await settle()
+    expect(dialog?.querySelector('[role="status"]')?.textContent).toBe(
+      'Copying was unavailable. Select and copy the report below.',
+    )
+    expect(
+      dialog?.querySelector<HTMLTextAreaElement>('#bug-report-copy')?.value,
+    ).toContain('/first-page')
+
+    dialog?.querySelector<HTMLButtonElement>('[aria-label="Close"]')?.click()
+    await settle()
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
+    window.history.pushState(null, '', '/second-page')
+    await choose('report')
+    const reopened = document.body.querySelector('[role="dialog"]')
+    expect(reopened?.textContent).toContain('Page: /second-page')
+    expect(reopened?.querySelector('[role="status"]')).toBeNull()
+    expect(reopened?.querySelector('#bug-report-copy')).toBeNull()
+  })
+
   it('logs out and returns to the login page', async () => {
     signIn('ada@example.com')
     const { router, choose } = await mountMenu(true)
