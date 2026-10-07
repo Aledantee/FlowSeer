@@ -197,9 +197,11 @@ The candidate is chosen by hashing the packet's layer 3 flow with FNV-1a
 flow label zero. Selecting the egress first lets it choose a source on that
 interface, as [RFC 1122 section 3.3.4.3](https://www.rfc-editor.org/rfc/rfc1122#section-3.3.4.3)
 suggests and [RFC 6724 Rule 5](https://www.rfc-editor.org/rfc/rfc6724#section-5)
-prefers. For a non-link-local destination, a non-link-local source of the
-same family is preferred whenever the VRF has one, before choosing the egress
-address ([RFC 6724 Rule 2](https://www.rfc-editor.org/rfc/rfc6724#section-5)).
+prefers. A destination wider than link-local scope prefers a non-link-local
+source of the same family whenever the VRF has one. A destination of link-local
+scope or narrower prefers a link-local source on the egress interface when it
+has one ([RFC 6724 sections 3.1 and 5 Rule 2](https://www.rfc-editor.org/rfc/rfc6724#section-3.1)).
+This includes IPv6 multicast scopes 1 and 2 and IPv4 multicast `224.0.0.0/24`.
 The caller's payload contributes nothing to selection.
 
 ```mermaid

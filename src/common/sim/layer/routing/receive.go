@@ -36,6 +36,7 @@ func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) l
 		local := interfaceHolds(iface, msg.TargetAddr)
 		if vs.policy.Mode != NeighborDisabled && !msg.SenderAddr.IsUnspecified() {
 			key := neighborKey{iface: ifaceName, addr: msg.SenderAddr}
+			l.retireNeighbor(vs, now, key, true)
 			if _, exists := vs.neighbors[key]; !exists && local {
 				vs.neighbors[key] = &neighborEntry{mac: msg.SenderMAC, state: NeighborStale, origin: observed}
 			} else {
@@ -89,6 +90,9 @@ func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) l
 			return layer.Effects{}
 		}
 		key := neighborKey{iface: ifaceName, addr: hdr.Src}
+		if vs.policy.Mode != NeighborDisabled && !hdr.Src.IsUnspecified() {
+			l.retireNeighbor(vs, now, key, true)
+		}
 		if vs.policy.Mode != NeighborDisabled && !hdr.Src.IsUnspecified() && msg.HasLinkLayerAddr {
 			entry, exists := vs.neighbors[key]
 			if !exists {
