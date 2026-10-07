@@ -143,12 +143,16 @@ What each says, as read:
   the port it is addressed to. Today reception runs first
   (`V/switch.go:1125-1129`, before `bridge.Ingress` at `:1264`), so the
   answer is relayed on an empty filtering database and floods.
-- A frame addressed to a routed interface's own address is taken by that
-  interface whatever its EtherType, as `routing.Layer.Owns` already takes IP
-  (`L/routing/layer.go:744-754`). `Q2003` 8.5 delivers such a frame to the
-  service user and permits relaying it as well. No source read says a routed
-  VLAN interface's address is a filtering entry, so the rule is the
-  switch's, stated in the README.
+- An ARP or Neighbor Discovery frame addressed to a routed interface's own
+  MAC is taken by that interface, as `routing.Layer.Owns` already takes IP
+  (`L/routing/layer.go:744-754`). The test is the destination: a frame the
+  layer then fails to decode is taken and ignored, as
+  `routing.Layer.Receive` ignores it today (`L/routing/receive.go:34-36`).
+  `Q2003` 8.5 delivers such a frame to the service user and permits
+  relaying it as well. No source read says a routed VLAN interface's address
+  is a filtering entry, so the rule is the switch's, stated in the README.
+  A frame of any other EtherType to that MAC is relayed as today, which the
+  README states as a limit.
 - A mirror output port sends copies, and the LACPDUs of its own members
   when it is a LAG. It sends no BPDU, no probe, and no relayed or released
   frame. Why: `OVS-XML` reserves the port, and `OVS-BRIDGE` names a mirror
@@ -168,9 +172,14 @@ What each says, as read:
   LACPDU's result names the member (`V/switch.go:2363,2400`), and
   `finishForward` passes that name to `Copies` (`:1717-1721`).
 - A LAG reports its fastest enabled member's speed to spanning tree, as
-  today (`V/switch.go:3194-3201`). Why: `Q2003` 13.36.1 and `D2009` 13.18.
-  The sum that IEEE 802.1AX gives an aggregate would change the path cost
-  whenever a member fails.
+  today (`V/switch.go:3194-3201`). It is the simulator's rule and the README
+  states it as a limit. `Q2003` 13.36.1 and `D2009` 13.18 permit a cost
+  that reflects an aggregate and advise against one that follows every
+  member failure. Neither names a rule. The fastest member holds the cost
+  still while members of one speed come and go, where a sum would move it
+  each time. It still moves when the only fastest member is lost
+  (`L/stp/link.go:117-133`). What IEEE 802.1AX says of an aggregate's rate
+  was not read for this plan.
 - The relay learns no source from a BPDU or an LACPDU. It stays the Limit
   `L/bridge/README.md` states. Why: the switch hands a BPDU to spanning tree
   ahead of the gate so that a Discarding port still hears its peer
@@ -182,9 +191,18 @@ What each says, as read:
   keeps a frame off a port that is not forwarding (`Q2003` 8.6.2 b), and a
   tree rebuilt by the same derive starts with every port Discarding
   (`V/derive.go:191`), which empties the table.
-- `Kept` means that no runtime record of the layer was left behind. A layer
-  absent on both sides reports `Kept: true`. Why: outline R4, and nothing
-  was lost. `Retention` covers every layer that declares `New`.
+- `Kept` has one rule per kind of carry. A layer carried whole (spanning
+  tree, loop protection, LAG, routing) is kept when its keys are equal, as
+  today. A layer carried per record (multicast, the bridge) is kept when no
+  record of the source is absent from the target afterwards, whatever the
+  keys say. Traffic is kept when its keys are equal, as its tests pin
+  (`V/derive_internal_test.go:977-1056`), and the buckets of unchanged
+  policers are carried either way. A layer absent on both sides reports
+  `Kept: true`. Why: outline R4 asks for the multicast verdict, the three
+  key-changing multicast edits of `TestLayerDependencyMutationMatrix` keep
+  every record and assert kept (`:656-690`), and a probe that reported
+  traffic by buckets failed the two traffic subtests named above.
+  `Retention` covers every layer that declares `New`.
 - A filter requires routing in the switch (`V/config.go:383-386`). Why: the
   switch evaluates a filter on routed paths alone (`V/switch.go:1230,1297`,
   `assembleRouteResult`), and `Validate` already requires every binding to
@@ -238,12 +256,13 @@ is `Output`. `Output.Hold` on a `Held` result, `Emission.Hold`, and
 these fields exists today. Example: two frames held for two neighbors
 return tokens 1 and 2, and the release of the second carries 2.
 
-R8. A neighbor frame is learned before it is answered, and a frame to an
-interface's own address is not relayed. Example: an ARP request on `1/1/1`
+R8. A neighbor frame is learned before it is answered, and a neighbor frame
+to an interface's own MAC is not relayed. Example: an ARP request on `1/1/1`
 in VLAN 10 for the address of `vlan10` returns one emission, the reply, on
 `1/1/1` alone. A unicast ARP reply to the MAC of `vlan10` is `Consumed`.
 
-R9. A mirror output port emits copies and, as a LAG, its members' LACPDUs.
+R9. A mirror output port emits copies and, as a LAG, its members' LACPDUs
+and Marker responses.
 Example: with `1/1/4` a mirror output and a spanning tree port, `Start` and
 `Advance` across three hello times return no emission on `1/1/4`.
 
@@ -266,10 +285,10 @@ frame carries no such issue.
   (`stp.PointToPoint`), the report (`vswitch.PointToPoint`), and the
   layer's bool. They are three facts, and the report's `Unknown` is what
   raises `protocol-link-unknown`.
-- The return type of `RetentionKey`. `Kept` is decided by whole-key
-  equality, and the sections `diffDependency` parses
-  (`V/retention.go:39-74`) name a difference in a report. A typed key
-  changes nine landed packages and the conformance gate for that name.
+- The return type of `RetentionKey`. The sections `diffDependency` parses
+  (`V/retention.go:39-74`) name a difference in a report and decide no
+  verdict beyond whole-key equality. A typed key changes nine landed
+  packages and the conformance gate for that name.
 - What `traffic.Layer.Copies` takes. It reads a switchport summary and an
   egress list the switch builds (`V/switch.go:453-469,1709-1721`) because a
   capability imports no sibling (shape record, `:82`). The switch checks
@@ -284,7 +303,9 @@ frame carries no such issue.
   `fabric.Compare` do. U11 states it in the README.
 - The switch reads frames that simulated devices emit and frames injected
   from captures. That input is untrusted for shape: a frame a codec refuses
-  is dropped with the codec's reason and never panics.
+  never panics. An intercept drops it with the layer's reason
+  (`V/switch.go:2341-2365,2496-2521`), and `routing.Layer.Receive` ignores
+  it.
 
 ## Inventory
 
@@ -427,8 +448,8 @@ Each retired phase plan was read at the commit before its retire commit
 | Retention reports `Kept: true` for a LAG layer absent on both sides | phase 4, Open questions | Decided: stays, defined in U10 |
 | A refused LACPDU's decode fact is not asserted | phase 4, Review gaps | U9 |
 | The multicast retention verdict and the spanning tree predicate in `Derive` | phase 5, Decisions and Open questions | U10 |
-| Whether a mirror destination or a loop-protected port emits protocol frames | phase 5, Open questions | U9: a mirror output emits none, a loop-protected port emits as today |
-| `bridge.Origin` and `bridge.Lifetime` use the empty string | phase 5, Open questions | No longer applies: both zero values are named (`L/bridge/fdb.go:46-49,57-61`) |
+| Whether a mirror destination or a loop-protected port emits protocol frames | phase 5, Open questions | U9: a mirror output emits copies and its members' LACPDUs and Marker responses alone, a loop-protected port emits as today |
+| `bridge.Origin` and `bridge.Lifetime` use the empty string | phase 5, Open questions | No longer applies: the four constants are non-empty strings (`L/bridge/fdb.go:46-61`), and `NormalizeSeeds` maps an empty value to `Configured` and `Aging` (`L/bridge/seed.go:28-32`) |
 | The filter on a released frame | phase 6, Out of scope | U7 |
 | The hold token and the ingress interface on the switch's result, emission, and drop | phase 6, Open questions | U7 |
 | An applier for routing emissions in the loop over layers | phase 6, Open questions | U4 |
@@ -455,11 +476,15 @@ relay's seed rule can drop a learned entry in `Derive`
 ## Units
 
 ### U1. Split the switch source by subject
-Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/spec.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/hub.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mcast.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/inspect.go
+Files: src/common/sim/layer/bridge/README.md, src/common/sim/layer/routing/README.md, src/common/sim/port/README.md, docs/architecture/2026-09-10-virtual-device-direction.md, src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/spec.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/hub.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mcast.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/inspect.go
 After: none
 Change: `switch.go` keeps the `Switch` type, the result types, and
 construction. Every other declaration moves whole, with its comment, to the
-file of its subject. No declaration changes.
+file of its subject. No declaration changes. The three READMEs that link
+`switch.go` for a moved declaration (`L/bridge/README.md:233`,
+`L/routing/README.md:466`, `src/common/sim/port/README.md:88`) and the
+record (`:534`) name the new file. `V/README.md` has no file table until
+U12.
 
 | File | Declarations, by their line in `switch.go` today |
 | --- | --- |
@@ -480,7 +505,7 @@ file of its subject. No declaration changes.
 Tests: the suites of `V`, `Fb`, `ST`, `netmodel`, and `search` pass
 unchanged. `go doc -all ./src/common/sim/device/vswitch` prints the same
 text before and after, compared with `diff`. No test changes.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge/README.md src/common/sim/layer/routing/README.md src/common/sim/port/README.md docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U2. Split the switch tests by subject
 Files: src/common/sim/device/vswitch/switch_test.go, src/common/sim/device/vswitch/helpers_test.go, src/common/sim/device/vswitch/relay_test.go, src/common/sim/device/vswitch/hub_test.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/filter_test.go, src/common/sim/device/vswitch/mcast_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/device/vswitch/loopprotect_test.go, src/common/sim/device/vswitch/link_test.go, src/common/sim/device/vswitch/construction_test.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/diff_test.go, src/common/sim/device/vswitch/compare_test.go
@@ -515,7 +540,7 @@ the moved tests. The suite passes.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch`
 
 ### U3. A call owns its issues
-Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mcast.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/issues_internal_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/dependency_metadata_test.go, src/common/sim/device/vswitch/README.md
+Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mcast.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/inspect.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/switch_internal_test.go, src/common/sim/device/vswitch/issues_internal_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/dependency_metadata_test.go, src/common/sim/device/vswitch/README.md
 After: U1, U2
 Change: the four hit sets (`V/switch.go:244-259`) leave `Switch` for an
 unexported `call` type that also holds `now` and whether the call commits.
@@ -525,8 +550,11 @@ clear the pointer on return. `wrapResult` takes the call as an argument. A
 release of a held frame and an emission of a routing frame run under a
 child call of their own, which replaces the save and restore of
 `receiveAndRelease` (`:1413-1426`) and `emitRouting` (`:2996-3027`).
-`Switch.call` is `resetOnFork`. The three literal issue codes become
-exported constants beside the five. Rules:
+`Switch.call` is `resetOnFork`. `SelectMember`, which the fabric's transmit
+path calls outside any frame (`Fb/run.go:898`), runs under a call of its
+own and discards its hits, since it returns no result to carry an issue.
+The three literal issue codes become exported constants beside the five,
+one of them in `Power` (`inspect.go`). Rules:
 
 - I1 (entry 3, R10). An issue is raised on the result of the call whose
   frame met the condition, and on no other.
@@ -541,14 +569,19 @@ composes a policed drop on another port and finds no `neighbor-unresolved`.
 group address whose query is unobserved, releases it with an ARP reply, and
 finds no `mcast-query-unobserved` on the reply's result.
 `TestNoCallOutlivesItsEntry` asserts `sw.call == nil` after each entry.
-Existing tests expected to change: none. The two tests that pin the save
+`TestSelectMemberOutsideACallRaisesNothing` ages a balanced selection past
+the rebalance interval, calls `SelectMember`, and finds no panic and no
+issue on the next frame's result. Existing tests that change: the internal
+test that calls `assembleRouteResult` on a bare switch and reads the hit
+set (`switch_internal_test.go:28-39`) passes a call and reads it. The two
+tests that pin the save
 and restore (`TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame`
 and its neighbor case, `held_test.go`) keep passing. Mutation: creating the
 child call from the parent's sets fails the second test.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch`
 
 ### U4. One output per call
-Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/output.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/output_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/fabric/run.go, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/stp_cases.go, src/common/sim/internal/simtest/filter_cases.go, src/common/sim/internal/simtest/mcast_cases.go, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/output.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/output_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/fabric/run.go, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/stp_cases.go, src/common/sim/internal/simtest/filter_cases.go, src/common/sim/internal/simtest/mcast_cases.go
 After: U3
 Change: `output.go` declares `Output`, which embeds `ForwardResult` and adds
 `Emissions []Emission`, `Copies []traffic.Copy`, and `Drops []NeighborDrop`.
@@ -574,10 +607,16 @@ have `Advance` and no wake. New entries:
 `Forward`, `Age`, `Wake`, `Drain`, `DrainNeighborFailures`, `Copies`,
 `Police`, and `ComposeForwardResult` stay for U5 to delete. `Forward`,
 `Age`, and `Wake` run the same pipeline with the semantics they have today
-(`Forward` neither advances nor polices) and move their call's lists into
-the pending fields the three drains read. `Fb/run.go` calls `Receive` or
+(`Forward` neither advances nor polices). Every entry that keeps its old
+signature in this unit (`Forward`, `Age`, `Wake`, `Start`, `LinkChange`,
+`Mcheck`) moves its call's lists into the pending fields the three drains
+read when it returns, and so does `Derive`, which creates a call on the
+new switch around the frames it fails (`V/derive.go:210-213`). `Fb/run.go` calls `Receive` or
 `ReceiveMirrored` at `:526-628` and `Advance` at `:411-417`, and reads the
-three lists from the value returned. The corpus calls `Receive` and
+three lists from the value returned. It keeps its calls of `Drain` and
+`DrainNeighborFailures` there until U5, because `Derive`, `Start`,
+`LinkChange`, and `Mcheck` still leave their output pending and the next
+step is where the fabric collects it today. The corpus calls `Receive` and
 `Advance`. Rules:
 
 - O1 (R6). A call returns every emission, copy, and drop it caused, and
@@ -589,16 +628,22 @@ three lists from the value returned. The corpus calls `Receive` and
 - O4. `NextWake` is the earliest wake of the table, and no wake when no
   layer reports one.
 
-The virtual-device record's section on neighbor resolution names `Forward`
-and `Switch.Wake` as the calls that release and settle (`:852-858`). It is
-amended to name `Receive` and `Advance`.
-
 Tests: `output_test.go`, each failing first. `TestReceiveReturnsTheRelease`
 (R6's example). `TestReceiveAdvancesBeforeTheFrame` holds a frame, calls
 `Receive` of an unrelated frame one retransmit interval later, and finds
 the second solicitation in its `Emissions`.
-`TestReceivePolicesAndReceiveMirroredDoesNot` exhausts a bucket and
-compares the two entries. `TestAdvanceVisitsEveryTimedLayer` builds a
+`TestReceiveAdvancesAgedInformationBeforeABPDU` is the example of
+`L/stp/README.md` (Limits): a root port ages at `T`, a BPDU arrives at `T`
+with no `Advance` between, and the port's deadline is the one the README
+gives for `Advance` first. `TestPolicedArrivalStillAdvances` refuses a
+frame while a hello is due and finds the BPDU in `Emissions` beside the
+drop. `TestReceivePolicesAndReceiveMirroredDoesNot` exhausts a bucket,
+compares the two entries, and asserts that `ReceiveMirrored` returns no
+copy where `Receive` returns one. `TestNextWakeIsTheEarliestOfTheTable`
+arms two layers and asserts the earlier time, and asserts no wake on a
+switch with no timed layer. `TestOldEntriesStillDrain` calls `Start`,
+`LinkChange`, `Mcheck`, and `Derive` and finds their output in the three
+drains, which pins the state U5 starts from. `TestAdvanceVisitsEveryTimedLayer` builds a
 switch with all four timed layers and asserts an emission from each within
 one call, and fails when a layer is left out of the table. Existing
 expectations that change:
@@ -607,10 +652,10 @@ the corpus case `troubleshooting/neighbor-resolution-pending`
 the retransmission. The fabric's suite is expected to pass unchanged, as in
 the probe. A fabric expectation that moves is a deviation to report, since
 the probe showed none.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/fabric/run.go src/common/sim/internal/simtest docs/architecture/2026-09-10-virtual-device-direction.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/fabric/run.go src/common/sim/internal/simtest`
 
 ### U5. The old entries go
-Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/README.md, src/common/sim/device/vswitch/helpers_test.go, src/common/sim/device/vswitch/relay_test.go, src/common/sim/device/vswitch/hub_test.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/filter_test.go, src/common/sim/device/vswitch/mcast_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/device/vswitch/loopprotect_test.go, src/common/sim/device/vswitch/link_test.go, src/common/sim/device/vswitch/construction_test.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/diff_test.go, src/common/sim/device/vswitch/compare_test.go, src/common/sim/device/vswitch/protocol_link_test.go, src/common/sim/device/vswitch/acceptance_review_test.go, src/common/sim/device/vswitch/fork_test.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/dependency_metadata_test.go, src/common/sim/device/vswitch/dependency_invariants_test.go, src/common/sim/device/vswitch/conformance_test.go, src/common/sim/device/vswitch/construction_result_test.go, src/common/sim/device/vswitch/marker_test.go, src/common/sim/device/vswitch/neighbor_test.go, src/common/sim/device/vswitch/derive_internal_test.go, src/common/sim/device/vswitch/switch_internal_test.go, src/common/sim/device/vswitch/oper_status_internal_test.go, src/common/sim/device/vswitch/fdb_peek_test.go, src/common/sim/device/vswitch/trace_fact_semantics_test.go, src/common/sim/device/vswitch/issues_internal_test.go, src/common/sim/device/vswitch/output_test.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/configure.go, src/common/sim/fabric/derive.go, src/common/sim/fabric/routing_test.go, src/common/sim/fabric/link_test.go, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/stp_cases.go, src/common/sim/netmodel/report_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/routing_test.go, src/common/sim/netmodel/netmodel_test.go, src/common/sim/netmodel/conformance_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/forward_metadata_test.go, src/common/sim/netmodel/acceptance_pass10_test.go, src/common/sim/fabric/topology_state_test.go, src/common/sim/internal/simtest/comparison_cases.go
+Files: src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/README.md, src/common/sim/device/vswitch/helpers_test.go, src/common/sim/device/vswitch/relay_test.go, src/common/sim/device/vswitch/hub_test.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/filter_test.go, src/common/sim/device/vswitch/mcast_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/device/vswitch/loopprotect_test.go, src/common/sim/device/vswitch/link_test.go, src/common/sim/device/vswitch/construction_test.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/diff_test.go, src/common/sim/device/vswitch/compare_test.go, src/common/sim/device/vswitch/protocol_link_test.go, src/common/sim/device/vswitch/acceptance_review_test.go, src/common/sim/device/vswitch/fork_test.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/dependency_metadata_test.go, src/common/sim/device/vswitch/dependency_invariants_test.go, src/common/sim/device/vswitch/conformance_test.go, src/common/sim/device/vswitch/construction_result_test.go, src/common/sim/device/vswitch/marker_test.go, src/common/sim/device/vswitch/neighbor_test.go, src/common/sim/device/vswitch/derive_internal_test.go, src/common/sim/device/vswitch/switch_internal_test.go, src/common/sim/device/vswitch/oper_status_internal_test.go, src/common/sim/device/vswitch/fdb_peek_test.go, src/common/sim/device/vswitch/trace_fact_semantics_test.go, src/common/sim/device/vswitch/issues_internal_test.go, src/common/sim/device/vswitch/output_test.go, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/configure.go, src/common/sim/fabric/derive.go, src/common/sim/fabric/README.md, docs/architecture/2026-09-10-virtual-device-direction.md, src/common/sim/fabric/routing_test.go, src/common/sim/fabric/configure_test.go, src/common/sim/fabric/link_test.go, src/common/sim/internal/simtest/filter_cases.go, src/common/sim/internal/simtest/cases.go, src/common/sim/internal/simtest/stp_cases.go, src/common/sim/netmodel/report_test.go, src/common/sim/netmodel/stp_test.go, src/common/sim/netmodel/routing_test.go, src/common/sim/netmodel/netmodel_test.go, src/common/sim/netmodel/conformance_test.go, src/common/sim/netmodel/lacp_test.go, src/common/sim/netmodel/export_test.go, src/common/sim/netmodel/forward_metadata_test.go, src/common/sim/netmodel/acceptance_pass10_test.go, src/common/sim/fabric/topology_state_test.go, src/common/sim/internal/simtest/comparison_cases.go
 After: U4
 Change: `Forward`, `Age`, `Wake`, `Drain`, `DrainNeighborFailures`,
 `Copies`, `Police`, and `ComposeForwardResult` are deleted with the fields
@@ -624,19 +669,29 @@ it writes anything. `SetOperStatus` loses its exported form, and
 (`V/switch.go:3540,3558`). `Derive` returns `(*Switch, Output, error)`, and
 the frames it fails (`V/derive.go:210-213`) are that output's `Drops`. The
 fabric reads the returned values at `Fb/fabric.go:591,862-875,1403-1406,
-1464-1468` and `Fb/configure.go:103-108`. Every test calls the new
-entries. Rules:
+1464-1468` and `Fb/configure.go:103-108`, and `Fb/run.go` drops the two
+drain calls U4 kept. `fabric.Derive` records each derived switch's `Drops`
+at the derived fabric's clock, as `Configure` does. Today it leaves them
+inside the switch for the next step to find (`Fb/derive.go:35-43`). Every
+test calls the new entries. The virtual-device record names `Forward` and
+`Switch.Wake` as the calls that release and settle (`:852-858`) and says
+that `Peek` and `Forward` agree (`:802`). Both sentences are amended to
+`Receive` and `Advance`, and `Fb/README.md:679-681` with them. Rules:
 
 - E1 (entry 11). A switch holds no output between calls.
 - E2 (entry 12). `LinkChange` on a port the table lacks returns an error
   and changes nothing.
+- E3. A frame a derive fails is a drop journey of the derived fabric from
+  its first instant. Source: `Fb/configure.go:106-108`, the same rule for
+  one switch.
 
 Tests: `TestSwitchHoldsNoPendingOutput` (`switch_internal_test.go`) walks
 the fields of `Switch` by reflection and fails on a field whose type is a
 slice of `Emission`, `traffic.Copy`, or `NeighborDrop`.
 `TestLinkChangeRefusesAnUnknownPort` (`link_test.go`) asserts the error,
-an unchanged `Ports()`, and no entry for the name in the fork gate's view
-of `portP2P`. `TestPeekReturnsCopiesAndLeavesNoState` (`output_test.go`)
+an unchanged `Ports()`, and no entry for the name in `portP2P` or
+`portSpeed`, and the same for a known port with a state outside
+`port.LinkState`. `TestPeekReturnsCopiesAndLeavesNoState` (`output_test.go`)
 compares a fork's outputs before and after a `Peek`. All three fail first.
 Existing tests that change their
 expectation, each because `Receive` advances first:
@@ -650,12 +705,14 @@ expectation, each because `Receive` advances first:
 interval, or counts the retransmission. The tests of `operErr`
 (`switch_internal_test.go:88-121`) and of exported `SetOperStatus`
 (`oper_status_internal_test.go`, `conformance_test.go:235`) are rewritten
-against `LinkChange`'s error. The nine `Police` sites assert through
+against `LinkChange`'s error. The derive test of `Fb/routing_test.go`
+(`:1751-1761`) reads the failed frame from the switch's drain and now reads
+the drop journey of the derived fabric (E3). The nine `Police` sites assert through
 `Receive`. Every other test changes its calls and no expectation.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/fabric src/common/sim/internal/simtest src/common/sim/netmodel`
 
 ### U6. A fork copies every layer
-Files: src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/fork_test.go, src/common/sim/device/vswitch/fork_matrix_test.go, src/common/sim/device/vswitch/diff_coverage_test.go, src/common/sim/internal/simtest/diffcoverage.go, src/common/sim/fabric/compare_filter_test.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/vswitch/fork.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/fork_internal_test.go, src/common/sim/device/vswitch/fork_test.go, src/common/sim/device/vswitch/fork_matrix_test.go, src/common/sim/device/vswitch/diff_coverage_test.go, src/common/sim/fabric/compare_filter_test.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U5
 Change: the table of U4 gains each layer's clone and the binding it needs
 on the relay (gate, selector, resolver). `Fork` copies the immutable fields
@@ -670,16 +727,21 @@ Rules:
 - F3. A fork and its source return equal outputs for equal calls, for every
   set of capabilities.
 
-The gate's fixture configures every capability with state: a filter with a
-rule and a binding, PoE, a learned neighbor, a spent policer bucket.
+The gate runs over a list of fixtures. The first configures every
+capability with state: a filter with a rule and a binding, PoE, a learned
+neighbor, a spent policer bucket. A second has no spanning tree and trust
+metadata scoped to it, which is the one construction that sets
+`missingSTP` (`V/switch.go:350-352`).
 `TestSwitchFieldsAreClassifiedAndChecked` fails when a classified field is
-zero on the source, unless the class table names why that field has no
-non-zero value (`call`). `filter` moves from `resetOnFork` to `deepCopied`.
+zero on the source in every fixture, unless the class table names why the
+field has no non-zero value between calls (`call`). `filter` moves from `resetOnFork` to `deepCopied`.
 An `immutableShared` struct compares its value fields as well. The record's
 paragraph on the three classes is amended to say that the loop over the
-table is what copies a layer. `ST/diffcoverage.go` fails on a nil pointer
-field in place of returning, and `TestDiffCoversEveryConfigField` seeds a
-filter.
+table is what copies a layer. `TestDiffCoversEveryConfigField` seeds a
+filter and asserts, by reflection over `Config`, that no capability pointer
+of its seed is nil. The shared helper keeps returning on a nil pointer
+(`ST/diffcoverage.go:183-185`), since nested optional pointers such as a
+switchport's `Tunnel` are nil in every layer's seed.
 
 Tests: `TestForkKeepsTheFilter` (R2's example) and
 `TestFilterChangeComparesDifferent` in `Fb/compare_filter_test.go`, where
@@ -701,10 +763,10 @@ advances the fork alone by an hour and requires the source's next output
 to equal that of a second fork taken before the hour. Existing tests that
 change: the gate's `filter` assertion, and the routing and traffic probes
 of `fork_test.go`, which gain a guard against a nil source.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/internal/simtest/diffcoverage.go src/common/sim/fabric/compare_filter_test.go docs/architecture/2026-09-10-virtual-device-direction.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/fabric/compare_filter_test.go docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U7. One routed egress, filtered on both paths
-Files: src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/output.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/filter_test.go, src/common/sim/device/vswitch/routed_egress_matrix_test.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/output.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/filter_test.go, src/common/sim/device/vswitch/routed_egress_matrix_test.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U6
 Change: one function puts a routed frame on its egress interface: through
 the relay for a VLAN interface, and directly for a routed port, a
@@ -735,9 +797,16 @@ one function. Rules:
 The record's section on held frames gains the filter at release and the
 token on the output.
 
-Tests: `filter_test.go` gains R3's example and its deferred twin, an
-inbound set on `vlan10` whose rule matches the egress interface. `held_test.go`
-gains R7's example. All three fail first. The generated check is
+Tests: `filter_test.go` gains R3's example and its deferred twin: a
+stateful inbound set on `vlan10` whose decision defers, and an inbound
+binding on `vlan20` that does not accept the reversed tuple, so
+`ResolveDeferred` refuses (`L/filter/filter.go:305-335`). It gains a frame
+held under an accepting filter and released after a `Derive` that keeps
+routing and changes the inbound default to `Drop`, which is a
+`NeighborDrop`, and an originated frame that meets the egress binding
+alone. `held_test.go` gains R7's example, a timed-out frame whose
+`NeighborDrop` carries its token and ingress, and a solicitation whose
+token is zero. Each fails first. The generated check is
 `routed_egress_matrix_test.go`: four egress kinds (VLAN interface, routed
 port, sub-interface, routed LAG) by three filter cases (none, deferred
 ingress drop, egress drop), the literal 12. Each cell sends one frame to a
@@ -775,24 +844,34 @@ its interface. Rules:
   what the layer admits.
 - N4. On a VLAN interface a broadcast or group neighbor frame `Receives`
   reports is relayed as today and received as well.
-- N5. `Ingress` with `learn` false followed by `Learn` equals `Ingress`
-  with `learn` true in entries, counters, steps, and consulted scopes.
+- N5. For a frame `Ingress` admits, `Ingress` with `learn` false followed
+  by `Learn` equals `Ingress` with `learn` true in entries, counters,
+  steps, and consulted scopes. On a port that learns and does not forward,
+  `Ingress` with `learn` true learns and refuses as today
+  (`L/bridge/ingress.go:129-143`).
 - N6. The reception predicate still requires IPv6 Next Header 58
   (`V/switch.go:1121-1124`), which `L/routing/README.md` (Limits) relies
   on.
 
-Tests: `held_test.go` gains R8's two examples, and `route_test.go` gains
-N3 on a routed port. Each fails first. `ingress_learn_test.go` pins N5 over
-a table of a learning port, a port that does not learn, a full database,
-and a tunnel port. `receive_test.go` of `routing` pins `Receives` against
+Tests: `held_test.go` gains R8's two examples, the second with an encoded
+ARP reply and again with a payload `arp.Decode` refuses, and `route_test.go`
+gains N3 on a routed port. Each fails first. N4 is pinned by a broadcast
+ARP request that is answered and also leaves on the VLAN's other ports, a
+solicited-node Neighbor Solicitation with the same two results, and a
+unicast reply to another station that is relayed and changes no neighbor
+entry. N6 is pinned by an IPv6 frame to the interface with a hop-by-hop
+header ahead of ICMPv6, which the layer does not receive. `ingress_learn_test.go` pins N5 over
+a table of a learning port, a port that does not learn, a port that learns
+and does not forward, a full database, and a tunnel port. `receive_test.go` of `routing` pins `Receives` against
 `Receive` over the frames of its existing table: the predicate is true for
 every frame the layer answers or learns from. `forward_internal_test.go`
 counts calls of the relay's
 ingress through a counting gate and requires one for an IGMP report.
 Existing tests that change: `TestARPToVLANInterfaceFloodedByRelay`
 (`route_test.go`, `switch_test.go:5281` today) expects `Flooded` for a
-unicast ARP to the router's MAC and now expects `Consumed`, under a name
-that says so. The sixteen lines of the tests that name `not-bridged` are
+frame of EtherType ARP to the router's MAC whose payload is no ARP message
+(`:5315-5319`). It now expects `Consumed` under a name that says so, and is
+the undecodable case above. The sixteen lines of the tests that name `not-bridged` are
 read one by one, and one that sends ARP or Neighbor Discovery to a routed
 port moves to `Consumed`. The corpus case
 `troubleshooting/neighbor-resolution-pending` sends a unicast ARP reply to
@@ -802,7 +881,7 @@ first example.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge src/common/sim/layer/routing src/common/sim/internal/simtest/cases.go`
 
 ### U9. Protocol frames in and out
-Files: src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/loopprotect_test.go, src/common/sim/device/vswitch/protocol_link_test.go, src/common/sim/device/vswitch/emission_matrix_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/layer/bridge/README.md
+Files: src/common/sim/device/vswitch/intercept.go, src/common/sim/device/vswitch/forward.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/issues.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/loopprotect_test.go, src/common/sim/device/vswitch/protocol_link_test.go, src/common/sim/device/vswitch/emission_matrix_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/layer/bridge/README.md
 After: U8
 Change: `interceptSSTP` is cut into decode, VLAN resolution, and the step,
 each under 150 lines, and `interceptBPDU` shares its port check and its
@@ -816,9 +895,12 @@ joins `Output.Emissions`. Rules:
 - P2 (entry 6). `protocol-link-unknown` names the ports of `cfg.STP.Ports`
   and the LAG members, and no other port.
 - P3 (Completeness). A BPDU's step records every tree whose role or state
-  the frame changed on that port. The switch reads `VLANPortInfo` for each
-  VLAN of `configuredVLANs` before and after, and adds one
-  `stp.PortTransitionFact` output per tree that differs.
+  the frame changed on that port, once. The switch reads the CIST through
+  `PortInfo` and each other tree through `VLANPortInfo` of a configured
+  VLAN, keeps one snapshot per `PortInfo.Tree` (`L/stp/info.go:54-58`), and
+  adds one `stp.PortTransitionFact` output per tree that differs. Sampling
+  VLAN 1 for the CIST fails when VLAN 1 is in an MSTI
+  (`V/switch.go:3323-3327`).
 - P4 (R9). No BPDU, probe, routing frame relayed into a VLAN, or released
   frame names a mirror output port. The emission's port is the logical
   port, which is what `traffic.Layer.MirrorForOutput` is keyed by. A
@@ -843,12 +925,15 @@ reserved-address Limit its reason (Decisions).
 
 Tests, each failing first unless marked. `stp_test.go`: P1 on an untracked
 up port, and P3 with an MST switch whose CIST role is unchanged while MSTI
-1 moves from Designated to Root. `protocol_link_test.go`: P2, where the
+1 moves from Designated to Root, one where VLAN 1 is in an MSTI and the
+CIST moves, and one where two VLANs share an MSTI and the step holds one
+fact for it. `protocol_link_test.go`: P2, where the
 issue names `1/1/1` and no issue names the unlisted `1/1/3`.
 `mirror_test.go`: R9's example, a mirror with `SelectSrcPorts: lag1` that
 copies an LACPDU received on a member, a released frame that is not
 flooded to a mirror output, and a mirror output LAG whose members still
-send LACPDUs (passes today). `lag_test.go`: P7 in
+send LACPDUs and answer a Marker PDU, on a member not yet enabled for data
+as well (both pass today). `lag_test.go`: P7 in
 `TestLACPDUHandlingAtSwitch` (mutation: swapping the two fact functions
 fails it). `loopprotect_test.go`: P8, and P5 as a test that passes today.
 The generated check is `emission_matrix_test.go`: over the subsets of
@@ -862,35 +947,44 @@ and is rewritten to P2. No other expectation moves.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge/README.md`
 
 ### U10. Derive reports what it kept
-Files: src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/retention.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/spec.go, src/common/sim/device/vswitch/config.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/derive_internal_test.go, src/common/sim/device/vswitch/derive_matrix_test.go, src/common/sim/device/vswitch/conformance_test.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/layer/bridge/seed.go, src/common/sim/layer/bridge/seed_test.go, src/common/sim/layer/mcast/layer.go, src/common/sim/layer/mcast/layer_test.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/layer_test.go, src/common/sim/fabric/fabric.go, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/retention.go, src/common/sim/device/vswitch/layers.go, src/common/sim/device/vswitch/spec.go, src/common/sim/device/vswitch/config.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/derive_internal_test.go, src/common/sim/device/vswitch/derive_matrix_test.go, src/common/sim/device/vswitch/conformance_test.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/layer/bridge/seed.go, src/common/sim/layer/bridge/fdb_test.go, src/common/sim/layer/mcast/layer.go, src/common/sim/layer/mcast/layer_test.go, src/common/sim/fabric/fabric.go, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U9
 Change: `Derive` loops over the table of U4. Each entry gains its retention
 key and its carry: clone on equal keys (spanning tree, loop protection,
-LAG, routing), `Retain` (traffic), `Restore` (multicast), reseed (bridge),
+LAG, routing), `Retain` as today (traffic), `Restore` (multicast), reseed
+(bridge),
 and nothing for the filter, which holds no runtime record. `Derive` is
 under 150 lines. `Retention` gains `Bridge` and `Filter`.
-`mcast.Layer.Restore` and `traffic.Layer.Retain` return the number of
-records they left behind, and the reseed counts the entries it skips.
+`mcast.Layer.Restore` returns the number of records it left behind. For
+the bridge, `Derive` compares the source's dynamic entries with the
+target's after the reseed and counts each key the target lacks, so an
+entry the target's `MaxEntries` evicts during the replay
+(`L/bridge/fdb.go:162-168`) is counted with one the seed rule refuses.
 `bridge.SwitchportAdmitsFID` is exported (`L/bridge/seed.go:125`), and the
 three inline membership tests call it or `Switchport.CarriesVID`
 (`V/config.go:271`, `V/derive.go:186,252`). Rules:
 
-- D1 (R4). `Kept` is true when the layer left no record behind, and false
-  with the dependency `diffDependency` names otherwise. A count above zero
-  with equal keys names `config`.
+- D1 (R4). `Kept` follows the Decision: key equality for a layer carried
+  whole and for traffic, and no lost record for multicast and the bridge.
+  A lost record with equal keys names `config`. Any other difference is the
+  dependency `diffDependency` names.
 - D2 (entry 5). A membership is restored when its port exists, forwards,
   is no LAG member, and carries the VLAN. Spanning tree is not asked.
   Source: `R4541` 2.1.1 item 4, `Q2003` 8.6.2 b).
 - D3 (entry 7). `Forget` removes the seed of the same FID and MAC from the
   spec. Source:
   `docs/solutions/architecture-patterns/a-reconfigure-path-stores-configured-state-never-derived.md`.
-- D4 (entry 10). The point-to-point and speed reports of a port are carried
-  together or not at all.
-- D5. `Derive(sw, sw.Spec())` keeps every layer and behaves as `sw.Fork()`.
+- D4 (entry 10). A derive never leaves one of the two report maps nil
+  beside the other.
+- D5. For a switch whose ports hold the states its spec holds,
+  `Derive(sw, sw.Spec())` keeps every layer and behaves as `sw.Fork()`. A
+  switch moved by `LinkChange` is outside the rule: `Spec` returns the
+  ports as constructed (`V/switch.go:474-484`), and a derive rebuilds from
+  them where a fork continues.
 
 The record's paragraph on retention (`:270-292`) is amended: traffic and
-the bridge join the per-record layers, the spanning tree predicate leaves
-the multicast rule, and `Kept` has D1's meaning. `Fb/fabric.go:1107-1108`
+the bridge joins multicast as a per-record layer, the spanning tree
+predicate leaves the multicast rule, and `Kept` has D1's meaning. `Fb/fabric.go:1107-1108`
 updates its comment for the two new fields.
 
 Tests, each failing first unless marked. `derive_test.go`: R4's two
@@ -898,12 +992,15 @@ examples, and for the first a frame to the group that leaves the STP port
 only once spanning tree forwards it. `TestForgetRemovesTheSeed` learns a
 seed, forgets it, finds no seed in `Spec()`, rebuilds, and learns the same
 key again. `TestDeriveCarriesLinkReportsTogether` derives a switch
-whose LAG member's port changed, sends `LinkChange` for the member, and
-does not panic. `TestConformanceDeriveInvalidation` calls `Derive` and
-asserts the retention it reports. `seed_test.go`, `layer_test.go` of
-`mcast`, and `layer_test.go` of `traffic` assert the counts. The generated
+whose LAG member's port changed, sends `LinkChange` for the member, does
+not panic, and finds the member's point-to-point report `Unknown` with no
+speed. `TestDeriveCountsAnEvictedEntry` lowers `MaxEntries` from two to one
+and reports `Bridge` not kept. `TestConformanceDeriveInvalidation` calls `Derive` and
+asserts the retention it reports. `fdb_test.go` of `bridge` pins the
+exported seed rule, and `layer_test.go` of `mcast` asserts the count. The generated
 check is `derive_matrix_test.go`: the 192 switches of U6, each derived from
-its own spec, with every field of `Retention` kept (walked by reflection,
+its own spec after `Start` and the frame list and before any `LinkChange`,
+with every field of `Retention` kept (walked by reflection,
 so a new field is covered) and outputs equal to a fork's over the frame
 list. It sits beside `TestDeriveSwitchIdempotenceAndFiftyRandomConstructions`
 (`derive_internal_test.go:1077`) and enumerates the capability dimensions
@@ -913,17 +1010,20 @@ Existing tests that change: two subtests of `TestLayerDependencyMutationMatrix`
 (`derive_internal_test.go:224`), "port admin status drops entry per-entry"
 and "port oper status drops entry per-entry". Each drops a membership and
 asserts `Mcast.Kept` true, and under D1 asserts false with the dependency
-named. `TestMulticastValidationAndDerivation` keeps passing. No test pins
-the retention verdict of traffic.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge src/common/sim/layer/mcast src/common/sim/layer/traffic src/common/sim/fabric/fabric.go docs/architecture/2026-09-10-virtual-device-direction.md`
+named. `TestMulticastValidationAndDerivation`, the three key-changing
+multicast subtests, and the traffic subtests (`:977-1056`) keep passing.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge src/common/sim/layer/mcast src/common/sim/fabric/fabric.go docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U11. Compare reads the copies
-Files: src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/compare_test.go, src/common/sim/device/vswitch/compare_internal_test.go, src/common/sim/internal/simtest/comparison_cases.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/compare_test.go, src/common/sim/device/vswitch/compare_internal_test.go, src/common/sim/internal/simtest/comparison_cases.go, src/common/sim/internal/simtest/corpus.go, src/common/sim/device/vswitch/README.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U10
 Change: `Comparison` holds two `Output` values, and `compareResults`
 compares `Output.Copies` in place of `mirrorCopies`
 (`V/compare.go:195-211`). Copies are ordered by mirror, port, and VLAN and
-compared by those three, the member, and the frame. Rules:
+compared by those three, the member, and the frame. The corpus passes a
+comparison's two sides to helpers that take a `ForwardResult`
+(`ST/corpus.go:921-922,1101-1102`) and now passes the embedded result.
+Rules:
 
 - C1 (entry 13). Two results whose copies differ in VLAN, member, or frame
   are `Different` with observable `mirror`.
@@ -937,18 +1037,19 @@ The README's comparison section states C3, lists all five outcomes, and
 says that `Peek` polices nothing. The record's list of switch observables
 (`:399-403`) names the copy's content.
 
-Tests: `compare_test.go` gains C1 (an output VLAN changed from 98 to 99,
-failing first) and one test per observable without one: `reason`, `fid`,
+Tests: `compare_test.go` gains C1 three times, each failing first: an
+output VLAN changed from 98 to 99, the same VLAN with another LAG member,
+and the same copy with another snap length and one test per observable without one: `reason`, `fid`,
 `egress.port`, `egress.dropped`, `frame.src`, `frame.ethertype`,
 `frame.tags`, `frame.payload`. Each asserts the observable string and both
 values. `compare_internal_test.go` gains C3 with an incomplete side that
 also differs. Existing tests that change:
 `TestCompareDetectsMissingMirrorCopy` (`compare_test.go:152`) asserts the
 decision fact's text as the difference and now asserts the copy.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch docs/architecture/2026-09-10-virtual-device-direction.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/internal/simtest docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U12. README, comments, and test hygiene
-Files: src/common/sim/device/vswitch/README.md, src/common/sim/device/vswitch/config.go, src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/diff.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/inspect.go, src/common/sim/device/vswitch/hub.go, src/common/sim/device/vswitch/size_test.go, src/common/sim/device/vswitch/acceptance_review_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/construction_test.go, src/common/sim/device/vswitch/construction_result_test.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/layer/stp/README.md, src/common/sim/layer/loopprotect/README.md, src/common/sim/layer/lag/README.md, src/common/sim/layer/phy/README.md, src/common/sim/netmodel/README.md
+Files: src/common/sim/device/vswitch/README.md, src/common/sim/device/vswitch/config.go, src/common/sim/device/vswitch/switch.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/diff.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/compare.go, src/common/sim/device/vswitch/inspect.go, src/common/sim/device/vswitch/hub.go, src/common/sim/device/vswitch/size_test.go, src/common/sim/device/vswitch/acceptance_review_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/lag_test.go, src/common/sim/device/vswitch/construction_test.go, src/common/sim/device/vswitch/construction_result_test.go, src/common/sim/device/vswitch/route_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/stp_test.go, src/common/sim/layer/stp/README.md, src/common/sim/layer/loopprotect/README.md, src/common/sim/layer/lag/README.md, src/common/sim/layer/phy/README.md, src/common/sim/layer/bridge/README.md, src/common/sim/netmodel/README.md
 After: U11
 Change: `V/README.md` keeps the composition: the entries, the pipeline as a
 Mermaid flowchart of the stages U8 names, the output, fork, derive, and
@@ -974,7 +1075,7 @@ comment R5 allows: `TestSourceSizeLimits` in `size_test.go`, written with
 `go/parser`. Existing tests that change: the five
 assertions, each to the outcome read from a run of the test before the
 edit.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/stp/README.md src/common/sim/layer/loopprotect/README.md src/common/sim/layer/lag/README.md src/common/sim/layer/phy/README.md src/common/sim/netmodel/README.md`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/stp/README.md src/common/sim/layer/loopprotect/README.md src/common/sim/layer/lag/README.md src/common/sim/layer/phy/README.md src/common/sim/layer/bridge/README.md src/common/sim/netmodel/README.md`
 
 Waves: U1 U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12
 
@@ -1015,12 +1116,13 @@ cells, 16 emission subsets, 192 derives.
   the relay. N2 is the switch's rule and the README says so.
 - Unverified: what a vendor's loop-protected port does with BPDUs and
   LACPDUs. P5 keeps today's behaviour.
-- Unverified: IEEE 802.1AX on whether a Slow Protocols frame reaches the
-  Learning Process. The draft `L/lag/README.md` cites was not read for
+- Unverified: IEEE 802.1AX on an aggregate's data rate and on whether a
+  Slow Protocols frame reaches the Learning Process. The draft `L/lag/README.md` cites was not read for
   this plan, and the relay's Limit covers the LACPDU.
-- U6 and U7 amend the virtual-device record, which phase 8's last unit also
-  edits. Each amendment here is a dated section under Amendments plus the
-  sentence it corrects, so a merge keeps both.
+- U5, U6, U7, U10, and U11 amend the virtual-device record, and U5 edits
+  `Fb/README.md`. Phase 8's last unit edits both files. Each amendment here
+  is a dated section under Amendments plus the sentence it corrects, so a
+  merge keeps both.
 - The implementer decides the names inside `call`, the table's entry type,
   and the files a moved README paragraph lands in. The rules and the
   exported names above are fixed.
