@@ -680,37 +680,12 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Review gaps
 
-Follow-ups of the review. None holds the verdict.
+Follow-ups of the review. None holds the verdict, and each needs a change
+to shipped code, which the follow-up pass does not make.
 
-- src/common/sim/layer/routing/neighbor.go:192: `!entry.expiry.After(now)` to `entry.expiry.Before(now)` in the lookup; fails: a committing lookup exactly at `ReachableTime` reads `stale` and moves the entry to Delay; class: gap
-- src/common/sim/layer/routing/neighbor.go:263: a solicited reply ignored while the entry is in Delay; fails: a solicited reply in Delay returns the entry to `reachable`; class: gap
-- src/common/sim/layer/routing/neighbor.go:320: a retransmission built as a probe (`probe` true for an Incomplete entry); fails: the second and third solicitations equal the first frame; class: gap
-- src/common/sim/layer/routing/neighbor.go:364: `Interface` left empty on a `timed-out` exit; fails: a timed-out `HeldFrame` names its egress interface, in the layer and in the switch's drop step; class: gap
-- src/common/sim/layer/routing/neighbor.go:395: `NeighborProbe` dropped from `NextWake`; fails: `NextWake` in Probe is one `RetransTimer` after the last probe; class: gap
-- src/common/sim/layer/routing/receive.go:108: `|| entry.state == NeighborIncomplete` removed; fails: a solicitation without a source link-layer option from a source whose entry is Incomplete gets no advertisement; class: gap
-- src/common/sim/layer/routing/receive.go:142: the all-nodes MAC removed from `ndpReceiver`; fails: an unsolicited all-nodes advertisement moves an existing entry to Stale with the new address; class: gap
-- src/common/sim/layer/routing/receive.go:148: any `33:33:ff` MAC admitted; fails: a solicitation to another station's solicited-node group is ignored; class: gap
-- src/common/sim/layer/routing/config.go:376: `prev != ifaceName` removed; fails: one interface with two addresses in one subnet validates; class: gap
-- src/common/sim/netmodel/netmodel.go:1837: the link-local exemption removed; fails: two interfaces at `fe80::/64` load with both prefixes and no issue; class: gap
-- src/common/sim/device/vswitch/switch.go:1125: `mutate &&` removed at the receive site; fails: a `Peek` of an ARP reply leaves the neighbor table unchanged and emits nothing; class: gap
-- src/common/sim/device/vswitch/switch.go:2110: `Age` discards the emissions of `Advance`; fails: `Age` at a retransmission time emits the solicitation; class: gap
-- src/common/sim/device/vswitch/switch.go:3004: `eg.Dropped == ""` removed; fails: a relayed solicitation a member port refuses is not emitted on that port; class: gap
-- src/common/sim/layer/routing/README.md:448: the ICMP Limit names the failed-resolution error alone, where no ICMP error leaves the layer for any drop; class: convention
-- src/common/sim/layer/routing/README.md:452: the MLD Limit omits RFC 4861 section 7.2.1; class: convention
-- src/common/sim/layer/routing/README.md:371: "the validity checks of RFC 4861 section 7.1" where neither `Receive` nor `ndp.Decode` checks Next Header 58 or an option after the link-layer one; class: convention
-- src/common/sim/layer/routing/config.go:224: "agree on prefix, preference, metric, next hop, and interface alike" where routes collide on prefix, next hop, and interface, and the refusal list omits the shared subnet; class: convention
-- src/common/sim/layer/routing/layer.go:97: "a prior resolution attempt for the next hop already failed" at `ReasonNeighborMiss` and at `Route` (`:779`), where a miss is a disabled VRF or an interface with no address of the family; class: convention
-- src/common/sim/layer/routing/receive.go:141: `ndpReceiver` and `isSolicitedNode` (`:156`) have one caller each (`docs/code-style.md`, Scope and simplicity); class: convention
-- src/common/sim/layer/filter/config.go:126: the `Normalize` comment names slice order alone, not masking, repeats, or the `Protocol` copy; class: convention
-- src/common/sim/device/vswitch/switch_test.go:9574: the comment of the split solicitation test sits on `TestARPReplyForOtherStationLeavesStaleEntryStale` and says a non-local solicitation refreshes its source; class: convention
-- src/common/sim/device/vswitch/switch_test.go:9468: "the guard never calls Observe"; class: convention
-- src/common/sim/device/vswitch/README.md:307: the `neighbor-miss` row omits a resolution that got no answer, and `:528` says "a neighbor netsim never asked about"; class: convention
-- src/common/sim/fabric/routing_test.go:1483: "Netsim never solicits"; class: convention
-- docs/architecture/2026-09-10-virtual-device-direction.md:834: "That state lives in `routing.Layer.Receive`" where it lives in `routing.Layer`, and `:843` "It sends routing emissions" where the switch sends them; class: convention
-- docs/solutions/conventions/a-degrade-contract-is-tested-against-the-refusing-side.md:40: "`routing_test.go:1112`) enumerates nineteen rules" where the list holds twenty and the test is at `:1277`; class: convention
-- src/common/sim/layer/routing/receive.go:40: a peer frame with a new sender address and a local target adds a Stale entry nothing removes (`:95` for a solicitation), with no bound on the table; class: hardening
-- src/common/sim/layer/routing/receive.go:61: the receive rule reads the Ethernet destination and the Solicited check at `:73` reads the IPv6 destination, so an all-nodes frame with a unicast IPv6 destination confirms reachability; class: hardening
-- src/common/sim/layer/routing/receive.go:64: no check that the IPv6 Next Header is 58 before `ndp.Decode`; class: hardening
-- src/common/sim/layer/routing/receive.go:51: a group or zero sender hardware address is cached and answered (`:102` for a solicitation's option); class: hardening
-- src/common/sim/layer/routing/README.md:402: exits are said to be ordered by VRF, interface, and address, where a lookup that retires an exhausted entry appends its exits at call time (also the `Advance` and `neighborTableEntry` comments in `neighbor.go`); class: convention
+- src/common/sim/layer/routing/receive.go:147: `ndpReceiver` and `isSolicitedNode` (`:162`) have one caller each (`docs/code-style.md`, Scope and simplicity); class: convention
+- src/common/sim/layer/routing/receive.go:43: a peer frame with a new sender address and a local target adds a Stale entry nothing removes (`:101` for a solicitation), with no bound on the table; class: hardening
+- src/common/sim/layer/routing/receive.go:64: the receive rule reads the Ethernet destination and the Solicited check below it reads the IPv6 destination, so an all-nodes frame with a unicast IPv6 destination confirms reachability; class: hardening
+- src/common/sim/layer/routing/receive.go:67: no check that the IPv6 Next Header is 58 before `ndp.Decode`; class: hardening
+- src/common/sim/layer/routing/receive.go:54: a group or zero sender hardware address is cached and answered, and so is one in a solicitation's option; class: hardening
 - src/common/sim/device/vswitch/switch.go:1413: `receiveAndRelease` saves two hit lists and not `mcastQueryUnobservedHits`, so a held frame released to a cached group MAC charges a multicast query hit to the observing frame; class: hardening
