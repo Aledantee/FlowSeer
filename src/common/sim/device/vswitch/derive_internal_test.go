@@ -834,7 +834,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 						},
 						NeighborPolicy: routing.NeighborPolicy{
 							RetransTimer: 3 * time.Second,
-							HoldDepth:         3,
+							HoldDepth:    3,
 						},
 					},
 				},
@@ -1212,7 +1212,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 					},
 					NeighborPolicy: routing.NeighborPolicy{
 						RetransTimer: 3 * time.Second,
-						HoldDepth:         3,
+						HoldDepth:    3,
 					},
 				},
 			},
@@ -1300,7 +1300,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 					},
 					NeighborPolicy: routing.NeighborPolicy{
 						RetransTimer: 3 * time.Second,
-						HoldDepth:         3,
+						HoldDepth:    3,
 					},
 				},
 			},
