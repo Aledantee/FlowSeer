@@ -8,7 +8,7 @@ component: workflow-skills
 severity: medium
 applies_when:
   - "Writing or changing a stage table whose rows pair an \"applies when\" test with a \"done when\" test, such as the one in `drive` step 2."
-  - "Writing a condition a skill hands to `orca-worker.sh wait --until '<test>'` or to any other wrapper that quotes and re-runs it."
+  - "Writing a condition a skill hands to `delegate orca-worker wait --until '<json-argv>'` or to any other wrapper that quotes and re-runs it."
   - "Adding a state that a stage's worker writes (a new `plan_record.py` command, a new status) and checking which stage tests it satisfies."
   - "Reviewing a skill step that a driver re-enters by reading which stages the files already show done."
 related_components: [plan-state, plan-record, delegate]
@@ -36,19 +36,19 @@ state.update(status="planned", review=None, review_rounds=0, compound=None, outc
 state["readiness"] = "needs-decisions" if args.needs_decisions else "implementation-ready"
 ```
 
-(`.agents/skills/plan/scripts/plan_record.py:521-523`). The fix makes the
+(`tools/scripts/skills/plan/record.py`, `cmd_replan`). The fix makes the
 done test name the field the stage's worker changes, `status!=implemented`,
 beside the readiness (`.agents/skills/drive/SKILL.md:61`, commit `a1ce89ad`).
 
 ## The condition broke inside its own quotes
 
-`drive` passes every done test as `wait <slug> --until '<test>'`, and
-`orca-worker.sh` runs it with `bash -c "$until_cmd"`
-(`.agents/skills/delegate/scripts/orca-worker.sh:414`). The review stage's
+The shell wrapper passed every done test as `wait <slug> --until '<test>'`, and
+`orca-worker.sh` ran it with `bash -c "$until_cmd"`
+(commit `c4893467`). The review stage's
 test was `show <plan> --json | grep -q '"review": "accept'`. Its single
 quotes close the wrapper's, so the shell split it and `orca-worker.sh`
 refused the stray word. The fix uses `is` calls with double quotes only
-(`.agents/skills/drive/SKILL.md:96`, commit `c4893467`).
+(commit `c4893467`).
 
 ## The rule
 
@@ -57,25 +57,30 @@ that its "done when" fails there. Name a field the stage's worker writes,
 not one that may already hold. Within a row the two tests then exclude each
 other, so the added "applies" clause in step 2 never skips work.
 
-Run each wait condition once, verbatim, inside the wrapper that will poll it:
+Run each wait condition verbatim inside the wrapper that polls it:
 
 ```bash
-bash -c '.claude/skills/plan/scripts/plan_record.py is docs/plans/x-plan.md status!=implemented && .claude/skills/plan/scripts/plan_record.py is docs/plans/x-plan.md readiness=implementation-ready'; echo $?
+uv run tools/scripts/run.py delegate orca-worker wait lane --until '["uv","run","tools/scripts/run.py","drive","stage-done","docs/plans/x-plan.md","re-plan"]'
 ```
 
-Run it once on a plan where the stage applies, where it must exit 1, and
-once after the worker's command, where it must exit 0. A condition that
-holds a single quote fails before it reaches `plan_record.py`.
+The JSON array carries literal arguments, so the predicate needs no shell
+expression. Run it on a plan where the stage applies, where `stage-done`
+returns 1 and a quiet lane prints `idle`. Run it after the stage changes the
+state, where the predicate returns 0 and the lane prints `done`.
 
 ## Evidence
 
-- The states the table must cover are those `stage` can report:
-  `.agents/skills/drive/scripts/plan-state.py:36-59`.
-- `sent_back` reads an implemented plan with `rework` as owed a re-plan, with
-  readiness untouched: `.agents/skills/plan/scripts/plan_record.py:314-319`.
+- `tools/scripts/skills/drive/plan_state.py`, `stage`, names the states the
+  stage table must cover.
+- `tools/scripts/lib/plans.py`, `sent_back`, reads an implemented plan
+  with `rework` as owed a re-plan, with readiness untouched.
+- `tools/scripts/skills/drive/stage_done.py` reads the followed state and
+  requires both a non-implemented status and ready state for re-plan.
+- `tools/scripts/tests/skills/drive/test_stage_done.py` executes all four
+  documented wait predicates on pending and done states.
 - The old review condition under `bash -c '<test>'` failed with
-  `unmatched '`. The new one exits 0 on a plan whose review is
-  `accept after fixes` and 1 on one whose review is `fixes needed`.
+  `unmatched '`. The corrected shell condition exited 0 on a plan whose
+  review was `accept after fixes` and 1 for `fixes needed` (`c4893467`).
 
 ## What it does not cover
 

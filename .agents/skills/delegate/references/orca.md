@@ -1,7 +1,7 @@
 # Orca workers and full handoffs
 
 Load this when a worker's state does not match what its tree says, when
-`scripts/orca-worker.sh` fails a step, when `wait` prints anything but
+`delegate orca-worker` fails a step, when `wait` prints anything but
 `idle` or `done`, or the screen shows an unexpected dialog, or for an orchestration run
 or a full handoff. `SKILL.md` names the lane; this file is the procedure.
 
@@ -71,7 +71,9 @@ Full handoff.
   quiet only after two reads five seconds apart show no "esc to interrupt"
   or "esc to cancel" hint and the same screen. It keeps waiting while a child
   works or its screen changes. When the lane is quiet and no child works,
-  `--until <command>` runs first in the lane checkout. Success prints `done`.
+  `--until <json-argv>` runs an argument list in the lane checkout. Success
+  prints `done`. A malformed or empty array exits 2 before Orca is queried.
+  The predicate timeout is bounded by the remaining `--max` deadline.
   Without `--until`, a quiet lane without children prints `idle`, or
   `limited` when the last 30 lines of its screen name a rate limit, a usage
   limit, an exceeded, exhausted, or reached quota, or a reset time. The word `quota`
@@ -176,7 +178,7 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   `stop <slug> --stalled`, and dispatched again; a dirty or unmerged
   checkout still stops `stop`, for a person to read.
 - A Claude worker stops at a prompt to switch models or edit the prompt: a
-  safety classifier flagged its request, and `orca-worker.sh` turns
+  safety classifier flagged its request, and `delegate orca-worker` turns
   automatic switching off. Never pick switch. Report the flag and dispatch
   the work again on the next model in its own role's `fit` order, off
   Claude; an `execute` unit goes to `execute-sensitive`.
@@ -212,10 +214,10 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   git -C <child> add -A
   git -C <child> commit -m "wip: uncommitted work of exited lane <slug>"
   git branch parked/<slug> <lane branch>
-  .claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome blocked --verify none --note "exited dirty; work on parked/<slug>"
-  .claude/skills/delegate/scripts/orca-worker.sh stop <slug>
+  uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome blocked --verify none --note "exited dirty; work on parked/<slug>"
+  uv run tools/scripts/run.py delegate orca-worker stop <slug>
   ```
-- `stop` says the lane has no grade event: grade the lane with `orca-worker.sh grade`
+- `stop` says the lane has no grade event: grade the lane with `delegate orca-worker grade`
   before stopping it.
 - `stop` says the lane has child worktrees: the worker started lanes and
   left them. Each child's branch is merged into the lane (or dropped with
@@ -226,7 +228,7 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
   brief and start the lane again.
 - `start` says the hooks review remains or has no "Trust all and
   continue" option: Codex changed the dialog again. Its screen is in the
-  error; update the match in `orca-worker.sh`, or run `codex` in the
+  error. Update the match in `delegate orca-worker`, or run `codex` in the
   child once by hand and trust the hooks, then start the lane again.
 - `start` says Codex updated itself and exited, or showed its update
   offer despite `check_for_update_on_startup=false`: run `codex` by hand
@@ -288,4 +290,4 @@ orca worktree create --name <slug> --parent-worktree active --agent <agent> --pr
 
 `--agent` accepts no flags, so a handoff on a chosen model is a worktree
 without `--agent` followed by `orca terminal create --command "<launch
-line>"`, with the launch lines `orca-worker.sh` uses.
+line>"`, with the launch lines `delegate orca-worker` uses.

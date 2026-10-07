@@ -4,7 +4,7 @@
 set -uo pipefail
 
 script_dir=$(cd "$(dirname "$0")" && pwd)
-worker="$script_dir/../../delegate/scripts/orca-worker.sh"
+run_py=$(git -C "$script_dir" rev-parse --show-toplevel)/tools/scripts/run.py
 
 registry_info() {
   local machine=${HOME:-}/.claude/models/registry.yaml
@@ -253,10 +253,10 @@ if [[ -n $id_format ]]; then
 fi
 
 if [[ $effort_given == true && -n $line_effort ]]; then
-  launch=$("$worker" line --cli "$cli" --model "$launch_model" --effort "$line_effort" 2>/dev/null) ||
+  launch=$(uv run --quiet "$run_py" delegate orca-worker line --cli "$cli" --model "$launch_model" --effort "$line_effort" 2>/dev/null) ||
     refuse "cannot build the coordinator launch line"
 else
-  launch=$("$worker" line --cli "$cli" --model "$launch_model" 2>/dev/null) ||
+  launch=$(uv run --quiet "$run_py" delegate orca-worker line --cli "$cli" --model "$launch_model" 2>/dev/null) ||
     refuse "cannot build the coordinator launch line"
 fi
 prompt="Read .claude/skills/drive/SKILL.md and drive $parent."

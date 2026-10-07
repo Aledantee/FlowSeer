@@ -120,7 +120,7 @@ cat "$(git rev-parse --git-common-dir)/HEAD"   # ref: refs/heads/main
 Do not inspect its working tree; the fast-forward in step 5 refuses on its own
 when a local change there overlaps the merge.
 
-Every worker, child worktree, and `orca-worker.sh` lane this task started must
+Every worker, child worktree, and `delegate orca-worker` lane this task started must
 be settled, released, or removed; load `references/orca-cleanup.md`, and
 `.claude/skills/delegate/references/orca.md` whole for the removal it
 points to, whenever `orca status --json` (unsandboxed) reports the runtime reachable,

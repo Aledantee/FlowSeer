@@ -37,7 +37,7 @@ child's path and branch:
 orca worktree list --json   # entries whose parentWorktreeId is this worktree
 ```
 
-`.claude/skills/delegate/scripts/orca-worker.sh status` (unsandboxed) must
+`uv run tools/scripts/run.py delegate orca-worker status` (unsandboxed) must
 also list no lane of this task; grade a merged lane still listed (`delegate`,
 the outcome table), then stop it with `stop <slug>`, which removes its
 checkout and branch. The script keeps lane state in the git common

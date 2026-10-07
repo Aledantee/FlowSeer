@@ -176,8 +176,8 @@ else:
         return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
 
     def worker_line(self, cli, model, effort=None):
-        worker = SKILLS / "delegate/scripts/orca-worker.sh"
-        args = [str(worker), "line", "--cli", cli, "--model", model]
+        worker = SKILLS.parents[1] / "tools/scripts/run.py"
+        args = [sys.executable, str(worker), "delegate", "orca-worker", "line", "--cli", cli, "--model", model]
         if effort is not None:
             args.extend(["--effort", effort])
         result = subprocess.run(

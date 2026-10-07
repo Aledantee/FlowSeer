@@ -193,7 +193,7 @@ uv run tools/scripts/run.py delegate runlog review --model claude-opus-5-5 \
 | --- | --- |
 | `--model` | the registry id the reviewer ran on, never an alias such as `opus` or `inherit` |
 | `--role` | `review-seam` for a reviewer dispatched for the interplay, `review-unit` for every other |
-| `--agent` | the agent id the Agent tool returned for a native reviewer; for a reviewer on a pool's CLI, the `run` from the JSON line `orca-worker.sh start` printed, because `stop` deletes the state file that also holds it |
+| `--agent` | the agent id the Agent tool returned for a native reviewer. For a reviewer on a pool's CLI, use the `run` from the JSON line `delegate orca-worker start` printed, because `stop` deletes the state file that also holds it |
 | `--plan` | the plan path; left out when the scope has no plan |
 | `--findings` | what the reviewer returned; a finding dropped as a misreading counts here alone |
 | `--held` | those step 4 kept, a finding moved to "pre-existing" included |

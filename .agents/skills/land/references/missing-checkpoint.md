@@ -40,7 +40,7 @@ the request in a few words, and asks for the checkpoint:
   blocker, and this session asks it.
 
 Before merging the worker's branch, run
-`.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A non-zero
+`uv run tools/scripts/run.py delegate orca-worker check <slug>`. A non-zero
 result stops the merge. After the merge commit exists, including a resolved
 conflict, run
 `uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD`.

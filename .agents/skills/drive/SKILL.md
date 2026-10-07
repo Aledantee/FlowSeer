@@ -57,7 +57,7 @@ worktree. Nothing merges here after a stage: a merge per stage would put a
 plan that later parks or goes back to `plan` on this branch in parts.
 
 The plan's first stage creates the worktree, branched from this branch's
-`HEAD`: start it with `orca-worker.sh start` with the table's `--role`,
+`HEAD`: start it with `delegate orca-worker start` with the table's `--role`,
 `--plan <path>`, and the stage name as `--unit`. A phase resumed from a
 parked branch starts with `--base parked/<slug>` instead
 (`references/parking.md`, Answer). Then record the `branch` that `start`
@@ -77,11 +77,11 @@ plan's worktree when run in this one.
 
 Each later stage joins the worktree under a lane name of its own, with the
 same flags and `--join <lane>`, the lane being any earlier lane of the
-plan. `orca-worker.sh status` prints those as `kept`, which is where a
+plan. `delegate orca-worker status` prints those as `kept`, which is where a
 resumed drive finds the lane to join:
 
 ```bash
-.claude/skills/delegate/scripts/orca-worker.sh start --lane <slug> --join <lane> --cli <cli> --model <id> --role <role> --plan <path> --unit <stage> --brief <file>
+uv run tools/scripts/run.py delegate orca-worker start --lane <slug> --join <lane> --cli <cli> --model <id> --role <role> --plan <path> --unit <stage> --brief <file>
 ```
 
 | Stage | Applies when | Worker runs | Role | Done when |
@@ -93,7 +93,7 @@ resumed drive finds the lane to join:
 
 `$base` is the commit the plan's branch forked from, read from the `start`
 event the plan's first lane logged, with `$run` the `run` that
-`orca-worker.sh start` printed for that lane. A joined lane's `start` event
+`delegate orca-worker start` printed for that lane. A joined lane's `start` event
 holds the worktree's `HEAD` at its join, which covers its own stage only:
 
 ```bash
@@ -117,14 +117,21 @@ The brief follows `delegate` and adds:
   the share is the whole cap. The stage skill's own rules about workers
   stand; only the count is this drive's.
 
-Wait on the lane as `delegate` describes, with
-`wait <slug> --until '<test>'`, the test being the state command for the
-stage's "Done when":
+Wait on the lane with JSON argv for the stage's `drive stage-done` predicate.
+The command runs in the lane checkout, so its plan path is relative to that
+checkout:
 
-- re-plan: `uv run tools/scripts/run.py plan record is <plan> status!=implemented && uv run tools/scripts/run.py plan record is <plan> readiness=implementation-ready`
-- implement: `uv run tools/scripts/run.py plan record is <plan> status=implemented`
-- review: `uv run tools/scripts/run.py plan record is <plan> review=accept || uv run tools/scripts/run.py plan record is <plan> "review=accept after fixes"`
-- compound: `uv run tools/scripts/run.py plan record is <plan> compound!=null`
+```bash
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","re-plan"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","implement"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","review"]'
+uv run tools/scripts/run.py delegate orca-worker wait <slug> --until '["uv","run","tools/scripts/run.py","drive","stage-done","<plan>","compound"]'
+```
+
+`stage-done` returns 0 for done, 1 for pending, and 2 for invalid input or
+state. Re-plan needs both a non-implemented status and ready state. Review
+accepts both accepted verdicts. Compound checks `compound`, independently
+of `outcome`.
 
 On `done` without the stage's report on the screen, wait again without
 `--until`.
@@ -132,7 +139,7 @@ On `done` without the stage's report on the screen, wait again without
 After each stage:
 
 1. Check the worker's tree before its report, as `delegate` describes, and
-   run `.claude/skills/delegate/scripts/orca-worker.sh check <slug>`. A
+   run `uv run tools/scripts/run.py delegate orca-worker check <slug>`. A
    non-zero result stops this stage.
 2. After the implement stage, read the worker's ledger, which stays in the
    plan's worktree and never merges. Report every unit `passed` as the
@@ -146,8 +153,8 @@ After each stage:
    again.
 4. Unless this was the plan's last stage, grade the lane and end it with its
    worktree kept. Nothing was merged, so its verifier result is `none`:
-   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted --verify none`
-   `.claude/skills/delegate/scripts/orca-worker.sh stop <slug> --keep-worktree`
+   `uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome accepted --verify none`
+   `uv run tools/scripts/run.py delegate orca-worker stop <slug> --keep-worktree`
 
 After the last stage, once the compound stage's "done when" reads done and
 before `land`:
@@ -172,9 +179,9 @@ before `land`:
    merged as the workers left it, `amended` when the coordinator corrected
    the work, `--verify pass` when the verifier ran green. The plan's earlier
    lanes keep the grade "After each stage" gave them.
-   `.claude/skills/delegate/scripts/orca-worker.sh grade <slug> --outcome accepted|amended --verify pass|fail`
+   `uv run tools/scripts/run.py delegate orca-worker grade <slug> --outcome accepted|amended --verify pass|fail`
 5. Remove the plan's worktree, its branch, and the state file of every lane
-   that ran in it: `.claude/skills/delegate/scripts/orca-worker.sh stop <slug>`
+   that ran in it: `uv run tools/scripts/run.py delegate orca-worker stop <slug>`
 
 End a turn only while waiting on a started lane, with a started successor,
 at a parked question, or when a failed lane check after a stage or a failed
