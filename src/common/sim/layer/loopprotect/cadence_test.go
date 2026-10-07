@@ -166,6 +166,60 @@ func TestNextWakeReportsProbesOnlyWhileSomePortEmits(t *testing.T) {
 	})
 }
 
+func TestNextWakeKeepsProbeTimeWithADisabledSibling(t *testing.T) {
+	t.Parallel()
+
+	const interval = 60 * time.Second
+	l := newCadenceLayer(t, loopprotect.Config{
+		Interval: interval,
+		Ports: map[string]loopprotect.Port{
+			"a": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+			"b": {Action: loopprotect.Disable, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+		},
+	}, "a", "b")
+	t0 := time.Unix(1_700_000_000, 0)
+	l.Advance(t0)
+	l.Receive(t0.Add(time.Second), loopprotect.Return{}, returnedProbe("b", 0))
+	if got := l.PortInfo("b").Action; got != loopprotect.Disable {
+		t.Fatalf("b Action = %q, want Disable", got)
+	}
+	wantNextWake(t, l, "Disable applied to b", t0.Add(interval))
+}
+
+func TestAppliedBlockAndNoLearnKeepProbing(t *testing.T) {
+	t.Parallel()
+
+	for _, action := range []loopprotect.Action{loopprotect.Block, loopprotect.NoLearn} {
+		t.Run(string(action), func(t *testing.T) {
+			t.Parallel()
+
+			const interval = 60 * time.Second
+			l := newCadenceLayer(t, loopprotect.Config{
+				Interval: interval,
+				Ports: map[string]loopprotect.Port{
+					"a": {Action: action, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+				},
+			}, "a")
+			t0 := time.Unix(1_700_000_000, 0)
+			l.Advance(t0)
+			l.Receive(t0.Add(time.Second), loopprotect.Return{}, returnedProbe("a", 0))
+			if got := l.PortInfo("a").Action; got != action {
+				t.Fatalf("Action = %q, want %q", got, action)
+			}
+			due := t0.Add(interval)
+			wantNextWake(t, l, "action applied", due)
+			fx := l.Advance(due)
+			if len(fx.Emissions) != 1 {
+				t.Fatalf("Advance at probe time emitted %d frames, want 1", len(fx.Emissions))
+			}
+			if got := fx.Emissions[0].Port; got != "a" {
+				t.Errorf("emission port = %q, want a", got)
+			}
+			assertProbeFrame(t, fx.Emissions[0], 0)
+		})
+	}
+}
+
 // TestCloneKeepsNextWake pins that a clone taken after Receive reports the
 // deadline its source reports.
 func TestCloneKeepsNextWake(t *testing.T) {

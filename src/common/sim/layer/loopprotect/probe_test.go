@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -188,6 +189,43 @@ func TestDecodeRefusals(t *testing.T) {
 
 			if _, err := loopprotect.Decode(f); err == nil {
 				t.Fatalf("Decode(%s) = nil error, want an error", tc.name)
+			}
+		})
+	}
+}
+
+func TestDecodeRefusesEnvelopeBeforePayload(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		frame ethernet.Frame
+		attr  string
+		want  any
+	}{
+		{
+			name:  "destination",
+			frame: ethernet.Frame{Dst: netaddr.MAC{0x03, 0x46, 0x53, 0x4c, 0x50, 0x01}, EtherType: 0x88b5},
+			attr:  "dst",
+			want:  "03:46:53:4c:50:01",
+		},
+		{
+			name:  "EtherType",
+			frame: ethernet.Frame{Dst: loopprotect.GroupAddress(), EtherType: 0x0800},
+			attr:  "ether_type",
+			want:  uint16(0x0800),
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := loopprotect.Decode(tc.frame)
+			if err == nil {
+				t.Fatal("Decode = nil error, want envelope refusal")
+			}
+			if got := errs.Attributes(err)[tc.attr]; got != tc.want {
+				t.Errorf("refusal attribute %q = %v, want %v", tc.attr, got, tc.want)
 			}
 		})
 	}
