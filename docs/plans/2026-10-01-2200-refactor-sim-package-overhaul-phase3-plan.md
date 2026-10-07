@@ -220,6 +220,16 @@ under Inventory, Sources.
   orders neither (`D2009` 13.29.11 and 13.29.33 d), Figure 13-28), so this
   is the layer's own rule. One more round applies it under the closing
   rule above. (decided by the user, 2026-10-06)
+- A port in STP mode sends each VLAN tree's Configuration BPDU at the SSTP
+  address as well as its TCN, since a per-VLAN TCN means little to a peer
+  that hears nothing else of that VLAN. Modelled on observation, with no
+  Cisco source. (decided by the user, 2026-10-07)
+- Four behaviors are not in this phase and go to a later phase of the
+  parent plan: which Designated ports a proposal cuts (one holding an
+  agreement keeps it), the same sync at a boundary port, an MSTI proposal
+  in a record that is not stored, and an inherited port priority that
+  follows the bridge port. `S/README.md` lists each under Limits until
+  then. (decided by the user, 2026-10-07)
 
 ## Requirements
 
