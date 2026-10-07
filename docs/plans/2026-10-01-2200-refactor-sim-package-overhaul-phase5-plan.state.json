@@ -1,15 +1,15 @@
 {
   "contract": "flowseer-plan-state/v1",
-  "status": "partially-implemented",
+  "status": "implemented",
   "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 2,
+    "units": 5,
     "from": "2026-10-07T10:47:28Z",
-    "to": "2026-10-07T10:47:28Z",
-    "note": "Restore and probe codec verified. Expiry reads and loop timers committed with passing focused tests, but verifier requires an out-of-scope multicast corpus correction. Compatibility timers and query obligations remain pending."
+    "to": "2026-10-07T11:26:36Z",
+    "note": ""
   },
   "superseded_by": null,
   "branch": null,
@@ -17,7 +17,10 @@
   "after": [
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md"
   ],
-  "landed": null,
+  "landed": {
+    "first": "43d74c06",
+    "last": "73f8f557"
+  },
   "phases": [],
   "retired": []
 }

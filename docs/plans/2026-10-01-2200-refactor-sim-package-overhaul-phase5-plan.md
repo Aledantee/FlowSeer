@@ -461,12 +461,12 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit, with the contract
+- [x] Verifier green for every changed path of every unit, with the contract
       gate in `test/conformance/sim` untouched.
-- [ ] Each Correctness entry has its failing-first test or its strike.
-- [ ] The READMEs of `M` and `LP` name their sources, sections, and Limits,
+- [x] Each Correctness entry has its failing-first test or its strike.
+- [x] The READMEs of `M` and `LP` name their sources, sections, and Limits,
       and the virtual-device record is amended.
-- [ ] No plan label in code, comments, or commit messages. This plan's
+- [x] No plan label in code, comments, or commit messages. This plan's
       `status` is set, and the parent's U5 `Landed:` holds the range.
 
 ## Open questions
