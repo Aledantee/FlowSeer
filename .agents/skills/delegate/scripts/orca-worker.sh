@@ -333,7 +333,7 @@ case "$cmd" in
     [[ -n $agent ]] && start_args+=(--agent "$agent")
     [[ -n $plan ]] && start_args+=(--plan "$plan")
     [[ -n $unit ]] && start_args+=(--unit "$unit")
-    run_out=$(uv run --quiet "$run_py" delegate runlog "${start_args[@]}" 2>&1) || undo "run log start failed: $run_out"
+    run_out=$(uv run --quiet "$run_py" delegate runlog "${start_args[@]}") || undo "run log start failed: $run_out"
     run_id=$run_out
 
     # The brief goes in a file in the worker's checkout and the terminal gets
