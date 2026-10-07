@@ -209,6 +209,22 @@ class BenchTest(unittest.TestCase):
                 self.assertNotIn("timeout", self.calls[-1][1])
         self.assertEqual(self.run_bench("agy", "m", effort="high").returncode, 2)
 
+    def test_launch_arguments_without_effort(self):
+        expected = {
+            "claude": ["claude", "-p", "calibrate lane", "--model", "m",
+                       "--output-format", "json", "--dangerously-skip-permissions"],
+            "codex": ["codex", "exec", "--json", "--skip-git-repo-check",
+                      "--dangerously-bypass-approvals-and-sandbox", "-c",
+                      'plugins."compound-engineering@compound-engineering-plugin".enabled=false',
+                      "-m", "m", "calibrate lane"],
+            "omp": ["omp", "-p", "--model", "m", "--auto-approve",
+                    "--mode", "json", "--no-session", "--no-title", "calibrate lane"],
+        }
+        for cli, command in expected.items():
+            with self.subTest(cli=cli):
+                self.assertEqual(self.run_bench(cli, "m", effort="").returncode, 0)
+                self.assertEqual(self.calls[-1][0], command)
+
     def test_environment_removal(self):
         previous = os.environ.get("CLAUDECODE")
         self.run_bench("claude", env_extra={"CLAUDECODE": "nested", "CLAUDE_CODE_ENTRYPOINT": "x", "KEEP": "ok"})

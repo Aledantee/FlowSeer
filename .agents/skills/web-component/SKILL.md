@@ -41,9 +41,9 @@ From the worktree root:
 uv run tools/scripts/run.py web-component check-tools
 ```
 
-- **Exit 1** means a required tool is missing. Stop and ask the user
-  whether to install it, naming the tool, its purpose, and the install
-  line the script printed.
+- **Exit 1** stops work. For a missing, outdated, or invalid required tool,
+  ask whether to install it, naming its purpose and printed install line.
+  An unreadable manifest or unsupported engines floor prints a `check-tools:` diagnostic without an install line. Report it.
 - **An optional tool missing** means only its review step is skipped. Say
   which one in the report, and ask before installing it.
 - **Nothing is ever installed without the user's yes.**

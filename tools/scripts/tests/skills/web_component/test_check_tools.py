@@ -23,7 +23,7 @@ class CheckToolsTests(unittest.TestCase):
             root = Path(directory)
             web = root / "frontend/web"
             web.mkdir(parents=True)
-            (web / "package.json").write_text(json.dumps({"engines": {"node": floor}, "packageManager": "pnpm@11.25.0"}), encoding="utf-8")
+            (web / "package.json").write_text(json.dumps({"engines": {"node": floor}, "packageManager": "pnpm@9.7.1"}), encoding="utf-8")
 
             def which(name, **kwargs):
                 return None if name.removesuffix(".cmd") in absent else str(Path(kwargs.get("path", directory)) / name)
@@ -53,11 +53,32 @@ class CheckToolsTests(unittest.TestCase):
             return code, output.getvalue(), errors.getvalue(), lookup, launched
 
     def test_report_with_tools(self):
-        code, output, errors, _, _ = self.invoke()
+        with patch.object(check_tools.Path, "home", return_value=Path("/fixture-home")):
+            code, output, errors, _, _ = self.invoke(impeccable=True)
         self.assertEqual(code, 0, errors)
-        for name in ("node", "pnpm", "node_modules", "agent-browser", "storybook"):
-            self.assertRegex(output, rf"ok\s+{name}\s")
-        self.assertRegex(output, r"optional\s+impeccable\s")
+        self.assertEqual(output, (
+            "ok       node               v22.12.0\n"
+            "ok       pnpm               11.25.0\n"
+            "ok       node_modules       frontend/web dependencies installed\n"
+            "ok       agent-browser      11.25.0 (screenshot review of stories)\n"
+            "ok       impeccable         fixture-engine (design anti-pattern detector at /fixture-home/.claude/plugins/marketplaces/impeccable/.claude/skills/impeccable/scripts/impeccable)\n"
+            "ok       storybook          running on http://127.0.0.1:6006\n"
+        ))
+
+    def test_report_with_missing_required_tool(self):
+        code, output, errors, _, _ = self.invoke(absent=("pnpm",))
+        self.assertEqual(code, 1)
+        self.assertEqual(errors, "check-tools: required web tools are missing, outdated, or invalid\n")
+        self.assertEqual(output, (
+            "ok       node               v22.12.0\n"
+            "missing  pnpm               package manager pinned in package.json: pnpm@9.7.1\n"
+            "                            install: corepack enable pnpm (package.json: pnpm@9.7.1)\n"
+            "ok       node_modules       frontend/web dependencies installed\n"
+            "ok       agent-browser      11.25.0 (screenshot review of stories)\n"
+            "optional impeccable         design anti-pattern detector used in review mode\n"
+            "                            install: claude plugin marketplace add pbakaus/impeccable && claude plugin install impeccable@impeccable\n"
+            "ok       storybook          running on http://127.0.0.1:6006\n"
+        ))
 
     def test_node_floor_and_malformed_versions(self):
         for node, status, code in (("v22.12.0", "ok", 0), ("v24.0.0", "ok", 0),
@@ -75,7 +96,8 @@ class CheckToolsTests(unittest.TestCase):
         code, output, _, _, _ = self.invoke(floor=">=24.1.0", node="v24.0.0", absent=("pnpm",))
         self.assertEqual(code, 1)
         self.assertIn("below the engines floor 24.1.0", output)
-        self.assertIn("pnpm@11.25.0", output)
+        self.assertIn("package manager pinned in package.json: pnpm@9.7.1", output)
+        self.assertIn("install: corepack enable pnpm (package.json: pnpm@9.7.1)", output)
 
     def test_missing_required_and_optional_tools(self):
         for name in ("node", "pnpm", "vitest", "vue-tsc", "agent-browser"):
