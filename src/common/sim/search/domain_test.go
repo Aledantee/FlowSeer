@@ -126,3 +126,21 @@ func TestProductSizeBounds(t *testing.T) {
 		t.Fatalf("empty=%d,%v", size, err)
 	}
 }
+
+func TestCandidateNumbersInjectionBeforeTiedFault(t *testing.T) {
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	candidate := Candidate{Actions: []fabric.Action{
+		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}},
+		{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}}},
+	}}
+	if err := candidate.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	scenario := candidate.ToScenario(10)
+	if len(scenario.Actions) != 2 || scenario.Actions[0].Kind != fabric.ActionInject || scenario.Actions[0].Index != 1 || scenario.Actions[1].Kind != fabric.ActionFault || scenario.Actions[1].Index != 2 {
+		t.Fatalf("actions = %+v, want injection 1 then fault 2", scenario.Actions)
+	}
+	if candidate.Actions[0].Index != 0 || candidate.Actions[1].Index != 0 {
+		t.Fatalf("original indices = %d/%d, want 0/0", candidate.Actions[0].Index, candidate.Actions[1].Index)
+	}
+}

@@ -430,6 +430,23 @@ func TestTimedFaultDomainUncabledPairError(t *testing.T) {
 
 type candidateList []Candidate
 
+func TestSearchRejectsExecutableConfigureCandidate(t *testing.T) {
+	current, _, twin, _, _, _ := makeTestFabrics(t)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: current.Config().Switches["sw1"]}}}}
+	comparison := fabric.Compare(current, twin, input.ToScenario(30), 30)
+	if comparison.Err != nil || comparison.Disposition != analysis.Equivalent {
+		t.Fatalf("fabric comparison = %+v, want executable equivalent configure action", comparison)
+	}
+	result, err := Search(current, twin, candidateList{input}, Limits{Budget: 30})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Coverage != (Coverage{Tested: 1, Total: 1}) || result.Errors != 1 || result.Err == nil || result.Err.Error() != `candidate "configure": candidate action 0 must be injection or fault` || result.EquivalentCount != 0 || result.InconclusiveCount != 0 || result.TotalDifferences != 0 {
+		t.Fatalf("result = %+v, want one candidate action-kind error", result)
+	}
+}
+
 func (d candidateList) Size() int { return len(d) }
 func (d candidateList) Enumerate(yield func(Candidate) bool) {
 	for _, c := range d {

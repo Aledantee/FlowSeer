@@ -1,6 +1,7 @@
 package search
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -620,6 +621,12 @@ func TestMinimizeRejectsInvalidAndNonDifferenceInputs(t *testing.T) {
 			if err == nil || !strings.Contains(err.Error(), tc.message) || result.Minimality == Minimal {
 				t.Fatalf("result = %+v, error %v, want error containing %q without Minimal", result, err, tc.message)
 			}
+			if tc.name == "comparison error" {
+				cause := errors.Unwrap(err)
+				if cause == nil || cause.Error() != `origin node "missing" not found in fabric` || strings.Contains(err.Error(), "inconclusive") {
+					t.Fatalf("error = %v, cause = %v, want wrapped missing-origin error without inconclusive", err, cause)
+				}
+			}
 		})
 	}
 	result, err := MinimizeWithLimit(current, expected, valid, 30, 0)
@@ -750,6 +757,141 @@ func TestMinimizeExactValuesCanRetainOtherwiseRemovableAction(t *testing.T) {
 	}
 	if result.Minimality != Minimal || len(result.Candidate.Actions) != 2 {
 		t.Fatalf("result = %+v, want both actions because exact values retain the shared learned entry", result)
+	}
+	assertMinimizationReplay(t, current, expected, input, 30, result)
+}
+
+func TestMinimizeZeroLimitAllowsExactlySixtyFourTrials(t *testing.T) {
+	current, expected, src, dst, padSrc := makeMinimizeFabrics(t)
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	input := Candidate{}
+	for i := range 70 {
+		when := at.Add(time.Duration(i) * time.Millisecond)
+		input.Actions = append(input.Actions, fabric.Action{At: when, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h3"}, Frame: ethernet.Frame{Src: padSrc, Dst: dst}}})
+	}
+	input.Actions = append(input.Actions, fabric.Action{At: at.Add(time.Second), Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}})
+	result, err := MinimizeWithLimit(current, expected, input, 500, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Minimality != LimitReached || len(result.Candidate.Actions) != 7 || result.Candidate.Actions[0].Index != 65 {
+		t.Fatalf("default result = %+v, want LimitReached with 7 actions starting at index 65", result)
+	}
+	assertMinimizationReplay(t, current, expected, input, 500, result)
+	result, err = MinimizeWithLimit(current, expected, input, 500, 256)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Minimality != Minimal || len(result.Candidate.Actions) != 1 || result.Candidate.Actions[0].Index != 71 {
+		t.Fatalf("explicit result = %+v, want Minimal with only injection 71", result)
+	}
+	assertMinimizationReplay(t, current, expected, input, 500, result)
+}
+
+func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
+	base, _, src, dst, _ := makeFixedPointFabrics(t)
+	cfg := base.Config()
+	sw := cfg.Switches["sw1"]
+	builder := port.NewBuilder()
+	for _, p := range sw.Ports.Ports() {
+		builder.Add(p)
+	}
+	builder.Add(port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Ports = ports
+	vid := vlan.ID(10)
+	sw.Bridge.VLAN.Switchports["1/1/4"] = bridge.Switchport{PVID: &vid, Untagged: []vlan.ID{10}}
+	cfg.Switches["sw1"] = sw
+	cfg.Hosts["h4"] = fabric.Host{Address: netaddr.MAC{2, 0, 0, 0, 1, 4}}
+	cfg.Cables = append(cfg.Cables, fabric.Cable{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h4"}, Medium: fabric.TwistedPair, LengthMeters: 5})
+	current, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{
+		{Name: "a-span", SelectDstPorts: []string{"1/1/2"}, OutputPort: "1/1/4"},
+		{Name: "b-span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4"},
+	}}
+	cfg.Switches["sw1"] = sw
+	expected, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	for _, f := range []*fabric.Fabric{current, expected} {
+		if _, err := f.Inject(fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Frame: ethernet.Frame{Src: dst, Dst: dst}}); err != nil {
+			t.Fatal(err)
+		}
+		for len(f.Snapshot().Devices["sw1"].Entries) == 0 {
+			if _, ok := f.Step(); !ok {
+				t.Fatalf("seed queue drained before learning: %+v", f.Report())
+			}
+		}
+		entries := f.Snapshot().Devices["sw1"].Entries
+		if len(entries) != 1 || entries[0].MAC != dst || entries[0].Port != "1/1/3" {
+			t.Fatalf("seed entries = %+v, want destination learned on 1/1/3", entries)
+		}
+	}
+	at = at.Add(time.Second)
+	input := Candidate{Actions: []fabric.Action{
+		{At: at, Index: 1, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: ethernet.Frame{Src: dst, Dst: dst}}},
+		{At: at.Add(time.Millisecond), Index: 2, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}},
+	}}
+	initial := runCompare(current, expected, input, 30)
+	removed := runCompare(current, expected, Candidate{Actions: input.Actions[1:]}, 30)
+	want := fabric.DifferenceLocation{Area: fabric.DifferenceJourney, Subject: "journey", Field: "Journey", Injection: &fabric.InjectionLocation{Index: 2, At: at.Add(time.Millisecond)}, Lineage: []fabric.LineageStep{{Kind: fabric.OriginInjection}, {Kind: fabric.OriginMirror, Mirror: "a-span"}}}
+	wantRemoved := want
+	wantRemoved.Lineage = []fabric.LineageStep{{Kind: fabric.OriginInjection}, {Kind: fabric.OriginMirror, Mirror: "b-span"}}
+	difference := analysis.Difference{Observable: "multiplicity", Current: "false", Expected: "true"}
+	if initial.Err != nil || removed.Err != nil || initial.Disposition != analysis.Different || removed.Disposition != analysis.Different || initial.Difference != difference || removed.Difference != difference || !reflect.DeepEqual(initial.Location, want) || !reflect.DeepEqual(removed.Location, wantRemoved) {
+		t.Fatalf("initial = %s %+v %+v, removed = %s %+v %+v, want same multiplicity at a-span then b-span", initial.Disposition, initial.Location, initial.Difference, removed.Disposition, removed.Location, removed.Difference)
+	}
+	result, err := Minimize(current, expected, input, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Minimality != Minimal || len(result.Candidate.Actions) != 2 {
+		t.Fatalf("result = %+v, want both actions to preserve a-span", result)
+	}
+	assertMinimizationReplay(t, current, expected, input, 30, result)
+}
+
+func TestMinimizeRejectsInconclusiveTrialWithExactTarget(t *testing.T) {
+	base, _, src, dst, _ := makeMinimizeFabrics(t)
+	cfg := base.Config()
+	cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultCut}
+	current, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw := cfg.Switches["sw1"]
+	sw.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/3"}}}
+	cfg.Switches["sw1"] = sw
+	expected, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	input := Candidate{Actions: []fabric.Action{
+		{At: at, Index: 1, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: cfg.Cables[1].A, B: cfg.Cables[1].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}},
+		{At: at.Add(time.Millisecond), Index: 2, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}},
+	}}
+	initial := runCompare(current, expected, input, 30)
+	removed := runCompare(current, expected, Candidate{Actions: input.Actions[1:]}, 30)
+	want := fabric.DifferenceLocation{Area: fabric.DifferenceJourney, Subject: "journey", Field: "Journey", Injection: &fabric.InjectionLocation{Index: 2, At: at.Add(time.Millisecond)}, Lineage: []fabric.LineageStep{{Kind: fabric.OriginInjection}, {Kind: fabric.OriginMirror, Mirror: "span"}}}
+	difference := analysis.Difference{Observable: "multiplicity", Current: "false", Expected: "true"}
+	if initial.Err != nil || removed.Err != nil || initial.Disposition != analysis.Different || removed.Disposition != analysis.Inconclusive || initial.Difference != difference || removed.Difference != difference || !reflect.DeepEqual(initial.Location, want) || !reflect.DeepEqual(removed.Location, want) {
+		t.Fatalf("initial = %s %+v %+v, removed = %s %+v %+v, want Different then Inconclusive at the exact same span target", initial.Disposition, initial.Location, initial.Difference, removed.Disposition, removed.Location, removed.Difference)
+	}
+	result, err := Minimize(current, expected, input, 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Minimality != Minimal || len(result.Candidate.Actions) != 2 {
+		t.Fatalf("result = %+v, want both actions to preserve a complete comparison", result)
 	}
 	assertMinimizationReplay(t, current, expected, input, 30, result)
 }
