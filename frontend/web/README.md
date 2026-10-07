@@ -126,7 +126,10 @@ page and site scope. Both selectors use themed popovers with arrow-key
 navigation, type-ahead, and outside-click dismissal. Changing tenants clears the
 site scope. The available tenant list is independent of site filtering.
 
-The icon-only theme switch at the top right crossfades and rotates between
+The theme and language switches end the top bar on both the login page and
+the console, after the console's account menu. The frame renders them once
+so they keep their state through sign-in and logout. The icon-only theme
+switch crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
 reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
@@ -168,8 +171,9 @@ to `/dashboard`. A signed-in visitor who opens `/login` goes straight to
 
 The login page and console fill one `AppFrame.vue` instance. Signing in keeps
 the same sidebar and page panel elements in the document while their content
-changes. The login sidebar holds the sign-in form in a frosted column, its top bar
-is empty, and its page says what the console is: a heading, one sentence, and
+changes. The frame owns the top bar and its theme and language switches.
+The login sidebar holds the sign-in form in a frosted column, its top bar
+shows only those switches, and its page says what the console is: a heading, one sentence, and
 the four areas of the menu. Under them is one line picked at random per visit
 from `view.login.lines` in the catalogs, most of them jokes. The send button is
 inside the email field and appears once the address is well formed. Enter with
@@ -178,11 +182,16 @@ anything else marks the field, shakes it, and says what is wrong.
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.
-- `src/navigation/AppFrame.vue` owns the persistent shell. Views fill its
-  `frame-skip`, `frame-sidebar`, `frame-topbar`, and `frame-page` regions with
-  Teleport. `src/navigation/frame.ts` exposes `useFrame()` so views can set
+- `src/navigation/AppFrame.vue` owns the persistent shell and top bar, with
+  one theme and language switch. Views fill its `frame-skip`, `frame-sidebar`,
+  `frame-topbar`, `frame-topbar-tools`, and `frame-page` regions with
+  Teleport. The console puts its breadcrumb in `frame-topbar` and its controls
+  through the account menu in `frame-topbar-tools`. At 650px and below the
+  controls and switches share the first row, with the breadcrumb below.
+  `src/navigation/frame.ts` exposes `useFrame()` so views can set
   the sidebar mode, read the frame elements, and move the
-  page panel when the sidebar collapses.
+  page panel and breadcrumb when the sidebar collapses. The switches stay
+  outside both moving regions.
 - `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
 - `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.
@@ -839,6 +848,7 @@ states, and replacement of a single site assignment. Browser checks cover the
 interactive preview; production accessibility and fleet-scale performance remain
 to be evaluated when those features are implemented.
 
-The account icon sits at the far right of the top bar. Clicking it opens
-a popover containing logout; Escape or an outside click dismisses it. Logout
-remains disabled until sign-in is connected.
+The account icon sits before the theme and language switches in the top bar.
+Clicking it opens a menu with Log out. Escape or an outside click dismisses it.
+Log out clears the preview session and returns to `/login`
+(`src/components/AccountMenu.vue`).

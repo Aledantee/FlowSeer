@@ -32,9 +32,10 @@ beforeEach(() => {
       const collapsed = element
         ?.closest('.shell')
         ?.classList.contains('sidebar-collapsed')
-      const isMainShell = element?.classList.contains('main-shell')
+      const isPanel =
+        element?.id === 'frame-page' || element?.id === 'frame-topbar'
       const width = collapsed ? 64 : 204
-      const left = isMainShell ? width : 0
+      const left = isPanel ? width : 0
       const navLink = element?.closest('nav a')
       if (navLink) {
         const navItems = [
@@ -156,7 +157,7 @@ function parseTranslateY(transform: string | undefined): number | null {
 }
 
 describe('FleetView motion layout', () => {
-  it('moves the main shell when the sidebar collapses and scales nothing', async () => {
+  it('moves the page panel when the sidebar collapses and scales nothing', async () => {
     installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
@@ -168,7 +169,7 @@ describe('FleetView motion layout', () => {
       host.querySelector<HTMLElement>('.sidebar')?.style.transform,
     ).not.toContain('scale(')
     const transform =
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform ?? ''
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform ?? ''
     expect(transform).toContain('translate')
     expect(transform).not.toContain('scale(')
     const offset = /translate(?:3d)?\((-?[\d.]+)px/.exec(transform)
@@ -176,6 +177,73 @@ describe('FleetView motion layout', () => {
     const distance = Math.abs(Number(offset?.[1]))
     expect(distance).toBeGreaterThan(0)
     expect(distance).toBeLessThan(140)
+  })
+
+  it('keeps the switches and their ancestors still while the panel and breadcrumb move', async () => {
+    installMotionClock()
+    const { host } = await mountFleet()
+    const theme = host.querySelector('header.topbar button.theme-switcher')
+    const locale = host.querySelector('header.topbar button.locale-switcher')
+    const header = host.querySelector('header.topbar')
+    const shell = host.querySelector('.main-shell')
+    if (!theme || !locale || !header || !shell)
+      throw new Error('Missing frame switches')
+    const ancestors = new Set<Element>([header, shell])
+    for (const button of [theme, locale]) {
+      for (
+        let parent = button.parentElement;
+        parent;
+        parent = parent.parentElement
+      ) {
+        ancestors.add(parent)
+        if (parent === header) break
+      }
+    }
+    const transforms: string[] = []
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (
+          record.target instanceof HTMLElement &&
+          ancestors.has(record.target)
+        ) {
+          transforms.push(
+            record.oldValue ?? '',
+            record.target.getAttribute('style') ?? '',
+          )
+        }
+      }
+    })
+    observer.observe(shell, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style'],
+      attributeOldValue: true,
+    })
+    try {
+      host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
+      await nextTick()
+      await advanceMotion(30)
+      for (const region of ['#frame-page', '#frame-topbar'])
+        expect(
+          host.querySelector<HTMLElement>(region)?.style.transform,
+        ).toContain('translate')
+      await advanceMotion(200)
+      expect(host.querySelector('header.topbar button.theme-switcher')).toBe(
+        theme,
+      )
+      expect(host.querySelector('header.topbar button.locale-switcher')).toBe(
+        locale,
+      )
+      for (const ancestor of ancestors)
+        expect(ancestor.getAttribute('style') ?? '').not.toMatch(
+          /transform\s*:/,
+        )
+      expect(transforms.every((style) => !/transform\s*:/.test(style))).toBe(
+        true,
+      )
+    } finally {
+      observer.disconnect()
+    }
   })
 
   it('stops layout transforms after the user enables reduced motion', async () => {
@@ -198,7 +266,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     await advanceMotion(200)
@@ -207,7 +275,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
   })
 
@@ -359,7 +427,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     expect(nav.getAnimations()).toHaveLength(0)
@@ -372,7 +440,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     const expandAnimations = nav.getAnimations()

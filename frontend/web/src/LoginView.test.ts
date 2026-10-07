@@ -278,6 +278,9 @@ describe('LoginView', () => {
     const { host } = await mountLogin()
 
     expect(host.querySelector('#frame-sidebar form.login-form')).not.toBeNull()
+    expect(
+      host.querySelector('#frame-sidebar button.theme-switcher'),
+    ).toBeNull()
     const page = host.querySelector('#frame-page > main.login-page')
     expect(page?.querySelector('h2')?.textContent?.trim()).toBe(
       'See every network you run in one console.',

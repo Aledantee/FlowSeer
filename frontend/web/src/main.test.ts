@@ -132,7 +132,9 @@ describe('main entrypoint', () => {
         expect(name).not.toMatch(/(?:^|:)bg-card\//)
     expect(sidebar?.querySelector('a[href^="/devices"]')).not.toBeNull()
     expect(sidebar?.querySelector('form.login-form')).toBeNull()
-    expect(mainShell?.style.transform).toBe('')
+    expect(page instanceof HTMLElement ? page.style.transform : undefined).toBe(
+      '',
+    )
     expect(localStorage.getItem('flowseer.session')).toBe('ada@example.com')
   })
 
@@ -171,13 +173,13 @@ describe('main entrypoint', () => {
       'input[type="email"]',
     )
     const form = document.body.querySelector<HTMLFormElement>('form.login-form')
-    const mainShell = document.body.querySelector<HTMLElement>('.main-shell')
-    if (!input || !form || !mainShell) throw new Error('Missing sign-in frame')
+    const page = document.body.querySelector<HTMLElement>('#frame-page')
+    if (!input || !form || !page) throw new Error('Missing sign-in frame')
     const transforms: string[] = []
     const observer = new MutationObserver(() => {
-      if (mainShell.style.transform) transforms.push(mainShell.style.transform)
+      if (page.style.transform) transforms.push(page.style.transform)
     })
-    observer.observe(mainShell, {
+    observer.observe(page, {
       attributes: true,
       attributeFilter: ['style'],
     })
