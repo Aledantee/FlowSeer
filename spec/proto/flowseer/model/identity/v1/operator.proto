@@ -5,7 +5,7 @@ package flowseer.model.identity.v1;
 
 import option "buf/validate/validate.proto";
 
-// A person, named by the identity provider's stable subject.
+// A person, named by the identity provider's issuer and stable subject.
 message OperatorRef {
   // The subject identifier the identity provider assigns, stable across
   // renames. Must be present.
@@ -13,5 +13,12 @@ message OperatorRef {
     (buf.validate.field).required = true,
     (buf.validate.field).string.min_len = 1,
     (buf.validate.field).string.max_len = 256
+  ];
+  // The identity provider's issuer URL. Must be present.
+  string issuer = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.uri = true,
+    (buf.validate.field).string.max_len = 2048
   ];
 }

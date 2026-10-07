@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import { aiRegistry } from '../../ai'
+import type { AiTarget } from '../../ai'
 import UiButton from './UiButton.vue'
 
 const meta: Meta<typeof UiButton> = {
@@ -160,5 +162,31 @@ export const Focus: Story = {
       return { args }
     },
     template: '<UiButton v-bind="args" autofocus>Focused Button</UiButton>',
+  }),
+}
+
+// Each story keeps its own target id because Storybook Docs mounts several
+// canvases into one document.
+function storyTarget(state: string): AiTarget {
+  return {
+    id: `standalone:story:ui-button:${state}`,
+    kind: 'control',
+    label: 'Save changes',
+    context: { state },
+  }
+}
+
+// The registry draws the selection outline on the button it registered.
+export const Selected: Story = {
+  args: { variant: 'primary', ai: storyTarget('selected') },
+  play: () => {
+    aiRegistry.highlight(storyTarget('selected').id)
+  },
+  render: (args) => ({
+    components: { UiButton },
+    setup() {
+      return { args }
+    },
+    template: '<UiButton v-bind="args">Save changes</UiButton>',
   }),
 }

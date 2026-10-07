@@ -2,9 +2,7 @@
 title: AI Actions, Structured Summaries, and the Assistant Panel - Plan
 type: feat
 date: 2026-09-28
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
 amends: docs/plans/2026-09-27-feat-contextual-ai-controls-plan.md
 ---
@@ -117,6 +115,36 @@ model and this plan is wrong.
   Preventing the keydown stops Windows and Linux browsers from firing a
   second, native one. With Alt+A gone, the app's own handler is the only
   keyboard route that works on the developer's platform.
+
+- **A long-press opens the AI menu.** A touch or pen long-press on a
+  registered item opens its verbs, as a right-click does. A long-press
+  elsewhere keeps the browser's behavior. Why: touch parity with the
+  mouse path. (decided by the user, 2026-10-04)
+- **The Menu key stays native in a field.** The Menu key or Shift+F10 in
+  a text field inside a registered item keeps the native menu. On a link
+  or any other focusable element inside the item it opens the AI menu.
+  Why: a device row's only tab stops are links, so Requirement 2 needs
+  them, and a field needs paste and spelling. This narrows the keyboard
+  Decision's "resolves the target the same way" for links.
+  (decided by the user, 2026-10-04)
+
+- **Focus returns by Reka's own restore.** When the menu or its result
+  closes, focus goes to the element that was focused before the menu
+  opened, through Reka's focus scope. The layer prevents that restore
+  only while a verb hands focus to the result popover, and on popover
+  close it focuses that same element. The layer keeps no origin search
+  and no close modes. Why: focus handling had defects after each of
+  three fixes, and this is the simplest design that meets Requirement 3.
+  Focus may land outside the item the pointer opened the menu on.
+  (decided by the user, 2026-10-04)
+
+- **Re-plan before more fixing.** The review ended in `rework` after
+  five fix rounds across three reviews. The next stage is `plan` on the
+  context layer and assistant focus mechanics, started from
+  `parked/aiact-review3`, which holds the fixes and the review record.
+  The re-plan settles whether focus return exempts the assistant prompt
+  on the docked panel. Why: each round left new defects in the same
+  mechanisms. (decided by the user, 2026-10-04)
 
 ### Result shapes and delivery
 
@@ -265,8 +293,8 @@ model and this plan is wrong.
   Why: those are the only entity routes `navigation/page.ts` defines.
 
 - **Start after migration phase 1.** This plan starts only after phase 1
-  of `docs/plans/2026-09-28-1844-refactor-web-component-contract-migration-plan.md`
-  has landed. That phase puts overlays on z-index tokens and `@theme`
+  of the web component contract migration (2026-09-28 to 2026-10-05, the
+  `Ui*` components and views under `frontend/web/`) has landed. That phase puts overlays on z-index tokens and `@theme`
   keyframes, and moves the tooltip provider into `UiAppRoot`. The new
   components follow the accepted
   `docs/architecture/2026-09-28-web-component-contract-direction.md`

@@ -18,7 +18,10 @@ const (
 
 func operatorActor() *accessv1.Actor {
 	return accessv1.Actor_builder{
-		Operator: identityv1.OperatorRef_builder{Subject: proto.String("zitadel|2837")}.Build(),
+		Operator: identityv1.OperatorRef_builder{
+			Issuer:  proto.String("https://idp.example.com"),
+			Subject: proto.String("zitadel|2837"),
+		}.Build(),
 	}.Build()
 }
 
@@ -241,7 +244,7 @@ func TestMutationIntentRules(t *testing.T) {
 		{name: "intent without a change is rejected", message: noChange.Build()},
 		{name: "idempotency key is required", message: noKey.Build()},
 		{name: "idempotency key must be a uuid", message: badKey.Build()},
-		{name: "actor is required", message: noActor.Build()},
+		{name: "intent without actor is accepted", message: noActor.Build(), wantValid: true},
 		{name: "access policy is required", message: noPolicy.Build()},
 		{name: "expected fingerprint is required", message: noFingerprint.Build()},
 		{name: "device is required", message: noDevice.Build()},
@@ -309,7 +312,7 @@ func TestMutationStateRules(t *testing.T) {
 
 	badIntent := mutationState(accessv1.OperationPhase_OPERATION_PHASE_ADMITTED)
 	partialIntent := mutationIntent()
-	partialIntent.Actor = nil
+	partialIntent.Device = nil
 	badIntent.Intent = partialIntent.Build()
 
 	tests := []validationCase{

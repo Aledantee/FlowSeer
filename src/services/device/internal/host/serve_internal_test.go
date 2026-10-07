@@ -29,6 +29,22 @@ func (panickingDispatch) Report(
 	return connect.NewResponse(&dispatchv1.ReportResponse{}), nil
 }
 
+type panickingInterceptor struct{}
+
+func (panickingInterceptor) WrapUnary(connect.UnaryFunc) connect.UnaryFunc {
+	return func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+		panic("an authorization check went wrong")
+	}
+}
+
+func (panickingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
+	return next
+}
+
+func (panickingInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
+	return next
+}
+
 // TestAPanicOnTheDispatchStreamAnswersRatherThanResetting covers the option
 // the dispatch handler is mounted with. A panic on the stream an edge holds
 // open costs the most of any: without recovery the transport resets, the
@@ -61,5 +77,65 @@ func TestAPanicOnTheDispatchStreamAnswersRatherThanResetting(t *testing.T) {
 	}
 	if strings.Contains(message, "a relay pass went wrong") {
 		t.Errorf("error = %q, want the panic value kept off the wire", message)
+	}
+}
+
+func TestAPanicInAnOperatorInterceptorAnswersRatherThanEscaping(t *testing.T) {
+	path, handler := dispatchv1connect.NewDispatchServiceHandler(
+		panickingDispatch{},
+		connect.WithInterceptors(panicInterceptor{}, panickingInterceptor{}),
+	)
+	mux := http.NewServeMux()
+	mux.Handle(path, handler)
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client := dispatchv1connect.NewDispatchServiceClient(server.Client(), server.URL)
+	_, err := client.Report(context.Background(), connect.NewRequest(&dispatchv1.ReportRequest{}))
+	if got := connect.CodeOf(err); got != connect.CodeInternal {
+		t.Fatalf("code = %v (%v), want internal rather than a process panic", got, err)
+	}
+	if !strings.Contains(err.Error(), "handler panicked") {
+		t.Errorf("error = %q, want the handler-panicked sentence", err)
+	}
+	if strings.Contains(err.Error(), "an authorization check went wrong") {
+		t.Errorf("error = %q, want the interceptor panic value kept off the wire", err)
+	}
+}
+
+func TestPanicInterceptorsRepanicAbortHandler(t *testing.T) {
+	tests := []struct {
+		name string
+		call func()
+	}{
+		{
+			name: "unary",
+			call: func() {
+				_, _ = panicInterceptor{}.WrapUnary(func(context.Context, connect.AnyRequest) (connect.AnyResponse, error) {
+					panic(http.ErrAbortHandler)
+				})(context.Background(), nil)
+			},
+		},
+		{
+			name: "streaming",
+			call: func() {
+				_ = panicInterceptor{}.WrapStreamingHandler(func(context.Context, connect.StreamingHandlerConn) error {
+					panic(http.ErrAbortHandler)
+				})(context.Background(), nil)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var recovered any
+			func() {
+				defer func() { recovered = recover() }()
+				tc.call()
+			}()
+			if recovered != http.ErrAbortHandler {
+				t.Fatalf("recovered panic = %v, want %v", recovered, http.ErrAbortHandler)
+			}
+		})
 	}
 }

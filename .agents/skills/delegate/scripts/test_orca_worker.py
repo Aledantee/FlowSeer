@@ -113,6 +113,10 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
         print(json.dumps({{"result": {{"wait": {{"status": "exited"}}}}}}))
     elif failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
+    elif failure == "terminal-wait-unsatisfied":
+        # Orca prints the result, then exits 1, for an unsatisfied wait.
+        print(json.dumps({{"result": {{"wait": {{"status": "timeout", "satisfied": False}}}}}}))
+        sys.exit(1)
     else:
         print(json.dumps({{"result": {{"wait": {{"status": "idle"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
@@ -404,6 +408,30 @@ else:
         self.assertTrue((self.state_dir / "l1.json").exists())
         self.assertNotIn("worktree rm", self.orca_calls())
 
+    def test_start_waits_once_more_when_the_startup_wait_is_unsatisfied(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-wait-unsatisfied"
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = self.orca_calls()
+        self.assertEqual(calls.count("terminal wait --terminal term-1"), 2)
+        self.assertLess(calls.index("--timeout-ms 180000"), calls.index("--text Read .orca-brief.md"))
+
+    def test_start_waits_once_when_the_startup_wait_is_satisfied(self):
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal wait --terminal term-1"), 1)
+
+    def test_start_refuses_an_empty_brief_before_worktree_create(self):
+        brief = self.repo / "brief.md"
+        brief.write_text("")
+        result = self.command(
+            "start", "--lane", "l1", "--cli", "codex", "--model", "gpt-6-sol",
+            "--role", "execute", "--brief", str(brief),
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is empty", result.stderr)
+        self.assertNotIn("worktree create", self.orca_calls())
+
     def test_start_state_directory_failure_closes_run(self):
         self.state_dir.rmdir()
         self.env["ORCA_STUB_FAIL"] = "state-mkdir"
@@ -668,6 +696,41 @@ else:
         self.assertIn("worktree rm --worktree id:wt-1", calls)
         self.assertLess(calls.index("terminal close"), calls.index("worktree rm"))
 
+    def unmerged_graded_lane(self):
+        state_file, child_path, _ = self.graded_lane()
+        subprocess.run(["git", "checkout", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
+        (self.repo / "later.txt").write_text("work after the merge")
+        subprocess.run(["git", "add", "."], cwd=self.repo, check=True, capture_output=True)
+        subprocess.run(["git", "commit", "-m", "unmerged work"], cwd=self.repo, check=True, capture_output=True)
+        subprocess.run(["git", "checkout", "main"], cwd=self.repo, check=True, capture_output=True)
+        return state_file, child_path
+
+    def test_stop_refuses_an_unmerged_lane_and_removes_nothing(self):
+        state_file, child_path = self.unmerged_graded_lane()
+        result = self.command("stop", "l1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("parked/l1", result.stderr)
+        self.assertTrue(state_file.exists())
+        self.assertTrue(child_path.exists())
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_stop_removes_an_unmerged_lane_whose_commits_are_parked(self):
+        state_file, _ = self.unmerged_graded_lane()
+        subprocess.run(["git", "branch", "parked/l1", "branch-l1"], cwd=self.repo, check=True, capture_output=True)
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(state_file.exists())
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+
+    def test_stop_refuses_a_lane_whose_parked_branch_lacks_its_tip(self):
+        state_file, _ = self.unmerged_graded_lane()
+        subprocess.run(["git", "branch", "parked/l1", "main"], cwd=self.repo, check=True, capture_output=True)
+        result = self.command("stop", "l1")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(state_file.exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
     def test_stop_close_failure_logs_no_end_and_keeps_lane(self):
         state_file, child_path, _ = self.graded_lane()
         self.env["ORCA_STUB_FAIL"] = "terminal-close"
@@ -725,6 +788,36 @@ else:
         result = self.command("wait", "l1", "--stall", "5", "--max", "10")
         self.assert_wait(result, ["idle", "> done"], 5)
 
+    def test_wait_reports_limited_for_a_settled_screen_that_names_a_usage_limit(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "You've hit your usage limit. Try again at 3pm."
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "You've hit your usage limit. Try again at 3pm."], 5)
+
+    def test_wait_reports_idle_for_a_finished_report_that_names_a_quota(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Report: Lite quota 2K credits; no Orca quota request"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["idle", "Report: Lite quota 2K credits; no Orca quota request"], 5)
+
+    def test_wait_reports_limited_for_an_exhausted_quota(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "Quota exceeded for this model."
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "Quota exceeded for this model."], 5)
+
+    def test_wait_reports_limited_when_blank_rows_follow_the_limit_line(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "usage limit reached, resets at 3pm" + "\n" * 40 + ">"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["limited", "usage limit reached, resets at 3pm", ">"], 5)
+
+    def test_wait_until_reports_done_on_a_screen_that_names_a_usage_limit(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "usage limit reached earlier; report written"
+        result = self.command("wait", "l1", "--until", "true", "--stall", "5", "--max", "10")
+        self.assert_wait(result, ["done", "usage limit reached earlier; report written"], 5)
+
     def test_keys_refuses_text_the_terminal_would_truncate(self):
         self.live_lane()
         result = self.command("keys", "l1", "x" * 201)
@@ -772,6 +865,19 @@ else:
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--stall", "5", "--max", "20")
         self.assert_wait(result, ["timeout", "> lane done"], 20)
+
+    def test_wait_keeps_waiting_for_a_joined_child_after_an_earlier_lane_is_kept(self):
+        self.live_lane()
+        self.child_lane(child_id="wt-c1", name="b", terminal="term-b", screen="esc to interrupt")
+        (self.state_dir / "a.json").write_text(json.dumps({
+            "name": "a", "cli": "codex", "terminal": "", "kept": True,
+            "worktree": "wt-c1", "path": str(self.root / "child-b"),
+            "branch": "branch-b", "run": "run-a",
+        }))
+        self.env["ORCA_STUB_SCREEN"] = "> lane done"
+        result = self.command("wait", "l1", "--stall", "5", "--max", "20")
+        self.assert_wait(result, ["timeout", "> lane done"], 20)
+        self.assertIn("terminal read --terminal term-b --screen", self.orca_calls())
 
     def test_wait_reports_idle_children_for_a_quiet_child(self):
         self.live_lane()
@@ -1097,6 +1203,167 @@ else:
         self.assert_retained_lane(result, "term-1", True)
         self.assertIn("it has child worktrees: repo::/lanes/grandchild repo::/lanes/second-child", result.stderr)
         self.assertNotIn("worktree rm", self.orca_calls())
+
+    def git(self, *args, cwd=None):
+        return subprocess.run(
+            ["git", *args], cwd=cwd or self.repo, check=True, capture_output=True, text=True,
+        ).stdout.strip()
+
+    def kept_lane(self):
+        """Starts l1 through the script, grades it, and stops it with --keep-worktree."""
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        child = self.root / "child-l1"
+        (child / "work.txt").write_text("lane output")
+        self.git("add", ".", cwd=child)
+        self.git("commit", "-m", "work on lane", cwd=child)
+        grade = self.command("grade", "l1", "--outcome", "rejected", "--verify", "none")
+        self.assertEqual(grade.returncode, 0, grade.stderr)
+        kept = self.command("stop", "l1", "--keep-worktree")
+        self.assertEqual(kept.returncode, 0, kept.stderr)
+        return child
+
+    def join(self, lane="l2", target="l1", *extra):
+        return self.command(
+            "start", "--lane", lane, "--cli", "codex", "--model", "gpt-6-sol",
+            "--role", "execute", "--brief", str(self.repo / "brief.md"), "--join", target, *extra,
+        )
+
+    def runlog_events(self):
+        return [json.loads(line) for line in self.runlog.read_text().splitlines()]
+
+    def test_join_reuses_the_path_and_branch_and_logs_the_worktree_head(self):
+        child = self.kept_lane()
+        head = self.git("rev-parse", "HEAD", cwd=child)
+        first = json.loads((self.state_dir / "l1.json").read_text())
+        result = self.join()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        line = json.loads(result.stdout)
+        self.assertEqual((line["name"], line["path"], line["branch"]), ("l2", str(child), "wt1"))
+        self.assertNotEqual(line["run"], first["run"])
+        self.assertEqual(self.orca_calls().count("worktree create"), 1)
+        self.assertEqual(self.orca_calls().count("terminal create"), 2)
+        start = [e for e in self.runlog_events() if e["event"] == "start" and e["lane"] == "l2"][0]
+        self.assertEqual((start["base"], start["worktree"], start["branch"]), (head, str(child), "wt1"))
+        state = json.loads((self.state_dir / "l2.json").read_text())
+        self.assertEqual((state["worktree"], state["terminal"]), ("wt1", "term-1"))
+
+    def test_join_refuses_and_creates_no_terminal(self):
+        child = self.kept_lane()
+        creates = self.orca_calls().count("terminal create")
+
+        def dirty_join():
+            (child / "stray.txt").write_text("x")
+            return self.join()
+
+        cases = {
+            "unknown lane": (lambda: self.join(target="nope"), "no lane named nope"),
+            "base": (lambda: self.join("l2", "l1", "--base", "main"), "--base"),
+            "dirty worktree": (dirty_join, "dirty"),
+        }
+        for name, (run, message) in cases.items():
+            with self.subTest(name):
+                result = run()
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(self.orca_calls().count("terminal create"), creates)
+                self.assertFalse((self.state_dir / "l2.json").exists())
+
+    def test_join_refuses_a_worktree_with_a_live_terminal(self):
+        self.start()
+        creates = self.orca_calls().count("terminal create")
+        result = self.join()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("live terminal", result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal create"), creates)
+        self.assertFalse((self.state_dir / "l2.json").exists())
+
+    def test_stop_keep_worktree_leaves_an_unmerged_lane_and_status_prints_it_kept(self):
+        child = self.kept_lane()
+        self.assertTrue(child.exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn(str(child), self.git("worktree", "list"))
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual((state["terminal"], state["kept"]), ("", True))
+        self.assertEqual([e["event"] for e in self.runlog_events()], ["start", "grade", "end"])
+        status = self.command("status")
+        self.assertIn(f"l1 codex kept {child}", status.stdout)
+        self.assertNotIn("unavailable-terminal", status.stdout)
+
+    def test_stop_on_a_kept_lane_closes_no_terminal_and_logs_no_second_end(self):
+        child = self.kept_lane()
+        self.git("merge", "wt1")
+        self.orca_log.unlink()
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt1", self.orca_calls())
+        self.assertEqual([e["event"] for e in self.runlog_events()].count("end"), 1)
+        self.assertFalse(child.exists())
+        self.assertFalse((self.state_dir / "l1.json").exists())
+
+    def test_stop_kept_lane_refuses_while_joined_lane_has_a_live_terminal(self):
+        child = self.kept_lane()
+        joined = self.join()
+        self.assertEqual(joined.returncode, 0, joined.stderr)
+        graded = self.command("grade", "l2", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(graded.returncode, 0, graded.stderr)
+        self.git("merge", "wt1")
+        self.orca_log.unlink()
+        events = self.runlog_events()
+
+        result = self.command("stop", "l1")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("lane l2 still has a live terminal", result.stderr)
+        self.assertTrue(child.exists())
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertTrue((self.state_dir / "l2.json").exists())
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertEqual(self.runlog_events(), events)
+
+    def test_stop_refuses_to_keep_an_already_kept_lane(self):
+        child = self.kept_lane()
+        self.orca_log.unlink()
+        events = self.runlog_events()
+
+        result = self.command("stop", "l1", "--keep-worktree")
+
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("lane l1 is already kept", result.stderr)
+        self.assertTrue(child.exists())
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual((state["terminal"], state["kept"]), ("", True))
+        self.assertNotIn("terminal close", self.orca_calls())
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertEqual(self.runlog_events(), events)
+
+    def test_failed_joined_start_closes_its_terminal_and_leaves_the_worktree(self):
+        child = self.kept_lane()
+        self.env["ORCA_STUB_FAIL"] = "pointer"
+        result = self.join()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pointer not on", result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal close"), 2)
+        self.assertNotIn("worktree rm", self.orca_calls())
+        self.assertTrue(child.exists())
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertFalse((self.state_dir / "l2.json").exists())
+        self.assertEqual([e["event"] for e in self.runlog_events()][-2:], ["start", "end"])
+
+    def test_final_stop_removes_the_worktree_and_every_lane_state(self):
+        child = self.kept_lane()
+        self.assertEqual(self.join().returncode, 0)
+        self.git("merge", "wt1")
+        graded = self.command("grade", "l2", "--outcome", "accepted", "--verify", "pass")
+        self.assertEqual(graded.returncode, 0, graded.stderr)
+        result = self.command("stop", "l2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("worktree rm"), 1)
+        self.assertFalse(child.exists())
+        self.assertEqual(list(self.state_dir.glob("*.json")), [])
 
 
 if __name__ == "__main__":

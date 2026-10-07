@@ -3,6 +3,7 @@ package integration_test
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -20,8 +21,10 @@ import (
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/capture/v1/capturev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/device/v1/devicev1connect"
 	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1/edgev1connect"
+	"go.aledante.io/FlowSeer/generated/go/proto/flowseer/api/identity/v1/identityv1connect"
 	captureedgev1connect "go.aledante.io/FlowSeer/generated/go/proto/flowseer/edge/capture/v1/capturev1connect"
 	accessv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/access/v1"
+	operatorv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/event/operator/v1"
 	credentialv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/credential/v1"
 	edgev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/edge/v1"
 	inventoryv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/inventory/v1"
@@ -29,6 +32,10 @@ import (
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	storev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/store/device/v1"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn/authntest"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz/authztest"
 	centralhost "go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
@@ -195,12 +202,44 @@ func writeRegistry(t *testing.T, path, edgeID string, horizon time.Duration) str
 	return writePrototext(t, path, registry)
 }
 
-// insecureClient trusts whatever central generated. An edge pins the digest
-// its provisioning carries; this client is the operator, not the edge.
-func insecureClient() *http.Client {
+type authTransport struct {
+	base   http.RoundTripper
+	token  string
+	tenant string
+}
+
+func (a *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	clone := req.Clone(req.Context())
+	if clone.Header.Get("Authorization") == "" && a.token != "" {
+		clone.Header.Set("Authorization", "Bearer "+a.token)
+	}
+	if clone.Header.Get("X-FlowSeer-Tenant") == "" && a.tenant != "" {
+		clone.Header.Set("X-FlowSeer-Tenant", a.tenant)
+	}
+	return a.base.RoundTrip(clone)
+}
+
+func authClient(caFile, token, tenant string) *http.Client {
+	var rootCAs *x509.CertPool
+	if caFile != "" {
+		pem, err := os.ReadFile(caFile)
+		if err != nil {
+			panic(fmt.Sprintf("read ca file %q: %v", caFile, err))
+		}
+		rootCAs = x509.NewCertPool()
+		if !rootCAs.AppendCertsFromPEM(pem) {
+			panic(fmt.Sprintf("failed to parse root cert from %q", caFile))
+		}
+	}
 	return &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // a loopback service that generated its own certificate this second
+		Transport: &authTransport{
+			base: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: rootCAs,
+				},
+			},
+			token:  token,
+			tenant: tenant,
 		},
 		Timeout: 30 * time.Second,
 	}
@@ -220,16 +259,32 @@ type central struct {
 	// the field out so the host applies its one-minute default.
 	captureSweep time.Duration
 
-	// client is built once and reused. A fresh http.Transport per call keeps
-	// its own idle pool with no IdleConnTimeout, and the status polls run at
-	// 50ms for minutes, so a per-call transport leaks thousands of
-	// connections and their goroutines on both sides of this process.
+	// client is built on each start and reused across calls. A fresh
+	// http.Transport per call keeps its own idle pool with no
+	// IdleConnTimeout, and the status polls run at 50ms for minutes, so a
+	// per-call transport leaks thousands of connections and their
+	// goroutines on both sides of this process.
 	client *http.Client
 
 	mu      sync.Mutex
 	stop    func()
 	stopped chan error
 	hub     *edgebus.Hub
+
+	issuer      *authntest.Issuer
+	token       string
+	principalID string
+	tenant      string
+	engine      *authztest.Engine
+
+	// Config overrides
+	audience      string
+	platformAdmin *storev1.PlatformAdmin
+	authzEndpoint string
+	authzStoreID  string
+	authzModelID  string
+	authzKeyFile  string
+	authzCAFile   string
 }
 
 // auditRecords reads the whole audit stream in the order the stream holds it.
@@ -279,10 +334,92 @@ func (c *central) auditRecords(t *testing.T) []*accessv1.DeviceOperationEvent {
 	return records
 }
 
+type operatorActionRecord struct {
+	Subject string
+	Event   *operatorv1.OperatorActionEvent
+}
+
+func (c *central) operatorActionRecords(t *testing.T) []operatorActionRecord {
+	t.Helper()
+	c.mu.Lock()
+	hub := c.hub
+	c.mu.Unlock()
+	if hub == nil {
+		t.Fatal("central reported no hub; the operator action stream cannot be read")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	stream, err := hub.JetStream().Stream(ctx, edgebus.OperatorActionStream)
+	if err != nil {
+		t.Fatalf("open the operator action stream: %v", err)
+	}
+	info, err := stream.Info(ctx)
+	if err != nil {
+		t.Fatalf("operator action stream info: %v", err)
+	}
+
+	var records []operatorActionRecord
+	for seq := info.State.FirstSeq; seq <= info.State.LastSeq; seq++ {
+		msg, err := stream.GetMsg(ctx, seq)
+		if err != nil {
+			continue
+		}
+		event := &operatorv1.OperatorActionEvent{}
+		if err := proto.Unmarshal(msg.Data, event); err != nil {
+			t.Fatalf("operator action record at sequence %d does not decode: %v", seq, err)
+		}
+		records = append(records, operatorActionRecord{
+			Subject: msg.Subject,
+			Event:   event,
+		})
+	}
+	return records
+}
+
 func newCentral(t *testing.T, dir, registryPath string) *central {
 	t.Helper()
-	c := &central{t: t, dir: dir, configDir: dir, registry: registryPath, apiPort: freePort(t), busPort: freePort(t), client: insecureClient()}
-	t.Cleanup(c.client.CloseIdleConnections)
+	iss := authntest.New(t)
+	token := iss.Sign(map[string]any{
+		"iss": iss.URL(),
+		"sub": "e2e-operator",
+		"aud": "flowseer-e2e",
+		"exp": time.Now().Add(24 * time.Hour).Unix(),
+	})
+	principalID := authn.ComputePrincipalID(iss.URL(), "e2e-operator")
+
+	eng := authztest.New()
+	if err := eng.Write(context.Background(), []authz.Tuple{
+		{Object: "tenant:" + edgebus.DefaultTenant, Relation: "member", User: "user:" + principalID},
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	eng.Grant("user:"+principalID, "admin", "tenant")
+	eng.Grant("user:"+principalID, "view", "device")
+	eng.Grant("user:"+principalID, "operate", "device")
+	eng.Grant("user:"+principalID, "view", "edge")
+	eng.Grant("user:"+principalID, "administer", "edge")
+	eng.Grant("user:"+principalID, "manage", "edge")
+	eng.Grant("user:"+principalID, "capture", "edge")
+	eng.Grant("user:"+principalID, "download", "edge")
+	eng.Grant("user:"+principalID, "view", "capture_session")
+	eng.Grant("user:"+principalID, "manage", "capture_session")
+	eng.Grant("user:"+principalID, "download", "capture_session")
+
+	c := &central{
+		t:           t,
+		dir:         dir,
+		configDir:   dir,
+		registry:    registryPath,
+		apiPort:     freePort(t),
+		busPort:     freePort(t),
+		issuer:      iss,
+		token:       token,
+		principalID: principalID,
+		tenant:      edgebus.DefaultTenant,
+		engine:      eng,
+	}
 	return c
 }
 
@@ -297,11 +434,68 @@ func captureSweepLine(d time.Duration) string {
 	return fmt.Sprintf("\n  capture_sweep { nanos: %d }", d.Nanoseconds())
 }
 
-// start brings central up and returns once its API listener is bound, which
-// Options.Bound reports. Waiting on that rather than retrying a call is what
-// keeps the rest of this file free of readiness loops.
+func (c *central) startWithTenant(tenant string) {
+	c.t.Helper()
+	c.tenant = tenant
+	if c.engine != nil {
+		if err := c.engine.Write(context.Background(), []authz.Tuple{
+			{Object: "tenant:" + tenant, Relation: "member", User: "user:" + c.principalID},
+		}, nil); err != nil {
+			c.t.Fatalf("seed tenant tuples: %v", err)
+		}
+		c.engine.Grant("user:"+c.principalID, "admin", "tenant")
+	}
+	c.start()
+}
+
+// start brings central up and returns once its API listener is bound and
+// reconciliation has completed.
 func (c *central) start() {
 	c.t.Helper()
+	caPath := c.issuer.WriteCACertFile(c.t)
+
+	audience := c.audience
+	if audience == "" {
+		audience = "flowseer-e2e"
+	}
+
+	authzEndpoint := c.authzEndpoint
+	authzStoreID := c.authzStoreID
+	authzModelID := c.authzModelID
+	authzKeyFile := c.authzKeyFile
+	if authzEndpoint == "" {
+		authzEndpoint = "https://authz.example.test:8081"
+		authzStoreID = "01JK1234567890ABCDEFGHJKMN"
+		authzModelID = "01JK1234567890ABCDEFGHJKMM"
+		authzKeyFile = filepath.Join(c.dir, "authz.key")
+		if err := os.WriteFile(authzKeyFile, []byte("e2e-authz-key"), 0o600); err != nil {
+			c.t.Fatalf("write authz key: %v", err)
+		}
+	}
+
+	authzBlock := fmt.Sprintf(`authorization {
+  endpoint: %q
+  store_id: %q
+  model_id: %q
+  preshared_key_file: %q`, authzEndpoint, authzStoreID, authzModelID, authzKeyFile)
+	if c.authzCAFile != "" {
+		authzBlock += fmt.Sprintf("\n  ca_file: %q", c.authzCAFile)
+	}
+	authzBlock += "\n}"
+
+	var platformAdminBlock string
+	if c.platformAdmin != nil {
+		platformAdminBlock = fmt.Sprintf(`
+platform_admin {
+  issuer: %q
+  organization: %q
+  organization_claim_name: %q`, c.platformAdmin.GetIssuer(), c.platformAdmin.GetOrganization(), c.platformAdmin.GetOrganizationClaimName())
+		for _, subject := range c.platformAdmin.GetSubjects() {
+			platformAdminBlock += fmt.Sprintf("\n  subjects: %q", subject)
+		}
+		platformAdminBlock += "\n}"
+	}
+
 	body := fmt.Sprintf(`
 state_dir: %q
 registry_path: %q
@@ -312,15 +506,26 @@ listeners {
 }
 edges {
   central_url: %q
-  assertion_audience: "flowseer-e2e"
+  assertion_audience: %q
   cluster_urls: "ws://127.0.0.1:%d"
 }
 intervals {
   dispatch_resend { seconds: 1 }
   drift { seconds: 3600 }%s
+}%s
+authentication {
+  issuers {
+    issuer: %q
+    audience: %q
+    organization_claim_name: "org_id"
+  }
+  ca_file: %q
 }
+%s
 `, filepath.Join(c.dir, "central-state"), c.registry, filepath.Join(c.dir, "credentials"),
-		c.apiPort, c.busPort, c.baseURL(), c.busPort, captureSweepLine(c.captureSweep))
+		c.apiPort, c.busPort, c.baseURL(), audience, c.busPort, captureSweepLine(c.captureSweep),
+		platformAdminBlock,
+		c.issuer.URL(), audience, caPath, authzBlock)
 
 	cfg, err := centralhost.LoadConfig(writeFile(c.t, filepath.Join(c.configDir, "central.textproto"), []byte(body)))
 	if err != nil {
@@ -328,26 +533,37 @@ intervals {
 	}
 
 	bound := make(chan string, 1)
+	reconciled := make(chan struct{}, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() {
-		done <- centralhost.Run(ctx, cfg, "e2e", centralhost.Options{
-			Bound: func(api string) {
-				select {
-				case bound <- api:
-				default:
-				}
-			},
+	runOpts := centralhost.Options{
+		Bound: func(api string) {
+			select {
+			case bound <- api:
+			default:
+			}
+		},
+		Hub: func(hub *edgebus.Hub) {
+			c.mu.Lock()
 			// Replaced rather than kept, because the handle dies with the
 			// attempt that produced it: a hub rebuilt under RestForOne
 			// invalidates the last one, and reading the stream through a
 			// closed server is the failure its doc warns about.
-			Hub: func(hub *edgebus.Hub) {
-				c.mu.Lock()
-				c.hub = hub
-				c.mu.Unlock()
-			},
-		})
+			c.hub = hub
+			c.mu.Unlock()
+		},
+		Reconciled: func() {
+			select {
+			case reconciled <- struct{}{}:
+			default:
+			}
+		},
+	}
+	if c.engine != nil {
+		runOpts.Engine = c.engine
+	}
+	go func() {
+		done <- centralhost.Run(ctx, cfg, "e2e", runOpts)
 	}()
 
 	select {
@@ -362,9 +578,19 @@ intervals {
 		c.t.Fatal("central did not bind its listener within a minute")
 	}
 
+	select {
+	case <-reconciled:
+	case err := <-done:
+		c.t.Fatalf("central stopped before reconciliation: %v", err)
+	case <-time.After(30 * time.Second):
+		cancel()
+		c.t.Fatal("central projector did not complete initial reconciliation pass within 30s")
+	}
+
 	c.mu.Lock()
 	c.stop, c.stopped = cancel, done
 	c.mu.Unlock()
+	c.client = authClient(filepath.Join(c.dir, "central-state", "tls.crt"), c.token, c.tenant)
 	c.t.Cleanup(c.shutdown)
 }
 
@@ -382,7 +608,9 @@ func (c *central) shutdown() {
 	// The client outlives this run and the next start reuses the same port, so
 	// a pooled keep-alive connection to the process being stopped could be
 	// handed to the first request after the restart.
-	c.client.CloseIdleConnections()
+	if c.client != nil {
+		c.client.CloseIdleConnections()
+	}
 	select {
 	case err := <-stopped:
 		if err != nil {
@@ -403,6 +631,10 @@ func (c *central) devices() devicev1connect.DeviceServiceClient {
 
 func (c *central) captures() capturev1connect.CaptureServiceClient {
 	return capturev1connect.NewCaptureServiceClient(c.client, c.baseURL())
+}
+
+func (c *central) tenantAdmin() identityv1connect.TenantAdminServiceClient {
+	return identityv1connect.NewTenantAdminServiceClient(c.client, c.baseURL())
 }
 
 func (c *central) edgeCaptures() captureedgev1connect.CaptureEdgeServiceClient {

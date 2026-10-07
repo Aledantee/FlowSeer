@@ -5,7 +5,8 @@
 # either at test-process exit or when StartSRLinux's readiness probe
 # fails partway through.
 #
-# Image: ghcr.io/nokia/srlinux:latest. This
+# Image: ghcr.io/nokia/srlinux at release 26.7.2, pinned by the digest of
+# its multi-arch index (linux/amd64 and linux/arm64). This
 # image is publicly pullable without a Nokia account. If Nokia changes
 # that policy, swap the kind/image to another containerlab-supported
 # NOS (the harness reaches only through the public SNMP surface, so
@@ -20,6 +21,6 @@ topology:
   nodes:
     srl1:
       kind: nokia_srlinux
-      image: ghcr.io/nokia/srlinux:latest
+      image: ghcr.io/nokia/srlinux:26.7.2@sha256:0096fe3ebcafabb7253492e2060425fe027a168e0e066766d1e85efbb0b48be8
       type: ixrd2
       startup-config: ../srlinux/startup.cli

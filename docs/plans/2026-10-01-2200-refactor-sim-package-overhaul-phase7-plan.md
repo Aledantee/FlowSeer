@@ -2,11 +2,8 @@
 title: Relay, Port Table, and Traffic - Plan
 type: fix
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
-parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Relay, Port Table, and Traffic - Plan

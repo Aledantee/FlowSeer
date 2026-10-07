@@ -111,9 +111,10 @@ message CaptureAuthorization {
   reserved 1;
   reserved operator;
 
-  // The person who requested this capture, as the caller names them. Must be
-  // present.
-  flowseer.model.identity.v1.OperatorRef requested_by = 4 [(buf.validate.field).required = true];
+  // The operator who requested this capture. Set centrally from the
+  // authenticated caller and replaces any value a request carries. Unset
+  // means no operator was recorded for the stored capture.
+  flowseer.model.identity.v1.OperatorRef requested_by = 4;
   // Free-text explanation of why this capture was requested. Must be
   // present.
   string reason = 2 [

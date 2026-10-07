@@ -247,3 +247,70 @@ func TestTenantValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestStoreAllTwoTenants(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+
+	edges, err := s.All(ctx)
+	if err != nil {
+		t.Fatalf("All on empty store: %v", err)
+	}
+	if len(edges) != 0 {
+		t.Fatalf("All on empty store returned %v, want empty", edges)
+	}
+
+	edge1 := "0192e6a0-0000-7000-8000-000000000001"
+	edge2 := "0192e6a0-0000-7000-8000-000000000002"
+	pub, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatalf("keygen: %v", err)
+	}
+
+	if _, err := s.Mutate(ctx, tenantA, edge1, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		return enrolledEdge(pub), nil
+	}); err != nil {
+		t.Fatalf("mutate edge1: %v", err)
+	}
+
+	if _, err := s.Mutate(ctx, tenantB, edge2, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		return enrolledEdge(pub), nil
+	}); err != nil {
+		t.Fatalf("mutate edge2: %v", err)
+	}
+
+	if err := s.IndexSetupKey(ctx, "key-test", tenantA, edge1); err != nil {
+		t.Fatalf("IndexSetupKey: %v", err)
+	}
+	if err := s.IndexEdge(ctx, edge1, tenantA); err != nil {
+		t.Fatalf("IndexEdge: %v", err)
+	}
+	if err := s.IndexEdge(ctx, edge2, tenantB); err != nil {
+		t.Fatalf("IndexEdge: %v", err)
+	}
+
+	// edge3 has a record but no edge_<id> index entry.
+	edge3 := "0192e6a0-0000-7000-8000-000000000003"
+	if _, err := s.Mutate(ctx, tenantA, edge3, func(*storev1.StoredEdge) (*storev1.StoredEdge, error) {
+		return enrolledEdge(pub), nil
+	}); err != nil {
+		t.Fatalf("mutate edge3: %v", err)
+	}
+
+	edges, err = s.All(ctx)
+	if err != nil {
+		t.Fatalf("All: %v", err)
+	}
+	if len(edges) != 2 {
+		t.Fatalf("All returned %d edges, want 2: %v", len(edges), edges)
+	}
+	if got := edges[edge1]; got != tenantA {
+		t.Errorf("edge1 tenant = %q, want %q", got, tenantA)
+	}
+	if got := edges[edge2]; got != tenantB {
+		t.Errorf("edge2 tenant = %q, want %q", got, tenantB)
+	}
+	if _, ok := edges[edge3]; ok {
+		t.Errorf("unindexed edge3 must not be returned by All: %v", edges)
+	}
+}

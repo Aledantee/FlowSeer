@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import {
   TooltipContent,
   TooltipPortal,
   TooltipRoot,
   TooltipTrigger,
 } from 'reka-ui'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 import UiKbd from '../kbd/UiKbd.vue'
 import type { Shortcut } from '../../navigation/shortcuts'
 import { keysOf } from '../../navigation/shortcuts'
 import { useI18n } from 'vue-i18n'
 
-export interface UiTooltipProps {
+export interface UiTooltipProps extends UiAiProps {
   label: string
   hint?: string
   shortcut?: Shortcut | string[]
@@ -21,6 +23,12 @@ export interface UiTooltipProps {
   delayDuration?: number
   defaultOpen?: boolean
   open?: boolean
+  // The label or hint names an identifier (a device, site, or language
+  // name). The visible text marks names through the label and hint slots.
+  // Reka prints the accessible text as one hidden node built from the
+  // props, which no slot reaches, so that whole node is kept from browser
+  // translation; its message words are already localized.
+  identifier?: boolean
 }
 
 const props = withDefaults(defineProps<UiTooltipProps>(), {
@@ -32,7 +40,12 @@ const props = withDefaults(defineProps<UiTooltipProps>(), {
   delayDuration: undefined,
   defaultOpen: undefined,
   open: undefined,
+  identifier: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -78,6 +91,22 @@ const tooltipAriaLabel = computed(() =>
     .filter(Boolean)
     .join(' '),
 )
+
+// Reka renders the hidden node beside the label span, inside the content.
+const labelSpan = ref<HTMLElement | null>(null)
+
+function markHiddenText() {
+  const hidden = labelSpan.value?.parentElement?.querySelector(
+    ':scope > [role="tooltip"]',
+  )
+  if (!hidden) return
+  if (props.identifier) hidden.setAttribute('translate', 'no')
+  else hidden.removeAttribute('translate')
+}
+
+watch([labelSpan, () => props.identifier], () => nextTick(markHiddenText), {
+  flush: 'post',
+})
 </script>
 
 <template>
@@ -98,8 +127,17 @@ const tooltipAriaLabel = computed(() =>
         :collision-padding="8"
         class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
-        <span class="font-medium">{{ label }}</span>
-        <span v-if="hint" class="text-muted-foreground">{{ hint }}</span>
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
+        <span ref="labelSpan" class="font-medium"
+          ><slot name="label">{{ label }}</slot></span
+        >
+        <span v-if="hint || $slots.hint" class="text-muted-foreground"
+          ><slot name="hint">{{ hint }}</slot></span
+        >
         <span v-if="shortcutKeys.length" class="inline-flex items-center gap-1">
           <UiKbd v-for="key in shortcutKeys" :key="key">{{ key }}</UiKbd>
         </span>

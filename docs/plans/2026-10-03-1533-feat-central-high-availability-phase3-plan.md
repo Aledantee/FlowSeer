@@ -2,11 +2,8 @@
 title: Central High Availability, Phase 3, Central as Several Replicas - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code
-parent: docs/plans/2026-10-03-1533-feat-central-high-availability-plan.md
 ---
 
 # Central High Availability, Phase 3, Central as Several Replicas - Plan

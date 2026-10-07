@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed, inject, type Ref } from 'vue'
+import { computed, inject, useTemplateRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiTableHeadProps {
+export interface UiTableHeadProps extends UiAiProps {
   sortable?: boolean
   sortDirection?: 'ascending' | 'descending' | 'none'
   align?: 'left' | 'center' | 'right' | 'numeric'
@@ -16,11 +19,19 @@ const props = withDefaults(defineProps<UiTableHeadProps>(), {
   align: 'left',
   ascendingMark: undefined,
   descendingMark: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'sort'): void
-}>()
+const emit = defineEmits<UiAiEmits & { (e: 'sort'): void }>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 
@@ -73,6 +84,7 @@ function handleClick() {
 
 <template>
   <th
+    ref="anchor"
     :aria-sort="ariaSortValue"
     :class="[
       'font-medium text-xs text-muted-foreground align-middle',

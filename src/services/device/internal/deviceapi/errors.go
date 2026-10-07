@@ -23,6 +23,7 @@ import (
 // reached.
 var ClientErrors = connecterr.Table{
 	tenant.ErrCodeNoTenant:      {Code: connect.CodeUnauthenticated, UserMsg: "the call is not authenticated"},
+	ErrCodeUnauthenticated:      {Code: connect.CodeUnauthenticated, UserMsg: "the call is not authenticated"},
 	ErrCodeRequest:              {Code: connect.CodeInvalidArgument, UserMsg: "the request is not one this service can act on"},
 	ErrCodeUnknownDevice:        {Code: connect.CodeNotFound, UserMsg: "no such device"},
 	registry.ErrCodeUnknownEdge: {Code: connect.CodeNotFound, UserMsg: "this deployment's registry describes a different edge"},

@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { Device } from '../domain/fleet'
 import type { Port } from '../domain/telemetry'
+import { useFormat } from '../i18n/format'
+import { useLabels } from '../i18n/labels'
 const props = defineProps<{
   ports: Port[]
   device: (id: string) => Device | undefined
@@ -10,26 +13,44 @@ const emit = defineEmits<{
   neighbor: [deviceId: string]
   port: [name: string]
 }>()
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const active = computed(() =>
   props.ports.filter((port) => port.status === 'Up'),
 )
-function speed(mbps: number | undefined) {
-  if (!mbps) return ''
-  return mbps >= 1000 ? `${mbps / 1000}G` : `${mbps}M`
-}
+const power = computed(() =>
+  props.ports.reduce((sum, port) => sum + (port.poe ?? 0), 0),
+)
+const summary = computed(() =>
+  format.facts([
+    t('view.devicePorts.summary', {
+      active: n(active.value.length, 'integer'),
+      total: n(props.ports.length, 'integer'),
+    }),
+    props.ports.some((port) => port.poe) &&
+      t('view.devicePorts.poe', { power: format.quantity(power.value, 'w') }),
+  ]),
+)
 function describe(port: Port) {
   const far = port.neighborId
     ? props.device(port.neighborId)?.name
     : port.endpoint
-  return [port.name, port.status, speed(port.speed), far]
-    .filter(Boolean)
-    .join(' · ')
+  return format.facts([
+    port.name,
+    labels.portStatus(port.status),
+    format.speed(port.speed),
+    far,
+  ])
 }
 </script>
 
 <template>
   <div class="device-ports">
-    <ol class="port-map" :aria-label="`${ports.length} ports`">
+    <ol
+      class="port-map"
+      :aria-label="format.counted('view.devicePorts.ports', ports.length)"
+    >
       <li v-for="port in ports" :key="port.name">
         <button
           :class="['port', port.status.toLowerCase(), { poe: port.poe }]"
@@ -40,13 +61,7 @@ function describe(port: Port) {
       </li>
     </ol>
     <p class="port-summary text-xs text-muted-foreground mt-2">
-      {{ active.length }} of {{ ports.length }} up<template
-        v-if="ports.some((port) => port.poe)"
-      >
-        ·
-        {{ ports.reduce((sum, port) => sum + (port.poe ?? 0), 0) }} W
-        PoE</template
-      >
+      {{ summary }}
     </p>
     <ul
       v-if="active.length"
@@ -58,6 +73,7 @@ function describe(port: Port) {
         class="grid grid-cols-[78px_1fr_auto] items-center gap-2.5"
       >
         <button
+          translate="no"
           class="port-name font-mono justify-self-start p-0 border-0 bg-transparent text-foreground text-left hover:text-accent-foreground hover:underline cursor-pointer"
           @click="emit('port', port.name)"
         >
@@ -65,6 +81,7 @@ function describe(port: Port) {
         </button>
         <button
           v-if="port.neighborId"
+          translate="no"
           class="port-neighbor justify-self-start p-0 border-0 bg-transparent text-accent-foreground text-sm font-semibold text-left hover:underline cursor-pointer"
           @click="emit('neighbor', port.neighborId)"
         >
@@ -75,9 +92,9 @@ function describe(port: Port) {
           class="port-endpoint text-xs text-muted-foreground tabular-nums"
           >{{ port.endpoint }}</span
         >
-        <span class="port-rate text-xs text-muted-foreground tabular-nums"
-          >{{ speed(port.speed) }} · {{ port.throughput }} Mbps</span
-        >
+        <span class="port-rate text-xs text-muted-foreground tabular-nums">{{
+          format.facts([format.speed(port.speed), format.rate(port.throughput)])
+        }}</span>
       </li>
     </ul>
   </div>

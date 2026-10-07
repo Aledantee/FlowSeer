@@ -21,15 +21,20 @@ import {
   SelectViewport,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import { useFormReset } from './useFormReset'
 
 export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  // The label is a name from the data, which a page translator leaves alone.
+  identifier?: boolean
 }
 
-export interface UiSelectProps {
+export interface UiSelectProps extends UiAiProps {
   modelValue?: string
   options?: SelectOption[]
   placeholder?: string
@@ -53,6 +58,8 @@ const props = withDefaults(defineProps<UiSelectProps>(), {
   invalid: undefined,
   ariaLabel: undefined,
   defaultOpen: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -60,10 +67,12 @@ const resolvedPlaceholder = computed(
   () => props.placeholder ?? t('ui.select.placeholder'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-  (e: 'closeAutoFocus', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string): void
+    (e: 'closeAutoFocus', event: Event): void
+  }
+>()
 
 const attrs = useAttrs()
 
@@ -74,6 +83,14 @@ const fieldContext = inject<{
 } | null>('ui-field-context', null)
 
 const triggerRef = ref<InstanceType<typeof SelectTrigger> | null>(null)
+useAiTarget(triggerRef, () => props.ai)
+// The options live in a portal, outside the trigger, so a pick there
+// reaches this value through the content's own listeners.
+const aiOrigin = useAiOrigin(
+  triggerRef,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const triggerId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,
@@ -116,9 +133,11 @@ const currentValue = computed<string>(() =>
   props.modelValue !== undefined ? props.modelValue : internalValue.value,
 )
 
-const selectedLabel = computed(
-  () => props.options.find((opt) => opt.value === currentValue.value)?.label,
+const selectedOption = computed(() =>
+  props.options.find((opt) => opt.value === currentValue.value),
 )
+
+const selectedLabel = computed(() => selectedOption.value?.label)
 
 let initialValue = ''
 onMounted(() => {
@@ -159,7 +178,9 @@ function handleUpdate(val: string | null | undefined) {
       :class="selectTriggerVariants({ invalid: isInvalid })"
     >
       <SelectValue :placeholder="resolvedPlaceholder">
-        {{ selectedLabel || resolvedPlaceholder }}
+        <span :translate="selectedOption?.identifier ? 'no' : undefined">{{
+          selectedLabel || resolvedPlaceholder
+        }}</span>
       </SelectValue>
       <svg
         class="h-4 w-4 opacity-50 shrink-0"
@@ -182,6 +203,8 @@ function handleUpdate(val: string | null | undefined) {
         position="popper"
         :side-offset="4"
         :collision-padding="8"
+        @pointerdown.capture="aiOrigin.acknowledge"
+        @keydown.capture="aiOrigin.acknowledge"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
         <SelectViewport class="p-1">
@@ -210,7 +233,11 @@ function handleUpdate(val: string | null | undefined) {
                 </svg>
               </SelectItemIndicator>
             </span>
-            <SelectItemText>{{ opt.label }}</SelectItemText>
+            <SelectItemText>
+              <span :translate="opt.identifier ? 'no' : undefined">{{
+                opt.label
+              }}</span>
+            </SelectItemText>
           </SelectItem>
         </SelectViewport>
       </SelectContent>

@@ -2,9 +2,7 @@
 title: Central High Availability - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
 ---
@@ -70,20 +68,14 @@ proposed and awaiting acceptance. The ones the user settled:
 ### U1. Edge listener split
 
 Files: docs/plans/2026-10-03-1533-feat-central-high-availability-phase1-plan.md
-After: none
-Landed:
 
 ### U2. External NATS
 
 Files: docs/plans/2026-10-03-1533-feat-central-high-availability-phase2-plan.md
-After: U1
-Landed:
 
 ### U3. Central as several replicas
 
 Files: docs/plans/2026-10-03-1533-feat-central-high-availability-phase3-plan.md
-After: U2
-Landed:
 
 Waves: U1 | U2 | U3
 

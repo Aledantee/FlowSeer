@@ -4,6 +4,8 @@ import { createApp, h, nextTick } from 'vue'
 import { UiAppRoot } from '../ui'
 import ThemeSwitcher from './ThemeSwitcher.vue'
 import { createWebI18n } from '../i18n'
+import type { WebLocale } from '../i18n'
+import { i18nWarnings } from '../i18n/testing'
 
 let dispose = () => {}
 
@@ -24,10 +26,11 @@ afterEach(() => {
   dispose = () => {}
   document.body.replaceChildren()
   localStorage.clear()
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
-function mountSwitcher() {
+function mountSwitcher(locale: WebLocale = 'en') {
   const host = document.createElement('div')
   document.body.append(host)
   const app = createApp({
@@ -35,7 +38,8 @@ function mountSwitcher() {
       return h(UiAppRoot, {}, () => h(ThemeSwitcher))
     },
   })
-  app.use(createWebI18n())
+  const i18n = createWebI18n(locale)
+  app.use(i18n)
   app.mount(host)
   dispose = () => {
     app.unmount()
@@ -47,7 +51,7 @@ function mountSwitcher() {
   const sun = icons[0]
   const moon = icons[1]
   if (!sun || !moon) throw new Error('Missing theme icons')
-  return { button, sun, moon }
+  return { host, i18n, button, sun, moon }
 }
 
 function keyframeEffect(animation: Animation) {
@@ -366,5 +370,84 @@ describe('ThemeSwitcher', () => {
     expect(sun.getAnimations()).toHaveLength(0)
     expect(moon.getAnimations()).toHaveLength(0)
     expectEmptyStyles(sun, moon)
+  })
+})
+
+async function settle() {
+  await nextTick()
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  await nextTick()
+}
+
+const tooltipText = () =>
+  document.body.querySelector('[role="tooltip"]')?.textContent
+
+describe('ThemeSwitcher text', () => {
+  it('announces each mode in German and labels the switch', async () => {
+    stubMatchMedia(true)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { host, button } = mountSwitcher('de')
+    const status = () => host.querySelector('[role="status"]')?.textContent
+
+    expect(button.getAttribute('aria-label')).toBe('Dunkler Modus')
+    expect(status()).toBe('')
+
+    button.click()
+    await nextTick()
+    expect(status()).toBe('Dunkler Modus aktiviert.')
+
+    button.click()
+    await nextTick()
+    expect(status()).toBe('Heller Modus aktiviert.')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
+  })
+
+  it('announces an unsaved choice in German', async () => {
+    stubMatchMedia(true)
+    vi.stubGlobal('localStorage', {
+      clear: () => {},
+      getItem: () => null,
+      setItem: () => {
+        throw new Error('blocked')
+      },
+    })
+    const { host, button } = mountSwitcher('de')
+
+    button.click()
+    await nextTick()
+
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      'Darstellung für diese Seite geändert. Der Browser konnte die Einstellung nicht speichern.',
+    )
+  })
+
+  it('follows a locale switch in the tooltip label and the announcement', async () => {
+    stubMatchMedia(true)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { host, i18n, button } = mountSwitcher('de')
+    const status = () => host.querySelector('[role="status"]')?.textContent
+    const focus = () => button.dispatchEvent(new FocusEvent('focus'))
+
+    focus()
+    await settle()
+    expect(tooltipText()).toContain('Zum dunklen Modus wechseln')
+
+    i18n.global.locale.value = 'en'
+    await settle()
+    expect(tooltipText()).toContain('Switch to dark mode')
+    expect(button.getAttribute('aria-label')).toBe('Dark mode')
+
+    button.click()
+    await settle()
+    expect(status()).toBe('Dark mode enabled.')
+    focus()
+    await settle()
+    expect(tooltipText()).toContain('Switch to light mode')
+
+    i18n.global.locale.value = 'de'
+    await settle()
+    expect(status()).toBe('Dunkler Modus aktiviert.')
+    expect(tooltipText()).toContain('Zum hellen Modus wechseln')
+    expect(i18nWarnings(warn.mock.calls)).toEqual([])
   })
 })

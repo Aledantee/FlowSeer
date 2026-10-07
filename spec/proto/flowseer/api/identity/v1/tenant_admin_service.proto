@@ -1,0 +1,323 @@
+edition = "2024";
+
+// The service a tenant administrator calls to manage members, roles, and
+// service-provider links.
+package flowseer.api.identity.v1;
+
+import "flowseer/authz/v1/rule.proto";
+import "flowseer/model/identity/v1/access.proto";
+import "flowseer/model/identity/v1/operator.proto";
+import "flowseer/model/identity/v1/tenant.proto";
+import "google/protobuf/duration.proto";
+import option "buf/validate/validate.proto";
+
+service TenantAdminService {
+  // Enrolls an operator in the ambient tenant.
+  rpc EnrollMember(EnrollMemberRequest) returns (EnrollMemberResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Removes an operator and the access records assigned to that operator.
+  rpc RemoveMember(RemoveMemberRequest) returns (RemoveMemberResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Creates a tenant role.
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Deletes a tenant role.
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Assigns a role to a member.
+  rpc AssignRole(AssignRoleRequest) returns (AssignRoleResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Removes a role assignment from a member.
+  rpc UnassignRole(UnassignRoleRequest) returns (UnassignRoleResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Connects a service-provider tenant to the ambient tenant.
+  rpc ConnectPartner(ConnectPartnerRequest) returns (ConnectPartnerResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Removes a service-provider tenant link.
+  rpc DisconnectPartner(DisconnectPartnerRequest) returns (DisconnectPartnerResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Grants a member time-bounded access to full captured payload.
+  rpc GrantFullPayload(GrantFullPayloadRequest) returns (GrantFullPayloadResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Removes a member's full-payload grant.
+  rpc RevokeFullPayload(RevokeFullPayloadRequest) returns (RevokeFullPayloadResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Lists members in the ambient tenant.
+  rpc ListMembers(ListMembersRequest) returns (ListMembersResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Lists roles in the ambient tenant.
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+  // Lists service-provider links in the ambient tenant.
+  rpc ListPartners(ListPartnersRequest) returns (ListPartnersResponse) {
+    option (flowseer.authz.v1.rule) = {
+      mode: RULE_MODE_TENANT
+      object_type: "tenant"
+      relation: "admin"
+    };
+  }
+}
+
+message EnrollMemberRequest {
+  // The operator to enroll. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+}
+
+message EnrollMemberResponse {
+  // The enrolled member. Must be present.
+  flowseer.model.identity.v1.Member member = 1 [(buf.validate.field).required = true];
+}
+
+message RemoveMemberRequest {
+  // The member to remove. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+}
+
+message RemoveMemberResponse {}
+
+message CreateRoleRequest {
+  // The operator-facing role name. Must be present.
+  string name = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 128
+  ];
+  // Free-text explanation of the role. Unset means none was provided.
+  string description = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 2048
+  ];
+  // Relations the role grants. Must contain one to four distinct, defined
+  // relations.
+  repeated flowseer.model.identity.v1.TenantRelation relations = 3 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 4,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+}
+
+message CreateRoleResponse {
+  // The created role. Must be present.
+  flowseer.model.identity.v1.Role role = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteRoleRequest {
+  // The role to delete. Must be present.
+  flowseer.model.identity.v1.RoleGlobalRef role = 1 [(buf.validate.field).required = true];
+}
+
+message DeleteRoleResponse {}
+
+message AssignRoleRequest {
+  // The member to receive the role. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+  // The role to assign. Must be present.
+  flowseer.model.identity.v1.RoleGlobalRef role = 2 [(buf.validate.field).required = true];
+}
+
+message AssignRoleResponse {
+  // The member after assignment. Must be present.
+  flowseer.model.identity.v1.Member member = 1 [(buf.validate.field).required = true];
+}
+
+message UnassignRoleRequest {
+  // The member to remove the role from. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+  // The role to remove. Must be present.
+  flowseer.model.identity.v1.RoleGlobalRef role = 2 [(buf.validate.field).required = true];
+}
+
+message UnassignRoleResponse {}
+
+message ConnectPartnerRequest {
+  option (buf.validate.message).cel = {
+    id: "connect_partner_request.relations_exclude_admin"
+    message: "partner relations must not include admin"
+    expression: "this.relations.all(r, int(r) != 1)"
+  };
+
+  // The service-provider tenant to connect. Must be present.
+  flowseer.model.identity.v1.TenantGlobalRef partner = 1 [(buf.validate.field).required = true];
+  // Relations the provider's active administrators receive. Must contain one
+  // to three distinct, defined non-admin relations.
+  repeated flowseer.model.identity.v1.TenantRelation relations = 2 [
+    (buf.validate.field).repeated.min_items = 1,
+    (buf.validate.field).repeated.max_items = 3,
+    (buf.validate.field).repeated.unique = true,
+    (buf.validate.field).repeated.items.enum.defined_only = true,
+    (buf.validate.field).repeated.items.enum.not_in = 0
+  ];
+}
+
+message ConnectPartnerResponse {
+  // The partner link. Must be present.
+  flowseer.model.identity.v1.Partner partner = 1 [(buf.validate.field).required = true];
+}
+
+message DisconnectPartnerRequest {
+  // The service-provider tenant to disconnect. Must be present.
+  flowseer.model.identity.v1.TenantGlobalRef partner = 1 [(buf.validate.field).required = true];
+}
+
+message DisconnectPartnerResponse {}
+
+message GrantFullPayloadRequest {
+  // The member to grant access to. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+  // How long the grant remains active. Must be greater than zero and no more
+  // than 24 hours.
+  google.protobuf.Duration lifetime = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).duration.gt = {seconds: 0},
+    (buf.validate.field).duration.lte = {seconds: 86400}
+  ];
+  // Why the grant is needed. Must be present.
+  string reason = 3 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 512
+  ];
+}
+
+message GrantFullPayloadResponse {
+  // The member after the grant. Must be present.
+  flowseer.model.identity.v1.Member member = 1 [(buf.validate.field).required = true];
+}
+
+message RevokeFullPayloadRequest {
+  // The member whose grant to remove. Must be present.
+  flowseer.model.identity.v1.OperatorRef member = 1 [(buf.validate.field).required = true];
+}
+
+message RevokeFullPayloadResponse {}
+
+message ListMembersRequest {
+  // Members per page. Unset means the service default; never more than 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListMembersResponse {
+  // The page of members in stable key order.
+  repeated flowseer.model.identity.v1.Member members = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListRolesRequest {
+  // Roles per page. Unset means the service default; never more than 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListRolesResponse {
+  // The page of roles in stable key order.
+  repeated flowseer.model.identity.v1.Role roles = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListPartnersRequest {
+  // Partners per page. Unset means the service default; never more than 500.
+  uint32 page_size = 1 [
+    (buf.validate.field).uint32.gt = 0,
+    (buf.validate.field).uint32.lte = 500
+  ];
+  // Opaque token from the previous page. Unset means the first page.
+  string page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}
+
+message ListPartnersResponse {
+  // The page of partners in stable key order.
+  repeated flowseer.model.identity.v1.Partner partners = 1;
+  // Token for the next page. Unset means this was the last page.
+  string next_page_token = 2 [
+    (buf.validate.field).string.min_len = 1,
+    (buf.validate.field).string.max_len = 1024
+  ];
+}

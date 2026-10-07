@@ -58,6 +58,8 @@ var (
 	// ErrCodeReadTimeout is a read still open when the caller's deadline
 	// passed. The read itself stays open and its answer lands in the record.
 	ErrCodeReadTimeout = errs.NewCode("deviceapi/read-timeout")
+	// ErrCodeUnauthenticated is a call that carries no authenticated operator principal.
+	ErrCodeUnauthenticated = errs.NewCode("deviceapi/unauthenticated")
 )
 
 // DeviceResolver answers the per-device facts that live in the registry rather

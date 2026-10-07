@@ -1,7 +1,8 @@
 # Units in workers
 
-Load this before the first wave of two or more units, and for any plan
-with a `parent:` field. A plan without a `parent:` field whose units chain
+Load this before the first wave of two or more units, and for any plan for
+which `.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null`
+succeeds. A plan whose state has no parent and whose units chain
 one after another, with no wave wider than one, does not need it.
 
 A wave is every unit whose `After` prerequisites have landed. Dispatch the
@@ -12,8 +13,9 @@ runtime is reachable, which puts each unit on the first model in the
 role's `fit` order whose pool has room, whatever its CLI, else where its
 "Orca or native" section says; when that is this session, the units run
 one at a time here and the rest of this file does not apply. A wave wider
-than the cap runs in rounds, the cap recomputed before each. A phase plan
-runs even a wave of one in a worker, so a fresh context per unit keeps the
+than the cap runs in rounds, the cap recomputed before each. A phase plan,
+identified with `.claude/skills/plan/scripts/plan_record.py is <phase> parent!=null`, runs even a wave of
+one in a worker, so a fresh context per unit keeps the
 coordinator's own context to the ledger. A plain plan runs a wave of one
 here.
 

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed, inject, type Ref } from 'vue'
+import { computed, inject, useTemplateRef, type Ref } from 'vue'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiTableCellProps {
+export interface UiTableCellProps extends UiAiProps {
   align?: 'left' | 'center' | 'right' | 'numeric'
   mono?: boolean
 }
@@ -9,7 +12,19 @@ export interface UiTableCellProps {
 const props = withDefaults(defineProps<UiTableCellProps>(), {
   align: 'left',
   mono: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const tableContext = inject<{
   dense: Ref<boolean>
@@ -37,7 +52,10 @@ const typographyClass = computed(() => {
 </script>
 
 <template>
-  <td :class="['align-middle', alignmentClass, paddingClass, typographyClass]">
+  <td
+    ref="anchor"
+    :class="['align-middle', alignmentClass, paddingClass, typographyClass]"
+  >
     <slot />
   </td>
 </template>

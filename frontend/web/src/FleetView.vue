@@ -10,13 +10,18 @@ import {
   watchEffect,
 } from 'vue'
 import type { ComponentPublicInstance, Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import AppIcon from './components/AppIcon.vue'
 import AccountMenu from './components/AccountMenu.vue'
 import ReportBugButton from './components/ReportBugButton.vue'
 import HelpButton from './components/HelpButton.vue'
 import ThemeSwitcher from './components/ThemeSwitcher.vue'
-import GlobalSearch from './components/GlobalSearch.vue'
+import LocaleSwitcher from './components/LocaleSwitcher.vue'
+import GlobalSearch, {
+  type SearchPage,
+  type TextPart,
+} from './components/GlobalSearch.vue'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
@@ -28,12 +33,15 @@ import {
   UiBreadcrumbList,
   UiBreadcrumbPage,
   UiBreadcrumbSeparator,
-  UiAiActionLayer,
+  UiAiAssistant,
+  UiAiContextLayer,
+  UiDialog,
   UiDropdownMenuItem,
   UiMotion,
   UiTooltip,
   useMotionFeedback,
 } from './ui'
+import type { AiSeed } from './ai'
 import {
   SHORTCUTS,
   dockTabShortcut,
@@ -63,7 +71,7 @@ import {
 } from './navigation/page'
 import type { PageContext, PageLocation, PageTarget } from './navigation/page'
 import { workspaceContext } from './navigation/workspace'
-import type { PaneId } from './navigation/workspace'
+import type { NoticeKey, PaneId } from './navigation/workspace'
 import {
   DOCK_KEY,
   isLocation,
@@ -74,7 +82,25 @@ import {
   saveDock,
 } from './navigation/dock'
 import type { DockTab, Panes } from './navigation/dock'
+import { useLabels } from './i18n/labels'
+import { BRAND } from './brand'
+const NAV_ITEMS = [
+  'dashboard',
+  'devices',
+  'topology',
+  'clients',
+  'sites',
+] as const
+const SEARCH_VIEWS = [
+  'dashboard',
+  'devices',
+  'clients',
+  'sites',
+  'topology',
+] as const
 
+const { t, n } = useI18n({ useScope: 'global' })
+const labels = useLabels()
 const { play, reduced } = useMotionFeedback()
 const sidebar = ref<ComponentPublicInstance | null>(null)
 const navigation = ref<ComponentPublicInstance | null>(null)
@@ -99,17 +125,31 @@ const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
 const sidebarCollapsed = ref(false)
 const tick = ref(0)
-const message = ref('')
+const message = ref<NoticeKey | ''>('')
+
+const assistantOpen = ref(false)
+const assistantSeed = ref<AiSeed | undefined>()
+
+function toggleAssistant() {
+  assistantOpen.value = !assistantOpen.value
+}
+
+function handleContinueInAssistant(seed: AiSeed) {
+  assistantSeed.value = seed
+  assistantOpen.value = true
+}
 
 function siteName(id: string) {
-  return sites.find((site) => site.id === id)?.name || 'Unknown site'
+  return (
+    sites.find((site) => site.id === id)?.name || t('view.common.unknownSite')
+  )
 }
 function tenantName(siteId: string) {
   return (
     tenants.find(
       (tenant) =>
         tenant.id === sites.find((site) => site.id === siteId)?.tenantId,
-    )?.name || 'Unknown tenant'
+    )?.name || t('view.common.unknownTenant')
   )
 }
 export interface Move {
@@ -153,9 +193,8 @@ function reassign(deviceId: string, destination: string, reverted = false) {
       if (move.value?.deviceId === updated.id) move.value.observed = true
       void nextTick(() => refocus(updated.id))
     }, 1200)
-  } catch (error: unknown) {
-    message.value =
-      error instanceof Error ? error.message : 'Could not assign site.'
+  } catch {
+    message.value = 'view.fleet.assignFailed'
   }
 }
 
@@ -247,7 +286,7 @@ async function navigateMain(location: PageLocation) {
   try {
     await panes.navigateMain(location)
   } catch {
-    message.value = 'Could not open that page. Try again.'
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Opening a page on the right keeps the page already there by docking it.
@@ -297,7 +336,7 @@ async function follow(
   try {
     await page.go(target)
   } catch {
-    message.value = 'Could not open that page. Try again.'
+    message.value = 'view.fleet.openFailed'
   }
 }
 // Links outside the panes, such as the sidebar, belong to the main pane.
@@ -334,17 +373,10 @@ const activeSection = computed(() => {
 const selected = computed(() =>
   fleet.value.find((device) => device.id === mainPage.deviceId.value),
 )
-const VIEW_TITLES: Record<string, string> = {
-  dashboard: 'Dashboard',
-  devices: 'Devices',
-  clients: 'Clients',
-  sites: 'Sites',
-  topology: 'Topology',
-}
 const title = computed(() =>
   view.value === 'device'
-    ? (selected.value?.name ?? 'Unknown device')
-    : (VIEW_TITLES[view.value] ?? 'Dashboard'),
+    ? (selected.value?.name ?? t('view.common.unknownDevice'))
+    : labels.page(view.value),
 )
 const scope = computed(() =>
   filterDevices(fleet.value, query('tenant'), query('site'), '', ''),
@@ -394,7 +426,7 @@ async function setQuery(key: string, value: string) {
       { replace: true },
     )
   } catch {
-    message.value = 'Could not update this view. Try again.'
+    message.value = 'view.common.updateFailed'
   }
 }
 // A site without its tenant in the URL would leave the breadcrumb reading
@@ -422,7 +454,11 @@ const deviceOptions = computed(() =>
       : []),
   ]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((device) => ({ value: device.id, label: device.name })),
+    .map((device) => ({
+      value: device.id,
+      label: device.name,
+      identifier: true,
+    })),
 )
 async function openDevice(id: string) {
   await follow(mainPage, {
@@ -627,22 +663,28 @@ function describe(location: PageLocation) {
   return {
     label:
       pageView === 'device'
-        ? (device?.name ?? 'Unknown device')
-        : (VIEW_TITLES[pageView] ?? 'Dashboard'),
+        ? (device?.name ?? t('view.common.unknownDevice'))
+        : labels.page(pageView),
     detail: device
       ? siteName(device.siteId)
-      : (site?.name ?? tenant?.name ?? 'All sites'),
+      : (site?.name ?? tenant?.name ?? t('view.common.allSites')),
     icon: VIEW_ICONS[pageView] ?? 'dashboard',
     health: device?.health,
     attention: attention || undefined,
+    labelName: pageView === 'device' && Boolean(device?.name),
+    detailName: Boolean(
+      device
+        ? sites.some((s) => s.id === device.siteId)
+        : (site?.name ?? tenant?.name),
+    ),
   }
 }
 function tabTitle(tab: DockTab) {
   const first = describe(tab.location)
-  if (!tab.beside) return first
+  if (!tab.beside) return { ...first, pair: undefined }
   const second = describe(tab.beside)
   return {
-    label: `${first.label} + ${second.label}`,
+    label: t('view.common.pair', { first: first.label, second: second.label }),
     detail: first.detail,
     icon: 'split',
     health:
@@ -651,26 +693,38 @@ function tabTitle(tab: DockTab) {
       first.health ??
       second.health,
     attention: (first.attention ?? 0) + (second.attention ?? 0) || undefined,
+    labelName: false,
+    detailName: first.detailName,
+    pair: {
+      first: { label: first.label, name: first.labelName },
+      second: { label: second.label, name: second.labelName },
+    },
   }
 }
 const sideTitle = computed(() =>
   side.value ? describe(side.value) : undefined,
 )
 
-const searchPages = computed(() => [
-  ...Object.entries(VIEW_TITLES).map(([name, label]) => ({
+const searchPages = computed<SearchPage[]>(() => [
+  ...SEARCH_VIEWS.map((name) => ({
     id: `view:${name}`,
-    title: label,
-    detail: 'Page',
+    title: labels.page(name),
     icon: VIEW_ICONS[name] ?? 'dashboard',
+    parts: [{ text: t('view.fleet.searchPage') }],
   })),
   ...tabs.value.map((tab) => {
     const described = tabTitle(tab)
+    const parts: TextPart[] = [
+      { text: t(tab.beside ? 'view.fleet.dockedPair' : 'view.fleet.docked') },
+      { text: described.detail, identifier: described.detailName },
+    ]
     return {
       id: `tab:${tab.id}`,
       title: described.label,
-      detail: `${tab.beside ? 'Docked pair' : 'Docked'} · ${described.detail}`,
       icon: described.icon,
+      identifier: described.labelName,
+      pair: described.pair,
+      parts,
     }
   }),
 ])
@@ -739,6 +793,7 @@ function workspaceKey(event: KeyboardEvent) {
     void action()
   }
   if (matches(event, SHORTCUTS.toggleSplit)) return run(toggleSplit)
+  if (matches(event, SHORTCUTS.assistant)) return run(toggleAssistant)
   // Alt shortcuts would swallow characters typed into fields.
   if (typingIn(event.target)) return
   if (matches(event, SHORTCUTS.minimize)) return run(() => minimizePane())
@@ -776,9 +831,15 @@ function workspaceKey(event: KeyboardEvent) {
 }
 // The browser tab names the pages on screen.
 watchEffect(() => {
-  const names = [describe(mainPage.location.value).label]
-  if (showSplit.value && side.value) names.push(describe(side.value).label)
-  document.title = `${names.join(' + ')} · FlowSeer`
+  const first = describe(mainPage.location.value).label
+  const pages =
+    showSplit.value && side.value
+      ? t('view.common.pair', {
+          first,
+          second: describe(side.value).label,
+        })
+      : first
+  document.title = t('view.fleet.documentTitle', { pages, brand: BRAND })
 })
 onMounted(() => window.addEventListener('keydown', workspaceKey))
 onUnmounted(() => window.removeEventListener('keydown', workspaceKey))
@@ -800,12 +861,11 @@ onUnmounted(() => clearInterval(timer))
 </script>
 
 <template>
-  <UiAiActionLayer />
   <div
     class="shell max-[800px]:flex-col"
     :class="{ 'sidebar-collapsed': sidebarCollapsed }"
   >
-    <a class="skip-link" href="#main">Skip to main content</a>
+    <a class="skip-link" href="#main">{{ t('view.fleet.skipToMain') }}</a>
     <UiMotion
       id="workspace-sidebar"
       ref="sidebar"
@@ -820,8 +880,9 @@ onUnmounted(() => clearInterval(timer))
         :layout-dependency="layoutDependency"
         class="product-brand"
         role="img"
-        aria-label="FlowSeer"
-        title="FlowSeer"
+        translate="no"
+        :aria-label="BRAND"
+        :title="BRAND"
       >
         <svg
           class="flowseer-mark"
@@ -856,7 +917,7 @@ onUnmounted(() => clearInterval(timer))
             />
           </g>
         </svg>
-        <span>FlowSeer</span>
+        <span>{{ BRAND }}</span>
       </UiMotion>
       <UiMotion
         as="div"
@@ -864,30 +925,27 @@ onUnmounted(() => clearInterval(timer))
         :layout-dependency="layoutDependency"
         class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
       >
-        WORKSPACE
+        {{ t('view.fleet.workspace') }}
       </UiMotion>
       <UiMotion
         ref="navigation"
         as="nav"
         layout="position"
         :layout-dependency="layoutDependency"
-        aria-label="Main navigation"
+        :aria-label="t('view.fleet.mainNavigation')"
         class="max-[800px]:flex max-[800px]:flex-row max-[800px]:gap-2 max-[800px]:mt-6 max-[560px]:gap-1"
         :class="{ 'max-[800px]:!hidden': sidebarCollapsed }"
       >
         <AppLink
-          v-for="item in [
-            'dashboard',
-            'devices',
-            'topology',
-            'clients',
-            'sites',
-          ]"
+          v-for="item in NAV_ITEMS"
           :key="item"
           :aria-label="
-            item.charAt(0).toUpperCase() +
-            item.slice(1) +
-            (item === 'devices' ? `, ${scope.length} in scope` : '')
+            item === 'devices'
+              ? t('view.fleet.devicesLink', {
+                  page: labels.page(item),
+                  count: n(scope.length, 'integer'),
+                })
+              : labels.page(item)
           "
           :to="{ path: `/${item}`, query: mainScope }"
           class="relative isolate flex items-center gap-2.5 px-3 py-2.5 mb-1 rounded text-chrome-muted-foreground font-medium hover:bg-chrome-hover/35 aria-[current=page]:text-chrome-ring max-[800px]:mb-0 max-[800px]:p-2.5 max-[560px]:gap-1.5 max-[560px]:text-xs max-[560px]:p-[9px]"
@@ -906,19 +964,21 @@ onUnmounted(() => clearInterval(timer))
             aria-hidden="true"
           />
           <AppIcon :name="item" />
-          <span class="nav-text">{{
-            item.charAt(0).toUpperCase() + item.slice(1)
-          }}</span>
+          <span class="nav-text">{{ labels.page(item) }}</span>
           <span
             v-if="item === 'devices'"
             class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
           >
-            {{ scope.length }}
+            {{ n(scope.length, 'integer') }}
           </span>
         </AppLink>
       </UiMotion>
       <UiTooltip
-        :label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+        :label="
+          sidebarCollapsed
+            ? t('view.fleet.expandSidebar')
+            : t('view.fleet.collapseSidebar')
+        "
         side="right"
       >
         <UiMotion
@@ -929,7 +989,11 @@ onUnmounted(() => clearInterval(timer))
           type="button"
           aria-controls="workspace-sidebar"
           :aria-expanded="!sidebarCollapsed"
-          :aria-label="sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          :aria-label="
+            sidebarCollapsed
+              ? t('view.fleet.expandSidebar')
+              : t('view.fleet.collapseSidebar')
+          "
           @click="toggleSidebar"
         >
           <svg
@@ -979,14 +1043,15 @@ onUnmounted(() => clearInterval(timer))
                 class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
               >
                 <ScopeSwitcher
-                  label="Site scope"
-                  placeholder="Search sites…"
+                  :label="t('view.fleet.siteScope')"
+                  :placeholder="t('view.fleet.searchSites')"
                   :selected="query('site')"
                   :options="[
-                    { value: '', label: 'All sites' },
+                    { value: '', label: t('view.common.allSites') },
                     ...scopedSites.map((site) => ({
                       value: site.id,
                       label: site.name,
+                      identifier: true,
                     })),
                   ]"
                   @change="setQuery('site', $event)"
@@ -1003,7 +1068,7 @@ onUnmounted(() => clearInterval(timer))
                             class="w-full"
                             :to="{ path: '/devices', query: mainScope }"
                           >
-                            Devices
+                            {{ labels.page('devices') }}
                           </AppLink>
                         </UiDropdownMenuItem>
                       </template>
@@ -1017,7 +1082,7 @@ onUnmounted(() => clearInterval(timer))
                       <AppLink
                         class="breadcrumb-link"
                         :to="{ path: '/devices', query: mainScope }"
-                        >Devices</AppLink
+                        >{{ labels.page('devices') }}</AppLink
                       >
                     </UiBreadcrumbLink>
                   </UiBreadcrumbItem>
@@ -1029,8 +1094,8 @@ onUnmounted(() => clearInterval(timer))
                 class="breadcrumb-scope min-w-0 max-[560px]:max-w-[155px]"
               >
                 <ScopeSwitcher
-                  label="Device"
-                  placeholder="Search devices…"
+                  :label="t('view.fleet.deviceSwitcher')"
+                  :placeholder="t('view.fleet.searchDevices')"
                   :selected="selected.id"
                   :options="deviceOptions"
                   @change="openDevice($event)"
@@ -1042,13 +1107,13 @@ onUnmounted(() => clearInterval(timer))
             </UiBreadcrumbList>
           </UiBreadcrumb>
           <UiTooltip
-            label="Minimize to dock"
-            hint="The shortcut minimizes whichever pane is focused."
+            :label="t('view.fleet.minimizeToDock')"
+            :hint="t('view.fleet.minimizeHint')"
             :shortcut="SHORTCUTS.minimize"
           >
             <button
               class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
-              aria-label="Minimize this page to the dock"
+              :aria-label="t('view.fleet.minimizeMain')"
               @click="minimizePane('main')"
             >
               <AppIcon name="to-dock" />
@@ -1065,190 +1130,246 @@ onUnmounted(() => clearInterval(timer))
             @select="openResult"
             @dock="dockResult"
           />
+          <UiTooltip
+            :label="t('ui.aiAssistant.title')"
+            :shortcut="SHORTCUTS.assistant"
+          >
+            <button
+              type="button"
+              class="assistant-toggle grid place-items-center shrink-0 h-6.5 px-2 border border-border rounded-control bg-transparent text-xs font-medium text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer transition-colors max-[560px]:min-h-[44px]"
+              :aria-label="t('ui.aiAssistant.title')"
+              data-ai-assistant-toggle
+              @click="toggleAssistant"
+            >
+              <span>{{ t('ui.aiAssistant.title') }}</span>
+            </button>
+          </UiTooltip>
           <ThemeSwitcher />
+          <LocaleSwitcher />
           <HelpButton />
           <ReportBugButton />
           <AccountMenu />
         </div>
       </header>
-      <main
-        id="main"
-        tabindex="-1"
-        :class="['panes', { split: showSplit, docked: tabs.length }]"
-        :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
-      >
-        <UiTooltip
-          v-if="showSplit"
-          label="Drag to resize"
-          hint="Double-click to reset to half and half."
-          side="right"
+      <UiAiContextLayer @continue="handleContinueInAssistant">
+        <main
+          id="main"
+          tabindex="-1"
+          :class="['panes', { split: showSplit, docked: tabs.length }]"
+          :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
         >
-          <div
-            class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize split view"
-            :aria-valuenow="Math.round(splitRatio * 100)"
-            aria-valuemin="30"
-            aria-valuemax="70"
-            tabindex="0"
-            @pointerdown.self="startResize"
-            @dblclick.self="splitRatio = 0.5"
-            @keydown.left.prevent="nudgeSplit(-0.05)"
-            @keydown.right.prevent="nudgeSplit(0.05)"
-          ></div>
-        </UiTooltip>
-        <!-- Both slots stay mounted while they hold a page, so swapping only
+          <UiTooltip
+            v-if="showSplit"
+            :label="t('view.fleet.dragToResize')"
+            :hint="t('view.fleet.resizeHint')"
+            side="right"
+          >
+            <div
+              class="pane-divider relative z-[3] flex-[0_0_9px] -mx-1 cursor-col-resize touch-none select-none after:content-[''] after:absolute after:inset-x-1 after:bottom-0 after:top-[var(--topbar-height)] after:bg-border after:transition-colors hover:after:bg-accent-foreground focus-visible:after:bg-accent-foreground"
+              role="separator"
+              aria-orientation="vertical"
+              :aria-label="t('view.fleet.resizeSplit')"
+              :aria-valuenow="Math.round(splitRatio * 100)"
+              aria-valuemin="30"
+              aria-valuemax="70"
+              tabindex="0"
+              @pointerdown.self="startResize"
+              @dblclick.self="splitRatio = 0.5"
+              @keydown.left.prevent="nudgeSplit(-0.05)"
+              @keydown.right.prevent="nudgeSplit(0.05)"
+            ></div>
+          </UiTooltip>
+          <!-- Both slots stay mounted while they hold a page, so swapping only
              changes roles and order; each page keeps its state. -->
-        <template v-for="slot in slotIds" :key="slot">
-          <Transition name="split">
-            <PageHost
-              v-if="
-                panes.slots[slot].value &&
-                (slot === panes.mainSlot.value || showSplit)
-              "
-              :context="panes.pages[slot]"
-              :pane-slot="slot"
-              :class="
-                slot === panes.mainSlot.value
-                  ? [
-                      'main-pane',
-                      { 'active-pane': showSplit && activePane === 'main' },
-                    ]
-                  : ['split-pane', { 'active-pane': activePane === 'side' }]
-              "
-              :style="
-                slot === panes.mainSlot.value
-                  ? undefined
-                  : { '--topbar-height': `${topbarHeight + 36}px` }
-              "
-              @pointerdown="
-                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-              "
-              @focusin="
-                activePane = slot === panes.mainSlot.value ? 'main' : 'side'
-              "
-            >
-              <header
-                v-if="slot !== panes.mainSlot.value && sideTitle"
-                class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
+          <template v-for="slot in slotIds" :key="slot">
+            <Transition name="split">
+              <PageHost
+                v-if="
+                  panes.slots[slot].value &&
+                  (slot === panes.mainSlot.value || showSplit)
+                "
+                :context="panes.pages[slot]"
+                :pane-slot="slot"
+                :class="
+                  slot === panes.mainSlot.value
+                    ? [
+                        'main-pane',
+                        { 'active-pane': showSplit && activePane === 'main' },
+                      ]
+                    : ['split-pane', { 'active-pane': activePane === 'side' }]
+                "
+                :style="
+                  slot === panes.mainSlot.value
+                    ? undefined
+                    : { '--topbar-height': `${topbarHeight + 36}px` }
+                "
+                @pointerdown="
+                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+                "
+                @focusin="
+                  activePane = slot === panes.mainSlot.value ? 'main' : 'side'
+                "
               >
-                <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
-                <span
-                  class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
-                  ><strong>{{ sideTitle.label }}</strong></span
+                <header
+                  v-if="slot !== panes.mainSlot.value && sideTitle"
+                  class="pane-header absolute z-[6] top-[calc(var(--topbar-height)-36px)] inset-x-0 flex items-center gap-2 h-9 px-2 pl-4 border-b border-border bg-background/82 backdrop-blur-md text-muted-foreground text-xs transition-colors"
                 >
-                <div
-                  class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
-                >
-                  <UiBreadcrumb>
-                    <UiBreadcrumbList>
-                      <template v-if="tenants.length > 1">
+                  <AppIcon :name="sideTitle.icon" class="shrink-0 w-3.5" />
+                  <span
+                    class="pane-title shrink-0 max-w-[30%] truncate text-foreground font-semibold"
+                    ><strong
+                      :translate="sideTitle.labelName ? 'no' : undefined"
+                      >{{ sideTitle.label }}</strong
+                    ></span
+                  >
+                  <div
+                    class="pane-scope flex items-center gap-0.5 min-w-0 mr-auto"
+                  >
+                    <UiBreadcrumb>
+                      <UiBreadcrumbList>
+                        <template v-if="tenants.length > 1">
+                          <UiBreadcrumbItem>
+                            <TenantSwitcher
+                              :tenants="tenants"
+                              :selected="sidePage.query('tenant')"
+                              @change="setSideScope('tenant', $event)"
+                            />
+                          </UiBreadcrumbItem>
+                          <UiBreadcrumbSeparator />
+                        </template>
                         <UiBreadcrumbItem>
-                          <TenantSwitcher
-                            :tenants="tenants"
-                            :selected="sidePage.query('tenant')"
-                            @change="setSideScope('tenant', $event)"
+                          <ScopeSwitcher
+                            :label="t('view.fleet.sideSiteScope')"
+                            :placeholder="t('view.fleet.searchSites')"
+                            :selected="sidePage.query('site')"
+                            :options="[
+                              {
+                                value: '',
+                                label: t('view.common.allSites'),
+                              },
+                              ...sideScopedSites.map((site) => ({
+                                value: site.id,
+                                label: site.name,
+                                identifier: true,
+                              })),
+                            ]"
+                            @change="setSideScope('site', $event)"
                           />
                         </UiBreadcrumbItem>
-                        <UiBreadcrumbSeparator />
-                      </template>
-                      <UiBreadcrumbItem>
-                        <ScopeSwitcher
-                          label="Side page site"
-                          placeholder="Search sites…"
-                          :selected="sidePage.query('site')"
-                          :options="[
-                            { value: '', label: 'All sites' },
-                            ...sideScopedSites.map((site) => ({
-                              value: site.id,
-                              label: site.name,
-                            })),
-                          ]"
-                          @change="setSideScope('site', $event)"
-                        />
-                      </UiBreadcrumbItem>
-                    </UiBreadcrumbList>
-                  </UiBreadcrumb>
-                </div>
-                <div
-                  class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
-                  role="toolbar"
-                  aria-label="Split view"
-                >
-                  <UiTooltip
-                    :label="
-                      linkClicks
-                        ? 'Links on the left open here'
-                        : 'Open links from the left here'
-                    "
-                    :hint="linkClicks ? 'On' : undefined"
-                    :shortcut="SHORTCUTS.linkClicks"
+                      </UiBreadcrumbList>
+                    </UiBreadcrumb>
+                  </div>
+                  <div
+                    class="pane-tools flex items-center gap-1 max-[560px]:gap-0"
+                    role="toolbar"
+                    :aria-label="t('view.fleet.splitView')"
                   >
-                    <button
-                      :aria-pressed="linkClicks"
-                      aria-label="Open links from the main page in the side page"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="linkClicks = !linkClicks"
+                    <UiTooltip
+                      :label="
+                        linkClicks
+                          ? t('view.fleet.linkClicksOn')
+                          : t('view.fleet.linkClicksOff')
+                      "
+                      :hint="
+                        linkClicks ? t('view.fleet.linkClicksHint') : undefined
+                      "
+                      :shortcut="SHORTCUTS.linkClicks"
                     >
-                      <AppIcon name="link-clicks" />
-                    </button>
-                  </UiTooltip>
-                  <span
-                    class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
-                    aria-hidden="true"
-                  ></span>
-                  <UiTooltip label="Swap sides" :shortcut="SHORTCUTS.swap">
-                    <button
-                      aria-label="Swap the two pages"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="swapPanes"
+                      <button
+                        :aria-pressed="linkClicks"
+                        :aria-label="t('view.fleet.linkClicksLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="linkClicks = !linkClicks"
+                      >
+                        <AppIcon name="link-clicks" />
+                      </button>
+                    </UiTooltip>
+                    <span
+                      class="pane-tools-gap w-px h-3.5 mx-1 bg-border max-[560px]:hidden"
+                      aria-hidden="true"
+                    ></span>
+                    <UiTooltip
+                      :label="t('view.fleet.swapSides')"
+                      :shortcut="SHORTCUTS.swap"
                     >
-                      <AppIcon name="swap" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    label="Dock both as a pair"
-                    :shortcut="SHORTCUTS.dockPair"
-                  >
-                    <button
-                      aria-label="Dock both pages as a pair"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="dockPair"
+                      <button
+                        :aria-label="t('view.fleet.swapPages')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="swapPanes"
+                      >
+                        <AppIcon name="swap" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.dockPair')"
+                      :shortcut="SHORTCUTS.dockPair"
                     >
-                      <AppIcon name="dock-pair" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    label="Minimize to dock"
-                    :shortcut="SHORTCUTS.toggleSplit"
-                  >
-                    <button
-                      aria-label="Minimize the side page to the dock"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="minimizePane('side')"
+                      <button
+                        :aria-label="t('view.fleet.dockPairLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="dockPair"
+                      >
+                        <AppIcon name="dock-pair" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.minimizeToDock')"
+                      :shortcut="SHORTCUTS.toggleSplit"
                     >
-                      <AppIcon name="to-dock" />
-                    </button>
-                  </UiTooltip>
-                  <UiTooltip
-                    label="Close side page"
-                    :shortcut="SHORTCUTS.closeSide"
-                  >
-                    <button
-                      aria-label="Close the side page"
-                      class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
-                      @click="closeSide"
+                      <button
+                        :aria-label="t('view.fleet.minimizeSide')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="minimizePane('side')"
+                      >
+                        <AppIcon name="to-dock" />
+                      </button>
+                    </UiTooltip>
+                    <UiTooltip
+                      :label="t('view.fleet.closeSide')"
+                      :shortcut="SHORTCUTS.closeSide"
                     >
-                      <AppIcon name="close" />
-                    </button>
-                  </UiTooltip>
-                </div>
-              </header>
-            </PageHost>
-          </Transition>
-        </template>
-      </main>
+                      <button
+                        :aria-label="t('view.fleet.closeSideLabel')"
+                        class="grid place-items-center w-6.5 h-6.5 p-0 border-0 rounded bg-transparent text-muted-foreground hover:bg-hover hover:text-foreground cursor-pointer [&>svg]:w-3.5"
+                        @click="closeSide"
+                      >
+                        <AppIcon name="close" />
+                      </button>
+                    </UiTooltip>
+                  </div>
+                </header>
+              </PageHost>
+            </Transition>
+          </template>
+          <aside
+            v-if="wide && assistantOpen"
+            class="assistant-pane flex-[0_0_20rem] lg:flex-[0_0_24rem] border-l border-border bg-card z-[4] flex flex-col pt-[var(--topbar-height)]"
+            data-ai-assistant-column
+          >
+            <UiAiAssistant
+              :open="wide && assistantOpen"
+              :seed="assistantSeed"
+              @close="assistantOpen = false"
+              @update:open="assistantOpen = $event"
+            />
+          </aside>
+        </main>
+      </UiAiContextLayer>
+      <UiDialog
+        :open="!wide && assistantOpen"
+        side="right"
+        size="sm"
+        content-class="p-0 max-w-sm"
+        :fallback-title="t('ui.aiAssistant.title')"
+        @update:open="assistantOpen = $event"
+      >
+        <UiAiAssistant
+          :open="!wide && assistantOpen"
+          :seed="assistantSeed"
+          @close="assistantOpen = false"
+          @update:open="assistantOpen = $event"
+        />
+      </UiDialog>
       <PageDock
         :tabs="tabs"
         :title="tabTitle"

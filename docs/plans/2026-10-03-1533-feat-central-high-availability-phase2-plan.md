@@ -2,12 +2,9 @@
 title: Central High Availability, Phase 2, External NATS - Plan
 type: refactor
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-08-20-device-service-and-inventory-direction.md
-parent: docs/plans/2026-10-03-1533-feat-central-high-availability-plan.md
 ---
 
 # Central High Availability, Phase 2, External NATS - Plan

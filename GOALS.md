@@ -28,6 +28,42 @@ reason in the commit message.
 - A typed change reaches a device through the local-network lane, and an
   observation verifies that it took effect.
   [`verified-device-access-direction`](docs/architecture/2026-09-05-verified-device-access-direction.md)
+- Every integration runs on an enrolled host that holds the Connect dispatch
+  stream and answers with reports. An Edge is the host at a site and belongs
+  to one Site. An adapter host is a second kind of enrolled host, deployed
+  beside central, and it belongs to no Site. Central routes an operation by
+  the host its lane is placed on, and it calls no adapter in its own process
+  and sends no command over NATS. Decided here first. No record states its
+  shape or defines the adapter host entity yet. It replaces two statements
+  in the
+  [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
+  record: that a kind may be compiled into central, and that an integration
+  run centrally names no host. It also replaces the adapter hosted in
+  central that the
+  [`central-ingestion-pipeline-direction`](docs/architecture/2026-10-02-central-ingestion-pipeline-direction.md)
+  record lets publish into the CENTRAL account. That record's intake reads
+  only per-Edge streams and takes the tenant from the stream, so how an
+  adapter host's observations reach intake and get their tenant is not
+  decided either.
+- One controller or cloud platform can serve more than one Site and more
+  than one Tenant. Each Tenant configures its own integration against the
+  shared platform, so an integration stays in one Tenant and tenancy stays
+  ambient. One integration can cover several Sites: a device's Placement
+  into a FlowSeer Site can derive from the platform's scopes, and an
+  operator's Placement wins, as the
+  [`device-service-and-inventory-direction`](docs/architecture/2026-08-20-device-service-and-inventory-direction.md)
+  record says. Neither Site nor Tenant is read from the host that runs the
+  integration. Who owns the credential and the request budget that
+  integrations of several Tenants share on one platform is not decided, and
+  no record decides it yet.
+- An observed configuration change, such as an SNMP trap or an integration's
+  change event, reaches central over the bus and triggers the drift read at
+  once. This protects against drift from changes made outside FlowSeer. The
+  poll in `src/services/device/internal/drift` stays as the backstop for a
+  lost notification. A trap says that a change happened and not what
+  changed (`snTrapRunningConfigChanged` in
+  `spec/mib/ruckus/icx/FOUNDRY-SN-NOTIFICATION-MIB`), so the read still does
+  the comparison. No record decides its shape yet.
 - The operator and admin API surfaces are authenticated with OIDC tokens and
   authorized through a Zanzibar-style relationship engine, for more than one
   tenant.

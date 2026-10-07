@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import en from './locales/en.json'
 import de from './locales/de.json'
-import { createWebI18n, numberFormats } from './index'
+import { createWebI18n, datetimeFormats, numberFormats } from './index'
 
 function getLeafPaths(obj: unknown, prefix = ''): string[] {
   if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
@@ -221,5 +221,41 @@ describe('i18n message catalogs and runtime', () => {
       style: 'decimal',
       maximumFractionDigits: 20,
     })
+  })
+
+  it('isolates date formats merged into one instance from other instances and exported formats', () => {
+    const first = createWebI18n('en')
+    const second = createWebI18n('en')
+    const noon = new Date(2026, 9, 3, 12, 5)
+
+    first.global.mergeDateTimeFormat('en', {
+      time: { hour: '2-digit', minute: '2-digit', hour12: false },
+    })
+    first.global.mergeDateTimeFormat('de', {
+      time: { hour: 'numeric', minute: '2-digit', hour12: true },
+    })
+    const twelveHour = new Intl.DateTimeFormat('en', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(noon)
+    expect(first.global.d(noon, 'time')).toBe('12:05')
+    expect(second.global.d(noon, 'time')).toBe(twelveHour)
+    expect(first.global.d(noon, 'time', 'de')).toMatch(/^12:05.PM$/)
+    expect(second.global.d(noon, 'time', 'de')).toBe('12:05')
+    expect(datetimeFormats.en.time).toEqual({
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    expect(datetimeFormats.de.time).toEqual({
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+
+    first.global.setDateTimeFormat<Record<string, Intl.DateTimeFormatOptions>>(
+      'de',
+      { time: { hour: '2-digit', minute: '2-digit' } },
+    )
+    expect(second.global.getDateTimeFormat('de')).toEqual(datetimeFormats.de)
   })
 })

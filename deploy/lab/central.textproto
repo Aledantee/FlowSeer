@@ -1,8 +1,8 @@
 # flowseer.store.device.v1.DeviceServiceConfig for the lab run.
 #
-# Placeholders only. Every value below is either a real local path or an
-# obvious stand-in; nothing here is a secret and nothing here is an address
-# that resolves.
+# Nothing here is a secret. The addresses are loopback for the lab run, and
+# the authorization ids are stand-ins for the block write-openfga-store.sh
+# prints once the store exists.
 
 state_dir: "/var/lib/flowseer/device"
 registry_path: "/etc/flowseer/registry.textproto"
@@ -10,9 +10,7 @@ credential_root: "/etc/flowseer/credentials"
 
 listeners {
   # Loopback for the lab run, and that is a step in the runbook rather than a
-  # default worth copying: this service serves an operator API with no
-  # authorization check, and that port is the one that yields device
-  # credentials.
+  # default worth copying: that port is the one that yields device credentials.
   api: "127.0.0.1:8443"
   bus: "127.0.0.1:8444"
 }
@@ -29,4 +27,26 @@ intervals {
   # second reader in the middle of a run whose whole point is watching one
   # write.
   drift { seconds: 3600 }
+}
+
+authentication {
+  issuers {
+    issuer: "https://127.0.0.1:8445/dex"
+    audience: "flowseer-device"
+    organization_claim_name: "groups"
+  }
+}
+
+platform_admin {
+  issuer: "https://127.0.0.1:8445/dex"
+  organization: "flowseer-platform"
+  organization_claim_name: "groups"
+  subjects: "CiQwMDAwMDAwMC0wMDAwLTAwMDAtMDAwMC0wMDAwMDAwMDAwMDISBWxvY2Fs"
+}
+
+authorization {
+  endpoint: "https://127.0.0.1:8081"
+  store_id: "PLACEHOLDER_STORE_ID"
+  model_id: "PLACEHOLDER_MODEL_ID"
+  preshared_key_file: "/etc/flowseer/secrets/openfga.key"
 }

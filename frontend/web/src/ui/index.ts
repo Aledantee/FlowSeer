@@ -100,6 +100,12 @@ export { default as UiDropdownMenuItem } from './dropdown-menu/UiDropdownMenuIte
 export type { UiDropdownMenuItemProps } from './dropdown-menu/UiDropdownMenuItem.vue'
 export { default as UiDropdownMenuSeparator } from './dropdown-menu/UiDropdownMenuSeparator.vue'
 
+export { default as UiContextMenu } from './context-menu/UiContextMenu.vue'
+export type { UiContextMenuProps } from './context-menu/UiContextMenu.vue'
+export { default as UiContextMenuItem } from './context-menu/UiContextMenuItem.vue'
+export type { UiContextMenuItemProps } from './context-menu/UiContextMenuItem.vue'
+export { default as UiContextMenuSeparator } from './context-menu/UiContextMenuSeparator.vue'
+
 export { default as UiTabs } from './tabs/UiTabs.vue'
 export type { UiTabsProps } from './tabs/UiTabs.vue'
 
@@ -138,11 +144,35 @@ export type { UiScrollAreaProps } from './scroll-area/UiScrollArea.vue'
 
 export { default as UiAiSummary } from './ai/UiAiSummary.vue'
 export type { UiAiSummaryLabels, UiAiSummaryProps } from './ai/UiAiSummary.vue'
-export { default as UiAiActionLayer } from './ai/UiAiActionLayer.vue'
+export { default as UiAiEntityChip } from './ai/UiAiEntityChip.vue'
+export type { UiAiEntityChipProps } from './ai/UiAiEntityChip.vue'
+export { default as UiAiLabel } from './ai/UiAiLabel.vue'
+export type { UiAiLabelProps } from './ai/UiAiLabel.vue'
+export { default as UiAiResult } from './ai/UiAiResult.vue'
+export type { UiAiResultProps, UiAiResultState } from './ai/UiAiResult.vue'
+export {
+  default as UiAiResultActions,
+  serializeAiResultToText,
+} from './ai/UiAiResultActions.vue'
+export type { UiAiResultActionsProps } from './ai/UiAiResultActions.vue'
+export { default as UiAiTarget } from './ai/UiAiTarget.vue'
+export type { UiAiTargetProps } from './ai/UiAiTarget.vue'
+export type { AiOriginRequest, UiAiEmits, UiAiProps } from './ai/context'
+export { useAiTarget } from './ai/useAiTarget'
+export { useAiOrigin } from './ai/useAiOrigin'
+export type { AiOrigin } from './ai/useAiOrigin'
+export { default as UiAiContextLayer } from './ai/UiAiContextLayer.vue'
 export type {
-  UiAiActionLayerLabels,
-  UiAiActionLayerProps,
-} from './ai/UiAiActionLayer.vue'
+  UiAiContextLayerLabels,
+  UiAiContextLayerProps,
+} from './ai/UiAiContextLayer.vue'
+export { default as UiAiAssistant } from './ai/UiAiAssistant.vue'
+export type {
+  UiAiAssistantLabels,
+  UiAiAssistantProps,
+} from './ai/UiAiAssistant.vue'
+export { default as UiAiRender, AI_UI_COMPONENTS } from './ai/UiAiRender.vue'
+export type { UiAiRenderProps } from './ai/UiAiRender.vue'
 
 export { default as UiBreadcrumb } from './breadcrumb/UiBreadcrumb.vue'
 export type {

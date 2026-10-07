@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { scopeOf, usePage } from './navigation/page'
 import {
   UiAiSummary,
@@ -18,11 +20,11 @@ import {
 import TrafficChart from './components/TrafficChart.vue'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget } from './ai'
+import { useFormat } from './i18n/format'
+import { useLabels } from './i18n/labels'
 import type { Device, Site } from './domain/fleet'
 import {
-  formatAgo,
   healthCounts,
-  healthLine,
   rankSites,
   scopedEvents,
   siteRollups,
@@ -37,8 +39,26 @@ const props = defineProps<{
   tenantName: (siteId: string) => string
 }>()
 
+const { t, n, locale } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const page = usePage()
 const slot = useAiSlot()
+
+// An hour of the day as a time, for `clock`. The date is arbitrary.
+const atHour = (hour: number) => new Date(2000, 0, 1, hour)
+const separator = computed(() => t('view.common.factSeparator'))
+const peakReading = computed(() =>
+  t('view.dashboard.peakContext', {
+    rate: format.rate(peak.value.mbps),
+    time: format.clock(atHour(peak.value.hour)),
+  }),
+)
+const chartLabel = computed(() =>
+  props.site
+    ? t('view.dashboard.chartLabelSite', { site: props.site.name })
+    : t('view.dashboard.chartLabelAll'),
+)
 
 const viewTarget = computed(() =>
   aiTarget({
@@ -46,17 +66,29 @@ const viewTarget = computed(() =>
     view: 'dashboard',
     kind: 'view',
     entityId: props.site ? props.site.id : 'all',
-    label: `Dashboard · ${props.site ? props.site.name : 'all sites'}`,
+    label: props.site
+      ? t('view.dashboard.targetLabel', { site: props.site.name })
+      : t('view.dashboard.targetLabelAll'),
     context: {
       scope: props.site
-        ? `${props.site.name}, ${props.site.location}`
-        : 'All sites',
-      devices: String(props.scope.length),
-      health: healthLine(counts.value),
+        ? t('view.dashboard.scopeSite', {
+            name: props.site.name,
+            location: props.site.location,
+          })
+        : t('view.common.allSites'),
+      devices: n(props.scope.length, 'integer'),
+      health: labels.healthLine(counts.value),
       attention: attention.value
-        .map((device) => `${device.name} (${device.health.toLowerCase()})`)
-        .join(', '),
-      peak: `${peak.value.mbps} Mbps at ${String(peak.value.hour).padStart(2, '0')}:00`,
+        .map((device) =>
+          t('view.dashboard.attentionItem', {
+            name: device.name,
+            health: labels
+              .health(device.health)
+              .toLocaleLowerCase(locale.value),
+          }),
+        )
+        .join(t('view.dashboard.listSeparator')),
+      peak: peakReading.value,
     },
   }),
 )
@@ -103,7 +135,7 @@ function siteTarget(rollup: SiteRollup): AiTarget {
       name: rollup.site.name,
       location: rollup.site.location,
       tenant: props.tenantName(rollup.site.id),
-      health: healthLine(rollup.health),
+      health: labels.healthLine(rollup.health),
     },
   })
 }
@@ -113,16 +145,19 @@ const chartTarget = computed(() =>
     view: 'dashboard',
     kind: 'chart',
     entityId: 'traffic',
-    label: 'Traffic, last 24 hours',
+    label: t('view.dashboard.trafficTitle'),
     context: {
-      scope: props.site ? props.site.name : 'All sites',
-      peak: `${peak.value.mbps} Mbps at ${String(peak.value.hour).padStart(2, '0')}:00`,
+      scope: props.site ? props.site.name : t('view.common.allSites'),
+      peak: peakReading.value,
     },
   }),
 )
 
 function siteNameOf(id: string) {
-  return props.sites.find((item) => item.id === id)?.name ?? 'Unknown site'
+  return (
+    props.sites.find((item) => item.id === id)?.name ??
+    t('view.common.unknownSite')
+  )
 }
 function deviceTo(id: string) {
   return { path: `/devices/${id}`, query: scopeOf(page.location.value) }
@@ -146,7 +181,6 @@ const peak = computed(() =>
   }),
 )
 const severity = { Offline: 0, Degraded: 1, Healthy: 2 }
-const severityLabel = { critical: 'Critical', warning: 'Warning', info: 'Info' }
 const attention = computed(() =>
   props.scope
     .filter((device) => device.health !== 'Healthy')
@@ -162,11 +196,14 @@ function reason(device: Device) {
   const event = feed.value.find(
     (item) => item.deviceId === device.id && item.severity !== 'info',
   )
-  const parts = [event?.summary ?? 'No event explains this yet']
-  if (device.health === 'Offline')
-    parts.push(`last answered ${formatAgo(device.lastSeenMinutes)}`)
-  else if (event) parts.push(formatAgo(event.minutesAgo))
-  return parts.join(' · ')
+  return format.facts([
+    event?.summary ?? t('view.dashboard.noEventExplains'),
+    device.health === 'Offline'
+      ? t('view.dashboard.lastAnswered', {
+          age: format.ago(device.lastSeenMinutes),
+        })
+      : event && format.ago(event.minutesAgo),
+  ])
 }
 
 const feed = computed(() => scopedEvents(props.scope))
@@ -183,8 +220,8 @@ const roles = computed(() => {
 </script>
 
 <template>
-  <div
-    v-ai-target="viewTarget"
+  <UiAiTarget
+    :ai="viewTarget"
     class="dashboard grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] max-[1150px]:grid-cols-1 gap-6 pb-8"
   >
     <UiCard
@@ -198,11 +235,21 @@ const roles = computed(() => {
             id="summary-title"
             class="text-base font-semibold text-foreground"
           >
-            AI summary
+            {{ t('view.dashboard.aiSummary') }}
           </h2>
           <p class="text-xs text-muted-foreground mt-1">
-            Health, attention, and traffic for
-            {{ site ? site.name : 'all sites' }}
+            <I18nT
+              scope="global"
+              :keypath="
+                site
+                  ? 'view.dashboard.summaryForSite'
+                  : 'view.dashboard.summaryForAll'
+              "
+            >
+              <template #site>
+                <span translate="no">{{ site?.name }}</span>
+              </template>
+            </I18nT>
           </p>
         </div>
       </template>
@@ -216,39 +263,49 @@ const roles = computed(() => {
     >
       <template #header>
         <div>
-          <h2
-            id="health-title"
-            class="text-base font-semibold text-foreground"
-            v-text="'Needs attention'"
-          ></h2>
+          <h2 id="health-title" class="text-base font-semibold text-foreground">
+            {{ t('view.common.needsAttention') }}
+          </h2>
           <p class="text-xs text-muted-foreground mt-1">
-            {{ attention.length }} of {{ scope.length }} devices
+            {{
+              t(
+                'view.dashboard.attentionCount',
+                {
+                  count: n(attention.length, 'integer'),
+                  total: n(scope.length, 'integer'),
+                },
+                scope.length,
+              )
+            }}
           </p>
         </div>
       </template>
       <div>
         <ul v-if="attention.length" class="list-none m-0 p-0">
-          <li
+          <UiAiTarget
             v-for="device in attention"
             :key="device.id"
-            v-ai-target="attentionTarget(device)"
+            as="li"
+            :ai="attentionTarget(device)"
           >
             <AppLink
               class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
               :to="deviceTo(device.id)"
             >
               <span>
-                <strong class="text-xs font-medium text-foreground block">{{
-                  device.name
-                }}</strong>
+                <strong
+                  translate="no"
+                  class="text-xs font-medium text-foreground block"
+                  >{{ device.name }}</strong
+                >
                 <small class="text-2xs text-muted-foreground mt-0.5 block">
                   {{ device.kind }}
                   <template v-if="!site">
-                    ·
-                    {{
+                    {{ separator
+                    }}<span translate="no">{{
                       sites.find((s) => s.id === device.siteId)?.name
-                    }}</template
-                  >
+                    }}</span>
+                  </template>
                 </small>
                 <span class="block mt-1 text-xs text-foreground">{{
                   reason(device)
@@ -256,16 +313,16 @@ const roles = computed(() => {
               </span>
               <UiStatusBadge :status="device.health" />
             </AppLink>
-          </li>
+          </UiAiTarget>
         </ul>
         <p v-else-if="scope.length" class="text-xs text-muted-foreground">
-          Every device in this scope is healthy.
+          {{ t('view.dashboard.allHealthy') }}
         </p>
         <p v-else class="text-xs text-muted-foreground">
-          No devices in this scope.
+          {{ t('view.dashboard.noDevices') }}
         </p>
         <h3 class="text-xs font-medium text-muted-foreground mt-5 mb-1.5">
-          Health across the scope
+          {{ t('view.dashboard.healthAcross') }}
         </h3>
         <UiSegmentedMeter :counts="counts" legend />
       </div>
@@ -283,24 +340,25 @@ const roles = computed(() => {
               id="traffic-title"
               class="text-base font-semibold text-foreground"
             >
-              Traffic, last 24 hours
+              {{ t('view.dashboard.trafficTitle') }}
             </h2>
             <p class="text-xs text-muted-foreground mt-1">
-              Aggregate device throughput · peak
-              <strong class="text-foreground font-semibold"
-                >{{ peak.mbps }} Mbps</strong
-              >
-              at {{ String(peak.hour).padStart(2, '0') }}:00
+              <I18nT scope="global" keypath="view.dashboard.peakSummary">
+                <template #rate>
+                  <strong class="text-foreground font-semibold">{{
+                    format.rate(peak.mbps)
+                  }}</strong>
+                </template>
+                <template #time>{{ format.clock(atHour(peak.hour)) }}</template>
+              </I18nT>
             </p>
           </div>
-          <span class="text-xs text-muted-foreground">Mbps</span>
+          <span class="text-xs text-muted-foreground">{{
+            t('view.common.units.mbps')
+          }}</span>
         </div>
       </template>
-      <TrafficChart
-        v-ai-target="chartTarget"
-        :points="history"
-        :label="`Hourly aggregate traffic for ${site ? site.name : 'all sites in scope'}`"
-      />
+      <TrafficChart :ai="chartTarget" :points="history" :label="chartLabel" />
     </UiCard>
 
     <UiCard
@@ -312,14 +370,14 @@ const roles = computed(() => {
       <template #header>
         <div>
           <h2 id="sites-title" class="text-base font-semibold text-foreground">
-            Sites
+            {{ labels.page('sites') }}
             <span
               class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
-              >{{ sites.length }}</span
+              >{{ n(sites.length, 'integer') }}</span
             >
           </h2>
           <p class="text-xs text-muted-foreground mt-1">
-            Select a site to focus the dashboard on it.
+            {{ t('view.dashboard.selectSite') }}
           </p>
         </div>
       </template>
@@ -327,22 +385,26 @@ const roles = computed(() => {
         <UiTable>
           <UiTableHeader>
             <UiTableRow>
-              <UiTableHead>Site</UiTableHead>
-              <UiTableHead class="w-[28%]">Health</UiTableHead>
-              <UiTableHead align="numeric">Devices</UiTableHead>
-              <UiTableHead class="max-[560px]:hidden" align="numeric"
-                >Clients</UiTableHead
-              >
-              <UiTableHead class="max-[560px]:hidden" align="numeric"
-                >Traffic</UiTableHead
-              >
+              <UiTableHead>{{ t('view.common.columns.site') }}</UiTableHead>
+              <UiTableHead class="w-[28%]">{{
+                t('view.common.columns.health')
+              }}</UiTableHead>
+              <UiTableHead align="numeric">{{
+                t('view.common.columns.devices')
+              }}</UiTableHead>
+              <UiTableHead class="max-[560px]:hidden" align="numeric">{{
+                t('view.common.columns.clients')
+              }}</UiTableHead>
+              <UiTableHead class="max-[560px]:hidden" align="numeric">{{
+                t('view.common.columns.traffic')
+              }}</UiTableHead>
             </UiTableRow>
           </UiTableHeader>
           <UiTableBody>
             <UiTableRow
               v-for="rollup in rollups"
               :key="rollup.site.id"
-              v-ai-target="siteTarget(rollup)"
+              :ai="siteTarget(rollup)"
             >
               <UiTableCell>
                 <AppLink
@@ -350,34 +412,48 @@ const roles = computed(() => {
                   :to="siteTo(rollup.site.id)"
                 >
                   <strong
+                    translate="no"
                     class="font-medium text-foreground group-hover:text-accent-foreground block"
                     >{{ rollup.site.name }}</strong
                   >
                   <small class="text-2xs text-muted-foreground block">
-                    {{ rollup.site.location }} ·
-                    {{ tenantName(rollup.site.id) }}
+                    {{ rollup.site.location }}{{ separator
+                    }}<span translate="no">{{
+                      tenantName(rollup.site.id)
+                    }}</span>
                   </small>
                 </AppLink>
               </UiTableCell>
               <UiTableCell class="w-[28%]">
                 <UiSegmentedMeter :counts="rollup.health" />
                 <small class="text-2xs text-muted-foreground block mt-1">{{
-                  healthLine(rollup.health)
+                  labels.healthLine(rollup.health)
                 }}</small>
               </UiTableCell>
               <UiTableCell align="numeric">
                 {{
-                  rollup.health.Healthy +
-                  rollup.health.Degraded +
-                  rollup.health.Offline
+                  n(
+                    rollup.health.Healthy +
+                      rollup.health.Degraded +
+                      rollup.health.Offline,
+                    'integer',
+                  )
                 }}
               </UiTableCell>
               <UiTableCell class="max-[560px]:hidden" align="numeric">{{
-                rollup.clients
+                n(rollup.clients, 'integer')
               }}</UiTableCell>
               <UiTableCell class="max-[560px]:hidden" align="numeric">
-                {{ rollup.throughput }}
-                <span class="text-2xs text-muted-foreground">Mbps</span>
+                <I18nT scope="global" keypath="view.common.valueWithUnit">
+                  <template #value>{{
+                    n(rollup.throughput, 'decimal')
+                  }}</template>
+                  <template #unit>
+                    <span class="text-2xs text-muted-foreground">{{
+                      t('view.common.units.mbps')
+                    }}</span>
+                  </template>
+                </I18nT>
               </UiTableCell>
             </UiTableRow>
           </UiTableBody>
@@ -396,18 +472,20 @@ const roles = computed(() => {
           <div>
             <h2
               id="roles-title"
+              translate="no"
               class="text-base font-semibold text-foreground"
             >
               {{ site.name }}
             </h2>
             <p class="text-xs text-muted-foreground mt-1">
-              {{ site.location }} · {{ tenantName(site.id) }}
+              {{ site.location }}{{ separator
+              }}<span translate="no">{{ tenantName(site.id) }}</span>
             </p>
           </div>
           <AppLink
             class="text-xs text-accent-foreground p-1 hover:underline"
             :to="siteTo('')"
-            >All sites</AppLink
+            >{{ t('view.common.allSites') }}</AppLink
           >
         </div>
       </template>
@@ -416,26 +494,35 @@ const roles = computed(() => {
           <h3 class="text-xs font-medium text-muted-foreground mt-2 mb-1.5">
             {{ kind }}
           </h3>
-          <AppLink
+          <UiAiTarget
             v-for="device in members"
             :key="device.id"
-            v-ai-target="roleTarget(device)"
-            class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
-            :to="deviceTo(device.id)"
+            as-child
+            :ai="roleTarget(device)"
           >
-            <span>
-              <strong class="text-xs font-medium text-foreground block">{{
-                device.name
-              }}</strong>
-              <small class="text-2xs text-muted-foreground mt-0.5 block">
-                {{ device.address }}
-                <template v-if="device.clients">
-                  · {{ device.clients }} clients</template
+            <AppLink
+              class="flex items-center justify-between gap-3 py-2 px-2.5 -mx-2.5 rounded hover:bg-hover text-left"
+              :to="deviceTo(device.id)"
+            >
+              <span>
+                <strong
+                  translate="no"
+                  class="text-xs font-medium text-foreground block"
+                  >{{ device.name }}</strong
                 >
-              </small>
-            </span>
-            <UiStatusBadge :status="device.health" />
-          </AppLink>
+                <small class="text-2xs text-muted-foreground mt-0.5 block">
+                  <span translate="no">{{ device.address }}</span>
+                  <template v-if="device.clients">
+                    {{ separator
+                    }}{{
+                      format.counted('view.common.clients', device.clients)
+                    }}
+                  </template>
+                </small>
+              </span>
+              <UiStatusBadge :status="device.health" />
+            </AppLink>
+          </UiAiTarget>
         </div>
       </div>
     </UiCard>
@@ -448,10 +535,10 @@ const roles = computed(() => {
       <template #header>
         <div>
           <h2 id="events-title" class="text-base font-semibold text-foreground">
-            Recent events
+            {{ t('view.dashboard.events') }}
           </h2>
           <p class="text-xs text-muted-foreground mt-1">
-            Last 24 hours in this scope
+            {{ t('view.dashboard.eventsPeriod') }}
           </p>
         </div>
       </template>
@@ -477,24 +564,27 @@ const roles = computed(() => {
             }}</strong>
             <small class="text-2xs text-muted-foreground mt-0.5 block">
               <span class="text-sm text-foreground font-medium">{{
-                severityLabel[event.severity]
+                labels.severity(event.severity)
               }}</span>
-              ·
-              <AppLink
-                v-if="devicesById.get(event.deviceId)"
-                class="text-accent-foreground hover:underline"
-                :to="deviceTo(event.deviceId)"
-              >
-                {{ devicesById.get(event.deviceId)?.name }}
-              </AppLink>
-              · {{ formatAgo(event.minutesAgo) }}
+              {{ separator }}
+              <template v-if="devicesById.get(event.deviceId)">
+                <AppLink
+                  translate="no"
+                  class="text-accent-foreground hover:underline"
+                  :to="deviceTo(event.deviceId)"
+                >
+                  {{ devicesById.get(event.deviceId)?.name }}
+                </AppLink>
+                {{ separator }}
+              </template>
+              {{ format.ago(event.minutesAgo) }}
             </small>
           </div>
         </li>
       </ol>
       <p v-else class="text-xs text-muted-foreground">
-        No events in the last 24 hours.
+        {{ t('view.dashboard.eventsNone') }}
       </p>
     </UiCard>
-  </div>
+  </UiAiTarget>
 </template>

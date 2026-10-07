@@ -1,7 +1,29 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useTemplateRef } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useFormat } from '../i18n/format'
 import type { TrafficPoint } from '../domain/overview'
-const props = defineProps<{ points: TrafficPoint[]; label: string }>()
+import type { UiAiEmits, UiAiProps } from '../ui/ai/context'
+import { useAiOrigin } from '../ui/ai/useAiOrigin'
+import { useAiTarget } from '../ui/ai/useAiTarget'
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+export interface TrafficChartProps extends UiAiProps {
+  points: TrafficPoint[]
+  label: string
+}
+const props = withDefaults(defineProps<TrafficChartProps>(), {
+  ai: undefined,
+  aiOrigin: undefined,
+})
+const emit = defineEmits<UiAiEmits>()
+const root = useTemplateRef('root')
+useAiTarget(root, () => props.ai)
+useAiOrigin(
+  root,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const frame = ref<HTMLElement>()
 const width = ref(640)
 const height = 200
@@ -42,7 +64,8 @@ const line = computed(() =>
 const area = computed(
   () => `${line.value}L${x(props.points.length - 1)},${y(0)}L${x(0)},${y(0)}Z`,
 )
-const hourLabel = (hour: number) => `${String(hour).padStart(2, '0')}:00`
+// An hour of the day as a time of day. The date is arbitrary.
+const hourLabel = (hour: number) => format.clock(new Date(2000, 0, 1, hour))
 const current = computed(() =>
   active.value === undefined ? undefined : props.points[active.value],
 )
@@ -74,7 +97,7 @@ function step(event: KeyboardEvent) {
 </script>
 
 <template>
-  <figure class="traffic-chart">
+  <figure ref="root" class="traffic-chart">
     <div
       class="traffic-legend flex items-center gap-2 text-xs text-muted-foreground mb-2"
     >
@@ -90,7 +113,7 @@ function step(event: KeyboardEvent) {
       class="traffic-frame"
       tabindex="0"
       role="img"
-      :aria-label="`${label}. Use the arrow keys to read hourly values.`"
+      :aria-label="t('view.trafficChart.describe', { label })"
       @pointermove="track"
       @pointerleave="active = undefined"
       @keydown="step"
@@ -106,7 +129,7 @@ function step(event: KeyboardEvent) {
               :y2="y(tick)"
             />
             <text :x="pad.left - 8" :y="y(tick)" dy="0.32em" text-anchor="end">
-              {{ tick }}
+              {{ n(tick, 'decimal') }}
             </text>
           </template>
           <template v-for="(point, index) in points" :key="index">
@@ -116,7 +139,11 @@ function step(event: KeyboardEvent) {
               :y="height - 6"
               :text-anchor="index === points.length - 1 ? 'end' : 'middle'"
             >
-              {{ index === points.length - 1 ? 'Now' : hourLabel(point.hour) }}
+              {{
+                index === points.length - 1
+                  ? t('view.trafficChart.now')
+                  : hourLabel(point.hour)
+              }}
             </text>
           </template>
         </g>
@@ -148,9 +175,18 @@ function step(event: KeyboardEvent) {
         :class="{ flip: x(active) > width * 0.7 }"
       >
         <small>{{
-          active === points.length - 1 ? 'Now' : hourLabel(current.hour)
+          active === points.length - 1
+            ? t('view.trafficChart.now')
+            : hourLabel(current.hour)
         }}</small>
-        <strong>{{ current.mbps }} <span>Mbps</span></strong>
+        <strong>
+          <I18nT scope="global" keypath="view.common.valueWithUnit">
+            <template #value>{{ n(current.mbps, 'decimal') }}</template>
+            <template #unit>
+              <span>{{ t('view.common.units.mbps') }}</span>
+            </template>
+          </I18nT>
+        </strong>
       </div>
     </div>
     <table class="sr-only">
@@ -161,14 +197,20 @@ function step(event: KeyboardEvent) {
       </caption>
       <thead>
         <tr>
-          <th scope="col">Hour</th>
-          <th scope="col">Traffic (Mbps)</th>
+          <th scope="col">{{ t('view.trafficChart.hour') }}</th>
+          <th scope="col">
+            {{
+              t('view.trafficChart.traffic', {
+                unit: t('view.common.units.mbps'),
+              })
+            }}
+          </th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(point, index) in points" :key="index">
           <td>{{ hourLabel(point.hour) }}</td>
-          <td>{{ point.mbps }}</td>
+          <td>{{ n(point.mbps, 'decimal') }}</td>
         </tr>
       </tbody>
     </table>

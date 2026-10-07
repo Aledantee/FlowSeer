@@ -2,9 +2,7 @@
 title: Central Ingestion Pipeline - Plan
 type: feat
 date: 2026-10-02
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 
@@ -130,32 +128,22 @@ of its own, and none blocks a phase below.
 ### U1. Ingest envelope and edge syslog source
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase1-plan.md
-After: none
-Landed: `341f4cd3..646d080c`
 
 ### U2. Central intake
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase2-plan.md
-After: U1
-Landed:
 
 ### U3. ClickHouse history store
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase3-plan.md
-After: U2
-Landed:
 
 ### U4. Raw window
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase4-plan.md
-After: U1
-Landed:
 
 ### U5. Current state and the Postgres read model
 
 Files: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase5-plan.md
-After: U2
-Landed:
 
 Waves: U1 | U2 U4 | U3 U5
 
@@ -182,4 +170,4 @@ back from ClickHouse, added in phase 3.
   for their store.
 - Which state-bearing record phase 5 projects first. The candidate is device
   and interface State from the `localnet` collector.
-- Retention per record type and for the evidence stream.
+- Retention per record type.

@@ -3,7 +3,6 @@ import { devices, filterDevices, sites } from './fleet'
 import {
   events,
   healthCounts,
-  healthLine,
   latestIssue,
   openIssues,
   rankSites,
@@ -60,8 +59,5 @@ describe('scope overview', () => {
     const aachen = sites.find((site) => site.id === 'aachen')
     if (!aachen) throw new Error('Missing fixture')
     expect(latestIssue(devices, aachen)).toBeUndefined()
-    expect(healthLine({ Healthy: 3, Degraded: 0, Offline: 1 })).toBe(
-      '1 offline',
-    )
   })
 })

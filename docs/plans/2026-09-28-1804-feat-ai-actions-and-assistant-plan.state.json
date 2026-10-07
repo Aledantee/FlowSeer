@@ -1,0 +1,21 @@
+{
+  "contract": "flowseer-plan-state/v1",
+  "status": "implemented",
+  "readiness": "needs-decisions",
+  "review": null,
+  "review_rounds": 0,
+  "compound": null,
+  "outcome": {
+    "units": 6,
+    "from": "2026-10-03T21:04Z",
+    "to": "2026-10-03T21:55Z",
+    "note": ""
+  },
+  "superseded_by": null,
+  "branch": null,
+  "parent": null,
+  "after": [],
+  "landed": null,
+  "phases": [],
+  "retired": []
+}

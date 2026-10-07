@@ -1,6 +1,7 @@
 package host_test
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -8,13 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"buf.build/go/protovalidate"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/services/device/internal/host"
 )
 
-// validConfig is the shortest file that starts a service: the three paths, the
-// two listeners, and what an edge is told. Everything else has a default.
-const validConfig = `
+// baseConfig is the shortest file that has core paths and listeners.
+const baseConfig = `
 state_dir: "/var/lib/flowseer/device"
 registry_path: "/etc/flowseer/registry.textproto"
 credential_root: "/etc/flowseer/credentials"
@@ -26,6 +28,24 @@ edges {
   central_url: "https://central.example.test"
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
+}
+`
+
+// validConfig is the shortest file that starts a service: the three paths, the
+// two listeners, what an edge is told, and the required authentication and
+// authorization sections. Everything else has a default.
+const validConfig = baseConfig + `
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+  }
+}
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
 }
 `
 
@@ -101,9 +121,7 @@ func TestUnsetIntervalsArePassedThroughAsZero(t *testing.T) {
 // A named capture_sweep reaches the host as the duration it was written as, so
 // the sweeper runs on the operator's cadence rather than the built-in minute.
 func TestCaptureSweepIntervalIsParsed(t *testing.T) {
-	withSweep := strings.Replace(validConfig,
-		`cluster_urls: "wss://central.example.test:8444"`,
-		`cluster_urls: "wss://central.example.test:8444"`+"\n}\nintervals {\n  capture_sweep { seconds: 15 }", 1)
+	withSweep := validConfig + "intervals {\n  capture_sweep { seconds: 15 }\n}\n"
 	cfg, err := host.LoadConfig(writeConfig(t, withSweep))
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
@@ -113,26 +131,44 @@ func TestCaptureSweepIntervalIsParsed(t *testing.T) {
 	}
 }
 
+func TestRelationshipReconcileIntervalIsParsed(t *testing.T) {
+	withReconcile := validConfig + "intervals {\n  relationship_reconcile { seconds: 15 }\n}\n"
+	cfg, err := host.LoadConfig(writeConfig(t, withReconcile))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got := cfg.Intervals().RelationshipReconcile; got != 15*time.Second {
+		t.Fatalf("RelationshipReconcile = %v, want the configured fifteen seconds", got)
+	}
+}
+
 func TestLoadConfigRefusals(t *testing.T) {
 	cases := map[string]struct {
 		body string
 		code errs.Code
 	}{
 		"not prototext": {body: "{{{", code: host.ErrCodeConfigLoad},
+		"unknown field": {
+			body: strings.Replace(validConfig, "authentication {\n", "authentication {\n  ca_fle: \"/etc/ssl/certs/ca.pem\"\n", 1),
+			code: host.ErrCodeConfigLoad,
+		},
 		"no state dir": {
-			body: `registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `state_dir: "/var/lib/flowseer/device"`, "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"relative state dir": {
-			body: `state_dir: "var/lib" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `state_dir: "/var/lib/flowseer/device"`, `state_dir: "var/lib"`, 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"no listeners": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+}`, "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		"no cluster url": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" }`,
+			body: strings.Replace(validConfig, `  cluster_urls: "wss://central.example.test:8444"`+"\n", "", 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		// The pairing is a schema rule, so it refuses here without the host
@@ -140,14 +176,43 @@ func TestLoadConfigRefusals(t *testing.T) {
 		// and finding that out at the listener means finding it out from a
 		// failed start with no edge able to connect.
 		"certificate without its key": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" certificate_file: "/tls.crt" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" }`,
+			body: strings.Replace(validConfig, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+}`, `listeners {
+  api: "0.0.0.0:8443"
+  bus: "0.0.0.0:8444"
+  certificate_file: "/tls.crt"
+}`, 1),
 			code: host.ErrCodeConfigInvalid,
 		},
 		// A capture sweep faster than a second is refused by the schema's
 		// duration bound, so the host never spins the sweeper on a sub-second
 		// tick that walks every session record.
 		"capture sweep below one second": {
-			body: `state_dir: "/s" registry_path: "/r" credential_root: "/c" listeners { api: "a:1" bus: "b:2" } edges { central_url: "https://c.test" assertion_audience: "a" cluster_urls: "wss://c.test" } intervals { capture_sweep { nanos: 500000000 } }`,
+			body: validConfig + "intervals {\n  capture_sweep { nanos: 500000000 }\n}\n",
+			code: host.ErrCodeConfigInvalid,
+		},
+		"relationship reconcile below one second": {
+			body: validConfig + "intervals {\n  relationship_reconcile { nanos: 500000000 }\n}\n",
+			code: host.ErrCodeConfigInvalid,
+		},
+		"no authentication": {
+			body: baseConfig + `authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
+}`,
+			code: host.ErrCodeConfigInvalid,
+		},
+		"no authorization": {
+			body: baseConfig + `authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+  }
+}`,
 			code: host.ErrCodeConfigInvalid,
 		},
 	}
@@ -231,12 +296,12 @@ func TestAListenerWithoutAPortIsRefused(t *testing.T) {
 	}
 }
 
-func TestPlatformAdminAndDevTenant(t *testing.T) {
+func TestPlatformAdminConfigurationIgnoresReservedDevTenant(t *testing.T) {
 	withAdmin := validConfig + `
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"
+  subjects: "admin@example.test"
   organization_claim_name: "org_id"
 }
 dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
@@ -256,58 +321,242 @@ dev_tenant: "0192e6a0-0000-7000-8000-000000000001"
 	if admin.GetOrganization() != "org_alpha" {
 		t.Errorf("organization = %q, want org_alpha", admin.GetOrganization())
 	}
-	if admin.GetSubject() != "admin@example.test" {
-		t.Errorf("subject = %q, want admin@example.test", admin.GetSubject())
+	if got := admin.GetSubjects(); len(got) != 1 || got[0] != "admin@example.test" {
+		t.Errorf("subjects = %q, want [admin@example.test]", got)
 	}
 	if admin.GetOrganizationClaimName() != "org_id" {
 		t.Errorf("organization_claim_name = %q, want org_id", admin.GetOrganizationClaimName())
 	}
-
-	if got := cfg.DevTenant(); got != "0192e6a0-0000-7000-8000-000000000001" {
-		t.Errorf("DevTenant = %q, want 0192e6a0-0000-7000-8000-000000000001", got)
-	}
-
-	// Missing issuer in platform_admin fails validation
-	badAdmin := validConfig + `
-platform_admin {
-  organization: "org_alpha"
-  subject: "admin@example.test"
-  organization_claim_name: "org_id"
 }
-`
-	_, err = host.LoadConfig(writeConfig(t, badAdmin))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing issuer, got %v", err)
-	}
 
-	// Missing organization_claim_name in platform_admin fails validation
-	badAdminMissingClaim := validConfig + `
+func TestOperatorAuthenticationAndAuthorization(t *testing.T) {
+	accepted := baseConfig + `
 platform_admin {
   issuer: "https://auth.example.test"
   organization: "org_alpha"
-  subject: "admin@example.test"
+  subjects: "admin@example.test"
+  organization_claim_name: "org_id"
+}
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }
+  ca_file: "/etc/ssl/certs/ca.pem"
+}
+authorization {
+  endpoint: "https://authz.example.test:8081"
+  store_id: "0192e6a0000070008000000000000001"
+  model_id: "0192e6a0000070008000000000000002"
+  preshared_key_file: "/etc/flowseer/authz.key"
+  ca_file: "/etc/ssl/certs/ca.pem"
 }
 `
-	_, err = host.LoadConfig(writeConfig(t, badAdminMissingClaim))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for platform_admin missing organization_claim_name, got %v", err)
+	cfg, err := host.LoadConfig(writeConfig(t, accepted))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
 	}
 
-	// Non-UUID dev_tenant fails validation
-	badDevTenant := validConfig + `
-dev_tenant: "acme.prod"
-`
-	_, err = host.LoadConfig(writeConfig(t, badDevTenant))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for non-UUID dev_tenant, got %v", err)
+	authn := cfg.Authentication()
+	if authn == nil {
+		t.Fatal("Authentication() returned nil")
+	}
+	if len(authn.GetIssuers()) != 1 {
+		t.Fatalf("issuers count = %d, want 1", len(authn.GetIssuers()))
+	}
+	iss := authn.GetIssuers()[0]
+	if iss.GetIssuer() != "https://auth.example.test" {
+		t.Errorf("issuer = %q, want https://auth.example.test", iss.GetIssuer())
+	}
+	if iss.GetAudience() != "flowseer-device" {
+		t.Errorf("audience = %q, want flowseer-device", iss.GetAudience())
+	}
+	if iss.GetOrganizationClaimName() != "org_id" {
+		t.Errorf("organization_claim_name = %q, want org_id", iss.GetOrganizationClaimName())
+	}
+	if authn.GetCaFile() != "/etc/ssl/certs/ca.pem" {
+		t.Errorf("ca_file = %q, want /etc/ssl/certs/ca.pem", authn.GetCaFile())
 	}
 
-	// Uppercase UUID dev_tenant fails validation
-	badUpperDevTenant := validConfig + `
-dev_tenant: "0192E6A0-0000-7000-8000-000000000001"
+	authz := cfg.Authorization()
+	if authz == nil {
+		t.Fatal("Authorization() returned nil")
+	}
+	if authz.GetEndpoint() != "https://authz.example.test:8081" {
+		t.Errorf("endpoint = %q, want https://authz.example.test:8081", authz.GetEndpoint())
+	}
+	if authz.GetStoreId() != "0192e6a0000070008000000000000001" {
+		t.Errorf("store_id = %q, want 0192e6a0000070008000000000000001", authz.GetStoreId())
+	}
+	if authz.GetModelId() != "0192e6a0000070008000000000000002" {
+		t.Errorf("model_id = %q, want 0192e6a0000070008000000000000002", authz.GetModelId())
+	}
+	if authz.GetPresharedKeyFile() != "/etc/flowseer/authz.key" {
+		t.Errorf("preshared_key_file = %q, want /etc/flowseer/authz.key", authz.GetPresharedKeyFile())
+	}
+	if authz.GetCaFile() != "/etc/ssl/certs/ca.pem" {
+		t.Errorf("ca_file = %q, want /etc/ssl/certs/ca.pem", authz.GetCaFile())
+	}
+
+	// Each case changes one property of the accepted file, so the rule it
+	// names is the only one that can refuse it. Deleting that rule from the
+	// schema turns the case green, which is what makes it hold the rule. The
+	// platform_admin issuer must keep naming a configured issuer, or the
+	// cross-reference rule would refuse the file as well.
+	type edit struct{ replace, with string }
+	const (
+		adminIssuer = `platform_admin {
+  issuer: "https://auth.example.test"`
+		platformAdminWithoutIssuer = `platform_admin {`
+		platformAdminWithoutClaim  = `platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subjects: "admin@example.test"`
+		httpAdminIssuer = `platform_admin {
+  issuer: "http://auth.example.test"`
+		onlyIssuer = `  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device"
+    organization_claim_name: "org_id"
+  }`
+		adminBlock = `platform_admin {
+  issuer: "https://auth.example.test"
+  organization: "org_alpha"
+  subjects: "admin@example.test"
+  organization_claim_name: "org_id"
+}
 `
-	_, err = host.LoadConfig(writeConfig(t, badUpperDevTenant))
-	if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
-		t.Fatalf("expected ErrCodeConfigInvalid for uppercase UUID dev_tenant, got %v", err)
+	)
+	refusals := []struct {
+		name             string
+		edits            []edit
+		field            string
+		rule             string
+		allowMessageRule string
+	}{
+		{
+			name: "http issuer refused",
+			edits: []edit{
+				{`authentication {
+  issuers {
+    issuer: "https://auth.example.test"`, `authentication {
+  issuers {
+    issuer: "http://auth.example.test"`},
+				{adminIssuer, httpAdminIssuer},
+			},
+			field: "authentication.issuers.issuer",
+			rule:  "string.prefix",
+		},
+		{
+			name:  "http endpoint refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "http://authz.example.test:8081"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
+		},
+		{
+			name:  "endpoint with path refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "https://authz.example.test:8081/path"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
+		},
+		{
+			name:  "endpoint without port refused",
+			edits: []edit{{`endpoint: "https://authz.example.test:8081"`, `endpoint: "https://authz.example.test"`}},
+			field: "authorization.endpoint",
+			rule:  "string.pattern",
+		},
+		{
+			name:  "relative key path refused",
+			edits: []edit{{`preshared_key_file: "/etc/flowseer/authz.key"`, `preshared_key_file: "authz.key"`}},
+			field: "authorization.preshared_key_file",
+			rule:  "string.pattern",
+		},
+		{
+			name: "two issuers with one URL refused",
+			edits: []edit{{onlyIssuer, onlyIssuer + `
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-device-2"
+  }`}},
+			field: "authentication",
+			rule:  "operator_authentication.unique_issuers",
+		},
+		{
+			name: "platform_admin issuer no issuer names refused",
+			edits: []edit{{adminIssuer, `platform_admin {
+  issuer: "https://unlisted.example.test"`}},
+			rule: "device_service_config.platform_admin_issuer_configured",
+		},
+		{
+			name:             "platform_admin without issuer refused",
+			edits:            []edit{{adminIssuer, platformAdminWithoutIssuer}},
+			field:            "platform_admin.issuer",
+			rule:             "required",
+			allowMessageRule: "device_service_config.platform_admin_issuer_configured",
+		},
+		{
+			name:  "platform_admin without organization claim name refused",
+			edits: []edit{{adminBlock, platformAdminWithoutClaim + "\n}"}},
+			field: "platform_admin.organization_claim_name",
+			rule:  "required",
+		},
+		{
+			name:  "empty audience refused",
+			edits: []edit{{`audience: "flowseer-device"`, `audience: ""`}},
+			field: "authentication.issuers.audience",
+			rule:  "string.min_len",
+		},
+		{
+			// With no issuer left there is nothing for platform_admin to name,
+			// so the block goes too. The cross-reference rule is not what this
+			// case is about.
+			name:  "no issuers refused",
+			edits: []edit{{onlyIssuer, ""}, {adminBlock, ""}},
+			field: "authentication.issuers",
+			rule:  "repeated.min_items",
+		},
+	}
+
+	for _, tc := range refusals {
+		t.Run(tc.name, func(t *testing.T) {
+			body := accepted
+			for _, e := range tc.edits {
+				next := strings.Replace(body, e.replace, e.with, 1)
+				if next == body {
+					t.Fatalf("replacement target %q was not found in accepted config", e.replace)
+				}
+				body = next
+			}
+			_, err := host.LoadConfig(writeConfig(t, body))
+			if err == nil {
+				t.Fatalf("LoadConfig() error = nil, want %s refused", tc.name)
+			}
+			if code, _ := errs.CodeOf(err); code != host.ErrCodeConfigInvalid {
+				t.Fatalf("LoadConfig() error code = %v, want %v", code, host.ErrCodeConfigInvalid)
+			}
+
+			var validation *protovalidate.ValidationError
+			if !errors.As(err, &validation) {
+				t.Fatalf("LoadConfig() error = %v, want a schema validation error", err)
+			}
+			// Every violation sits on the one field the case changed, except for
+			// an explicitly allowed cross-field rule. One violation is the rule it
+			// names. Rules on that field may overlap.
+			ruled := false
+			for _, violation := range validation.Violations {
+				var names []string
+				for _, element := range violation.Proto.GetField().GetElements() {
+					names = append(names, element.GetFieldName())
+				}
+				if got := strings.Join(names, "."); got != tc.field && violation.Proto.GetRuleId() != tc.allowMessageRule {
+					t.Errorf("violation %q on %q, want it on %q", violation.Proto.GetRuleId(), got, tc.field)
+				}
+				ruled = ruled || violation.Proto.GetRuleId() == tc.rule
+			}
+			if !ruled {
+				t.Errorf("no violation of %q on %q: %v", tc.rule, tc.field, validation.Violations)
+			}
+		})
 	}
 }

@@ -22,7 +22,7 @@ export const Default: Story = {
       return { cardTarget }
     },
     template: `
-      <UiCard class="max-w-sm" v-ai-target="cardTarget">
+      <UiCard class="max-w-sm" :ai="cardTarget">
         <template #header>
           <h3 class="text-sm font-semibold text-foreground">Card Title</h3>
           <span class="text-xs text-muted-foreground">Action</span>

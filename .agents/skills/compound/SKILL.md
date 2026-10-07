@@ -34,9 +34,10 @@ Whichever way the gate goes, record the outcome where `land` reads it
 (`land`, step 1): `compound: <solution path>`, `compound: no lesson`, or
 `compound: observation logged`.
 
-- With a plan: a field in the plan's frontmatter beside `status`, committed
-  together with the solution, then the verifier on the changed paths so the
-  receipt post-dates the commit.
+- With a plan: record the outcome with
+  `.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"`,
+  committed together with the solution, then run the verifier on the changed
+  paths so the receipt post-dates the commit.
 - Without a plan: a line appended to
   `$(git rev-parse --git-dir)/flowseer-checkpoints` with
   `.claude/skills/verify-change/scripts/ledger.py checkpoint compound "<outcome>"`.

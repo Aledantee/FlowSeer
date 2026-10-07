@@ -1,35 +1,21 @@
 import type { Decorator } from '@storybook/vue3-vite'
-import {
-  getCurrentInstance,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-} from 'vue'
-import type { Ref } from 'vue'
-import {
-  aiRegistry,
-  AiUnavailableError,
-  installFlowSeerAi,
-  vAiTarget,
-} from '../src/ai'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { aiRegistry, AiUnavailableError, installFlowSeerAi } from '../src/ai'
 import type { AiHandler } from '../src/ai'
-import UiAiActionLayer, {
-  type UiAiActionLayerLabels,
-} from '../src/ui/ai/UiAiActionLayer.vue'
+import UiAiContextLayer from '../src/ui/ai/UiAiContextLayer.vue'
 
 // One decorator gives every story an inspectable target and a local demo
 // handler, independently of `main.ts`. It registers the story's wrapper as a
-// target, installs the window contract, and mounts the action layer, so Ask
-// is available for every component family without editing each story.
+// target, installs the window contract, and wraps the story in an AI context
+// layer. The registry marks that wrapper's selection like any other target.
 //
 // Storybook Docs mounts several canvases into one document, and each canvas
-// runs its own decorator instance. The window contract, the request
-// dispatcher, and the action layer belong to the document, not to a single
-// canvas: one canvas unmounting must not take them from the canvases still on
-// screen, and the canvases must not stack duplicate teleported Ask layers. A
-// module-level scope owns the document-wide pieces and the active layer, and
-// releases them only when the last canvas unmounts.
+// runs its own decorator instance. The window contract and the request
+// dispatcher belong to the document, not to a single canvas: one canvas
+// unmounting must not take them from the canvases still on screen. A
+// module-level scope owns the document-wide pieces and releases them only when
+// the last canvas unmounts. Because UiAiContextLayer scopes its listeners to its
+// own layer root, each canvas safely renders its own layer without host election.
 
 interface StoryCanvas {
   id: string
@@ -37,50 +23,31 @@ interface StoryCanvas {
   handler: AiHandler
   label: string
   story: string
-  labels?: UiAiActionLayerLabels
-  showLayer: Ref<boolean>
 }
 
 interface MountedCanvas {
   id: string
   element: HTMLElement
   handler: AiHandler
-  labels?: UiAiActionLayerLabels
   ownsId: boolean
-  showLayer: Ref<boolean>
 }
 
 function createStoryScope() {
   const canvases = new Set<MountedCanvas>()
   const handlers = new Map<string, AiHandler>()
-  const activeLabels = shallowRef<UiAiActionLayerLabels | undefined>()
-  let host: MountedCanvas | undefined
   let removeWindow: (() => void) | undefined
   let removeDispatcher: (() => void) | undefined
-
-  function onTargetChange(id: string | undefined) {
-    if (!id) {
-      activeLabels.value = undefined
-      return
-    }
-    const targetElement = aiRegistry.view(id)?.element
-    const canvas = [...canvases].find(
-      (c) => targetElement && c.element.contains(targetElement),
-    )
-    activeLabels.value = canvas?.labels
-  }
 
   function openDocument() {
     if (removeWindow) return
     removeWindow = installFlowSeerAi()
-    // The registry holds one handler. With several canvases mounted it
-    // dispatches each request to the canvas that registered that target, so a
-    // story keeps its own configured demo handler instead of sharing the
-    // handler of whichever canvas mounted last.
     removeDispatcher = aiRegistry.onRequest((request) => {
-      const targetElement = aiRegistry.view(request.targetId)?.element
+      const targetId = request.targets[0]?.id
+      const targetElement = targetId
+        ? aiRegistry.view(targetId)?.element
+        : undefined
       const handler =
-        handlers.get(request.targetId) ??
+        (targetId ? handlers.get(targetId) : undefined) ??
         [...canvases].find(
           (canvas) => targetElement && canvas.element.contains(targetElement),
         )?.handler
@@ -95,15 +62,6 @@ function createStoryScope() {
     removeDispatcher = undefined
     removeWindow?.()
     removeWindow = undefined
-    activeLabels.value = undefined
-  }
-
-  function electHost() {
-    if (host) return
-    const next = canvases.values().next().value
-    if (!next) return
-    host = next
-    next.showLayer.value = true
   }
 
   function mount(canvas: StoryCanvas): () => void {
@@ -114,37 +72,27 @@ function createStoryScope() {
       label: canvas.label,
       context: { story: canvas.story },
     })
-    // The registry keeps the first registration of a duplicate id, so a
-    // second canvas reusing a story id must not take over that target's
-    // handler or release it on unmount.
     const ownsId = !handlers.has(canvas.id)
     if (ownsId) handlers.set(canvas.id, canvas.handler)
     const mounted: MountedCanvas = {
       id: canvas.id,
       element: canvas.element,
       handler: canvas.handler,
-      labels: canvas.labels,
       ownsId,
-      showLayer: canvas.showLayer,
     }
     canvases.add(mounted)
-    electHost()
 
     return () => {
       aiRegistry.unregister(canvas.element)
       canvases.delete(mounted)
       if (ownsId) handlers.delete(canvas.id)
-      if (host !== mounted) {
-        return
+      if (canvases.size === 0) {
+        closeDocument()
       }
-      mounted.showLayer.value = false
-      host = undefined
-      if (canvases.size > 0) electHost()
-      else closeDocument()
     }
   }
 
-  return { mount, activeLabels, onTargetChange }
+  return { mount }
 }
 
 const storyScope = createStoryScope()
@@ -152,19 +100,16 @@ const storyScope = createStoryScope()
 export const withAiTargets: Decorator = (story, context) => {
   const id = `standalone:story:${context.id}`
   const configured = context.parameters?.ai?.handler as AiHandler | undefined
-  const labels = context.parameters?.ai?.labels as
-    UiAiActionLayerLabels | undefined
   const handler: AiHandler =
     configured ??
-    (async (request) =>
-      `Demo answer for “${request.label}” in ${context.title ?? 'this story'}. Install a handler with parameters.ai.handler.`)
+    (async (request) => ({
+      type: 'answer',
+      text: `Demo answer for “${request.targets[0]?.label ?? ''}” in ${context.title ?? 'this story'}. Install a handler with parameters.ai.handler.`,
+      refs: [],
+    }))
   return {
-    components: { story, UiAiActionLayer },
+    components: { story, UiAiContextLayer },
     setup() {
-      // Storybook's app is shared, so the directive is registered once and
-      // stays; `v-ai-target` then works in any story template.
-      getCurrentInstance()?.appContext.app.directive('ai-target', vAiTarget)
-      const showLayer = ref(false)
       const root = ref<HTMLElement>()
       let release: (() => void) | undefined
       onMounted(() => {
@@ -175,27 +120,19 @@ export const withAiTargets: Decorator = (story, context) => {
           handler,
           label: context.title ?? context.id,
           story: context.id,
-          labels,
-          showLayer,
         })
       })
       onBeforeUnmount(() => release?.())
       return {
         root,
-        showLayer,
-        activeLabels: storyScope.activeLabels,
-        onTargetChange: storyScope.onTargetChange,
       }
     },
     template: `
-      <div ref="root" data-ai-story-root>
-        <story />
-        <UiAiActionLayer
-          v-if="showLayer"
-          :labels="activeLabels"
-          @target-change="onTargetChange"
-        />
-      </div>
+      <UiAiContextLayer>
+        <div ref="root" data-ai-story-root>
+          <story />
+        </div>
+      </UiAiContextLayer>
     `,
   }
 }

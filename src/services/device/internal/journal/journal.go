@@ -1025,12 +1025,12 @@ func intentDigest(intent *accessv1.MutationIntent) []byte {
 	return sum.Sum(nil)[:intentDigestLen]
 }
 
-// actorPart names who asked, with the arm it came from, so an operator subject
+// actorPart names who asked, with the arm it came from, so an operator principal
 // can never project to the same string as a system reason.
 func actorPart(actor *accessv1.Actor) string {
 	switch {
 	case actor.HasOperator():
-		return "operator:" + actor.GetOperator().GetSubject()
+		return "operator:" + actor.GetOperator().GetIssuer() + "\x00" + actor.GetOperator().GetSubject()
 	case actor.HasSystem():
 		return "system:" + actor.GetSystem().GetReason().String()
 	default:

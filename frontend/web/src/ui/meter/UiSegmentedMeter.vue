@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
 export type SegmentTone = 'success' | 'warning' | 'danger' | 'info' | 'empty'
 
@@ -10,7 +13,7 @@ export interface MeterSegment {
   tone: SegmentTone
 }
 
-export interface UiSegmentedMeterProps {
+export interface UiSegmentedMeterProps extends UiAiProps {
   segments?: MeterSegment[]
   counts?: Record<string, number>
   labels?: Record<string, string>
@@ -26,7 +29,19 @@ const props = withDefaults(defineProps<UiSegmentedMeterProps>(), {
   segmentText: undefined,
   legend: false,
   label: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t, n, locale } = useI18n({ useScope: 'global' })
 
@@ -122,7 +137,7 @@ function getToneClass(tone: SegmentTone): string {
 </script>
 
 <template>
-  <div class="w-full">
+  <div ref="anchor" class="w-full">
     <div
       role="img"
       :aria-label="summary"

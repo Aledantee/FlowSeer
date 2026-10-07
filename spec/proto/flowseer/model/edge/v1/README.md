@@ -188,14 +188,6 @@ Central stores public keys and setup key hashes. A central breach yields
 the ability to mint setup keys, which is the most privileged operator
 action there is; it does not yield any edge's identity.
 
-Minting leaves no trail. The audit stream FlowSeer writes is device-scoped
-— it holds what was done to a device — so nothing today records that an
-operator created an edge, issued it a setup key, revoked one, or retired
-the edge, and someone reconstructing an incident cannot answer those
-questions from FlowSeer at all. The trail belongs in an operator-action
-scope of its own, with its own retention and access; writing it to the
-device stream would put the answer in the wrong place permanently.
-
 A setup key read out of a shipped box lets the reader enroll as that edge
 once. The real device then fails its own enrollment visibly, and the
 operator retires the edge. A private key read off an edge's disk is that
@@ -209,8 +201,8 @@ integrations it hosts are later allowed to reach.
 
 Imports: nothing FlowSeer-owned
 
-Imported by: api/capture, api/edge, edge/attach, edge/capture, model/access,
-model/capture, model/inventory, store/device
+Imported by: api/capture, api/edge, edge/attach, edge/capture, event/operator,
+model/access, model/capture, model/inventory, store/device
 
 Deliberately absent:
 

@@ -1,4 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import { ref } from 'vue'
+import type { AiOriginRequest } from '../ai/context'
+import UiAiLabel from '../ai/UiAiLabel.vue'
 import UiMeter from './UiMeter.vue'
 import UiSegmentedMeter from './UiSegmentedMeter.vue'
 
@@ -120,6 +123,44 @@ export const SegmentedOverrides: StoryObj<typeof UiSegmentedMeter> = {
     template: `
       <div class="max-w-md space-y-4">
         <UiSegmentedMeter :counts="counts" :labels="labels" legend />
+      </div>
+    `,
+  }),
+}
+
+// The outline marks a value an agent changed until the user touches it. The
+// explanation sits beside the meter, and the caller clears both through the
+// typed event.
+export const AgentChanged: Story = {
+  render: () => ({
+    components: { UiMeter, UiAiLabel },
+    setup() {
+      const target = {
+        id: 'standalone:story:ui-meter:cpu',
+        kind: 'metric',
+        label: 'CPU Utilization',
+        context: { value: '42' },
+      }
+      const origin = ref<AiOriginRequest | undefined>({
+        requestId: 'req-story',
+        action: 'summary',
+        targets: [],
+        history: [],
+      })
+      return { target, origin }
+    },
+    template: `
+      <div class="max-w-xs flex items-end gap-2">
+        <div class="flex-1">
+          <UiMeter
+            label="CPU Utilization"
+            :value="42"
+            :ai="target"
+            :ai-origin="origin"
+            @ai-origin-acknowledged="origin = undefined"
+          />
+        </div>
+        <UiAiLabel v-if="origin" :request="origin" />
       </div>
     `,
   }),

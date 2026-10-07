@@ -15,14 +15,16 @@ argument-hint: "[plan path]"
 ## 1. Orient
 
 Read the plan's Goal, Decisions, and Units; the rest when a unit cites it.
-A plan whose `artifact_readiness` is `needs-decisions` is not executable:
+When `.claude/skills/plan/scripts/plan_record.py is <plan>
+readiness=needs-decisions` succeeds, the plan is not executable:
 say why and ask the user whether to run `plan` to settle it (recommended)
 or stop here. A parent plan, whose Units name other plan files, is not
 executable here either: ask whether to run `drive` on it (recommended,
 since it lands each phase before the next starts), implement its ready
 phase plan, naming the path, or stop here. Offer `plan` only when no phase
-plan is ready and the next one needs re-planning. Check the plan's `status`
-against the current tree; the tree wins about what exists. Record a mismatch
+plan is ready and the next one needs re-planning. Check the plan's status with
+`.claude/skills/plan/scripts/plan_record.py show <plan>` against the current
+tree; the tree wins about what exists. Record a mismatch
 in the plan's Open questions before touching code.
 
 After a context compaction, or when resuming a session that planned, re-read
@@ -74,8 +76,9 @@ Group the units into waves from their `After` lines: a wave is every unit
 whose prerequisites have landed. A wave of two or more units runs in workers,
 as many at once as `delegate`'s Wave size allows (or the budget a `drive`
 brief names). Load `references/workers.md` before the first such wave, and for
-any plan with a `parent:` field. A wave of one unit runs here, except in a
-plan with a `parent:` field, which runs it in a worker as well. Running
+any plan for which `.claude/skills/plan/scripts/plan_record.py is <plan>
+parent!=null` succeeds. A wave of one unit runs here, except in a plan with a
+non-null parent state, which runs it in a worker as well. Running
 independent units serially needs a reason in the report, such as no pool with
 headroom.
 
@@ -162,25 +165,27 @@ cost more than a few file reads.
 
 ## 3. Finish
 
-Load `references/outcome-records.md` when the plan has a `parent:` field,
-when setting a parent plan's status, when the request skipped the plan, or
-when the session runs in Orca.
+Load `references/outcome-records.md` when
+`.claude/skills/plan/scripts/plan_record.py is <plan> parent!=null` succeeds,
+when the request skipped the plan, or when the session runs in Orca.
 
 1. Read the final diff against the plan's Definition of done and
    `docs/code-style.md`, Rules for coding agents. Remove process narration,
    history references, and planning identifiers from comments.
 2. Record the outcome in the reference's records. Planless work stops at
-   that and has no plan to edit. With a plan, also record it in the plan,
-   read from the ledger, and commit it on its own after the last unit's
-   commit. Never amend it into that commit, which would replace the SHA the
-   ledger and a parent's `Landed:` range name with one that is no ancestor
-   of `HEAD`. The range's last SHA is the last unit's commit, the one the
-   ledger records. Leave the ledger in place for `land`. Every unit landed:
-   `status: implemented` and `> Implemented.` under the title. Otherwise
-   `status: partially-implemented` and `> Partially implemented: <units>.` with
-   the reason. The note carries the unit count and the span of the ledger's
-   `verified_at` values:
-   `> Implemented. 6 units, 2026-09-11T10:02Z to 2026-09-11T16:40Z.`
+   that and has no plan to edit. With a plan, record a finished run with
+   `.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+   --from <t> --to <t> [--landed <first>..<last>]`, or an open run with
+   `.claude/skills/plan/scripts/plan_record.py partial <plan> --units <n>
+   --from <t> --to <t> --note <units left and why>`. Read the arguments from
+   the ledger: `--units` is the count of `passed` units, and `--from` and
+   `--to` are the first and last of their `verified_at` values. A phase's
+   `--landed` range runs from the first unit's commit to the last unit's
+   commit, the one the ledger records, and no parent edit is needed. Commit
+   the state on its own after the last unit's commit. Never amend it into
+   that commit, which would replace the SHA the ledger and the landed range
+   name with one that is no ancestor of `HEAD`. Leave the ledger in place
+   for `land`.
 3. Run the verifier as the last action of the task, sandbox disabled, since
    `land` refuses a receipt older than the last commit: `--base main -- <paths>`
    when the worktree holds unrelated changes, `--base main` alone otherwise.
@@ -188,7 +193,7 @@ when the session runs in Orca.
    deleted units ago. When `$(git rev-parse --git-dir)/flowseer-verification-dirty`
    still holds the `<Bash mutation; verify with --full>` line after the
    `--base main` run, or the run stops on a `.golangci.yml` change and asks
-   for `--full`, run `--full`. Quote the run's last line; anything other
+   for `--full`, run `--full`. Quote the run's last line. Anything other
    than `FlowSeer verification passed.` blocks the report.
 4. With a plan, read the deviations off the tree, not from memory (any edit
    this prompts goes back to item 1). Planless work has no units to compare

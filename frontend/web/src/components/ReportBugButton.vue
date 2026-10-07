@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import {
   UiButton,
   UiDialog,
@@ -10,42 +11,55 @@ import {
 } from '../ui'
 import AppIcon from './AppIcon.vue'
 
+const { t } = useI18n({ useScope: 'global' })
 const open = ref(false)
 const summary = ref('')
 const description = ref('')
 const page = ref('')
-const feedback = ref('')
+// The outcome is kept as a state, not as text, so the notice follows a locale
+// switch while the dialog stays open.
+const outcome = ref<'copied' | 'unavailable' | ''>('')
 const fallback = ref('')
+const feedback = computed(() =>
+  outcome.value === 'copied'
+    ? t('view.reportBug.copied')
+    : outcome.value === 'unavailable'
+      ? t('view.reportBug.copyUnavailable')
+      : '',
+)
 
 function openReport() {
   page.value = window.location.pathname
-  feedback.value = ''
+  outcome.value = ''
   fallback.value = ''
   open.value = true
 }
 
 async function copyReport() {
-  const report = `${summary.value.trim()}\n\nPage: ${page.value}\n\n${description.value.trim()}`
+  const report = t('view.reportBug.report', {
+    summary: summary.value.trim(),
+    page: page.value,
+    description: description.value.trim(),
+  })
   try {
     await navigator.clipboard.writeText(report)
     fallback.value = ''
-    feedback.value = 'Report copied. Share it with your support team.'
+    outcome.value = 'copied'
   } catch {
     fallback.value = report
-    feedback.value =
-      'Copying was unavailable. Select and copy the report below.'
+    outcome.value = 'unavailable'
   }
 }
 </script>
 
 <template>
-  <UiDialog v-model:open="open" title="Report a bug">
+  <UiDialog v-model:open="open" :title="t('view.reportBug.title')">
     <template #trigger>
-      <UiTooltip label="Report a bug">
+      <UiTooltip :label="t('view.reportBug.trigger')">
         <button
           class="help-button max-[560px]:hidden grid place-items-center w-11 h-11 p-0 bg-transparent border-0 text-chrome-foreground rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
           type="button"
-          aria-label="Report bug"
+          :aria-label="t('view.reportBug.triggerLabel')"
           @click="openReport"
         >
           <AppIcon name="bug" />
@@ -54,35 +68,43 @@ async function copyReport() {
     </template>
 
     <p class="text-sm text-muted-foreground mb-4">
-      Describe the issue, then copy the report to share with your support team.
+      {{ t('view.reportBug.intro') }}
     </p>
 
     <form class="flex flex-col gap-4" @submit.prevent="copyReport">
-      <UiField id="bug-summary" label="Summary" required>
+      <UiField id="bug-summary" :label="t('view.reportBug.summary')" required>
         <UiInput id="bug-summary" v-model="summary" required maxlength="200" />
       </UiField>
 
-      <UiField id="bug-description" label="What happened?" required>
+      <UiField
+        id="bug-description"
+        :label="t('view.reportBug.description')"
+        required
+      >
         <UiTextarea
           id="bug-description"
           v-model="description"
           required
           maxlength="5000"
           :rows="5"
-          placeholder="Steps to reproduce and what you expected to happen"
+          :placeholder="t('view.reportBug.descriptionPlaceholder')"
         />
       </UiField>
 
-      <p class="text-xs text-muted-foreground">Page: {{ page }}</p>
+      <p class="text-xs text-muted-foreground">
+        {{ t('view.reportBug.pageLine', { page }) }}
+      </p>
 
-      <UiButton type="submit" variant="primary">Copy report</UiButton>
+      <UiButton type="submit" variant="primary">{{
+        t('view.reportBug.copy')
+      }}</UiButton>
 
       <p v-if="feedback" role="status" class="text-xs text-foreground">
         {{ feedback }}
       </p>
 
       <template v-if="fallback">
-        <UiField id="bug-report-copy" label="Report text">
+        <UiField id="bug-report-copy" :label="t('view.reportBug.reportText')">
           <UiTextarea
             id="bug-report-copy"
             :model-value="fallback"

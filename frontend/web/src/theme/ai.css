@@ -32,26 +32,36 @@
   animation: flowseer-ai-shimmer 1.4s linear infinite;
 }
 
-/* The caret that trails a summary while it is being revealed. */
-@keyframes flowseer-ai-caret {
-  50% {
+/* Fade-in for sections as they appear. */
+@keyframes flowseer-ai-fade-in {
+  from {
     opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-.ai-caret {
-  display: inline-block;
-  width: 0.45em;
-  height: 1em;
-  margin-left: 1px;
-  vertical-align: text-bottom;
-  background: linear-gradient(var(--primary), var(--accent));
-  animation: flowseer-ai-caret 0.8s steps(1) infinite;
+.ai-fade-in {
+  animation: flowseer-ai-fade-in 160ms ease-out both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ai-shimmer::after,
-  .ai-caret {
+  .ai-shimmer::after {
     display: none;
   }
+
+  .ai-fade-in {
+    animation: none;
+  }
+}
+
+/* One ring for both states: the registry marks the selected target, and an
+   agent-changed value carries its origin until the user touches it. */
+[data-ai-selected],
+[data-ai-origin='agent'] {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }

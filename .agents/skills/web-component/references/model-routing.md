@@ -29,7 +29,7 @@ Human pairwise votes are weighted above vendor claims:
 
 | Role | Model |
 |---|---|
-| Implement a component or an overlay | claude-opus-5-5, xhigh effort |
+| Implement a component or an overlay | claude-opus-5-5, high effort |
 | Cheaper fallback | kimi-k3, with one local calibration run so far |
 | Hardest visual surfaces | claude-fable-5-1 |
 | Review | a different vendor from the implementer, as the registry requires: gpt-6-sol or gpt-6-astra when codex quota allows, else kimi-k3 or gemini-3.8-flash |

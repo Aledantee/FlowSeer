@@ -27,30 +27,30 @@ in dependency order:
 
 - The parent keeps the Goal, Decisions, and Requirements for the whole
   change. Its Units are the phases, headed like any unit (`### U1.
-  <phase name>`, never `### P1.`, since `drive` finds phases by the `U`
-  heading and reads a parent without one as no parent at all). Each has
-  `Files:` naming the phase plan path, `After:` naming the earlier phases,
-  and a `Landed:` line that stays empty until the phase's plan reads
-  `implemented` and then carries the commit range, as
-  `` `601e6e03..7cdc35dd` ``. The verifier's ledger check reads the last
-  commit of that line to prove a later phase's worktree holds it; a
-  `Landed:` written as prose fails that check. The parent's `status` is
-  `planned` until the last phase lands, then `implemented`; it never reads
-  `partially-implemented`, since that means units landed.
-- `After:` between phases names real dependencies only, like `After:`
-  between units. Phases whose packages are disjoint run at once in separate
-  worktrees under `drive`, and the parent's `Landed:` lines are the only
-  thing they share.
+  <phase name>`, never `### P1.`, since the queue's unit count reads
+  `### U` headings). Each has `Files:` naming the phase plan
+  path. Run `.claude/skills/plan/scripts/plan_record.py init <parent>` first,
+  since a phase cannot join a parent without a state file. Then initialize
+  the phases, prerequisites before their dependents, each with
+  `.claude/skills/plan/scripts/plan_record.py init <phase> --parent <parent>
+  [--after <prerequisite>...]`. The phase state carries its prerequisites and
+  landed range, so the parent has no prerequisite or range line to edit.
+  `.claude/skills/plan/scripts/plan_record.py show <parent>` computes the parent's status from its phase
+  state and retired entries.
+- Phase prerequisites name real dependencies only, like `After:` between
+  units. Phases whose packages are disjoint run at once in separate worktrees
+  under `drive`, and their state files are independent.
 - Each phase plan is a full plan at
-  `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md` with a `parent:`
-  frontmatter field naming the parent path. Its Decisions cite the parent's
-  rather than repeating them.
-- Only the first phase is written implementation-ready. A later phase
-  carries Goal, Decisions, and Requirements, `artifact_readiness:
-  needs-decisions`, and this line under its title: `> Re-planned by plan
-  when its turn comes; the tree will have moved.` `implement` refuses such a
-  plan and names `plan`. When a phase lands, `implement` fills its
-  `Landed:` line in the parent.
+  `docs/plans/<date>-<type>-<slug>-phase<N>-plan.md`. Its state file names the
+  parent. Its Decisions cite the parent's rather than repeating them.
+- Only the first phase is written ready. A later phase carries Goal,
+  Decisions, and Requirements, this line under its title: `> Re-planned by
+  plan when its turn comes; the tree will have moved.`, and a state that
+  starts with `--needs-decisions`. `implement` refuses such a plan until
+  `.claude/skills/plan/scripts/plan_record.py ready <phase>` records that it
+  is ready. When a phase lands, `.claude/skills/plan/scripts/plan_record.py
+  implemented <phase> --units <n> --from <t> --to <t> --landed <first>..<last>`
+  records its range.
 
 Example: a nine-unit plan with four units in `src/protocol/smi` and five in
 `src/protocol/snmp` whose `After` lines depend on the first four becomes a
@@ -64,8 +64,8 @@ bounded enough to be its own plan and each depending on the one before,
 write the parent first and the phases under it in the same shape: the
 parent holds the Goal, the Decisions the phases share, and the Requirements
 each phase will claim; every phase after the first carries `needs-decisions`
-and its re-planning line. The parent is the one place the sequence and its
-`Landed:` lines live.
+and its re-planning line. The parent's state lists the phases, and each
+phase's `after` holds its place in the sequence.
 
 The sequence must be decided, not hoped for. A direction record's
 Consequences that name what could come later (a next layer, a later

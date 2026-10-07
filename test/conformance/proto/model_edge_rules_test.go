@@ -329,7 +329,11 @@ func TestEdgeAssertionHeaderVector(t *testing.T) {
 	seed := make([]byte, ed25519.SeedSize)
 	private := ed25519.NewKeyFromSeed(seed)
 
-	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(edgeAssertion(30 * time.Second))
+	assertion := edgeAssertion(30 * time.Second)
+	if err := protovalidate.Validate(assertion); err != nil {
+		t.Fatalf("validate assertion fixture: %v", err)
+	}
+	payload, err := proto.MarshalOptions{Deterministic: true}.Marshal(assertion)
 	if err != nil {
 		t.Fatalf("marshal assertion: %v", err)
 	}
@@ -337,6 +341,9 @@ func TestEdgeAssertionHeaderVector(t *testing.T) {
 		Payload:   payload,
 		Signature: ed25519.Sign(private, payload),
 	}.Build()
+	if err := protovalidate.Validate(signed); err != nil {
+		t.Fatalf("validate signed assertion fixture: %v", err)
+	}
 	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
 	if err != nil {
 		t.Fatalf("marshal signed assertion: %v", err)
@@ -400,6 +407,9 @@ func TestEdgeAssertionStreamOpenVector(t *testing.T) {
 		Payload:   payload,
 		Signature: ed25519.Sign(private, payload),
 	}.Build()
+	if err := protovalidate.Validate(signed); err != nil {
+		t.Fatalf("validate signed assertion fixture: %v", err)
+	}
 	wire, err := proto.MarshalOptions{Deterministic: true}.Marshal(signed)
 	if err != nil {
 		t.Fatalf("marshal signed assertion: %v", err)

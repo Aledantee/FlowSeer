@@ -1,0 +1,37 @@
+{
+  "contract": "flowseer-plan-state/v1",
+  "status": "planned",
+  "readiness": "implementation-ready",
+  "review": null,
+  "review_rounds": 0,
+  "compound": null,
+  "outcome": null,
+  "superseded_by": null,
+  "branch": null,
+  "parent": null,
+  "after": [],
+  "landed": null,
+  "phases": [
+    "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase3-plan.md",
+    "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase4-plan.md",
+    "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase5-plan.md"
+  ],
+  "retired": [
+    {
+      "plan": "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase1-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "341f4cd3",
+        "last": "646d080c"
+      }
+    },
+    {
+      "plan": "docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-phase2-plan.md",
+      "status": "implemented",
+      "landed": {
+        "first": "f94b04ea",
+        "last": "4e0070b5"
+      }
+    }
+  ]
+}

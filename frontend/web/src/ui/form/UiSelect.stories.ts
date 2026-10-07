@@ -1,4 +1,8 @@
+import { ref } from 'vue'
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import { aiRegistry } from '../../ai'
+import type { AiTarget } from '../../ai'
+import type { AiOriginRequest } from '../ai/context'
 import UiSelect from './UiSelect.vue'
 
 const sampleOptions = [
@@ -32,7 +36,7 @@ export const Default: Story = {
 export const Selected: Story = {
   args: {
     modelValue: 'ber',
-    options: sampleOptions,
+    options: sampleOptions.map((opt) => ({ ...opt, identifier: true })),
     placeholder: 'Choose site location...',
     ariaLabel: 'Site location select',
   },
@@ -107,4 +111,61 @@ export const LongText: Story = {
     ariaLabel:
       'Autonomous network infrastructure telemetry ingestion endpoint selector',
   },
+}
+
+const origin: AiOriginRequest = {
+  requestId: 'req-story-select',
+  action: 'summary',
+  targets: [],
+  history: [],
+}
+
+// Each story keeps its own target id because Storybook Docs mounts several
+// canvases into one document.
+function storyTarget(state: string): AiTarget {
+  return {
+    id: `standalone:story:ui-select:${state}`,
+    kind: 'control',
+    label: 'Site location',
+    context: { state },
+  }
+}
+
+// The registry draws the selection outline on the element the component
+// registered.
+export const AiSelected: Story = {
+  args: {
+    modelValue: 'ber',
+    options: sampleOptions,
+    ariaLabel: 'Site location select',
+    ai: storyTarget('selected'),
+  },
+  play: () => {
+    aiRegistry.highlight(storyTarget('selected').id)
+  },
+}
+
+// The outline marks a value an agent changed until the user touches it. The
+// caller clears its own state when the component reports the interaction.
+export const AgentChanged: Story = {
+  args: {
+    modelValue: 'ber',
+    options: sampleOptions,
+    ariaLabel: 'Site location select',
+    ai: storyTarget('agent-changed'),
+  },
+  render: (args) => ({
+    components: { UiSelect },
+    setup() {
+      const changed = ref<AiOriginRequest | undefined>(origin)
+      return { args, changed }
+    },
+    template: `
+      <UiSelect
+        v-bind="args"
+        :ai-origin="changed"
+        @ai-origin-acknowledged="changed = undefined"
+      />
+    `,
+  }),
 }
