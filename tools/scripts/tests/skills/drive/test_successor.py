@@ -11,11 +11,8 @@ from types import SimpleNamespace
 import unittest
 from unittest import mock
 
-from lib import repo
 from skills.delegate import orca_worker
 from skills.drive import successor
-
-ROOT = repo.root(Path(__file__).parent)
 
 ORCA_STUB = r'''
 import json
@@ -26,6 +23,9 @@ with open(os.environ["ORCA_STUB_LOG"], "a") as log:
     log.write(" ".join(sys.argv[1:]) + "\n")
 
 args = sys.argv[1:]
+if " ".join(args[:2]) == os.environ.get("ORCA_STUB_NON_JSON"):
+    print("not JSON")
+    raise SystemExit(0)
 if args and args[0] == "status":
     mode = os.environ.get("ORCA_STUB_STATUS", "")
     if mode == "fail":
@@ -43,6 +43,8 @@ elif args[:2] == ["terminal", "create"]:
     if os.environ.get("ORCA_STUB_FAIL") == "terminal-create":
         raise SystemExit(1)
     handle = "" if os.environ.get("ORCA_STUB_NO_HANDLE") == "1" else "term-1"
+    if os.environ.get("ORCA_STUB_NULL_HANDLE") == "1":
+        handle = None
     print(json.dumps({"result": {"terminal": {"handle": handle}}}))
 elif args[:2] == ["terminal", "read"]:
     with open(os.environ["ORCA_STUB_LOG"]) as log:
@@ -61,16 +63,6 @@ else:
 
 
 class SuccessorTests(unittest.TestCase):
-    def __init__(self, methodName="runTest", command=None):
-        super().__init__(methodName)
-        self.command = command or (lambda test, argv: self.run_port(argv))
-        self.quote = getattr(command, "quote", shlex.quote)
-        self.shell = getattr(command, "shell", False)
-
-    def require_port(self):
-        if self.shell:
-            self.skipTest("the port's own behavior")
-
     def run_orca(self, args):
         out = io.StringIO()
         err = io.StringIO()
@@ -89,6 +81,8 @@ class SuccessorTests(unittest.TestCase):
             self.argvs.append(list(args))
             if self.git_status is not None and args[:2] == ["git", "status"]:
                 return self.git_status
+            if args[0] == "orca" and self.orca_missing:
+                raise FileNotFoundError("orca")
             return self.run_orca(args) if args[0] == "orca" else real_run(args, cwd)
 
         out = io.StringIO()
@@ -105,6 +99,7 @@ class SuccessorTests(unittest.TestCase):
 
     def setUp(self):
         self.windows = False
+        self.orca_missing = False
         self.git_status = None
         self.sleeps = []
         self.argvs = []
@@ -199,7 +194,7 @@ class SuccessorTests(unittest.TestCase):
         ]
         if effort is not None:
             args.extend(["--effort", effort])
-        return self.command(self, args)
+        return self.run_port(args)
 
     def calls(self):
         return self.log.read_text() if self.log.exists() else ""
@@ -207,22 +202,8 @@ class SuccessorTests(unittest.TestCase):
     def count_calls(self, prefix):
         return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
 
-    def worker_line(self, cli, model, effort=None):
-        args = [sys.executable, str(ROOT / "tools/scripts/run.py"), "delegate", "orca-worker", "line", "--cli", cli, "--model", model]
-        if effort is not None:
-            args.extend(["--effort", effort])
-        result = subprocess.run(
-            args,
-            cwd=self.repo,
-            env=self.env,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-
     def prompt(self, parent="docs/plans/parent-plan.md"):
-        return self.quote(f"Read .claude/skills/drive/SKILL.md and drive {parent}.")
+        return shlex.quote(f"Read .claude/skills/drive/SKILL.md and drive {parent}.")
 
     def commit_all(self, message):
         subprocess.run(
@@ -347,13 +328,17 @@ class SuccessorTests(unittest.TestCase):
                 self.assertIn(wanted, result.stderr)
 
         refusal("model", model="claude-opus-5", effort="High1", parent=missing)
+        refusal("cli claude does not match model pool cli codex", model="gpt-6-sol", effort="High1", parent=missing)
         refusal("effort", effort="High1", parent=missing)
-        refusal("parent must", parent=missing)
-        refusal("untracked.txt")
+        agy = {"model": "gemini-3.8-flash", "cli": "agy"}
+        refusal("parent must", parent=missing, **agy)
+        refusal("untracked.txt", **agy)
         untracked.unlink()
-        refusal("not reachable")
+        refusal("not reachable", **agy)
         self.env["ORCA_STUB_STATUS"] = ""
-        refusal("child-1")
+        refusal("child-1", **agy)
+        self.env["ORCA_STUB_CHILDREN"] = ""
+        refusal("effort is required for model id format", **agy)
 
     def test_starts_successor_after_screen_shows_working_hint(self):
         result = self.invoke(effort="high")
@@ -364,14 +349,14 @@ class SuccessorTests(unittest.TestCase):
         command = creates[0]
         self.assertIn("--worktree active", command)
         self.assertIn("--title drive", command)
-        expected = self.worker_line("claude", "claude-opus-5-5", "high")
+        expected = 'env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION claude --model claude-opus-5-5 --dangerously-skip-permissions --settings \'{"switchModelsOnFlag":false}\' --effort high'
         prompt = self.prompt()
         self.assertTrue(command.endswith(f" --command {expected} {prompt} --json"), command)
 
     def test_starts_codex_with_worker_line_and_positional_prompt(self):
         result = self.invoke(model="gpt-6-sol", cli="codex", effort="xhigh")
         self.assertEqual(result.returncode, 0, result.stderr)
-        expected = self.worker_line("codex", "gpt-6-sol", "xhigh")
+        expected = 'env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION codex -a never --sandbox danger-full-access -c check_for_update_on_startup=false -c background_terminal_max_timeout=3600000 -m gpt-6-sol -c model_reasoning_effort=xhigh'
         prompt = self.prompt()
         self.assertIn(f"--command {expected} {prompt} --json", self.calls())
 
@@ -380,7 +365,7 @@ class SuccessorTests(unittest.TestCase):
             model="gemini-3.8-flash", cli="agy", effort="high"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        expected = self.worker_line("agy", "gemini-3.8-flash-high")
+        expected = 'env -u CLAUDECODE -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_CHILD_SESSION agy --model gemini-3.8-flash-high --dangerously-skip-permissions'
         prompt = self.prompt()
         self.assertIn(
             f"--command {expected} --prompt-interactive {prompt} --json", self.calls()
@@ -403,8 +388,7 @@ class SuccessorTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("term-1", result.stdout)
         self.assertEqual(self.count_calls("terminal read"), 3)
-        if not self.shell:
-            self.assertEqual(self.sleeps, [3, 3])
+        self.assertEqual(self.sleeps, [3, 3])
         self.assertNotIn("terminal close", self.calls())
 
     def test_failed_terminal_create_reports_successor_may_be_running(self):
@@ -419,8 +403,7 @@ class SuccessorTests(unittest.TestCase):
         result = self.invoke()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self.count_calls("terminal read"), 20)
-        if not self.shell:
-            self.assertEqual(self.sleeps, [3] * 20)
+        self.assertEqual(self.sleeps, [3] * 20)
         self.assertIn("terminal close", self.calls())
         self.assertNotIn("successor may be running", result.stderr)
 
@@ -436,6 +419,8 @@ class SuccessorTests(unittest.TestCase):
         parent = "docs/plans/parent-plan.md"
         cases = [
             ([], "parent is required"),
+            ([parent, "--model", "claude-opus-5-5"], "--cli is required"),
+            ([parent, "--cli", "claude"], "--model is required"),
             ([parent, "--cli"], "--cli requires a value"),
             ([parent, "--cli", "claude", "--model"], "--model requires a value"),
             ([parent, "--cli", "claude", "--model", "claude-opus-5-5", "--effort"], "--effort requires a value"),
@@ -443,10 +428,62 @@ class SuccessorTests(unittest.TestCase):
         ]
         for argv, wanted in cases:
             with self.subTest(wanted=wanted):
-                result = self.command(self, argv)
+                result = self.run_port(argv)
                 self.assert_no_create(result)
                 self.assertIn(wanted, result.stderr)
         self.assertEqual(self.calls(), "")
+
+    def test_rejects_unknown_cli_even_when_its_model_is_in_plan_fit(self):
+        text = self.registry_text(fit="omp-model").replace(
+            "  google: {cli: agy}", "  google: {cli: agy}\n  omp: {cli: omp}"
+        ).replace("models:\n", "models:\n  omp-model: {pool: omp}\n")
+        self.machine_registry.write_text(text)
+        self.project_registry.write_text(text)
+        self.commit_all("add omp model to plan fit")
+        result = self.invoke(model="omp-model", cli="omp")
+        self.assert_no_create(result)
+        self.assertIn("unknown cli: omp", result.stderr)
+        self.assertEqual(self.argvs, [])
+
+    def test_refuses_non_json_status_reply(self):
+        self.env["ORCA_STUB_NON_JSON"] = "status --json"
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("Orca runtime is not reachable", result.stderr)
+        self.assertEqual(self.count_calls("worktree show"), 0)
+
+    def test_refuses_non_json_worktree_reply(self):
+        self.env["ORCA_STUB_NON_JSON"] = "worktree show"
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("child query returned no childWorktreeIds", result.stderr)
+
+    def test_non_json_terminal_create_reports_successor_may_be_running(self):
+        self.env["ORCA_STUB_NON_JSON"] = "terminal create"
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("successor may be running", result.stderr)
+        self.assertEqual(self.count_calls("terminal create"), 1)
+        self.assertEqual(self.count_calls("terminal read"), 0)
+        self.assertEqual(self.count_calls("terminal close"), 0)
+
+    def test_null_handle_reports_successor_may_be_running(self):
+        self.env["ORCA_STUB_NULL_HANDLE"] = "1"
+        result = self.invoke()
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("successor may be running", result.stderr)
+        self.assertEqual(self.count_calls("terminal create"), 1)
+        self.assertEqual(self.count_calls("terminal read"), 0)
+        self.assertEqual(self.count_calls("terminal close"), 0)
+
+    def test_refuses_missing_orca_on_status(self):
+        self.orca_missing = True
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("Orca runtime is not reachable", result.stderr)
+        self.assertEqual(self.argvs, [
+            ["git", "status", "--porcelain"], ["orca", "status", "--json"]
+        ])
 
     def test_rejects_empty_effort_value(self):
         result = self.invoke(effort="")
@@ -454,14 +491,12 @@ class SuccessorTests(unittest.TestCase):
         self.assertIn("effort must contain lowercase letters", result.stderr)
 
     def test_refuses_diagnostic_stderr_from_a_successful_status(self):
-        self.require_port()
         self.git_status = subprocess.CompletedProcess(["git", "status"], 0, "", "warning: untrusted index\n")
         result = self.invoke()
         self.assert_no_create(result)
         self.assertIn("working tree is dirty: warning: untrusted index", result.stderr)
 
     def test_windows_refuses_before_any_tool_call(self):
-        self.require_port()
         self.windows = True
         result = self.invoke(effort="high")
         self.assertEqual(result.returncode, 1, result.stderr)
@@ -470,7 +505,6 @@ class SuccessorTests(unittest.TestCase):
         self.assertEqual(self.calls(), "")
 
     def test_quotes_parent_path_and_model_id_for_the_terminal_shell(self):
-        self.require_port()
         parent = "docs/plans/odd name $HOME `x`-plan.md"
         (self.repo / parent).write_text("plan")
         text = self.registry_text().replace(
