@@ -1,11 +1,16 @@
 {
   "contract": "flowseer-plan-state/v1",
-  "status": "planned",
+  "status": "partially-implemented",
   "readiness": "implementation-ready",
   "review": null,
   "review_rounds": 0,
   "compound": null,
-  "outcome": null,
+  "outcome": {
+    "units": 3,
+    "from": "2026-10-07T21:46:34Z",
+    "to": "2026-10-07T22:07:01Z",
+    "note": "Source and test moves and call issue ownership passed. Output unit blocked: exact recent-root deadline assertion needs private STP state outside permitted unit scope. Later chained units not started."
+  },
   "superseded_by": null,
   "branch": "Aledantee/sim9-plan",
   "parent": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md",
