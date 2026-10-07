@@ -29,9 +29,8 @@ agreement clear on first or returns to the user.
   proposal cuts (one holding an agreement keeps it), the same sync at a
   boundary port, an MSTI proposal in a record that is not stored, and an
   inherited port priority that follows the bridge port. The spanning tree
-  phase's plan hands them to a later phase in the last entry of its
-  Decisions
-  (`docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase3-plan.md`).
+  phase, landed 2026-10-07, left them to a later phase, and
+  `src/common/sim/layer/stp/README.md` lists each under Limits.
   (decided by the user, 2026-10-07)
 - A proposal blocks only those other Designated ports of the tree that are
   not synced, and a port holding an agreement keeps it and stays
