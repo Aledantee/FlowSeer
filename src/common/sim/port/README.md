@@ -99,3 +99,16 @@ The hub path of the virtual switch (`Switch.forwardHub` in
 
 The same path drops with reasons `port-down`, `mtu-exceeded`, and the relay's
 `no-egress` and `no-member`.
+
+## Sources
+
+The table's state and membership contracts are in [port.go](port.go) and
+[builder.go](builder.go). The relay applies these decisions in its Q2003
+clause 8.4.1 stage, described in [bridge/README.md](../layer/bridge/README.md).
+
+## Limits
+
+`WithOperStatus` changes the named port alone. A member's status does not
+derive its LAG's status, because the caller owns that decision.
+`Receive` and `Transmit` require known `Up` states and infer no eligibility
+from `Unknown`.
