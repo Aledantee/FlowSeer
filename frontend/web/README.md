@@ -174,8 +174,10 @@ The login page and console fill one `AppFrame.vue` instance. Signing in keeps
 the same sidebar and page panel elements in the document while their content
 changes. The frame owns the top bar and its theme and language switches.
 `src/navigation/AppFrame.vue` moves the panel and breadcrumb when the mode
-crosses between login and console. Arriving region children fade from opacity
-0 to 1 over 160 ms, set by `FRAME_MOVE_SECONDS` in `src/navigation/frame.ts`.
+crosses between login and console. The nearest content boxes in each region
+fade from opacity 0 to 1 over 160 ms, set by `FRAME_MOVE_SECONDS` in
+`src/navigation/frame.ts`. The fade descends through `display: contents`
+wrappers because they have no box to paint, and skips `display: none` elements.
 Below 801px or with reduced motion, the content fades without movement.
 The switches stay mounted and still. The login page appears without an
 entrance on a fresh visit. `src/main.ts` mounts after the router resolves the
