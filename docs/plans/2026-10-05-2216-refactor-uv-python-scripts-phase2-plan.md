@@ -340,3 +340,15 @@ Waves: U1 U2 | U3 U4 U5 | U6
 - Does `uv run` 0.12.23 write to stderr at default verbosity? Unverified.
   The sandbox here refuses its cache, so no run could check it. `--quiet`
   covers either answer.
+
+## Review gaps
+
+Follow-ups the review left open. None holds the verdict. The first four need
+a change to a policy surface, which the review's fix loop may not make.
+
+- tools/scripts/lib/lock.py:59: `except OSError` retries every error of `msvcrt.locking` until a 60 s deadline, where Decisions say to retry the `LK_LOCK` timeout and re-raise any other error; fails: a permanent error is raised at once, and a timeout is retried past 60 s; class: convention
+- tools/scripts/run.py:41: `read_commands` returns the first `COMMANDS` assignment and never reads a later one; fails: `COMMANDS = {"old": "mod"}` followed by `COMMANDS = dict(new="mod")` exits 2 naming the file; class: hardening
+- tools/scripts/run.py:30: only `ast.Assign` is read, so `COMMANDS: dict[str, str] = {"x": "mod"}` is refused as "has no COMMANDS mapping"; fails: an annotated literal lists and dispatches, or is refused with a message that names the annotation; class: gap
+- tools/scripts/run.py:29: a `SyntaxError` from `ast.parse` escapes `read_commands`, so `list` exits 1 with a traceback; fails: a group `__init__.py` holding `COMMANDS = {"x": "mod"` exits 2 naming the file; class: gap
+- tools/scripts/skills/delegate/model_check.py:139, tools/scripts/skills/land/merge_check.py:481, tools/scripts/skills/tune/catalogue.py:61, tools/scripts/skills/tune/field.py:526: `def main(argv):` without the `main(argv: list[str]) -> int` annotations `docs/code-style-python.md` names; fails: every command module's `main` carries them; class: convention
+- .agents/skills/delegate/scripts/orca-worker.sh:337: `run_id=$run_out` accepts an empty standard output from a start that exits 0; fails: an empty run id reaches `undo`; class: hardening
