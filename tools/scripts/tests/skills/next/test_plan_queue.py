@@ -117,6 +117,10 @@ class PlanQueueTest(unittest.TestCase):
         self.write(PLAIN, "# Plain - Plan\n\n### U1. Docs\nFiles: docs/README.md\n")
         self.assertFalse(self.rows()[PLAIN]["harness"])
 
+    def test_unit_count_excludes_invalid_suffixes_and_missing_title_spaces(self):
+        self.write(PLAIN, "# Plain - Plan\n\n### U1. a\n### U2: b\n### U3a. c\n### U1ab. d\n### U1.Name\n")
+        self.assertEqual(self.rows()[PLAIN]["units"], 3)
+
     def test_plan_sharing_files_follows_the_plan_further_along(self):
         # PLAIN is in progress and FIRST is implemented and unreviewed, so
         # the group order alone would print PLAIN first.

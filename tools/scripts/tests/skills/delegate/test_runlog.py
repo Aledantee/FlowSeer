@@ -173,6 +173,28 @@ class RunlogTests(unittest.TestCase):
         self.assertEqual(result.stderr, "runlog: no start event for run unknown\n")
         self.assertEqual(result.stdout, "")
 
+    def test_start_base_fails_without_a_log(self):
+        result = self.command("start-base", "--run", "missing-run")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr, "runlog: no start event for run missing-run\n")
+        self.assertEqual(result.stdout, "")
+        self.assertFalse(self.log.exists())
+
+    def test_executors_prints_complete_records_with_a_truncated_tail(self):
+        self.seed(
+            {**self.start_event("r1", "2026-09-30T10:00:00Z"), "plan": "plan.md", "unit": "U1"},
+            {"event": "grade", "run": "r1", "outcome": "accepted"},
+            {**self.start_event("r2", "2026-09-30T11:00:00Z"), "plan": "plan.md",
+             "model": None, "agent": "pool-id"},
+            {"event": "grade", "run": "r2", "outcome": "amended"},
+        )
+        with self.log.open("a") as stream:
+            stream.write('{"v":')
+        result = self.command("executors", "--plan", "plan.md")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "U1 claude-opus-5-5\n- pool-id\n")
+        self.assertEqual(result.stderr, "")
+
     def test_executors_uses_last_grade_and_excludes_rejected_runs(self):
         def start(run, **fields):
             return {**self.start_event(run, "2026-09-30T10:00:00Z"), "plan": "plan.md", **fields}
