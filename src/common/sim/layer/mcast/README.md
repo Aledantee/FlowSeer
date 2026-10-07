@@ -49,17 +49,23 @@ second and 2, the robustness variable, RFC 3376 §8.1, §8.8, §8.9, and RFC 381
 | `EXCLUDE (X,Y)` | `TO_EX (A)` | `EXCLUDE (A-Y, Y*A)` | `(A-X-Y)=` group timer, delete `(X-A)`, delete `(Y-A)`, Send Q(G, `A-Y`), group timer `=GMI` |
 | `EXCLUDE (X,Y)` | `TO_IN (A)` | `EXCLUDE (X+A, Y-A)` | `(A)=GMI`, Send Q(G, `X-A`), Send Q(G) |
 
-IGMPv1, IGMPv2, and MLDv1 reports map to `IS_EX ({})`; an IGMPv2 leave or an
-MLDv1 done message maps to `TO_IN ({})` (RFC 3810 §8.3.2). Either mapping
-(re)starts an older-version-host timer for that group and port, lasting one
-GMI. While it runs, a `BLOCK` record is ignored outright and a `TO_EX (x)`
-record is treated as `TO_EX ({})`. MLDv2 uses the same tables as IGMPv3 (RFC
-3810 §7.4-§7.6).
+IGMPv1 and IGMPv2 reports map to `IS_EX ({})` (RFC 3376 §7.3.2), as do
+MLDv1 reports (RFC 3810 §8.3.2). Each group and port keeps separate IGMPv1
+and IGMPv2 host timers, with the latter also serving MLDv1. Only a report of
+that version starts or refreshes its timer, for one GMI. While either timer
+runs, `BLOCK` is ignored and `TO_EX (x)` is treated as `TO_EX ({})`.
+While the IGMPv1 timer runs, IGMPv2 Leave and `TO_IN` are also ignored.
+MLDv2 uses the same tables as IGMPv3 (RFC 3810 §7.4-§7.6).
+
+An IGMPv2 Leave or MLDv1 Done maps to `TO_IN ({})` and starts no host timer.
+The layer also uses that mapping when no compatibility timer runs, a case
+those compatibility sections do not specify.
 
 Fast leave keeps its own shortcut, independent of the tables above: a message
 or record shaped like a leave — an IGMPv2 leave, an MLDv1 done, or a
 `MODE_IS_INCLUDE`/`CHANGE_TO_INCLUDE_MODE` record carrying no sources —
 deletes the port's router state outright instead of going through `TO_IN`.
+The IGMPv1 rule still ignores Leave and `TO_IN`, even with fast leave enabled.
 
 ### Timer expiry (§6.5)
 
@@ -120,6 +126,15 @@ was met:
   from: the full timers are the real behavior, and `Resolve` never reports a
   pending query.
 
+A group obligation ends on an unsuppressed `Q(G)` or a record that sets the
+group timer. A source obligation keeps the sources that its table row
+queried. Each source leaves that set when an unsuppressed `Q(G,A)` names it,
+a record sets its timer, or the source is deleted. The source obligation
+ends when the set is empty. These rules apply however late the query arrives.
+A `Q(G)` leaves source obligations intact because it lowers only the group
+timer (RFC 3376 §6.6.1). `Clone` and `Restore` copy both compatibility timers
+and the queried set independently.
+
 ## Router ports
 
 An IGMP query learns its ingress as a router port when its IPv4 source is not
@@ -131,6 +146,7 @@ two axes separate origin from expiry: a record from configuration is always
 and `Aging`. `Restore` copies an observed router port with its original expiry,
 even when the target's `RouterPortInterval` differs. It leaves a target static
 router port in place and copies no configured record from the previous layer.
+The zero values of `Origin` and `Lifetime` name neither value of their type.
 
 `mcast.Entry`, the learned group membership record `Groups` returns, has no
 `Origin` field: nothing in `Config` can preload a group membership, so every
@@ -159,7 +175,7 @@ the returned router ports, and how a pending query surfaces as an issue.
 
 `Restore(prev, keep)` copies each port's group state on VLANs both layers snoop
 when the port is logical in the target and `keep(vid, port)` admits it. The copy
-preserves the filter mode, group and source deadlines, compatibility deadline,
+preserves the filter mode, group and source deadlines, both compatibility deadlines,
 and pending queries. Its maps are independent of `prev`. The target's settings
 apply to subsequent learning.
 
@@ -177,3 +193,12 @@ source filter and its forwarding result after an unrelated VLAN edit.
 `RetentionKey(cfg Config, env layer.Env) string` encodes every normalized
 input the multicast snooping runtime state depends on: its own configuration as
 `Diff` sees it and port states for configured router ports.
+
+## Limits
+
+The layer emits no query and takes LMQT from configuration. One
+`MembershipInterval` stands for both GMI and the Older Host Present Interval.
+A learned router port uses the configured `RouterPortInterval`.
+The switch accepts reports from `::` under RFC 4541 §3, but requires a
+link-local source for queries and Done. What a snooping switch should do
+with a query or Done from `::` is unverified.

@@ -518,6 +518,17 @@ bounded equivalence under a resource contract:
   uses the fabric clock. Learning ages a port's state before applying a
   record, so its timers determine the transition even without a prior
   `Advance` call (`src/common/sim/layer/mcast/layer.go`).
+  IGMPv1 and IGMPv2 host timers start only on reports, with the second also
+  serving MLDv1. An IGMPv1 timer makes Leave and `TO_IN` ineffective even
+  with fast leave. A group query obligation ends on an observed `Q(G)` or
+  a record that sets the group timer. A source obligation ends per queried
+  source when `Q(G,A)` names it, a record sets its timer, or it is deleted.
+  A matching query ends its obligation however late it arrives. A group
+  query leaves source obligations intact because RFC 3376 §6.6.1 lowers
+  only the group timer. MLD reports may come from `::` under RFC 4541 §3,
+  while queries and Done require a link-local source
+  (`src/common/sim/layer/mcast/state.go`,
+  `src/common/sim/device/vswitch/switch.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 

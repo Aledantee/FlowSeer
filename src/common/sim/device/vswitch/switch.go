@@ -1618,17 +1618,23 @@ func (s *Switch) forwardMulticastControl(
 		return s.bridge.EgressTo(in, f, routerPortNames(s.mcast.RouterPorts(in.FID, now)), mcast.ReasonNoRouterPort)
 	}
 
-	if hdr.HopLimit != 1 || !hdr.Src.IsLinkLocalUnicast() || !hasRouterAlert(payload) {
+	if hdr.HopLimit != 1 || !hasRouterAlert(payload) {
 		return badMulticastControl(in)
 	}
 	message, err := mld.Decode(hdr, payload)
 	if err != nil {
 		if errors.Is(err, mld.ErrUnsupported) {
+			if !hdr.Src.IsLinkLocalUnicast() {
+				return badMulticastControl(in)
+			}
 			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
 			in.Steps = append(in.Steps, multicastControlStep(mcast.RuleControlUnsupported, "mld", false, "unsupported", nil))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
 
+		return badMulticastControl(in)
+	}
+	if !hdr.Src.IsLinkLocalUnicast() && !(hdr.Src.IsUnspecified() && (message.Type == mld.ReportV1 || message.Type == mld.ReportV2)) {
 		return badMulticastControl(in)
 	}
 

@@ -6474,6 +6474,38 @@ func TestUnsupportedMLDFloodsWithoutSnoopingMutation(t *testing.T) {
 	}
 }
 
+func TestMLDReportAcceptsUnspecifiedSource(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	for _, version := range []mld.Type{mld.ReportV1, mld.ReportV2} {
+		t.Run(fmt.Sprint(version), func(t *testing.T) {
+			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
+			message := mld.Message{Type: version, Group: group}
+			if version == mld.ReportV2 {
+				message = mld.Message{Type: version, Records: []mld.AddressRecord{{Type: mld.ModeIsExclude, Group: group}}}
+			}
+			frame := makeMLDControlFrame(t, netip.IPv6Unspecified(), netip.MustParseAddr("ff02::16"), mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 0x16}, 1, true, message)
+			sw.Forward(fixedTime, "1/1/1", frame)
+			if entries := sw.Groups(10, fixedTime); len(entries) != 1 || entries[0].Group != group || entries[0].Port != "1/1/1" {
+				t.Errorf("Groups = %+v, want membership from unspecified report source", entries)
+			}
+		})
+	}
+}
+
+func TestMLDUnspecifiedQueryAndDoneRefused(t *testing.T) {
+	group := netip.MustParseAddr("ff05::1")
+	for _, messageType := range []mld.Type{mld.Query, mld.Done} {
+		t.Run(fmt.Sprint(messageType), func(t *testing.T) {
+			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
+			frame := makeMLDControlFrame(t, netip.IPv6Unspecified(), group, mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true, mld.Message{Type: messageType, Version: mld.V1, Group: group})
+			result := sw.Forward(fixedTime, "1/1/1", frame)
+			if result.Outcome != trace.Dropped || result.Reason != mcast.ReasonBadControl {
+				t.Errorf("Forward = %s/%s, want Dropped/%s", result.Outcome, result.Reason, mcast.ReasonBadControl)
+			}
+		})
+	}
+}
+
 func TestMLDControlValidatesOuterHeader(t *testing.T) {
 	group := netip.MustParseAddr("ff05::1")
 	tests := []struct {

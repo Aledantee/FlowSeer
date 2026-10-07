@@ -62,8 +62,8 @@ type Entry struct {
 type Origin string
 
 const (
-	// Configured is the zero value: cfg.RouterPorts installed the record.
-	Configured Origin = ""
+	// Configured indicates that cfg.RouterPorts installed the record.
+	Configured Origin = "configured"
 
 	// Observed is a record a learned query installed.
 	Observed Origin = "observed"
@@ -73,9 +73,9 @@ const (
 type Lifetime string
 
 const (
-	// Aging is the zero value: [Layer.Advance] removes the record once its
+	// Aging indicates that [Layer.Advance] removes the record once its
 	// Expires has passed.
-	Aging Lifetime = ""
+	Aging Lifetime = "aging"
 
 	// Static is a record [Layer.Advance] never removes; its Expires is the
 	// zero value.
@@ -233,8 +233,10 @@ func (l *Layer) Learn(now time.Time, vid vlan.ID, portName string, source netip.
 			learnRouter(now, portName, state)
 		}
 		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
-	case igmp.ReportV1, igmp.ReportV2:
-		learnLegacyJoin(now, message.Group, portName, state)
+	case igmp.ReportV1:
+		learnLegacyJoin(now, message.Group, portName, state, 1)
+	case igmp.ReportV2:
+		learnLegacyJoin(now, message.Group, portName, state, 2)
 	case igmp.Leave:
 		learnLeave(now, message.Group, portName, state)
 	case igmp.ReportV3:
@@ -260,7 +262,7 @@ func (l *Layer) LearnMLD(now time.Time, vid vlan.ID, portName string, source net
 		}
 		observeQuery(now, message.Group, message.Sources, message.Suppress, state)
 	case mld.ReportV1:
-		learnLegacyJoin(now, message.Group, portName, state)
+		learnLegacyJoin(now, message.Group, portName, state, 2)
 	case mld.Done:
 		learnLeave(now, message.Group, portName, state)
 	case mld.ReportV2:
@@ -295,6 +297,7 @@ func ageGroupPortState(gps *groupPortState, now time.Time) {
 		for addr, expires := range gps.sources {
 			if !expires.After(now) {
 				delete(gps.sources, addr)
+				delete(gps.queriedSources, addr)
 			}
 		}
 
@@ -316,6 +319,7 @@ func ageGroupPortState(gps *groupPortState, now time.Time) {
 	for addr, expires := range gps.sources {
 		if expires.IsZero() || !expires.After(now) {
 			delete(gps.sources, addr)
+			delete(gps.queriedSources, addr)
 		}
 	}
 }
@@ -435,38 +439,44 @@ func (l *Layer) RouterPorts(vid vlan.ID, now time.Time) []RouterPort {
 	return entries
 }
 
-// learnLegacyJoin applies an IGMPv1/v2 or MLDv1 report, which RFC 3810 §8.3.2 maps to
-// IS_EX({}), and (re)starts the older-version-host timer for the group on the port.
-func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState) {
-	applyToPort(now, group, portName, state, recIsExclude, nil, true)
+// learnLegacyJoin maps reports to IS_EX({}) and starts only that version's timer
+// (RFC 3376 §7.3.2 for IGMP, RFC 3810 §8.3.2 for MLD).
+func learnLegacyJoin(now time.Time, group netip.Addr, portName string, state *vlanState, version uint8) {
+	applyToPort(now, group, portName, state, recIsExclude, nil, version)
 }
 
 // learnLeave applies an IGMPv2 leave or MLDv1 done message, which maps to TO_IN({}) and
-// (re)starts the older-version-host timer. Fast leave bypasses the table and deletes the
+// starts no compatibility timer. IGMPv1 compatibility ignores it. Fast leave deletes the
 // port's group state outright, since that is the state the table would reach once the
 // source and group timers expired.
 func learnLeave(now time.Time, group netip.Addr, portName string, state *vlanState) {
+	if gps := state.groups[groupKey{group: group, port: portName}]; gps != nil && gps.igmpV1HostUntil.After(now) {
+		return
+	}
 	if state.fastLeave {
 		delete(state.groups, groupKey{group: group, port: portName})
 
 		return
 	}
-	applyToPort(now, group, portName, state, recToInclude, nil, true)
+	applyToPort(now, group, portName, state, recToInclude, nil, 0)
 }
 
 // learnGroupRecord applies one IGMPv3 group record or MLDv2 address record. A record that
 // is shaped like a leave — a MODE_IS_INCLUDE or CHANGE_TO_INCLUDE_MODE carrying no sources —
 // gets the same fast-leave shortcut as a legacy leave.
 func learnGroupRecord(now time.Time, portName string, kind recordKind, group netip.Addr, sources []netip.Addr, state *vlanState) {
+	if gps := state.groups[groupKey{group: group, port: portName}]; kind == recToInclude && gps != nil && gps.igmpV1HostUntil.After(now) {
+		return
+	}
 	if state.fastLeave && len(sources) == 0 && (kind == recIsInclude || kind == recToInclude) {
 		delete(state.groups, groupKey{group: group, port: portName})
 
 		return
 	}
-	applyToPort(now, group, portName, state, kind, sources, false)
+	applyToPort(now, group, portName, state, kind, sources, 0)
 }
 
-func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, startsOlderHost bool) {
+func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanState, kind recordKind, sources []netip.Addr, legacyVersion uint8) {
 	key := groupKey{group: group, port: portName}
 	gps := state.groups[key]
 	if gps != nil {
@@ -479,7 +489,7 @@ func applyToPort(now time.Time, group netip.Addr, portName string, state *vlanSt
 		gps = newGroupPortState()
 	}
 
-	applyRecord(now, state.membershipInterval, gps, kind, sources, startsOlderHost)
+	applyRecord(now, state.membershipInterval, gps, kind, sources, legacyVersion)
 
 	if gps.isEmptyInclude() {
 		delete(state.groups, key)

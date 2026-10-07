@@ -579,6 +579,20 @@ func TestLayerCloneDeepCopiesSourceRecords(t *testing.T) {
 	if got := mustEntry(t, clone.Groups(vid, t0.Add(time.Second))); len(got.Sources) != 2 {
 		t.Errorf("clone Sources = %+v, want the new source added", got.Sources)
 	}
+
+	original := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, mcastPortTable(t))
+	s2 := netip.MustParseAddr("10.1.1.2")
+	igmpRecord(t0, original, igmp.ModeIsInclude, group, []netip.Addr{s1, s2})
+	igmpRecord(t0.Add(time.Second), original, igmp.BlockOldSources, group, []netip.Addr{s1, s2})
+	clone = original.Clone()
+	clone.Learn(t0.Add(2*time.Second), vid, "1/1/8", s1, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{s1}})
+	original.Learn(t0.Add(2*time.Second), vid, "1/1/8", s1, igmp.Message{Type: igmp.Query, Group: group, Sources: []netip.Addr{s2}})
+	if _, _, pending := original.Resolve(vid, group, s1, t0.Add(3*time.Second)); !pending {
+		t.Error("original pending = false, want independent s1 obligation")
+	}
+	if _, _, pending := clone.Resolve(vid, group, s2, t0.Add(3*time.Second)); !pending {
+		t.Error("clone pending = false, want independent s2 obligation")
+	}
 }
 
 // --- §6.4.1: current-state records ---
@@ -1288,6 +1302,21 @@ func TestLeaveTimingFollowsObservedQueries(t *testing.T) {
 		}
 		if pending {
 			t.Errorf("pending at t+3s = true, want false with no router port")
+		}
+	})
+
+	t.Run("late query ends the obligation", func(t *testing.T) {
+		layer := build(t, true)
+		t0 := time.Unix(93_000, 0)
+		source := netip.MustParseAddr("10.0.0.1")
+		layer.Learn(t0.Add(-time.Second), vid, memberPort, source, igmp.Message{Type: igmp.ReportV2, Group: group})
+		layer.Learn(t0, vid, memberPort, source, igmp.Message{Type: igmp.Leave, Group: group})
+		if _, registered, pending := layer.Resolve(vid, group, source, t0.Add(5*time.Second)); !registered || !pending {
+			t.Fatal("leave fixture is not registered and pending")
+		}
+		layer.Learn(t0.Add(10*time.Second), vid, "1/1/8", source, igmp.Message{Type: igmp.Query, Group: group})
+		if _, registered, pending := layer.Resolve(vid, group, source, t0.Add(11*time.Second)); !registered || pending {
+			t.Errorf("registered, pending = %v, %v, want true, false", registered, pending)
 		}
 	})
 }
