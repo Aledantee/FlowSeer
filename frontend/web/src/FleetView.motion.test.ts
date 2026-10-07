@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import FleetView from './FleetView.vue'
 import { mountInFrame } from './navigation/frameTesting'
+import { FRAME_MOVE_SECONDS } from './navigation/frame'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
@@ -340,25 +341,48 @@ describe('FleetView motion layout', () => {
 
     expect(nav.getAnimations()).toHaveLength(0)
     expect(nav.style.opacity).toBe('0.42')
+    const labels = host.querySelectorAll<HTMLElement>(
+      '.product-brand > span, .nav-label, .nav-text, .nav-count',
+    )
+    expect(labels).toHaveLength(8)
+    for (const label of labels) expect(opacityAnimations(label)).toHaveLength(0)
   })
 
-  it('starts no nav fade when expanding at desktop width', async () => {
+  it('fades labels without fading nav or icons when expanding at desktop width', async () => {
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     const nav = host.querySelector<HTMLElement>('nav')
     if (!toggle || !nav) throw new Error('Missing navigation controls')
+    const labels = host.querySelectorAll<HTMLElement>(
+      '.product-brand > span, .nav-label, .nav-text, .nav-count',
+    )
+    const icons = nav.querySelectorAll<SVGElement>('a > svg')
+    expect(labels).toHaveLength(8)
+    expect(icons).toHaveLength(5)
 
     toggle.click()
     await nextTick()
     expect(opacityAnimations(nav)).toHaveLength(0)
+    for (const label of labels) expect(opacityAnimations(label)).toHaveLength(0)
 
     toggle.click()
     await nextTick()
-    // The nav's own layout animation rewrites its inline transform and clears
-    // an inline opacity (FleetView.vue:869-874), so only the native animations
-    // stay assertable. A fade started at desktop width is a native opacity
-    // animation that the layout write cannot hide.
     expect(opacityAnimations(nav)).toHaveLength(0)
+    for (const icon of icons) expect(icon.getAnimations()).toHaveLength(0)
+    for (const label of labels) {
+      const animations = opacityAnimations(label)
+      expect(animations, label.className).toHaveLength(1)
+      const animation = animations[0]
+      if (!animation) throw new Error('Missing sidebar label fade')
+      expect(animation.playState).toBe('running')
+      expect(keyframeEffect(animation).getKeyframes()).toMatchObject([
+        { opacity: '0' },
+        { opacity: '1' },
+      ])
+      expect(keyframeEffect(animation).getTiming()).toMatchObject({
+        duration: FRAME_MOVE_SECONDS * 1000,
+      })
+    }
   })
 
   it('fades the pane scope when the tenant or site changes', async () => {
