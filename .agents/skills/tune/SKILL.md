@@ -18,7 +18,7 @@ does and stops the row reporting it.
 | --- | --- | --- |
 | `~/.claude/models/registry.yaml` | The registry every project on this machine reads | this skill |
 | `~/.claude/models/evidence.md` | Source and date per registry number | this skill |
-| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `discover-host.sh` (`delegate pool-usage` prints fresh rows and writes no file) |
+| `~/.claude/models/host.yaml` | CLIs, Orca reachability, pool sign-in and windows | step 1, through `tune discover-host` (`delegate pool-usage` prints fresh rows and writes no file) |
 | `.claude/models/registry.yaml` in a project | What that project lays over the machine-wide file, committed. In this repository it is the full registry with its calibration records, beside its own `evidence.md` | a person, or this skill on request |
 
 The effective registry is the machine-wide file with the project file laid
@@ -72,7 +72,7 @@ Run on every invocation:
 
 ```bash
 mkdir -p ~/.claude/models
-.claude/skills/tune/scripts/discover-host.sh > ~/.claude/models/host.yaml
+uv run tools/scripts/run.py tune discover-host > ~/.claude/models/host.yaml
 ```
 
 It writes which CLIs exist, which pools are signed in, what Orca can pin
@@ -190,7 +190,7 @@ verifier is green.
 
 ```bash
 git worktree add -b replay-<run> ~/Projects/worktrees/FlowSeer/replay-<run> <base>
-.claude/skills/tune/scripts/bench.sh --lane replay-<run> --cli <cli> \
+uv run tools/scripts/run.py tune bench --lane replay-<run> --cli <cli> \
   --model <id> --effort <next level> \
   --brief <brief naming the plan and unit> --dir <worktree> --out <json>
 ```
@@ -212,7 +212,7 @@ and the linter. State the lanes and the expected spend per lane from the
 registry prices, and ask the user which lanes to run. A prepaid pool still
 consumes its window. Calibrate models flagged by field runs as missing a
 result first. Load `references/calibration.md` before running a lane: it
-holds the fixed tasks, the `bench.sh` command, grading, and the `local`
+holds the fixed tasks, the `tune bench` command, grading, and the `local`
 record to write. The brief a lane's worker receives is a file under
 `references/calibration/` (`brief*.md` per tier, `review-brief*.md` for the
 review tasks), named in that file's task table; read the lane's brief whole
@@ -227,7 +227,7 @@ up, and a step 3b replay is the only other lane above the start. Lanes on
 one pool may overlap. Take cost from each
 lane's own CLI figure then, since the pool meter cannot be split.
 
-`bench.sh` records `served_model`, `downgraded`, and `refused` on every
+`tune bench` records `served_model`, `downgraded`, and `refused` on every
 lane. Read them before grading a sensitive lane: a `refused` lane or one
 whose `served_model` is not the model asked for is not a pass, whatever its
 exit code, and its record carries the refusal or the model that answered so
