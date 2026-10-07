@@ -322,14 +322,14 @@ describe('FleetView motion layout', () => {
 })
 
 describe('fleet view', () => {
-  it('keeps the top bar glass in front of the page', async () => {
+  it('leaves the top bar to the frame and insets the split pane by its header', async () => {
     const { host } = await mountAt('/dashboard')
+    expect(host.querySelector('header.topbar .topbar-glass')).toBeNull()
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
     expect(
-      host.querySelector('header.topbar')?.firstElementChild?.classList,
-    ).toContain('topbar-glass')
-    expect(
-      host.querySelector('header.topbar')?.firstElementChild?.classList,
-    ).toContain('brand-glow')
+      host.querySelector<HTMLElement>('.split-pane')?.getAttribute('style'),
+    ).toContain('--pane-inset-top: 36px')
   })
 
   it('reports an unknown site as an error instead of a healthy empty scope', async () => {

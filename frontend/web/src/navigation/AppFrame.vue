@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, provide, ref, watch } from 'vue'
+import { onMounted, provide, ref } from 'vue'
 import type { ComponentPublicInstance } from 'vue'
 import { UiMotion } from '../ui'
 import { createFrame, frameContext } from './frame'
@@ -7,24 +7,10 @@ import { createFrame, frameContext } from './frame'
 const frame = createFrame()
 provide(frameContext, frame)
 const main = ref<ComponentPublicInstance | null>(null)
-const topbar = ref<HTMLElement | null>(null)
-let observer: ResizeObserver | undefined
 
 onMounted(() => {
   frame.mainElement.value =
     main.value?.$el instanceof HTMLElement ? main.value.$el : null
-  if (!topbar.value) return
-  observer = new ResizeObserver(() => {
-    const height = topbar.value?.offsetHeight || 54
-    frame.topbarHeight.value = height
-    frame.mainElement.value?.style.setProperty('--topbar-height', `${height}px`)
-  })
-  observer.observe(topbar.value)
-})
-onUnmounted(() => observer?.disconnect())
-
-watch(frame.sidebar, (mode) => {
-  if (mode === 'login') frame.topbarHeight.value = 54
 })
 </script>
 
@@ -56,13 +42,11 @@ watch(frame.sidebar, (mode) => {
       :layout-dependency="frame.layoutDependency.value"
       class="main-shell"
     >
-      <span
-        v-if="frame.sidebar.value !== 'login'"
-        class="main-notch brand-glow"
-        aria-hidden="true"
-      ></span>
-      <div id="frame-topbar" ref="topbar"></div>
-      <div id="frame-page"></div>
+      <div id="frame-topbar"></div>
+      <div
+        id="frame-page"
+        class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[18px] border-t border-l border-chrome-border max-[800px]:rounded-tl-none max-[800px]:border-l-0"
+      ></div>
     </UiMotion>
     <slot />
   </div>
@@ -70,8 +54,7 @@ watch(frame.sidebar, (mode) => {
 
 <style scoped>
 #frame-skip,
-#frame-sidebar,
-#frame-page {
+#frame-sidebar {
   display: contents;
 }
 

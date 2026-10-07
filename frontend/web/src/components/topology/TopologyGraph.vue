@@ -123,22 +123,22 @@ const ease = (t: number) =>
 function motionAllowed() {
   return !window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
-function topbarHeight(): number {
+function paneInsetTop(): number {
   return frame.value
     ? parseFloat(
-        getComputedStyle(frame.value).getPropertyValue('--topbar-height'),
+        getComputedStyle(frame.value).getPropertyValue('--pane-inset-top'),
       ) || 0
     : 0
 }
-// The canvas runs under the glass top bar, so the framed graph keeps clear
-// of it.
+// The inset is the part of the pane a header covers, so the framed graph
+// keeps clear of it.
 let framed: Rect | undefined
 function frameGraph(animate: boolean) {
   if (!framed || !dimensions.value.width) return false
   const inset = 48
   void fitBounds(framed, {
     padding: {
-      top: `${topbarHeight() + inset}px`,
+      top: `${paneInsetTop() + inset}px`,
       right: `${inset}px`,
       bottom: `${inset}px`,
       left: `${inset}px`,
@@ -154,14 +154,14 @@ onNodesInitialized(() => {
   if (framePending && frameGraph(false)) framePending = false
 })
 // The minimap only earns its space once part of the graph is off screen;
-// the strip under the glass top bar counts as off screen.
+// the strip under a split pane's header counts as off screen.
 const everythingVisible = computed(() => {
   const devices = getNodes.value.filter((node) => node.type === 'device')
   if (!devices.length || !dimensions.value.width) return true
   const { x, y, zoom } = viewport.value
   const bounds = getRectOfNodes(devices)
   const left = -x / zoom
-  const top = (topbarHeight() - y) / zoom
+  const top = (paneInsetTop() - y) / zoom
   const right = (dimensions.value.width - x) / zoom
   const bottom = (dimensions.value.height - y) / zoom
   return (
@@ -432,8 +432,8 @@ function edgesChanged(changes: EdgeChange[]) {
   color: var(--input);
 }
 .topology-graph :deep(.topology-inspector) {
-  top: calc(var(--topbar-height) + 14px);
-  max-height: calc(100% - var(--topbar-height) - 28px);
+  top: calc(var(--pane-inset-top) + 14px);
+  max-height: calc(100% - var(--pane-inset-top) - 28px);
 }
 .topology-graph :deep(.vue-flow__node) {
   cursor: pointer;
