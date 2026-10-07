@@ -97,6 +97,16 @@ as `Diff` sees it, each queue's rate and stated buffer included.
 `Layer.Retain` carries over active token buckets from a previous layer for policers
 whose configuration has not changed.
 
+## Files
+
+| File | Contract |
+| --- | --- |
+| [config.go](config.go) | Mirror, policer, and queue configuration, validation, and value lookups |
+| [layer.go](layer.go) | Runtime buckets, member-to-LAG queue lookup, cloning, and retention |
+| [mirror.go](mirror.go) | Copy selection, VLAN tag form, and truncation |
+| [policer.go](policer.go) | Token-bucket admission at the caller's time |
+| [diff.go](diff.go), [fact.go](fact.go) | Configuration changes and trace facts |
+
 ## Sources
 
 The shapes follow the Open vSwitch database schema on
