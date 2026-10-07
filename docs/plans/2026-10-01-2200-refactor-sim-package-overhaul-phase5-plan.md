@@ -29,6 +29,7 @@ and `F` is `src/common/sim/fabric`. Source labels are defined under
 Inventory, Sources.
 
 - The parent's Decisions apply.
+- The corpus case `troubleshooting/leave-last-member-query` configures its switch to drop unregistered multicast, so an expired group gives Dropped with no egress after two last member query intervals. Why: expiry at read time makes an expired group unregistered, and the case asks whether forwarding to the last member stops, which default flooding would hide. (decided by the user, 2026-10-07)
 - `mcast` owns the restore of its retained state, as `Restore(prev, keep)`
   on the layer `New` built from the target. Why: the switch replays each
   entry as an IGMPv2 or MLDv1 report (`V/derive.go:298-310`), which discards
@@ -470,14 +471,6 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Open questions
 
-- Blocked: `caseTroubleshootingLeaveLastMemberQuery` in
-  `src/common/sim/internal/simtest/cases.go` configures default unregistered
-  flooding but expects an expired group to remain registered and drop.
-  With expiry at read time, the isolated corpus test reports
-  `outcome = Flooded, want Dropped`, `reason = , want no-egress`, and
-  `step count = 6, want 4`. Correcting that case requires a file outside
-  the implementation brief's allowed paths. The expiry requirement remains
-  unchanged.
 - Unverified: what IEEE Std 802 requires of a frame under a local
   experimental EtherType. `IANA` is the source read, and the README cites
   it.
