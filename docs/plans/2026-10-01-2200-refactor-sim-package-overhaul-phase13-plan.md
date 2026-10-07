@@ -72,6 +72,15 @@ agreement clear on first or returns to the user.
 - A count or expectation outside `layer/stp` that moves names its cause in
   the commit body. Why: none moves today, so one that does comes from a
   change this plan did not expect.
+- The phase gains a Root reroot unit ahead of its sync rule. A new Root
+  port forwards when the tree is re-rooted, which the standard separates
+  from sync (`Q2003` 13.25.10 and Figure 13-17, `D2009` Figure 13-24), and
+  `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN` holds as written. The
+  re-plan specifies the reroot state, its timers, and the transition order
+  before implementation resumes. (decided by the user, 2026-10-07)
+- A VLAN tree's inherited bridge priority follows the bridge through every
+  normalize, as a tree port's inherited priority does. (decided by the
+  user, 2026-10-07)
 
 ## Requirements
 
@@ -248,16 +257,3 @@ assigns.
   and stated in `S/README.md` under Limits if the layer keeps its own rule.
 - Unverified: the published IEEE Std 802.1Q-2011 for every clause cited
   here, as the parent's Open questions say of each protocol phase.
-- Parked by drive: U1 is committed and its verifier fails on
-  `TestMSTITopologyChangeFlushesOnlyItsOwnVLAN`
-  (`src/common/sim/device/vswitch/switch_test.go`), which expects a new
-  Root port to forward at once. The standard agrees with the test: Root
-  forwarding follows `reRooted`, not sync (`Q2003` 13.25.10 and Figure
-  13-17, `D2009` Figure 13-24). The layer gates it on sync and holds no
-  reroot state, so U1's rule leaves that port Discarding. The work and
-  the evidence are on `parked/sim13-implement2`. Options: `plan`, adding
-  a Root reroot unit with its timers and transition order before U1's
-  verifier can pass (widens the phase, and the test then holds as
-  written) | stop, leaving the branch as it is (the four deferred
-  behaviors stay open). Recommended: `plan`, because the test is right by
-  both editions and no smaller change satisfies it.
