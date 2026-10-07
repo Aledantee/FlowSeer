@@ -1,5 +1,7 @@
 :root {
   color-scheme: light;
+  --glass: color-mix(in oklch, var(--m3-neutral-2) 45%, transparent);
+  --glass-panel: color-mix(in oklch, var(--m3-neutral-5) 55%, transparent);
   --background: var(--m3-neutral-5);
   --foreground: var(--m3-neutral-12);
   --muted-foreground: var(--m3-neutral-11);
@@ -47,6 +49,8 @@
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
+  --glass: color-mix(in oklch, var(--m3-neutral-2) 60%, transparent);
+  --glass-panel: color-mix(in oklch, var(--m3-neutral-1) 55%, transparent);
   --background: var(--m3-neutral-1);
   --foreground: var(--m3-neutral-12);
   --muted-foreground: var(--m3-neutral-11);
