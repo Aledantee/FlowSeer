@@ -105,7 +105,7 @@ for line in sys.stdin.buffer:
         self.assertIsNone(info["error"])
 
     def test_rpc_eof_reports_failure_and_reaps_server(self):
-        info, elapsed = self.pipe_read("eof")
+        info, elapsed = self.pipe_read("eof", timeout=30)
         self.assertEqual(info["error"], "unreadable codex app-server quota")
         self.assertIsNone(info["signed_in"])
         self.assertLess(elapsed, 2)
