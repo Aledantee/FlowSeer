@@ -1,9 +1,58 @@
 package fabric
 
 import (
+	"reflect"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 )
+
+func TestDiffFabricRunsOneSidedJourneyPresence(t *testing.T) {
+	root := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}}
+	mirrorA := Journey{FrameID: 20, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-a"}}
+	mirrorB := Journey{FrameID: 30, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-b"}}
+	release := Journey{FrameID: 40, Origin: JourneyOrigin{Kind: OriginRelease, Of: 10}}
+	cases := []struct {
+		name    string
+		a, b    []Journey
+		lineage []LineageStep
+	}{
+		{"different mirror names", []Journey{root, mirrorA}, []Journey{root, mirrorB}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
+		{"mirror and release", []Journey{root, mirrorA}, []Journey{root, release}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
+		{"extra mirror", []Journey{root, mirrorA}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
+		{"extra release", []Journey{root, release}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginRelease}}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var differences []analysis.Difference
+			for _, side := range []struct {
+				name, current, expected string
+				a, b                    []Journey
+			}{
+				{"current", "true", "false", tc.a, tc.b},
+				{"expected", "false", "true", tc.b, tc.a},
+			} {
+				t.Run(side.name, func(t *testing.T) {
+					action := locationAction(1)
+					diff, location, found := diffFabricRuns([]Action{action}, []FrameID{10}, []FrameID{10}, side.a, side.b, RunResult{}, RunResult{}, Snapshot{}, Snapshot{})
+					wantDiff := analysis.Difference{Observable: "multiplicity", Current: side.current, Expected: side.expected}
+					if !found || diff != wantDiff {
+						t.Errorf("difference = %+v, found %t, want %+v, true", diff, found, wantDiff)
+					}
+					wantLocation := DifferenceLocation{Area: DifferenceJourney, Injection: new(InjectionLocation{Index: 1, At: action.At}), Lineage: tc.lineage, Subject: "journey", Field: "Journey"}
+					if !reflect.DeepEqual(location, wantLocation) {
+						t.Errorf("location = %+v, want %+v", location, wantLocation)
+					}
+					differences = append(differences, diff)
+				})
+			}
+			if differences[0] == differences[1] {
+				t.Errorf("swapped differences = %+v and %+v, want different side presence", differences[0], differences[1])
+			}
+		})
+	}
+}
 
 func TestDiffJourneyIgnoresQueueThresholdButKeepsBehavior(t *testing.T) {
 	at := time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC)

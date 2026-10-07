@@ -37,16 +37,21 @@ fail, and one works, and a fourth class of item cannot be compared at all.
 
 ## What works
 
-Attribute each item by **provenance** — the causal chain back to the input under
-comparison — and pair by the *input's* ordinal, not the item's. netsim seeds the
-comparison set with the injected frame ids and takes the transitive closure over
-each journey's `Origin.Of` link (`collectScenarioJourneys`,
-`src/common/sim/fabric/compare.go:155`), then pairs the nth injection's journey
-*group* on each side (`collectInjectionJourneys`, `compare.go:256`), reporting a
-group-size mismatch as a `multiplicity` difference. Pre-existing history and its
-during-run descendants are excluded because their provenance never reaches an
-input root; genuine descendants (mirror copies, released held frames) are included
-because theirs does.
+Attribute each item by **provenance**, the causal chain back to the input under
+comparison. Pair by the input's ordinal and descendant lineage. The fabric seeds
+the comparison set with injected frame IDs and takes the transitive closure over
+each journey's `Origin.Of` link (`collectScenarioJourneys` in
+`src/common/sim/fabric/compare.go`). `pairJourneys` in
+`src/common/sim/fabric/comparison_location.go` pairs those descendants by origin
+kind, mirror name, and occurrence within each parent. A journey present on only
+one side reports `multiplicity` with `Current` and `Expected` set to `"true"` or
+`"false"` for that lineage's presence. Different mirror names can therefore
+produce a difference even when both groups have the same size.
+`TestDiffFabricRunsOneSidedJourneyPresence` in
+`src/common/sim/fabric/compare_internal_test.go` pins the values and lineage in
+both directions. Pre-existing history and its during-run descendants are excluded
+because their provenance never reaches an input root. Mirror copies and released
+held frames are included because theirs does.
 
 ## What cannot be compared per item
 

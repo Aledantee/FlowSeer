@@ -50,9 +50,8 @@ type DifferenceLocation struct {
 }
 
 type journeyPair struct {
-	location                    DifferenceLocation
-	current, expected           int
-	currentCount, expectedCount int
+	location          DifferenceLocation
+	current, expected int
 }
 
 type lineageJourney struct {
@@ -130,7 +129,7 @@ func pairJourneys(actions []Action, rootsA, rootsB []FrameID, a, b []Journey) []
 			if !oka {
 				lineage = jb.lineage
 			}
-			p := journeyPair{location: DifferenceLocation{Area: DifferenceJourney, Injection: new(injection), Lineage: slices.Clone(lineage), Subject: "journey"}, current: -1, expected: -1, currentCount: len(groupA), expectedCount: len(groupB)}
+			p := journeyPair{location: DifferenceLocation{Area: DifferenceJourney, Injection: new(injection), Lineage: slices.Clone(lineage), Subject: "journey"}, current: -1, expected: -1}
 			if oka {
 				p.current = ja.index
 			}
