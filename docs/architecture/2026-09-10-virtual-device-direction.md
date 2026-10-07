@@ -25,23 +25,24 @@ forwarding question is answered.
 
 `src/common/sim` is the home of network simulation. The library divides
 ownership across specialized packages:
+
 - `trace` is an import leaf defining typed execution steps, configuration diff
   changes, producer-owned rule IDs, and semantic facts.
 - `analysis` defines the trust contract: analysis readiness status, scoped
-  issues, evidence catalogs, and assumptions.
+  issues, evidence catalogs, assumptions, and shared comparison verdicts.
 - `device/vswitch` composes capabilities over a port table, validates and
   normalizes configurations, and returns forwarding results combining domain
   outcomes with analysis trust metadata.
 - `port` owns the port table. Capability packages under `layer/` (`phy`,
-  `bridge`, `lag`, `stp`, `mcast`, `routing`, `traffic`) own their respective
-  configurations, validation, normalization, cloning, diffs, and rule
+  `bridge`, `lag`, `stp`, `loopprotect`, `mcast`, `routing`, `filter`, `traffic`)
+  own their respective configurations, validation, normalization, cloning, diffs, and rule
   identifiers.
 - `netmodel` translates FlowSeer network model messages into virtual
   switch construction specifications, loading reports, and readiness metadata.
 - `fabric` composes switches, hosts, and cables into a stepped network simulation
-  recording traversal journeys.
+  recording traversal journeys, exact comparison locations, and trace alignment.
 - `search` enumerates finite scenario domains against current-versus-candidate
-  fabrics, minimizes causal counterexamples, and aligns traces.
+  fabrics and minimizes counterexamples while preserving exact targets.
 - `internal/simtest` maintains an admitted, versioned analysis conformance
   corpus.
 
@@ -419,6 +420,9 @@ rather than whole-state fingerprints or shallow boolean equality:
     behavioral observable to match.
   - `Different` requires a proven behavioral observable mismatch, naming the
     first differing observable and carrying an immutable `ReplaySpec`.
+    Fabric comparisons also name a `DifferenceLocation`: journey, run, or
+    snapshot area, subject, and exact field. Journey targets retain the
+    injection index and UTC time plus mirror/release lineage.
   - `Inconclusive` occurs when either side reports `Incomplete`, `Exhausted`,
     `Unstable`, or `Unsupported`, or when budget stopped a run that still held
     pending work. Equivalence over partial evaluation is never assumed.
@@ -433,7 +437,9 @@ rather than whole-state fingerprints or shallow boolean equality:
   pair by frame ID. Instead, journeys pair by injection ordinal: the nth
   scenario injection's journey on side A pairs with the nth injection's journey
   on side B. Pre-scenario journeys represent shared history and are excluded
-  from the diff.
+  from the diff. Mirror and release descendants pair by kind, mirror name,
+  and parent-relative occurrence, including one-sided descendants
+  (`src/common/sim/fabric/comparison_location.go`).
 - **Separation from convergence fingerprints.** `Snapshot.Fingerprint()` remains
   the convergence oracle covering device and link convergence across periodic
   protocol boundaries. It does not capture per-journey paths, arrival timing, or
@@ -448,38 +454,50 @@ bounded equivalence under a resource contract:
 
 - **Finite domain enumeration.** A search domain implements the `Domain`
   interface with `Size() int` and an internal iterator `Enumerate(yield func(Candidate) bool)`.
-  Candidates represent test scenarios paired with domain tuple identities.
+  Candidates hold independent injection and fault `fabric.Action` values paired
+  with domain tuple identities. Action indices survive reduction, and tied
+  unnumbered declarations place injections before faults.
   Enumeration follows a total deterministic order independent of map iteration.
   When a search halts early on its candidate budget, it returns an exact slice of
   untested tuples alongside tested coverage (`Coverage` and `Remainder`).
 - **Domain scopes.** Two concrete domains exist: `L2TrafficDomain` (cross
   product of declared source, destination, VLAN, and frame-shape tuples) and
-  `TimedFaultDomain` (declared cable faults at declared times). `L3Domain` is an
-  interface only this phase, deferring routed traffic enumeration to a later
-  increment without altering the search pipeline.
+  `TimedFaultDomain` (declared cable faults at declared times). Both constructors
+  return a domain and an error after validation. Empty dimensions yield empty
+  domains. No routed-domain interface is declared (`src/common/sim/search`).
 - **Comparison per candidate.** `search.Search(current, candidate, dom, lim)`
-  evaluates each candidate via `fabric.Compare(current, candidate, cand.Scenario, lim.Budget)`.
+  evaluates each candidate via
+  `fabric.Compare(current, candidate, cand.ToScenario(lim.Budget), lim.Budget)`.
   `fabric.Compare` forks both fabrics internally. Neither the current nor the
   candidate fabric is stepped or consumed across the search, so callers can reuse
-  mid-run fabrics directly.
+  mid-run fabrics directly. Invalid limits return an error before enumeration.
+  Candidate failures increment `Result.Errors` and keep the first wrapped
+  error in `Result.Err`, then enumeration continues.
 - **Resource contract and asymmetric retention.** Discarded candidates (equivalent
   or inconclusive) record coverage accounting and a summary count only, without
   full execution traces. Only retained `Different` candidates (bounded by
   `lim.MaxDifferences`) preserve their tuple identity, immutable `[2]ReplaySpec`,
-  and first differing `Difference` observable.
+  and first differing `Difference` observable. Zero retention keeps counts
+  only, and `-1` retains all differences. Tested coverage includes errors.
 - **Deterministic counterexample minimization.** When a behavioral difference is
   found, `Minimize` performs deterministic reduction within the domain by
   removing scenario elements (injections, then faults) in a fixed order. A
   removal is accepted only if `fabric.Compare` replayed on the reduced candidate
-  still reproduces the exact same `Difference.Observable`. Minimization reports
-  `Minimal` or `LimitReached`.
-- **First-divergence trace alignment.** For a retained comparison, `Align`
-  walks paired journeys in deterministic order and locates the first entry index
-  where causal trace facts diverge. Trace facts remain diagnostic and never
+  still reproduces the same `DifferenceLocation` and all `Difference` values.
+  `Minimization` returns the candidate, target, difference, and `Minimal` or
+  `LimitReached`. Invalid inputs, comparison errors, and an initial
+  non-difference return errors. Exact values may retain an otherwise removable
+  action (`TestMinimizeExactValuesCanRetainOtherwiseRemovableAction` in
+  `src/common/sim/search/minimize_test.go`).
+- **First-divergence trace alignment.** `fabric.Align` uses comparison's injection
+  and ancestry pairing, including one-sided descendants. It retains a behavioral
+  location separately from an optional diagnostic trace location. Trace indices
+  address original entries, including queue diagnostics. Trace facts never
   alter the behavioral disposition.
 - **Package dependency direction.** The `search` package imports `analysis`,
-  `vswitch`, and `fabric`. None of `analysis`, `vswitch`, or `fabric` imports
-  `search`.
+  `fabric`, and network codec/value packages in production. Search tests import
+  `vswitch` to construct fixtures. None of `analysis`, `vswitch`, or `fabric`
+  imports `search`.
 
 ### LAG bucket selection and multicast query observation
 
@@ -913,16 +931,16 @@ admitted case must define:
 ## Consequences
 
 - `src/common/net/netaddr`, `src/common/net/vlan`, and `src/common/net/ethernet` hold
-  the value types and the codec; `src/common/sim/trace` holds the step,
-  trace, and change records; `src/common/sim/analysis` holds the trust
-  metadata, issue scopes, and evidence catalog; `src/common/sim/device/vswitch`
-  holds the switch itself, while `src/common/sim/layer`,
-  `src/common/sim/port`, and `src/common/sim/netmodel` hold the capability
-  layers, the port table, and the protobuf boundary;
+  the value types and the codec. `src/common/sim/trace` holds the step,
+  trace, and change records. `src/common/sim/analysis` holds the trust
+  metadata, issue scopes, evidence catalog, and shared comparison verdicts.
+  `src/common/sim/device/vswitch` holds the switch itself.
+  `src/common/sim/layer`, `src/common/sim/port`, and `src/common/sim/netmodel`
+  hold the capability layers, the port table, and the protobuf boundary.
   `src/common/sim/fabric` holds switches, hosts, cables, the run,
-  journeys, snapshots, comparison, diff, and derivation;
+  journeys, snapshots, comparison locations, trace alignment, diff, and derivation.
   `src/common/sim/search` holds bounded differential search, counterexample
-  minimization, and trace alignment;
+  minimization, validated action domains, and counts-only retention.
   `src/common/sim/internal/simtest` holds the versioned conformance
   corpus. A `service.Module` leaf is written with the first host.
 - The forwarding scope grows by capability: rapid spanning tree with

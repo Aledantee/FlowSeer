@@ -173,7 +173,8 @@ stats := fab.Flows()[7]
 fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 ```
 
-The source reports offsets from its own start. The injection time is
+The source reports offsets from the consumer epoch. Spec sources include
+`Spec.Start` in that offset. The injection time is
 `Config.Start + StreamAttachment.Start + source offset`. Before each step, the
 run releases pending host injections and pulls stream frames
 due no later than the earliest queued arrival. When the queue is empty, it
@@ -1167,6 +1168,9 @@ The comparison evaluates three dispositions:
   `Comparison.Replay` is a `[2]ReplaySpec` carrying an immutable replay
   specification for each side: `[0]` reconstructs the current fabric, `[1]` the
   candidate, so a `Different` reproduces both sides of the divergence.
+  `Comparison.Location` identifies the exact behavioral field in a journey,
+  run result, or snapshot (`comparison_location.go`). Journey locations retain
+  injection index and UTC time plus parent-relative mirror/release lineage.
 - `analysis.Inconclusive`: Observable behaviors matched but one or both runs
   did not complete (such as step budget exhaustion before pending arrivals or
   egress queues drained, or an underlying component reporting incomplete readiness).
@@ -1195,6 +1199,15 @@ are diagnostic: differences in diagnostics alone never yield `Different`.
 comparison, including its entry count. A changed delivery or drop still yields
 a difference.
 
+`fabric.Align(cmp)` returns an `Alignment` and a presence flag. A `Different`
+result always retains its behavioral location, even if traces agree. Its
+optional `Trace` names the injection, lineage, both report journey indices,
+and an original entry index. One-sided journeys use index `-1` for the absent
+side. Queue diagnostics stay available to alignment while behavioral field
+ordinals skip them. An inconclusive comparison may carry a diagnostic trace
+without asserting a behavioral difference. Equivalent comparisons have no
+alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
+
 ### Internal fork lifecycle
 
 `Compare` executes internally on `[Fabric.Fork]` copies of both fabrics. Neither
@@ -1205,7 +1218,9 @@ The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
 by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`); pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
-scenario comparison.
+scenario comparison. Mirror and release descendants pair by parent-relative
+kind, mirror name, and occurrence, including descendants present on one side
+only (`pairJourneys` in `comparison_location.go`).
 
 ## Representative scale and fork cost
 
