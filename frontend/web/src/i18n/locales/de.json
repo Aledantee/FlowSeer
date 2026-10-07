@@ -487,28 +487,44 @@
       "trigger": "Hilfe"
     },
     "login": {
-      "about": {
-        "clients": "Wer verbunden ist, wo, auf welchem Band und mit welcher Signalqualität.",
-        "devices": "Jeder Switch, jedes Gateway und jeder Access Point mit Zustand, Ports und Datenverkehr.",
-        "sites": "Jeder Standort mit seinen Geräten und deren Zustand, samt Umzügen zwischen Standorten.",
-        "topology": "Wie die Geräte miteinander verbunden sind, als Karte zum Untersuchen."
-      },
-      "aboutLead": "{brand} zeigt die Geräte, Clients und Verbindungen jedes Standorts, damit Sie den Ausfall finden, bevor ihn jemand meldet.",
-      "aboutTitle": "Alle Netzwerke, die Sie betreiben, in einer Konsole.",
-      "documentTitle": "Anmelden · {brand}",
       "devSkip": "Anmeldung als Admin überspringen (nur Dev)",
+      "documentTitle": "Anmelden · {brand}",
       "email": "Geschäftliche E-Mail-Adresse",
       "emailInvalid": "Geben Sie eine E-Mail-Adresse wie name{'@'}firma.de ein.",
       "emailPlaceholder": "name{'@'}firma.de",
       "emailRequired": "Geben Sie Ihre geschäftliche E-Mail-Adresse ein.",
       "lead": "Die Anmeldung erfolgt über den Identitätsanbieter Ihrer Organisation.",
-      "lines": {
-        "amber": "Irgendwo blinkt gerade ein Switch gelb.",
-        "dns": "Es ist nicht DNS. Es kann nicht DNS sein. Es war DNS.",
-        "fine": "Dem Netzwerk geht es gut. Dem Netzwerk geht es immer gut.",
-        "layerEight": "Probleme auf Schicht 8 bleiben außerhalb des Auftrags.",
-        "story": "Jedes Paket hat eine Geschichte. Die meisten sind kurz.",
-        "uptime": "Fünf Neunen, plus minus ein paar Neunen."
+      "overview": {
+        "example": "Beispielnetzwerk",
+        "eyebrow": "Ein Blick in die Konsole",
+        "inspect": {
+          "body": "Prüfen Sie Gerätezustand, Portstatus und Datenverkehr. Finden Sie verbundene Clients und prüfen Sie deren Signal.",
+          "title": "Bis zum Port ins Detail."
+        },
+        "lead": "Vom Standort bis zum einzelnen Port. Erkunden Sie, wie Ihre Geräte verbunden sind und welche Daten zwischen ihnen fließen.",
+        "path": {
+          "accessPoint": {
+            "detail": "Hier verbinden sich Clients",
+            "title": "Access Point"
+          },
+          "gateway": {
+            "detail": "Der Weg nach draußen",
+            "title": "Gateway"
+          },
+          "switch": {
+            "detail": "Die Verbindungen dazwischen",
+            "title": "Switch"
+          }
+        },
+        "site": "Ein Standort im Detail",
+        "title": "Das Netz sehen. Zusammenhänge verstehen.",
+        "trace": {
+          "body": "Wechseln Sie vom Standort zu seinen Geräten. Die Topologie zeigt, welche Verbindungen sie zusammenhalten.",
+          "title": "Verbindungen im Blick behalten."
+        },
+        "trafficPeriod": "Ein beispielhafter Zeitraum von 15 Minuten",
+        "trafficSummary": "Der beispielhafte Datenverkehr steigt in 15 Minuten von {start} auf {end}.",
+        "trafficTitle": "Datenverkehr im Überblick"
       },
       "submit": "Weiter mit Single Sign-on",
       "title": "Bei {brand} anmelden"

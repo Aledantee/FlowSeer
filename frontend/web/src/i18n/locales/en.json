@@ -487,28 +487,44 @@
       "trigger": "Help"
     },
     "login": {
-      "about": {
-        "clients": "Who is connected, where, on which band, and how good their signal is.",
-        "devices": "Every switch, gateway, and access point with its health, ports, and traffic.",
-        "sites": "Each location with its devices and their state, and moves between sites.",
-        "topology": "How the devices link together, drawn as a map you can inspect."
-      },
-      "aboutLead": "{brand} shows the devices, clients, and links at each site, so you find the failing one before a user reports it.",
-      "aboutTitle": "See every network you run in one console.",
-      "documentTitle": "Sign in · {brand}",
       "devSkip": "Skip login as admin (dev only)",
+      "documentTitle": "Sign in · {brand}",
       "email": "Work email",
       "emailInvalid": "Enter an email address such as name{'@'}company.com.",
       "emailPlaceholder": "name{'@'}company.com",
       "emailRequired": "Enter your work email.",
       "lead": "Your organization's identity provider signs you in.",
-      "lines": {
-        "amber": "Somewhere, a switch is blinking amber.",
-        "dns": "It's not DNS. There's no way it's DNS. It was DNS.",
-        "fine": "The network is fine. The network is always fine.",
-        "layerEight": "Layer 8 problems are still out of scope.",
-        "story": "Every packet has a story. Most of them are short.",
-        "uptime": "Five nines, give or take a few nines."
+      "overview": {
+        "example": "Example network",
+        "eyebrow": "Inside the console",
+        "inspect": {
+          "body": "Inspect device health, port state, and traffic. Find connected clients and check their signal.",
+          "title": "Get down to the port."
+        },
+        "lead": "From a site to a single port. Explore how your devices connect and what passes between them.",
+        "path": {
+          "accessPoint": {
+            "detail": "Where clients connect",
+            "title": "Access point"
+          },
+          "gateway": {
+            "detail": "The way out",
+            "title": "Gateway"
+          },
+          "switch": {
+            "detail": "The links between",
+            "title": "Switch"
+          }
+        },
+        "site": "A view into one site",
+        "title": "See the network. Follow the connection.",
+        "trace": {
+          "body": "Move from your sites to their devices. Use topology to see which links hold them together.",
+          "title": "Keep the connections in view."
+        },
+        "trafficPeriod": "An illustrative 15-minute window",
+        "trafficSummary": "Example traffic rises from {start} to {end} over 15 minutes.",
+        "trafficTitle": "Traffic at a glance"
       },
       "submit": "Continue with single sign-on",
       "title": "Sign in to {brand}"
