@@ -299,3 +299,7 @@ stands still, and the login top bar shows only the two switches.
   ease, so a label is faint while the panel is far from its place. The
   recommendation is to ship the fade and let the person's check decide
   whether more is needed.
+
+## Review gaps
+
+- frontend/web/src/main.ts:34: `void router.isReady().then(() => app.mount('#app'))` drops a rejected first navigation; fails: the initial navigation throws or is aborted and the page stays blank with an unhandled rejection; class: hardening
