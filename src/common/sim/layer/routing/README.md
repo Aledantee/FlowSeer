@@ -197,11 +197,15 @@ The candidate is chosen by hashing the packet's layer 3 flow with FNV-1a
 flow label zero. Selecting the egress first lets it choose a source on that
 interface, as [RFC 1122 section 3.3.4.3](https://www.rfc-editor.org/rfc/rfc1122#section-3.3.4.3)
 suggests and [RFC 6724 Rule 5](https://www.rfc-editor.org/rfc/rfc6724#section-5)
-prefers. The caller's payload contributes nothing to selection.
+prefers. For a non-link-local destination, a non-link-local source of the
+same family is preferred whenever the VRF has one, before choosing the egress
+address ([RFC 6724 Rule 2](https://www.rfc-editor.org/rfc/rfc6724#section-5)).
+The caller's payload contributes nothing to selection.
 
 ```mermaid
 flowchart TD
-    route[Select egress with unspecified source hash] --> prefix{Egress prefix contains on-link next hop?}
+    route[Select egress with unspecified source hash] --> scope[Keep eligible source scopes]
+    scope --> prefix{Egress prefix contains on-link next hop?}
     prefix -- Yes --> matched[Use address with longest matching prefix]
     prefix -- No --> family{Egress has address of destination family?}
     family -- Yes --> egress[Use egress first address of family]
@@ -422,8 +426,9 @@ defaults to 3 rather than the permitted minimum of 1, because an analysis
 library is asked which of several frames arrived, and a depth of 1 answers
 that for the last one only.
 
-The replaced frame is not discarded: it surfaces in `DrainExits` after the next `Advance` as a
-`HeldEvicted` exit, under its own reason `neighbor-hold-overflow`. That reason
+The replaced frame surfaces in `DrainExits` after the next `Advance` or a
+committing lookup retires its failed neighbor entry, as a `HeldEvicted` exit
+under its own reason `neighbor-hold-overflow`. That reason
 is deliberately not `neighbor-miss`, because the neighbor may well resolve,
 and on a queue that overflowed because frames kept arriving it usually does —
 often on the same `Advance` that reports the eviction.

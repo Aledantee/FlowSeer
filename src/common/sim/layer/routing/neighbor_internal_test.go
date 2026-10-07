@@ -2,7 +2,9 @@ package routing
 
 import (
 	"encoding/binary"
+	"fmt"
 	"net/netip"
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -322,7 +324,7 @@ func firstDuplicate(s []byte) byte {
 	return 0
 }
 
-// TestResolveNeighborStoredZeroStateIsAMiss tests that [vrfState.resolveNeighbor] treats a stored
+// TestResolveNeighborStoredZeroStateIsAMiss tests that [Layer.resolveNeighbor] treats a stored
 // zero state as a miss rather than silently starting to hold frames for a neighbor nothing ever looked up.
 // [NeighborState]'s zero value, [NeighborUnobserved], is meaningful only as a lookup answer, but [neighborEntry]{}
 // is a legal Go zero value too. No exported path stores one. This reaches into the package to reproduce it directly.
@@ -337,7 +339,7 @@ func TestResolveNeighborStoredZeroStateIsAMiss(t *testing.T) {
 	vs.neighbors[key] = &neighborEntry{}
 
 	calls := 0
-	lookup := vs.resolveNeighbor(time.Now(), key, Interface{}, true, func() heldEntry {
+	lookup := (&Layer{}).resolveNeighbor(vs, time.Now(), key, Interface{}, true, func() heldEntry {
 		calls++
 		return heldEntry{}
 	})
@@ -372,5 +374,116 @@ func TestFailHeldDeletesIncompleteEntry(t *testing.T) {
 	}
 	if _, ok := l.NextWake(); ok {
 		t.Fatal("FailHeld retains timer")
+	}
+}
+
+func TestNeighborLookupMatchesPriorAdvance(t *testing.T) {
+	t.Parallel()
+	for _, dst := range []netip.Addr{conservationAddrs[0], conservationAddrsV6[0]} {
+		for _, scenario := range []struct {
+			state     NeighborState
+			exhausted bool
+		}{
+			{NeighborIncomplete, true},
+			{NeighborProbe, true},
+			{NeighborDelay, false},
+			{NeighborIncomplete, false},
+			{NeighborProbe, false},
+		} {
+			state := scenario.state
+			for _, commit := range []bool{false, true} {
+				for _, originate := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/%s/exhausted=%t/commit=%t/originate=%t", dst, state, scenario.exhausted, commit, originate), func(t *testing.T) {
+						unaged := conservationLayer(t, 1)
+						t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+						first := unaged.Originate(t0, DefaultVRF, dst, 17, []byte{1}, true)
+						second := unaged.Originate(t0, DefaultVRF, dst, 17, []byte{2}, true)
+						var third Result
+						if state != NeighborIncomplete {
+							unaged.observe(t0, advertisement{Interface: "vlan10", Addr: dst, MAC: conservationSenderMAC, HasMAC: true, Override: true})
+							unaged.Advance(t0)
+							unaged.DrainExits()
+							unaged.Originate(t0, DefaultVRF, dst, 17, nil, true)
+							if state == NeighborProbe {
+								seconds := []int{5}
+								if scenario.exhausted {
+									seconds = []int{5, 6, 7}
+								}
+								for _, seconds := range seconds {
+									unaged.Advance(t0.Add(time.Duration(seconds) * time.Second))
+								}
+							}
+						} else {
+							unaged.Advance(t0.Add(time.Second))
+							if scenario.exhausted {
+								unaged.Advance(t0.Add(2 * time.Second))
+							}
+							// Keep an eviction waiting at the instant the exhausted entry fails.
+							third = unaged.Originate(t0.Add(2*time.Second), DefaultVRF, dst, 17, []byte{3}, true)
+						}
+						now := t0.Add(10 * time.Second)
+						aged := unaged.Clone()
+						aged.Advance(now)
+						agedExits := aged.DrainExits()
+						before := unaged.Clone()
+						lookup := func(l *Layer) Result {
+							if originate {
+								return l.Originate(now, DefaultVRF, dst, 17, []byte{4}, commit)
+							}
+							hdr := ip.Header{Src: netip.MustParseAddr("10.0.10.99"), Dst: dst, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}
+							etherType := ethernet.EtherTypeIPv4
+							if dst.Is6() {
+								hdr.Src, hdr.V4, hdr.V6 = netip.MustParseAddr("2001:db8:10::99"), nil, &ip.V6{}
+								etherType = ethernet.EtherTypeIPv6
+							}
+							packet, err := hdr.Encode([]byte{4})
+							if err != nil {
+								t.Fatal(err)
+							}
+							return l.Route(now, "vlan10", ethernet.Frame{Src: conservationSenderMAC, Dst: conservationDeviceMAC, EtherType: etherType, Payload: packet}, commit)
+						}
+						got, want := lookup(unaged), lookup(aged)
+						if got.Reason != want.Reason || got.Frame.Dst != want.Frame.Dst || !reflect.DeepEqual(got.Emissions, want.Emissions) || (got.Hold != 0) != (want.Hold != 0) {
+							t.Fatalf("unaged result = %+v, aged = %+v", got, want)
+						}
+						if scenario.exhausted && (got.Reason != ReasonNeighborPending || (commit && (got.Hold == 0 || len(got.Emissions) != 1))) {
+							t.Fatalf("exhausted cycle result = %+v, want fresh resolution", got)
+						}
+						if !commit && !reflect.DeepEqual(unaged, before) {
+							t.Fatal("non-committing lookup changed layer")
+						}
+						unaged.Advance(now)
+						aged.Advance(now)
+						agedExits = append(agedExits, aged.DrainExits()...)
+						if !reflect.DeepEqual(unaged.Neighbors(), aged.Neighbors()) {
+							t.Fatalf("neighbors differ: %v vs %v", unaged.Neighbors(), aged.Neighbors())
+						}
+						gotWake, gotTimer := unaged.NextWake()
+						wantWake, wantTimer := aged.NextWake()
+						if gotWake != wantWake || gotTimer != wantTimer {
+							t.Fatalf("wake differs: %v/%t vs %v/%t", gotWake, gotTimer, wantWake, wantTimer)
+						}
+						if gotExits := unaged.DrainExits(); !reflect.DeepEqual(gotExits, agedExits) {
+							t.Fatalf("exits differ: %+v vs %+v", gotExits, agedExits)
+						}
+						if state == NeighborIncomplete && scenario.exhausted {
+							causes := map[HoldToken]HeldCause{}
+							for _, exit := range agedExits {
+								causes[exit.Token] = exit.Cause
+							}
+							if causes[first.Hold] != HeldEvicted || causes[second.Hold] != HeldEvicted {
+								t.Fatalf("eviction causes = %v", causes)
+							}
+							if len(causes) != 3 {
+								t.Fatalf("exits = %v, want two evicted and one timed-out", causes)
+							}
+							if causes[third.Hold] != HeldTimedOut {
+								t.Fatalf("timeout missing: %v", causes)
+							}
+						}
+					})
+				}
+			}
+		}
 	}
 }
