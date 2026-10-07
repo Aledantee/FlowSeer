@@ -112,6 +112,31 @@ Commit `3e6aed96` quotes the reception-only mutation's failure:
 --- FAIL: TestNeighborEntryPointsMatchPriorAdvance/2001:db8:10::11/probe-exhausted/solicitation-no-option (0.00s)
 ```
 
+## Include capacity reads and compare different histories
+
+A capacity check reads time-dependent state too. With `MaxEntries: 1`,
+seed A at `t0` and learn B at `t0+301s`. Expiry must free the slot before
+an eviction decision. `src/common/sim/layer/bridge/ingress.go:461-465`
+runs `Advance(now)` at the bound and then checks the bound again. Commit
+`d453c3da` records the old-bound mutation failing
+`TestFDBFrameTimeMatchesPriorAdvance/max=1/world=3/layout=7`.
+
+The test compares traces and egress before closing aging, then entries and
+counters (`src/common/sim/layer/bridge/fdb_time_test.go:79-87`). Its concrete
+expectation at `:92-93` is:
+
+```go
+wantEntries := []bridge.Entry{{MAC: macB, Port: "1/1/2", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: now}}
+wantCounters := bridge.Counters{Learned: 2, Expired: 1}
+```
+
+Keep the first copy unaged and advance only its clone (`:56-59`). Before
+commit `6e752071`, a `priorAdvance` bit aged the first copy before cloning,
+so half the rows compared identical histories. The corrected matrix has
+4,128 rows and literal guards for two concrete and two boundary expectations
+(`:140-147`). A second learning frame exposes dynamic-count drift that equal
+entries can hide (`:128-134`).
+
 ## Scope
 
 Apply this comparison when caller aging must be optional. It does not
