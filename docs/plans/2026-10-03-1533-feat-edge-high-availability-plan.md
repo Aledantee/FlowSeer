@@ -2,9 +2,7 @@
 title: Edge High Availability - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 amends: docs/architecture/2026-09-05-verified-device-access-direction.md
 ---

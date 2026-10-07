@@ -13,8 +13,15 @@
       "allowWrite": [
         "~/Library/Caches/go-build",
         "~/Library/Caches/golangci-lint",
-        "~/go/pkg/mod"
+        "~/go/pkg/mod",
+        "~/Library/pnpm/store",
+        "~/Library/pnpm/package-manager-store",
+        "~/Library/Caches/pnpm",
+        "~/.cache/uv"
       ]
+    },
+    "network": {
+      "allowedDomains": ["registry.npmjs.org"]
     }
   },
   "hooks": {

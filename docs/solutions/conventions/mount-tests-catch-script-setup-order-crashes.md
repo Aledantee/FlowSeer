@@ -70,30 +70,25 @@ Domain unit tests test helper functions outside the component, so they never exe
 Declare reactive primitives (`ref`, `reactive`), route composables, and props before any
 watchers, lifecycle callbacks (`onMounted`), or helpers that reference them.
 
-In `frontend/web/src/FleetView.vue:59-77`:
+In `frontend/web/src/FleetView.vue`, the route, the fleet, the `message`, and the `move` refs are declared in `<script setup>` before any watcher that reads them:
 
 ```ts
-const notice = ref<HTMLElement>()
 const route = useRoute()
 const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
 ...
-const message = ref('')
+const message = ref<NoticeKey | ''>('')
 const move = ref<Move>()
 ```
 
-Only after state is declared do computed properties and watchers register
-(`frontend/web/src/FleetView.vue:129-139`):
+Only after state is declared do computed properties and watchers register. A
+watcher that reads `message` and `move` belongs below both declarations:
 
 ```ts
 watch(
   () => message.value || move.value?.deviceId,
   (value) => {
-    if (value)
-      play(notice.value, {
-        opacity: [0.6, 1],
-        transform: ['translateY(-4px)', 'none'],
-      })
+    if (value) announce(value)
   },
   { flush: 'post' },
 )
@@ -103,7 +98,7 @@ watch(
 
 Domain unit tests alone do not guarantee a view initializes. Every view must have a
 mount test in Vitest that instantiates the component within its router context
-(`frontend/web/src/FleetView.test.ts:68-97`):
+(`mountAt` in `frontend/web/src/FleetView.test.ts`). The mount provides the registry under `aiRegistryKey` and installs no directive, because components register through `useAiTarget`:
 
 ```ts
 async function mountAt(path: string) {
@@ -128,7 +123,6 @@ async function mountAt(path: string) {
   await router.push(path)
   app.use(createWebI18n())
   app.use(router)
-  app.directive('ai-target', createAiTargetDirective(registry))
   app.provide(aiRegistryKey, registry)
   await router.isReady()
   app.mount(host)

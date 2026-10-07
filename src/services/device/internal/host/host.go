@@ -2,26 +2,38 @@ package host
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
+	identityv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/service"
 	"go.aledante.io/FlowSeer/src/common/spawn"
 	"go.aledante.io/FlowSeer/src/modules/edgebus"
+	"go.aledante.io/FlowSeer/src/services/device/internal/accessstore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authn"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz"
+	"go.aledante.io/FlowSeer/src/services/device/internal/authz/openfga"
 	"go.aledante.io/FlowSeer/src/services/device/internal/captureapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/centralaudit"
 	"go.aledante.io/FlowSeer/src/services/device/internal/credential"
 	"go.aledante.io/FlowSeer/src/services/device/internal/dispatchapi"
 	"go.aledante.io/FlowSeer/src/services/device/internal/drift"
 	"go.aledante.io/FlowSeer/src/services/device/internal/edgestore"
+	"go.aledante.io/FlowSeer/src/services/device/internal/intake"
 	"go.aledante.io/FlowSeer/src/services/device/internal/journal"
+	"go.aledante.io/FlowSeer/src/services/device/internal/projector"
 	"go.aledante.io/FlowSeer/src/services/device/internal/registry"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
+	"go.aledante.io/FlowSeer/src/services/device/internal/tenantstore"
 )
 
 // ErrCodeStart is a service that cannot be assembled from what it was given.
@@ -73,7 +85,7 @@ const (
 // Run assembles the device service and runs it until ctx ends or the runtime
 // stops it.
 //
-// The six modules are declared in dependency order and supervised
+// The eight modules are declared in dependency order and supervised
 // RestForOne, which is what makes the hub handle safe: see [hubHandle]. The
 // service declares no local message bus — its durability is the hub's
 // JetStream, and a second embedded broker would be a second store to keep.
@@ -86,7 +98,11 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 	// refused call's reason at DEBUG on the argument that an operator can
 	// raise the level when they need the detail, and that argument only
 	// holds if raising it is possible without a rebuild.
-	base := slog.New(slog.NewJSONHandler(newStderr(), &slog.HandlerOptions{Level: cfg.LogLevel()}))
+	var logOut io.Writer = newStderr()
+	if opts.LogWriter != nil {
+		logOut = opts.LogWriter
+	}
+	base := slog.New(slog.NewJSONHandler(logOut, &slog.HandlerOptions{Level: cfg.LogLevel()}))
 	reg, err := registry.Load(cfg.RegistryPath())
 	if err != nil {
 		return err
@@ -110,6 +126,53 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		hub:         newHubHandle(),
 	}
 
+	var (
+		engine authz.Engine
+		closer io.Closer
+	)
+	if opts.Engine != nil {
+		engine = opts.Engine
+	} else {
+		authzCfg := cfg.Authorization()
+		fgaOpts := openfga.Options{
+			Endpoint: authzCfg.GetEndpoint(),
+			StoreID:  authzCfg.GetStoreId(),
+			ModelID:  authzCfg.GetModelId(),
+			KeyFile:  authzCfg.GetPresharedKeyFile(),
+			CAFile:   authzCfg.GetCaFile(),
+		}
+		fga, err := openfga.New(ctx, fgaOpts)
+		if err != nil {
+			return err
+		}
+		engine = fga
+		closer = fga
+	}
+	if closer != nil {
+		defer func() { _ = closer.Close() }()
+	}
+	h.engine = engine
+
+	if caFile := cfg.Authentication().GetCaFile(); caFile != "" {
+		caPEM, err := os.ReadFile(caFile)
+		if err != nil {
+			return errs.From(err).Code(ErrCodeStart).Msg("read authentication CA file")
+		}
+		certPool := x509.NewCertPool()
+		if !certPool.AppendCertsFromPEM(caPEM) {
+			return errs.New().Code(ErrCodeStart).Msg("failed to parse authentication CA certificate")
+		}
+		tlsConfig := &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			RootCAs:    certPool,
+		}
+		h.authnClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
+		}
+	}
+
 	return service.Run(ctx, service.Config{
 		Identity: service.Identity{
 			Name:      serviceName,
@@ -125,10 +188,12 @@ func Run(ctx context.Context, cfg *Config, version string, opts Options) error {
 		Modules: []service.Module{
 			{Name: "hub", Leaf: &service.Leaf{Setup: h.setupHub}},
 			{Name: "forwarder", Gate: h.forwarderGate(), Leaf: &service.Leaf{Setup: h.setupForwarder}},
+			{Name: "intake", Leaf: &service.Leaf{Setup: h.setupIntake}},
 			{Name: "journal", Leaf: &service.Leaf{Setup: h.setupJournal}},
 			{Name: "connect", Leaf: &service.Leaf{Setup: h.setupConnect}},
 			{Name: "drift", Leaf: &service.Leaf{Setup: h.setupDrift}},
 			{Name: "capture_sweeper", Leaf: &service.Leaf{Setup: h.setupCaptureSweeper}},
+			{Name: "projector", Leaf: &service.Leaf{Setup: h.setupProjector}},
 		},
 	})
 }
@@ -168,6 +233,18 @@ type Options struct {
 	// exists to prevent. Take what you need from it and take it again when
 	// you are called again.
 	Hub func(hub *edgebus.Hub)
+
+	// Engine provides an in-memory authorization engine for tests.
+	// When unset, Run constructs an openfga adapter from the configuration.
+	Engine authz.Engine
+
+	// Reconciled is called after each relationship reconciliation pass that
+	// completes without error.
+	// Nil means nobody is watching.
+	Reconciled func()
+
+	// LogWriter overrides where the host logs are written. Nil uses stderr.
+	LogWriter io.Writer
 }
 
 // assembly holds what every attempt of every module draws from: the things
@@ -180,6 +257,8 @@ type assembly struct {
 	credentials *credential.Provider
 	certificate *Certificate
 	hub         *hubHandle
+	engine      authz.Engine
+	authnClient *http.Client
 }
 
 func (h *assembly) telemetryConfig() service.TelemetryConfig {
@@ -268,6 +347,30 @@ func (b *busResources) edgeTenant(ctx context.Context, edgeID string) (string, e
 	return t, nil
 }
 
+func openAccessStore(ctx context.Context, hub *edgebus.Hub) (*accessstore.Store, error) {
+	kv, err := hub.JetStream().KeyValue(ctx, edgebus.AccessBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open the access bucket")
+	}
+	return accessstore.New(kv, time.Now), nil
+}
+
+type projectorAccess struct {
+	*accessstore.Store
+}
+
+func (a projectorAccess) Members(ctx context.Context, tenantID string) ([]*identityv1.Member, error) {
+	return a.ListMembers(ctx, tenantID)
+}
+
+func (a projectorAccess) Roles(ctx context.Context, tenantID string) ([]*identityv1.Role, error) {
+	return a.ListRoles(ctx, tenantID)
+}
+
+func (a projectorAccess) Partners(ctx context.Context, tenantID string) ([]*identityv1.Partner, error) {
+	return a.ListPartners(ctx, tenantID)
+}
+
 func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *slog.Logger) (*busResources, error) {
 	lanes, err := hub.JetStream().KeyValue(ctx, edgebus.LaneBucket)
 	if err != nil {
@@ -293,6 +396,35 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 	}
 	broadcaster := captureapi.NewBroadcaster()
 
+	tenants, err := tenantstore.New(ctx, hub.JetStream(), edgebus.TenantBucket)
+	if err != nil {
+		return nil, errs.From(err).Code(ErrCodeStart).Msg("open tenant store")
+	}
+
+	access, err := openAccessStore(ctx, hub)
+	if err != nil {
+		return nil, err
+	}
+	var platformPrincipals []string
+	if platform := h.cfg.PlatformAdmin(); platform != nil {
+		for _, subject := range platform.GetSubjects() {
+			platformPrincipals = append(platformPrincipals, authn.ComputePrincipalID(platform.GetIssuer(), subject))
+		}
+	}
+	proj := projector.New(
+		h.engine,
+		edgeStore,
+		h.registry,
+		captureStore,
+		h.cfg.Intervals().RelationshipReconcile,
+		log,
+		h.opts.Reconciled,
+		projector.WithTenantSource(tenants),
+		projector.WithAccessSource(projectorAccess{access}),
+		projector.WithPlatformPrincipals(platformPrincipals),
+		projector.WithClock(time.Now),
+	)
+
 	res := &busResources{
 		hub:         hub,
 		lanes:       lanes,
@@ -300,6 +432,8 @@ func (h *assembly) buildResources(ctx context.Context, hub *edgebus.Hub, log *sl
 		edges:       edgeStore,
 		captures:    captureStore,
 		broadcaster: broadcaster,
+		tenants:     tenants,
+		projector:   proj,
 	}
 
 	intervals := h.cfg.Intervals()
@@ -344,6 +478,35 @@ func (h *assembly) setupForwarder(ctx context.Context) (service.Attempt, error) 
 	return service.Attempt{Runner: func(ctx context.Context) error {
 		<-ctx.Done()
 		forwarder.Close()
+		return nil
+	}}, nil
+}
+
+// setupIntake moves validated edge records into the central ingestion streams.
+func (h *assembly) setupIntake(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	worker, err := intake.Start(ctx, intake.Config{
+		Hub:           resources.hub,
+		Central:       resources.hub.JetStream(),
+		Logger:        service.Logger(ctx),
+		MeterProvider: service.MeterProvider(ctx),
+	})
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	// See setupHub: the Runner is not guaranteed to run, so an attempt
+	// canceled during Setup would leave intake's follower and consumers behind.
+	if err := ctx.Err(); err != nil {
+		worker.Close()
+		return service.Attempt{}, err
+	}
+
+	return service.Attempt{Runner: func(ctx context.Context) error {
+		<-ctx.Done()
+		worker.Close()
 		return nil
 	}}, nil
 }
@@ -412,7 +575,7 @@ func (h *assembly) setupConnect(ctx context.Context) (service.Attempt, error) {
 		return service.Attempt{}, err
 	}
 
-	handler, err := h.mux(resources, service.Logger(ctx), view)
+	handler, err := h.mux(ctx, resources, service.Logger(ctx), view)
 	if err != nil {
 		return service.Attempt{}, err
 	}
@@ -549,4 +712,13 @@ func (h *assembly) setupCaptureSweeper(ctx context.Context) (service.Attempt, er
 			}
 		}
 	}}, nil
+}
+
+// setupProjector runs the relationship projector to reconcile central records into tuples.
+func (h *assembly) setupProjector(ctx context.Context) (service.Attempt, error) {
+	resources, err := h.hub.await(ctx)
+	if err != nil {
+		return service.Attempt{}, err
+	}
+	return service.Attempt{Runner: resources.projector.Run}, nil
 }

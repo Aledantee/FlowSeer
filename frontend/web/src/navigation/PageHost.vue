@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, provide, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import WorkspacePage from '../WorkspacePage.vue'
 import { UiScrollArea } from '../ui'
 import { aiSlot } from '../ai'
@@ -7,6 +8,7 @@ import type { AiSlot } from '../ai'
 import { pageContext } from './page'
 import type { PageContext } from './page'
 const props = defineProps<{ context: PageContext; paneSlot: AiSlot }>()
+const { t } = useI18n({ useScope: 'global' })
 provide(pageContext, props.context)
 // The physical slot stays with the page across a pane swap, so descendants
 // can qualify their target IDs with it.
@@ -34,7 +36,7 @@ defineExpose({ pane })
       ref="scroller"
       class="h-full"
       viewport-class="pane-scroll max-[560px]:!px-3.5"
-      label="Page"
+      :label="t('view.fleet.page')"
     >
       <Transition
         name="page"

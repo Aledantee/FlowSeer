@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import UiDropdownMenu from '../dropdown-menu/UiDropdownMenu.vue'
 import UiDropdownMenuItem from '../dropdown-menu/UiDropdownMenuItem.vue'
 
@@ -10,12 +13,27 @@ export interface BreadcrumbEllipsisItem {
   to?: unknown
 }
 
-export interface UiBreadcrumbEllipsisProps {
+export interface UiBreadcrumbEllipsisProps extends UiAiProps {
   items?: BreadcrumbEllipsisItem[]
   toggleLabel?: string
 }
 
-const props = defineProps<UiBreadcrumbEllipsisProps>()
+const props = withDefaults(defineProps<UiBreadcrumbEllipsisProps>(), {
+  items: undefined,
+  toggleLabel: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
+})
+
+const emit = defineEmits<UiAiEmits>()
+
+const toggle = useTemplateRef('toggle')
+useAiTarget(toggle, () => props.ai)
+useAiOrigin(
+  toggle,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { t } = useI18n({ useScope: 'global' })
 const resolvedToggleLabel = computed(
@@ -27,6 +45,7 @@ const resolvedToggleLabel = computed(
   <UiDropdownMenu align="start">
     <template #trigger>
       <button
+        ref="toggle"
         type="button"
         :aria-label="resolvedToggleLabel"
         class="flex h-9 w-9 items-center justify-center rounded-control hover:bg-hover text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

@@ -1191,8 +1191,8 @@ func (x *ListEdgesResponse) ClearNextPageToken() {
 type ListEdgesResponse_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The page of edges in the service's stable order. Empty means the
-	// listing is exhausted.
+	// The page of edges in the service's stable order. A page can be short or
+	// empty while next_page_token is set.
 	Edges []*v1.EdgeRecord
 	// Token for the next page. Unset means this was the last page.
 	NextPageToken *string
@@ -1257,16 +1257,19 @@ const file_flowseer_api_edge_v1_edge_admin_service_proto_rawDesc = "" +
 	"\x11ListEdgesResponse\x128\n" +
 	"\x05edges\x18\x01 \x03(\v2\".flowseer.model.edge.v1.EdgeRecordR\x05edges\x122\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xe1\x04\n" +
-	"\x10EdgeAdminService\x12_\n" +
+	"\xbaH\ar\x05\x10\x01\x18\x80\bR\rnextPageToken2\xa9\x06\n" +
+	"\x10EdgeAdminService\x12v\n" +
 	"\n" +
-	"CreateEdge\x12'.flowseer.api.edge.v1.CreateEdgeRequest\x1a(.flowseer.api.edge.v1.CreateEdgeResponse\x12h\n" +
-	"\rIssueSetupKey\x12*.flowseer.api.edge.v1.IssueSetupKeyRequest\x1a+.flowseer.api.edge.v1.IssueSetupKeyResponse\x12k\n" +
-	"\x0eRevokeSetupKey\x12+.flowseer.api.edge.v1.RevokeSetupKeyRequest\x1a,.flowseer.api.edge.v1.RevokeSetupKeyResponse\x12_\n" +
+	"CreateEdge\x12'.flowseer.api.edge.v1.CreateEdgeRequest\x1a(.flowseer.api.edge.v1.CreateEdgeResponse\"\x15\x82\xb5\x18\x11\b\x02\x12\x05admin\x1a\x06tenant\x12\x90\x01\n" +
+	"\rIssueSetupKey\x12*.flowseer.api.edge.v1.IssueSetupKeyRequest\x1a+.flowseer.api.edge.v1.IssueSetupKeyResponse\"&\x82\xb5\x18\"\b\x01\x12\n" +
+	"administer\x1a\x04edge\"\fedge.edge.id\x12\x93\x01\n" +
+	"\x0eRevokeSetupKey\x12+.flowseer.api.edge.v1.RevokeSetupKeyRequest\x1a,.flowseer.api.edge.v1.RevokeSetupKeyResponse\"&\x82\xb5\x18\"\b\x01\x12\n" +
+	"administer\x1a\x04edge\"\fedge.edge.id\x12\x87\x01\n" +
 	"\n" +
-	"RetireEdge\x12'.flowseer.api.edge.v1.RetireEdgeRequest\x1a(.flowseer.api.edge.v1.RetireEdgeResponse\x12V\n" +
-	"\aGetEdge\x12$.flowseer.api.edge.v1.GetEdgeRequest\x1a%.flowseer.api.edge.v1.GetEdgeResponse\x12\\\n" +
-	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponseB\xea\x01\n" +
+	"RetireEdge\x12'.flowseer.api.edge.v1.RetireEdgeRequest\x1a(.flowseer.api.edge.v1.RetireEdgeResponse\"&\x82\xb5\x18\"\b\x01\x12\n" +
+	"administer\x1a\x04edge\"\fedge.edge.id\x12x\n" +
+	"\aGetEdge\x12$.flowseer.api.edge.v1.GetEdgeRequest\x1a%.flowseer.api.edge.v1.GetEdgeResponse\" \x82\xb5\x18\x1c\b\x01\x12\x04view\x1a\x04edge\"\fedge.edge.id\x12p\n" +
+	"\tListEdges\x12&.flowseer.api.edge.v1.ListEdgesRequest\x1a'.flowseer.api.edge.v1.ListEdgesResponse\"\x12\x82\xb5\x18\x0e\b\x04\x12\x04view\x1a\x04edgeB\xea\x01\n" +
 	"\x18com.flowseer.api.edge.v1B\x15EdgeAdminServiceProtoZFgo.aledante.io/FlowSeer/generated/go/proto/flowseer/api/edge/v1;edgev1\xa2\x02\x03FAE\xaa\x02\x14Flowseer.Api.Edge.V1\xca\x02\x14Flowseer\\Api\\Edge\\V1\xe2\x02 Flowseer\\Api\\Edge\\V1\\GPBMetadata\xea\x02\x17Flowseer::Api::Edge::V1b\beditionsp\xe9\a"
 
 var file_flowseer_api_edge_v1_edge_admin_service_proto_msgTypes = make([]protoimpl.MessageInfo, 13)

@@ -4,15 +4,17 @@ Load this in step 4 for every plan the branch lands, and from `steer`'s
 sweep or `next`'s `retire` group for a plan on `main` that was never
 retired. A plan under `docs/plans/` describes open work. Once the work lands
 it goes stale, and an agent that finds it later reads it as a statement
-about the tree, so it is deleted; git history keeps the text. Before the
-delete, every decision in it that outlives the work gets a home in
+about the tree, so the plan and its state file are retired together. Git
+history keeps the text. Before the retirement, every decision in it that
+outlives the work gets a home in
 `docs/architecture/`.
 
-Which plans retire: a plan with `status: implemented`, `superseded`, or
-`abandoned`. A phase plan retires with its phase; its parent stays, since
-`drive` and `next` read the remaining phases off the parent's unit
-`Files:` and `Landed:` lines, and retires once its own status reads
-`implemented`. A `partially-implemented` plan never retires.
+Which plans retire: a plan for which
+`.claude/skills/plan/scripts/plan_record.py show <plan>` reports
+`implemented`, `superseded`, or `abandoned`. A phase plan retires with its
+phase. Its parent stays while the parent's state lists remaining phases, and
+retires once `.claude/skills/plan/scripts/plan_record.py show <parent>` reports it finished. A
+`partially-implemented` plan never retires.
 
 ## 1. Sort the decisions
 
@@ -48,12 +50,14 @@ person's action.
 ## 3. Rewrite the links to the plan
 
 ```bash
-git grep -n "<plan file name>" -- ':!docs/plans/<plan file name>'
+git grep -n "<plan file name>" -- ':!docs/plans/<plan file name>' ':!docs/plans/*-plan.state.json'
 ```
 
-Every hit outside the plan changes in the same commit, with one
-exception: the parent's unit `Files:` line naming a retired phase stays as
-it is, because a phase counts as landed only while that line names it. A
+Every hit changes in the same commit. State files are left out of the search
+because `retire` in section 4 owns them: it moves a phase from its parent's
+`phases` to `retired`, and a dependent's `after` keeps naming the retired
+phase, whose landed range it still needs. A parent's unit `Files:` line
+naming a retired phase stays as it is. A
 link from a record, a solution, `GOALS.md`, or a README points at the
 record that now holds the decision, or gives the date and scope of the
 work as `docs/architecture/README.md` shows. An open plan's `amends:`
@@ -62,8 +66,12 @@ record holds the decision.
 
 ## 4. Delete and commit
 
-`git rm` the plan, then commit the delete with the records and link
-rewrites:
+Run the state command, then commit its staged removal with the records and
+link rewrites:
+
+```bash
+.claude/skills/plan/scripts/plan_record.py retire <plan>
+```
 
 ```text
 docs(plans): retire <plan slug>
@@ -74,10 +82,10 @@ compound: docs/solutions/<path>.md
 records: <paths written or amended, or none>
 ```
 
-The body copies the plan's outcome note line verbatim and its `review` and
-`compound` fields, since the plan was their only home; `steer` reads the
-phase-size data off these bodies. A sweep of several plans makes one commit
-per plan.
+The command prints the outcome, review, and compound lines for the commit
+body. Copy those lines verbatim. `steer` reads phase-size data from the
+outcome line in these bodies. A sweep of several plans makes one commit per
+plan.
 
 Under `land`, step 5 verifies the result. A sweep outside `land` runs the
 verifier on the changed paths itself, sandbox disabled:

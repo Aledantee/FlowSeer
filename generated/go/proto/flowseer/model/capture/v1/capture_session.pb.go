@@ -1022,8 +1022,9 @@ func (x *CaptureAuthorization) ClearFullPayloadRequested() {
 type CaptureAuthorization_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The person who requested this capture, as the caller names them. Must be
-	// present.
+	// The operator who requested this capture. Set centrally from the
+	// authenticated caller and replaces any value a request carries. Unset
+	// means no operator was recorded for the stored capture.
 	RequestedBy *v12.OperatorRef
 	// Free-text explanation of why this capture was requested. Must be
 	// present.
@@ -2071,9 +2072,9 @@ const file_flowseer_model_capture_v1_capture_session_proto_rawDesc = "" +
 	"\fmax_duration\x18\x03 \x01(\v2\x19.google.protobuf.DurationB\b\xbaH\x05\xaa\x01\x02*\x00R\vmaxDuration\x12,\n" +
 	"\vsnap_length\x18\x04 \x01(\rB\v\xbaH\b*\x06\x18\xff\xff\x03 \x00R\n" +
 	"snapLength:\xa0\x01\xbaH\x9c\x01\x1a\x99\x01\n" +
-	"\x16capture_budget.bounded\x127a capture budget must bound packets, bytes, or duration\x1aFhas(this.max_packets) || has(this.max_bytes) || has(this.max_duration)\"\xdf\x01\n" +
-	"\x14CaptureAuthorization\x12R\n" +
-	"\frequested_by\x18\x04 \x01(\v2'.flowseer.model.identity.v1.OperatorRefB\x06\xbaH\x03\xc8\x01\x01R\vrequestedBy\x12%\n" +
+	"\x16capture_budget.bounded\x127a capture budget must bound packets, bytes, or duration\x1aFhas(this.max_packets) || has(this.max_bytes) || has(this.max_duration)\"\xd7\x01\n" +
+	"\x14CaptureAuthorization\x12J\n" +
+	"\frequested_by\x18\x04 \x01(\v2'.flowseer.model.identity.v1.OperatorRefR\vrequestedBy\x12%\n" +
 	"\x06reason\x18\x02 \x01(\tB\r\xbaH\n" +
 	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x10R\x06reason\x12<\n" +
 	"\x16full_payload_requested\x18\x03 \x01(\bB\x06\xbaH\x03\xc8\x01\x01R\x14fullPayloadRequestedJ\x04\b\x01\x10\x02R\boperator\"\xc9\x02\n" +

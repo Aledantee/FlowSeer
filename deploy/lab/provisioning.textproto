@@ -23,4 +23,4 @@ setup_key: "fse1_REPLACE_WITH_THE_KEY_CENTRAL_SHOWED_YOU_ONCE"
 # central's subject public key info. The service logs it once when it
 # generates its certificate, and it can be recomputed from the certificate
 # file at any time.
-trust_anchors: "REPLACE-WITH-CENTRAL-SPKI-DIGEST"
+trust_anchors: "REPLACE-WITH-CENTRAL-SPKI-DIGEST-OF-32-BYTES"

@@ -1,4 +1,6 @@
+import { ref } from 'vue'
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
+import type { AiOriginRequest } from '../ai/context'
 import UiCombobox from './UiCombobox.vue'
 import UiButton from '../button/UiButton.vue'
 
@@ -90,4 +92,39 @@ export const LongText: Story = {
     emptyText:
       'No managed networking devices or fabric endpoints matched your query criteria.',
   },
+}
+
+const origin: AiOriginRequest = {
+  requestId: 'req-story-combobox',
+  action: 'summary',
+  targets: [],
+  history: [],
+}
+
+// The outline marks a value an agent changed until the user touches it. The
+// caller clears its own state when the component reports the interaction. A
+// native text control keeps its own context menu, so the story registers no
+// target and shows the origin on its own.
+export const AgentChanged: Story = {
+  args: {
+    options: sampleOptions,
+    placeholder: 'Search device...',
+  },
+  render: (args) => ({
+    components: { UiCombobox },
+    setup() {
+      const changed = ref<AiOriginRequest | undefined>(origin)
+      return { args, changed }
+    },
+    template: `
+      <label>
+        <span>Devices</span>
+        <UiCombobox
+          v-bind="args"
+          :ai-origin="changed"
+          @ai-origin-acknowledged="changed = undefined"
+        />
+      </label>
+    `,
+  }),
 }

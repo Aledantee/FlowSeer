@@ -2,9 +2,7 @@
 title: Deployment - Plan
 type: feat
 date: 2026-10-03
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 
@@ -74,20 +72,14 @@ proposed and awaiting acceptance. The ones the user settled:
 ### U1. Central image and manifests
 
 Files: docs/plans/2026-10-03-1533-feat-deployment-phase1-plan.md
-After: none
-Landed:
 
 ### U2. NATS and the stores
 
 Files: docs/plans/2026-10-03-1533-feat-deployment-phase2-plan.md
-After: U1
-Landed:
 
 ### U3. Edge agent packaging
 
 Files: docs/plans/2026-10-03-1533-feat-deployment-phase3-plan.md
-After: none
-Landed:
 
 Waves: U1 U3 | U2
 

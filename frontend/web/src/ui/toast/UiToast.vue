@@ -10,9 +10,11 @@ import {
 } from 'reka-ui'
 import { tv } from 'tailwind-variants'
 import type { ToastVariant } from './useToast'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 import UiButton from '../button/UiButton.vue'
 
-export interface UiToastProps {
+export interface UiToastProps extends UiAiProps {
   open?: boolean
   defaultOpen?: boolean
   title?: string
@@ -34,6 +36,8 @@ const props = withDefaults(defineProps<UiToastProps>(), {
   actionText: undefined,
   actionAltText: undefined,
   closeLabel: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -45,11 +49,13 @@ const resolvedCloseLabel = computed(
   () => props.closeLabel ?? t('ui.toast.closeLabel'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-  (e: 'action'): void
-  (e: 'closed'): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+    (e: 'action'): void
+    (e: 'closed'): void
+  }
+>()
 
 const rootRef = ref<ComponentPublicInstance | null>(null)
 const hasClosed = ref(false)
@@ -124,6 +130,11 @@ const toastVariants = tv({
     @update:open="handleUpdateOpen"
     @animationend="handleAnimationEnd"
   >
+    <PopupAnchor
+      :ai="ai"
+      :ai-origin="aiOrigin"
+      @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+    />
     <div class="flex flex-col gap-1">
       <ToastTitle
         v-if="title || $slots.title"

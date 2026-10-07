@@ -34,8 +34,15 @@ decision the user answered ends with `(decided by the user, <YYYY-MM-DD>)`,
 which no worker may edit (`delegate`, Write the brief, item 6). Every
 decision carries its reason.
 
-Load `references/replan-phase.md` before re-planning a phase plan (one with
-a `parent:` field): it holds the checks that the tree is fit to plan from.
+Load `references/replan-phase.md` before re-planning a phase plan. Use
+`.claude/skills/plan/scripts/plan_record.py show <plan>` to confirm its
+`parent` state before loading the reference. It holds the checks that the tree
+is fit to plan from.
+
+Load `references/replan-implemented.md` before re-planning a plan for which
+`.claude/skills/plan/scripts/plan_record.py is <plan> status=implemented`
+succeeds and the review sent it back. It holds the command, the Units list,
+and the ledger reset.
 
 ### Promote a decision to a direction record
 
@@ -78,31 +85,35 @@ parallel when independent.
 Path: `docs/plans/<date>-<type>-<slug>-plan.md`, `<date>` from
 `date +%Y-%m-%d-%H%M`, `<type>` the commit type the work will carry (`feat`,
 `fix`, `refactor`, `perf`, `docs`, `chore`). Scripts in `drive`, `next`,
-`implement`, and `verify-change` read the frontmatter fields, the `### U1.`
-unit headings, and the `Files:`, `After:`, and `Landed:` lines, so copy
-their shape exactly.
+`implement`, and `verify-change` read the plan's state file through
+`.claude/skills/plan/scripts/plan_record.py`, the `### U1.` unit headings, and the `Files:` and `After:`
+lines, so copy their shape exactly. Initialize the state file with:
+
+```bash
+.claude/skills/plan/scripts/plan_record.py init <plan> [--needs-decisions] [--parent <p> [--after <q>...]]
+```
 
 ```yaml
 ---
 title: <Title> - Plan
 type: <type>
 date: <YYYY-MM-DD>
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready | needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: code | docs | mixed
 amends: <path of the plan or direction record this one changes, if any>
-superseded_by: <path of the replacing plan; only with status superseded>
-parent: <path of the parent plan; only in a phase plan>
 ---
 ```
 
-`status` is `planned` until the work lands, then `implemented`,
-`partially-implemented`, `superseded`, or `abandoned`. `artifact_readiness`
-describes the plan's completeness and does not change with progress.
-`review` and `compound` each add a field of their own name beside `status`
-when they run (`review: accept`, `compound: no lesson`); `land` reads the
-three together.
+The state file beside the plan holds `status`, `readiness`, `review`,
+`review_rounds`, `compound`, `outcome`, `superseded_by`, `branch`, `parent`, `after`,
+`landed`, `phases`, and `retired`. Read it with
+`.claude/skills/plan/scripts/plan_record.py show <plan>`. Use
+`.claude/skills/plan/scripts/plan_record.py branch <plan> <name>` to record
+the plan's work branch, or `branch <plan> --clear` to clear it. Use
+`.claude/skills/plan/scripts/plan_record.py ready <plan>` when a plan is
+ready. Use `.claude/skills/plan/scripts/plan_record.py supersede <plan> --by
+<path>` or `.claude/skills/plan/scripts/plan_record.py abandon <plan>` for
+those final states.
 
 The body, in this order; leave out an empty section:
 
@@ -136,8 +147,9 @@ The commands that prove the whole change, and any manual or lab check.
 
 ## Definition of done
 Checklist: verifier green for every changed path, package README and
-convention docs updated in the same change, this plan's `status` set with an
-outcome note under its title, no plan labels in code.
+convention docs updated in the same change, this plan's outcome recorded with
+`.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+--from <t> --to <t>` or `partial`, no plan labels in code.
 
 ## Open questions
 What the implementer must decide or ask. Empty is a valid answer.
@@ -176,6 +188,10 @@ Rules:
   says under Out of scope whose input it reads and whether that author is
   trusted. `review` briefs its reviewer with that sentence, so a plan that
   omits it invites findings about hostile input no one meant to handle.
+  When an untrusted author already holds the capability a check would deny
+  (script in the page, a process on the host), the sentence also says what
+  the check is for: malformed data, or a hostile object. A Requirement's
+  "rejects" is then read against that.
 - A unit adding or changing the exported `Config` of a module under
   `src/modules/` names a test in a package outside that module's directory.
 - Over six units or 300 lines (an inventory of sites excluded), cut what the
@@ -190,7 +206,11 @@ Three reads, in this order; fix the plan after each.
 
 1. As the implementer: can each unit start without a question? Every claim
    about external behavior carries its source as step 2 requires, or reads
-   "unverified" and appears under Open questions.
+   "unverified" and appears under Open questions. For each Decision whose
+   reason is where data already lives (a host that holds the address, a
+   store that has the row), ask whether the Requirement needs that coupling
+   or only the data. A coupling the Requirement does not need is removed or
+   becomes an Open question.
 2. Each unit's Tests line against the risks the plan itself names for that
    unit, in its Decisions, Open questions, and Change. A risk the plan calls
    unverifiable, or one a symmetric test cannot see, gets a test that pins
@@ -232,7 +252,8 @@ the options that fit:
   lands it before the next); implement the ready phase plan, naming its
   path, in a fresh session; stop here. `implement` does not run a parent
   plan, whose units are plan files.
-- `artifact_readiness: needs-decisions`: ask the unresolved design questions
+- `.claude/skills/plan/scripts/plan_record.py show <plan>` reports
+  `readiness: needs-decisions`: ask the unresolved design questions
   instead; do not offer the plan for implementation until they are
   answered. Open questions alone do not block the offer: name them in the
   option's reason, since `implement` rules on them or asks.

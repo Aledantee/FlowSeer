@@ -1,6 +1,6 @@
 ---
 name: steer
-description: Works the queue in docs/agent-observations.md: verifies each entry against the current skill, agent, or hook, decides whether the fix is prose, a skill step, or enforcement, applies it to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits whether every enforced rule has a registered hook or verifier check, and retires landed plans that `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
+description: Works the queue in docs/agent-observations.md. Verifies each entry against the current skill, agent, or hook, applies the fix to skills and agents, and stages hook or AGENTS.md changes for a person's review. Also audits hook enforcement and retires landed plans `land` left on disk. Use when asked to steer, tune skills, work the observations, or audit the hooks. Not for logging an observation; compound's Observe mode does that.
 argument-hint: "[audit | entry title | the skill to tune]"
 ---
 
@@ -78,8 +78,8 @@ episodic material to a `references/` file whose pointer states when to load
 it. Before saving, run every command embedded in the edited text once,
 verbatim, from a fresh shell in the scratchpad directory.
 
-`tools/hooks/`, `.claude/settings.json`, `.codex/hooks.json`, and `AGENTS.md`
-are policy surfaces: write the change, including the matching assertion in
+The policy surfaces are the paths `AGENTS.md`, Hard boundaries, names. For
+one of them, write the change, including the matching assertion in
 `tools/hooks/tests/run.sh` and the registration in both runtime configs, run
 the verifier, then stop with the diff for the user's guardrail review. Do
 not commit it and do not mark the entry applied. A hook change without the
@@ -106,18 +106,20 @@ Run at the end of every pass and on `audit`:
    `tools/hooks/tests/run.sh` that pins it. A script registered in one
    runtime only is a finding unless the other runtime has no such event.
 3. Run `tools/hooks/tests/run.sh` and `shellcheck` over the hook scripts.
-4. Read the phase size off the plans: every outcome note `implement` wrote
-   since the last change to the six-unit trigger in `plan` carries a unit
-   count and a `verified_at` span. Look for a phase that ran past one
-   session, or a run of phases with one or two units. Change the number in
-   `plan` and the reason in `docs/agent-steering.md` together, or record
-   that the data does not yet say.
+4. Read the phase size from each plan's state with
+   `.claude/skills/plan/scripts/plan_record.py show <plan> --json`. The
+   `outcome` object carries the unit count and verification span. For plans
+   that `land` retired, read the same outcome line in the retire commit. Look
+   for a phase that ran past one session, or a run of phases with one or two
+   units. Change the number in `plan` and the reason in
+   `docs/agent-steering.md` together, or record that the data does not yet
+   say.
 
-   `land` deletes a plan when its work lands and copies the note into the
+   `land` retires a plan when its work lands and copies the outcome into the
    retire commit, so read both places:
 
    ```bash
-   { grep -h '^> Implemented\. [0-9]* units' docs/plans/*-plan.md; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
+   { for plan in docs/plans/*-plan.md; do .claude/skills/plan/scripts/plan_record.py show "$plan" --json; done; git log main --format=%b --grep='^docs(plans): retire' | grep '^> Implemented\. [0-9]* units'; }
    ```
 5. Sweep the plans `land` should have retired. Every `retire` line is a
    plan finished on `main` and still on disk:

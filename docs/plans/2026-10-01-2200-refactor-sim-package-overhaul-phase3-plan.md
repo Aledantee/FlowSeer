@@ -2,13 +2,8 @@
 title: Spanning Tree to Standard - Plan
 type: fix
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: implemented
-review: accept after fixes
-compound: docs/solutions/conventions/a-state-transition-test-must-assert-observables-unique-to-the-destination-state.md
+artifact_contract: flowseer-plan/v2
 execution: code
-parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Spanning Tree to Standard - Plan

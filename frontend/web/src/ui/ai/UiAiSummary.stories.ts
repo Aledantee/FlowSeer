@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/vue3-vite'
 import UiAiSummary from './UiAiSummary.vue'
+import UiAiTarget from './UiAiTarget.vue'
 import { AiUnavailableError } from '../../ai'
 import type { AiTarget } from '../../ai'
 
@@ -28,18 +29,19 @@ function summaryTarget(story: string): AiTarget {
 
 function placement(story: string) {
   return () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       return { target: summaryTarget(story) }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Site summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   })
 }
@@ -50,7 +52,7 @@ export const Idle: Story = {
 
 export const Loading: Story = {
   parameters: {
-    ai: { handler: () => new Promise<string>(() => {}) },
+    ai: { handler: () => new Promise<never>(() => {}) },
   },
   render: placement('loading'),
 }
@@ -58,8 +60,16 @@ export const Loading: Story = {
 export const Result: Story = {
   parameters: {
     ai: {
-      handler: async () =>
-        'Berlin Mitte is degraded: brl-sw-01 uplinks are up, but two access points stopped answering within the last hour. No site-wide outage is indicated.',
+      handler: async () => ({
+        type: 'summary',
+        headline:
+          'Berlin Mitte is degraded: brl-sw-01 uplinks are up, but two access points stopped answering within the last hour. No site-wide outage is indicated.',
+        tone: 'warning',
+        findings: [],
+        metrics: [],
+        next: [],
+        sources: [],
+      }),
     },
   },
   render: placement('result'),
@@ -88,22 +98,33 @@ export const Unavailable: Story = {
 export const DarkMode: Story = {
   parameters: {
     themes: { themeOverride: 'dark' },
-    ai: { handler: async () => 'All paths answered the last poll.' },
+    ai: {
+      handler: async () => ({
+        type: 'summary',
+        headline: 'All paths answered the last poll.',
+        tone: 'ok',
+        findings: [],
+        metrics: [],
+        next: [],
+        sources: [],
+      }),
+    },
   },
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       return { target: summaryTarget('dark') }
     },
     template: `
-      <div
+      <UiAiTarget
+        as="div"
         data-theme="dark"
-        v-ai-target="target"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Site summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }
@@ -111,12 +132,20 @@ export const DarkMode: Story = {
 export const LongText: Story = {
   parameters: {
     ai: {
-      handler: async () =>
-        'Frankfurt am Main Rechenzentrum Campus Nord Halle B zeigt eine erhöhte Fehlerrate auf den Uplink-Schnittstellen. Drei Access Points im östlichen Flügel antworten seit mehr als 45 Minuten nicht auf SNMP-Polls. Die redundante Stromversorgung meldet stabile Spannungswerte ohne Unterbrechungen.',
+      handler: async () => ({
+        type: 'summary',
+        headline:
+          'Frankfurt am Main Rechenzentrum Campus Nord Halle B zeigt eine erhöhte Fehlerrate auf den Uplink-Schnittstellen. Drei Access Points im östlichen Flügel antworten seit mehr als 45 Minuten nicht auf SNMP-Polls. Die redundante Stromversorgung meldet stabile Spannungswerte ohne Unterbrechungen.',
+        tone: 'warning',
+        findings: [],
+        metrics: [],
+        next: [],
+        sources: [],
+      }),
     },
   },
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       const target: AiTarget = {
         id: 'standalone:story:ai-summary-longtext:datacenter-core-aggregation-switch-fra-01',
@@ -131,20 +160,21 @@ export const LongText: Story = {
       return { target }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">LongText summary placement</p>
         <UiAiSummary :target="target" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }
 
 export const Overrides: Story = {
   render: () => ({
-    components: { UiAiSummary },
+    components: { UiAiSummary, UiAiTarget },
     setup() {
       const target = summaryTarget('overrides')
       const labels = {
@@ -158,13 +188,14 @@ export const Overrides: Story = {
       return { target, labels }
     },
     template: `
-      <div
-        v-ai-target="target"
+      <UiAiTarget
+        as="div"
+        :ai="target"
         class="max-w-sm p-4 bg-card border border-border rounded-panel text-foreground"
       >
         <p class="mb-2 text-xs text-muted-foreground">Custom labels placement</p>
         <UiAiSummary :target="target" :labels="labels" />
-      </div>
+      </UiAiTarget>
     `,
   }),
 }

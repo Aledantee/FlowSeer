@@ -6,31 +6,14 @@ import { composeStories, setProjectAnnotations } from '@storybook/vue3-vite'
 import preview from '../../.storybook/preview'
 import { useI18n } from 'vue-i18n'
 import UiInput from './form/UiInput.vue'
+import { isAiTargetElement } from '../ai'
 import { createWebI18n, type WebLocale } from '../i18n'
+import { i18nWarnings } from '../i18n/testing'
 
 setProjectAnnotations(preview)
 
 const AUDIT_LOCALES: readonly WebLocale[] = ['en', 'de']
 const GERMAN_PAGINATION_STORY = './pagination/UiPagination.stories.ts:Default'
-
-function extractI18nWarnings(calls: unknown[][]): string[] {
-  const issues: string[] = []
-  for (const args of calls) {
-    const text = args
-      .map((a) =>
-        typeof a === 'string' ? a : a instanceof Error ? a.message : String(a),
-      )
-      .join(' ')
-    if (
-      (text.includes('[intlify]') &&
-        (text.includes('Not found') || text.includes('Fall back to'))) ||
-      text.includes('Not found parent scope')
-    ) {
-      issues.push(text)
-    }
-  }
-  return issues
-}
 
 function assertNoI18nWarnings(
   calls: unknown[][],
@@ -39,7 +22,7 @@ function assertNoI18nWarnings(
   locale: WebLocale,
   phase: string,
 ) {
-  const warnings = extractI18nWarnings(calls)
+  const warnings = i18nWarnings(calls)
   expect(
     warnings,
     `Expected no i18n warnings after ${phase} in ${path} -> ${storyName} (${locale}), but found:\n${warnings.join('\n')}`,
@@ -66,7 +49,7 @@ const componentModules = import.meta.glob('./**/Ui*.vue')
 
 interface OverlayAuditExpectation {
   role: string
-  triggerEvent?: 'click' | 'input'
+  triggerEvent?: 'click' | 'input' | 'contextmenu'
   triggerSelector?: string
 }
 
@@ -80,6 +63,11 @@ const OVERLAY_AUDITS: Readonly<Record<string, OverlayAuditExpectation>> = {
     triggerSelector: '[role="combobox"]',
   },
   './command/UiCommand.stories.ts:AccessibilityAudit': { role: 'dialog' },
+  './context-menu/UiContextMenu.stories.ts:AccessibilityAudit': {
+    role: 'menu',
+    triggerEvent: 'contextmenu',
+    triggerSelector: '[data-context-menu-trigger]',
+  },
   './dialog/UiDialog.stories.ts:AccessibilityAudit': { role: 'dialog' },
   './dropdown-menu/UiDropdownMenu.stories.ts:AccessibilityAudit': {
     role: 'menu',
@@ -105,7 +93,7 @@ const COMPONENT_TARGETS: Readonly<
   },
   './card/UiCard.stories.ts:Default': { kind: 'card', count: 1 },
   './table/UiTable.stories.ts:Default': { kind: 'device', count: 4 },
-  './ai/UiAiActionLayer.stories.ts:Selected': { kind: 'row', count: 1 },
+  './ai/UiAiContextLayer.stories.ts:Default': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Idle': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Loading': { kind: 'device', count: 1 },
   './ai/UiAiSummary.stories.ts:Result': { kind: 'device', count: 1 },
@@ -148,6 +136,15 @@ async function openOverlay(
     ).not.toBeNull()
     if (overlayAudit.triggerEvent === 'input') {
       trigger?.dispatchEvent(new Event('input', { bubbles: true }))
+    } else if (overlayAudit.triggerEvent === 'contextmenu') {
+      trigger?.dispatchEvent(
+        new MouseEvent('contextmenu', {
+          bubbles: true,
+          cancelable: true,
+          clientX: 50,
+          clientY: 50,
+        }),
+      )
     } else {
       trigger?.click()
     }
@@ -166,7 +163,9 @@ async function openOverlay(
     seen.add(root)
     if (
       root.matches('[data-ai-ask-panel]') ||
-      root.querySelector('[data-ai-ask-panel]') !== null
+      root.querySelector('[data-ai-ask-panel]') !== null ||
+      root.matches('[data-ai-context-popover]') ||
+      root.querySelector('[data-ai-context-popover]') !== null
     ) {
       return
     }
@@ -255,12 +254,13 @@ async function selectTarget(label: string) {
     `Expected ${label} to highlight its registered target`,
   ).toBe(true)
 
+  // A chart registers its SVG root, so a target is an HTML or an SVG element.
   const element = highlighted[0]
   expect(
-    element,
+    isAiTargetElement(element),
     `Expected ${label} to highlight a mounted target element`,
-  ).toBeInstanceOf(HTMLElement)
-  if (element instanceof HTMLElement) element.getBoundingClientRect = box
+  ).toBe(true)
+  if (isAiTargetElement(element)) element.getBoundingClientRect = box
 
   window.dispatchEvent(new Event('resize'))
   await settle()
@@ -359,7 +359,7 @@ describe('accessibility (axe-core)', () => {
       container.remove()
     })
 
-    const warnings = extractI18nWarnings(warnSpy.mock.calls)
+    const warnings = i18nWarnings(warnSpy.mock.calls)
     expect(
       warnings.some(
         (w) =>
@@ -446,18 +446,28 @@ describe('accessibility (axe-core)', () => {
             const { selected, element, componentTarget } =
               await selectTarget(label)
 
-            const asks = document.querySelectorAll<HTMLElement>('.ai-ask')
-            expect(
-              asks,
-              `Expected ${label} to mount exactly one Ask action for its selected target`,
-            ).toHaveLength(1)
-            const ask = asks[0]
-            ask?.click()
+            element.dispatchEvent(
+              new MouseEvent('contextmenu', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 50,
+                clientY: 50,
+              }),
+            )
             await settle()
+            const contextMenu = document.querySelector('[role="menu"]')
             expect(
-              document.querySelector('form textarea'),
-              `Expected ${label} to open the Ask panel for its selected target`,
+              contextMenu,
+              `Expected ${label} to open a context menu for its selected target`,
             ).not.toBeNull()
+            contextMenu?.dispatchEvent(
+              new KeyboardEvent('keydown', {
+                key: 'Escape',
+                bubbles: true,
+                cancelable: true,
+              }),
+            )
+            await settle()
 
             const root = container.querySelector<HTMLElement>(
               '[data-ai-story-root]',

@@ -67,16 +67,19 @@ func StartOTelCollector(t *testing.T) *OTelCollector {
 		},
 		Started: true,
 	})
-	if err != nil {
-		t.Fatalf("start pinned OpenTelemetry Collector: %v", err)
-	}
 	t.Cleanup(func() {
+		if instance == nil {
+			return
+		}
 		closeCtx, closeCancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer closeCancel()
 		if err := instance.Terminate(closeCtx); err != nil {
 			t.Errorf("terminate OpenTelemetry Collector: %v", err)
 		}
 	})
+	if err != nil {
+		t.Fatalf("start pinned OpenTelemetry Collector: %v", err)
+	}
 
 	collector := &OTelCollector{container: instance, outputDir: outputDir}
 	collector.httpEndpoint = collector.endpoint(t, "http", "4318/tcp", "")

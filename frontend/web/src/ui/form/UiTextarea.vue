@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, useAttrs, type Ref } from 'vue'
 import { tv } from 'tailwind-variants'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import { useFormReset } from './useFormReset'
 
-export interface UiTextareaProps {
+export interface UiTextareaProps extends UiAiProps {
   modelValue?: string
   id?: string
   placeholder?: string
@@ -27,11 +30,15 @@ const props = withDefaults(defineProps<UiTextareaProps>(), {
   rows: 3,
   invalid: undefined,
   ariaLabel: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: string): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:modelValue', value: string): void
+  }
+>()
 
 const attrs = useAttrs()
 
@@ -42,6 +49,12 @@ const fieldContext = inject<{
 } | null>('ui-field-context', null)
 
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+useAiTarget(textareaRef, () => props.ai)
+useAiOrigin(
+  textareaRef,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 const textareaId = computed(() => props.id ?? fieldContext?.id.value)
 const isInvalid = computed(
   () => props.invalid ?? fieldContext?.invalid.value ?? false,

@@ -10,7 +10,6 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.43.0"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/tenant"
 	"go.aledante.io/FlowSeer/src/services/device/internal/telemetry"
 )
 
@@ -150,36 +149,4 @@ func levelFor(code connect.Code) slog.Level {
 	default:
 		return slog.LevelDebug
 	}
-}
-
-// TenantInterceptor injects tenantID into a context that carries none; an empty
-// tenantID injects nothing.
-func TenantInterceptor(tenantID string) connect.Interceptor {
-	return tenantInterceptor{tenantID: tenantID}
-}
-
-type tenantInterceptor struct {
-	tenantID string
-}
-
-func (t tenantInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc {
-	return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-		if _, err := tenant.FromContext(ctx); err != nil && t.tenantID != "" {
-			ctx = tenant.WithTenant(ctx, t.tenantID)
-		}
-		return next(ctx, req)
-	}
-}
-
-func (t tenantInterceptor) WrapStreamingHandler(next connect.StreamingHandlerFunc) connect.StreamingHandlerFunc {
-	return func(ctx context.Context, conn connect.StreamingHandlerConn) error {
-		if _, err := tenant.FromContext(ctx); err != nil && t.tenantID != "" {
-			ctx = tenant.WithTenant(ctx, t.tenantID)
-		}
-		return next(ctx, conn)
-	}
-}
-
-func (t tenantInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
-	return next
 }

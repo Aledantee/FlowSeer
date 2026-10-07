@@ -476,6 +476,7 @@ func TestTheFirstPassOverAnUnwrittenDeviceStoresARecordNamingIt(t *testing.T) {
 
 func operatorIntent() *accessv1.MutationIntent {
 	operator := &identityv1.OperatorRef{}
+	operator.SetIssuer("https://auth.example.com")
 	operator.SetSubject("zitadel|1")
 	actor := &accessv1.Actor{}
 	actor.SetOperator(operator)

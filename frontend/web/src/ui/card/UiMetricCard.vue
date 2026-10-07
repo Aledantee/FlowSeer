@@ -1,21 +1,40 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { I18nT, useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 import UiCard from './UiCard.vue'
 
-export interface UiMetricCardProps {
+export interface UiMetricCardProps extends UiAiProps {
   label: string
   value: number
   unit?: string
   valueText?: (value: number, unit?: string) => string
 }
 
-defineProps<UiMetricCardProps>()
+const props = withDefaults(defineProps<UiMetricCardProps>(), {
+  unit: undefined,
+  valueText: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
+})
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { n } = useI18n({ useScope: 'global' })
 </script>
 
 <template>
-  <UiCard as="article" class="metric-card">
+  <UiCard ref="anchor" as="article" class="metric-card">
     <div
       class="flex items-center justify-between text-xs text-muted-foreground font-medium"
     >

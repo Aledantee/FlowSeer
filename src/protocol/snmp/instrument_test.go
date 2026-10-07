@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel/codes"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -151,6 +152,12 @@ func TestInstrument_PDUErrorRecordsStatus(t *testing.T) {
 	}
 	if v, ok := spanAttr(span, attrErrorStatus); !ok || v != GenErr.String() {
 		t.Errorf("error-status attr = %q (ok=%v), want %q", v, ok, GenErr.String())
+	}
+	if span.Status().Code != codes.Error {
+		t.Errorf("span status = %v, want Error", span.Status().Code)
+	}
+	if got := span.Events(); len(got) != 0 {
+		t.Errorf("a failed operation records %d span events, want none: error text stays off the span", len(got))
 	}
 	if !metricNames(t, reader)["flowseer.snmp.errors"] {
 		t.Error("error counter not recorded")

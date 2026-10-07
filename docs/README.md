@@ -26,27 +26,27 @@ source and tests show the landed behavior and the documentation is stale; update
 silently overturn an accepted direction: record that mismatch and reconcile the
 direction explicitly.
 
-`artifact_readiness: implementation-ready` describes whether a plan contains
-enough detail to execute. It does not say that the work is still pending. The
-`status` field does: `planned`, `implemented`, `partially-implemented`,
-`superseded` (with `superseded_by` naming the replacement), or `abandoned`.
-Read `status` and the outcome note, and inspect the current source, before
-treating a plan as a work queue. If an accepted record and the tree disagree,
-record the mismatch and reconcile the direction instead of guessing a new
-package or boundary.
+Each plan keeps document metadata in its Markdown frontmatter and machine
+state in a `*-plan.state.json` file beside it. The frontmatter carries
+`artifact_contract: flowseer-plan/v2`, while `plan_record.py` owns the state
+file. The state left the frontmatter because three scripts each parsed it
+their own way and disagreed about when a phase was finished. Use `.claude/skills/plan/scripts/plan_record.py show <plan>` to read it
+and the commands in its module docstring to record transitions. A plan's
+status is `planned`, `partially-implemented`, `implemented`, `superseded`, or
+`abandoned`. If an accepted record and the tree disagree, record the mismatch
+and reconcile the direction instead of guessing a new package or boundary.
 
-When a plan has shipped, set `status` and add a short `> Implemented.` outcome
-note directly under its title, in the same change as the last unit. Keep
-`artifact_readiness` unchanged because it describes the plan's completeness,
-not its progress. `land` deletes the plan once the work lands, after moving
-any decision that outlives it into `docs/architecture/`. The `review` and
-`compound` skills each add a field of their own name beside `status`
-(`review: accept`, `compound: no lesson`), which `land` reads before
-merging.
+When a plan has shipped, record its outcome with
+`.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+--from <t> --to <t>`. The
+`.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"` and
+`.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"` record
+their own outcomes. `land` retires the plan and its state file once the work
+lands, after moving any decision that outlives it into `docs/architecture/`.
 
-A large plan is split into a parent plan and phase plans; a phase plan
-names its parent in a `parent:` field, and the parent stays `planned`
-until the last phase lands. While a plan is being implemented, the
+A large plan is split into a parent plan and phase plans. A phase's state file
+names its parent, prerequisites, and landed range. The parent stays computed
+as `planned` until its last phase retires. While a plan is being implemented, the
 worktree keeps a status ledger at
 `$(git rev-parse --git-dir)/flowseer-plan-status.json`, never committed,
 whose shape `.claude/skills/verify-change/SKILL.md` documents; `land`
@@ -64,6 +64,7 @@ removes it after the merge.
 | [`code-style.md`](code-style.md) | Go API, error, concurrency, comment, and test conventions. |
 | [`code-style-proto.md`](code-style-proto.md) | Protobuf syntax, evolution, validation, and generation rules. |
 | [`code-style-web.md`](code-style-web.md) | Frontend TypeScript conventions. |
+| [`code-style-python.md`](code-style-python.md) | Host-side Python script conventions under `tools/scripts/`. |
 | [`doc-style.md`](doc-style.md) | Prose rules for documentation, comments, commits, and pull requests. |
 | [`agent-steering.md`](agent-steering.md) | How repository instructions, hooks, skills, and agent roles fit together. |
 | [`agent-knowledge.md`](agent-knowledge.md) | Where durable facts and temporary agent memory belong. |

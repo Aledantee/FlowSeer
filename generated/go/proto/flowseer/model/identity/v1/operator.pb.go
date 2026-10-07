@@ -22,10 +22,11 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// A person, named by the identity provider's stable subject.
+// A person, named by the identity provider's issuer and stable subject.
 type OperatorRef struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Subject     *string                `protobuf:"bytes,1,opt,name=subject"`
+	xxx_hidden_Issuer      *string                `protobuf:"bytes,2,opt,name=issuer"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -67,9 +68,24 @@ func (x *OperatorRef) GetSubject() string {
 	return ""
 }
 
+func (x *OperatorRef) GetIssuer() string {
+	if x != nil {
+		if x.xxx_hidden_Issuer != nil {
+			return *x.xxx_hidden_Issuer
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *OperatorRef) SetSubject(v string) {
 	x.xxx_hidden_Subject = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *OperatorRef) SetIssuer(v string) {
+	x.xxx_hidden_Issuer = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *OperatorRef) HasSubject() bool {
@@ -79,9 +95,21 @@ func (x *OperatorRef) HasSubject() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *OperatorRef) HasIssuer() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
 func (x *OperatorRef) ClearSubject() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Subject = nil
+}
+
+func (x *OperatorRef) ClearIssuer() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Issuer = nil
 }
 
 type OperatorRef_builder struct {
@@ -90,6 +118,8 @@ type OperatorRef_builder struct {
 	// The subject identifier the identity provider assigns, stable across
 	// renames. Must be present.
 	Subject *string
+	// The identity provider's issuer URL. Must be present.
+	Issuer *string
 }
 
 func (b0 OperatorRef_builder) Build() *OperatorRef {
@@ -97,8 +127,12 @@ func (b0 OperatorRef_builder) Build() *OperatorRef {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Subject != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_Subject = b.Subject
+	}
+	if b.Issuer != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Issuer = b.Issuer
 	}
 	return m0
 }
@@ -107,10 +141,11 @@ var File_flowseer_model_identity_v1_operator_proto protoreflect.FileDescriptor
 
 const file_flowseer_model_identity_v1_operator_proto_rawDesc = "" +
 	"\n" +
-	")flowseer/model/identity/v1/operator.proto\x12\x1aflowseer.model.identity.v1\"6\n" +
+	")flowseer/model/identity/v1/operator.proto\x12\x1aflowseer.model.identity.v1\"`\n" +
 	"\vOperatorRef\x12'\n" +
 	"\asubject\x18\x01 \x01(\tB\r\xbaH\n" +
-	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubjectB\x8a\x02\n" +
+	"\xc8\x01\x01r\x05\x10\x01\x18\x80\x02R\asubject\x12(\n" +
+	"\x06issuer\x18\x02 \x01(\tB\x10\xbaH\r\xc8\x01\x01r\b\x10\x01\x18\x80\x10\x88\x01\x01R\x06issuerB\x8a\x02\n" +
 	"\x1ecom.flowseer.model.identity.v1B\rOperatorProtoZPgo.aledante.io/FlowSeer/generated/go/proto/flowseer/model/identity/v1;identityv1\xa2\x02\x03FMI\xaa\x02\x1aFlowseer.Model.Identity.V1\xca\x02\x1aFlowseer\\Model\\Identity\\V1\xe2\x02&Flowseer\\Model\\Identity\\V1\\GPBMetadata\xea\x02\x1dFlowseer::Model::Identity::V1b\beditionsp\xe9\a"
 
 var file_flowseer_model_identity_v1_operator_proto_msgTypes = make([]protoimpl.MessageInfo, 1)

@@ -1,7 +1,8 @@
 # FlowSeer t1 NETCONF reference server: stock netopeer2/sysrepo with
 # the yanggen fixture modules installed, so integration tests exercise
 # the committed generated fixture bindings against a real server.
-FROM sysrepo/sysrepo-netopeer2:latest
+# The digest is what the `latest` tag resolved to on 2026-10-06.
+FROM sysrepo/sysrepo-netopeer2@sha256:36cc1d841c97f118d62f775024d60fb1ce210c3bca6b32135c1a9e5a358a1cc9
 
 COPY fixture-types.yang fixture-grp.yang fixture-main-sub.yang fixture-main.yang fixture-aug.yang /fixtures/
 

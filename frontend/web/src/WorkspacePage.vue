@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import DashboardView from './DashboardView.vue'
 import DeviceView from './DeviceView.vue'
 import ClientsView from './ClientsView.vue'
@@ -23,19 +24,16 @@ import {
 import AppIcon from './components/AppIcon.vue'
 import DeviceIcon from './components/DeviceIcon.vue'
 import AppLink from './navigation/AppLink.vue'
+import UiAiTarget from './ui/ai/UiAiTarget.vue'
 import { aiTarget, useAiSlot } from './ai'
 import type { AiTarget, AiTargetSegment } from './ai'
+import { useFormat } from './i18n/format'
+import { useLabels } from './i18n/labels'
 import { scopeOf, usePage } from './navigation/page'
 import { useWorkspace } from './navigation/workspace'
 import { filterDevices, sites, tenantIds, tenants } from './domain/fleet'
 import type { Device } from './domain/fleet'
-import {
-  formatAgo,
-  healthLine,
-  latestIssue,
-  rankSites,
-  siteRollups,
-} from './domain/overview'
+import { latestIssue, rankSites, siteRollups } from './domain/overview'
 import type { SiteRollup } from './domain/overview'
 
 // Vue Flow and the ELK layout engine are most of the bundle and only the
@@ -43,6 +41,9 @@ import type { SiteRollup } from './domain/overview'
 const TopologyGraph = defineAsyncComponent(
   () => import('./components/topology/TopologyGraph.vue'),
 )
+const { t, n } = useI18n({ useScope: 'global' })
+const format = useFormat()
+const labels = useLabels()
 const page = usePage()
 const workspace = useWorkspace()
 const slot = useAiSlot()
@@ -81,21 +82,12 @@ function sortBy(key: SortKey) {
 const asOf = ref(new Date())
 const view = page.view
 const query = page.query
+const separator = computed(() => t('view.common.factSeparator'))
 
 const selected = computed(() =>
   fleet.value.find((device) => device.id === page.deviceId.value),
 )
-const title = computed(
-  () =>
-    ({
-      dashboard: 'Dashboard',
-      devices: 'Devices',
-      clients: 'Clients',
-      sites: 'Sites',
-      topology: 'Topology',
-      device: selected.value?.name ?? 'Unknown device',
-    })[view.value],
-)
+const title = computed(() => labels.page(view.value))
 
 const scope = computed(() =>
   filterDevices(fleet.value, query('tenant'), query('site'), '', ''),
@@ -113,8 +105,8 @@ const scopeError = computed(() => {
     !scopedSites.value.some((item) => item.id === query('site'))
   ) {
     return {
-      text: `Scope not found: "${query('site')}". It may have been removed or belongs to another tenant.`,
-      action: 'Clear site filter',
+      text: t('view.workspace.scopeNotFound', { site: query('site') }),
+      action: t('view.workspace.clearSiteFilter'),
       key: 'site',
     }
   }
@@ -149,12 +141,37 @@ const visibleSites = computed(() =>
   ),
 )
 
+const scopeSite = computed(() =>
+  sites.find((item) => item.id === query('site')),
+)
+const scopeTenant = computed(() =>
+  tenants.find((item) => item.id === query('tenant')),
+)
+// The names a site scope lists, each marked as an identifier in the heading.
+const scopeSiteParts = computed(() => {
+  const site = scopeSite.value
+  if (!site) return []
+  return [
+    { text: site.name, identifier: true },
+    { text: site.location, identifier: false },
+    { text: tenantName(site.id), identifier: true },
+  ]
+})
+const scopeAcrossKey = computed(() =>
+  scopeTenant.value
+    ? 'view.workspace.scopeAcrossTenant'
+    : 'view.workspace.scopeAcrossAll',
+)
 const scopeSummary = computed(() => {
-  const site = sites.find((item) => item.id === query('site'))
-  if (site) return `${site.name} · ${site.location} · ${tenantName(site.id)}`
-  const tenant = tenants.find((item) => item.id === query('tenant'))
+  if (scopeSite.value) {
+    return format.facts(scopeSiteParts.value.map((part) => part.text))
+  }
   const count = visibleSites.value.length
-  return `${count} ${count === 1 ? 'site' : 'sites'} across ${tenant ? tenant.name : 'all tenants'}`
+  return t(
+    scopeAcrossKey.value,
+    { count: n(count, 'integer'), tenant: scopeTenant.value?.name ?? '' },
+    count,
+  )
 })
 
 // Addressable targets. The mobile card and the desktop row are both mounted
@@ -190,7 +207,7 @@ function siteRowTarget(rollup: SiteRollup): AiTarget {
       name: rollup.site.name,
       location: rollup.site.location,
       tenant: tenantName(rollup.site.id),
-      health: healthLine(rollup.health),
+      health: labels.healthLine(rollup.health),
     },
   })
 }
@@ -200,13 +217,13 @@ const inventoryTarget = computed(() =>
     view: 'devices',
     kind: 'view',
     entityId: 'inventory',
-    label: 'Device inventory',
+    label: t('view.devices.inventory'),
     context: {
       scope: scopeSummary.value,
-      search: query('search') || 'none',
+      search: query('search') || t('view.common.noSearch'),
       status: query('health') || 'all',
-      total: String(scope.value.length),
-      matching: String(filtered.value.length),
+      total: n(scope.value.length, 'integer'),
+      matching: n(filtered.value.length, 'integer'),
     },
   }),
 )
@@ -216,10 +233,10 @@ const sitesViewTarget = computed(() =>
     view: 'sites',
     kind: 'view',
     entityId: 'sites',
-    label: 'Sites',
+    label: labels.page('sites'),
     context: {
       scope: scopeSummary.value,
-      sites: String(visibleSites.value.length),
+      sites: n(visibleSites.value.length, 'integer'),
     },
   }),
 )
@@ -241,6 +258,21 @@ const throughput = computed(() =>
   ),
 )
 
+// The facts after the scope summary in the heading line.
+const headingFacts = computed(() => {
+  const dashboard = view.value === 'dashboard'
+  const attention = scope.value.length - healthy.value
+  return format.facts([
+    dashboard && format.counted('view.common.devices', scope.value.length),
+    dashboard && format.counted('view.common.clients', clients.value),
+    dashboard && format.rate(throughput.value),
+    dashboard && t('view.workspace.asOf', { time: format.clock(asOf.value) }),
+    view.value === 'devices' &&
+      attention > 0 &&
+      t('view.common.needAttention', { count: n(attention, 'integer') }),
+  ])
+})
+
 const siteRows = computed(() =>
   rankSites(siteRollups(scope.value, visibleSites.value)),
 )
@@ -251,6 +283,15 @@ const allowedSites = computed(() =>
       site.tenantId ===
       sites.find((item) => item.id === selected.value?.siteId)?.tenantId,
   ),
+)
+
+// The notice for the move in flight, settled, or reverted.
+const moveKey = computed(() =>
+  !move.value?.observed
+    ? 'view.workspace.moving'
+    : move.value.reverted
+      ? 'view.workspace.moveReverted'
+      : 'view.workspace.moved',
 )
 
 watch(
@@ -278,7 +319,7 @@ async function setQuery(key: string, value: string) {
       { replace: true },
     )
   } catch {
-    message.value = 'Could not update this view. Try again.'
+    message.value = 'view.common.updateFailed'
   }
 }
 
@@ -297,23 +338,26 @@ async function clearFilters() {
       { replace: true },
     )
   } catch {
-    message.value = 'Could not reset filters. Try again.'
+    message.value = 'view.workspace.resetFailed'
   }
 }
 
 const statusOptions = computed(() => [
-  { value: 'all', label: 'All statuses' },
+  { value: 'all', label: t('view.devices.allStatuses') },
   ...(scope.value.length > healthy.value
     ? [
         {
           value: 'attention',
-          label: `Needs attention (${scope.value.length - healthy.value})`,
+          label: t('view.devices.needsAttentionOption', {
+            label: t('view.common.needsAttention'),
+            count: n(scope.value.length - healthy.value, 'integer'),
+          }),
         },
       ]
     : []),
-  { value: 'Healthy', label: 'Healthy' },
-  { value: 'Degraded', label: 'Degraded' },
-  { value: 'Offline', label: 'Offline' },
+  { value: 'Healthy', label: labels.health('Healthy') },
+  { value: 'Degraded', label: labels.health('Degraded') },
+  { value: 'Offline', label: labels.health('Offline') },
 ])
 
 function deviceLink(device: Device) {
@@ -363,19 +407,18 @@ async function handleUndo() {
       class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
     >
       <span>
-        <span v-if="message">{{ message }}</span>
-        <span v-else-if="move && !move.observed"
-          >Moving {{ move.name }} from {{ siteName(move.from) }} to
-          {{ siteName(move.to) }}…</span
-        >
-        <span v-else-if="move?.reverted"
-          >Move reverted. {{ move.name }} is back at
-          {{ siteName(move.to) }}.</span
-        >
-        <span v-else-if="move"
-          >{{ move.name }} is now at {{ siteName(move.to) }} (was
-          {{ siteName(move.from) }}).</span
-        >
+        <span v-if="message">{{ t(message) }}</span>
+        <I18nT v-else-if="move" scope="global" tag="span" :keypath="moveKey">
+          <template #name>
+            <span translate="no">{{ move?.name }}</span>
+          </template>
+          <template #from>
+            <span translate="no">{{ siteName(move?.from ?? '') }}</span>
+          </template>
+          <template #to>
+            <span translate="no">{{ siteName(move?.to ?? '') }}</span>
+          </template>
+        </I18nT>
       </span>
       <div class="flex items-center gap-2">
         <UiButton
@@ -384,10 +427,10 @@ async function handleUndo() {
           size="sm"
           @click="handleUndo"
         >
-          Undo
+          {{ t('view.workspace.undo') }}
         </UiButton>
         <button
-          aria-label="Dismiss notification"
+          :aria-label="t('view.workspace.dismissNotification')"
           class="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
           @click="dismissNotice"
         >
@@ -406,8 +449,8 @@ async function handleUndo() {
     />
     <UiEmptyState
       v-else
-      title="This device does not exist"
-      description="It may have been removed from the fleet."
+      :title="t('view.workspace.deviceMissingTitle')"
+      :description="t('view.workspace.deviceMissingDescription')"
     >
       <template #icon>
         <AppIcon name="search" />
@@ -417,7 +460,7 @@ async function handleUndo() {
           class="text-xs text-accent-foreground hover:underline"
           :to="{ path: '/devices' }"
         >
-          Back to devices
+          {{ t('view.workspace.backToDevices') }}
         </AppLink>
       </template>
     </UiEmptyState>
@@ -432,21 +475,29 @@ async function handleUndo() {
           v-if="!scopeError"
           class="text-sm text-muted-foreground tabular-nums mt-1.5 max-[800px]:max-w-[330px]"
         >
-          {{ scopeSummary }}
-          <template v-if="view === 'dashboard'">
-            · {{ scope.length }}
-            {{ scope.length === 1 ? 'device' : 'devices' }} ·
-            {{ clients }} clients · {{ throughput }} Mbps · as of
-            {{
-              asOf.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-              })
-            }}
+          <template v-if="scopeSite">
+            <template v-for="(part, index) in scopeSiteParts" :key="index">
+              <template v-if="index">{{ separator }}</template>
+              <span :translate="part.identifier ? 'no' : undefined">{{
+                part.text
+              }}</span>
+            </template>
           </template>
-          <template v-if="view === 'devices' && scope.length > healthy">
-            · {{ scope.length - healthy }} need attention
-          </template>
+          <I18nT
+            v-else
+            scope="global"
+            tag="span"
+            :keypath="scopeAcrossKey"
+            :plural="visibleSites.length"
+          >
+            <template #count>{{ n(visibleSites.length, 'integer') }}</template>
+            <template #tenant>
+              <span translate="no">{{ scopeTenant?.name }}</span>
+            </template>
+          </I18nT>
+          <template v-if="headingFacts"
+            >{{ separator }}{{ headingFacts }}</template
+          >
         </p>
       </div>
     </div>
@@ -474,19 +525,18 @@ async function handleUndo() {
       class="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-card border border-border rounded-panel text-xs text-foreground mb-6 shadow-xs"
     >
       <span>
-        <span v-if="message">{{ message }}</span>
-        <span v-else-if="move && !move.observed"
-          >Moving {{ move.name }} from {{ siteName(move.from) }} to
-          {{ siteName(move.to) }}…</span
-        >
-        <span v-else-if="move?.reverted"
-          >Move reverted. {{ move.name }} is back at
-          {{ siteName(move.to) }}.</span
-        >
-        <span v-else-if="move"
-          >{{ move.name }} is now at {{ siteName(move.to) }} (was
-          {{ siteName(move.from) }}).</span
-        >
+        <span v-if="message">{{ t(message) }}</span>
+        <I18nT v-else-if="move" scope="global" tag="span" :keypath="moveKey">
+          <template #name>
+            <span translate="no">{{ move?.name }}</span>
+          </template>
+          <template #from>
+            <span translate="no">{{ siteName(move?.from ?? '') }}</span>
+          </template>
+          <template #to>
+            <span translate="no">{{ siteName(move?.to ?? '') }}</span>
+          </template>
+        </I18nT>
       </span>
       <div class="flex items-center gap-2">
         <UiButton
@@ -495,10 +545,10 @@ async function handleUndo() {
           size="sm"
           @click="handleUndo"
         >
-          Undo
+          {{ t('view.workspace.undo') }}
         </UiButton>
         <button
-          aria-label="Dismiss notification"
+          :aria-label="t('view.workspace.dismissNotification')"
           class="p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
           @click="dismissNotice"
         >
@@ -509,8 +559,9 @@ async function handleUndo() {
 
     <template v-if="!scopeError">
       <template v-if="view === 'devices'">
-        <section
-          v-ai-target="inventoryTarget"
+        <UiAiTarget
+          as="section"
+          :ai="inventoryTarget"
           class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
           aria-labelledby="inventory-title"
         >
@@ -522,11 +573,11 @@ async function handleUndo() {
                 id="inventory-title"
                 class="text-base font-semibold text-foreground"
               >
-                Device inventory
+                {{ t('view.devices.inventory') }}
                 <span
                   class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
                 >
-                  {{ scope.length }}
+                  {{ n(scope.length, 'integer') }}
                 </span>
               </h2>
             </div>
@@ -543,8 +594,8 @@ async function handleUndo() {
               />
               <UiInput
                 :model-value="query('search')"
-                placeholder="Search name, type, or IP address…"
-                aria-label="Search devices"
+                :placeholder="t('view.devices.searchPlaceholder')"
+                :aria-label="t('view.devices.search')"
                 class="pl-8"
                 @update:model-value="setQuery('search', $event)"
               />
@@ -553,50 +604,58 @@ async function handleUndo() {
               <UiSelect
                 :model-value="query('health') || 'all'"
                 :options="statusOptions"
-                aria-label="Filter by status"
+                :aria-label="t('view.devices.filterStatus')"
                 @update:model-value="
                   setQuery('health', $event === 'all' ? '' : $event)
                 "
               />
             </div>
             <span class="ml-auto text-xs text-muted-foreground">
-              {{ filtered.length }}
-              {{ filtered.length === 1 ? 'result' : 'results' }}
+              {{ format.counted('view.common.results', filtered.length) }}
             </span>
           </div>
 
           <ul
             v-if="filtered.length"
             class="mobile-devices max-[560px]:grid hidden max-[560px]:list-none max-[560px]:m-0 max-[560px]:p-0 max-[560px]:px-3.5 border-t border-border"
-            aria-label="Device status"
+            :aria-label="t('view.devices.deviceStatus')"
           >
             <li
               v-for="device in filtered"
               :key="device.id"
               class="border-t border-border first:border-t-0"
             >
-              <button
-                v-ai-target="deviceTarget(device, 'mobile')"
+              <UiAiTarget
+                as="button"
+                :ai="deviceTarget(device, 'mobile')"
                 :data-device-id="device.id"
                 class="grid grid-cols-[1fr_auto] gap-2.5 w-full py-4 text-left cursor-pointer border-0 bg-transparent p-0 text-inherit font-inherit"
                 @click="openMobileDevice(device)"
               >
                 <strong
+                  translate="no"
                   class="font-semibold text-foreground self-center break-words text-sm"
                 >
                   {{ device.name }}
                 </strong>
                 <UiStatusBadge :status="device.health" />
                 <small class="text-xs text-muted-foreground">
-                  {{ siteName(device.siteId) }} · {{ device.address }} ·
-                  answered {{ formatAgo(device.lastSeenMinutes) }}
+                  <span translate="no">{{ siteName(device.siteId) }}</span
+                  >{{ separator
+                  }}<span translate="no">{{ device.address }}</span
+                  >{{ separator
+                  }}{{
+                    t('view.devices.answered', {
+                      age: format.ago(device.lastSeenMinutes),
+                    })
+                  }}
                 </small>
                 <span
                   class="inline-flex items-center gap-1 text-xs text-accent-foreground"
                 >
-                  View status <AppIcon name="arrow" />
+                  {{ t('view.devices.viewStatus') }} <AppIcon name="arrow" />
                 </span>
-              </button>
+              </UiAiTarget>
             </li>
           </ul>
 
@@ -622,11 +681,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('name')"
                     >
-                      Device name<span
-                        v-if="sortKey === 'name'"
-                        aria-hidden="true"
-                        >{{ ascending ? ' ↑' : ' ↓' }}</span
-                      >
+                      {{ t('view.devices.deviceName') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -644,11 +699,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('status')"
                     >
-                      Status<span
-                        v-if="sortKey === 'status'"
-                        aria-hidden="true"
-                        >{{ ascending ? ' ↑' : ' ↓' }}</span
-                      >
+                      {{ t('view.common.status') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -666,11 +717,7 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('seen')"
                     >
-                      Last answered<span
-                        v-if="sortKey === 'seen'"
-                        aria-hidden="true"
-                        >{{ ascending ? ' ↑' : ' ↓' }}</span
-                      >
+                      {{ t('view.devices.lastAnswered') }}
                     </button>
                   </UiTableHead>
                   <UiTableHead
@@ -688,18 +735,20 @@ async function handleUndo() {
                       class="sort-button font-medium inline-flex items-center gap-1 cursor-pointer"
                       @click="sortBy('site')"
                     >
-                      Site / tenant<span
-                        v-if="sortKey === 'site'"
-                        aria-hidden="true"
-                        >{{ ascending ? ' ↑' : ' ↓' }}</span
-                      >
+                      {{ t('view.devices.siteTenant') }}
                     </button>
                   </UiTableHead>
-                  <UiTableHead>IP address</UiTableHead>
-                  <UiTableHead align="numeric">Clients</UiTableHead>
-                  <UiTableHead align="numeric">Traffic</UiTableHead>
+                  <UiTableHead>{{ t('view.common.ipAddress') }}</UiTableHead>
+                  <UiTableHead align="numeric">{{
+                    t('view.common.columns.clients')
+                  }}</UiTableHead>
+                  <UiTableHead align="numeric">{{
+                    t('view.common.columns.traffic')
+                  }}</UiTableHead>
                   <UiTableHead
-                    ><span class="sr-only">Details</span></UiTableHead
+                    ><span class="sr-only">{{
+                      t('view.devices.details')
+                    }}</span></UiTableHead
                   >
                 </UiTableRow>
               </UiTableHeader>
@@ -707,7 +756,7 @@ async function handleUndo() {
                 <UiTableRow
                   v-for="device in filtered"
                   :key="device.id"
-                  v-ai-target="deviceTarget(device, 'desktop')"
+                  :ai="deviceTarget(device, 'desktop')"
                   :data-device-id="device.id"
                   :class="{
                     peeked: page.primary && sideDeviceId === device.id,
@@ -721,6 +770,7 @@ async function handleUndo() {
                       <DeviceIcon :role="device.role" />
                       <span>
                         <strong
+                          translate="no"
                           class="font-semibold text-foreground group-hover:text-accent-foreground block text-xs"
                         >
                           {{ device.name }}
@@ -735,38 +785,64 @@ async function handleUndo() {
                     <UiStatusBadge :status="device.health" />
                   </UiTableCell>
                   <UiTableCell class="seen text-xs text-muted-foreground">
-                    {{ formatAgo(device.lastSeenMinutes) }}
+                    {{ format.ago(device.lastSeenMinutes) }}
                   </UiTableCell>
                   <UiTableCell>
-                    <span class="font-medium text-foreground block text-xs">
+                    <span
+                      translate="no"
+                      class="font-medium text-foreground block text-xs"
+                    >
                       {{ siteName(device.siteId) }}
                     </span>
-                    <small class="text-2xs text-muted-foreground block">
+                    <small
+                      translate="no"
+                      class="text-2xs text-muted-foreground block"
+                    >
                       {{ tenantName(device.siteId) }}
                     </small>
                   </UiTableCell>
-                  <UiTableCell mono>{{ device.address }}</UiTableCell>
+                  <UiTableCell mono translate="no">{{
+                    device.address
+                  }}</UiTableCell>
                   <UiTableCell align="numeric">
                     {{
-                      device.health === 'Offline' ? '—' : device.clients || '—'
+                      device.health === 'Offline'
+                        ? t('view.common.noReading')
+                        : device.clients
+                          ? n(device.clients, 'integer')
+                          : t('view.common.noReading')
                     }}
                   </UiTableCell>
                   <UiTableCell align="numeric" class="traffic">
-                    <template v-if="device.health === 'Offline'">—</template>
-                    <template v-else>
-                      {{ device.throughput }}
-                      <span class="text-2xs text-muted-foreground">Mbps</span>
-                    </template>
+                    <template v-if="device.health === 'Offline'">{{
+                      t('view.common.noReading')
+                    }}</template>
+                    <I18nT
+                      v-else
+                      scope="global"
+                      keypath="view.common.valueWithUnit"
+                    >
+                      <template #value>{{
+                        n(device.throughput, 'decimal')
+                      }}</template>
+                      <template #unit>
+                        <span class="text-2xs text-muted-foreground">{{
+                          t('view.common.units.mbps')
+                        }}</span>
+                      </template>
+                    </I18nT>
                   </UiTableCell>
                   <UiTableCell>
                     <div class="flex items-center gap-1 justify-end">
                       <UiTooltip
-                        label="Peek beside"
-                        hint="Shift-click a name does the same; ↑ ↓ step through the list, Esc closes."
+                        :label="t('view.devices.peekBeside')"
+                        :hint="t('view.devices.peekHint')"
                       >
                         <button
                           class="inline-flex items-center justify-center p-1.5 rounded hover:bg-hover text-muted-foreground hover:text-foreground cursor-pointer"
-                          :aria-label="`Peek at ${device.name} beside this list`"
+                          :aria-label="
+                            t('view.devices.peekAt', { name: device.name })
+                          "
                           @click="peekDevice(device)"
                         >
                           <AppIcon name="panel-right" />
@@ -775,7 +851,9 @@ async function handleUndo() {
                       <AppLink
                         class="inline-flex items-center justify-center p-1.5 rounded hover:bg-hover text-muted-foreground hover:text-foreground"
                         :to="deviceLink(device)"
-                        :aria-label="`Details for ${device.name}`"
+                        :aria-label="
+                          t('view.devices.detailsFor', { name: device.name })
+                        "
                       >
                         <AppIcon name="arrow" />
                       </AppLink>
@@ -786,8 +864,8 @@ async function handleUndo() {
             </UiTable>
             <UiEmptyState
               v-if="!filtered.length"
-              title="No devices match this view"
-              description="Try a different search, status, or site."
+              :title="t('view.devices.emptyTitle')"
+              :description="t('view.devices.emptyDescription')"
             >
               <template #icon>
                 <AppIcon name="search" />
@@ -799,7 +877,7 @@ async function handleUndo() {
                   class="cursor-pointer"
                   @click="clearFilters"
                 >
-                  Clear search and status
+                  {{ t('view.devices.clearFilters') }}
                 </UiButton>
               </template>
             </UiEmptyState>
@@ -807,11 +885,18 @@ async function handleUndo() {
           <footer
             class="px-6 py-4 border-t border-border text-xs text-muted-foreground"
           >
-            <span
-              >Showing {{ filtered.length }} of {{ scope.length }} devices</span
-            >
+            <span>{{
+              t(
+                'view.devices.showing',
+                {
+                  shown: n(filtered.length, 'integer'),
+                  total: n(scope.length, 'integer'),
+                },
+                scope.length,
+              )
+            }}</span>
           </footer>
-        </section>
+        </UiAiTarget>
       </template>
 
       <ClientsView
@@ -828,19 +913,20 @@ async function handleUndo() {
         :tenant-name="tenantName"
       />
 
-      <section
+      <UiAiTarget
         v-else-if="view === 'sites'"
-        v-ai-target="sitesViewTarget"
+        as="section"
+        :ai="sitesViewTarget"
         class="bg-card border border-border rounded-panel overflow-hidden shadow-xs"
         aria-labelledby="sites-title"
       >
         <div class="px-6 py-5 pb-4 flex items-center justify-between gap-3">
           <h2 id="sites-title" class="text-base font-semibold text-foreground">
-            Sites
+            {{ labels.page('sites') }}
             <span
               class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
             >
-              {{ visibleSites.length }}
+              {{ n(visibleSites.length, 'integer') }}
             </span>
           </h2>
         </div>
@@ -848,16 +934,20 @@ async function handleUndo() {
           <UiTable>
             <UiTableHeader>
               <UiTableRow>
-                <UiTableHead>Site</UiTableHead>
-                <UiTableHead class="w-[28%]">Health</UiTableHead>
-                <UiTableHead class="max-[560px]:hidden">Open issue</UiTableHead>
-                <UiTableHead class="max-[560px]:hidden" align="numeric"
-                  >Devices</UiTableHead
-                >
+                <UiTableHead>{{ t('view.common.columns.site') }}</UiTableHead>
+                <UiTableHead class="w-[28%]">{{
+                  t('view.common.columns.health')
+                }}</UiTableHead>
+                <UiTableHead class="max-[560px]:hidden">{{
+                  t('view.sites.openIssue')
+                }}</UiTableHead>
+                <UiTableHead class="max-[560px]:hidden" align="numeric">{{
+                  t('view.common.columns.devices')
+                }}</UiTableHead>
                 <UiTableHead
-                  ><span class="sr-only"
-                    >Devices at this site</span
-                  ></UiTableHead
+                  ><span class="sr-only">{{
+                    t('view.sites.devicesAtSite')
+                  }}</span></UiTableHead
                 >
               </UiTableRow>
             </UiTableHeader>
@@ -865,7 +955,7 @@ async function handleUndo() {
               <UiTableRow
                 v-for="rollup in siteRows"
                 :key="rollup.site.id"
-                v-ai-target="siteRowTarget(rollup)"
+                :ai="siteRowTarget(rollup)"
               >
                 <UiTableCell>
                   <AppLink
@@ -879,20 +969,23 @@ async function handleUndo() {
                     }"
                   >
                     <strong
+                      translate="no"
                       class="font-semibold text-foreground group-hover:text-accent-foreground block text-xs"
                     >
                       {{ rollup.site.name }}
                     </strong>
                     <small class="text-2xs text-muted-foreground block">
-                      {{ rollup.site.location }} ·
-                      {{ tenantName(rollup.site.id) }}
+                      {{ rollup.site.location }}{{ separator
+                      }}<span translate="no">{{
+                        tenantName(rollup.site.id)
+                      }}</span>
                     </small>
                   </AppLink>
                 </UiTableCell>
                 <UiTableCell class="w-[28%]">
                   <UiSegmentedMeter :counts="rollup.health" />
                   <small class="text-2xs text-muted-foreground block mt-1">
-                    {{ healthLine(rollup.health) }}
+                    {{ labels.healthLine(rollup.health) }}
                   </small>
                 </UiTableCell>
                 <UiTableCell class="max-[560px]:hidden">
@@ -902,19 +995,24 @@ async function handleUndo() {
                     </span>
                     <small class="text-2xs text-muted-foreground block mt-0.5">
                       {{
-                        formatAgo(
+                        format.ago(
                           latestIssue(scope, rollup.site)?.minutesAgo ?? 0,
                         )
                       }}
                     </small>
                   </template>
-                  <span v-else class="text-xs text-muted-foreground">None</span>
+                  <span v-else class="text-xs text-muted-foreground">{{
+                    t('view.sites.none')
+                  }}</span>
                 </UiTableCell>
                 <UiTableCell class="max-[560px]:hidden" align="numeric">
                   {{
-                    rollup.health.Healthy +
-                    rollup.health.Degraded +
-                    rollup.health.Offline
+                    n(
+                      rollup.health.Healthy +
+                        rollup.health.Degraded +
+                        rollup.health.Offline,
+                      'integer',
+                    )
                   }}
                 </UiTableCell>
                 <UiTableCell>
@@ -928,14 +1026,14 @@ async function handleUndo() {
                       },
                     }"
                   >
-                    Devices
+                    {{ labels.page('devices') }}
                   </AppLink>
                 </UiTableCell>
               </UiTableRow>
             </UiTableBody>
           </UiTable>
         </UiScrollArea>
-      </section>
+      </UiAiTarget>
     </template>
   </template>
 </template>

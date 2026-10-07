@@ -29,7 +29,7 @@ counters survive expiry, the payload does not.
 
 ## Boundaries
 
-Imports: model/capture, model/edge, net/capture
+Imports: authz, model/capture, model/edge, net/capture
 
 Imported by: nothing
 

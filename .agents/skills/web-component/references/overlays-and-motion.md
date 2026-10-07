@@ -9,6 +9,15 @@ The `--z-*` tokens and overlay `--animate-*` keyframes are defined in
 `src/theme/tokens.css` and `src/theme/tailwind.css`. JavaScript motion uses
 the motion-v surface under `frontend/web/src/ui/motion/`.
 
+Contents:
+
+- Failures this repository already had
+- Overlay rules
+- Motion rules
+- Native feedback tests
+- Checks happy-dom cannot make
+- Mount-test limits
+
 ## Failures this repository already had
 
 | Commit | Symptom | Cause |

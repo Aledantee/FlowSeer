@@ -12,9 +12,11 @@ import {
   AlertDialogTrigger,
 } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { PopupAnchor } from '../popover/popupAnchor'
 import UiButton from '../button/UiButton.vue'
 
-export interface UiAlertDialogProps {
+export interface UiAlertDialogProps extends UiAiProps {
   open?: boolean
   defaultOpen?: boolean
   title: string
@@ -30,6 +32,8 @@ const props = withDefaults(defineProps<UiAlertDialogProps>(), {
   confirmText: undefined,
   cancelText: undefined,
   destructive: false,
+  ai: undefined,
+  aiOrigin: undefined,
 })
 
 const { t } = useI18n({ useScope: 'global' })
@@ -40,12 +44,14 @@ const resolvedCancelText = computed(
   () => props.cancelText ?? t('ui.alertDialog.cancelText'),
 )
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
-  (e: 'confirm'): void
-  (e: 'cancel'): void
-  (e: 'closeAutoFocus', event: Event): void
-}>()
+const emit = defineEmits<
+  UiAiEmits & {
+    (e: 'update:open', value: boolean): void
+    (e: 'confirm'): void
+    (e: 'cancel'): void
+    (e: 'closeAutoFocus', event: Event): void
+  }
+>()
 </script>
 
 <template>
@@ -66,6 +72,11 @@ const emit = defineEmits<{
         class="bg-popover text-foreground border border-border shadow-lg rounded-panel fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-(--z-overlay) p-6 w-full max-w-md focus:outline-none data-[state=open]:animate-dialog-in data-[state=closed]:animate-dialog-out motion-reduce:data-[state=open]:animate-dialog-fade-in motion-reduce:data-[state=closed]:animate-fade-out"
         @close-auto-focus="emit('closeAutoFocus', $event)"
       >
+        <PopupAnchor
+          :ai="ai"
+          :ai-origin="aiOrigin"
+          @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
+        />
         <div class="flex flex-col gap-2 mb-6">
           <AlertDialogTitle class="text-lg font-semibold text-foreground">
             {{ title }}

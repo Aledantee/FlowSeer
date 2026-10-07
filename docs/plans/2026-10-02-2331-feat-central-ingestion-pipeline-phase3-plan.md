@@ -2,11 +2,8 @@
 title: ClickHouse History Store - Plan
 type: feat
 date: 2026-10-02
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
-parent: docs/plans/2026-10-02-2331-feat-central-ingestion-pipeline-plan.md
 ---
 
 # ClickHouse History Store - Plan

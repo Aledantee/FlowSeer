@@ -26,8 +26,10 @@ since how Orca reports an idle CLI terminal there is unverified.
 
 Remove a child worktree of this one whose branch has landed here, as
 `delegate/references/orca.md` describes under Orchestration runs. Name one
-whose branch did not land, or that holds uncommitted files, in the report and
-leave it alone. A `git worktree remove` or `git branch -d` the harness refuses
+whose branch did not land, or that holds uncommitted files while its
+terminal is live, in the report and leave it alone. One whose terminal
+exited with uncommitted files is parked and stopped as
+`delegate/references/orca.md`, When a step fails, describes. A `git worktree remove` or `git branch -d` the harness refuses
 from this session goes into the report as a command for the person, with the
 child's path and branch:
 

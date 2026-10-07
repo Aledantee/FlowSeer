@@ -132,3 +132,31 @@ export const AccessibilityAudit: Story = {
     `,
   }),
 }
+
+export const Slots: Story = {
+  args: {
+    label: 'Search telemetry',
+    hint: 'Quick lookup across all sites',
+    side: 'bottom',
+    defaultOpen: true,
+  },
+  render: (args) => ({
+    components: { UiTooltip, UiButton },
+    setup() {
+      return { args }
+    },
+    template: `
+      <div class="p-12 flex justify-center">
+        <UiTooltip v-bind="args">
+          <UiButton variant="secondary">Hover me</UiButton>
+          <template #label>
+            <span>Custom slot label</span>
+          </template>
+          <template #hint>
+            <span>Custom slot hint</span>
+          </template>
+        </UiTooltip>
+      </div>
+    `,
+  }),
+}

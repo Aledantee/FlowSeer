@@ -276,4 +276,57 @@ describe('UiSelect', () => {
     expect(defaultTrigger.textContent).toContain('Option auswählen...')
     expect(customTrigger.textContent).toContain('Custom Site Selection')
   })
+
+  it('marks identifier option label with translate="no"', async () => {
+    const identOptions = [
+      { value: 'ham', label: 'Hamburg Site', identifier: true },
+      { value: 'plain', label: 'Plain Option' },
+    ]
+    const host = mountSelect({
+      modelValue: 'ham',
+      options: identOptions,
+      defaultOpen: true,
+    })
+    await nextTick()
+
+    const triggerLabel = host.querySelector('button [translate="no"]')
+    expect(triggerLabel?.textContent?.trim()).toBe('Hamburg Site')
+
+    const optionsInDom = document.querySelectorAll('[role="option"]')
+    expect(optionsInDom.length).toBe(2)
+    const identOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Hamburg Site'),
+    )
+    expect(
+      identOption?.querySelector('[translate="no"]')?.textContent?.trim(),
+    ).toBe('Hamburg Site')
+
+    const plainOption = [...optionsInDom].find((el) =>
+      el.textContent?.includes('Plain Option'),
+    )
+    expect(plainOption?.querySelector('[translate="no"]')).toBeNull()
+  })
+
+  it('does not mark trigger with [translate] when showing plain option or placeholder', async () => {
+    const identOptions = [
+      { value: 'ham', label: 'Hamburg Site', identifier: true },
+      { value: 'plain', label: 'Plain Option' },
+    ]
+    const placeholderHost = mountSelect({
+      options: identOptions,
+      placeholder: 'Select a site...',
+    })
+    const placeholderTrigger = placeholderHost.querySelector('button')
+    if (!placeholderTrigger)
+      throw new Error('Missing placeholder trigger button')
+    expect(placeholderTrigger.querySelector('[translate]')).toBeNull()
+
+    const plainHost = mountSelect({
+      modelValue: 'plain',
+      options: identOptions,
+    })
+    const plainTrigger = plainHost.querySelector('button')
+    if (!plainTrigger) throw new Error('Missing plain trigger button')
+    expect(plainTrigger.querySelector('[translate]')).toBeNull()
+  })
 })

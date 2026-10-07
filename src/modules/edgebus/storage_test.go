@@ -15,12 +15,16 @@ import (
 func startStorageTestHub(t *testing.T, edgeStreamMaxBytes int64) *Hub {
 	t.Helper()
 	hub, err := StartHub(context.Background(), HubConfig{
-		StateDir:           t.TempDir(),
-		FsyncPolicy:        service.BusFsyncPeriodic,
-		MaxStoreBytes:      640 << 20,
-		CentralBudgetBytes: 512 << 20,
-		EdgeBudgetBytes:    128 << 20,
-		EdgeStreamMaxBytes: edgeStreamMaxBytes,
+		StateDir:               t.TempDir(),
+		FsyncPolicy:            service.BusFsyncPeriodic,
+		MaxStoreBytes:          640 << 20,
+		CentralBudgetBytes:     512 << 20,
+		EdgeBudgetBytes:        128 << 20,
+		AuditMaxBytes:          128 << 20,
+		OperatorActionMaxBytes: 32 << 20,
+		IngestMaxBytes:         64 << 20,
+		EvidenceMaxBytes:       32 << 20,
+		EdgeStreamMaxBytes:     edgeStreamMaxBytes,
 	})
 	if err != nil {
 		t.Fatalf("start hub: %v", err)

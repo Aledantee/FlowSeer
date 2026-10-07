@@ -23,6 +23,8 @@ Binding on humans and agents equally; each doc states its own scope.
   changing instrumentation.
 - [`docs/code-style-web.md`](docs/code-style-web.md) — TypeScript web frontend
   (`frontend/web/`; own toolchain, Go rules do not apply).
+- [`docs/code-style-python.md`](docs/code-style-python.md) — Python scripts under
+  `tools/scripts/` (hooks, verifier, skill commands; started through `uv run`).
 - [`docs/doc-style.md`](docs/doc-style.md) — all prose: docs, READMEs, schema
   comments, skills, commit and PR text, agent reports. The repository
   documents itself: prose cites source code, a present file, or (last
@@ -44,16 +46,21 @@ Binding on humans and agents equally; each doc states its own scope.
   files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
-- `AGENTS.md`, `buf.yaml`, `tools/hooks/`, `.claude/settings.json`,
-  `.codex/hooks.json`, and merge-gate configuration are policy surfaces; changes
-  require explicit guardrail review.
+- `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
+  `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
+  verifier's scripts (`.agents/skills/verify-change/scripts/`,
+  `.agents/skills/prose/scripts/`), `tools/scripts/run.py`,
+  `tools/scripts/lib/`, `tools/scripts/verify/`, `tools/scripts/hooks/`, and
+  merge-gate configuration are policy
+  surfaces; changes require explicit guardrail review.
 
 ## Isolation
 
 On a protected branch in the primary checkout, enter a session worktree (short
 task-shaped name) before the first edit; read-only exploration is fine.
-Worktrees live outside the repository and branch off local `HEAD` — the repo has
-no remote. The Claude worktree hook defaults to the sibling
+Worktrees live outside the repository and branch off local `HEAD`, never off
+a remote branch. The repository has one remote, `origin`, and no skill
+fetches from it or pushes to it: work lands on local `main`. The Claude worktree hook defaults to the sibling
 `worktrees/<repo>/` directory.
 
 ## Agent behavior
@@ -87,9 +94,12 @@ no remote. The Claude worktree hook defaults to the sibling
   on request and stops at a staged diff for any policy surface.
   `docs/agent-steering.md` records why they are shaped this way. Where a
   project skill covers the work, it wins over a globally installed plugin
-  or skill of the same kind (compound-engineering's `ce-work` or
-  `ce-code-review`, for example); an external one is for work no project
-  skill covers.
+  or skill of the same kind.
+- Compound Engineering (CE) is blocked in this repository. Do not load,
+  invoke, or delegate to its plugin or skills, including `ce-*` and `lfg`,
+  even when no project skill covers the work. Use project instructions and
+  direct tools for that work. This keeps work in the repository's workflow
+  and records. FlowSeer's own `compound` skill remains available.
 - Auto-memory is off. Record a durable fact in the repository, in the place
   `docs/agent-knowledge.md` names for it.
 - FlowSeer is still building its building blocks and nothing external consumes
@@ -161,6 +171,9 @@ authority: `go test -race ./...` enforces the same invariants.
   - `src/modules/` — reusable modules a host assembles; see its README.
   - `src/services/` — control-plane services, assembled from modules.
   - `src/edge/` — applications built to run at the edge (may also run centrally).
+- `tools/scripts/` — host-side Python scripts behind one entry point,
+  `uv run tools/scripts/run.py <group> <command>`; `uv run tools/scripts/run.py
+  list` names every command and `test` runs their suites.
 - `spec/proto/` + `spec/mib/` — schema sources of truth; `generated/` is
   `buf generate` output, never edited by hand.
 - `docs/architecture/` — accepted direction records; read first for work on the

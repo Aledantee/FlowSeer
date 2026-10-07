@@ -245,6 +245,7 @@ hook_tooling=false
 mib=false
 service_otel_integration=false
 web=false
+plan_state=false
 
 add_module() {
   local candidate=$1
@@ -285,16 +286,22 @@ if [[ $full == true ]]; then
   mib=true
   service_otel_integration=true
   web=true
+  plan_state=true
 else
   for path in "${paths[@]}"; do
     case "$path" in
       frontend/web/*) web=true ;;
     esac
+    # A plan's state file selects the state gate by itself, and so does a
+    # deleted plan: its state file left behind is a fault the gate names.
+    case "$path" in
+      docs/plans/*) plan_state=true ;;
+    esac
     case "$path" in
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*) hook_tooling=true ;;
+          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*|tools/scripts/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -333,7 +340,7 @@ else
           fi
         fi
         ;;
-      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*)
+      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*|tools/scripts/*|uv.toml)
         hook_tooling=true
         ;;
     esac
@@ -473,6 +480,12 @@ if [[ $print_selection == true ]]; then
   if [[ $buf_module == true ]]; then
     printf 'tool_module=tools/buf mode=mod-verify\n'
   fi
+  if [[ $plan_state == true ]]; then
+    printf 'plan_state=true\n'
+  fi
+  if [[ $hook_tooling == true ]]; then
+    printf 'hook_tooling=true\n'
+  fi
   for module in "${modules[@]:-}"; do
     [[ -n $module ]] || continue
     if [[ $module == generated/* ]]; then
@@ -508,7 +521,7 @@ fi
 gates_selected=false
 if ((${#markdown_files[@]})) || ((${#go_files[@]})) || ((${#modules[@]})) ||
   [[ $proto == true || $hook_tooling == true || $mib == true ||
-  $service_otel_integration == true || $web == true ]]; then
+  $service_otel_integration == true || $web == true || $plan_state == true ]]; then
   gates_selected=true
 fi
 
@@ -530,6 +543,9 @@ fi
 # below, which stay as the last line of defence for a gate this list
 # misses.
 required_tools=(python3 go)
+if ((${#markdown_files[@]})); then
+  required_tools+=(uv)
+fi
 if ((${#go_files[@]})); then
   required_tools+=(gofumpt goimports)
 fi
@@ -540,7 +556,7 @@ if [[ $proto == true || $mib == true ]]; then
   required_tools+=(go)
 fi
 if [[ $hook_tooling == true ]]; then
-  required_tools+=(jq shellcheck go)
+  required_tools+=(jq shellcheck go uv)
 fi
 if [[ $web == true ]]; then
   required_tools+=(node)
@@ -572,6 +588,11 @@ fi
 need_tool python3
 need_tool go
 run python3 "$script_dir/check-plan-status.py"
+if [[ $plan_state == true ]]; then
+  # The whole tree, not the named paths: a state file is legal only beside
+  # its parent's and its phases', which the run may not name.
+  run python3 "$script_dir/../../plan/scripts/plan_record.py" check
+fi
 build_dir=$(mktemp -d "${TMPDIR:-/tmp}/flowseer-build.XXXXXX")
 run go build -o "$build_dir/check-guarantees" ./tools/check-guarantees
 if [[ $full == true ]]; then
@@ -609,7 +630,8 @@ fi
 
 if ((${#markdown_files[@]})); then
   need_tool python3
-  run python3 "$script_dir/check-markdown-links.py" "${markdown_files[@]}"
+  need_tool uv
+  run uv run tools/scripts/run.py verify check-markdown-links "${markdown_files[@]}"
   run python3 .claude/skills/prose/scripts/check-prose.py --quiet "${markdown_files[@]}"
 fi
 
@@ -953,6 +975,27 @@ if [[ $hook_tooling == true ]]; then
       exit 1
     fi
   done
+  # The repository scripts: compile every module, then run their suites.
+  # Compiling catches a module no test imports. The zero-test guard is the
+  # one the skill suites above have.
+  if [[ -d tools/scripts ]]; then
+    need_tool uv
+    repo_scripts=()
+    while IFS= read -r script; do
+      repo_scripts+=("$script")
+    done < <(find tools/scripts -name '*.py' -not -path '*/__pycache__/*' | sort)
+    run python3 -X"pycache_prefix=$build_dir/pycache" -m py_compile "${repo_scripts[@]}"
+    if ! test_output=$(run uv run tools/scripts/run.py test 2>&1); then
+      printf '%s\n' "$test_output"
+      exit 1
+    fi
+    printf '%s\n' "$test_output"
+    if [[ ! $test_output =~ Ran\ [1-9][0-9]*\ tests? ]]; then
+      printf '%s\n' "tools/scripts tests ran zero tests." >&2
+      printf '%s\n' "uv run tools/scripts/run.py test" >"$gate_file"
+      exit 1
+    fi
+  fi
 fi
 
 if [[ $service_otel_integration == true ]]; then

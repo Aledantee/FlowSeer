@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useTemplateRef } from 'vue'
 import { ProgressIndicator, ProgressRoot } from 'reka-ui'
 import { useI18n } from 'vue-i18n'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiProgressProps {
+export interface UiProgressProps extends UiAiProps {
   modelValue?: number | null
   max?: number
   size?: 'sm' | 'md' | 'lg'
@@ -21,7 +24,19 @@ const props = withDefaults(defineProps<UiProgressProps>(), {
   variant: 'default',
   ariaLabel: undefined,
   valueText: undefined,
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const { n, t } = useI18n({ useScope: 'global' })
 const resolvedAriaLabel = computed(
@@ -88,6 +103,7 @@ const indicatorStyle = computed(() => {
 
 <template>
   <ProgressRoot
+    ref="anchor"
     :model-value="modelValue"
     :max="max"
     :aria-label="resolvedAriaLabel"

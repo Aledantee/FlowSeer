@@ -2,12 +2,8 @@
 title: Dependency Admission Phase 1, Inventory, Statements, and the Cut List - Plan
 type: chore
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: implementation-ready
-status: planned
-review: accept after fixes
+artifact_contract: flowseer-plan/v2
 execution: mixed
-parent: docs/plans/2026-10-01-1457-chore-dependency-admission-plan.md
 ---
 
 # Dependency Admission Phase 1, Inventory, Statements, and the Cut List - Plan

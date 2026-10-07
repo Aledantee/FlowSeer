@@ -61,6 +61,41 @@ describe('tenant switcher', () => {
     expect(html).toContain('aria-label="Tenant scope: Unavailable selection"')
     expect(html).not.toContain('undefined')
   })
+  it('names the all-tenants and unavailable scopes in German', async () => {
+    const render = async (selected: string) => {
+      const app = createSSRApp(TenantSwitcher, {
+        tenants: [
+          { id: 'aurora', name: 'Aurora Hospitality' },
+          { id: 'meridian', name: 'Meridian Workspaces' },
+        ],
+        selected,
+      })
+      app.use(createWebI18n('de'))
+      return renderToString(app)
+    }
+    expect(await render('')).toContain(
+      'aria-label="Mandantenbereich: Alle Mandanten"',
+    )
+    const unavailable = await render('removed-tenant')
+    expect(unavailable).toContain(
+      'aria-label="Mandantenbereich: Auswahl nicht verfügbar"',
+    )
+    expect(unavailable).not.toContain('undefined')
+    expect(await render('aurora')).toContain(
+      '<span class="min-w-0 truncate" translate="no">Aurora Hospitality</span>',
+    )
+  })
+  it('names the only tenant without a dropdown, and the missing ones, in German', async () => {
+    const render = async (tenants: { id: string; name: string }[]) => {
+      const app = createSSRApp(TenantSwitcher, { tenants, selected: '' })
+      app.use(createWebI18n('de'))
+      return renderToString(app)
+    }
+    expect(
+      await render([{ id: 'aurora', name: 'Aurora Hospitality' }]),
+    ).toContain('translate="no">Aurora Hospitality</span>')
+    expect(await render([])).toContain('Keine Mandanten verfügbar')
+  })
   it('mounts in client with trigger button reflecting selected tenant scope', async () => {
     const host = mountApp(() =>
       h(TenantSwitcher, {

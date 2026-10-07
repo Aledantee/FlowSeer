@@ -12,6 +12,41 @@ pnpm dev
 Open the URL Vite prints. Use Node 22.12 or newer and pnpm 11.25.0.
 The fonts are bundled locally. The app makes no requests to external services.
 
+### pnpm in the Claude Code sandbox
+
+pnpm 12 takes a store lock under `/tmp/pnpm-store-operation-locks-<uid>/`, and
+the macOS sandbox denies writes to `/tmp`. Every pnpm command then fails before
+it starts, `pnpm --version` included:
+
+```text
+ERR_PNPM_STORE_DIR_OPEN_OPERATION_LOCK … Operation not permitted (os error 1)
+```
+
+pnpm puts the lock under `$XDG_RUNTIME_DIR` instead when that directory exists,
+is absolute, belongs to you, and others cannot write to it
+([pnpm#16406](https://github.com/pnpm/pnpm/pull/16406)). Claude Code's
+per-user sandbox directory `/private/tmp/claude-<uid>` qualifies.
+
+Inside the sandbox pnpm also passes over `~/Library/pnpm/store`, even though
+the sandbox may write it, and falls back to an untracked `.pnpm-store/` at the
+worktree root. Each worktree then downloads every package again. Naming the
+store explicitly keeps installs in the shared one.
+
+Both values hold your user ID or home directory, so they go in your user
+settings, `~/.claude/settings.json`, not in the project's:
+
+```json
+"env": {
+  "XDG_RUNTIME_DIR": "/private/tmp/claude-501",
+  "pnpm_config_store_dir": "/Users/you/Library/pnpm/store"
+}
+```
+
+Replace `501` with the output of `id -u` and `/Users/you` with your home
+directory, then start a new session. The project's `.claude/settings.json`
+already lets the sandbox write the pnpm store, engine store, and cache under
+`~/Library` and reach `registry.npmjs.org`.
+
 ## Try the UI
 
 Choose **Aurora Hospitality** to see devices in its **Aurora Germany** sub-tenant.
@@ -92,7 +127,10 @@ The icon-only theme switch at the top right crossfades and rotates between
 sun and moon over 160 ms. It has an accessible state label and a tooltip. Under
 reduced motion the icons crossfade without rotating. The theme follows the system preference until
 a choice is saved in local browser storage. The navigation frame stays connected in both themes: neutral gray in light mode
-and charcoal in dark mode. Help opens a keyboard-accessible dialog explaining
+and charcoal in dark mode. The language switch beside it is one button of the same size. It shows the
+active language code, and its tooltip and accessible name offer the other language by its own name,
+such as `Switch language to Deutsch`. Pressing it changes every view without a reload and announces
+the change in a status region. Help opens a keyboard-accessible dialog explaining
 scope, device lookup, and site assignment. The adjacent bug button
 opens a report form and copies its summary, description, and page path for sharing.
 It does not submit to a service or include tenant/site query parameters.
@@ -197,8 +235,9 @@ Data display components under `src/ui/` present tables, metrics, and progress:
 
 Overlay, navigation, and command primitives under `src/ui/` wrap Reka UI headless components styled with semantic tokens:
 
-- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, and keyboard escape dismissal.
+- `UiDialog` & `UiAlertDialog`: modal overlays with accessible titles, descriptions, scrim backdrops, focus trapping, keyboard escape dismissal, and optional right-edge sheet layout (`side="right"`).
 - `UiPopover`: floating popover anchored to triggers with configurable alignment and collision padding.
+- `UiContextMenu` suite: contextual right-click and keyboard menus with roving focus and outside-click dismissal (`UiContextMenu`, `UiContextMenuTrigger`, `UiContextMenuContent`, `UiContextMenuItem`, `UiContextMenuSeparator`).
 - `UiDropdownMenu` suite: dropdown action menus with nested submenus, roving focus, keyboard navigation, and separators (`UiDropdownMenuItem`, `UiDropdownMenuSeparator`).
 - `UiTabs`: a single tab container that creates accessible triggers and panels from the `tabs` prop. Use `v-model` for controlled selection or `defaultValue` for initial selection; `trigger-${value}` and `${value}` slots replace a tab's label and panel content.
 - `UiBreadcrumb` suite: hierarchical breadcrumb navigation (`UiBreadcrumbList`, `UiBreadcrumbItem`, `UiBreadcrumbLink`, `UiBreadcrumbPage`, `UiBreadcrumbSeparator`, `UiBreadcrumbEllipsis`) featuring responsive auto-collapsing of intermediate links into a dropdown menu on narrow viewports.
@@ -245,7 +284,7 @@ Favor concise status summaries and touch-friendly controls. Dense table tooling,
 full topology exploration, bulk configuration, and configurable OLAP dashboards
 can remain desktop workflows. The skeleton shows device count and health first on phones, hides topology
 navigation and secondary traffic summaries, and offers one-tap device details.
-The theme, help, and account controls join the brand row, the bug report
+The theme, language, help, and account controls join the brand row, the bug report
 button is left to desktop, and the Dashboard keeps its site list with a health
 bar per site.
 Further quick actions need their own service contracts.
@@ -291,7 +330,9 @@ control. Motion lifecycle tests cover these cleanup paths and rapid replacement.
 FlowSeer uses vue-i18n in Composition mode with English and German catalogs:
 
 - `src/i18n/index.ts` exports `createWebI18n(locale = 'en')` with `fallbackLocale: 'en'`, `en.json` and `de.json` catalogs, and decimal, integer, and percent number formats. Each call returns a fresh plugin instance because vue-i18n binds its lifecycle to the app: `install` wraps `app.unmount` to call `i18n.dispose()`, so sharing an instance disposes it when the first app unmounts.
-- `src/main.ts` installs one plugin instance on the Vue application before mount. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/main.ts` installs one plugin instance on the Vue application before mount, created with the locale `initialLocale()` resolves. Storybook's `setup` callback registers a fresh instance per app, and tests mount components with their own instance.
+- `src/i18n/locale.ts` picks the starting locale. A saved choice wins, then the first entry of `navigator.languages` whose primary subtag is `en` or `de` without regard to case, then `en`. A tag such as `den` does not match, since only its first letters equal `de`. The choice lives in `localStorage` under `flowseer.locale`, and blocked storage reads as nothing saved. `bindDocumentLang` keeps `<html lang>` equal to the Composer locale, including after a switch.
+- `src/components/LocaleSwitcher.vue` sets the Composer locale and saves it. When the browser refuses to save, the locale still changes and the status region says the choice was not saved. Storybook keeps its own locale toolbar and does not read `flowseer.locale`.
 - Locale state lives in the global Composer. `UiAppRoot` reads the active Composer locale and passes it to Reka's `ConfigProvider`. That keeps translated template text and headless primitives synchronized.
 - In Storybook, the `withLocale` decorator watches `reactive(context.globals).locale` and updates the active Composer. The Storybook toolbar provides English and German options without per-story provider wrappers.
 - Component defaults belong to `ui.<owner>.<suffix>` in `src/i18n/locales/en.json` and `de.json`. Identifiers, keys, and slot content remain caller data, while the owning component renders localized display text.
@@ -322,14 +363,84 @@ const resolvedText = computed(() => props.text ?? t('ui.commandEmpty.text'))
 </template>
 ```
 
+#### View messages
+
+Views and the components under `src/components/` keep their strings in `view.<owner>.<key>` messages in both catalogs. The owner is the file's area: `fleet`, `dock`, `search`, `workspace`, `devices`, `sites`, `dashboard`, `device`, `clients`, `devicePorts`, `topology`, `topologyInspector`, and the like. Words that two owners share live under `view.common`, so a page name, a health word, or a unit reads the same everywhere. Fixture data under `src/domain/` stays untranslated because it stands in for service data. A value typed as a union of literals (`Health`, `PortStatus`, `Band`) is an identifier, and its display text is a message.
+
+Two composables keep formatting out of the views:
+
+- `useFormat()` in `src/i18n/format.ts` formats values for the active locale. `quantity` and `rate` print a number and its unit, `speed` prints `10G`, `counted` picks a plural form, `ago` and `clock` print relative and clock times, and `facts` joins parts with the separator message.
+- `useLabels()` in `src/i18n/labels.ts` names identifiers and page ids, and builds a rollup's health line.
+
+Unit labels are messages. `Intl.NumberFormat` prints `Mb/s` for megabits per second in every locale, while the catalogs read `Mbit/s`. Relative times come from `Intl.RelativeTimeFormat` and clock times from `d()`, so both follow the locale without a message.
+
+`src/components/DevicePorts.vue` shows the pieces together. `n()` formats each count, `quantity` joins the PoE power with its unit, and `facts` drops the PoE part when no port has power:
+
+```ts
+const summary = computed(() =>
+  format.facts([
+    t('view.devicePorts.summary', {
+      active: n(active.value.length, 'integer'),
+      total: n(props.ports.length, 'integer'),
+    }),
+    props.ports.some((port) => port.poe) &&
+      t('view.devicePorts.poe', { power: format.quantity(power.value, 'w') }),
+  ]),
+)
+```
+
+The port count is a plural message that `counted` selects by the raw count, formatted by `n()` for display:
+
+```vue
+    <ol
+      class="port-map"
+      :aria-label="format.counted('view.devicePorts.ports', ports.length)"
+    >
+```
+
+The catalogs hold the matching messages in `view.devicePorts`:
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} port | {count} ports",
+  "summary": "{active} of {total} up"
+},
+```
+
+```json
+"devicePorts": {
+  "poe": "{power} PoE",
+  "ports": "{count} Port | {count} Ports",
+  "summary": "{active} von {total} verbunden"
+},
+```
+
+Names of devices, clients, sites, tenants, addresses, serials, port names, and models carry `translate="no"`, so a page translator leaves them alone:
+
+```vue
+        <button
+          translate="no"
+          class="port-name font-mono justify-self-start p-0 border-0 bg-transparent text-foreground text-left hover:text-accent-foreground hover:underline cursor-pointer"
+          @click="emit('port', port.name)"
+        >
+          {{ port.name }}
+```
+
+A message read into a top-level `const` keeps the locale the module was set up in, because `t()` runs once. A table of labels is a `computed`, or it moves into the template, and every view test switches the locale on a mounted app to catch the difference. Do not build a sentence from fragments, since word order differs between English and German. One message carries named values, and `I18nT` with `scope="global"` carries inline markup.
+
+`src/i18n/templates.test.ts` reads every `.vue` file directly under `src/`, every one under `src/components/` and `src/navigation/`, and the `Ui*` files under `src/ui/`. It fails with the file and line for a literal text node and for a static `aria-label`, `title`, `placeholder`, or similar attribute. It cannot see a string built in `<script>` or inside a bound expression, so a reviewer reads those. `src/FleetView.locale.test.ts` mounts the dashboard, devices, a device, clients, and sites in both locales, switches between them on one mount, fails on any `vue-i18n` warning, and verifies with `unmarkedIdentifiers` that fixture identifiers carry `translate="no"` across rendered views, dock states, and switchers. The property inspects text nodes only and ignores attributes such as `aria-label` or `title`. Tooltips sit inside the property: `UiTooltip` exposes `label` and `hint` slots so callers can mark identifier spans with `translate="no"` while leaving message text unmarked.
+
 ## AI targets
 
-The console can expose meaningful instances to an agent without an AI
-backend. A view marks an element with the `v-ai-target` directive bound to an
-`AiTarget`; the directive registers the element while it is mounted and
-removes it when it unmounts, so a row that leaves a filter stops being
-addressable. Target IDs are qualified by physical pane slot (`a`, `b`, or
-`standalone` for a Storybook story or a test), keeping IDs stable across pane
+The console can expose meaningful instances to an agent or model without an AI
+backend. A component registers the element that stands for it through an
+optional `ai` prop. The prop takes the resolved `AiTarget` that `aiTarget()`
+returns (`src/ai/target.ts`), so the caller owns the identity and the component
+never invents one. A registered element is listed while it is mounted and
+removed when it unmounts, so a row that leaves a filter stops being
+addressable. An absent `ai` prop registers nothing. Target IDs are qualified
+by physical pane slot (`a`, `b`, or `standalone` for a Storybook story or a test), keeping IDs stable across pane
 swaps even when primary and secondary roles change. Responsive components that
 mount simultaneous mobile and desktop layouts in CSS register distinct
 `mobile` and `desktop` segments, for example `a:devices:device:desktop:d1`.
@@ -338,40 +449,306 @@ the `hidden` attribute or CSS (`display: none`, `visibility: hidden`, or
 `visibility: collapse` on the target or an ancestor) are listed or selectable.
 Offscreen elements remain addressable so `highlight()` can scroll them into view.
 
-`window.flowseerAi` is the inspectable contract:
+### Anchor selection
+
+Each component registers its meaningful element and nothing around it. A
+plain control registers the control itself, a select registers its trigger,
+and a popup registers its content while it is mounted. Layout-only components
+register nothing. `useAiTarget` in `src/ui/ai/useAiTarget.ts` follows the prop
+and the element, using the registry injected through `src/ui/ai/context.ts`
+and the console-wide registry when none is provided. HTML and SVG elements
+are both valid anchors.
+
+A kit component takes the prop directly, so a table row is a `UiTableRow`
+with `:ai`. Native markup that no component owns, such as a list item, a
+section, or a link, uses `UiAiTarget` (`src/ui/ai/UiAiTarget.vue`). With `as`
+it renders that tag. With `asChild` it merges into the one child it is given.
+Neither adds a layout element. Both shapes appear in `src/DashboardView.vue`:
+
+```vue
+<UiTableRow
+  v-for="rollup in rollups"
+  :key="rollup.site.id"
+  :ai="siteTarget(rollup)"
+>
+  <UiTableCell>{{ rollup.site.name }}</UiTableCell>
+</UiTableRow>
+
+<UiAiTarget
+  v-for="device in attention"
+  :key="device.id"
+  as="li"
+  :ai="attentionTarget(device)"
+>
+  <AppLink :to="deviceTo(device.id)">{{ device.name }}</AppLink>
+</UiAiTarget>
+```
+
+The registry writes `data-ai-selected` on the highlighted element, including
+a manual `registry.register()` call, and one rule in `src/theme/ai.css`
+draws the outline with `--ring`.
+
+### Origin acknowledgement
+
+A value an agent changed takes `aiOrigin`, the originating request without its
+`signal` (`AiOriginRequest` in `src/ui/ai/context.ts`), and emits
+`aiOriginAcknowledged` with its `requestId`. The component sets
+`data-ai-origin="agent"` on the value until the user interacts with it
+(pointerdown, keydown, input, or change). Hover and programmatic
+updates leave it, and so does selection. The origin does not depend on `ai`. After an
+acknowledgement the component ignores that `requestId` while mounted, so the
+caller clears its own state on the event, and a new `requestId` marks the
+value again. Portalled content, such as a select's list, forwards its
+interactions to the same acknowledgement. `UiAiLabel` explains the request
+beside the value, and the caller removes it on the same event. This field and
+label pair is the `AgentChanged` story in `src/ui/form/UiField.stories.ts`:
+
+```vue
+<UiField label="Device Name">
+  <UiInput
+    v-model="name"
+    :ai-origin="changed"
+    @ai-origin-acknowledged="changed = undefined"
+  />
+  <UiAiLabel v-if="changed" :request="changed" />
+</UiField>
+```
+
+Text controls keep the browser's native context menu, so the story passes no
+`ai` there. Pass `:ai="nameTarget"` where the control should also be an
+agent target.
+
+Earlier prototypes explored hover triggers and a floating button that followed
+keyboard focus. Both were removed on purpose: hover triggers fired by accident
+during pointer travel, and focus-following buttons created visual clutter and
+nested interactive elements. AI interactions now center on three surfaces:
+
+1. **Context menu (`UiAiContextLayer`):** Right-clicking an element or pressing
+   Shift+F10 (or the `ContextMenu` key) on a focused item opens a menu of
+   labelled action verbs ("Why is this offline?", "Summarize this site").
+   Triggering a verb opens an answer-first popover anchored to that element.
+2. **Summary button (`UiAiSummary`):** The dashboard and device views retain a
+   dedicated summary placement, rendering structured results directly in the
+   content flow.
+3. **Assistant panel (`UiAiAssistant`):** A docked right column on wide screens,
+   or a full-height right sheet (`UiDialog` with `side="right"`) on narrow
+   viewports, opened via the top-bar button or Mod+I (`shortcuts.assistant`).
+   "Continue in assistant" from an inline popover transfers targets and turns
+   into the panel without losing context.
+
+### Interaction contract
+
+`window.flowseerAi` in `src/ai/registry.ts` is the inspectable browser API:
 
 ```ts
 window.flowseerAi.listTargets() // visible targets, sorted by id
-window.flowseerAi.highlight('a:devices:device:desktop:d1') // selects and scrolls into view; true when visible
+window.flowseerAi.highlight('a:devices:device:desktop:d1') // scrolls into view; true when visible
 window.flowseerAi.clearHighlight()
-const unsubscribe = window.flowseerAi.onRequest(async (request) => {
-  // request: { requestId, kind, targetId, label, context, prompt? }
-  return 'An answer built from the request snapshot.'
-})
-unsubscribe()
+
+const unsubscribeRequest = window.flowseerAi.onRequest(
+  async function* (request) {
+    // request: { requestId, action, targets, prompt?, history, signal }
+    yield {
+      type: 'summary',
+      headline: 'Core switch uplink experiencing frame loss',
+      tone: 'warning',
+      findings: [
+        {
+          severity: 'warning',
+          title: 'CRC error rate elevated',
+          detail:
+            'Port ge-0/0/1 reports 2.4% FCS error rate over the last 15 minutes.',
+          refs: [
+            { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+          ],
+        },
+      ],
+      cause: {
+        text: 'Marginal optical transceiver on uplink port.',
+        confidence: 'medium',
+        refs: [
+          { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+        ],
+      },
+      metrics: [{ label: 'FCS errors', value: '2.4%', tone: 'warning' }],
+      next: [{ label: 'Poll switch optical diagnostic levels' }],
+      sources: [
+        { kind: 'device', id: 'cologne-core-01', label: 'cologne-core-01' },
+      ],
+    }
+  },
+)
+
+const unsubscribeFeedback = window.flowseerAi.onFeedback(
+  ({ requestId, rating }) => {
+    // Record operator feedback
+  },
+)
+
+unsubscribeRequest()
+unsubscribeFeedback()
 ```
 
 `highlight(id)` selects and scrolls the exact mounted instance into view and
-returns `true`; unknown or CSS-hidden IDs return `false`. `onRequest` installs
-the asynchronous handler; the returned function removes it. With no handler
+returns `true`. Unknown or CSS-hidden IDs return `false`. `onRequest` installs
+the asynchronous handler, and the returned function removes it. With no handler
 installed, Ask and summary report **AI is unavailable** rather than inventing an
 answer. The application has no model provider yet, so `main.ts` installs
-`createMockAiHandler` (`src/ai/mock.ts`): it answers a summary from the target's
-context after a short pause that shows the pending shimmer, and leaves Ask
-unavailable. A result is revealed a word at a time; reduced motion shows it at
-once. A handler that rejects
-produces an error state, and an answer whose target unmounted, was replaced, or
-became hidden before it resolved is discarded, so a result never lands on a
-different instance that reused the ID.
+`createMockAiHandler` (`src/ai/mock.ts`): it answers summaries from the target's
+context in two snapshots with a pending delay, and answers Ask with a placeholder.
+A handler that rejects produces an error state.
 
-The on-screen action layer draws a small AI button in the top-right corner of
-the registered element, or just above that corner when a control occupies it,
-without nesting controls inside rows, charts, or buttons. A selection or focus
-within a target reveals Ask, and Alt+A opens it from the focused target; pointer
-hover reveals nothing. The prompt and answer use `UiPopover` with
-`UiButton` and `UiTextarea`; `UiAiSummary` owns the idle, loading, result,
-error, and retry states and makes no request until **Generate summary** is
-activated.
+### Typed results
+
+Results render using typed objects defined in `src/ai/types.ts` rather than
+raw Markdown or HTML strings. This avoids HTML-injection risks. Native
+design-system components (`UiStatusBadge`, `UiAiEntityChip`, `UiAiLabel`)
+present structured insights. `UiAiResult` uses `UiAiRender` for an optional
+validated component tree:
+
+- `AiSummary`: contains a headline, overall tone (`ok`, `warning`, `critical`,
+  `unknown`), structured findings with individual severities and entity
+  references, an optional likely cause with confidence rating, optional impact,
+  key metrics with status tones, recommended next steps, and entity sources.
+- `AiAnswer`: conversational or question responses containing prose text,
+  associated entity references, an optional nested `AiSummary`, and an optional
+  `ui` tree rendered by `UiAiRender`.
+
+An answer's `ui` value is an array of catalog nodes. `UiAiRender` validates the
+array and maps its ten components to the real design-system components:
+`UiCard`, `UiBadge`, `UiStatusBadge`, `UiMetricCard`, `UiMeter`, `UiProgress`,
+`UiSeparator`, `UiEmptyState`, `UiAiEntityChip`, and `UiButton`. A `text` prop
+becomes default-slot text. A button uses the `navigate` intent, whose path must
+pass `isPagePath` in `src/navigation/page.ts`.
+
+The value can look like this:
+
+```json
+[
+  {
+    "component": "UiCard",
+    "props": {},
+    "children": [
+      {
+        "component": "UiStatusBadge",
+        "props": { "status": "Healthy" }
+      },
+      {
+        "component": "UiButton",
+        "props": {
+          "text": "Open device",
+          "intent": {
+            "type": "navigate",
+            "target": { "path": "/devices/core-01" }
+          }
+        }
+      }
+    ]
+  }
+]
+```
+
+The registry clones a non-`undefined` `ui` once before it yields an answer
+snapshot. `structuredClone` keeps enumerable, string-keyed own data. It drops
+non-enumerable and symbol-keyed properties, reads an accessor once, and stores
+the value as data. A function, Proxy, or accessor that throws makes the clone
+fail. The registry then sets `ui` to `null`, so `UiAiRender` shows the tree's
+error state while the answer text remains. Summaries and answers without `ui`
+are yielded as the handler returned them.
+
+The validator rejects unknown components, missing or extra node and prop keys,
+invalid values, unsupported children, invalid entities or navigation targets,
+and trees over 64 nodes, four levels, or 500 characters per string. It copies
+allow-listed data before the renderer binds it. An empty array slot still
+rejects the tree. These checks are promised for a result made of data. An
+accessor or a Proxy on the handler's own answer object is outside the
+contract, since the handler is script in the page. Proposal intents remain outside the catalog until the
+console has a service API.
+
+An example structured `AiSummary` payload:
+
+```json
+{
+  "type": "summary",
+  "headline": "Core switch uplink experiencing frame loss",
+  "tone": "warning",
+  "findings": [
+    {
+      "severity": "warning",
+      "title": "CRC error rate elevated",
+      "detail": "Port ge-0/0/1 reports 2.4% FCS error rate over the last 15 minutes.",
+      "refs": [
+        {
+          "kind": "device",
+          "id": "cologne-core-01",
+          "label": "cologne-core-01"
+        }
+      ]
+    }
+  ],
+  "cause": {
+    "text": "Marginal optical transceiver on uplink port.",
+    "confidence": "medium",
+    "refs": [
+      { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+    ]
+  },
+  "impact": {
+    "text": "Downstream access points report intermittent packet retransmissions.",
+    "refs": [
+      { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+    ]
+  },
+  "metrics": [{ "label": "FCS errors", "value": "2.4%", "tone": "warning" }],
+  "next": [{ "label": "Poll switch optical diagnostic levels" }],
+  "sources": [
+    { "kind": "device", "id": "cologne-core-01", "label": "cologne-core-01" }
+  ]
+}
+```
+
+### Snapshot delivery and cancellation
+
+A handler returns `Promise<AiResult>` or an `AsyncIterable<AiResult>`. Streaming
+delivers progressive snapshots where each yielded object is a complete result
+state so far, eliminating fragile delta-patching protocols. The active request
+carries a standard `AbortSignal`. Activating Stop triggers `abort()`, halting
+iteration and freezing the current rendered snapshot. Every received snapshot
+is checked by `validateAiResult`, defined in `src/ai/validate.ts` and called
+from `src/ai/registry.ts`. A malformed result halts the run and displays an
+error. The registry clones an answer's `ui` before yielding it. A clone failure
+sets `ui` to `null`, and `UiAiRender` shows the tree's error state without
+halting the run.
+
+### Bound and unbound runs
+
+Requests initiate in either bound or unbound mode:
+
+- **Bound runs (`bound: true`):** Used by contextual menus and inline summaries.
+  The run monitors the registered DOM element. If that element unmounts or is
+  replaced by a different DOM node, the request aborts with `AiStaleError` to
+  prevent outdated results from settling on stale targets. Updating context on
+  the same element (such as periodically refreshing traffic counters) preserves
+  the run.
+- **Unbound runs (`bound: false`):** Used by the assistant panel. The panel
+  snapshots target context into chips when context is added. The session
+  remains active across page transitions and filter changes even after targets
+  unmount.
+
+### Context menu exclusions
+
+`UiAiContextLayer` intercepts right-click events in the capture phase to find the
+closest registered AI target. To avoid blocking expected browser controls, the
+listener halts propagation without calling `preventDefault()` when:
+
+- The click originates inside `a[href]`, `input`, `textarea`, `select`, or
+  `[contenteditable]` elements.
+- The document has an active, non-empty text selection.
+- No registered target is found under the pointer.
+- The closest target has `kind: 'view'` (such as background canvas clicks on
+  `DeviceView` or `TopologyGraph`).
+
+In all four cases, the native browser context menu appears normally.
 
 ## Boundaries and next decisions
 
@@ -379,8 +756,9 @@ The UI uses product-facing copy and omits decorative placeholder text and demo
 badges. This is still a design preview backed by local fixtures. Tenant selection filters fixtures and does not enforce
 authorization. Backend integration must authorize every tenant/site request and
 validate assignment changes. The logout icon beside the operator name is disabled until authentication is
-connected. There is no login, persistence, streaming transport,
-or production telemetry. Traffic is synthetic; aggregate device traffic may count
+connected. There is no login, persistence, streaming transport, or production
+telemetry. Traffic is
+synthetic. Aggregate device traffic may count
 traffic at multiple network hops. Topology links are illustrative.
 
 The 16-row native table establishes density and interactions. It is not a

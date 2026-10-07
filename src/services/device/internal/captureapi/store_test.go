@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"buf.build/go/protovalidate"
+	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -74,6 +75,24 @@ func newTestStoreDir(t *testing.T, clock func() time.Time) (*captureapi.Store, s
 	return store, capturesDir
 }
 
+type eachSessionKV struct {
+	jetstream.KeyValue
+	keys     []string
+	getErr   error
+	getCalls *int
+}
+
+func (k *eachSessionKV) Keys(context.Context, ...jetstream.WatchOpt) ([]string, error) {
+	return k.keys, nil
+}
+
+func (k *eachSessionKV) Get(context.Context, string) (jetstream.KeyValueEntry, error) {
+	if k.getCalls != nil {
+		*k.getCalls++
+	}
+	return nil, k.getErr
+}
+
 func newSessionConfig(t *testing.T, sessionID string) *modelcapturev1.CaptureSessionConfig {
 	t.Helper()
 	cfg := modelcapturev1.CaptureSessionConfig_builder{
@@ -99,7 +118,10 @@ func newSessionConfig(t *testing.T, sessionID string) *modelcapturev1.CaptureSes
 			MaxPackets: proto.Uint64(100),
 		}.Build(),
 		Authorization: modelcapturev1.CaptureAuthorization_builder{
-			RequestedBy:          identityv1.OperatorRef_builder{Subject: proto.String("zitadel|usr_123")}.Build(),
+			RequestedBy: identityv1.OperatorRef_builder{
+				Issuer:  proto.String("https://auth.example.com"),
+				Subject: proto.String("zitadel|usr_123"),
+			}.Build(),
 			Reason:               proto.String("investigating drop"),
 			FullPayloadRequested: proto.Bool(false),
 		}.Build(),
@@ -995,5 +1017,168 @@ func TestSweepExpiredReportsUnparseableKeysAsFailures(t *testing.T) {
 	_, err = store.SweepExpired(ctx)
 	if err == nil {
 		t.Fatal("SweepExpired returned nil error for unparseable key, want failure")
+	}
+}
+
+func TestStoreEachSessionTwoTenants(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	var emptyCount int
+	err := store.EachSession(ctx, func(_ string, _ *modelcapturev1.CaptureSessionRecord) error {
+		emptyCount++
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("EachSession on empty store: %v", err)
+	}
+	if emptyCount != 0 {
+		t.Fatalf("EachSession on empty store saw %d sessions, want 0", emptyCount)
+	}
+
+	tenant1 := "0192e6a0-0000-7000-8000-000000000001"
+	tenant2 := "0192e6a0-0000-7000-8000-000000000002"
+	session1 := "0192e6a0-0000-7000-8000-000000000011"
+	session2 := "0192e6a0-0000-7000-8000-000000000022"
+
+	cfg1 := newSessionConfig(t, session1)
+	if _, err := store.CreateSession(ctx, tenant1, cfg1); err != nil {
+		t.Fatalf("CreateSession tenant1: %v", err)
+	}
+
+	cfg2 := newSessionConfig(t, session2)
+	if _, err := store.CreateSession(ctx, tenant2, cfg2); err != nil {
+		t.Fatalf("CreateSession tenant2: %v", err)
+	}
+
+	seen := make(map[string]string)
+	err = store.EachSession(ctx, func(tID string, rec *modelcapturev1.CaptureSessionRecord) error {
+		sID := rec.GetConfig().GetRef().GetCaptureSession().GetId()
+		seen[sID] = tID
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("EachSession: %v", err)
+	}
+	if len(seen) != 2 {
+		t.Fatalf("EachSession saw %d sessions, want 2: %v", len(seen), seen)
+	}
+	if got := seen[session1]; got != tenant1 {
+		t.Errorf("session1 tenant = %q, want %q", got, tenant1)
+	}
+	if got := seen[session2]; got != tenant2 {
+		t.Errorf("session2 tenant = %q, want %q", got, tenant2)
+	}
+
+	sentinel := errors.New("stop")
+	err = store.EachSession(ctx, func(string, *modelcapturev1.CaptureSessionRecord) error {
+		return sentinel
+	})
+	if !errors.Is(err, sentinel) {
+		t.Fatalf("EachSession err = %v, want sentinel %v", err, sentinel)
+	}
+}
+
+func TestStoreEachSessionContinuesPastUndecodableRecord(t *testing.T) {
+	hub, err := edgebus.StartHub(context.Background(), edgebus.HubConfig{
+		StateDir:    t.TempDir(),
+		FsyncPolicy: service.BusFsyncPeriodic,
+	})
+	if err != nil {
+		t.Fatalf("start hub: %v", err)
+	}
+	t.Cleanup(hub.Close)
+	kv, err := hub.JetStream().KeyValue(context.Background(), edgebus.CapturesBucket)
+	if err != nil {
+		t.Fatalf("captures bucket: %v", err)
+	}
+	capturesDir := filepath.Join(t.TempDir(), "captures")
+	store, err := captureapi.NewStore(kv, capturesDir, time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	ctx := context.Background()
+
+	corruptKey := testTenantID + ".0192e6a0-0000-7000-8000-000000000001"
+	if _, err := kv.Put(ctx, corruptKey, []byte("garbage")); err != nil {
+		t.Fatalf("put corrupt key: %v", err)
+	}
+
+	validSessionID := "0192e6a0-9999-7000-8000-000000000099"
+	cfg := newSessionConfig(t, validSessionID)
+	if _, err := store.CreateSession(ctx, testTenantID, cfg); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	var seen []string
+	err = store.EachSession(ctx, func(_ string, rec *modelcapturev1.CaptureSessionRecord) error {
+		seen = append(seen, rec.GetConfig().GetRef().GetCaptureSession().GetId())
+		return nil
+	})
+	if err == nil {
+		t.Fatal("EachSession returned nil error, want joined error from corrupt record")
+	}
+	if len(seen) != 1 || seen[0] != validSessionID {
+		t.Fatalf("EachSession saw %v, want [%s]", seen, validSessionID)
+	}
+}
+
+func TestStoreEachSessionStopsOnStoreError(t *testing.T) {
+	getCalls := 0
+	kv := &eachSessionKV{
+		keys: []string{
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000001",
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000002",
+		},
+		getErr:   errors.New("simulated store read failure"),
+		getCalls: &getCalls,
+	}
+	store, err := captureapi.NewStore(kv, t.TempDir(), time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	seen := 0
+	err = store.EachSession(context.Background(), func(string, *modelcapturev1.CaptureSessionRecord) error {
+		seen++
+		return nil
+	})
+	if err == nil {
+		t.Fatal("EachSession returned nil error, want store failure")
+	}
+	if getCalls != 1 {
+		t.Fatalf("EachSession called Get %d times after a store error, want 1", getCalls)
+	}
+	if seen != 0 {
+		t.Fatalf("EachSession invoked callback %d times after a store error, want 0", seen)
+	}
+}
+
+func TestStoreEachSessionStopsOnCanceledContext(t *testing.T) {
+	getCalls := 0
+	kv := &eachSessionKV{
+		keys: []string{
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000001",
+			testTenantID + ".0192e6a0-0000-7000-8000-000000000002",
+		},
+		getErr:   context.Canceled,
+		getCalls: &getCalls,
+	}
+	store, err := captureapi.NewStore(kv, t.TempDir(), time.Now)
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	err = store.EachSession(ctx, func(string, *modelcapturev1.CaptureSessionRecord) error {
+		t.Fatal("EachSession invoked callback after context cancellation")
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("EachSession error = %v, want context.Canceled", err)
+	}
+	if getCalls != 1 {
+		t.Fatalf("EachSession called Get %d times after context cancellation, want 1", getCalls)
 	}
 }

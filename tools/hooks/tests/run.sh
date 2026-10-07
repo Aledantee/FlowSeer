@@ -273,13 +273,24 @@ sibling_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/generate
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_input"
 ok "Edit leaves a path outside every checkout to the sandbox and holds another checkout to policy"
 
-for policy_path in AGENTS.md buf.yaml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go; do
+mkdir -p "$fixture/.agents/skills/verify-change/scripts" "$fixture/.agents/skills/prose/scripts" "$fixture/.claude"
+[ -e "$fixture/.claude/skills" ] || ln -s ../.agents/skills "$fixture/.claude/skills"
+for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/ledger.py .agents/skills/prose/scripts/check-prose.py tools/scripts/lib/repo.py tools/scripts/run.py tools/scripts/hooks/x.py tools/scripts/verify/x.py; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
   [[ $(decision <<<"$policy_output") == ask ]] || fail "$LINENO"
 done
 ok "Edit asks before touching a policy surface"
+
+# Tests and skill commands under tools/scripts are not policy surfaces.
+for open_path in tools/scripts/tests/test_run.py tools/scripts/skills/x.py; do
+  open_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$open_path" \
+    '{cwd:$cwd,tool_input:{file_path:$path}}')
+  open_output=$(printf '%s' "$open_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
+  [[ $(decision <<<"$open_output") != ask ]] || fail "$LINENO"
+done
+ok "Edit leaves tools/scripts tests and skill commands unprompted"
 
 missing_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/generated/missing.pb.go" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
@@ -367,8 +378,11 @@ ok "Edit allows absolute paths outside the repository"
 dotfile_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/flowseer/api/v1/.gitkeep" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
 mkdir -p "$fixture/spec/proto/flowseer/api/v1"
-assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$dotfile_input"
-ok "Edit allows dotfile placeholders under spec/proto"
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$dotfile_input"
+hidden_script_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/flowseer/api/v1/.audit.sh" \
+  '{cwd:$cwd,tool_input:{file_path:$path}}')
+assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$hidden_script_input"
+ok "Edit denies dotfiles under spec/proto"
 
 stray_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/spec/proto/notes.txt" \
   '{cwd:$cwd,tool_input:{file_path:$path}}')
@@ -874,6 +888,27 @@ if [[ $selection_output != $'service_otel_integration=false\nproto=true' ]]; the
 if [[ $selection_output == *'tool_module='* ]]; then exit 1; fi
 ok "verifier selection routes Buf generation configuration to protobuf gates"
 
+mkdir -p "$selection_fixture/docs/plans"
+printf '# Plan\n' >"$selection_fixture/docs/plans/x-plan.md"
+printf '{"Landed": "abc1234..def5678"}\n' >"$selection_fixture/docs/plans/x-plan.state.json"
+selection_output=$(select_verifier -- docs/plans/x-plan.state.json)
+if [[ $selection_output != $'service_otel_integration=false\nplan_state=true' ]]; then exit 1; fi
+ok "verifier selection routes a plan state file to the state gate"
+
+set +e
+selection_output=$(cd "$selection_fixture" && PATH="$selection_bin:$PATH" TMPDIR="$selection_tmp" \
+  "$selection_script" -- docs/plans/x-plan.state.json 2>&1)
+selection_rc=$?
+set -e
+if [[ $selection_rc -eq 0 ]]; then exit 1; fi
+if [[ $selection_output == *'selected no build, test or lint gate'* ]]; then exit 1; fi
+if [[ $selection_output != *"x-plan.state.json: unknown key 'Landed'"* ]]; then exit 1; fi
+if [[ -e $selection_receipt ]]; then exit 1; fi
+# A real run asks the stub go for its GOPATH, which the selection tests
+# below read as a gate having run.
+rm -rf "$selection_fixture/docs" "$selection_go_side_effect"
+ok "verifier fails on an illegal plan state file"
+
 telemetry_paths=(
   go.mod
   src/common/service/telemetry_config.go
@@ -901,7 +936,7 @@ selection_output=$(select_verifier --)
 ok "verifier selection handles an empty changed-path set without a receipt"
 
 selection_output=$(select_verifier -- tools/hooks/tests/run.sh)
-[[ $selection_output == 'service_otel_integration=false' ]] || fail "$LINENO"
+[[ $selection_output == $'service_otel_integration=false\nhook_tooling=true' ]] || fail "$LINENO"
 [[ ! -e $selection_receipt ]] || fail "$LINENO"
 [[ ! -e $selection_side_effect ]] || fail "$LINENO"
 [[ ! -e $selection_go_side_effect ]] || fail "$LINENO"
@@ -982,6 +1017,8 @@ ledger_fixture=$fixture_parent/ledger-fixture
 mkdir -p "$ledger_fixture/docs/plans"
 git -C "$ledger_fixture" init -q
 printf '# ledger fixture plan\n' >"$ledger_fixture/docs/plans/example-plan.md"
+plan_record=$repo_root/.claude/skills/plan/scripts/plan_record.py
+(cd "$ledger_fixture" && python3 "$plan_record" init docs/plans/example-plan.md >/dev/null)
 ledger=$ledger_fixture/.git/flowseer-plan-status.json
 
 check_ledger() {
@@ -1047,26 +1084,23 @@ ok "plan status check resolves the plan from a subdirectory and rejects repeated
 phase_fixture=$fixture_parent/phase-fixture
 mkdir -p "$phase_fixture/docs/plans"
 git -C "$phase_fixture" init -q -b main
-printf -- '---\nparent: docs/plans/parent-plan.md\n---\n# Phase 2\n' >"$phase_fixture/docs/plans/phase2-plan.md"
-write_parent() {
-  cat >"$phase_fixture/docs/plans/parent-plan.md" <<MD
-# Parent
-
-### U1: First phase
-
-- **Files:** \`docs/plans/phase1-plan.md\`
-- **After:** none
-- **Landed:** $1
-
-### U2: Second phase
-
-- **Files:**
-  \`docs/plans/phase2-plan.md\`
-- **After:** U1
-- **Landed:** $2
-MD
+for phase_plan in parent phase1 phase2; do
+  printf '# %s\n' "$phase_plan" >"$phase_fixture/docs/plans/$phase_plan-plan.md"
+done
+# Written by hand, since the states below include ones no plan_record.py
+# command produces.
+phase_state() {
+  jq -n --argjson fields "$2" '{contract: "flowseer-plan-state/v1", status: "planned",
+    readiness: "implementation-ready", review: null, review_rounds: 0, compound: null, outcome: null,
+    superseded_by: null, branch: null, parent: null, after: [], landed: null, phases: [], retired: []} + $fields' \
+    >"$phase_fixture/docs/plans/$1-plan.state.json"
 }
-write_parent '' ''
+phase1_landed() {
+  phase_state phase1 "{\"parent\": \"docs/plans/parent-plan.md\", \"status\": \"implemented\", \"landed\": $1}"
+}
+phase_state parent '{"phases": ["docs/plans/phase1-plan.md", "docs/plans/phase2-plan.md"]}'
+phase_state phase1 '{"parent": "docs/plans/parent-plan.md"}'
+phase_state phase2 '{"parent": "docs/plans/parent-plan.md", "after": ["docs/plans/phase1-plan.md"]}'
 git -C "$phase_fixture" add docs
 git -C "$phase_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm plans
 phase_head=$(git -C "$phase_fixture" rev-parse --short HEAD)
@@ -1084,10 +1118,10 @@ phase_output=$(check_phase)
 phase_rc=$?
 set -e
 [[ $phase_rc -eq 1 ]] || fail "$LINENO"
-[[ $phase_output == *'phase U1 has not landed'* ]] || fail "$LINENO"
+[[ $phase_output == *'phase docs/plans/phase1-plan.md has not landed'* ]] || fail "$LINENO"
 ok "plan status check refuses a phase whose prerequisite has not landed"
 
-write_parent "\`0000000..1111111\`" ''
+phase1_landed '{"first": "0000000", "last": "1111111"}'
 set +e
 phase_output=$(check_phase)
 phase_rc=$?
@@ -1096,20 +1130,21 @@ set -e
 [[ $phase_output == *'landed at 1111111, which is not in this tree'* ]] || fail "$LINENO"
 ok "plan status check refuses a phase whose prerequisite is not an ancestor"
 
-write_parent "2026-09-11 on a branch, commits $phase_head through the fix" ''
+phase1_landed "{\"first\": \"$phase_head\"}"
 set +e
 phase_output=$(check_phase)
 phase_rc=$?
 set -e
 [[ $phase_rc -eq 1 ]] || fail "$LINENO"
-[[ $phase_output == *'must carry its commit range'* ]] || fail "$LINENO"
-ok "plan status check refuses a Landed line written as prose"
+[[ $phase_output == *'landed must be null or {first, last} commit ids'* ]] || fail "$LINENO"
+ok "plan status check refuses a landed object without last"
 
-write_parent "\`$phase_head..$phase_head\`" ''
+phase_range="{\"first\": \"$phase_head\", \"last\": \"$phase_head\"}"
+phase1_landed "$phase_range"
 [[ -z $(check_phase) ]] || fail "$LINENO"
 ok "plan status check accepts a phase whose prerequisite is in the tree"
 
-write_parent "\`$phase_head..$phase_head\`" "\`$phase_head..$phase_head\`"
+phase_state phase2 "{\"parent\": \"docs/plans/parent-plan.md\", \"after\": [\"docs/plans/phase1-plan.md\"], \"status\": \"implemented\", \"landed\": $phase_range}"
 git -C "$phase_fixture" add docs
 git -C "$phase_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm landed
 set +e
@@ -1118,8 +1153,24 @@ phase_rc=$?
 set -e
 [[ $phase_rc -eq 1 ]] || fail "$LINENO"
 [[ $phase_output == *'already landed on'* ]] || fail "$LINENO"
-rm -f "$phase_ledger"
 ok "plan status check refuses a phase the integration branch already shows landed"
+
+# main keeps a retired phase only as an entry in its parent's state. A
+# worktree forked before the retire still holds the phase as planned.
+git -C "$phase_fixture" rm -q docs/plans/phase2-plan.md docs/plans/phase2-plan.state.json
+phase_state parent "{\"phases\": [\"docs/plans/phase1-plan.md\"], \"retired\": [{\"plan\": \"docs/plans/phase2-plan.md\", \"status\": \"implemented\", \"landed\": $phase_range}]}"
+git -C "$phase_fixture" add docs
+git -C "$phase_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm retired
+git -C "$phase_fixture" checkout -q -b forked-early "$phase_head"
+[[ $(jq -r .status "$phase_fixture/docs/plans/phase2-plan.state.json") == planned ]] || fail "$LINENO"
+set +e
+phase_output=$(check_phase)
+phase_rc=$?
+set -e
+[[ $phase_rc -eq 1 ]] || fail "$LINENO"
+[[ $phase_output == *'is retired on the integration branch as implemented'* ]] || fail "$LINENO"
+rm -f "$phase_ledger"
+ok "plan status check refuses a phase the integration branch retired"
 
 integrity_script=$repo_root/.claude/skills/verify-change/scripts/check-test-integrity.py
 integrity_fixture=$fixture_parent/integrity-fixture

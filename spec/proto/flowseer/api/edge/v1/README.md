@@ -9,7 +9,7 @@ and returns as `EdgeRecord` from every call that hands back an edge.
 
 ## Boundaries
 
-Imports: model/edge
+Imports: authz, model/edge
 
 Imported by: nothing
 

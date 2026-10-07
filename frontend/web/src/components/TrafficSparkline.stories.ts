@@ -68,11 +68,15 @@ export const AllColorVariants: Story = {
           v-for="v in variants"
           :key="v.color"
           class="space-y-1"
-          v-ai-target="seriesTarget(v)"
         >
           <div class="text-xs text-muted-foreground">{{ v.label }}</div>
           <div class="w-60 h-12 bg-card p-2 border border-border rounded-control">
-            <TrafficSparkline :values="values" :label="v.label" :color="v.color" />
+            <TrafficSparkline
+              :values="values"
+              :label="v.label"
+              :color="v.color"
+              :ai="seriesTarget(v)"
+            />
           </div>
         </div>
       </div>

@@ -173,3 +173,74 @@ func TestRPCMethodMatchesTheConventionsVocabulary(t *testing.T) {
 		t.Errorf("RPCMethod(%q) = %q, want it unchanged", want, got)
 	}
 }
+
+// The engine call histogram's count is the denominator of every failure rate,
+// so a call that succeeded carries no error.type and one that failed carries
+// the classified value it was given, and nothing else is a dimension.
+func TestRecordEngineCall(t *testing.T) {
+	view, reader := newView(t, &bytes.Buffer{})
+
+	view.RecordEngineCall(context.Background(), "openfga.v1.OpenFGAService/Check", 0.05, "")
+	view.RecordEngineCall(context.Background(), "/openfga.v1.OpenFGAService/BatchCheck", 0.12, "authz/engine-refused")
+
+	var collected metricdata.ResourceMetrics
+	if err := reader.Collect(context.Background(), &collected); err != nil {
+		t.Fatalf("collect: %v", err)
+	}
+
+	hist := findHistogram(t, &collected, "rpc.client.call.duration")
+	if len(hist.DataPoints) != 2 {
+		t.Fatalf("got %d data points, want 2", len(hist.DataPoints))
+	}
+	points := make(map[string]metricdata.HistogramDataPoint[float64])
+	for _, point := range hist.DataPoints {
+		method, _ := point.Attributes.Value("rpc.method")
+		points[method.AsString()] = point
+	}
+
+	succeeded, ok := points["openfga.v1.OpenFGAService/Check"]
+	if !ok {
+		t.Fatalf("no point for Check: %v", hist.DataPoints)
+	}
+	if got, _ := succeeded.Attributes.Value("rpc.system.name"); got.AsString() != "grpc" {
+		t.Errorf("rpc.system.name = %q, want grpc", got.AsString())
+	}
+	if got := succeeded.Attributes.Len(); got != 2 {
+		t.Errorf("a successful call carries %d attributes, want rpc.system.name and rpc.method: %v", got, succeeded.Attributes.ToSlice())
+	}
+	if succeeded.Count != 1 {
+		t.Errorf("Check count = %d, want 1", succeeded.Count)
+	}
+
+	failed, ok := points["openfga.v1.OpenFGAService/BatchCheck"]
+	if !ok {
+		t.Fatalf("no point for BatchCheck, whose leading slash is trimmed: %v", hist.DataPoints)
+	}
+	if got, ok := failed.Attributes.Value("error.type"); !ok || got.AsString() != "authz/engine-refused" {
+		t.Errorf("error.type = %q (present=%v), want authz/engine-refused", got.AsString(), ok)
+	}
+	if got := failed.Attributes.Len(); got != 3 {
+		t.Errorf("a failed call carries %d attributes, want rpc.system.name, rpc.method and error.type: %v", got, failed.Attributes.ToSlice())
+	}
+
+	var nilView *telemetry.View
+	nilView.RecordEngineCall(context.Background(), "openfga.v1.OpenFGAService/Check", 0.01, "")
+}
+
+func findHistogram(t *testing.T, collected *metricdata.ResourceMetrics, name string) metricdata.Histogram[float64] {
+	t.Helper()
+	for _, scope := range collected.ScopeMetrics {
+		for _, m := range scope.Metrics {
+			if m.Name != name {
+				continue
+			}
+			hist, ok := m.Data.(metricdata.Histogram[float64])
+			if !ok {
+				t.Fatalf("%s is %T, want a float64 histogram", name, m.Data)
+			}
+			return hist
+		}
+	}
+	t.Fatalf("%s was not collected", name)
+	return metricdata.Histogram[float64]{}
+}

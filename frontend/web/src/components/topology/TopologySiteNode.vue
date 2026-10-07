@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import AppLink from '../../navigation/AppLink.vue'
 import { scopeOf, usePage } from '../../navigation/page'
 import type { Site } from '../../domain/fleet'
 import AppIcon from '../AppIcon.vue'
+import UiAiTarget from '../../ui/ai/UiAiTarget.vue'
 import { aiTarget, useAiSlot } from '../../ai'
 import type { AiTarget } from '../../ai'
+import { useFormat } from '../../i18n/format'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
   data: { siteId: string }
   sites: Site[]
   tenantName: (siteId: string) => string
 }>()
+const { t } = useI18n({ useScope: 'global' })
+const format = useFormat()
 const page = usePage()
 const slot = useAiSlot()
 const site = computed(() =>
@@ -36,27 +41,27 @@ const target = computed<AiTarget | undefined>(() => {
 </script>
 
 <template>
-  <div
-    v-if="site"
-    v-ai-target="target"
-    :class="['topology-site-node', { solo: sites.length === 1 }]"
-  >
-    <header v-if="sites.length > 1">
-      <span
-        ><strong>{{ site.name }}</strong
-        ><small>{{ site.location }} · {{ tenantName(site.id) }}</small></span
-      >
-      <AppLink
-        class="topology-site-link nodrag"
-        :to="{
-          path: '/devices',
-          query: { ...scopeOf(page.location.value), site: site.id },
-        }"
-        :aria-label="`Devices at ${site.name}`"
-        ><AppIcon name="arrow"
-      /></AppLink>
-    </header>
-  </div>
+  <UiAiTarget v-if="site" as-child :ai="target">
+    <div :class="['topology-site-node', { solo: sites.length === 1 }]">
+      <header v-if="sites.length > 1">
+        <span
+          ><strong translate="no">{{ site.name }}</strong
+          ><small translate="no">{{
+            format.facts([site.location, tenantName(site.id)])
+          }}</small></span
+        >
+        <AppLink
+          class="topology-site-link nodrag"
+          :to="{
+            path: '/devices',
+            query: { ...scopeOf(page.location.value), site: site.id },
+          }"
+          :aria-label="t('view.topology.siteDevices', { site: site.name })"
+          ><AppIcon name="arrow"
+        /></AppLink>
+      </header>
+    </div>
+  </UiAiTarget>
 </template>
 
 <style scoped>

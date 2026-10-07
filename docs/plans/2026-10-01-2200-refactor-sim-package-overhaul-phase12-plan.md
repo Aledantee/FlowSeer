@@ -2,11 +2,8 @@
 title: Corpus, Load Transmitter, and Documentation Close-Out - Plan
 type: refactor
 date: 2026-10-01
-artifact_contract: flowseer-plan/v1
-artifact_readiness: needs-decisions
-status: planned
+artifact_contract: flowseer-plan/v2
 execution: mixed
-parent: docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md
 ---
 
 # Corpus, Load Transmitter, and Documentation Close-Out - Plan

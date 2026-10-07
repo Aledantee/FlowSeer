@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { useTemplateRef } from 'vue'
 import { tv } from 'tailwind-variants'
+import type { UiAiEmits, UiAiProps } from '../ai/context'
+import { useAiOrigin } from '../ai/useAiOrigin'
+import { useAiTarget } from '../ai/useAiTarget'
 
-export interface UiBadgeProps {
+export interface UiBadgeProps extends UiAiProps {
   variant?:
     | 'default'
     | 'outline'
@@ -14,10 +18,22 @@ export interface UiBadgeProps {
   size?: 'sm' | 'md'
 }
 
-withDefaults(defineProps<UiBadgeProps>(), {
+const props = withDefaults(defineProps<UiBadgeProps>(), {
   variant: 'default',
   size: 'md',
+  ai: undefined,
+  aiOrigin: undefined,
 })
+
+const emit = defineEmits<UiAiEmits>()
+
+const anchor = useTemplateRef('anchor')
+useAiTarget(anchor, () => props.ai)
+useAiOrigin(
+  anchor,
+  () => props.aiOrigin,
+  (requestId) => emit('aiOriginAcknowledged', requestId),
+)
 
 const badgeVariants = tv({
   base: 'inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap',
@@ -48,7 +64,7 @@ const badgeVariants = tv({
 </script>
 
 <template>
-  <span :class="badgeVariants({ variant, size })">
+  <span ref="anchor" :class="badgeVariants({ variant, size })">
     <slot />
   </span>
 </template>

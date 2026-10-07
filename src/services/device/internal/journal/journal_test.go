@@ -74,6 +74,7 @@ func mutationIntent(key string) *accessv1.MutationIntent {
 	}())
 	actor := &accessv1.Actor{}
 	op := &identityv1.OperatorRef{}
+	op.SetIssuer("https://auth.example.com")
 	op.SetSubject("zitadel|1")
 	actor.SetOperator(op)
 	policy := &policyv1.AccessPolicyHandle{}
@@ -717,8 +718,15 @@ func TestEveryProjectedIntentFieldChangesTheDigest(t *testing.T) {
 			ref.SetDevice(local)
 			i.SetDevice(ref)
 		},
+		"operator issuer": func(i *accessv1.MutationIntent) {
+			op := &identityv1.OperatorRef{}
+			op.SetIssuer("https://other-auth.example.com")
+			op.SetSubject("zitadel|1")
+			i.GetActor().SetOperator(op)
+		},
 		"operator subject": func(i *accessv1.MutationIntent) {
 			op := &identityv1.OperatorRef{}
+			op.SetIssuer("https://auth.example.com")
 			op.SetSubject("zitadel|2")
 			i.GetActor().SetOperator(op)
 		},

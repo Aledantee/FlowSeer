@@ -3,7 +3,7 @@
 The `flowseer.store.device.v1` package holds the device service's own files:
 the records it writes and the operator-written prototext it reads. The lane
 record per device lives in the `device-lanes` key-value bucket and the edge
-record in the `edges` bucket; the registry and the service's deployment
+record in the `edges` bucket. The registry and the service's deployment
 configuration are files an operator writes and the service reads at start.
 Nothing outside the service reads any of them. They live under `spec/proto`
 because every message FlowSeer persists or parses needs a schema someone can
@@ -20,17 +20,15 @@ Deliberately absent:
 
 - A triad or a ref pair for any message here. A record is written and read
   by one service, and its configuration is read by the one process it
-  configures; nothing observes or configures either from outside.
+  configures. Nothing observes or configures either from outside.
 - Secrets, with one named exception. The registry names credential versions
-  and the lane record holds observations and expectations; the only field
+  and the lane record holds observations and expectations. The only field
   here that can carry one is `ServiceTelemetry.headers`, which says so, and a
   deployment that puts a token there is choosing to treat the configuration
   file as a secret.
 - A tenant field on stored lane and edge records. Lane records are partitioned
   by the `<tenant_id>.` prefix of their key. Edge lookup resolves the tenant
   through the `edge_<edgeID>` index, then reads the tenant-prefixed record key.
-  `DeviceServiceConfig.dev_tenant` is deployment configuration, not
-  stored-record scope.
 
 ## The lane record
 
@@ -45,7 +43,7 @@ mutation {
   intent {
     device { device { id: "0192e6a0-0000-7000-8000-0000000000d1" } }
     idempotency_key: "0192e6a0-0000-7000-8000-00000000a001"
-    actor { operator { subject: "zitadel|2837" } }
+    actor { operator { issuer: "https://auth.example.com" subject: "zitadel|2837" } }
     access_policy { key: "icx7150-lab" version: 3 }
     expected_firmware_fingerprint: "ICX7150-24P SPS10010g"
     interface_description { interface_name: "ethernet 1/1/1" description: "uplink to core" }
@@ -79,15 +77,18 @@ which is how a waiter on another replica learns what the read returned.
 `DeviceRegistry` is one integration, its edge, the devices it serves, and
 the policies their handles resolve to. It is read once at start and
 validated before anything else runs. A policy names credential versions and
-a host-key pin; the credential material itself lives in the mounted files
+a host-key pin. The credential material itself lives in the mounted files
 `flowseer.model.credential.v1` describes, never here.
 
 ## The service configuration
 
 `DeviceServiceConfig` is what one deployment of the service is: the directory
 it owns, the files it reads, the two addresses it binds, what an edge is told
-when it enrolls, and where telemetry goes. Every interval is optional and
-documents the default it falls back to, so a working file is short:
+when it enrolls, the configured platform administrators, and where telemetry
+goes. `PlatformAdmin.subjects` names one to sixteen distinct subject values.
+The projector enrolls each matching principal at startup. Every interval is
+optional and documents the default it falls back to, so a working file is
+short:
 
 ```prototext
 state_dir: "/var/lib/flowseer/device"
@@ -102,12 +103,24 @@ edges {
   assertion_audience: "flowseer-device-central"
   cluster_urls: "wss://central.example.test:8444"
 }
+authentication {
+  issuers {
+    issuer: "https://auth.example.test"
+    audience: "flowseer-api"
+  }
+}
+authorization {
+  endpoint: "https://openfga.example.test:8081"
+  store_id: "01H00000000000000000000000"
+  model_id: "01H00000000000000000000001"
+  preshared_key_file: "/etc/flowseer/secrets/openfga.key"
+}
 telemetry { endpoint: "https://collector.example.test" }
 ```
 
 That file names no certificate, so the service generates a self-signed pair
-into `state_dir` on first start — creating the directory if it is not there
-— and prints the digest an edge pins. A deployment with its own chain names
+into `state_dir` on first start, creating the directory if it is not there,
+and prints the digest an edge pins. A deployment with its own chain names
 `certificate_file` and `private_key_file` instead, and the two are named
 together or not at all.
 
@@ -115,3 +128,12 @@ together or not at all.
 to get the reason behind every refused call: the request interceptor grades
 refusals at DEBUG precisely so an incident can turn them on, and before this
 field existed there was no way to.
+
+`authentication` configures OIDC identity providers trusted to authenticate
+operators. Each issuer entry names an HTTPS issuer URL, an expected audience,
+and an optional organization claim name. An absolute CA bundle file can be
+provided when issuers use private certificates.
+
+`authorization` names the external authorization engine endpoint, store and
+model identifiers, a preshared key file path, and an optional CA bundle. Both
+`authentication` and `authorization` are required on every deployment.
