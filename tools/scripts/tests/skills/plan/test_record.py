@@ -1,5 +1,4 @@
 import contextlib
-import importlib.util
 import io
 import json
 import os
@@ -10,7 +9,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-SCRIPT = Path(__file__).with_name("plan_record.py")
+from lib import plans, proc
+from skills.plan import record as record_module
+
+RUN_PY = Path(__file__).resolve().parents[3] / "run.py"
 PARENT = "docs/plans/2026-01-01-parent-plan.md"
 FIRST = "docs/plans/2026-01-02-first-plan.md"
 PHASE = "docs/plans/2026-01-03-phase-plan.md"
@@ -34,13 +36,9 @@ EMPTY = {
     "retired": [],
 }
 
-spec = importlib.util.spec_from_file_location("plan_record", SCRIPT)
-plan_record = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(plan_record)
-
 
 class PlanRecordTest(unittest.TestCase):
-    """Runs plan_record.py in a scratch repository whose branch `work` is
+    """Runs `plan record` in a scratch repository whose branch `work` is
     one commit ahead of `main`."""
 
     def setUp(self):
@@ -78,18 +76,18 @@ class PlanRecordTest(unittest.TestCase):
 
     def record(self, *args, code=0):
         out = subprocess.run(
-            [sys.executable, str(SCRIPT), *args], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "plan", "record", *args], cwd=self.root, env=self.env, capture_output=True, text=True
         )
         self.assertEqual(out.returncode, code, out.stdout + out.stderr)
         return out
 
     def state(self, plan):
-        return json.loads((self.root / plan_record.state_path(plan)).read_text(encoding="utf-8"))
+        return json.loads((self.root / plans.state_path(plan)).read_text(encoding="utf-8"))
 
     def put(self, plan, **fields):
         """Writes a state file by hand, the way a command never would."""
-        path = self.root / plan_record.state_path(plan)
-        path.write_text(json.dumps({**plan_record.BLANK, **fields}), encoding="utf-8")
+        path = self.root / plans.state_path(plan)
+        path.write_text(json.dumps({**plans.BLANK, **fields}), encoding="utf-8")
 
     def phases(self):
         """A parent with FIRST and with PHASE, which runs after FIRST."""
@@ -145,21 +143,6 @@ class PlanRecordTest(unittest.TestCase):
             self.assertIn(phase, refused.stderr)
         self.assertIsNone(self.state(PARENT)["branch"])
 
-    def test_check_requires_the_branch_key(self):
-        for plan in (PARENT, FIRST, PHASE, PLAIN):
-            self.record("init", plan)
-        path = self.root / plan_record.state_path(PLAIN)
-        state = self.state(PLAIN)
-        del state["branch"]
-        path.write_text(json.dumps(state), encoding="utf-8")
-        self.assertIn("missing key 'branch'", self.record("check", code=1).stderr)
-
-    def test_check_rejects_a_branch_that_is_not_a_branch_name(self):
-        for plan in (PARENT, FIRST, PHASE, PLAIN):
-            self.record("init", plan)
-        self.put(PLAIN, branch="a b")
-        self.assertIn("branch must be null or a branch-name-safe string", self.record("check", code=1).stderr)
-
     def test_reads_follow_an_unmerged_branch(self):
         self.followed_branch()
         self.record("implemented", PLAIN, *RUN)
@@ -167,8 +150,8 @@ class PlanRecordTest(unittest.TestCase):
         self.commit("implemented on work")
         self.git("checkout", "-q", "main")
         self.record("is", PLAIN, "status=implemented")
-        self.assertEqual(plan_record.status(PLAIN, self.root), "implemented")
-        self.assertEqual(plan_record.followed(PLAIN, self.root)["branch"], "work")
+        self.assertEqual(plans.status(PLAIN, self.root), "implemented")
+        self.assertEqual(plans.followed(PLAIN, self.root)["branch"], "work")
         self.assertIn("read from: work", self.record("show", PLAIN).stdout)
         self.assertEqual(self.state(PLAIN)["status"], "planned")
 
@@ -179,7 +162,7 @@ class PlanRecordTest(unittest.TestCase):
         self.git("checkout", "-q", "main")
         self.git("merge", "-q", "work")
         self.put(PLAIN, **{**self.state(PLAIN), "status": "planned"})
-        self.assertEqual(plan_record.status(PLAIN, self.root), "planned")
+        self.assertEqual(plans.status(PLAIN, self.root), "planned")
         self.record("is", PLAIN, "status=planned")
         self.assertNotIn("read from:", self.record("show", PLAIN).stdout)
 
@@ -187,34 +170,12 @@ class PlanRecordTest(unittest.TestCase):
         self.record("init", PLAIN)
         self.record("branch", PLAIN, "gone")
         self.record("is", PLAIN, "status=planned")
-        self.assertEqual(plan_record.status(PLAIN, self.root), "planned")
+        self.assertEqual(plans.status(PLAIN, self.root), "planned")
         self.assertIn("branch: gone (missing, read from this checkout)", self.record("show", PLAIN).stdout)
-
-    def test_followed_file_with_shape_fault_names_branch(self):
-        self.followed_branch()
-        path = self.root / plan_record.state_path(PLAIN)
-        state = self.state(PLAIN)
-        del state["branch"]
-        path.write_text(json.dumps(state), encoding="utf-8")
-        self.commit("invalid state on work")
-        self.git("checkout", "-q", "main")
-        with self.assertRaises(plan_record.InvalidState) as raised:
-            plan_record.followed(PLAIN, self.root)
-        self.assertIn("work", str(raised.exception))
-
-    def test_finished_does_not_follow_an_unmerged_phase(self):
-        self.followed_branch(FIRST)
-        self.land(FIRST, self.on_work)
-        self.record("review", FIRST, "accept")
-        self.record("compound", FIRST, "no lesson")
-        self.commit("finish phase on work")
-        self.git("checkout", "-q", "main")
-        self.assertEqual(plan_record.status(FIRST, self.root), "implemented")
-        self.assertFalse(plan_record.finished(FIRST, self.root))
 
     def test_init_writes_every_key_of_the_contract(self):
         self.record("init", PLAIN)
-        written = (self.root / plan_record.state_path(PLAIN)).read_text(encoding="utf-8")
+        written = (self.root / plans.state_path(PLAIN)).read_text(encoding="utf-8")
         self.assertEqual(
             written,
             "{\n"
@@ -248,7 +209,7 @@ class PlanRecordTest(unittest.TestCase):
     def test_ready_sets_the_readiness(self):
         self.record("init", PLAIN, "--needs-decisions")
         self.record("ready", PLAIN)
-        self.assertEqual(self.state(PLAIN), plan_record.BLANK)
+        self.assertEqual(self.state(PLAIN), plans.BLANK)
 
     def test_after_replaces_the_prerequisites(self):
         self.phases()
@@ -262,7 +223,7 @@ class PlanRecordTest(unittest.TestCase):
     def test_implemented_records_the_outcome(self):
         self.record("init", PLAIN)
         self.record("implemented", PLAIN, *RUN)
-        self.assertEqual(self.state(PLAIN), {**plan_record.BLANK, "status": "implemented", "outcome": OUTCOME})
+        self.assertEqual(self.state(PLAIN), {**plans.BLANK, "status": "implemented", "outcome": OUTCOME})
         self.record("implemented", PLAIN, "--units", "3", "--from", "yesterday", "--to", "today", code=1)
 
     def test_outcome_times_are_real_utc_times(self):
@@ -270,10 +231,6 @@ class PlanRecordTest(unittest.TestCase):
         for start in ("2026-99-99T25:61Z", "2026-02-30T10:00:00Z", "2026-01-05T10:00"):
             with self.subTest(start=start):
                 self.record("implemented", PLAIN, "--units", "1", "--from", start, "--to", "2026-01-05T11:00Z", code=1)
-        for plan in (PARENT, FIRST, PHASE):
-            self.put(plan)
-        self.put(PLAIN, status="implemented", outcome={**OUTCOME, "to": "2026-00-00T99:99:99Z"})
-        self.assertIn("outcome must be null or", self.record("check", code=1).stderr)
 
     def test_implemented_phase_needs_a_range_in_this_tree(self):
         self.phases()
@@ -315,7 +272,7 @@ class PlanRecordTest(unittest.TestCase):
         self.record("compound", FIRST, "no lesson")
         self.record("replan", FIRST, "--needs-decisions")
         self.assertEqual(
-            self.state(FIRST), {**plan_record.BLANK, "parent": PARENT, "readiness": "needs-decisions"}
+            self.state(FIRST), {**plans.BLANK, "parent": PARENT, "readiness": "needs-decisions"}
         )
         self.record("replan", FIRST)
         self.assertEqual(self.state(FIRST)["readiness"], "implementation-ready")
@@ -378,9 +335,16 @@ class PlanRecordTest(unittest.TestCase):
         staged = self.git("diff", "--cached", "--name-status").splitlines()
         self.assertEqual(
             staged,
-            [f"M\t{plan_record.state_path(PARENT)}", f"D\t{FIRST}", f"D\t{plan_record.state_path(FIRST)}"],
+            [f"M\t{plans.state_path(PARENT)}", f"D\t{FIRST}", f"D\t{plans.state_path(FIRST)}"],
         )
-        self.record("check", PARENT, PHASE)
+        checked = subprocess.run(
+            [sys.executable, str(RUN_PY), "verify", "check-plan-state", PARENT, PHASE],
+            cwd=self.root,
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
 
     def test_retire_refuses_a_plan_with_work_left(self):
         self.record("init", PLAIN)
@@ -400,17 +364,17 @@ class PlanRecordTest(unittest.TestCase):
         self.record("init", PARENT)
         before = self.state(PARENT)
         child = {**EMPTY, "parent": PARENT}
-        real = plan_record.write_state
+        real = record_module.write_state
 
         def first_write_only(root, plan, state):
             if plan == PARENT:
                 raise OSError("disk full")
             real(root, plan, state)
 
-        with mock.patch.object(plan_record, "write_state", first_write_only):
+        with mock.patch.object(record_module, "write_state", first_write_only):
             with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
-                plan_record.transition(self.root, {FIRST: child, PARENT: {**before, "phases": [FIRST]}})
-        self.assertFalse((self.root / plan_record.state_path(FIRST)).exists())
+                record_module.transition(self.root, {FIRST: child, PARENT: {**before, "phases": [FIRST]}})
+        self.assertFalse((self.root / plans.state_path(FIRST)).exists())
         self.assertEqual(self.state(PARENT), before)
 
     def test_retire_whose_git_rm_fails_leaves_the_parent_as_it_was(self):
@@ -428,16 +392,16 @@ class PlanRecordTest(unittest.TestCase):
         self.phases()
         self.record("abandon", FIRST)
         self.commit("phase abandoned")
-        real = plan_record.git
+        real = record_module.git
 
         def git(root, *args):
-            return subprocess.CompletedProcess(args, 1, "", "index.lock") if args[0] == "add" else real(root, *args)
+            return proc.Result(1, "", "index.lock") if args[0] == "add" else real(root, *args)
 
         holder = {**self.state(PARENT), "phases": [PHASE]}
         holder["retired"] = [{"plan": FIRST, "status": "abandoned", "landed": None}]
-        with mock.patch.object(plan_record, "git", git):
+        with mock.patch.object(record_module, "git", git):
             with self.assertRaises(SystemExit) as stopped, contextlib.redirect_stderr(io.StringIO()):
-                plan_record.transition(self.root, {PARENT: holder}, retire=FIRST)
+                record_module.transition(self.root, {PARENT: holder}, retire=FIRST)
         self.assertEqual(stopped.exception.code, 1)
 
     def test_show_prints_a_parents_computed_status(self):
@@ -464,97 +428,6 @@ class PlanRecordTest(unittest.TestCase):
         self.record("is", PLAIN, "verdict=accept", code=2)
         self.record("is", FIRST, "status=planned", code=2)
 
-    def test_check_pairs_each_plan_with_a_state_file(self):
-        for plan in (PARENT, FIRST, PHASE):
-            self.record("init", plan)
-        missing = self.record("check", code=1)
-        self.assertIn(f"{PLAIN}: has no state file", missing.stderr)
-        self.record("init", PLAIN)
-        self.record("check")
-        (self.root / PLAIN).unlink()
-        orphan = self.record("check", code=1)
-        self.assertIn(f"{plan_record.state_path(PLAIN)}: has no plan beside it", orphan.stderr)
-        self.record("check", plan_record.state_path(FIRST))
-        self.record("check", plan_record.state_path(PLAIN), code=1)
-        self.record("check", "docs/plans", code=1)
-
-    def test_check_rejects_a_frontmatter_that_still_carries_state(self):
-        for plan in (PARENT, FIRST, PHASE, PLAIN):
-            self.record("init", plan)
-        document = "---\ntitle: Plain - Plan\ntype: fix\nartifact_contract: flowseer-plan/v2\n---\n\n# Plain\n"
-        (self.root / PLAIN).write_text(document, encoding="utf-8")
-        self.record("check")
-        carried = document.replace("type: fix\n", "type: fix\nstatus: planned\nreview: accept\n")
-        (self.root / PLAIN).write_text(carried, encoding="utf-8")
-        refused = self.record("check", code=1)
-        self.assertIn(f"{PLAIN}: frontmatter carries status, review, which", refused.stderr)
-        self.record("ready", PLAIN, code=1)
-        for spelling in ("status : planned", '"status": planned', "parent: docs/plans/x-plan.md"):
-            with self.subTest(spelling=spelling):
-                spelled = document.replace("type: fix\n", f"type: fix\n{spelling}\n")
-                (self.root / PLAIN).write_text(spelled, encoding="utf-8")
-                self.record("check", code=1)
-        (self.root / PLAIN).write_text(document + "\nstatus: a word in the body\n", encoding="utf-8")
-        self.record("check")
-
-    def test_check_names_a_key_outside_the_contract(self):
-        for plan in (PARENT, FIRST, PHASE):
-            self.record("init", plan)
-        self.put(PLAIN, Landed="abc1234..def5678")
-        self.assertIn("unknown key 'Landed'", self.record("check", code=1).stderr)
-        self.put(PLAIN, review="approved")
-        self.assertIn("review must be null or one of", self.record("check", code=1).stderr)
-        (self.root / plan_record.state_path(PLAIN)).write_text("{", encoding="utf-8")
-        self.assertIn("not valid JSON", self.record("check", code=1).stderr)
-
-    def test_check_rejects_each_illegal_combination(self):
-        landed = {"first": "abc1234", "last": "def5678"}
-        retired = [{"plan": "docs/plans/2026-01-09-gone-plan.md", "status": "implemented", "landed": landed}]
-        phase = {"parent": PARENT}
-        cases = {
-            "landed is set while status is 'planned'": (FIRST, {**phase, "landed": landed}),
-            "landed is set with parent null": (PLAIN, {"status": "implemented", "landed": landed}),
-            "status is implemented with parent set and landed null": (FIRST, {**phase, "status": "implemented"}),
-            "phases or retired is non-empty with parent set": (FIRST, {**phase, "retired": retired}),
-            f"after names {PLAIN}, which is neither": (PHASE, {**phase, "after": [PLAIN]}),
-            f"after names {PHASE}, which is neither": (PHASE, {**phase, "after": [PHASE]}),
-            "the stored status must not be 'implemented'": (PARENT, {"status": "implemented", "phases": [FIRST, PHASE]}),
-            "the stored status must not be 'partially-implemented'": (
-                PARENT,
-                {"status": "partially-implemented", "retired": retired},
-            ),
-            "superseded_by is set exactly when status is superseded": (PLAIN, {"status": "superseded"}),
-            "after is set with parent null": (PLAIN, {"after": [FIRST]}),
-            f"parent {PLAIN} does not list this plan under phases": (FIRST, {"parent": PLAIN}),
-            f"phases names {PLAIN}, whose state does not name this plan": (PARENT, {"phases": [FIRST, PHASE, PLAIN]}),
-            f"retired names {PLAIN}, which is still on disk": (
-                PARENT,
-                {"phases": [FIRST, PHASE], "retired": [{"plan": PLAIN, "status": "abandoned", "landed": None}]},
-            ),
-        }
-        for rule, (plan, fields) in cases.items():
-            with self.subTest(rule=rule):
-                self.put(PARENT, phases=[FIRST, PHASE])
-                self.put(FIRST, parent=PARENT)
-                self.put(PHASE, parent=PARENT, after=[FIRST])
-                self.put(PLAIN)
-                self.record("check")
-                self.put(plan, **fields)
-                self.assertIn(rule, self.record("check", code=1).stderr)
-
-    def test_check_rejects_a_phase_with_phases_of_its_own(self):
-        self.put(PARENT, phases=[FIRST])
-        self.put(FIRST, parent=PARENT, phases=[PHASE])
-        self.put(PHASE, parent=FIRST)
-        self.put(PLAIN)
-        self.assertIn("phases or retired is non-empty with parent set", self.record("check", code=1).stderr)
-
-    def test_reviewed_plan_that_is_still_planned_is_legal(self):
-        self.put(PLAIN, review="fixes needed", review_rounds=1)
-        for plan in (PARENT, FIRST, PHASE):
-            self.put(plan)
-        self.record("check")
-
     def test_command_refuses_a_result_check_would_reject(self):
         self.phases()
         before = self.state(PARENT)
@@ -562,83 +435,7 @@ class PlanRecordTest(unittest.TestCase):
         self.assertIn("a parent's status is computed from its phases", refused.stderr)
         self.assertEqual(self.state(PARENT), before)
         self.record("implemented", PLAIN, *RUN, code=2)
-        self.assertFalse((self.root / plan_record.state_path(PLAIN)).exists())
-
-    def test_parent_status_is_computed_from_its_phases(self):
-        landed = {"first": "abc1234", "last": "def5678"}
-        gone = "docs/plans/2026-01-09-gone-plan.md"
-        done = [{"plan": "docs/plans/2026-01-08-done-plan.md", "status": "implemented", "landed": landed}]
-        self.put(PARENT, phases=[FIRST], retired=done)
-        self.put(FIRST, parent=PARENT, status="implemented", landed=landed)
-        self.assertEqual(plan_record.status(PARENT, self.root), "planned")
-        self.put(PARENT, retired=[{"plan": gone, "status": "implemented", "landed": landed}])
-        self.assertEqual(plan_record.status(PARENT, self.root), "implemented")
-        self.put(PARENT, retired=[{"plan": gone, "status": "abandoned", "landed": None}])
-        self.assertEqual(plan_record.status(PARENT, self.root), "planned")
-        self.put(PARENT, status="abandoned", retired=[{"plan": gone, "status": "implemented", "landed": landed}])
-        self.assertEqual(plan_record.status(PARENT, self.root), "abandoned")
-        self.put(PARENT, status="superseded", superseded_by=PLAIN, retired=[{"plan": gone, "status": "implemented", "landed": landed}])
-        self.assertEqual(plan_record.status(PARENT, self.root), "superseded")
-        self.assertEqual(plan_record.status(FIRST, self.root), "implemented")
-
-    def test_phase_is_finished_only_when_nothing_but_its_land_is_owed(self):
-        self.phases()
-        self.assertFalse(plan_record.finished(FIRST, self.root))
-        self.land(FIRST, self.on_work)
-        self.assertFalse(plan_record.finished(FIRST, self.root))
-        self.record("review", FIRST, "accept")
-        self.assertFalse(plan_record.finished(FIRST, self.root))
-        self.record("compound", FIRST, "no lesson")
-        for verdict, done in (("fixes needed", False), ("rework", False), ("accept", True), ("accept after fixes", True)):
-            with self.subTest(verdict=verdict):
-                self.record("review", FIRST, verdict)
-                self.assertEqual(plan_record.finished(FIRST, self.root), done)
-                self.assertEqual(plan_record.sent_back(self.state(FIRST)), verdict == "rework")
-        self.put(FIRST, **{**self.state(FIRST), "readiness": "needs-decisions"})
-        self.assertTrue(plan_record.sent_back(self.state(FIRST)))
-        self.assertFalse(plan_record.finished(FIRST, self.root))
-
-    def test_phase_is_not_finished_before_the_phases_it_runs_after(self):
-        self.phases()
-        for plan in (FIRST, PHASE):
-            self.land(plan, self.on_work)
-            self.record("review", plan, "accept")
-        self.record("compound", PHASE, "no lesson")
-        self.assertFalse(plan_record.finished(PHASE, self.root))
-        self.record("compound", FIRST, "no lesson")
-        self.assertTrue(plan_record.finished(PHASE, self.root))
-
-    def test_phase_on_main_is_finished_whatever_its_review(self):
-        self.phases()
-        self.land(FIRST, self.on_main)
-        self.assertTrue(plan_record.on_main(self.on_main, self.root))
-        self.assertFalse(plan_record.on_main(self.on_work, self.root))
-        self.assertTrue(plan_record.finished(FIRST, self.root))
-        self.record("review", FIRST, "fixes needed")
-        self.assertTrue(plan_record.finished(FIRST, self.root))
-
-    def test_retired_phase_is_finished_only_with_a_range(self):
-        self.phases()
-        self.land(FIRST, self.on_work)
-        self.record("abandon", PHASE)
-        self.commit("phases")
-        self.record("retire", FIRST)
-        self.record("retire", PHASE)
-        self.assertTrue(plan_record.finished(FIRST, self.root))
-        self.assertFalse(plan_record.finished(PHASE, self.root))
-
-    def test_plan_of_maps_a_plan_or_its_state_to_the_plan(self):
-        self.assertEqual(plan_record.plan_of(PLAIN), PLAIN)
-        self.assertEqual(plan_record.plan_of(plan_record.state_path(PLAIN)), PLAIN)
-        self.assertIsNone(plan_record.plan_of("docs/plans/README.md"))
-
-    def test_load_names_a_missing_state_file(self):
-        with self.assertRaises(plan_record.MissingState) as raised:
-            plan_record.load(PLAIN, self.root)
-        self.assertIn(plan_record.state_path(PLAIN), str(raised.exception))
-        self.put(PLAIN, status="done")
-        with self.assertRaises(plan_record.InvalidState):
-            plan_record.load(PLAIN, self.root)
+        self.assertFalse((self.root / plans.state_path(PLAIN)).exists())
 
 
 if __name__ == "__main__":

@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 """List the plans under docs/plans/ that still have work, in the order to take them.
 
-Usage: plan-queue.py [--json] [--large-units N]
+Usage: run.py next plan-queue [--json] [--large-units N]
 
-Reads each plan's state file through plan_record.py, from the plan's
+Reads each plan's state file through `lib.plans`, from the plan's
 recorded branch while that branch is not merged here, the plan's title and
 unit headings, the status ledger of this worktree, the unmerged branches
 that touch a plan, and the plans this branch changed. Prints one line per
@@ -22,7 +21,7 @@ plan with work left, grouped:
                that readiness. The next step is the plan skill, not
                implement
   ready        planned, implementation-ready, every prerequisite finished
-  waiting      a prerequisite phase is not finished by plan_record.py's
+  waiting      a prerequisite phase is not finished by `lib.plans`'s
                test. The line names it
   retire       implemented, superseded, or abandoned on main and still on
                disk. land's retire step never ran for it. A parent reads
@@ -58,22 +57,16 @@ and how many phases the parent still has open.
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
-RECORD = Path(__file__).resolve().parents[2] / "plan/scripts/plan_record.py"
-spec = importlib.util.spec_from_file_location("plan_record", RECORD)
-plan_record = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(plan_record)
+from lib import plans, proc
 
 OPEN = {"planned", "partially-implemented"}
-FINISHED = set(plan_record.FINAL)
-ACCEPTED = set(plan_record.ACCEPTED)
-UNIT = re.compile(r"^### U\d+[a-z]*[.:]")
+FINISHED = set(plans.FINAL)
+ACCEPTED = set(plans.ACCEPTED)
 ORDER = ["land", "in-progress", "unchecked", "replan", "ready", "waiting", "retire"]
 # How far along a plan with work left is, furthest first. Two plans that
 # share a file are taken in this order whatever their groups' places.
@@ -84,15 +77,14 @@ PATH = re.compile(r"[\w@.*/-]*[\w*/]")
 
 
 def git(*args: str) -> str:
-    out = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
-    return out.stdout.strip() if out.returncode == 0 else ""
+    out = proc.run(["git", *args])
+    return out.stdout.strip() if out.code == 0 else ""
 
 
 def describe(text: str) -> tuple[str, int, set[str]]:
     """The title, from the first `# ` heading, the count of unit headings,
     and the paths the units' `Files:` lines name."""
     lines = text.splitlines()
-    title = next((line[2:].strip() for line in lines if line.startswith("# ")), "")
     files: set[str] = set()
     listing = False
     for line in lines:
@@ -107,7 +99,7 @@ def describe(text: str) -> tuple[str, int, set[str]]:
                 word = item.split()[0] if item.split() else ""
                 if PATH.fullmatch(word) and ("/" in word or "." in word):
                     files.add(word)
-    return title.removesuffix(" - Plan"), sum(1 for line in lines if UNIT.match(line)), files
+    return plans.title(text), len(plans.unit_ids(text)), files
 
 
 def is_harness(files: set[str]) -> bool:
@@ -152,7 +144,7 @@ def other_worktrees() -> list[tuple[str, str | None]]:
         if not head.startswith("ref: refs/heads/"):
             continue
         try:
-            plan = json.loads((git_dir / plan_record.LEDGER_NAME).read_text(encoding="utf-8")).get("plan")
+            plan = json.loads((git_dir / plans.LEDGER_NAME).read_text(encoding="utf-8")).get("plan")
         except (OSError, ValueError, AttributeError):
             plan = None
         found.append((head.removeprefix("ref: refs/heads/"), plan if isinstance(plan, str) else None))
@@ -161,7 +153,7 @@ def other_worktrees() -> list[tuple[str, str | None]]:
 
 def plans_in(paths: str) -> list[str]:
     """The plans a `git diff --name-only` listing touches, through either file."""
-    return [plan for path in paths.splitlines() if (plan := plan_record.plan_of(path))]
+    return [plan for path in paths.splitlines() if (plan := plans.plan_of(path))]
 
 
 def branches_touching_plans() -> dict[str, str]:
@@ -176,20 +168,20 @@ def branches_touching_plans() -> dict[str, str]:
 
 
 def read_plans(root: Path) -> dict[str, dict]:
-    plans: dict[str, dict] = {}
+    entries: dict[str, dict] = {}
     for path in sorted((root / "docs/plans").glob("*-plan.md")):
         rel = str(path.relative_to(root))
         title, units, files = describe(path.read_text(encoding="utf-8"))
-        plans[rel] = {"state": plan_record.followed(rel, root), "title": title, "units": units, "files": files}
-    return plans
+        entries[rel] = {"state": plans.followed(rel, root), "title": title, "units": units, "files": files}
+    return entries
 
 
 def queue(root: Path, large_units: int) -> list[dict]:
-    plans = read_plans(root)
+    entries = read_plans(root)
 
     ledger_plan = None
     git_dir = git("rev-parse", "--git-dir")
-    ledger = Path(git_dir) / plan_record.LEDGER_NAME if git_dir else None
+    ledger = Path(git_dir) / plans.LEDGER_NAME if git_dir else None
     if ledger and ledger.is_file():
         try:
             ledger_plan = json.loads(ledger.read_text(encoding="utf-8")).get("plan")
@@ -202,30 +194,30 @@ def queue(root: Path, large_units: int) -> list[dict]:
             elsewhere.setdefault(plan, branch)
     changed_here = set(plans_in(git("diff", "--name-only", "main...HEAD", "--", "docs/plans")))
     # A plan read from its branch is this branch's work, merged here or not.
-    unmerged = {rel: plan_record.branch_to_follow(plan["state"], root) for rel, plan in plans.items()}
+    unmerged = {rel: plans.branch_to_follow(plan["state"], root) for rel, plan in entries.items()}
     changed_here.update(rel for rel, branch in unmerged.items() if branch)
 
     rows = []
-    for rel, plan in plans.items():
+    for rel, plan in entries.items():
         state = plan["state"]
-        status = plan_record.computed_status(state)
+        status = plans.computed_status(state)
         review = state["review"]
         readiness = state["readiness"]
-        missing = [after for after in state["after"] if not plan_record.finished(after, root)]
+        missing = [after for after in state["after"] if not plans.finished(after, root)]
         started_parent = False
         open_phases = 0
         if state["parent"]:
-            holder = plan_record.load(state["parent"], root)
-            siblings = [plan_record.followed(path, root) for path in holder["phases"]]
+            holder = plans.load(state["parent"], root)
+            siblings = [plans.followed(path, root) for path in holder["phases"]]
             started_parent = any(s["landed"] for s in siblings) or any(e["landed"] for e in holder["retired"])
             open_phases = sum(1 for s in siblings if not s["landed"])
 
-        if plan_record.sent_back(state):
+        if plans.sent_back(state):
             # A review that ended in rework sent the plan back to `plan`
             # and the status still reads implemented. No skill marks the
             # plan beyond the verdict, so the verdict is the signal, and
             # the readiness covers a re-plan that stopped on a decision.
-            # plan-state.py applies the same test after its prerequisite
+            # `drive plan-state` applies the same test after its prerequisite
             # check. A parent's stored status is never implemented, so a
             # parent that kept the readiness it was planned with retires
             # below.
@@ -247,7 +239,7 @@ def queue(root: Path, large_units: int) -> list[dict]:
         elif status == "implemented":
             # Either a review verdict is open or this branch changed the
             # plan. Reviewed and compounded on this branch, still on disk:
-            # land has not run for it. plan-state.py prints `land`.
+            # land has not run for it. `drive plan-state` prints `land`.
             unfinished = (review and review not in ACCEPTED) or (
                 rel in changed_here and (not review or state["compound"] is None)
             )
@@ -296,7 +288,7 @@ def queue(root: Path, large_units: int) -> list[dict]:
         row["shares_files_with"] = sorted(
             other["path"]
             for other in active
-            if ahead(other) < ahead(row) and overlap(plans[row["path"]]["files"], plans[other["path"]]["files"])
+            if ahead(other) < ahead(row) and overlap(entries[row["path"]]["files"], entries[other["path"]]["files"])
         )
     # A row is printed once every plan it shares files with and trails is
     # printed. `ahead` is a strict order, so the loop always places a row.
@@ -309,16 +301,16 @@ def queue(root: Path, large_units: int) -> list[dict]:
     return placed + [row for row in rows if row["group"] not in PROGRESS]
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="run.py next plan-queue", description=__doc__.splitlines()[0])
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--large-units", type=int, default=6)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     root = Path(git("rev-parse", "--show-toplevel") or ".")
     try:
         rows = queue(root, args.large_units)
-    except plan_record.StateError as error:
+    except plans.StateError as error:
         print(f"plan-queue: {error}", file=sys.stderr)
         return 1
 
@@ -354,7 +346,3 @@ def main() -> int:
     if branches:
         print("other worktrees: " + ", ".join(branches))
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

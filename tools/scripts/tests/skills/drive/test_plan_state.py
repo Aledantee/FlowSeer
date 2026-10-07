@@ -6,17 +6,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).with_name("plan-state.py")
-RECORD = Path(__file__).parents[2] / "plan/scripts/plan_record.py"
+RUN_PY = Path(__file__).resolve().parents[3] / "run.py"
 PARENT = "docs/plans/2026-01-01-parent-plan.md"
 PLAIN = "docs/plans/2026-01-09-plain-plan.md"
 RUN = ("--units", "3", "--from", "2026-01-05T10:00Z", "--to", "2026-01-05T11:30:00Z")
 
 
 class PlanStateTest(unittest.TestCase):
-    """Runs plan-state.py in a scratch repository whose branch `work` is
+    """Runs `drive plan-state` in a scratch repository whose branch `work` is
     one commit ahead of `main`. The plans' state files are written with
-    plan_record.py's commands."""
+    the `plan record` commands."""
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -56,12 +55,12 @@ class PlanStateTest(unittest.TestCase):
 
     def run_script(self, *args):
         return subprocess.run(
-            [sys.executable, str(SCRIPT), *args], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "drive", "plan-state", *args], cwd=self.root, env=self.env, capture_output=True, text=True
         )
 
     def record(self, *args):
         out = subprocess.run(
-            [sys.executable, str(RECORD), *args], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "plan", "record", *args], cwd=self.root, env=self.env, capture_output=True, text=True
         )
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
@@ -314,7 +313,7 @@ class PlanStateTest(unittest.TestCase):
             with self.subTest(args=args):
                 out = self.run_script(*args)
                 self.assertEqual(out.returncode, 2)
-                self.assertIn("plan_record.py init", out.stderr)
+                self.assertIn("plan record init", out.stderr)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).with_name("plan-queue.py")
-RECORD = Path(__file__).parents[2] / "plan/scripts/plan_record.py"
+RUN_PY = Path(__file__).resolve().parents[3] / "run.py"
 PARENT = "docs/plans/2026-01-01-parent-plan.md"
 PHASE = "docs/plans/2026-01-02-phase-plan.md"
 PLAIN = "docs/plans/2026-01-03-plain-plan.md"
@@ -16,9 +15,9 @@ RUN = ("--units", "3", "--from", "2026-01-05T10:00Z", "--to", "2026-01-05T11:30:
 
 
 class PlanQueueTest(unittest.TestCase):
-    """Runs plan-queue.py in a scratch repository with a `main` and a branch.
+    """Runs `next plan-queue` in a scratch repository with a `main` and a branch.
 
-    The plans' state files are written with plan_record.py's commands."""
+    The plans' state files are written with the `plan record` commands."""
 
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
@@ -62,13 +61,13 @@ class PlanQueueTest(unittest.TestCase):
 
     def record(self, *args):
         out = subprocess.run(
-            [sys.executable, str(RECORD), *args], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "plan", "record", *args], cwd=self.root, env=self.env, capture_output=True, text=True
         )
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
     def queue(self):
         return subprocess.run(
-            [sys.executable, str(SCRIPT), "--json"], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "next", "plan-queue", "--json"], cwd=self.root, env=self.env, capture_output=True, text=True
         )
 
     def rows(self):
@@ -152,7 +151,7 @@ class PlanQueueTest(unittest.TestCase):
         (git_dir / "flowseer-plan-status.json").write_text(json.dumps({"plan": PLAIN}), encoding="utf-8")
         self.assertEqual(self.rows()[PLAIN]["elsewhere"], "reviewing")
         self.assertIn("other worktrees: reviewing", subprocess.run(
-            [sys.executable, str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True
+            [sys.executable, str(RUN_PY), "next", "plan-queue"], cwd=self.root, env=self.env, capture_output=True, text=True
         ).stdout)
 
     def test_ledger_of_a_deleted_worktree_is_ignored(self):
@@ -382,7 +381,7 @@ class PlanQueueTest(unittest.TestCase):
         self.commit("branch recorded")
         row = self.rows()[PHASE]
         self.assertEqual((row["group"], row["status"], row["branch"]), ("unchecked", "implemented", "stage"))
-        out = subprocess.run([sys.executable, str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True)
+        out = subprocess.run([sys.executable, str(RUN_PY), "next", "plan-queue"], cwd=self.root, env=self.env, capture_output=True, text=True)
         self.assertIn("branch:stage", out.stdout)
 
         # Once merged, the checkout's file is the one read: an outcome
@@ -417,7 +416,7 @@ class PlanQueueTest(unittest.TestCase):
         self.write("docs/plans/2026-01-09-stray-plan.md", "# Stray - Plan\n")
         out = self.queue()
         self.assertEqual(out.returncode, 1)
-        self.assertIn("plan_record.py init", out.stderr)
+        self.assertIn("plan record init", out.stderr)
 
 
 if __name__ == "__main__":

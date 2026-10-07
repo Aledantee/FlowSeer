@@ -1,5 +1,4 @@
 import contextlib
-import importlib.util
 import io
 import os
 import subprocess
@@ -8,11 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-spec = importlib.util.spec_from_file_location(
-    "plan_deviations", Path(__file__).with_name("plan-deviations.py")
-)
-plan_deviations = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(plan_deviations)
+from skills.implement import plan_deviations
 
 
 def units(text):
@@ -133,7 +128,7 @@ class DiffTest(unittest.TestCase):
         os.chdir(self.root)
         try:
             with contextlib.redirect_stdout(out):
-                code = plan_deviations.main(["plan-deviations.py", str(self.plan), "main", *paths])
+                code = plan_deviations.main([str(self.plan), "main", *paths])
         finally:
             os.chdir(cwd)
         self.assertEqual(code, 0)

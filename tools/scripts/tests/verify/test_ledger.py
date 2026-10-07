@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-LEDGER = Path(__file__).with_name("ledger.py")
+RUN_PY = Path(__file__).resolve().parents[2] / "run.py"
 
 
 class LedgerCommitTest(unittest.TestCase):
@@ -39,7 +39,7 @@ class LedgerCommitTest(unittest.TestCase):
 
     def ledger(self, *args):
         return subprocess.run(
-            [sys.executable, str(LEDGER), *args], cwd=self.root, capture_output=True, text=True, check=False
+            [sys.executable, str(RUN_PY), "verify", "ledger", *args], cwd=self.root, capture_output=True, text=True, check=False
         )
 
     def unit(self, uid):

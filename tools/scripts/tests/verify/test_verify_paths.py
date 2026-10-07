@@ -4,7 +4,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-VERIFIER = Path(__file__).with_name("verify-change.sh")
+from lib import repo
+
+VERIFIER = repo.root(Path(__file__).parent) / ".claude/skills/verify-change/scripts/verify-change.sh"
 
 
 class SymlinkedPathTest(unittest.TestCase):
@@ -72,6 +74,13 @@ class SymlinkedPathTest(unittest.TestCase):
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertIn("hook_tooling=true", result.stdout.splitlines())
 
+    def test_scripts_readme_selects_hook_tooling(self):
+        (self.root / "tools/scripts").mkdir(parents=True)
+        (self.root / "tools/scripts/README.md").write_text("# Scripts\n")
+        result = self.select("tools/scripts/README.md")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("hook_tooling=true", result.stdout.splitlines())
+
     def test_empty_argument_is_refused(self):
         result = self.select("")
         self.assertEqual(result.returncode, 2)
@@ -134,14 +143,14 @@ class VerdictTest(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn("run with --full", result.stderr)
 
-    def test_format_failure_names_its_gate(self):
-        # Stand-ins for go, gofumpt, and goimports: go builds an empty
-        # checker, gofumpt reports a diff. The format gate runs before any
-        # module gate, so golangci-lint only has to exist.
+    def stub_go_tools(self):
+        """Stand-ins for go, gofumpt, goimports, and golangci-lint: go builds
+        an empty checker, gofumpt reports a diff. The format gate runs before
+        any module gate, so golangci-lint only has to exist. Returns an
+        environment with the stubs first on PATH."""
         tools = Path(self.directory.name) / "bin"
         tools.mkdir()
         (tools / "golangci-lint").write_text("#!/bin/sh\nexit 0\n")
-        (self.root / "go.mod").write_text("module example.invalid/a\n\ngo 1.27\n")
         (tools / "go").write_text(
             "#!/bin/sh\n"
             "[ \"$1\" = build ] || exit 0\n"
@@ -152,12 +161,27 @@ class VerdictTest(unittest.TestCase):
         (tools / "goimports").write_text("#!/bin/sh\nexit 0\n")
         for tool in tools.iterdir():
             tool.chmod(0o755)
+        return dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}")
+
+    def test_format_failure_names_its_gate(self):
+        env = self.stub_go_tools()
+        (self.root / "go.mod").write_text("module example.invalid/a\n\ngo 1.27\n")
         (self.root / "a.go").write_text("package a\n")
-        env = dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}")
         result = self.verify("--", "a.go", env=env)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertEqual(
             self.last_line(result), "FlowSeer verification FAILED (exit 1) in gate: gofumpt/goimports -d"
+        )
+
+    def test_prose_failure_names_its_run_py_command(self):
+        # The fixture holds no tools/scripts, so the checks resolve run.py
+        # from the checkout that holds the verifier.
+        env = self.stub_go_tools()
+        (self.root / "README.md").write_text("# Fixture\n\nA claim (session history) with no source.\n")
+        result = self.verify("--", "README.md", env=env)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(
+            self.last_line(result), "FlowSeer verification FAILED (exit 1) in gate: run.py verify check-prose"
         )
 
 

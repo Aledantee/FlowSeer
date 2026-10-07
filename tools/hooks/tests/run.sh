@@ -273,9 +273,9 @@ sibling_input=$(jq -n --arg cwd "$linked_worktree" --arg path "$fixture/generate
 assert_deny "$repo_root/tools/hooks/pre-tool-policy.sh" "$sibling_input"
 ok "Edit leaves a path outside every checkout to the sandbox and holds another checkout to policy"
 
-mkdir -p "$fixture/.agents/skills/verify-change/scripts" "$fixture/.agents/skills/prose/scripts" "$fixture/.claude"
+mkdir -p "$fixture/.agents/skills/verify-change/scripts" "$fixture/.claude"
 [ -e "$fixture/.claude/skills" ] || ln -s ../.agents/skills "$fixture/.claude/skills"
-for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/ledger.py .agents/skills/prose/scripts/check-prose.py tools/scripts/lib/repo.py tools/scripts/run.py tools/scripts/hooks/x.py tools/scripts/verify/x.py; do
+for policy_path in AGENTS.md buf.yaml .golangci.yml .claude/settings.json .codex/hooks.json tools/hooks/new-guard.sh test/conformance/a11y/a11y_policy_test.go .agents/skills/verify-change/scripts/verify-change.sh .claude/skills/verify-change/scripts/verify-change.sh tools/scripts/lib/repo.py tools/scripts/run.py tools/scripts/hooks/x.py tools/scripts/verify/x.py; do
   policy_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$policy_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
   policy_output=$(printf '%s' "$policy_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
@@ -287,8 +287,7 @@ ok "Edit asks before touching a policy surface"
 for open_path in tools/scripts/tests/test_run.py tools/scripts/skills/x.py; do
   open_input=$(jq -n --arg cwd "$fixture" --arg path "$fixture/$open_path" \
     '{cwd:$cwd,tool_input:{file_path:$path}}')
-  open_output=$(printf '%s' "$open_input" | "$repo_root/tools/hooks/pre-tool-policy.sh")
-  [[ $(decision <<<"$open_output") != ask ]] || fail "$LINENO"
+  assert_allow "$repo_root/tools/hooks/pre-tool-policy.sh" "$open_input"
 done
 ok "Edit leaves tools/scripts tests and skill commands unprompted"
 
@@ -1012,17 +1011,16 @@ bash -c 'set -euo pipefail
   run true >/dev/null' _ "$run_helper"
 ok "verifier run helper fails a command checked inside a condition"
 
-ledger_script=$repo_root/.claude/skills/verify-change/scripts/check-plan-status.py
+run_py=$repo_root/tools/scripts/run.py
 ledger_fixture=$fixture_parent/ledger-fixture
 mkdir -p "$ledger_fixture/docs/plans"
 git -C "$ledger_fixture" init -q
 printf '# ledger fixture plan\n' >"$ledger_fixture/docs/plans/example-plan.md"
-plan_record=$repo_root/.claude/skills/plan/scripts/plan_record.py
-(cd "$ledger_fixture" && python3 "$plan_record" init docs/plans/example-plan.md >/dev/null)
+(cd "$ledger_fixture" && uv run --quiet "$run_py" plan record init docs/plans/example-plan.md >/dev/null)
 ledger=$ledger_fixture/.git/flowseer-plan-status.json
 
 check_ledger() {
-  (cd "$ledger_fixture" && python3 "$ledger_script" "$@" 2>&1)
+  (cd "$ledger_fixture" && uv run --quiet "$run_py" verify check-plan-status "$@" 2>&1)
 }
 
 write_ledger() {
@@ -1070,7 +1068,7 @@ ok "plan status check rejects a ledger whose plan does not exist"
 
 write_ledger pending
 mkdir -p "$ledger_fixture/src/deeper"
-[[ -z $(cd "$ledger_fixture/src/deeper" && python3 "$ledger_script" 2>&1) ]] || fail "$LINENO"
+[[ -z $(cd "$ledger_fixture/src/deeper" && uv run --quiet "$run_py" verify check-plan-status 2>&1) ]] || fail "$LINENO"
 sed -i.bak 's#"id": "U2"#"id": "U1"#' "$ledger" && rm -f "$ledger.bak"
 set +e
 ledger_output=$(check_ledger)
@@ -1087,7 +1085,7 @@ git -C "$phase_fixture" init -q -b main
 for phase_plan in parent phase1 phase2; do
   printf '# %s\n' "$phase_plan" >"$phase_fixture/docs/plans/$phase_plan-plan.md"
 done
-# Written by hand, since the states below include ones no plan_record.py
+# Written by hand, since the states below include ones no `plan record`
 # command produces.
 phase_state() {
   jq -n --argjson fields "$2" '{contract: "flowseer-plan-state/v1", status: "planned",
@@ -1110,7 +1108,7 @@ cat >"$phase_ledger" <<JSON
  "units": [{"id": "U1", "status": "pending", "commit": null, "verified_at": null, "note": null}]}
 JSON
 check_phase() {
-  (cd "$phase_fixture" && python3 "$ledger_script" 2>&1)
+  (cd "$phase_fixture" && uv run --quiet "$run_py" verify check-plan-status 2>&1)
 }
 
 set +e
@@ -1172,7 +1170,6 @@ set -e
 rm -f "$phase_ledger"
 ok "plan status check refuses a phase the integration branch retired"
 
-integrity_script=$repo_root/.claude/skills/verify-change/scripts/check-test-integrity.py
 integrity_fixture=$fixture_parent/integrity-fixture
 mkdir -p "$integrity_fixture/pkg/testdata"
 git -C "$integrity_fixture" init -q
@@ -1181,22 +1178,21 @@ printf 'package pkg\n' >"$integrity_fixture/pkg/b_test.go"
 printf 'golden\n' >"$integrity_fixture/pkg/testdata/out.golden"
 git -C "$integrity_fixture" add pkg
 git -C "$integrity_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm base
-[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD) ]] || fail "$LINENO"
+[[ -z $(cd "$integrity_fixture" && uv run --quiet "$run_py" verify check-test-integrity HEAD) ]] || fail "$LINENO"
 printf 'package pkg\n\nimport "testing"\n\nfunc TestKeep(t *testing.T) {\n\tt.Skip("flaky")\n}\n' >"$integrity_fixture/pkg/a_test.go"
 printf 'changed\n' >"$integrity_fixture/pkg/testdata/out.golden"
 printf 'new\n' >"$integrity_fixture/pkg/testdata/new.golden"
 rm "$integrity_fixture/pkg/b_test.go"
-integrity_output=$(cd "$integrity_fixture" && python3 "$integrity_script" HEAD)
+integrity_output=$(cd "$integrity_fixture" && uv run --quiet "$run_py" verify check-test-integrity HEAD)
 [[ $integrity_output == *'deleted test file: pkg/b_test.go'* ]] || fail "$LINENO"
 [[ $integrity_output == *'modified existing testdata: pkg/testdata/out.golden'* ]] || fail "$LINENO"
 [[ $integrity_output == *'skip added: pkg/a_test.go: t.Skip("flaky")'* ]] || fail "$LINENO"
 [[ $integrity_output == *'removed test: pkg/a_test.go: TestGone'* ]] || fail "$LINENO"
 [[ $integrity_output != *'TestKeep'* ]] || fail "$LINENO"
 [[ $integrity_output != *'new.golden'* ]] || fail "$LINENO"
-[[ -z $(cd "$integrity_fixture" && python3 "$integrity_script" HEAD -- pkg/testdata/new.golden) ]] || fail "$LINENO"
+[[ -z $(cd "$integrity_fixture" && uv run --quiet "$run_py" verify check-test-integrity HEAD -- pkg/testdata/new.golden) ]] || fail "$LINENO"
 ok "test integrity check names deleted, skipped, and removed tests and rewritten testdata"
 
-deviations_script=$repo_root/.claude/skills/implement/scripts/plan-deviations.py
 deviations_fixture=$fixture_parent/deviations-fixture
 mkdir -p "$deviations_fixture/docs/plans" "$deviations_fixture/pkg/a" "$deviations_fixture/pkg/b"
 git -C "$deviations_fixture" init -q -b main
@@ -1219,13 +1215,13 @@ git -C "$deviations_fixture" add .
 git -C "$deviations_fixture" -c user.name=Hook -c user.email=hook@example.invalid commit -qm base
 printf 'package a // changed\n' >"$deviations_fixture/pkg/a/a.go"
 printf 'package c\n' >"$deviations_fixture/pkg/c.go"
-deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/dot-plan.md HEAD)
+deviations_output=$(cd "$deviations_fixture" && uv run --quiet "$run_py" implement plan-deviations docs/plans/dot-plan.md HEAD)
 [[ $deviations_output == *'Changed, named by no unit:'*'  pkg/c.go'* ]] || fail "$LINENO"
 [[ $deviations_output == *'  U1: pkg/a/a_test.go'* ]] || fail "$LINENO"
 [[ $deviations_output == *'  U1: pkg/b/b.go'* ]] || fail "$LINENO"
 [[ $deviations_output == *'  U1: pkg/b/b_test.go'* ]] || fail "$LINENO"
 [[ $deviations_output != *'Symbol'* && $deviations_output != *'U1: pkg/a/a.go'* ]] || fail "$LINENO"
-deviations_output=$(cd "$deviations_fixture" && python3 "$deviations_script" docs/plans/colon-plan.md HEAD)
+deviations_output=$(cd "$deviations_fixture" && uv run --quiet "$run_py" implement plan-deviations docs/plans/colon-plan.md HEAD)
 [[ $deviations_output == *'  pkg/c.go'* ]] || fail "$LINENO"
 [[ $deviations_output == *'Named by a unit, unchanged:'*'  none' ]] || fail "$LINENO"
 ok "plan deviations script reads both unit formats, braces, untracked files, and directory entries"
