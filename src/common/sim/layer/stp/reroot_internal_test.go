@@ -137,7 +137,7 @@ func TestRerootCutsARecentRoot(t *testing.T) {
 	if !p.proposing || !p.synced || p.fwdDelayTimer != now.Add(5*time.Second) {
 		t.Errorf("p1 proposing=%v synced=%v ladder=%v, want true/true/%v", p.proposing, p.synced, p.fwdDelayTimer, now.Add(5*time.Second))
 	}
-	if got := l.recentRootDeadline(tr, p, now.Add(time.Second)); !got.IsZero() {
+	if got := p.recentRootDeadline(now.Add(time.Second)); !got.IsZero() {
 		t.Errorf("cut p1 recent-root deadline = %v, want clear", got)
 	}
 	rerootAgreement(t, fx, "p1", false, false)
@@ -155,11 +155,11 @@ func TestRerootLeavesAnExpiredRecentRootForwarding(t *testing.T) {
 			if l.cist().ports["p1"].synced {
 				t.Fatal("p1 synced after leaving Root, want false")
 			}
-			if got := l.recentRootDeadline(l.cist(), l.cist().ports["p1"], at); got != at.Add(15*time.Second) {
+			if got := l.cist().ports["p1"].recentRootDeadline(at); got != at.Add(15*time.Second) {
 				t.Errorf("p1 recent-root deadline = %v, want %v", got, at.Add(15*time.Second))
 			}
 			later := at.Add(15 * time.Second)
-			if got := l.recentRootDeadline(l.cist(), l.cist().ports["p1"], later); !got.IsZero() {
+			if got := l.cist().ports["p1"].recentRootDeadline(later); !got.IsZero() {
 				t.Errorf("expired recent-root deadline = %v, want clear", got)
 			}
 			if ageFirst {
@@ -230,8 +230,8 @@ func TestRerootDelayChangesPreserveExpiry(t *testing.T) {
 							l.Advance(left)
 							rerootState(t, tr, "p1", bpdu.RoleDesignated, StateForwarding)
 							rerootState(t, tr, "p2", bpdu.RoleDesignated, StateDiscarding)
-							if tr.ports["p1"].leftRootAt != left {
-								t.Fatalf("leftRootAt = %v, want %v", tr.ports["p1"].leftRootAt, left)
+							if tr.ports["p1"].rootDeadline != left.Add(before) {
+								t.Fatalf("rootDeadline = %v, want %v", tr.ports["p1"].rootDeadline, left.Add(before))
 							}
 							at := left.Add(e)
 							if ageFirst {
@@ -242,7 +242,7 @@ func TestRerootDelayChangesPreserveExpiry(t *testing.T) {
 							}
 							receive(at, "p2", 0, 0, after)
 							want := StateForwarding
-							if e < before && e < after {
+							if e < before {
 								want = StateDiscarding
 							}
 							rerootState(t, tr, "p1", bpdu.RoleDesignated, want)
@@ -265,7 +265,7 @@ func TestRerootClearsAnAgreedRecentRoot(t *testing.T) {
 	if !l.cist().ports["p1"].agreed {
 		t.Fatal("fixture p1 has no agreement")
 	}
-	if got := l.recentRootDeadline(l.cist(), l.cist().ports["p1"], now.Add(13*time.Second)); !got.IsZero() {
+	if got := l.cist().ports["p1"].recentRootDeadline(now.Add(13 * time.Second)); !got.IsZero() {
 		t.Errorf("agreed p1 recent-root deadline = %v, want clear", got)
 	}
 	l.Receive(now.Add(14*time.Second), "p2", rerootBPDU(0, 0))
@@ -378,8 +378,8 @@ func TestRerootCutsWhileTheBackupDelayRuns(t *testing.T) {
 	l.Receive(now.Add(time.Second), "p2", rerootBPDU(0, 0))
 	rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateDiscarding)
 	rerootState(t, l.cist(), "p2", bpdu.RoleRoot, StateDiscarding)
-	if p := l.cist().ports["p1"]; !p.synced || !l.recentRootDeadline(l.cist(), p, now.Add(time.Second)).IsZero() {
-		t.Errorf("cut p1 synced=%v deadline=%v, want true/clear", p.synced, l.recentRootDeadline(l.cist(), p, now.Add(time.Second)))
+	if p := l.cist().ports["p1"]; !p.synced || !p.recentRootDeadline(now.Add(time.Second)).IsZero() {
+		t.Errorf("cut p1 synced=%v deadline=%v, want true/clear", p.synced, p.recentRootDeadline(now.Add(time.Second)))
 	}
 }
 
@@ -413,8 +413,8 @@ func TestRerootDoesNotCutWhenTheSelectedRootAlreadyForwards(t *testing.T) {
 	l.Receive(now.Add(time.Second), "p2", rerootBPDU(0, 0))
 	rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateForwarding)
 	rerootState(t, l.cist(), "p2", bpdu.RoleRoot, StateForwarding)
-	if got := l.cist().ports["p1"].leftRootAt; got != now.Add(time.Second) {
-		t.Errorf("p1 left Root at %v, want %v", got, now.Add(time.Second))
+	if got := l.cist().ports["p1"].rootDeadline; got != now.Add(5*time.Second) {
+		t.Errorf("p1 recent-root deadline = %v, want %v", got, now.Add(5*time.Second))
 	}
 }
 
@@ -459,7 +459,7 @@ func TestRerootUsesTheReceivedForwardDelay(t *testing.T) {
 			at := now.Add(time.Second)
 			l.Receive(at, "p2", message(2048))
 			rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateForwarding)
-			if got := l.recentRootDeadline(l.cist(), l.cist().ports["p1"], at); got != at.Add(4*time.Second) {
+			if got := l.cist().ports["p1"].recentRootDeadline(at); got != at.Add(4*time.Second) {
 				t.Errorf("p1 recent-root deadline = %v, want received delay deadline %v", got, at.Add(4*time.Second))
 			}
 			l.Receive(at.Add(tc.delay), "p3", message(0))

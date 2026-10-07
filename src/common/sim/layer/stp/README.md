@@ -533,15 +533,20 @@ The implementation structures its logic around the standard state machines:
 ### Reroot, sync, and agreement
 
 A new Root port can forward before the tree is synced because reroot prevents
-two recent Root ports from forwarding together. Each tree port tracks a
-recent-root timer for the forward delay in force after leaving Root for
-Designated, and a recent-backup timer for twice the local HelloTime after
-leaving Backup
-(`src/common/sim/layer/stp/portstate.go:102-130`). A running recent-root
-timer follows the current forward delay. Every time-aware entry point clears
-expired recent-root instants before changing the tree's times, so a longer
-received delay cannot revive an expired timer
-(`src/common/sim/layer/stp/portstate.go:107-117`). IEEE 802.1Q-2003
+two recent Root ports from forwarding together. A port leaving Root for
+Designated counts as a recent Root during that call, so the same call's cut
+can reach it (`src/common/sim/layer/stp/portstate.go:135-138`,
+`src/common/sim/layer/stp/roles.go:293`). At the end of the call it stores
+the call's instant plus the tree's Forward Delay then
+(`src/common/sim/layer/stp/portstate.go:115-128`). Later reads compare that
+stored deadline with the current instant without reading Forward Delay
+again (`src/common/sim/layer/stp/portstate.go:103-107`). For example, a port
+leaving Root at 12:00:00 with a final delay of 15 seconds has a deadline of
+12:00:15 even if a later BPDU carries 30 seconds. Its cut decision is the
+same with and without a prior `Advance`
+(`TestRecentRootCutIsIndependentOfAdvance` in `recent_root_property_test.go`).
+The recent-backup timer uses twice the local HelloTime after leaving Backup
+(`src/common/sim/layer/stp/portstate.go:130-142`). IEEE 802.1Q-2003
 Figures 13-16 and 13-17 and draft P802.1aq/D1.5 Figures 13-24 through 13-26
 assign these timers. The layer clears the recent-root timer of Disabled,
 Alternate, and Backup ports and of a Designated port that is Discarding,

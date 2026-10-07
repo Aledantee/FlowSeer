@@ -276,11 +276,11 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 		}
 		if p.role == bpdu.RoleDisabled || p.role == bpdu.RoleAlternate || p.role == bpdu.RoleBackup ||
 			(l.mst != nil && t.id != cistID && l.boundary(name)) {
-			p.leftRootAt = time.Time{}
+			p.clearRecentRoot()
 		}
 		if p.role == bpdu.RoleDesignated && (p.state == StateDiscarding || p.agreed || l.links[name].edge) {
 			p.synced = true
-			p.leftRootAt = time.Time{}
+			p.clearRecentRoot()
 		}
 	}
 
@@ -290,14 +290,14 @@ func (l *Layer) updatePortStates(t *tree, now time.Time, flushes *[]layer.FlushT
 			p := t.ports[name]
 			link := l.links[name]
 			if p == nil || p.role != bpdu.RoleDesignated || link.edge || p.state == StateDiscarding ||
-				(l.mst != nil && t.id != cistID && l.boundary(name)) || l.recentRootDeadline(t, p, now).IsZero() {
+				(l.mst != nil && t.id != cistID && l.boundary(name)) || (!p.pendingRootDeadline && p.recentRootDeadline(now).IsZero()) {
 				continue
 			}
 			p.state = StateDiscarding
 			p.fwdDelayTimer = now.Add(fwdDelay)
 			p.agreed = false
 			p.synced = true
-			p.leftRootAt = time.Time{}
+			p.clearRecentRoot()
 			p.proposing = link.pointToPoint && link.sendRSTP
 			if p.proposing {
 				l.requestNewInfo(t, p)

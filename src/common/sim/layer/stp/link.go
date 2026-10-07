@@ -11,7 +11,7 @@ import (
 // to transmit RSTP BPDUs and restarting the migration delay. If the port is
 // unknown or down, Mcheck has no effect.
 func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
-	l.settleRecentRootTimers(now)
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	link, ok := l.links[port]
 	if !ok || !link.up {
@@ -49,7 +49,7 @@ func (l *Layer) Mcheck(now time.Time, port string) layer.Effects {
 // emissions. A link down clears received information and moves the port to
 // Disabled.
 func (l *Layer) LinkChange(now time.Time, port string, up, pointToPoint bool, speedBPS uint64) layer.Effects {
-	l.settleRecentRootTimers(now)
+	defer l.finishRecentRootDeadlines(now)
 	l.settleHelloTimers(now)
 	t := l.cist()
 	p, ok := t.ports[port]
