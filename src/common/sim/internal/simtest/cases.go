@@ -2301,7 +2301,22 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 			sw.Forward(now.Add(time.Second), "out", reply)
 			sw.Wake(now.Add(time.Second))
 
-			emissions := sw.Drain()
+			var emissions []vswitch.Emission
+			solicitations := 0
+			for _, emission := range sw.Drain() {
+				if !emission.Protocol {
+					emissions = append(emissions, emission)
+					continue
+				}
+				msg, err := arp.Decode(emission.Frame)
+				if err != nil || msg.Operation != arp.Request || msg.TargetAddr != destination || emission.Port != "out" || emission.PCP != 0 {
+					return ExecutionResult{}, errs.Msgf("solicitation = %+v, message = %+v, error = %v", emission, msg, err)
+				}
+				solicitations++
+			}
+			if solicitations != 1 {
+				return ExecutionResult{}, errs.Msgf("solicitations = %d, want 1", solicitations)
+			}
 			if len(emissions) != 1 {
 				return ExecutionResult{}, errs.Msgf("released emissions = %d, want 1", len(emissions))
 			}

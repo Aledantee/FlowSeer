@@ -762,7 +762,7 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		if j.FrameID == heldID || j.FrameID == replyID {
 			continue
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -903,7 +903,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 		if j.FrameID == heldID || j.FrameID == replyID {
 			continue
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -1434,7 +1434,7 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 		var found []vlan.PCP
 		for _, j := range fab.Report() {
 			for _, e := range j.Entries {
-				if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+				if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
 					found = append(found, e.PCP)
 				}
 			}
@@ -1572,7 +1572,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 	var released bool
 	for _, j := range derived.Report() {
 		for _, e := range j.Entries {
-			if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+			if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
 				released = true
 			}
 		}

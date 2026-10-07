@@ -1508,7 +1508,7 @@ func ndpAdvertisement(iface string, hdr ip.Header, m ndp.Message) (routing.Adver
 // observeAndRelease applies adv and flushes whatever it freed or gave up on
 // in the same call, rather than leaving a resolved entry's queue for a
 // caller to notice. [routing.Layer.NextWake] reports a timer for an
-// Incomplete entry only, so a fabric run that scheduled a wake for the old
+// Incomplete, Delay, or Probe entry, so a fabric run that scheduled a wake for the old
 // deadline cancels it the moment Observe resolves the entry. Settling on
 // Wake, Age, or an observing Forward flushes that queue and any other entry
 // whose resolution deadline has separately passed by now.

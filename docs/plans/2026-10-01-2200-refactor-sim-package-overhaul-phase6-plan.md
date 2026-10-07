@@ -572,6 +572,8 @@ on layout
 (`docs/solutions/conventions/a-codec-round-trip-cannot-locate-a-field-on-the-wire.md`).
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer src/common/sim/device/vswitch src/common/sim/fabric src/common/sim/internal/simtest src/common/sim/netmodel docs/architecture/2026-09-10-virtual-device-direction.md`
 
+Migrated sending assertions: `troubleshooting/neighbor-resolution-pending`, `TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame`, `TestARPObservationReleasesHeldFrameOnRoutedPort`, `TestSubInterfaceObservationBindsOnlyItsOuterVID`, `TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort`, `TestARPObservationReleasesHeldFrameOnVLANInterface`, `TestReleasedFrameCarriesIngressPCPAndDEI`, `TestHeldFrameTimesOutWithDropStep`, `TestNDPInvalidHopLimitDoesNotObserve`, `TestNDPReachesNeighborPathNotMulticastPath`, `TestMLDReportReachesMulticastPathNotNeighborPath`, `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget`, `TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason`, `TestWakeAgeForwardStopConditionInvariance`, `TestAggregateHeldFrameReleaseKeepsItsProvenance`, `TestFabricReleasesHeldFrameOnObservedARPReply`, `TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost`, `TestFabricReleasedFrameQueuesAtItsIngressPriority`, `TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey`, and `TestFingerprintNeighborResolutionState`.
+
 ### U5. Receiving and answering
 Files: src/common/sim/layer/routing/, src/common/sim/device/vswitch/, src/common/sim/fabric/, src/common/sim/internal/simtest/, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U4
@@ -646,18 +648,6 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Open questions
 
-- Active neighbor resolution needs a decision about existing test
-  expectations. At `4c11b059`, the corpus case
-  `troubleshooting/neighbor-resolution-pending` fails with
-  `released emissions = 2, want 1`. Its assertion in
-  `src/common/sim/internal/simtest/cases.go:2306` counts all drained
-  emissions, including the new protocol solicitation. Existing timeout
-  tests also expect one absolute deadline. Options: migrate the affected
-  assertions to active resolution, preserving the specified behavior, or
-  revise the sending requirements before resuming. Partial code remains
-  unverified on `parked/routing-solicit`, with sending coverage and
-  documentation unfinished. Receiving depends on the blocked sending unit.
-
 - `filter.RetentionKey` writes `env.NodeID` raw after `node_id=` in
   `src/common/sim/layer/filter/config.go:407`. The comparison to a quoted
   filter identity was false. Routing still requires a quoted node identity
@@ -686,3 +676,16 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   for an absent next hop and an undecoded header
   (`R/fact.go:29-37,53,70`). Changing it rewrites every lookup expectation
   in the corpus.
+
+- Receiving is blocked by `TestNDPSolicitationResolvesItsOwnSourceNotTheTarget`
+  in `src/common/sim/device/vswitch/switch_test.go`. It requires a
+  solicitation for an address the interface does not hold to resolve its
+  source's held frame. The receiving unit requires that input to create
+  no entry and send no answer, following RFC 4861 section 7.2.3. Changing
+  the target to a local address would change what this test proves.
+  A local-target guard at the observation site makes
+  `go test ./src/common/sim/device/vswitch -run ^TestNDPSolicitationResolvesItsOwnSourceNotTheTarget$ -count=1`
+  fail with `emissions = 0, want 1: the solicitation must resolve its own source address, not the target it asked about`.
+  Options: retire that conflicting expectation and add separate local-target
+  learning and non-local-target refusal coverage, or revise the receiving
+  requirement. Neither preserves this assertion's existing intent.

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -458,7 +459,7 @@ func TestObserveOverrideClearedNonReachableStateIsUnchanged(t *testing.T) {
 	if after.Frame.Dst != staleMAC {
 		t.Errorf("frame dst = %s, want the unchanged MAC %s", after.Frame.Dst, staleMAC)
 	}
-	wantState(t, after, "stale")
+	wantState(t, after, "delay")
 }
 
 // TestObserveOverrideSetUnsolicitedUpdateMovesToStale is RFC 4861 section 7.2.5 rule II: "If
@@ -640,7 +641,8 @@ func TestCloneIsolatesNeighborState(t *testing.T) {
 		t.Errorf("original reason = %q after observing the clone, want still pending", res.Reason)
 	}
 
-	eff := advanceAndDrain(l, testNow.Add(time.Second))
+	assertRoutingRetries(t, l, testNow, time.Second, 1)
+	eff := advanceAndDrain(l, testNow.Add(3*time.Second))
 	if timedOut := exitsWithCause(eff, routing.HeldTimedOut); len(timedOut) != 1 {
 		t.Fatalf("original timed out = %d, want 1 (unaffected by the clone's Observe)", len(timedOut))
 	}
@@ -930,7 +932,7 @@ func mustNewLifecycleLayer(t *testing.T, policy routing.NeighborPolicy) *routing
 	return mustNewRouting(t, neighborLifecycleConfig(policy))
 }
 
-func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *testing.T) {
+func TestAdvancePastReachableExpiryAndResolutionFailureLeavesStaleAndAbsent(t *testing.T) {
 	t.Parallel()
 	l := mustNewLifecycleLayer(t, routing.NeighborPolicy{
 		ReachableTime: 30 * time.Second,
@@ -955,14 +957,18 @@ func TestAdvancePastReachableExpiryAndIncompleteDeadlineLeavesStaleAndFailed(t *
 
 	routeToV4(t, l, testNow, incompleteDst, []byte("incomplete-frame"), true)
 
-	tExpiry := testNow.Add(35 * time.Second)
+	assertRoutingRetries(t, l, testNow, 10*time.Second, 1)
+	tExpiry := testNow.Add(30 * time.Second)
 	l.Advance(tExpiry)
 
 	reachableRes := routeToV4(t, l, tExpiry, reachableDst, []byte("probe"), false)
 	wantState(t, reachableRes, "stale")
 
 	incompleteRes := routeToV4(t, l, tExpiry, incompleteDst, []byte("probe"), false)
-	wantState(t, incompleteRes, "failed")
+	wantState(t, incompleteRes, "incomplete")
+	if neighbors := l.Neighbors(); len(neighbors) != 1 || neighbors[0].Addr != reachableDst || neighbors[0].State != routing.NeighborStale {
+		t.Fatalf("neighbors = %+v, want only the stale resolved entry", neighbors)
+	}
 
 	clone := l.Clone()
 
@@ -1003,10 +1009,11 @@ func TestFailHeldReturnsWaitingExitsFirstAndClearsThem(t *testing.T) {
 
 	// Advance past dst1's resolution deadline without draining exits.
 	// This parks a HeldTimedOut exit in l.exits.
-	l.Advance(testNow.Add(3 * time.Second))
+	assertRoutingRetries(t, l, testNow, 2*time.Second, 1)
+	l.Advance(testNow.Add(6 * time.Second))
 
 	// Queue frame 2 for dst2, leaving it incomplete in the hold queue.
-	routeToV4(t, l, testNow.Add(3*time.Second), dst2, []byte{0xbb}, true)
+	routeToV4(t, l, testNow.Add(6*time.Second), dst2, []byte{0xbb}, true)
 
 	// FailHeld drains held frames across all VRFs and returns waiting exits first.
 	exits := l.FailHeld()
@@ -1065,7 +1072,9 @@ func TestHeldTokensSurviveEvictionAndTimeout(t *testing.T) {
 	first := routeToV4(t, l, testNow, lifecycleDstV4, []byte{1}, true)
 	second := routeToV4(t, l, testNow, lifecycleDstV4, []byte{2}, true)
 	third := l.Originate(testNow, routing.DefaultVRF, lifecycleDstV6, 17, []byte{3}, true)
-	exits := advanceAndDrain(l, testNow.Add(time.Second))
+	exits := advanceAndDrain(l, testNow)
+	assertRoutingRetries(t, l, testNow, time.Second, 2)
+	exits = append(exits, advanceAndDrain(l, testNow.Add(3*time.Second))...)
 	if first.Hold != 1 || second.Hold != 2 || third.Hold != 3 || len(exits) != 3 {
 		t.Fatalf("tokens = %d, %d, %d, exits = %+v, want tokens 1..3 and three exits", first.Hold, second.Hold, third.Hold, exits)
 	}
@@ -1080,7 +1089,7 @@ func TestHeldTokensSurviveEvictionAndTimeout(t *testing.T) {
 			t.Errorf("exit %d = %+v, want %+v", i, got, want)
 		}
 	}
-	fourth := routeToV4(t, l, testNow.Add(time.Second), netip.MustParseAddr("10.0.10.98"), []byte{4}, true)
+	fourth := routeToV4(t, l, testNow.Add(3*time.Second), netip.MustParseAddr("10.0.10.98"), []byte{4}, true)
 	if fourth.Hold != 4 {
 		t.Errorf("token after exits = %d, want 4", fourth.Hold)
 	}
@@ -1193,5 +1202,130 @@ func TestRoutePeekDoesNotMintHold(t *testing.T) {
 	committed := routeToV4(t, l, testNow, lifecycleDstV4, nil, true)
 	if committed.Hold != 1 {
 		t.Errorf("first committed hold = %d, want 1", committed.Hold)
+	}
+}
+
+func assertRoutingRetries(t *testing.T, l *routing.Layer, start time.Time, timer time.Duration, count int) {
+	t.Helper()
+	for retry := 1; retry <= 2; retry++ {
+		now := start.Add(time.Duration(retry) * timer)
+		if fx := l.Advance(now.Add(-time.Nanosecond)); len(fx.Emissions) != 0 {
+			t.Fatalf("early retransmission: %+v", fx)
+		}
+		if fx := l.Advance(now); len(fx.Emissions) != count {
+			t.Fatalf("retry %d emissions = %+v, want %d", retry, fx.Emissions, count)
+		}
+	}
+	if fx := l.Advance(start.Add(3*timer - time.Nanosecond)); len(fx.Emissions) != 0 || len(l.DrainExits()) != 0 {
+		t.Fatalf("early timeout: %+v", fx)
+	}
+}
+
+func TestSolicitationInterfaceShapesAndSources(t *testing.T) {
+	ports, err := port.NewBuilder().Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, port string
+		vid        vlan.ID
+	}{
+		{"VLAN", "", 10}, {"routed port", "eth1", 0}, {"sub-interface", "eth1", 10},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := neighborLifecycleConfig(routing.NeighborPolicy{})
+			vrf := cfg.VRFs[routing.DefaultVRF]
+			vrf.Interfaces["vlan10"] = routing.Interface{Port: tc.port, VLAN: tc.vid, MAC: lifecycleDeviceMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24"), netip.MustParsePrefix("198.51.100.1/24"), netip.MustParsePrefix("2001:db8::1/64"), netip.MustParsePrefix("4037::1/64")}}
+			vrf.Routes = []routing.Route{{Prefix: netip.MustParsePrefix("203.0.113.0/24"), Interface: "vlan10"}}
+			cfg.VRFs[routing.DefaultVRF] = vrf
+			l := mustNewRoutingWithPorts(t, cfg, ports)
+			for _, address := range []struct{ target, source string }{{"198.51.100.7", "198.51.100.1"}, {"203.0.113.7", "192.0.2.1"}} {
+				res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr(address.target), 17, nil, true)
+				if len(res.Emissions) != 1 {
+					t.Fatalf("emissions = %+v, want one", res.Emissions)
+				}
+				em := res.Emissions[0]
+				msg, err := arp.Decode(em.Frame)
+				if err != nil || msg.SenderAddr.String() != address.source || em.Port != tc.port || em.VID != tc.vid {
+					t.Fatalf("emission = %+v, ARP = %+v/%v", em, msg, err)
+				}
+			}
+			res := l.Originate(testNow, routing.DefaultVRF, netip.MustParseAddr("4037::01:800:200e:8c6c"), 17, nil, true)
+			if len(res.Emissions) != 1 {
+				t.Fatalf("IPv6 emissions = %+v, want one", res.Emissions)
+			}
+			hdr, _, err := ip.Decode(res.Emissions[0].Frame.Payload)
+			if err != nil || hdr.Src.String() != "4037::1" || hdr.Dst != netip.MustParseAddr("ff02::1:ff0e:8c6c") {
+				t.Fatalf("solicited-node header = %+v/%v", hdr, err)
+			}
+		})
+	}
+}
+
+func TestSolicitationRequiresFamilyAddressAndObservedPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		mode     routing.Mode
+		prefixes []netip.Prefix
+		reason   trace.Reason
+	}{
+		{"disabled", routing.NeighborDisabled, []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}, routing.ReasonNeighborMiss},
+		{"no family address", routing.NeighborObserved, []netip.Prefix{netip.MustParsePrefix("2001:db8::1/64")}, routing.ReasonNeighborMiss},
+		{"observed", routing.NeighborObserved, []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}, routing.ReasonNeighborPending},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := neighborLifecycleConfig(routing.NeighborPolicy{Mode: tc.mode})
+			vrf := cfg.VRFs[routing.DefaultVRF]
+			iface := vrf.Interfaces["vlan10"]
+			iface.Prefixes = tc.prefixes
+			vrf.Interfaces["vlan10"] = iface
+			vrf.Routes = []routing.Route{{Prefix: netip.MustParsePrefix("10.0.10.0/24"), Interface: "vlan10"}}
+			cfg.VRFs[routing.DefaultVRF] = vrf
+			l := mustNewRouting(t, cfg)
+			res := routeToV4(t, l, testNow, lifecycleDstV4, nil, true)
+			want := 0
+			if tc.reason == routing.ReasonNeighborPending {
+				want = 1
+			}
+			if res.Reason != tc.reason || len(res.Emissions) != want || len(l.Neighbors()) != want {
+				t.Fatalf("result = %+v, neighbors = %+v, want %s and %d emission/entry", res, l.Neighbors(), tc.reason, want)
+			}
+		})
+	}
+}
+
+func TestProbeReplyRestoresReachabilityAndConfiguredEntryNeverProbes(t *testing.T) {
+	cfg := neighborLifecycleConfig(routing.NeighborPolicy{})
+	vrf := cfg.VRFs[routing.DefaultVRF]
+	vrf.Neighbors = []routing.Neighbor{{Interface: "vlan10", Addr: lifecycleDstV6, MAC: lifecycleHostMAC}}
+	cfg.VRFs[routing.DefaultVRF] = vrf
+	l := mustNewRouting(t, cfg)
+	routeToV4(t, l, testNow, lifecycleDstV4, nil, true)
+	l.Observe(testNow, routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	l.Advance(testNow)
+	l.DrainExits()
+	routeToV4(t, l, testNow.Add(31*time.Second), lifecycleDstV4, nil, true)
+	fx := l.Advance(testNow.Add(36 * time.Second))
+	if len(fx.Emissions) != 1 {
+		t.Fatalf("probes = %+v, want one", fx.Emissions)
+	}
+	l.Observe(testNow.Add(36*time.Second), routing.Advertisement{Interface: "vlan10", Addr: lifecycleDstV4, MAC: lifecycleHostMAC, HasMAC: true, Solicited: true, Override: true})
+	if _, ok := l.NextWake(); ok {
+		t.Fatal("confirmed probe retains timer")
+	}
+	if fx := l.Advance(testNow.Add(39 * time.Second)); len(fx.Emissions) != 0 {
+		t.Fatalf("confirmed neighbor probes: %+v", fx)
+	}
+	for _, n := range l.Neighbors() {
+		if n.State != routing.NeighborReachable {
+			t.Fatalf("neighbor = %+v, want reachable", n)
+		}
+	}
+	res := routeToV6(t, l, testNow.Add(time.Hour), lifecycleDstV6, nil, true)
+	if res.Frame.Dst != lifecycleHostMAC || len(res.Emissions) != 0 {
+		t.Fatalf("configured result = %+v", res)
+	}
+	if fx := l.Advance(testNow.Add(time.Hour)); len(fx.Emissions) != 0 {
+		t.Fatalf("configured neighbor probes: %+v", fx)
 	}
 }

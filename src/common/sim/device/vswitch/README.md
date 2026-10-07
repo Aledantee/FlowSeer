@@ -304,7 +304,7 @@ Drop reasons recorded in traces and egress records:
 | `unsupported-lacpdu` | Frame could not be decoded as an LACPDU               |
 | `no-route`         | No route in the VRF table matches the destination IP    |
 | `ttl-expired`      | Ingress IP hop limit is 1 or less (RFC 1812 section 5.3.1) |
-| `neighbor-miss`    | Next hop's VRF resolves no neighbors, or the entry already failed |
+| `neighbor-miss`    | Next hop's VRF disables resolution, or its interface lacks a source address |
 | `neighbor-pending` | Next hop's neighbor entry is newly or still unresolved (not a drop; outcome `Held`) |
 | `neighbor-hold-overflow` | Held frame evicted to make room in the hold queue for a newer one |
 | `held-interface-unknown` | Held frame released onto an interface the routing configuration no longer resolves |

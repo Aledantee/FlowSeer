@@ -594,8 +594,8 @@ type heldPropertyRun struct {
 // is resolved in turn, while the later ones are still held, so every release
 // happens beside a held frame another retention kept. Four more frames for a
 // fourth address exceed the default neighbor HoldDepth of three, so the oldest
-// is evicted; that address is never resolved, and the default three-second
-// retransmission timer expires the rest. The replies land before that timeout.
+// is evicted; that address is never resolved, and the three unanswered
+// solicitations fail the rest after three seconds. The replies land before that timeout.
 func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 	t.Helper()
 

@@ -883,7 +883,7 @@ func TestNormalize(t *testing.T) {
 	}
 
 	// Check the zero neighbor policy normalizes to the RFC 4861 section 10 defaults.
-	wantPolicy := routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: 3 * time.Second, HoldDepth: 3}
+	wantPolicy := routing.NeighborPolicy{ReachableTime: 30 * time.Second, RetransTimer: time.Second, HoldDepth: 3}
 	if vrf.NeighborPolicy != wantPolicy {
 		t.Errorf("neighbor policy = %+v, want %+v", vrf.NeighborPolicy, wantPolicy)
 	}
