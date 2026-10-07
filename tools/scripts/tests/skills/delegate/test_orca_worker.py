@@ -16,10 +16,6 @@ from skills.delegate import orca_worker
 
 
 class OrcaWorkerTests(unittest.TestCase):
-    def __init__(self, methodName="runTest", command=None):
-        super().__init__(methodName)
-        self.worker_command = command or (lambda argv: orca_worker.main(argv))
-
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -202,7 +198,7 @@ else:
         output, errors = io.StringIO(), io.StringIO()
         original_run = orca_worker.run
         original_save = orca_worker.Worker.save
-        original_log = orca_worker.Worker.log
+        original_runlog_main = orca_worker.runlog.main
         write_attempts = 0
 
         def transport(argv, cwd=None):
@@ -222,16 +218,15 @@ else:
             write_attempts += 1
             if self.env.get("ORCA_STUB_FAIL") == "state-write" and write_attempts == 1:
                 raise OSError("injected state write failure")
-            if self.env.get("ORCA_STUB_FAIL") == "state-mkdir":
-                raise OSError("cannot create lane state directory")
             return original_save(worker, state)
 
-        def log(worker, *argv):
+        def runlog_main(argv):
             if argv[0] == "start" and self.launcher_failure is not None:
                 print("launcher notice", file=sys.stderr)
                 if self.launcher_failure:
-                    raise orca_worker.WorkerError("launcher output")
-            return original_log(worker, *argv)
+                    print("launcher output")
+                    return 1
+            return original_runlog_main(argv)
 
         def sleep(seconds):
             self.clock.write_text(str(int(float(self.clock.read_text()) + seconds)))
@@ -239,8 +234,8 @@ else:
         previous = Path.cwd()
         try:
             os.chdir(cwd or self.repo)
-            with mock.patch.dict(os.environ, self.env, clear=True), mock.patch.object(orca_worker, "windows", return_value=False), mock.patch.object(orca_worker, "run", side_effect=transport), mock.patch.object(orca_worker.Worker, "save", save), mock.patch.object(orca_worker.Worker, "log", log), mock.patch.object(orca_worker, "time", SimpleNamespace(sleep=sleep, monotonic=lambda: float(self.clock.read_text()))), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
-                code = self.worker_command(list(args))
+            with mock.patch.dict(os.environ, self.env, clear=True), mock.patch.object(orca_worker, "windows", return_value=False), mock.patch.object(orca_worker, "run", side_effect=transport), mock.patch.object(orca_worker.Worker, "save", save), mock.patch.object(orca_worker.runlog, "main", side_effect=runlog_main), mock.patch.object(orca_worker, "time", SimpleNamespace(sleep=sleep, monotonic=lambda: float(self.clock.read_text()))), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                code = orca_worker.main(list(args))
         finally:
             os.chdir(previous)
         return subprocess.CompletedProcess(args, code, output.getvalue(), errors.getvalue())
@@ -473,7 +468,9 @@ else:
         self.state_dir.rmdir()
         self.env["ORCA_STUB_FAIL"] = "state-mkdir"
         result = self.start()
-        self.assert_rolled_back_run(result, "cannot create lane state directory")
+        self.assert_rolled_back_run(result, "cannot write lane state")
+        self.assertTrue(self.state_dir.is_file())
+        self.assertIn(str(self.state_dir), result.stderr)
 
     def test_start_state_write_failure_closes_run(self):
         self.env["ORCA_STUB_FAIL"] = "state-write"
@@ -1448,6 +1445,13 @@ else:
             result = self.command("wait", "l1", "--max", "7", "--until", json.dumps(argv))
         self.assertEqual(result.stdout, "timeout\n> done\n")
         self.assertEqual(observed, [(argv, 2.0, str(self.root / "child-l1"))])
+
+    def test_run_keeps_carriage_returns_in_stdout(self):
+        result = orca_worker.run([
+            sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'a\\rb\\r\\nc')",
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "a\rb\r\nc")
 
     def test_screen_keeps_carriage_returns_inside_one_line(self):
         self.live_lane()

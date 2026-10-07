@@ -151,7 +151,8 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 
 ## When a step fails
 
-- `start` says `--role is required`: pass a registry role name.
+- `start` says `the following arguments are required: --role`: pass a
+  registry role name.
 - `start` says a lane with that name exists: a previous lane was not
   stopped. `status` lists it; `stop` it or pick another slug.
 - `start` says the runtime is not reachable: the call ran sandboxed, or
@@ -231,9 +232,10 @@ the `codex`, `agy`, and `omp` lanes are unverified for a join.
 - `start` says the brief is empty: the brief file has no bytes. Write the
   brief and start the lane again.
 - `start` says the hooks review remains or has no "Trust all and
-  continue" option: Codex changed the dialog again. Its screen is in the
-  error. Update the match in `delegate orca-worker`, or run `codex` in the
-  child once by hand and trust the hooks, then start the lane again.
+  continue" option: the error names the failed check in
+  [`orca_worker.py`](../../../../tools/scripts/skills/delegate/orca_worker.py).
+  After rollback removes the lane, `delegate orca-worker read` cannot
+  retrieve its screen. Update the dialog match before retrying.
 - `start` says Codex updated itself and exited, or showed its update
   offer despite `check_for_update_on_startup=false`: run `codex` by hand
   once to finish or dismiss the update, or set
