@@ -2416,3 +2416,35 @@ func TestConfigurationDecodeMasksFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeNeverPanicsOnMalformedInput(t *testing.T) {
+	t.Parallel()
+
+	for _, version := range []byte{0, 1, 2, 3, 4, 255} {
+		for _, typ := range []byte{0, 2, 3, 0x80, 0xff} {
+			for _, v1 := range []byte{0, 1} {
+				for _, v3 := range []uint16{0, 63, 64, 80, 96, 1088, 1104, 65535} {
+					full := mstBPDUWireFixture()
+					full[5], full[6], full[38] = version, typ, v1
+					binary.BigEndian.PutUint16(full[39:41], v3)
+					for n := 0; n <= len(full); n++ {
+						_, _ = bpdu.Decode(ethernet.Frame{
+							EtherType: ethernet.EtherType(n),
+							Payload:   full[:n],
+						})
+					}
+				}
+			}
+		}
+	}
+}
+
+func FuzzDecode(f *testing.F) {
+	fixture := mstBPDUWireFixture()
+	f.Add(fixture)
+	f.Add(fixture[:40])
+	f.Add([]byte{0x42, 0x42, 0x03, 0, 0, 0, 0x80})
+	f.Fuzz(func(_ *testing.T, payload []byte) {
+		_, _ = bpdu.Decode(ethernet.Frame{Payload: payload})
+	})
+}

@@ -280,6 +280,10 @@ func TestRestrictedTCNDoesNotPropagate(t *testing.T) {
 	if len(fx.Flush) != 0 {
 		t.Errorf("Flush = %v, want nothing: a restricted port does not propagate the change", fx.Flush)
 	}
+	reply := decodedEmissions(t, fx.Emissions, "1/1/1")
+	if len(reply) != 1 || reply[0].Type != bpdu.TypeConfiguration || !reply[0].TopologyChangeAck() || reply[0].TopologyChange() {
+		t.Errorf("reply on the restricted port = %+v, want one Configuration BPDU with acknowledgment and no topology change flag", reply)
+	}
 
 	// Without the guard the same notification flushes the other ports, which is
 	// what makes the assertion above about the guard and not about the fabric.

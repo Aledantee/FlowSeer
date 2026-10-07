@@ -780,3 +780,106 @@ func TestHeldRSTPRequestReleasesAtHoldCountOne(t *testing.T) {
 		t.Fatalf("released request type = %v, want Rapid", frame.Type)
 	}
 }
+
+func handshakeLayers(t *testing.T) map[string]*Layer {
+	t.Helper()
+
+	ports := map[string]Port{"p1": {AutoEdge: true}}
+	return map[string]*Layer{
+		"PVST": newLayer(Config{
+			Ports: ports,
+			PVST:  &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}, 20: {}}},
+		}.Normalize(layer.Env{})),
+		"MSTP": newLayer(Config{
+			Ports: ports,
+			MST: &MST{Name: "region", Instances: map[bpdu.MSTID]Instance{
+				1: {VLANs: []vlan.ID{10}},
+				2: {VLANs: []vlan.ID{20}},
+			}},
+		}.Normalize(layer.Env{})),
+	}
+}
+
+func TestLosingAutoEdgeProposesAgainOnEveryTree(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	for name, l := range handshakeLayers(t) {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			l.LinkChange(now, "p1", true, true, 1_000_000_000)
+			l.Advance(now.Add(migrateTime))
+			if !l.links["p1"].edge {
+				t.Fatal("p1 did not become an auto-edge port")
+			}
+			for _, id := range l.treeOrder {
+				p := l.trees[id].ports["p1"]
+				if p.role != bpdu.RoleDesignated || p.state != StateForwarding {
+					t.Fatalf("tree %d before auto-edge loss = %v/%v, want Designated/Forwarding", id, p.role, p.state)
+				}
+				p.agreed = true
+			}
+
+			var flushes []layer.FlushTarget
+			at := now.Add(4 * time.Second)
+			if l.receiveLink(at, "p1", bpdu.BPDU{Type: bpdu.TypeRapid}, &flushes) {
+				t.Fatal("link receive rejected the BPDU")
+			}
+			l.recomputeAll(at, &flushes)
+
+			if l.links["p1"].edge {
+				t.Error("BPDU left p1 in auto-edge mode")
+			}
+			for _, id := range l.treeOrder {
+				p := l.trees[id].ports["p1"]
+				if p.state != StateDiscarding || p.agreed || !p.proposing {
+					t.Errorf("tree %d after auto-edge loss = %v agreed=%t proposing=%t, want Discarding/false/true", id, p.state, p.agreed, p.proposing)
+				}
+			}
+		})
+	}
+}
+
+func TestPointToPointReentryResetsEveryTree(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
+	for _, p2p := range []bool{false, true} {
+		for name, l := range handshakeLayers(t) {
+			if p2p {
+				name += "/point-to-point"
+			} else {
+				name += "/shared"
+			}
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				l.LinkChange(now, "p1", true, !p2p, 1_000_000_000)
+				for _, id := range l.treeOrder {
+					p := l.trees[id].ports["p1"]
+					p.state = StateForwarding
+					p.agreed = true
+					p.tcActive = true
+					p.tcWhile = now.Add(time.Minute)
+					p.tcAck = true
+				}
+
+				fx := l.LinkChange(now.Add(time.Second), "p1", true, p2p, 1_000_000_000)
+
+				for _, id := range l.treeOrder {
+					p := l.trees[id].ports["p1"]
+					if p.state != StateDiscarding || p.agreed || p.proposing != p2p {
+						t.Errorf("tree %d after re-entry = %v agreed=%t proposing=%t, want Discarding/false/%t", id, p.state, p.agreed, p.proposing, p2p)
+					}
+					if p.tcActive || !p.tcWhile.IsZero() || p.tcAck {
+						t.Errorf("tree %d topology state = active %t timer %v ack %t, want inactive/zero/false", id, p.tcActive, p.tcWhile, p.tcAck)
+					}
+				}
+				if len(fx.Flush) != 1 || fx.Flush[0].Port != "p1" {
+					t.Errorf("re-entry flushes = %+v, want p1 alone", fx.Flush)
+				}
+			})
+		}
+	}
+}
