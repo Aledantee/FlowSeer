@@ -1,7 +1,7 @@
 ---
 title: A Contract That Must Never Reach a Refusal Is Tested By Enumerating the Refusals, Not the Reports That Reached One
 date: 2026-09-17
-last_verified: 2026-10-04
+last_verified: 2026-10-07
 category: conventions
 module: src/common/sim/netmodel
 problem_type: convention
@@ -37,7 +37,7 @@ that no input can express the rule. Collecting only observed failures finds
 only the cases already seen.
 
 `TestLoad_RoutedPortRefusalRulesBecomeIssues`
-(`src/common/sim/netmodel/routing_test.go:1112`) enumerates nineteen rules from
+(`src/common/sim/netmodel/routing_test.go:1277`) enumerates twenty rules from
 the switch and routing validators and drives the reachable rows:
 
 ```go
@@ -87,7 +87,7 @@ which disposition is wrong rather than which case was missed.
 
 - The netmodel contract and refusal matrix are at
   `src/common/sim/netmodel/netmodel.go:169-172` and
-  `src/common/sim/netmodel/routing_test.go:1112`.
+  `src/common/sim/netmodel/routing_test.go:1277`.
 - The projector ownership table is at
   `src/services/device/internal/projector/reconcile.go:29-41`.
 - The projector identity matrix and literal guards are at

@@ -830,8 +830,8 @@ Amendment 2026-10-07: sending and reception are implemented in
 - **The wire formats live in two packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
   Ethernet or ICMPv6 directly and encodes or decodes one message shape. They
-  hold no neighbor table or lifecycle. That state lives in
-  `routing.Layer.Receive`. ARP follows RFC 826 reception, merging an existing
+  hold no neighbor table or lifecycle. That state lives in `routing.Layer`,
+  and `Receive` writes it. ARP follows RFC 826 reception, merging an existing
   sender before checking whether the target is local. A reply confirms the
   sender as a solicited override update, and a request is unsolicited.
   Neighbor Discovery follows RFC 4861 sections 7.1 and 7.2.3 to 7.2.5,
@@ -840,10 +840,11 @@ Amendment 2026-10-07: sending and reception are implemented in
   hands received ARP and Neighbor Discovery frames to the layer. A local
   solicitation is answered, including under `NeighborDisabled`, while only
   an observed VRF learns bindings. The layer admits only the interface's
-  unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs. It sends routing emissions as protocol
-  frames at priority zero, with the same VLAN, routed-port, and
-  sub-interface egress paths as a released frame. A host stack remains
-  `NeighborDisabled`, since fabric hosts do not process these control frames.
+  unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs.
+  The switch sends routing emissions as protocol frames at priority zero,
+  with the same VLAN, routed-port, and sub-interface egress paths as a
+  released frame. A host stack remains `NeighborDisabled`, since fabric
+  hosts do not process these control frames.
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
@@ -856,8 +857,8 @@ Amendment 2026-10-07: sending and reception are implemented in
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
   BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
-  solicitation, probe, or answer. The fabric seam that injects emissions needs to tell a held user frame apart from a frame
-  the switch originated.
+  solicitation, probe, or answer. The fabric seam that injects emissions needs
+  to tell a held user frame apart from a frame the switch originated.
 
 ### Semantic traces and producer-owned facts
 

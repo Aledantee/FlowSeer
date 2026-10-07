@@ -123,9 +123,10 @@ type Config struct {
 	Bindings []Binding
 }
 
-// Normalize returns a deep copy of c with canonical slice order and non-nil
-// maps. Rule order inside a set is preserved because first-match evaluation
-// is order-dependent.
+// Normalize returns a deep copy of c with canonical binding order and non-nil
+// maps. It masks each prefix, sorts and deduplicates Src, Dst, SrcPorts, and
+// DstPorts, and copies Protocol by value. Rule order inside a set is preserved
+// because first-match evaluation is order-dependent.
 func (c Config) Normalize(_ layer.Env) Config {
 	out := Config{
 		Sets:     make(map[string]RuleSet, len(c.Sets)),
