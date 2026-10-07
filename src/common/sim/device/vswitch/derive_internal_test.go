@@ -4,11 +4,14 @@ import (
 	"math/rand/v2"
 	"net/netip"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -21,6 +24,70 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
+	ports, err := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vid := vlan.ID(10)
+	base := Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "users", 20: "voice"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &vid, Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &vid, Untagged: []vlan.ID{10}},
+				"1/1/3": {PVID: &vid, Untagged: []vlan.ID{10}},
+			},
+		}},
+		Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}},
+	}
+	cur, err := New(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t0 := time.Unix(5_000, 0)
+	group := netip.MustParseAddr("239.1.1.1")
+	source := netip.MustParseAddr("10.0.0.9")
+	cur.mcast.Learn(t0, 10, "1/1/1", source, igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: igmp.ModeIsInclude, Group: group, Sources: []netip.Addr{source}}}})
+	want := []mcast.Entry{{Group: group, Port: "1/1/1", Mode: mcast.Include, Sources: []mcast.SourceEntry{{Address: source, Expires: t0.Add(260 * time.Second)}}}}
+	if got := cur.Groups(10, t0); !reflect.DeepEqual(got, want) {
+		t.Fatalf("source Groups = %+v, want %+v", got, want)
+	}
+	target := base.Clone()
+	sp := target.Bridge.VLAN.Switchports["1/1/3"]
+	sp.Tagged = []vlan.ID{20}
+	target.Bridge.VLAN.Switchports["1/1/3"] = sp
+	next, err := Derive(cur, ConstructionSpec{Config: target})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Groups(10, t0); !reflect.DeepEqual(got, want) {
+		t.Errorf("derived Groups = %+v, want %+v", got, want)
+	}
+	for _, src := range []netip.Addr{source, netip.MustParseAddr("10.0.0.8")} {
+		packet, err := (ip.Header{Src: src, Dst: group, HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte{1, 2, 3, 4})
+		if err != nil {
+			t.Fatal(err)
+		}
+		result := next.Forward(t0.Add(time.Second), "1/1/2", ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 2}, Dst: netaddr.MAC{1, 0, 0x5e, 1, 1, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: packet})
+		got := make([]string, 0, len(result.Egress))
+		for _, e := range result.Egress {
+			if e.Dropped != "" {
+				t.Errorf("source %s egress %s dropped: %s", src, e.Port, e.Dropped)
+			}
+			got = append(got, e.Port)
+		}
+		var wantPorts []string
+		if src == source {
+			wantPorts = []string{"1/1/1"}
+		}
+		if !slices.Equal(got, wantPorts) {
+			t.Errorf("source %s egress = %v, want %v", src, got, wantPorts)
+		}
+	}
+}
 
 // TestDeriveKeepsOneGateEntryPerScope is evidence that Derive's install of the
 // retained spanning tree clone replaces the entry New already installed for the
@@ -578,7 +645,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				Type:  igmp.ReportV2,
 				Group: group2,
 			})
-			if groups := sw.mcast.Groups(vid10); len(groups) != 2 {
+			if groups := sw.mcast.Groups(vid10, fixedTime); len(groups) != 2 {
 				t.Fatalf("planted groups count = %d, want 2", len(groups))
 			}
 			return sw
@@ -628,7 +695,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				if !ret.Kept {
 					t.Errorf("Mcast rebuilt under %q, want retained: %+v", m.name, ret)
 				}
-				groups := derived.mcast.Groups(vid10)
+				groups := derived.mcast.Groups(vid10, fixedTime)
 				if len(groups) != 2 {
 					t.Fatalf("groups count = %d, want 2 retained", len(groups))
 				}
@@ -653,7 +720,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast rebuilt under unrelated edit, want retained: %+v", derived.Retention().Mcast)
 			}
-			if groups := derived.mcast.Groups(vid10); len(groups) != 2 {
+			if groups := derived.mcast.Groups(vid10, fixedTime); len(groups) != 2 {
 				t.Errorf("groups count = %d, want 2", len(groups))
 			}
 		})
@@ -672,7 +739,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			groups := derived.mcast.Groups(vid10)
+			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
 				t.Errorf("groups after port 1/1/1 down = %+v, want only group2 on 1/1/2", groups)
 			}
@@ -692,7 +759,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			groups := derived.mcast.Groups(vid10)
+			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
 				t.Errorf("groups after port 1/1/1 oper down = %+v, want only group2 on 1/1/2", groups)
 			}
@@ -709,7 +776,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if !derived.Retention().Mcast.Kept {
 				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
 			}
-			if groups := derived.mcast.Groups(vid10); len(groups) != 0 {
+			if groups := derived.mcast.Groups(vid10, fixedTime); len(groups) != 0 {
 				t.Errorf("groups after vlan removed = %+v, want none", groups)
 			}
 		})

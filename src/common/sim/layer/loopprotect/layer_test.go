@@ -45,7 +45,10 @@ func returnedProbe(sendPort string, vid vlan.ID) loopprotect.Probe {
 func assertProbeFrame(t *testing.T, e layer.Emission, sequence uint32) {
 	t.Helper()
 
-	want := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	want, err := loopprotect.Encode(loopprotect.Probe{OriginMAC: switchMAC, VID: e.VID, Sequence: sequence, Port: e.Port}, switchMAC)
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
 	if !reflect.DeepEqual(e.Frame, want) {
 		t.Errorf("emission for %s vid %d carries frame %+v, want %+v", e.Port, e.VID, e.Frame, want)
 	}
@@ -75,6 +78,19 @@ func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 	if got := l.PortInfo("1/1/1").Action; got != loopprotect.Block {
 		t.Errorf("PortInfo after Receive: Action = %q, want %q", got, loopprotect.Block)
 	}
+}
+
+func TestReceiveUntrackedPortDoesNotArm(t *testing.T) {
+	t.Parallel()
+
+	l := newCadenceLayer(t, loopprotect.Config{
+		Interval: 60 * time.Second,
+		Ports: map[string]loopprotect.Port{
+			"a": {Action: loopprotect.Block},
+		},
+	}, "a")
+	l.Receive(time.Unix(1_700_000_000, 0), loopprotect.Return{}, returnedProbe("untracked", 0))
+	wantNoWake(t, l, "Receive naming an untracked port")
 }
 
 func TestRecoveryLoopCleared(t *testing.T) {
@@ -454,6 +470,14 @@ func TestInterVLAN(t *testing.T) {
 
 	if got := l.PortInfo("1/1/1").InterVLAN; !got {
 		t.Errorf("InterVLAN = %v, want true", got)
+	}
+
+	// The sending port is an untagged member of both VLANs, so the same
+	// disagreement no longer says anything about a loop between them.
+	l.Receive(t0, loopprotect.Return{VID: 20, SameUntaggedDomain: true}, probe)
+
+	if got := l.PortInfo("1/1/1").InterVLAN; got {
+		t.Errorf("InterVLAN after a return with SameUntaggedDomain = %v, want false", got)
 	}
 }
 
