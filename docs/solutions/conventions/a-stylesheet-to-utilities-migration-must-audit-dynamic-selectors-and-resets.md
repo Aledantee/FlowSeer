@@ -12,6 +12,7 @@ applies_when:
   - "Enabling or updating a global CSS reset layer such as Tailwind Preflight"
   - "Configuring stylelint declaration-strict-value rules to enforce design tokens"
   - "Moving a Vue view into a shared frame or Teleport target while CSS selectors depend on direct DOM ancestry or chrome styles."
+  - "Moving a graphic canvas onto a translucent parent panel when the canvas may paint its own opaque background"
 related_components: [form_controls, conformance-gates]
 tags: [css, tailwind, preflight, stylelint, design-system, responsive, accessibility, refactor]
 ---
@@ -39,6 +40,13 @@ with the translucent panel at `:49-50`. Its mount tests hold those classes
 (`frontend/web/src/navigation/AppFrame.test.ts`).
 `frontend/web/src/navigation/chrome.test.ts` holds the removal of separate
 view blur and the panes' background, so the frame owns both surfaces.
+The topology canvas also had its own opaque ground, which covered that panel
+because `.pane.canvas-view .pane-scroll` has no padding
+(`frontend/web/src/style.css:379-385`). The canvas now leaves its root
+background unset (`frontend/web/src/components/topology/TopologyGraph.vue:425-432`).
+`frontend/web/src/navigation/chrome.test.ts:42-58` scans the canvas template
+and root rules for a replacement ground. A browser check is still needed to
+judge how the composited panel looks behind the canvas.
 
 ## What is true and why
 
@@ -111,6 +119,7 @@ When dissolving a stylesheet into utilities:
 - `frontend/web/src/components/topology/TopologyLink.vue:220-222` holds link hover feedback.
 - Review fix commits `1a2ad4b6`, `40969da9`, `e7d740ec`, and `a42a4a68` restored these dropped behaviors after review.
 - `frontend/web/src/FleetView.vue:1097-1104` and `frontend/web/src/ui/ai/UiAiContextLayer.vue:314` show the wrapper between the frame region and `main.panes`. The prior direct-child selector is in `8e8c2200`.
+- `frontend/web/src/components/topology/TopologyGraph.vue:425-432` leaves the canvas root transparent. `frontend/web/src/navigation/chrome.test.ts:42-58` holds the absence of an opaque root ground.
 
 ## What this does not cover
 
