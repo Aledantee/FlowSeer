@@ -185,6 +185,12 @@ describe('main entrypoint', () => {
     const mainShell = document.body.querySelector<HTMLElement>('.main-shell')
     expect(sidebar).not.toBeNull()
     expect(mainShell).not.toBeNull()
+    const regions = ['aside.sidebar', '#frame-topbar', '#frame-page']
+    const loginClasses = regions.map((selector) => {
+      const region = document.body.querySelector(selector)
+      expect(region).not.toBeNull()
+      return region?.className
+    })
     const input = document.body.querySelector<HTMLInputElement>(
       'input[type="email"]',
     )
@@ -199,6 +205,16 @@ describe('main entrypoint', () => {
     expect(document.body.querySelector('#workspace-sidebar')).not.toBeNull()
     expect(document.body.querySelector('aside.sidebar')).toBe(sidebar)
     expect(document.body.querySelector('.main-shell')).toBe(mainShell)
+    expect(
+      regions.map(
+        (selector) => document.body.querySelector(selector)?.className,
+      ),
+    ).toEqual(loginClasses)
+    const page = document.body.querySelector('#frame-page')
+    expect(page?.querySelector('.rounded-panel.bg-card')).not.toBeNull()
+    for (const element of page?.querySelectorAll('[class]') ?? [])
+      for (const name of element.classList)
+        expect(name).not.toMatch(/^bg-card\//)
     expect(sidebar?.querySelector('a[href^="/devices"]')).not.toBeNull()
     expect(sidebar?.querySelector('form.login-form')).toBeNull()
     expect(mainShell?.style.transform).toBe('')

@@ -16,9 +16,16 @@ onMounted(() => {
 
 <template>
   <div
-    class="shell brand-glow max-[800px]:flex-col"
-    :class="{ 'sidebar-collapsed': frame.sidebar.value === 'collapsed' }"
+    class="shell relative brand-glow max-[800px]:flex-col"
+    :class="{
+      'sidebar-login': frame.sidebar.value === 'login',
+      'sidebar-collapsed': frame.sidebar.value === 'collapsed',
+    }"
   >
+    <div
+      class="frame-glass pointer-events-none absolute inset-0 bg-glass backdrop-blur-2xl backdrop-saturate-150"
+      aria-hidden="true"
+    ></div>
     <div id="frame-skip"></div>
     <aside
       :id="frame.sidebar.value === 'login' ? undefined : 'workspace-sidebar'"
@@ -27,11 +34,6 @@ onMounted(() => {
           (frame.sidebarElement.value = element as HTMLElement | null)
       "
       class="sidebar max-[800px]:p-[16px_20px_8px] max-[560px]:p-[14px_14px_6px]"
-      :class="
-        frame.sidebar.value === 'login'
-          ? 'login-sidebar login-glass border-r border-chrome-border max-[800px]:border-r-0 max-[800px]:border-b bg-card/45 text-foreground backdrop-blur-2xl backdrop-saturate-150 max-[800px]:pb-6'
-          : ''
-      "
     >
       <div id="frame-sidebar"></div>
     </aside>
@@ -45,7 +47,7 @@ onMounted(() => {
       <div id="frame-topbar"></div>
       <div
         id="frame-page"
-        class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[18px] border-t border-l border-chrome-border max-[800px]:rounded-tl-none max-[800px]:border-l-0"
+        class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-tl-[18px] border-t border-l border-chrome-border bg-glass-panel max-[800px]:rounded-tl-none max-[800px]:border-l-0"
       ></div>
     </UiMotion>
     <slot />

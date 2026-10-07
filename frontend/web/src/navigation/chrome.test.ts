@@ -13,10 +13,29 @@ const sources = [
 ]
 
 describe('frame chrome sources', () => {
-  for (const name of ['topbar-glass', 'main-notch', '--topbar-height'])
+  for (const name of [
+    'topbar-glass',
+    'main-notch',
+    '--topbar-height',
+    'login-glass',
+    'login-sidebar',
+  ])
     it(`names no ${name}`, () => {
       for (const file of sources) expect(read(file), file).not.toContain(name)
     })
+
+  it('leaves the frame blur out of its views', () => {
+    for (const file of ['LoginView.vue', 'FleetView.vue'])
+      expect(read(file), file).not.toContain('backdrop-blur-2xl')
+  })
+
+  it('lets the frame panel paint behind the panes', () => {
+    const panes = read('style.css').match(
+      /#frame-page main\.panes\s*\{([^}]*)\}/,
+    )
+    expect(panes).not.toBeNull()
+    expect(panes?.[1]).not.toMatch(/\bbackground(?:-[\w-]+)?\s*:/)
+  })
 
   it('does not collapse the page region into its parent', () => {
     const style = read('navigation/AppFrame.vue').split('<style')[1] ?? ''
