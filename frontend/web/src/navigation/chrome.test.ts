@@ -13,6 +13,13 @@ const sources = [
 ]
 
 describe('frame chrome sources', () => {
+  it('shows collapsed hover labels without a CSS transition', () => {
+    const rule = read('style.css').match(
+      /\n\s*\.sidebar-collapsed \.sidebar nav \.nav-text\s*\{([^}]*)\}/,
+    )
+    expect(rule).not.toBeNull()
+    expect(rule?.[1]).not.toMatch(/\btransition(?:-[\w-]+)?\s*:/)
+  })
   const files = readdirSync(root, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
     .map((entry) => path.join(entry.parentPath, entry.name))

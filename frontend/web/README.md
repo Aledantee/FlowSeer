@@ -109,7 +109,8 @@ or offline device stands out; every node opens the same device details. Traffic 
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
 desktop. The page panel slides toward the 64px rail, whose content changes
-in place and centers the FlowSeer mark.
+in place and centers the FlowSeer mark. Expanding fades the sidebar labels
+in over the panel's 160 ms movement (`src/FleetView.vue`).
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
 the navigation links above the content.
 

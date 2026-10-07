@@ -24,7 +24,7 @@ import GlobalSearch, {
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import ScopeSwitcher from './components/ScopeSwitcher.vue'
 import PageHost from './navigation/PageHost.vue'
-import { useFrame } from './navigation/frame'
+import { FRAME_MOVE_SECONDS, frameMove, useFrame } from './navigation/frame'
 import {
   UiBreadcrumb,
   UiBreadcrumbEllipsis,
@@ -390,7 +390,16 @@ function toggleSidebar() {
   if (!frame.sidebarElement.value) return
   sidebarCollapsed.value = !sidebarCollapsed.value
   if (window.matchMedia('(min-width: 801px)').matches) {
-    if (!reduced.value) frame.moved()
+    if (!reduced.value) {
+      frame.moved()
+      if (!sidebarCollapsed.value) {
+        for (const label of frame.sidebarElement.value.querySelectorAll<HTMLElement>(
+          '.product-brand > span, .nav-label, .nav-text, .nav-count',
+        )) {
+          play(label, { opacity: [0, 1] }, FRAME_MOVE_SECONDS)
+        }
+      }
+    }
   } else if (!sidebarCollapsed.value) {
     const nav = navigation.value?.$el
     play(
@@ -860,6 +869,7 @@ onUnmounted(() => clearInterval(timer))
       layout="position"
       :layout-dependency="layoutDependency"
       class="product-brand"
+      :transition="frameMove"
       role="img"
       translate="no"
       :aria-label="BRAND"
@@ -873,11 +883,13 @@ onUnmounted(() => clearInterval(timer))
       layout="position"
       :layout-dependency="layoutDependency"
       class="nav-label mt-7 text-2xs tracking-[1.5px] text-chrome-muted-foreground px-3 pb-3 max-[800px]:hidden"
+      :transition="frameMove"
     >
       {{ t('view.fleet.workspace') }}
     </UiMotion>
     <UiMotion
       ref="navigation"
+      :transition="frameMove"
       as="nav"
       layout="position"
       :layout-dependency="layoutDependency"
@@ -935,6 +947,7 @@ onUnmounted(() => clearInterval(timer))
         layout="position"
         :layout-dependency="layoutDependency"
         class="sidebar-toggle max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
+        :transition="frameMove"
         type="button"
         aria-controls="workspace-sidebar"
         :aria-expanded="!sidebarCollapsed"
