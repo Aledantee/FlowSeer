@@ -7,8 +7,10 @@ import sys
 import tempfile
 import unittest
 
+from lib import repo
 
-SCRIPT = Path(__file__).with_name("successor.sh")
+SKILLS = repo.root(Path(__file__).parent) / ".agents/skills"
+SCRIPT = SKILLS / "drive/scripts/successor.sh"
 
 
 class SuccessorTests(unittest.TestCase):
@@ -174,7 +176,7 @@ else:
         return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
 
     def worker_line(self, cli, model, effort=None):
-        worker = SCRIPT.parent.parent.parent / "delegate/scripts/orca-worker.sh"
+        worker = SKILLS / "delegate/scripts/orca-worker.sh"
         args = [str(worker), "line", "--cli", cli, "--model", model]
         if effort is not None:
             args.extend(["--effort", effort])

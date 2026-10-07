@@ -1,11 +1,10 @@
-#!/usr/bin/env python3
 """List where a branch's diff and a plan's units disagree.
 
 A session's own account of what it changed covers a fraction of what it
 did and drifts toward the plan it was given, so the Finish step reads the
 deviations off the tree instead. Usage:
 
-    plan-deviations.py PLAN BASE [-- PATH...]
+    run.py implement plan-deviations PLAN BASE [-- PATH...]
 
 PLAN is the plan file; its Files field under each `### U<n>` heading names
 what the unit may touch. BASE is the ref the branch forked from: the diff
@@ -38,11 +37,11 @@ without units or a base git cannot resolve.
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
 from pathlib import Path
 
-UNIT = re.compile(r"^###\s+(U\d+[a-z]?)[.:]\s")
+from lib import plans, proc
+
 FIELD = re.compile(r"^(?:-\s+)?\**([A-Z][a-z]+)\**:\**\s*(.*)$")
 QUOTED = re.compile(r"`([^`]+)`")
 BRACES = re.compile(r"\{([^{}]*)\}")
@@ -92,7 +91,7 @@ def units(plan: Path, root: Path | None = None, fork: str | None = None) -> dict
     in_files = False
     last_dir = ""
     for line in plan.read_text(encoding="utf-8").splitlines():
-        heading = UNIT.match(line)
+        heading = plans.UNIT.match(line)
         if heading:
             current = heading.group(1)
             result[current] = []
@@ -141,10 +140,8 @@ def root_file(root: Path | None, last_dir: str, name: str, fork: str | None = No
         return False
     if fork is None:
         return True
-    in_fork = subprocess.run(
-        ["git", "cat-file", "-e", f"{fork}:{last_dir}/{name}"], cwd=root, capture_output=True
-    )
-    return in_fork.returncode != 0
+    in_fork = proc.run(["git", "cat-file", "-e", f"{fork}:{last_dir}/{name}"], cwd=root)
+    return in_fork.code != 0
 
 
 def covers(entry: str, path: str) -> bool:
@@ -154,20 +151,20 @@ def covers(entry: str, path: str) -> bool:
 
 
 def git_lines(*args: str) -> list[str]:
-    proc = subprocess.run(["git", *args], capture_output=True, text=True)
-    if proc.returncode != 0:
-        print(proc.stderr.strip(), file=sys.stderr)
+    done = proc.run(["git", *args])
+    if done.code != 0:
+        print(done.stderr.strip(), file=sys.stderr)
         sys.exit(2)
-    return [line for line in proc.stdout.split("\n") if line]
+    return [line for line in done.stdout.split("\n") if line]
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 3:
+    if len(argv) < 2:
         print(__doc__, file=sys.stderr)
         return 2
-    plan = Path(argv[1])
-    base = argv[2]
-    paths = [canonical(p) for p in argv[3:] if p != "--"]
+    plan = Path(argv[0])
+    base = argv[1]
+    paths = [canonical(p) for p in argv[2:] if p != "--"]
     if not plan.is_file():
         print(f"plan not found: {plan}", file=sys.stderr)
         return 2
@@ -205,7 +202,3 @@ def main(argv: list[str]) -> int:
     if not printed:
         print("  none")
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))

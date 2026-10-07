@@ -1,14 +1,13 @@
-#!/usr/bin/env python3
 """Report test changes that weaken what the suite proves.
 
 Coding agents pass the tests they can see, and the recorded ways of doing
 so are deleting a test, skipping it, and rewriting the expected output.
 Each is sometimes right in a repository that breaks APIs on purpose, so
-this script reports rather than fails: the verifier prints the list, the
+this command reports rather than fails: the verifier prints the list, the
 Finish step of `implement` quotes it with a reason per line, and a
 reviewer checks the reasons. Usage:
 
-    check-test-integrity.py BASE [-- PATH...]
+    run.py verify check-test-integrity BASE [-- PATH...]
 
 Compares BASE with the working tree, limited to PATHs when given. Reports:
 a deleted `_test.go` file; a `func Test…`, `Benchmark…`, `Fuzz…`, or
@@ -21,27 +20,28 @@ stdout, or nothing when there is none; exits 2 when git cannot diff.
 from __future__ import annotations
 
 import re
-import subprocess
 import sys
+
+from lib import proc
 
 DECL = re.compile(r"^[-+]func\s+(Test|Benchmark|Fuzz|Example)\w*")
 SKIP = re.compile(r"^\+.*\bt\.(Skip|Skipf|SkipNow)\(")
 
 
 def git(*args: str) -> str:
-    proc = subprocess.run(["git", *args], capture_output=True, text=True)
-    if proc.returncode != 0:
-        print(proc.stderr.strip(), file=sys.stderr)
+    done = proc.run(["git", *args])
+    if done.code != 0:
+        print(done.stderr.strip(), file=sys.stderr)
         sys.exit(2)
-    return proc.stdout
+    return done.stdout
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) < 2:
+    if len(argv) < 1:
         print(__doc__, file=sys.stderr)
         return 2
-    base = argv[1]
-    paths = [p for p in argv[2:] if p != "--"]
+    base = argv[0]
+    paths = [p for p in argv[1:] if p != "--"]
     findings: list[str] = []
 
     status = git("diff", "--name-status", base, "--", *paths)
@@ -79,7 +79,3 @@ def main(argv: list[str]) -> int:
     for finding in findings:
         print(finding)
     return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main(sys.argv))

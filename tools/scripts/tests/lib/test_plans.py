@@ -176,5 +176,136 @@ class ProblemsTest(RepoTest):
         self.assertEqual(plans.problems(*plans.read_tree(self.root)), [])
 
 
+class PhaseTest(RepoTest):
+    """A parent with two phases on a branch `work` that is one commit ahead
+    of `main`, the second phase running after the first."""
+
+    FIRST = PHASE
+    SECOND = OTHER
+    OUTCOME = {"units": 3, "from": "2026-01-05T10:00Z", "to": "2026-01-05T11:30:00Z", "note": ""}
+
+    def setUp(self):
+        super().setUp()
+        self.on_main = self.git("rev-parse", "HEAD")
+        self.git("checkout", "-q", "-b", "work")
+        (self.root / "code").write_text("work\n", encoding="utf-8")
+        self.on_work = self.commit("work")
+        self.put(PLAN, phases=[self.FIRST, self.SECOND])
+        self.put(self.FIRST, parent=PLAN)
+        self.put(self.SECOND, parent=PLAN, after=[self.FIRST])
+
+    def landed(self, plan, sha, **fields):
+        self.put(
+            plan,
+            parent=PLAN,
+            after=[self.FIRST] if plan == self.SECOND else [],
+            status="implemented",
+            outcome=self.OUTCOME,
+            landed={"first": sha, "last": sha},
+            **fields,
+        )
+
+    def follow(self, plan, **fields):
+        """Records `work` as the plan's branch on main, then returns to work."""
+        self.git("checkout", "-q", "main")
+        self.put(plan, branch="work", **fields)
+        self.commit("record branch")
+        self.git("checkout", "-q", "work")
+        self.git("merge", "-q", "main")
+
+    def test_followed_file_with_shape_fault_names_branch(self):
+        self.follow(PLAN, phases=[], retired=[])
+        state = json.loads((self.root / plans.state_path(PLAN)).read_text(encoding="utf-8"))
+        del state["branch"]
+        (self.root / plans.state_path(PLAN)).write_text(json.dumps(state), encoding="utf-8")
+        self.commit("invalid state on work")
+        self.git("checkout", "-q", "main")
+        with self.assertRaises(plans.InvalidState) as raised:
+            plans.followed(PLAN, self.root)
+        self.assertIn("work", str(raised.exception))
+
+    def test_finished_does_not_follow_an_unmerged_phase(self):
+        self.follow(self.FIRST, parent=PLAN)
+        self.landed(self.FIRST, self.on_work, branch="work", review="accept", compound="no lesson")
+        self.commit("finish phase on work")
+        self.git("checkout", "-q", "main")
+        self.assertEqual(plans.status(self.FIRST, self.root), "implemented")
+        self.assertFalse(plans.finished(self.FIRST, self.root))
+
+    def test_parent_status_is_computed_from_its_phases(self):
+        landed = {"first": "abc1234", "last": "def5678"}
+        gone = "docs/plans/2026-01-09-gone-plan.md"
+        done = [{"plan": "docs/plans/2026-01-08-done-plan.md", "status": "implemented", "landed": landed}]
+        self.put(PLAN, phases=[self.FIRST], retired=done)
+        self.put(self.FIRST, parent=PLAN, status="implemented", landed=landed)
+        self.assertEqual(plans.status(PLAN, self.root), "planned")
+        self.put(PLAN, retired=[{"plan": gone, "status": "implemented", "landed": landed}])
+        self.assertEqual(plans.status(PLAN, self.root), "implemented")
+        self.put(PLAN, retired=[{"plan": gone, "status": "abandoned", "landed": None}])
+        self.assertEqual(plans.status(PLAN, self.root), "planned")
+        self.put(PLAN, status="abandoned", retired=[{"plan": gone, "status": "implemented", "landed": landed}])
+        self.assertEqual(plans.status(PLAN, self.root), "abandoned")
+        self.put(
+            PLAN,
+            status="superseded",
+            superseded_by=OTHER,
+            retired=[{"plan": gone, "status": "implemented", "landed": landed}],
+        )
+        self.assertEqual(plans.status(PLAN, self.root), "superseded")
+        self.assertEqual(plans.status(self.FIRST, self.root), "implemented")
+
+    def test_phase_is_finished_only_when_nothing_but_its_land_is_owed(self):
+        self.assertFalse(plans.finished(self.FIRST, self.root))
+        self.landed(self.FIRST, self.on_work)
+        self.assertFalse(plans.finished(self.FIRST, self.root))
+        self.landed(self.FIRST, self.on_work, review="accept")
+        self.assertFalse(plans.finished(self.FIRST, self.root))
+        for verdict, done in (("fixes needed", False), ("rework", False), ("accept", True), ("accept after fixes", True)):
+            with self.subTest(verdict=verdict):
+                self.landed(self.FIRST, self.on_work, review=verdict, compound="no lesson")
+                self.assertEqual(plans.finished(self.FIRST, self.root), done)
+                self.assertEqual(plans.sent_back(plans.load(self.FIRST, self.root)), verdict == "rework")
+        self.landed(self.FIRST, self.on_work, review="accept", compound="no lesson", readiness="needs-decisions")
+        self.assertTrue(plans.sent_back(plans.load(self.FIRST, self.root)))
+        self.assertFalse(plans.finished(self.FIRST, self.root))
+
+    def test_phase_is_not_finished_before_the_phases_it_runs_after(self):
+        self.landed(self.FIRST, self.on_work, review="accept")
+        self.landed(self.SECOND, self.on_work, review="accept", compound="no lesson")
+        self.assertFalse(plans.finished(self.SECOND, self.root))
+        self.landed(self.FIRST, self.on_work, review="accept", compound="no lesson")
+        self.assertTrue(plans.finished(self.SECOND, self.root))
+
+    def test_phase_on_main_is_finished_whatever_its_review(self):
+        self.landed(self.FIRST, self.on_main)
+        self.assertTrue(plans.on_main(self.on_main, self.root))
+        self.assertFalse(plans.on_main(self.on_work, self.root))
+        self.assertTrue(plans.finished(self.FIRST, self.root))
+        self.landed(self.FIRST, self.on_main, review="fixes needed")
+        self.assertTrue(plans.finished(self.FIRST, self.root))
+
+    def test_retired_phase_is_finished_only_with_a_range(self):
+        landed = {"first": self.on_work, "last": self.on_work}
+        gone = [
+            {"plan": self.FIRST, "status": "implemented", "landed": landed},
+            {"plan": self.SECOND, "status": "abandoned", "landed": None},
+        ]
+        (self.root / self.FIRST).unlink()
+        (self.root / self.SECOND).unlink()
+        (self.root / plans.state_path(self.FIRST)).unlink()
+        (self.root / plans.state_path(self.SECOND)).unlink()
+        self.put(PLAN, retired=gone)
+        self.assertTrue(plans.finished(self.FIRST, self.root))
+        self.assertFalse(plans.finished(self.SECOND, self.root))
+
+    def test_load_names_a_missing_state_file(self):
+        with self.assertRaises(plans.MissingState) as raised:
+            plans.load("docs/plans/2026-01-09-absent-plan.md", self.root)
+        self.assertIn("2026-01-09-absent-plan.state.json", str(raised.exception))
+        self.put(self.FIRST, status="done")
+        with self.assertRaises(plans.InvalidState):
+            plans.load(self.FIRST, self.root)
+
+
 if __name__ == "__main__":
     unittest.main()

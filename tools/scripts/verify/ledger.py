@@ -1,20 +1,19 @@
-#!/usr/bin/env python3
 """Maintain the plan status ledger and the checkpoints file of a worktree.
 
 Both files live in the worktree's git directory, beside the verifier
-receipt, and `check-plan-status.py` validates the ledger on every verifier
-run. The skills update them through this script rather than by writing the
-files themselves: the script resolves the directory with `git rev-parse`
+receipt, and `verify check-plan-status` validates the ledger on every verifier
+run. The skills update them through this command rather than by writing the
+files themselves: the command resolves the directory with `git rev-parse`
 and writes the whole file, so a caller names only the unit, the status,
 and the note, and the `verify-change` contract stays in one place.
 
-    ledger.py init docs/plans/<plan>.md U1 U2 U3
-    ledger.py set U1 in_progress
-    ledger.py set U1 passed --note "Diagnostics keep the source span."
-    ledger.py set U2 blocked --note "<reason>"
-    ledger.py show
-    ledger.py checkpoint review "accept"
-    ledger.py checkpoint --replace implemented "<request in a few words>"
+    run.py verify ledger init docs/plans/<plan>.md U1 U2 U3
+    run.py verify ledger set U1 in_progress
+    run.py verify ledger set U1 passed --note "Diagnostics keep the source span."
+    run.py verify ledger set U2 blocked --note "<reason>"
+    run.py verify ledger show
+    run.py verify ledger checkpoint review "accept"
+    run.py verify ledger checkpoint --replace implemented "<request in a few words>"
 
 `set ... passed` takes the commit from `HEAD` and `verified_at` from the
 receipt of the verifier run that just passed, unless `--commit` or
@@ -34,14 +33,12 @@ import argparse
 import datetime
 import json
 import os
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
-CONTRACT = "flowseer-plan-status/v1"
-STATUSES = ("pending", "in_progress", "passed", "blocked")
-LEDGER_NAME = "flowseer-plan-status.json"
+from lib import plans, proc
+
 CHECKPOINTS_NAME = "flowseer-checkpoints"
 RECEIPT_NAME = "flowseer-verification-receipt"
 
@@ -52,7 +49,10 @@ def fail(message: str) -> None:
 
 
 def git_output(*args: str) -> str:
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout.strip()
+    done = proc.run(["git", *args])
+    if done.code != 0:
+        fail(f"git {' '.join(args)} failed: {done.stderr.strip()}")
+    return done.stdout.strip()
 
 
 def state_dir() -> Path:
@@ -78,8 +78,8 @@ def read_ledger(path: Path) -> dict:
         ledger = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
         fail(f"{path} is not valid JSON: {error}")
-    if not isinstance(ledger, dict) or ledger.get("contract") != CONTRACT:
-        fail(f"{path} does not carry contract {CONTRACT!r}")
+    if not isinstance(ledger, dict) or ledger.get("contract") != plans.LEDGER_CONTRACT:
+        fail(f"{path} does not carry contract {plans.LEDGER_CONTRACT!r}")
     return ledger
 
 
@@ -115,16 +115,13 @@ def head() -> str:
 
 
 def check_unit_commit(unit: dict, commit: str) -> None:
-    def git_try(*args: str) -> subprocess.CompletedProcess:
-        return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
-
-    if git_try("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+    if proc.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"]).code != 0:
         fail(f"commit {commit} is not in this branch's history")
     base = unit.get("base")
     if not base:
         return
-    since = git_try("rev-list", "--count", f"{base}..{commit}")
-    if since.returncode != 0:
+    since = proc.run(["git", "rev-list", "--count", f"{base}..{commit}"])
+    if since.code != 0:
         fail(f"cannot compare {commit} with the unit's base {base}: {since.stderr.strip()}")
     if since.stdout.strip() == "0":
         fail(
@@ -162,7 +159,7 @@ def cmd_init(args: argparse.Namespace) -> None:
     ids = list(args.units)
     if len(set(ids)) != len(ids):
         fail("unit ids must be unique")
-    path = state_dir() / LEDGER_NAME
+    path = state_dir() / plans.LEDGER_NAME
     if path.exists() and not args.force:
         existing = read_ledger(path)
         if existing.get("plan") != args.plan:
@@ -172,7 +169,7 @@ def cmd_init(args: argparse.Namespace) -> None:
             )
         fail(f"{path} already tracks this plan; `set` updates it, --force starts over")
     ledger = {
-        "contract": CONTRACT,
+        "contract": plans.LEDGER_CONTRACT,
         "plan": args.plan,
         "resume": [],
         "units": [
@@ -185,7 +182,7 @@ def cmd_init(args: argparse.Namespace) -> None:
 
 def cmd_set(args: argparse.Namespace) -> None:
     directory = state_dir()
-    path = directory / LEDGER_NAME
+    path = directory / plans.LEDGER_NAME
     ledger = read_ledger(path)
     matches = [unit for unit in ledger["units"] if unit["id"] == args.unit]
     if not matches:
@@ -221,7 +218,7 @@ def cmd_set(args: argparse.Namespace) -> None:
 
 
 def cmd_show(_: argparse.Namespace) -> None:
-    path = state_dir() / LEDGER_NAME
+    path = state_dir() / plans.LEDGER_NAME
     if not path.exists():
         print(f"ledger: {path} does not exist")
         return
@@ -243,8 +240,8 @@ def cmd_checkpoint(args: argparse.Namespace) -> None:
     print(f"checkpoints: {line.rstrip()}")
 
 
-def main(argv: list[str]) -> None:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="run.py verify ledger", description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
 
     init = commands.add_parser("init", help="write a fresh ledger with every unit pending")
@@ -255,7 +252,7 @@ def main(argv: list[str]) -> None:
 
     setter = commands.add_parser("set", help="update one unit's status")
     setter.add_argument("unit")
-    setter.add_argument("status", choices=STATUSES)
+    setter.add_argument("status", choices=plans.UNIT_STATUSES)
     setter.add_argument("--commit", help="commit that landed the unit (default: HEAD when passed)")
     setter.add_argument("--verified-at", help="verifier time (default: the receipt's, when passed)")
     setter.add_argument("--note", help="one line the next unit needs; an empty string clears it")
@@ -270,9 +267,6 @@ def main(argv: list[str]) -> None:
     checkpoint.add_argument("--replace", action="store_true", help="write the file anew instead of appending")
     checkpoint.set_defaults(run=cmd_checkpoint)
 
-    args = parser.parse_args(argv[1:])
+    args = parser.parse_args(argv)
     args.run(args)
-
-
-if __name__ == "__main__":
-    main(sys.argv)
+    return 0

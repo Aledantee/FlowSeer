@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
 """Validate the plan status ledger a worktree keeps in its git directory.
+
+    run.py verify check-plan-status [LEDGER_PATH]
 
 The ledger records which units of a plan have landed so that a later session
 resumes without re-deriving progress. A ledger that is absent passes; one that
@@ -10,43 +11,28 @@ A ledger naming a phase plan also proves the phase's prerequisites are in
 this tree: every phase its state file lists under `after` carries a landed
 range whose last commit is an ancestor of HEAD, and the integration branch
 does not show this phase landed or retired already. The state is read
-through `plan_record.py`, the one module that knows its shape. A phase
+through `lib.plans`, the one module that knows its shape. A phase
 re-planned in a worktree forked before the previous phase merged sees that
 phase missing and builds it again; one phase of the network simulation was
 implemented twice that way, on two branches, in one day.
 """
 
-from __future__ import annotations
-
-import importlib.util
 import json
-import subprocess
 import sys
 from pathlib import Path
 
-CONTRACT = "flowseer-plan-status/v1"
-STATUSES = ("pending", "in_progress", "passed", "blocked")
-LEDGER_NAME = "flowseer-plan-status.json"
-
-_spec = importlib.util.spec_from_file_location(
-    "plan_record", Path(__file__).resolve().parents[2] / "plan/scripts/plan_record.py"
-)
-plan_record = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(plan_record)
+from lib import plans, proc
 
 
 def git_path(flag: str) -> Path:
-    output = subprocess.run(
-        ["git", "rev-parse", flag],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
-    return Path(output)
+    done = proc.run(["git", "rev-parse", flag])
+    if done.code != 0:
+        fail(f"git rev-parse {flag} failed: {done.stderr.strip()}")
+    return Path(done.stdout.strip())
 
 
 def default_ledger_path() -> Path:
-    return git_path("--git-dir") / LEDGER_NAME
+    return git_path("--git-dir") / plans.LEDGER_NAME
 
 
 def fail(message: str) -> None:
@@ -66,8 +52,8 @@ def check_unit(index: int, unit: object) -> None:
     expect(isinstance(unit.get("id"), str) and unit["id"] != "", f"{where}.id must be a non-empty string")
     status = unit.get("status")
     expect(
-        status in STATUSES,
-        f"{where}.status must be one of {', '.join(STATUSES)}, got {status!r}",
+        status in plans.UNIT_STATUSES,
+        f"{where}.status must be one of {', '.join(plans.UNIT_STATUSES)}, got {status!r}",
     )
     for field in ("commit", "verified_at", "note", "base"):
         value = unit.get(field)
@@ -86,8 +72,8 @@ def on_integration_branch(path: str) -> dict | None:
     consulted.
     """
     for name in ("main", "master"):
-        shown = subprocess.run(["git", "show", f"{name}:{path}"], capture_output=True, text=True)
-        if shown.returncode == 0:
+        shown = proc.run(["git", "show", f"{name}:{path}"])
+        if shown.code == 0:
             try:
                 return json.loads(shown.stdout)
             except ValueError:
@@ -97,8 +83,8 @@ def on_integration_branch(path: str) -> dict | None:
 
 def stored(plan: str, root: Path) -> dict:
     try:
-        return plan_record.load(plan, root)
-    except plan_record.StateError as error:
+        return plans.load(plan, root)
+    except plans.StateError as error:
         fail(str(error))
     raise AssertionError("unreachable")
 
@@ -110,7 +96,7 @@ def check_phase_ancestry(plan: str) -> None:
     if not parent_ref:
         return
     parent = stored(parent_ref, root)
-    there = on_integration_branch(plan_record.state_path(plan)) or {}
+    there = on_integration_branch(plans.state_path(plan)) or {}
     landed_there = there.get("landed")
     expect(
         not landed_there,
@@ -119,7 +105,7 @@ def check_phase_ancestry(plan: str) -> None:
     )
     # land deletes a phase's files once it lands, and the parent's retired
     # list is what the integration branch keeps of it.
-    parent_there = on_integration_branch(plan_record.state_path(parent_ref)) or {}
+    parent_there = on_integration_branch(plans.state_path(parent_ref)) or {}
     for entry in parent_there.get("retired", []):
         expect(
             entry.get("plan") != plan,
@@ -128,7 +114,7 @@ def check_phase_ancestry(plan: str) -> None:
         )
     retired = {entry["plan"]: entry["landed"] for entry in parent["retired"]}
     for prerequisite in state["after"]:
-        if (root / plan_record.state_path(prerequisite)).is_file():
+        if (root / plans.state_path(prerequisite)).is_file():
             landed = stored(prerequisite, root)["landed"]
         else:
             landed = retired.get(prerequisite)
@@ -138,12 +124,9 @@ def check_phase_ancestry(plan: str) -> None:
         )
         assert landed is not None
         last = landed["last"]
-        ancestor = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", last, "HEAD"],
-            capture_output=True,
-        )
+        ancestor = proc.run(["git", "merge-base", "--is-ancestor", last, "HEAD"])
         expect(
-            ancestor.returncode == 0,
+            ancestor.code == 0,
             f"phase {prerequisite} landed at {last}, which is not in this tree: "
             "merge it, or start from a worktree that holds it",
         )
@@ -157,7 +140,10 @@ def check(ledger_path: Path) -> None:
     except (OSError, ValueError) as error:
         fail(f"{ledger_path} is not valid JSON: {error}")
     expect(isinstance(ledger, dict), "top level must be an object")
-    expect(ledger.get("contract") == CONTRACT, f"contract must be {CONTRACT!r}, got {ledger.get('contract')!r}")
+    expect(
+        ledger.get("contract") == plans.LEDGER_CONTRACT,
+        f"contract must be {plans.LEDGER_CONTRACT!r}, got {ledger.get('contract')!r}",
+    )
     plan = ledger.get("plan")
     expect(isinstance(plan, str) and plan != "", "plan must be a non-empty string")
     expect((git_path("--show-toplevel") / plan).is_file(), f"plan {plan!r} does not exist")
@@ -177,13 +163,9 @@ def check(ledger_path: Path) -> None:
     check_phase_ancestry(plan)
 
 
-def main(argv: list[str]) -> None:
-    if len(argv) > 2:
-        print("usage: check-plan-status.py [LEDGER_PATH]", file=sys.stderr)
-        sys.exit(2)
-    ledger_path = Path(argv[1]) if len(argv) == 2 else default_ledger_path()
-    check(ledger_path)
-
-
-if __name__ == "__main__":
-    main(sys.argv)
+def main(argv: list[str]) -> int:
+    if len(argv) > 1:
+        print("usage: run.py verify check-plan-status [LEDGER_PATH]", file=sys.stderr)
+        return 2
+    check(Path(argv[0]) if argv else default_ledger_path())
+    return 0

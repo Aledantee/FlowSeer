@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Check Markdown prose against docs/doc-style.md.
 
 A provenance marker (a literal only an agent run leaves, such as
@@ -152,12 +151,12 @@ def check_text(text: str, name: str, strict: bool) -> tuple[list[str], list[str]
     return errors, warnings
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+def main(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(prog="run.py verify check-prose", description=__doc__.splitlines()[0])
     parser.add_argument("--strict", action="store_true", help="fail on style findings too")
     parser.add_argument("--quiet", action="store_true", help="print only failures and a warning count")
     parser.add_argument("paths", nargs="+", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -172,12 +171,8 @@ def main() -> int:
         print(line, file=sys.stderr)
     if args.quiet:
         if warnings:
-            print(f"prose: {len(warnings)} style warning(s); rerun check-prose.py on the file to list them")
+            print(f"prose: {len(warnings)} style warning(s); rerun `run.py verify check-prose` on the file to list them")
     else:
         for line in warnings:
             print(f"warning: {line}")
     return 1 if errors else 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())

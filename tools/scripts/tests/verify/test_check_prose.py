@@ -1,17 +1,13 @@
-"""Fixture tests for check-prose.py's provenance markers and literal skipping.
+"""Fixture tests for `verify check-prose`'s provenance markers and literal skipping.
 
 Every PROVENANCE entry has a flagged case below that fails when that entry
 alone is removed, and no case is caught by two entries. Add one when you add
 an entry.
 """
 
-import importlib.util
-from pathlib import Path
 import unittest
 
-_spec = importlib.util.spec_from_file_location("check_prose", Path(__file__).with_name("check-prose.py"))
-check_prose = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(check_prose)
+from verify import check_prose
 
 
 def provenance(text):
