@@ -1908,7 +1908,7 @@ func Load(
 	if isWanted(filter.LayerName) {
 		setByName := make(map[string]filter.RuleSet, len(filterSets))
 		// A set the IP-layer filter cannot evaluate is left out whole:
-		// translating a rule without its L2, PCP, or DSCP terms would widen
+		// translating a rule without its unsupported terms would widen
 		// it, and dropping the rule would let a later rule decide.
 		unevaluable := make(map[string]bool)
 		for _, set := range filterSets {
@@ -1921,7 +1921,7 @@ func Load(
 			}
 			if slices.ContainsFunc(set.GetRules(), hasUnevaluableMatch) {
 				unevaluable[name] = true
-				addSkippedAt(rootScope, "", "filter", fmt.Sprintf("rule set %q carries L2, PCP, or DSCP match terms the simulator does not evaluate", name), analysis.Incomplete, IssueSkippedUnsupportedFacet)
+				addSkippedAt(rootScope, "", "filter", fmt.Sprintf("rule set %q carries unsupported match terms or IPv4-mapped prefixes", name), analysis.Incomplete, IssueSkippedUnsupportedFacet)
 				continue
 			}
 			ruleSet := filter.RuleSet{
@@ -2375,10 +2375,20 @@ func parsePrefix(p *addrv1.IpPrefix, address netip.Addr) (int, bool) {
 }
 
 // hasUnevaluableMatch reports whether rule matches on a term filter.Match has
-// no counterpart for: the EtherType, a MAC address, a PCP, or a DSCP.
+// no counterpart for, or on an IPv4-mapped prefix the filter refuses.
 func hasUnevaluableMatch(rule *filterv1.FilterRule) bool {
 	m := rule.GetMatch()
-	return m.HasEtherType() || m.HasSrcMac() || m.HasDstMac() || len(m.GetPcps()) > 0 || len(m.GetDscps()) > 0
+	if m.HasEtherType() || m.HasSrcMac() || m.HasDstMac() || len(m.GetPcps()) > 0 || len(m.GetDscps()) > 0 {
+		return true
+	}
+	for _, prefixes := range [][]*addrv1.IpPrefix{m.GetSrcPrefixes(), m.GetDstPrefixes()} {
+		for _, prefix := range prefixes {
+			if p, ok := parseIPPrefix(prefix); ok && p.Addr().Is4In6() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func translateAction(a filterv1.FilterAction) filter.Action {

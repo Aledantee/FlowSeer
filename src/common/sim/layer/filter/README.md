@@ -8,30 +8,38 @@ directions.
 ## Architecture and evaluation order
 
 A filter configuration attaches rule sets to interfaces through bindings. Each
-binding specifies an interface name, a direction (`in` or `out`), and the target
-rule set.
+binding names a routed interface, a direction (`in` or `out`), and the target
+rule set. The layer identifies the interface by name and does not require a
+routing layer.
 
-Ingress evaluation occurs before routing:
+Ingress evaluation runs before routing. A deferred decision is resolved when
+routing identifies the egress interface. Egress evaluation runs after routing.
+The counterpart binding has the same direction on the other interface: the
+egress interface for an ingress set, or the ingress interface for an egress
+set ([filter.go](filter.go)).
 
-1. Look up the rule set bound to the ingress interface in the `in` direction.
-2. Evaluate rules in order (first-match semantics). A matching `Accept` allows
-   the packet to proceed to layer 3 routing. A matching `Drop` or `Reject`
-   terminates immediately without routing.
-3. If no rule matches and the set is stateless, apply the set's default action.
-4. If no rule matches and the set is stateful, defer the decision until routing
-   resolves the egress interface. When the egress interface is known, reverse
-   the 5-tuple (swap source and destination addresses and ports) and evaluate
-   the set bound `in` on that egress interface. If the counterpart set is
-   stateful and has a forward rule that accepts the reversed tuple, accept the
-   reply under rule `filter.state` and name the counterpart rule in the trace
-   inputs. Otherwise, apply the ingress set's own default action.
+```mermaid
+flowchart TD
+    binding[Look up binding] --> own{Own rule matches?}
+    own -- yes --> action[Apply rule action]
+    own -- no --> eligible{Decoded IP and stateful?}
+    eligible -- no --> default[Apply own default]
+    eligible -- yes --> counterpart[For ingress, resolve egress first]
+    counterpart --> reverse{Stateful counterpart accepts reversed tuple?}
+    reverse -- yes --> accept[Accept under filter.state]
+    reverse -- no --> default
+```
 
-Egress evaluation occurs after routing resolves the egress interface:
+The reverse match swaps source and destination addresses and ports. A stateful
+accept names the counterpart rule in its trace inputs.
 
-1. Look up the rule set bound to the egress interface in the `out` direction.
-2. Evaluate rules in order. If a rule matches, apply its action.
-3. If no rule matches and the set is stateful, evaluate the reversed 5-tuple
-   against the rule set bound `out` on the frame's ingress interface.
+The order of a stateful set is its own rules, then the reverse match, then its
+own default. A decoded packet has EtherType `0x0800` with an IPv4 header or
+`0x86dd` with an IPv6 header. Every other frame, including a malformed IP
+header, matches only a rule with no criteria. If none matches, it takes the
+set's default in either direction, without deferral or a reverse match.
+`TestUndecodedStatefulFrameTakesDefault` in [filter_test.go](filter_test.go)
+pins both directions.
 
 ## Rule matching
 
@@ -52,6 +60,15 @@ removals, and modifications of rules, sets, and bindings as typed `trace.Change`
 records. `RetentionKey(cfg Config, env layer.Env) string` encodes the normalized
 inputs the layer depends on. `Layer.Clone` returns an independent deep copy of
 the layer with cloned rule sets and bindings.
+
+`Normalize` masks prefixes, sorts the source and destination prefix and port
+range lists, and removes exact repeats. It preserves contained prefixes and
+overlapping ranges, and copies the protocol value so caller changes cannot
+change a layer's rules. Rule order stays intact because the first match wins.
+For example, `10.0.2.0/24, 10.0.1.5/24, 10.0.2.0/24` becomes
+`10.0.1.0/24, 10.0.2.0/24`. Both spellings have the same retention key and an
+empty diff, as `TestNormalizeCanonicalizesMatchLists` in
+[filter_test.go](filter_test.go) checks.
 
 ## Boundaries
 
