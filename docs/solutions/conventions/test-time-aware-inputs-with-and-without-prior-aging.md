@@ -84,9 +84,9 @@ removes retirement from reception alone and quotes its failure:
 
 Fixing a deadline at an event can stabilize later reads while the event
 itself still depends on caller aging. Check which of those the promised
-independence covers before choosing the fixture. The final two Decisions of
-[`the spanning-tree handshake plan`](../../plans/2026-10-01-2200-refactor-sim-package-overhaul-phase13-plan.md)
-settle the recent-root rule and its scope.
+independence covers before choosing the fixture. The spanning tree
+handshake work that landed on 2026-10-07 settled the recent-root rule and
+its scope, and `src/common/sim/layer/stp/README.md` states both.
 
 The layer stores a departure's deadline at the end of its call.
 `src/common/sim/layer/stp/portstate.go:123`:
