@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"net/netip"
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -15,6 +16,152 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
+
+func TestCompareObservesVlanDifference(t *testing.T) {
+	_, _, cur, exp := makeComparePair(t)
+
+	f := ethernet.Frame{
+		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
+		Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("test frame"),
+	}
+
+	cmp := vswitch.Compare(cur, exp, fixedTime, "1/1/1", f)
+	if cmp.Disposition != analysis.Different {
+		t.Errorf("got Disposition: %v, want %v", cmp.Disposition, analysis.Different)
+	}
+
+	curPorts := make([]string, len(cmp.Current.Egress))
+	for i, eg := range cmp.Current.Egress {
+		curPorts[i] = eg.Port
+	}
+	if !slices.Contains(curPorts, "1/1/2") {
+		t.Errorf("current trace missing 1/1/2: %v", curPorts)
+	}
+
+	expPorts := make([]string, len(cmp.Expected.Egress))
+	for i, eg := range cmp.Expected.Egress {
+		expPorts[i] = eg.Port
+	}
+	if slices.Contains(expPorts, "1/1/2") {
+		t.Errorf("expected trace unexpectedly contains 1/1/2: %v", expPorts)
+	}
+
+	if len(cmp.Current.Steps) == 0 || len(cmp.Expected.Steps) == 0 {
+		t.Errorf("comparison missing steps: cur %d, exp %d", len(cmp.Current.Steps), len(cmp.Expected.Steps))
+	}
+}
+
+func TestCompareSameOverFrameTable(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	pvid10 := vlan.ID(10)
+	cfg := vswitch.Config{
+		Ports: tbl,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/1": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+					"1/1/2": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+					"1/1/3": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+	}
+
+	knownDst := netaddr.MAC{0x00, 0x22, 0x33, 0x44, 0x55, 0x66}
+
+	swA := mustSwitch(t, cfg)
+	swB := mustSwitch(t, cfg)
+
+	// Preload a known entry on both switches.
+	swA.Forward(fixedTime, "1/1/2", ethernet.Frame{
+		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:       knownDst,
+		EtherType: ethernet.EtherTypeIPv4,
+	})
+	swB.Forward(fixedTime, "1/1/2", ethernet.Frame{
+		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:       knownDst,
+		EtherType: ethernet.EtherTypeIPv4,
+	})
+
+	tests := []struct {
+		name    string
+		ingress string
+		frame   ethernet.Frame
+	}{
+		{
+			name:    "known unicast",
+			ingress: "1/1/1",
+			frame: ethernet.Frame{
+				Dst:       knownDst,
+				Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("known unicast payload"),
+			},
+		},
+		{
+			name:    "unknown unicast",
+			ingress: "1/1/1",
+			frame: ethernet.Frame{
+				Dst:       netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55},
+				Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+				EtherType: ethernet.EtherTypeIPv4,
+				Payload:   []byte("unknown unicast payload"),
+			},
+		},
+		{
+			name:    "tagged frame",
+			ingress: "1/1/1",
+			frame: ethernet.Frame{
+				Dst:       netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55},
+				Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+				EtherType: ethernet.EtherTypeIPv4,
+				Tags: []vlan.Tag{
+					{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10},
+				},
+				Payload: []byte("tagged payload"),
+			},
+		},
+		{
+			name:    "priority tagged frame",
+			ingress: "1/1/1",
+			frame: ethernet.Frame{
+				Dst:       netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x55},
+				Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+				EtherType: ethernet.EtherTypeIPv4,
+				Tags: []vlan.Tag{
+					{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 0, PCP: 3},
+				},
+				Payload: []byte("priority tagged payload"),
+			},
+		},
+		{
+			name:    "reserved bridge group address",
+			ingress: "1/1/1",
+			frame: ethernet.Frame{
+				Dst:       netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
+				Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
+				EtherType: ethernet.EtherTypeIPv4,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cmp := vswitch.Compare(swA, swB, fixedTime, tc.ingress, tc.frame)
+			if cmp.Disposition != analysis.Equivalent {
+				t.Errorf("got Disposition: %v, want %v for %s", cmp.Disposition, analysis.Equivalent, tc.name)
+			}
+		})
+	}
+}
 
 // TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination covers R20c
 // across two switches: [vswitch.Compare] runs [Switch.Peek] on both sides, and

@@ -1,0 +1,524 @@
+package vswitch_test
+
+import (
+	"reflect"
+	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
+	tests := []struct {
+		name        string
+		members     []port.Port
+		wantAtStart port.LinkState
+	}{
+		{
+			name: "definite up wins",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"},
+			},
+			wantAtStart: port.Up,
+		},
+		{
+			name: "possible member is unknown",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Unknown, OperStatus: port.Up, LagParent: "lag1"},
+			},
+			wantAtStart: port.Unknown,
+		},
+		{
+			name: "administratively or operationally down is definite",
+			members: []port.Port{
+				{Name: "member-a", Kind: port.Physical, AdminStatus: port.Down, OperStatus: port.Unknown, LagParent: "lag1"},
+				{Name: "member-b", Kind: port.Physical, AdminStatus: port.Unknown, OperStatus: port.Down, LagParent: "lag1"},
+			},
+			wantAtStart: port.Down,
+		},
+		{
+			name:        "no members is definite down",
+			wantAtStart: port.Down,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			builder := port.NewBuilder().Add(port.Port{
+				Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up,
+			})
+			for _, member := range test.members {
+				builder.Add(member)
+			}
+			sw := mustSwitch(t, vswitch.Config{Ports: mustTable(t, builder), Bridge: &bridge.Config{}})
+
+			sw.Start(fixedTime)
+			lagPort, _ := sw.Ports().Port("lag1")
+			if got := lagPort.OperStatus; got != test.wantAtStart {
+				t.Fatalf("oper status after Start = %s, want %s", got, test.wantAtStart)
+			}
+		})
+	}
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
+	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
+	sw.Start(fixedTime)
+	sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	lagPort, _ := sw.Ports().Port("lag1")
+	if got := lagPort.OperStatus; got != port.Up {
+		t.Fatalf("oper status after link up = %s, want %s", got, port.Up)
+	}
+	sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	lagPort, _ = sw.Ports().Port("lag1")
+	if got := lagPort.OperStatus; got != port.Down {
+		t.Fatalf("oper status after link down = %s, want %s", got, port.Down)
+	}
+}
+
+func TestLACPDUHandlingAtSwitch(t *testing.T) {
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}
+	macB := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0b}
+	p10 := vlan.ID(10)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/4", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		MAC:   macA,
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"lag1":  {PVID: &p10, Untagged: []vlan.ID{10}},
+					"1/1/3": {PVID: &p10, Untagged: []vlan.ID{10}},
+					"1/1/4": {PVID: &p10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		LAG: &lag.Config{
+			LAGs: map[string]lag.LAG{
+				"lag1": {
+					LACP: lag.LACPConfig{
+						Mode: lag.Active,
+					},
+				},
+			},
+		},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "control", SelectAll: true, OutputPort: "1/1/4"}}},
+	}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+
+	pdu := lacp.PDU{
+		Actor: lacp.Info{
+			SystemPriority: 32768,
+			SystemID:       macB,
+			Key:            1,
+			PortPriority:   32768,
+			PortID:         1,
+			State:          lacp.StateActive | lacp.StateShortTimeout | lacp.StateAggregation,
+		},
+		Partner: lacp.Info{
+			SystemPriority: 32768,
+			SystemID:       macA,
+			Key:            1,
+			PortPriority:   32768,
+			PortID:         1,
+			State:          lacp.StateActive | lacp.StateAggregation,
+		},
+	}
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Expired || info.Actor.State&lacp.StateExpired == 0 {
+		t.Fatalf("member after Start = %+v, want Expired", info)
+	}
+	validFrame := lacp.Encode(pdu, macB)
+
+	// Peek first: counts do not change
+	peekRes := sw.Peek(now, "1/1/1", validFrame)
+	if peekRes.Outcome != trace.Consumed {
+		t.Errorf("peek outcome = %s, want Consumed", peekRes.Outcome)
+	}
+	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 0 {
+		t.Errorf("after Peek, LACPDUsRx = %d, want 0", info.LACPDUsRx)
+	}
+
+	// Forward valid LACPDU on 1/1/1 (member port): Consumed with lag layer step and LACPDUsRx = 1
+	res := sw.Forward(now, "1/1/1", validFrame)
+	if res.Outcome != trace.Consumed {
+		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
+	}
+	if len(res.Steps) == 0 || res.Steps[0].Layer != lag.LayerName || res.Steps[0].Op != trace.OpClassify || res.Steps[0].RuleID != "lag.lacpdu.admit" {
+		t.Errorf("res.Steps = %+v, want step with LayerLAG, OpClassify, rule lag.lacpdu.admit", res.Steps)
+	}
+	if !traceHasFactType(res.Steps, "lag.lacp_decision") {
+		t.Errorf("LACP trace has no member decision fact: %+v", res.Steps)
+	}
+	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 1 {
+		t.Errorf("after Forward, LACPDUsRx = %d, want 1", info.LACPDUsRx)
+	}
+	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/4" {
+		t.Errorf("Copies() = %+v, want received LACPDU mirrored to 1/1/4", copies)
+	}
+
+	// Bad TLV length LACPDU: dropped unsupported-lacpdu and counts BadLACPDUs 1
+	badPayload := make([]byte, 110)
+	copy(badPayload, validFrame.Payload)
+	badPayload[23] = 19 // bad partner TLV length (expected 20)
+	badFrame := ethernet.Frame{
+		Dst:       lacp.GroupAddress,
+		Src:       macB,
+		EtherType: ethernet.EtherTypeSlowProtocols,
+		Payload:   badPayload,
+	}
+
+	// Peek bad frame: BadLACPDUs does not change
+	peekBad := sw.Peek(now, "1/1/1", badFrame)
+	if peekBad.Outcome != trace.Dropped || peekBad.Reason != lag.ReasonUnsupportedLACPDU {
+		t.Errorf("peekBad outcome = %s, reason = %s, want Dropped, unsupported-lacpdu", peekBad.Outcome, peekBad.Reason)
+	}
+	if info := sw.MemberInfo("1/1/1"); info.BadLACPDUs != 0 {
+		t.Errorf("after Peek bad, BadLACPDUs = %d, want 0", info.BadLACPDUs)
+	}
+
+	resBad := sw.Forward(now, "1/1/1", badFrame)
+	if resBad.Outcome != trace.Dropped {
+		t.Errorf("resBad.Outcome = %s, want Dropped", resBad.Outcome)
+	}
+	if resBad.Reason != lag.ReasonUnsupportedLACPDU {
+		t.Errorf("resBad.Reason = %s, want %s", resBad.Reason, lag.ReasonUnsupportedLACPDU)
+	}
+	if info := sw.MemberInfo("1/1/1"); info.BadLACPDUs != 1 {
+		t.Errorf("after Forward bad, BadLACPDUs = %d, want 1", info.BadLACPDUs)
+	}
+
+	// LACPDU injected at 1/1/3 (no LAG): dropped reserved-address
+	resNonMember := sw.Forward(now, "1/1/3", validFrame)
+	if resNonMember.Outcome != trace.Dropped {
+		t.Errorf("resNonMember.Outcome = %s, want Dropped", resNonMember.Outcome)
+	}
+	if resNonMember.Reason != bridge.ReasonReservedAddress {
+		t.Errorf("resNonMember.Reason = %s, want %s", resNonMember.Reason, bridge.ReasonReservedAddress)
+	}
+
+	sw.Wake(now.Add(90*time.Second - time.Nanosecond))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Current {
+		t.Fatalf("member before slow receive timeout = %+v, want Current despite peer Short timeout", info)
+	}
+	sw.Wake(now.Add(90 * time.Second))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Expired || info.Enabled || info.Actor.State&lacp.StateExpired == 0 {
+		t.Fatalf("member at slow receive timeout = %+v, want Expired and disabled", info)
+	}
+	sw.Wake(now.Add(93 * time.Second))
+	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Partner != (lacp.Info{State: 0x18}) || info.Actor.State&0xc0 != 0x40 {
+		t.Fatalf("member after Expired timeout = %+v, want Defaulted with administrative Partner", info)
+	}
+}
+
+func TestDefaultLAGSelectionLowestMember(t *testing.T) {
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macHost1 := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x11}
+	macHost2 := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x22}
+	p10 := vlan.ID(10)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"1/1/3": {PVID: &p10, Untagged: []vlan.ID{10}},
+					"lag1":  {PVID: &p10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+	}
+
+	sw := mustSwitch(t, cfg)
+
+	frame := ethernet.Frame{
+		Dst:       macHost2,
+		Src:       macHost1,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("data"),
+	}
+
+	res := sw.Forward(now, "1/1/3", frame)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("res.Outcome = %s, want Flooded", res.Outcome)
+	}
+	if len(res.Egress) != 1 {
+		t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
+	}
+	if res.Egress[0].Port != "lag1" {
+		t.Errorf("res.Egress[0].Port = %q, want lag1", res.Egress[0].Port)
+	}
+	if res.Egress[0].Member != "1/1/1" {
+		t.Errorf("res.Egress[0].Member = %q, want 1/1/1 (lowest member)", res.Egress[0].Member)
+	}
+}
+
+func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macBridge := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}
+	p10 := vlan.ID(10)
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	cfg := vswitch.Config{
+		MAC:   macBridge,
+		Ports: ports,
+		Bridge: &bridge.Config{
+			VLAN: &bridge.VLAN{
+				Table: map[vlan.ID]string{10: "vlan10"},
+				Switchports: map[string]bridge.Switchport{
+					"lag1": {PVID: &p10, Untagged: []vlan.ID{10}},
+				},
+			},
+		},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports: map[string]stp.Port{
+				"lag1": {},
+			},
+		},
+		Phy: &phy.Config{
+			Ethernet: map[string]phy.Ethernet{
+				"1/1/1": {
+					SupportedSpeedsBPS: []uint64{10_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 10_000_000_000, Duplex: phy.Full},
+				},
+				"1/1/2": {
+					SupportedSpeedsBPS: []uint64{1_000_000_000},
+					Setting:            &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full},
+				},
+			},
+		},
+	}
+
+	sw := mustSwitch(t, cfg)
+	sw.Start(now)
+
+	dummyFrame := ethernet.Frame{Dst: netaddr.MAC{1}, Src: netaddr.MAC{2}}
+	mem, ok := sw.SelectMember(now, "lag1", dummyFrame, 10)
+	if !ok || mem != "1/1/1" {
+		t.Fatalf("SelectMember = (%q, %t), want (1/1/1, true)", mem, ok)
+	}
+
+	roles := sw.Roles()
+	if roles["lag1"].PathCost != 2000 {
+		t.Errorf("lag1 PathCost = %d, want 2000 (10 Gbps)", roles["lag1"].PathCost)
+	}
+
+	// Member 1/1/1 goes down through LinkChange
+	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000)
+
+	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
+	if !ok || mem != "1/1/2" {
+		t.Fatalf("after link down, SelectMember = (%q, %t), want (1/1/2, true)", mem, ok)
+	}
+
+	roles = sw.Roles()
+	if roles["lag1"].PathCost != 20000 {
+		t.Errorf("after link down, lag1 PathCost = %d, want 20000 (1 Gbps)", roles["lag1"].PathCost)
+	}
+
+	// Both members down: lag1 has no enabled member
+	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
+	if ok {
+		t.Fatalf("after all links down, SelectMember returned %q, want false", mem)
+	}
+	p, _ := sw.Ports().Port("lag1")
+	if p.OperStatus != port.Down {
+		t.Errorf("lag1 OperStatus = %v, want Down", p.OperStatus)
+	}
+}
+
+// TestLagRowFollowsMemberRowsNotTheDelay is evidence that the LAG row reads
+// Down the moment every member row is down, while a down delay still holds
+// the layer's enablement.
+func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	tbl := mustTable(t, b)
+	sw := mustSwitch(t, vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LAG:    &lag.Config{LAGs: map[string]lag.LAG{"lag1": {DownDelay: time.Second}}},
+	})
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	sw.Start(t0)
+	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
+	sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	p, _ := sw.Ports().Port("lag1")
+	if p.OperStatus != port.Down {
+		t.Fatalf("lag1 OperStatus = %v, want Down as soon as its member row is down", p.OperStatus)
+	}
+	if !sw.MemberInfo("1/1/1").LinkUp {
+		t.Fatal("the layer dropped the member before its down delay")
+	}
+}
+
+// balancedLAGConfig builds a switch with one flat (untagged, VLAN-unaware)
+// ingress port "in" and a two-member BalanceSLB lag1, so a flooded frame
+// always exercises LAG member selection.
+func balancedLAGConfig(t *testing.T, rebalanceInterval *time.Duration) vswitch.Config {
+	t.Helper()
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+
+	return vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode:              lag.BalanceSLB,
+				Members:           map[string]lag.Member{"member-a": {}, "member-b": {}},
+				RebalanceInterval: rebalanceInterval,
+			},
+		}},
+	}
+}
+
+// TestForwardCommitsLAGSelectionPeekDoesNot is evidence for this change:
+// Peek must not commit a bucket assignment or rotate the enabled list, so a
+// Forward call that follows two Peeks of the same frame reaches the same
+// selector state a lone Forward on a fresh switch would.
+func TestForwardCommitsLAGSelectionPeekDoesNot(t *testing.T) {
+	cfg := balancedLAGConfig(t, nil)
+	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+
+	peeked := mustSwitch(t, cfg)
+	peeked.Peek(fixedTime, "in", frame)
+	peeked.Peek(fixedTime, "in", frame)
+	peekedResult := peeked.Forward(fixedTime, "in", frame)
+
+	fresh := mustSwitch(t, cfg)
+	freshResult := fresh.Forward(fixedTime, "in", frame)
+
+	if !reflect.DeepEqual(peekedResult.Result, freshResult.Result) {
+		t.Errorf("Peek committed LAG selection state:\npeeked = %+v\nfresh  = %+v", peekedResult.Result, freshResult.Result)
+	}
+}
+
+// TestForwardRaisesLAGRebalanceUnmodeled is evidence for this change: a
+// balanced selection whose bucket was assigned at least one rebalance
+// interval ago carries lag-rebalance-unmodeled, and a zero RebalanceInterval
+// disables the signal entirely.
+func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
+	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+	t0 := fixedTime
+	ten := 10 * time.Second
+
+	sw := mustSwitch(t, balancedLAGConfig(t, &ten))
+	sw.Forward(t0, "in", frame)
+
+	at9 := sw.Forward(t0.Add(9*time.Second), "in", frame)
+	if at9.Metadata.Status() != analysis.Complete {
+		t.Errorf("status at t0+9s = %v, want Complete: issues=%+v", at9.Metadata.Status(), at9.Metadata.Issues())
+	}
+
+	at10 := sw.Forward(t0.Add(10*time.Second), "in", frame)
+	if at10.Metadata.Status() != analysis.Incomplete {
+		t.Errorf("status at t0+10s = %v, want Incomplete", at10.Metadata.Status())
+	}
+	if !hasIssueCode(at10.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Errorf("issues at t0+10s = %+v, want lag-rebalance-unmodeled", at10.Metadata.Issues())
+	}
+
+	zero := time.Duration(0)
+	swDisabled := mustSwitch(t, balancedLAGConfig(t, &zero))
+	swDisabled.Forward(t0, "in", frame)
+	for _, at := range []time.Time{t0.Add(9 * time.Second), t0.Add(10 * time.Second)} {
+		res := swDisabled.Forward(at, "in", frame)
+		if res.Metadata.Status() != analysis.Complete {
+			t.Errorf("RebalanceInterval=0 at %v: status = %v, want Complete", at, res.Metadata.Status())
+		}
+	}
+}
+
+// TestRebalanceIssueScopedToJourneysThroughBalancedLAG is evidence that the
+// lag-rebalance-unmodeled issue names only the journeys that actually used
+// the balanced LAG, not every journey a switch with a stale bucket forwards.
+func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-a", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member-b", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	ten := 10 * time.Second
+	cfg := vswitch.Config{
+		Ports:  ports,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {
+				Mode:              lag.BalanceSLB,
+				Members:           map[string]lag.Member{"member-a": {}, "member-b": {}},
+				RebalanceInterval: &ten,
+			},
+		}},
+	}
+	sw := mustSwitch(t, cfg)
+
+	lagDst := netaddr.MAC{0x02, 0, 0, 0, 0, 9}
+	outDst := netaddr.MAC{0x02, 0, 0, 0, 0, 8}
+	mustSwitchLearn(t, sw, []bridge.Seed{
+		{MAC: lagDst, Port: "lag1", Lifetime: bridge.Static},
+		{MAC: outDst, Port: "out", Lifetime: bridge.Static},
+	})
+
+	lagFrame := ethernet.Frame{Dst: lagDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
+	outFrame := ethernet.Frame{Dst: outDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 2}}
+
+	t0 := fixedTime
+	sw.Forward(t0, "in", lagFrame)
+
+	lagRes := sw.Forward(t0.Add(10*time.Second), "in", lagFrame)
+	if !hasIssueCode(lagRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Fatalf("journey through lag1 issues = %+v, want lag-rebalance-unmodeled", lagRes.Metadata.Issues())
+	}
+
+	outRes := sw.Forward(t0.Add(10*time.Second), "in", outFrame)
+	if hasIssueCode(outRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Errorf("unrelated journey through out issues = %+v, want no lag-rebalance-unmodeled", outRes.Metadata.Issues())
+	}
+}

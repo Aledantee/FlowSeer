@@ -1,0 +1,677 @@
+package vswitch_test
+
+import (
+	"net/netip"
+	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
+)
+
+func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := vswitch.Config{Ports: ports, Bridge: &bridge.Config{}}
+	oldMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x10}
+	newMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x20}
+	oldMetadata := analysis.NewMetadata(
+		analysis.NodeScope("old"),
+		[]analysis.Issue{{Code: "test.old", Status: analysis.Incomplete, Scope: analysis.NodeScope("old")}},
+		analysis.EvidenceCatalog{},
+		nil,
+	)
+	newMetadata := analysis.NewMetadata(
+		analysis.NodeScope("new"),
+		[]analysis.Issue{{Code: "test.new", Status: analysis.Incomplete, Scope: analysis.NodeScope("new")}},
+		analysis.EvidenceCatalog{},
+		nil,
+	)
+	cur, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config:   cfg,
+		Seeds:    []bridge.Seed{{MAC: oldMAC, Port: "out", Lifetime: bridge.Static}},
+		NodeID:   "old",
+		Metadata: oldMetadata,
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec(current) error = %v", err)
+	}
+	target := vswitch.ConstructionSpec{
+		Config:   cfg,
+		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Origin: bridge.Configured, Lifetime: bridge.Static}},
+		NodeID:   "new",
+		Metadata: newMetadata,
+	}
+
+	next, err := vswitch.Derive(cur, target)
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+	got := next.Spec()
+	if !got.Equal(target) {
+		t.Errorf("derived spec = %+v, want target spec %+v", got, target)
+	}
+	entries := next.Entries()
+	if len(entries) != 1 || entries[0].MAC != newMAC {
+		t.Errorf("derived entries = %+v, want only target static seed %s", entries, newMAC)
+	}
+}
+
+func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "old", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "current", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	cfg := vswitch.Config{Ports: ports, Bridge: &bridge.Config{}}
+	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+	oldTime := fixedTime.Add(-time.Minute)
+
+	cur, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
+		Config: cfg,
+		Seeds:  []bridge.Seed{{MAC: mac, Port: "current", LearnedAt: fixedTime}},
+	})
+	if err != nil {
+		t.Fatalf("NewWithSpec(current): %v", err)
+	}
+
+	for _, test := range []struct {
+		name         string
+		lifetime     bridge.Lifetime
+		wantPort     string
+		wantTime     time.Time
+		wantLifetime bridge.Lifetime
+	}{
+		{name: "dynamic target yields to newer current state", wantPort: "current", wantTime: fixedTime, wantLifetime: bridge.Aging},
+		{name: "static target remains authoritative", lifetime: bridge.Static, wantPort: "old", wantTime: oldTime, wantLifetime: bridge.Static},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
+				Config: cfg,
+				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Lifetime: test.lifetime, LearnedAt: oldTime}},
+			})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+
+			entries := next.Entries()
+			if len(entries) != 1 {
+				t.Fatalf("entries = %+v, want one", entries)
+			}
+			if got := entries[0]; got.Port != test.wantPort || got.LearnedAt != test.wantTime || got.Lifetime != test.wantLifetime {
+				t.Errorf("entry = %+v, want port=%q learned_at=%s lifetime=%s", got, test.wantPort, test.wantTime, test.wantLifetime)
+			}
+		})
+	}
+}
+
+func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	pvid := vlan.ID(1)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	cfg := vswitch.Config{
+		Ports: mustTable(t, b),
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{1: "", 10: "", 20: ""},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &pvid, Tagged: []vlan.ID{10, 20}},
+				"1/1/2": {PVID: &pvid, Tagged: []vlan.ID{1, 10, 20}},
+			},
+		}},
+	}
+	cur := mustSwitch(t, cfg)
+	cur.Forward(now, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
+	})
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if entries := next.Entries(); len(entries) != 1 || entries[0].FID != 1 {
+		t.Errorf("derived Entries() = %+v, want the entry learned under PVID 1", entries)
+	}
+}
+
+func TestDeriveKeepsAnEntryLearnedOnATunnelPort(t *testing.T) {
+	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
+	b := port.NewBuilder()
+	b.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	cfg := vswitch.Config{
+		Ports: mustTable(t, b),
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: ""},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {Tunnel: &bridge.Tunnel{VID: 10}},
+				"1/1/2": {Tagged: []vlan.ID{10}},
+			},
+		}},
+	}
+	cur := mustSwitch(t, cfg)
+	cur.Forward(now, "1/1/1", ethernet.Frame{
+		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
+	})
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	if err != nil {
+		t.Fatalf("Derive: %v", err)
+	}
+	if entries := next.Entries(); len(entries) != 1 || entries[0].FID != 10 || entries[0].Port != "1/1/1" {
+		t.Errorf("derived Entries() = %+v, want the entry learned on the tunnel port in VLAN 10", entries)
+	}
+	if got := next.RelayCounters(); got.Learned != 1 {
+		t.Errorf("derived RelayCounters() = %+v, want the reseed counted as one learn", got)
+	}
+}
+
+func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
+	_, expCfg, cur, _ := makeComparePair(t)
+
+	macA := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0a}
+	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0b}
+
+	cur.Forward(fixedTime, "1/1/2", ethernet.Frame{
+		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:       macA,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("frame A"),
+	})
+	cur.Forward(fixedTime.Add(time.Second), "1/1/1", ethernet.Frame{
+		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		Src:       macB,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   []byte("frame B"),
+	})
+
+	if entries := cur.Entries(); len(entries) != 2 {
+		t.Fatalf("current switch has %d entries, want 2", len(entries))
+	}
+
+	derived, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg})
+	if err != nil {
+		t.Fatalf("derive switch: %v", err)
+	}
+
+	entries := derived.Entries()
+	if len(entries) != 1 {
+		t.Fatalf("derived switch has %d entries, want 1: %v", len(entries), entries)
+	}
+
+	if entries[0].FID != 10 || entries[0].MAC != macB || entries[0].Port != "1/1/1" {
+		t.Errorf("derived entry mismatch: got %v, want (10, %s) -> 1/1/1", entries[0], macB)
+	}
+}
+
+func TestDeriveEdgeCases(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	t.Run("lag without members drops entries", func(t *testing.T) {
+		curPorts := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		curCfg := vswitch.Config{
+			Ports:  curPorts,
+			Bridge: &bridge.Config{},
+		}
+		sw := mustSwitch(t, curCfg)
+		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+			Src:       mac,
+			EtherType: ethernet.EtherTypeIPv4,
+		})
+
+		// Target has 1/1/1 as a LAG with no members.
+		targetPorts := mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "1/1/1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+		targetCfg := vswitch.Config{
+			Ports:  targetPorts,
+			Bridge: &bridge.Config{},
+		}
+
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+		if err != nil {
+			t.Fatalf("unexpected derive error: %v", err)
+		}
+		if len(derived.Entries()) != 0 {
+			t.Errorf("got entries %v for LAG without members, want none", derived.Entries())
+		}
+	})
+
+	t.Run("derive with invalid target config", func(t *testing.T) {
+		cfg := vswitch.Config{Ports: ports}
+		sw := mustSwitch(t, cfg)
+
+		invalidCfg := vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{
+				VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{0: "invalid-vid"},
+				},
+			},
+		}
+
+		if _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
+			t.Errorf("got nil validation error from Derive, want non-nil")
+		}
+	})
+
+	t.Run("non-vlan to non-vlan re-keys to FID 0", func(t *testing.T) {
+		cfg := vswitch.Config{
+			Ports:  ports,
+			Bridge: &bridge.Config{},
+		}
+		sw := mustSwitch(t, cfg)
+		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+			Src:       mac,
+			EtherType: ethernet.EtherTypeIPv4,
+		})
+
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		entries := derived.Entries()
+		if len(entries) != 1 || entries[0].FID != 0 {
+			t.Errorf("got entries %v, want exactly 1 with FID 0", entries)
+		}
+	})
+
+	t.Run("vlan to non-vlan drops entries", func(t *testing.T) {
+		pvid10 := vlan.ID(10)
+		curCfg := vswitch.Config{
+			Ports: ports,
+			Bridge: &bridge.Config{
+				VLAN: &bridge.VLAN{
+					Table: map[vlan.ID]string{10: "vlan10"},
+					Switchports: map[string]bridge.Switchport{
+						"1/1/1": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+						"1/1/2": {PVID: &pvid10, Untagged: []vlan.ID{10}},
+					},
+				},
+			},
+		}
+		sw := mustSwitch(t, curCfg)
+		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
+		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+			Src:       mac,
+			EtherType: ethernet.EtherTypeIPv4,
+		})
+
+		nonVlanCfg := vswitch.Config{
+			Ports:  ports,
+			Bridge: &bridge.Config{},
+		}
+		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(derived.Entries()) != 0 {
+			t.Errorf("got entries %v after transition to non-VLAN, want none", derived.Entries())
+		}
+	})
+}
+
+func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macSelf := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x01}
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Address:  macSelf,
+			Ports: map[string]stp.Port{
+				"1/1/1": {},
+				"1/1/2": {},
+			},
+		},
+	}
+
+	sw := mustSwitch(t, cfg)
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		RootPathCost: 0,
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
+
+	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+
+	rolesBefore := sw.Roles()
+	if rolesBefore["1/1/1"].Role != bpdu.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
+		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
+	}
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	rolesAfter := derived.Roles()
+	if rolesAfter["1/1/1"].Role != bpdu.RoleRoot || rolesAfter["1/1/1"].State != stp.StateForwarding {
+		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", rolesAfter["1/1/1"].Role, rolesAfter["1/1/1"].State)
+	}
+}
+
+// TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress is evidence that
+// Derive compares the spanning tree configuration New filled in, so a bridge
+// address the switch assigned does not read as a change that rebuilds the
+// layer.
+func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+
+	macRoot := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
+	cfg := vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		STP: &stp.Config{
+			Priority: 32768,
+			Ports:    map[string]stp.Port{"1/1/1": {}, "1/1/2": {}},
+		},
+	}
+
+	sw := mustSwitch(t, cfg)
+	if sw.Config().STP.Address == (netaddr.MAC{}) {
+		t.Fatal("New left the bridge address zero")
+	}
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw.Start(now)
+	sw.Drain()
+
+	b := bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		BridgeID:     bpdu.BridgeID{Priority: 4096, Address: macRoot},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}
+	b.SetRole(bpdu.RoleDesignated)
+	b.SetProposal(true)
+	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+	if before := sw.Roles()["1/1/1"]; before.Role != bpdu.RoleRoot || before.State != stp.StateForwarding {
+		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
+	}
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+	if after := derived.Roles()["1/1/1"]; after.Role != bpdu.RoleRoot || after.State != stp.StateForwarding {
+		t.Errorf("1/1/1 after derive = %s/%s, want Root/Forwarding", after.Role, after.State)
+	}
+	if derived.BridgeID().Address != sw.BridgeID().Address {
+		t.Errorf("derived bridge address = %s, want %s", derived.BridgeID().Address, sw.BridgeID().Address)
+	}
+}
+
+// TestDeriveRetainsLoopProtectOverUnchangedConfig proves that Derive keeps
+// the loop-protection layer, and the action it applied, when the target
+// configuration and every protected port's link state are unchanged: an
+// ordinary frame on the blocked port is still denied after Derive.
+func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	res := derived.Forward(now, "1/1/1", data)
+	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("derived switch, ordinary frame on the blocked port = %s/%s, want %s/%s",
+			res.Outcome, res.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+}
+
+// TestDeriveRebuildsLoopProtectOnAdminStatusCycle proves that Derive rebuilds
+// the loop-protection layer, clearing any applied action, when a protected
+// port's administrative or operational state on the current switch differs
+// from the target's port table: the layer's action and recovery timer are
+// keyed to the link staying up throughout, so a state change invalidates the
+// retained runtime state rather than just the configuration.
+//
+// It changes the current switch's live operational state with SetOperStatus,
+// which mutates only s.ports and never notifies the loop-protection layer,
+// so it isolates what Derive itself does with the mismatch: the target
+// configuration (sw.Config()) still reads the port Up, so the derived port
+// is usable, and the only thing that can still block it is a retained layer.
+func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	now := fixedTime
+
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
+	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
+
+	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
+	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+
+	precondition := sw.Forward(now, "1/1/1", data)
+	if precondition.Outcome != trace.Dropped || precondition.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("precondition: current switch on 1/1/1 = %s/%s, want %s/%s",
+			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
+	}
+
+	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
+		t.Fatalf("SetOperStatus: %v", err)
+	}
+
+	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	if err != nil {
+		t.Fatalf("Derive() error = %v", err)
+	}
+
+	res := derived.Forward(now, "1/1/1", data)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("derived switch after the current switch's port state diverged from the target: 1/1/1 = %s/%s, want %s: the rebuilt layer's action should have cleared",
+			res.Outcome, res.Reason, trace.Flooded)
+	}
+}
+
+func TestDeriveSwitchRoutingUpdated(t *testing.T) {
+	cur := buildBaseRoutingSwitch(t)
+	nextCfg := cur.Config()
+
+	// Add static route to 10.0.88.0/24 via vlan20 and a neighbor for it.
+	ipNew := netip.MustParseAddr("10.0.88.7")
+	macNew := netaddr.MAC{0x00, 0x88, 0x88, 0x88, 0x88, 0x88}
+	defaultVRF := nextCfg.Routing.VRFs["default"]
+	defaultVRF.Routes = append(defaultVRF.Routes, routing.Route{
+		Prefix:    netip.MustParsePrefix("10.0.88.0/24"),
+		Interface: "vlan20",
+	})
+	defaultVRF.Neighbors = append(defaultVRF.Neighbors, routing.Neighbor{
+		Interface: "vlan20",
+		Addr:      ipNew,
+		MAC:       macNew,
+	})
+	nextCfg.Routing.VRFs["default"] = defaultVRF
+
+	nextSw, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	if err != nil {
+		t.Fatalf("Derive failed: %v", err)
+	}
+
+	pkt := makeIPv4Packet(t, ipH1, ipNew, 64, []byte("derived routing"))
+	frame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       macRouter,
+		EtherType: ethernet.EtherTypeIPv4,
+		Payload:   pkt,
+	}
+
+	res := nextSw.Forward(fixedTime, "1/1/1", frame)
+	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
+		t.Fatalf("outcome = %v, want Forwarded or Flooded", res.Outcome)
+	}
+	if res.FID != 20 {
+		t.Errorf("res.FID = %d, want 20", res.FID)
+	}
+}
+
+// TestDeriveRebuildsRoutingWhenNeighborPolicyChanges verifies that a NeighborPolicy field
+// change is not read by [routing.Diff] without its own
+// arm, and a missing arm would make Derive silently reuse the old layer.
+// This asserts the neighbor table, not the held-frame queue: derive.go
+// unconditionally discards held frames on the layer it retains, so a
+// held-queue assertion holds whether or not the layer was actually rebuilt.
+// An observed neighbor is different: it exists only on a layer that was
+// retained rather than rebuilt fresh from nextCfg. Changing ReachableTime
+// alone must rebuild, so the address the old switch had observed a reply
+// for does not resolve on the derived switch; contrast
+// [TestDeriveKeepsObservedNeighborsAndDropsHeldFrames], which changes
+// nothing and requires the opposite, a resolved forward.
+func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
+	cur := buildBaseRoutingSwitch(t)
+
+	dst := netip.MustParseAddr("10.0.20.77")
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	pkt := makeIPv4Packet(t, ipH1, dst, 64, []byte("hello"))
+	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
+	if held := cur.Forward(fixedTime, "1/1/1", frame); held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+	cur.Wake(fixedTime.Add(time.Millisecond))
+	cur.Drain()
+
+	nextCfg := cur.Config()
+	defaultVRF := nextCfg.Routing.VRFs["default"]
+	defaultVRF.NeighborPolicy.ReachableTime = 60 * time.Second
+	nextCfg.Routing.VRFs["default"] = defaultVRF
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	if err != nil {
+		t.Fatalf("Derive failed: %v", err)
+	}
+
+	res := next.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frame)
+	if res.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held: a NeighborPolicy change must rebuild the routing layer, losing the observed neighbor", res.Outcome)
+	}
+}
+
+// TestDeriveKeepsObservedNeighborsAndDropsHeldFrames covers the Decisions
+// section's retention rule: an observed neighbor survives Derive over an
+// unchanged configuration, so a later frame to it resolves without holding,
+// Derive retains the routing layer's neighbor table and hold queues when the
+// routing retention key is unchanged, and drops them when it is not.
+func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
+	cur := buildBaseRoutingSwitch(t)
+
+	dstA := netip.MustParseAddr("10.0.20.77")
+	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
+	pktA := makeIPv4Packet(t, ipH1, dstA, 64, []byte("a"))
+	frameA := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktA}
+	cur.Forward(fixedTime, "1/1/1", frameA)
+	replyA := makeARPReply(t, dstA, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
+	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", replyA)
+	cur.Wake(fixedTime.Add(time.Millisecond))
+	cur.Drain()
+
+	dstB := netip.MustParseAddr("10.0.20.88")
+	pktB := makeIPv4Packet(t, ipH1, dstB, 64, []byte("b"))
+	frameB := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktB}
+	if held := cur.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB); held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	if err != nil {
+		t.Fatalf("Derive failed: %v", err)
+	}
+	if !next.Retention().Routing.Kept {
+		t.Errorf("Routing retention = %+v, want Kept: true", next.Retention().Routing)
+	}
+
+	resA := next.Forward(fixedTime.Add(3*time.Millisecond), "1/1/1", frameA)
+	if resA.Outcome != trace.Flooded && resA.Outcome != trace.Forwarded {
+		t.Fatalf("outcome for the retained neighbor = %v, want Forwarded or Flooded", resA.Outcome)
+	}
+
+	// Held frame survived Derive: resolve it via ARP reply and Wake
+	learnedMACB := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x88}
+	replyB := makeARPReply(t, dstB, netip.MustParseAddr("10.0.20.1"), learnedMACB, macRouter)
+	next.Forward(fixedTime.Add(4*time.Millisecond), "1/1/2", replyB)
+	next.Wake(fixedTime.Add(4 * time.Millisecond))
+	if emissions := next.Drain(); len(emissions) == 0 {
+		t.Errorf("emissions = 0, want released held frame")
+	}
+	if failures := next.DrainNeighborFailures(); len(failures) != 0 {
+		t.Errorf("neighbor failures = %d, want 0", len(failures))
+	}
+}
+
+func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
+	cur := buildBaseRoutingSwitch(t)
+
+	dstB := netip.MustParseAddr("10.0.20.88")
+	pktB := makeIPv4Packet(t, ipH1, dstB, 64, []byte("b"))
+	frameB := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktB}
+	if held := cur.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB); held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+
+	// Perturb NeighborPolicy.RetransTimer to change routing retention key
+	nextCfg := cur.Config()
+	vrf := nextCfg.Routing.VRFs[routing.DefaultVRF]
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
+	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
+
+	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	if err != nil {
+		t.Fatalf("Derive failed: %v", err)
+	}
+	if next.Retention().Routing.Kept {
+		t.Errorf("Routing retention = %+v, want Kept: false", next.Retention().Routing)
+	}
+	// Held frame is reported as failed rather than silently lost
+	if failures := next.DrainNeighborFailures(); len(failures) != 1 {
+		t.Errorf("neighbor failures = %d, want 1", len(failures))
+	}
+}
