@@ -61,11 +61,12 @@ func TestLearnExpiredCompatibilityMatchesAdvance(t *testing.T) {
 					for _, l := range []*mcast.Layer{aged, unaged} {
 						if protocol == "MLD" {
 							message := mld.Message{Type: mld.ReportV2, Records: []mld.AddressRecord{{Type: mld.RecordType(kind), Group: group, Sources: sources}}}
-							if action == "leave" {
+							switch action {
+							case "leave":
 								message = mld.Message{Type: mld.Done, Group: group}
-							} else if action == "legacy" {
+							case "legacy":
 								message = mld.Message{Type: mld.ReportV1, Group: group}
-							} else if action == "group_query" || action == "source_query" || action == "suppressed_query" {
+							case "group_query", "source_query", "suppressed_query":
 								message = mld.Message{Type: mld.Query, Group: group, Suppress: action == "suppressed_query"}
 								if action == "source_query" {
 									message.Sources = sources
@@ -74,11 +75,12 @@ func TestLearnExpiredCompatibilityMatchesAdvance(t *testing.T) {
 							l.LearnMLD(now, vid, memberPort, netip.MustParseAddr("fe80::1"), message)
 						} else {
 							message := igmp.Message{Type: igmp.ReportV3, Records: []igmp.GroupRecord{{Type: kind, Group: group, Sources: sources}}}
-							if action == "leave" {
+							switch action {
+							case "leave":
 								message = igmp.Message{Type: igmp.Leave, Group: group}
-							} else if action == "legacy" {
+							case "legacy":
 								message = igmp.Message{Type: igmp.ReportV2, Group: group}
-							} else if action == "group_query" || action == "source_query" || action == "suppressed_query" {
+							case "group_query", "source_query", "suppressed_query":
 								message = igmp.Message{Type: igmp.Query, Group: group, Suppress: action == "suppressed_query"}
 								if action == "source_query" {
 									message.Sources = sources
