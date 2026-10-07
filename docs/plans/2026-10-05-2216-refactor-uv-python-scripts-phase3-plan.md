@@ -166,6 +166,15 @@ exec-form hook. The registration in U5 is then wrong.
   under `.agents/skills/tune/references/calibration/`, and
   `docs/agent-steering.md`. This plan does not change `lib/proc.py`. A hook
   sets `os.environ["PATH"]` in its own process.
+- Ruled: the `jq` check is `git grep -w jq -- tools/scripts/hooks
+  tools/scripts/lib tools/scripts/verify` printing nothing, not the wider
+  `tools/scripts` of Requirement 3's example. Why: the OTel wrapper that
+  `test_service_otel_integration.py` drives is outside this port and calls
+  `jq`, so its `WRAPPER_TOOLS` must keep the name. `support.py` drops `jq`
+  from the fake `PATH` of the hook tests once no hook needs it. Cost if
+  wrong: the Verification line and the example in Requirement 3 change back
+  to `tools/scripts`, and the wrapper test loses its `jq` entry together
+  with the wrapper's own port.
 
 ### Cases outside the shared set
 
@@ -188,8 +197,9 @@ exec-form hook. The registration in U5 is then wrong.
    prints a `deny` decision. The Codex `PreToolUse` command run with a
    `PATH` that lacks `uv` exits 2 and names `uv` on standard error. No
    requirement covers Claude Code with `uv` missing (Open questions).
-3. No hook calls `jq`. Example: `git grep -w jq -- tools/scripts` prints
-   nothing once `tools/hooks/` is gone.
+3. No hook calls `jq`. Example: `git grep -w jq -- tools/scripts/hooks
+   tools/scripts/lib tools/scripts/verify` prints nothing once `tools/hooks/`
+   is gone.
 4. The Stop gate finishes inside its timeout on an empty Go build cache.
    Example: the measured time is recorded in `docs/agent-steering.md`
    beside the command that reproduces it.
@@ -352,7 +362,8 @@ or a runtime configuration the next one edits.
 ## Verification
 
 - `uv run tools/scripts/run.py test` passes after every unit.
-- `git grep -w jq -- tools/scripts` prints nothing after U6.
+- `git grep -w jq -- tools/scripts/hooks tools/scripts/lib
+  tools/scripts/verify` prints nothing after U6.
 - After U5 and after U6, in a Claude Code session started in the work
   tree: an Edit under `generated/` is denied, and the transcript shows no
   `hook error` notice. This is the check of the stop condition.
