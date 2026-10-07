@@ -153,11 +153,11 @@ html:has(.shell) {
 
 @media (min-width: 801px) {
   .sidebar-login .sidebar {
-    width: 320px;
+    width: 420px;
   }
 
   .sidebar-login .main-shell {
-    margin-left: 320px;
+    margin-left: 420px;
   }
 
   .sidebar-collapsed .sidebar {

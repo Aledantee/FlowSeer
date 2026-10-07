@@ -105,7 +105,7 @@ const layoutDependency = frame.layoutDependency
 const route = useRoute()
 const router = useRouter()
 const fleet = ref(devices.map((device) => ({ ...device })))
-const sidebarCollapsed = ref(false)
+const sidebarCollapsed = ref(true)
 watch(
   sidebarCollapsed,
   (collapsed) => {

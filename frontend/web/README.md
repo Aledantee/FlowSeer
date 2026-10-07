@@ -107,8 +107,8 @@ by side beneath them. Links are drawn dashed and a legend marks them as assumed 
 discovered. Only nodes that are not healthy carry a status badge, so a degraded
 or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
-A curved tab midway down the sidebar edge collapses navigation to icons on
-desktop. The page panel slides toward the 64px rail, whose content changes
+The console opens with its navigation collapsed to icons. A curved tab
+midway down the sidebar edge expands and collapses it on desktop. The page panel slides toward the 64px rail, whose content changes
 in place and centers the FlowSeer mark. Expanding fades the sidebar labels
 in over the panel's 160 ms movement (`src/FleetView.vue`).
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals

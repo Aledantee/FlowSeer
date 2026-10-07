@@ -45,7 +45,7 @@ beforeEach(() => {
     function (this: HTMLElement) {
       const shell = this.closest('.shell')
       const width = shell?.classList.contains('sidebar-login')
-        ? 320
+        ? 420
         : shell?.classList.contains('sidebar-collapsed')
           ? 64
           : 204
@@ -263,10 +263,10 @@ it('morphs directly into populated console regions with a 160 ms fade', async ()
   expectFades(mounted.host, regions)
   await advanceMotion(30)
   expect(translation(mounted.host)).toBeGreaterThan(0)
-  expect(translation(mounted.host)).toBeLessThan(116)
+  expect(translation(mounted.host)).toBeLessThan(356)
   await advanceMotion(120)
   expect(translation(mounted.host)).toBeGreaterThan(0)
-  expect(translation(mounted.host)).toBeLessThan(116)
+  expect(translation(mounted.host)).toBeLessThan(356)
   await advanceMotion(200)
   expect(
     mounted.host.querySelector<HTMLElement>('#frame-page')?.style.transform,
@@ -322,7 +322,7 @@ it('reverses the morph on logout and fades the form in the same sidebar', async 
   expect(mounted.arrived()).toEqual(['sidebar', 'page'])
   expectFades(mounted.host, ['sidebar', 'page'])
   await advanceMotion(30)
-  expect(translation(mounted.host)).toBeGreaterThan(-116)
+  expect(translation(mounted.host)).toBeGreaterThan(-356)
   expect(translation(mounted.host)).toBeLessThan(0)
   await advanceMotion(200)
   expect(
@@ -375,10 +375,11 @@ it('preserves the account control and its theme without transforming its ancesto
     expect(translation(mounted.host)).toBeGreaterThan(0)
     expect(document.documentElement.dataset.theme).toBe(chosen)
     await advanceMotion(200)
+    // The console opens collapsed, so the toggle expands the sidebar.
     mounted.host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
     await nextTick()
     await advanceMotion(30)
-    expect(translation(mounted.host)).toBeGreaterThan(0)
+    expect(translation(mounted.host)).toBeLessThan(0)
     await advanceMotion(200)
     signOut()
     await mounted.router.push('/login')

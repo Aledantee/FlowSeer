@@ -147,7 +147,7 @@ describe('FleetView shell in German', () => {
     expect(document.title).toBe('Dashboard · FlowSeer')
     expect(
       host.querySelector('.sidebar-toggle')?.getAttribute('aria-label'),
-    ).toBe('Seitenleiste ausblenden')
+    ).toBe('Seitenleiste einblenden')
     expect(
       host.querySelector('.product-brand')?.getAttribute('translate'),
     ).toBe('no')
@@ -413,7 +413,7 @@ describe('FleetView shell in German', () => {
     expect(document.title).toBe('Sites · FlowSeer')
     expect(
       host.querySelector('.sidebar-toggle')?.getAttribute('aria-label'),
-    ).toBe('Collapse sidebar')
+    ).toBe('Expand sidebar')
     expect(host.querySelector('.nav-label')?.textContent?.trim()).toBe(
       'WORKSPACE',
     )

@@ -411,6 +411,10 @@ describe('FleetView motion layout', () => {
     const icons = nav.querySelectorAll<SVGElement>('a > svg')
     expect(labels).toHaveLength(8)
     expect(icons).toHaveLength(5)
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav, ...labels)
 
     toggle.click()
     await nextTick()
@@ -494,6 +498,10 @@ describe('FleetView motion layout', () => {
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     const nav = host.querySelector<HTMLElement>('nav')
     if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav)
     nav.style.opacity = '0.37'
 
     toggle.click()

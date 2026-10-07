@@ -284,9 +284,7 @@ describe('FleetView motion layout', () => {
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     expect(toggle?.classList).toContain('sidebar-toggle')
 
-    toggle?.click()
-    await settle()
-
+    // The sidebar starts collapsed.
     expect(host.querySelector('.shell')?.classList).toContain(
       'sidebar-collapsed',
     )
