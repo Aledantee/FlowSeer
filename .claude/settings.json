@@ -30,7 +30,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "worktree-guard"]
           }
         ]
       }
@@ -40,7 +41,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/create-worktree.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "create-worktree"]
           }
         ]
       }
@@ -51,7 +53,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "worktree-guard"]
           },
           {
             "type": "command",
@@ -65,7 +68,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/tools/hooks/worktree-guard.sh\""
+            "command": "uv",
+            "args": ["run", "${CLAUDE_PROJECT_DIR}/tools/scripts/run.py", "hooks", "worktree-guard"]
           },
           {
             "type": "command",

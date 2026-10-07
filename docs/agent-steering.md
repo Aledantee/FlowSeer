@@ -72,9 +72,12 @@ judges the operands of a mutating verb rather than any command that names
 exist yet, and the message-sync note stays silent about members the
 file-level comment names. A guard that fires more often on legitimate work
 than on the mistake it was written for gets narrowed, not explained. A
-Codex hook command that cannot reach its script says which of the root,
-`git`, or the script is missing and exits 1, since a bare exit 127 names
-none of them.
+Codex hook command that cannot start says which of the root, `git`, or `uv`
+is missing, since a bare exit 127 names none of them. It exits 2 for
+`PreToolUse`, which Codex reads as a block with that reason, and 1 for every
+other event, since exit 2 at `Stop` would keep the session from stopping
+(`codex-rs/hooks/src/events/pre_tool_use.rs:261` to `:284`, at tag
+`rust-v0.160.0` of https://github.com/openai/codex).
 
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.

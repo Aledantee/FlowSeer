@@ -101,7 +101,7 @@ class PlanQueueTest(unittest.TestCase):
         return [row["path"] for row in json.loads(out.stdout)]
 
     def test_harness_plan_comes_first_in_its_group(self):
-        self.write(FIRST, "# First - Plan\n\n### U1. Skill\nFiles: `.agents/skills/next/SKILL.md`,\n`tools/hooks/guard.sh` (new), docs/README.md, uv.toml\nAfter: none\n")
+        self.write(FIRST, "# First - Plan\n\n### U1. Skill\nFiles: `.agents/skills/next/SKILL.md`,\n`tools/scripts/hooks/guard.py` (new), docs/README.md, uv.toml\nAfter: none\n")
         self.record("init", FIRST)
         self.write(PLAIN, "# Plain - Plan\n\n### U1. Code\nFiles: src/common/errs/errs.go\nAfter: none\n")
         rows = self.rows()

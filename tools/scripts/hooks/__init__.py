@@ -1,5 +1,6 @@
 COMMANDS = {
     "commit-message-check": "commit_message_check",
+    "create-worktree": "create_worktree",
     "go-format": "go_format",
     "mark-verification-dirty": "mark_verification_dirty",
     "pre-tool-policy": "pre_tool_policy",
@@ -8,4 +9,5 @@ COMMANDS = {
     "stop-check": "stop_check",
     "suppression-warn": "suppression_warn",
     "tree-state": "tree_state",
+    "worktree-guard": "worktree_guard",
 }

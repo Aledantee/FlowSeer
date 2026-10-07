@@ -317,7 +317,7 @@ else
       *.md)
         [[ -f $path ]] && markdown_files+=("$path")
         case "$path" in
-          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/hooks/*|tools/scripts/*) hook_tooling=true ;;
+          .agents/*|.claude/*|.codex/*|CLAUDE.md|AGENTS.md|docs/agent-knowledge.md|tools/scripts/*) hook_tooling=true ;;
         esac
         ;;
       *.go)
@@ -356,7 +356,7 @@ else
           fi
         fi
         ;;
-      .agents/*|.claude/*|.codex/*|tools/hooks/*|tools/test/*|tools/scripts/*|uv.toml)
+      .agents/*|.claude/*|.codex/*|tools/test/*|tools/scripts/*|uv.toml)
         hook_tooling=true
         ;;
     esac
@@ -960,7 +960,7 @@ if [[ $hook_tooling == true ]]; then
   run jq empty .codex/hooks.json
   # Glob every skill's scripts so a shell script added to any skill is
   # linted without editing this line.
-  hook_scripts=(tools/hooks/*.sh tools/test/*.sh .claude/skills/*/scripts/*.sh)
+  hook_scripts=(tools/test/*.sh .claude/skills/*/scripts/*.sh)
   run shellcheck "${hook_scripts[@]}"
   # The repository scripts: run their suites, the hook suite among them. The
   # suite compiles every module (test_compile.py), so a module no test imports

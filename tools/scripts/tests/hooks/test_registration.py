@@ -1,12 +1,21 @@
 import json
-import os
 import re
 import shutil
 import unittest
 from pathlib import Path
 
 import run
-from tests.hooks.support import BASH, HOOK_GROUP, HOOKS_DIR, REPO, HookCase, decision_of, registered, run_command
+from tests.hooks.support import (
+    BASH,
+    HOOK_GROUP,
+    REPO,
+    RUN_PY,
+    HookCase,
+    decision_of,
+    implementations,
+    registered,
+    run_command,
+)
 
 CLAUDE_CONFIG = REPO / ".claude" / "settings.json"
 CODEX_CONFIG = REPO / ".codex" / "hooks.json"
@@ -38,40 +47,26 @@ CODEX_MAP = {
     ("Stop", None): ["stop-check"],
 }
 
-# The two hooks that keep their shell scripts. Every other hook is a command of the `hooks` group.
-SHELL_HOOKS = {"worktree-guard", "create-worktree"}
-
-
 def claude_hook(name: str) -> dict:
-    if name in SHELL_HOOKS:
-        return {"type": "command", "command": f'"$CLAUDE_PROJECT_DIR/tools/hooks/{name}.sh"'}
     return {"type": "command", "command": "uv", "args": ["run", f"{PROJECT_DIR}/tools/scripts/run.py", "hooks", name]}
 
 
 # Codex has no project-directory variable, so its commands ask git for the
 # root, and each names what it could not find: a bare
-# "$(git rev-parse --show-toplevel)/tools/hooks/x.sh" runs /tools/hooks/x.sh
+# "$(git rev-parse --show-toplevel)/tools/scripts/run.py" runs /tools/scripts/run.py
 # when git prints nothing and exits 127 without a reason.
 def codex_hook(name: str, event: str) -> dict:
-    if name in SHELL_HOOKS:
-        command = (
-            f"root=$(git rev-parse --show-toplevel 2>/dev/null); hook=$root/tools/hooks/{name}.sh; "
-            f'[ -n "$root" ] && [ -x "$hook" ] || {{ echo "FlowSeer hook {name}.sh cannot run from $PWD: '
-            f'repository root ${{root:-unresolved}}, git $(command -v git || echo not on PATH)" >&2; exit 1; }}; '
-            'exec "$hook"'
-        )
-    else:
-        # Codex blocks a tool call on exit 2 with a reason, and reports any other
-        # code as a failed hook that does not block. Exit 2 on Stop would keep the
-        # session from stopping, so only PreToolUse takes it.
-        refusal = 2 if event == "PreToolUse" else 1
-        command = (
-            "root=$(git rev-parse --show-toplevel 2>/dev/null); "
-            '[ -n "$root" ] && [ -f "$root/tools/scripts/run.py" ] && command -v uv >/dev/null 2>&1 || '
-            f'{{ echo "FlowSeer hook {name} cannot run from $PWD: repository root ${{root:-unresolved}}, '
-            f'git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)" >&2; exit {refusal}; }}; '
-            f'exec uv run "$root/tools/scripts/run.py" hooks {name}'
-        )
+    # Codex blocks a tool call on exit 2 with a reason, and reports any other
+    # code as a failed hook that does not block. Exit 2 on Stop would keep the
+    # session from stopping, so only PreToolUse takes it.
+    refusal = 2 if event == "PreToolUse" else 1
+    command = (
+        "root=$(git rev-parse --show-toplevel 2>/dev/null); "
+        '[ -n "$root" ] && [ -f "$root/tools/scripts/run.py" ] && command -v uv >/dev/null 2>&1 || '
+        f'{{ echo "FlowSeer hook {name} cannot run from $PWD: repository root ${{root:-unresolved}}, '
+        f'git $(command -v git || echo not on PATH), uv $(command -v uv || echo not on PATH)" >&2; exit {refusal}; }}; '
+        f'exec uv run "$root/tools/scripts/run.py" hooks {name}'
+    )
     return {"type": "command", "command": command}
 
 
@@ -96,7 +91,7 @@ def name_of(hook: dict) -> str:
     if "args" in hook:
         return hook["args"][-1]
     command = hook["command"]
-    found = re.search(r" hooks (\S+)$", command) or re.search(r"tools/hooks/([a-z-]+)\.sh", command)
+    found = re.search(r" hooks (\S+)$", command)
     assert found, f"no hook name in {command}"
     return found.group(1)
 
@@ -118,9 +113,7 @@ def claude_argv(hook: dict, project: Path) -> list[str]:
 
     Only the substitution is done here. Claude Code's own is not covered.
     """
-    if "args" in hook:
-        return [shutil.which(hook["command"]) or hook["command"], *(a.replace(PROJECT_DIR, str(project)) for a in hook["args"])]
-    return [BASH, "-c", hook["command"]]
+    return [shutil.which(hook["command"]) or hook["command"], *(a.replace(PROJECT_DIR, str(project)) for a in hook["args"])]
 
 
 class RegistrationTest(HookCase):
@@ -143,11 +136,6 @@ class RegistrationTest(HookCase):
                     )
         names = {name for found in (*CLAUDE_MAP.values(), *CODEX_MAP.values()) for name in found}
         self.assertEqual(len(names), 10)
-        for name in sorted(names & SHELL_HOOKS):
-            with self.subTest(script=name):
-                script = HOOKS_DIR / f"{name}.sh"
-                self.assertTrue(script.is_file(), f"{script} is missing")
-                self.assertTrue(os.access(script, os.X_OK), f"configured hook is not executable: {script}")
 
     def test_every_registered_hook_name_is_a_command_of_the_hooks_group(self):
         """every registered hook name is a command of the hooks group"""
@@ -156,21 +144,29 @@ class RegistrationTest(HookCase):
         for runtime, config in (("claude", load(CLAUDE_CONFIG)), ("codex", load(CODEX_CONFIG))):
             for event, hook in entries_of(config):
                 name = name_of(hook)
-                if name in SHELL_HOOKS:
-                    continue
                 with self.subTest(runtime=runtime, event=event, hook=name):
                     self.assertIn(name, commands, f"{name} is not registered in {HOOK_GROUP}")
                     self.assertTrue((HOOK_GROUP.parent / f"{commands[name]}.py").is_file())
 
+    def test_a_hook_the_group_does_not_register_has_no_implementation(self):
+        """a hook name the hooks group does not register fails instead of returning no command"""
+        for name in sorted(registered()):
+            with self.subTest(hook=name):
+                (command,) = implementations(name)
+                self.assertEqual(command[1:], ["run", str(RUN_PY), "hooks", name])
+        with self.assertRaises(AssertionError):
+            implementations("no-such-hook")
+
     def test_claude_hooks_start_in_exec_form(self):
-        """a Claude Code hook starts uv with the project directory placeholder in its arguments"""
+        """every Claude Code hook starts uv with the project directory placeholder in its arguments"""
+        names = set()
         for event, hook in entries_of(load(CLAUDE_CONFIG)):
             name = name_of(hook)
-            if name in SHELL_HOOKS:
-                continue
+            names.add(name)
             with self.subTest(event=event, hook=name):
                 self.assertEqual(hook["command"], "uv")
                 self.assertEqual(hook["args"], ["run", f"{PROJECT_DIR}/tools/scripts/run.py", "hooks", name])
+        self.assertEqual(len(names), 10)
 
     def test_the_stop_gate_carries_the_timeout_both_runtimes_wait_for(self):
         """both runtimes give the Stop gate the same timeout, and no other hook has one"""
@@ -242,8 +238,6 @@ class RegistrationTest(HookCase):
         env = self.env_with(GIT_CEILING_DIRECTORIES=str(self.parent))
         for event, hook in entries_of(load(CODEX_CONFIG)):
             name = name_of(hook)
-            if name in SHELL_HOOKS:
-                continue
             with self.subTest(event=event, hook=name):
                 result = run_command([BASH, "-c", hook["command"]], "{}", cwd=outside, env=env)
                 self.assertEqual(result.code, 2 if event == "PreToolUse" else 1, result.stderr)
@@ -263,6 +257,20 @@ class RegistrationTest(HookCase):
         self.assertEqual(result.code, 0, result.stderr)
         self.assertEqual(decision_of(result), "deny")
 
+    def test_configured_worktree_guard_denies_a_write_in_the_primary_checkout(self):
+        """configured worktree guard denies a write in the primary checkout"""
+        payload = self.guard("Write", file_path=str(self.fixture / "README.md"))
+        claude = configured(load(CLAUDE_CONFIG), "PreToolUse", EDIT_CLAUDE, "worktree-guard")
+        result = run_command(
+            claude_argv(claude, REPO), payload, cwd=self.parent, env=self.env_with(CLAUDE_PROJECT_DIR=str(REPO))
+        )
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual(decision_of(result), "deny")
+        codex = configured(load(CODEX_CONFIG), "PreToolUse", EDIT_CODEX, "worktree-guard")
+        result = run_command([BASH, "-c", codex["command"]], payload, cwd=REPO, env=self.env)
+        self.assertEqual(result.code, 0, result.stderr)
+        self.assertEqual(decision_of(result), "deny")
+
     def test_configured_worktree_create_handles_project_and_repository_paths_with_spaces(self):
         """configured WorktreeCreate handles project and repository paths with spaces"""
         project = self.parent / "project root with spaces"
@@ -271,7 +279,7 @@ class RegistrationTest(HookCase):
         (hook,) = hooks_of(load(CLAUDE_CONFIG), "WorktreeCreate", None)
         payload = {"cwd": str(self.fixture), "hook_event_name": "WorktreeCreate", "name": "external-checkout"}
         env = self.env_with(FLOWSEER_WORKTREE_ROOT=str(root), CLAUDE_PROJECT_DIR=str(project))
-        result = run_command([BASH, "-c", hook["command"]], payload, cwd=self.parent, env=env)
+        result = run_command(claude_argv(hook, project), payload, cwd=self.parent, env=env)
         created = root / "external-checkout"
         self.assertEqual((result.code, result.stdout), (0, f"{created}\n"), result.stderr)
         self.assertEqual(self.git(created, "rev-parse", "--is-inside-work-tree"), "true")

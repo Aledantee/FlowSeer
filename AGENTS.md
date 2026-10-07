@@ -46,12 +46,12 @@ Binding on humans and agents equally; each doc states its own scope.
   files. Enforce schema rules through `go tool -modfile=tools/buf/go.mod buf lint`, not executable tests.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
-- `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `tools/hooks/`,
-  `test/conformance/a11y/`, `.claude/settings.json`, `.codex/hooks.json`, the
-  verifier's script (`.agents/skills/verify-change/scripts/`),
-  `tools/scripts/run.py`, `tools/scripts/lib/`, `tools/scripts/verify/`,
-  `tools/scripts/hooks/`, and merge-gate configuration are policy surfaces;
-  changes require explicit guardrail review.
+- `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `test/conformance/a11y/`,
+  `.claude/settings.json`, `.codex/hooks.json`, the verifier's script
+  (`.agents/skills/verify-change/scripts/`), `tools/scripts/run.py`,
+  `tools/scripts/lib/`, `tools/scripts/verify/`, `tools/scripts/hooks/`, and
+  merge-gate configuration are policy surfaces; changes require explicit
+  guardrail review.
 
 ## Isolation
 
@@ -147,7 +147,7 @@ fetches from it or pushes to it: work lands on local `main`. The Claude worktree
 
 ## Enforced rules
 
-Hooks in `tools/hooks/` (registered per runtime in `.claude/settings.json` and
+Hooks in `tools/scripts/hooks/` (registered per runtime in `.claude/settings.json` and
 `.codex/hooks.json`) deny hand-edits to `generated/` and `buf.lock`, reject
 non-source files under `spec/proto/`, deny file writes in the primary checkout
 on a protected branch, prompt for approval before an edit to a policy surface,
