@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -833,8 +834,8 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 							},
 						},
 						NeighborPolicy: routing.NeighborPolicy{
-							ResolutionTimeout: 3 * time.Second,
-							HoldDepth:         3,
+							RetransTimer: 3 * time.Second,
+							HoldDepth:    3,
 						},
 					},
 				},
@@ -867,10 +868,10 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				wantMatch: "port-state",
 			},
 			{
-				name: "resolution timeout",
+				name: "retransmission timer",
 				mutate: func(c *Config) {
 					v := c.Routing.VRFs[routing.DefaultVRF]
-					v.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+					v.NeighborPolicy.RetransTimer = 10 * time.Second
 					c.Routing.VRFs[routing.DefaultVRF] = v
 				},
 				wantMatch: "config",
@@ -907,13 +908,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				t.Fatalf("New: %v", err)
 			}
 			sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
-			sw.routing.Observe(fixedTime, routing.Advertisement{
-				Interface: "eth1",
-				Addr:      dst,
-				MAC:       learnedMAC,
-				HasMAC:    true,
-				Solicited: true,
-			})
+			receiveRoutingReply(t, sw.routing, fixedTime, "eth1", dst, learnedMAC)
 			if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
 				t.Fatalf("planted routing neighbor mismatch: %+v", n)
 			}
@@ -1211,8 +1206,8 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 						},
 					},
 					NeighborPolicy: routing.NeighborPolicy{
-						ResolutionTimeout: 3 * time.Second,
-						HoldDepth:         3,
+						RetransTimer: 3 * time.Second,
+						HoldDepth:    3,
 					},
 				},
 			},
@@ -1227,13 +1222,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 	dstA := netip.MustParseAddr("10.0.10.50")
 	macA := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
 	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstA, 17, []byte("packet-a"), true)
-	cur.routing.Observe(fixedTime, routing.Advertisement{
-		Interface: "eth1",
-		Addr:      dstA,
-		MAC:       macA,
-		HasMAC:    true,
-		Solicited: true,
-	})
+	receiveRoutingReply(t, cur.routing, fixedTime, "eth1", dstA, macA)
 
 	dstB := netip.MustParseAddr("10.0.10.60")
 	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstB, 17, []byte("packet-b"), true)
@@ -1248,7 +1237,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 
 	changedSpec := base.Clone()
 	vrf := changedSpec.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	changedSpec.Routing.VRFs[routing.DefaultVRF] = vrf
 
 	derived, err := Derive(cur, ConstructionSpec{Config: changedSpec})
@@ -1299,8 +1288,8 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 						},
 					},
 					NeighborPolicy: routing.NeighborPolicy{
-						ResolutionTimeout: 3 * time.Second,
-						HoldDepth:         3,
+						RetransTimer: 3 * time.Second,
+						HoldDepth:    3,
 					},
 				},
 			},
@@ -1316,13 +1305,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		dst := netip.MustParseAddr("10.0.10.50")
 		learnedMAC := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
 		sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
-		sw.routing.Observe(fixedTime, routing.Advertisement{
-			Interface: "eth1",
-			Addr:      dst,
-			MAC:       learnedMAC,
-			HasMAC:    true,
-			Solicited: true,
-		})
+		receiveRoutingReply(t, sw.routing, fixedTime, "eth1", dst, learnedMAC)
 		if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
 			t.Fatalf("planted routing neighbor mismatch: %+v", n)
 		}
@@ -1356,11 +1339,11 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		}
 	})
 
-	t.Run("changing ResolutionTimeout rebuilds and held frame is reported failed", func(t *testing.T) {
+	t.Run("changing RetransTimer rebuilds and held frame is reported failed", func(t *testing.T) {
 		cur := plantState()
 		tgt := base.Clone()
 		vrf := tgt.Routing.VRFs[routing.DefaultVRF]
-		vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+		vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 		tgt.Routing.VRFs[routing.DefaultVRF] = vrf
 
 		derived, err := Derive(cur, ConstructionSpec{Config: tgt})
@@ -1383,4 +1366,42 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 			t.Errorf("neighbor failure reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
 		}
 	})
+}
+
+func TestDeriveRoutingRebuildsAcrossNodeIdentities(t *testing.T) {
+	ports, err := port.NewBuilder().Add(port.Port{Name: "eth1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{Ports: ports, Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+		Interfaces: map[string]routing.Interface{"eth1": {Port: "eth1", Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.1.1/24")}}},
+	}}}}
+	cur, err := NewWithSpec(ConstructionSpec{Config: cfg, NodeID: "before"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := Derive(cur, ConstructionSpec{Config: cfg, NodeID: "after"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention().Routing; got.Kept || got.Difference != "config" {
+		t.Fatalf("routing retention = %+v, want rebuild for config", got)
+	}
+}
+
+func receiveRoutingReply(t *testing.T, l *routing.Layer, now time.Time, name string, addr netip.Addr, mac netaddr.MAC) {
+	t.Helper()
+	iface, ok := l.Interface(name)
+	if !ok {
+		t.Fatalf("missing interface %q", name)
+	}
+	frame, err := arp.Encode(arp.Message{
+		HardwareType: 1, ProtocolType: 0x0800,
+		Operation: arp.Reply, SenderAddr: addr, SenderMAC: mac,
+		TargetAddr: iface.Prefixes[0].Addr(), TargetMAC: iface.MAC,
+	}, iface.MAC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l.Receive(now, name, frame)
 }

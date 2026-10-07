@@ -19,6 +19,9 @@ table, base MAC address, and resolved port speeds. Each field is optional.
 
 `Emission` pairs an egress port name, a VLAN ID, and an Ethernet frame.
 
+Routing uses a port alone for untagged transmission, a port with a VID for
+tagged transmission, and a VID alone for relay into that bridge VLAN.
+
 A zero VID retains layer-specific egress semantics:
 - Spanning tree protocol (`stp`) emissions with VID 0 leave untagged without a
   VLAN membership check.

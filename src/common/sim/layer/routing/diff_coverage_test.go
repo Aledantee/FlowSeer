@@ -45,10 +45,10 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 					// NeighborDisabled, not the zero-value NeighborObserved default:
 					// perturbing to "" must read as a real change, not normalize back
 					// to the seed's own value.
-					Mode:              routing.NeighborDisabled,
-					ReachableTime:     30 * time.Second,
-					ResolutionTimeout: 3 * time.Second,
-					HoldDepth:         4,
+					Mode:          routing.NeighborDisabled,
+					ReachableTime: 30 * time.Second,
+					RetransTimer:  3 * time.Second,
+					HoldDepth:     4,
 				},
 			},
 		},

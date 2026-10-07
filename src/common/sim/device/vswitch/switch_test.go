@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
 	"net/netip"
@@ -3893,29 +3894,10 @@ func TestNeighborDisabledMisses(t *testing.T) {
 	}
 }
 
-// TestNeighborDisabledDoesNotObserve exercises neighborObservationAllowed's
-// gate over a NeighborDisabled VRF, but does not pin it: the VRF here holds
-// only the statically configured binding for ipH2, and
-// [routing.Layer.Observe] already refuses to overwrite a configured binding
-// regardless of mode (see the origin guard in routing/neighbor.go), so the
-// static MAC survives this test whether or not the switch-side mode gate
-// exists. Stubbing neighborObservationAllowed to always return true still
-// leaves this test passing.
-//
-// The gate still stands for what the origin guard does not cover: an
-// observed (non-configured) entry on a VRF whose mode is NeighborDisabled.
-// That state is not constructible through any exported path today. An
-// entry gets origin "observed" only by resolving through
-// [routing.vrfState.resolveNeighbor], which creates one only under
-// [routing.NeighborObserved]; the only way to reach NeighborDisabled from
-// NeighborObserved is a config change through [Derive], and any diff in
-// [routing.Config] — a NeighborPolicy.Mode change included — rebuilds the
-// routing layer from scratch (see derive.go's routing.Diff check), which
-// seeds only configured neighbors, discarding whatever was observed under
-// the old mode. So there is no sequence of exported calls that leaves a
-// NeighborDisabled VRF holding an observed entry for the gate to protect
-// against here; TestDeriveRebuildsRoutingWhenNeighborPolicyChanges pins the
-// rebuild-on-policy-change half of that argument directly.
+// TestNeighborDisabledDoesNotObserve checks that receipt preserves the
+// configured binding. TestReceiveAnswerUsesOptionThenCacheAndDisabledNeverLearns
+// in routing/receive_test.go pins the disabled policy's refusal to learn a
+// solicitation's source when no configured binding exists.
 func TestNeighborDisabledDoesNotObserve(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -5555,10 +5537,10 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	// Perturb NeighborPolicy.ResolutionTimeout to change routing retention key
+	// Perturb NeighborPolicy.RetransTimer to change routing retention key
 	nextCfg := cur.Config()
 	vrf := nextCfg.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
 
 	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
@@ -7068,8 +7050,12 @@ func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.
 	pkt := makeIPv4Packet(t, ipH1, dst, 64, []byte("hold"))
 	held := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
 	t1 := t0.Add(11 * time.Second)
-	if res := sw.Forward(t1, "1/1/1", held); res.Outcome != trace.Held {
+	res := sw.Forward(t1, "1/1/1", held)
+	if res.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held", res.Outcome)
+	}
+	if hasIssueCode(res.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
+		t.Fatalf("held result charged for solicitation LAG selection: %+v", res.Metadata.Issues())
 	}
 
 	// The observing frame is an ARP reply arriving on a plain access port,
@@ -7081,7 +7067,7 @@ func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.
 		t.Errorf("observing ARP reply's own result issues = %+v, want no lag-rebalance-unmodeled: it never traversed lag1", observing.Metadata.Issues())
 	}
 
-	emissions := sw.Drain()
+	emissions := dataAfterSolicitations(t, sw.Drain(), 2)
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: the held frame must have released over lag1", len(emissions))
 	}
@@ -9038,7 +9024,7 @@ func TestARPObservationReleasesHeldFrameOnRoutedPort(t *testing.T) {
 	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
 
 	sw.Wake(fixedTime.Add(time.Second))
-	emissions := sw.Drain()
+	emissions := dataAfterSolicitations(t, sw.Drain(), 1)
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: %+v", len(emissions), emissions)
 	}
@@ -9151,7 +9137,11 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 			sw.Forward(fixedTime.Add(time.Second), "eth1", subInterfaceARPReply(t, tc.tags))
 			sw.Wake(fixedTime.Add(time.Second))
 
-			if emissions := sw.Drain(); len(emissions) != 0 {
+			requests := 2
+			if tc.down {
+				requests = 1
+			}
+			if emissions := dataAfterSolicitations(t, sw.Drain(), requests); len(emissions) != 0 {
 				t.Errorf("emissions = %+v, want none: the reply answered a neighbor it does not name", emissions)
 			}
 			if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
@@ -9179,7 +9169,7 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 		sw.Forward(fixedTime.Add(time.Second), "eth3", reply)
 		sw.Wake(fixedTime.Add(time.Second))
 
-		emissions := sw.Drain()
+		emissions := dataAfterSolicitations(t, sw.Drain(), 1)
 		if len(emissions) != 1 || emissions[0].Port != "eth3" {
 			t.Fatalf("emissions = %+v, want one on eth3", emissions)
 		}
@@ -9226,7 +9216,7 @@ func TestHeldFrameOnSubInterfaceTimesOutAgainstParentPort(t *testing.T) {
 	sw := buildSubInterfaceSwitch(t)
 	holdOnSubInterface(t, sw)
 
-	sw.Wake(fixedTime.Add(3 * time.Second))
+	assertSolicitationSchedule(t, sw, fixedTime, true)
 	if emissions := sw.Drain(); len(emissions) != 0 {
 		t.Errorf("emissions at timeout = %+v, want none", emissions)
 	}
@@ -9312,7 +9302,7 @@ func TestARPObservationReleasesHeldFrameOnVLANInterface(t *testing.T) {
 	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
 
 	sw.Wake(fixedTime.Add(time.Second))
-	emissions := sw.Drain()
+	emissions := dataAfterSolicitations(t, sw.Drain(), 1)
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: %+v", len(emissions), emissions)
 	}
@@ -9383,7 +9373,7 @@ func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
 	sw.Forward(fixedTime.Add(time.Second), "1/1/2", reply)
 
 	sw.Wake(fixedTime.Add(time.Second))
-	emissions := sw.Drain()
+	emissions := dataAfterSolicitations(t, sw.Drain(), 1)
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: %+v", len(emissions), emissions)
 	}
@@ -9441,11 +9431,9 @@ func TestARPReplyUnderPeekLeavesTableUntouched(t *testing.T) {
 	}
 }
 
-// TestHeldFrameTimesOutToFailedWithDropStep covers R21b's failure half: with
-// no reply, Wake at the resolution deadline produces no emission, moves the
-// entry to Failed, and reports the held frame as a drop step rather than
-// discarding it silently.
-func TestHeldFrameTimesOutToFailedWithDropStep(t *testing.T) {
+// TestHeldFrameTimesOutWithDropStep checks each request and the final drop
+// when resolution gets no reply.
+func TestHeldFrameTimesOutWithDropStep(t *testing.T) {
 	sw := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.88")
@@ -9457,7 +9445,7 @@ func TestHeldFrameTimesOutToFailedWithDropStep(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	sw.Wake(fixedTime.Add(3 * time.Second))
+	assertSolicitationSchedule(t, sw, fixedTime, true)
 	if emissions := sw.Drain(); len(emissions) != 0 {
 		t.Errorf("emissions at timeout = %d, want 0: %+v", len(emissions), emissions)
 	}
@@ -9474,12 +9462,19 @@ func TestHeldFrameTimesOutToFailedWithDropStep(t *testing.T) {
 	if failures[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborMiss) {
 		t.Errorf("rule = %v, want %v", failures[0].Step.RuleID, routing.ReasonNeighborMiss)
 	}
+	if got := failures[0].Step.Subject; got != (trace.Subject{Kind: "interface", Key: "vlan20"}) {
+		t.Errorf("drop subject = %+v, want interface vlan20", got)
+	}
+	outputs := failures[0].Step.Outputs
+	if len(outputs) != 1 || outputs[0].TypeID() != "routing.egress_decision" ||
+		outputs[0].Canonical() != `interface="vlan20";port="";member="";reason="neighbor-miss"` {
+		t.Errorf("drop outputs = %+v, want egress decision naming vlan20 and neighbor-miss", outputs)
+	}
 }
 
 // TestNDPInvalidHopLimitDoesNotObserve covers a Neighbor Advertisement whose
-// hop limit is not 255: the codec refuses to decode it, so the guard never
-// calls Observe and the held frame still times out exactly as if nothing had
-// arrived.
+// hop limit is not 255: routing.Layer.Receive ignores the frame, so the held
+// frame still times out on schedule.
 func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
@@ -9497,12 +9492,73 @@ func TestNDPInvalidHopLimitDoesNotObserve(t *testing.T) {
 		ndp.Message{Type: ndp.NeighborAdvertisement, Target: dst, Solicited: true, Override: true, LinkLayerAddr: learnedMAC, HasLinkLayerAddr: true})
 	sw.Forward(fixedTime.Add(500*time.Millisecond), "1/1/2", na)
 
-	sw.Wake(fixedTime.Add(3 * time.Second))
+	assertSolicitationSchedule(t, sw, fixedTime, true)
 	if emissions := sw.Drain(); len(emissions) != 0 {
 		t.Errorf("emissions = %d, want 0: the hop-limit-254 advertisement must not have resolved the entry", len(emissions))
 	}
 	if failures := sw.DrainNeighborFailures(); len(failures) != 1 {
 		t.Fatalf("neighbor failures = %d, want 1", len(failures))
+	}
+}
+
+func TestRoutingSolicitationDoesNotChargeMulticastQueryToHeldFrame(t *testing.T) {
+	sw := buildIPv6MulticastRoutingSwitch(t)
+	group := netip.MustParseAddr("ff02::1:ff00:77")
+	groupMAC := netaddr.MAC{0x33, 0x33, 0xff, 0, 0, 0x77}
+	peer := netip.MustParseAddr("fe80::2")
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, netip.MustParseAddr("ff02::1"), mcastRouterMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
+		mld.Message{Type: mld.Query, Version: mld.V1}))
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, group, macH1, groupMAC, 1, true,
+		mld.Message{Type: mld.ReportV1, Group: group}))
+	sw.Forward(fixedTime, "1/1/2", makeMLDControlFrame(t,
+		peer, netip.MustParseAddr("ff02::2"), macH1, netaddr.MAC{0x33, 0x33, 0, 0, 0, 2}, 1, true,
+		mld.Message{Type: mld.Done, Group: group}))
+	now := fixedTime.Add(3 * time.Second)
+	probe := sw.Peek(now, "1/1/2", ethernet.Frame{
+		Src: macH1, Dst: groupMAC, EtherType: ethernet.EtherTypeIPv6,
+		Payload: makeIPv6Packet(t, peer, group, 64, []byte("multicast")),
+	})
+	if !hasIssueCode(probe.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Fatalf("multicast probe issues = %+v, want mcast-query-unobserved", probe.Metadata.Issues())
+	}
+	sw.Drain()
+	dst := netip.MustParseAddr("2001:db8:20::77")
+	held := sw.Forward(now, "1/1/1", ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv6,
+		Payload: makeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), dst, 64, []byte("hold")),
+	})
+	if held.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", held.Outcome)
+	}
+	if hasIssueCode(held.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Errorf("held frame issues = %+v, want no mcast-query-unobserved", held.Metadata.Issues())
+	}
+	emissions := sw.Drain()
+	if len(emissions) != 1 || emissions[0].Port != "1/1/2" || !emissions[0].Protocol {
+		t.Fatalf("solicitation emissions = %+v, want one protocol frame on 1/1/2", emissions)
+	}
+	solicitationPayload := emissions[0].Frame.Payload
+	hdr, payload, err := ip.Decode(solicitationPayload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	msg, err := ndp.Decode(hdr, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hdr.Dst != group || msg.Type != ndp.NeighborSolicitation || msg.Target != dst {
+		t.Errorf("emitted destination/message = %s/%+v, want %s solicitation for %s", hdr.Dst, msg, group, dst)
+	}
+	observing := sw.Forward(now.Add(time.Second), "1/1/2", makeARPReply(t,
+		netip.MustParseAddr("10.0.20.2"), netip.MustParseAddr("10.0.20.1"), macH1, macRouter))
+	if hasIssueCode(observing.Metadata.Issues(), vswitch.IssueMcastQueryUnobserved) {
+		t.Errorf("observing frame issues = %+v, want no mcast-query-unobserved", observing.Metadata.Issues())
+	}
+	emissions = sw.Drain()
+	if len(emissions) != 1 || emissions[0].Port != "1/1/2" || !emissions[0].Protocol || !bytes.Equal(emissions[0].Frame.Payload, solicitationPayload) {
+		t.Fatalf("retransmission emissions = %+v, want the same solicitation on 1/1/2", emissions)
 	}
 }
 
@@ -9534,7 +9590,7 @@ func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
 	}
 
 	sw.Wake(fixedTime.Add(time.Second))
-	emissions := sw.Drain()
+	emissions := dataAfterSolicitations(t, sw.Drain(), 1)
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: NDP observation must have released the held frame", len(emissions))
 	}
@@ -9549,7 +9605,7 @@ func TestNDPReachesNeighborPathNotMulticastPath(t *testing.T) {
 // TestMLDReportReachesMulticastPathNotNeighborPath covers the converse of
 // TestNDPReachesNeighborPathNotMulticastPath: an MLD report is a multicast
 // control candidate carrying a Hop-by-Hop header, so it is learned as
-// multicast group state and never reaches [routing.Layer.Observe] — a
+// multicast group state and never reaches [routing.Layer.Receive] — a
 // separately held frame on the same switch still times out on schedule,
 // proving the report never touched it.
 func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
@@ -9568,13 +9624,13 @@ func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
 	report := makeMLDControlFrame(t, netip.MustParseAddr("fe80::1"), group,
 		mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true,
 		mld.Message{Type: mld.ReportV1, Group: group})
-	sw.Forward(fixedTime.Add(time.Second), "1/1/1", report)
+	sw.Forward(fixedTime.Add(500*time.Millisecond), "1/1/1", report)
 
 	if got := sw.Groups(10, fixedTime.Add(time.Second)); len(got) != 1 {
 		t.Fatalf("mcast groups on vlan10 after MLD report = %+v, want the reported group learned", got)
 	}
 
-	sw.Wake(fixedTime.Add(3 * time.Second))
+	assertSolicitationSchedule(t, sw, fixedTime, true)
 	if emissions := sw.Drain(); len(emissions) != 0 {
 		t.Errorf("emissions = %d, want 0", len(emissions))
 	}
@@ -9584,17 +9640,81 @@ func TestMLDReportReachesMulticastPathNotNeighborPath(t *testing.T) {
 	}
 }
 
-// TestNDPSolicitationResolvesItsOwnSourceNotTheTarget covers RFC 4861
-// section 7.2.3: a Neighbor Solicitation's Source Link-Layer Address option
-// names the solicitor's own address, carried in the IPv6 header's source,
-// not the Target field the solicitation is asking about. The switch holds a
-// frame for heldDst and a separate frame for solicitorAddr. An unrelated
-// host at solicitorAddr then solicits heldDst, carrying its own MAC in the
-// SLLA option. That must refresh only the entry for solicitorAddr — the
-// solicitation's actual source — releasing the frame held for it; the frame
-// held for heldDst must still be pending, and later time out, because a
-// solicitation asking about an address is not evidence of who holds it.
-func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
+// TestARPReplyForOtherStationLeavesStaleEntryStale proves a reply addressed
+// to another station does not confirm a stale neighbor's reachability.
+func TestARPReplyForOtherStationLeavesStaleEntryStale(t *testing.T) {
+	sw := buildHeldEgressSwitch(t, 3)
+	addr := netip.MustParseAddr("10.0.20.77")
+	mac := netaddr.MAC{2, 0, 0, 0, 0x20, 0x77}
+	holdFrameToward(t, sw, fixedTime, addr, []byte("held"))
+	request, err := arp.Encode(arp.Message{
+		HardwareType: 1, ProtocolType: 0x0800, Operation: arp.Request,
+		SenderAddr: addr, SenderMAC: mac, TargetAddr: netip.MustParseAddr("10.0.20.88"),
+	}, netaddr.MAC{255, 255, 255, 255, 255, 255})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Forward(fixedTime.Add(time.Millisecond), "1/1/2", request)
+	before := sw.Neighbors()
+	if len(before) != 1 || before[0].State != routing.NeighborStale {
+		t.Fatalf("setup = %+v, want stale neighbor", before)
+	}
+	reply := makeARPReply(t, addr, netip.MustParseAddr("10.0.20.88"), mac, netaddr.MAC{2, 0, 0, 0, 0x20, 0x88})
+	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", reply)
+	if after := sw.Neighbors(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("neighbors = %+v, want stale unchanged %+v", after, before)
+	}
+}
+
+// TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld proves a
+// non-local solicitation is discarded before learning its source, as RFC 4861
+// section 7.2.3 requires.
+func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.T) {
+	sw := buildIPv6MulticastRoutingSwitch(t)
+	src := netip.MustParseAddr("2001:db8:10::7")
+	other := netip.MustParseAddr("2001:db8:20::77")
+	solicitor := netip.MustParseAddr("2001:db8:20::7")
+	mac := netaddr.MAC{0x02, 0, 0, 0, 0x10, 0x07}
+	for _, dst := range []netip.Addr{other, solicitor} {
+		frame := ethernet.Frame{
+			Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv6,
+			Payload: makeIPv6Packet(t, src, dst, 64, []byte("held")),
+		}
+		if res := sw.Forward(fixedTime, "1/1/1", frame); res.Outcome != trace.Held {
+			t.Fatalf("outcome = %v, want Held", res.Outcome)
+		}
+	}
+	before := sw.Neighbors()
+	if len(before) != 2 {
+		t.Fatalf("neighbors = %+v, want two pending entries", before)
+	}
+	ns := makeNDPFrame(t, solicitor, netip.MustParseAddr("2001:db8:20::1"), mac, macRouter, 255,
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: other, LinkLayerAddr: mac, HasLinkLayerAddr: true})
+	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", ns)
+	if emissions := dataAfterSolicitations(t, sw.Drain(), 2); len(emissions) != 0 {
+		t.Fatalf("emissions = %d, want no advertisement or release", len(emissions))
+	}
+	if after := sw.Neighbors(); !reflect.DeepEqual(after, before) {
+		t.Fatalf("neighbors = %+v, want unchanged pending entries %+v", after, before)
+	}
+	for _, entry := range sw.Neighbors() {
+		if entry.State != routing.NeighborIncomplete || entry.HoldDepth != 1 || entry.MAC != (netaddr.MAC{}) {
+			t.Fatalf("neighbor = %+v, want no learned binding and one pending frame", entry)
+		}
+	}
+	// A source without a pending entry must not be added either.
+	ns = makeNDPFrame(t, netip.MustParseAddr("2001:db8:20::8"), netip.MustParseAddr("2001:db8:20::1"), mac, macRouter, 255,
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: other, LinkLayerAddr: mac, HasLinkLayerAddr: true})
+	sw.Forward(fixedTime.Add(3*time.Millisecond), "1/1/2", ns)
+	if len(sw.Neighbors()) != 2 || len(sw.Drain()) != 0 {
+		t.Fatal("non-local solicitation created an entry or answer")
+	}
+}
+
+// TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget proves a local
+// solicitation learns its source and leaves the other next hop unresolved,
+// as RFC 4861 section 7.2.3 requires.
+func TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	sw := buildIPv6MulticastRoutingSwitch(t)
 
 	src := netip.MustParseAddr("2001:db8:10::7")
@@ -9613,17 +9733,28 @@ func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	// The solicitation's own IP destination is the router's interface
-	// address, as a real solicited-node multicast one would resolve to on
-	// this link: it must not be either held address, or the switch's
-	// ordinary forwarding of the NDP packet itself — observation is a side
-	// effect, not an interception — would queue a second frame on whichever
-	// entry it named and confuse the counts below.
+	// A local IP destination keeps the solicitation's ordinary forwarding
+	// path from adding another frame to either neighbor's hold queue.
+	if data := dataAfterSolicitations(t, sw.Drain(), 2); len(data) != 0 {
+		t.Fatalf("setup released %d frames, want both held", len(data))
+	}
 	ns := makeNDPFrame(t, solicitorAddr, netip.MustParseAddr("2001:db8:20::1"), solicitorMAC, macRouter, 255,
-		ndp.Message{Type: ndp.NeighborSolicitation, Target: heldDst, LinkLayerAddr: solicitorMAC, HasLinkLayerAddr: true})
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: netip.MustParseAddr("2001:db8:20::1"), LinkLayerAddr: solicitorMAC, HasLinkLayerAddr: true})
 	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", ns)
 
-	emissions := sw.Drain()
+	all := sw.Drain()
+	if len(all) != 2 {
+		t.Fatalf("emissions = %d, want advertisement and released frame", len(all))
+	}
+	hdrAnswer, body, err := ip.Decode(all[0].Frame.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	answer, err := ndp.Decode(hdrAnswer, body)
+	if err != nil || answer.Type != ndp.NeighborAdvertisement || answer.Target != netip.MustParseAddr("2001:db8:20::1") {
+		t.Fatalf("answer = %+v, error = %v, want local-target advertisement", answer, err)
+	}
+	emissions := all[1:]
 	if len(emissions) != 1 {
 		t.Fatalf("emissions = %d, want 1: the solicitation must resolve its own source address, not the target it asked about", len(emissions))
 	}
@@ -9637,8 +9768,13 @@ func TestNDPSolicitationResolvesItsOwnSourceNotTheTarget(t *testing.T) {
 	if hdr.Dst != solicitorAddr {
 		t.Errorf("released packet dst = %s, want %s: the target's held frame must not have been the one released", hdr.Dst, solicitorAddr)
 	}
+	for _, entry := range sw.Neighbors() {
+		if entry.Addr == heldDst && (entry.State != routing.NeighborIncomplete || entry.HoldDepth != 1) {
+			t.Fatalf("other neighbor = %+v, want incomplete with one held frame", entry)
+		}
+	}
 
-	sw.Wake(fixedTime.Add(3 * time.Second))
+	assertSolicitationSchedule(t, sw, fixedTime, false)
 	if emissions := sw.Drain(); len(emissions) != 0 {
 		t.Errorf("emissions at timeout = %d, want 0", len(emissions))
 	}
@@ -9715,7 +9851,7 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.30.1"), learnedMAC, macRouter)
 	sw.Forward(fixedTime.Add(time.Second), "1/1/3", reply)
 
-	if emissions := sw.Drain(); len(emissions) != 0 {
+	if emissions := dataAfterSolicitations(t, sw.Drain(), 1); len(emissions) != 0 {
 		t.Fatalf("emissions = %d, want 0: 1/1/3 has an MTU of 600", len(emissions))
 	}
 	drops := sw.DrainNeighborFailures()
@@ -10058,11 +10194,11 @@ func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
 	res2 := sw2.Forward(expT, "1/1/1", frame2)
 	em2 := sw2.Drain()
 
-	if st := neighborState(sw1, dst); st != routing.NeighborStale {
-		t.Fatalf("sw1 neighbor state after = %v, want %v", st, routing.NeighborStale)
+	if st := neighborState(sw1, dst); st != routing.NeighborDelay {
+		t.Fatalf("sw1 neighbor state after = %v, want %v", st, routing.NeighborDelay)
 	}
-	if st := neighborState(sw2, dst); st != routing.NeighborStale {
-		t.Fatalf("sw2 neighbor state after = %v, want %v", st, routing.NeighborStale)
+	if st := neighborState(sw2, dst); st != routing.NeighborDelay {
+		t.Fatalf("sw2 neighbor state after = %v, want %v", st, routing.NeighborDelay)
 	}
 
 	if res1.Outcome != res2.Outcome {
@@ -10167,7 +10303,7 @@ func TestReleasedFrameCarriesIngressPriorityOntoEgress(t *testing.T) {
 
 			// The baseline is a switch that never held: the binding is configured, so the same
 			// frame forwards straight through and its priority rides res.Egress, which is what
-			// the fabric transmits on the live path. Observe alone would not do — an
+			// the fabric transmits on the live path. Receive alone would not do — an
 			// advertisement for an address nothing routed to creates no entry.
 			live := newSwitch(t, []routing.Neighbor{{Interface: tc.iface, Addr: tc.dst, MAC: learnedMAC}})
 			res := live.Forward(fixedTime, "1/1/1", taggedFrame(t, tc.dst))
@@ -10531,5 +10667,112 @@ func TestRoutedFrameToDownPortEmitsPortStatusDownRule(t *testing.T) {
 	}
 	if step.Layer != routing.LayerName {
 		t.Errorf("step layer = %v, want %v", step.Layer, routing.LayerName)
+	}
+}
+
+// dataAfterSolicitations checks protocol frames separately from ordinary releases.
+func dataAfterSolicitations(t *testing.T, emissions []vswitch.Emission, count int) []vswitch.Emission {
+	t.Helper()
+	var data []vswitch.Emission
+	requests := 0
+	for _, em := range emissions {
+		if !em.Protocol {
+			data = append(data, em)
+			continue
+		}
+		if em.PCP != 0 {
+			t.Errorf("solicitation PCP = %d, want 0", em.PCP)
+		}
+		switch em.Frame.EtherType {
+		case ethernet.EtherTypeARP:
+			msg, err := arp.Decode(em.Frame)
+			if err != nil || msg.Operation != arp.Request {
+				t.Fatalf("protocol frame = %+v, error = %v, want ARP request", msg, err)
+			}
+		case ethernet.EtherTypeIPv6:
+			hdr, body, err := ip.Decode(em.Frame.Payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			msg, err := ndp.Decode(hdr, body)
+			if err != nil || msg.Type != ndp.NeighborSolicitation {
+				t.Fatalf("protocol frame = %+v, error = %v, want solicitation", msg, err)
+			}
+		default:
+			t.Fatalf("unexpected protocol frame: %+v", em)
+		}
+		requests++
+	}
+	if requests != count {
+		t.Fatalf("solicitations = %d, want %d: %+v", requests, count, emissions)
+	}
+	return data
+}
+
+// assertSolicitationSchedule drains the first request when initial is set,
+// then checks each retransmission instant and the final failure boundary.
+func assertSolicitationSchedule(t *testing.T, sw *vswitch.Switch, start time.Time, initial bool) {
+	t.Helper()
+	if initial {
+		if data := dataAfterSolicitations(t, sw.Drain(), 1); len(data) != 0 {
+			t.Fatalf("data before resolution = %+v", data)
+		}
+	}
+	for second := 1; second <= 2; second++ {
+		before := start.Add(time.Duration(second)*time.Second - time.Nanosecond)
+		sw.Wake(before)
+		if em := sw.Drain(); len(em) != 0 {
+			t.Fatalf("early emission at %s: %+v", before, em)
+		}
+		sw.Wake(start.Add(time.Duration(second) * time.Second))
+		if data := dataAfterSolicitations(t, sw.Drain(), 1); len(data) != 0 {
+			t.Fatalf("data at retransmission %d = %+v", second, data)
+		}
+		if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+			t.Fatalf("early failures at second %d: %+v", second, failures)
+		}
+	}
+	sw.Wake(start.Add(3*time.Second - time.Nanosecond))
+	if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+		t.Fatalf("failures before deadline: %+v", failures)
+	}
+	sw.Wake(start.Add(3 * time.Second))
+}
+
+func TestRoutingSolicitationsLeaveEachInterfaceShape(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		build         func(*testing.T) *vswitch.Switch
+		ingress, port string
+		src, dst      string
+		vid           vlan.ID
+	}{
+		{"VLAN", buildBaseRoutingSwitch, "1/1/1", "1/1/2", "10.0.10.7", "10.0.20.77", 0},
+		{"routed port", buildRoutedPortSwitch, "1/1/1", "1/1/2", "10.0.10.7", "10.0.20.77", 0},
+		{"sub-interface", buildSubInterfaceSwitch, "eth3", "eth1", "10.0.30.7", "10.0.10.77", 10},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sw := tc.build(t)
+			target := netip.MustParseAddr(tc.dst)
+			frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: makeIPv4Packet(t, netip.MustParseAddr(tc.src), target, 64, []byte("hold"))}
+			if res := sw.Forward(fixedTime, tc.ingress, frame); res.Outcome != trace.Held {
+				t.Fatalf("outcome = %v, want held", res.Outcome)
+			}
+			em := sw.Drain()
+			if len(em) != 1 || em[0].Port != tc.port || !em[0].Protocol || em[0].PCP != 0 {
+				t.Fatalf("emissions = %+v, want one priority-zero protocol frame on %s", em, tc.port)
+			}
+			msg, err := arp.Decode(em[0].Frame)
+			if err != nil || msg.Operation != arp.Request || msg.TargetAddr != target || em[0].Frame.Dst != (netaddr.MAC{255, 255, 255, 255, 255, 255}) {
+				t.Fatalf("solicitation = %+v, ARP = %+v/%v", em[0], msg, err)
+			}
+			tags := em[0].Frame.Tags
+			if tc.vid == 0 && len(tags) != 0 || tc.vid != 0 && (len(tags) != 1 || tags[0].VID != tc.vid || tags[0].PCP != 0 || tags[0].DEI) {
+				t.Fatalf("tags = %+v, want VID %d at priority zero", tags, tc.vid)
+			}
+			if drops := sw.DrainNeighborFailures(); len(drops) != 0 {
+				t.Fatalf("drops for solicitation = %+v", drops)
+			}
+		})
 	}
 }

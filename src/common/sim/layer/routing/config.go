@@ -65,32 +65,29 @@ const (
 	NeighborDisabled Mode = "disabled"
 )
 
-// Default neighbor policy timers and depth, from RFC 4861 section 10: REACHABLE_TIME is
-// 30,000 milliseconds, and the resolution timeout is MAX_MULTICAST_SOLICIT (3 transmissions)
-// times RETRANS_TIMER (1,000 milliseconds). HoldDepth defaults above section 7.2.2's permitted
-// minimum of one, because an analysis library is asked which of several frames arrived, and a
-// depth of one answers that for the last one only.
+// Default neighbor timers follow RFC 4861 section 10. HoldDepth exceeds section
+// 7.2.2's minimum of one so a caller can account for several queued frames.
 const (
-	defaultReachableTime     = 30 * time.Second
-	defaultResolutionTimeout = 3 * time.Second
-	defaultHoldDepth         = 3
+	defaultReachableTime = 30 * time.Second
+	defaultRetransTimer  = time.Second
+	defaultHoldDepth     = 3
 )
 
 // NeighborPolicy configures how a VRF's neighbor table resolves and holds. The zero value
 // normalizes to the RFC 4861 section 10 defaults under [NeighborObserved].
 type NeighborPolicy struct {
-	Mode              Mode
-	ReachableTime     time.Duration
-	ResolutionTimeout time.Duration
-	HoldDepth         int
+	Mode          Mode
+	ReachableTime time.Duration
+	RetransTimer  time.Duration
+	HoldDepth     int
 }
 
 func (p NeighborPolicy) normalize() NeighborPolicy {
 	if p.ReachableTime == 0 {
 		p.ReachableTime = defaultReachableTime
 	}
-	if p.ResolutionTimeout == 0 {
-		p.ResolutionTimeout = defaultResolutionTimeout
+	if p.RetransTimer == 0 {
+		p.RetransTimer = defaultRetransTimer
 	}
 	if p.HoldDepth == 0 {
 		p.HoldDepth = defaultHoldDepth
@@ -222,10 +219,11 @@ func comparePrefix(a, b netip.Prefix) int {
 // routes with neither next hop nor interface, next hops whose address family differs from
 // their route's prefix, unspecified or multicast next hops,
 // routes or neighbors referencing interfaces outside their VRF, neighbor address families
-// mismatching all interface prefixes, and duplicate neighbor entries within a VRF.
+// mismatching all interface prefixes, duplicate neighbor entries within a VRF,
+// and one subnet on two interfaces of a VRF, except link-local subnets.
 //
 // A prefix may carry several routes, which is how an equal-cost set is configured. Two routes
-// collide only when they agree on prefix, preference, metric, next hop, and interface alike.
+// collide when they agree on prefix, next hop, and interface.
 //
 // A next hop that is not on-link is valid configuration: [New] resolves it against the VRF's
 // own table and withdraws the route from the forwarding table when it cannot, which is where
@@ -263,6 +261,7 @@ func (c Config) Validate(env layer.Env) error {
 		}
 		slices.Sort(ifaceNames)
 
+		claimedSubnets := make(map[netip.Prefix]string)
 		for _, ifaceName := range ifaceNames {
 			if ifaceName == "" {
 				return errs.New().
@@ -373,10 +372,23 @@ func (c Config) Validate(env layer.Env) error {
 						Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
 						Msgf("interface %q address %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", ifaceName, p)
 				}
+				subnet := p.Masked()
+				if !subnet.Addr().IsLinkLocalUnicast() {
+					if prev, ok := claimedSubnets[subnet]; ok && prev != ifaceName {
+						return errs.New().
+							Attr("vrf", vrfName).
+							Attr("interface", ifaceName).
+							Attr("claimed_by", prev).
+							Attr("prefix", subnet).
+							Attr("field", "vrfs."+vrfName+".interfaces."+ifaceName+".prefixes").
+							Msgf("subnet %s is claimed by interfaces %q and %q", subnet, prev, ifaceName)
+					}
+					claimedSubnets[subnet] = ifaceName
+				}
 			}
 		}
 
-		seenRoutes := make(map[Route]struct{}, len(vrf.Routes))
+		seenRoutes := make(map[routeKey]struct{}, len(vrf.Routes))
 		for _, r := range vrf.Routes {
 			if !r.Prefix.IsValid() || r.Prefix != r.Prefix.Masked() {
 				return errs.New().
@@ -393,7 +405,7 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
 					Msgf("route %s is IPv4-mapped; a decoded IPv4 address is 4 bytes and never matches it", r.Prefix)
 			}
-			if _, dup := seenRoutes[r]; dup {
+			if _, dup := seenRoutes[keyOfRoute(r)]; dup {
 				return errs.New().
 					Attr("vrf", vrfName).
 					Attr("prefix", r.Prefix).
@@ -402,9 +414,9 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("next_hop", r.NextHop).
 					Attr("interface", r.Interface).
 					Attr("field", "vrfs."+vrfName+".routes."+r.Prefix.String()).
-					Msgf("route %s appears twice in VRF %q with the same preference, metric, next hop, and interface", r.Prefix, vrfName)
+					Msgf("route %s appears twice in VRF %q with the same next hop and interface", r.Prefix, vrfName)
 			}
-			seenRoutes[r] = struct{}{}
+			seenRoutes[keyOfRoute(r)] = struct{}{}
 
 			if !r.NextHop.IsValid() && r.Interface == "" {
 				return errs.New().
@@ -524,12 +536,12 @@ func (c Config) Validate(env layer.Env) error {
 					Attr("field", "vrfs."+vrfName+".neighbor_policy.hold_depth").
 					Msgf("VRF %q neighbor policy hold depth %d cannot be negative under NeighborObserved", vrfName, policy.HoldDepth)
 			}
-			if policy.ResolutionTimeout < 0 {
+			if policy.RetransTimer < 0 {
 				return errs.New().
 					Attr("vrf", vrfName).
-					Attr("resolution_timeout", policy.ResolutionTimeout).
-					Attr("field", "vrfs."+vrfName+".neighbor_policy.resolution_timeout").
-					Msgf("VRF %q neighbor policy resolution timeout cannot be negative under NeighborObserved", vrfName)
+					Attr("retrans_timer", policy.RetransTimer).
+					Attr("field", "vrfs."+vrfName+".neighbor_policy.retrans_timer").
+					Msgf("VRF %q neighbor policy retransmission timer cannot be negative under NeighborObserved", vrfName)
 			}
 			if policy.ReachableTime < 0 {
 				return errs.New().
