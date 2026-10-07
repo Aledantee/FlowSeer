@@ -6,8 +6,6 @@ import LoginView from './LoginView.vue'
 import { aiRegistry, createMockAiHandler, installFlowSeerAi } from './ai'
 import { createWebI18n } from './i18n'
 import { bindDocumentLang, initialLocale } from './i18n/locale'
-import { installEntrance } from './navigation/entrance'
-import { installPageMorph } from './navigation/morph'
 import { CONSOLE_HOME, LOGIN_PATH, sessionRedirect } from './session/session'
 import '@fontsource-variable/inter/standard.css'
 import '@fontsource-variable/dm-sans'
@@ -26,11 +24,11 @@ const router = createRouter({
   ],
 })
 router.beforeEach(sessionRedirect)
-installEntrance(router)
-installPageMorph(router)
 installFlowSeerAi()
 // No model backend exists yet; the preview answers summaries from fixtures.
 aiRegistry.onRequest(createMockAiHandler())
 const i18n = createWebI18n(initialLocale())
 bindDocumentLang(i18n.global)
-createApp(App).use(i18n).use(router).mount('#app')
+const app = createApp(App).use(i18n).use(router)
+// A resolved initial route mounts its frame without a login-to-console morph.
+void router.isReady().then(() => app.mount('#app'))
