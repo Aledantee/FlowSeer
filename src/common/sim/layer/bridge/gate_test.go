@@ -312,3 +312,39 @@ func TestMultiGateConsultedScopesAreTheUnion(t *testing.T) {
 		}
 	}
 }
+
+func TestCloneClearsGatesAndKeepsScopes(t *testing.T) {
+	br := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
+	scope := analysis.ProtocolScope("sw1", "stp", "0")
+	forwards := map[string]bool{"1/1/1": true, "1/1/2": false}
+	br.SetGate(testGate{forwards: forwards}, scope)
+	frame := ethernet.Frame{Dst: macB, Src: macA, EtherType: ethernet.EtherTypeIPv4}
+	if got := br.Forward(testTime0, "1/1/1", frame); len(got.Egress) != 1 || got.Egress[0].Port != "1/1/2" || got.Egress[0].Dropped != bridge.ReasonPortBlocked {
+		t.Fatalf("source egress = %+v, want 1/1/2 blocked", got.Egress)
+	}
+	clone := br.Clone()
+	check := func() {
+		t.Helper()
+		got := clone.Forward(testTime0, "1/1/1", frame)
+		if got.Outcome != trace.Flooded || len(got.Egress) != 1 || got.Egress[0].Port != "1/1/2" || got.Egress[0].Dropped != "" {
+			t.Errorf("clone result = %+v, want flood to 1/1/2", got)
+		}
+		for _, name := range []string{"1/1/1", "1/1/2"} {
+			want := analysis.FieldScope(scope, "ports", name)
+			found := false
+			for _, consulted := range got.ConsultedScopes() {
+				if consulted.Compare(want) == 0 {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("clone consulted = %+v, want %+v", got.ConsultedScopes(), want)
+			}
+		}
+	}
+	check()
+	forwards["1/1/2"] = true
+	check()
+	forwards["1/1/1"] = false
+	check()
+}

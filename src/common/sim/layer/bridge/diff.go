@@ -162,6 +162,15 @@ func Diff(a, b Config) []trace.Change {
 		bPorts = b.VLAN.Switchports
 	}
 
+	changes = append(changes, diffVLANTable(aTable, bTable)...)
+	changes = append(changes, diffSwitchports(aPorts, bPorts)...)
+	changes = append(changes, diffRelay(a, b)...)
+
+	return changes
+}
+
+func diffVLANTable(aTable, bTable map[vlan.ID]string) []trace.Change {
+	var changes []trace.Change
 	var aIDs []vlan.ID
 	for id := range aTable {
 		aIDs = append(aIDs, id)
@@ -221,6 +230,11 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
+	return changes
+}
+
+func diffSwitchports(aPorts, bPorts map[string]Switchport) []trace.Change {
+	var changes []trace.Change
 	var aPortNames []string
 	for name := range aPorts {
 		aPortNames = append(aPortNames, name)
@@ -245,129 +259,7 @@ func Diff(a, b Config) []trace.Change {
 			continue
 		}
 
-		pvidChanged := false
-		if (aSw.PVID == nil) != (bSw.PVID == nil) {
-			pvidChanged = true
-		} else if aSw.PVID != nil && *aSw.PVID != *bSw.PVID {
-			pvidChanged = true
-		}
-		if pvidChanged {
-			var fromVal, toVal trace.Fact
-			if aSw.PVID != nil {
-				fromVal = PVIDFact(*aSw.PVID)
-			}
-			if bSw.PVID != nil {
-				toVal = PVIDFact(*bSw.PVID)
-			}
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "pvid",
-				From:  fromVal,
-				To:    toVal,
-			})
-		}
-
-		if !slices.Equal(aSw.Tagged, bSw.Tagged) {
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "tagged_vlan_ids",
-				From:  VLANsFact(slices.Clone(aSw.Tagged)),
-				To:    VLANsFact(slices.Clone(bSw.Tagged)),
-			})
-		}
-
-		if !slices.Equal(aSw.Untagged, bSw.Untagged) {
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "untagged_vlan_ids",
-				From:  VLANsFact(slices.Clone(aSw.Untagged)),
-				To:    VLANsFact(slices.Clone(bSw.Untagged)),
-			})
-		}
-
-		if aSw.IngressFiltering != bSw.IngressFiltering {
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "ingress_filtering",
-				From:  boolFact(aSw.IngressFiltering),
-				To:    boolFact(bSw.IngressFiltering),
-			})
-		}
-
-		if aSw.Admission != bSw.Admission {
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "frame_admission",
-				From:  aSw.Admission,
-				To:    bSw.Admission,
-			})
-		}
-
-		var (
-			tunnelChanged bool
-			fromTunnel    trace.Fact
-			toTunnel      trace.Fact
-		)
-		if (aSw.Tunnel == nil) != (bSw.Tunnel == nil) {
-			tunnelChanged = true
-		} else if aSw.Tunnel != nil && bSw.Tunnel != nil {
-			if aSw.Tunnel.VID != bSw.Tunnel.VID ||
-				aSw.Tunnel.EffectiveTPID() != bSw.Tunnel.EffectiveTPID() ||
-				!slices.Equal(aSw.Tunnel.CustomerVIDs, bSw.Tunnel.CustomerVIDs) {
-				tunnelChanged = true
-			}
-		}
-		if tunnelChanged {
-			if aSw.Tunnel != nil {
-				fromTunnel = snapshotTunnel(aSw.Tunnel)
-			}
-			if bSw.Tunnel != nil {
-				toTunnel = snapshotTunnel(bSw.Tunnel)
-			}
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "tunnel",
-				From:  fromTunnel,
-				To:    toTunnel,
-			})
-		}
-
-		if aSw.PriorityTags != bSw.PriorityTags {
-			changes = append(changes, trace.Change{
-				Layer: LayerNameVLAN,
-				Subject: trace.Subject{
-					Kind: "port",
-					Key:  name,
-				},
-				Field: "priority_tags",
-				From:  aSw.PriorityTags,
-				To:    bSw.PriorityTags,
-			})
-		}
+		changes = append(changes, diffSwitchport(name, aSw, bSw)...)
 	}
 
 	var bPortNames []string
@@ -391,6 +283,140 @@ func Diff(a, b Config) []trace.Change {
 		})
 	}
 
+	return changes
+}
+
+func diffSwitchport(name string, aSw, bSw Switchport) []trace.Change {
+	var changes []trace.Change
+	pvidChanged := false
+	if (aSw.PVID == nil) != (bSw.PVID == nil) {
+		pvidChanged = true
+	} else if aSw.PVID != nil && *aSw.PVID != *bSw.PVID {
+		pvidChanged = true
+	}
+	if pvidChanged {
+		var fromVal, toVal trace.Fact
+		if aSw.PVID != nil {
+			fromVal = PVIDFact(*aSw.PVID)
+		}
+		if bSw.PVID != nil {
+			toVal = PVIDFact(*bSw.PVID)
+		}
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "pvid",
+			From:  fromVal,
+			To:    toVal,
+		})
+	}
+
+	if !slices.Equal(aSw.Tagged, bSw.Tagged) {
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "tagged_vlan_ids",
+			From:  VLANsFact(slices.Clone(aSw.Tagged)),
+			To:    VLANsFact(slices.Clone(bSw.Tagged)),
+		})
+	}
+
+	if !slices.Equal(aSw.Untagged, bSw.Untagged) {
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "untagged_vlan_ids",
+			From:  VLANsFact(slices.Clone(aSw.Untagged)),
+			To:    VLANsFact(slices.Clone(bSw.Untagged)),
+		})
+	}
+
+	if aSw.IngressFiltering != bSw.IngressFiltering {
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "ingress_filtering",
+			From:  boolFact(aSw.IngressFiltering),
+			To:    boolFact(bSw.IngressFiltering),
+		})
+	}
+
+	if aSw.Admission != bSw.Admission {
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "frame_admission",
+			From:  aSw.Admission,
+			To:    bSw.Admission,
+		})
+	}
+
+	var (
+		tunnelChanged bool
+		fromTunnel    trace.Fact
+		toTunnel      trace.Fact
+	)
+	if (aSw.Tunnel == nil) != (bSw.Tunnel == nil) {
+		tunnelChanged = true
+	} else if aSw.Tunnel != nil && bSw.Tunnel != nil {
+		if aSw.Tunnel.VID != bSw.Tunnel.VID ||
+			aSw.Tunnel.EffectiveTPID() != bSw.Tunnel.EffectiveTPID() ||
+			!slices.Equal(aSw.Tunnel.CustomerVIDs, bSw.Tunnel.CustomerVIDs) {
+			tunnelChanged = true
+		}
+	}
+	if tunnelChanged {
+		if aSw.Tunnel != nil {
+			fromTunnel = snapshotTunnel(aSw.Tunnel)
+		}
+		if bSw.Tunnel != nil {
+			toTunnel = snapshotTunnel(bSw.Tunnel)
+		}
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "tunnel",
+			From:  fromTunnel,
+			To:    toTunnel,
+		})
+	}
+
+	if aSw.PriorityTags != bSw.PriorityTags {
+		changes = append(changes, trace.Change{
+			Layer: LayerNameVLAN,
+			Subject: trace.Subject{
+				Kind: "port",
+				Key:  name,
+			},
+			Field: "priority_tags",
+			From:  aSw.PriorityTags,
+			To:    bSw.PriorityTags,
+		})
+	}
+
+	return changes
+}
+
+func diffRelay(a, b Config) []trace.Change {
+	var changes []trace.Change
 	if a.AgingTime != b.AgingTime {
 		changes = append(changes, trace.Change{
 			Layer: LayerName,

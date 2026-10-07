@@ -78,11 +78,20 @@ func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
 				t.Fatal("SetOperStatus with invalid state succeeded, want error")
 			}
 			attrs := errs.Attributes(err)
-			if got := attrs["field"]; got != "ports."+portName+".oper_status" {
-				t.Errorf("field attribute = %v, want ports.%s.oper_status", got, portName)
+			wantField := "ports." + portName + ".oper_status"
+			var wantState any = port.LinkState("invalid")
+			if portName == "missing" {
+				wantField = "ports." + portName
+				wantState = nil
 			}
-			if got := attrs["oper_status"]; got != port.LinkState("invalid") {
-				t.Errorf("oper_status attribute = %v, want invalid", got)
+			if got := attrs["field"]; got != wantField {
+				t.Errorf("field attribute = %v, want %s", got, wantField)
+			}
+			if got := attrs["oper_status"]; got != wantState {
+				t.Errorf("oper_status attribute = %v, want %v", got, wantState)
+			}
+			if got := attrs["name"]; got != portName {
+				t.Errorf("name attribute = %v, want %s", got, portName)
 			}
 			if after := sw.Ports().Ports(); !slices.Equal(after, before) {
 				t.Errorf("ports after invalid update = %+v, want unchanged %+v", after, before)
