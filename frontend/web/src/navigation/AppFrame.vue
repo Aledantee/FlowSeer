@@ -58,7 +58,7 @@ watch(frame.sidebar, (mode) => {
     >
       <span
         v-if="frame.sidebar.value !== 'login'"
-        class="main-notch"
+        class="main-notch brand-glow"
         aria-hidden="true"
       ></span>
       <div id="frame-topbar" ref="topbar"></div>

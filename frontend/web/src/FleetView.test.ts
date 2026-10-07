@@ -322,6 +322,16 @@ describe('FleetView motion layout', () => {
 })
 
 describe('fleet view', () => {
+  it('keeps the top bar glass in front of the page', async () => {
+    const { host } = await mountAt('/dashboard')
+    expect(
+      host.querySelector('header.topbar')?.firstElementChild?.classList,
+    ).toContain('topbar-glass')
+    expect(
+      host.querySelector('header.topbar')?.firstElementChild?.classList,
+    ).toContain('brand-glow')
+  })
+
   it('reports an unknown site as an error instead of a healthy empty scope', async () => {
     const { host } = await mountAt('/dashboard?site=nowhere')
     expect(host.textContent).toContain('Scope not found')

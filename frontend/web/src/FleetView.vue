@@ -964,6 +964,7 @@ onUnmounted(() => clearInterval(timer))
     <header
       class="topbar sticky top-0 z-(--z-sticky) flex items-center justify-between min-h-[54px] px-6 py-2.5 max-[1150px]:px-6 max-[800px]:px-5 max-[650px]:flex-wrap max-[650px]:pt-1.5 max-[650px]:pb-2.5 max-[650px]:gap-1 max-[560px]:min-h-[50px] max-[560px]:px-3.5"
     >
+      <span class="topbar-glass brand-glow" aria-hidden="true"></span>
       <div
         class="topbar-start flex items-center gap-3 min-w-0 flex-1 max-[650px]:basis-full max-[560px]:gap-[9px]"
       >
