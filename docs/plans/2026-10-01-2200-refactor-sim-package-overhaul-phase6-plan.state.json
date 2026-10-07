@@ -6,10 +6,10 @@
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 3,
+    "units": 4,
     "from": "2026-10-07T12:33:28Z",
-    "to": "2026-10-07T13:04:19Z",
-    "note": "Sending blocked on unlisted corpus and timer expectation changes. Partial commit 4c11b059 on parked/routing-solicit. Receiving depends on sending."
+    "to": "2026-10-07T13:49:00Z",
+    "note": "Sending passed. Receiving is blocked by TestNDPSolicitationResolvesItsOwnSourceNotTheTarget: the required local-target guard produces emissions = 0, want 1. The expectation cannot migrate while preserving its intent."
   },
   "superseded_by": null,
   "branch": "Aledantee/sim6-implement",
