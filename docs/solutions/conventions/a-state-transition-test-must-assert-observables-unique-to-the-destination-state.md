@@ -1,9 +1,9 @@
 ---
 title: A State Transition Test Must Assert Observables Unique to the Destination State
 date: 2026-10-04
-last_verified: 2026-10-04
+last_verified: 2026-10-07
 category: conventions
-module: src/common/sim/layer/lag
+module: src/common/sim/layer
 problem_type: convention
 component: sim
 severity: high
@@ -11,8 +11,9 @@ applies_when:
   - "Writing or reviewing tests for protocol or simulated state machines with sequential states that share quiescent or inactive conditions"
   - "Investigating a false test that passes when a state transition guard or state assignment is mutated or deleted"
   - "Testing multi-step timer expirations where intermediate and terminal states produce identical external forwarding behavior"
-related_components: [conformance-gates]
-tags: [testing, state-machine, mutation-testing, false-test, lacp]
+  - "Testing a state-machine branch where an internal request flag, sibling tree, or held emission can mask the state or frame under test"
+related_components: [conformance-gates, bpdu]
+tags: [testing, state-machine, mutation-testing, false-test, lacp, stp]
 ---
 
 # A state transition test must assert observables unique to the destination state
@@ -62,12 +63,25 @@ if portInfo.Status != lag.Defaulted ||
 
 `TestDefaultingReselectsWhenAdministrativePartnerDiffers` (`src/common/sim/layer/lag/layer_test.go:2400-2435`) applies the same pattern across four sequential checks: converged operation at `t0+2s`, `Expired` at `t0+3s`, `Defaulted` with detachment and pending aggregate wait at `t0+7s`, and re-attachment after the wait at `t0+9s`.
 
+The same trap appears when several protocol machines share a transmit record.
+`TestMSTIAgreementUsesTheCISTPortVector` keeps a Designated case Discarding, a
+Root case Forwarding, and a Root-to-Designated return Discarding
+(`src/common/sim/layer/stp/agreement_test.go:273-350`). A test with only the
+Root case would leave the role-dependent agreement rule untested. The
+transmit-side test reads the emitted frames and counts their topology-change
+flags by port (`src/common/sim/layer/stp/transmit_test.go:664-733`). That
+observable distinguishes a request from a frame built with the final state.
+When two internal flags share a record, assert the wire or public state they
+control when that is the behavior under test. A helper-level test may inspect
+the flag directly when the helper's contract is the subject.
+
 ## Evidence
 
 - In `src/common/sim/layer/lag/layer.go:678`, deleting `m.status = Defaulted` left `TestZeroSystemPeerDefaultingWithoutFallbackDisables` green before commit `d329977f`. Updating the assertion in `src/common/sim/layer/lag/layer_test.go:1983-1988` to check `portInfo.Status` and the actor state bits makes the mutation fail:
   `--- FAIL: TestZeroSystemPeerDefaultingWithoutFallbackDisables (0.00s)`
 - In `src/common/sim/layer/lag/layer.go:674`, changing `if !sameAggregationPort(...)` to `if !m.enabled || !sameAggregationPort(...)` passed in `TestDefaultedRequestsReselectionAfterLearnedPartner` (`src/common/sim/layer/lag/layer_internal_test.go:210-225`) when the test advanced directly to `t0.Add(6 * time.Second)`. Stepping through `t0.Add(3 * time.Second)` to verify `Expired` status with attachment preserved and forwarding stopped makes the mutation fail:
   `--- FAIL: TestDefaultedRequestsReselectionAfterLearnedPartner (0.00s)`
+- `src/common/sim/layer/stp/transmit.go:39-66,123-135` shows why an internal request is not always the behavior to assert: the transmit pass turns request flags into one frame and clears them after the frame is built. The spanning-tree tests therefore inspect role, state, and decoded emissions in `src/common/sim/layer/stp/agreement_test.go:287-350` and `src/common/sim/layer/stp/transmit_test.go:676-733`.
 
 ## What this does not cover
 
