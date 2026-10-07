@@ -527,3 +527,28 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
   drop reasons that `B/README.md` now states.
 - Unverified: what IEEE 802.1Q after 2003 and IEEE 802.1ad say about any
   rule above.
+
+## Review gaps
+
+Open items of the review of `830736a9..f591182f`. None holds the verdict
+except the behavior finding named in the review commit.
+
+- `src/common/sim/layer/bridge/fdb.go:230`: `>` becomes `>=` in `expired`; fails: an entry at exactly the aging time is a hit; class: gap
+- `src/common/sim/layer/bridge/ingress.go:449`: drop `b.dynamic--` on source expiry; fails: a live second entry under `MaxEntries: 2` survives the relearn with `Evicted` 0; class: gap
+- `src/common/sim/layer/bridge/ingress.go:518`: `CarriesVID` becomes a tagged-or-untagged test; fails: a VLAN whose only member is a tunnel port learns; class: gap
+- `src/common/sim/layer/bridge/egress.go:397`: swap the down and not-member checks; fails: a unicast hit on a down port outside the VLAN reports `port-down`; class: gap
+- `src/common/sim/layer/bridge/egress.go:408`: move the protected check ahead of the gate, or the MTU check ahead of the protected check; fails: a blocked protected pair reports `port-blocked`, and a protected pair with an oversize payload reports `protected`; class: gap
+- `src/common/sim/layer/bridge/egress.go:172`: merge the down-port decision after the replication step; fails: the flood's `port-down` step precedes its `flood` step; class: gap
+- `src/common/sim/port/port.go:517`: skip the `byName` update for a LAG; fails: `WithOperStatus("lag1", Down)` reads `Down` through `Port` and `Resolve` of a member; class: gap
+- `src/common/sim/device/vswitch/switch.go:3715`: ignore the `WithOperStatus` error; fails: `SetOperStatus("absent", Down)` on a switch without a relay returns `ports.absent` and leaves the table; class: gap
+- `src/common/sim/layer/bridge/README.md:174`: "The first deciding gate supplies its semantic fact"; fails: ingress prefers the first gate denying both, then the first denying forwarding (`ingress.go:429-435`); class: convention
+- `src/common/sim/layer/bridge/README.md:205`: the test list omits `egress_decision_test.go` and `fdb_time_test.go`; fails: a reader looking for the egress decision tests; class: convention
+- `src/common/sim/layer/bridge/README.md:10`: "floods to the other VLAN member"; fails: the test asserts two members; class: convention
+- `src/common/sim/layer/bridge/README.md:148`: "usually `port-down`"; fails: `Receive` returns no other reason; class: convention
+- `src/common/sim/layer/bridge/README.md:141`: "The constants are in layer.go"; fails: `no-egress` and `unregistered` have no rule constant (`egress.go:117,186`); class: convention
+- `src/common/sim/layer/bridge/README.md:61`: "A unicast refusal also records a dropped `Egress`"; fails: `same-port` records none (`egress.go:36-45`); class: convention
+- `src/common/sim/layer/bridge/README.md:123`: "as before", and `:239` "not verification of a later IEEE edition"; fails: `docs/doc-style.md` on change narration and negative parallelism; class: convention
+- `src/common/sim/layer/bridge/layer.go:253`: "It leaves the table unchanged."; fails: success replaces the table; class: convention
+- `src/common/sim/device/vswitch/switch.go:3712`: "It leaves both tables unchanged."; fails: success replaces both; class: convention
+- `src/common/sim/device/vswitch/switch.go:3517`: "An invalid operational state records a fault on operErr"; fails: a port the table lacks records one too; class: convention
+- `src/common/sim/device/vswitch/README.md:338`: "An invalid link state returns a structured error"; fails: a port the table lacks is refused too; class: convention
