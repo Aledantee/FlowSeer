@@ -712,3 +712,5 @@ Follow-ups of the review. None holds the verdict.
 - src/common/sim/layer/routing/receive.go:61: the receive rule reads the Ethernet destination and the Solicited check at `:73` reads the IPv6 destination, so an all-nodes frame with a unicast IPv6 destination confirms reachability; class: hardening
 - src/common/sim/layer/routing/receive.go:64: no check that the IPv6 Next Header is 58 before `ndp.Decode`; class: hardening
 - src/common/sim/layer/routing/receive.go:51: a group or zero sender hardware address is cached and answered (`:102` for a solicitation's option); class: hardening
+- src/common/sim/layer/routing/README.md:402: exits are said to be ordered by VRF, interface, and address, where a lookup that retires an exhausted entry appends its exits at call time (also the `Advance` and `neighborTableEntry` comments in `neighbor.go`); class: convention
+- src/common/sim/device/vswitch/switch.go:1413: `receiveAndRelease` saves two hit lists and not `mcastQueryUnobservedHits`, so a held frame released to a cached group MAC charges a multicast query hit to the observing frame; class: hardening
