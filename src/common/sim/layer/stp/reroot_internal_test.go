@@ -1,6 +1,7 @@
 package stp
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -168,6 +169,89 @@ func TestRerootLeavesAnExpiredRecentRootForwarding(t *testing.T) {
 			rerootState(t, l.cist(), "p1", bpdu.RoleDesignated, StateForwarding)
 			rerootState(t, l.cist(), "p2", bpdu.RoleRoot, StateForwarding)
 		})
+	}
+}
+
+func TestRerootDelayChangesPreserveExpiry(t *testing.T) {
+	t.Parallel()
+	delays := []time.Duration{4 * time.Second, 15 * time.Second, 30 * time.Second}
+	for _, mode := range []string{"RSTP", "MSTI", "PVST"} {
+		for _, before := range delays {
+			for _, after := range delays {
+				elapsed := map[time.Duration]bool{}
+				for _, boundary := range []time.Duration{before, after} {
+					for _, offset := range []time.Duration{-time.Second, 0, time.Second} {
+						elapsed[boundary+offset] = true
+					}
+				}
+				for e := range elapsed {
+					for _, ageFirst := range []bool{false, true} {
+						t.Run(fmt.Sprintf("%s/before=%s/after=%s/elapsed=%s/advance=%v", mode, before, after, e, ageFirst), func(t *testing.T) {
+							t.Parallel()
+							var region *MST
+							var pvst *PVST
+							switch mode {
+							case "MSTI":
+								region = &MST{Name: "region", Instances: map[bpdu.MSTID]Instance{1: {VLANs: []vlan.ID{10}}}}
+							case "PVST":
+								pvst = &PVST{Trees: map[vlan.ID]Tree{1: {}, 10: {}}}
+							}
+							l, now := rerootBridge(region, pvst)
+							l.forwardDelay = before
+							tr := l.cist()
+							if region != nil {
+								tr = l.trees[treeID(1)]
+							} else if pvst != nil {
+								tr = l.trees[treeID(10)]
+							}
+							receive := func(at time.Time, port string, priority uint16, cost uint32, delay time.Duration) {
+								b := rerootBPDU(priority, cost)
+								if region != nil {
+									b = syncMSTBPDU(region.ConfigID(), syncMAC(2), cost, cost, bpdu.RoleDesignated, syncMSTFlags{})
+									b.RootID.Priority = priority
+									b.RegionalRootID.Priority = priority
+									b.MSTIs[0].RegionalRootID.Priority = priority | 1
+								}
+								b.ForwardDelay = delay
+								if pvst != nil {
+									b.RootID.Priority |= 10
+									if _, outcome := l.ReceiveSSTP(at, port, syncSSTP(10), b); outcome != SSTPApplied {
+										t.Fatalf("ReceiveSSTP = %v, want applied", outcome)
+									}
+									return
+								}
+								l.Receive(at, port, b)
+							}
+							receive(now, "p1", 4096, 20_000, before)
+							receive(now, "p2", 4096, 40_000, before)
+							rerootState(t, tr, "p1", bpdu.RoleRoot, StateForwarding)
+							rerootState(t, tr, "p2", bpdu.RoleAlternate, StateDiscarding)
+							left := now.Add(12 * time.Second)
+							l.Advance(left)
+							rerootState(t, tr, "p1", bpdu.RoleDesignated, StateForwarding)
+							rerootState(t, tr, "p2", bpdu.RoleDesignated, StateDiscarding)
+							if tr.ports["p1"].leftRootAt != left {
+								t.Fatalf("leftRootAt = %v, want %v", tr.ports["p1"].leftRootAt, left)
+							}
+							at := left.Add(e)
+							if ageFirst {
+								l.Advance(at)
+								if tr.ports["p2"].state == StateForwarding {
+									t.Fatal("fixture p2 is Forwarding before selection")
+								}
+							}
+							receive(at, "p2", 0, 0, after)
+							want := StateForwarding
+							if e < before && e < after {
+								want = StateDiscarding
+							}
+							rerootState(t, tr, "p1", bpdu.RoleDesignated, want)
+							rerootState(t, tr, "p2", bpdu.RoleRoot, StateForwarding)
+						})
+					}
+				}
+			}
+		}
 	}
 }
 
