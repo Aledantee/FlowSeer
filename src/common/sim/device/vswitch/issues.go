@@ -18,6 +18,24 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+// call owns only the issues raised by its frame. Child frames use a fresh call
+// because their dependencies do not belong to the observing frame's result.
+type call struct {
+	now                      time.Time
+	commit                   bool
+	lagRebalanceHits         map[string]lag.Selection
+	mcastQueryUnobservedHits []mcastQueryUnobservedHit
+	neighborUnresolvedHits   []neighborUnresolvedHit
+	pvstBoundaryHits         map[pvstBoundaryHit]struct{}
+}
+
+func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {
+	parent := s.call
+	c := &call{now: now, commit: commit}
+	s.call = c
+	return c, func() { s.call = parent }
+}
+
 // pvstBoundaryHit names one port and VLAN a journey crossed while the port
 // faced a spanning tree neighbor this switch does not simulate per VLAN.
 type pvstBoundaryHit struct {
@@ -43,7 +61,7 @@ type neighborUnresolvedHit struct {
 	addr  netip.Addr
 }
 
-func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
+func (s *Switch) wrapResult(c *call, res bridge.Result) ForwardResult {
 	var issues []runtimeIssue
 	consultedScopes := res.ConsultedScopes()
 
@@ -53,7 +71,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 		if p.AdminStatus == port.Unknown || p.OperStatus == port.Unknown {
 			issues = append(issues, runtimeIssue{
 				issue: analysis.Issue{
-					Code:    "unknown-operational-status",
+					Code:    IssueUnknownOperationalStatus,
 					Status:  analysis.Incomplete,
 					Scope:   scope,
 					Message: fmt.Sprintf("port %q has unknown operational status", p.Name),
@@ -91,7 +109,7 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 		}
 		issues = append(issues, runtimeIssue{
 			issue: analysis.Issue{
-				Code:    "forwarding-dependency-outside-loaded-scope",
+				Code:    IssueForwardingDependencyOutsideLoadedScope,
 				Status:  analysis.Incomplete,
 				Scope:   scope,
 				Message: fmt.Sprintf("scope %s lies outside loaded analysis scope %s", scope, s.metadata.Scope()),
@@ -102,10 +120,10 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 			}},
 		})
 	}
-	issues = append(issues, s.lagRebalanceIssues()...)
-	issues = append(issues, s.mcastQueryUnobservedIssues()...)
-	issues = append(issues, s.neighborUnresolvedIssues()...)
-	issues = append(issues, s.pvstBoundaryIssues()...)
+	issues = append(issues, s.lagRebalanceIssues(c)...)
+	issues = append(issues, s.mcastQueryUnobservedIssues(c)...)
+	issues = append(issues, s.neighborUnresolvedIssues(c)...)
+	issues = append(issues, s.pvstBoundaryIssues(c)...)
 
 	return ForwardResult{
 		Result:   res,
@@ -116,12 +134,12 @@ func (s *Switch) wrapResult(res bridge.Result) ForwardResult {
 // lagRebalanceIssues raises lag-rebalance-unmodeled for each LAG the forward
 // or peek call in progress actually used with a balanced selection old enough
 // that unmodeled rebalancing could have moved it.
-func (s *Switch) lagRebalanceIssues() []runtimeIssue {
-	if len(s.lagRebalanceHits) == 0 {
+func (s *Switch) lagRebalanceIssues(c *call) []runtimeIssue {
+	if len(c.lagRebalanceHits) == 0 {
 		return nil
 	}
-	names := make([]string, 0, len(s.lagRebalanceHits))
-	for name := range s.lagRebalanceHits {
+	names := make([]string, 0, len(c.lagRebalanceHits))
+	for name := range c.lagRebalanceHits {
 		names = append(names, name)
 	}
 	slices.Sort(names)
@@ -157,13 +175,13 @@ func (s *Switch) lagConstructionEvidence(lagName string) []trace.Fact {
 // mcastQueryUnobservedIssues raises mcast-query-unobserved for each (VLAN,
 // group) pair the forward or peek call in progress resolved while an
 // expected query had gone unobserved past its last member query time.
-func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
-	if len(s.mcastQueryUnobservedHits) == 0 {
+func (s *Switch) mcastQueryUnobservedIssues(c *call) []runtimeIssue {
+	if len(c.mcastQueryUnobservedHits) == 0 {
 		return nil
 	}
-	seen := make(map[mcastQueryUnobservedHit]struct{}, len(s.mcastQueryUnobservedHits))
-	issues := make([]runtimeIssue, 0, len(s.mcastQueryUnobservedHits))
-	for _, hit := range s.mcastQueryUnobservedHits {
+	seen := make(map[mcastQueryUnobservedHit]struct{}, len(c.mcastQueryUnobservedHits))
+	issues := make([]runtimeIssue, 0, len(c.mcastQueryUnobservedHits))
+	for _, hit := range c.mcastQueryUnobservedHits {
 		if _, ok := seen[hit]; ok {
 			continue
 		}
@@ -187,13 +205,13 @@ func (s *Switch) mcastQueryUnobservedIssues() []runtimeIssue {
 // address a forward or peek call in progress found pending: a next hop
 // netsim never asked about, as opposed to one it knows has no answer. The
 // hit mechanism mirrors mcastQueryUnobservedIssues above.
-func (s *Switch) neighborUnresolvedIssues() []runtimeIssue {
-	if len(s.neighborUnresolvedHits) == 0 {
+func (s *Switch) neighborUnresolvedIssues(c *call) []runtimeIssue {
+	if len(c.neighborUnresolvedHits) == 0 {
 		return nil
 	}
-	seen := make(map[neighborUnresolvedHit]struct{}, len(s.neighborUnresolvedHits))
-	issues := make([]runtimeIssue, 0, len(s.neighborUnresolvedHits))
-	for _, hit := range s.neighborUnresolvedHits {
+	seen := make(map[neighborUnresolvedHit]struct{}, len(c.neighborUnresolvedHits))
+	issues := make([]runtimeIssue, 0, len(c.neighborUnresolvedHits))
+	for _, hit := range c.neighborUnresolvedHits {
 		if _, ok := seen[hit]; ok {
 			continue
 		}
@@ -229,10 +247,10 @@ func (s *Switch) recordPVSTBoundaries(res bridge.Result) {
 		if name == "" || !s.stp.PVSTBoundary(name) {
 			return
 		}
-		if s.pvstBoundaryHits == nil {
-			s.pvstBoundaryHits = make(map[pvstBoundaryHit]struct{})
+		if s.call.pvstBoundaryHits == nil {
+			s.call.pvstBoundaryHits = make(map[pvstBoundaryHit]struct{})
 		}
-		s.pvstBoundaryHits[pvstBoundaryHit{port: name, vid: res.FID}] = struct{}{}
+		s.call.pvstBoundaryHits[pvstBoundaryHit{port: name, vid: res.FID}] = struct{}{}
 	}
 
 	record(res.Ingress)
@@ -250,13 +268,13 @@ func (s *Switch) recordPVSTBoundaries(res bridge.Result) {
 // prefix test, and the bridge consults the port's own spanning tree scope on
 // every gated frame, so a nested scope would be contained by it and a VLAN 1
 // journey through the port would pick up another VLAN's issue.
-func (s *Switch) pvstBoundaryIssues() []runtimeIssue {
-	if len(s.pvstBoundaryHits) == 0 {
+func (s *Switch) pvstBoundaryIssues(c *call) []runtimeIssue {
+	if len(c.pvstBoundaryHits) == 0 {
 		return nil
 	}
 
-	hits := make([]pvstBoundaryHit, 0, len(s.pvstBoundaryHits))
-	for hit := range s.pvstBoundaryHits {
+	hits := make([]pvstBoundaryHit, 0, len(c.pvstBoundaryHits))
+	for hit := range c.pvstBoundaryHits {
 		hits = append(hits, hit)
 	}
 	slices.SortFunc(hits, func(a, b pvstBoundaryHit) int {
@@ -310,6 +328,18 @@ func mcastGroupScope(nodeID string, vid vlan.ID, group netip.Addr) analysis.Scop
 	return analysis.ProtocolScope(nodeID, string(mcast.LayerName), fmt.Sprintf("%d/%s", vid, group))
 }
 
+// IssueUnknownOperationalStatus indicates that a consulted port has an unknown
+// administrative or operational state.
+const IssueUnknownOperationalStatus analysis.IssueCode = "unknown-operational-status"
+
+// IssueForwardingDependencyOutsideLoadedScope indicates that a result consulted
+// a dependency outside the switch's loaded analysis scope.
+const IssueForwardingDependencyOutsideLoadedScope analysis.IssueCode = "forwarding-dependency-outside-loaded-scope"
+
+// IssuePoEDemandUnknown indicates that a port's Power over Ethernet demand is
+// unknown, so its allocation cannot be determined.
+const IssuePoEDemandUnknown analysis.IssueCode = "poe-demand-unknown"
+
 // IssueProtocolLinkUnknown indicates that a protocol layer (such as STP or LAG)
 // computed port role, state, or membership while a link operational state or
 // point-to-point duplex status was unknown.
@@ -346,24 +376,24 @@ func (s *Switch) recordLAGSelection(lagName string, sel lag.Selection) {
 	if !sel.RebalanceUnmodeled {
 		return
 	}
-	if s.lagRebalanceHits == nil {
-		s.lagRebalanceHits = make(map[string]lag.Selection)
+	if s.call.lagRebalanceHits == nil {
+		s.call.lagRebalanceHits = make(map[string]lag.Selection)
 	}
-	s.lagRebalanceHits[lagName] = sel
+	s.call.lagRebalanceHits[lagName] = sel
 }
 
 // recordMcastQueryUnobserved notes that the forward or peek call in progress
 // resolved (vid, group) while its expected query had gone unobserved, so
 // wrapResult can raise mcast-query-unobserved for that group.
 func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr, now time.Time) {
-	s.mcastQueryUnobservedHits = append(s.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group, now: now})
+	s.call.mcastQueryUnobservedHits = append(s.call.mcastQueryUnobservedHits, mcastQueryUnobservedHit{vid: vid, group: group, now: now})
 }
 
 // recordNeighborUnresolved notes that the forward or peek call in progress
 // resolved (vrf, iface, addr) as pending, so wrapResult can raise
 // neighbor-unresolved for that lookup.
 func (s *Switch) recordNeighborUnresolved(vrf, iface string, addr netip.Addr) {
-	s.neighborUnresolvedHits = append(s.neighborUnresolvedHits, neighborUnresolvedHit{vrf: vrf, iface: iface, addr: addr})
+	s.call.neighborUnresolvedHits = append(s.call.neighborUnresolvedHits, neighborUnresolvedHit{vrf: vrf, iface: iface, addr: addr})
 }
 
 // recordOperFault keeps the first oper-status fault. Later faults are dropped

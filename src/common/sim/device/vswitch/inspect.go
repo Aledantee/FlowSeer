@@ -120,7 +120,7 @@ func (s *Switch) Power() PowerResult {
 		if pa.State == phy.PowerUnknown {
 			scope := analysis.FieldScope(analysis.NodeScope(s.nodeID), "poe", portName)
 			issues = append(issues, analysis.Issue{
-				Code:    "poe-demand-unknown",
+				Code:    IssuePoEDemandUnknown,
 				Status:  analysis.Incomplete,
 				Scope:   scope,
 				Message: fmt.Sprintf("port %q has unknown poe power demand", portName),

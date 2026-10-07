@@ -38,6 +38,9 @@ type Emission struct {
 // aging time relative to now, advances multicast router and group expiry, and
 // advances the routing layer's neighbor table, applying any hold-queue exits.
 func (s *Switch) Age(now time.Time) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	if s.bridge != nil {
 		s.bridge.Advance(now)
 	}
@@ -152,6 +155,9 @@ func (s *Switch) DrainNeighborFailures() []NeighborDrop {
 // and triggering periodic transmissions.
 // On a switch without spanning tree, link aggregation, loop protection, or routing, Wake is a no-op.
 func (s *Switch) Wake(now time.Time) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	if s.stp != nil {
 		fx := s.stp.Advance(now)
 		s.applySTPEffects(fx)
@@ -208,6 +214,9 @@ func (s *Switch) NextWake() (time.Time, bool) {
 // transmit RSTP BPDUs and restarting the migration delay.
 // On a switch without spanning tree configuration, Mcheck is a no-op.
 func (s *Switch) Mcheck(now time.Time, port string) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	if s.stp == nil {
 		return
 	}

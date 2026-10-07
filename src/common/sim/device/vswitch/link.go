@@ -12,6 +12,9 @@ import (
 // Start initializes the protocol layers with the current link state of every port in the table.
 // On a switch without spanning tree, link aggregation, or loop protection, Start is a no-op.
 func (s *Switch) Start(now time.Time) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	if s.stp == nil && s.lag == nil && s.loopprotect == nil {
 		return
 	}
@@ -221,6 +224,9 @@ const (
 // An invalid operational state or an absent port records a fault on operErr.
 // LinkChange returns nothing and the fault has no exported reader.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]PointToPoint)
 	}

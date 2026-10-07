@@ -76,37 +76,10 @@ func (s *Switch) observationInterface(now time.Time, ingress string, f ethernet.
 // deadline cancels it the moment Receive resolves the entry. Settling on
 // Wake, Age, or an observing Forward flushes that queue and any other entry
 // whose resolution deadline has separately passed by now.
-//
-// A release reached through applyRoutingExits can itself commit a LAG
-// selection or hit an unresolved neighbor, on a path the observing frame
-// never traversed. It is a queued frame going out an egress interface of
-// its own, not the frame forward is currently processing. Left alone that
-// would charge the release's LAG rebalance or neighbor-unresolved issues to
-// the observing frame's result, so receiveAndRelease saves
-// s.lagRebalanceHits and s.neighborUnresolvedHits, then clears both to their
-// zero value before the release runs, so the release always writes into a
-// fresh map and slice rather than one this call is about to hand back:
-// s.lagRebalanceHits is a map, and restoring a saved map reference alone,
-// without first clearing the field, would not undo writes the release makes
-// into that same map, since the saved variable names the same underlying
-// map the release just mutated. Clearing first means the release can only
-// ever write somewhere this call discards, whatever it does. The observing
-// frame's own processing, which runs after this call returns, then records
-// its own hits onto the state this call restores, exactly as if the release
-// in between had never happened.
 func (s *Switch) receiveAndRelease(now time.Time, iface string, frame ethernet.Frame) {
-	savedLAGRebalanceHits := s.lagRebalanceHits
-	savedNeighborUnresolvedHits := s.neighborUnresolvedHits
-
-	s.lagRebalanceHits = nil
-	s.neighborUnresolvedHits = nil
-
 	s.emitRouting(now, s.routing.Receive(now, iface, frame).Emissions)
 	s.emitRouting(now, s.routing.Advance(now).Emissions)
 	s.applyRoutingExits(now, s.routing.DrainExits())
-
-	s.lagRebalanceHits = savedLAGRebalanceHits
-	s.neighborUnresolvedHits = savedNeighborUnresolvedHits
 }
 
 // subInterfaceTag returns the one C-TAG a routed sub-interface's egress carries: its own
@@ -123,7 +96,7 @@ func subInterfaceTag(iface routing.Interface, pcp vlan.PCP, dei bool) ([]vlan.Ta
 }
 
 func (s *Switch) assembleRouteResult(
-	now time.Time,
+	c *call,
 	ingressPort string,
 	ingressFID vlan.ID,
 	ingressPCP vlan.PCP,
@@ -132,7 +105,6 @@ func (s *Switch) assembleRouteResult(
 	ingressIface string,
 	ingressFilterRes filter.Result,
 	routeRes routing.Result,
-	mutate bool,
 ) bridge.Result {
 	routeScopes := routeRes.ConsultedScopes()
 	if len(ingressFilterRes.ConsultedScopes()) > 0 {
@@ -241,8 +213,8 @@ func (s *Switch) assembleRouteResult(
 			PCP:    ingressPCP,
 			DEI:    ingressDEI,
 			Steps:  stepsSoFar,
-			Now:    now,
-			Commit: mutate,
+			Now:    c.now,
+			Commit: c.commit,
 		}
 		bridgeIn.ConsultScopes(routeScopes...)
 		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
@@ -310,7 +282,7 @@ func (s *Switch) assembleRouteResult(
 	resultScopes := routeScopes
 	if p.Kind == port.LAG {
 		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
-		sel, fact := s.selectMemberWithFact(now, egressIface.Port, routeRes.Frame, 0, mutate)
+		sel, fact := s.selectMemberWithFact(c.now, egressIface.Port, routeRes.Frame, 0, c.commit)
 		selection = fact
 		if !sel.OK {
 			steps = append(steps, trace.Step{
@@ -375,38 +347,34 @@ func (s *Switch) assembleRouteResult(
 }
 
 func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
-	savedLAG := s.lagRebalanceHits
-	savedNeighbor := s.neighborUnresolvedHits
-	savedMcast := s.mcastQueryUnobservedHits
-	s.lagRebalanceHits = nil
-	s.neighborUnresolvedHits = nil
-	s.mcastQueryUnobservedHits = nil
 	for _, em := range emissions {
-		if em.Port == "" {
-			res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
-			for _, eg := range res.Egress {
-				if eg.Dropped == "" {
-					s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
+		func() {
+			_, end := s.beginCall(now, true)
+			defer end()
+
+			if em.Port == "" {
+				res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
+				for _, eg := range res.Egress {
+					if eg.Dropped == "" {
+						s.emissions = append(s.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
+					}
 				}
+				return
 			}
-			continue
-		}
-		frame := em.Frame
-		if tags, ok := subInterfaceTag(routing.Interface{Port: em.Port, VLAN: em.VID}, 0, false); ok {
-			frame.Tags = append(tags, frame.Tags...)
-		}
-		if s.ports.Transmit(em.Port, len(frame.Payload)) != "" {
-			continue
-		}
-		p, _ := s.ports.Port(em.Port)
-		if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
-			continue
-		}
-		s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
+			frame := em.Frame
+			if tags, ok := subInterfaceTag(routing.Interface{Port: em.Port, VLAN: em.VID}, 0, false); ok {
+				frame.Tags = append(tags, frame.Tags...)
+			}
+			if s.ports.Transmit(em.Port, len(frame.Payload)) != "" {
+				return
+			}
+			p, _ := s.ports.Port(em.Port)
+			if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
+				return
+			}
+			s.emissions = append(s.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
+		}()
 	}
-	s.lagRebalanceHits = savedLAG
-	s.neighborUnresolvedHits = savedNeighbor
-	s.mcastQueryUnobservedHits = savedMcast
 }
 
 // applyRoutingExits turns the routing layer's hold-queue exits into what
@@ -491,6 +459,9 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 // entry at all, so the bridge's own no-candidate reason is the only thing
 // that can speak for it.
 func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	egressIface, ok := s.routing.Interface(hf.Interface)
 	if !ok {
 		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reasonHeldInterfaceUnknown), reasonHeldInterfaceUnknown)

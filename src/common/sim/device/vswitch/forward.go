@@ -26,31 +26,36 @@ import (
 // the forwarding database if a bridge relay is present, and returns the forwarding result
 // with analysis metadata.
 func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
-	return s.wrapResult(s.forward(now, ingress, f, true))
+	c, end := s.beginCall(now, true)
+	defer end()
+
+	return s.wrapResult(c, s.forward(c.now, ingress, f, c.commit))
 }
 
 // Peek processes an arrival on an ingress port at the given time without mutating
 // the forwarding database and returns the forwarding result with analysis metadata.
 func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
-	return s.wrapResult(s.forward(now, ingress, f, false))
+	c, end := s.beginCall(now, false)
+	defer end()
+
+	return s.wrapResult(c, s.forward(c.now, ingress, f, c.commit))
 }
 
 // ComposeForwardResult attaches switch-owned trust metadata to a forwarding result
 // produced before the bridge pipeline. dependencyPorts names the port state that
 // could have changed the result; a member port also depends on its logical LAG.
 func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...string) ForwardResult {
+	c, end := s.beginCall(time.Time{}, false)
+	defer end()
+
 	for _, name := range dependencyPorts {
 		s.forwardingDependencies(name).consult(&res)
 	}
 
-	return s.wrapResult(res)
+	return s.wrapResult(c, res)
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
-	s.lagRebalanceHits = nil
-	s.mcastQueryUnobservedHits = nil
-	s.pvstBoundaryHits = nil
-	s.neighborUnresolvedHits = nil
 	if mutate {
 		s.copies = nil
 	}
@@ -251,7 +256,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				if mutate {
 					s.emitRouting(now, routeRes.Emissions)
 				}
-				res := s.assembleRouteResult(now, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes, mutate)
+				res := s.assembleRouteResult(s.call, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes)
 				s.forwardingDependencies(ingress).consult(&res)
 				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
 				return s.finishForward(now, ingress, f, res, mutate)
@@ -316,7 +321,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 					if mutate {
 						s.emitRouting(now, routeRes.Emissions)
 					}
-					res := s.assembleRouteResult(now, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes, mutate)
+					res := s.assembleRouteResult(s.call, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes)
 					res.Consult(in.ConsultedPorts()...)
 					res.ConsultScopes(in.ConsultedScopes()...)
 					return s.finishForward(now, ingress, f, res, mutate)

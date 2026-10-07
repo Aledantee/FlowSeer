@@ -578,6 +578,23 @@ remains a consulted, normalized port with explicit Unknown states, so its scoped
 construction issues still reach hub, bridge, routing, and protocol-interception
 results.
 
+Runtime hit sets belong to one call (`issues.go`, `call`). A held frame that
+releases when an ARP reply arrives has its own call, so its multicast query
+or LAG rebalance condition does not appear on the reply's result. Routing
+emissions and `SelectMember` also discard their own hits because they return
+no forwarding result. `ComposeForwardResult` starts with empty hit sets,
+so a policed drop cannot inherit an earlier held frame's unresolved neighbor.
+`issues_internal_test.go` checks these boundaries and cleanup at every entry.
+
+```mermaid
+flowchart LR
+    entry[Entry] --> parent[Call with empty hits]
+    parent --> result[Result carries this call's hits]
+    parent --> child[Released or emitted frame's call]
+    child --> discard[Discard child hits]
+    result --> clear[Clear active call]
+```
+
 ## Derivation and state retention
 
 `Derive(cur, spec)` produces an updated switch while retaining capability layer

@@ -21,6 +21,9 @@ func (s *Switch) aggregatorScope(name string) analysis.Scope {
 // switch makes outside the bridge pipeline. It returns false if the LAG is
 // unknown, has no layer, or has no enabled member.
 func (s *Switch) SelectMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+	_, end := s.beginCall(now, true)
+	defer end()
+
 	sel := s.selectOrPeekMember(now, lagName, f, vid, true)
 
 	return sel.Member, sel.OK

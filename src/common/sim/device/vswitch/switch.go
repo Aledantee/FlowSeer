@@ -69,22 +69,7 @@ type Switch struct {
 	// [Switch.updateLagState]) that cannot return an error of their own.
 	operErr error
 
-	// lagRebalanceHits and mcastQueryUnobservedHits name, for the forward or
-	// peek call in progress, the LAGs and multicast groups whose resolution
-	// reported an unmodeled condition; wrapResult turns each into an
-	// Incomplete issue. Both reset at the start of every forward call.
-	lagRebalanceHits         map[string]lag.Selection
-	mcastQueryUnobservedHits []mcastQueryUnobservedHit
-
-	// neighborUnresolvedHits names, for the forward or peek call in
-	// progress, the (interface, address) pairs a routing lookup found
-	// pending. It resets with the other hit sets.
-	neighborUnresolvedHits []neighborUnresolvedHit
-
-	// pvstBoundaryHits names the (port, VLAN) pairs a journey crossed where
-	// the spanning tree layer reports a neighbor whose per-VLAN trees it
-	// cannot simulate. It resets with the other hit sets.
-	pvstBoundaryHits map[pvstBoundaryHit]struct{}
+	call *call
 
 	// neighborFailures holds the records made by [Switch.Wake], [Switch.Age],
 	// or an observing [Switch.Forward] for held frames that left a hold queue

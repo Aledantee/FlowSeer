@@ -44,35 +44,32 @@ func (c forkClass) String() string {
 }
 
 var switchFieldClasses = map[string]forkClass{
-	"cfg":                      classImmutableShared,
-	"ports":                    classImmutableShared,
-	"bridge":                   classDeepCopied,
-	"speeds":                   classImmutableShared,
-	"power":                    classImmutableShared,
-	"stp":                      classDeepCopied,
-	"loopprotect":              classDeepCopied,
-	"lag":                      classDeepCopied,
-	"mcast":                    classDeepCopied,
-	"routing":                  classDeepCopied,
-	"filter":                   classResetOnFork,
-	"traffic":                  classDeepCopied,
-	"trafficSwitchports":       classImmutableShared,
-	"copies":                   classDeepCopied,
-	"emissions":                classDeepCopied,
-	"portP2P":                  classDeepCopied,
-	"portSpeed":                classDeepCopied,
-	"protocolIssues":           classDeepCopied,
-	"seeds":                    classDeepCopied,
-	"nodeID":                   classImmutableShared,
-	"metadata":                 classImmutableShared,
-	"missingSTP":               classImmutableShared,
-	"operErr":                  classImmutableShared,
-	"lagRebalanceHits":         classResetOnFork,
-	"mcastQueryUnobservedHits": classResetOnFork,
-	"neighborUnresolvedHits":   classResetOnFork,
-	"pvstBoundaryHits":         classResetOnFork,
-	"neighborFailures":         classDeepCopied,
-	"retention":                classDeepCopied,
+	"call":               classResetOnFork,
+	"cfg":                classImmutableShared,
+	"ports":              classImmutableShared,
+	"bridge":             classDeepCopied,
+	"speeds":             classImmutableShared,
+	"power":              classImmutableShared,
+	"stp":                classDeepCopied,
+	"loopprotect":        classDeepCopied,
+	"lag":                classDeepCopied,
+	"mcast":              classDeepCopied,
+	"routing":            classDeepCopied,
+	"filter":             classResetOnFork,
+	"traffic":            classDeepCopied,
+	"trafficSwitchports": classImmutableShared,
+	"copies":             classDeepCopied,
+	"emissions":          classDeepCopied,
+	"portP2P":            classDeepCopied,
+	"portSpeed":          classDeepCopied,
+	"protocolIssues":     classDeepCopied,
+	"seeds":              classDeepCopied,
+	"nodeID":             classImmutableShared,
+	"metadata":           classImmutableShared,
+	"missingSTP":         classImmutableShared,
+	"operErr":            classImmutableShared,
+	"neighborFailures":   classDeepCopied,
+	"retention":          classDeepCopied,
 }
 
 func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
@@ -287,10 +284,12 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	sw.neighborFailures = []NeighborDrop{{Port: "1/1/1", Reason: "held-test"}}
 
 	// Populate transient hit sets on sw to verify resetOnFork clears them.
-	sw.lagRebalanceHits = map[string]lag.Selection{"lag1": {Member: "1/1/3"}}
-	sw.mcastQueryUnobservedHits = []mcastQueryUnobservedHit{{vid: 10, group: netip.MustParseAddr("224.0.0.1")}}
-	sw.neighborUnresolvedHits = []neighborUnresolvedHit{{iface: "vlan10", addr: netip.MustParseAddr("10.0.10.99")}}
-	sw.pvstBoundaryHits = map[pvstBoundaryHit]struct{}{{port: "1/1/1", vid: 10}: {}}
+	sw.call = &call{
+		lagRebalanceHits:         map[string]lag.Selection{"lag1": {Member: "1/1/3"}},
+		mcastQueryUnobservedHits: []mcastQueryUnobservedHit{{vid: 10, group: netip.MustParseAddr("224.0.0.1")}},
+		neighborUnresolvedHits:   []neighborUnresolvedHit{{iface: "vlan10", addr: netip.MustParseAddr("10.0.10.99")}},
+		pvstBoundaryHits:         map[pvstBoundaryHit]struct{}{{port: "1/1/1", vid: 10}: {}},
+	}
 
 	return sw
 }

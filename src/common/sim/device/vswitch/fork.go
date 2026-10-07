@@ -15,7 +15,7 @@ import (
 // shared; capability layers, policer buckets, seeds, and forwarding issues are
 // deep-copied. Fork leaves the packet filter unset on the fork. Bridge selector,
 // resolver, and gate bindings are rebound to the fork's own cloned layers.
-// Transient hit sets for forward calls in progress are reset to their zero values.
+// The call in progress is unset on the fork.
 func (s *Switch) Fork() *Switch {
 	cp := &Switch{
 		cfg:                s.cfg,
