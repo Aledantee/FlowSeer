@@ -458,6 +458,14 @@ func TestInterVLAN(t *testing.T) {
 	if got := l.PortInfo("1/1/1").InterVLAN; !got {
 		t.Errorf("InterVLAN = %v, want true", got)
 	}
+
+	// The sending port is an untagged member of both VLANs, so the same
+	// disagreement no longer says anything about a loop between them.
+	l.Receive(t0, loopprotect.Return{VID: 20, SameUntaggedDomain: true}, probe)
+
+	if got := l.PortInfo("1/1/1").InterVLAN; got {
+		t.Errorf("InterVLAN after a return with SameUntaggedDomain = %v, want false", got)
+	}
 }
 
 func TestInterVLANFalseWhenMatching(t *testing.T) {
