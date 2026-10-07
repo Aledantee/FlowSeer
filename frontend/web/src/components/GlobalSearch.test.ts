@@ -2,11 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { TooltipProvider } from 'reka-ui'
-import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from '../FleetView.vue'
-import { UiAppRoot } from '../ui'
-import { createAiRegistry } from '../ai'
-import { aiRegistryKey } from '../ui/ai/context'
+import { mountInFrame } from '../navigation/frameTesting'
 import { DOCK_KEY } from '../navigation/dock'
 import type { Device } from '../domain/fleet'
 import { devices } from '../domain/fleet'
@@ -644,32 +641,20 @@ describe('global search in German', () => {
       ]),
     )
 
-    const host = document.createElement('div')
-    document.body.append(host)
-    const router = createRouter({
-      history: createMemoryHistory(),
-      routes: [
+    const mounted = await mountInFrame(
+      FleetView,
+      '/devices',
+      [
         {
           path: '/:view(dashboard|devices|clients|sites|topology)',
           component: FleetView,
         },
         { path: '/devices/:deviceId', component: FleetView },
       ],
-    })
-    const registry = createAiRegistry()
-    const i18n = createWebI18n('de')
-    const app = createApp({
-      render() {
-        return h(UiAppRoot, {}, () => h(FleetView))
-      },
-    })
-    await router.push('/devices')
-    app.use(i18n)
-    app.use(router)
-    app.provide(aiRegistryKey, registry)
-    await router.isReady()
-    app.mount(host)
-    dispose = () => app.unmount()
+      'de',
+    )
+    const { host, registry } = mounted
+    dispose = mounted.dispose
     await settle()
 
     const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
