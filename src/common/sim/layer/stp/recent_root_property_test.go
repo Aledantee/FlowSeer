@@ -9,6 +9,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 )
 
+// TestRecentRootCutIsIndependentOfAdvance covers a port that has already left
+// the Root role: p1 leaves it before the Advance under test, so both runs
+// share one deadline. It does not cover the call a port leaves the role in,
+// which depends on Advance when the Root port's information has aged.
 func TestRecentRootCutIsIndependentOfAdvance(t *testing.T) {
 	t.Parallel()
 	const fixedDelay = 15 * time.Second

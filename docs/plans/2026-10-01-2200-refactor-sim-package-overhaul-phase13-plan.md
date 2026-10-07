@@ -653,9 +653,13 @@ Change: a tree port holds its recent-root deadline and the instant it left
 the Backup role, each zero when clear. A port that leaves the Root role for
 Designated takes its recent-root deadline once, at the end of that call:
 the call's instant plus the forward delay `times` returns for the tree
-then. Nothing reads the delay for that deadline afterwards, so whether a
-later reroot cuts the port is the same with and without an `Advance` in
-between (Decisions). The end of the call is where the delay the ladder
+then. Nothing reads the delay for that deadline afterwards, so for a port
+that has already left the Root role, whether a later reroot cuts it is the
+same with and without an `Advance` in between (Decisions). Which call the
+port leaves the role in is outside that rule: it still depends on `Advance`
+when the Root port's information has aged, because received information
+expires only in `Advance`, and the README states that under Limits
+(Decisions). The end of the call is where the delay the ladder
 uses is in force, since the first role assignment of a receive runs while
 the port still holds the previous Forward Delay
 (`src/common/sim/layer/stp/receive.go:527-530`, `:543`, `:579-582`). Until
@@ -884,7 +888,8 @@ the CIST's Root role, the missing `agree` flag, the same-source test of
 Rules 8, the ladder's missing agreement of Rules 2, the point-to-point and
 `sendRSTP` operands of the Root port's rule beside the Force Protocol
 Version the figures read, the cut that does not wait on the backup delay,
-and the recent-root timer a port loses when it turns into a boundary port.
+the recent-root timer a port loses when it turns into a boundary port, and
+the call a port leaves the Root role in when its information has aged.
 Every `path:line` in an edited entry is read from the tree after U1 to U5.
 Tests: `uv run tools/scripts/run.py verify check-prose` on the README.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/README.md`
@@ -924,29 +929,3 @@ U1, U2, and U3 are a chain because each edits
 - Unverified: IEEE Std 802.1D, 1998 Edition, 17.15, for the definition of
   the two timers (Sources). The figures cited under Rules 13 and 17 give
   every assignment the units build.
-- Review, the Decision on the recent-root deadline: which call a port leaves
-  the Root role in depends on a prior `Advance` when the Root port's
-  information has aged, so the deadline does too. `Advance` expires the
-  information and makes the bridge the root, and the port leaves in that
-  call under the bridge's own Forward Delay. Without it the port leaves in
-  the `Receive` that names the next Root port, under that port's received
-  Forward Delay (`src/common/sim/layer/stp/portstate.go:115-128`,
-  `src/common/sim/layer/stp/info.go:165-177`,
-  `src/common/sim/layer/stp/roles.go:129`). Example: the Root port `p2`
-  ages at `T`, a BPDU at `T` with a Forward Delay of 4 seconds makes a
-  forwarding `p1` the Root port, and a BPDU 10 seconds later makes `p3` the
-  Root port. With `Advance` at `T` first, `p2`'s deadline is `T` plus 15
-  seconds and the reroot cuts it. Without it the deadline is `T` plus 4
-  seconds and `p2` keeps forwarding. The Decision's rule holds in both
-  runs, and its consequence, that the cut does not depend on a prior
-  `Advance`, does not. `TestRecentRootCutIsIndependentOfAdvance`
-  (`src/common/sim/layer/stp/recent_root_property_test.go`) covers a port
-  that had left the role before the `Advance`, where the consequence
-  holds. No deadline taken at the end of a call removes the difference,
-  since the two runs differ in which call the port leaves in. The choice is
-  the plan's: the consequence covers only a port that has already left the
-  Root role, or the deadline is taken another way. The fabric queues a wake
-  at the instant `NextWake` reports
-  (`src/common/sim/fabric/run.go:1463-1484`), which includes that expiry
-  (`src/common/sim/layer/stp/advance.go:35-37`). Unverified: that the wake
-  runs before a frame due at the same instant.
