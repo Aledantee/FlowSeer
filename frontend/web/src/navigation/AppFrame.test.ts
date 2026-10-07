@@ -78,3 +78,28 @@ it('starts with a login sidebar and a 54px top bar', async () => {
   expect(mounted.host.querySelector('#frame-topbar')?.textContent).toBe('')
   expect(mounted.host.querySelector('span')?.textContent).toBe('54')
 })
+
+it('resets the top bar height when the frame returns to login', async () => {
+  const child = defineComponent({
+    setup() {
+      const frame = useFrame()
+      frame.sidebar.value = 'menu'
+      frame.topbarHeight.value = 96
+      return () =>
+        h(
+          'button',
+          { onClick: () => (frame.sidebar.value = 'login') },
+          frame.topbarHeight.value,
+        )
+    },
+  })
+  const mounted = await mountInFrame(child, '/test', [
+    { path: '/test', component: child },
+  ])
+  dispose = mounted.dispose
+  const button = mounted.host.querySelector('button')
+  expect(button?.textContent).toBe('96')
+  button?.click()
+  await nextTick()
+  expect(button?.textContent).toBe('54')
+})

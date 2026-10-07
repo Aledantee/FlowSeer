@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { h, nextTick } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import { RouterView } from 'vue-router'
 import LoginView from './LoginView.vue'
 import type { WebLocale } from './i18n'
 import { i18nWarnings } from './i18n/testing'
 import { mountInFrame } from './navigation/frameTesting'
+import { useFrame } from './navigation/frame'
 import { sessionOperator, signOut } from './session/session'
 
 let dispose = () => {}
@@ -82,6 +83,20 @@ async function mountLogin(start = '/login', locale: WebLocale = 'en') {
 }
 
 describe('LoginView', () => {
+  it('puts the frame in login mode after a console view', async () => {
+    const fromMenu = defineComponent({
+      setup() {
+        useFrame().sidebar.value = 'menu'
+        return () => h(LoginView)
+      },
+    })
+    const mounted = await mountInFrame(fromMenu, '/login', [
+      { path: '/login', component: fromMenu },
+    ])
+    dispose = mounted.dispose
+    expect(mounted.host.querySelector('aside.sidebar')?.id).toBe('')
+  })
+
   it('labels the email field and titles the page', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { host, input } = await mountLogin()
