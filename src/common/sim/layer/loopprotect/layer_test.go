@@ -80,6 +80,19 @@ func TestReceiveAppliesActionToNamedPort(t *testing.T) {
 	}
 }
 
+func TestReceiveUntrackedPortDoesNotArm(t *testing.T) {
+	t.Parallel()
+
+	l := newCadenceLayer(t, loopprotect.Config{
+		Interval: 60 * time.Second,
+		Ports: map[string]loopprotect.Port{
+			"a": {Action: loopprotect.Block},
+		},
+	}, "a")
+	l.Receive(time.Unix(1_700_000_000, 0), loopprotect.Return{}, returnedProbe("untracked", 0))
+	wantNoWake(t, l, "Receive naming an untracked port")
+}
+
 func TestRecoveryLoopCleared(t *testing.T) {
 	t.Parallel()
 
