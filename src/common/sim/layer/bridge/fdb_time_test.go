@@ -35,10 +35,10 @@ func TestFDBFrameTimeMatchesPriorAdvance(t *testing.T) {
 		previous = next
 	}
 	ports := buildTestPorts(t, 3)
-	count := 0
+	count, concreteCount, boundaryCount := 0, 0, 0
 	for _, maxEntries := range []int{0, 1, 2} {
 		for world, seeds := range worlds {
-			for layout := range 64 {
+			for layout := range 32 {
 				count++
 				t.Run(fmt.Sprintf("max=%d/world=%d/layout=%d", maxEntries, world, layout), func(t *testing.T) {
 					f := ethernet.Frame{Src: macA, Dst: macC}
@@ -49,15 +49,12 @@ func TestFDBFrameTimeMatchesPriorAdvance(t *testing.T) {
 					if layout&2 != 0 {
 						ingress = "1/1/2"
 					}
-					learn, priorAdvance, split := layout&4 != 0, layout&8 != 0, layout&16 != 0
-					if layout&32 != 0 {
+					learn, split := layout&4 != 0, layout&8 != 0
+					if layout&16 != 0 {
 						f.Dst = macD
 					}
 					b := mustNewBridge(t, bridge.Config{MaxEntries: maxEntries}, ports)
 					mustLearn(t, b, seeds)
-					if priorAdvance {
-						b.Advance(now)
-					}
 					aged := b.Clone()
 					aged.Advance(now)
 					var results [2]bridge.Result
@@ -91,6 +88,7 @@ func TestFDBFrameTimeMatchesPriorAdvance(t *testing.T) {
 					}
 					if maxEntries == 1 && len(seeds) == 1 && seeds[0].Lifetime == bridge.Aging &&
 						seeds[0].LearnedAt.Equal(testTime0) && f.Src == macB && f.Dst == macC && ingress == "1/1/2" && learn {
+						concreteCount++
 						wantEntries := []bridge.Entry{{MAC: macB, Port: "1/1/2", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: now}}
 						wantCounters := bridge.Counters{Learned: 2, Expired: 1}
 						if !reflect.DeepEqual(b.Entries(), wantEntries) || b.Counters() != wantCounters {
@@ -113,12 +111,40 @@ func TestFDBFrameTimeMatchesPriorAdvance(t *testing.T) {
 							t.Errorf("expired seed Result = %+v, want Flooded, rules %v, ports [1/1/1 1/1/3]", got, wantRules)
 						}
 					}
+					if maxEntries == 0 && len(seeds) == 2 && seeds[0].Lifetime == bridge.Static && now.Sub(seeds[0].LearnedAt) == 299*time.Second &&
+						seeds[1].MAC == macC && seeds[1].Lifetime == bridge.Aging && now.Sub(seeds[1].LearnedAt) == 300*time.Second && f.Src == macB && f.Dst == macC && ingress == "1/1/2" && !learn {
+						boundaryCount++
+						for i, res := range results {
+							if res.Outcome != trace.Forwarded || res.Reason != "" || len(res.Egress) != 1 || res.Egress[0].Port != "1/1/1" || res.Egress[0].Dropped != "" {
+								t.Errorf("relay %d at aging boundary = %+v, want unicast hit on 1/1/1", i, res)
+							}
+						}
+						for i, relay := range []*bridge.Layer{b, aged} {
+							if len(relay.Entries()) != 2 || relay.Entries()[1].MAC != macC || relay.Counters() != (bridge.Counters{Learned: 1}) {
+								t.Errorf("relay %d Advance at boundary = %+v / %+v, want retained seeds and Learned:1", i, relay.Entries(), relay.Counters())
+							}
+						}
+					}
+					f.Src = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
+					for i, relay := range []*bridge.Layer{b, aged} {
+						relay.SetGate(nil, analysis.WholeScope())
+						results[i] = relay.Forward(now, ingress, f)
+					}
+					if !reflect.DeepEqual(results[0], results[1]) || !reflect.DeepEqual(b.Entries(), aged.Entries()) || b.Counters() != aged.Counters() {
+						t.Errorf("next learning frame = %+v / %+v / %+v, want prior Advance %+v / %+v / %+v", results[0], b.Entries(), b.Counters(), results[1], aged.Entries(), aged.Counters())
+					}
 				})
 			}
 		}
 	}
-	if count != 8256 {
-		t.Errorf("ran %d cases, want 8256", count)
+	if count != 4128 {
+		t.Errorf("ran %d cases, want 4128", count)
+	}
+	if concreteCount != 2 {
+		t.Errorf("concrete expectations ran %d times, want 2", concreteCount)
+	}
+	if boundaryCount != 2 {
+		t.Errorf("boundary expectations ran %d times, want 2", boundaryCount)
 	}
 }
 
@@ -176,7 +202,7 @@ func TestSeedNamesAndRefusals(t *testing.T) {
 
 func TestDestinationLookupAtFrameTime(t *testing.T) {
 	for _, priorAdvance := range []bool{false, true} {
-		for _, age := range []time.Duration{299 * time.Second, 301 * time.Second} {
+		for _, age := range []time.Duration{299 * time.Second, 300 * time.Second, 301 * time.Second} {
 			t.Run(age.String()+"/advance="+strconv.FormatBool(priorAdvance), func(t *testing.T) {
 				b := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 3))
 				mustLearn(t, b, []bridge.Seed{{MAC: macA, Port: "1/1/1", LearnedAt: testTime0}})
@@ -261,11 +287,15 @@ func TestSourceLearningAtFrameTime(t *testing.T) {
 }
 
 func TestLearningRequiresVLANMemberSet(t *testing.T) {
-	for _, member := range []bool{false, true} {
-		t.Run(map[bool]string{false: "empty", true: "other-port"}[member], func(t *testing.T) {
+	for _, mode := range []string{"empty", "other-port", "tunnel"} {
+		t.Run(mode, func(t *testing.T) {
+			member := mode != "empty"
 			other := bridge.Switchport{}
-			if member {
+			if mode == "other-port" {
 				other.Tagged = []vlan.ID{10}
+			}
+			if mode == "tunnel" {
+				other.Tunnel = &bridge.Tunnel{VID: 10}
 			}
 			b := mustNewBridge(t, bridge.Config{VLAN: &bridge.VLAN{
 				Table:       map[vlan.ID]string{10: "ten"},
