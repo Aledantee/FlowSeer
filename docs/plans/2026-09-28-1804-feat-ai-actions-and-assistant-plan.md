@@ -164,6 +164,11 @@ would need a menu it can open at a point directly and this plan is wrong.
   the close did not follow an outside interaction, as Reka does for its
   own triggers. (decided by the user, 2026-10-07)
 
+- **Tab does nothing in the open menu.** `UiContextMenu` prevents Tab in
+  its non-modal content, as Reka does in a modal menu, so making the menu
+  non-modal changes no key and Escape stays the keyboard close. (decided
+  by the user, 2026-10-07)
+
 - **Re-plan before more fixing.** The review ended in `rework` after
   five fix rounds across three reviews. The next stage is `plan` on the
   context layer and assistant focus mechanics, started from
@@ -1229,32 +1234,6 @@ adapted, so no two of them are independent.
 - [ ] No plan labels in code, comments, or commit messages.
 
 ## Open questions
-
-1. **What does Tab do in the open menu?** The outside-press Decision
-   makes the menu non-modal, and a non-modal Reka menu stops preventing
-   Tab (`Menu/MenuContentImpl.js:210`). Tab then moves focus out of the
-   menu, the move closes it
-   (`DismissableLayer/DismissableLayer.js:65-71`), and that Decision
-   returns no focus after a focus move outside. Reka keeps a focus
-   guard at each end of `body` while the menu is mounted and removes
-   both with it (`shared/useFocusGuards.js:11-23`). By the source, Tab
-   lands on the guard after the portalled menu and focus then drops to
-   `body`, and Shift+Tab lands on the last tab stop of the page. Where
-   a browser puts it is unverified. The modal menu the plan had before
-   the Decision ignored Tab. The options:
-   - Tab does nothing (recommended). `UiContextMenu` prevents Tab in
-     non-modal content, as Reka does in a modal menu. The Decision then
-     changes no key, and Escape stays the keyboard close. The units are
-     written this way.
-   - Tab leaves the menu, as Reka's non-modal menu does. `UiContextMenu`
-     gets no rule for it, and a keyboard user loses their place in the
-     page.
-   - Tab closes the menu as Escape does, and focus returns to the
-     pre-menu element. The keyboard gets a second close, and
-     `UiContextMenu` gets a second rule.
-
-   The answer sets the Tab row of Requirement 17, one line of U10's
-   Change, and one case in `UiContextMenu.test.ts`.
 
 - Unconfirmed: view-level targets are excluded from the context menu, so
   page-wide verbs live only in the summary placement and the panel. If
