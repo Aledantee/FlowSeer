@@ -272,8 +272,8 @@ open in the last round's own fixes, and the record does not list them.
   - It sets no `aria-hidden` on the rest of the page and locks no
     scroll (`MenuRootContentModal.js:116`,
     `Menu/MenuContentImpl.js:139`).
-  - It lets Tab through (`MenuContentImpl.js:210`). Open question 1 is
-    about that key.
+  - It lets Tab through (`MenuContentImpl.js:210`). The Tab Decision
+    above settles that key.
 
 - **Each open mounts fresh menu content.** `UiContextMenu` keys its
   content by a counter that rises on every `update:open` with `true`.
@@ -681,7 +681,7 @@ open in the last round's own fixes, and the record does not list them.
     | The menu closes by Escape | the element focused before it opened, where a bare `UiContextMenu` with `modal` false leaves it |
     | The menu or the result closes on a pointer press outside it | where the user pressed |
     | The menu or the result closes on a focus move outside it | where focus moved |
-    | Tab or Shift+Tab in the open menu | in the menu, which stays open (Open question 1) |
+    | Tab or Shift+Tab in the open menu | in the menu, which stays open (the Tab Decision) |
     | A verb is chosen | inside the result popover |
     | The result closes by Escape, by its Close button, or because its target left | the origin, when it is still connected |
     | "Ask about this…" or "Continue in assistant" | in the assistant's prompt, at the docked and the narrow width |
@@ -962,7 +962,7 @@ Change:
   content by an open counter, so each open mounts fresh content. With
   `modal` false it prevents the default of a Tab keydown in its
   content, as Reka does in a modal menu (`Menu/MenuContentImpl.js:210`,
-  Open question 1).
+  the Tab Decision).
 - `UiPopover` takes `accessibleName` and re-emits `interactOutside`,
   and a `#trigger` wins over `reference`.
 - `UiAiContextLayer` renders its slot directly under its root, beside
@@ -1207,7 +1207,7 @@ adapted, so no two of them are independent.
     put it
   - the Menu key and Shift+F10 on a focused row link in Chrome and
     Safari on macOS, and the Menu key in a field
-  - Tab and Shift+Tab in the open menu (Open question 1)
+  - Tab and Shift+Tab in the open menu (the Tab Decision)
   - a long-press under touch emulation, on an item and beside it
   - every row of Requirement 17 with a real pointer. The outside
     presses land on the top bar's search field and on an empty part of
