@@ -50,6 +50,9 @@ func copies(cfg Config, switchports map[string]Switchport, ingress string, vid v
 			continue
 		}
 		if mirror.OutputPort != "" {
+			if mirror.OutputPort == ingress {
+				continue
+			}
 			frame := truncateFrame(cloneFrame(received), mirror.SnapLen)
 			copies = append(copies, Copy{Mirror: mirror.Name, Port: mirror.OutputPort, Frame: frame})
 
@@ -63,7 +66,7 @@ func copies(cfg Config, switchports map[string]Switchport, ingress string, vid v
 			if name == ingress {
 				continue
 			}
-			frame, ok := vlanCopyFrame(received, switchports[name], *mirror.OutputVLAN)
+			frame, ok := vlanCopyFrame(received, switchports[ingress], switchports[name], *mirror.OutputVLAN)
 			if !ok {
 				continue
 			}
@@ -97,39 +100,45 @@ func selects(mirror Mirror, ingress string, vid vlan.ID, egress []Egress) bool {
 	return len(mirror.SelectVLANs) == 0 || slices.Contains(mirror.SelectVLANs, vid)
 }
 
-func vlanCopyFrame(received ethernet.Frame, switchport Switchport, outputVLAN vlan.ID) (ethernet.Frame, bool) {
-	tagged := slices.Contains(switchport.Tagged, outputVLAN)
-	untagged := slices.Contains(switchport.Untagged, outputVLAN) ||
-		(switchport.Tunnel != nil && switchport.Tunnel.VID == outputVLAN)
+// vlanCopyFrame builds the copy for one output switchport. The ingress
+// switchport decides which received tags the copy keeps: the outer tag is
+// removed only when it is a C-tag and the frame did not arrive on a tunnel
+// port, where it is the customer's. The output switchport decides the form.
+func vlanCopyFrame(received ethernet.Frame, ingress, output Switchport, outputVLAN vlan.ID) (ethernet.Frame, bool) {
+	tagged := slices.Contains(output.Tagged, outputVLAN)
+	untagged := slices.Contains(output.Untagged, outputVLAN) ||
+		(output.Tunnel != nil && output.Tunnel.VID == outputVLAN)
 	if !tagged && !untagged {
 		return ethernet.Frame{}, false
 	}
 
 	frame := cloneFrame(received)
-	remaining := frame.Tags
+	kept := frame.Tags
 	pcp := vlan.PCP(0)
 	dei := false
 	if len(frame.Tags) > 0 {
 		outer := frame.Tags[0]
-		remaining = frame.Tags[1:]
 		if outer.TPID == 0 || outer.TPID == uint16(ethernet.EtherTypeDot1Q) {
 			pcp = outer.PCP
 			dei = outer.DEI
+			if ingress.Tunnel == nil {
+				kept = frame.Tags[1:]
+			}
 		}
 	}
 	if tagged {
-		frame.Tags = make([]vlan.Tag, 0, 1+len(remaining))
+		frame.Tags = make([]vlan.Tag, 0, 1+len(kept))
 		frame.Tags = append(frame.Tags, vlan.Tag{
 			TPID: uint16(ethernet.EtherTypeDot1Q),
 			PCP:  pcp,
 			DEI:  dei,
 			VID:  outputVLAN,
 		})
-		frame.Tags = append(frame.Tags, remaining...)
+		frame.Tags = append(frame.Tags, kept...)
 
 		return frame, true
 	}
-	frame.Tags = slices.Clone(remaining)
+	frame.Tags = slices.Clone(kept)
 
 	return frame, true
 }
