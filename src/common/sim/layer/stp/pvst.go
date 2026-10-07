@@ -21,7 +21,7 @@ type Tree struct {
 func (t Tree) TypeID() string { return "stp.pvst.tree" }
 
 // Canonical returns the canonical string representation of the Tree fact:
-// its effective priority and its sorted per-port settings.
+// its stored priority and its sorted per-port settings.
 func (t Tree) Canonical() string {
 	names := sortedKeys(t.Ports)
 	ports := make([]string, len(names))
@@ -30,7 +30,7 @@ func (t Tree) Canonical() string {
 	}
 
 	return fmt.Sprintf("priority=%d,ports=%v",
-		effectiveInstancePriority(t.Priority, t.PriorityPresent), ports)
+		t.Priority, ports)
 }
 
 // PVST holds the Per-VLAN Rapid Spanning Tree configuration of a virtual
@@ -81,8 +81,9 @@ func (t Tree) clone() Tree {
 // Normalize returns a normalized copy of the PVST configuration, filling each
 // tree's priority with bridgePriority when the tree sets none and inserting a
 // default VLAN 1 tree whenever Trees omits one, whether Trees is empty or
-// already names other VLANs. An explicitly configured VLAN 1 tree is left
-// alone.
+// already names other VLANs. Inherited priorities keep PriorityPresent false
+// so they follow bridgePriority on subsequent calls. Explicit priorities
+// remain unchanged.
 //
 // The fallback is the bridge's own priority rather than the standard default
 // an MST instance falls back to: PVST is rapid spanning tree run once per
@@ -99,7 +100,6 @@ func (p PVST) Normalize(bridgePriority uint16) PVST {
 	for vid, tree := range cloned.Trees {
 		if !tree.PriorityPresent {
 			tree.Priority = bridgePriority
-			tree.PriorityPresent = true
 		}
 		cloned.Trees[vid] = tree
 	}

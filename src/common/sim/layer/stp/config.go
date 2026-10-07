@@ -199,7 +199,9 @@ func effectivePointToPoint(m PointToPointMode) PointToPointMode {
 }
 
 // Normalize returns a normalized copy of the spanning tree configuration,
-// filling unspecified fields with standard defaults.
+// filling unspecified fields with standard defaults. Instance and VLAN ports
+// inherit the bridge port's priority without setting PriorityPresent, so a
+// subsequent normalization follows changes to the bridge port.
 func (c Config) Normalize(_ layer.Env) Config {
 	cloned := c.Clone()
 	cloned.Priority = effectivePriority(cloned.Priority, cloned.PriorityPresent)
@@ -224,7 +226,6 @@ func (c Config) Normalize(_ layer.Env) Config {
 					} else {
 						instPort.Priority = DefaultPortPriority
 					}
-					instPort.PriorityPresent = true
 					inst.Ports[name] = instPort
 				}
 			}
@@ -242,7 +243,6 @@ func (c Config) Normalize(_ layer.Env) Config {
 					} else {
 						treePort.Priority = DefaultPortPriority
 					}
-					treePort.PriorityPresent = true
 					tree.Ports[name] = treePort
 				}
 			}

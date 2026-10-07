@@ -398,11 +398,9 @@ func TestMSTValidateRefusesMoreInstancesThanOneBPDUCarries(t *testing.T) {
 	}
 }
 
-// TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority guards the
-// instance-port priority override signal. Normalize must leave an instance
-// port that never set a priority with PriorityPresent false, so the layer's
-// "does this instance override the CIST port priority" check still has a
-// real answer to read.
+// TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority preserves the
+// override signal that Config.Normalize reads to inherit the bridge port's
+// priority on every normalization.
 func TestMSTNormalizeDoesNotOverrideUnsetInstancePortPriority(t *testing.T) {
 	t.Parallel()
 
