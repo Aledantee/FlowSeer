@@ -463,7 +463,7 @@ solicits or holds a frame for an absent binding.
 ### Limits
 
 - Neither `Receive` nor `ndp.Decode` checks IPv6 Next Header 58. The
-  [switch reception predicate](../../device/vswitch/switch.go) checks it.
+  [switch reception predicate](../../device/vswitch/route.go) checks it.
 - `ndp.Decode` stops option validation at the first matching link-layer
   option. Options after it are unchecked, unlike RFC 4861 section 7.1.
 - The layer returns no ICMP error for any drop, including no-route, hop

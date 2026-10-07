@@ -549,7 +549,7 @@ bounded equivalence under a resource contract:
   only the group timer. MLD reports may come from `::` under RFC 4541 §3,
   while queries and Done require a link-local source
   (`src/common/sim/layer/mcast/state.go`,
-  `src/common/sim/device/vswitch/switch.go`).
+  `src/common/sim/device/vswitch/mcast.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 
