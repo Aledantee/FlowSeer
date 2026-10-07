@@ -175,14 +175,6 @@ from `view.login.lines` in the catalogs, most of them jokes. The send button is
 inside the email field and appears once the address is well formed. Enter with
 anything else marks the field, shakes it, and says what is wrong.
 
-The change between the login page and the console is a View Transitions morph
-(`src/navigation/morph.ts`) that carries the brand mark, the sidebar, and the
-main area across, so the sidebar narrows and the page fills.
-The page's content animates in only when a visit starts
-on it (`src/navigation/entrance.ts`). A visitor who prefers reduced motion gets
-no entrance, and a plain route change, and sign-in skips the
-short loading state on the button.
-
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.

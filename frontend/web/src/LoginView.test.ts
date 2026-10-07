@@ -11,8 +11,6 @@ import { sessionOperator, signOut } from './session/session'
 
 let dispose = () => {}
 
-// Reduced motion skips the handover, so sign-in lands at once. One case turns
-// motion back on to watch the handover.
 let reducedMotion = true
 
 beforeEach(() => {
@@ -207,25 +205,23 @@ describe('LoginView', () => {
     )
   })
 
-  it('shows the send action signing in before opening the console when motion is allowed', async () => {
+  it('signs in with motion allowed without advancing a timer or marking the form busy', async () => {
     reducedMotion = false
-    const { host, router, input, submit } = await mountLogin()
-
-    await submit('ada@example.com')
-
-    const button = host.querySelector<HTMLButtonElement>('button.login-submit')
-    expect(button?.getAttribute('aria-busy')).toBe('true')
-    expect(button?.disabled).toBe(true)
-    expect(host.querySelector('.login-form [role="status"]')?.textContent).toBe(
-      'Signing you in',
-    )
-    expect(input.readOnly).toBe(true)
-    expect(sessionOperator.value).toBeNull()
+    const { host, router, input } = await mountLogin()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    const form = host.querySelector<HTMLFormElement>('form.login-form')
+    if (!form) throw new Error('Missing login form')
     expect(router.currentRoute.value.path).toBe('/login')
-
-    await new Promise((resolve) => setTimeout(resolve, 600))
-
+    input.value = 'ada@example.com'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await nextTick()
+    expect(host.querySelector('button.login-submit')).not.toBeNull()
+    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    await nextTick()
     expect(sessionOperator.value).toBe('ada@example.com')
+    expect(form.hasAttribute('aria-busy')).toBe(false)
+    await new Promise<void>((resolve) => setImmediate(resolve))
+    await nextTick()
     expect(router.currentRoute.value.fullPath).toBe('/dashboard')
   })
 
@@ -248,29 +244,6 @@ describe('LoginView', () => {
       animation.effect.getKeyframes().map((keyframe) => keyframe.transform),
     ).toEqual(['translateX(-8px)', 'translateX(0px)'])
     expect(animation.effect.getTiming().duration).toBe(280)
-  })
-
-  it('keeps sign-in loading until the 450 ms handover boundary', async () => {
-    reducedMotion = false
-    const { host, router, input } = await mountLogin()
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    input.value = 'ada@example.com'
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-    host
-      .querySelector('form.login-form')
-      ?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    await nextTick()
-    const button = host.querySelector<HTMLButtonElement>('button.login-submit')
-    expect(button?.getAttribute('aria-busy')).toBe('true')
-    await vi.advanceTimersByTimeAsync(449)
-    expect(router.currentRoute.value.path).toBe('/login')
-    expect(sessionOperator.value).toBeNull()
-    expect(button?.disabled).toBe(true)
-    expect(input.readOnly).toBe(true)
-    await vi.advanceTimersByTimeAsync(1)
-    await nextTick()
-    expect(sessionOperator.value).toBe('ada@example.com')
-    expect(router.currentRoute.value.path).toBe('/dashboard')
   })
 
   it('marks the field and keeps the layout when Enter sends a bad address', async () => {
