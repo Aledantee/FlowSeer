@@ -167,4 +167,3 @@ def main(argv):
     if kind == "start":
         print(event["run"])
     return 0
-

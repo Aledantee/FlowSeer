@@ -143,4 +143,3 @@ def main(argv):
     parser.add_argument("since")
     args = parser.parse_args(argv)
     return check(args.lane_path, args.expected_model, args.since)
-
