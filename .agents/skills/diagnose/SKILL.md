@@ -166,7 +166,7 @@ On an answer that commits, in this order:
 2. Record the outcome where `land` reads it:
 
    ```bash
-   .claude/skills/verify-change/scripts/ledger.py checkpoint --replace implemented "<the fix in a few words>"
+   uv run tools/scripts/run.py verify ledger checkpoint --replace implemented "<the fix in a few words>"
    ```
 
    In Orca, mark the card as well, with the command under "Orca" in

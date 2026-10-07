@@ -26,6 +26,18 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-07 plan: a filename scan missed inline module imports
+Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks.
+What happened: U6 of the uv scripts Phase 2 plan (2026-10-05, retired
+with its land; its text at `7d2d5e46`) searched old script names only with a `.py` suffix. The inline programs removed
+by `cfce3311` from `.agents/skills/drive/SKILL.md` and
+`.agents/skills/delegate/references/review-lanes.md` used `import runlog` and
+inserted the old directory into `sys.path`. The prescribed scan could not
+match those callers. Following that check left a caller shape unchecked.
+Suggested change: when planning a script move, include module names, old
+directories, and inline interpreter programs in the caller audit, and execute
+the documented replacement commands against fixtures.
+
 ## 2026-10-06 implement: a verifier log under `$TMPDIR` was read back from another directory
 Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
 `.claude/skills/verify-change/SKILL.md`, "Send output you may need to a file
@@ -36,7 +48,7 @@ run's log to `$TMPDIR/verify-u1.log` unsandboxed, then read
 `$TMPDIR/verify-u1.log` from a sandboxed command and got a file of that name
 left by an earlier session, whose last line read `FlowSeer verification
 passed.` The real run had failed. A lane was graded `--verify pass` on it
-before `ledger.py` refused the stale receipt. The step was followed as
+before `verify ledger` refused the stale receipt. The step was followed as
 written. `delegate`, Write the brief, already rules `$TMPDIR` out for briefs
 for the same reason.
 Suggested change: in both places, name the session scratchpad directory for

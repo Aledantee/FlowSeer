@@ -40,7 +40,7 @@
 //
 // # The gate
 //
-// bench-gate.sh compares a fresh run against testdata/baseline-micro.txt
+// bench-gate.py compares a fresh run against testdata/baseline-micro.txt
 // using benchstat. It rejects statistically significant increases in
 // allocs/op or B/op when the increase is at least MIN_DELTA percent
 // (default 1). Small allocation differences can be statistically significant

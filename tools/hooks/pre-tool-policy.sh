@@ -51,13 +51,14 @@ while IFS= read -r candidate_file; do
           ;;
       esac
       ;;
-    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*|.agents/skills/verify-change/scripts/*|.agents/skills/prose/scripts/*|tools/scripts/run.py|tools/scripts/lib/*|tools/scripts/verify/*|tools/scripts/hooks/*)
+    AGENTS.md|CLAUDE.md|buf.yaml|.golangci.yml|.claude/settings.json|.codex/hooks.json|tools/hooks/*|test/conformance/a11y/*|.agents/skills/verify-change/scripts/*|tools/scripts/run.py|tools/scripts/lib/*|tools/scripts/verify/*|tools/scripts/hooks/*)
       # Policy surfaces stay editable, but the person running the session
       # approves each edit; AGENTS.md calls this guardrail review.
       # test/conformance/a11y holds the axe rules the audit may disable,
-      # the web analogue of .golangci.yml. The verifier's scripts and the
-      # prose check it runs are the gate an agent's own work must pass; a
-      # path through the .claude/skills link resolves to these.
+      # the web analogue of .golangci.yml. The verifier's script and the
+      # checks it runs under tools/scripts/verify are the gate an agent's
+      # own work must pass; a path through the .claude/skills link
+      # resolves to the script.
       policy_surfaces="$policy_surfaces${policy_surfaces:+, }$relative_file"
       ;;
   esac

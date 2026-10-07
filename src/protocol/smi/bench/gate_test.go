@@ -12,9 +12,9 @@ import (
 	"testing"
 )
 
-// The gate is a shell script, and a shell script nobody tests is a shell
-// script that silently stops gating. These tests drive bench-gate.sh
-// through RAW_IN, which feeds it a prepared `go test` transcript instead
+// The gate is a Python script, and a gate nobody tests is a gate that
+// silently stops gating. These tests drive bench-gate.py through
+// RAW_IN, which feeds it a prepared `go test` transcript instead
 // of running the suite, so the whole comparison — the row filter, the
 // self-test, the metric policy, the exit code — is exercised in
 // milliseconds against transcripts whose expected verdict is known.
@@ -23,7 +23,8 @@ import (
 // That is the one line these tests take on trust, and it is the line
 // that changes least.
 
-const gateScript = "bench-gate.sh"
+// gateCommand is the command under test.
+var gateCommand = []string{"uv", "run", "bench-gate.py"}
 
 // gateRun is one invocation of the gate.
 type gateRun struct {
@@ -41,7 +42,7 @@ func runGate(t *testing.T, transcript string, env ...string) gateRun {
 		t.Fatalf("writing transcript: %v", err)
 	}
 
-	cmd := exec.Command("sh", gateScript)
+	cmd := exec.Command(gateCommand[0], gateCommand[1:]...)
 	cmd.Env = append(os.Environ(), "RAW_IN="+raw)
 	cmd.Env = append(cmd.Env, env...)
 
@@ -275,5 +276,112 @@ func TestGateSelfTestRejectsEmptyRows(t *testing.T) {
 	}
 	if !strings.Contains(run.output, "no benchmark rows") {
 		t.Errorf("gate did not say why it refused:\n%s", run.output)
+	}
+}
+
+// TestGateRefusesAMissingBaseline pins the exit code that tells a
+// misconfigured gate apart from a failing one.
+func TestGateRefusesAMissingBaseline(t *testing.T) {
+	missing := filepath.Join(t.TempDir(), "no-such-baseline.txt")
+
+	run := runGate(t, baselineTranscript(t), "BASELINE="+missing)
+	if run.exit != 2 {
+		t.Errorf("gate exited %d on a missing baseline, want 2:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "missing baseline") {
+		t.Errorf("gate did not say why it refused:\n%s", run.output)
+	}
+}
+
+// TestGateTakesTheDefaultForAnEmptyVariable pins that a variable set to
+// the empty string takes its default.
+func TestGateTakesTheDefaultForAnEmptyVariable(t *testing.T) {
+	run := runGate(t, baselineTranscript(t), "MIN_DELTA=", "BASELINE=")
+	if run.exit != 0 {
+		t.Errorf("gate exited %d with MIN_DELTA and BASELINE empty, want 0:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "regression above 1% vs baseline") {
+		t.Errorf("gate did not fall back to MIN_DELTA=1:\n%s", run.output)
+	}
+}
+
+// TestGateComparesMinDeltaLikeAwk pins the verdict for a MIN_DELTA that
+// is not a plain number. The gate follows awk's comparison of a number
+// with text that does not look like one: both sides are compared as text,
+// the regression percentage as printed against MIN_DELTA, byte by byte. So "abc" is never reached, "9x" is reached by no percentage whose
+// text starts below "9", and "0.5x" is reached by both. Text that looks
+// like a number, "1e1", compares as that number.
+func TestGateComparesMinDeltaLikeAwk(t *testing.T) {
+	big := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
+	small := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.05)
+
+	cases := []struct {
+		minDelta   string
+		failsBig   bool // a +50% regression
+		failsSmall bool // a +5% regression
+	}{
+		{"abc", false, false},
+		{"0.5x", true, true},
+		{"9x", false, false},
+		{"1e1", true, false},
+	}
+	for _, c := range cases {
+		for _, in := range []struct {
+			name  string
+			text  string
+			fails bool
+		}{{"+50%", big, c.failsBig}, {"+5%", small, c.failsSmall}} {
+			want := 0
+			if in.fails {
+				want = 1
+			}
+			run := runGate(t, in.text, "MIN_DELTA="+c.minDelta)
+			if run.exit != want {
+				t.Errorf("MIN_DELTA=%s on a %s regression: gate exited %d, want %d:\n%s",
+					c.minDelta, in.name, run.exit, want, run.output)
+			}
+			if !in.fails && !strings.Contains(run.output, "regression above "+c.minDelta+"% vs baseline") {
+				t.Errorf("MIN_DELTA=%s on a %s regression: gate did not print the text it was given:\n%s",
+					c.minDelta, in.name, run.output)
+			}
+		}
+	}
+}
+
+// TestGateReadsLinesByLineFeedOnly pins that a carriage return is not a
+// line break, only a line feed ends a line. A row that follows one on the
+// same line is not a benchmark row, so a regression hidden behind one is
+// not compared. A benchmark name holding U+001C is one CSV field,
+// as awk splits on commas and line feeds only.
+func TestGateReadsLinesByLineFeedOnly(t *testing.T) {
+	bad := regressBenchmark(t, baselineTranscript(t), gatedBenchmark, "allocs/op", 1.5)
+	hidden := strings.ReplaceAll(bad, "\n"+gatedBenchmark, "\njunk\r"+gatedBenchmark)
+
+	run := runGate(t, hidden)
+	if run.exit != 0 {
+		t.Errorf("gate exited %d on rows that follow a carriage return, want 0:\n%s", run.exit, run.output)
+	}
+
+	row := func(name string, allocs int) string {
+		var b strings.Builder
+		b.WriteString("goos: linux\npkg: p\n")
+		for i := range 10 {
+			b.WriteString("Benchmark" + name + "-12\t1\t" + strconv.Itoa(5+i%2) + " ns/op\t" +
+				strconv.Itoa(allocs) + " allocs/op\n")
+		}
+		return b.String()
+	}
+	const name = "A\x1cB"
+	baseline := filepath.Join(t.TempDir(), "baseline.txt")
+	if err := os.WriteFile(baseline, []byte(row(name, 100)), 0o600); err != nil {
+		t.Fatalf("writing the baseline: %v", err)
+	}
+
+	run = runGate(t, row(name, 200), "BASELINE="+baseline)
+	if run.exit != 1 {
+		t.Errorf("gate exited %d on a regression in a name holding U+001C, want 1:\n%s", run.exit, run.output)
+	}
+	if !strings.Contains(run.output, "REGRESSION allocs/op  "+name+"-12 ") {
+		t.Errorf("gate did not name the whole benchmark %q:\n%s", name, run.output)
 	}
 }

@@ -28,19 +28,19 @@ direction explicitly.
 
 Each plan keeps document metadata in its Markdown frontmatter and machine
 state in a `*-plan.state.json` file beside it. The frontmatter carries
-`artifact_contract: flowseer-plan/v2`, while `plan_record.py` owns the state
+`artifact_contract: flowseer-plan/v2`, while `plan record` owns the state
 file. The state left the frontmatter because three scripts each parsed it
-their own way and disagreed about when a phase was finished. Use `.claude/skills/plan/scripts/plan_record.py show <plan>` to read it
+their own way and disagreed about when a phase was finished. Use `uv run tools/scripts/run.py plan record show <plan>` to read it
 and the commands in its module docstring to record transitions. A plan's
 status is `planned`, `partially-implemented`, `implemented`, `superseded`, or
 `abandoned`. If an accepted record and the tree disagree, record the mismatch
 and reconcile the direction instead of guessing a new package or boundary.
 
 When a plan has shipped, record its outcome with
-`.claude/skills/plan/scripts/plan_record.py implemented <plan> --units <n>
+`uv run tools/scripts/run.py plan record implemented <plan> --units <n>
 --from <t> --to <t>`. The
-`.claude/skills/plan/scripts/plan_record.py review <plan> "<verdict>"` and
-`.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"` record
+`uv run tools/scripts/run.py plan record review <plan> "<verdict>"` and
+`uv run tools/scripts/run.py plan record compound <plan> "<outcome>"` record
 their own outcomes. `land` retires the plan and its state file once the work
 lands, after moving any decision that outlives it into `docs/architecture/`.
 

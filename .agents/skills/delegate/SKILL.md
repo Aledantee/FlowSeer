@@ -240,7 +240,7 @@ Merge the branch here, with the sandbox disabled when the branch touched
 commit exists, including a resolved conflict, run:
 
 ```bash
-python3 .claude/skills/land/scripts/merge-check.py ORIG_HEAD..HEAD
+uv run tools/scripts/run.py land merge-check ORIG_HEAD..HEAD
 ```
 
 A non-zero result stops the merge step. Carry every `missing` block in the
@@ -299,7 +299,7 @@ order:
    under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
    the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
    the coordinator runs the verifier after the merge. A stage worker (a
-   `drive` stage) runs the verifier its skill names, since `ledger.py`
+   `drive` stage) runs the verifier its skill names, since `verify ledger`
    passes a unit only on a receipt in the worker's own git directory. A
    review stage is a stage worker and runs the verifier `review` names.
    Every other lane that returns a report runs no verifier. No lane ends

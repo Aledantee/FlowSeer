@@ -10,10 +10,10 @@ outlives the work gets a home in
 `docs/architecture/`.
 
 Which plans retire: a plan for which
-`.claude/skills/plan/scripts/plan_record.py show <plan>` reports
+`uv run tools/scripts/run.py plan record show <plan>` reports
 `implemented`, `superseded`, or `abandoned`. A phase plan retires with its
 phase. Its parent stays while the parent's state lists remaining phases, and
-retires once `.claude/skills/plan/scripts/plan_record.py show <parent>` reports it finished. A
+retires once `uv run tools/scripts/run.py plan record show <parent>` reports it finished. A
 `partially-implemented` plan never retires.
 
 ## 1. Sort the decisions
@@ -70,7 +70,7 @@ Run the state command, then commit its staged removal with the records and
 link rewrites:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py retire <plan>
+uv run tools/scripts/run.py plan record retire <plan>
 ```
 
 ```text

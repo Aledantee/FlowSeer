@@ -32,11 +32,11 @@ git branch parked/<slug> <plan branch>
 
 The plan's recorded branch is gone with the worktree. Record the parked one
 in its place and commit it with the question, so the state readers follow
-the parked work and `plan-state.py` stops counting the phase as holding a
+the parked work and `drive plan-state` stops counting the phase as holding a
 land:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py branch <plan> parked/<slug>
+uv run tools/scripts/run.py plan record branch <plan> parked/<slug>
 ```
 
 Name `parked/<slug>` in the question. A review stage's verdict commit and
@@ -61,14 +61,14 @@ worktree, so record the branch its `start` prints in place of the parked
 one and commit it, as step 2 does for a first stage:
 
 ```bash
-.claude/skills/plan/scripts/plan_record.py branch <plan> <branch>
+uv run tools/scripts/run.py plan record branch <plan> <branch>
 ```
 
 Whether Orca branches a child
 from a branch other than the current one is unverified. When `start`
 refuses, report it with the parked branch's name. When the answer restarts the phase
 instead, delete the branch with `git branch -D parked/<slug>` and clear the
-record with `.claude/skills/plan/scripts/plan_record.py branch <plan> --clear`.
+record with `uv run tools/scripts/run.py plan record branch <plan> --clear`.
 
 A round-limit question never offers another round
 (`review/references/fix-loop.md`, When to stop). A review that resumes from

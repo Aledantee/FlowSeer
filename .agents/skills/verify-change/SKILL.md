@@ -45,8 +45,10 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
 
 `--print-selection` says which modules and dependent modules would be
 checked in which mode, whether the OpenTelemetry tier would run, whether the
-protobuf gates would run, and whether `tools/buf/` is verified with
-`go -C tools/buf mod verify`.
+protobuf gates would run, whether `tools/buf/` is verified with
+`go -C tools/buf mod verify`, and whether the hook tooling gates would run
+(`hook_tooling=true`, which a `tools/scripts/` path, an `.agents/`, `.claude/`,
+or `.codex/` path, `AGENTS.md`, or `tools/hooks/` selects).
 
 ## Read the verdict
 
@@ -108,7 +110,7 @@ rewrites that listing; `land` reads the receipt.
 ## Plan status ledger
 
 Every verifier run that names a path under `docs/plans/` also runs
-`.claude/skills/plan/scripts/plan_record.py check`, including a run that names
+`uv run tools/scripts/run.py verify check-plan-state`, including a run that names
 only a `.state.json` path. The check always reads every state file, since one
 is legal only beside its parent's and its phases', so an illegal file the run
 did not name fails it too.
@@ -116,12 +118,12 @@ did not name fails it too.
 `implement` keeps `$(git rev-parse --git-dir)/flowseer-plan-status.json`,
 never committed, so a later session resumes a plan without re-deriving what
 landed. Every verifier run that runs a gate validates it first with
-`scripts/check-plan-status.py [LEDGER_PATH]`; `--print-selection` does not.
+`uv run tools/scripts/run.py verify check-plan-status [LEDGER_PATH]`; `--print-selection` does not.
 An absent ledger passes; a malformed one fails the run naming the field.
 
 The skills write the ledger and the checkpoints file beside it only through
-`scripts/ledger.py`, which resolves the git directory itself, writes each
-file whole, and recomputes `resume`; its docstring lists the subcommands
+`uv run tools/scripts/run.py verify ledger`, which resolves the git directory itself, writes each
+file whole, and recomputes `resume`; its `--help` lists the subcommands
 (`init`, `set`, `show`, `checkpoint`). A worktree-isolated session cannot
 write into the parent checkout's `.git/` through a redirect or the Write
 tool, and the script's command line names only the unit, status, and note,
@@ -145,7 +147,7 @@ so it is the one caller that reaches the directory. The shape:
 | Field | Rule |
 | --- | --- |
 | `status` | one of `pending`, `in_progress`, `passed`, `blocked`; a `passed` unit carries its commit and the receipt's `verified_at` |
-| `base` | `HEAD` when the unit went `in_progress`; `ledger.py set <unit> passed` refuses a commit outside this branch or with nothing committed since the base, and a receipt whose `verified_at` is older than the unit's commit |
+| `base` | `HEAD` when the unit went `in_progress`; `verify ledger set <unit> passed` refuses a commit outside this branch or with nothing committed since the base, and a receipt whose `verified_at` is older than the unit's commit |
 | `resume` | the `in_progress` units, or the next `pending` unit when none is in progress; empty once every unit is `passed` |
 | `note` | one line, only for a decision or pitfall the next unit needs |
 | `id` | unique |
@@ -154,7 +156,7 @@ so it is the one caller that reaches the directory. The shape:
 `land` gates the merge on every unit being `passed` and removes the ledger
 after the merge.
 
-When `.claude/skills/plan/scripts/plan_record.py show <phase>` reports a non-null `parent`, the check also
+When `uv run tools/scripts/run.py plan record show <phase>` reports a non-null `parent`, the check also
 proves the phase belongs in this tree. The phase state supplies `parent`,
 `after`, and `landed`, while the parent's state supplies its `retired` entries:
 
@@ -169,7 +171,7 @@ The message says which check failed.
 
 ## Test changes
 
-Before the gates, `scripts/check-test-integrity.py` lists, against the
+Before the gates, `uv run tools/scripts/run.py verify check-test-integrity` lists, against the
 base, changes that weaken what the suite proves: a deleted `_test.go` file,
 a removed `Test`, `Benchmark`, `Fuzz`, or `Example` function, an added
 `t.Skip`, and a modified or deleted file under `testdata/`. The list prints

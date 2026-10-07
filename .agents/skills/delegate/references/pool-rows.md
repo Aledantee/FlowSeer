@@ -128,4 +128,4 @@ A native quota read that fails after sign-in succeeds leaves `signed_in: true`
 and `windows: null` with an error. A failed sign-in query leaves sign-in unknown.
 An API-key account is not a prepaid subscription pool. Parsing and fallback
 regressions are checked in
-[`test_pool_usage.py`](../scripts/test_pool_usage.py).
+[`test_pool_usage.py`](../../../../tools/scripts/tests/skills/delegate/test_pool_usage.py).

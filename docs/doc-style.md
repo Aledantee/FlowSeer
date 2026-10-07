@@ -15,7 +15,7 @@ reads.
 The rules come from two research passes (listed under Sources): what
 developers praise and abandon in real documentation, and how readers detect
 machine-written text and what that detection costs.
-[`check-prose.py`](../.agents/skills/prose/scripts/check-prose.py) checks the
+[`verify check-prose`](../tools/scripts/verify/check_prose.py) checks the
 mechanical ones, and the `prose` skill walks through the rest.
 
 ## What the evidence says
@@ -81,7 +81,7 @@ cites one.
   say what a skill does. It cites published research or a file for why, not
   "our transcripts showed".
 
-`check-prose.py` fails a change only on literal markers of a run, such as
+`verify check-prose` fails a change only on literal markers of a run, such as
 the first two rows above. Softer cues like the last two also occur in
 product prose, so it warns about them and the writer decides.
 
@@ -140,7 +140,7 @@ govern when a comment exists and what a contract states. On top of those:
 ## Write like a person
 
 Readers pattern-match on machine tells and discount the text when they pile
-up. `check-prose.py` flags em dashes, semicolons, signposting, wrap-ups,
+up. `verify check-prose` flags em dashes, semicolons, signposting, wrap-ups,
 negative parallelism, trailing participles, the puffery words, and the
 stock phrases of a staged saying, a closer, or an answer to nobody. The rest
 (overexplaining, three-item lists, hedging, formatting, attribution, rhythm,

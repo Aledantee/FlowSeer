@@ -10,8 +10,8 @@
 #   2. Append one entry below pointing at it.
 #   3. Re-run `make t3` (or `go test -tags=snmp_integration_t3 ...`).
 #
-# Capture helper: scripts/capture-snmprec.sh wraps snmpwalk + a small
-# converter for the typical .snmprec format.
+# Capture helper: `uv run scripts/capture-snmprec.py` wraps snmpwalk + a
+# small converter for the typical .snmprec format.
 
 entries:
   - vendor: nokia

@@ -7,6 +7,7 @@ a solution override an accepted architecture record or binding convention.
 
 | Solution | Read when |
 | --- | --- |
+| [A script move must audit inline imports](conventions/a-script-move-must-audit-inline-imports.md) | Moving Python script modules and updating callers in shell scripts or Markdown command examples. |
 | [SNMP Collection Library: Architecture and Fast-Path Conventions](architecture-patterns/snmp-collection-library-architecture-and-fast-path-conventions.md) | Changing `src/protocol/snmp`, generated MIB bindings, the SNMP hot path, or its conformance and performance gates. |
 | [A Decoder's Decline Costs the Whole Table, Not the Field](architecture-patterns/decode-failure-blast-radius-in-generated-walks.md) | Tightening a generated-column decoder, choosing error versus coercion for malformed agent data, or investigating a table that unexpectedly returns no rows. |
 | [Key Resolution Degrades and Reports, It Never Fails a Row or a Run](architecture-patterns/key-resolution-degrades-and-reports-never-fails.md) | Changing INDEX/AUGMENTS resolution, mibgen key-type emission, `DecodeIndex`/`DecodeIndexInto`, or a mapper's use of `KeyValid`. |
@@ -102,3 +103,4 @@ a solution override an accepted architecture record or binding convention.
 Add a solution only after the behavior and lesson have been verified. Keep its
 frontmatter specific enough that an agent can reject unrelated documents
 without reading their full bodies.
+| [A Shell-to-Python Port Changes How Empty Variables and Carriage Returns Behave](conventions/a-shell-to-python-port-changes-empty-variables-and-line-breaks.md) | Porting a shell script that reads `${NAME:-default}` to Python, porting a shell pipeline to `subprocess` in text mode with line splitting, or reviewing a ported script whose tests cover only the unset variable and the plain line feed. |
