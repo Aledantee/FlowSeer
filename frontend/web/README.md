@@ -108,7 +108,8 @@ discovered. Only nodes that are not healthy carry a status badge, so a degraded
 or offline device stands out; every node opens the same device details. Traffic updates automatically; rows retain their order as values change.
 
 A curved tab midway down the sidebar edge collapses navigation to icons on
-desktop. The collapsed rail centers the FlowSeer mark and is 64px wide.
+desktop. The page panel slides toward the 64px rail, whose content changes
+in place and centers the FlowSeer mark.
 On small screens, the arrow sits beside the FlowSeer brand and hides or reveals
 the navigation links above the content.
 
@@ -139,9 +140,57 @@ The content area owns vertical scrolling. The navigation frame stays outside tha
 scroll container, so reaching the top does not pull down the top bar. Overscroll
 is contained in the content area.
 
+## Sign-in flow
+
+A signed-out visitor lands on the login page, signs in, and reaches the
+console. Logging out from the account menu returns to the login page.
+
+```mermaid
+flowchart LR
+  start["/ or any console route, signed out"] -->|"redirect, next=route except / and /dashboard"| login["/login"]
+  login -->|Continue with single sign-on| console["/dashboard or the page in next"]
+  console -->|Log out| login
+```
+
+No identity provider is connected. The session is the email typed on the login
+page, kept under `flowseer.session` in local browser storage, so any
+well-formed address opens the sample console and the guard protects no data.
+The login page offers single sign-on only because the operator API accepts
+OIDC tokens
+([operator authorization direction](../../docs/architecture/2026-09-30-operator-authorization-direction.md#any-oidc-provider-and-a-tenant-the-request-names)).
+
+`next` is honored only when it names a console page (`isPagePath` in
+`src/navigation/page.ts`). Anything else, such as `//example.com`, falls back
+to `/dashboard`. A signed-in visitor who opens `/login` goes straight to
+`/dashboard`.
+
+The login page and console fill one `AppFrame.vue` instance. Signing in keeps
+the same sidebar and page panel elements in the document while their content
+changes. The login sidebar holds the sign-in form in a frosted column, its top bar
+is empty, and its page says what the console is: a heading, one sentence, and
+the four areas of the menu. Under them is one line picked at random per visit
+from `view.login.lines` in the catalogs, most of them jokes. The send button is
+inside the email field and appears once the address is well formed. Enter with
+anything else marks the field, shakes it, and says what is wrong.
+
+The change between the login page and the console is a View Transitions morph
+(`src/navigation/morph.ts`) that carries the brand mark, the sidebar, and the
+main area across, so the sidebar narrows and the page fills.
+The page's content animates in only when a visit starts
+on it (`src/navigation/entrance.ts`). A visitor who prefers reduced motion gets
+no entrance, and a plain route change, and sign-in skips the
+short loading state on the button.
+
 ## Structure
 
 - `src/main.ts` owns startup and routes; `FleetView.vue` owns the demo workspace.
+- `src/navigation/AppFrame.vue` owns the persistent shell. Views fill its
+  `frame-skip`, `frame-sidebar`, `frame-topbar`, and `frame-page` regions with
+  Teleport. `src/navigation/frame.ts` exposes `useFrame()` so views can set
+  the sidebar mode, read the frame elements and top bar height, and move the
+  page panel when the sidebar collapses.
+- `LoginView.vue` is the sign-in page at `/login` and the first page a signed-out visitor sees.
+- `src/session/session.ts` holds the preview session and the redirect rule `main.ts` installs as the route guard.
 - `src/domain/fleet.ts` contains fixtures, tenant rollups, and site assignment rules.
   These are UI demo shapes, not protobuf message definitions.
 - `src/components/` holds shared presentation elements.

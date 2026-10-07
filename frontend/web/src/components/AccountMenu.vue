@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import AppIcon from './AppIcon.vue'
+import { LOGIN_PATH, signOut } from '../session/session'
 import { UiDropdownMenu, UiDropdownMenuItem } from '../ui'
 
 const { t } = useI18n({ useScope: 'global' })
+const router = useRouter()
+
+async function logOut() {
+  signOut()
+  await router.push(LOGIN_PATH)
+}
 </script>
 
 <template>
@@ -23,11 +31,7 @@ const { t } = useI18n({ useScope: 'global' })
           >
         </button>
       </template>
-      <UiDropdownMenuItem
-        class="account-logout"
-        disabled
-        :title="t('view.accountMenu.logoutUnavailable')"
-      >
+      <UiDropdownMenuItem class="account-logout" @select="logOut">
         <AppIcon name="logout" /> {{ t('view.accountMenu.logout') }}
       </UiDropdownMenuItem>
     </UiDropdownMenu>
