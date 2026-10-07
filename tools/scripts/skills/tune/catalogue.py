@@ -33,7 +33,7 @@ def fetch(url):
     return json.loads(out.stdout)
 
 
-def registry_models(argv):
+def registry_models(paths):
     out = {}
     for path in paths:
         if os.path.exists(path):
@@ -61,7 +61,7 @@ def norm(s):
 def main(argv):
     if not argv:
         print(__doc__, file=sys.stderr)
-        return 2
+        return 1
     reg = registry_models(argv)
     md = fetch(MODELS_DEV)
     orr = {m["id"]: m for m in fetch(OPENROUTER)["data"]}
