@@ -197,6 +197,11 @@ var (
 
 func buildBaseRoutingSwitch(t *testing.T) *vswitch.Switch {
 	t.Helper()
+	return mustSwitch(t, baseRoutingConfig(t))
+}
+
+func baseRoutingConfig(t *testing.T) vswitch.Config {
+	t.Helper()
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -229,7 +234,7 @@ func buildBaseRoutingSwitch(t *testing.T) *vswitch.Switch {
 			},
 		},
 	}
-	return mustSwitch(t, cfg)
+	return cfg
 }
 
 var (
