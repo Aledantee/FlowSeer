@@ -62,8 +62,8 @@ type portState struct {
 	// CIST bound the visible state without erasing the MSTI's progress.
 	boundarySyncState State
 
-	// The deadlines use the tree's current timers, including times received
-	// after the role assignment that records these instants.
+	// Running deadlines use the tree's current timers. Expired recent-root
+	// instants are cleared before an input can change those timers.
 	leftRootAt   time.Time
 	leftBackupAt time.Time
 
@@ -102,6 +102,17 @@ func recentDeadline(start time.Time, delay time.Duration, now time.Time) time.Ti
 func (l *Layer) recentRootDeadline(t *tree, p *portState, now time.Time) time.Time {
 	_, _, delay := l.times(t)
 	return recentDeadline(p.leftRootAt, delay, now)
+}
+
+func (l *Layer) settleRecentRootTimers(now time.Time) {
+	for _, id := range l.treeOrder {
+		t := l.trees[id]
+		for _, p := range t.ports {
+			if !p.leftRootAt.IsZero() && l.recentRootDeadline(t, p, now).IsZero() {
+				p.leftRootAt = time.Time{}
+			}
+		}
+	}
 }
 
 func (l *Layer) recentBackupDeadline(t *tree, p *portState, now time.Time) time.Time {
