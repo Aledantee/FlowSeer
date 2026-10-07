@@ -248,6 +248,7 @@ func (l *Layer) receiveLink(now time.Time, port string, b bpdu.BPDU, flushes *[]
 			}
 			l.deactivatePort(tr, tp, flushes)
 			tp.state = StateDiscarding
+			tp.agreed = false
 			tp.fwdDelayTimer = time.Time{}
 			tp.proposing = link.pointToPoint && link.sendRSTP
 		}
