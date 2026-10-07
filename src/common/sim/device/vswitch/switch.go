@@ -3514,8 +3514,8 @@ const IssuePVSTBoundary analysis.IssueCode = "stp-pvst-boundary"
 
 // LinkChange notifies the protocol layers of a link transition on the named port.
 //
-// An invalid operational state records a fault on operErr. LinkChange returns
-// nothing and the fault has no exported reader.
+// An invalid operational state or an absent port records a fault on operErr.
+// LinkChange returns nothing and the fault has no exported reader.
 func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]PointToPoint)
@@ -3709,20 +3709,10 @@ func (s *Switch) MemberInfo(member string) lag.MemberInfo {
 // nothing: only the caller knows whether a member's change moves its LAG or
 // what the link's speed and kind are, so the caller follows with LinkChange.
 // SetOperStatus returns a structured validation error when state is outside
-// the [port.LinkState] domain and leaves both tables unchanged.
+// the [port.LinkState] domain or the port is absent. On refusal, it leaves both
+// tables unchanged.
 func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
-	if err := validateOperStatus(portName, state); err != nil {
-		return err
-	}
-
-	builder := port.NewBuilder()
-	for _, p := range s.ports.Ports() {
-		if p.Name == portName {
-			p.OperStatus = state
-		}
-		builder.Add(p)
-	}
-	tbl, err := builder.Build()
+	tbl, err := s.ports.WithOperStatus(portName, state)
 	if err != nil {
 		return err
 	}
@@ -3754,19 +3744,6 @@ func (s *Switch) setOperStatus(portName string, state port.LinkState) {
 func (s *Switch) recordOperFault(err error) {
 	if s.operErr == nil {
 		s.operErr = err
-	}
-}
-
-func validateOperStatus(portName string, state port.LinkState) error {
-	switch state {
-	case "", port.Unknown, port.Up, port.Down:
-		return nil
-	default:
-		return errs.New().
-			Attr("field", "ports."+portName+".oper_status").
-			Attr("name", portName).
-			Attr("oper_status", state).
-			Msgf("port %q has invalid oper status %q", portName, state)
 	}
 }
 

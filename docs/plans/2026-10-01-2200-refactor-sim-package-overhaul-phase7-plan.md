@@ -495,18 +495,22 @@ go test -race ./src/common/sim/... ./test/conformance/sim/...
 
 ## Definition of done
 
-- [ ] Verifier green for every changed path of every unit, with the contract
+- [x] Verifier green for every changed path of every unit, with the contract
       gate in `test/conformance/sim` untouched.
-- [ ] Each Correctness entry has its failing-first test or its strike.
-- [ ] No non-test file under `B`, `PT`, or `T` exceeds 1,200 lines, and no
+- [x] Each Correctness entry has its failing-first test or its strike.
+- [x] No non-test file under `B`, `PT`, or `T` exceeds 1,200 lines, and no
       function 150.
-- [ ] `B/README.md`, `PT/README.md`, and `T/README.md` name their sources,
+- [x] `B/README.md`, `PT/README.md`, and `T/README.md` name their sources,
       clauses, files, and Limits.
-- [ ] No plan label in code, comments, or commit messages. This plan's
-      `status` is set, and the parent's U7 `Landed:` holds the range.
+- [x] No plan label in code, comments, or commit messages. This plan's
+      `status` is set, and its state file's `landed` holds the range.
 
 ## Open questions
 
+- Range storage: the parent has no inline `Landed:` field. The phase state
+  holds the range, as
+  [the outcome contract](../../.claude/skills/implement/references/outcome-records.md)
+  requires, and the parent reads phase state.
 - Carried to U10: whether a flood lists a down member port in
   `Result.Egress`. The outline asked for it. The fabric would then count an
   `OutDiscards` on each such port and add a drop to the journey of every

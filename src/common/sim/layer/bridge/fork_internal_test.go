@@ -2,10 +2,12 @@ package bridge
 
 import (
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -242,7 +244,28 @@ func probeBridgeFDB(t *testing.T) {
 
 func probeBridgeGates(t *testing.T) {
 	b := newTestBridgeForFork(t)
+	scope := analysis.ProtocolScope("sw1", "test", "0")
+	b.SetGate(testGate{learns: false, forwards: false}, scope)
 	fork := b.Clone()
+	if len(fork.gates) != len(b.gates) {
+		t.Fatalf("clone gates = %d, want %d", len(fork.gates), len(b.gates))
+	}
+	for i, g := range fork.gates {
+		if g.gate != nil || g.scope.Compare(b.gates[i].scope) != 0 {
+			t.Errorf("clone gate %d = %+v, want cleared gate with scope %+v", i, g, b.gates[i].scope)
+		}
+	}
+	if b.gates[len(b.gates)-1].gate == nil {
+		t.Fatal("clearing clone gate cleared source gate")
+	}
+	fork.SetGate(testGate{learns: true, forwards: true}, scope)
+	if b.gates[len(b.gates)-1].gate.Learns("1/1/1", 0) {
+		t.Error("replacing clone gate changed source gate")
+	}
+	b.SetGate(testGate{learns: false, forwards: true}, scope)
+	if !fork.gates[len(fork.gates)-1].gate.Learns("1/1/1", 0) {
+		t.Error("replacing source gate changed clone gate")
+	}
 
 	scopeSrc := analysis.ProtocolScope("sw1", "test-src", "0")
 	scopeFork := analysis.ProtocolScope("sw1", "test-fork", "0")
@@ -327,5 +350,20 @@ func probeBridgeDynamic(t *testing.T) {
 	}
 	if fork.dynamic != dynForkBefore+1 {
 		t.Errorf("fork learning did not change fork dynamic count")
+	}
+}
+
+func TestSetOperStatusRejectsAbsentPortWithoutMutation(t *testing.T) {
+	b := newTestBridgeForFork(t)
+	before := b.ports.Ports()
+	err := b.SetOperStatus("absent", port.Down)
+	if err == nil {
+		t.Fatal("SetOperStatus(absent, Down) accepted absent port")
+	}
+	if got := errs.Attributes(err)["field"]; got != "ports.absent" {
+		t.Errorf("field = %v, want ports.absent", got)
+	}
+	if got := b.ports.Ports(); !slices.Equal(got, before) {
+		t.Errorf("ports = %+v, want unchanged %+v", got, before)
 	}
 }

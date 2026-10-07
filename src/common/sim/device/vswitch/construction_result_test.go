@@ -296,8 +296,8 @@ func TestConstructionSpecValidatesAndNormalizesSeeds(t *testing.T) {
 		t.Fatalf("NewWithSpec() error = %v", err)
 	}
 	wantSeeds := []bridge.Seed{
-		{FID: vid10, MAC: validMAC, Port: "lag1", Lifetime: bridge.Static},
-		{FID: vid10, MAC: secondMAC, Port: "access", Lifetime: bridge.Static},
+		{FID: vid10, MAC: validMAC, Port: "lag1", Origin: bridge.Configured, Lifetime: bridge.Static},
+		{FID: vid10, MAC: secondMAC, Port: "access", Origin: bridge.Configured, Lifetime: bridge.Static},
 	}
 	if got := sw.Spec().Seeds; !slices.Equal(got, wantSeeds) {
 		t.Errorf("normalized seeds = %+v, want %+v", got, wantSeeds)
@@ -519,7 +519,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 				Table: map[vlan.ID]string{10: "vlan10"},
 				Switchports: map[string]bridge.Switchport{
 					"1/1/1": {PVID: ptrVID(10)},
-					"1/1/2": {PVID: ptrVID(10)},
+					"1/1/2": {PVID: ptrVID(10), Tagged: []vlan.ID{10}},
 				},
 			},
 		},

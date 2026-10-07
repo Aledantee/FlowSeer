@@ -485,3 +485,39 @@ func (t Table) Clone() Table {
 
 	return cloned
 }
+
+// WithOperStatus returns a copy of the table in which the named port's operational
+// status is state, with an empty state stored as [Unknown]. The receiver is unchanged.
+// It returns a structured error at field "ports.<name>" when the table lacks the port,
+// and at "ports.<name>.oper_status" when state is outside [Unknown], [Up], and [Down].
+func (t Table) WithOperStatus(name string, state LinkState) (Table, error) {
+	if _, ok := t.byName[name]; !ok {
+		return Table{}, errs.New().
+			Attr("field", "ports."+name).
+			Attr("name", name).
+			Msgf("port %q is not in the table", name)
+	}
+	switch state {
+	case "":
+		state = Unknown
+	case Unknown, Up, Down:
+	default:
+		return Table{}, errs.New().
+			Attr("field", "ports."+name+".oper_status").
+			Attr("name", name).
+			Attr("oper_status", state).
+			Msgf("port %q has invalid oper status %q", name, state)
+	}
+
+	cp := t.Clone()
+	for i := range cp.ports {
+		if cp.ports[i].Name == name {
+			cp.ports[i].OperStatus = state
+			cp.byName[name] = cp.ports[i]
+
+			break
+		}
+	}
+
+	return cp, nil
+}

@@ -78,11 +78,20 @@ func TestSetOperStatusRejectsInvalidStateWithoutMutation(t *testing.T) {
 				t.Fatal("SetOperStatus with invalid state succeeded, want error")
 			}
 			attrs := errs.Attributes(err)
-			if got := attrs["field"]; got != "ports."+portName+".oper_status" {
-				t.Errorf("field attribute = %v, want ports.%s.oper_status", got, portName)
+			wantField := "ports." + portName + ".oper_status"
+			var wantState any = port.LinkState("invalid")
+			if portName == "missing" {
+				wantField = "ports." + portName
+				wantState = nil
 			}
-			if got := attrs["oper_status"]; got != port.LinkState("invalid") {
-				t.Errorf("oper_status attribute = %v, want invalid", got)
+			if got := attrs["field"]; got != wantField {
+				t.Errorf("field attribute = %v, want %s", got, wantField)
+			}
+			if got := attrs["oper_status"]; got != wantState {
+				t.Errorf("oper_status attribute = %v, want %v", got, wantState)
+			}
+			if got := attrs["name"]; got != portName {
+				t.Errorf("name attribute = %v, want %s", got, portName)
 			}
 			if after := sw.Ports().Ports(); !slices.Equal(after, before) {
 				t.Errorf("ports after invalid update = %+v, want unchanged %+v", after, before)
@@ -231,7 +240,7 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 	}
 	target := vswitch.ConstructionSpec{
 		Config:   cfg,
-		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Lifetime: bridge.Static}},
+		Seeds:    []bridge.Seed{{MAC: newMAC, Port: "out", Origin: bridge.Configured, Lifetime: bridge.Static}},
 		NodeID:   "new",
 		Metadata: newMetadata,
 	}
@@ -273,7 +282,7 @@ func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
 		wantTime     time.Time
 		wantLifetime bridge.Lifetime
 	}{
-		{name: "dynamic target yields to newer current state", wantPort: "current", wantTime: fixedTime},
+		{name: "dynamic target yields to newer current state", wantPort: "current", wantTime: fixedTime, wantLifetime: bridge.Aging},
 		{name: "static target remains authoritative", lifetime: bridge.Static, wantPort: "old", wantTime: oldTime, wantLifetime: bridge.Static},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -367,7 +376,7 @@ func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
 			Table: map[vlan.ID]string{1: "", 10: "", 20: ""},
 			Switchports: map[string]bridge.Switchport{
 				"1/1/1": {PVID: &pvid, Tagged: []vlan.ID{10, 20}},
-				"1/1/2": {PVID: &pvid, Tagged: []vlan.ID{10, 20}},
+				"1/1/2": {PVID: &pvid, Tagged: []vlan.ID{1, 10, 20}},
 			},
 		}},
 	}
