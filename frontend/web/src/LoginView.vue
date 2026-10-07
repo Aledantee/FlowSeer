@@ -23,7 +23,7 @@ watchEffect(() => {
   document.title = t('view.login.documentTitle', { brand: BRAND })
 })
 
-const entering = takeEntrance()
+const entering = takeEntrance(router)
 
 // The parts of the console the page describes, in the order of its menu.
 const AREAS = ['devices', 'clients', 'sites', 'topology'] as const

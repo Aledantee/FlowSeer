@@ -1,11 +1,19 @@
-// The login page animates its content in when a visit starts on it. Reached
-// from the console it is morphed into instead (`morph.ts`), and an entrance
-// on top of that would hide the content the morph is moving. True only for
-// the first call.
-let first = true
+import type { Router } from 'vue-router'
+import { LOGIN_PATH } from '../session/session'
 
-export function takeEntrance(): boolean {
-  const entering = first
-  first = false
+// Only an initial login arrival gets a content entrance. Later visits can
+// morph from the console, and an entrance would hide the moving content.
+const eligible = new WeakMap<Router, boolean>()
+
+export function installEntrance(router: Router) {
+  router.afterEach((to, from, failure) => {
+    if (!failure)
+      eligible.set(router, from.matched.length === 0 && to.path === LOGIN_PATH)
+  })
+}
+
+export function takeEntrance(router: Router): boolean {
+  const entering = eligible.get(router) ?? false
+  eligible.delete(router)
   return entering
 }

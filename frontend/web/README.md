@@ -147,7 +147,7 @@ console. Logging out from the account menu returns to the login page.
 
 ```mermaid
 flowchart LR
-  start["/ or any console route, signed out"] -->|"redirect, next=route"| login["/login"]
+  start["/ or any console route, signed out"] -->|"redirect, next=route except / and /dashboard"| login["/login"]
   login -->|Continue with single sign-on| console["/dashboard or the page in next"]
   console -->|Log out| login
 ```
