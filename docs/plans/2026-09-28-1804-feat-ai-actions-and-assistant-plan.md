@@ -153,6 +153,17 @@ would need a menu it can open at a point directly and this plan is wrong.
   Focus may land outside the item the pointer opened the menu on.
   (decided by the user, 2026-10-04)
 
+- **A handoff to the assistant keeps focus in its prompt.** "Ask about
+  this…" and "Continue in assistant" are exempt from focus return as a
+  verb handing focus to the result popover is. The layer prevents the
+  restore for both entries, and the prompt keeps focus on the docked
+  panel and in the sheet alike. (decided by the user, 2026-10-07)
+
+- **A pointer press outside the menu or the result leaves focus where
+  the user pressed.** Focus returns to the pre-menu element only when
+  the close did not follow an outside interaction, as Reka does for its
+  own triggers. (decided by the user, 2026-10-07)
+
 - **Re-plan before more fixing.** The review ended in `rework` after
   five fix rounds across three reviews. The next stage is `plan` on the
   context layer and assistant focus mechanics, started from
@@ -232,15 +243,51 @@ open in the last round's own fixes, and the record does not list them.
   unregister during the delay, so the `pointerdown` result only arms the
   timer.
 
-- **The menu stays modal, and the layer root takes pointer events while
-  it is open.** Why: a modal menu sets `pointer-events: none` on `body`
-  (`DismissableLayer/DismissableLayer.js:87-88`), so a right-click on a
-  second item would land on the document root. Reka's trigger carries
-  `pointer-events: auto` for that case (`ContextMenuTrigger.js:95-98`),
-  and the layer sets it on its root only while its menu is open. A modal
-  menu also restores focus after every close, which is the focus-return
-  Decision as written. `ContextMenuContent.js:117-125` skips the restore
-  only when `modal` is false.
+- **The menu is not modal.** The layer passes `modal: false` to its
+  `UiContextMenu` and writes no `pointer-events` on its root.
+
+  Why: the outside-press Decision. A non-modal menu skips its focus
+  restore when the close followed a press or a focus move outside it
+  (`ContextMenu/ContextMenuContent.js:117-125`). It leaves
+  `pointer-events` on `body` alone
+  (`Menu/MenuRootContentNonModal.js:116`), so a press reaches the
+  control under it and a right-click on a second item lands on that
+  item. A modal menu restores focus after every close and sets
+  `pointer-events: none` on `body`
+  (`DismissableLayer/DismissableLayer.js:85-89`). The top bar sits
+  outside the layer (`frontend/web/src/FleetView.vue:1019`, `:1154`),
+  so `pointer-events: auto` on the layer root would not let a press
+  through to it.
+
+  A non-modal menu also drops what the modal one adds:
+  - It traps no focus (`MenuRootContentNonModal.js:115`), and a focus
+    move outside closes it (`DismissableLayer.js:65-71`). The modal
+    content prevents `focusOutside`
+    (`Menu/MenuRootContentModal.js:124`).
+  - It sets no `aria-hidden` on the rest of the page and locks no
+    scroll (`MenuRootContentModal.js:116`,
+    `Menu/MenuContentImpl.js:139`).
+  - It lets Tab through (`MenuContentImpl.js:210`). Open question 1 is
+    about that key.
+
+- **Each open mounts fresh menu content.** `UiContextMenu` keys its
+  content by a counter that rises on every `update:open` with `true`.
+
+  Why: Reka keeps closing content in the DOM until its exit animation
+  ends, and an open in that time reuses it
+  (`Presence/usePresence.js:14-24`). A right-click on a second item
+  closes the menu on its `pointerdown` and opens it again on its
+  `contextmenu`, which can arrive inside the 100 ms exit
+  (`.claude/skills/web-component/references/overlays-and-motion.md`,
+  motion rule 4). Reused content takes no focus again, and its focus
+  scope still holds the element from the first open
+  (`FocusScope/FocusScope.js:103-110`). A non-modal menu also keeps the
+  flag its closing press set until the next `closeAutoFocus`
+  (`ContextMenuContent.js:117-125`), so the Escape after that skips the
+  restore the focus-return Decision asks for. Fresh content takes focus
+  and records the pre-menu element at every open, and its flag starts
+  unset. The modal menu hid both, since it traps focus and never sets
+  the flag.
 
 - **The layer keeps one focus variable.** At each menu open it records
   `document.activeElement` as the origin. Focus inside its own menu or
@@ -248,18 +295,33 @@ open in the last round's own fixes, and the record does not list them.
   verb prevents the menu's `closeAutoFocus`, and Reka's mount autofocus
   moves focus into the result (`FocusScope/FocusScope.js:92-110`). The
   layer focuses the result's content element itself when focus is still
-  outside it once the menu's scope has unmounted. When the result
-  closes, the layer prevents `closeAutoFocus` and focuses the origin if
-  it is still connected.
+  outside it once the menu's scope has unmounted. "Ask about this…"
+  prevents the menu's `closeAutoFocus` as a verb does.
+
+  When the result closes, the layer prevents `closeAutoFocus` and
+  focuses the origin if it is still connected. It focuses nothing after
+  "Continue in assistant", and nothing when an outside interaction came
+  first. `UiPopover` re-emits Reka's `interactOutside`, which a press
+  and a focus move outside both raise
+  (`DismissableLayer.js:57-71`), and the layer keeps one flag from the
+  result's open to its close.
 
   Why: the focus-return Decision needs "that same element" when the
   result closes, and Reka's focus scope does not expose the element it
   recorded (`FocusScope.js:108`). The consumer's handler runs before
-  Reka's own (`Popover/PopoverContentNonModal.js:122-130`).
+  Reka's own (`Popover/PopoverContentNonModal.js:122-130`). The result
+  has no Reka trigger, so Reka's skip after an outside interaction
+  (`PopoverContentNonModal.js:124-126`) has nothing to act on, and the
+  layer applies the same rule to the origin. Reka restores focus one
+  timer tick after the content unmounts (`FocusScope.js:119-121`),
+  which is after the panel has focused its prompt, so a handoff that
+  left the restore in place would take focus back.
 
 - **A focus test reads its expected element from Reka.** For a menu
   close without a verb, the test runs the same gesture and close on a
-  bare `UiContextMenu` and expects the same `document.activeElement`.
+  bare `UiContextMenu` with `modal` false and expects the same
+  `document.activeElement`. A row that closes on an outside press also
+  names the pressed element, so a menu left modal on both sides fails.
   Why: the Decision says the layer adds nothing there. The parked
   table's hand-written column passed while focus left a control the
   user had clicked.
@@ -529,7 +591,8 @@ open in the last round's own fixes, and the record does not list them.
    second. The container has `aria-busy="true"` until the iterable ends.
    Stop aborts the signal and keeps the last snapshot, marked "Stopped".
    Focus moves from the closed menu into the result popover. Closing the
-   popover returns focus to the element the menu opened from.
+   popover by Escape or its Close button returns focus to the element
+   the menu opened from.
 
 4. **Structured results render natively.**
    - `tone` renders as the mapped `UiBadge`.
@@ -595,28 +658,33 @@ open in the last round's own fixes, and the record does not list them.
 15. **A gesture with a target opens one menu for it, whatever is
     open.** Example: right-click `d1`, then right-click `d2` while
     `d1`'s menu is open, each as a `pointerdown` followed by a
-    `contextmenu`. One menu is open and lists `d2`'s verbs. Each
-    `contextmenu` is default-prevented when `dispatchEvent` returns.
+    `contextmenu`. One menu is open, lists `d2`'s verbs, and holds
+    focus. Each `contextmenu` is default-prevented when `dispatchEvent`
+    returns.
 
 16. **One long-press opens once, and Reka's trigger styles stay on the
     layer's trigger.** Example: a touch `pointerdown` on `d1`, a
     `contextmenu` on it 500 ms later, and timers advanced to 1,400 ms
     produce one `update:open` with `true`. The layer writes no inline
-    `-webkit-touch-callout` on its root or its slot, and an inline
-    `pointer-events` on its root only while the menu is open.
+    `-webkit-touch-callout` and no inline `pointer-events` on its root
+    or its slot, with the menu open or closed.
 
 17. **Focus follows one table.**
 
     | Close | Focus afterwards |
     |---|---|
-    | The menu closes without a verb | where a bare `UiContextMenu` leaves it |
+    | The menu closes by Escape | the element focused before it opened, where a bare `UiContextMenu` with `modal` false leaves it |
+    | The menu or the result closes on a pointer press outside it | where the user pressed |
+    | The menu or the result closes on a focus move outside it | where focus moved |
+    | Tab or Shift+Tab in the open menu | in the menu, which stays open (Open question 1) |
     | A verb is chosen | inside the result popover |
     | The result closes by Escape, by its Close button, or because its target left | the origin, when it is still connected |
-    | The result closes on a pointer press outside it | the origin, as the Decision is written (Open question 2) |
-    | "Ask about this…" or "Continue in assistant" | set by Open question 1 |
+    | "Ask about this…" or "Continue in assistant" | in the assistant's prompt, at the docked and the narrow width |
 
     Example: focus the `d1` link, press Shift+F10, choose "Summarize
     this device", and press Escape in the result. Focus is on the link.
+    Open the result again and press a text field outside the layer. The
+    result closes and focus is in that field.
 
 18. **A surface shows only its latest run, and every other run is
     aborted.** Example: start a run, receive one snapshot, regenerate,
@@ -635,8 +703,8 @@ open in the last round's own fixes, and the record does not list them.
     with focus on a device row focuses the prompt, and Close then puts
     focus on the Assistant button. With focus moved to the main pane
     first, Ctrl/Cmd+I closes the panel and focus stays in the pane. A
-    panel opened by "Continue in assistant" focuses its prompt at the
-    narrow width. At the docked width Open question 1 decides.
+    panel opened by "Ask about this…" or "Continue in assistant"
+    focuses its prompt at both widths, and the prompt keeps focus.
 
 21. **A regenerated turn resends its own request under a new id.**
     Example: the seeded "Summarize this device" turn regenerates with
@@ -885,12 +953,19 @@ After: U7, U8, U9
 
 Change:
 - `contextTarget.ts` holds `resolveContextTarget` with its five rules.
-- `UiContextMenu` forwards its attributes to the trigger. `UiPopover`
-  takes `accessibleName`, and a `#trigger` wins over `reference`.
+- `UiContextMenu` forwards its attributes to the trigger. It keys its
+  content by an open counter, so each open mounts fresh content. With
+  `modal` false it prevents the default of a Tab keydown in its
+  content, as Reka does in a modal menu (`Menu/MenuContentImpl.js:210`,
+  Open question 1).
+- `UiPopover` takes `accessibleName` and re-emits `interactOutside`,
+  and a `#trigger` wins over `reference`.
 - `UiAiContextLayer` renders its slot directly under its root, beside
   the hidden trigger. Its root listeners resolve, prevent, and open as
   the Decisions say. A layer ignores an event whose nearest layer root
   is another one.
+- The layer's menu takes `modal: false`, and the layer writes no
+  `pointer-events` on its root.
 - The long-press delay is one named constant.
 - The menu lists `aiActions(target)` by catalog label. A verb starts a
   bound run through `useAiRun` and opens the result on the target's
@@ -899,7 +974,11 @@ Change:
 - The result shows `UiAiLabel` with the request as sent, `UiAiResult`,
   the actions, a restart control when no snapshot arrived, and a
   `UiButton` that closes it. Its content root runs `useFocusKeeper`.
-- Focus follows Requirement 17.
+- Focus follows Requirement 17. A verb and "Ask about this…" prevent
+  the menu's `closeAutoFocus`. On the result's `closeAutoFocus` the
+  layer focuses the origin, except after "Continue in assistant" and
+  after an `interactOutside` on the open result. The flag for that is
+  cleared when a result opens.
 - "Continue in assistant" emits `continue` with the targets of
   `run.request`, the verb's label as the user turn, the result, and the
   request. "Ask about this…" emits it with the live target and no
@@ -914,9 +993,12 @@ with the position and path lists of the generated tables
 (`UiAiContextLayer.test.ts:61-166`, from `81f01e39`), and the primitive
 hunks of `f60fd850`. Leave behind `syntheticContextMenuEvents`,
 `restoreNativeTouchCallout`, `pressOpenDelay`, `focusResultElement`, and
-the hand-written focus column. The record's items under
-`UiAiContextLayer.*`, `context-menu/`, `popover/`, and `a11y.test.ts`
-name the cases still missing.
+the hand-written focus column. That column expects the origin after
+every close in the fixture's list (`UiAiContextLayer.test.ts:2075` on
+that branch). The Decisions of 2026-10-07 reverse it for four of the
+seven: the two outside-press closes, `continue`, and `ask`. The
+record's items under `UiAiContextLayer.*`, `context-menu/`, `popover/`,
+and `a11y.test.ts` name the cases still missing.
 
 Tests:
 - `contextTarget.test.ts`: Requirement 13 as one table over gesture,
@@ -943,22 +1025,41 @@ Tests:
     - A touch press does not dismiss until a click follows
       (`DismissableLayer/utils.js:53-57`), so a touch long-press moves
       the open menu to the second target without a close.
-    - A key path second with the menu open is left out by name. The
-      modal menu traps focus (`Menu/MenuRootContentModal.js:120`,
-      `FocusScope/FocusScope.js:57-67`), so no pane element can be
-      focused, and the menu's own keydown does not pass the layer root.
+    - A key path second with the menu open is left out by name. A key
+      path needs focus on a pane element, and that focus move closes
+      the non-modal menu before a key can follow
+      (`DismissableLayer/utils.js:97-106`,
+      `DismissableLayer/DismissableLayer.js:65-71`). The menu's own
+      keydown does not pass the layer root.
 
-    Each cell also asserts the second target's verbs and, after a verb,
-    the result's reference element. Reka registers its outside listener
-    on a 0 ms timer after the menu mounts (`utils.js:74-76`), so a cell
-    advances timers before the second press.
+    Each cell also asserts the second target's verbs, that the menu
+    holds focus, and, after a verb, the result's reference element.
+    Reka registers its outside listener on a 0 ms timer after the menu
+    mounts (`utils.js:74-76`), so a cell advances timers before the
+    second press.
   - Requirement 16, with a `contextmenu` before the delay and after it,
     and a cancel by `pointermove`, `pointerup`, and `pointercancel`.
     Text selected during the delay opens no menu, and neither does a
     target that unregisters during it.
   - Requirement 17 over path, origin (a link in the item, a button
-    outside, nothing focused), and close. The no-verb rows compare with
-    a bare `UiContextMenu` mounted in the same case.
+    outside, nothing focused), and close. The closes are Escape in the
+    menu, a press outside the menu, a focus move out of the menu,
+    Escape in the result, its Close button, a press outside the result,
+    a focus move out of the result, the target leaving, "Ask about
+    this…", and "Continue in assistant".
+    Each outside press runs twice, on a text field and on plain content.
+    - The no-verb rows compare with a bare `UiContextMenu` with `modal`
+      false mounted in the same case. The outside-press rows also name
+      the element: the field, and `body` for plain content.
+    - A press on the field is a `pointerdown` and then `focus()` on it,
+      since happy-dom moves no focus on a press.
+    - The two handoff rows answer `continue` by focusing a stand-in for
+      the prompt. They expect focus on it after the timers have run,
+      since Reka's restore is on a timer (`FocusScope.js:119-121`).
+    - One sequence closes a result by an outside press and the next
+      result by Escape. Focus is on the second origin, so the outside
+      flag does not outlive its result.
+    - The executed row count is a literal.
   - Requirements 18 and 19 over the result's transitions and the three
     focus positions.
   - Two nested layers open one menu, from the inner one.
@@ -967,15 +1068,29 @@ Tests:
   - Every table installs fake timers inside `try` and `finally`.
 - `UiContextMenu.test.ts` and `UiPopover.test.ts`: attribute forwarding,
   the accessible name, and a case that passes both a trigger and a
-  reference.
+  reference. `UiPopover` emits `interactOutside` for a press and for a
+  focus move outside, and for neither inside its content.
+- `UiContextMenu.test.ts`, with `modal` false:
+  - A Tab and a Shift+Tab keydown in the content are default-prevented,
+    the menu stays open, and an arrow key still moves between items.
+  - A press outside leaves focus on the pressed field, and Escape
+    returns it to the element focused before the open.
+  - One case stubs `getComputedStyle` so Reka holds the closing content,
+    as `UiPopover.test.ts:158-183` does. It opens the menu from a
+    focused button, presses and focuses a second button, opens the menu
+    again before the exit ends, and expects the menu to hold focus.
+    After Escape and the `animationend`, focus is on the second button.
+    Without the content key the reopened menu takes no focus, and the
+    case fails.
 - `a11y.test.ts`: the open menu and the open result, in both themes.
 
 happy-dom focuses any connected element (`happy-dom@20.14.5`,
 `lib/nodes/html-element/HTMLElementUtility.js:41-70`) and runs no
-default action for a pointer event. No test here can tell a tab stop
-from an element that cannot take focus, and a press's own focus change
-is simulated. Nothing in this unit's tests covers the Stop condition or
-a long-press on a device either. The browser pass in Verification covers
+default action for a pointer event or a key. No test here can tell a tab
+stop from an element that cannot take focus, a press's own focus change
+is simulated, and no test shows where an unprevented Tab would put
+focus. Nothing in this unit's tests covers the Stop condition or a
+long-press on a device either. The browser pass in Verification covers
 all but the device.
 
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- frontend/web/src/ui/ai frontend/web/src/ui/context-menu frontend/web/src/ui/popover frontend/web/src/ui/a11y.test.ts frontend/web/.storybook frontend/web/src/i18n docs/solutions/conventions/audit-an-open-portalled-overlay-on-its-root-body-child.md`
@@ -1014,7 +1129,10 @@ Change:
   after that.
 - Focus follows Requirement 20. The panel focuses its prompt when
   `open` turns true. The shell focuses the Assistant button on a close
-  for which `focusIsWithin` the panel was true.
+  for which `focusIsWithin` the panel was true. A panel opened by
+  `continue` gets no other rule: the layer leaves its restore out for a
+  handoff, so the prompt keeps focus at the docked width as it does in
+  the sheet.
 - Ctrl/Cmd+I works inside the panel's own sheet and stays inert under
   any other modal. Workspace shortcuts are inert under the sheet.
 - The pane layout selects `[data-ai-context-layer] > main.panes`, and
@@ -1044,6 +1162,9 @@ Tests:
   Close, the button, the shortcut, Escape in the sheet), and where focus
   was (the prompt, a chip, the "Add context" list, a turn's label
   popover, the main pane, the top bar). The row count is a literal.
+  The `continue` rows open from "Ask about this…" and from "Continue in
+  assistant" through the mounted layer, with focus on a row link
+  first. At both widths the prompt has focus after the timers have run.
 - `FleetView.test.ts`: the draft and the thread survive a close and a
   change of width. A first mount at the narrow width keeps the closed
   sheet hidden and inert. The shortcut cases use a real dock and a wide
@@ -1075,11 +1196,17 @@ adapted, so no two of them are independent.
   - the Stop condition first: right-click a device row, a topology
     node, and the traffic chart, and the menu opens at the pointer
   - a row link and the page heading keep the native menu
-  - right-click a second item while the first menu is open
+  - right-click a second item while the first menu is open, move the
+    pointer onto a verb, and press Escape. The second menu holds focus
+    while it is open, and afterwards focus is where the second press
+    put it
   - the Menu key and Shift+F10 on a focused row link in Chrome and
     Safari on macOS, and the Menu key in a field
+  - Tab and Shift+Tab in the open menu (Open question 1)
   - a long-press under touch emulation, on an item and beside it
-  - every row of Requirement 17 with a real pointer
+  - every row of Requirement 17 with a real pointer. The outside
+    presses land on the top bar's search field and on an empty part of
+    a pane, with the menu open and with the result open
   - open the panel by button, by shortcut, and by "Continue in
     assistant" at both widths, type a draft, close, cross the
     breakpoint, and reopen
@@ -1103,50 +1230,31 @@ adapted, so no two of them are independent.
 
 ## Open questions
 
-1. **Does a handoff to the assistant keep focus in its prompt on the
-   docked panel?** The focus-return Decision prevents Reka's restore
-   "only while a verb hands focus to the result popover". "Ask about
-   this…" and "Continue in assistant" close the menu or the result and
-   open the panel, and the Decision names neither. Reka restores focus
-   one timer tick after the content unmounts
-   (`FocusScope/FocusScope.js:119-121`), which is after the panel has
-   focused its prompt. At the narrow width the sheet is modal and keeps
-   focus either way. The options:
-   - The handoff is exempt (recommended). The layer prevents the restore
-     for these two entries as it does for a verb, and the prompt keeps
-     focus. A keyboard user lands where they asked to go, and both
-     widths behave alike. The Decision gains a second exemption.
-   - No exemption. Focus returns to the pre-menu element, and the docked
-     panel opens seeded and without focus. The layer keeps one rule. A
-     keyboard user reaches the prompt by tabbing through the panes,
-     since Ctrl/Cmd+I would close the panel.
-   - No exemption, and Ctrl/Cmd+I moves focus into an open panel that
-     does not hold it and closes one that does. The layer keeps one
-     rule, and the keyboard has a route. The shortcut stops being a
-     plain toggle.
+1. **What does Tab do in the open menu?** The outside-press Decision
+   makes the menu non-modal, and a non-modal Reka menu stops preventing
+   Tab (`Menu/MenuContentImpl.js:210`). Tab then moves focus out of the
+   menu, the move closes it
+   (`DismissableLayer/DismissableLayer.js:65-71`), and that Decision
+   returns no focus after a focus move outside. Reka keeps a focus
+   guard at each end of `body` while the menu is mounted and removes
+   both with it (`shared/useFocusGuards.js:11-23`). By the source, Tab
+   lands on the guard after the portalled menu and focus then drops to
+   `body`, and Shift+Tab lands on the last tab stop of the page. Where
+   a browser puts it is unverified. The modal menu the plan had before
+   the Decision ignored Tab. The options:
+   - Tab does nothing (recommended). `UiContextMenu` prevents Tab in
+     non-modal content, as Reka does in a modal menu. The Decision then
+     changes no key, and Escape stays the keyboard close. The units are
+     written this way.
+   - Tab leaves the menu, as Reka's non-modal menu does. `UiContextMenu`
+     gets no rule for it, and a keyboard user loses their place in the
+     page.
+   - Tab closes the menu as Escape does, and focus returns to the
+     pre-menu element. The keyboard gets a second close, and
+     `UiContextMenu` gets a second rule.
 
-   The answer sets the last row of Requirement 17 and the last sentence
-   of Requirement 20. U10 and U11 change by one table row each.
-
-2. **Does a pointer press outside the menu or the result still send
-   focus back?** The focus-return Decision sends focus to the pre-menu
-   element "when the menu or its result closes" and names no close that
-   differs. Read that way, a click on a search field while a result is
-   open closes the result and then moves focus off the field. The parked
-   focus table expects that. Reka returns focus to a trigger only when
-   the close did not follow an outside interaction
-   (`Popover/PopoverContentNonModal.js:124-126`, and
-   `ContextMenu/ContextMenuContent.js:117-125` for a menu with `modal`
-   false). The options:
-   - Reka's rule (recommended). Focus stays where the user pressed. The
-     menu takes `modal: false`, where Reka skips the restore itself, and
-     the layer root needs no `pointer-events` while the menu is open.
-     `UiPopover` re-emits `interactOutside` so the result can skip its
-     own restore.
-   - As written. Focus returns after every close. The units implement
-     this until the question is answered.
-
-   The answer sets the fourth row of Requirement 17.
+   The answer sets the Tab row of Requirement 17, one line of U10's
+   Change, and one case in `UiContextMenu.test.ts`.
 
 - Unconfirmed: view-level targets are excluded from the context menu, so
   page-wide verbs live only in the summary placement and the panel. If
@@ -1162,3 +1270,8 @@ adapted, so no two of them are independent.
   long-press, and whether a long-press on text selects it first. The
   timer resolves again when it fires, so a selection made by then opens
   no menu. Touch emulation in a desktop browser answers neither.
+- Unverified: in which browsers the `contextmenu` of a right-click
+  arrives while the first menu's exit animation still runs, and where a
+  right press on an item puts focus. The fresh-content Decision holds
+  either way. `UiContextMenu.test.ts` covers the reopen with a
+  simulated exit, and the browser pass checks it with a real pointer.
