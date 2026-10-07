@@ -41,8 +41,8 @@ first phase starts, so the first unit has a base to diff against.
   removed it after comparing alternatives. It is already deleted from the
   worktree. (decided by the user, 2026-10-07)
 - The frame is `frontend/web/src/navigation/AppFrame.vue`, rendered by
-  `frontend/web/src/App.vue` around `RouterView`. It has three regions:
-  sidebar, top bar, and page. A routed view fills a region with
+  `frontend/web/src/App.vue` around `RouterView`. It has a region for
+  the sidebar, the top bar, and the page, and one for the skip link. A routed view fills a region with
   `<Teleport defer>`. Why: Vue states that Teleport "does not affect the
   logical hierarchy of the components" and that "injections from a parent
   component work as expected"
@@ -51,18 +51,22 @@ first phase starts, so the first unit has a base to diff against.
   (`frontend/web/src/FleetView.vue:344-345`), and the sidebar's `AppLink`
   injects them (`frontend/web/src/navigation/AppLink.vue`), so the menu
   keeps working from inside the frame. `defer` exists since Vue 3.5, and the
-  workspace pins 3.5.43 (`frontend/web/package.json`).
+  workspace pins 3.5.43 (`frontend/web/package.json`). A deferred Teleport
+  resolves its target after the render that mounts it, so the frame and a
+  view can mount in one tick.
 - Named router views lost. Why: they need the sidebar, the top bar, and the
   panes as three components, and `FleetView` shares about sixty pieces of
-  state between those parts in one 1,378-line script.
+  state between those parts in one 1,378-line file.
 - A change of the sidebar's width moves the page panel by a transform. The
   sidebar surface itself does not scale. Why: the component contract allows
   only `transform` and `opacity` to animate
   (`docs/architecture/2026-09-28-web-component-contract-direction.md`,
   Motion, Properties). A scaled sidebar would need its children scaled
   back, and motion-v finds a child's parent through `inject`
-  (`node_modules/motion-v/dist/es/components/motion/use-motion-state.mjs:13`,
-  version 2.4.4). A teleported child's parent is the view, not the frame, so
+  (`injectMotion` in
+  `frontend/web/node_modules/.pnpm/motion-v@2.4.4*/node_modules/motion-v/dist/es/components/motion/use-motion-state.mjs:13`,
+  built on Vue's `inject` in `dist/es/utils/createContext.mjs` of the same
+  package). A teleported child's parent is the view, not the frame, so
   the frame could not correct it.
 - The glass is one surface behind the sidebar and the top bar. The page
   panel sits on it and carries the edge between the two. Why: with one
