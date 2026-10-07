@@ -340,9 +340,12 @@ it('preserves the switches and their theme without transforming their ancestors'
   const header = mounted.host.querySelector('header.topbar')
   if (!theme || !locale || !shell || !header)
     throw new Error('Missing switches')
+  const beforeClick = theme.getAttribute('aria-checked')
+  expect(['true', 'false']).toContain(beforeClick)
   theme.click()
   await nextTick()
   const checked = theme.getAttribute('aria-checked')
+  expect(checked).toBe(beforeClick === 'true' ? 'false' : 'true')
   const ancestors = new Set<Element>([shell, header])
   for (const button of [theme, locale])
     for (

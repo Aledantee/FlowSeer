@@ -30,14 +30,14 @@ Give that sibling a translucent ground and no pointer events. Put text and
 controls in later siblings, where they can share the filtered surface without
 becoming descendants of a backdrop root. In this tree the frame glass is the
 first child of `.shell`, followed by the sidebar and page region
-(`frontend/web/src/navigation/AppFrame.vue:24-51`). The mount test holds its
-empty sibling shape and blur classes (`AppFrame.test.ts:95-117`).
+(`frontend/web/src/navigation/AppFrame.vue:69-111`). The mount test holds its
+empty sibling shape and blur classes (`frontend/web/src/navigation/AppFrame.test.ts:132-154`).
 
 ```vue
 <div class="shell relative">
   <div class="frame-glass pointer-events-none absolute inset-0 bg-glass backdrop-blur-2xl"></div>
   <aside class="sidebar">...</aside>
-  <main class="main-shell">...</main>
+  <div ref="main" class="main-shell">...</div>
 </div>
 ```
 
@@ -45,9 +45,9 @@ empty sibling shape and blur classes (`AppFrame.test.ts:95-117`).
 
 > `<div class="frame-glass pointer-events-none absolute inset-0 bg-glass backdrop-blur-2xl backdrop-saturate-150"`
 
-`frontend/web/src/navigation/AppFrame.vue:25-28` places the filtered surface
-before the sidebar. The same file places `#frame-page` later at `:48-51`.
-`frontend/web/src/navigation/AppFrame.test.ts:101-105` checks that the glass
+`frontend/web/src/navigation/AppFrame.vue:69-72` places the filtered surface
+before the sidebar. The same file places `#frame-page` later at `:104-111`.
+`frontend/web/src/navigation/AppFrame.test.ts:138-142` checks that the glass
 is the first element child and has no children. The CSS reference above
 defines why this placement preserves the intended backdrop for the frame.
 
