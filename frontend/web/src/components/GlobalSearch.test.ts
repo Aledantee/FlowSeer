@@ -653,7 +653,7 @@ describe('global search in German', () => {
       ],
       'de',
     )
-    const { host, registry } = mounted
+    const { host } = mounted
     dispose = mounted.dispose
     await settle()
 
