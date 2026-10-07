@@ -480,6 +480,15 @@ func TestMSTIRootWithholdsAgreementForAnUnsyncedBoundary(t *testing.T) {
 	fx := l.Receive(now.Add(2*time.Second), "p1", b)
 	rerootState(t, tr, "p1", bpdu.RoleRoot, StateForwarding)
 	rerootAgreement(t, fx, "p1", true, false)
+	flags := bpdu.BPDU{Flags: b.MSTIs[0].Flags}
+	flags.SetProposal(true)
+	b.MSTIs[0].Flags = flags.Flags
+	fx = l.Receive(now.Add(3*time.Second), "p1", b)
+	if p := tr.ports["p3"]; !p.synced || p.state != StateDiscarding {
+		t.Fatalf("boundary p3 after proposal synced=%v state=%v, want true/Discarding", p.synced, p.state)
+	}
+	rerootState(t, tr, "p1", bpdu.RoleRoot, StateForwarding)
+	rerootAgreement(t, fx, "p1", true, true)
 }
 
 func TestSyncedDiscardingPortProposesAndTransmitsAfterSync(t *testing.T) {
