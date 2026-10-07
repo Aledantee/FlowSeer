@@ -303,6 +303,41 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("-c check_for_update_on_startup=false", self.orca_calls())
 
+    def uv_start_wrapper(self, fail=False):
+        wrapper = self.bin_dir / "uv"
+        wrapper.write_text(f"""#!{sys.executable}
+import os
+import sys
+
+if sys.argv[1:3] == ["run", "--quiet"] and sys.argv[4:7] == ["delegate", "runlog", "start"]:
+    print("launcher notice", file=sys.stderr)
+    if {fail!r}:
+        sys.exit(1)
+os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
+""")
+        wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC)
+
+    def test_start_stores_only_stdout_when_launcher_writes_stderr(self):
+        self.uv_start_wrapper()
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        event = json.loads(self.runlog.read_text().splitlines()[0])
+        state = json.loads((self.state_dir / "l1.json").read_text())
+        self.assertEqual(state["run"], event["run"])
+        self.assertEqual(json.loads(result.stdout)["run"], event["run"])
+
+    def test_start_failure_keeps_launcher_error_visible_and_undoes_lane(self):
+        self.uv_start_wrapper(fail=True)
+        result = self.start()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("launcher notice", result.stderr)
+        self.assertIn("run log start failed", result.stderr)
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt1", self.orca_calls())
+        self.assertFalse((self.root / "child-l1").exists())
+        self.assertFalse((self.state_dir / "l1.json").exists())
+        self.assertFalse(self.runlog.exists())
+
     def test_start_trusts_codex_hooks_by_the_option_number_on_screen(self):
         dialog = self.codex_dialog(
             "  Hooks need review\n"

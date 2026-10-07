@@ -97,7 +97,7 @@ event the plan's first lane logged, with `$run` the `run` that
 holds the worktree's `HEAD` at its join, which covers its own stage only:
 
 ```bash
-base=$(python3 -B -c 'import sys; sys.path.insert(0, ".claude/skills/delegate/scripts"); import runlog; print(next(e["base"] for e in runlog.read() if e.get("event") == "start" and e["run"] == sys.argv[1]))' "$run")
+base=$(uv run --quiet tools/scripts/run.py delegate runlog start-base --run "$run")
 ```
 
 Load `references/review-stage.md` before starting a review stage worker.

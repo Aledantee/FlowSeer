@@ -19,10 +19,10 @@ class RunlogTests(unittest.TestCase):
         self.log = Path(self.temp.name) / "runs.jsonl"
         self.env = {**os.environ, "FLOWSEER_RUNLOG": str(self.log)}
 
-    def command(self, *args):
+    def command(self, *args, cwd=None):
         return subprocess.run(
             [sys.executable, str(RUN), "delegate", "runlog", *args],
-            env=self.env, capture_output=True, text=True, check=False,
+            env=self.env, cwd=cwd, capture_output=True, text=True, check=False,
         )
 
     def test_start_writes_lane_and_prints_run(self):
@@ -157,6 +157,94 @@ class RunlogTests(unittest.TestCase):
     def test_has_grade_exits_one_without_a_log(self):
         self.assertEqual(self.command("has-grade", "--run", "r1").returncode, 1)
         self.assertFalse(self.log.exists())
+
+    def test_start_base_prints_the_first_matching_start(self):
+        first = self.start_event("r1", "2026-09-30T10:00:00Z")
+        later = {**first, "base": "later"}
+        self.seed(self.start_event("r2", "2026-09-30T09:00:00Z"), first, later)
+        result = self.command("start-base", "--run", "r1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "abc123\n")
+
+    def test_start_base_fails_for_an_unknown_run(self):
+        self.seed(self.start_event("r1", "2026-09-30T10:00:00Z"))
+        result = self.command("start-base", "--run", "unknown")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stderr, "runlog: no start event for run unknown\n")
+        self.assertEqual(result.stdout, "")
+
+    def test_executors_uses_last_grade_and_excludes_rejected_runs(self):
+        def start(run, **fields):
+            return {**self.start_event(run, "2026-09-30T10:00:00Z"), "plan": "plan.md", **fields}
+
+        def grade(run, outcome):
+            return {"event": "grade", "run": run, "outcome": outcome}
+
+        self.seed(
+            start("accepted", unit="U1"), grade("accepted", "rejected"), grade("accepted", "accepted"),
+            start("amended", role="execute-sensitive", model=None, agent="pool-id"),
+            grade("amended", "amended"),
+            start("rejected"), grade("rejected", "accepted"), grade("rejected", "rejected"),
+            start("blocked"), grade("blocked", "blocked"), start("ungraded"),
+            start("reviewer", role="review-unit"), grade("reviewer", "accepted"),
+            start("other-plan", plan="other.md"), grade("other-plan", "accepted"),
+        )
+        result = self.command("executors", "--plan", "plan.md")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "U1 claude-opus-5-5\n- pool-id\n")
+        empty = self.command("executors", "--plan", "unknown.md")
+        self.assertEqual(empty.returncode, 0, empty.stderr)
+        self.assertEqual(empty.stdout, "")
+
+    def test_writers_selects_smallest_range_then_latest_start(self):
+        repository = Path(self.temp.name) / "repo"
+        repository.mkdir()
+
+        def git(*args):
+            return subprocess.run(["git", *args], cwd=repository, check=True,
+                                  capture_output=True, text=True).stdout.strip()
+
+        git("init", "-b", "main")
+        git("config", "user.name", "Test User")
+        git("config", "user.email", "test@example.com")
+        commits = []
+        for name in ("base", "outer", "inner", "coordinator"):
+            git("commit", "--allow-empty", "-m", name)
+            commits.append(git("rev-parse", "HEAD"))
+        base, outer, inner, head = commits
+
+        def events(run, start_base, end_head, at, outcome, **fields):
+            return (
+                {**self.start_event(run, at), "base": start_base, "plan": "plan.md", **fields},
+                {"event": "grade", "run": run, "outcome": "accepted"},
+                {"event": "grade", "run": run, "outcome": outcome},
+                {"event": "end", "run": run, "head": end_head},
+            )
+
+        self.seed(
+            *events("outer", base, inner, "2026-09-30T13:00:00Z", "accepted", model="outer-model"),
+            *events("inner", outer, inner, "2026-09-30T10:00:00Z", "accepted", model="inner-model"),
+            *events("tie", outer, inner, "2026-09-30T11:00:00Z", "amended", model=None, agent="tie-agent"),
+            *events("rejected", inner, head, "2026-09-30T12:00:00Z", "rejected"),
+            *events("blocked", inner, head, "2026-09-30T12:00:00Z", "blocked"),
+            *events("reviewer", inner, head, "2026-09-30T12:00:00Z", "accepted", role="review-unit"),
+            *events("other", inner, head, "2026-09-30T12:00:00Z", "accepted", plan="other.md"),
+            {**self.start_event("unfinished", "2026-09-30T14:00:00Z"), "plan": "plan.md"},
+            {"event": "grade", "run": "unfinished", "outcome": "accepted"},
+        )
+        result = self.command("writers", "--plan", "plan.md", "--range", f"{base}..{head}",
+                              "--coordinator", "coordinator-model", cwd=repository)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, f"{head[:12]} coordinator-model\n{inner[:12]} tie-agent\n"
+                                      f"{outer[:12]} outer-model\n")
+        for revision in ("missing..HEAD", f"{base}..{head}"):
+            with self.subTest(revision=revision):
+                if revision != "missing..HEAD":
+                    self.seed(*events("invalid", "missing", head, "2026-09-30T10:00:00Z", "accepted"))
+                invalid = self.command("writers", "--plan", "plan.md", "--range", revision,
+                                       "--coordinator", "coordinator-model", cwd=repository)
+                self.assertNotEqual(invalid.returncode, 0)
+                self.assertIn("missing", invalid.stderr)
 
 
 if __name__ == "__main__":

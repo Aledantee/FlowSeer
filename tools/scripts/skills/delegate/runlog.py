@@ -9,14 +9,14 @@ import re
 import sys
 import uuid
 
-from lib import lock
+from lib import lock, proc
 
 
 DEFAULT_PATH = Path.home() / ".claude/models/runs.jsonl"
 ROLE = re.compile(r"[a-z][a-z-]*\Z")
 OUTCOMES = {"accepted", "amended", "rejected", "blocked"}
 VERIFY = {"pass", "fail", "none"}
-QUERIES = ("last-start", "has-grade")
+QUERIES = ("last-start", "has-grade", "start-base")
 
 
 class ReadResult:
@@ -132,6 +132,10 @@ def parser():
         review.add_argument("--" + flag, type=int, required=True)
     for name in QUERIES:
         commands.add_parser(name).add_argument("--run", required=True)
+    commands.add_parser("executors").add_argument("--plan", required=True)
+    writers = commands.add_parser("writers")
+    for flag in ("plan", "range", "coordinator"):
+        writers.add_argument("--" + flag, required=True)
     return cli
 
 
@@ -147,7 +151,42 @@ def has_grade(run):
     return any(event.get("event") == "grade" and event.get("run") == run for event in read())
 
 
-def main(argv):
+def start_base(run):
+    for event in read():
+        if event.get("event") == "start" and event["run"] == run:
+            return event["base"]
+    raise ValueError("no start event for run %s" % run)
+
+
+def executors(events, plan):
+    grades = {event.get("run"): event.get("outcome") for event in events if event.get("event") == "grade"}
+    return [event for event in events if event.get("event") == "start"
+            and event["role"].startswith("execute") and event.get("plan") == plan
+            and grades.get(event.get("run")) in {"accepted", "amended"}]
+
+
+def revisions(*args):
+    result = proc.run(["git", "rev-list", *args])
+    if result.code:
+        raise ValueError(result.stderr.strip())
+    return result.stdout.split()
+
+
+def writers(plan, revision_range, coordinator):
+    events = list(read())
+    heads = {event["run"]: event["head"] for event in events if event.get("event") == "end"}
+    runs = [(set(revisions(event["base"] + ".." + heads[event["run"]])),
+             event.get("model") or event.get("agent"), event["at"])
+            for event in executors(events, plan) if event["run"] in heads]
+    lines = []
+    for commit in revisions("--no-merges", revision_range):
+        writer = max((run for run in runs if commit in run[0]),
+                     key=lambda run: (-len(run[0]), run[2]), default=(None, coordinator))[1]
+        lines.append("%s %s" % (commit[:12], writer))
+    return lines
+
+
+def main(argv: list[str]) -> int:
     args = parser().parse_args(argv)
     fields = vars(args)
     kind = fields.pop("event")
@@ -156,6 +195,20 @@ def main(argv):
         return 0
     if kind == "has-grade":
         return 0 if has_grade(fields["run"]) else 1
+    if kind in {"start-base", "executors", "writers"}:
+        try:
+            if kind == "start-base":
+                print(start_base(fields["run"]))
+            elif kind == "executors":
+                for event in executors(list(read()), fields["plan"]):
+                    print(event.get("unit") or "-", event.get("model") or event.get("agent"))
+            else:
+                for line in writers(fields["plan"], fields["range"], fields["coordinator"]):
+                    print(line)
+        except (OSError, ValueError) as exc:
+            print("runlog: %s" % exc, file=sys.stderr)
+            return 1
+        return 0
     event = {"v": 1, "event": kind, "run": fields.pop("run", None) or uuid.uuid4().hex,
              "at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")}
     event.update({key: value for key, value in fields.items() if value is not None})
