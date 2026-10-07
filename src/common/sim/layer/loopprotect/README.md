@@ -199,6 +199,14 @@ mirrors how `stp.Layer` arms its hello timer on the first `LinkChange` or
 `Receive` rather than at construction, since `New` is never given the
 fabric's current time.
 
+`Clear` also resets `PortInfo.InterVLAN`, as it resets the recurrence
+tracking. A lift by a `Timer` or `LoopCleared` window or by a link cycle keeps
+both.
+
+When `Advance`, `Clear`, or a link-down `LinkChange` lifts the action that had
+stopped the last emitting port, the next probe is one interval after the lift,
+not at a deadline set before every port was stopped.
+
 `Config.Validate` refuses `LoopCleared` paired with `Disable`: a disabled
 port sends no probes, so `LoopCleared` recovery could never observe the loop
 clearing and would hold the port down forever.
@@ -219,7 +227,11 @@ whatever recovery windows have elapsed and emits nothing. A switch wakes its
 layers together, so `Advance` runs at every spanning tree hello and at every
 recovery expiry as well, and a probe on each of those would run far ahead of
 the configured interval. `NextWake` reports the earlier of the next probe and
-the next recovery.
+the next recovery. `Receive`, `Advance`, and `LinkChange` each arm the cadence
+on their first call, so `NextWake` reports a recovery deadline `Receive` set.
+The probe time counts only while some port would emit, that is, while some
+port is not under an applied `Disable`. With every port stopped, only recovery
+deadlines remain, and a layer without ports reports none.
 
 Crucially, emission does not consult `Learns`/`Forwards` on its own port: a
 `Block`ed port keeps sending probes. If it stopped, a `Block`ed port's probes

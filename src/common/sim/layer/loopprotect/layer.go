@@ -48,7 +48,9 @@ type PortInfo struct {
 	// InterVLAN reports whether the most recently returned probe on this
 	// port was classified into a different VLAN than the one it was sent
 	// on, and that difference could not be explained by the sending port's
-	// own untagged VLAN membership (see Return.SameUntaggedDomain).
+	// own untagged VLAN membership (see Return.SameUntaggedDomain). Clear
+	// resets it; a lift by a Timer or LoopCleared window or by a link cycle
+	// keeps it.
 	InterVLAN bool
 
 	// Recurrences counts how many times a Timer recovery lifted and a later
@@ -205,6 +207,8 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) layer.Effects {
 		return layer.Effects{}
 	}
 
+	l.arm(now)
+
 	ps.interVLAN = ret.VID != p.VID && !ret.SameUntaggedDomain
 
 	if ps.applied && !ps.waitUntil.IsZero() {
@@ -264,10 +268,9 @@ func (l *Layer) Receive(now time.Time, ret Return, p Probe) layer.Effects {
 // recovery expiry as well; emitting on each of those would probe far faster
 // than the configuration asks for.
 func (l *Layer) Advance(now time.Time) layer.Effects {
-	if !l.armed {
-		l.armed = true
-		l.nextProbeAt = now.Add(l.interval)
-	}
+	l.arm(now)
+
+	emitted := l.emits()
 
 	for _, name := range l.sortedNames {
 		ps := l.ports[name]
@@ -282,6 +285,8 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 			}
 		}
 	}
+
+	l.restartCadence(now, emitted)
 
 	if now.Before(l.nextProbeAt) {
 		return layer.Effects{}
@@ -323,15 +328,53 @@ func (l *Layer) Advance(now time.Time) layer.Effects {
 	return layer.Effects{Emissions: emissions}
 }
 
+// arm starts the probe cadence at the first call that reaches the layer, one
+// interval after now. Every method that takes the time calls it, so NextWake
+// reports a deadline whichever method set it.
+func (l *Layer) arm(now time.Time) {
+	if l.armed {
+		return
+	}
+
+	l.armed = true
+	l.nextProbeAt = now.Add(l.interval)
+}
+
+// emits reports whether some port would emit a probe, that is, whether some
+// port is not under an applied Disable.
+func (l *Layer) emits() bool {
+	for _, ps := range l.ports {
+		if !ps.applied || ps.cfg.Action != Disable {
+			return true
+		}
+	}
+
+	return false
+}
+
+// restartCadence schedules the next probe one interval after now when a lift
+// has just given an emitting port back to a layer where none emitted, so the
+// probes do not resume at a deadline set before every port was stopped.
+func (l *Layer) restartCadence(now time.Time, emittedBefore bool) {
+	if !emittedBefore && l.emits() {
+		l.nextProbeAt = now.Add(l.interval)
+	}
+}
+
 // NextWake returns the earliest scheduled time at which the layer needs to
-// be woken, and reports whether any timer is currently active.
+// be woken, and reports whether any timer is currently active. The probe time
+// counts only while some port would emit.
 func (l *Layer) NextWake() (time.Time, bool) {
 	if !l.armed {
 		return time.Time{}, false
 	}
 
-	next := l.nextProbeAt
-	hasTimer := !next.IsZero()
+	var next time.Time
+	hasTimer := false
+	if l.emits() {
+		next = l.nextProbeAt
+		hasTimer = true
+	}
 
 	for _, name := range l.sortedNames {
 		ps := l.ports[name]
@@ -356,10 +399,7 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // (down, then up) its recovery; an up report with no preceding down leaves
 // the action applied. A port this layer does not track is otherwise ignored.
 func (l *Layer) LinkChange(now time.Time, portName string, up bool) layer.Effects {
-	if !l.armed {
-		l.armed = true
-		l.nextProbeAt = now.Add(l.interval)
-	}
+	l.arm(now)
 
 	ps, ok := l.ports[portName]
 	if !ok {
@@ -367,28 +407,34 @@ func (l *Layer) LinkChange(now time.Time, portName string, up bool) layer.Effect
 	}
 
 	if !up && ps.applied && ps.cfg.Recovery.Mode == Manual {
+		emitted := l.emits()
 		ps.applied = false
 		ps.waitUntil = time.Time{}
+		l.restartCadence(now, emitted)
 	}
 
 	return layer.Effects{}
 }
 
 // Clear manually lifts the action applied to the named port and resets its
-// Timer recurrence tracking, so a later returned probe treats the next
-// applied action as the first one rather than counting it in
+// Timer recurrence tracking and PortInfo.InterVLAN, so a later returned probe
+// treats the next applied action as the first one rather than counting it in
 // PortInfo.Recurrences: Clear proves the operator addressed the port, not
-// that a Timer recovery lifted it. It reports whether the port was tracked
-// and had an action applied.
-func (l *Layer) Clear(_ time.Time, portName string) bool {
+// that a Timer recovery lifted it. A lift by a Timer or LoopCleared window or
+// by a link cycle keeps both. It reports whether the port was tracked and had
+// an action applied.
+func (l *Layer) Clear(now time.Time, portName string) bool {
 	ps, ok := l.ports[portName]
 	if !ok || !ps.applied {
 		return false
 	}
 
+	emitted := l.emits()
 	ps.applied = false
 	ps.everApplied = false
+	ps.interVLAN = false
 	ps.waitUntil = time.Time{}
+	l.restartCadence(now, emitted)
 
 	return true
 }
