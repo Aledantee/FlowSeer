@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -13,6 +13,27 @@ const sources = [
 ]
 
 describe('frame chrome sources', () => {
+  const files = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(entry.parentPath, entry.name))
+    .filter((file) => file !== __filename)
+
+  it('contains no View Transitions code in any source file', () => {
+    expect(files).toContain(path.join(root, 'style.css'))
+    for (const file of files)
+      expect(readFileSync(file, 'utf8'), file).not.toMatch(
+        /startViewTransition|view-transition/,
+      )
+  })
+
+  it('contains no login entrance code in any source file', () => {
+    expect(files).toContain(path.join(root, 'LoginView.vue'))
+    for (const file of files)
+      expect(readFileSync(file, 'utf8'), file).not.toMatch(
+        /is-entering|enter-rise|enter-drop|enter-word|enter-fade|--enter-delay|takeEntrance/,
+      )
+  })
+
   for (const name of [
     'topbar-glass',
     'main-notch',
