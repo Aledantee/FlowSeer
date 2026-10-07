@@ -248,11 +248,11 @@ conditions hold:
 4. No plan in scope holds a `Parked by drive:` line.
 
 Resolve the `plan` role lane through `delegate` at this hand-off. Call
-`successor.sh`, sandbox disabled and `timeout: 180000`, with its CLI, model id,
+`drive successor`, sandbox disabled and `timeout: 180000`, with its CLI, model id,
 and effort:
 
 ```bash
-.claude/skills/drive/scripts/successor.sh <parent> --cli <cli> --model <id> --effort <level>
+uv run --quiet tools/scripts/run.py drive successor <parent> --cli <cli> --model <id> --effort <level>
 ```
 
 Exit handling:

@@ -1,20 +1,113 @@
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
-import stat
+import shlex
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 from lib import repo
+from skills.delegate import orca_worker
+from skills.drive import successor
 
-SKILLS = repo.root(Path(__file__).parent) / ".agents/skills"
-SCRIPT = SKILLS / "drive/scripts/successor.sh"
+ROOT = repo.root(Path(__file__).parent)
+
+ORCA_STUB = r'''
+import json
+import os
+import sys
+
+with open(os.environ["ORCA_STUB_LOG"], "a") as log:
+    log.write(" ".join(sys.argv[1:]) + "\n")
+
+args = sys.argv[1:]
+if args and args[0] == "status":
+    mode = os.environ.get("ORCA_STUB_STATUS", "")
+    if mode == "fail":
+        raise SystemExit(1)
+    print(json.dumps({"result": {"runtime": {"reachable": mode != "unreachable"}}}))
+elif args[:2] == ["worktree", "show"]:
+    if os.environ.get("ORCA_STUB_FAIL") == "worktree-show":
+        raise SystemExit(1)
+    if os.environ.get("ORCA_STUB_NO_CHILD_FIELD") == "1":
+        print(json.dumps({"result": {"worktree": {}}}))
+        raise SystemExit(0)
+    children = [item for item in os.environ.get("ORCA_STUB_CHILDREN", "").split(",") if item]
+    print(json.dumps({"result": {"worktree": {"childWorktreeIds": children}}}))
+elif args[:2] == ["terminal", "create"]:
+    if os.environ.get("ORCA_STUB_FAIL") == "terminal-create":
+        raise SystemExit(1)
+    handle = "" if os.environ.get("ORCA_STUB_NO_HANDLE") == "1" else "term-1"
+    print(json.dumps({"result": {"terminal": {"handle": handle}}}))
+elif args[:2] == ["terminal", "read"]:
+    with open(os.environ["ORCA_STUB_LOG"]) as log:
+        reads = sum(1 for line in log if line.startswith("terminal read"))
+    if reads >= int(os.environ.get("ORCA_STUB_HINT_AFTER", "1")):
+        print(os.environ.get("ORCA_STUB_SCREEN", ""))
+    else:
+        print("echoed command")
+elif args[:2] == ["terminal", "close"]:
+    if os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
+        raise SystemExit(1)
+    print(json.dumps({"result": {"status": "ok"}}))
+else:
+    print(json.dumps({"result": {}}))
+'''
 
 
 class SuccessorTests(unittest.TestCase):
+    def __init__(self, methodName="runTest", command=None):
+        super().__init__(methodName)
+        self.command = command or (lambda test, argv: self.run_port(argv))
+        self.quote = getattr(command, "quote", shlex.quote)
+        self.shell = getattr(command, "shell", False)
+
+    def require_port(self):
+        if self.shell:
+            self.skipTest("the port's own behavior")
+
+    def run_orca(self, args):
+        out = io.StringIO()
+        err = io.StringIO()
+        code = 0
+        with mock.patch.object(sys, "argv", ["orca", *args[1:]]), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                exec(ORCA_STUB, {})
+            except SystemExit as error:
+                code = error.code or 0
+        return subprocess.CompletedProcess(args, code, out.getvalue(), err.getvalue())
+
+    def run_port(self, argv):
+        real_run = orca_worker.run
+
+        def transport(args, cwd=None):
+            self.argvs.append(list(args))
+            if self.git_status is not None and args[:2] == ["git", "status"]:
+                return self.git_status
+            return self.run_orca(args) if args[0] == "orca" else real_run(args, cwd)
+
+        out = io.StringIO()
+        err = io.StringIO()
+        previous = Path.cwd()
+        clock = SimpleNamespace(sleep=self.sleeps.append)
+        try:
+            os.chdir(self.repo)
+            with mock.patch.dict(os.environ, self.env, clear=True), mock.patch.object(orca_worker, "windows", return_value=self.windows), mock.patch.object(orca_worker, "run", side_effect=transport), mock.patch.object(successor, "time", clock), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = successor.main(argv)
+        finally:
+            os.chdir(previous)
+        return subprocess.CompletedProcess(argv, code, out.getvalue(), err.getvalue())
+
     def setUp(self):
+        self.windows = False
+        self.git_status = None
+        self.sleeps = []
+        self.argvs = []
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
@@ -58,67 +151,14 @@ class SuccessorTests(unittest.TestCase):
             capture_output=True,
         )
 
-        self.bin = self.root / "bin"
-        self.bin.mkdir()
         self.log = self.root / "orca.log"
         self.env = {
             **os.environ,
-            "PATH": f"{self.bin}:{os.environ.get('PATH', '')}",
             "HOME": str(self.home),
             "ORCA_STUB_LOG": str(self.log),
             "ORCA_STUB_CHILDREN": "",
             "ORCA_STUB_SCREEN": "esc to interrupt",
         }
-
-        orca = self.bin / "orca"
-        orca.write_text(
-            "#!" + sys.executable + "\n"
-            + r'''
-import json
-import os
-import sys
-
-with open(os.environ["ORCA_STUB_LOG"], "a") as log:
-    log.write(" ".join(sys.argv[1:]) + "\n")
-
-args = sys.argv[1:]
-if args and args[0] == "status":
-    mode = os.environ.get("ORCA_STUB_STATUS", "")
-    if mode == "fail":
-        raise SystemExit(1)
-    print(json.dumps({"result": {"runtime": {"reachable": mode != "unreachable"}}}))
-elif args[:2] == ["worktree", "show"]:
-    if os.environ.get("ORCA_STUB_FAIL") == "worktree-show":
-        raise SystemExit(1)
-    if os.environ.get("ORCA_STUB_NO_CHILD_FIELD") == "1":
-        print(json.dumps({"result": {"worktree": {}}}))
-        raise SystemExit(0)
-    children = [item for item in os.environ.get("ORCA_STUB_CHILDREN", "").split(",") if item]
-    print(json.dumps({"result": {"worktree": {"childWorktreeIds": children}}}))
-elif args[:2] == ["terminal", "create"]:
-    if os.environ.get("ORCA_STUB_FAIL") == "terminal-create":
-        raise SystemExit(1)
-    handle = "" if os.environ.get("ORCA_STUB_NO_HANDLE") == "1" else "term-1"
-    print(json.dumps({"result": {"terminal": {"handle": handle}}}))
-elif args[:2] == ["terminal", "read"]:
-    with open(os.environ["ORCA_STUB_LOG"]) as log:
-        reads = sum(1 for line in log if line.startswith("terminal read"))
-    if reads >= int(os.environ.get("ORCA_STUB_HINT_AFTER", "1")):
-        print(os.environ.get("ORCA_STUB_SCREEN", ""))
-    else:
-        print("echoed command")
-elif args[:2] == ["terminal", "close"]:
-    if os.environ.get("ORCA_STUB_CLOSE_FAIL") == "1":
-        raise SystemExit(1)
-    print(json.dumps({"result": {"status": "ok"}}))
-else:
-    print(json.dumps({"result": {}}))
-'''
-        )
-        orca.chmod(orca.stat().st_mode | stat.S_IEXEC)
-        sleep = self.bin / "sleep"
-        sleep.write_text("#!/bin/sh\nexit 0\n")
-        sleep.chmod(sleep.stat().st_mode | stat.S_IEXEC)
 
     def registry_text(self, fit="claude-opus-5-5, gpt-6-sol, gemini-3.8-flash"):
         return (
@@ -151,7 +191,6 @@ else:
         cli="claude",
     ):
         args = [
-            str(SCRIPT),
             parent or "docs/plans/parent-plan.md",
             "--cli",
             cli,
@@ -160,14 +199,7 @@ else:
         ]
         if effort is not None:
             args.extend(["--effort", effort])
-        return subprocess.run(
-            args,
-            cwd=self.repo,
-            env=self.env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        return self.command(self, args)
 
     def calls(self):
         return self.log.read_text() if self.log.exists() else ""
@@ -176,8 +208,7 @@ else:
         return sum(1 for call in self.calls().splitlines() if call.startswith(prefix))
 
     def worker_line(self, cli, model, effort=None):
-        worker = SKILLS.parents[1] / "tools/scripts/run.py"
-        args = [sys.executable, str(worker), "delegate", "orca-worker", "line", "--cli", cli, "--model", model]
+        args = [sys.executable, str(ROOT / "tools/scripts/run.py"), "delegate", "orca-worker", "line", "--cli", cli, "--model", model]
         if effort is not None:
             args.extend(["--effort", effort])
         result = subprocess.run(
@@ -189,6 +220,9 @@ else:
             check=True,
         )
         return result.stdout.strip()
+
+    def prompt(self, parent="docs/plans/parent-plan.md"):
+        return self.quote(f"Read .claude/skills/drive/SKILL.md and drive {parent}.")
 
     def commit_all(self, message):
         subprocess.run(
@@ -331,14 +365,14 @@ else:
         self.assertIn("--worktree active", command)
         self.assertIn("--title drive", command)
         expected = self.worker_line("claude", "claude-opus-5-5", "high")
-        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        prompt = self.prompt()
         self.assertTrue(command.endswith(f" --command {expected} {prompt} --json"), command)
 
     def test_starts_codex_with_worker_line_and_positional_prompt(self):
         result = self.invoke(model="gpt-6-sol", cli="codex", effort="xhigh")
         self.assertEqual(result.returncode, 0, result.stderr)
         expected = self.worker_line("codex", "gpt-6-sol", "xhigh")
-        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        prompt = self.prompt()
         self.assertIn(f"--command {expected} {prompt} --json", self.calls())
 
     def test_starts_agy_with_effort_in_model_id_and_interactive_prompt(self):
@@ -347,7 +381,7 @@ else:
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         expected = self.worker_line("agy", "gemini-3.8-flash-high")
-        prompt = '"Read .claude/skills/drive/SKILL.md and drive docs/plans/parent-plan.md."'
+        prompt = self.prompt()
         self.assertIn(
             f"--command {expected} --prompt-interactive {prompt} --json", self.calls()
         )
@@ -369,6 +403,8 @@ else:
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("term-1", result.stdout)
         self.assertEqual(self.count_calls("terminal read"), 3)
+        if not self.shell:
+            self.assertEqual(self.sleeps, [3, 3])
         self.assertNotIn("terminal close", self.calls())
 
     def test_failed_terminal_create_reports_successor_may_be_running(self):
@@ -383,6 +419,8 @@ else:
         result = self.invoke()
         self.assertEqual(result.returncode, 1, result.stderr)
         self.assertEqual(self.count_calls("terminal read"), 20)
+        if not self.shell:
+            self.assertEqual(self.sleeps, [3] * 20)
         self.assertIn("terminal close", self.calls())
         self.assertNotIn("successor may be running", result.stderr)
 
@@ -393,6 +431,64 @@ else:
         self.assertEqual(result.returncode, 2, result.stderr)
         self.assertIn("successor may be running", result.stderr)
         self.assertIn("term-1", result.stderr)
+
+    def test_rejects_missing_argument_values_before_creating_terminal(self):
+        parent = "docs/plans/parent-plan.md"
+        cases = [
+            ([], "parent is required"),
+            ([parent, "--cli"], "--cli requires a value"),
+            ([parent, "--cli", "claude", "--model"], "--model requires a value"),
+            ([parent, "--cli", "claude", "--model", "claude-opus-5-5", "--effort"], "--effort requires a value"),
+            ([parent, "--mode", "x"], "unknown argument: --mode"),
+        ]
+        for argv, wanted in cases:
+            with self.subTest(wanted=wanted):
+                result = self.command(self, argv)
+                self.assert_no_create(result)
+                self.assertIn(wanted, result.stderr)
+        self.assertEqual(self.calls(), "")
+
+    def test_rejects_empty_effort_value(self):
+        result = self.invoke(effort="")
+        self.assert_no_create(result)
+        self.assertIn("effort must contain lowercase letters", result.stderr)
+
+    def test_refuses_diagnostic_stderr_from_a_successful_status(self):
+        self.require_port()
+        self.git_status = subprocess.CompletedProcess(["git", "status"], 0, "", "warning: untrusted index\n")
+        result = self.invoke()
+        self.assert_no_create(result)
+        self.assertIn("working tree is dirty: warning: untrusted index", result.stderr)
+
+    def test_windows_refuses_before_any_tool_call(self):
+        self.require_port()
+        self.windows = True
+        result = self.invoke(effort="high")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("Windows terminal launches are unsupported", result.stderr)
+        self.assertEqual(self.argvs, [])
+        self.assertEqual(self.calls(), "")
+
+    def test_quotes_parent_path_and_model_id_for_the_terminal_shell(self):
+        self.require_port()
+        parent = "docs/plans/odd name $HOME `x`-plan.md"
+        (self.repo / parent).write_text("plan")
+        text = self.registry_text().replace(
+            "  gemini-3.8-flash:",
+            '  odd-model: {pool: google, id_format: "odd; $x-<effort>"}\n  gemini-3.8-flash:',
+        ).replace("gemini-3.8-flash]", "gemini-3.8-flash, odd-model]")
+        self.machine_registry.write_text(text)
+        self.project_registry.write_text(text)
+        self.commit_all("add odd plan")
+        result = self.invoke(model="odd-model", cli="agy", effort="high", parent=parent)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        create = next(argv for argv in self.argvs if argv[:3] == ["orca", "terminal", "create"])
+        command = create[create.index("--command") + 1]
+        # Double quotes would let the terminal shell expand $HOME and the backticks.
+        self.assertTrue(command.endswith(f" '{'Read .claude/skills/drive/SKILL.md and drive ' + parent + '.'}'"), command)
+        words = shlex.split(command)
+        self.assertEqual(words[words.index("--model") + 1], "odd; $x-high")
+        self.assertEqual(words[-2:], ["--prompt-interactive", f"Read .claude/skills/drive/SKILL.md and drive {parent}."])
 
     def test_empty_handle_reports_successor_may_be_running(self):
         self.env["ORCA_STUB_NO_HANDLE"] = "1"
