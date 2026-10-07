@@ -23,8 +23,7 @@ change, and the phase returns to the user with U1, U3, and U4 landed.
 
 ## Decisions
 
-"Rules" is the list under Inventory that cites each rule by clause, figure,
-and page.
+"Rules" is the list under Inventory that cites each rule.
 
 - The parent's Decisions apply.
 - This phase holds four behaviors of `layer/stp`: which Designated ports a
@@ -41,15 +40,16 @@ and page.
   designated priority vector changes while it holds no agreement, or when
   it takes the Designated role from another one. Why: Rules 1 and 2. Today
   `syncTree` cuts every non-edge Designated port and `isSynced` computes
-  the flag as Discarding or agreed (Correctness 1 and 6).
+  the flag as Discarding or agreed (Correctness 1 and 6). A port that ends
+  the ladder holds no agreement, as in the 2003 edition and the layer
+  today. The draft gives it one (Rules 2).
 - An agreement survives a change of the port's designated priority vector
   only when the new vector is better than or the same as the one it
   replaces. This joins the phase although it is not one of the four named
   behaviors. Why: Rules 3. A port that keeps its agreement through a sync
   would otherwise forward on an agreement its peer gave to a better vector,
-  and this plan as commit `f4befaf4` holds it names that as the discovery
-  that makes the sync rule unsafe alone. The rule shares one site with the
-  `synced` rule, the point where a tree's Designated ports take a new
+  which makes the sync rule unsafe alone. The rule shares one site with
+  the `synced` rule, the point where a tree's Designated ports take a new
   vector.
 - A change of the designated times alone leaves `synced` and the agreement
   as they are. This is the layer's own rule, and U5 states it under Limits.
@@ -67,21 +67,21 @@ and page.
   the state while no MSTI cut holds, and the CIST's own cut reaching the
   boundary MSTIs (`src/common/sim/layer/stp/receive.go:38-58`). A boundary
   port that holds the CIST's Root role, the standard's Master Port, is not
-  cut by an MSTI's sync, which U5 states under Limits. Why: the layer has
-  no Master role, and the draft forwards a Master Port again once every
-  other port is synced (Rules 7), which the sync has just made true. The
-  layer steps no state between the two, so the cut would show nothing.
+  cut by an MSTI's sync, which U5 states under Limits as the layer's own
+  rule. Why: the layer has no Master role and no `synced` for a Root port,
+  which the draft's condition for forwarding a Master Port again reads
+  (Rules 7).
 - An MSTI proposal in a record that is not stored is not acted on, as
   today. Why: Rules 8. Both figures record a proposal for superior or
-  repeated information alone, and the layer stores on the standard's test
-  for superior.
+  repeated information alone, which is what the layer stores. The layer's
+  test for the same source is narrower than the standard's, and U5 states
+  that under Limits.
 - A record the layer discards for its hop count carries no proposal either.
   This is the layer's own rule, and U5 states it under Limits. Why: the
-  layer discards information at the hop bound before storing it, for the
-  CIST (`src/common/sim/layer/stp/receive.go:456-460`) and for a record
-  (`:170-172`), where the draft stores it and ages it at once (Rules 9).
-  Whether the draft's port acts on the proposal first depends on the order
-  its machines run in, which the draft does not fix.
+  layer discards information at the hop bound before storing it
+  (`src/common/sim/layer/stp/receive.go:456-460`, `:170-172`), where the
+  2003 edition stores it and ages it at once (Rules 9), and neither
+  document fixes whether the port acts on the proposal first.
 - An instance or VLAN port that sets no priority of its own gets the
   bridge port's from `Config.Normalize`, and `PriorityPresent` stays as
   the caller wrote it, so normalizing again inherits again. This amends
@@ -94,9 +94,8 @@ and page.
   this phase is written against a switch or a fabric. Why: with the cut
   limited to ports that hold no agreement, and with `PriorityPresent` left
   alone, every test under `src/common/sim` outside `layer/stp` passes
-  (Correctness 1 and 4). The device path adds no rule of its own
-  (Completeness), and a test there would edit files the switch composition
-  phase rewrites in the same wave.
+  (Correctness 1 and 4). The device path adds no rule (Completeness), and
+  a test there would edit files that phase rewrites in the same wave.
 
 ## Requirements
 
@@ -154,9 +153,9 @@ cuts every other non-edge Designated port" is gone.
 - The Master role, the disputed flag, and a frame sent at once when a
   Designated port's vector changes. Limits in
   `src/common/sim/layer/stp/README.md` states each as absent.
-- The fabric fingerprint, which encodes `stp.PortInfo`
-  (`src/common/sim/fabric/fingerprint.go:321`) and so gains no `synced`,
-  as it holds no agreement today.
+- The `agree` flag of a port that has sent an Agreement. The layer has
+  none, so every proposal on a Root or Alternate port starts a sync, where
+  the figures need `proposed && !agree` (Rules 10). U5 adds it to Limits.
 - A test against `vswitch` or `fabric` (Decisions).
 
 ## Inventory
@@ -179,8 +178,8 @@ it names, and reverted.
   Its text holds no test of a sync against a second Designated port: the
   word appears once, in the Migration Delay discussion (PDF page 44).
 - Not read: the published IEEE Std 802.1Q-2011. A rule below that cites
-  `D2009` alone rests on the draft: Rules 4, 7, and 9, and the g) to k)
-  half of Rules 5.
+  `D2009` alone rests on the draft: Rules 4 and 7, and the g) to k) half
+  of Rules 5.
 
 `Q2003` Figures 13-14 and 13-17 and `D2009` Figures 13-20 and 13-23 to
 13-26 were read from the rendered pages, so each condition is the one drawn
@@ -200,11 +199,17 @@ on its transition.
    `setSyncTree()`.
 2. `synced` is stored. `D2009` Figure 13-25 enters DESIGNATED_SYNCED, which
    sets it, on `(!learning && !forwarding && !synced) || (agreed &&
-   !synced) || (operEdge && !synced) || (sync && synced)`, and `Q2003`
-   Figure 13-17 enters SYNCED on the same four terms. `D2009` Figure 13-20
-   (page 75) clears it in UPDATE as `synced = synced && agreed`. `Q2003`
-   Figure 13-14 (page 201) has `synced = FALSE` there, after which SYNCED
-   sets it again for a port whose agreement UPDATE kept.
+   !synced) || (operEdge && !synced) || (sync && synced)`. `Q2003` Figure
+   13-17 enters SYNCED on the same terms, with `&& (role != RootPort)` on
+   the first, so a Discarding Root port is not synced by it. `D2009` Figure
+   13-20 (page 75) clears the flag in UPDATE as `synced = synced &&
+   agreed`. `Q2003` Figure 13-14 (page 201) has `synced = FALSE` there,
+   after which SYNCED sets it again for a port whose agreement UPDATE kept.
+   The two differ on a port that ends the ladder: `D2009` DESIGNATED_FORWARD
+   has `agreed = sendRSTP`, `Q2003` FORWARD assigns no `agreed`, and the
+   layer's ladder leaves it false (`S/advance.go:148-158`). The plan follows
+   `Q2003` and the layer, so a later vector change costs such a port its
+   `synced` where the draft's port keeps both.
 3. `D2009` Figure 13-20 UPDATE has `agreed = agreed &&
    betterorsameInfo(Mine)`, and 13.29.1 b) (page 62) makes that true when
    "the designatedPriority vector is better than or the same as (13.10)
@@ -232,19 +237,36 @@ on its transition.
 7. `D2009` Figure 13-23 (page 77) enters MASTER_DISCARD on `sync &&
    !synced` and leaves for MASTER_LEARN and MASTER_FORWARD on `(fdWhile ==
    0) || allSynced`. 13.28.2 b) 4) (page 59) makes `allSynced` true for a
-   Master Port when `synced` is true for every other port of the tree.
+   Master Port when `synced` is true for every other port of the tree, the
+   Root port among them, which Figure 13-24 (page 78) sets only on `agreed
+   && !synced` or `sync && synced`. The standard's Master Port can
+   therefore stay Discarding for its ladder, and the layer's does not.
 8. `D2009` Figure 13-20 calls `recordProposal()` in SUPERIOR_DESIGNATED and
    REPEATED_DESIGNATED alone and `recordDispute()` in INFERIOR_DESIGNATED.
    `Q2003` Figure 13-14 calls `recordProposalXst()` in the same two states.
    `D2009` 13.29.13 (pages 63 and 64) returns SuperiorDesignatedInfo for a
-   Designated message whose priority is superior, and 13.11 (page 23) makes
-   an MSTI message superior when it is better or from the same Designated
-   Bridge and Port, which is the test at `S/receive.go:153-161`. `D2009`
-   13.29.20 (page 66) tests the role and the flag and nothing else. It
-   describes the procedure, and the figure decides when it runs.
-9. `D2009` 13.29.32 b) (page 68) gives `rcvdInfoWhile` three Hello Times
-   when "remainingHops, decremented by one, is greater than zero", and zero
-   otherwise.
+   Designated message whose priority is superior, and 13.11 (pages 23 and
+   24) makes an MSTI message superior when it is better or its "Designated
+   Bridge Identifier Bridge Address and Designated Port Identifier Port
+   Number components are the same". The layer stores a record that is
+   better or whose whole bridge and port identifiers match, priority bits
+   included (`S/receive.go:142-161`, and `:494` for the CIST), so a sender
+   that changes a priority and sends a worse vector is stored by the
+   standard and not by the layer. `D2009` 13.29.20 (page 66) tests the role
+   and the flag and nothing else. It describes the procedure, and the
+   figure decides when it runs.
+9. `Q2003` 13.26.24 (page 196) sets an MSTI's `rcvdInfoWhile` to "zero, if
+   mstiPortTimes remainingHops is less than or equal to zero", after
+   setting that count to the received value less one, and 13.26.23 e) (page
+   196) does the same for internal CIST information. `D2009` 13.29.32 (page
+   68) takes the count from the CIST's `portTimes` alone, so the draft
+   gives no rule for a record's own count.
+10. `D2009` Figures 13-24 and 13-26 enter ROOT_PROPOSED and
+    ALTERNATE_PROPOSED on `proposed && !agree`, and `Q2003` Figure 13-17
+    enters PROPOSED on the same. `agree` is the agreement the port has
+    sent, which Figure 13-20 keeps through superior information as `agree =
+    agree && betterorsameInfo(Received)`. The layer answers every proposal
+    on a Root or Alternate port (`S/receive.go:642-665`).
 
 ### Correctness
 
@@ -327,7 +349,7 @@ on its transition.
 ## Units
 
 ### U1. A sync cuts only the Designated ports that are not synced
-Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/topology_activity_test.go, src/common/sim/layer/stp/layer_test.go, src/common/sim/layer/stp/edge_delay_test.go, src/common/sim/layer/stp/agreement_test.go
+Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/link.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/sync_internal_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/topology_activity_test.go, src/common/sim/layer/stp/layer_test.go, src/common/sim/layer/stp/edge_delay_test.go, src/common/sim/layer/stp/agreement_test.go
 After: none
 Change: a tree port stores `synced` and the designated priority vector it
 last held as a Designated port. A Designated port is synced while it is
@@ -337,26 +359,31 @@ vector that differs from the stored one, `agreed` stays only if the new
 vector is better than or the same as the stored one, and `synced` stays
 only if `agreed` does or the port is Discarding. A port that takes the
 Designated role from another one loses its agreement as today, and is
-synced only if it is Discarding. `syncTree` passes
-over a Designated port that is synced and not Discarding, leaving its
-agreement, state, and proposing flag, and treats every other non-edge
-Designated port as it does today. `isSynced` reads the stored flag for a
-Designated port. The boundary branches of both functions stay as they are
-until U2.
+synced only if it is Discarding. `syncTree` passes over a Designated port
+that is synced and not Discarding, leaving its agreement, state, and
+proposing flag, and treats every other non-edge Designated port as it does
+today. `isSynced` reads the stored flag for a Designated port. The boundary
+branches of both functions stay as they are until U2.
 Tests: `sync_internal_test.go` holds R2 in both forms and R3, reading
 `agreed` from the port state, and repeats R2's first form on an MSTP
 bridge's CIST and on an MSTI's internal ports. One case sends R3's BPDU
 with no Proposal flag and expects `p2` Forwarding with no agreement, which
-separates the vector rule from the cut. The four tests of Correctness 1
-keep their subject and move their fixture to a port the rule cuts, one
-that forwards without an agreement under a proposal that changes the
-tree's root vector. `TestMSTISyncLeavesABoundaryPort` keeps its boundary
-assertions until U2. Nothing covers a change of the designated times
-alone, which the layer does not see.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/link.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/sync_internal_test.go src/common/sim/layer/stp/topology_activity_test.go src/common/sim/layer/stp/layer_test.go src/common/sim/layer/stp/edge_delay_test.go src/common/sim/layer/stp/agreement_test.go`
+separates the vector rule from the cut. Another has a ladder-forwarded
+Designated port become Root and return to Designated while Forwarding,
+asserts its stored `synced` is false, and expects a repeated proposal to
+cut it, which fails if the role change keeps the flag. The four tests of
+Correctness 1 keep their subject and move their fixture to a port the rule
+cuts. So do `TestSyncTreeRequestsTheCutTree` and
+`TestSyncTreeRequestsBoundaryMSTIInformation`
+(`src/common/sim/layer/stp/link_state_internal_test.go:588`, `:652`), which
+set a port Forwarding by hand and must also clear its `synced`.
+`TestMSTISyncLeavesABoundaryPort` keeps its boundary assertions until U2.
+Nothing covers a change of the designated times alone, which the layer
+does not see.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/link.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/sync_internal_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/topology_activity_test.go src/common/sim/layer/stp/layer_test.go src/common/sim/layer/stp/edge_delay_test.go src/common/sim/layer/stp/agreement_test.go`
 
 ### U2. An MSTI's sync takes in a boundary port
-Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/sync_boundary_test.go
+Files: src/common/sim/layer/stp/portstate.go, src/common/sim/layer/stp/receive.go, src/common/sim/layer/stp/roles.go, src/common/sim/layer/stp/advance.go, src/common/sim/layer/stp/agreement_test.go, src/common/sim/layer/stp/link_state_internal_test.go, src/common/sim/layer/stp/sync_boundary_test.go
 After: U1
 Change: `syncTree` no longer passes over a boundary port for an MSTI. A
 boundary port that holds the Designated role and is not synced for the MSTI
@@ -379,7 +406,7 @@ MSTI 1 and the Agreement flag on the record sent on `p1`, which is
 A fourth makes `p2` the CIST's Root port at the boundary and expects its
 MSTI state unchanged by the sync. Nothing here covers an MSTI port that
 forwards while the CIST's is Discarding, which the kept mirror rules out.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/agreement_test.go src/common/sim/layer/stp/sync_boundary_test.go`
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/portstate.go src/common/sim/layer/stp/receive.go src/common/sim/layer/stp/roles.go src/common/sim/layer/stp/advance.go src/common/sim/layer/stp/agreement_test.go src/common/sim/layer/stp/link_state_internal_test.go src/common/sim/layer/stp/sync_boundary_test.go`
 
 ### U3. A record that is not stored starts no handshake
 Files: src/common/sim/layer/stp/receive_msti_proposal_test.go
@@ -426,8 +453,9 @@ cut at a Designated boundary port and how it ends. Limits loses the entries
 at `:544`, `:556`, and `:559`. The entry at `:552` names `D2009` Figure
 13-20 and the hop-count rule, and the one at `:551` becomes the CIST's cut
 reaching the boundary MSTIs. Limits gains a change of the designated times
-alone, a boundary port that holds the CIST's Root role, and a VLAN tree's
-inherited bridge priority. Every `path:line` in an edited entry is read
+alone, a boundary port that holds the CIST's Root role, a VLAN tree's
+inherited bridge priority, the missing `agree` flag, the same-source test
+of Rules 8, and the ladder's missing agreement of Rules 2. Every `path:line` in an edited entry is read
 from the tree after U1 to U4.
 Tests: `uv run tools/scripts/run.py verify check-prose` on the README.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/layer/stp/README.md`
@@ -437,16 +465,13 @@ Waves: U1 U3 U4 | U2 | U5
 ## Verification
 
 - `go test -race ./src/common/sim/...` and the verifier on every changed
-  path.
-- Each test of U1, U2, and U4 is seen to fail on the tree before its unit's
-  code change, and each case of U3 under its mutation.
+  path. R1 holds for each new test.
 
 ## Definition of done
 
-- [ ] The verifier is green for every changed path.
-- [ ] `src/common/sim/layer/stp/README.md` matches the layer (R7).
-- [ ] The commit body names the cause of each expectation outside
-  `layer/stp` that moved. None moves under Correctness 1 and 4.
+- [ ] The verifier is green for every changed path, and
+  `src/common/sim/layer/stp/README.md` matches the layer (R7).
+- [ ] The commit body names each expectation outside `layer/stp` that moved.
 - [ ] The outcome is recorded with `uv run tools/scripts/run.py plan record
   implemented <plan> --units 5 --from <t> --to <t>` or `partial`.
 - [ ] No plan label appears in code, comments, or commit messages.
@@ -455,10 +480,9 @@ Waves: U1 U3 U4 | U2 | U5
 
 - Does a VLAN tree's inherited bridge priority follow the bridge's through
   every normalize, as a tree port's priority does after U4? No unit needs
-  the answer. Following it makes the two inherited values behave alike and
-  changes what `PVST.Normalize` returns, which
+  the answer. Following it changes what `PVST.Normalize` returns, which
   `src/common/sim/device/vswitch/config.go:426` reads. Leaving it keeps a
-  bridge priority change from reaching an inheriting VLAN tree in a
+  changed bridge priority from reaching an inheriting VLAN tree in a
   configuration that was read back. The user decides, outside this phase.
 - Unverified: the published IEEE Std 802.1Q-2011 for every clause cited
   here, as the parent's Open questions say of each protocol phase.
