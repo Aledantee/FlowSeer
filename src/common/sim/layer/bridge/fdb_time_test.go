@@ -1,6 +1,7 @@
 package bridge_test
 
 import (
+	"fmt"
 	"reflect"
 	"strconv"
 	"testing"
@@ -8,9 +9,118 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestFDBFrameTimeMatchesPriorAdvance(t *testing.T) {
+	now := testTime0.Add(301 * time.Second)
+	worlds := [][]bridge.Seed{nil}
+	previous := worlds
+	for _, mac := range []netaddr.MAC{macA, macC} {
+		var next [][]bridge.Seed
+		for _, seeds := range previous {
+			for _, lifetime := range []bridge.Lifetime{bridge.Aging, bridge.Static} {
+				for _, age := range []time.Duration{299 * time.Second, 300 * time.Second, 301 * time.Second} {
+					row := append([]bridge.Seed(nil), seeds...)
+					row = append(row, bridge.Seed{MAC: mac, Port: "1/1/1", Lifetime: lifetime, LearnedAt: now.Add(-age)})
+					next = append(next, row)
+				}
+			}
+		}
+		worlds = append(worlds, next...)
+		previous = next
+	}
+	ports := buildTestPorts(t, 3)
+	count := 0
+	for _, maxEntries := range []int{0, 1, 2} {
+		for world, seeds := range worlds {
+			for layout := range 64 {
+				count++
+				t.Run(fmt.Sprintf("max=%d/world=%d/layout=%d", maxEntries, world, layout), func(t *testing.T) {
+					f := ethernet.Frame{Src: macA, Dst: macC}
+					if layout&1 != 0 {
+						f.Src = macB
+					}
+					ingress := "1/1/1"
+					if layout&2 != 0 {
+						ingress = "1/1/2"
+					}
+					learn, priorAdvance, split := layout&4 != 0, layout&8 != 0, layout&16 != 0
+					if layout&32 != 0 {
+						f.Dst = macD
+					}
+					b := mustNewBridge(t, bridge.Config{MaxEntries: maxEntries}, ports)
+					mustLearn(t, b, seeds)
+					if priorAdvance {
+						b.Advance(now)
+					}
+					aged := b.Clone()
+					aged.Advance(now)
+					var results [2]bridge.Result
+					for i, relay := range []*bridge.Layer{b, aged} {
+						entries, counters := relay.Entries(), relay.Counters()
+						if split {
+							in, res, ok := relay.Ingress(now, ingress, f, learn, true)
+							if !ok {
+								t.Fatalf("Ingress refused: %+v", res)
+							}
+							results[i] = relay.Egress(in, f)
+						} else {
+							if !learn {
+								relay.SetGate(testGate{learns: map[string]bool{}}, analysis.WholeScope())
+							}
+							results[i] = relay.Forward(now, ingress, f)
+						}
+						if !learn && (!reflect.DeepEqual(relay.Entries(), entries) || relay.Counters() != counters) {
+							t.Fatalf("relay %d non-learning call changed entries or counters", i)
+						}
+					}
+					got, want := results[0], results[1]
+					if got.Outcome != want.Outcome || got.Reason != want.Reason ||
+						!reflect.DeepEqual(got.Steps, want.Steps) || !reflect.DeepEqual(got.Egress, want.Egress) {
+						t.Errorf("Result = %+v, want prior Advance %+v", got, want)
+					}
+					b.Advance(now)
+					aged.Advance(now)
+					if !reflect.DeepEqual(b.Entries(), aged.Entries()) || b.Counters() != aged.Counters() {
+						t.Errorf("state = %+v / %+v, want prior Advance %+v / %+v", b.Entries(), b.Counters(), aged.Entries(), aged.Counters())
+					}
+					if maxEntries == 1 && len(seeds) == 1 && seeds[0].Lifetime == bridge.Aging &&
+						seeds[0].LearnedAt.Equal(testTime0) && f.Src == macB && f.Dst == macC && ingress == "1/1/2" && learn {
+						wantEntries := []bridge.Entry{{MAC: macB, Port: "1/1/2", Origin: bridge.Observed, Lifetime: bridge.Aging, LearnedAt: now}}
+						wantCounters := bridge.Counters{Learned: 2, Expired: 1}
+						if !reflect.DeepEqual(b.Entries(), wantEntries) || b.Counters() != wantCounters {
+							t.Errorf("expired seed state = %+v / %+v, want %+v / %+v", b.Entries(), b.Counters(), wantEntries, wantCounters)
+						}
+						var rules []trace.RuleID
+						for _, step := range got.Steps {
+							rules = append(rules, step.RuleID)
+						}
+						wantRules := []trace.RuleID{bridge.RuleDefaultVLAN, bridge.RuleLearn, bridge.RuleUnicastMiss, bridge.RuleFlood, bridge.RuleTransmit, bridge.RuleTransmit}
+						var outPorts []string
+						for _, out := range got.Egress {
+							if out.Dropped != "" || !reflect.DeepEqual(out.Frame, f) {
+								t.Errorf("Egress = %+v, want unchanged frame without drop", out)
+							}
+							outPorts = append(outPorts, out.Port)
+						}
+						if got.Outcome != trace.Flooded || got.Reason != "" || !reflect.DeepEqual(rules, wantRules) ||
+							!reflect.DeepEqual(outPorts, []string{"1/1/1", "1/1/3"}) {
+							t.Errorf("expired seed Result = %+v, want Flooded, rules %v, ports [1/1/1 1/1/3]", got, wantRules)
+						}
+					}
+				})
+			}
+		}
+	}
+	if count != 8256 {
+		t.Errorf("ran %d cases, want 8256", count)
+	}
+}
 
 func TestAgingSeedPreservesStaticEntry(t *testing.T) {
 	b := mustNewBridge(t, gateVLANConfig(), buildTestPorts(t, 2))
