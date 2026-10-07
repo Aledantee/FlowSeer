@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, watch } from 'vue'
+import { defineComponent, h, nextTick, Teleport, watch } from 'vue'
 import { RouterView } from 'vue-router'
 import FleetView from '../FleetView.vue'
 import LoginView from '../LoginView.vue'
@@ -15,6 +15,10 @@ let desktop = true
 const regions = ['sidebar', 'topbar', 'topbar-tools', 'page']
 
 beforeEach(() => {
+  // Mount tests do not load the utility stylesheet used by the AI wrappers.
+  const style = document.createElement('style')
+  style.textContent = '.contents { display: contents; }'
+  document.body.append(style)
   signOut()
   localStorage.clear()
   motionClock = 0
@@ -146,7 +150,21 @@ function expectFades(host: HTMLElement, filled: string[]) {
   for (const region of filled) {
     const children = host.querySelector(`#frame-${region}`)?.children
     expect(children?.length).toBeGreaterThan(0)
-    for (const child of children ?? []) {
+    const targets = [...(children ?? [])]
+    if (region === 'page' && host.querySelector('[data-ai-context-layer]')) {
+      const wrappers = host.querySelectorAll('#frame-page .contents')
+      expect(wrappers).toHaveLength(2)
+      for (const wrapper of wrappers) {
+        expect(getComputedStyle(wrapper).display).toBe('contents')
+        expect(wrapper.getAnimations()).toHaveLength(0)
+      }
+      const main = host.querySelector('#frame-page main#main')
+      if (!main) throw new Error('Missing console content box')
+      expect(getComputedStyle(main).display).toBe('block')
+      targets.splice(0, targets.length, main)
+    }
+    expect(host.querySelector('#frame-page')?.getAnimations()).toHaveLength(0)
+    for (const child of targets) {
       const fades = child
         .getAnimations()
         .filter(
@@ -179,6 +197,63 @@ function translation(host: HTMLElement) {
   expect(offset).not.toBeNull()
   return Number(offset?.[1])
 }
+
+for (const mode of ['menu', 'collapsed'] as const)
+  it(`fades the nearest boxes through nested contents wrappers on ${mode} crossings`, async () => {
+    let frame: ReturnType<typeof useFrame> | undefined
+    const view = defineComponent({
+      setup() {
+        frame = useFrame()
+        return () =>
+          regions.map((region) =>
+            h(Teleport, { to: `#frame-${region}`, defer: true }, [
+              h('div', { class: 'contents' }, [
+                h('div', { style: { display: 'contents' } }, [
+                  h('section', { 'data-box': '' }, [
+                    h('span', { 'data-inside-box': '' }, 'Content'),
+                  ]),
+                  h('div', { style: { display: 'none' } }, 'Hidden'),
+                ]),
+                h('span', { 'data-box': '' }, 'Sibling'),
+              ]),
+            ]),
+          )
+      },
+    })
+    const mounted = await mountInFrame(view, '/test', [
+      { path: '/test', component: view },
+    ])
+    dispose = mounted.dispose
+    if (!frame) throw new Error('Missing frame context')
+    for (const crossing of [mode, 'login'] as const) {
+      frame.sidebar.value = crossing
+      await nextTick()
+      for (const region of regions) {
+        const root = mounted.host.querySelector(`#frame-${region}`)
+        const boxes = root?.querySelectorAll('[data-box]')
+        expect(boxes).toHaveLength(2)
+        for (const box of boxes ?? []) {
+          const animations = box.getAnimations()
+          expect(animations).toHaveLength(1)
+          const effect = animations[0]?.effect
+          if (!(effect instanceof KeyframeEffect))
+            throw new Error('Missing box fade')
+          expect(effect.getKeyframes()).toMatchObject([
+            { opacity: '0' },
+            { opacity: '1' },
+          ])
+          expect(effect.getTiming().duration).toBe(FRAME_MOVE_SECONDS * 1000)
+        }
+        const skipped = root?.querySelectorAll('div, [data-inside-box]')
+        expect(skipped).toHaveLength(4)
+        for (const element of skipped ?? [])
+          expect(element.getAnimations()).toHaveLength(0)
+      }
+      expect(
+        mounted.host.querySelector('#frame-page')?.getAnimations(),
+      ).toHaveLength(0)
+    }
+  })
 
 it('morphs directly into populated console regions with a 160 ms fade', async () => {
   expect(FRAME_MOVE_SECONDS).toBe(0.16)

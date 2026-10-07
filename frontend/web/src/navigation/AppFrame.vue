@@ -38,10 +38,17 @@ watch(
         frame.mainElement.value?.querySelector(`#frame-${region}`),
       ),
     ]
-    for (const region of regions)
-      for (const child of region?.children ?? [])
-        if (child instanceof HTMLElement)
+    for (const region of regions) {
+      const targets = [...(region?.children ?? [])]
+      for (const child of targets) {
+        if (!(child instanceof HTMLElement)) continue
+        const display = getComputedStyle(child).display
+        // Contents wrappers paint through their descendants and have no box to fade.
+        if (display === 'contents') targets.push(...child.children)
+        else if (display !== 'none')
           play(child, { opacity: [0, 1] }, FRAME_MOVE_SECONDS)
+      }
+    }
   },
   { flush: 'sync' },
 )
