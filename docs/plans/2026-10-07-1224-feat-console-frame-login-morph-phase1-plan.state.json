@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-stylesheet-to-utilities-migration-must-audit-dynamic-selectors-and-resets.md",
   "outcome": {
     "units": 4,
     "from": "2026-10-07T10:40:15Z",
@@ -12,7 +12,7 @@
     "note": ""
   },
   "superseded_by": null,
-  "branch": "Aledantee/mobbin-mcp-capabilities",
+  "branch": "Aledantee/frame-p1-implement",
   "parent": "docs/plans/2026-10-07-1224-feat-console-frame-login-morph-plan.md",
   "after": [],
   "landed": {
