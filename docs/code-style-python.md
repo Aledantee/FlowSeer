@@ -1,6 +1,6 @@
 ---
 name: Python Script Style
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 ---
 
 # FlowSeer - Python Script Style
@@ -16,11 +16,19 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
 
 - **Start every script through `uv run`.** `uv run tools/scripts/run.py <group>
   <command>` gives each host the interpreter that `run.py` declares, so a
-  host needs uv and nothing else.
+  host needs uv and nothing else. Run `uv python install 3.13` once per host
+  so uv finds the interpreter `run.py` pins.
+- **Give a skill's commands one package under `skills/<skill>/`.**
+  `tools/scripts/skills/<skill>/` holds the `COMMANDS` mapping and the command
+  modules, and its tests mirror it under `tools/scripts/tests/skills/<skill>/`.
+  `run.py` reads each `COMMANDS` by parsing `__init__.py`, so a skill group
+  has the same shape as a `tools/scripts/<group>/` one.
 - **Use the standard library.** A third-party package is a direct dependency
   and needs a statement and a hash pin under the dependency admission record.
   Without one, a script runs the same on every host.
-- **A command is a module with `main(argv: list[str]) -> int`.** The group
+- **A command is a module with `main(argv: list[str]) -> int`.** `argv` holds
+  the arguments after the command name, and `argparse` takes
+  `prog="run.py <group> <command>"`. The group
   package lists it in its literal `COMMANDS` mapping. A literal can be
   listed and counted, and a function with no process state is testable
   without a subprocess.
@@ -30,8 +38,10 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
   POSIX, where string concatenation does not.
 - **Exit non-zero on any failure and name it on standard error.** A caller
   that sees exit 0 may rely on the check having run.
-- **Do no module-level work beyond definitions.** An import then has no
-  side effect, so a test imports a command without running it.
+- **Do no module-level work beyond definitions in a command or library
+  module.** An import then has no side effect, so a test imports a command
+  without running it. `run.py` is the one exception: it sets
+  `sys.dont_write_bytecode` before its imports so no `__pycache__/` appears.
 - **Write tests with `unittest` under `tools/scripts/tests/`**, in packages
   that mirror the tree. Every existing suite is unittest, and it is in the
   standard library. `uv run tools/scripts/run.py test` runs them and fails

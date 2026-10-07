@@ -71,7 +71,7 @@ covered, since a report that is silent about a package reads as having
 cleared it. The
 verdict judges the subject: sound, sound with fixes, or unsound.
 
-Record the verdict nowhere: not in the plan, not through `ledger.py`, and
+Record the verdict nowhere: not in the plan, not through `verify ledger`, and
 never in the worktree comment, since `land` reads a `review:` entry there as
 a verdict on the branch and a subject review has not looked at the branch.
 

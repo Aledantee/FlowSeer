@@ -32,7 +32,7 @@ These entries complete the closed list in `SKILL.md`.
   then `uv run tools/scripts/run.py test` runs the suites under
   `tools/scripts/tests/`. A run that reports zero tests fails.
 - A changed `.md` file runs the relative-link check and
-  `.claude/skills/prose/scripts/check-prose.py`. Prose that cites an agent run
+  `uv run tools/scripts/run.py verify check-prose`, so it needs `uv` on `PATH`. Prose that cites an agent run
   fails the gate. Style findings print as a warning count and do not.
 - `buf breaking` compares only the changed `.proto` files `main` already
   holds, and prints that it skipped when every changed schema file is new on

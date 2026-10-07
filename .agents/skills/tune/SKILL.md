@@ -96,7 +96,7 @@ registry `pool_id` on the `synthetic` pool with that list.
 ## 2. Pull live catalogues
 
 ```bash
-python3 .claude/skills/tune/scripts/catalogue.py ~/.claude/models/registry.yaml .claude/models/registry.yaml
+uv run tools/scripts/run.py tune catalogue ~/.claude/models/registry.yaml .claude/models/registry.yaml
 ```
 
 It reads models.dev and OpenRouter, prints per registry model the vendor
@@ -131,11 +131,11 @@ or 90 days before today when no field block exists. Pass both registry
 files in precedence order:
 
 ```bash
-python3 .claude/skills/tune/scripts/field.py --since YYYY-MM-DD \
+uv run tools/scripts/run.py tune field --since YYYY-MM-DD \
   --registry ~/.claude/models/registry.yaml .claude/models/registry.yaml
 ```
 
-`field.py` prints JSON. Read `unmatched` before using any rate: a missing
+`tune field` prints JSON. Read `unmatched` before using any rate: a missing
 transcript removes speed and cost evidence, and a role outside the registry
 cannot receive a field block. Aggregate `runs` by model, effort level, and
 role across sources (a run carries the `effort` it launched at). Do not
@@ -167,7 +167,7 @@ fit-set change.
 
 ## 3b. Check effort against history
 
-`field.py` lists every run that was amended, rejected, or failed its
+`tune field` lists every run that was amended, rejected, or failed its
 verifier under `issues`, with the coordinator's `note` and the `base`,
 `plan`, and `unit` that replay it. Read them per model, role, and level.
 

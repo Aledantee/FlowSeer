@@ -119,7 +119,7 @@ and story source an agent reads directly from the colocated files, needed
 a running Storybook and two experimental feature flags, and served only
 Claude, while the rules agents actually missed were repository conventions
 no tool reports. A second task skill, `prose`, checks Markdown against
-`docs/doc-style.md` with `scripts/check-prose.py`. `verify-change` runs it
+`docs/doc-style.md` with `uv run tools/scripts/run.py verify check-prose`. `verify-change` runs it
 on every changed `.md` file. A provenance finding (prose that cites an
 agent run) fails the gate, and style findings are warnings because most
 existing files predate the rules. A third, `diagnose`, covers the work
@@ -218,7 +218,7 @@ and the existing agents only.
 
 One artifact format each. Every plan under `docs/plans/` carries
 `artifact_contract: flowseer-plan/v2` in its Markdown and a
-`*-plan.state.json` file beside it. `plan_record.py` owns the state file and
+`*-plan.state.json` file beside it. `plan record` owns the state file and
 the skills name its commands. The state used to be frontmatter fields and
 `Landed:` lines in a parent, which three scripts each parsed with their own
 regular expressions and their own test for a finished phase, and the
@@ -290,7 +290,7 @@ fires applies to it: a `diagnose` nobody has invoked by the next `steer`
 audit is a candidate for removal.
 
 The rest were single checks, each placed in the file that already owned
-the subject. `check-prose.py` gained the staged sayings, closers, and
+the subject. `verify check-prose` gained the staged sayings, closers, and
 unprompted rebuttals that blader/humanizer ranks as the strongest signs,
 and a contrast pattern for a form the earlier one missed. `prose` now
 compares a rewrite with its original for added or dropped facts.
@@ -347,12 +347,12 @@ that answer it well agree on the shape: Task Master's `next` and Beads'
 `bd ready` compute the set whose dependencies are met from a store, never
 from the model's recall, and rank inside it; both ship the listing as a
 command because a model re-reading every file is slow and drifts. So
-`plan-queue.py` reads each plan's state through `plan_record.py`, the ledger,
+`next plan-queue` reads each plan's state through `plan record`, the ledger,
 and the unmerged branches that touch a plan, and the skill reads its output.
 Work in progress outranks ready work, the Kanban rule of limiting what is
 open. A plan another branch already changes is flagged, since two worktrees
-can otherwise implement the same phase. A dependent phase waits on `finished` in `plan_record.py`, the test
-`plan-state.py` imports too: a prerequisite on `main`, a retired range, or a
+can otherwise implement the same phase. A dependent phase waits on `finished` in `plan record`, the test
+`drive plan-state` imports too: a prerequisite on `main`, a retired range, or a
 reviewed and compounded phase. An implemented plan whose review reads
 `rework` goes to re-planning, because no skill marks a sent-back plan beyond
 the verdict. The
@@ -412,7 +412,7 @@ started from, and `passed` is refused for a commit that adds nothing to
 that base: units added to a plan after a review round were once recorded
 against the commits that round had already made, and "record `HEAD`" as
 prose could not tell those from the unit's own work. The skills write it and the checkpoints
-file through `ledger.py` in the verifier's scripts rather than by hand:
+file through `verify ledger` in the verifier's scripts rather than by hand:
 that directory sits under the parent checkout's `.git/`, which a
 worktree-isolated session can read but not write through a redirect or
 the Write tool, so the script that resolves the path is the one writer,
@@ -540,7 +540,7 @@ a completion report references about one action in eleven and drifts
 toward the plan it was given exactly when execution diverged from it;
 `delegate` already has the coordinator check a worker's tree before its
 report, and the same applies to the coordinator's own report. `implement`
-runs `scripts/plan-deviations.py`, which lists the changed paths no unit
+runs `implement plan-deviations`, which lists the changed paths no unit
 names and the unit files that did not change, and the report carries a
 reason per line.
 
@@ -553,7 +553,7 @@ usual moves. Anthropic's long-running-agent harness forbids editing a
 test outright. FlowSeer breaks APIs on purpose, so a removed test is
 sometimes right, and a gate that cannot tell a decision from a mistake
 reports: the verifier prints `Test changes to account for:` from
-`check-test-integrity.py`, `implement` quotes it with a reason per line,
+`verify check-test-integrity`, `implement` quotes it with a reason per line,
 and `review` reads the reasons. Only an oracle-exact check blocks; a
 pre-action verification study got 100% recall at zero false positives on
 exact checks and recommends demoting the rest to warnings.
@@ -577,7 +577,7 @@ phases run in separate worktrees.
 Prove a phase's prerequisites are in the tree. Two worktrees forked from
 different points of `main` can each re-plan "against the landed tree",
 find the same phase absent, and implement it twice.
-`check-plan-status.py` therefore fails a ledger naming a phase plan when a
+`verify check-plan-status` therefore fails a ledger naming a phase plan when a
 phase its state file lists under `after` has no `landed` range whose last
 commit is an ancestor of `HEAD`, or when `main` already shows this phase
 landed or retired. The `landed` object therefore carries the commit range.
@@ -704,7 +704,7 @@ there. A mechanism the coordinator writes into a brief passes the check
 a prescribed mechanism whose callers the coordinator had not read. The
 file groups of a round are disjoint and a brief carries findings only,
 because two workers that each reworded the same comment lines failed
-`merge-check.py` on merge `f4f121d3`. The checker was left as it is: it compares lines and
+`land merge-check` on merge `f4f121d3`. The checker was left as it is: it compares lines and
 cannot judge two wordings equivalent, and one of them was in fact dropped.
 
 Review gives each finding a class, and the class decides whether it holds
@@ -827,7 +827,7 @@ vocabulary and never edits an instruction file.
 Gate the merge on evidence, not on the conversation. `land` is the one
 skill whose action reaches every other worktree, and a session cannot see
 which skills ran before it, so `implement`, `review`, and `compound` record
-their outcomes through `plan_record.py`. `land` reads the plan state with
+their outcomes through `plan record`. `land` reads the plan state with
 `show`, the verifier receipt under the git dir, and in Orca the card's
 status and comment. Work that skipped the plan has no plan state,
 so the same three lines go to a `flowseer-checkpoints` file beside the
@@ -885,7 +885,7 @@ deleted after the change
 `land` retires each plan it lands (`land/references/retire-plan.md`): it
 runs the promotion test again against what was built, drafts or amends a
 direction record where a decision outlives the work, rewrites links to
-the plan, and runs `.claude/skills/plan/scripts/plan_record.py retire <plan>`, which removes the plan and its
+the plan, and runs `uv run tools/scripts/run.py plan record retire <plan>`, which removes the plan and its
 state file and prints the outcome lines for the commit body. Deleting beats an archive folder because an archive
 still turns up in every search. A record names landed work by date and
 scope rather than by plan path; records written before this rule still
@@ -893,7 +893,7 @@ link plans, and the retire step rewrites each link as it deletes the plan.
 `steer` sweeps the plans `land` missed, and `next` counts them.
 
 Check the landing branch's merges, not the ones `main` already holds.
-`land` ran `merge-check.py ORIG_HEAD..HEAD` after merging `main` into the
+`land` ran `land merge-check ORIG_HEAD..HEAD` after merging `main` into the
 branch, a range that holds every merge commit `main` brought in. Merge
 `cd07426d` on `main` took one parent's `pool-usage.sh` whole, on purpose:
 `2b02d559` had replaced the other parent's change with a native reader
@@ -913,8 +913,8 @@ improvising it drifts: a coordinator skips loading `plan` or `review`,
 hands their work to workers as hand-written briefs, and leaves no review
 outcome, the verdict `land` refuses to merge without. `drive` therefore names the stage and loads the skill that owns it,
 restating none of their rules, so a correction to a stage still has one
-place to go. Its state is `plan-state.py` over the parent and phase state
-files, which the other skills write through `plan_record.py`, for the reason
+place to go. Its state is `drive plan-state` over the parent and phase state
+files, which the other skills write through `plan record`, for the reason
 the ledger exists: a long coordinator's
 context does not survive compaction, and a resumed session has to find
 its place without it. A phase whose last commit is on `main` needs no stage, since
@@ -954,8 +954,8 @@ ran on each part without ever seeing the plan whole. A stage is still a
 fresh session: `orca-worker.sh start --join` opens a new terminal in the
 plan's worktree after `stop --keep-worktree` closed the last one. The
 stage workers write the plan's state on that branch, so the coordinator
-records the branch in the plan's state file and `plan_record.py`,
-`plan-state.py`, and `plan-queue.py` read the state from it until the
+records the branch in the plan's state file and `plan record`,
+`drive plan-state`, and `next plan-queue` read the state from it until the
 merge. `finished` is the exception and reads the checkout only: a dependent
 phase forks from the coordinator's `HEAD`, so its prerequisite frees it
 once the prerequisite's code is there. Phases still land one by one, each
@@ -969,7 +969,7 @@ phase, so the rule holds whether a person or a drive works the phases.
 `land` gates every plan the branch carries past `main`. A drive therefore
 starts no new phase while one is owed a land, lets phases already
 implemented here finish first, and parks partial work on a branch of its
-own. `plan-state.py` prints the owed land as a stage so a resumed drive
+own. `drive plan-state` prints the owed land as a stage so a resumed drive
 finds it. A worktree-isolated session cannot move `main`, so the
 fast-forward of each phase may wait for the person. It names the verified
 commit, so running it late still lands only finished phases.

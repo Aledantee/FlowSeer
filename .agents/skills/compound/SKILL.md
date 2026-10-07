@@ -35,12 +35,12 @@ Whichever way the gate goes, record the outcome where `land` reads it
 `compound: observation logged`.
 
 - With a plan: record the outcome with
-  `.claude/skills/plan/scripts/plan_record.py compound <plan> "<outcome>"`,
+  `uv run tools/scripts/run.py plan record compound <plan> "<outcome>"`,
   committed together with the solution, then run the verifier on the changed
   paths so the receipt post-dates the commit.
 - Without a plan: a line appended to
   `$(git rev-parse --git-dir)/flowseer-checkpoints` with
-  `.claude/skills/verify-change/scripts/ledger.py checkpoint compound "<outcome>"`.
+  `uv run tools/scripts/run.py verify ledger checkpoint compound "<outcome>"`.
 - In Orca, also append the entry to the card:
 
 ```bash

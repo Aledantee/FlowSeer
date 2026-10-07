@@ -285,7 +285,7 @@ Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts 
 
 ### U6. Skill and document references
 
-Files: .agents/skills/compound/SKILL.md, .agents/skills/delegate/SKILL.md, .agents/skills/delegate/references/no-orca.md, .agents/skills/delegate/references/review-lanes.md, .agents/skills/diagnose/SKILL.md, .agents/skills/drive/SKILL.md, .agents/skills/implement/SKILL.md, .agents/skills/implement/references/outcome-records.md, .agents/skills/implement/references/resume.md, .agents/skills/implement/references/workers.md, .agents/skills/land/SKILL.md, .agents/skills/land/references/missing-checkpoint.md, .agents/skills/land/references/retire-plan.md, .agents/skills/next/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/plan/references/phases.md, .agents/skills/plan/references/replan-implemented.md, .agents/skills/plan/references/replan-phase.md, .agents/skills/prose/SKILL.md, .agents/skills/review/SKILL.md, .agents/skills/review/references/fix-loop.md, .agents/skills/review/references/subject-review.md, .agents/skills/steer/SKILL.md, .agents/skills/tune/SKILL.md, .agents/skills/tune/references/calibration.md, .agents/skills/verify-change/SKILL.md, .agents/skills/verify-change/references/gate-coverage.md, docs/README.md, docs/agent-steering.md, docs/agent-observations.md, docs/doc-style.md, docs/code-style-python.md
+Files: .agents/skills/compound/SKILL.md, .agents/skills/delegate/SKILL.md, .agents/skills/delegate/references/no-orca.md, .agents/skills/delegate/references/review-lanes.md, .agents/skills/diagnose/SKILL.md, .agents/skills/drive/SKILL.md, .agents/skills/drive/references/parking.md, .agents/skills/implement/SKILL.md, .agents/skills/implement/references/outcome-records.md, .agents/skills/implement/references/resume.md, .agents/skills/implement/references/workers.md, .agents/skills/land/SKILL.md, .agents/skills/land/references/missing-checkpoint.md, .agents/skills/land/references/retire-plan.md, .agents/skills/next/SKILL.md, .agents/skills/plan/SKILL.md, .agents/skills/plan/references/phases.md, .agents/skills/plan/references/replan-implemented.md, .agents/skills/plan/references/replan-phase.md, .agents/skills/prose/SKILL.md, .agents/skills/review/SKILL.md, .agents/skills/review/references/fix-loop.md, .agents/skills/review/references/subject-review.md, .agents/skills/steer/SKILL.md, .agents/skills/tune/SKILL.md, .agents/skills/tune/references/calibration.md, .agents/skills/verify-change/SKILL.md, .agents/skills/verify-change/references/gate-coverage.md, docs/README.md, docs/agent-steering.md, docs/agent-observations.md, docs/doc-style.md, docs/code-style-python.md
 After: U3, U4, U5
 Change: every line that starts or links a moved script names its command
 (`uv run tools/scripts/run.py plan record show <plan>`) or its new path,
@@ -298,8 +298,15 @@ Markdown checks need `uv` and the suite compiles every module.
 argument rule, the module-level rule scoped to command and library modules
 with the `run.py` bytecode flag as its one exception, and the once-per-host
 `uv python install 3.13`.
-Tests: `grep -rnE '(model_check|runlog|catalogue|field|merge-check|plan-state|plan-queue|plan-deviations|plan_record|check-prose|check-plan-status|check-test-integrity|ledger|test_[a-z_]+)\.py' .agents docs AGENTS.md tools --exclude-dir=plans --exclude-dir=solutions --exclude-dir=architecture --exclude-dir=research`
-prints only paths under `tools/scripts/`, and the Markdown checks pass.
+Tests: `grep -rnE '(model_check|runlog|catalogue|field|merge-check|plan-state|plan-queue|plan-deviations|plan_record|check-prose|check-plan-status|check-test-integrity|ledger|test_[a-z_]+)\.py' .agents docs AGENTS.md tools --exclude-dir=plans --exclude-dir=solutions --exclude-dir=architecture --exclude-dir=research | grep -vE 'tools/scripts/|verify-change\.sh:[0-9]+: .*\(test_compile\.py\)'`
+prints nothing, and the Markdown checks pass. Why the filter: a line that
+points under `tools/scripts/` (a link to `test_pool_usage.py`, a path in
+`prose/SKILL.md`, the hook test's `tools/scripts/tests/test_run.py`) is a
+current reference, and so is the one comment in the approved verifier that
+names `test_compile.py`. Every other line, such as a bare old script name or a
+legacy `.claude/skills/*/scripts/` path in `parking.md` or any other U6 file,
+still prints. A stale name on a line that also holds a `tools/scripts/` path is
+not caught, so the review reads U6's diff for that case.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .agents/skills docs/README.md docs/agent-steering.md docs/agent-observations.md docs/doc-style.md docs/code-style-python.md`
 
 Waves: U1 U2 | U3 U4 U5 | U6
