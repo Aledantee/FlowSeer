@@ -22,7 +22,7 @@ func (l *Layer) isSynced(t *tree, rootPort string) bool {
 
 				continue
 			}
-			if p.state != StateDiscarding && !p.agreed {
+			if !p.synced {
 				return false
 			}
 		}

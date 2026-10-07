@@ -188,6 +188,93 @@ func TestProposalCutsOnlyTheDesignatedPortsThatAreNotSynced(t *testing.T) {
 	})
 }
 
+func TestRootAgreementReadsTheStoredSyncedFlag(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name          string
+		worseVector   bool
+		proposal      bool
+		wantState     State
+		wantAgreement bool
+	}{
+		{
+			name:          "repeated proposal leaves the synced ladder port forwarding",
+			proposal:      true,
+			wantState:     StateForwarding,
+			wantAgreement: true,
+		},
+		{
+			name:        "worse vector without proposal withholds agreement",
+			worseVector: true,
+			wantState:   StateForwarding,
+		},
+		{
+			name:          "repeated proposal cuts the unsynced port and sends agreement",
+			worseVector:   true,
+			proposal:      true,
+			wantState:     StateDiscarding,
+			wantAgreement: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			l, now := syncPVSTBridge(t)
+			tr := l.trees[treeID(10)]
+			p3 := tr.ports["p3"]
+			if !p3.synced {
+				t.Fatal("fixture VLAN 10 p3 synced = false, want true after the ladder")
+			}
+
+			cost := uint32(20_000)
+			if tc.worseVector {
+				cost = 30_000
+			}
+			if tc.worseVector && tc.proposal {
+				l.ReceiveSSTP(now.Add(500*time.Millisecond), "p1", syncSSTP(10), syncBPDU(syncMAC(1), syncMAC(2), 4096|10, cost, bpdu.RoleDesignated))
+				if p3.role != bpdu.RoleDesignated || p3.state != StateForwarding || p3.synced || p3.agreed {
+					t.Fatalf("VLAN 10 p3 after worse vector = %v/%v synced=%v agreed=%v, want Designated/Forwarding/unsynced/unagreed", p3.role, p3.state, p3.synced, p3.agreed)
+				}
+			}
+
+			b := syncBPDU(syncMAC(1), syncMAC(2), 4096|10, cost, bpdu.RoleDesignated)
+			b.SetProposal(tc.proposal)
+			// A pending transmission exposes the flag even without a proposal,
+			// which does not itself request a Root port frame.
+			l.requestNewInfo(tr, tr.ports["p1"])
+			fx, outcome := l.ReceiveSSTP(now.Add(time.Second), "p1", syncSSTP(10), b)
+			if outcome != SSTPApplied {
+				t.Fatalf("ReceiveSSTP outcome = %v, want Applied", outcome)
+			}
+			if p3.role != bpdu.RoleDesignated || p3.state != tc.wantState || p3.synced != tc.wantAgreement || p3.agreed {
+				t.Errorf("VLAN 10 p3 = %v/%v synced=%v agreed=%v, want Designated/%v synced=%v unagreed", p3.role, p3.state, p3.synced, p3.agreed, tc.wantState, tc.wantAgreement)
+			}
+			if got := tr.ports["p1"].role; got != bpdu.RoleRoot {
+				t.Errorf("VLAN 10 p1 role = %v, want Root", got)
+			}
+
+			frames := 0
+			for _, emission := range fx.Emissions {
+				if emission.Port != "p1" || emission.VID != 10 {
+					continue
+				}
+				frames++
+				out, vid, err := bpdu.DecodeSSTP(emission.Frame)
+				if err != nil {
+					t.Fatalf("DecodeSSTP emitted BPDU: %v", err)
+				}
+				if vid != 10 || out.Role() != bpdu.RoleRoot || out.Agreement() != tc.wantAgreement {
+					t.Errorf("p1 emitted VID %d role %v Agreement=%v, want VID 10 Root Agreement=%v", vid, out.Role(), out.Agreement(), tc.wantAgreement)
+				}
+			}
+			if frames != 1 {
+				t.Errorf("p1 VLAN 10 frames = %d, want 1", frames)
+			}
+		})
+	}
+}
+
 func TestARoleChangeCostsALadderPortItsSyncedFlag(t *testing.T) {
 	t.Parallel()
 
