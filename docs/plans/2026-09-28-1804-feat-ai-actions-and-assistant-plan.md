@@ -224,10 +224,13 @@ open in the last round's own fixes, and the record does not list them.
   resolves a target starts one 700 ms timer, Reka's default
   (`ContextMenuRoot.js:16`). A `pointermove`, `pointerup`,
   `pointercancel`, or `contextmenu` clears it, as Reka's trigger does
-  (`ContextMenuTrigger.js:57-81`). When it fires, the menu opens at the
-  `pointerdown` point. Why: the long-press Decision wants a long-press
-  on an item only, and Reka's timer starts on any touch inside its
-  trigger.
+  (`ContextMenuTrigger.js:57-81`). When it fires, the layer resolves the
+  same element again and opens the menu at the `pointerdown` point only
+  if a target still resolves. Why: the long-press Decision wants a
+  long-press on an item only, and Reka's timer starts on any touch
+  inside its trigger. Text can become selected and a target can
+  unregister during the delay, so the `pointerdown` result only arms the
+  timer.
 
 - **The menu stays modal, and the layer root takes pointer events while
   it is open.** Why: a modal menu sets `pointer-events: none` on `body`
@@ -278,26 +281,37 @@ open in the last round's own fixes, and the record does not list them.
   rounds fixed the same late write, missing abort, and stored
   translation in each.
 
-- **One focus keeper serves every result surface.** `useFocusKeeper` in
-  `src/ui/ai/focusWithin.ts` remembers the last element focused within
-  a root. When that element leaves the DOM and focus has dropped to
-  `body`, it focuses an enabled element with the same `data-focus-slot`
-  value. It looks outward from where the element was: its former parent
-  first, then each ancestor up to the root, and the root itself when
-  none holds one. An earlier turn's Regenerate therefore never wins over
-  the one beside the Stop that left. The keeper does nothing once its
-  root is detached. Controls that replace each other share a slot: Stop
-  and Regenerate, Send and Stop, a chip's Remove and "Add context".
-  `focusIsWithin(root)` in the same file is true when the root contains
-  the focused element, or holds the trigger whose `aria-controls` names
-  the content the focused element sits in
-  (`Popover/PopoverTrigger.js:39`).
+- **One focus keeper serves every result surface.**
+  `focusIsWithin(root)` in `src/ui/ai/focusWithin.ts` is true when the
+  root contains the focused element, or holds the trigger whose
+  `aria-controls` names the content the focused element sits in
+  (`Popover/PopoverTrigger.js:39`). `useFocusKeeper` in the same file
+  remembers the last element for which that held. It watches removals
+  under the root and under the portalled content that holds that
+  element. When the element has left the DOM and focus has dropped to
+  `body`, the keeper picks a successor in this order:
+  1. An enabled element with the same `data-focus-slot` value, looked
+     for outward from where the element was: its former parent first,
+     then each ancestor up to the root. An earlier turn's Regenerate
+     therefore never wins over the one beside the Stop that left.
+  2. The first tab stop under the root. This is where focus goes when
+     the element had no slot or sat in portalled content that left with
+     its trigger, such as a chip in the summary's label popover when
+     the target id changes.
+  3. The root.
+
+  The keeper does nothing once its root is detached. Controls that
+  replace each other share a slot: Stop and Regenerate, Send and Stop, a
+  chip's Remove and "Add context".
 
   Why: Reka refocuses the container of a removed element only inside a
   trapped scope (`FocusScope.js:69-78`), and neither the result popover
   nor the docked panel is trapped. `parked/aiact-review3` hands focus
   over by selector in three files (`focusResultElement`,
-  `focusAssistantControl`, `focusControl`).
+  `focusAssistantControl`, `focusControl`). A non-modal popover that
+  unmounts with its trigger focuses the detached trigger and prevents
+  any later restore (`Popover/PopoverContentNonModal.js:122-127`), so
+  the keeper's move in the removal callback is the last one.
 
 - **Verbs are ids.** `aiActions` returns `{ id }` entries, and a
   surface shows `ui.aiAction.<id>` from the catalogs. The table under
@@ -314,10 +328,15 @@ open in the last round's own fixes, and the record does not list them.
   the panes has nothing to restore.
 
 - **The rest of the parked branch is ported by file group.** `main`
-  holds none of its fixes, so nothing there is superseded, except the
-  `directive.test.ts` hunk, whose file `96e69273` deleted. U7, U9, and
-  U11 port the core contracts, the result components, and the panel
-  onto today's files. Why: a merge of the branch conflicts in 23 files
+  holds none of its fixes. Two hunks are superseded. `96e69273` deleted
+  the file of the `directive.test.ts` hunk. The Storybook request
+  wrapper of `1bf44b27` and `2ab6fbe8` answers a request with the asking
+  canvas's handler, and the record accepted a day later routes by the
+  canvas that contains the registered element
+  (`docs/architecture/2026-10-05-1251-web-ai-target-lifecycle-direction.md`,
+  Consequences, and `.storybook/aiDecorator.ts:44-55`). U7, U9, and U11
+  port the core contracts, the result components, and the panel onto
+  today's files. Why: a merge of the branch conflicts in 23 files
   (`git merge-tree --write-tree --name-only main
   parked/aiact-review3`). After the fork `main` moved registration to
   `useAiTarget`, gave the components the `ai` and `aiOrigin` props, and
@@ -690,18 +709,21 @@ Change:
 - Dashboard and site targets carry a raw `healthStatus` beside the
   localized health line, so the mock's tone does not change with the
   locale.
-- The decorator answers a canvas's request with that canvas's handler,
-  also for a target another canvas registered.
+- The decorator keeps today's dispatch, by the canvas that contains
+  the registered element. Its story target gains `view`, and the
+  solution doc's text and excerpts match `aiDecorator.ts`.
 - The three `ui/ai` callers compile against the new shapes with the
   least change. U9, U10, and U11 replace that code.
 
-From `parked/aiact-review3`: port `427a6d77`, `1bf44b27`, `2ab6fbe8`,
-and `edb49a57` for `src/ai`, `.storybook`, the views, and the solution
-doc. Rewrite the `registry.ts` and `validate.ts` hunks on today's files,
-which gained `AiTargetElement`, `cloneAiTarget`, and the component-tree
-clone after the fork (`dac8c038`, `ec48d614`, `99542216`). Keep that
-clone as it is. Drop the `directive.test.ts` hunk. The record's items
-under `src/ai/` and `.storybook/` name the cases still missing.
+From `parked/aiact-review3`: port `427a6d77`, `1bf44b27`, and
+`edb49a57` for `src/ai` and the views. Rewrite the `registry.ts` and
+`validate.ts` hunks on today's files, which gained `AiTargetElement`,
+`cloneAiTarget`, and the component-tree clone after the fork
+(`dac8c038`, `ec48d614`, `99542216`). Keep that clone as it is. Drop
+the `directive.test.ts` hunk, and the decorator's request wrapper and
+canvas assistant from `1bf44b27` and `2ab6fbe8`. The record's items
+under `src/ai/` name the cases still missing. Its `.storybook/` item
+asks for the superseded routing and is closed by the direction record.
 
 Tests:
 - `registry.test.ts`: one generated table for Requirement 22. Its axes
@@ -718,8 +740,8 @@ Tests:
   unknown key is absent from the validated result.
 - `actions.test.ts`: the ids for every row of the verb table. A target
   with no entity and a kind other than `view` returns only `ask`.
-- `aiDecorator.test.ts`: two mounted canvases, each asking for a target
-  the other registered.
+- `aiDecorator.test.ts`: two mounted canvases. A request for a target
+  inside the second is answered by the second's handler.
 - `FleetView.test.ts`: the dashboard target carries the raw
   `healthStatus`.
 
@@ -769,9 +791,10 @@ Tests:
 - `focusWithin.test.ts`: a table over where focus is (a slot control
   with a successor, one without, a control that stays, content of a
   popover whose trigger is under the root, an element outside) and what
-  is removed (the focused control, another control, nothing), with the
-  executed count as a literal. One fixture holds two groups with the
-  same slot, and the nearer control wins. Each row asserts
+  is removed (the focused control, another control, the popover's
+  trigger with its content, nothing), with the executed count as a
+  literal. One fixture holds two groups with the same slot, and the
+  nearer control wins. Each row asserts
   `document.activeElement`. happy-dom reports `body` once the focused
   element is detached (`happy-dom@20.14.5`,
   `lib/nodes/document/Document.js:1030-1044`), so the drop is observable
@@ -832,7 +855,9 @@ Tests:
   the summary's transitions (start, first snapshot, done, Stop, error,
   unavailable, regenerate, new target id, unmount) and three focus
   positions: the control the transition removes, one that stays, and a
-  button outside.
+  button outside. A new target id while focus is on a chip in the label
+  popover puts focus on the summarize trigger, the case at
+  `UiAiSummary.test.ts:393` on that branch.
 - `UiAiLabel.test.ts`, `UiAiEntityChip.test.ts`, and
   `UiAiResultActions.test.ts`: the request as sent after the live target
   changed, the label popover's accessible name, a 24 px minimum target
@@ -909,12 +934,28 @@ Tests:
     long-press, Menu key, Shift+F10) at every position the resolver
     table marks as no target.
   - Requirement 15 over every ordered pair of paths, with the menu open
-    and closed at the second. A right-click is a `pointerdown` followed
-    by a `contextmenu`, as a browser sends them, so Reka's outside-press
-    dismissal runs in every cell. Each cell asserts the second target's
-    verbs and, after a verb, the result's reference element.
+    and closed at the second. Each gesture is the sequence a browser
+    sends, a right-click being a `pointerdown` followed by a
+    `contextmenu`. Each cell names the lifecycle it expects and asserts
+    it through `update:open`:
+    - A mouse or pen press outside an open menu dismisses it first, and
+      the menu reopens for the second target.
+    - A touch press does not dismiss until a click follows
+      (`DismissableLayer/utils.js:53-57`), so a touch long-press moves
+      the open menu to the second target without a close.
+    - A key path second with the menu open is left out by name. The
+      modal menu traps focus (`Menu/MenuRootContentModal.js:120`,
+      `FocusScope/FocusScope.js:57-67`), so no pane element can be
+      focused, and the menu's own keydown does not pass the layer root.
+
+    Each cell also asserts the second target's verbs and, after a verb,
+    the result's reference element. Reka registers its outside listener
+    on a 0 ms timer after the menu mounts (`utils.js:74-76`), so a cell
+    advances timers before the second press.
   - Requirement 16, with a `contextmenu` before the delay and after it,
     and a cancel by `pointermove`, `pointerup`, and `pointercancel`.
+    Text selected during the delay opens no menu, and neither does a
+    target that unregisters during it.
   - Requirement 17 over path, origin (a link in the item, a button
     outside, nothing focused), and close. The no-verb rows compare with
     a bare `UiContextMenu` mounted in the same case.
@@ -992,7 +1033,7 @@ From `parked/aiact-review3`: port `8468275c`, `72ad952a`, `7d56693f`,
 `useAiRun`, its `hasAssistantFocus` and `focusAssistantControl` sites on
 focus slots, and the selector test in `updateAssistantOpen`
 (`FleetView.vue:138-152` on that branch) on `focusIsWithin`. Write the
-README section against today's README, which grew by 189 lines after
+README section against today's README, which gained 176 lines after
 the fork. `FleetView.vue` is unchanged on `main` since the fork, so its
 hunks apply. The record's items under these files name the cases still
 missing.
@@ -1118,6 +1159,6 @@ adapted, so no two of them are independent.
   under happy-dom only (`frontend/web/src/ui/a11y.test.ts:139-141`). It
   is the Stop condition, and the browser pass checks it first.
 - Unverified: which touch browsers fire a native `contextmenu` on a
-  long-press, and whether a long-press on text selects it first. A
-  selection would fall under the text-selection exclusion and open no
-  menu. Touch emulation in a desktop browser answers neither.
+  long-press, and whether a long-press on text selects it first. The
+  timer resolves again when it fires, so a selection made by then opens
+  no menu. Touch emulation in a desktop browser answers neither.
