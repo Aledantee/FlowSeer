@@ -12,7 +12,7 @@
     "note": "Sending blocked on unlisted corpus and timer expectation changes. Partial commit 4c11b059 on parked/routing-solicit. Receiving depends on sending."
   },
   "superseded_by": null,
-  "branch": "parked/routing-solicit",
+  "branch": "Aledantee/sim6-implement",
   "parent": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md",
   "after": [
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase2-plan.md"
