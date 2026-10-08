@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
@@ -36,8 +37,12 @@ const reasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
 // in which case a consumer counts it against no port rather than inventing an endpoint.
 type NeighborDrop struct {
 	Step   trace.Step
+	Steps  []trace.Step
 	Port   string
 	Reason trace.Reason
+	// Hold and Ingress identify the frame removed from the routing hold queue.
+	Hold    routing.HoldToken
+	Ingress string
 }
 
 // observationInterface finds the routed interface an ARP or Neighbor Discovery
@@ -106,243 +111,111 @@ func (s *Switch) assembleRouteResult(
 	ingressFilterRes filter.Result,
 	routeRes routing.Result,
 ) bridge.Result {
-	routeScopes := routeRes.ConsultedScopes()
-	if len(ingressFilterRes.ConsultedScopes()) > 0 {
-		routeScopes = append(routeScopes, ingressFilterRes.ConsultedScopes()...)
-	}
-	if outcome := routeRes.Outcome(); outcome != trace.Forwarded {
-		if outcome == trace.Held {
-			s.recordNeighborUnresolved(routeRes.VRF, routeRes.Interface, routeRes.NextHop)
-		}
-		steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps))
-		steps = append(steps, ingressSteps...)
-		if ingressFilterRes.Decision == filter.DecisionAccept {
-			steps = append(steps, ingressFilterRes.Steps...)
-		}
-		steps = append(steps, routeRes.Steps...)
-
-		res := bridge.Result{
-			Trace: trace.Trace{
-				Outcome: outcome,
-				Reason:  routeRes.Reason,
-				Steps:   steps,
-			},
-			Ingress: ingressPort,
-			FID:     ingressFID,
-		}
-		if routeRes.Interface != "" {
-			s.routingForwardingDependencies(routeRes.Interface).consult(&res)
-		}
-		res.ConsultScopes(routeScopes...)
-
-		return res
-	}
-
-	// Route names only an interface of its own table, so the lookup cannot miss.
-	egressIface, _ := s.routing.Interface(routeRes.Interface)
-
-	if ingressFilterRes.Decision == filter.DecisionDeferred && s.filter != nil {
-		resolved := s.filter.ResolveDeferred(ingressFilterRes, routeRes.Interface)
-		routeScopes = append(routeScopes, resolved.ConsultedScopes()...)
-		if resolved.Decision != filter.DecisionAccept {
-			steps := make([]trace.Step, 0, len(ingressSteps)+len(routeRes.Steps)+len(resolved.Steps))
-			steps = append(steps, ingressSteps...)
-			steps = append(steps, routeRes.Steps...)
-			steps = append(steps, resolved.Steps...)
-			res := bridge.Result{
-				Trace: trace.Trace{
-					Outcome: trace.Dropped,
-					Reason:  resolved.Reason,
-					Steps:   steps,
-				},
-				Ingress: ingressPort,
-				FID:     ingressFID,
-			}
-			if routeRes.Interface != "" {
-				s.routingForwardingDependencies(routeRes.Interface).consult(&res)
-			}
-			res.ConsultScopes(routeScopes...)
-			return res
-		}
-		ingressFilterRes = resolved
-	}
-
+	scopes := append(routeRes.ConsultedScopes(), ingressFilterRes.ConsultedScopes()...)
+	outcome, reason := routeRes.Outcome(), routeRes.Reason
 	var egressFilterRes filter.Result
-	if s.filter != nil {
-		egressFilterRes = s.filter.EvaluateEgress(routeRes.Interface, ingressIface, routeRes.Frame)
-		routeScopes = append(routeScopes, egressFilterRes.ConsultedScopes()...)
-		if egressFilterRes.Decision != filter.DecisionAccept {
-			steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps))
-			steps = append(steps, ingressSteps...)
-			if ingressFilterRes.Decision == filter.DecisionAccept {
-				steps = append(steps, ingressFilterRes.Steps...)
+	if outcome == trace.Held {
+		c.hold = routeRes.Hold
+		s.recordNeighborUnresolved(routeRes.VRF, routeRes.Interface, routeRes.NextHop)
+	}
+	if outcome == trace.Forwarded && s.filter != nil {
+		if ingressFilterRes.Decision == filter.DecisionDeferred {
+			resolved := s.filter.ResolveDeferred(ingressFilterRes, routeRes.Interface)
+			scopes = append(scopes, resolved.ConsultedScopes()...)
+			if resolved.Decision != filter.DecisionAccept {
+				outcome, reason = trace.Dropped, resolved.Reason
+				egressFilterRes = resolved
+			} else {
+				ingressFilterRes = resolved
 			}
-			steps = append(steps, routeRes.Steps...)
-			steps = append(steps, egressFilterRes.Steps...)
-			res := bridge.Result{
-				Trace: trace.Trace{
-					Outcome: trace.Dropped,
-					Reason:  egressFilterRes.Reason,
-					Steps:   steps,
-				},
-				Ingress: ingressPort,
-				FID:     ingressFID,
+		}
+		if outcome == trace.Forwarded {
+			egressFilterRes = s.filter.EvaluateEgress(routeRes.Interface, ingressIface, routeRes.Frame)
+			scopes = append(scopes, egressFilterRes.ConsultedScopes()...)
+			if egressFilterRes.Decision != filter.DecisionAccept {
+				outcome, reason = trace.Dropped, egressFilterRes.Reason
 			}
-			if routeRes.Interface != "" {
-				s.routingForwardingDependencies(routeRes.Interface).consult(&res)
-			}
-			res.ConsultScopes(routeScopes...)
-			return res
 		}
 	}
-
-	if egressIface.VLAN != 0 && egressIface.Port == "" {
-		stepsSoFar := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps))
-		stepsSoFar = append(stepsSoFar, ingressSteps...)
-		if ingressFilterRes.Decision == filter.DecisionAccept {
-			stepsSoFar = append(stepsSoFar, ingressFilterRes.Steps...)
-		}
-		stepsSoFar = append(stepsSoFar, routeRes.Steps...)
-		if egressFilterRes.Decision == filter.DecisionAccept {
-			stepsSoFar = append(stepsSoFar, egressFilterRes.Steps...)
-		}
-
-		bridgeIn := bridge.Ingress{
-			Port:   "",
-			FID:    egressIface.VLAN,
-			PCP:    ingressPCP,
-			DEI:    ingressDEI,
-			Steps:  stepsSoFar,
-			Now:    c.now,
-			Commit: c.commit,
-		}
-		bridgeIn.ConsultScopes(routeScopes...)
-		res := s.bridge.Egress(bridgeIn, routeRes.Frame)
-		res.FID = egressIface.VLAN
-		res.Ingress = ingressPort
-		return res
+	steps := routedSteps(ingressSteps, ingressFilterRes, routeRes.Steps, egressFilterRes)
+	if outcome == trace.Forwarded {
+		return s.putRoutedFrame(c, routeRes.Interface, ingressPort, ingressPCP, ingressDEI, routeRes.Frame, steps, scopes)
 	}
-
-	steps := make([]trace.Step, 0, len(ingressSteps)+len(ingressFilterRes.Steps)+len(routeRes.Steps)+len(egressFilterRes.Steps)+1)
-	steps = append(steps, ingressSteps...)
-	if ingressFilterRes.Decision == filter.DecisionAccept {
-		steps = append(steps, ingressFilterRes.Steps...)
-	}
-	steps = append(steps, routeRes.Steps...)
-	if egressFilterRes.Decision == filter.DecisionAccept {
-		steps = append(steps, egressFilterRes.Steps...)
-	}
-
-	// A sub-interface's egress carries the outer tag its parent port classifies on; a plain
-	// routed port (VLAN zero) leaves untagged. Applied before the transmit and LAG checks
-	// below, because their refusal-path egress records embed this same frame.
-	if tags, ok := subInterfaceTag(egressIface, ingressPCP, ingressDEI); ok {
-		routeRes.Frame.Tags = append(tags, routeRes.Frame.Tags...)
-	}
-
-	txReason := s.ports.Transmit(egressIface.Port, len(routeRes.Frame.Payload))
-	if txReason != "" {
-		egressPort, _ := s.ports.Port(egressIface.Port)
-		steps = append(steps, trace.Step{
-			Layer:   routing.LayerName,
-			Op:      trace.OpDrop,
-			RuleID:  trace.RuleID(routing.RuleStatusPrefix + string(txReason)),
-			Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
-			Inputs:  []trace.Fact{port.ForwardingFact(egressIface.Port, egressPort, false, txReason)},
-			Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, "", txReason)},
-		})
-		res := bridge.Result{
-			Trace: trace.Trace{
-				Outcome: trace.Dropped,
-				Reason:  txReason,
-				Steps:   steps,
-			},
-			Ingress: ingressPort,
-			FID:     0,
-			Egress: []bridge.Egress{
-				{
-					Port:    egressIface.Port,
-					Member:  "",
-					Frame:   routeRes.Frame,
-					PCP:     ingressPCP,
-					Dropped: txReason,
-				},
-			},
-		}
-		s.egressDependencies(egressIface.Port).consult(&res)
-		res.ConsultScopes(routeScopes...)
-		return res
-	}
-
-	p, _ := s.ports.Port(egressIface.Port)
-	var (
-		member    string
-		selection trace.Fact
-	)
-	resultScopes := routeScopes
-	if p.Kind == port.LAG {
-		resultScopes = append(resultScopes, s.aggregatorScope(egressIface.Port))
-		sel, fact := s.selectMemberWithFact(c.now, egressIface.Port, routeRes.Frame, 0, c.commit)
-		selection = fact
-		if !sel.OK {
-			steps = append(steps, trace.Step{
-				Layer:   routing.LayerName,
-				Op:      trace.OpDrop,
-				RuleID:  routing.RuleEgressNoMember,
-				Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
-				Inputs:  []trace.Fact{selection},
-				Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, "", bridge.ReasonNoMember)},
-			})
-			res := bridge.Result{
-				Trace: trace.Trace{
-					Outcome: trace.Dropped,
-					Reason:  bridge.ReasonNoMember,
-					Steps:   steps,
-				},
-				Ingress: ingressPort,
-				FID:     0,
-				Egress: []bridge.Egress{
-					{
-						Port:    egressIface.Port,
-						Frame:   routeRes.Frame,
-						PCP:     ingressPCP,
-						Dropped: bridge.ReasonNoMember,
-					},
-				},
-			}
-			s.egressDependencies(egressIface.Port).consult(&res)
-			res.ConsultScopes(resultScopes...)
-			return res
-		}
-		member = sel.Member
-	}
-
-	steps = append(steps, trace.Step{
-		Layer:   routing.LayerName,
-		Op:      trace.OpTransmit,
-		RuleID:  routing.RuleTransmit,
-		Subject: trace.Subject{Kind: "port", Key: egressIface.Port},
-		Inputs:  traceFacts(selection),
-		Outputs: []trace.Fact{routing.EgressFact(routeRes.Interface, egressIface.Port, member, "")},
-	})
 	res := bridge.Result{
-		Trace: trace.Trace{
-			Outcome: trace.Forwarded,
-			Steps:   steps,
-		},
-		Ingress: ingressPort,
-		FID:     0,
-		Egress: []bridge.Egress{
-			{
-				Port:   egressIface.Port,
-				Member: member,
-				Frame:  routeRes.Frame,
-				PCP:    ingressPCP,
-			},
-		},
+		Trace:   trace.Trace{Outcome: outcome, Reason: reason, Steps: steps},
+		Ingress: ingressPort, FID: ingressFID,
 	}
-	s.egressDependencies(egressIface.Port).consult(&res)
-	res.ConsultScopes(resultScopes...)
+	if routeRes.Interface != "" {
+		s.routingForwardingDependencies(routeRes.Interface).consult(&res)
+	}
+	res.ConsultScopes(scopes...)
+	return res
+}
+
+func routedSteps(ingress []trace.Step, in filter.Result, route []trace.Step, out filter.Result) []trace.Step {
+	steps := make([]trace.Step, 0, len(ingress)+len(in.Steps)+len(route)+len(out.Steps)+1)
+	steps = append(steps, ingress...)
+	if in.Decision == filter.DecisionAccept {
+		steps = append(steps, in.Steps...)
+	}
+	steps = append(steps, route...)
+	steps = append(steps, out.Steps...)
+	return steps
+}
+
+// putRoutedFrame uses the relay for a VLAN interface and the port table for a
+// routed port, sub-interface, or LAG. Live routes and held releases share it.
+func (s *Switch) putRoutedFrame(
+	c *call, ifaceName, ingress string, pcp vlan.PCP, dei bool,
+	frame ethernet.Frame, steps []trace.Step, scopes []analysis.Scope,
+) bridge.Result {
+	// Both callers resolve the interface before attempting egress.
+	iface, _ := s.routing.Interface(ifaceName)
+	if iface.VLAN != 0 && iface.Port == "" {
+		in := bridge.Ingress{FID: iface.VLAN, PCP: pcp, DEI: dei, Steps: steps, Now: c.now, Commit: c.commit}
+		in.ConsultScopes(scopes...)
+		res := s.bridge.Egress(in, frame)
+		res.FID, res.Ingress = iface.VLAN, ingress
+		return res
+	}
+	if tags, ok := subInterfaceTag(iface, pcp, dei); ok {
+		frame.Tags = append(tags, frame.Tags...)
+	}
+	p, _ := s.ports.Port(iface.Port)
+	reason := s.ports.Transmit(iface.Port, len(frame.Payload))
+	op, rule := trace.OpTransmit, routing.RuleTransmit
+	var inputs []trace.Fact
+	member := ""
+	if reason != "" {
+		op, rule = trace.OpDrop, trace.RuleID(routing.RuleStatusPrefix+string(reason))
+		inputs = []trace.Fact{port.ForwardingFact(iface.Port, p, false, reason)}
+	} else if p.Kind == port.LAG {
+		scopes = append(scopes, s.aggregatorScope(iface.Port))
+		sel, fact := s.selectMemberWithFact(c.now, iface.Port, frame, 0, c.commit)
+		inputs = traceFacts(fact)
+		if !sel.OK {
+			reason = bridge.ReasonNoMember
+			op, rule = trace.OpDrop, routing.RuleEgressNoMember
+		} else {
+			member = sel.Member
+		}
+	}
+	step := trace.Step{
+		Layer: routing.LayerName, Op: op, RuleID: rule,
+		Subject: trace.Subject{Kind: "port", Key: iface.Port}, Inputs: inputs,
+		Outputs: []trace.Fact{routing.EgressFact(ifaceName, iface.Port, member, reason)},
+	}
+	outcome := trace.Forwarded
+	if reason != "" {
+		outcome = trace.Dropped
+	}
+	res := bridge.Result{
+		Trace:   trace.Trace{Outcome: outcome, Reason: reason, Steps: append(steps, step)},
+		Ingress: ingress,
+		Egress:  []bridge.Egress{{Port: iface.Port, Member: member, Frame: frame, PCP: pcp, Dropped: reason}},
+	}
+	s.egressDependencies(iface.Port).consult(&res)
+	res.ConsultScopes(scopes...)
 	return res
 }
 
@@ -419,15 +292,14 @@ func (s *Switch) recordHeldExitDrop(hf routing.HeldFrame, reason trace.Reason) {
 			Subject: trace.Subject{Kind: "interface", Key: hf.Interface},
 			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, hf.Port, "", reason)},
 		},
-		Port:   hf.Port,
-		Reason: reason,
+		Port: hf.Port, Reason: reason, Hold: hf.Token, Ingress: hf.Ingress,
 	})
 }
 
 // recordHeldEgressDrop records a released frame an egress stage refused, under the reason that
 // stage gave. ruleID is separate from reason because a port-table refusal is namespaced as a
 // port status while the counter it feeds is keyed by the bare reason.
-func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member string, ruleID trace.RuleID, reason trace.Reason) {
+func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member string, ruleID trace.RuleID, reason trace.Reason, steps []trace.Step) {
 	subject := trace.Subject{Kind: "port", Key: egressPort}
 	if egressPort == "" {
 		// No port was chosen, so the interface is the most specific thing the drop is about.
@@ -441,90 +313,67 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 			Subject: subject,
 			Outputs: []trace.Fact{routing.EgressFact(hf.Interface, egressPort, member, reason)},
 		},
-		Port:   egressPort,
-		Reason: reason,
+		Port: egressPort, Reason: reason, Steps: steps, Hold: hf.Token, Ingress: hf.Ingress,
 	})
 }
 
-// releaseHeldFrame resolves the port a released frame for routed interface
-// hf.Interface leaves through, the same egress path [Switch.assembleRouteResult]
-// builds for a route resolved live: a VLAN interface with no parent port goes out
-// through [bridge.Layer.Egress] with the synthetic ingress a routed frame already
-// uses, while a routed port's frame transmits directly, through its LAG member
-// selection if it has one, and a sub-interface takes that same direct path with
-// subInterfaceTag's C-TAG prepended. Every way out of here that is not an
-// emission is a [NeighborDrop] rather than a silently discarded frame, because a released
-// frame the bridge or port refuses is a different answer from one that was
-// never held — and an SVI whose only member port is down produces no egress
-// entry at all, so the bridge's own no-candidate reason is the only thing
-// that can speak for it.
+// releaseHeldFrame evaluates the current filter bindings before using the same
+// egress as a live route. A refused frame retains its hold identity in the drop.
 func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
-	_, end := s.beginCall(now, true)
+	c, end := s.beginCall(now, true)
 	defer end()
 
-	egressIface, ok := s.routing.Interface(hf.Interface)
-	if !ok {
-		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reasonHeldInterfaceUnknown), reasonHeldInterfaceUnknown)
-
+	if _, ok := s.routing.Interface(hf.Interface); !ok {
+		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reasonHeldInterfaceUnknown), reasonHeldInterfaceUnknown, nil)
 		return
 	}
-
-	if egressIface.VLAN != 0 && egressIface.Port == "" {
-		res := s.bridge.Egress(bridge.Ingress{FID: egressIface.VLAN, PCP: hf.PCP, DEI: hf.DEI, Now: now, Commit: true}, hf.Frame)
-		if len(res.Egress) == 0 {
-			// bridge.replicate returns no egress entry at all when no port ever becomes a
-			// flood candidate, naming the reason on the result instead, and a caller reading
-			// only res.Egress would see nothing. Egress reaches replicate on a unicast miss, on
-			// a flood VLAN, and on a group destination, whether or not a resolver decided it —
-			// see TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason for the flood-VLAN
-			// case. The guard stays because the frame is already out of the hold queue by here,
-			// so the day a fourth path reaches replicate with no candidates, the frame is gone
-			// with no record at all unless this still catches it.
-			reason := res.Reason
-			if reason == "" {
-				reason = bridge.ReasonNoEgress
+	var in, out filter.Result
+	if s.filter != nil {
+		if hf.Ingress != "" {
+			in = s.filter.EvaluateIngress(hf.Ingress, hf.Frame)
+			if in.Decision == filter.DecisionDeferred {
+				in = s.filter.ResolveDeferred(in, hf.Interface)
 			}
-			s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reason), reason)
-
-			return
-		}
-		for _, eg := range res.Egress {
-			if eg.Dropped != "" {
-				s.recordHeldEgressDrop(hf, eg.Port, eg.Member, trace.RuleID(eg.Dropped), eg.Dropped)
-
-				continue
+			if in.Decision != filter.DecisionAccept {
+				s.call.drops = append(s.call.drops, NeighborDrop{
+					Step: in.Steps[len(in.Steps)-1], Steps: in.Steps,
+					Reason: in.Reason, Hold: hf.Token, Ingress: hf.Ingress,
+				})
+				return
 			}
-			s.call.emissions = append(s.call.emissions, Emission{Port: eg.Port, Frame: eg.Frame, PCP: eg.PCP})
 		}
-
-		return
-	}
-
-	// A sub-interface leaves by its parent port, tagged, exactly as the live path leaves it.
-	// The tag goes on here rather than at the emission so this function and assembleRouteResult
-	// read as one shape, with the same three stages in the same order.
-	if tags, ok := subInterfaceTag(egressIface, hf.PCP, hf.DEI); ok {
-		hf.Frame.Tags = append(tags, hf.Frame.Tags...)
-	}
-
-	txReason := s.ports.Transmit(egressIface.Port, len(hf.Frame.Payload))
-	if txReason != "" {
-		s.recordHeldEgressDrop(hf, egressIface.Port, "", trace.RuleID(routing.RuleStatusPrefix+string(txReason)), txReason)
-
-		return
-	}
-
-	p, _ := s.ports.Port(egressIface.Port)
-	if p.Kind == port.LAG {
-		sel := s.selectOrPeekMember(now, egressIface.Port, hf.Frame, 0, true)
-		if !sel.OK {
-			s.recordHeldEgressDrop(hf, egressIface.Port, "", routing.RuleEgressNoMember, bridge.ReasonNoMember)
-
+		out = s.filter.EvaluateEgress(hf.Interface, hf.Ingress, hf.Frame)
+		if out.Decision != filter.DecisionAccept {
+			steps := routedSteps(nil, in, nil, out)
+			s.call.drops = append(s.call.drops, NeighborDrop{
+				Step: out.Steps[len(out.Steps)-1], Steps: steps,
+				Reason: out.Reason, Hold: hf.Token, Ingress: hf.Ingress,
+			})
 			return
 		}
 	}
-
-	// A routed port has no bridge egress decision to read a priority off, so the frame keeps the
-	// one it arrived with, which is what the live path transmits for the same frame.
-	s.call.emissions = append(s.call.emissions, Emission{Port: egressIface.Port, Frame: hf.Frame, PCP: hf.PCP})
+	res := s.putRoutedFrame(c, hf.Interface, "", hf.PCP, hf.DEI, hf.Frame, routedSteps(nil, in, nil, out), nil)
+	if len(res.Egress) == 0 {
+		reason := res.Reason
+		if reason == "" {
+			reason = bridge.ReasonNoEgress
+		}
+		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reason), reason, res.Steps)
+		return
+	}
+	iface, _ := s.routing.Interface(hf.Interface)
+	for _, eg := range res.Egress {
+		if eg.Dropped != "" {
+			rule := trace.RuleID(eg.Dropped)
+			if iface.Port != "" {
+				rule = res.Steps[len(res.Steps)-1].RuleID
+			}
+			s.recordHeldEgressDrop(hf, eg.Port, eg.Member, rule, eg.Dropped, res.Steps)
+			continue
+		}
+		s.call.emissions = append(s.call.emissions, Emission{
+			Port: eg.Port, Member: eg.Member, Frame: eg.Frame, PCP: eg.PCP,
+			Hold: hf.Token, Ingress: hf.Ingress,
+		})
+	}
 }

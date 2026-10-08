@@ -21,6 +21,7 @@ import (
 
 // Child frames isolate their issues while returning their output to the parent.
 type call struct {
+	hold                     routing.HoldToken
 	emissions                []Emission
 	copies                   []traffic.Copy
 	drops                    []NeighborDrop

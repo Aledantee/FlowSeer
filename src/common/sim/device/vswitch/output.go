@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -13,6 +14,8 @@ import (
 // drop produced by one switch call.
 type Output struct {
 	ForwardResult
+	// Hold identifies the frame queued by this call. Zero means none was queued.
+	Hold      routing.HoldToken
 	Emissions []Emission
 	Copies    []traffic.Copy
 	Drops     []NeighborDrop
@@ -62,5 +65,5 @@ func (s *Switch) receive(now time.Time, ingress string, frame ethernet.Frame, mi
 }
 
 func (c *call) output(res ForwardResult) Output {
-	return Output{ForwardResult: res, Emissions: c.emissions, Copies: c.copies, Drops: c.drops}
+	return Output{ForwardResult: res, Hold: c.hold, Emissions: c.emissions, Copies: c.copies, Drops: c.drops}
 }

@@ -7,12 +7,18 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 )
 
 // Emission describes an Ethernet frame to transmit out a port or member port.
 type Emission struct {
-	Port  string
-	Frame ethernet.Frame
+	Port   string
+	Member string
+	Frame  ethernet.Frame
+	// Hold is the released frame's token. Protocol emissions carry zero.
+	Hold routing.HoldToken
+	// Ingress is the held frame's routed ingress interface, empty for origination.
+	Ingress string
 
 	// PCP is the 802.1Q priority the frame queues at on egress. It is carried
 	// rather than left to a reader to re-derive from Frame, because an

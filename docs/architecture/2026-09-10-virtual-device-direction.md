@@ -887,6 +887,21 @@ Amendment 2026-10-07: sending and reception are implemented in
   BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
   solicitation, probe, or answer. The fabric seam that injects emissions needs
   to tell a held user frame apart from a frame the switch originated.
+  On release, the switch evaluates the current ingress binding with the held
+  frame's ingress interface, resolves a deferred decision against its egress
+  interface, and evaluates the egress binding. A refusal carries the filter's
+  reason and steps in `NeighborDrop`. An originated frame meets only the
+  egress binding. This also applies after a derive changes the filter while
+  retaining the routing hold queue
+  (`TestHeldFrameMeetsDerivedIngressFilter` in
+  `src/common/sim/device/vswitch/filter_test.go`).
+  `Output.Hold` is the routing result's token for a held frame. A later
+  `Emission.Hold` or `NeighborDrop.Hold` carries the same token, alongside
+  the held frame's `Ingress`. Protocol emissions carry a zero token.
+  Live and released frames share `putRoutedFrame` in
+  `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
+  priority agree. The fabric transmits a release on that selected member
+  (`src/common/sim/fabric/run.go:injectEmission`).
 
 ### Semantic traces and producer-owned facts
 

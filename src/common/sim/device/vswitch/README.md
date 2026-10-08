@@ -375,11 +375,19 @@ explicit calls:
   applied to the named port.
 - `Advance(now)` fires due timers, removes expired dynamic forwarding and
   multicast entries, and settles neighbor resolution. It returns protocol
-  frames and released held frames in `Output.Emissions`. A sub-interface's
-  held frame leaves tagged on its parent port. Hold-queue exits that reach no
-  wire appear in `Output.Drops`, with the refusing stage's reason and port.
+  frames and released held frames in `Output.Emissions`. At release, the
+  frame meets the current ingress binding, its deferred decision resolved
+  against the egress interface, and the egress binding. An originated frame
+  meets the egress binding alone. Live and released frames use
+  `route.go:putRoutedFrame`, preserving the port, selected member, tags, and
+  priority. Hold-queue exits that reach no wire appear in `Output.Drops`,
+  with the refusing stage's reason and steps.
   A VLAN interface with no single port leaves the drop's port empty, so the
   fabric records the journey without inventing a port counter.
+  `Output.Hold` identifies a queued frame. Its later emission or drop
+  carries that token in `Hold` and its routed ingress interface in
+  `Ingress`. Protocol emissions carry a zero token
+  (`TestHeldOutputKeepsReleaseIdentity` in `held_test.go`).
 - `NextWake()` reports the earliest deadline across the timed layers.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.

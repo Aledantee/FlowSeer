@@ -25,6 +25,74 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestHeldOutputKeepsReleaseIdentity(t *testing.T) {
+	sw := buildBaseRoutingSwitch(t)
+	dst := netip.MustParseAddr("10.0.20.88")
+	frame := ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, ipH1, dst, 64, []byte("same-payload")),
+	}
+	first := sw.Receive(fixedTime, "1/1/1", frame)
+	second := sw.Receive(fixedTime, "1/1/1", frame)
+	if first.Outcome != trace.Held || second.Outcome != trace.Held || first.Hold == 0 || second.Hold == 0 || first.Hold == second.Hold {
+		t.Fatalf("holds = %s/%d, %s/%d, want distinct nonzero tokens", first.Outcome, first.Hold, second.Outcome, second.Hold)
+	}
+	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
+	out := sw.Receive(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+	if len(out.Drops) != 0 || len(out.Emissions) != 2 {
+		t.Fatalf("release = %+v, want exactly two data emissions", out)
+	}
+	for i, token := range []routing.HoldToken{first.Hold, second.Hold} {
+		if em := out.Emissions[i]; em.Protocol || em.Hold != token || em.Ingress != "vlan10" {
+			t.Errorf("emission %d = %+v, want token %d and ingress vlan10", i, em, token)
+		}
+	}
+	if out.Hold != 0 {
+		t.Errorf("observing reply hold = %d, want zero", out.Hold)
+	}
+}
+
+func TestTimedOutHeldOutputKeepsIdentity(t *testing.T) {
+	sw := buildBaseRoutingSwitch(t)
+	dst := netip.MustParseAddr("10.0.20.88")
+	held := sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, ipH1, dst, 64, []byte("timeout")),
+	})
+	if held.Outcome != trace.Held || held.Hold == 0 {
+		t.Fatalf("hold = %s/%d, want held with nonzero token", held.Outcome, held.Hold)
+	}
+	sw.Advance(fixedTime.Add(time.Second))
+	sw.Advance(fixedTime.Add(2 * time.Second))
+	out := sw.Advance(fixedTime.Add(3 * time.Second))
+	if len(out.Drops) != 1 {
+		t.Fatalf("drops = %+v, want exactly one timeout", out.Drops)
+	}
+	drop := out.Drops[0]
+	if drop.Hold != held.Hold || drop.Ingress != "vlan10" || drop.Reason != routing.ReasonNeighborMiss {
+		t.Fatalf("timeout = %+v, want token %d and ingress vlan10", drop, held.Hold)
+	}
+}
+
+func TestRoutingSolicitationHasNoHoldToken(t *testing.T) {
+	sw := buildBaseRoutingSwitch(t)
+	out := sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
+		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, ipH1, netip.MustParseAddr("10.0.20.88"), 64, []byte("solicit")),
+	})
+	if out.Outcome != trace.Held || out.Hold == 0 || len(out.Emissions) != 1 {
+		t.Fatalf("output = %+v, want a hold and one solicitation", out)
+	}
+	em := out.Emissions[0]
+	if !em.Protocol || em.Hold != 0 || em.Ingress != "" {
+		t.Fatalf("solicitation = %+v, want protocol with zero token and empty ingress", em)
+	}
+	msg, err := arp.Decode(em.Frame)
+	if err != nil || msg.Operation != arp.Request {
+		t.Fatalf("solicitation = %+v/%v, want ARP request", msg, err)
+	}
+}
+
 // TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame is
 // evidence for this change: a released held frame that egresses a balanced
 // LAG with a stale bucket must not attribute lag-rebalance-unmodeled to the

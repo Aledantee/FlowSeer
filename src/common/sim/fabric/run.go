@@ -1345,7 +1345,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 	// em.PCP rather than a priority re-derived from em.Frame: a released held frame leaving an
 	// untagged access port or a routed port carries no tag to derive from, so deriving would
 	// queue at 0 a frame the live path queues at the priority it arrived with.
-	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, em.PCP, "")
+	f.transmit(now, device, em.Port, em.Member, em.Frame, seq, fid, journey, em.PCP, "")
 }
 
 func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
