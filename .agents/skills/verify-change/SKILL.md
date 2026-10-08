@@ -38,10 +38,15 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   rather than linking another worktree's `node_modules`.
 - In the background, make the script the last command of its invocation: a
   trailing `tail` or `echo` reports its own exit code as the gate's.
-- Send output you may need to a file under `$TMPDIR` and grep it afterwards.
-  A pipe through a filter drops lines before you know what the run held, and
-  a `.md`, `.json`, or `.yaml` log written into the worktree is a new file of
-  a verified type, which the marker hook records like any other edit.
+- For output read by a later command, choose a fresh log in the session
+  scratchpad directory and resolve its absolute path before launching the
+  verifier. Reuse that exact path when reading it, across sandbox boundaries:
+  `$TMPDIR` can resolve to different directories in the two commands.
+  Keep `$TMPDIR` for files one command both writes and reads.
+  Grep the saved output afterwards. A pipe through a filter drops lines
+  before you know what the run held, and a `.md`, `.json`, or `.yaml` log
+  written into the worktree is a new file of a verified type, which the
+  marker hook records like any other edit.
 
 `--print-selection` says which modules and dependent modules would be
 checked in which mode, whether the OpenTelemetry tier would run, whether the
