@@ -467,7 +467,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	now := time.Now()
 
 	// Ingress on Unknown oper status port: produces Incomplete issue and does not forward
-	resUnknown := sw.Forward(now, "1/1/1", frame)
+	resUnknown := sw.Receive(now, "1/1/1", frame)
 	if resUnknown.Metadata.Status() != analysis.Incomplete {
 		t.Errorf("unknown oper status Forward status = %v, want Incomplete", resUnknown.Metadata.Status())
 	}
@@ -489,7 +489,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	}
 
 	// Ingress on Known Down port: definite domain drop, NOT mislabeled as incomplete
-	resDown := sw.Forward(now, "1/1/2", frame)
+	resDown := sw.Receive(now, "1/1/2", frame)
 	if resDown.Outcome != trace.Dropped {
 		t.Errorf("known down port outcome = %v, want Dropped", resDown.Outcome)
 	}
@@ -501,7 +501,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	}
 
 	// Ingress on Known Up port: sibling port uncertainty does NOT taint unrelated port
-	resUp := sw.Forward(now, "1/1/3", frame)
+	resUp := sw.Receive(now, "1/1/3", frame)
 	if resUp.Metadata.Status() != analysis.Complete {
 		t.Errorf("unrelated known-up port Forward status = %v, want Complete", resUp.Metadata.Status())
 	}
@@ -511,6 +511,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 }
 
 func TestRepresentativeSemanticTraceSteps(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	ports := twoPortTable(t)
 	cfg := vswitch.Config{
 		Ports: ports,
@@ -545,7 +546,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 		Dst: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 	}
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	// Check that we have typed trace steps exposing decisive rules without string parsing
 	var hasClassify, hasLearn, hasLookup bool
 	for _, step := range res.Steps {
@@ -577,7 +578,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 	}
 
 	// Mirror copies returned
-	copies := sw.Copies()
+	copies := takeCopies(callOutputs, sw)
 	if len(copies) != 1 {
 		t.Fatalf("got %d mirror copies, want 1", len(copies))
 	}

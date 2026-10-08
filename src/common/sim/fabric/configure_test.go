@@ -262,7 +262,7 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 
 	// Retention matches vswitch.Derive on the same pair.
 	targetSpec := fab.Switch("sw1").Spec()
-	derivedDirect, err := vswitch.Derive(swBefore, targetSpec)
+	derivedDirect, _, err := vswitch.Derive(swBefore, targetSpec)
 	if err != nil {
 		t.Fatalf("vswitch.Derive: %v", err)
 	}

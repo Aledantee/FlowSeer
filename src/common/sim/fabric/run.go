@@ -409,10 +409,10 @@ func (f *Fabric) Step() (Entry, bool) {
 		sw := f.switches[arr.Device]
 		if sw != nil {
 			out := sw.Advance(arr.At)
-			for _, em := range append(sw.Drain(), out.Emissions...) {
+			for _, em := range out.Emissions {
 				f.injectEmission(arr.At, arr.Device, em)
 			}
-			for _, drop := range append(sw.DrainNeighborFailures(), out.Drops...) {
+			for _, drop := range out.Drops {
 				f.recordNeighborFailure(arr.At, arr.Device, drop)
 			}
 			f.scheduleWake(arr.Device)
@@ -529,10 +529,10 @@ func (f *Fabric) Step() (Entry, bool) {
 		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
 	}
 	res := out.ForwardResult
-	for _, em := range append(sw.Drain(), out.Emissions...) {
+	for _, em := range out.Emissions {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
-	for _, drop := range append(sw.DrainNeighborFailures(), out.Drops...) {
+	for _, drop := range out.Drops {
 		f.recordNeighborFailure(arr.At, arr.Device, drop)
 	}
 	f.scheduleWake(arr.Device)

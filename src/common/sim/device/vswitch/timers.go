@@ -34,24 +34,6 @@ type Emission struct {
 	Protocol bool
 }
 
-// Age removes dynamic forwarding database entries older than the configured
-// aging time relative to now, advances multicast router and group expiry, and
-// advances the routing layer's neighbor table, applying any hold-queue exits.
-func (s *Switch) Age(now time.Time) {
-	_, end := s.beginCall(now, true)
-	defer end()
-
-	for _, entry := range s.layers(now) {
-		if !entry.age {
-			continue
-		}
-		fx := entry.advance(now)
-		if entry.apply != nil {
-			entry.apply(fx)
-		}
-	}
-}
-
 func (s *Switch) applySTPEffects(fx layer.Effects) {
 	if len(fx.Flush) > 0 && s.bridge != nil {
 		s.bridge.Flush(fx.Flush)
@@ -128,46 +110,6 @@ func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	}
 }
 
-// Drain returns and clears pending frame emissions produced by the protocol layers.
-func (s *Switch) Drain() []Emission {
-	em := s.emissions
-	s.emissions = nil
-
-	return em
-}
-
-// DrainNeighborFailures returns and clears the records made for held frames
-// that reached no wire, the same way [Switch.Drain] returns and clears
-// released frames as emissions. Records are produced by [Switch.Wake],
-// [Switch.Age], or an observing [Switch.Forward]. It is every exit from a
-// hold queue that is not an emission, not timeouts alone: a frame the queue
-// pushed out to make room, and a released frame the bridge or the port table
-// then refused, are both here, each carrying the reason its own stage gave.
-func (s *Switch) DrainNeighborFailures() []NeighborDrop {
-	steps := s.neighborFailures
-	s.neighborFailures = nil
-
-	return steps
-}
-
-// Wake advances the protocol layers to now, firing due timers, flushing bridge entries,
-// and triggering periodic transmissions.
-// On a switch without spanning tree, link aggregation, loop protection, or routing, Wake is a no-op.
-func (s *Switch) Wake(now time.Time) {
-	_, end := s.beginCall(now, true)
-	defer end()
-
-	for _, entry := range s.layers(now) {
-		if entry.timer == nil {
-			continue
-		}
-		fx := entry.advance(now)
-		if entry.apply != nil {
-			entry.apply(fx)
-		}
-	}
-}
-
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
 // and reports whether any timer is active across the switch's timed layers.
 func (s *Switch) NextWake() (time.Time, bool) {
@@ -197,13 +139,14 @@ func (s *Switch) NextWake() (time.Time, bool) {
 
 // Mcheck triggers protocol migration checking on the named port, forcing it to
 // transmit RSTP BPDUs and restarting the migration delay.
-// On a switch without spanning tree configuration, Mcheck is a no-op.
-func (s *Switch) Mcheck(now time.Time, port string) {
-	_, end := s.beginCall(now, true)
+// It returns the emitted BPDUs in Output. Without spanning tree configuration,
+// Mcheck returns an empty Output.
+func (s *Switch) Mcheck(now time.Time, port string) Output {
+	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.stp == nil {
-		return
+		return c.output(ForwardResult{})
 	}
 	resolvedPort := port
 	if p, ok := s.ports.Resolve(port); ok {
@@ -211,6 +154,7 @@ func (s *Switch) Mcheck(now time.Time, port string) {
 	}
 	fx := s.stp.Mcheck(now, resolvedPort)
 	s.applySTPEffects(fx)
+	return c.output(ForwardResult{})
 }
 
 // ClearLoopProtect manually lifts the loop-protection action applied to the

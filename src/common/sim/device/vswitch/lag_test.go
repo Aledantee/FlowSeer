@@ -79,12 +79,16 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 		Add(port.Port{Name: "member", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown, LagParent: "lag1"}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 	sw.Start(fixedTime)
-	sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "member", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 	lagPort, _ := sw.Ports().Port("lag1")
 	if got := lagPort.OperStatus; got != port.Up {
 		t.Fatalf("oper status after link up = %s, want %s", got, port.Up)
 	}
-	sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(fixedTime.Add(2*time.Second), "member", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 	lagPort, _ = sw.Ports().Port("lag1")
 	if got := lagPort.OperStatus; got != port.Down {
 		t.Fatalf("oper status after link down = %s, want %s", got, port.Down)
@@ -92,6 +96,7 @@ func TestLagAggregateOperStatusUsesEffectiveMemberState(t *testing.T) {
 }
 
 func TestLACPDUHandlingAtSwitch(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	macA := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0a}
 	macB := netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x0b}
@@ -130,7 +135,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
+	captureOutput(callOutputs, sw, sw.Start(now))
 
 	pdu := lacp.PDU{
 		Actor: lacp.Info{
@@ -165,7 +170,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 
 	// Forward valid LACPDU on 1/1/1 (member port): Consumed with lag layer step and LACPDUsRx = 1
-	res := sw.Forward(now, "1/1/1", validFrame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", validFrame))
 	if res.Outcome != trace.Consumed {
 		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
 	}
@@ -178,8 +183,8 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 1 {
 		t.Errorf("after Forward, LACPDUsRx = %d, want 1", info.LACPDUsRx)
 	}
-	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/4" {
-		t.Errorf("Copies() = %+v, want received LACPDU mirrored to 1/1/4", copies)
+	if copies := takeCopies(callOutputs, sw); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/4" {
+		t.Errorf("output copies = %+v, want received LACPDU mirrored to 1/1/4", copies)
 	}
 
 	// Bad TLV length LACPDU: dropped unsupported-lacpdu and counts BadLACPDUs 1
@@ -202,7 +207,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		t.Errorf("after Peek bad, BadLACPDUs = %d, want 0", info.BadLACPDUs)
 	}
 
-	resBad := sw.Forward(now, "1/1/1", badFrame)
+	resBad := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", badFrame))
 	if resBad.Outcome != trace.Dropped {
 		t.Errorf("resBad.Outcome = %s, want Dropped", resBad.Outcome)
 	}
@@ -214,23 +219,22 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	}
 
 	// LACPDU injected at 1/1/3 (no LAG): dropped reserved-address
-	resNonMember := sw.Forward(now, "1/1/3", validFrame)
+	resNonMember := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/3", validFrame))
 	if resNonMember.Outcome != trace.Dropped {
 		t.Errorf("resNonMember.Outcome = %s, want Dropped", resNonMember.Outcome)
 	}
 	if resNonMember.Reason != bridge.ReasonReservedAddress {
 		t.Errorf("resNonMember.Reason = %s, want %s", resNonMember.Reason, bridge.ReasonReservedAddress)
 	}
-
-	sw.Wake(now.Add(90*time.Second - time.Nanosecond))
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(90*time.Second-time.Nanosecond)))
 	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Current {
 		t.Fatalf("member before slow receive timeout = %+v, want Current despite peer Short timeout", info)
 	}
-	sw.Wake(now.Add(90 * time.Second))
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(90*time.Second)))
 	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Expired || info.Enabled || info.Actor.State&lacp.StateExpired == 0 {
 		t.Fatalf("member at slow receive timeout = %+v, want Expired and disabled", info)
 	}
-	sw.Wake(now.Add(93 * time.Second))
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(93*time.Second)))
 	if info := sw.MemberInfo("1/1/1"); info.Status != lag.Defaulted || info.Partner != (lacp.Info{State: 0x18}) || info.Actor.State&0xc0 != 0x40 {
 		t.Fatalf("member after Expired timeout = %+v, want Defaulted with administrative Partner", info)
 	}
@@ -270,7 +274,7 @@ func TestDefaultLAGSelectionLowestMember(t *testing.T) {
 		Payload:   []byte("data"),
 	}
 
-	res := sw.Forward(now, "1/1/3", frame)
+	res := sw.Receive(now, "1/1/3", frame)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("res.Outcome = %s, want Flooded", res.Outcome)
 	}
@@ -339,9 +343,12 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	if roles["lag1"].PathCost != 2000 {
 		t.Errorf("lag1 PathCost = %d, want 2000 (10 Gbps)", roles["lag1"].PathCost)
 	}
+	if _,
 
-	// Member 1/1/1 goes down through LinkChange
-	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000)
+		// Member 1/1/1 goes down through LinkChange
+		err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
 	if !ok || mem != "1/1/2" {
@@ -352,9 +359,12 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	if roles["lag1"].PathCost != 20000 {
 		t.Errorf("after link down, lag1 PathCost = %d, want 20000 (1 Gbps)", roles["lag1"].PathCost)
 	}
+	if _,
 
-	// Both members down: lag1 has no enabled member
-	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+		// Both members down: lag1 has no enabled member
+		err := sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
 	if ok {
 		t.Fatalf("after all links down, SelectMember returned %q, want false", mem)
@@ -380,10 +390,12 @@ func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
-		t.Fatalf("SetOperStatus: %v", err)
+	if _, err := sw.LinkChange(time.Time{}, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+		t.Fatalf("LinkChange: %v", err)
 	}
-	sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 	p, _ := sw.Ports().Port("lag1")
 	if p.OperStatus != port.Down {
 		t.Fatalf("lag1 OperStatus = %v, want Down as soon as its member row is down", p.OperStatus)
@@ -429,10 +441,10 @@ func TestForwardCommitsLAGSelectionPeekDoesNot(t *testing.T) {
 	peeked := mustSwitch(t, cfg)
 	peeked.Peek(fixedTime, "in", frame)
 	peeked.Peek(fixedTime, "in", frame)
-	peekedResult := peeked.Forward(fixedTime, "in", frame)
+	peekedResult := peeked.Receive(fixedTime, "in", frame)
 
 	fresh := mustSwitch(t, cfg)
-	freshResult := fresh.Forward(fixedTime, "in", frame)
+	freshResult := fresh.Receive(fixedTime, "in", frame)
 
 	if !reflect.DeepEqual(peekedResult.Result, freshResult.Result) {
 		t.Errorf("Peek committed LAG selection state:\npeeked = %+v\nfresh  = %+v", peekedResult.Result, freshResult.Result)
@@ -449,14 +461,14 @@ func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
 	ten := 10 * time.Second
 
 	sw := mustSwitch(t, balancedLAGConfig(t, &ten))
-	sw.Forward(t0, "in", frame)
+	sw.Receive(t0, "in", frame)
 
-	at9 := sw.Forward(t0.Add(9*time.Second), "in", frame)
+	at9 := sw.Receive(t0.Add(9*time.Second), "in", frame)
 	if at9.Metadata.Status() != analysis.Complete {
 		t.Errorf("status at t0+9s = %v, want Complete: issues=%+v", at9.Metadata.Status(), at9.Metadata.Issues())
 	}
 
-	at10 := sw.Forward(t0.Add(10*time.Second), "in", frame)
+	at10 := sw.Receive(t0.Add(10*time.Second), "in", frame)
 	if at10.Metadata.Status() != analysis.Incomplete {
 		t.Errorf("status at t0+10s = %v, want Incomplete", at10.Metadata.Status())
 	}
@@ -466,9 +478,9 @@ func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
 
 	zero := time.Duration(0)
 	swDisabled := mustSwitch(t, balancedLAGConfig(t, &zero))
-	swDisabled.Forward(t0, "in", frame)
+	swDisabled.Receive(t0, "in", frame)
 	for _, at := range []time.Time{t0.Add(9 * time.Second), t0.Add(10 * time.Second)} {
-		res := swDisabled.Forward(at, "in", frame)
+		res := swDisabled.Receive(at, "in", frame)
 		if res.Metadata.Status() != analysis.Complete {
 			t.Errorf("RebalanceInterval=0 at %v: status = %v, want Complete", at, res.Metadata.Status())
 		}
@@ -510,14 +522,14 @@ func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
 	outFrame := ethernet.Frame{Dst: outDst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 2}}
 
 	t0 := fixedTime
-	sw.Forward(t0, "in", lagFrame)
+	sw.Receive(t0, "in", lagFrame)
 
-	lagRes := sw.Forward(t0.Add(10*time.Second), "in", lagFrame)
+	lagRes := sw.Receive(t0.Add(10*time.Second), "in", lagFrame)
 	if !hasIssueCode(lagRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
 		t.Fatalf("journey through lag1 issues = %+v, want lag-rebalance-unmodeled", lagRes.Metadata.Issues())
 	}
 
-	outRes := sw.Forward(t0.Add(10*time.Second), "in", outFrame)
+	outRes := sw.Receive(t0.Add(10*time.Second), "in", outFrame)
 	if hasIssueCode(outRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
 		t.Errorf("unrelated journey through out issues = %+v, want no lag-rebalance-unmodeled", outRes.Metadata.Issues())
 	}

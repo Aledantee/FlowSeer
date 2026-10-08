@@ -46,7 +46,7 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 			}
 
 			targetConfig := lagDeriveConfig(t, test.admin, test.oper)
-			derived, err := vswitch.Derive(current, vswitch.ConstructionSpec{Config: targetConfig})
+			derived, _, err := vswitch.Derive(current, vswitch.ConstructionSpec{Config: targetConfig})
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
@@ -58,8 +58,8 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 				t.Errorf("derived selection = (%q, %t), fresh = (%q, %t)", derivedMember, derivedOK, freshMember, freshOK)
 			}
 
-			derivedResult := derived.Forward(fixedTime, "in", frame)
-			freshResult := fresh.Forward(fixedTime, "in", frame)
+			derivedResult := derived.Receive(fixedTime, "in", frame)
+			freshResult := fresh.Receive(fixedTime, "in", frame)
 			if !reflect.DeepEqual(derivedResult.Result, freshResult.Result) {
 				t.Errorf("derived forwarding = %+v, fresh = %+v", derivedResult.Result, freshResult.Result)
 			}
@@ -92,8 +92,8 @@ func TestPortInsertionOrderDoesNotChangeConfigurationOrForwardingSemantics(t *te
 	}
 
 	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}}
-	aResult := mustSwitch(t, a).Forward(fixedTime, "ingress", frame).Result
-	bResult := mustSwitch(t, b).Forward(fixedTime, "ingress", frame).Result
+	aResult := mustSwitch(t, a).Receive(fixedTime, "ingress", frame).Result
+	bResult := mustSwitch(t, b).Receive(fixedTime, "ingress", frame).Result
 	if !reflect.DeepEqual(aResult, bResult) {
 		t.Errorf("forwarding differs by insertion order:\n a: %+v\n b: %+v", aResult, bResult)
 	}
@@ -162,7 +162,7 @@ func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
 				ports := mustTable(t, port.NewBuilder().
 					Add(port.Port{Name: "member", LagParent: "lag1", AdminStatus: port.Up, OperStatus: state.memberOper}).
 					Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: state.parentOper}))
-				res := mustSwitch(t, pipeline.cfg(ports)).Forward(fixedTime, "member", pipeline.frame)
+				res := mustSwitch(t, pipeline.cfg(ports)).Receive(fixedTime, "member", pipeline.frame)
 				if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 					t.Fatalf("result = %s/%s, want Dropped/port-down", res.Outcome, res.Reason)
 				}
@@ -200,6 +200,7 @@ func lagDeriveConfig(t *testing.T, admin, oper port.LinkState) vswitch.Config {
 }
 
 func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("mirror")}
 	for _, output := range []string{"direct", "output VLAN", "output VLAN LAG"} {
 		for _, test := range []struct {
@@ -216,9 +217,9 @@ func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
 				cfg, dependency := mirrorOutputConfig(t, output, test.state)
 				sw := mustSwitch(t, cfg)
 
-				res := sw.Forward(fixedTime, "in", frame)
-				if got := len(sw.Copies()); got != test.wantCopies {
-					t.Errorf("Copies() count = %d, want %d", got, test.wantCopies)
+				res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "in", frame))
+				if got := len(takeCopies(callOutputs, sw)); got != test.wantCopies {
+					t.Errorf("output copies count = %d, want %d", got, test.wantCopies)
 				}
 				if got := res.Metadata.Status(); got != test.wantStatus {
 					t.Errorf("status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
@@ -249,6 +250,7 @@ func TestMirrorCopiesRequireReadyOutputs(t *testing.T) {
 }
 
 func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	const outputVLAN vlan.ID = 99
 
 	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("mirror")}
@@ -298,7 +300,7 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 				t.Fatalf("test does not distinguish logical VLAN selection: VLAN 99 = %q, VLAN 0 = %q", wantMember, inferredMember)
 			}
 
-			res := sw.Forward(fixedTime, "in", frame)
+			res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "in", frame))
 			step, ok := mirrorCopyStep(res.Steps)
 			if !ok {
 				t.Fatalf("steps = %+v, want mirror copy decision", res.Steps)
@@ -312,7 +314,7 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 			if !strings.Contains(selection, `;vid=99;`) || !strings.Contains(selection, `;member="`+wantMember+`";`) {
 				t.Errorf("LAG selection fact = %q, want logical VID 99 and member %q", selection, wantMember)
 			}
-			copies := sw.Copies()
+			copies := takeCopies(callOutputs, sw)
 			if len(copies) != 1 || copies[0].Member != wantMember {
 				t.Errorf("mirror copies = %+v, want selected member %q retained for transmission", copies, wantMember)
 			}
@@ -350,7 +352,7 @@ func TestMirrorCopyDependenciesRetainLoadedConstructionIssues(t *testing.T) {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
 
-			res := sw.Forward(fixedTime, "in", frame)
+			res := sw.Receive(fixedTime, "in", frame)
 			if got := res.Metadata.Status(); got != analysis.Unsupported {
 				t.Fatalf("status = %s, want Unsupported; issues: %+v", got, res.Metadata.Issues())
 			}
@@ -367,14 +369,14 @@ func TestMirrorCopyDependenciesRetainLoadedConstructionIssues(t *testing.T) {
 }
 
 func TestPeekCalculatesMirrorDependenciesWithoutReplacingPendingCopies(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	cfg, _ := mirrorOutputConfig(t, "direct", port.Up)
 	sw := mustSwitch(t, cfg)
 	pending := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("pending")}
 	peeked := ethernet.Frame{Src: netaddr.MAC{6}, Dst: netaddr.MAC{8}, Payload: []byte("peeked")}
-
-	sw.Forward(fixedTime, "in", pending)
-	if err := sw.SetOperStatus("mirror", port.Unknown); err != nil {
-		t.Fatalf("SetOperStatus: %v", err)
+	captureOutput(callOutputs, sw, sw.Receive(fixedTime, "in", pending))
+	if _, err := sw.LinkChange(time.Time{}, "mirror", port.Unknown, vswitch.PointToPointTrue, 0); err != nil {
+		t.Fatalf("LinkChange: %v", err)
 	}
 	res := sw.Peek(fixedTime, "in", peeked)
 	if got := res.Metadata.Status(); got != analysis.Incomplete {
@@ -385,7 +387,7 @@ func TestPeekCalculatesMirrorDependenciesWithoutReplacingPendingCopies(t *testin
 		t.Errorf("Peek steps = %+v, want mirror copy drop", res.Steps)
 	}
 
-	copies := sw.Copies()
+	copies := takeCopies(callOutputs, sw)
 	if len(copies) != 1 || !slices.Equal(copies[0].Frame.Payload, pending.Payload) {
 		t.Errorf("pending copies = %+v, want original Forward copy", copies)
 	}

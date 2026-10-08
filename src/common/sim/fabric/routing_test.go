@@ -1755,8 +1755,18 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	if derived.Retention()["sw1"].Routing.Kept {
 		t.Errorf("sw1 routing retention = %+v, want Kept: false", derived.Retention()["sw1"].Routing)
 	}
-	failures := derived.Switch("sw1").DrainNeighborFailures()
+	var failures []fabric.Entry
+	for _, journey := range derived.Report() {
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryDrop && entry.Device == "sw1" {
+				failures = append(failures, entry)
+			}
+		}
+	}
 	if len(failures) != 1 {
-		t.Errorf("sw1 neighbor failures = %d, want 1 failed held frame", len(failures))
+		t.Fatalf("sw1 drop journeys = %d, want 1 failed held frame", len(failures))
+	}
+	if failures[0].At != derived.Snapshot().Clock || failures[0].Reason != routing.ReasonNeighborMiss {
+		t.Errorf("derive drop = %+v, want neighbor-miss at derived clock", failures[0])
 	}
 }

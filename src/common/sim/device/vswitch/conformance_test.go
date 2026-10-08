@@ -84,8 +84,8 @@ func TestConformanceResultCanonicality(t *testing.T) {
 	}
 
 	// Current-first and candidate-first execution
-	resCur := swA.Forward(t0, "1/1/1", frame)
-	resCand := swB.Forward(t0, "1/1/1", frame)
+	resCur := swA.Receive(t0, "1/1/1", frame)
+	resCand := swB.Receive(t0, "1/1/1", frame)
 
 	if len(resCur.Egress) != len(resCand.Egress) {
 		t.Fatalf("egress counts mismatch: %d vs %d", len(resCur.Egress), len(resCand.Egress))
@@ -172,8 +172,8 @@ func TestConformanceTraceFactStability(t *testing.T) {
 
 	sw1 := buildSw()
 	sw2 := buildSw()
-	res1 := sw1.Forward(t0, "1/1/1", frame)
-	res2 := sw2.Forward(t0, "1/1/1", frame)
+	res1 := sw1.Receive(t0, "1/1/1", frame)
+	res2 := sw2.Receive(t0, "1/1/1", frame)
 
 	if len(res1.Steps) != len(res2.Steps) {
 		t.Fatalf("steps count mismatch: %d vs %d", len(res1.Steps), len(res2.Steps))
@@ -226,18 +226,18 @@ func TestConformanceDeriveInvalidation(t *testing.T) {
 	}
 
 	// 1. Initial state: port 1/1/2 is UP, flooded packet egresses out 1/1/2
-	resUp := sw.Forward(t0, "1/1/1", frame)
+	resUp := sw.Receive(t0, "1/1/1", frame)
 	if len(resUp.Egress) != 1 || resUp.Egress[0].Port != "1/1/2" {
 		t.Fatalf("initial egress = %+v, want egress on 1/1/2", resUp.Egress)
 	}
 
 	// 2. Invalidation: set port 1/1/2 Down
-	if err := sw.SetOperStatus("1/1/2", port.Down); err != nil {
-		t.Fatalf("SetOperStatus: %v", err)
+	if _, err := sw.LinkChange(time.Time{}, "1/1/2", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+		t.Fatalf("LinkChange: %v", err)
 	}
 
 	// 3. Derived state invalidated: packet must not egress on down port
-	resDown := sw.Forward(t0, "1/1/1", frame)
+	resDown := sw.Receive(t0, "1/1/1", frame)
 	for _, eg := range resDown.Egress {
 		if eg.Port == "1/1/2" && eg.Dropped == "" {
 			t.Fatalf("egress on down port 1/1/2 was not invalidated: %+v", resDown.Egress)
@@ -483,7 +483,7 @@ func TestForwardResultSeparatesDomainOutcomeFromReadiness(t *testing.T) {
 		Payload:   []byte("test"),
 	}
 
-	res := sw.Forward(now, "1/1/1", f)
+	res := sw.Receive(now, "1/1/1", f)
 	if res.Outcome != trace.Dropped {
 		t.Errorf("Outcome = %v, want %v", res.Outcome, trace.Dropped)
 	}

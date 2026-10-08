@@ -55,7 +55,7 @@ func compareResults(cur, exp ForwardResult) Comparison {
 // egress PCP, and mirror copies. Semantic traces and metadata are diagnostic and never
 // make a Different.
 func Compare(a, b *Switch, now time.Time, port string, f ethernet.Frame) Comparison {
-	return compareResults(a.Peek(now, port, f), b.Peek(now, port, f))
+	return compareResults(a.Peek(now, port, f).ForwardResult, b.Peek(now, port, f).ForwardResult)
 }
 
 func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {

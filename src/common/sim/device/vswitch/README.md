@@ -84,11 +84,12 @@ func main() {
 
 	nextSpec := sw.Spec()
 	nextSpec.Config = nextCfg
-	nextSw, err := vswitch.Derive(sw, nextSpec)
+	nextSw, out, err := vswitch.Derive(sw, nextSpec)
 	if err != nil {
 		panic(err)
 	}
 
+	fmt.Printf("derive drops: %d\n", len(out.Drops))
 	cmp := vswitch.Compare(sw, nextSw, now, "1/1/1", frame)
 	fmt.Printf("Disposition: %s\n", cmp.Disposition)
 	if cmp.Disposition == analysis.Different {
@@ -126,11 +127,12 @@ A refused frame still meets due timers. The public aging comparison in
 `output_test.go` checks the former root port's reroot state at `T+5s` and
 `T+16s` against a switch advanced before the BPDU at `T`.
 
-`Forward` retains its direct forwarding semantics. `Age` and `Wake` retain
-their respective layer subsets. These entries, `Start`, `LinkChange`,
-`Mcheck`, and `Derive` leave output for `Drain`, `Copies`, and
-`DrainNeighborFailures`. A call to `Receive` or `Advance` preserves that
-earlier pending output separately from its own returned value.
+`Start`, `Mcheck`, and `Derive` return `Output` with a zero forwarding
+result. `LinkChange` returns `(Output, error)` and rejects an absent port or
+invalid link state before changing runtime state. `Peek` returns the result
+and mirror copies without advancing timers, policing, receiving protocol
+observations, or learning. The switch holds no output between calls
+(`switch.go`, `TestSwitchHoldsNoPendingOutput`).
 
 ## Capability ladder
 
@@ -241,11 +243,11 @@ The virtual switch uses a ladder of architectural layers:
   output ports from ordinary ingress and egress, then creates selected mirror
   copies after bridge, hub, or routed forwarding. A copy is exposed only when
   its output port and any selected LAG member are known up. Unknown output state
-  suppresses the copy and makes the forwarding result incomplete; known-down
-  state suppresses it with complete readiness. `Copies` returns and clears the
+  suppresses the copy and makes the forwarding result incomplete. Known-down
+  state suppresses it with complete readiness. `Output.Copies` carries the
   admitted copies so the fabric can enqueue them as separate transmissions.
-  `Police` applies the switch-owned token bucket when the fabric checks a frame
-  at arrival, while `QueueMaxRate` gives the fabric scheduler the maximum rate
+  `Receive` applies the switch-owned token bucket at arrival, while
+  `QueueMaxRate` gives the fabric scheduler the maximum rate
   for an egress port and PCP.
 
 Optional physical subsystems (`phy.Config`) provide physical Ethernet speed
@@ -366,46 +368,26 @@ explicit calls:
   ([PointToPoint]) conveys operational point-to-point duplex status. For a LAG
   member, it notifies the aggregation layer, updates the LAG port's operational
   state, and informs spanning tree of the LAG's link and speed from the enabled
-  members.
-- `SetOperStatus(port, state)` rewrites the port in the switch's and the
-  relay's tables and tells the protocol layers nothing, since only the caller
-  knows whether a member's change moves its LAG; it follows with `LinkChange`.
-  An invalid link state or an absent port returns a structured error without
-  changing either table.
+  members. It returns the call's emissions and drops in `Output`, or an
+  error for an absent port or invalid link state without changing either table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `ClearLoopProtect(now, port)` manually lifts the loop-protection action
   applied to the named port.
-- `Wake(now)` fires due timers across spanning tree, loop protection, link
-  aggregation, and neighbor resolution, flushing bridge entries, triggering
-  periodic transmissions, aging reachable neighbor entries to stale, releasing
-  a held frame whose entry resolved since the last wake, and failing one whose
-  resolution deadline passed. A sub-interface's held frames leave tagged on its
-  parent port rather than through the bridge.
-- `Age(now)` removes dynamic forwarding database entries older than the configured
-  aging time relative to now, advances multicast router and group expiry, and
-  advances the routing layer's neighbor table, applying any hold-queue exits.
-- `NextWake()` reports the earliest deadline when the switch needs a wake
-  across all four layers.
-- `Drain()` returns and clears pending frame emissions produced by the
-  protocol layers and by a released held frame.
-- `DrainNeighborFailures()` returns and clears the `NeighborDrop` records that
-  `Wake`, `Age`, or an observing `Forward` made for held frames that reached no
-  wire, the released half's counterpart: a frame that vanished with neither a
-  record nor an emission would be the same silent answer the neighbor lifecycle
-  exists to remove. It is every exit from a hold queue that is not an emission,
-  not timeouts alone: a frame the queue pushed out to make room under
-  `routing.ReasonNeighborHoldOverflow`, and a released frame the bridge or
-  the port table then refused, are both here. Each record carries the reason
-  the refusing stage gave and the port it is counted against, empty when no
-  single port owns it, so a consumer is told what happened rather than
-  assuming a neighbor miss and counting it against a name that is not a port.
+- `Advance(now)` fires due timers, removes expired dynamic forwarding and
+  multicast entries, and settles neighbor resolution. It returns protocol
+  frames and released held frames in `Output.Emissions`. A sub-interface's
+  held frame leaves tagged on its parent port. Hold-queue exits that reach no
+  wire appear in `Output.Drops`, with the refusing stage's reason and port.
+  A VLAN interface with no single port leaves the drop's port empty, so the
+  fabric records the journey without inventing a port counter.
+- `NextWake()` reports the earliest deadline across the timed layers.
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
 - `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
   frame egressing a LAG outside the bridge pipeline, such as a fabric
   transmission. The bridge's own LAG egress commits exactly when the forwarding
-  call that produced it does (`Forward` commits, `Peek` does not).
+  call that produced it does (`Receive` commits, `Peek` does not).
 
 On a switch configured with `stp.Config`, a frame addressed to
 01-80-C2-00-00-00 is intercepted before relay processing; its trace ends with
@@ -417,9 +399,9 @@ A frame addressed to 01-00-0C-CC-CC-CD is intercepted the same way, with one
 more source of `port-down`: the layer's own per-port link state, tracked
 separately from the port table's up/down check above, refuses a port it has
 not configured or has not yet seen a link-up event for, even though the port
-table itself calls the port up. `Forward` and `Peek` agree on this: `Peek`
+table itself calls the port up. `Receive` and `Peek` agree on this: `Peek`
 asks the layer's `PortLinked` directly rather than deriving the answer from a
-snapshot, so it renders `port-down` for exactly the ports `Forward` would.
+snapshot, so it renders `port-down` for exactly the ports `Receive` would.
 Its VLAN and whether it counts as tagged both come from one test of the outer
 tag's TPID, the same test the bridge's own ingress classification makes,
 rather than from the bridge's ingress pipeline itself: that pipeline applies the spanning tree gate, and the ports a tree
@@ -541,7 +523,8 @@ Exported constructors validate and normalize configurations:
   [bridge.Layer.Clone] provides the underlying bridge copy, cloning FDB entries,
   dynamic counts, and counters while resetting bindings for the caller to
   rebind. Neither `Fork` nor `Clone` blocks or allocates goroutines.
-- [Switch.Forward] and [Switch.Peek] return [ForwardResult], combining the domain
+- [Switch.Receive] and [Switch.Peek] return [Output], embedding [ForwardResult]
+  and carrying emissions, copies, and held-frame drops. The result combines the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
   and attaches an Incomplete issue scoped to that port, while known-down ports
@@ -617,8 +600,8 @@ Runtime hit sets belong to one call (`issues.go`, `call`). A held frame that
 releases when an ARP reply arrives has its own call, so its multicast query
 or LAG rebalance condition does not appear on the reply's result. Routing
 emissions and `SelectMember` also discard their own hits because they return
-no forwarding result. `ComposeForwardResult` starts with empty hit sets,
-so a policed drop cannot inherit an earlier held frame's unresolved neighbor.
+no forwarding result. `Receive` starts with empty hit sets, so a policed
+drop cannot inherit an earlier held frame's unresolved neighbor.
 `issues_internal_test.go` checks these boundaries and cleanup at every entry.
 
 ```mermaid

@@ -54,7 +54,7 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 		Metadata: newMetadata,
 	}
 
-	next, err := vswitch.Derive(cur, target)
+	next, _, err := vswitch.Derive(cur, target)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -95,7 +95,7 @@ func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
 		{name: "static target remains authoritative", lifetime: bridge.Static, wantPort: "old", wantTime: oldTime, wantLifetime: bridge.Static},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
+			next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
 				Config: cfg,
 				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Lifetime: test.lifetime, LearnedAt: oldTime}},
 			})
@@ -130,11 +130,11 @@ func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
 		}},
 	}
 	cur := mustSwitch(t, cfg)
-	cur.Forward(now, "1/1/1", ethernet.Frame{
+	cur.Receive(now, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -158,11 +158,11 @@ func TestDeriveKeepsAnEntryLearnedOnATunnelPort(t *testing.T) {
 		}},
 	}
 	cur := mustSwitch(t, cfg)
-	cur.Forward(now, "1/1/1", ethernet.Frame{
+	cur.Receive(now, "1/1/1", ethernet.Frame{
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -180,13 +180,13 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 	macA := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0a}
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0b}
 
-	cur.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	cur.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Src:       macA,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   []byte("frame A"),
 	})
-	cur.Forward(fixedTime.Add(time.Second), "1/1/1", ethernet.Frame{
+	cur.Receive(fixedTime.Add(time.Second), "1/1/1", ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Src:       macB,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -197,7 +197,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 		t.Fatalf("current switch has %d entries, want 2", len(entries))
 	}
 
-	derived, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg})
+	derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg})
 	if err != nil {
 		t.Fatalf("derive switch: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 		sw := mustSwitch(t, curCfg)
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+		sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
 			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 			Src:       mac,
 			EtherType: ethernet.EtherTypeIPv4,
@@ -242,7 +242,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Bridge: &bridge.Config{},
 		}
 
-		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
 		if err != nil {
 			t.Fatalf("unexpected derive error: %v", err)
 		}
@@ -264,7 +264,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			},
 		}
 
-		if _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
+		if _, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
 			t.Errorf("got nil validation error from Derive, want non-nil")
 		}
 	})
@@ -276,13 +276,13 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 		sw := mustSwitch(t, cfg)
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+		sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
 			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 			Src:       mac,
 			EtherType: ethernet.EtherTypeIPv4,
 		})
 
-		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -308,7 +308,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 		}
 		sw := mustSwitch(t, curCfg)
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-		sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+		sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
 			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 			Src:       mac,
 			EtherType: ethernet.EtherTypeIPv4,
@@ -318,7 +318,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Ports:  ports,
 			Bridge: &bridge.Config{},
 		}
-		derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -329,6 +329,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 }
 
 func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -351,8 +352,8 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -365,15 +366,15 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-
-	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", mustEncode(t, b, macRoot)))
 
 	rolesBefore := sw.Roles()
 	if rolesBefore["1/1/1"].Role != bpdu.RoleRoot || rolesBefore["1/1/1"].State != stp.StateForwarding {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
 	}
 
-	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	captureOutput(callOutputs, derived, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -389,6 +390,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 // address the switch assigned does not read as a change that rebuilds the
 // layer.
 func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -408,8 +410,8 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 		t.Fatal("New left the bridge address zero")
 	}
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -421,12 +423,13 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 	}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-	sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", mustEncode(t, b, macRoot)))
 	if before := sw.Roles()["1/1/1"]; before.Role != bpdu.RoleRoot || before.State != stp.StateForwarding {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
 	}
 
-	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	captureOutput(callOutputs, derived, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -448,9 +451,9 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
+	sw.Receive(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
-	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -459,7 +462,7 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
 
-	res := derived.Forward(now, "1/1/1", data)
+	res := derived.Receive(now, "1/1/1", data)
 	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortBlocked {
 		t.Fatalf("derived switch, ordinary frame on the blocked port = %s/%s, want %s/%s",
 			res.Outcome, res.Reason, trace.Dropped, bridge.ReasonPortBlocked)
@@ -473,7 +476,7 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 // keyed to the link staying up throughout, so a state change invalidates the
 // retained runtime state rather than just the configuration.
 //
-// It changes the current switch's live operational state with SetOperStatus,
+// It changes the current switch's live operational state with LinkChange,
 // which mutates only s.ports and never notifies the loop-protection layer,
 // so it isolates what Derive itself does with the mismatch: the target
 // configuration (sw.Config()) still reads the port Up, so the derived port
@@ -484,28 +487,28 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
+	sw.Receive(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
 	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
 
-	precondition := sw.Forward(now, "1/1/1", data)
+	precondition := sw.Receive(now, "1/1/1", data)
 	if precondition.Outcome != trace.Dropped || precondition.Reason != bridge.ReasonPortBlocked {
 		t.Fatalf("precondition: current switch on 1/1/1 = %s/%s, want %s/%s",
 			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
 	}
 
-	if err := sw.SetOperStatus("1/1/1", port.Down); err != nil {
-		t.Fatalf("SetOperStatus: %v", err)
+	if _, err := sw.LinkChange(time.Time{}, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+		t.Fatalf("LinkChange: %v", err)
 	}
 
-	derived, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
 
-	res := derived.Forward(now, "1/1/1", data)
+	res := derived.Receive(now, "1/1/1", data)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("derived switch after the current switch's port state diverged from the target: 1/1/1 = %s/%s, want %s: the rebuilt layer's action should have cleared",
 			res.Outcome, res.Reason, trace.Flooded)
@@ -531,7 +534,7 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 	})
 	nextCfg.Routing.VRFs["default"] = defaultVRF
 
-	nextSw, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	nextSw, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
@@ -544,7 +547,7 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := nextSw.Forward(fixedTime, "1/1/1", frame)
+	res := nextSw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
 		t.Fatalf("outcome = %v, want Forwarded or Flooded", res.Outcome)
 	}
@@ -566,31 +569,33 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 // [TestDeriveKeepsObservedNeighborsAndDropsHeldFrames], which changes
 // nothing and requires the opposite, a resolved forward.
 func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dst := netip.MustParseAddr("10.0.20.77")
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
 	pkt := makeIPv4Packet(t, ipH1, dst, 64, []byte("hello"))
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
-	if held := cur.Forward(fixedTime, "1/1/1", frame); held.Outcome != trace.Held {
+	if held := captureOutput(callOutputs, cur, cur.Receive(fixedTime, "1/1/1", frame)); held.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
-	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", reply)
-	cur.Wake(fixedTime.Add(time.Millisecond))
-	cur.Drain()
+	captureOutput(callOutputs, cur, cur.Receive(fixedTime.Add(time.Millisecond), "1/1/2", reply))
+	captureOutput(callOutputs, cur, cur.Advance(fixedTime.Add(time.Millisecond)))
+	takeEmissions(callOutputs, cur)
 
 	nextCfg := cur.Config()
 	defaultVRF := nextCfg.Routing.VRFs["default"]
 	defaultVRF.NeighborPolicy.ReachableTime = 60 * time.Second
 	nextCfg.Routing.VRFs["default"] = defaultVRF
 
-	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
 
-	res := next.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frame)
+	res := captureOutput(callOutputs, next, next.Receive(fixedTime.Add(2*time.Millisecond), "1/1/1", frame))
 	if res.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held: a NeighborPolicy change must rebuild the routing layer, losing the observed neighbor", res.Outcome)
 	}
@@ -602,26 +607,28 @@ func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
 // Derive retains the routing layer's neighbor table and hold queues when the
 // routing retention key is unchanged, and drops them when it is not.
 func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dstA := netip.MustParseAddr("10.0.20.77")
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
 	pktA := makeIPv4Packet(t, ipH1, dstA, 64, []byte("a"))
 	frameA := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktA}
-	cur.Forward(fixedTime, "1/1/1", frameA)
+	captureOutput(callOutputs, cur, cur.Receive(fixedTime, "1/1/1", frameA))
 	replyA := makeARPReply(t, dstA, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
-	cur.Forward(fixedTime.Add(time.Millisecond), "1/1/2", replyA)
-	cur.Wake(fixedTime.Add(time.Millisecond))
-	cur.Drain()
+	captureOutput(callOutputs, cur, cur.Receive(fixedTime.Add(time.Millisecond), "1/1/2", replyA))
+	captureOutput(callOutputs, cur, cur.Advance(fixedTime.Add(time.Millisecond)))
+	takeEmissions(callOutputs, cur)
 
 	dstB := netip.MustParseAddr("10.0.20.88")
 	pktB := makeIPv4Packet(t, ipH1, dstB, 64, []byte("b"))
 	frameB := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktB}
-	if held := cur.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB); held.Outcome != trace.Held {
+	if held := captureOutput(callOutputs, cur, cur.Receive(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB)); held.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
@@ -629,31 +636,32 @@ func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
 		t.Errorf("Routing retention = %+v, want Kept: true", next.Retention().Routing)
 	}
 
-	resA := next.Forward(fixedTime.Add(3*time.Millisecond), "1/1/1", frameA)
+	resA := captureOutput(callOutputs, next, next.Receive(fixedTime.Add(3*time.Millisecond), "1/1/1", frameA))
 	if resA.Outcome != trace.Flooded && resA.Outcome != trace.Forwarded {
 		t.Fatalf("outcome for the retained neighbor = %v, want Forwarded or Flooded", resA.Outcome)
 	}
 
-	// Held frame survived Derive: resolve it via ARP reply and Wake
+	// Held frame survived Derive: resolve it via ARP reply and Advance
 	learnedMACB := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x88}
 	replyB := makeARPReply(t, dstB, netip.MustParseAddr("10.0.20.1"), learnedMACB, macRouter)
-	next.Forward(fixedTime.Add(4*time.Millisecond), "1/1/2", replyB)
-	next.Wake(fixedTime.Add(4 * time.Millisecond))
-	if emissions := next.Drain(); len(emissions) == 0 {
+	captureOutput(callOutputs, next, next.Receive(fixedTime.Add(4*time.Millisecond), "1/1/2", replyB))
+	captureOutput(callOutputs, next, next.Advance(fixedTime.Add(4*time.Millisecond)))
+	if emissions := takeEmissions(callOutputs, next); len(emissions) == 0 {
 		t.Errorf("emissions = 0, want released held frame")
 	}
-	if failures := next.DrainNeighborFailures(); len(failures) != 0 {
+	if failures := takeDrops(callOutputs, next); len(failures) != 0 {
 		t.Errorf("neighbor failures = %d, want 0", len(failures))
 	}
 }
 
 func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	cur := buildBaseRoutingSwitch(t)
 
 	dstB := netip.MustParseAddr("10.0.20.88")
 	pktB := makeIPv4Packet(t, ipH1, dstB, 64, []byte("b"))
 	frameB := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pktB}
-	if held := cur.Forward(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB); held.Outcome != trace.Held {
+	if held := captureOutput(callOutputs, cur, cur.Receive(fixedTime.Add(2*time.Millisecond), "1/1/1", frameB)); held.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
@@ -663,7 +671,8 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
 
-	next, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
@@ -671,7 +680,7 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 		t.Errorf("Routing retention = %+v, want Kept: false", next.Retention().Routing)
 	}
 	// Held frame is reported as failed rather than silently lost
-	if failures := next.DrainNeighborFailures(); len(failures) != 1 {
+	if failures := takeDrops(callOutputs, next); len(failures) != 1 {
 		t.Errorf("neighbor failures = %d, want 1", len(failures))
 	}
 }

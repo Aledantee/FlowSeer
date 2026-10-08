@@ -10,13 +10,14 @@ import (
 )
 
 // Start initializes the protocol layers with the current link state of every port in the table.
-// On a switch without spanning tree, link aggregation, or loop protection, Start is a no-op.
-func (s *Switch) Start(now time.Time) {
-	_, end := s.beginCall(now, true)
+// It returns protocol emissions in Output. On a switch without spanning tree,
+// link aggregation, or loop protection, Start returns an empty Output.
+func (s *Switch) Start(now time.Time) Output {
+	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.stp == nil && s.lag == nil && s.loopprotect == nil {
-		return
+		return c.output(ForwardResult{})
 	}
 	if s.portP2P == nil {
 		s.portP2P = make(map[string]PointToPoint)
@@ -71,6 +72,7 @@ func (s *Switch) Start(now time.Time) {
 		}
 	}
 	s.recomputeProtocolLinkIssues()
+	return c.output(ForwardResult{})
 }
 
 // linkSpeed is the resolved speed of a port, or of a LAG's fastest member,
@@ -143,7 +145,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
 	lagOper := aggregateOperStatus(s.ports.Members(lagName))
-	s.setOperStatus(lagName, lagOper)
+	_ = s.setOperStatus(lagName, lagOper)
 
 	var enabledMembers []string
 	if s.lag != nil {
@@ -219,12 +221,14 @@ const (
 	PointToPointFalse PointToPoint = "False"
 )
 
-// LinkChange notifies the protocol layers of a link transition on the named port.
-//
-// An invalid operational state or an absent port records a fault on operErr.
-// LinkChange returns nothing and the fault has no exported reader.
-func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) {
-	_, end := s.beginCall(now, true)
+// LinkChange updates the named port and reports the output of its protocol layers.
+// An absent port or a state outside [port.LinkState] returns an error without
+// changing runtime state.
+func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint PointToPoint, speed uint64) (Output, error) {
+	if err := s.setOperStatus(portName, state); err != nil {
+		return Output{}, err
+	}
+	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.portP2P == nil {
@@ -247,15 +251,13 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 		s.portP2P[portName] = pointToPoint
 		s.portSpeed[portName] = speed
 
-		s.setOperStatus(portName, state)
-
 		if s.lag != nil {
 			fx := s.lag.LinkChange(now, portName, up)
 			s.applyLAGEffects(now, fx)
 		}
 		s.updateLagState(now, p.LagParent)
 		s.recomputeProtocolLinkIssues()
-		return
+		return c.output(ForwardResult{}), nil
 	}
 
 	resolvedPort := portName
@@ -264,8 +266,6 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 	}
 	s.portP2P[resolvedPort] = pointToPoint
 	s.portSpeed[resolvedPort] = speed
-
-	s.setOperStatus(resolvedPort, state)
 
 	if s.stp != nil {
 		fx := s.stp.LinkChange(now, resolvedPort, up, p2p, speed)
@@ -276,16 +276,10 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 		s.applyLoopProtectEffects(fx)
 	}
 	s.recomputeProtocolLinkIssues()
+	return c.output(ForwardResult{}), nil
 }
 
-// SetOperStatus updates the operational link state of the named port in the
-// switch's port table and the relay's. It tells the spanning tree layer
-// nothing: only the caller knows whether a member's change moves its LAG or
-// what the link's speed and kind are, so the caller follows with LinkChange.
-// SetOperStatus returns a structured validation error when state is outside
-// the [port.LinkState] domain or the port is absent. On refusal, it leaves both
-// tables unchanged.
-func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
+func (s *Switch) setOperStatus(portName string, state port.LinkState) error {
 	tbl, err := s.ports.WithOperStatus(portName, state)
 	if err != nil {
 		return err
@@ -300,15 +294,4 @@ func (s *Switch) SetOperStatus(portName string, state port.LinkState) error {
 	s.recomputeProtocolLinkIssues()
 
 	return nil
-}
-
-// setOperStatus applies an oper-status change on the forward path and records
-// the first failure on the sticky operErr field instead of panicking. Its
-// callers (updateLagState and LinkChange) run under the switch forwarding API
-// (Forward, Peek), which returns no error. A rejected oper status is recorded
-// on operErr and has no exported reader rather than taking the process down.
-func (s *Switch) setOperStatus(portName string, state port.LinkState) {
-	if err := s.SetOperStatus(portName, state); err != nil {
-		s.recordOperFault(err)
-	}
 }

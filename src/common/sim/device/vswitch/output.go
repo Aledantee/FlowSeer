@@ -21,7 +21,6 @@ type Output struct {
 // Advance settles all layer timers due at or before now.
 func (s *Switch) Advance(now time.Time) Output {
 	c, end := s.beginCall(now, true)
-	c.pending = false
 	defer end()
 	s.advance(now)
 	return c.output(ForwardResult{})
@@ -39,11 +38,10 @@ func (s *Switch) ReceiveMirrored(now time.Time, ingress string, frame ethernet.F
 
 func (s *Switch) receive(now time.Time, ingress string, frame ethernet.Frame, mirrored bool) Output {
 	c, end := s.beginCall(now, true)
-	c.pending = false
 	defer end()
 	s.advance(now)
 	var res bridge.Result
-	if !mirrored && !s.Police(now, ingress, frame.WireOctets()) {
+	if !mirrored && !s.police(now, ingress, frame.WireOctets()) {
 		policer := s.cfg.Traffic.Policers[ingress]
 		res = bridge.Result{Trace: trace.Trace{
 			Outcome: trace.Dropped, Reason: traffic.ReasonPoliced,

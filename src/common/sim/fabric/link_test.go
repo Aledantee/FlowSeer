@@ -63,7 +63,7 @@ func TestOmittedPortIsUnknownAndAbsentFromFloodSets(t *testing.T) {
 		Payload:   []byte("flood payload"),
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("Forward outcome = %v, want Flooded", res.Outcome)
 	}

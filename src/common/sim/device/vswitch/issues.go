@@ -24,7 +24,6 @@ type call struct {
 	emissions                []Emission
 	copies                   []traffic.Copy
 	drops                    []NeighborDrop
-	pending                  bool
 	now                      time.Time
 	commit                   bool
 	lagRebalanceHits         map[string]lag.Selection
@@ -35,7 +34,7 @@ type call struct {
 
 func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {
 	parent := s.call
-	c := &call{now: now, commit: commit, pending: true}
+	c := &call{now: now, commit: commit}
 	s.call = c
 	return c, func() {
 		s.call = parent
@@ -46,10 +45,6 @@ func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {
 			parent.emissions = append(parent.emissions, c.emissions...)
 			parent.copies = append(parent.copies, c.copies...)
 			parent.drops = append(parent.drops, c.drops...)
-		} else if c.pending {
-			s.emissions = append(s.emissions, c.emissions...)
-			s.copies = append(s.copies, c.copies...)
-			s.neighborFailures = append(s.neighborFailures, c.drops...)
 		}
 	}
 }
@@ -412,14 +407,6 @@ func (s *Switch) recordMcastQueryUnobserved(vid vlan.ID, group netip.Addr, now t
 // neighbor-unresolved for that lookup.
 func (s *Switch) recordNeighborUnresolved(vrf, iface string, addr netip.Addr) {
 	s.call.neighborUnresolvedHits = append(s.call.neighborUnresolvedHits, neighborUnresolvedHit{vrf: vrf, iface: iface, addr: addr})
-}
-
-// recordOperFault keeps the first oper-status fault. Later faults are dropped
-// so s.operErr records the one that started the trouble.
-func (s *Switch) recordOperFault(err error) {
-	if s.operErr == nil {
-		s.operErr = err
-	}
 }
 
 func (s *Switch) recomputeProtocolLinkIssues() {

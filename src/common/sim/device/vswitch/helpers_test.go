@@ -22,6 +22,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -343,17 +344,19 @@ func makeARPReply(t *testing.T, senderIP, targetIP netip.Addr, senderMAC, dstMAC
 }
 
 // holdFrameToward forwards a frame from 1/1/1 toward dst and asserts it was held.
-func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.Addr, payload []byte) {
+func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.Addr, payload []byte) vswitch.Output {
 	t.Helper()
 	pkt := makeIPv4Packet(t, ipH1, dst, 64, payload)
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
-	if res := sw.Forward(at, "1/1/1", frame); res.Outcome != trace.Held {
+	res := sw.Receive(at, "1/1/1", frame)
+	if res.Outcome != trace.Held {
 		t.Fatalf("outcome for %s = %v, want Held", dst, res.Outcome)
 	}
+	return res
 }
 
 // soleDataEmission returns the one emission addressed to dst, failing when there is not exactly
-// one: a Forward that observes an advertisement also relays the advertisement itself.
+// one: a Receive that observes an advertisement also relays the advertisement itself.
 func soleDataEmission(t *testing.T, emissions []vswitch.Emission, dst netaddr.MAC) vswitch.Emission {
 	t.Helper()
 	var found []vswitch.Emission
@@ -405,4 +408,47 @@ func dataAfterSolicitations(t *testing.T, emissions []vswitch.Emission, count in
 		t.Fatalf("solicitations = %d, want %d: %+v", requests, count, emissions)
 	}
 	return data
+}
+
+// captureOutput keeps the outputs a fixture needs to inspect across several calls.
+func captureOutput(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch, out vswitch.Output) vswitch.Output {
+	prior := callOutputs[sw]
+	prior.Emissions = append(prior.Emissions, out.Emissions...)
+	prior.Drops = append(prior.Drops, out.Drops...)
+	prior.Copies = out.Copies
+	callOutputs[sw] = prior
+	return out
+}
+
+func captureLinkOutput(t *testing.T, callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch, now time.Time, name string, state port.LinkState) {
+	t.Helper()
+	out, err := sw.LinkChange(now, name, state, vswitch.PointToPointUnknown, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	captureOutput(callOutputs, sw, out)
+}
+
+func takeEmissions(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []vswitch.Emission {
+	out := callOutputs[sw]
+	emissions := out.Emissions
+	out.Emissions = nil
+	callOutputs[sw] = out
+	return emissions
+}
+
+func takeCopies(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []traffic.Copy {
+	out := callOutputs[sw]
+	copies := out.Copies
+	out.Copies = nil
+	callOutputs[sw] = out
+	return copies
+}
+
+func takeDrops(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []vswitch.NeighborDrop {
+	out := callOutputs[sw]
+	drops := out.Drops
+	out.Drops = nil
+	callOutputs[sw] = out
+	return drops
 }

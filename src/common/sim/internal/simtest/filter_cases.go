@@ -557,7 +557,7 @@ func casePlanningFilterRuleChange() Case {
 
 			changes := vswitch.Diff(cfgCur, cfgNext)
 
-			swNext, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext})
+			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext})
 			if err != nil {
 				return ExecutionResult{}, err
 			}

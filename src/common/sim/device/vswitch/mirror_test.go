@@ -17,6 +17,7 @@ import (
 )
 
 func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -51,7 +52,7 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 		Payload:   []byte("mirrored flood"),
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", frame))
 	if res.Outcome != trace.Flooded {
 		t.Errorf("Outcome = %v, want %v", res.Outcome, trace.Flooded)
 	}
@@ -67,18 +68,18 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 		t.Errorf("Egress[2] = %+v, want mirror-output drop on 1/1/4", got)
 	}
 
-	copies := sw.Copies()
+	copies := takeCopies(callOutputs, sw)
 	if len(copies) != 1 || copies[0].Mirror != "m1" || copies[0].Port != "1/1/4" {
-		t.Fatalf("Copies() = %+v, want m1 copy on 1/1/4", copies)
+		t.Fatalf("output copies = %+v, want m1 copy on 1/1/4", copies)
 	}
 	if !slices.Equal(copies[0].Frame.Payload, frame.Payload) {
 		t.Errorf("copy payload = %q, want %q", copies[0].Frame.Payload, frame.Payload)
 	}
-	if copies := sw.Copies(); len(copies) != 0 {
-		t.Errorf("second Copies() = %+v, want empty", copies)
+	if copies := takeCopies(callOutputs, sw); len(copies) != 0 {
+		t.Errorf("second output copies = %+v, want empty", copies)
 	}
 	mustSwitchLearn(t, sw, []bridge.Seed{{FID: 10, MAC: frame.Dst, Port: "1/1/4", Lifetime: bridge.Static}})
-	reservedOnly := sw.Forward(fixedTime, "1/1/1", frame)
+	reservedOnly := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", frame))
 	if reservedOnly.Outcome != trace.Dropped || reservedOnly.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("reserved-only trace = %+v, want mirror-output drop", reservedOnly.Trace)
 	}
@@ -86,7 +87,7 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 		t.Errorf("reserved-only egress = %+v, want one mirror-output drop", reservedOnly.Egress)
 	}
 
-	dropped := sw.Forward(fixedTime, "1/1/4", frame)
+	dropped := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/4", frame))
 	if dropped.Outcome != trace.Dropped || dropped.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("mirror output ingress trace = %+v, want mirror-output drop", dropped.Trace)
 	}
@@ -100,11 +101,11 @@ func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 		t.Errorf("mirror output trace has no mirror decision fact: %+v", dropped.Steps)
 	}
 
-	// Peek leaves copy storage untouched.
+	// Peek returns copies without carrying them into the next call.
 	peekSwitch := mustSwitch(t, cfg)
 	peekSwitch.Peek(fixedTime, "1/1/1", frame)
-	if copies := peekSwitch.Copies(); len(copies) != 0 {
-		t.Errorf("Copies() after Peek = %+v, want empty", copies)
+	if copies := peekSwitch.Advance(fixedTime).Copies; len(copies) != 0 {
+		t.Errorf("output copies after Peek = %+v, want empty", copies)
 	}
 }
 
@@ -125,17 +126,17 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 	}
 	sw := mustSwitch(t, cfg)
 	for i := range 9 {
-		if !sw.Police(fixedTime, "1/1/1", 1038) {
-			t.Fatalf("Police call %d refused, want admitted", i+1)
+		if sw.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1038-38)}).Reason == traffic.ReasonPoliced {
+			t.Fatalf("Receive call %d refused, want admitted", i+1)
 		}
 	}
-	if sw.Police(fixedTime, "1/1/1", 1038) {
-		t.Error("tenth Police call admitted, want refused")
+	if (sw.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1038-38)}).Reason != traffic.ReasonPoliced) {
+		t.Error("tenth Receive call admitted, want refused")
 	}
-	if !sw.Police(fixedTime.Add(10*time.Millisecond), "1/1/1", 1038) {
-		t.Error("Police after 10 ms refused, want admitted")
+	if sw.Receive(fixedTime.Add(10*time.Millisecond), "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1038-38)}).Reason == traffic.ReasonPoliced {
+		t.Error("Receive after 10 ms refused, want admitted")
 	}
-	if !sw.Police(fixedTime, "1/1/2", 1_000_000) {
+	if sw.Receive(fixedTime, "1/1/2", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1_000_000-38)}).Reason == traffic.ReasonPoliced {
 		t.Error("unconfigured port was policed")
 	}
 	if rate, ok := sw.QueueMaxRate("1/1/2", 5); !ok || rate != 100_000_000 {
@@ -188,21 +189,21 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cur := mustSwitch(t, cfg)
 			for i := range 9 {
-				if !cur.Police(fixedTime, "1/1/1", 1038) {
-					t.Fatalf("derive setup Police call %d refused, want admitted", i+1)
+				if cur.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1038-38)}).Reason == traffic.ReasonPoliced {
+					t.Fatalf("derive setup Receive call %d refused, want admitted", i+1)
 				}
 			}
 
 			next := cfg.Clone()
 			tt.change(&next)
-			derived, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: next})
+			derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: next})
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
-			if got := derived.Police(fixedTime, "1/1/1", 1038); got != tt.wantMainAdmit {
+			if got := (derived.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1038-38)}).Reason != traffic.ReasonPoliced); got != tt.wantMainAdmit {
 				t.Errorf("main policer admit = %t, want %t", got, tt.wantMainAdmit)
 			}
-			if tt.wantSecondAdmit && !derived.Police(fixedTime, "1/1/2", 1_000) {
+			if tt.wantSecondAdmit && derived.Receive(fixedTime, "1/1/2", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1_000-38)}).Reason == traffic.ReasonPoliced {
 				t.Error("new policer did not start full")
 			}
 		})
@@ -216,21 +217,22 @@ func TestPeekLeavesPolicerBucketsUntouched(t *testing.T) {
 	sw := mustSwitch(t, vswitch.Config{
 		Ports: ports,
 		Traffic: &traffic.Config{Policers: map[string]traffic.Policer{
-			"1/1/1": {RateBPS: 8, BurstOctets: 2},
+			"1/1/1": {RateBPS: 8, BurstOctets: 168},
 		}},
 	})
 	frame := ethernet.Frame{Dst: netaddr.MAC{2}, Src: netaddr.MAC{4}}
 
-	if !sw.Police(fixedTime, "1/1/1", 1) {
+	if sw.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 46)}).Reason == traffic.ReasonPoliced {
 		t.Fatal("initial token was refused")
 	}
 	sw.Peek(fixedTime, "1/1/1", frame)
-	if !sw.Police(fixedTime, "1/1/1", 1) {
+	if sw.Receive(fixedTime, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 46)}).Reason == traffic.ReasonPoliced {
 		t.Error("Peek spent the remaining policer token")
 	}
 }
 
 func TestMirrorSelectionUsesLogicalLAGIngress(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
@@ -262,11 +264,10 @@ func TestMirrorSelectionUsesLogicalLAGIngress(t *testing.T) {
 	}
 	sw := mustSwitch(t, cfg)
 	frame := ethernet.Frame{Dst: netaddr.MAC{2}, Src: netaddr.MAC{4}}
-
-	sw.Forward(fixedTime, "1/1/1", frame)
-	copies := sw.Copies()
+	captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", frame))
+	copies := takeCopies(callOutputs, sw)
 	if len(copies) != 2 {
-		t.Fatalf("Copies() = %+v, want SPAN and RSPAN copies", copies)
+		t.Fatalf("output copies = %+v, want SPAN and RSPAN copies", copies)
 	}
 	for _, copy := range copies {
 		if copy.Port == "lag1" {

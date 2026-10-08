@@ -817,7 +817,7 @@ bounded equivalence under a resource contract:
   modulo-N because a withdrawn or added path must move as few flows as
   possible: "which flows move when this path fails" is answered wrongly by an
   algorithm that moves nearly all of them. The hash is a pure function of the
-  packet, so `Peek` and `Forward` agree and neither commits anything.
+  packet, so `Peek` and `Receive` agree and neither commits anything.
 - **Recursion resolves when the table is built, and a route that cannot
   resolve is withdrawn rather than left to fail per packet.** A static route
   whose next hop is not on-link is resolved against its own VRF's table, to a
@@ -870,9 +870,9 @@ Amendment 2026-10-07: sending and reception are implemented in
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
-  frame instead of dropping it, bounded by a configured hold depth; the
-  `Forward` that observes the advertisement resolving that neighbor releases
-  the frames that observation freed, and `Switch.Wake` settles a resolution
+  frame instead of dropping it, bounded by a configured hold depth. The
+  `Receive` that observes the advertisement resolving that neighbor releases
+  the frames that observation freed, and `Switch.Advance` settles a resolution
   timeout, the same call that fires spanning tree hellos and LACP timers. A
   resolved entry releases its held frames as ordinary emissions, and a
   timed-out one reports them dropped with `neighbor-miss`. `Emission`

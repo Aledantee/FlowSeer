@@ -677,10 +677,9 @@ Frames emitted by switch layers during wake-ups or forwarding cross cables and
 hubs as journeys marked `Protocol`. The one exception is a released held
 frame: it carries a neighbor resolution's ordinary data, not a frame of the
 switch's own, so its journey is marked `Protocol` false like the data frame
-that was held. A release usually happens during the `Forward` that observes
-the advertisement resolving the neighbor, not during a wake-up; `Switch.Wake`
-and `Switch.Age` settle a resolution timeout and report a frame the hold queue
-pushed out. Periodic
+that was held. A release usually happens during the `Receive` that observes
+the advertisement resolving the neighbor. `Switch.Advance` settles a
+resolution timeout and reports a frame the hold queue pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
 `Run(budget)` which returns a `RunResult` containing the stop reason, steps
 taken, pending work, status, issues, and fingerprints. In scenarios configured

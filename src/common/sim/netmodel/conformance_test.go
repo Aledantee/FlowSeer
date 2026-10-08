@@ -58,13 +58,13 @@ func TestTopologyShadowingConformance(t *testing.T) {
 
 	// The unknown sibling is a possible flood egress, so its state is relevant
 	// even when the frame arrived on the known-up port.
-	fwdKnown := res.Switch.Forward(now, "1/1/1", frame)
+	fwdKnown := res.Switch.Receive(now, "1/1/1", frame)
 	if fwdKnown.Metadata.Status() != analysis.Incomplete {
 		t.Errorf("fwdKnown.Metadata.Status() = %v, want %v", fwdKnown.Metadata.Status(), analysis.Incomplete)
 	}
 
 	// Unknown port forwarding drops with port-down and has Incomplete status.
-	fwdUnknown := res.Switch.Forward(now, "1/1/2", frame)
+	fwdUnknown := res.Switch.Receive(now, "1/1/2", frame)
 	if fwdUnknown.Outcome != trace.Dropped {
 		t.Errorf("fwdUnknown.Outcome = %v, want %v", fwdUnknown.Outcome, trace.Dropped)
 	}

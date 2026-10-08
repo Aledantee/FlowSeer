@@ -36,8 +36,7 @@ type PowerResult struct {
 // physical-layer, bridge, link aggregation, spanning tree, multicast snooping,
 // layer 3 routing, and traffic subsystems.
 // [Switch.Receive], [Switch.ReceiveMirrored], and [Switch.Advance] return their
-// output directly. [Switch.Forward] leaves mirror copies for [Switch.Copies].
-// [Switch.Peek] does not produce or change pending copies.
+// output directly. [Switch.Peek] returns the output without changing runtime state.
 //
 // A Switch is not safe for concurrent use.
 type Switch struct {
@@ -54,8 +53,6 @@ type Switch struct {
 	filter             *filter.Layer
 	traffic            *traffic.Layer
 	trafficSwitchports map[string]traffic.Switchport
-	copies             []traffic.Copy
-	emissions          []Emission
 	portP2P            map[string]PointToPoint
 	portSpeed          map[string]uint64
 	protocolIssues     map[string]analysis.Issue
@@ -64,20 +61,7 @@ type Switch struct {
 	metadata           analysis.Metadata
 	missingSTP         bool
 
-	// operErr is the first oper-status fault [Switch.setOperStatus]
-	// recorded. The fault is recorded on operErr and has no exported
-	// reader. It is set from the forward-path callers ([Switch.LinkChange],
-	// [Switch.updateLagState]) that cannot return an error of their own.
-	operErr error
-
 	call *call
-
-	// neighborFailures holds the records made by [Switch.Wake], [Switch.Age],
-	// or an observing [Switch.Forward] for held frames that left a hold queue
-	// and reached no wire, drained by [Switch.DrainNeighborFailures] the way
-	// [Switch.Drain] drains emissions. A frame that vanished with no record
-	// would be the same silent answer the neighbor lifecycle exists to remove.
-	neighborFailures []NeighborDrop
 
 	retention Retention
 }

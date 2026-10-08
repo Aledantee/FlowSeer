@@ -26,7 +26,7 @@ func TestVLANToVLANRouting(t *testing.T) {
 	sw := buildBaseRoutingSwitch(t)
 
 	// Pre-learn neighbor's MAC on 1/1/2 so the relay hits.
-	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Src:       macH2,
 		Dst:       macRouter,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -41,7 +41,7 @@ func TestVLANToVLANRouting(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
 		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
@@ -94,7 +94,7 @@ func TestVLANToVLANRouting(t *testing.T) {
 
 	// Flooded variant when FDB has not learned the neighbor MAC on 1/1/2.
 	swEmpty := buildBaseRoutingSwitch(t)
-	resFlood := swEmpty.Forward(fixedTime, "1/1/1", frame)
+	resFlood := swEmpty.Receive(fixedTime, "1/1/1", frame)
 	wantFloodSteps := []trace.Step{
 		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 		{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -161,7 +161,7 @@ func TestNeighborPendingHolds(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
 		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
@@ -240,7 +240,7 @@ func TestNeighborDisabledMisses(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 
 	wantSteps := []trace.Step{
 		{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
@@ -304,11 +304,11 @@ func TestNeighborDisabledDoesNotObserve(t *testing.T) {
 
 	spoofedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x99, 0x99}
 	reply := makeARPReply(t, ipH2, netip.MustParseAddr("10.0.20.1"), spoofedMAC, macRouter)
-	sw.Forward(fixedTime, "1/1/2", reply)
+	sw.Receive(fixedTime, "1/1/2", reply)
 
 	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("hello"))
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
-	res := sw.Forward(fixedTime.Add(time.Millisecond), "1/1/1", frame)
+	res := sw.Receive(fixedTime.Add(time.Millisecond), "1/1/1", frame)
 
 	if len(res.Egress) != 1 {
 		t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
@@ -329,7 +329,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -353,7 +353,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -375,7 +375,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -396,7 +396,7 @@ func TestRoutingTTLLocalBadHeaderAndNoRouteDrops(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -466,7 +466,7 @@ func TestIPv6Routing(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 
 	// Pre-learn on 1/1/2
-	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Src:       macH2,
 		Dst:       macRouter,
 		EtherType: ethernet.EtherTypeIPv6,
@@ -482,7 +482,7 @@ func TestIPv6Routing(t *testing.T) {
 			Payload:   pkt,
 		}
 
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -518,7 +518,7 @@ func TestIPv6Routing(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv6,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -539,7 +539,7 @@ func TestIPv6Routing(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   v4Pkt,
 		}
-		v4Res := sw.Forward(fixedTime, "1/1/1", v4Frame)
+		v4Res := sw.Receive(fixedTime, "1/1/1", v4Frame)
 		if v4Res.Outcome != trace.Dropped || v4Res.Reason != routing.ReasonNoRoute {
 			t.Errorf("v4Res outcome=%v reason=%v, want Dropped/no-route", v4Res.Outcome, v4Res.Reason)
 		}
@@ -603,13 +603,13 @@ func TestVRFIsolation(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 
 	// Pre-learn on 1/1/2 and 1/1/4
-	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Src:       macH2,
 		Dst:       macRouter,
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   makeIPv4Packet(t, ipH2, ipH1, 64, []byte("learn")),
 	})
-	sw.Forward(fixedTime, "1/1/4", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/4", ethernet.Frame{
 		Src:       macTenantH2,
 		Dst:       macTenantRouter,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -624,7 +624,7 @@ func TestVRFIsolation(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/3", frame)
+		res := sw.Receive(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -655,7 +655,7 @@ func TestVRFIsolation(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		if res.FID != 20 || res.Egress[0].Frame.Dst != macH2 {
 			t.Errorf("default routed frame FID=%d Dst=%v, want 20, %v", res.FID, res.Egress[0].Frame.Dst, macH2)
 		}
@@ -669,7 +669,7 @@ func TestVRFIsolation(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/3", frame)
+		res := sw.Receive(fixedTime, "1/1/3", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "30"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -744,7 +744,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: bridge.LayerNameVLAN, Op: trace.OpClassify, RuleID: "vlan-classify", Subject: trace.Subject{Kind: "vlan", Key: "10"}},
 			{Layer: bridge.LayerName, Op: trace.OpLearn, RuleID: "learn", Subject: trace.Subject{Kind: "mac", Key: "00:11:22:33:44:11"}},
@@ -773,7 +773,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 
 	t.Run("packet on routed port to base MAC routes to VLAN with no relay ingress step", func(t *testing.T) {
 		// Pre-learn on 1/1/2
-		sw.Forward(fixedTime, "1/1/2", ethernet.Frame{
+		sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
 			Src:       macH2,
 			Dst:       macRouter,
 			EtherType: ethernet.EtherTypeIPv4,
@@ -787,7 +787,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/5", frame)
+		res := sw.Receive(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
 			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/5"}},
 			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
@@ -816,7 +816,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("test"),
 		}
-		res := sw.Forward(fixedTime, "1/1/5", frame)
+		res := sw.Receive(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
 			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "routing.not_bridged", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
 		}
@@ -830,8 +830,8 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 	})
 
 	t.Run("down routed port drops with port-down under routing", func(t *testing.T) {
-		if err := sw.SetOperStatus("1/1/5", port.Down); err != nil {
-			t.Fatalf("SetOperStatus down: %v", err)
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+			t.Fatalf("LinkChange down: %v", err)
 		}
 		frame := ethernet.Frame{
 			Src:       macPort5Neighbor,
@@ -839,7 +839,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   makeIPv4Packet(t, ipPort5Dst, ipH2, 64, []byte("down")),
 		}
-		res := sw.Forward(fixedTime, "1/1/5", frame)
+		res := sw.Receive(fixedTime, "1/1/5", frame)
 		wantSteps := []trace.Step{
 			{Layer: routing.LayerName, Op: trace.OpDrop, RuleID: "port.status.down", Subject: trace.Subject{Kind: "port", Key: "1/1/5"}},
 		}
@@ -847,8 +847,8 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 			t.Errorf("got outcome=%v reason=%v, want Dropped/port-down", res.Outcome, res.Reason)
 		}
-		if err := sw.SetOperStatus("1/1/5", port.Up); err != nil {
-			t.Fatalf("SetOperStatus up: %v", err)
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Up, vswitch.PointToPointTrue, 0); err != nil {
+			t.Fatalf("LinkChange up: %v", err)
 		}
 	})
 
@@ -883,7 +883,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := rSw.Forward(fixedTime, "1/1/1", frame)
+		res := rSw.Receive(fixedTime, "1/1/1", frame)
 		wantSteps := []trace.Step{
 			{Layer: routing.LayerName, Op: trace.OpClassify, RuleID: "classify", Subject: trace.Subject{Kind: "interface", Key: "1/1/1"}},
 			{Layer: routing.LayerName, Op: trace.OpLookup, RuleID: "connected", Subject: trace.Subject{Kind: "prefix", Key: "10.0.20.0/24"}},
@@ -938,7 +938,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "eth1", frame)
+		res := sw.Receive(fixedTime, "eth1", frame)
 		if res.Outcome != trace.Forwarded {
 			t.Fatalf("outcome = %v, want %v; steps=%+v", res.Outcome, trace.Forwarded, res.Steps)
 		}
@@ -959,7 +959,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("no sub-interface at vid 30"),
 		}
-		res := sw.Forward(fixedTime, "eth1", frame)
+		res := sw.Receive(fixedTime, "eth1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
@@ -982,7 +982,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("no untagged sub-interface here"),
 		}
-		res := sw.Forward(fixedTime, "eth1", frame)
+		res := sw.Receive(fixedTime, "eth1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
@@ -999,7 +999,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("s-tagged, no C-TAG sub-interface can match"),
 		}
-		res := sw.Forward(fixedTime, "eth1", frame)
+		res := sw.Receive(fixedTime, "eth1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
@@ -1016,7 +1016,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("tagged on a plain routed port"),
 		}
-		res := sw.Forward(fixedTime, "eth3", frame)
+		res := sw.Receive(fixedTime, "eth3", frame)
 		if res.Outcome != trace.Dropped || res.Reason != routing.ReasonNotBridged {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/not-bridged", res.Outcome, res.Reason)
 		}
@@ -1033,7 +1033,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "eth3", frame)
+		res := sw.Receive(fixedTime, "eth3", frame)
 		if res.Outcome != trace.Forwarded {
 			t.Fatalf("outcome = %v, want %v; steps=%+v", res.Outcome, trace.Forwarded, res.Steps)
 		}
@@ -1078,7 +1078,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := mtuSw.Forward(fixedTime, "ethA", frame)
+		res := mtuSw.Receive(fixedTime, "ethA", frame)
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
 			t.Fatalf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
 		}
@@ -1130,7 +1130,7 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   []byte("stay on the bridge"),
 		}
-		res := bridgeSw.Forward(fixedTime, "swport", frame)
+		res := bridgeSw.Receive(fixedTime, "swport", frame)
 		if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
 			t.Fatalf("got outcome=%v reason=%v, want Dropped/no-egress", res.Outcome, res.Reason)
 		}
@@ -1178,7 +1178,7 @@ func TestSourceMACLearnedOnVLANAndNotOnRoutedPort(t *testing.T) {
 
 	// Ingress on VLAN 10 learns source MAC on VLAN 10.
 	vlanPkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("vlan learn"))
-	sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
 		Src:       macH1,
 		Dst:       macRouter,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -1197,7 +1197,7 @@ func TestSourceMACLearnedOnVLANAndNotOnRoutedPort(t *testing.T) {
 
 	// Ingress on routed port 1/1/5 must NOT learn anything in FDB.
 	portPkt := makeIPv4Packet(t, netip.MustParseAddr("10.0.50.5"), ipH2, 64, []byte("port no learn"))
-	sw.Forward(fixedTime, "1/1/5", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/5", ethernet.Frame{
 		Src:       macPort5Src,
 		Dst:       sw.Config().MAC,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -1249,7 +1249,7 @@ func TestRoutedFrameLeavesOnSameTrunkPort(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
 		t.Fatalf("outcome = %v, want Forwarded or Flooded", res.Outcome)
 	}
@@ -1312,7 +1312,7 @@ func TestRoutedFrameIngressLAGResolution(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1a", frame)
+	res := sw.Receive(fixedTime, "1/1/1a", frame)
 	if res.Ingress != "lag1" {
 		t.Errorf("res.Ingress = %q, want lag1", res.Ingress)
 	}
@@ -1364,7 +1364,7 @@ func TestRoutedPortLAGLowestForwardingMember(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if len(res.Egress) != 1 {
 		t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
 	}
@@ -1424,7 +1424,7 @@ func TestRoutedFrameMTUExceededVLANAndPort(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 
 	// Pre-learn on 1/1/2
-	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Src:       macH2,
 		Dst:       macRouter,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -1442,7 +1442,7 @@ func TestRoutedFrameMTUExceededVLANAndPort(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
 			t.Errorf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
 		}
@@ -1459,7 +1459,7 @@ func TestRoutedFrameMTUExceededVLANAndPort(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 			Payload:   pkt,
 		}
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonMTUExceeded {
 			t.Errorf("outcome=%v reason=%v, want Dropped/mtu-exceeded", res.Outcome, res.Reason)
 		}
@@ -1510,7 +1510,7 @@ func TestRoutedFrameEgressLAGNoMember(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   pkt,
 	}
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoMember {
 		t.Fatalf("outcome=%v reason=%v, want Dropped/no-member", res.Outcome, res.Reason)
 	}
@@ -1524,6 +1524,7 @@ func TestRoutedFrameEgressLAGNoMember(t *testing.T) {
 }
 
 func TestRoutedFrameEgressPortBlocked(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -1565,8 +1566,8 @@ func TestRoutedFrameEgressPortBlocked(t *testing.T) {
 		},
 	}
 	sw := mustSwitch(t, cfg)
-	sw.Start(fixedTime)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(fixedTime))
+	takeEmissions(callOutputs, sw)
 
 	pkt := makeIPv4Packet(t, ipH1, ipH2, 64, []byte("blocked egress"))
 	frame := ethernet.Frame{
@@ -1576,7 +1577,7 @@ func TestRoutedFrameEgressPortBlocked(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", frame))
 	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonPortBlocked {
 		t.Errorf("outcome=%v reason=%v, want Dropped/port-blocked", res.Outcome, res.Reason)
 	}
@@ -1648,7 +1649,7 @@ func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
 		Payload:   []byte("who has 10.0.10.1?"),
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
 		t.Errorf("outcome = %v, want Flooded", res.Outcome)
 	}
@@ -1664,7 +1665,7 @@ func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
 
 // routeLookupFact returns the canonical route-lookup fact carried by a forwarding
 // result, which is where the equal-cost candidate set reaches a journey.
-func routeLookupFact(t *testing.T, res vswitch.ForwardResult) string {
+func routeLookupFact(t *testing.T, res vswitch.Output) string {
 	t.Helper()
 	for _, step := range res.Steps {
 		if step.Layer != routing.LayerName || step.Op != trace.OpLookup {
@@ -1760,7 +1761,7 @@ func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
 			}},
 		})
 
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		if res.Outcome != trace.Forwarded {
 			t.Fatalf("outcome = %v, want %v", res.Outcome, trace.Forwarded)
 		}
@@ -1812,7 +1813,7 @@ func TestRoutedEgressNamesTheEqualCostCandidateSet(t *testing.T) {
 			{FID: 30, MAC: macH3, Port: "1/1/3", Lifetime: bridge.Static},
 		})
 
-		res := sw.Forward(fixedTime, "1/1/1", frame)
+		res := sw.Receive(fixedTime, "1/1/1", frame)
 		if res.Outcome != trace.Forwarded {
 			t.Fatalf("outcome = %v, want %v", res.Outcome, trace.Forwarded)
 		}

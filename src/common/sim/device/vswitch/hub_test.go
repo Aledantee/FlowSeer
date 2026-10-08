@@ -20,7 +20,7 @@ func TestHubNoCandidateHasSemanticTerminalDecision(t *testing.T) {
 		Add(port.Port{Name: "only", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports})
 
-	res := sw.Forward(fixedTime, "only", ethernet.Frame{Src: macH1, Dst: macH2})
+	res := sw.Receive(fixedTime, "only", ethernet.Frame{Src: macH1, Dst: macH2})
 	if res.Outcome != trace.Dropped || res.Reason != bridge.ReasonNoEgress {
 		t.Fatalf("hub result = %s/%s, want %s/%s", res.Outcome, res.Reason, trace.Dropped, bridge.ReasonNoEgress)
 	}
@@ -58,7 +58,7 @@ func TestHubForwardingUntouched(t *testing.T) {
 		},
 	}
 
-	res1 := sw.Forward(fixedTime, "1/1/1", f1)
+	res1 := sw.Receive(fixedTime, "1/1/1", f1)
 	if res1.Outcome != trace.Flooded {
 		t.Errorf("frame 1: got outcome %v, want %v", res1.Outcome, trace.Flooded)
 	}
@@ -102,7 +102,7 @@ func TestHubForwardingUntouched(t *testing.T) {
 		Payload:   []byte("untagged response"),
 	}
 
-	res2 := sw.Forward(fixedTime.Add(time.Second), "1/1/3", f2)
+	res2 := sw.Receive(fixedTime.Add(time.Second), "1/1/3", f2)
 	if res2.Outcome != trace.Flooded {
 		t.Errorf("frame 2: got outcome %v, want %v", res2.Outcome, trace.Flooded)
 	}
@@ -142,7 +142,7 @@ func TestHubWithDownPort(t *testing.T) {
 	}
 
 	t.Run("egress port down and MTU exceeded", func(t *testing.T) {
-		res := sw.Forward(fixedTime, "1/1/1", f)
+		res := sw.Receive(fixedTime, "1/1/1", f)
 		if res.Outcome != trace.Flooded {
 			t.Errorf("got outcome %v, want %v", res.Outcome, trace.Flooded)
 		}
@@ -158,7 +158,7 @@ func TestHubWithDownPort(t *testing.T) {
 	})
 
 	t.Run("ingress port down", func(t *testing.T) {
-		res := sw.Forward(fixedTime, "1/1/3", f)
+		res := sw.Receive(fixedTime, "1/1/3", f)
 		if res.Outcome != trace.Dropped {
 			t.Errorf("got outcome %v, want %v", res.Outcome, trace.Dropped)
 		}
@@ -187,7 +187,7 @@ func TestHubRepeatsBPDU(t *testing.T) {
 	frame := mustEncode(t, b, macRoot)
 
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Flooded)
 	}
@@ -216,7 +216,7 @@ func TestHubFrameEgressLAGNoMember(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   []byte("hub to lag"),
 	}
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	step, ok := findStep(res.Steps, trace.RuleID("lag.egress.no_member"))
 	if !ok {
 		t.Fatalf("no literal lag.egress.no_member step in trace: %+v", res.Steps)

@@ -12,6 +12,8 @@ import (
 // Switches in target without a namesake in cur are built fresh. The layers start only after
 // the cloned ones are in place, so no proposal from a switch that is thrown away reaches
 // the queue, and a cloned layer hears only the links that differ from cur's.
+// A held frame failed by a routing rebuild is reported as a drop journey at
+// the derived fabric's initial clock, before any step runs.
 func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 	if cur != nil && target.Start.IsZero() {
 		target.Start = cur.clock
@@ -32,11 +34,12 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 			continue
 		}
 
-		derived, err := vswitch.Derive(curSw, sw.Spec())
+		derived, out, err := vswitch.Derive(curSw, sw.Spec())
 		if err != nil {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
 		next.switches[name] = derived
+		next.applyOutput(next.clock, name, out)
 		derivedCfg := derived.Config()
 		derivedCfg.Ports = next.cfg.Switches[name].Ports
 		next.cfg.Switches[name] = derivedCfg

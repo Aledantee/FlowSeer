@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -66,23 +67,30 @@ func issueCallFrame(t *testing.T, dst netip.Addr) ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 7}, Dst: netaddr.MAC{2, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: payload}
 }
 
-func callHasIssue(res ForwardResult, code analysis.IssueCode) bool {
+func callHasIssue(res Output, code analysis.IssueCode) bool {
 	return slices.ContainsFunc(res.Metadata.Issues(), func(issue analysis.Issue) bool { return issue.Code == code })
 }
 
 func TestPolicedDropCarriesNoEarlierIssue(t *testing.T) {
 	sw := issueCallSwitch(t)
-	held := sw.Forward(time.Unix(100, 0), "in", issueCallFrame(t, netip.MustParseAddr("10.0.20.77")))
+	trafficLayer, err := traffic.New(traffic.Config{Policers: map[string]traffic.Policer{"out": {RateBPS: 8, BurstOctets: 1}}}, layer.Env{Ports: sw.Ports()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.traffic = trafficLayer
+	sw.cfg.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{"out": {RateBPS: 8, BurstOctets: 1}}}
+	held := sw.Receive(time.Unix(100, 0), "in", issueCallFrame(t, netip.MustParseAddr("10.0.20.77")))
 	if held.Outcome != trace.Held || !callHasIssue(held, IssueNeighborUnresolved) {
 		t.Fatalf("held result = %+v, issues = %+v, want Held and neighbor-unresolved", held.Result, held.Metadata.Issues())
 	}
-	drop := sw.ComposeForwardResult(bridge.Result{Trace: trace.Trace{Outcome: trace.Dropped, Reason: traffic.ReasonPoliced}, Ingress: "out"}, "out")
+	drop := sw.Receive(time.Unix(100, 0), "out", ethernet.Frame{})
 	if drop.Outcome != trace.Dropped || drop.Reason != traffic.ReasonPoliced || callHasIssue(drop, IssueNeighborUnresolved) {
 		t.Errorf("policed result = %+v, issues = %+v, want policed drop without neighbor-unresolved", drop.Result, drop.Metadata.Issues())
 	}
 }
 
 func TestReleaseChargesNoMulticastQueryToTheObservingFrame(t *testing.T) {
+	callOutputs := make(map[*Switch]Output)
 	sw := issueCallSwitch(t)
 	t0 := time.Unix(100, 0)
 	group := netip.MustParseAddr("239.1.2.3")
@@ -96,11 +104,11 @@ func TestReleaseChargesNoMulticastQueryToTheObservingFrame(t *testing.T) {
 	// The resolved neighbor's MAC is a group address, so release reaches snooping.
 	groupMAC := netaddr.MAC{1, 0, 0x5e, 1, 2, 3}
 	// The configured route makes the group packet wait for an ordinary next hop.
-	held := sw.Forward(now, "in", issueCallFrame(t, group))
+	held := captureOutput(callOutputs, sw, sw.Receive(now, "in", issueCallFrame(t, group)))
 	if held.Outcome != trace.Held || !callHasIssue(held, IssueNeighborUnresolved) {
 		t.Fatalf("held result = %+v, issues = %+v, want Held and neighbor-unresolved", held.Result, held.Metadata.Issues())
 	}
-	sw.Drain()
+	takeEmissions(callOutputs, sw)
 	reply, err := arp.Encode(arp.Message{
 		HardwareType: 1, ProtocolType: uint16(ethernet.EtherTypeIPv4), Operation: arp.Reply,
 		SenderMAC: groupMAC, SenderAddr: netip.MustParseAddr("10.0.20.77"), TargetMAC: netaddr.MAC{2, 0, 0, 0, 0, 1}, TargetAddr: netip.MustParseAddr("10.0.20.1"),
@@ -108,8 +116,8 @@ func TestReleaseChargesNoMulticastQueryToTheObservingFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	observing := sw.Forward(now.Add(time.Millisecond), "out", reply)
-	emissions := sw.Drain()
+	observing := captureOutput(callOutputs, sw, sw.Receive(now.Add(time.Millisecond), "out", reply))
+	emissions := takeEmissions(callOutputs, sw)
 	if len(emissions) != 1 || emissions[0].Protocol || emissions[0].Port != "out" || emissions[0].Frame.Dst != groupMAC {
 		t.Fatalf("release emissions = %+v, want one data frame to group MAC on out", emissions)
 	}
@@ -146,12 +154,14 @@ func TestSelectMemberOutsideACallRaisesNothing(t *testing.T) {
 	if member, ok := sw.SelectMember(now, "bond", f, 0); !ok || member == "" {
 		t.Fatalf("aged selection = %q/%v, want enabled member", member, ok)
 	}
-	res := sw.ComposeForwardResult(bridge.Result{Ingress: "in"}, "in")
+	res := sw.Peek(now, "in", ethernet.Frame{})
 	if callHasIssue(res, IssueLAGRebalanceUnmodeled) {
 		t.Errorf("next frame issues = %+v, want no lag-rebalance-unmodeled", res.Metadata.Issues())
 	}
-	sw.LinkChange(now, "in", port.Down, PointToPointTrue, 1_000_000_000)
-	res = sw.Forward(now, "in", f)
+	if _, err := sw.LinkChange(now, "in", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
+	res = sw.Receive(now, "in", f)
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown || callHasIssue(res, IssueLAGRebalanceUnmodeled) {
 		t.Errorf("next arrival = %+v, issues = %+v, want port-down drop without lag-rebalance-unmodeled", res.Result, res.Metadata.Issues())
 	}
@@ -164,13 +174,17 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 		name string
 		run  func(*Switch)
 	}{
-		{"Forward", func(sw *Switch) { sw.Forward(now, "in", f) }},
+		{"Forward", func(sw *Switch) { sw.Receive(now, "in", f) }},
 		{"Peek", func(sw *Switch) { sw.Peek(now, "in", f) }},
-		{"ComposeForwardResult", func(sw *Switch) { sw.ComposeForwardResult(bridge.Result{Ingress: "in"}, "in") }},
-		{"Age", func(sw *Switch) { sw.Age(now) }},
-		{"Wake", func(sw *Switch) { sw.Wake(now) }},
+		{"ReceiveMirrored", func(sw *Switch) { sw.ReceiveMirrored(now, "in", f) }},
+		{"Age", func(sw *Switch) { sw.Advance(now) }},
+		{"Wake", func(sw *Switch) { sw.Advance(now) }},
 		{"Start", func(sw *Switch) { sw.Start(now) }},
-		{"LinkChange", func(sw *Switch) { sw.LinkChange(now, "out", port.Down, PointToPointTrue, 1_000_000_000) }},
+		{"LinkChange", func(sw *Switch) {
+			if _, err := sw.LinkChange(now, "out", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+				t.Fatal(err)
+			}
+		}},
 		{"Mcheck", func(sw *Switch) { sw.Mcheck(now, "in") }},
 		{"SelectMember", func(sw *Switch) { sw.SelectMember(now, "absent", f, 0) }},
 	}

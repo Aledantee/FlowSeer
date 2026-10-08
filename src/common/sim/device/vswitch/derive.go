@@ -26,12 +26,16 @@ import (
 // learned router ports whenever multicast snooping remains enabled.
 // It keeps LAG runtime state only while every member's administrative and operational
 // state also matches the target.
-// It returns an error if the target specification fails validation.
-func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
+// Output reports held frames failed by a routing rebuild as Drops.
+// Derive returns an error if the target specification fails validation.
+func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 	next, err := NewWithSpec(target)
 	if err != nil {
-		return nil, err
+		return nil, Output{}, err
 	}
+
+	c, end := next.beginCall(time.Time{}, true)
+	defer end()
 
 	// Traffic retention
 	var curTrafficKey, nextTrafficKey string
@@ -209,14 +213,12 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		next.retention.Routing = LayerRetention{Kept: false, Difference: diffDependency(curRoutingKey, nextRoutingKey)}
 		if cur != nil && cur.routing != nil {
 			exits := cur.routing.Clone().FailHeld()
-			_, end := next.beginCall(time.Time{}, true)
 			next.applyRoutingExits(time.Time{}, exits)
-			end()
 		}
 	}
 
 	if cur == nil || cur.bridge == nil || next.bridge == nil {
-		return next, nil
+		return next, c.output(ForwardResult{}), nil
 	}
 
 	curVLAN := cur.cfg.Bridge != nil && cur.cfg.Bridge.VLAN != nil
@@ -272,11 +274,11 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 
 	if len(seeds) > 0 {
 		if err := next.bridge.Learn(seeds); err != nil {
-			return nil, err
+			return nil, Output{}, err
 		}
 	}
 
-	return next, nil
+	return next, c.output(ForwardResult{}), nil
 }
 
 type bridgeSeedKey struct {

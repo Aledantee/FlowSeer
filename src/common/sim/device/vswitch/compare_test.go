@@ -80,12 +80,12 @@ func TestCompareSameOverFrameTable(t *testing.T) {
 	swB := mustSwitch(t, cfg)
 
 	// Preload a known entry on both switches.
-	swA.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	swA.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Src:       knownDst,
 		EtherType: ethernet.EtherTypeIPv4,
 	})
-	swB.Forward(fixedTime, "1/1/2", ethernet.Frame{
+	swB.Receive(fixedTime, "1/1/2", ethernet.Frame{
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		Src:       knownDst,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -333,8 +333,8 @@ func TestCompareDetectsMissingMirrorCopy(t *testing.T) {
 		Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	swA.Forward(fixedTime, "1/1/2", learnFrame)
-	swB.Forward(fixedTime, "1/1/2", learnFrame)
+	swA.Receive(fixedTime, "1/1/2", learnFrame)
+	swB.Receive(fixedTime, "1/1/2", learnFrame)
 
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},

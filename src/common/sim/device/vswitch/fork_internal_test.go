@@ -58,8 +58,6 @@ var switchFieldClasses = map[string]forkClass{
 	"filter":             classResetOnFork,
 	"traffic":            classDeepCopied,
 	"trafficSwitchports": classImmutableShared,
-	"copies":             classDeepCopied,
-	"emissions":          classDeepCopied,
 	"portP2P":            classDeepCopied,
 	"portSpeed":          classDeepCopied,
 	"protocolIssues":     classDeepCopied,
@@ -67,8 +65,6 @@ var switchFieldClasses = map[string]forkClass{
 	"nodeID":             classImmutableShared,
 	"metadata":           classImmutableShared,
 	"missingSTP":         classImmutableShared,
-	"operErr":            classImmutableShared,
-	"neighborFailures":   classDeepCopied,
 	"retention":          classDeepCopied,
 }
 
@@ -272,16 +268,19 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if sw.filter == nil {
 		t.Fatal("newTestSwitchForFork produced nil filter")
 	}
-	sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0)
-	sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0)
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0); err !=
 
-	// Populate runtime maps so they are non-empty for the pointer check.
+		// Populate runtime maps so they are non-empty for the pointer check.
+		nil {
+		t.Fatal(err)
+	}
+
 	sw.portP2P = map[string]PointToPoint{"1/1/1": PointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}
-	sw.copies = []traffic.Copy{{Port: "1/1/2"}}
-	sw.emissions = []Emission{{Port: "1/1/1"}}
-	sw.neighborFailures = []NeighborDrop{{Port: "1/1/1", Reason: "held-test"}}
 
 	// Populate transient hit sets on sw to verify resetOnFork clears them.
 	sw.call = &call{

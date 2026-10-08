@@ -79,7 +79,7 @@ func testICMPv6Checksum(hdr ip.Header, payload []byte) uint16 {
 	return ^uint16(sum)
 }
 
-func mcastForwardedPorts(res vswitch.ForwardResult) []string {
+func mcastForwardedPorts(res vswitch.Output) []string {
 	var ports []string
 	for _, egress := range res.Egress {
 		if egress.Dropped == "" {
@@ -98,7 +98,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 		mcastRouterMAC, allHostsMAC, 1,
 		igmp.Message{Type: igmp.Query, Version: igmp.V2},
 	)
-	res := sw.Forward(fixedTime, "1/1/4", query)
+	res := sw.Receive(fixedTime, "1/1/4", query)
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/1", "1/1/2", "1/1/3"}) {
 		t.Errorf("query ports = %v, want [1/1/1 1/1/2 1/1/3]", got)
 	}
@@ -111,7 +111,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 		mcastHostMAC, mcastGroupMAC, 1,
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	)
-	res = sw.Forward(fixedTime.Add(time.Second), "1/1/1", report)
+	res = sw.Receive(fixedTime.Add(time.Second), "1/1/1", report)
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("report ports = %v, want [1/1/4]", got)
 	}
@@ -124,7 +124,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 		netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}, netaddr.MAC{0x01, 0x00, 0x5e, 0x01, 0x01, 0x02}, 1,
 		igmp.Message{Type: igmp.ReportV1, Group: legacyGroup},
 	)
-	sw.Forward(fixedTime.Add(2*time.Second), "1/1/2", legacy)
+	sw.Receive(fixedTime.Add(2*time.Second), "1/1/2", legacy)
 	if groups := sw.Groups(10, fixedTime.Add(2*time.Second)); len(groups) != 2 {
 		t.Errorf("Groups(10) after IGMPv1 report = %+v, want two memberships", groups)
 	}
@@ -133,7 +133,7 @@ func TestIGMPControlForwardingAndLearning(t *testing.T) {
 	}
 
 	withoutRouter := mustSwitch(t, mcastSwitchConfig(t, nil))
-	res = withoutRouter.Forward(fixedTime, "1/1/1", report)
+	res = withoutRouter.Receive(fixedTime, "1/1/1", report)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonNoRouterPort {
 		t.Errorf("report before query = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonNoRouterPort)
 	}
@@ -165,14 +165,14 @@ func TestMulticastReportIgnoresExpiredRouterPorts(t *testing.T) {
 					mld.Message{Type: mld.ReportV1, Group: group},
 				)
 			}
-			sw.Forward(fixedTime, "1/1/4", query)
+			sw.Receive(fixedTime, "1/1/4", query)
 			if routers := sw.RouterPorts(10, fixedTime); len(routers) != 1 || routers[0].Port != "1/1/4" {
 				t.Fatalf("live router ports = %+v, want 1/1/4", routers)
 			}
-			if ports := mcastForwardedPorts(sw.Forward(fixedTime.Add(time.Second), "1/1/1", report)); !slices.Equal(ports, []string{"1/1/4"}) {
+			if ports := mcastForwardedPorts(sw.Receive(fixedTime.Add(time.Second), "1/1/1", report)); !slices.Equal(ports, []string{"1/1/4"}) {
 				t.Fatalf("live report ports = %v, want [1/1/4]", ports)
 			}
-			res := sw.Forward(fixedTime.Add(300*time.Second), "1/1/1", report)
+			res := sw.Receive(fixedTime.Add(300*time.Second), "1/1/1", report)
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonNoRouterPort || len(mcastForwardedPorts(res)) != 0 {
 				t.Errorf("expired report = %s/%s, ports %v, want Dropped/no-router-port and no ports", res.Outcome, res.Reason, mcastForwardedPorts(res))
 			}
@@ -188,18 +188,18 @@ func TestMulticastQueryEvidenceIgnoresExpiredRouterPorts(t *testing.T) {
 	cfg.Mcast.VLANs[10] = snooping
 	sw := mustSwitch(t, cfg)
 	group := netip.MustParseAddr("239.1.1.1")
-	sw.Forward(fixedTime, "1/1/4", makeIGMPControlFrame(t,
+	sw.Receive(fixedTime, "1/1/4", makeIGMPControlFrame(t,
 		netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
 		mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2},
 	))
 	if routers := sw.RouterPorts(10, fixedTime); len(routers) != 2 {
 		t.Fatalf("live routers = %+v, want configured and learned router ports", routers)
 	}
-	sw.Forward(fixedTime.Add(time.Second), "1/1/1", makeIGMPControlFrame(t,
+	sw.Receive(fixedTime.Add(time.Second), "1/1/1", makeIGMPControlFrame(t,
 		netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, mcastGroupMAC, 1,
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	))
-	sw.Forward(fixedTime.Add(2*time.Second), "1/1/1", makeIGMPControlFrame(t,
+	sw.Receive(fixedTime.Add(2*time.Second), "1/1/1", makeIGMPControlFrame(t,
 		netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("224.0.0.2"), mcastHostMAC, netaddr.MAC{1, 0, 0x5e, 0, 0, 2}, 1,
 		igmp.Message{Type: igmp.Leave, Group: group},
 	))
@@ -262,8 +262,8 @@ func TestMulticastControlTraceDescribesGroupRecordTransition(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			first := mustSwitch(t, mcastSwitchConfig(t, nil)).Forward(fixedTime, "1/1/1", test.frame(t, test.firstGroup))
-			second := mustSwitch(t, mcastSwitchConfig(t, nil)).Forward(fixedTime, "1/1/1", test.frame(t, test.secondGroup))
+			first := mustSwitch(t, mcastSwitchConfig(t, nil)).Receive(fixedTime, "1/1/1", test.frame(t, test.firstGroup))
+			second := mustSwitch(t, mcastSwitchConfig(t, nil)).Receive(fixedTime, "1/1/1", test.frame(t, test.secondGroup))
 			if first.Equal(second.Trace) {
 				t.Fatal("equal-length reports for distinct groups produced equal traces")
 			}
@@ -336,7 +336,7 @@ func TestIGMPControlRejectsBadFramesWithoutState(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-			res := sw.Forward(fixedTime, "1/1/1", tt.frame(t))
+			res := sw.Receive(fixedTime, "1/1/1", tt.frame(t))
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
@@ -357,7 +357,7 @@ func TestMalformedMLDCandidateDoesNotLearn(t *testing.T) {
 	frame.Payload = frame.Payload[:ip.V6HeaderLen+1]
 
 	sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
@@ -386,7 +386,7 @@ func TestUnsupportedIGMPFloodsWithoutSnoopingMutation(t *testing.T) {
 	binary.BigEndian.PutUint16(payload[2:4], ^uint16(sum))
 
 	sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
 		t.Errorf("unsupported IGMP ports = %v, want every other VLAN port", got)
 	}
@@ -408,7 +408,7 @@ func TestUnsupportedMLDFloodsWithoutSnoopingMutation(t *testing.T) {
 	setMLDType(t, &frame, 200)
 
 	sw := mustSwitch(t, mcastSwitchConfig(t, new(false)))
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
 		t.Errorf("unsupported MLD ports = %v, want every other VLAN port", got)
 	}
@@ -436,7 +436,7 @@ func TestUnsupportedMLDRequiresLinkLocalSource(t *testing.T) {
 				mld.Message{Type: mld.ReportV1, Group: group})
 			setMLDType(t, &frame, 200)
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-			res := sw.Forward(fixedTime, "1/1/1", frame)
+			res := sw.Receive(fixedTime, "1/1/1", frame)
 			if source.IsLinkLocalUnicast() {
 				if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/2", "1/1/3", "1/1/4"}) {
 					t.Errorf("unsupported MLD ports = %v, want every other VLAN port", got)
@@ -460,7 +460,7 @@ func TestMLDReportAcceptsUnspecifiedSource(t *testing.T) {
 				message = mld.Message{Type: version, Records: []mld.AddressRecord{{Type: mld.ModeIsExclude, Group: group}}}
 			}
 			frame := makeMLDControlFrame(t, netip.IPv6Unspecified(), netip.MustParseAddr("ff02::16"), mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 0x16}, 1, true, message)
-			sw.Forward(fixedTime, "1/1/1", frame)
+			sw.Receive(fixedTime, "1/1/1", frame)
 			if entries := sw.Groups(10, fixedTime); len(entries) != 1 || entries[0].Group != group || entries[0].Port != "1/1/1" {
 				t.Errorf("Groups = %+v, want membership from unspecified report source", entries)
 			}
@@ -474,7 +474,7 @@ func TestMLDUnspecifiedQueryAndDoneRefused(t *testing.T) {
 		t.Run(fmt.Sprint(messageType), func(t *testing.T) {
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
 			frame := makeMLDControlFrame(t, netip.IPv6Unspecified(), group, mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true, mld.Message{Type: messageType, Version: mld.V1, Group: group})
-			result := sw.Forward(fixedTime, "1/1/1", frame)
+			result := sw.Receive(fixedTime, "1/1/1", frame)
 			if result.Outcome != trace.Dropped || result.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", result.Outcome, result.Reason, mcast.ReasonBadControl)
 			}
@@ -502,7 +502,7 @@ func TestMLDControlValidatesOuterHeader(t *testing.T) {
 				mld.Message{Type: mld.ReportV1, Group: group},
 			)
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-			res := sw.Forward(fixedTime, "1/1/1", frame)
+			res := sw.Receive(fixedTime, "1/1/1", frame)
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
@@ -534,7 +534,7 @@ func TestMLDRouterAlertValidation(t *testing.T) {
 			replaceMLDHopByHop(t, &frame, tc.hopByHop)
 
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
-			res := sw.Forward(fixedTime, "1/1/1", frame)
+			res := sw.Receive(fixedTime, "1/1/1", frame)
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
@@ -562,7 +562,7 @@ func TestSnoopedControlPrecedesRoutedVLANOwnership(t *testing.T) {
 	)
 
 	sw := mustSwitch(t, cfg)
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
 		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
@@ -592,7 +592,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 		}
 	}
 
-	res := sw.Forward(fixedTime, "1/1/3", data(group, netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02}, ethernet.EtherTypeIPv4))
+	res := sw.Receive(fixedTime, "1/1/3", data(group, netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02}, ethernet.EtherTypeIPv4))
 	if res.Reason != mcast.ReasonUnregistered {
 		t.Errorf("unregistered group without router reason = %q, want %q", res.Reason, mcast.ReasonUnregistered)
 	}
@@ -605,8 +605,8 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 		mcastRouterMAC, allHostsMAC, 1,
 		igmp.Message{Type: igmp.Query, Version: igmp.V2},
 	)
-	sw.Forward(fixedTime, "1/1/4", query)
-	res = sw.Forward(fixedTime, "1/1/3", data(group, netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02}, ethernet.EtherTypeIPv4))
+	sw.Receive(fixedTime, "1/1/4", query)
+	res = sw.Receive(fixedTime, "1/1/3", data(group, netaddr.MAC{0x01, 0x00, 0x5e, 0x02, 0x02, 0x02}, ethernet.EtherTypeIPv4))
 	if got := mcastForwardedPorts(res); !slices.Equal(got, []string{"1/1/4"}) {
 		t.Errorf("unregistered group with router ports = %v, want [1/1/4]", got)
 	}
@@ -623,7 +623,7 @@ func TestMulticastDataResolutionAndFloodExceptions(t *testing.T) {
 		"non-IP group":          {Dst: netaddr.MAC{0x01, 0, 0, 0, 0, 1}, Src: mcastHostMAC, EtherType: ethernet.EtherTypeARP},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got := mcastForwardedPorts(sw.Forward(fixedTime, "1/1/3", frame))
+			got := mcastForwardedPorts(sw.Receive(fixedTime, "1/1/3", frame))
 			if !slices.Equal(got, []string{"1/1/1", "1/1/2", "1/1/4"}) {
 				t.Errorf("forwarded ports = %v, want ordinary flood", got)
 			}
@@ -647,8 +647,8 @@ func TestPeekLeavesMulticastAndMACTablesUntouched(t *testing.T) {
 		netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
 		mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2},
 	)
-	sw.Forward(fixedTime, "1/1/4", query)
-	sw.Forward(fixedTime, "1/1/1", report)
+	sw.Receive(fixedTime, "1/1/4", query)
+	sw.Receive(fixedTime, "1/1/1", report)
 	beforeMACs := sw.Entries()
 	beforeGroups, beforeRouters := sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime)
 	if len(beforeMACs) != 2 || len(beforeGroups) != 1 || len(beforeRouters) != 1 {
@@ -678,6 +678,7 @@ func TestPeekLeavesMulticastAndMACTablesUntouched(t *testing.T) {
 }
 
 func TestMulticastControlRunsThroughTrafficFinishing(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	cfg := mcastSwitchConfig(t, nil)
 	vlanCfg := cfg.Mcast.VLANs[10]
 	vlanCfg.RouterPorts = []string{"1/1/3"}
@@ -693,15 +694,15 @@ func TestMulticastControlRunsThroughTrafficFinishing(t *testing.T) {
 	)
 
 	sw := mustSwitch(t, cfg)
-	res := sw.Forward(fixedTime, "1/1/1", report)
+	res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", report))
 	if res.Outcome != trace.Dropped || res.Reason != traffic.ReasonMirrorOutput {
 		t.Errorf("control result = %s/%s, want Dropped/%s", res.Outcome, res.Reason, traffic.ReasonMirrorOutput)
 	}
 	if len(res.Egress) != 1 || res.Egress[0].Port != "1/1/3" || res.Egress[0].Dropped != traffic.ReasonMirrorOutput {
 		t.Errorf("control egress = %+v, want mirror-output drop on 1/1/3", res.Egress)
 	}
-	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
-		t.Errorf("Copies() = %+v, want control mirror on 1/1/3", copies)
+	if copies := takeCopies(callOutputs, sw); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
+		t.Errorf("output copies = %+v, want control mirror on 1/1/3", copies)
 	}
 }
 
@@ -751,13 +752,13 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 
 	group := netip.MustParseAddr("239.1.1.1")
 	cur := mustSwitch(t, base)
-	cur.Forward(fixedTime, "1/1/1", makeIGMPControlFrame(t,
+	cur.Receive(fixedTime, "1/1/1", makeIGMPControlFrame(t,
 		netip.MustParseAddr("10.0.0.1"), group,
 		mcastHostMAC, mcastGroupMAC, 1,
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	))
 
-	kept, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()})
+	kept, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()})
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
@@ -767,7 +768,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 
 	removed := base.Clone()
 	delete(removed.Mcast.VLANs, 10)
-	dropped, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed})
+	dropped, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed})
 	if err != nil {
 		t.Fatalf("Derive removing snooped VLAN: %v", err)
 	}
@@ -780,14 +781,14 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		mcastRouterMAC, allHostsMAC, 1,
 		igmp.Message{Type: igmp.Query, Version: igmp.V2},
 	)
-	cur.Forward(fixedTime, "1/1/4", query)
+	cur.Receive(fixedTime, "1/1/4", query)
 	changed := base.Clone()
 	changedMcast := changed.Mcast.VLANs[10]
 	changedMcast.MembershipInterval = 30 * time.Second
 	changedMcast.RouterPortInterval = 45 * time.Second
 	changedMcast.RouterPorts = []string{"1/1/3"}
 	changed.Mcast.VLANs[10] = changedMcast
-	retained, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed})
+	retained, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed})
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}
@@ -849,12 +850,12 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 	other := netip.MustParseAddr("10.9.9.9")
 
 	join := func(t *testing.T, sw *vswitch.Switch) {
-		sw.Forward(t0, "p1", makeIGMPControlFrame(t,
+		sw.Receive(t0, "p1", makeIGMPControlFrame(t,
 			netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, groupMAC, 1,
 			igmp.Message{Type: igmp.ReportV2, Group: group}))
 	}
 	leave := func(t *testing.T, sw *vswitch.Switch) {
-		sw.Forward(leaveAt, "p1", makeIGMPControlFrame(t,
+		sw.Receive(leaveAt, "p1", makeIGMPControlFrame(t,
 			netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("224.0.0.2"), mcastHostMAC, allRoutersMAC, 1,
 			igmp.Message{Type: igmp.Leave, Group: group}))
 	}
@@ -863,15 +864,15 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 		sw := build(t, true)
 		join(t, sw)
 		leave(t, sw)
-		sw.Forward(leaveAt, "p9", makeIGMPControlFrame(t,
+		sw.Receive(leaveAt, "p9", makeIGMPControlFrame(t,
 			netip.MustParseAddr("10.0.0.254"), group, mcastRouterMAC, groupMAC, 1,
 			igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group}))
 
-		res1 := sw.Forward(leaveAt.Add(time.Second), "p9", dataFrame(t, other))
+		res1 := sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame(t, other))
 		if !slices.Contains(mcastForwardedPorts(res1), "p1") {
 			t.Errorf("egress at t+1s = false, want true")
 		}
-		res2 := sw.Forward(leaveAt.Add(2*time.Second), "p9", dataFrame(t, other))
+		res2 := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame(t, other))
 		if groups := sw.Groups(10, leaveAt.Add(2*time.Second)); len(groups) != 0 {
 			t.Errorf("groups at t+2s = %+v, want expired membership removed from the read", groups)
 		}
@@ -885,7 +886,7 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 		join(t, sw)
 		leave(t, sw)
 
-		res := sw.Forward(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
+		res := sw.Receive(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
 		if !slices.Contains(mcastForwardedPorts(res), "p1") {
 			t.Errorf("egress at t+3s = false, want true")
 		}
@@ -902,7 +903,7 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 		join(t, sw)
 		leave(t, sw)
 
-		res := sw.Forward(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
+		res := sw.Receive(leaveAt.Add(3*time.Second), "p9", dataFrame(t, other))
 		if !slices.Contains(mcastForwardedPorts(res), "p1") {
 			t.Errorf("egress at t+3s = false, want true")
 		}

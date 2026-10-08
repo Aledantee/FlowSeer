@@ -302,10 +302,8 @@ func TestStpExport_MigratedPort(t *testing.T) {
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.Drain()
 
-	sw.Wake(t0.Add(4 * time.Second))
-	sw.Drain()
+	sw.Advance(t0.Add(4 * time.Second))
 
 	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
@@ -321,8 +319,7 @@ func TestStpExport_MigratedPort(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 	}
 	frame := mustEncode(t, inferiorBPDU, inferiorBridgeID.Address)
-	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
-	sw.Drain()
+	sw.Receive(t0.Add(4*time.Second), "1/1/1", frame)
 
 	bridgeState, portStates := netmodel.Stp(t0.Add(4*time.Second), sw)
 	if bridgeState == nil {
@@ -620,7 +617,6 @@ func TestStpExportCarriesEffectiveValues(t *testing.T) {
 	}
 	now := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	sw.Start(now)
-	sw.Drain()
 
 	bridgeState, portStates := netmodel.Stp(now.Add(5*time.Second), sw)
 	if err := protovalidate.Validate(bridgeState); err != nil {

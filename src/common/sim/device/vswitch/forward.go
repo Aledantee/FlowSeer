@@ -22,38 +22,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Forward processes an arrival on an ingress port at the given time, updating
-// the forwarding database if a bridge relay is present, and returns the forwarding result
-// with analysis metadata.
-func (s *Switch) Forward(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
-	c, end := s.beginCall(now, true)
-	defer end()
-	s.copies = nil
-
-	return s.wrapResult(c, s.forward(c.now, ingress, f, c.commit))
-}
-
 // Peek processes an arrival on an ingress port at the given time without mutating
-// the forwarding database and returns the forwarding result with analysis metadata.
-func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) ForwardResult {
+// runtime state and returns the forwarding result, metadata, and mirror copies.
+func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) Output {
 	c, end := s.beginCall(now, false)
 	defer end()
 
-	return s.wrapResult(c, s.forward(c.now, ingress, f, c.commit))
-}
-
-// ComposeForwardResult attaches switch-owned trust metadata to a forwarding result
-// produced before the bridge pipeline. dependencyPorts names the port state that
-// could have changed the result; a member port also depends on its logical LAG.
-func (s *Switch) ComposeForwardResult(res bridge.Result, dependencyPorts ...string) ForwardResult {
-	c, end := s.beginCall(time.Time{}, false)
-	defer end()
-
-	for _, name := range dependencyPorts {
-		s.forwardingDependencies(name).consult(&res)
-	}
-
-	return s.wrapResult(c, res)
+	return c.output(s.wrapResult(c, s.forward(c.now, ingress, f, c.commit)))
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
@@ -410,9 +385,7 @@ func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.
 	}
 	copies := s.traffic.Copies(switchports, resolvedIngress, res.FID, received, egress)
 	copies = s.readyMirrorCopies(now, &res, copies, mutate)
-	if mutate {
-		s.call.copies = append(s.call.copies, copies...)
-	}
+	s.call.copies = append(s.call.copies, copies...)
 
 	return res
 }

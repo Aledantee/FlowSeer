@@ -49,7 +49,7 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 	a, b := mustSwitch(t, cfg), mustSwitch(t, cfg)
 	for _, sw := range []*vswitch.Switch{a, b} {
 		sw.Start(t0)
-		sw.Drain()
+
 		sw.Receive(t0, "p1", mustEncode(t, frame(4096), peer))
 		for i := 1; i <= 12; i++ {
 			at := t0.Add(time.Duration(i) * time.Second)
@@ -82,9 +82,13 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 	}
 	compare(at, oa, ob)
 	for _, sw := range []*vswitch.Switch{a, b} {
-		sw.LinkChange(at, "p3", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-		sw.LinkChange(at, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
-		sw.Drain()
+		if _, err := sw.LinkChange(at, "p3", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sw.LinkChange(at, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			t.Fatal(err)
+		}
+
 		sw.Receive(at.Add(4*time.Second), "p2", mustEncode(t, frame(2048), peer))
 	}
 	later := at.Add(5 * time.Second)
@@ -115,34 +119,20 @@ func outputReply(t *testing.T) ethernet.Frame {
 		netaddr.MAC{2, 0, 0, 0, 0x20, 0x77}, macRouter)
 }
 
-func assertNoPendingOutput(t *testing.T, sw *vswitch.Switch) {
-	t.Helper()
-	if em, copies, drops := sw.Drain(), sw.Copies(), sw.DrainNeighborFailures(); len(em)+len(copies)+len(drops) != 0 {
-		t.Errorf("pending output = %v/%v/%v, want empty", em, copies, drops)
-	}
-}
-
 func TestReceiveReturnsTheRelease(t *testing.T) {
 	sw := buildRoutedPortSwitch(t)
 	held := sw.Receive(fixedTime, "1/1/1", outputHeldFrame(t))
 	if held.Outcome != trace.Held || len(held.Emissions) != 1 {
 		t.Fatalf("first output = %+v, want Held and one solicitation", held)
 	}
-	assertNoPendingOutput(t, sw)
+
 	out := sw.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t))
 	if len(out.Emissions) != 1 || out.Emissions[0].Protocol || out.Emissions[0].Port != "1/1/2" || out.Emissions[0].Frame.Dst != outputReply(t).Src {
 		t.Errorf("release = %+v, want held data on 1/1/2 to learned MAC", out.Emissions)
 	}
-	assertNoPendingOutput(t, sw)
+
 	if out := sw.Advance(fixedTime.Add(time.Second)); len(out.Emissions)+len(out.Drops) != 0 {
 		t.Errorf("later output = %+v, want no repeated release", out)
-	}
-	// A pending legacy emission belongs to its own call.
-	legacy := buildRoutedPortSwitch(t)
-	legacy.Forward(fixedTime, "1/1/1", outputHeldFrame(t))
-	out = legacy.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t))
-	if len(out.Emissions) != 1 || out.Emissions[0].Protocol || len(legacy.Drain()) != 1 {
-		t.Errorf("new call output = %+v, want only release and legacy solicitation still pending", out.Emissions)
 	}
 }
 
@@ -160,7 +150,7 @@ func TestReceiveAdvancesBeforeTheFrame(t *testing.T) {
 	if err != nil || msg.Operation != arp.Request || msg.TargetAddr != netip.MustParseAddr("10.0.20.77") {
 		t.Errorf("retransmission = %+v/%v, want request for held destination", msg, err)
 	}
-	assertNoPendingOutput(t, sw)
+
 	out = sw.Advance(fixedTime.Add(2 * time.Second))
 	if len(out.Emissions) != 1 {
 		t.Fatalf("second advance emissions = %+v, want third solicitation", out.Emissions)
@@ -169,7 +159,6 @@ func TestReceiveAdvancesBeforeTheFrame(t *testing.T) {
 	if len(out.Drops) != 1 || out.Drops[0].Reason != routing.ReasonNeighborMiss {
 		t.Errorf("timeout drops = %+v, want neighbor-miss for held frame", out.Drops)
 	}
-	assertNoPendingOutput(t, sw)
 }
 
 func outputTrafficSwitch(t *testing.T, stpEnabled bool) *vswitch.Switch {
@@ -208,7 +197,7 @@ func TestReceivePolicesAndReceiveMirroredDoesNot(t *testing.T) {
 	if mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
 		t.Errorf("mirrored output = %+v, want Flooded with egress and no copies", mirrored)
 	}
-	assertNoPendingOutput(t, sw)
+
 	cfg := outputTrafficSwitch(t, false).Config()
 	cfg.Traffic.Policers["in"] = traffic.Policer{RateBPS: 8, BurstOctets: 83}
 	tooSmall := mustSwitch(t, cfg).Receive(fixedTime, "in", outputData())
@@ -220,7 +209,7 @@ func TestReceivePolicesAndReceiveMirroredDoesNot(t *testing.T) {
 func TestPolicedArrivalStillAdvances(t *testing.T) {
 	sw := outputTrafficSwitch(t, true)
 	sw.Start(fixedTime)
-	sw.Drain()
+
 	sw.Receive(fixedTime, "in", outputData())
 	out := sw.Receive(fixedTime.Add(2*time.Second), "in", outputData())
 	if out.Reason != traffic.ReasonPoliced {
@@ -234,7 +223,6 @@ func TestPolicedArrivalStillAdvances(t *testing.T) {
 			t.Errorf("due emission is not a BPDU: %v", err)
 		}
 	}
-	assertNoPendingOutput(t, sw)
 }
 
 func outputTimedSwitch(t *testing.T) *vswitch.Switch {
@@ -257,7 +245,7 @@ func outputTimedSwitch(t *testing.T) *vswitch.Switch {
 func TestAdvanceVisitsEveryTimedLayer(t *testing.T) {
 	sw := outputTimedSwitch(t)
 	sw.Start(fixedTime)
-	sw.Drain()
+
 	held := sw.Receive(fixedTime, "1/1/1", outputHeldFrame(t))
 	if held.Outcome != trace.Held {
 		t.Fatalf("fixture outcome = %v, want Held", held.Outcome)
@@ -282,7 +270,6 @@ func TestAdvanceVisitsEveryTimedLayer(t *testing.T) {
 			t.Errorf("Advance has no %s emission: %+v", kind, out.Emissions)
 		}
 	}
-	assertNoPendingOutput(t, sw)
 }
 
 func TestNextWakeIsTheEarliestOfTheTable(t *testing.T) {
@@ -291,7 +278,7 @@ func TestNextWakeIsTheEarliestOfTheTable(t *testing.T) {
 	cfg.LoopProtect = nil
 	sw := mustSwitch(t, cfg)
 	sw.Start(fixedTime)
-	sw.Drain()
+
 	if at, ok := sw.NextWake(); !ok || at != fixedTime.Add(2*time.Second) {
 		t.Fatalf("STP wake = %v/%v, want hello at +2s", at, ok)
 	}
@@ -308,38 +295,72 @@ func TestNextWakeIsTheEarliestOfTheTable(t *testing.T) {
 	}
 }
 
-func TestOldEntriesStillDrain(t *testing.T) {
+func TestEntriesReturnTheirOutput(t *testing.T) {
 	sw := outputTimedSwitch(t)
-	sw.Start(fixedTime)
-	if len(sw.Drain()) == 0 {
-		t.Fatal("Start has no pending output")
+	if out := sw.Start(fixedTime); len(out.Emissions) == 0 {
+		t.Fatal("Start returned no output")
 	}
-	sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
-	sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
-	if len(sw.Drain()) == 0 {
-		t.Fatal("LinkChange has no pending output")
+	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
 	}
-	sw.Mcheck(fixedTime.Add(2*time.Second), "protocol")
-	if len(sw.Drain()) == 0 {
-		t.Fatal("Mcheck has no pending output")
-	}
-	legacy := outputTrafficSwitch(t, false)
-	legacy.Forward(fixedTime, "in", outputData())
-	if copies := legacy.Copies(); len(copies) != 1 {
-		t.Errorf("legacy copies = %+v, want one", copies)
-	}
-	routed := buildRoutedPortSwitch(t)
-	routed.Forward(fixedTime, "1/1/1", outputHeldFrame(t))
-	if len(routed.Drain()) != 1 {
-		t.Fatal("legacy Forward has no solicitation")
-	}
-	cfg := routed.Config()
-	cfg.Routing = nil
-	next, err := vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg})
+	out, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if drops := next.DrainNeighborFailures(); len(drops) != 1 || drops[0].Reason != routing.ReasonNeighborMiss {
-		t.Errorf("derive drops = %+v, want neighbor-miss", drops)
+	if len(out.Emissions) == 0 {
+		t.Fatal("LinkChange returned no output")
+	}
+	if out := sw.Mcheck(fixedTime.Add(2*time.Second), "protocol"); len(out.Emissions) == 0 {
+		t.Fatal("Mcheck returned no output")
+	}
+	routed := buildRoutedPortSwitch(t)
+	if out := routed.Receive(fixedTime, "1/1/1", outputHeldFrame(t)); len(out.Emissions) != 1 {
+		t.Fatal("Receive returned no solicitation")
+	}
+	cfg := routed.Config()
+	cfg.Routing = nil
+	_, out, err = vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Drops) != 1 || out.Drops[0].Reason != routing.ReasonNeighborMiss {
+		t.Errorf("derive drops = %+v, want neighbor-miss", out.Drops)
+	}
+}
+
+func TestPeekReturnsCopiesAndLeavesNoState(t *testing.T) {
+	cfg := outputTrafficSwitch(t, true).Config()
+	cfg.Traffic.Policers["in"] = traffic.Policer{RateBPS: 8, BurstOctets: 168}
+	sw := mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	sw.Receive(fixedTime, "in", outputData())
+	baseline := sw.Fork()
+	at := fixedTime.Add(2 * time.Second)
+	peekFrame := outputData()
+	peekFrame.Src = netaddr.MAC{2, 0, 0, 0, 0, 99}
+	out := sw.Peek(at, "in", peekFrame)
+	if len(out.Copies) != 1 || out.Copies[0].Port != "mirror" || !reflect.DeepEqual(out.Copies[0].Frame, peekFrame) {
+		t.Fatalf("Peek copies = %+v, want one copy to mirror", out.Copies)
+	}
+	if len(out.Emissions) != 0 || len(out.Drops) != 0 {
+		t.Fatalf("Peek output = %+v, want no emissions or drops", out)
+	}
+	if a, b := sw.Receive(at, "in", outputData()), baseline.Receive(at, "in", outputData()); !reflect.DeepEqual(a, b) {
+		t.Errorf("Receive after Peek = %+v, without Peek = %+v", a, b)
+	}
+	probe := outputData()
+	probe.Dst = peekFrame.Src
+	if a, b := sw.ReceiveMirrored(at, "out", probe), baseline.ReceiveMirrored(at, "out", probe); !reflect.DeepEqual(a, b) {
+		t.Errorf("learning changed by Peek: %+v / %+v", a, b)
+	}
+	if a, b := sw.Advance(at.Add(time.Second)), baseline.Advance(at.Add(time.Second)); !reflect.DeepEqual(a, b) {
+		t.Errorf("Advance after Peek = %+v, without Peek = %+v", a, b)
+	}
+	routed := buildRoutedPortSwitch(t)
+	routed.Receive(fixedTime, "1/1/1", outputHeldFrame(t))
+	fork := routed.Fork()
+	routed.Peek(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t))
+	if a, b := routed.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t)), fork.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t)); !reflect.DeepEqual(a, b) {
+		t.Errorf("neighbor reception changed by Peek: %+v / %+v", a, b)
 	}
 }

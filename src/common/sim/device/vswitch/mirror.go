@@ -30,19 +30,7 @@ func buildTrafficSwitchports(cfg Config) map[string]traffic.Switchport {
 	return switchports
 }
 
-// Copies returns and clears mirror copies admitted to a forwarding output by the
-// most recent call to [Switch.Forward]. Calls to [Switch.Peek] leave pending copies
-// unchanged.
-func (s *Switch) Copies() []traffic.Copy {
-	copies := s.copies
-	s.copies = nil
-
-	return copies
-}
-
-// Police admits octets through the configured ingress policer for port. A port
-// without a policer always admits the traffic.
-func (s *Switch) Police(now time.Time, name string, octets int) bool {
+func (s *Switch) police(now time.Time, name string, octets int) bool {
 	if s.traffic == nil {
 		return true
 	}

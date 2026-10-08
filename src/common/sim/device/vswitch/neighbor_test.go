@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -20,16 +22,17 @@ import (
 // TestPeekARPReplyKeepsPendingNeighborAndHeldFrame proves that previewing a
 // resolving reply leaves both neighbor state and the held frame untouched.
 func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	sw := buildBaseRoutingSwitch(t)
 	dst := netip.MustParseAddr("10.0.20.77")
 	frame := ethernet.Frame{
 		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
 		Payload: makeIPv4Packet(t, ipH1, dst, 64, []byte("held")),
 	}
-	if res := sw.Forward(fixedTime, "1/1/1", frame); res.Outcome != trace.Held {
+	if res := captureOutput(callOutputs, sw, sw.Receive(fixedTime, "1/1/1", frame)); res.Outcome != trace.Held {
 		t.Fatalf("outcome = %v, want Held", res.Outcome)
 	}
-	dataAfterSolicitations(t, sw.Drain(), 1)
+	dataAfterSolicitations(t, takeEmissions(callOutputs, sw), 1)
 	before := sw.Neighbors()
 	wake, hasWake := sw.NextWake()
 	learnedMAC := netaddr.MAC{2, 0, 0, 0, 0x20, 0x77}
@@ -41,32 +44,33 @@ func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
 	if at, ok := sw.NextWake(); ok != hasWake || !at.Equal(wake) {
 		t.Errorf("wake after Peek = %v/%v, want %v/%v", at, ok, wake, hasWake)
 	}
-	if emissions := sw.Drain(); len(emissions) != 0 {
+	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
 		t.Errorf("emissions after Peek = %+v, want none", emissions)
 	}
-	if failures := sw.DrainNeighborFailures(); len(failures) != 0 {
+	if failures := takeDrops(callOutputs, sw); len(failures) != 0 {
 		t.Errorf("failures after Peek = %+v, want none", failures)
 	}
-	sw.Forward(fixedTime.Add(2*time.Millisecond), "1/1/2", reply)
-	emission := soleDataEmission(t, sw.Drain(), learnedMAC)
+	captureOutput(callOutputs, sw, sw.Receive(fixedTime.Add(2*time.Millisecond), "1/1/2", reply))
+	emission := soleDataEmission(t, takeEmissions(callOutputs, sw), learnedMAC)
 	if emission.Port != "1/1/2" {
 		t.Errorf("released port = %q, want 1/1/2", emission.Port)
 	}
 }
 
-// TestAgeEmitsNeighborRetransmission proves Age delivers the protocol frame
+// TestAdvanceEmitsNeighborRetransmission proves Advance delivers the protocol frame
 // returned by the routing timer at its retransmission deadline.
-func TestAgeEmitsNeighborRetransmission(t *testing.T) {
+func TestAdvanceEmitsNeighborRetransmission(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	sw := buildBaseRoutingSwitch(t)
 	dst := netip.MustParseAddr("10.0.20.77")
-	holdFrameToward(t, sw, fixedTime, dst, []byte("held"))
-	dataAfterSolicitations(t, sw.Drain(), 1)
-	sw.Age(fixedTime.Add(time.Second - time.Nanosecond))
-	if emissions := sw.Drain(); len(emissions) != 0 {
+	captureOutput(callOutputs, sw, holdFrameToward(t, sw, fixedTime, dst, []byte("held")))
+	dataAfterSolicitations(t, takeEmissions(callOutputs, sw), 1)
+	captureOutput(callOutputs, sw, sw.Advance(fixedTime.Add(time.Second-time.Nanosecond)))
+	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
 		t.Fatalf("early emissions = %+v, want none", emissions)
 	}
-	sw.Age(fixedTime.Add(time.Second))
-	emissions := sw.Drain()
+	captureOutput(callOutputs, sw, sw.Advance(fixedTime.Add(time.Second)))
+	emissions := takeEmissions(callOutputs, sw)
 	if len(emissions) != 1 {
 		t.Fatalf("retransmissions = %+v, want one ARP request", emissions)
 	}
@@ -83,6 +87,7 @@ func TestAgeEmitsNeighborRetransmission(t *testing.T) {
 // TestRoutingSolicitationSkipsRefusingVLANMember proves neighbor protocol
 // emissions obey the bridge's per-port egress refusal.
 func TestRoutingSolicitationSkipsRefusingVLANMember(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	for _, refusal := range []string{"down", "spanning-tree"} {
 		t.Run(refusal, func(t *testing.T) {
 			cfg := buildBaseRoutingSwitch(t).Config()
@@ -105,12 +110,12 @@ func TestRoutingSolicitationSkipsRefusingVLANMember(t *testing.T) {
 				}}
 			}
 			sw := mustSwitch(t, cfg)
-			sw.Start(fixedTime)
-			sw.Drain()
+			captureOutput(callOutputs, sw, sw.Start(fixedTime))
+			takeEmissions(callOutputs, sw)
 			dst := netip.MustParseAddr("10.0.20.77")
-			holdFrameToward(t, sw, fixedTime, dst, []byte("held"))
+			captureOutput(callOutputs, sw, holdFrameToward(t, sw, fixedTime, dst, []byte("held")))
 			var ports []string
-			for _, em := range sw.Drain() {
+			for _, em := range takeEmissions(callOutputs, sw) {
 				msg, err := arp.Decode(em.Frame)
 				if err != nil {
 					t.Fatal(err)

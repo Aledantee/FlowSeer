@@ -97,7 +97,7 @@ func TestFilterIngressDropIsCompleteOutcomeAndSkipsRouting(t *testing.T) {
 		Payload:   pkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped {
 		t.Fatalf("Outcome = %v, want %v", res.Outcome, trace.Dropped)
 	}
@@ -170,7 +170,7 @@ func TestFilterEgressBindingAppliesToForwardedFramesOnly(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   localPkt,
 	}
-	resLocal := sw.Forward(fixedTime, "1/1/1", localFrame)
+	resLocal := sw.Receive(fixedTime, "1/1/1", localFrame)
 	if resLocal.Outcome != trace.Consumed {
 		t.Fatalf("local frame Outcome = %v, want %v", resLocal.Outcome, trace.Consumed)
 	}
@@ -183,7 +183,7 @@ func TestFilterEgressBindingAppliesToForwardedFramesOnly(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   fwdPkt,
 	}
-	resFwd := sw.Forward(fixedTime, "1/1/1", fwdFrame)
+	resFwd := sw.Receive(fixedTime, "1/1/1", fwdFrame)
 	if resFwd.Outcome != trace.Dropped {
 		t.Fatalf("forwarded frame Outcome = %v, want %v", resFwd.Outcome, trace.Dropped)
 	}
@@ -276,7 +276,7 @@ func TestFilterStatefulReplyForwardsEndToEnd(t *testing.T) {
 		Payload:   replyPkt,
 	}
 
-	res := sw.Forward(fixedTime, "1/1/2", replyFrame)
+	res := sw.Receive(fixedTime, "1/1/2", replyFrame)
 	if res.Outcome != trace.Forwarded {
 		t.Fatalf("reply Outcome = %v (reason: %v), want Forwarded", res.Outcome, res.Reason)
 	}

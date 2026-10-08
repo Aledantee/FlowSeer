@@ -26,16 +26,9 @@ func (s *Switch) Fork() *Switch {
 		nodeID:             s.nodeID,
 		metadata:           s.metadata,
 		missingSTP:         s.missingSTP,
-		operErr:            s.operErr,
 	}
 	if s.seeds != nil {
 		cp.seeds = slices.Clone(s.seeds)
-	}
-	if s.copies != nil {
-		cp.copies = slices.Clone(s.copies)
-	}
-	if s.emissions != nil {
-		cp.emissions = slices.Clone(s.emissions)
 	}
 	if s.portP2P != nil {
 		cp.portP2P = maps.Clone(s.portP2P)
@@ -45,9 +38,6 @@ func (s *Switch) Fork() *Switch {
 	}
 	if s.protocolIssues != nil {
 		cp.protocolIssues = maps.Clone(s.protocolIssues)
-	}
-	if s.neighborFailures != nil {
-		cp.neighborFailures = slices.Clone(s.neighborFailures)
 	}
 	if s.traffic != nil {
 		cp.traffic = s.traffic.Clone()

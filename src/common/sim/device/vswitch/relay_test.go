@@ -38,7 +38,7 @@ func TestSwitchEgressKeepsClassifiedPCP(t *testing.T) {
 		}},
 	}
 
-	res := sw.Forward(fixedTime, "1/1/1", frame)
+	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if len(res.Egress) != 1 {
 		t.Fatalf("len(Egress) = %d, want 1", len(res.Egress))
 	}
@@ -69,23 +69,23 @@ func TestSwitchAge(t *testing.T) {
 		macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 		macB := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee}
 
-		sw.Forward(t0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
+		sw.Receive(t0, "1/1/1", ethernet.Frame{Dst: macB, Src: macA})
 
 		t200 := t0.Add(200 * time.Second)
-		sw.Forward(t200, "1/1/2", ethernet.Frame{Dst: macA, Src: macB})
+		sw.Receive(t200, "1/1/2", ethernet.Frame{Dst: macA, Src: macB})
 
 		if len(sw.Entries()) != 2 {
 			t.Fatalf("got %d entries, want 2", len(sw.Entries()))
 		}
 
 		t250 := t0.Add(250 * time.Second)
-		sw.Age(t250)
+		sw.Advance(t250)
 		if len(sw.Entries()) != 2 {
 			t.Fatalf("at t0+250s got %d entries, want 2", len(sw.Entries()))
 		}
 
 		t301 := t0.Add(301 * time.Second)
-		sw.Age(t301)
+		sw.Advance(t301)
 		entries := sw.Entries()
 		if len(entries) != 1 {
 			t.Fatalf("at t0+301s got %d entries, want 1", len(entries))
@@ -95,7 +95,7 @@ func TestSwitchAge(t *testing.T) {
 		}
 
 		t501 := t0.Add(501 * time.Second)
-		sw.Age(t501)
+		sw.Advance(t501)
 		if len(sw.Entries()) != 0 {
 			t.Fatalf("at t0+501s got %d entries, want 0", len(sw.Entries()))
 		}
@@ -106,7 +106,7 @@ func TestSwitchAge(t *testing.T) {
 		sw := mustSwitch(t, cfg)
 
 		t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-		sw.Age(t0)
+		sw.Advance(t0)
 		if entries := sw.Entries(); entries != nil {
 			t.Errorf("hub entries = %v, want nil", entries)
 		}

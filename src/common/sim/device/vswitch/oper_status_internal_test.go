@@ -4,13 +4,14 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func TestSetOperStatusRejectsAbsentPortWithoutMutation(t *testing.T) {
+func TestLinkChangeRejectsAbsentPortWithoutMutation(t *testing.T) {
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
@@ -23,9 +24,9 @@ func TestSetOperStatusRejectsAbsentPortWithoutMutation(t *testing.T) {
 	}
 	before := sw.ports.Ports()
 	beforeRelay := sw.bridge.Clone()
-	err = sw.SetOperStatus("absent", port.Down)
+	_, err = sw.LinkChange(time.Time{}, "absent", port.Down, PointToPointTrue, 0)
 	if err == nil {
-		t.Fatal("SetOperStatus(absent, Down) accepted absent port")
+		t.Fatal("LinkChange(absent, Down) accepted absent port")
 	}
 	if got := errs.Attributes(err)["field"]; got != "ports.absent" {
 		t.Errorf("field = %v, want ports.absent", got)
@@ -38,7 +39,7 @@ func TestSetOperStatusRejectsAbsentPortWithoutMutation(t *testing.T) {
 	}
 }
 
-func TestSetOperStatusRejectsAbsentPortWithoutRelay(t *testing.T) {
+func TestLinkChangeRejectsAbsentPortWithoutRelay(t *testing.T) {
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 	if err != nil {
@@ -52,9 +53,9 @@ func TestSetOperStatusRejectsAbsentPortWithoutRelay(t *testing.T) {
 		t.Fatal("New without Bridge constructed a relay, want nil")
 	}
 	before := sw.ports.Clone()
-	err = sw.SetOperStatus("absent", port.Down)
+	_, err = sw.LinkChange(time.Time{}, "absent", port.Down, PointToPointTrue, 0)
 	if err == nil {
-		t.Error("SetOperStatus(absent, Down) error = nil, want error")
+		t.Error("LinkChange(absent, Down) error = nil, want error")
 	} else if got := errs.Attributes(err)["field"]; got != "ports.absent" {
 		t.Errorf("field = %v, want ports.absent", got)
 	}

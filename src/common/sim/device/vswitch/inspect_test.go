@@ -23,7 +23,7 @@ func TestEntriesCarryOriginAndLifetime(t *testing.T) {
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 
 	mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH1, Port: "1/1/1", Lifetime: bridge.Static, LearnedAt: fixedTime}})
-	sw.Forward(fixedTime, "1/1/2", ethernet.Frame{Src: macH2, Dst: macH1})
+	sw.Receive(fixedTime, "1/1/2", ethernet.Frame{Src: macH2, Dst: macH1})
 
 	entries := sw.Entries()
 	if len(entries) != 2 {
@@ -146,7 +146,7 @@ func TestSwitchPowerMetadata(t *testing.T) {
 		Src:       netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	fwd := sw.Forward(fixedTime, "1/1/1", frame)
+	fwd := sw.Receive(fixedTime, "1/1/1", frame)
 	for _, fi := range fwd.Metadata.Issues() {
 		if fi.Code == "poe-demand-unknown" {
 			t.Errorf("forwarding metadata contains poe-demand-unknown: %+v", fi)
@@ -187,7 +187,7 @@ func TestSwitchLearnForgetAndRelayCounters(t *testing.T) {
 			Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
 			Src: mac,
 		}
-		sw.Forward(now, "1/1/1", frame)
+		sw.Receive(now, "1/1/1", frame)
 
 		counters := sw.RelayCounters()
 		if counters.Learned != 1 {

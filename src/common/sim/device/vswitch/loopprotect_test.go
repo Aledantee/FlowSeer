@@ -27,7 +27,7 @@ func TestLoopProtectProbeNeedsProbeEtherType(t *testing.T) {
 	frame := mustEncodeProbe(t, loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}, mac)
 	frame.EtherType = 0x0800
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("outcome = %s, want %s", res.Outcome, trace.Flooded)
 	}
@@ -52,7 +52,7 @@ func TestLoopProtectOwnProbeConsumedNotFlooded(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
 	frame := mustEncodeProbe(t, probe, mac)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("own probe outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -82,7 +82,7 @@ func TestLoopProtectForeignProbeFloodsWithOneClassificationStep(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: foreignMAC, VID: 0, Sequence: 1, Port: "1/1/1"}
 	frame := mustEncodeProbe(t, probe, foreignMAC)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("foreign probe outcome = %s, want %s", res.Outcome, trace.Flooded)
 	}
@@ -114,12 +114,12 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
 	frame := mustEncodeProbe(t, probe, mac)
 
-	first := sw.Forward(now, "1/1/1", frame)
+	first := sw.Receive(now, "1/1/1", frame)
 	if first.Outcome != trace.Consumed {
 		t.Fatalf("first probe outcome = %s, want %s", first.Outcome, trace.Consumed)
 	}
 
-	second := sw.Forward(now, "1/1/1", frame)
+	second := sw.Receive(now, "1/1/1", frame)
 	if second.Outcome != trace.Dropped || second.Reason != bridge.ReasonPortBlocked {
 		t.Fatalf("second probe on the now-blocked port = %s/%s, want %s/%s",
 			second.Outcome, second.Reason, trace.Dropped, bridge.ReasonPortBlocked)
@@ -136,6 +136,7 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 // spanning tree, so a LAG-only switch's protected port is not stuck applied
 // forever once blocked.
 func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
@@ -155,12 +156,12 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "lag1"}
-	res := sw.Forward(now, "lag1", mustEncodeProbe(t, probe, mac))
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "lag1", mustEncodeProbe(t, probe, mac)))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("probe outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -169,21 +170,20 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	data := ethernet.Frame{Dst: broadcast, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
 
-	blocked := sw.Forward(now, "lag1", data)
+	blocked := captureOutput(callOutputs, sw, sw.Receive(now, "lag1", data))
 	if blocked.Outcome != trace.Dropped || blocked.Reason != bridge.ReasonPortBlocked {
 		t.Fatalf("frame on lag1 after Block applied = %s/%s, want %s/%s",
 			blocked.Outcome, blocked.Reason, trace.Dropped, bridge.ReasonPortBlocked)
 	}
-
-	sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointUnknown, 0)
-	sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointUnknown, 0)
-	sw.LinkChange(now, "1/1/1", port.Up, vswitch.PointToPointUnknown, 0)
-	sw.LinkChange(now, "1/1/2", port.Up, vswitch.PointToPointUnknown, 0)
+	captureLinkOutput(t, callOutputs, sw, now, "1/1/1", port.Down)
+	captureLinkOutput(t, callOutputs, sw, now, "1/1/2", port.Down)
+	captureLinkOutput(t, callOutputs, sw, now, "1/1/1", port.Up)
+	captureLinkOutput(t, callOutputs, sw, now, "1/1/2", port.Up)
 
 	// lag1 is the fixture's only non-member port, so an unblocked broadcast
 	// off it has nowhere left to flood to: the positive outcome here is
 	// Dropped/no-egress, not the port-blocked drop the precondition proved.
-	after := sw.Forward(now, "lag1", data)
+	after := captureOutput(callOutputs, sw, sw.Receive(now, "lag1", data))
 	if after.Outcome != trace.Dropped || after.Reason != bridge.ReasonNoEgress {
 		t.Fatalf("frame on lag1 after a port cycle = %s/%s, want %s/%s: the Manual action should have cleared",
 			after.Outcome, after.Reason, trace.Dropped, bridge.ReasonNoEgress)
@@ -197,6 +197,7 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 // frame, so the probe is not silently discarded for naming a VID the bridge
 // does not admit.
 func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -217,11 +218,10 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
-
-	sw.Wake(now.Add(loopprotect.DefaultInterval))
-	emissions := sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(loopprotect.DefaultInterval)))
+	emissions := takeEmissions(callOutputs, sw)
 
 	found := false
 	for _, em := range emissions {
@@ -242,6 +242,7 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 }
 
 func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -262,11 +263,10 @@ func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
-
-	sw.Wake(now.Add(loopprotect.DefaultInterval))
-	emissions := sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(loopprotect.DefaultInterval)))
+	emissions := takeEmissions(callOutputs, sw)
 
 	found := false
 	for _, em := range emissions {
@@ -290,7 +290,7 @@ func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
 // loopProtectReturnFactString locates the "loopprotect.probe.return" step in
 // res's trace and returns its output fact's canonical string, or "" if the
 // step is not present.
-func loopProtectReturnFactString(t *testing.T, res vswitch.ForwardResult) string {
+func loopProtectReturnFactString(t *testing.T, res vswitch.Output) string {
 	t.Helper()
 
 	for _, step := range res.Steps {
@@ -311,6 +311,7 @@ func loopProtectReturnFactString(t *testing.T, res vswitch.ForwardResult) string
 // transmitting, so the payload names the VLAN the frame rides and a return
 // classified into that VLAN is not inter-VLAN.
 func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -332,11 +333,10 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
-
-	sw.Wake(now.Add(loopprotect.DefaultInterval))
-	emissions := sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(loopprotect.DefaultInterval)))
+	emissions := takeEmissions(callOutputs, sw)
 
 	var probeFrame ethernet.Frame
 	found := false
@@ -354,7 +354,7 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 	}
 
 	// An unmanaged loop hands the same probe back on the port it left from.
-	res := sw.Forward(now, "1/1/1", probeFrame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", probeFrame))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -379,6 +379,7 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 // the return into a different VLAN, reproducing what a real inter-VLAN loop
 // looks like on the wire.
 func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	pvid := vlan.ID(20)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -399,8 +400,8 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 10, Sequence: 1, Port: "1/1/1"}
@@ -408,7 +409,7 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 	// PVID (20) rather than by the VID 10 the payload names as sent.
 	frame := mustEncodeProbe(t, probe, mac)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -435,6 +436,7 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 // of an untagged wire. The loop itself is still real, so the action must
 // still apply; only the VLAN finding is false.
 func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -455,8 +457,8 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 	})
 
 	now := fixedTime
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 20, Sequence: 1, Port: "1/1/1"}
@@ -464,7 +466,7 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 	// PVID (10) even though the port also untags egress for VLAN 20.
 	frame := mustEncodeProbe(t, probe, mac)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("returned probe Outcome = %s, want %s", res.Outcome, trace.Consumed)
 	}
@@ -490,6 +492,7 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 // Tagged, Untagged, or a tunnel's VID does), so a config that only checked
 // PVID at validation time could accept a setup that then emits nothing.
 func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	vid10 := vlan.ID(10)
 
 	newTable := func(names ...string) port.Table {
@@ -626,10 +629,10 @@ func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
 			}
 
 			now := fixedTime
-			sw.Start(now)
-			sw.Drain()
-			sw.Wake(now.Add(loopprotect.DefaultInterval))
-			emissions := sw.Drain()
+			captureOutput(callOutputs, sw, sw.Start(now))
+			takeEmissions(callOutputs, sw)
+			captureOutput(callOutputs, sw, sw.Advance(now.Add(loopprotect.DefaultInterval)))
+			emissions := takeEmissions(callOutputs, sw)
 
 			found := false
 			for _, em := range emissions {
@@ -676,12 +679,12 @@ func TestLoopProtectAppliedActionFlushesLearnedEntries(t *testing.T) {
 
 	mac := sw.Config().MAC
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
-	sw.Forward(now, "1/1/1", mustEncodeProbe(t, probe, mac))
+	sw.Receive(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
 	other := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x55}
 	data := ethernet.Frame{Dst: host, Src: other, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
 
-	res := sw.Forward(now, "1/1/2", data)
+	res := sw.Receive(now, "1/1/2", data)
 	if res.Outcome != trace.Flooded {
 		t.Fatalf("unicast to the host learned through the loop = %s, want %s (stale entry flushed)", res.Outcome, trace.Flooded)
 	}

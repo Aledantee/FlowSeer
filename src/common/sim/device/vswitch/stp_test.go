@@ -23,6 +23,7 @@ import (
 )
 
 func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -47,8 +48,8 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -64,7 +65,7 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 
 	frame := mustEncode(t, b, macRoot)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
@@ -77,17 +78,18 @@ func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	if step, ok := mirrorCopyStep(res.Steps); !ok || step.Op != trace.OpReplicate {
 		t.Errorf("BPDU trace has no admitted mirror decision: %+v", res.Steps)
 	}
-	if copies := sw.Copies(); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
-		t.Errorf("Copies() = %+v, want received BPDU mirrored to 1/1/3", copies)
+	if copies := takeCopies(callOutputs, sw); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/3" {
+		t.Errorf("output copies = %+v, want received BPDU mirrored to 1/1/3", copies)
 	}
 
-	emissions := sw.Drain()
+	emissions := takeEmissions(callOutputs, sw)
 	if len(emissions) == 0 {
-		t.Fatalf("Drain() returned 0 emissions, want at least 1")
+		t.Fatalf("output emissions returned 0 emissions, want at least 1")
 	}
 }
 
 func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"}).
@@ -112,8 +114,8 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -126,7 +128,7 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 
 	frame := mustEncode(t, b, macRoot)
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("res.Outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
@@ -136,6 +138,7 @@ func TestBPDUOnLAGMemberConsumedOnLAG(t *testing.T) {
 }
 
 func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -158,8 +161,8 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -178,7 +181,7 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 		t.Fatalf("Peek outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
 
-	if emissions := sw.Drain(); len(emissions) != 0 {
+	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
 		t.Errorf("Peek generated emissions: %+v, want none", emissions)
 	}
 
@@ -189,6 +192,7 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 }
 
 func TestSwitchTreeRoles(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	ports := mustTable(t, port.NewBuilder().
@@ -217,8 +221,8 @@ func TestSwitchTreeRoles(t *testing.T) {
 		},
 	})
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	swRSTP.Start(now)
-	swRSTP.Drain()
+	captureOutput(callOutputs, swRSTP, swRSTP.Start(now))
+	takeEmissions(callOutputs, swRSTP)
 
 	treeRolesRSTP := swRSTP.TreeRoles()
 	if treeRolesRSTP == nil {
@@ -258,8 +262,8 @@ func TestSwitchTreeRoles(t *testing.T) {
 			},
 		},
 	})
-	swMST.Start(now)
-	swMST.Drain()
+	captureOutput(callOutputs, swMST, swMST.Start(now))
+	takeEmissions(callOutputs, swMST)
 	treeRolesMST := swMST.TreeRoles()
 	if treeRolesMST == nil {
 		t.Fatalf("swMST.TreeRoles() = nil, want per-VLAN roles")
@@ -272,6 +276,7 @@ func TestSwitchTreeRoles(t *testing.T) {
 }
 
 func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -292,8 +297,8 @@ func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	badFrame := ethernet.Frame{
 		Dst:     netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x00},
@@ -301,7 +306,7 @@ func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
 		Payload: []byte{0x01, 0x02, 0x03},
 	}
 
-	res := sw.Forward(now, "1/1/1", badFrame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", badFrame))
 	if res.Outcome != trace.Dropped {
 		t.Fatalf("Forward outcome = %q, want %q", res.Outcome, trace.Dropped)
 	}
@@ -325,6 +330,7 @@ func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
 }
 
 func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -345,14 +351,12 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(t0)
-	sw.Drain()
-
-	sw.Wake(t0.Add(2 * time.Second))
-	sw.Drain()
-
-	sw.Wake(t0.Add(4 * time.Second))
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(t0))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(t0.Add(2*time.Second)))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(t0.Add(4*time.Second)))
+	takeEmissions(callOutputs, sw)
 
 	inferiorBridgeID := bpdu.BridgeID{
 		Priority: 61440,
@@ -368,12 +372,11 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 	}
 	frame := mustEncode(t, inferiorBPDU, inferiorBridgeID.Address)
+	captureOutput(callOutputs, sw, sw.Receive(t0.Add(4*time.Second), "1/1/1", frame))
 
-	sw.Forward(t0.Add(4*time.Second), "1/1/1", frame)
-
-	emissions := sw.Drain()
+	emissions := takeEmissions(callOutputs, sw)
 	if len(emissions) == 0 {
-		t.Fatal("Drain() returned 0 emissions, want reply emission")
+		t.Fatal("output emissions returned 0 emissions, want reply emission")
 	}
 
 	var replyEmission *vswitch.Emission
@@ -397,8 +400,7 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 	if sw.Roles()["1/1/1"].SendRSTP {
 		t.Errorf("Roles()[\"1/1/1\"].SendRSTP = true, want false")
 	}
-
-	sw.Mcheck(t0.Add(10*time.Second), "1/1/1")
+	captureOutput(callOutputs, sw, sw.Mcheck(t0.Add(10*time.Second), "1/1/1"))
 	if !sw.Roles()["1/1/1"].SendRSTP {
 		t.Errorf("Roles()[\"1/1/1\"].SendRSTP after Mcheck = false, want true")
 	}
@@ -408,6 +410,7 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 // relay's port check: a BPDU on a port that is not up never reaches the
 // layer, and its trace says so instead of Consumed.
 func TestBPDUOnDownPortIsDropped(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -424,8 +427,8 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 		},
 	})
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:    bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -436,7 +439,7 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 	}
 	b.SetRole(bpdu.RoleDesignated)
 
-	res := sw.Forward(now, "1/1/1", mustEncode(t, b, macRoot))
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", mustEncode(t, b, macRoot)))
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 		t.Fatalf("BPDU on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
@@ -453,6 +456,7 @@ func TestBPDUOnDownPortIsDropped(t *testing.T) {
 }
 
 func TestSSTPOnDownPortIsDropped(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Down}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -476,12 +480,12 @@ func TestSSTPOnDownPortIsDropped(t *testing.T) {
 		},
 	})
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 	frame := pvstSSTPFrame(t, 10, 10, peer)
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 		t.Fatalf("SSTP on down port = %s/%s, want Dropped/%s", res.Outcome, res.Reason, port.ReasonPortDown)
 	}
@@ -495,6 +499,7 @@ func TestSSTPOnDownPortIsDropped(t *testing.T) {
 }
 
 func TestForwardBPDUWithSpanningTree(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -521,8 +526,8 @@ func TestForwardBPDUWithSpanningTree(t *testing.T) {
 
 	sw := mustSwitch(t, cfg)
 	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	b := bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: macRoot},
@@ -537,7 +542,7 @@ func TestForwardBPDUWithSpanningTree(t *testing.T) {
 	b.SetProposal(true)
 
 	bpduFrame := mustEncode(t, b, macRoot)
-	resBPDU := sw.Forward(now, "1/1/1", bpduFrame)
+	resBPDU := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", bpduFrame))
 	if resBPDU.Outcome != trace.Consumed {
 		t.Errorf("BPDU outcome = %s, want Consumed", resBPDU.Outcome)
 	}
@@ -547,7 +552,7 @@ func TestForwardBPDUWithSpanningTree(t *testing.T) {
 		Dst: otherReserved,
 		Src: macRoot,
 	}
-	resOther := sw.Forward(now, "1/1/1", otherFrame)
+	resOther := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", otherFrame))
 	if resOther.Outcome != trace.Flooded {
 		t.Errorf("reserved frame outcome = %s, want Flooded", resOther.Outcome)
 	}
@@ -570,6 +575,7 @@ type switchCable struct {
 // convergeLayers, driving the same state machine one layer further out
 // through vswitch.Switch's BPDU framing and port table.
 func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch, cables []switchCable, snapshot func() string) time.Time {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Helper()
 
 	now := start
@@ -594,7 +600,7 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 
 	var queue []packet
 	drain := func(srcSw int) {
-		for _, em := range switches[srcSw].Drain() {
+		for _, em := range takeEmissions(callOutputs, switches[srcSw]) {
 			if peerSw, peerPort, ok := findPeer(srcSw, em.Port); ok {
 				queue = append(queue, packet{targetSw: peerSw, targetPort: peerPort, frame: em.Frame})
 			}
@@ -602,7 +608,7 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 	}
 
 	for i, sw := range switches {
-		sw.Start(now)
+		captureOutput(callOutputs, sw, sw.Start(now))
 		drain(i)
 	}
 
@@ -625,7 +631,7 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 			batch := queue
 			queue = nil
 			for _, pkt := range batch {
-				switches[pkt.targetSw].Forward(now, pkt.targetPort, pkt.frame)
+				captureOutput(callOutputs, switches[pkt.targetSw], switches[pkt.targetSw].Receive(now, pkt.targetPort, pkt.frame))
 				drain(pkt.targetSw)
 			}
 
@@ -648,7 +654,7 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 
 		now = earliestWake
 		for i, sw := range switches {
-			sw.Wake(now)
+			captureOutput(callOutputs, sw, sw.Advance(now))
 			drain(i)
 		}
 	}
@@ -723,8 +729,9 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 			}),
 		},
 	})
-
-	sw2.LinkChange(start, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw2.LinkChange(start, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	switches := []*vswitch.Switch{sw1, sw2}
 	cables := []switchCable{
@@ -815,7 +822,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode p3 agreement: %v", err)
 	}
-	sw2.Forward(now, "p3", frame)
+	sw2.Receive(now, "p3", frame)
 
 	macVLAN10 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x10}
 	macVLAN20 := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x20}
@@ -823,8 +830,9 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		{FID: 10, MAC: macVLAN10, Port: "p3", LearnedAt: now},
 		{FID: 20, MAC: macVLAN20, Port: "p3", LearnedAt: now},
 	})
-
-	sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw2.LinkChange(now, "l2", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 	msti = sw2.TreeRoles()[10]
 	if got := msti["l1"]; got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
 		t.Fatalf("sw2 MSTI 1 on l1 after l2 down = role %v state %v, want Root Forwarding", got.Role, got.State)
@@ -926,14 +934,15 @@ func TestPVSTBPDUsRideTheirOwnVLANsEgressTagging(t *testing.T) {
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 
 	t.Run("native vlan 1", func(t *testing.T) {
+		callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 		t.Parallel()
 
 		sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-		sw.Start(now)
-		sw.Drain()
-		sw.Wake(now.Add(2 * time.Second))
+		captureOutput(callOutputs, sw, sw.Start(now))
+		takeEmissions(callOutputs, sw)
+		captureOutput(callOutputs, sw, sw.Advance(now.Add(2*time.Second)))
 
-		got := emittedBPDUShapes(t, sw.Drain())
+		got := emittedBPDUShapes(t, takeEmissions(callOutputs, sw))
 		want := []string{"ieee/untagged", "sstp/tag=10/payload=10", "sstp/untagged/payload=1"}
 		if !slices.Equal(got, want) {
 			t.Fatalf("emissions = %v, want %v", got, want)
@@ -941,14 +950,15 @@ func TestPVSTBPDUsRideTheirOwnVLANsEgressTagging(t *testing.T) {
 	})
 
 	t.Run("native vlan 20", func(t *testing.T) {
+		callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 		t.Parallel()
 
 		sw := mustSwitch(t, pvstSwitchConfig(t, 20, 1, 10, 20))
-		sw.Start(now)
-		sw.Drain()
-		sw.Wake(now.Add(2 * time.Second))
+		captureOutput(callOutputs, sw, sw.Start(now))
+		takeEmissions(callOutputs, sw)
+		captureOutput(callOutputs, sw, sw.Advance(now.Add(2*time.Second)))
 
-		got := emittedBPDUShapes(t, sw.Drain())
+		got := emittedBPDUShapes(t, takeEmissions(callOutputs, sw))
 		want := []string{
 			"ieee/untagged",
 			"sstp/tag=1/payload=1",
@@ -966,6 +976,7 @@ func TestPVSTBPDUsRideTheirOwnVLANsEgressTagging(t *testing.T) {
 // around them: a tree configured for a VLAN the trunk does not carry puts no
 // frame on that trunk.
 func TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -976,11 +987,11 @@ func TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN(t *testing.T) {
 	cfg.STP.PVST.Trees[30] = stp.Tree{}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-	sw.Drain()
-	sw.Wake(now.Add(2 * time.Second))
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(2*time.Second)))
 
-	for _, shape := range emittedBPDUShapes(t, sw.Drain()) {
+	for _, shape := range emittedBPDUShapes(t, takeEmissions(callOutputs, sw)) {
 		if strings.HasSuffix(shape, "payload=30") {
 			t.Fatalf("a VLAN 30 BPDU left a trunk that does not carry VLAN 30: %s", shape)
 		}
@@ -1061,18 +1072,19 @@ func pvstSSTPTCNFrame(t *testing.T, tagVID vlan.ID, src netaddr.MAC) ethernet.Fr
 // state: the admit step carries the VLAN the BPDU named and the VLAN the
 // bridge classified it into, which is the whole finding.
 func TestPVSTPVIDInconsistencyTraceNamesBothVLANs(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// A BPDU naming VLAN 20, tagged for VLAN 10, so the bridge classifies it
 	// into VLAN 10 and the two disagree.
-	res := sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 20, 10, peer))
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", pvstSSTPFrame(t, 20, 10, peer)))
 
 	step, ok := findStep(res.Steps, "stp.sstp.admit")
 	if !ok {
@@ -1092,13 +1104,14 @@ func TestPVSTPVIDInconsistencyTraceNamesBothVLANs(t *testing.T) {
 }
 
 func TestPVSTConfigurationBPDUTraceNamesBothVLANs(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096, Address: peer},
@@ -1115,7 +1128,7 @@ func TestPVSTConfigurationBPDUTraceNamesBothVLANs(t *testing.T) {
 	}
 	frame.Tags = []vlan.Tag{{VID: 10}}
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 	step, ok := findStep(res.Steps, "stp.sstp.admit")
 	if !ok {
 		t.Fatalf("no stp.sstp.admit step in Configuration trace: %+v", res.Steps)
@@ -1135,6 +1148,7 @@ func TestPVSTConfigurationBPDUTraceNamesBothVLANs(t *testing.T) {
 // PVST behavior: an SSTP TCN has no payload VLAN, so its tagged arrival VLAN
 // scopes the flush while the trace records that distinction.
 func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -1161,12 +1175,12 @@ func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 			PVST: &stp.PVST{Trees: map[vlan.ID]stp.Tree{1: {}, 10: {}}},
 		},
 	})
-	sw.Start(now)
-	sw.Drain()
-	sw.Wake(now.Add(15 * time.Second))
-	sw.Drain()
-	sw.Wake(now.Add(30 * time.Second))
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(15*time.Second)))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Advance(now.Add(30*time.Second)))
+	takeEmissions(callOutputs, sw)
 
 	mac1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
 	mac10 := netaddr.MAC{0x02, 0, 0, 0, 0, 10}
@@ -1175,7 +1189,7 @@ func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 		{FID: 10, MAC: mac10, Port: "1/1/2", LearnedAt: now},
 	})
 
-	res := sw.Forward(now.Add(31*time.Second), "1/1/1", pvstSSTPTCNFrame(t, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 2}))
+	res := captureOutput(callOutputs, sw, sw.Receive(now.Add(31*time.Second), "1/1/1", pvstSSTPTCNFrame(t, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 2})))
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("TCN outcome = %s, want %s, trace=%+v", res.Outcome, trace.Consumed, res.Steps)
 	}
@@ -1210,7 +1224,7 @@ func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 	}
 
 	// The existing RST shape keeps the named-VLAN trace contract.
-	rst := sw.Forward(now.Add(31*time.Second), "1/1/1", pvstSSTPFrame(t, 10, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 3}))
+	rst := captureOutput(callOutputs, sw, sw.Receive(now.Add(31*time.Second), "1/1/1", pvstSSTPFrame(t, 10, 10, netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 3})))
 	rstStep, ok := findStep(rst.Steps, "stp.sstp.admit")
 	if !ok {
 		t.Fatalf("no stp.sstp.admit step in RST trace: %+v", rst.Steps)
@@ -1231,14 +1245,15 @@ func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 // port carries the issue, and a VLAN 1 journey through the same port does
 // not, because VLAN 1 is the one tree that does converge across the boundary.
 func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// An MST BPDU from the neighbor marks the port a boundary.
 	mstFrame, err := bpdu.Encode(bpdu.BPDU{
@@ -1255,14 +1270,14 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encode MST BPDU: %v", err)
 	}
-	sw.Forward(now, "1/1/1", mstFrame)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", mstFrame))
+	takeEmissions(callOutputs, sw)
 
-	vlan10 := sw.Forward(now, "1/1/1", ethernet.Frame{
+	vlan10 := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", ethernet.Frame{
 		Src:  netaddr.MAC{2, 0, 0, 0, 0, 0x10},
 		Dst:  netaddr.MAC{2, 0, 0, 0, 0, 0x11},
 		Tags: []vlan.Tag{{VID: 10}},
-	})
+	}))
 	if !hasIssueCode(vlan10.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
 		t.Fatalf("vlan 10 journey carries no %s issue: %+v", vswitch.IssuePVSTBoundary, vlan10.Metadata.Issues())
 	}
@@ -1279,10 +1294,10 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 		}
 	}
 
-	vlan1 := sw.Forward(now, "1/1/1", ethernet.Frame{
+	vlan1 := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", ethernet.Frame{
 		Src: netaddr.MAC{2, 0, 0, 0, 0, 0x01},
 		Dst: netaddr.MAC{2, 0, 0, 0, 0, 0x02},
-	})
+	}))
 	if hasIssueCode(vlan1.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
 		t.Errorf("vlan 1 journey carries a %s issue, want none: %+v",
 			vswitch.IssuePVSTBoundary, vlan1.Metadata.Issues())
@@ -1293,6 +1308,7 @@ func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 // that does not run per-VLAN trees and meets one reports the same boundary
 // for the VLANs it cannot answer about.
 func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -1305,26 +1321,25 @@ func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
 	}}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", pvstSSTPFrame(t, 10, 10, peerMAC)))
+	takeEmissions(callOutputs, sw)
 
-	sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 10, 10, peerMAC))
-	sw.Drain()
-
-	vlan10 := sw.Forward(now, "1/1/1", ethernet.Frame{
+	vlan10 := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", ethernet.Frame{
 		Src:  netaddr.MAC{2, 0, 0, 0, 0, 0x10},
 		Dst:  netaddr.MAC{2, 0, 0, 0, 0, 0x11},
 		Tags: []vlan.Tag{{VID: 10}},
-	})
+	}))
 	if !hasIssueCode(vlan10.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
 		t.Fatalf("vlan 10 journey on the MSTP bridge carries no %s issue: %+v",
 			vswitch.IssuePVSTBoundary, vlan10.Metadata.Issues())
 	}
 
-	vlan1 := sw.Forward(now, "1/1/1", ethernet.Frame{
+	vlan1 := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", ethernet.Frame{
 		Src: netaddr.MAC{2, 0, 0, 0, 0, 0x01},
 		Dst: netaddr.MAC{2, 0, 0, 0, 0, 0x02},
-	})
+	}))
 	if hasIssueCode(vlan1.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
 		t.Errorf("vlan 1 journey carries a %s issue, want none: %+v",
 			vswitch.IssuePVSTBoundary, vlan1.Metadata.Issues())
@@ -1337,14 +1352,15 @@ func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
 // runs, so a foreign VLAN's BPDU cannot fall back to the CIST, which under
 // PVST is VLAN 1's own tree.
 func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	rootBefore, _, portBefore := sw.Root()
 
@@ -1366,7 +1382,7 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 		t.Fatalf("EncodeSSTP: %v", err)
 	}
 	foreign.Tags = []vlan.Tag{{VID: 20}}
-	res := sw.Forward(now, "1/1/1", foreign)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", foreign))
 
 	if _, ok := findStep(res.Steps, "stp.sstp.vlan-not-admitted"); !ok {
 		t.Fatalf("no stp.sstp.vlan-not-admitted step in the trace: %+v", res.Steps)
@@ -1389,20 +1405,21 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 // into the PVID, so two identically configured PVST peers would disagree
 // about VLAN 1 on every single BPDU and permanently block it.
 func TestPVSTPriorityTagIsNotReadAsVLAN0(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// VLAN 1's own BPDU, tagged with a priority tag (VID 0) the way
 	// PriorityTags: Always emits it.
 	frame := pvstSSTPFrame(t, 1, 0, peer)
 	frame.Tags = []vlan.Tag{{VID: 0}}
-	sw.Forward(now, "1/1/1", frame)
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 
 	info := sw.Roles()["1/1/1"]
 	if info.BlockReason == stp.BlockReasonPVIDInconsistent {
@@ -1479,14 +1496,15 @@ func TestValidateAcceptsPVSTWithImplicitVLAN1Tree(t *testing.T) {
 // as a reserved group address, and that has nothing to do with spanning
 // tree.
 func TestPVSTBoundaryNotRaisedForAnFID0Drop(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peerMAC := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// An MST BPDU from the neighbor marks the port a boundary.
 	mstFrame, err := bpdu.Encode(bpdu.BPDU{
@@ -1503,15 +1521,15 @@ func TestPVSTBoundaryNotRaisedForAnFID0Drop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Encode MST BPDU: %v", err)
 	}
-	sw.Forward(now, "1/1/1", mstFrame)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", mstFrame))
+	takeEmissions(callOutputs, sw)
 
 	// A frame to a reserved group address is dropped before classification,
 	// so FID is 0.
-	res := sw.Forward(now, "1/1/1", ethernet.Frame{
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", ethernet.Frame{
 		Src: netaddr.MAC{2, 0, 0, 0, 0, 1},
 		Dst: netaddr.MAC{0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e},
-	})
+	}))
 	if hasIssueCode(res.Metadata.Issues(), vswitch.IssuePVSTBoundary) {
 		t.Errorf("an FID-0 journey carries a %s issue, want none: %+v",
 			vswitch.IssuePVSTBoundary, res.Metadata.Issues())
@@ -1525,14 +1543,15 @@ func TestPVSTBoundaryNotRaisedForAnFID0Drop(t *testing.T) {
 // that changes nothing on VLAN 10 as a spurious transition, once VLAN 1's
 // tree and VLAN 10's tree disagree about port state.
 func TestPVSTAdmitBeforeSnapshotUsesTheArrivalVLANsTree(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// A peer BPDU with a far better (lower) priority than this switch's own
 	// makes the peer root of VLAN 10, moving that port's VLAN 10 role away
@@ -1553,12 +1572,12 @@ func TestPVSTAdmitBeforeSnapshotUsesTheArrivalVLANsTree(t *testing.T) {
 		t.Fatalf("EncodeSSTP: %v", err)
 	}
 	converge.Tags = []vlan.Tag{{VID: 10}}
-	sw.Forward(now, "1/1/1", converge)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", converge))
+	takeEmissions(callOutputs, sw)
 
 	// The identical BPDU again: VLAN 10's own before and after must match,
 	// since nothing about VLAN 10 changes on this second delivery.
-	res := sw.Forward(now, "1/1/1", converge)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", converge))
 
 	step, ok := findStep(res.Steps, "stp.sstp.admit")
 	if !ok {
@@ -1636,7 +1655,7 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 	// Tagged for a VLAN the access port does not carry, so the bridge drops
 	// the frame at classification, before any gate runs. That is the path
 	// where the spanning tree scope would otherwise go unnamed.
-	res := sw.Forward(now, "1/1/1", pvstSSTPFrame(t, 99, 99, peerMAC))
+	res := sw.Receive(now, "1/1/1", pvstSSTPFrame(t, 99, 99, peerMAC))
 	if res.Outcome != trace.Dropped {
 		t.Fatalf("outcome = %s, want %s", res.Outcome, trace.Dropped)
 	}
@@ -1656,6 +1675,7 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 // admission answer decides anything about the tree, so a frame that decodes
 // still disables the port even when the layer goes on to refuse the VLAN.
 func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -1665,8 +1685,8 @@ func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 	cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	// VLAN 30 is not in the bridge's VLAN table, so it is not admitted on
 	// this port. A gate that refused the frame before the layer saw it would
@@ -1686,7 +1706,7 @@ func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 		t.Fatalf("EncodeSSTP: %v", err)
 	}
 	rogue.Tags = []vlan.Tag{{VID: 30}}
-	sw.Forward(now, "1/1/1", rogue)
+	captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", rogue))
 
 	info := sw.Roles()["1/1/1"]
 	if info.BlockReason != stp.BlockReasonBPDUGuard {
@@ -1700,19 +1720,20 @@ func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 // valid=true, and the VLAN fact names both the TLV's VLAN and the VLAN the
 // switch resolved on arrival.
 func TestSSTPRefusalTracesADecodedFrame(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	before := sw.Roles()["1/1/1"]
 
 	foreign := pvstSSTPFrame(t, 30, 30, peer)
-	res := sw.Forward(now, "1/1/1", foreign)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", foreign))
 
 	step, ok := findStep(res.Steps, "stp.sstp.vlan-not-admitted")
 	if !ok {
@@ -1838,16 +1859,17 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 			t.Parallel()
 
 			forwardSw := mustSwitch(t, c.cfg(t))
-			forwardSw.Start(now)
-			forwardSw.Drain()
-			forwardRes := forwardSw.Forward(now, "1/1/1", c.frame(t))
+			captureOutput(callOutputs, forwardSw, forwardSw.Start(now))
+			takeEmissions(callOutputs, forwardSw)
+			forwardRes := captureOutput(callOutputs, forwardSw, forwardSw.Receive(now, "1/1/1", c.frame(t)))
 
 			peekSw := mustSwitch(t, c.cfg(t))
-			peekSw.Start(now)
-			peekSw.Drain()
+			captureOutput(callOutputs, peekSw, peekSw.Start(now))
+			takeEmissions(callOutputs, peekSw)
 			peekRes := peekSw.Peek(now, "1/1/1", c.frame(t))
 
 			forwardStep, ok := findStep(forwardRes.Steps, c.ruleID)
@@ -1881,6 +1903,7 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 // vlan-not-admitted, not admit, for this frame — the port carries VLANs 1
 // and 10 only.
 func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -1890,11 +1913,11 @@ func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
 	cfg.STP.Ports["1/1/1"] = stp.Port{BPDUGuard: true}
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	rogue := pvstSSTPFrame(t, 30, 30, peer)
-	res := sw.Forward(now, "1/1/1", rogue)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", rogue))
 
 	if res.Outcome != trace.Dropped {
 		t.Errorf("Outcome = %s, want %s: bpdu guard firing on an unadmitted VLAN is not an admit", res.Outcome, trace.Dropped)
@@ -1953,6 +1976,7 @@ func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
 // stp.Config.Ports omits passes the port table's own receive check and
 // reaches ReceiveSSTP, which is what actually refuses it.
 func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -1966,11 +1990,11 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 	// configured it even though the port table calls it up.
 
 	sw := mustSwitch(t, cfg)
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	frame := pvstSSTPFrame(t, 10, 10, peer)
-	res := sw.Forward(now, "1/1/2", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/2", frame))
 
 	if res.Outcome != trace.Dropped {
 		t.Errorf("Outcome = %s, want %s: a port the layer never configured did not process this frame at all", res.Outcome, trace.Dropped)
@@ -1998,14 +2022,15 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 // value as not a VLAN tag at all, and classifies the same frame into the
 // port's untagged VLAN 1.
 func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
+	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	peer := netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0x02}
 
 	sw := mustSwitch(t, pvstSwitchConfig(t, 1, 1, 10))
-	sw.Start(now)
-	sw.Drain()
+	captureOutput(callOutputs, sw, sw.Start(now))
+	takeEmissions(callOutputs, sw)
 
 	frame, err := bpdu.EncodeSSTP(bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 4096 | 1, Address: peer},
@@ -2022,7 +2047,7 @@ func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 	}
 	frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeProviderBridging), VID: 10}}
 
-	res := sw.Forward(now, "1/1/1", frame)
+	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", frame))
 
 	step, ok := findStep(res.Steps, "stp.sstp.admit")
 	if !ok {
@@ -2069,7 +2094,7 @@ func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
 	frame := pvstSSTPFrame(t, 10, 10, peer)
 
 	peeked := sw.Peek(now, "1/1/1", frame)
-	forwarded := sw.Forward(now, "1/1/1", frame)
+	forwarded := sw.Receive(now, "1/1/1", frame)
 
 	if peeked.Outcome != forwarded.Outcome {
 		t.Errorf("Peek outcome = %s, Forward outcome = %s, want agreement", peeked.Outcome, forwarded.Outcome)

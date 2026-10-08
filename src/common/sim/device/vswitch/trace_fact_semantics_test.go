@@ -23,7 +23,7 @@ func TestRepresentativeProductionTraceFactsAreTyped(t *testing.T) {
 		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
 	sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
-	res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2, Payload: []byte("payload")})
+	res := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2, Payload: []byte("payload")})
 	if len(res.Steps) == 0 {
 		t.Fatal("representative bridge trace has no steps")
 	}
