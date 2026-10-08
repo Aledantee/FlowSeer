@@ -385,6 +385,19 @@ or a runtime configuration the next one edits.
 
 ## Open questions
 
+- Parked by drive: the review ended `rework` after two fix rounds on
+  `worktree_guard.words`, whose last shape (bash expands the words, split on
+  line feeds) lets `rm *.tmp` through when a tracked name holds a line feed.
+  Work stays on `parked/uv-p3-review3`. Options: re-plan the mechanism as the
+  shell's own `for tok in $cmd` loop with a NUL delimiter, amending the
+  Decision that names `glob.glob`, then implement and review again (a short
+  re-plan, the round count starts again) | decide the guard does not defend
+  against a name holding a line feed, record it as a Decision, and have a
+  review record the verdict on that basis (no code change, the guard differs
+  from the shell on that input) | stop (phase 3 stays implemented and
+  unlanded; phases 4 and 7 wait on it). Recommended: the re-plan, because the
+  plan's Out of scope calls a verdict that differs from the shell a defect and
+  the reviewer's direction is one line of the shell hook.
 - Claude Code proceeds when `uv` is not on `PATH`, so a host without uv
   has no guards and sees a `hook error` notice per call. The plan accepts
   this, since the shell registration fails open the same way and shell
