@@ -217,6 +217,20 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 	if info := sw.MemberInfo("1/1/1"); info.BadLACPDUs != 1 {
 		t.Errorf("after Forward bad, BadLACPDUs = %d, want 1", info.BadLACPDUs)
 	}
+	for _, out := range []vswitch.Output{peekBad, resBad} {
+		want := lag.LACPDecodeFact(badFrame, false, lag.ReasonUnsupportedLACPDU)
+		if len(out.Steps) == 0 || len(out.Steps[0].Inputs) != 1 || !trace.EqualFact(out.Steps[0].Inputs[0], want) {
+			t.Errorf("refused LACP inputs = %+v, want LACP decode fact", out.Steps)
+		}
+	}
+	badMarker := badFrame
+	badMarker.Payload = []byte{lacp.SubtypeMarker}
+	for _, out := range []vswitch.Output{sw.Peek(now, "1/1/1", badMarker), sw.Receive(now, "1/1/1", badMarker)} {
+		want := lag.MarkerDecodeFact(badMarker, false, lag.ReasonUnsupportedLACPDU)
+		if out.Outcome != trace.Dropped || out.Reason != lag.ReasonUnsupportedLACPDU || len(out.Steps) == 0 || len(out.Steps[0].Inputs) != 1 || !trace.EqualFact(out.Steps[0].Inputs[0], want) {
+			t.Errorf("refused Marker = %+v, want Marker decode fact", out)
+		}
+	}
 
 	// LACPDU injected at 1/1/3 (no LAG): dropped reserved-address
 	resNonMember := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/3", validFrame))

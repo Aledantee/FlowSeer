@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -200,7 +201,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
 				for _, eg := range res.Egress {
 					if eg.Dropped == "" {
-						s.call.emissions = append(s.call.emissions, Emission{Port: eg.Port, Frame: eg.Frame, Protocol: true})
+						s.emit(Emission{Port: eg.Port, Member: eg.Member, Frame: eg.Frame, Protocol: true})
 					}
 				}
 				return
@@ -216,7 +217,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 			if p.Kind == port.LAG && !s.selectOrPeekMember(now, em.Port, frame, 0, true).OK {
 				return
 			}
-			s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: frame, Protocol: true})
+			s.emit(Emission{Port: em.Port, Frame: frame, Protocol: true})
 		}()
 	}
 }
@@ -342,9 +343,11 @@ func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 			s.recordHeldEgressDrop(hf, eg.Port, eg.Member, rule, eg.Dropped, res.Steps)
 			continue
 		}
-		s.call.emissions = append(s.call.emissions, Emission{
+		if !s.emit(Emission{
 			Port: eg.Port, Member: eg.Member, Frame: eg.Frame, PCP: eg.PCP,
 			Hold: hf.Token, Ingress: hf.Ingress,
-		})
+		}) {
+			s.recordHeldEgressDrop(hf, eg.Port, eg.Member, traffic.RuleMirrorEgressDrop, traffic.ReasonMirrorOutput, res.Steps)
+		}
 	}
 }

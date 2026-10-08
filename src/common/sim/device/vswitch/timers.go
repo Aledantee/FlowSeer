@@ -53,7 +53,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		// tagged, untagged where it is the port's untagged VLAN, and not at
 		// all where the port does not carry it.
 		if em.VID == 0 {
-			s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+			s.emit(Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 
 			continue
 		}
@@ -61,7 +61,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
@@ -103,13 +103,13 @@ func (s *Switch) applyLoopProtectEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(Emission{Port: em.Port, Frame: egress, Protocol: true})
 	}
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	for _, em := range fx.Emissions {
-		s.call.emissions = append(s.call.emissions, Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+		s.emit(Emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
 	for _, lagName := range fx.Changed {
 		s.updateLagState(now, lagName)
@@ -164,13 +164,21 @@ func (s *Switch) Mcheck(now time.Time, port string) Output {
 }
 
 // ClearLoopProtect manually lifts the loop-protection action applied to the
-// named port. It reports whether the port was tracked by the loop-protection
-// layer and had an action applied. On a switch without loop-protection
-// configuration, ClearLoopProtect is a no-op that reports false.
-func (s *Switch) ClearLoopProtect(now time.Time, port string) bool {
-	if s.loopprotect == nil {
+// named logical port. It returns an empty Output because clearing originates
+// no frame. An absent layer or untracked port is a no-op.
+func (s *Switch) ClearLoopProtect(now time.Time, port string) Output {
+	c, end := s.beginCall(now, true)
+	defer end()
+	if s.loopprotect != nil {
+		s.loopprotect.Clear(now, s.logicalIngress(port))
+	}
+	return c.output(ForwardResult{})
+}
+
+func (s *Switch) emit(em Emission) bool {
+	if s.isMirrorOutputPort(em.Port) {
 		return false
 	}
-
-	return s.loopprotect.Clear(now, port)
+	s.call.emissions = append(s.call.emissions, em)
+	return true
 }

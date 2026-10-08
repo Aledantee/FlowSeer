@@ -948,6 +948,20 @@ loop-protected port, and a VLAN member, it runs `Start`, sixty seconds of
 no emission names the mirror output. Existing tests that change:
 `TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts` pins entry 6
 and is rewritten to P2. No other expectation moves.
+P3 also migrates `TestSSTPTraceShapeIsTheSameWithAndWithoutMutation`:
+the classification shape still matches after separating the decision from
+the exact set of per-tree transitions. `Peek` has one decision and no
+transition. `Receive` has one decision plus one transition per changed
+tree, asserted against public `TreeRoles` snapshots. The guarded,
+unadmitted VLAN test selects the `bpdu=` decision fact rather than the last
+fact with its shared type ID, preserving its equal before/after assertion
+for the untracked VLAN while other trees record the guard transition.
+P5 observes the applied action through the consumed probe's port-block
+step, because loop-protection runtime state is private to its layer.
+Deviation: `src/common/sim/internal/simtest/scenario_cases.go` migrates the
+exact BPDU step of `troubleshooting/periodic-protocol-hides-exhaustion`
+from one decision output to that decision plus the CIST transition P3
+requires. Its budget-exhaustion assertion and decision snapshot stay intact.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge/README.md`
 
 ### U10. Derive reports what it kept

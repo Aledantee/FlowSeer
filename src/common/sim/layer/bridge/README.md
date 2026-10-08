@@ -236,7 +236,9 @@ and `ingress_admission_test.go` check cross-cutting contracts.
 - Reserved destinations are refused before classification and source
   learning. Q2003 8.6.1 submits ingress-permitted frames to learning.
   The [switch](../../device/vswitch/intercept.go) intercepts BPDUs and LACPDUs
-  before relay ingress.
+  before relay ingress so a discarding port can still hear its spanning
+  tree peer. The switch learns neither sender, including on a learning
+  port where Q2003 8.5 and 8.6.1 would permit it.
 - An outer TPID other than `0x8100` is payload on a port without a tunnel.
   The [virtual-device direction](../../../../../docs/architecture/2026-09-10-virtual-device-direction.md)
   chooses one C-VLAN component. Tunnel ports follow OVS `dot1q-tunnel`.

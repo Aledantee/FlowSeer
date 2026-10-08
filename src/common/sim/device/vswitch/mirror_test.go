@@ -1,11 +1,13 @@
 package vswitch_test
 
 import (
+	"net/netip"
 	"slices"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -15,6 +17,94 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestMirrorOutputSuppressesBPDUs(t *testing.T) {
+	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
+	cfg := sw.Config()
+	cfg.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputPort: "1/1/3"}}}
+	sw = mustSwitch(t, cfg)
+	outs := []vswitch.Output{sw.Start(fixedTime), sw.Advance(fixedTime.Add(2 * time.Second)), sw.Advance(fixedTime.Add(4 * time.Second)), sw.Advance(fixedTime.Add(6 * time.Second))}
+	for i, out := range outs {
+		normal := 0
+		for _, em := range out.Emissions {
+			if em.Port == "1/1/3" {
+				t.Errorf("call %d emits BPDU on mirror output", i)
+			}
+			if em.Port == "1/1/1" {
+				normal++
+			}
+		}
+		if normal != 1 {
+			t.Errorf("call %d normal BPDUs = %d, want 1", i, normal)
+		}
+	}
+}
+
+func TestMirrorCopiesLACPFromLogicalIngress(t *testing.T) {
+	sw := mirrorLAGSwitch(t)
+	cfg := sw.Config()
+	cfg.Traffic.Mirrors[0].OutputPort = "1/1/3"
+	cfg.Traffic.Mirrors[0].SelectAll = false
+	cfg.Traffic.Mirrors[0].SelectSrcPorts = []string{"lag1"}
+	sw = mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	f := lacp.Encode(lacp.PDU{Actor: lacp.Info{SystemID: macH1, State: lacp.StateActive | lacp.StateAggregation}}, macH1)
+	for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/1", f), sw.Receive(fixedTime, "1/1/1", f)} {
+		if out.Outcome != trace.Consumed || len(out.Copies) != 1 || out.Copies[0].Port != "1/1/3" || !slices.Equal(out.Copies[0].Frame.Payload, f.Payload) {
+			t.Fatalf("LACP mirror = %+v, want member frame copied by lag1 selector", out)
+		}
+	}
+}
+
+func mirrorLAGSwitch(t *testing.T) *vswitch.Switch {
+	t.Helper()
+	return mustSwitch(t, vswitch.Config{
+		MAC: macRouter, Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		Bridge: &bridge.Config{}, LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}}}}, Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputPort: "1/1/3"}}},
+	})
+}
+
+func TestReleasedFrameRefusesMirrorOutput(t *testing.T) {
+	cfg, _, replyTags, _, _, _ := routedEgressConfig(t, "VLAN interface", "none")
+	cfg.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputPort: "1/1/2"}}}
+	f := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Tags: []vlan.Tag{{VID: 10}}, Payload: makeIPv4Packet(t, ipH1, ipH2, 64, []byte("held"))}
+	// Reception on the reserved port is refused. An unreserved VLAN member
+	// supplies the neighbor reply without learning its MAC on the output.
+	b := port.NewBuilder()
+	for _, p := range cfg.Ports.Ports() {
+		b.Add(p)
+	}
+	b.Add(port.Port{Name: "reply", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	var err error
+	cfg.Ports, err = b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Bridge.VLAN.Switchports["reply"] = bridge.Switchport{Tagged: []vlan.ID{20}}
+	sw := mustSwitch(t, cfg)
+	held := sw.Receive(fixedTime, "1/1/1", f)
+	if held.Outcome != trace.Held {
+		t.Fatalf("before release = %+v, want held", held)
+	}
+	reply := makeARPReply(t, ipH2, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
+	reply.Tags = replyTags
+	// ARP resolves its payload's sender. A different Ethernet source leaves
+	// that neighbor absent from the FDB, so release exercises VLAN flooding.
+	reply.Src = macH1
+	swOut := sw.Receive(fixedTime.Add(time.Millisecond), "reply", reply)
+	if len(swOut.Drops) != 1 || swOut.Drops[0].Port != "1/1/2" || swOut.Drops[0].Reason != traffic.ReasonMirrorOutput || swOut.Drops[0].Hold != held.Hold {
+		t.Fatalf("released drops = %+v, want mirror-output with held token", swOut.Drops)
+	}
+	for _, em := range swOut.Emissions {
+		if em.Port == "1/1/2" {
+			t.Fatalf("release flooded to mirror output: %+v", em)
+		}
+	}
+}
 
 func TestSwitchReservesMirrorOutputAndCollectsCopies(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)

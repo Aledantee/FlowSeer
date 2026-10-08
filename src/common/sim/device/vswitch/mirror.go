@@ -123,6 +123,13 @@ func (s *Switch) isMirrorOutputPort(name string) bool {
 	return ok
 }
 
+func (s *Switch) logicalIngress(name string) string {
+	if p, ok := s.ports.Resolve(name); ok {
+		return p.Name
+	}
+	return name
+}
+
 func (s *Switch) mirrorForOutput(name string) string {
 	if s.traffic == nil {
 		return ""

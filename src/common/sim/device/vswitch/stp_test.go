@@ -22,6 +22,86 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestBPDUOnUntrackedUpPortIsDropped(t *testing.T) {
+	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {}})
+	sw.Start(fixedTime)
+	b := bpdu.BPDU{Type: bpdu.TypeRapid, RootID: bpdu.BridgeID{Priority: 4096, Address: macH1}, BridgeID: bpdu.BridgeID{Priority: 4096, Address: macH1}, PortID: 0x8001, HelloTime: stp.DefaultHelloTime, MaxAge: stp.DefaultMaxAge, ForwardDelay: stp.DefaultForwardDelay}
+	f := mustEncode(t, b, macH1)
+	for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/3", f), sw.Receive(fixedTime, "1/1/3", f)} {
+		if out.Outcome != trace.Dropped || out.Reason != port.ReasonPortDown || !traceHasRuleID(out.Steps, stp.RuleStatusDown) {
+			t.Fatalf("untracked BPDU = %+v, want port-down under stp status rule", out)
+		}
+	}
+}
+
+func TestBPDURecordsEveryChangedTree(t *testing.T) {
+	for _, scenario := range []string{"msti-only", "vlan-one-in-msti", "shared-msti"} {
+		t.Run(scenario, func(t *testing.T) {
+			vids := []vlan.ID{10}
+			if scenario == "vlan-one-in-msti" {
+				vids = []vlan.ID{1}
+			}
+			if scenario == "shared-msti" {
+				vids = []vlan.ID{10, 20}
+			}
+			region := &stp.MST{Name: "trace-region", Revision: 1, Instances: map[bpdu.MSTID]stp.Instance{1: {VLANs: vids}}}
+			table := map[vlan.ID]string{1: "native", 10: "ten", 20: "twenty"}
+			cfg := vswitch.Config{MAC: macRouter, Ports: mustTable(t, port.NewBuilder().Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})), Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: table, Switchports: map[string]bridge.Switchport{"p1": {Tagged: []vlan.ID{1, 10, 20}}}}}, STP: &stp.Config{Address: macRouter, Priority: 32768, Ports: map[string]stp.Port{"p1": {}}, MST: region}}
+			sw := mustSwitch(t, cfg)
+			sw.Start(fixedTime)
+			beforeCIST := sw.Roles()["p1"]
+			beforeMSTI := sw.TreeRoles()[vids[0]]["p1"]
+			if beforeMSTI.Role != bpdu.RoleDesignated {
+				t.Fatalf("before MSTI = %+v, want Designated", beforeMSTI)
+			}
+			id := region.ConfigID()
+			cistPriority := uint16(61440)
+			if scenario != "msti-only" {
+				cistPriority = 4096
+			}
+			b := bpdu.BPDU{Version: 3, Type: bpdu.TypeRapid, RootID: bpdu.BridgeID{Priority: cistPriority, Address: macH1}, BridgeID: bpdu.BridgeID{Priority: cistPriority, Address: macH1}, RegionalRootID: bpdu.BridgeID{Priority: cistPriority, Address: macH1}, ConfigID: &id, RemainingHops: 20, PortID: 0x8001, HelloTime: stp.DefaultHelloTime, MaxAge: stp.DefaultMaxAge, ForwardDelay: stp.DefaultForwardDelay, MSTIs: []bpdu.MSTIRecord{{MSTID: 1, RegionalRootID: bpdu.BridgeID{Priority: 4097, Address: macH1}, BridgePriority: 0x10, PortPriority: 128, RemainingHops: 20}}}
+			b.SetRole(bpdu.RoleDesignated)
+			b.MSTIs[0].Flags = b.Flags
+			out := sw.Receive(fixedTime, "p1", mustEncode(t, b, macH1))
+			afterCIST := sw.Roles()["p1"]
+			afterMSTI := sw.TreeRoles()[vids[0]]["p1"]
+			if afterMSTI.Role != bpdu.RoleRoot {
+				t.Fatalf("after MSTI = %+v, want Root", afterMSTI)
+			}
+			if scenario == "msti-only" && beforeCIST.Role != afterCIST.Role {
+				t.Fatalf("CIST role changed: %v to %v", beforeCIST.Role, afterCIST.Role)
+			}
+			if scenario == "vlan-one-in-msti" && beforeCIST.Role == afterCIST.Role {
+				t.Fatal("CIST role did not change")
+			}
+			var outputs []trace.Fact
+			for _, step := range out.Steps {
+				if step.RuleID == stp.RuleBPDUAdmit {
+					outputs = step.Outputs
+				}
+			}
+			want := []trace.Fact{stp.PortTransitionFact("p1", "bpdu", beforeMSTI, afterMSTI)}
+			if beforeCIST.Role != afterCIST.Role || beforeCIST.State != afterCIST.State {
+				want = append(want, stp.PortTransitionFact("p1", "bpdu", beforeCIST, afterCIST))
+			}
+			for _, fact := range want {
+				count := 0
+				for _, got := range outputs {
+					if trace.EqualFact(got, fact) {
+						count++
+					}
+				}
+				if count != 1 {
+					t.Errorf("transition %s occurs %d times, want 1: %+v", fact.Canonical(), count, outputs)
+				}
+			}
+			if len(outputs) != 1+len(want) {
+				t.Errorf("outputs = %d, want decision plus %d transitions", len(outputs), len(want))
+			}
+		})
+	}
+}
+
 func TestBPDUConsumedWithEmissionDrained(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	tbl := mustTable(t, port.NewBuilder().
@@ -1865,6 +1945,7 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 			forwardSw := mustSwitch(t, c.cfg(t))
 			captureOutput(callOutputs, forwardSw, forwardSw.Start(now))
 			takeEmissions(callOutputs, forwardSw)
+			before := forwardSw.TreeRoles()
 			forwardRes := captureOutput(callOutputs, forwardSw, forwardSw.Receive(now, "1/1/1", c.frame(t)))
 
 			peekSw := mustSwitch(t, c.cfg(t))
@@ -1881,6 +1962,29 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 				t.Fatalf("Peek: no %s step in the trace: %+v", c.ruleID, peekRes.Steps)
 			}
 
+			wantTransitions := make(map[stp.TreeRef]trace.Fact)
+			for vid, ports := range before {
+				old := ports["1/1/1"]
+				info := forwardSw.TreeRoles()[vid]["1/1/1"]
+				if old.Role != info.Role || old.State != info.State {
+					wantTransitions[old.Tree] = stp.PortTransitionFact("1/1/1", "bpdu", old, info)
+				}
+			}
+			if len(forwardStep.Outputs) != 1+len(wantTransitions) || len(peekStep.Outputs) != 1 {
+				t.Fatalf("Forward/Peek output counts = %d/%d, want %d/1", len(forwardStep.Outputs), len(peekStep.Outputs), 1+len(wantTransitions))
+			}
+			for _, want := range wantTransitions {
+				count := 0
+				for _, got := range forwardStep.Outputs[1:] {
+					if trace.EqualFact(got, want) {
+						count++
+					}
+				}
+				if count != 1 {
+					t.Errorf("transition %s occurs %d times, want 1", want.Canonical(), count)
+				}
+			}
+			forwardStep.Outputs = forwardStep.Outputs[:1]
 			if got, want := sstpStepShape(peekStep), sstpStepShape(forwardStep); got != want {
 				t.Errorf("Peek step shape = %s, want %s (Forward's shape)", got, want)
 			}
@@ -1938,7 +2042,7 @@ func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
 		}
 	}
 	for _, fact := range step.Outputs {
-		if fact.TypeID() == "stp.bpdu_decision" {
+		if fact.TypeID() == "stp.bpdu_decision" && strings.HasPrefix(fact.Canonical(), "bpdu=") {
 			outputCanonical = fact.Canonical()
 		}
 	}

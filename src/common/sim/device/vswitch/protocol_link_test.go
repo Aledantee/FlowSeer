@@ -406,16 +406,13 @@ func hasProtocolLinkIssue(res vswitch.Output) bool {
 	})
 }
 
-// Spanning tree computes roles on every non-member port, so an unknown link on
-// a port without explicit spanning tree configuration still makes results
-// through the others incomplete.
 func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
 	t.Parallel()
 
 	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {PathCost: 20000}})
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/1", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -427,6 +424,21 @@ func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
 	res := sw.Receive(t0.Add(time.Second), "1/1/3", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code != vswitch.IssueProtocolLinkUnknown {
+			continue
+		}
+		if issue.Scope == analysis.PortScope("", "1/1/1") {
+			found = true
+		}
+		if issue.Scope == analysis.PortScope("", "1/1/3") {
+			t.Errorf("unlisted port has protocol issue: %+v", issue)
+		}
+	}
+	if !found {
+		t.Errorf("no protocol issue names 1/1/1: %+v", res.Metadata.Issues())
 	}
 }
 

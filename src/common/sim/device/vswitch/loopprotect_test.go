@@ -3,7 +3,9 @@ package vswitch_test
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -11,9 +13,73 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestClearLoopProtectReturnsOutputAndRestoresForwarding(t *testing.T) {
+	sw := loopProtectTestSwitch(t)
+	mac := sw.Config().MAC
+	sw.Receive(fixedTime, "1/1/1", mustEncodeProbe(t, loopprotect.Probe{OriginMAC: mac, Sequence: 1, Port: "1/1/1"}, mac))
+	f := ethernet.Frame{Src: macH1, Dst: netaddr.MAC{255, 255, 255, 255, 255, 255}}
+	if out := sw.Receive(fixedTime, "1/1/1", f); out.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("before clear = %+v, want blocked", out)
+	}
+	clearer, ok := any(sw).(interface {
+		ClearLoopProtect(time.Time, string) vswitch.Output
+	})
+	if !ok {
+		t.Fatal("ClearLoopProtect does not return Output")
+	}
+	out := clearer.ClearLoopProtect(fixedTime, "1/1/1")
+	if len(out.Emissions) != 0 || len(out.Drops) != 0 {
+		t.Fatalf("clear output = %+v, want no frames", out)
+	}
+	if out := sw.Receive(fixedTime, "1/1/1", f); out.Outcome != trace.Flooded || len(out.Egress) != 1 || out.Egress[0].Port != "1/1/2" {
+		t.Fatalf("after clear = %+v, want flood to 1/1/2", out)
+	}
+}
+
+func TestLoopProtectedPortKeepsProtocolEmissions(t *testing.T) {
+	for _, action := range []loopprotect.Action{loopprotect.Block, loopprotect.NoLearn, loopprotect.Disable} {
+		t.Run(string(action), func(t *testing.T) {
+			cfg := loopProtectTestSwitch(t).Config()
+			cfg.LoopProtect.Interval = 4 * time.Second
+			p := cfg.LoopProtect.Ports["1/1/1"]
+			p.Action = action
+			cfg.LoopProtect.Ports["1/1/1"] = p
+			cfg.STP = &stp.Config{Ports: map[string]stp.Port{"1/1/1": {AdminEdge: true}, "1/1/2": {AdminEdge: true}}}
+			sw := mustSwitch(t, cfg)
+			sw.Start(fixedTime)
+			mac := sw.Config().MAC
+			applied := sw.Receive(fixedTime, "1/1/1", mustEncodeProbe(t, loopprotect.Probe{OriginMAC: mac, Sequence: 1, Port: "1/1/1"}, mac))
+			if applied.Outcome != trace.Consumed || !traceHasRuleID(applied.Steps, loopprotect.RulePortBlock) {
+				t.Fatalf("applied action = %+v, want consumed probe with port-block step", applied)
+			}
+			out := sw.Advance(fixedTime.Add(cfg.LoopProtect.Interval))
+			bpdus, probes := 0, 0
+			for _, em := range out.Emissions {
+				if em.Port != "1/1/1" {
+					continue
+				}
+				if _, err := bpdu.Decode(em.Frame); err == nil {
+					bpdus++
+				}
+				if _, err := loopprotect.Decode(em.Frame); err == nil {
+					probes++
+				}
+			}
+			wantProbes := 1
+			if action == loopprotect.Disable {
+				wantProbes = 0
+			}
+			if bpdus != 1 || probes != wantProbes {
+				t.Fatalf("protected protocol counts = %d/%d, want 1/%d", bpdus, probes, wantProbes)
+			}
+		})
+	}
+}
 
 // TestLoopProtectProbeNeedsProbeEtherType proves that a frame to the probe
 // group is a probe only when its EtherType says so: a frame whose payload

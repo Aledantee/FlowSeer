@@ -449,25 +449,16 @@ func (s *Switch) recomputeProtocolLinkIssues() {
 	if s.stp == nil {
 		return
 	}
-	// Spanning tree runs on every port that is not a LAG member, configured
-	// or not, so one unknown input among them can change any of their roles.
 	var stpPorts []string
 	stpAffected := false
-	for _, p := range s.ports.Ports() {
-		if p.LagParent != "" {
-			continue
-		}
+	for name, pCfg := range s.cfg.STP.Ports {
+		p, _ := s.ports.Port(name)
 		stpPorts = append(stpPorts, p.Name)
 		if p.OperStatus == port.Unknown {
 			stpAffected = true
 			continue
 		}
-		forced := false
-		if s.cfg.STP != nil {
-			if pCfg, ok := s.cfg.STP.Ports[p.Name]; ok {
-				forced = pCfg.PointToPoint == stp.PointToPointForceTrue || pCfg.PointToPoint == stp.PointToPointForceFalse
-			}
-		}
+		forced := pCfg.PointToPoint == stp.PointToPointForceTrue || pCfg.PointToPoint == stp.PointToPointForceFalse
 		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == PointToPointUnknown {
 			stpAffected = true
 		}

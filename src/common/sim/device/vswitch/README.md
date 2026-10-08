@@ -134,6 +134,18 @@ and mirror copies without advancing timers, policing, receiving protocol
 observations, or learning. The switch holds no output between calls
 (`switch.go`, `TestSwitchHoldsNoPendingOutput`).
 
+Every emission passes `emit` in `timers.go`. A mirror output port emits
+copies alone, including when spanning tree, loop protection, routing, or
+a held-frame release would otherwise send there. A refused release becomes
+a `NeighborDrop` with reason `mirror-output`. Mirror selectors resolve the
+physical ingress to its logical port, including a received LACPDU's member
+(`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`).
+
+A loop-protection action does not suppress protocol emission. The switch
+still applies port state, VLAN membership, and spanning tree to probes.
+The loop-protection layer itself stops probes under an applied `Disable`
+(`TestLoopProtectedPortKeepsProtocolEmissions`).
+
 ## Capability ladder
 
 The virtual switch uses a ladder of architectural layers:
@@ -371,6 +383,13 @@ deterministically without background timers. The host drives them through
 explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
+  A switch started alone assumes point-to-point links unless configured
+  shared, because it has no peer with which to resolve duplex. A LAG
+  reports its fastest enabled member's speed to spanning tree. This
+  simulator rule keeps the cost stable as equally fast members come and go.
+  [IEEE 802.1Q-2003, 13.36.1](https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf)
+  advises against a cost that follows every member failure and specifies
+  no rate calculation.
 - `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
   one link moved; `state` ([port.LinkState]) preserves unknown operational state
   while informing protocol layers that the link is non-operational. `pointToPoint`
@@ -381,7 +400,7 @@ explicit calls:
   error for an absent port or invalid link state without changing either table.
 - `Mcheck(now, port)` forces protocol migration checking on the named port.
 - `ClearLoopProtect(now, port)` manually lifts the loop-protection action
-  applied to the named port.
+  applied to the named logical port and returns an empty `Output`.
 - `Advance(now)` fires due timers, removes expired dynamic forwarding and
   multicast entries, and settles neighbor resolution. It returns protocol
   frames and released held frames in `Output.Emissions`. At release, the
