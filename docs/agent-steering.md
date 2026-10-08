@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-06
+last_updated: 2026-10-08
 ---
 
 # Agent steering
@@ -440,6 +440,13 @@ independent review, and `implement` re-reads each unit before starting it.
 Units carry an `After` line so that `implement` can run independent units
 in parallel without guessing.
 
+A script move's `Tests:` line names a caller audit and command fixture tests.
+The [inline-import solution](solutions/conventions/a-script-move-must-audit-inline-imports.md)
+shows why filenames alone miss callers in shell and Markdown. `plan` loads
+its script-move reference when writing those units. The replacement commands
+are exercised by fixtures, since compiling their modules does not execute
+imports or command dispatch.
+
 Send every plan with more than one unit, and every schema change, to an
 independent reviewer. The planner's own three reads are self-review, which
 rarely catches the planner's own mistakes without outside feedback (Huang
@@ -474,6 +481,10 @@ trigger. As of 2026-10-04 the notes dated after that check hold 3 to 8
 units, and the longest span is about three hours for an 8-unit phase,
 which says the same. As of 2026-10-06 the six notes since hold 3 to 6
 units with spans under three hours, and the trigger stays.
+As of 2026-10-08 the three new frame phases each hold four units and spans
+under an hour (`ef7897c1`, `a1194999`, `aa6336d0`). The uv scripts Phase 2
+note holds six units over thirteen hours (`b8648d37`). A verification span
+alone does not establish a session boundary, so the trigger stays at six.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
@@ -1143,6 +1154,14 @@ therefore vets, tests, and lints the changed packages and their importers (a
 fixpoint over `go list` dependency and test-import data) and keeps the
 module-wide scope for `--full`; workers run their package's focused tests
 and the coordinator runs the verifier once after merging.
+
+Logs read across commands use one absolute path in the session scratchpad,
+chosen before the verifier starts. `verify-change` owns this rule and
+`implement` links to it. `$TMPDIR` can differ across sandbox boundaries,
+so re-expanding it can read an earlier log. The ledger rejects a receipt
+older than the unit's commit (`tools/scripts/tests/verify/test_ledger.py`,
+`test_passed_refuses_a_receipt_older_than_the_unit_commit`). That check pins
+the unit outcome while the log path keeps the diagnostics tied to the command.
 
 Make a gate's silence impossible to read as a pass. The verifier has
 reported success for reasons unrelated to the code: a directory argument

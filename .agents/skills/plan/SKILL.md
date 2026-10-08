@@ -184,6 +184,9 @@ Rules:
   holding the old shape; an unlisted one blocks the implement pass or
   collides with a parallel unit. Grep `*_test.go` and `testdata/` for the
   distinctive token of the old output (`with-hyphen`).
+- A unit moving Python scripts names its caller audit and replacement-command
+  fixture tests in `Tests:`. Load `references/script-moves.md` before writing
+  those units.
 - A plan for a checker, linter, parser, or other tool that reads input
   says under Out of scope whose input it reads and whether that author is
   trusted. `review` briefs its reviewer with that sentence, so a plan that

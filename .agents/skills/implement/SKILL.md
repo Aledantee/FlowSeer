@@ -117,10 +117,9 @@ For each unit:
    citations, and any test or benchmark name the unit made false.
 5. Check, commit, verify, in that order:
    - Run the focused checks (`go test -race ./<pkg>/...`, `go tool -modfile=tools/buf/go.mod buf lint`), never a
-     script under `tools/hooks/` (`delegate`, Write the brief, item 6). Send
-     output that may carry diagnostics to a file and grep it after
-     (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
-     never through a filter that drops what it does not match.
+     script under `tools/hooks/` (`delegate`, Write the brief, item 6). Save
+     diagnostics under the log-path rule in `verify-change`, Run it, then grep
+     the saved output. A filter drops what it does not match.
    - When the unit adds or removes a name in a repository-wide namespace (an
      error code, a telemetry scope, an event or metric name, a bus subject, a
      bucket), grep the tree for it: no per-package gate sees two owners.
@@ -129,7 +128,9 @@ For each unit:
      backslashes, not line breaks.
    - Run the verifier for the unit's paths, sandbox disabled, in the
      background while you read on, as the last command of its invocation (a
-     trailing `echo` or `tail` reports its own exit code as the gate's):
+     trailing `echo` or `tail` reports its own exit code as the gate's).
+     When saving its output, pass the absolute scratchpad log path chosen
+     before launch and read that same path after completion:
 
    ```bash
    .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
