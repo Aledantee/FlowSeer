@@ -16,8 +16,8 @@ checkout.
 
 The Bash check reads a command crudely. Each pattern applies to one line, as
 `grep` and `sed` apply it, and the command is split into words on blanks and
-line breaks, with each word that holds a pattern character expanded in the
-session directory. It is a token scan and not a parser.
+line breaks, with each word that holds a pattern character expanded by bash
+in the session directory. It is a token scan and not a parser.
 
 Switches: `CLAUDE_WORKTREE_GUARD=off` for the machine or one shell,
 `.claude/no-worktree-guard` in a repository, and
@@ -30,10 +30,10 @@ back logically (/tmp), and a mismatch would read the primary checkout as a
 linked worktree.
 """
 
-import glob
 import json
 import os
 import re
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -119,8 +119,6 @@ GENERATORS = re.compile(
 RM_COMMAND = re.compile(rf"^[{SPACE}]*rm(?:[{SPACE}]|$)")
 SHELL_SYNTAX = re.compile(r"[;&|<>`$()]")
 WORDS = re.compile(rf"[^{IFS}]+")
-PATTERN_CHARACTER = re.compile(r"[*?\[]")
-BRACKET_CARET = re.compile(r"\[\^")
 
 
 def basename(path: str) -> str:
@@ -216,20 +214,30 @@ def reason_to_deny(command: str) -> str:
     return ""
 
 
-def words(command: str, cwd: str) -> list[str]:
-    """Split the command as the shell splits an unquoted expansion.
+def words(command: str, cwd: str) -> list[str] | None:
+    """Return the names bash gives the unquoted expansion of the command in `cwd`.
 
-    Each word that holds a pattern character is replaced by the names it
-    matches in the session directory, and kept when nothing matches.
+    This is what the shell hook's `for tok in $cmd` iterated over: the command
+    split on blanks and line breaks, each word with a pattern character
+    replaced by the names it matches and kept when nothing matches. Bash does
+    the expansion, since its bracket and `^` rules are not glob's. The command
+    is a positional argument and never part of the script, so nothing in it is
+    evaluated. A missing `bash` returns None, and the callers then keep the
+    denial, since no operand can be judged.
     """
-    found: list[str] = []
-    for word in WORDS.findall(command):
-        # Bash negates a bracket expression with a leading `!` or `^`, and
-        # glob accepts only `!`.
-        pattern = BRACKET_CARET.sub(r"[!", word)
-        names = glob.glob(pattern, root_dir=cwd) if PATTERN_CHARACTER.search(word) else []
-        found += sorted(names) or [word]
-    return found
+    if not WORDS.search(command):
+        return []
+    try:
+        done = subprocess.run(
+            ["bash", "-c", 'printf "%s\\n" $1', "_", command],
+            cwd=cwd,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    # Split on line feeds by hand: text mode would turn a lone `\r` into one.
+    return done.stdout.decode("utf-8", errors="surrogateescape").split("\n")[:-1]
 
 
 def unquoted(word: str) -> str:
@@ -251,7 +259,10 @@ def deletes_only_untracked(command: str, cwd: str, toplevel: str) -> bool:
     """
     if not matches(RM_COMMAND, command) or SHELL_SYNTAX.search(command):
         return False
-    for word in words(command, cwd)[1:]:
+    names = words(command, cwd)
+    if names is None:
+        return False
+    for word in names[1:]:
         word = unquoted(word)
         if word.startswith("-"):
             continue
@@ -271,8 +282,11 @@ def writes_only_outside(command: str, cwd: str, toplevel: str) -> bool:
     operands with bare relative ones can slip through.
     """
     home = os.environ.get("HOME", "")
+    names = words(command, cwd)
+    if names is None:
+        return False
     saw_path = False
-    for word in words(command, cwd):
+    for word in names:
         word = unquoted(word)
         word = word.removeprefix(">")
         if word.startswith("/"):

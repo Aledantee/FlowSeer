@@ -55,6 +55,26 @@ class MarkVerificationDirtyTest(HookCase):
         self.assertEqual((result.code, result.stdout, result.stderr), (0, "", ""))
 
     @across("mark-verification-dirty")
+    def test_a_listing_that_cannot_be_taken_ends_a_bash_call_quietly_and_leaves_no_temporary_file(self, hook):
+        """a file git cannot hash ends a Bash call with exit 0, no traceback, and no flowseer-tree-state temporary"""
+        self.write(self.fixture / "main.go", mode=0)
+        git_dir = self.marker().parent
+        result = hook.run(self.shell("true"))
+        self.assertEqual((result.code, result.stdout, result.stderr), (0, "", ""))
+        self.assertEqual(list(git_dir.glob("flowseer-tree-state*")), [])
+
+    @across("mark-verification-dirty")
+    def test_a_marker_that_cannot_be_written_still_saves_the_listing(self, hook):
+        """a marker path that is a directory ends a Bash call with exit 0, no traceback, and the listing saved"""
+        self.write(self.fixture / "main.go")
+        git_dir = self.marker().parent
+        self.marker().mkdir()
+        result = hook.run(self.shell("true"))
+        self.assertEqual((result.code, result.stdout, result.stderr), (0, "", ""))
+        self.assertTrue((git_dir / "flowseer-tree-state").read_text().endswith("\tmain.go\n"))
+        self.assertEqual(sorted(p.name for p in git_dir.glob("flowseer-tree-state*")), ["flowseer-tree-state"])
+
+    @across("mark-verification-dirty")
     def test_a_bash_write_is_marked_by_path_with_no_full_scope_line(self, hook):
         """a Bash write is marked by path, with no full-scope line"""
         self.write(self.fixture / "main.go")

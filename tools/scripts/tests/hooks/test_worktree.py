@@ -1,8 +1,11 @@
 import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
-from tests.hooks.support import HookCase, across
+from hooks import worktree_guard
+from tests.hooks.support import BASH, HookCase, across
 
 EXTERNAL_ROOT = "external-worktrees"
 NAME_LIMIT = 128
@@ -441,17 +444,21 @@ class WorktreeGuardTest(GuardCase):
                 )
 
     @across("worktree-guard")
-    def test_a_caret_negates_a_bracket_expression_as_bash_expands_it(self, hook):
-        """`rm [^a].tmp` names b.tmp, which is tracked, so it is denied"""
+    def test_a_caret_in_a_bracket_expression_is_read_as_bash_reads_it(self, hook):
+        """`rm [^a].tmp` and `rm [[^a].tmp` both name the tracked ^.tmp, so both are denied"""
         repo = self.checkout()
-        self.git(repo, "add", "b.tmp")
-        self.git(repo, "commit", "-qm", "track b")
-        denied = hook.output(self.bash("rm [^a].tmp", repo), env=self.env_with(HOME=str(self.home)))["hookSpecificOutput"]
-        self.assertEqual(denied["permissionDecision"], "deny")
-        self.assertIn(
-            f"because {MODIFIES}, and the session is in the primary checkout {repo}",
-            denied["permissionDecisionReason"],
-        )
+        self.write(repo / "^.tmp", "x\n")
+        self.git(repo, "add", "^.tmp")
+        self.git(repo, "commit", "-qm", "track caret")
+        env = self.env_with(HOME=str(self.home))
+        for command in ("rm [^a].tmp", "rm [[^a].tmp"):
+            with self.subTest(command=command):
+                denied = hook.output(self.bash(command, repo), env=env)["hookSpecificOutput"]
+                self.assertEqual(denied["permissionDecision"], "deny")
+                self.assertIn(
+                    f"because {MODIFIES}, and the session is in the primary checkout {repo}",
+                    denied["permissionDecisionReason"],
+                )
 
     @across("worktree-guard")
     def test_every_file_tool_has_the_decision_the_shell_gives(self, hook):
@@ -632,6 +639,47 @@ class WorktreeGuardTest(GuardCase):
         hook.silent(payload, env=self.env_with(CLAUDE_WORKTREE_GUARD="off"))
         self.write(self.linked / ".claude" / "no-worktree-guard")
         hook.silent(payload)
+
+
+WORD_FIXTURE = ("a.tmp", "b.tmp", "^.tmp", "[.tmp", "!.tmp", ".hidden")
+WORD_PATTERNS = (
+    "*",
+    "?",
+    "[^a]",
+    "[!a]",
+    "[[^a]",
+    "[a[^b]",
+    ".*",
+    "\\[^a].tmp",
+    "{a,b}",
+    "~",
+    "plain.txt",
+    "[^a].tmp",
+    "[[^a].tmp",
+    "*.tmp [^a].tmp",
+)
+
+
+class WordsTest(unittest.TestCase):
+    """`words` gives the names bash gives the unquoted expansion of a command."""
+
+    def test_words_equals_the_expansion_bash_gives_in_the_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name in WORD_FIXTURE:
+                (Path(directory) / name).write_text("x\n")
+            for pattern in WORD_PATTERNS:
+                with self.subTest(pattern=pattern):
+                    done = subprocess.run(
+                        [BASH, "-c", 'printf "%s\\n" $1', "_", pattern], cwd=directory, capture_output=True, check=True
+                    )
+                    expected = done.stdout.decode().split("\n")[:-1]
+                    self.assertEqual(worktree_guard.words(pattern, directory), expected)
+
+    def test_a_command_is_never_evaluated_by_the_expansion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            command = "rm $(touch evaluated) `touch evaluated2` ;touch evaluated3"
+            worktree_guard.words(command, directory)
+            self.assertEqual(list(Path(directory).iterdir()), [])
 
 
 if __name__ == "__main__":

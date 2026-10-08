@@ -99,11 +99,13 @@ def record_bash_changes(root: Path, git_dir: Path, handle: int, name: str) -> No
         full = full or any(fnmatch.fnmatchcase(path, pattern) for pattern in FULL_SCOPE_PATTERNS)
     if full:
         marks.append(FULL_SCOPE)
+    # The shell appended each mark with a failing `printf >>` that it ignored,
+    # then renamed the listing into place, so a marker that cannot be written
+    # still leaves the listing saved.
     try:
         append(git_dir / MARKER, marks)
     except OSError:
-        os.close(handle)
-        raise
+        pass
 
     try:
         with os.fdopen(handle, "wb") as written:
