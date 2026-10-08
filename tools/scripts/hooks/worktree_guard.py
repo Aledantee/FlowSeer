@@ -76,8 +76,6 @@ REGENERATES = "it regenerates or rewrites tracked files"
 
 # The characters of [[:space:]], spelled out so no class follows the locale.
 SPACE = " \t\n\v\f\r"
-# The characters the shell splits an unquoted expansion on.
-IFS = " \t\n"
 
 # Redirections that do not write a file go first, so a plain `>` can imply a
 # write. A pair of angle brackets with no blank between them is an email
@@ -118,7 +116,6 @@ GENERATORS = re.compile(
 )
 RM_COMMAND = re.compile(rf"^[{SPACE}]*rm(?:[{SPACE}]|$)")
 SHELL_SYNTAX = re.compile(r"[;&|<>`$()]")
-WORDS = re.compile(rf"[^{IFS}]+")
 
 
 def basename(path: str) -> str:
@@ -215,29 +212,30 @@ def reason_to_deny(command: str) -> str:
 
 
 def words(command: str, cwd: str) -> list[str] | None:
-    """Return the names bash gives the unquoted expansion of the command in `cwd`.
+    """Return the words bash's unquoted expansion of the command gives in `cwd`.
 
     This is what the shell hook's `for tok in $cmd` iterated over: the command
     split on blanks and line breaks, each word with a pattern character
-    replaced by the names it matches and kept when nothing matches. Bash does
-    the expansion, since its bracket and `^` rules are not glob's. The command
-    is a positional argument and never part of the script, so nothing in it is
-    evaluated. A missing `bash` returns None, and the callers then keep the
-    denial, since no operand can be judged.
+    replaced by the names it matches and kept when nothing matches. A name
+    stays one word whatever it holds, a line feed included, since the loop
+    ends each word with a NUL and no file name holds one. Bash does the
+    expansion, since its bracket and `^` rules are not glob's. The command is a
+    positional argument and never part of the script, so nothing in it is
+    evaluated. A `bash` that is missing or exits non-zero returns None, and the
+    callers then keep the denial, since no operand can be judged.
     """
-    if not WORDS.search(command):
-        return []
     try:
         done = subprocess.run(
-            ["bash", "-c", 'printf "%s\\n" $1', "_", command],
+            ["bash", "-c", 'for tok in $1; do printf "%s\\0" "$tok"; done', "_", command],
             cwd=cwd,
             capture_output=True,
             check=False,
         )
     except OSError:
         return None
-    # Split on line feeds by hand: text mode would turn a lone `\r` into one.
-    return done.stdout.decode("utf-8", errors="surrogateescape").split("\n")[:-1]
+    if done.returncode != 0:
+        return None
+    return done.stdout.decode("utf-8", errors="surrogateescape").split("\0")[:-1]
 
 
 def unquoted(word: str) -> str:
