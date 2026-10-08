@@ -29,9 +29,8 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 ## 2026-10-07 plan: a launcher port had no required live start check
 Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks,
 and `.claude/skills/implement/SKILL.md`, step 2.3.
-What happened: the uv scripts Phase 5 plan's U2 Tests line
-(`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase5-plan.md:227`)
-required shell and Python lifecycle suites with controlled tool replies.
+What happened: the uv scripts Phase 5 plan's U2 Tests line (2026-10-05,
+retired with its land; its text at `6b831fb4`) required shell and Python lifecycle suites with controlled tool replies.
 Its Verification section required documented replacements on fixtures.
 Neither required a live Orca start. The port refused a terminal reply
 without a status field until `da5a613f` removed that refusal.
