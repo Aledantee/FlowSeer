@@ -66,11 +66,43 @@ exec-form hook. The registration in U5 is then wrong.
 - A hook's JSON is compared after parsing. Why: `jq -n` prints several
   lines and `json.dumps` one, and both runtimes parse the output.
 - `worktree-guard.sh` splits a command with unquoted `for tok in $cmd`
-  (`tools/hooks/worktree-guard.sh:200`, `:233`), which also expands
-  filename patterns in the session directory. The port splits on whitespace
-  and expands each token with `glob.glob` from that directory, keeping the
-  token when nothing matches. Why: `rm *.tmp` is allowed today only when
-  every match is untracked.
+  (`8c4c85ea:tools/hooks/worktree-guard.sh:200`, `:233`). The loop also
+  expands filename patterns in the session directory, and it keeps a name as
+  one word whatever the name holds. The port runs that loop. `words` starts
+  `bash -c 'for tok in $1; do printf "%s\0" "$tok"; done' _ <command>` in
+  the checkout and splits the output on NUL. The command is a positional
+  argument and never part of the script, so nothing in it is evaluated. A
+  non-zero exit or a missing `bash` returns `None`, and both callers then
+  keep the denial. The property: `words` gives the words bash's unquoted
+  expansion of the command gives in the checkout. Why: `rm *.tmp` is allowed
+  only when every match is untracked, and a split on line feeds cuts a
+  tracked `a\nb.tmp` into the untracked words `a` and `b.tmp`. No file name
+  holds a NUL. This replaces the Decision that named `glob.glob`, whose
+  bracket and `^` rules are not bash's.
+  (decided by the user, 2026-10-08)
+- The loop gives these words under `/bin/bash` 3.2.57 on macOS, in a
+  repository that tracks `a\nb.tmp` and holds an untracked `plain.tmp` and
+  an untracked directory `a\n` with `out.tmp` in it. The last column is the
+  form it replaces, `printf "%s\n" $1` split on line feeds.
+
+  | Command | Words from the loop | Words from the replaced form |
+  | --- | --- | --- |
+  | `rm *.tmp` | `rm`, `a\nb.tmp`, `plain.tmp` | `rm`, `a`, `b.tmp`, `plain.tmp` |
+  | `rm a?b.tmp` | `rm`, `a\nb.tmp` | `rm`, `a`, `b.tmp` |
+  | `touch a?/out.tmp` | `touch`, `a\n/out.tmp` | `touch`, `a`, `/out.tmp` |
+  | `rm c?d.tmp` beside `c\rd.tmp` | `rm`, `c\rd.tmp` | not taken |
+  | `rm nomatch*.zip` | `rm`, `nomatch*.zip` | not taken |
+  | an empty command, and one of blanks and line feeds | none, exit 0 | not taken |
+
+  `git ls-files -- a\nb.tmp` names the tracked file for the loop's word and
+  prints nothing for `a` or for `b.tmp`, so `rm *.tmp` is denied with the
+  loop and allowed with the replaced form. `a\n/out.tmp` is a relative
+  word, so `writes_only_outside` sees no outside path and the denial stays.
+  A `bash` that exits 9 gives exit status 9 and no output, and a `bash` that
+  is not on `PATH` raises `OSError`. A command given as `rm $(touch
+  evaluated) ;touch e3` comes back as its five words and creates no file.
+  A command that holds a NUL cannot be an argument, and `subprocess.run`
+  raises `ValueError` for it, which `main` already catches.
 - `grep` and `sed` match line by line. The port applies each pattern to
   each line of a command, so a class such as `[^']*` never spans a newline
   (`worktree-guard.sh:155` to `:185`, `protect-generated-bash.sh:43`). The
@@ -205,6 +237,10 @@ exec-form hook. The registration in U5 is then wrong.
    beside the command that reproduces it.
 5. A registered hook name is a registered command. Example: an entry whose
    `args` end in `hooks no-such-hook` fails `test_registration.py`.
+6. `words` gives the words bash's unquoted expansion of the command gives in
+   the checkout. Example: in a primary checkout that tracks `a\nb.tmp` and
+   holds an untracked `plain.tmp`, `words("rm *.tmp", checkout)` is `["rm",
+   "a\nb.tmp", "plain.tmp"]`, and the Bash call `rm *.tmp` is denied.
 
 ## Out of scope
 
@@ -220,157 +256,77 @@ exec-form hook. The registration in U5 is then wrong.
 
 ## Units
 
-### U1. The suite as unittest
+U1 to U6 are built on this branch, in `d99b72b8..e2d38ece` and the fix
+commits `cc4094f0` and `3cdc9f28`, and are not built again. The Decisions
+that name them describe that work. One unit is open.
 
-Files: tools/scripts/tests/hooks/__init__.py, tools/scripts/tests/hooks/support.py, tools/scripts/tests/hooks/test_registration.py, tools/scripts/tests/hooks/test_pre_tool_policy.py, tools/scripts/tests/hooks/test_protect_generated_bash.py, tools/scripts/tests/hooks/test_post_tool.py, tools/scripts/tests/hooks/test_mark_verification_dirty.py, tools/scripts/tests/hooks/test_stop_check.py, tools/scripts/tests/hooks/test_worktree.py, tools/scripts/tests/hooks/test_idle_stdin.py, tools/scripts/tests/verify/test_verify_selection.py, tools/scripts/tests/verify/test_check_plan_status.py, tools/scripts/tests/verify/test_check_test_integrity.py, tools/scripts/tests/verify/test_service_otel_integration.py, tools/scripts/tests/skills/implement/test_plan_deviations.py, tools/hooks/tests/run.sh, .agents/skills/verify-change/scripts/verify-change.sh, .agents/skills/steer/SKILL.md
+### U7. The guard's words from the shell's own loop
+
+Files: tools/scripts/hooks/worktree_guard.py, tools/scripts/tests/hooks/test_worktree.py
 After: none
-Change: Every case of `run.sh` is a unittest case with the same name in its
-docstring, apart from the first row of the table above. Hook cases build
-their fixtures in `setUp` (a repository in a directory with a space, a
-linked worktree, fake tools written to a `PATH` directory) and reach the
-hook through `support.implementations`. `test_post_tool.py` holds
-`go-format`, `proto-check`, `suppression-warn`, and `commit-message-check`.
-`test_idle_stdin.py` holds the open-and-silent standard input cases with a
-ten-second bound per hook. `test_registration.py` pins the registrations as
-they stand. `test_protect_generated_bash.py` and `test_worktree.py` each
-add a table case: one command per alternative of each pattern in
-`protect-generated-bash.sh:38` to `:86` and `worktree-guard.sh:155` to
-`:251`, with the decision the shell hook gives written as a literal. The
-table holds a command of two lines, an `rm` of an untracked file, of a
-tracked file, and of a pattern matching each, and a write whose only
-absolute path lies outside the checkout. `run.sh` has no case for
-`worktree-guard.sh:191` to `:251`, for the four switches, for
-`stop_hook_active` (`stop-check.sh:87`), or for the shell behaviors
-Decisions lists. U1 adds one each. The 35
-non-hook cases move as Decisions says. A case `test_plan_deviations.py`
-already holds is not added twice. `run.sh` is deleted, the verifier stops
-running it and drops `tools/hooks/tests/*.sh` from its `shellcheck` glob,
-and `steer` names `uv run tools/scripts/run.py test tools/scripts/tests/hooks`
-where it names `run.sh` (`.agents/skills/steer/SKILL.md:83`, `:106`,
-`:108`). The selection case at `run.sh:937` passes
-`tools/scripts/tests/hooks/support.py` as its path.
-Tests: `uv run tools/scripts/run.py test` reports the 89 ported cases and
-the added ones passing against the shell hooks. Before `run.sh` is deleted, its `ok` names are
-diffed against the docstrings, and the diff holds one name.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/tests tools/hooks .agents/skills/verify-change/scripts/verify-change.sh .agents/skills/steer/SKILL.md`
+Change: `worktree_guard.words` runs the loop Decisions gives, in the
+directory it is passed, with the command as the one positional argument. It
+decodes the output with `surrogateescape`, splits it on NUL, and drops the
+empty piece after the last NUL. It returns `None` when `bash` cannot be
+started and when `bash` exits non-zero. It has one path: the early return
+for a command without a word goes, together with the `WORDS` pattern, since
+the loop gives no word for such a command and `reason_to_deny` never sends
+one. `deletes_only_untracked` and `writes_only_outside` keep their `names
+is None` branch. The docstring of `words` states the property of
+Requirement 6. The unit stops uncommitted with the verifier green, as
+Decisions says for a policy surface. It closes the Review gaps items at
+`test_worktree.py:663`, `test_worktree.py:666`, and `worktree_guard.py:232`.
+Tests: all in `test_worktree.py`.
+- `WordsTest` keeps its matrix against the `bash` on `PATH`, with the
+  expected list taken from the loop and split on NUL. Its fixture gains
+  `a\nb.tmp`, `c\rd.tmp`, and a directory `a\n` holding `out.tmp`. Its
+  patterns gain `*.tmp`, `a?b.tmp`, `c?d.tmp`, `a?/out.tmp`, an empty
+  command, and a command of blanks and line feeds.
+- A second case holds literals that no `bash` call supplies, in a
+  directory holding `a\nb.tmp`, `plain.tmp`, `c\rd.tmp`, and `a\n/out.tmp`:
+  the first four rows of the table in Decisions with the words as
+  written there, `rm nomatch*.zip` as its two words, and an empty list for
+  the empty and the blank command. Why: the matrix and `words` share the
+  loop, so the matrix alone passes whatever the two share.
+- `words` returns `None` with `PATH` set to an empty directory, and with a
+  `bash` stub first on `PATH` that prints `rm` and a NUL and exits 9.
+- Through the hook, in a primary checkout on `main` that tracks `a\nb.tmp`
+  and holds an untracked `plain.tmp` and an untracked directory `a\n` with
+  `out.tmp`: `rm *.tmp`, `rm a?b.tmp`, and `touch a?/out.tmp` are denied,
+  and `rm plain.tmp` prints nothing.
+- Through the hook, with a `PATH` that holds `git` and `uv` and no `bash`:
+  `rm <untracked file>` and `touch <outside>/f` are denied. The same two
+  calls print nothing with `bash` on `PATH`.
+- Through the hook, with the stub that exits 9 first on `PATH`: `rm
+  README.md` and `rm <untracked file>` are denied.
+- The cases for a caret in a bracket expression and for a command that is
+  never evaluated stay as they are.
+- Each of these changes to `worktree_guard.py` fails a case: either
+  `return None` in `words` replaced by `return []`, `return False` after
+  `names is None` replaced by `return True` in either caller, the split on
+  NUL replaced by a split on line feeds or by `.splitlines()`, the exit
+  status not read, the command written into the script, and `cwd` dropped.
+- Nothing in the unit covers a `bash` other than the one on the `PATH` of
+  the host that runs the suite.
+Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/hooks/worktree_guard.py tools/scripts/tests/hooks/test_worktree.py`
 
-### U2. Hook library and the tree-state command
-
-Files: tools/scripts/lib/hookio.py, tools/scripts/lib/treestate.py, tools/scripts/hooks/__init__.py, tools/scripts/hooks/tree_state.py, tools/scripts/tests/lib/test_hookio.py, tools/scripts/tests/lib/test_treestate.py, docs/code-style-python.md
-After: none
-Change: `lib/hookio.py` holds `read_event`, `Event` (the parsed input, the
-physical root, and the prefix of the session directory), `tool_paths` (the
-file path, the notebook path, and the `*** Add/Update/Delete File:` and
-`*** Move to:` lines of a patch), `relative_path` with the four outcomes of
-`hook_relative_path` (`tools/hooks/common.sh:108`) as an enum, `go_on_path`
-and `go_tools_on_path`, and `deny`, `ask`, and `context`. `lib/treestate.py`
-returns the listing `tree-state.sh` prints, sorted by bytes, with the
-`MERGE_HEAD` subtraction. `hooks tree-state <root>` prints it and exits 2
-without a root. `docs/code-style-python.md` gains the rule that a hook is a
-command of the `hooks` group that reads its event through `lib/hookio.py`,
-and that its exit code follows the runtime's hook contract, which is the
-exception to "Exit non-zero on any failure" (`docs/code-style-python.md:39`).
-Tests: `test_hookio.py` covers a silent open standard input (empty event
-inside six seconds), each `relative_path` outcome (inside, outside every
-checkout, another checkout of the repository, a `..` in a missing tail),
-and `go_on_path` given a candidate directory that holds a fake `go`.
-`test_treestate.py` asserts the output of `hooks tree-state` equals the
-output of `tools/hooks/tree-state.sh` byte for byte on a fixture holding a
-modified, a deleted, and an untracked file, a path with a space, an
-unlisted file type, and a merge in progress.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/lib tools/scripts/hooks tools/scripts/tests/lib docs/code-style-python.md`
-
-### U3. The two PreToolUse guards
-
-Files: tools/scripts/hooks/__init__.py, tools/scripts/hooks/pre_tool_policy.py, tools/scripts/hooks/protect_generated_bash.py
-After: U1, U2
-Change: `hooks pre-tool-policy` and `hooks protect-generated-bash` give the
-decisions of the shell scripts, with the reason strings copied verbatim.
-The policy-surface list keeps `tools/hooks/*` until U6. Each POSIX
-character class becomes an explicit set, and the split on `;&|()`
-(`protect-generated-bash.sh:89`) stays a split, not a parser.
-Tests: `test_pre_tool_policy.py`, `test_protect_generated_bash.py`, and
-the two guards' cases in `test_idle_stdin.py` pass for both
-implementations. The table case gives equal decisions for both.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/hooks`
-
-### U4. The PostToolUse hooks and the Stop gate
-
-Files: tools/scripts/hooks/__init__.py, tools/scripts/hooks/go_format.py, tools/scripts/hooks/proto_check.py, tools/scripts/hooks/suppression_warn.py, tools/scripts/hooks/mark_verification_dirty.py, tools/scripts/hooks/commit_message_check.py, tools/scripts/hooks/stop_check.py
-After: U3
-Change: The six commands behave as their scripts do. `go-format` and
-`proto-check` exit 2 with the tool's output on standard error when a
-formatter or `buf lint` fails. `mark-verification-dirty` reads the listing
-from `lib/treestate.py`, writes the new one beside the old and renames it
-with `os.replace`, and keeps the marker and state file names.
-`go-format` compares content with `hashlib`. `stop-check` runs `go test`
-once per child of `test/conformance/` and prints the same three shapes.
-Tests: `test_post_tool.py`, `test_mark_verification_dirty.py`,
-`test_stop_check.py`, and the Stop case in `test_idle_stdin.py` pass for
-both implementations.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- tools/scripts/hooks`
-
-### U5. Registration of the eight hooks
-
-Files: .claude/settings.json, .codex/hooks.json, tools/scripts/tests/hooks/test_registration.py, tools/hooks/pre-tool-policy.sh, tools/hooks/protect-generated-bash.sh, tools/hooks/go-format.sh, tools/hooks/proto-check.sh, tools/hooks/suppression-warn.sh, tools/hooks/mark-verification-dirty.sh, tools/hooks/commit-message-check.sh, tools/hooks/stop-check.sh, .agents/skills/verify-change/scripts/verify-change.sh, .agents/skills/verify-change/SKILL.md, .agents/skills/delegate/references/hookless-merge.md, docs/conventions/protobuf.md, test/conformance/a11y/a11y_policy_test.go, docs/agent-steering.md
-After: U4
-Change: Both configurations start the eight hooks as Decisions gives, and
-the eight scripts are deleted. `worktree-guard.sh` and `create-worktree.sh`
-keep their shell registration. The verifier rewrites the listing through
-`uv run "$run_py" hooks tree-state "$root"` and fails on its non-zero
-exit. The four documents and the comment name the commands.
-`docs/agent-steering.md` records the two Stop timings and the command.
-Tests: `test_registration.py` expects the new entries, runs each runtime's
-configured `pre-tool-policy` command on a `generated/` edit (substituting
-`${CLAUDE_PROJECT_DIR}` itself for Claude Code), asserts every registered
-name is in `COMMANDS`, and runs the Codex command outside a repository and
-with a `PATH` lacking `uv`. The table cases keep their literals. Nothing in
-this unit covers Claude Code's own substitution. Verification's session
-check does.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- .claude/settings.json .codex/hooks.json tools/scripts/tests/hooks tools/hooks .agents/skills/verify-change docs/conventions/protobuf.md test/conformance/a11y/a11y_policy_test.go docs/agent-steering.md .agents/skills/delegate/references/hookless-merge.md`
-
-### U6. The worktree hooks and the end of `tools/hooks/`
-
-Files: tools/scripts/hooks/__init__.py, tools/scripts/hooks/worktree_guard.py, tools/scripts/hooks/create_worktree.py, tools/scripts/hooks/pre_tool_policy.py, .claude/settings.json, .codex/hooks.json, tools/scripts/tests/hooks/test_registration.py, tools/scripts/tests/hooks/support.py, tools/scripts/tests/hooks/test_pre_tool_policy.py, tools/scripts/tests/hooks/test_post_tool.py, tools/scripts/tests/lib/test_treestate.py, tools/hooks/worktree-guard.sh, tools/hooks/create-worktree.sh, tools/hooks/common.sh, tools/hooks/tree-state.sh, .agents/skills/verify-change/scripts/verify-change.sh, .agents/skills/verify-change/SKILL.md, AGENTS.md, docs/agent-steering.md, .agents/skills/steer/SKILL.md, .agents/skills/delegate/SKILL.md, .agents/skills/implement/SKILL.md, tools/scripts/skills/next/plan_queue.py, tools/scripts/tests/skills/next/test_plan_queue.py, .agents/skills/delegate/references/hookless-merge.md, .agents/skills/tune/references/calibration/brief.md, .agents/skills/tune/references/calibration/brief-complex.md, .agents/skills/tune/references/calibration/brief-integration.md, .agents/skills/tune/references/calibration/brief-sensitive.md, .agents/skills/tune/references/calibration/brief-simple.md
-After: U5
-Change: `hooks worktree-guard` and `hooks create-worktree` replace the last
-two scripts in both configurations. `create-worktree` prints only the
-target path on standard output and exits 1 with the shell's messages.
-`tools/hooks/` no longer exists. `support.implementations` returns the
-Python command alone and fails on an unregistered name.
-`test_treestate.py` compares against the listing recorded as a literal.
-The policy list in `pre_tool_policy.py`, the path classes and the
-`shellcheck` glob in the verifier, `AGENTS.md` (Hard boundaries, Enforced
-rules), `HARNESS` in `plan_queue.py`, the policy case of
-`test_pre_tool_policy.py` (`tools/hooks/new-guard.sh`), and the skill,
-brief, and steering documents drop `tools/hooks/` and name
-`tools/scripts/hooks/`. `test_post_tool.py` drops `jq` from its fixture
-`PATH`.
-Tests: `test_worktree.py` and the WorktreeCreate case of
-`test_idle_stdin.py` pass for both implementations before the scripts are
-deleted, the table case included. `test_registration.py` expects ten
-exec-form entries for Claude Code. `git ls-files tools/hooks` prints
-nothing, and `git grep -n tools/hooks` names only files under `docs/plans/`,
-`docs/solutions/`, `docs/research/`, and `docs/architecture/`.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh --full`
-
-Waves: U1 U2 | U3 | U4 | U5 | U6
-
-U3 to U6 form a chain because each edits `tools/scripts/hooks/__init__.py`
-or a runtime configuration the next one edits.
+Waves: U7
 
 ## Verification
 
-- `uv run tools/scripts/run.py test` passes after every unit.
+- `uv run tools/scripts/run.py test` passes.
 - `git grep -w jq -- tools/scripts/hooks tools/scripts/lib
-  tools/scripts/verify` prints nothing after U6.
-- After U5 and after U6, in a Claude Code session started in the work
-  tree: an Edit under `generated/` is denied, and the transcript shows no
-  `hook error` notice. This is the check of the stop condition.
-- After U6, `EnterWorktree` creates a worktree under the sibling
-  `worktrees/<repo>/` directory.
-- After U5, the Stop timing command from `docs/agent-steering.md`, run
-  once cold and once warm.
+  tools/scripts/verify` prints nothing.
+- In a Claude Code session started in the work tree: an Edit under
+  `generated/` is denied, and the transcript shows no `hook error` notice.
+  This is the check of the stop condition.
+- In a Claude Code session started in the primary checkout on `main`,
+  after U7: `rm` of an untracked file runs, `rm README.md` is denied, and
+  the transcript shows no `hook error` notice.
+- `EnterWorktree` creates a worktree under the sibling `worktrees/<repo>/`
+  directory.
+- The Stop timing command from `docs/agent-steering.md`, run once cold and
+  once warm.
 
 ## Definition of done
 
@@ -379,25 +335,20 @@ or a runtime configuration the next one edits.
 - [ ] `AGENTS.md`, `docs/agent-steering.md`, `docs/code-style-python.md`,
       and the skills name the new commands.
 - [ ] This plan's outcome is recorded with `uv run tools/scripts/run.py
-      plan record implemented <plan> --units 6 --from <t> --to <t>` or
+      plan record implemented <plan> --units 1 --from <t> --to <t>` or
       `partial`.
 - [ ] No plan labels in code.
 
 ## Open questions
 
-- Parked by drive: the review ended `rework` after two fix rounds on
-  `worktree_guard.words`, whose last shape (bash expands the words, split on
-  line feeds) lets `rm *.tmp` through when a tracked name holds a line feed.
-  Work stays on `parked/uv-p3-review3`. Options: re-plan the mechanism as the
-  shell's own `for tok in $cmd` loop with a NUL delimiter, amending the
-  Decision that names `glob.glob`, then implement and review again (a short
-  re-plan, the round count starts again) | decide the guard does not defend
-  against a name holding a line feed, record it as a Decision, and have a
-  review record the verdict on that basis (no code change, the guard differs
-  from the shell on that input) | stop (phase 3 stays implemented and
-  unlanded; phases 4 and 7 wait on it). Recommended: the re-plan, because the
-  plan's Out of scope calls a verdict that differs from the shell a defect and
-  the reviewer's direction is one line of the shell hook.
+- The loop is checked under `/bin/bash` 3.2.57 only. Its words under bash 5
+  are unverified. The matrix of U7 runs against the `bash` on `PATH`, so it
+  holds the property on each host that runs the suite.
+- A `BASH_ENV` file that sets `nullglob` or `IFS` changes the words:
+  with `shopt -s nullglob` in it, `rm nomatch*.zip` gives the one word
+  `rm`. The shell hook started under `bash` and read the same file, so the
+  verdict does not differ from the shell. The plan accepts this.
+  Unconfirmed.
 - Claude Code proceeds when `uv` is not on `PATH`, so a host without uv
   has no guards and sees a `hook error` notice per call. The plan accepts
   this, since the shell registration fails open the same way and shell
@@ -418,14 +369,15 @@ or a runtime configuration the next one edits.
 Open items of the review of `8c4c85ea..633242b6` and of its fix rounds over
 `d4c9891f..cc4094f0` and `316b0150..3cdc9f28`. The first item is a blocking
 false test. The others do not hold the verdict. The behavior findings that
-hold it are in the commits that record each verdict.
+hold it are in the commits that record each verdict. U7 closes the first,
+the second, and the `worktree_guard.py:232` item. The item on this plan's
+`glob.glob` Decision is closed by the Decision that replaces it.
 
 - tools/scripts/tests/hooks/test_worktree.py:663: `return None` in `worktree_guard.words` replaced by `return []`, and `return False` after `names is None` replaced by `return True` in `deletes_only_untracked` and in `writes_only_outside`; fails: a `PATH` that holds `git` and no `bash`, expecting `deny` for `rm <untracked file>` and for `touch <outside>/f`; class: false test, blocking; review-fix-test: yes
 - tools/scripts/tests/hooks/test_worktree.py:666: the expected list comes from the command and the split that `worktree_guard.words` runs, so a name that holds a line feed passes, and `.splitlines()` and a removed blank-command return also pass; fails: an expected list from `for tok in $1` with each word ended by a NUL, over a blank command, a name with a carriage return, and a name with a line feed; class: false test
 - tools/scripts/tests/hooks/test_mark_verification_dirty.py:67: the append in `mark_edit` wrapped in `except OSError: pass`; fails: an Edit event with the marker path a directory, expecting a non-zero exit; class: gap
 - tools/scripts/hooks/worktree_guard.py:232: the exit status of `bash` is not read, so a `bash` that exits non-zero with no output gives no words and `rm README.md` is allowed; fails: a `bash` stub that exits 9, expecting `deny`; class: hardening
 - tools/scripts/hooks/mark_verification_dirty.py:106: the marks are one write where the shell appended one line per `printf`, so an append that fails after the first line drops the later marks while the listing is saved; fails: an append that fails once after `a.go`, expecting `b.go` marked; class: gap
-- docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase3-plan.md:71: the Decision says the port expands each token with `glob.glob`, and `worktree_guard.words` runs `bash`; fails: none; class: convention
 - tools/scripts/tests/hooks/test_pre_tool_policy.py:1: the `except Exception` deny removed from `pre_tool_policy.py:115` and from `protect_generated_bash.py:121`; fails: a case that makes each guard raise and expects `deny`; class: gap
 - tools/scripts/tests/hooks/test_protect_generated_bash.py:215: the `MUTATE` reason sentence replaced by `CHANGED REASON.`; fails: a table row that pins the reason of each branch that prints one; class: gap
 - tools/scripts/tests/hooks/test_stop_check.py:126: `failed_gate` runs every gate and returns the first failure's output; fails: a recording `go` stub under two gate directories, expecting one `go test` call; class: false test
