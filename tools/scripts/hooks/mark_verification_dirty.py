@@ -63,9 +63,24 @@ def append(path: Path, lines: list[str]) -> None:
 
 
 def mark_bash_changes(root: Path, git_dir: Path) -> None:
+    # The new listing is written beside the old one and renamed over it, so
+    # a reader never sees a half-written listing. It is created first: a git
+    # directory that cannot be written ends the hook before any marker write.
+    try:
+        handle, name = tempfile.mkstemp(prefix=f"{STATE}.", dir=git_dir)
+    except OSError:
+        return
+    try:
+        record_bash_changes(root, git_dir, handle, name)
+    finally:
+        Path(name).unlink(missing_ok=True)
+
+
+def record_bash_changes(root: Path, git_dir: Path, handle: int, name: str) -> None:
     try:
         listing = treestate.listing(root)
     except (RuntimeError, OSError):
+        os.close(handle)
         return
     current = "".join(f"{line}\n" for line in listing)
     state = git_dir / STATE
@@ -75,8 +90,7 @@ def mark_bash_changes(root: Path, git_dir: Path) -> None:
         known = set()
     marks = []
     full = False
-    # The shell hook compared lines, so a path that holds a line break is
-    # compared as the lines it breaks into.
+    # A path that holds a line break is compared as the lines it breaks into.
     for line in current.split("\n")[:-1]:
         _, _, path = line.partition("\t")
         if line in known or not path:
@@ -85,20 +99,18 @@ def mark_bash_changes(root: Path, git_dir: Path) -> None:
         full = full or any(fnmatch.fnmatchcase(path, pattern) for pattern in FULL_SCOPE_PATTERNS)
     if full:
         marks.append(FULL_SCOPE)
-    append(git_dir / MARKER, marks)
-
-    # The new listing is written beside the old one and renamed over it, so
-    # a reader never sees a half-written listing.
     try:
-        handle, name = tempfile.mkstemp(prefix=f"{STATE}.", dir=git_dir)
+        append(git_dir / MARKER, marks)
     except OSError:
-        return
+        os.close(handle)
+        raise
+
     try:
         with os.fdopen(handle, "wb") as written:
             written.write(current.encode(treestate.ENCODING, errors=treestate.ERRORS))
         os.replace(name, state)
     except OSError:
-        Path(name).unlink(missing_ok=True)
+        pass
 
 
 def mark_edit(file: str, cwd: str, root: Path, git_dir: Path) -> None:

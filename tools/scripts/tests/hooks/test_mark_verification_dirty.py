@@ -45,6 +45,16 @@ class MarkVerificationDirtyTest(HookCase):
         self.assertFalse(self.marker().exists())
 
     @across("mark-verification-dirty")
+    def test_a_git_directory_that_cannot_be_written_ends_a_bash_call_quietly(self, hook):
+        """an unwritable git directory ends a Bash call with exit 0 and no traceback"""
+        self.write(self.fixture / "main.go")
+        git_dir = Path(self.git(self.fixture, "rev-parse", "--absolute-git-dir"))
+        git_dir.chmod(0o555)
+        self.addCleanup(git_dir.chmod, 0o755)
+        result = hook.run(self.shell("true"))
+        self.assertEqual((result.code, result.stdout, result.stderr), (0, "", ""))
+
+    @across("mark-verification-dirty")
     def test_a_bash_write_is_marked_by_path_with_no_full_scope_line(self, hook):
         """a Bash write is marked by path, with no full-scope line"""
         self.write(self.fixture / "main.go")

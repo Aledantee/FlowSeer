@@ -120,6 +120,7 @@ RM_COMMAND = re.compile(rf"^[{SPACE}]*rm(?:[{SPACE}]|$)")
 SHELL_SYNTAX = re.compile(r"[;&|<>`$()]")
 WORDS = re.compile(rf"[^{IFS}]+")
 PATTERN_CHARACTER = re.compile(r"[*?\[]")
+BRACKET_CARET = re.compile(r"\[\^")
 
 
 def basename(path: str) -> str:
@@ -160,7 +161,7 @@ def git(cwd: str, *args: str) -> str | None:
 
 
 def text(value: Any) -> str:
-    """Return a field as the string jq's `// ""` and `-r` would give, which is empty for anything but a string."""
+    """Return a field when it is a string, and an empty string for any other value."""
     return value if isinstance(value, str) else ""
 
 
@@ -223,7 +224,10 @@ def words(command: str, cwd: str) -> list[str]:
     """
     found: list[str] = []
     for word in WORDS.findall(command):
-        names = glob.glob(word, root_dir=cwd) if PATTERN_CHARACTER.search(word) else []
+        # Bash negates a bracket expression with a leading `!` or `^`, and
+        # glob accepts only `!`.
+        pattern = BRACKET_CARET.sub(r"[!", word)
+        names = glob.glob(pattern, root_dir=cwd) if PATTERN_CHARACTER.search(word) else []
         found += sorted(names) or [word]
     return found
 

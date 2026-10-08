@@ -441,6 +441,19 @@ class WorktreeGuardTest(GuardCase):
                 )
 
     @across("worktree-guard")
+    def test_a_caret_negates_a_bracket_expression_as_bash_expands_it(self, hook):
+        """`rm [^a].tmp` names b.tmp, which is tracked, so it is denied"""
+        repo = self.checkout()
+        self.git(repo, "add", "b.tmp")
+        self.git(repo, "commit", "-qm", "track b")
+        denied = hook.output(self.bash("rm [^a].tmp", repo), env=self.env_with(HOME=str(self.home)))["hookSpecificOutput"]
+        self.assertEqual(denied["permissionDecision"], "deny")
+        self.assertIn(
+            f"because {MODIFIES}, and the session is in the primary checkout {repo}",
+            denied["permissionDecisionReason"],
+        )
+
+    @across("worktree-guard")
     def test_every_file_tool_has_the_decision_the_shell_gives(self, hook):
         """each row of the file-tool table gets the decision the shell script gives"""
         repo = self.checkout()

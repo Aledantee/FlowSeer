@@ -11,7 +11,7 @@ and otherwise under the `worktrees/<repository>/` directory beside the
 primary checkout. Git's own output goes to standard error. Every refusal
 exits 1 with a message on standard error. A failing git command ends the hook
 with git's status, and a registered worktree whose directory is gone ends it
-with status 1, as the shell script did.
+with status 1.
 
 A target inside the repository, its git directory, or any registered
 checkout is refused.
@@ -63,8 +63,7 @@ def canonical_path(path: str) -> str | None:
 def git(cwd: str, *args: str) -> str:
     """Return git's output without trailing line breaks.
 
-    Git's own message is passed on and its status ends the hook, as it did
-    under `set -e`.
+    Git's own message is passed on and its status ends the hook.
     """
     try:
         result = proc.run(["git", "-C", cwd, *args])

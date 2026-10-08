@@ -37,7 +37,7 @@ def added_text(tool_input: object) -> str:
     if isinstance(edits, dict):
         edits = list(edits.values())
     if not isinstance(edits, list):
-        # The shell hook could not iterate it and then saw no text at all.
+        # A value that cannot be iterated contributes no text.
         return ""
     parts += [edit.get("new_string") for edit in edits if isinstance(edit, dict)]
     return "\n".join(part for part in parts if isinstance(part, str)).rstrip("\n")
