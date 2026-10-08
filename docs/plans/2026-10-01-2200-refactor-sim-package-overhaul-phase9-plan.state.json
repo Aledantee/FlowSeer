@@ -8,7 +8,7 @@
   "outcome": {
     "units": 12,
     "from": "2026-10-07T21:46:34Z",
-    "to": "2026-10-08T17:53:47Z",
+    "to": "2026-10-08T17:59:08Z",
     "note": ""
   },
   "superseded_by": null,
@@ -23,7 +23,7 @@
   ],
   "landed": {
     "first": "a49ac15a5fed7860ef15e14f2f11143d2a3c28d8",
-    "last": "e8de57e16e28d4e462f446a43e97aa0cf4fa7417"
+    "last": "82fdcc23586b1be355f46a38a655df514ef39472"
   },
   "phases": [],
   "retired": []
