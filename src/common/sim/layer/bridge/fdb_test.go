@@ -25,15 +25,15 @@ func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
 	}
 	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0xbb}
 	br := mustNewBridge(t, bridge.Config{}, tbl)
-	if err := br.Learn([]bridge.Seed{{MAC: macB, Port: "1/1/6", LearnedAt: now}}); err != nil {
-		t.Fatalf("Learn() error = %v", err)
+	if err := br.InstallSeeds([]bridge.Seed{{MAC: macB, Port: "1/1/6", LearnedAt: now}}); err != nil {
+		t.Fatalf("InstallSeeds() error = %v", err)
 	}
 	entries := br.Entries()
 	if len(entries) != 1 || entries[0].Port != "lag1" {
 		t.Fatalf("Entries() = %+v, want one entry on lag1", entries)
 	}
-	if err := br.Learn([]bridge.Seed{{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now}}); err == nil {
-		t.Fatal("Learn() accepted a group MAC")
+	if err := br.InstallSeeds([]bridge.Seed{{MAC: netaddr.MAC{0x01, 0x00, 0x5e, 0, 0, 1}, Port: "1/1/1", LearnedAt: now}}); err == nil {
+		t.Fatal("InstallSeeds() accepted a group MAC")
 	}
 	if got := br.Entries(); len(got) != 1 || got[0] != entries[0] {
 		t.Errorf("Entries() after invalid Learn = %+v, want unchanged %+v", got, entries)

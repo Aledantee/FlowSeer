@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
-	"go.aledante.io/FlowSeer/src/common/net/ndp"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
@@ -32,6 +30,36 @@ func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) Output {
 }
 
 func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	if res, handled := s.forwardMirrorOutput(ingress, f); handled {
+		return res
+	}
+	if res, handled := s.forwardIntercepts(now, ingress, f, mutate); handled {
+		return res
+	}
+	var routingScopes []analysis.Scope
+	if s.routing != nil {
+		res, scopes, handled := s.forwardRoutedPort(now, ingress, f, mutate)
+		if handled {
+			return res
+		}
+		routingScopes = scopes
+	} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+		resolved, ok := s.ports.Resolve(ingress)
+		name := ingress
+		if ok {
+			name = resolved.Name
+		}
+		routingScopes = append(routingScopes, routing.PortLookupScope(s.nodeID, routing.DefaultVRF, name))
+	}
+	if s.bridge != nil {
+		return s.forwardBridge(now, ingress, f, mutate, routingScopes)
+	}
+	res := s.forwardHub(now, ingress, f, mutate)
+	res.ConsultScopes(routingScopes...)
+	return s.finishForward(now, ingress, f, res, mutate)
+}
+
+func (s *Switch) forwardMirrorOutput(ingress string, f ethernet.Frame) (bridge.Result, bool) {
 	if s.isMirrorOutputPort(ingress) {
 		mirror := s.mirrorForOutput(ingress)
 		res := bridge.Result{
@@ -49,9 +77,13 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			Ingress: ingress,
 		}
 		s.forwardingDependencies(ingress).consult(&res)
-		return res
+		return res, true
 	}
 
+	return bridge.Result{}, false
+}
+
+func (s *Switch) forwardIntercepts(now time.Time, ingress string, f ethernet.Frame, mutate bool) (bridge.Result, bool) {
 	if s.lag != nil && f.EtherType == ethernet.EtherTypeSlowProtocols && len(f.Payload) > 0 &&
 		(f.Payload[0] == lacp.SubtypeLACP || f.Payload[0] == lacp.SubtypeMarker) {
 		p, ok := s.ports.Port(ingress)
@@ -62,7 +94,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 				protocolScope(s.nodeID, lag.LayerName), "ports", ingress,
 			))
 			s.forwardingDependencies(ingress).consult(&res)
-			return s.finishForward(now, ingress, f, res, mutate)
+			return s.finishForward(now, ingress, f, res, mutate), true
 		}
 	}
 
@@ -74,7 +106,7 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			))
 		}
 		s.forwardingDependencies(ingress).consult(&res)
-		return s.finishForward(now, ingress, f, res, mutate)
+		return s.finishForward(now, ingress, f, res, mutate), true
 	}
 
 	if s.stp != nil && f.Dst == sstpGroupAddress {
@@ -85,253 +117,216 @@ func (s *Switch) forward(now time.Time, ingress string, f ethernet.Frame, mutate
 			))
 		}
 		s.forwardingDependencies(ingress).consult(&res)
-		return s.finishForward(now, ingress, f, res, mutate)
+		return s.finishForward(now, ingress, f, res, mutate), true
 	}
 
 	if s.loopprotect != nil && f.Dst == loopprotect.GroupAddress() {
 		if res, handled := s.interceptLoopProtect(now, ingress, f, mutate); handled {
 			s.forwardingDependencies(ingress).consult(&res)
-			return s.finishForward(now, ingress, f, res, mutate)
+			return s.finishForward(now, ingress, f, res, mutate), true
 		}
 	}
 
-	// Reception is a side effect. Control frames keep their ordinary path.
-	neighborFrame := f.EtherType == ethernet.EtherTypeARP ||
-		(f.EtherType == ethernet.EtherTypeIPv6 && len(f.Payload) > ip.V6HeaderLen &&
-			f.Payload[6] == protocolICMPv6 &&
-			(f.Payload[ip.V6HeaderLen] == byte(ndp.NeighborSolicitation) || f.Payload[ip.V6HeaderLen] == byte(ndp.NeighborAdvertisement)))
-	if mutate && s.routing != nil && neighborFrame {
-		if iface, ok := s.observationInterface(now, ingress, f); ok {
-			s.receiveAndRelease(now, iface, f)
-		}
-	}
+	return bridge.Result{}, false
+}
 
+func (s *Switch) forwardRoutedPort(now time.Time, ingress string, f ethernet.Frame, mutate bool) (bridge.Result, []analysis.Scope, bool) {
 	var routingScopes []analysis.Scope
-	if s.routing == nil && metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
-		resolved, ok := s.ports.Resolve(ingress)
-		name := ingress
-		if ok {
-			name = resolved.Name
-		}
-		routingScopes = append(routingScopes, routing.PortLookupScope(s.nodeID, routing.DefaultVRF, name))
-	}
+	receive := s.ports.Receive(ingress)
+	resolved := receive.Resolved
+	if resolved.Name != "" {
+		vid, tagAcceptable := f.OuterVID()
+		portVLANScopes := s.routing.PortVLANLookupScopes(resolved.Name, vid)
+		routingScopes = append(routingScopes, portVLANScopes...)
+		if ifaceName, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
+			matched := vlanMatched && tagAcceptable
 
-	if s.routing != nil {
-		receive := s.ports.Receive(ingress)
-		resolved := receive.Resolved
-		if resolved.Name != "" {
-			vid, tagAcceptable := f.OuterVID()
-			portVLANScopes := s.routing.PortVLANLookupScopes(resolved.Name, vid)
-			routingScopes = append(routingScopes, portVLANScopes...)
-			if ifaceName, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
-				matched := vlanMatched && tagAcceptable
+			if receive.Reason != "" {
+				res := routedPortDrop(resolved.Name, port.ReasonPortDown, routing.RuleStatusDown, receive.Decisive, receive.ForwardingFacts())
+				s.forwardingDependencies(ingress).consult(&res)
+				res.ConsultScopes(portVLANScopes...)
+				return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
+			}
 
-				if receive.Reason != "" {
-					res := bridge.Result{
-						Trace: trace.Trace{
-							Outcome: trace.Dropped,
-							Reason:  port.ReasonPortDown,
-							Steps: []trace.Step{
-								{
-									Layer:   routing.LayerName,
-									Op:      trace.OpDrop,
-									RuleID:  routing.RuleStatusDown,
-									Subject: trace.Subject{Kind: "port", Key: receive.Decisive},
-									Inputs:  receive.ForwardingFacts(),
-								},
-							},
-						},
-						Ingress: resolved.Name,
-						FID:     0,
-					}
-					s.forwardingDependencies(ingress).consult(&res)
-					res.ConsultScopes(portVLANScopes...)
-					return s.finishForward(now, ingress, f, res, mutate)
+			if !matched {
+				// vlanMatched but !tagAcceptable is a service-tagged frame at a VID that
+				// does name a configured interface: the recorded VLAN id alone would name
+				// a routed pair and hide the real cause, so this case gets its own rule id
+				// rather than sharing the plain VLAN-id miss's.
+				ruleID := routing.RuleTagMiss
+				if vlanMatched {
+					ruleID = routing.RuleTagProtocolMiss
 				}
+				res := routedPortDrop(resolved.Name, routing.ReasonNotBridged, ruleID, resolved.Name, []trace.Fact{routing.PortFact(resolved.Name), routing.VLANFact(vid)})
+				s.forwardingDependencies(ingress).consult(&res)
+				res.ConsultScopes(portVLANScopes...)
+				return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
+			}
 
-				if !matched {
-					// vlanMatched but !tagAcceptable is a service-tagged frame at a VID that
-					// does name a configured interface: the recorded VLAN id alone would name
-					// a routed pair and hide the real cause, so this case gets its own rule id
-					// rather than sharing the plain VLAN-id miss's.
-					ruleID := routing.RuleTagMiss
-					if vlanMatched {
-						ruleID = routing.RuleTagProtocolMiss
-					}
-					res := bridge.Result{
-						Trace: trace.Trace{
-							Outcome: trace.Dropped,
-							Reason:  routing.ReasonNotBridged,
-							Steps: []trace.Step{
-								{
-									Layer:   routing.LayerName,
-									Op:      trace.OpDrop,
-									RuleID:  ruleID,
-									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
-									Inputs:  []trace.Fact{routing.PortFact(resolved.Name), routing.VLANFact(vid)},
-								},
-							},
-						},
-						Ingress: resolved.Name,
-						FID:     0,
-					}
-					s.forwardingDependencies(ingress).consult(&res)
-					res.ConsultScopes(portVLANScopes...)
-					return s.finishForward(now, ingress, f, res, mutate)
+			ownershipScope := s.routing.InterfaceOwnershipScope(ifaceName)
+			if s.routing.Receives(ifaceName, f) {
+				if mutate {
+					s.receiveAndRelease(now, ifaceName, f)
 				}
+				res := consumedNeighbor(ifaceName, bridge.Ingress{Port: resolved.Name})
+				s.forwardingDependencies(ingress).consult(&res)
+				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+				return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
+			}
+			if !s.routing.Owns(ifaceName, f) {
+				res := routedPortDrop(resolved.Name, routing.ReasonNotBridged, routing.RuleNotBridged, resolved.Name, []trace.Fact{port.ForwardingFact(resolved.Name, resolved, true, routing.ReasonNotBridged)})
+				s.forwardingDependencies(ingress).consult(&res)
+				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+				return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
+			}
 
-				ownershipScope := s.routing.InterfaceOwnershipScope(ifaceName)
-				if !s.routing.Owns(ifaceName, f) {
+			var ingressFilterRes filter.Result
+			if s.filter != nil {
+				ingressFilterRes = s.filter.EvaluateIngress(ifaceName, f)
+				if ingressFilterRes.Decision == filter.DecisionDrop || ingressFilterRes.Decision == filter.DecisionReject {
 					res := bridge.Result{
 						Trace: trace.Trace{
 							Outcome: trace.Dropped,
-							Reason:  routing.ReasonNotBridged,
-							Steps: []trace.Step{
-								{
-									Layer:   routing.LayerName,
-									Op:      trace.OpDrop,
-									RuleID:  routing.RuleNotBridged,
-									Subject: trace.Subject{Kind: "port", Key: resolved.Name},
-									Inputs:  []trace.Fact{port.ForwardingFact(resolved.Name, resolved, true, routing.ReasonNotBridged)},
-								},
-							},
+							Reason:  ingressFilterRes.Reason,
+							Steps:   ingressFilterRes.Steps,
 						},
 						Ingress: resolved.Name,
 						FID:     0,
 					}
 					s.forwardingDependencies(ingress).consult(&res)
 					res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
-					return s.finishForward(now, ingress, f, res, mutate)
+					res.ConsultScopes(ingressFilterRes.ConsultedScopes()...)
+					return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
 				}
+			}
 
+			pcp, dei := f.Priority()
+			routeRes := s.routing.Route(now, ifaceName, f, mutate)
+			if mutate {
+				s.emitRouting(now, routeRes.Emissions)
+			}
+			res := s.assembleRouteResult(s.call, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes)
+			s.forwardingDependencies(ingress).consult(&res)
+			res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+			return s.finishForward(now, ingress, f, res, mutate), routingScopes, true
+		}
+	}
+	return bridge.Result{}, routingScopes, false
+}
+
+func routedPortDrop(ingress string, reason trace.Reason, rule trace.RuleID, subject string, inputs []trace.Fact) bridge.Result {
+	return bridge.Result{Trace: trace.Trace{
+		Outcome: trace.Dropped, Reason: reason,
+		Steps: []trace.Step{{
+			Layer: routing.LayerName, Op: trace.OpDrop, RuleID: rule,
+			Subject: trace.Subject{Kind: "port", Key: subject}, Inputs: inputs,
+		}},
+	}, Ingress: ingress}
+}
+
+func (s *Switch) forwardBridge(now time.Time, ingress string, f ethernet.Frame, mutate bool, routingScopes []analysis.Scope) bridge.Result {
+	controlCandidate := multicastControlCandidate(f)
+	in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate, mutate)
+	if !ok {
+		res.ConsultScopes(routingScopes...)
+		if s.missingSTP && (f.Dst == stpGroupAddress || f.Dst == sstpGroupAddress) {
+			res.ConsultScopes(analysis.FieldScope(
+				protocolScope(s.nodeID, stp.LayerName), "ports", res.Ingress,
+			))
+		}
+		return s.finishForward(now, ingress, f, res, mutate)
+	}
+	in.ConsultScopes(routingScopes...)
+
+	if controlCandidate && s.mcast != nil {
+		in.ConsultScopes(analysis.FieldScope(
+			protocolScope(s.nodeID, mcast.LayerName),
+			"vlans", fmt.Sprint(in.FID),
+		))
+		if s.mcast.Snooped(in.FID) {
+			res := s.forwardMulticastControl(now, ingress, f, in, mutate)
+			return s.finishForward(now, ingress, f, res, mutate)
+		}
+	}
+
+	if s.routing != nil {
+		vlanLookupScopes := s.routing.VLANLookupScopes(in.FID)
+		in.ConsultScopes(vlanLookupScopes...)
+		if iface, ok := s.routing.ByVLAN(in.FID); ok {
+			in.ConsultScopes(s.routing.InterfaceOwnershipScope(iface))
+			if s.routing.Receives(iface, f) {
+				if mutate {
+					s.receiveAndRelease(now, iface, f)
+				}
+				configured, _ := s.routing.Interface(iface)
+				if f.Dst == configured.MAC {
+					return s.finishForward(now, ingress, f, consumedNeighbor(iface, in), mutate)
+				}
+			}
+			if s.routing.Owns(iface, f) {
+				if controlCandidate {
+					in = s.commitBridgeLearning(f, in, mutate)
+				}
 				var ingressFilterRes filter.Result
 				if s.filter != nil {
-					ingressFilterRes = s.filter.EvaluateIngress(ifaceName, f)
+					ingressFilterRes = s.filter.EvaluateIngress(iface, f)
 					if ingressFilterRes.Decision == filter.DecisionDrop || ingressFilterRes.Decision == filter.DecisionReject {
 						res := bridge.Result{
 							Trace: trace.Trace{
 								Outcome: trace.Dropped,
 								Reason:  ingressFilterRes.Reason,
-								Steps:   ingressFilterRes.Steps,
+								Steps:   append(slices.Clone(in.Steps), ingressFilterRes.Steps...),
 							},
-							Ingress: resolved.Name,
-							FID:     0,
+							Ingress: in.Port,
+							FID:     in.FID,
 						}
-						s.forwardingDependencies(ingress).consult(&res)
-						res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+						res.Consult(in.ConsultedPorts()...)
+						res.ConsultScopes(in.ConsultedScopes()...)
 						res.ConsultScopes(ingressFilterRes.ConsultedScopes()...)
 						return s.finishForward(now, ingress, f, res, mutate)
 					}
 				}
-
-				pcp, dei := f.Priority()
-				routeRes := s.routing.Route(now, ifaceName, f, mutate)
+				routeRes := s.routing.Route(now, iface, f, mutate)
 				if mutate {
 					s.emitRouting(now, routeRes.Emissions)
 				}
-				res := s.assembleRouteResult(s.call, resolved.Name, 0, pcp, dei, nil, ifaceName, ingressFilterRes, routeRes)
-				s.forwardingDependencies(ingress).consult(&res)
-				res.ConsultScopes(append(portVLANScopes, ownershipScope)...)
+				res := s.assembleRouteResult(s.call, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes)
+				res.Consult(in.ConsultedPorts()...)
+				res.ConsultScopes(in.ConsultedScopes()...)
 				return s.finishForward(now, ingress, f, res, mutate)
 			}
 		}
+	} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
+		in.ConsultScopes(routing.VLANLookupScope(s.nodeID, routing.DefaultVRF, in.FID))
 	}
 
-	if s.bridge != nil {
-		controlCandidate := multicastControlCandidate(f)
-		in, res, ok := s.bridge.Ingress(now, ingress, f, mutate && !controlCandidate, mutate)
-		if !ok {
-			res.ConsultScopes(routingScopes...)
-			if s.missingSTP && (f.Dst == stpGroupAddress || f.Dst == sstpGroupAddress) {
-				res.ConsultScopes(analysis.FieldScope(
-					protocolScope(s.nodeID, stp.LayerName), "ports", res.Ingress,
-				))
-			}
-			return s.finishForward(now, ingress, f, res, mutate)
-		}
-		in.ConsultScopes(routingScopes...)
-
-		if controlCandidate && s.mcast != nil {
-			in.ConsultScopes(analysis.FieldScope(
-				protocolScope(s.nodeID, mcast.LayerName),
-				"vlans", fmt.Sprint(in.FID),
-			))
-			if s.mcast.Snooped(in.FID) {
-				res := s.forwardMulticastControl(now, ingress, f, in, mutate)
-				return s.finishForward(now, ingress, f, res, mutate)
-			}
-		}
-
-		if s.routing != nil {
-			vlanLookupScopes := s.routing.VLANLookupScopes(in.FID)
-			in.ConsultScopes(vlanLookupScopes...)
-			if iface, ok := s.routing.ByVLAN(in.FID); ok {
-				in.ConsultScopes(s.routing.InterfaceOwnershipScope(iface))
-				if s.routing.Owns(iface, f) {
-					if controlCandidate {
-						in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-					}
-					var ingressFilterRes filter.Result
-					if s.filter != nil {
-						ingressFilterRes = s.filter.EvaluateIngress(iface, f)
-						if ingressFilterRes.Decision == filter.DecisionDrop || ingressFilterRes.Decision == filter.DecisionReject {
-							res := bridge.Result{
-								Trace: trace.Trace{
-									Outcome: trace.Dropped,
-									Reason:  ingressFilterRes.Reason,
-									Steps:   append(slices.Clone(in.Steps), ingressFilterRes.Steps...),
-								},
-								Ingress: in.Port,
-								FID:     in.FID,
-							}
-							res.Consult(in.ConsultedPorts()...)
-							res.ConsultScopes(in.ConsultedScopes()...)
-							res.ConsultScopes(ingressFilterRes.ConsultedScopes()...)
-							return s.finishForward(now, ingress, f, res, mutate)
-						}
-					}
-					routeRes := s.routing.Route(now, iface, f, mutate)
-					if mutate {
-						s.emitRouting(now, routeRes.Emissions)
-					}
-					res := s.assembleRouteResult(s.call, in.Port, in.FID, in.PCP, in.DEI, in.Steps, iface, ingressFilterRes, routeRes)
-					res.Consult(in.ConsultedPorts()...)
-					res.ConsultScopes(in.ConsultedScopes()...)
-					return s.finishForward(now, ingress, f, res, mutate)
-				}
-			}
-		} else if metadataHasScopedContent(s.metadata, routing.VRFScope(s.nodeID, routing.DefaultVRF)) {
-			in.ConsultScopes(routing.VLANLookupScope(s.nodeID, routing.DefaultVRF, in.FID))
-		}
-
-		if controlCandidate {
-			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
-		}
-
-		return s.finishForward(now, ingress, f, s.bridge.Egress(in, f), mutate)
+	if controlCandidate {
+		in = s.commitBridgeLearning(f, in, mutate)
 	}
 
-	res := s.forwardHub(now, ingress, f, mutate)
-	res.ConsultScopes(routingScopes...)
-	return s.finishForward(now, ingress, f, res, mutate)
+	return s.finishForward(now, ingress, f, s.bridge.Egress(in, f), mutate)
 }
 
-func (s *Switch) commitBridgeLearning(now time.Time, ingress string, f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {
+func (s *Switch) commitBridgeLearning(f ethernet.Frame, in bridge.Ingress, mutate bool) bridge.Ingress {
 	if !mutate {
 		return in
 	}
+	return s.bridge.Learn(in, f)
+}
 
-	learned, _, ok := s.bridge.Ingress(now, ingress, f, true, true)
-	if !ok {
-		return in
-	}
-	in.Consult(learned.ConsultedPorts()...)
-	in.ConsultScopes(learned.ConsultedScopes()...)
-	if len(learned.Steps) > len(in.Steps) {
-		in.Steps = append(in.Steps, learned.Steps[len(in.Steps):]...)
-	}
-
-	return in
+func consumedNeighbor(iface string, in bridge.Ingress) bridge.Result {
+	res := bridge.Result{Trace: trace.Trace{
+		Outcome: trace.Consumed,
+		Reason:  routing.ReasonNotRouted,
+		Steps: append(slices.Clone(in.Steps), trace.Step{
+			Layer: routing.LayerName, Op: trace.OpClassify, RuleID: routing.RuleClassify,
+			Subject: trace.Subject{Kind: "interface", Key: iface},
+			Inputs:  []trace.Fact{routing.PortFact(in.Port), routing.VLANFact(in.FID)},
+		}),
+	}, Ingress: in.Port, FID: in.FID}
+	res.Consult(in.ConsultedPorts()...)
+	res.ConsultScopes(in.ConsultedScopes()...)
+	return res
 }
 
 func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.Frame, res bridge.Result, mutate bool) bridge.Result {

@@ -56,8 +56,8 @@ func mustNewBridge(t *testing.T, cfg bridge.Config, ports port.Table) *bridge.La
 
 func mustLearn(t *testing.T, br *bridge.Layer, seeds []bridge.Seed) {
 	t.Helper()
-	if err := br.Learn(seeds); err != nil {
-		t.Fatalf("Learn: %v", err)
+	if err := br.InstallSeeds(seeds); err != nil {
+		t.Fatalf("InstallSeeds: %v", err)
 	}
 }
 

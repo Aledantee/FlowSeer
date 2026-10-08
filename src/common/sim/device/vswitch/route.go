@@ -45,35 +45,6 @@ type NeighborDrop struct {
 	Ingress string
 }
 
-// observationInterface finds the routed interface an ARP or Neighbor Discovery
-// frame arrived on, for [routing.Layer.Receive] alone: it never mutates the bridge's
-// forwarding database or admits the frame anywhere, so calling it ahead of
-// the routed-port and bridge blocks below cannot pre-empt what either one
-// decides. A routed port resolves through the same [routing.Layer.ByPortVLAN]
-// lookup that block uses, so an advertisement binds the sub-interface its
-// outer VID names and no other; a routed port whose lookup misses observes
-// nothing, since it has no bridge membership to fall through to. Any other
-// ingress classifies through a read-only bridge pass to find its VLAN, then
-// resolves through [routing.Layer.ByVLAN] the way the bridge block does.
-func (s *Switch) observationInterface(now time.Time, ingress string, f ethernet.Frame) (string, bool) {
-	receive := s.ports.Receive(ingress)
-	resolved := receive.Resolved
-	if resolved.Name != "" && receive.Reason == "" {
-		vid, tagAcceptable := f.OuterVID()
-		if iface, portRouted, vlanMatched := s.routing.ByPortVLAN(resolved.Name, vid); portRouted {
-			return iface, vlanMatched && tagAcceptable
-		}
-	}
-	if s.bridge == nil {
-		return "", false
-	}
-	in, _, ok := s.bridge.Ingress(now, ingress, f, false, false)
-	if !ok {
-		return "", false
-	}
-	return s.routing.ByVLAN(in.FID)
-}
-
 // receiveAndRelease processes frame and flushes whatever it freed or gave up on
 // in the same call, rather than leaving a resolved entry's queue for a
 // caller to notice. [routing.Layer.NextWake] reports a timer for an

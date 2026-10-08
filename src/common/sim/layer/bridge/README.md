@@ -14,6 +14,11 @@ checks the tagged and untagged forms on transmission ports.
 A caller runs `Ingress(now, port, frame, learn, commit)`, then `Egress(in,
 frame)` if ingress succeeds. `learn` permits FDB writes. `commit` determines
 whether the later LAG selection mutates its bound selector.
+For deferred learning, an admitted descriptor from `Ingress` with `learn`
+false passes to `Learn(in, frame)`. It reuses the classification and learning
+gate decision, preserving entries, counters, trace steps, and consulted
+scopes ([ingress_learn_test.go](ingress_learn_test.go)). A learning-only
+port still learns and refuses during `Ingress` with `learn` true.
 `EgressTo` applies the replication rules to a supplied logical port list.
 An `Ingress` with an empty `Port` represents a locally originated frame,
 so every otherwise eligible port can transmit it. `OriginateFrame` applies
@@ -122,7 +127,7 @@ With VLAN awareness, at least one switchport must carry the VID, per Q2003 8.8 d
 That port can differ from the ingress port. VLAN-unaware learning uses FID
 0. Flood VLANs disable learning.
 
-`Learn` validates the entire seed slice before writes. Aging seeds count as
+`InstallSeeds` validates the entire seed slice before writes. Aging seeds count as
 learned when inserted. An aging seed for an existing static key changes
 nothing and counts nothing, preserving the static control required by
 Q2003 8.10.1 c 1 and Table 8-5. Seed validation is in [seed.go](seed.go).

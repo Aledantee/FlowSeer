@@ -12,7 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Ingress represents an admitted, classified, and learned frame ready for egress forwarding.
+// Ingress represents an admitted, classified frame ready for source learning or egress forwarding.
 // Ingress values are safe for concurrent reads but not for concurrent mutation.
 type Ingress struct {
 	Port          string
@@ -28,6 +28,7 @@ type Ingress struct {
 	// LAG selection made during egress commits exactly when Commit is true.
 	Now             time.Time
 	Commit          bool
+	learns          bool
 	consultedPorts  []port.Port
 	consultedScopes []analysis.Scope
 }
@@ -147,9 +148,28 @@ func (b *Layer) Ingress(now time.Time, ingress string, f ethernet.Frame, learn, 
 	in.Steps = res.Steps
 	in.Now = now
 	in.Commit = commit
+	in.learns = ingressLearns
 	in.consultedPorts = res.ConsultedPorts()
 	in.consultedScopes = res.ConsultedScopes()
 	return in, Result{}, true
+}
+
+// Learn completes deferred source learning for an admitted ingress descriptor.
+// The descriptor must come from this layer's Ingress with learning disabled.
+// Learn is not safe for concurrent use.
+func (b *Layer) Learn(in Ingress, f ethernet.Frame) Ingress {
+	if !in.learns {
+		return in
+	}
+	res := Result{Ingress: in.Port, FID: in.FID}
+	res.Steps = slices.Clone(in.Steps)
+	res.Consult(in.ConsultedPorts()...)
+	res.ConsultScopes(in.ConsultedScopes()...)
+	b.learnSource(&res, in, in.Now, f)
+	in.Steps = res.Steps
+	in.consultedPorts = res.ConsultedPorts()
+	in.consultedScopes = res.ConsultedScopes()
+	return in
 }
 
 func (b *Layer) classifyIngress(res *Result, f ethernet.Frame) (Ingress, bool) {

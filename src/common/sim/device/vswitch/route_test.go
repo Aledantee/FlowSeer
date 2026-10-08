@@ -1608,7 +1608,7 @@ func TestPeekLeavesFDBUnchangedWithRouting(t *testing.T) {
 	}
 }
 
-func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
+func TestUndecodableARPToVLANInterfaceConsumed(t *testing.T) {
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -1650,16 +1650,36 @@ func TestARPToVLANInterfaceFloodedByRelay(t *testing.T) {
 	}
 
 	res := sw.Receive(fixedTime, "1/1/1", frame)
-	if res.Outcome != trace.Flooded {
-		t.Errorf("outcome = %v, want Flooded", res.Outcome)
+	if res.Outcome != trace.Consumed {
+		t.Errorf("outcome = %v, want Consumed", res.Outcome)
 	}
 	if res.FID != 10 {
 		t.Errorf("res.FID = %d, want 10", res.FID)
 	}
-	for _, step := range res.Steps {
-		if step.Layer == routing.LayerName {
-			t.Errorf("found routing step in ARP flood trace: %+v", step)
-		}
+	if len(res.Egress) != 0 {
+		t.Errorf("egress = %+v, want none", res.Egress)
+	}
+}
+
+func TestRoutedPortReceivesNeighborFrames(t *testing.T) {
+	concrete := 0
+	for _, dst := range []netaddr.MAC{macRouter, {255, 255, 255, 255, 255, 255}, macH2} {
+		t.Run(dst.String(), func(t *testing.T) {
+			sw := buildRoutedPortSwitch(t)
+			frame := makeARPReply(t, ipH1, netip.MustParseAddr("10.0.10.1"), macH1, dst)
+			out := sw.Receive(fixedTime, "1/1/1", frame)
+			if dst == macH2 {
+				if out.Outcome != trace.Dropped || out.Reason != routing.ReasonNotBridged {
+					t.Fatalf("other receiver = %+v, want not-bridged", out)
+				}
+			} else if out.Outcome != trace.Consumed || len(out.Egress) != 0 {
+				t.Fatalf("neighbor reception = %+v, want consumed", out)
+			}
+			concrete++
+		})
+	}
+	if concrete != 3 {
+		t.Fatalf("concrete destinations = %d, want 3", concrete)
 	}
 }
 

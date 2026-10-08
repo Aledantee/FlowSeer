@@ -9,12 +9,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+func (s *Switch) hubIngress(ingress string) (bridge.Result, bool) {
 	var res bridge.Result
 	res.Outcome = trace.Dropped
 	res.FID = 0
 	s.forwardingDependencies(ingress).consult(&res)
-	pcp, _ := f.Priority()
 
 	p, ok := s.ports.Port(ingress)
 	if !ok {
@@ -27,7 +26,7 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 			Outputs: []trace.Fact{port.ForwardingFact(ingress, port.Port{}, false, port.ReasonPortDown)},
 		})
 
-		return res
+		return res, false
 	}
 	res.Ingress = p.Name
 	if !p.Forwards() {
@@ -40,7 +39,7 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
 		})
 
-		return res
+		return res, false
 	}
 	resolved, ok := s.ports.Resolve(ingress)
 	if !ok {
@@ -53,7 +52,7 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, false, port.ReasonPortDown)},
 		})
 
-		return res
+		return res, false
 	}
 	res.Ingress = resolved.Name
 
@@ -67,8 +66,18 @@ func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mut
 			Inputs:  []trace.Fact{port.ForwardingFact(ingress, p, true, ""), port.ForwardingFact(resolved.Name, resolved, false, port.ReasonPortDown)},
 		})
 
+		return res, false
+	}
+
+	return res, true
+}
+
+func (s *Switch) forwardHub(now time.Time, ingress string, f ethernet.Frame, mutate bool) bridge.Result {
+	res, admitted := s.hubIngress(ingress)
+	if !admitted {
 		return res
 	}
+	pcp, _ := f.Priority()
 
 	var candidates []port.Port
 	var eligible int

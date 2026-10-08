@@ -60,7 +60,7 @@ func (s *Switch) forwardMulticastControl(
 		message, err := igmp.Decode(payload)
 		if err != nil {
 			if errors.Is(err, igmp.ErrUnsupported) {
-				in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+				in = s.commitBridgeLearning(f, in, mutate)
 				in.Steps = append(in.Steps, multicastControlStep(mcast.RuleControlUnsupported, "igmp", false, "unsupported", nil))
 				return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 			}
@@ -68,7 +68,7 @@ func (s *Switch) forwardMulticastControl(
 			return badMulticastControl(in)
 		}
 
-		in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+		in = s.commitBridgeLearning(f, in, mutate)
 		in.Steps = append(in.Steps, multicastControlStep(
 			mcast.RuleControlAdmit, "igmp", true, "", mcast.IGMPControlMessageFact(hdr.Src, message),
 		))
@@ -91,7 +91,7 @@ func (s *Switch) forwardMulticastControl(
 			if !hdr.Src.IsLinkLocalUnicast() {
 				return badMulticastControl(in)
 			}
-			in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+			in = s.commitBridgeLearning(f, in, mutate)
 			in.Steps = append(in.Steps, multicastControlStep(mcast.RuleControlUnsupported, "mld", false, "unsupported", nil))
 			return s.bridge.EgressTo(in, f, s.logicalPorts(), bridge.ReasonNoEgress)
 		}
@@ -103,7 +103,7 @@ func (s *Switch) forwardMulticastControl(
 		return badMulticastControl(in)
 	}
 
-	in = s.commitBridgeLearning(now, ingress, f, in, mutate)
+	in = s.commitBridgeLearning(f, in, mutate)
 	in.Steps = append(in.Steps, multicastControlStep(
 		mcast.RuleControlAdmit, "mld", true, "", mcast.MLDControlMessageFact(hdr.Src, message),
 	))

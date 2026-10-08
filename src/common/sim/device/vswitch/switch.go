@@ -213,7 +213,7 @@ func newSwitch(norm Config, seeds []bridge.Seed, nodeID string, metadata analysi
 	}
 
 	if len(seeds) > 0 && sw.bridge != nil {
-		if err := sw.bridge.Learn(seeds); err != nil {
+		if err := sw.bridge.InstallSeeds(seeds); err != nil {
 			return nil, err
 		}
 	}

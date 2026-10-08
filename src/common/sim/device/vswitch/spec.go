@@ -128,7 +128,7 @@ func (s *Switch) Learn(seeds []bridge.Seed) error {
 	if err != nil {
 		return err
 	}
-	if err := s.bridge.Learn(seeds); err != nil {
+	if err := s.bridge.InstallSeeds(seeds); err != nil {
 		return err
 	}
 	s.seeds = normalized

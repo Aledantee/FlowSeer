@@ -294,7 +294,7 @@ func probeBridgeCounters(t *testing.T) {
 
 	// Mutate source by learning a new seed
 	seedSrc := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x55, 0x66, 0x77, 0x88, 0x01}, Port: "1/1/1", Lifetime: Aging}
-	if err := b.Learn([]Seed{seedSrc}); err != nil {
+	if err := b.InstallSeeds([]Seed{seedSrc}); err != nil {
 		t.Fatalf("b.Learn: %v", err)
 	}
 
@@ -307,7 +307,7 @@ func probeBridgeCounters(t *testing.T) {
 
 	// Mutate fork by learning a new seed
 	seedFork := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x55, 0x66, 0x77, 0x88, 0x02}, Port: "1/1/2", Lifetime: Aging}
-	if err := fork.Learn([]Seed{seedFork}); err != nil {
+	if err := fork.InstallSeeds([]Seed{seedFork}); err != nil {
 		t.Fatalf("fork.Learn: %v", err)
 	}
 
@@ -328,7 +328,7 @@ func probeBridgeDynamic(t *testing.T) {
 
 	// Mutate source: learn new seed
 	seedSrc := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x01}, Port: "1/1/1", Lifetime: Aging}
-	if err := b.Learn([]Seed{seedSrc}); err != nil {
+	if err := b.InstallSeeds([]Seed{seedSrc}); err != nil {
 		t.Fatalf("b.Learn: %v", err)
 	}
 
@@ -341,7 +341,7 @@ func probeBridgeDynamic(t *testing.T) {
 
 	// Mutate fork: learn new seed
 	seedFork := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x02}, Port: "1/1/2", Lifetime: Aging}
-	if err := fork.Learn([]Seed{seedFork}); err != nil {
+	if err := fork.InstallSeeds([]Seed{seedFork}); err != nil {
 		t.Fatalf("fork.Learn: %v", err)
 	}
 

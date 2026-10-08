@@ -212,8 +212,9 @@ The virtual switch uses a ladder of architectural layers:
   with `not-bridged` before ownership is even checked. This applies to every
   routed port, so a tagged frame on a plain untagged routed port drops the
   same way a frame at an unconfigured VID on a trunk of sub-interfaces does;
-  a frame that does name a configured interface but is not addressed to its
-  MAC drops with the same reason afterward, once ownership is checked. For
+  a frame that names a configured interface and passes routing's neighbor
+  reception predicate is consumed. Any other frame that is not IP addressed
+  to its MAC drops with the same reason afterward, once ownership is checked. For
   frames arriving on a VLAN or routed port, routing
   evaluates interface ownership (`Owns`), classification, local destination
   consumption (`not-routed`), hop limit verification, route lookup, and neighbor
@@ -239,6 +240,14 @@ The virtual switch uses a ladder of architectural layers:
   Discovery advertisement binds the sub-interface its own outer VLAN tag names
   and no other; on a routed port whose lookup misses, it binds nothing, since
   such a port has no bridge membership to fall through to.
+
+  VLAN neighbor reception follows bridge classification and source learning,
+  so an answer uses the learned ingress port. A neighbor frame addressed to
+  the VLAN interface's own MAC is consumed, including undecodable ARP.
+  Broadcast ARP and group Neighbor Discovery are received and relayed.
+  A reply to another station is relayed without changing neighbor state
+  ([held_test.go](held_test.go)). Other EtherTypes addressed to the interface
+  MAC retain their ordinary path. This is the switch's consumption rule.
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
   copies after bridge, hub, or routed forwarding. A copy is exposed only when

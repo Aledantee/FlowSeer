@@ -273,7 +273,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 	}
 
 	if len(seeds) > 0 {
-		if err := next.bridge.Learn(seeds); err != nil {
+		if err := next.bridge.InstallSeeds(seeds); err != nil {
 			return nil, Output{}, err
 		}
 	}

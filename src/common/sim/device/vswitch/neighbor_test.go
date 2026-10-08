@@ -37,7 +37,10 @@ func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
 	wake, hasWake := sw.NextWake()
 	learnedMAC := netaddr.MAC{2, 0, 0, 0, 0x20, 0x77}
 	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
-	sw.Peek(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+	preview := sw.Peek(fixedTime.Add(time.Millisecond), "1/1/2", reply)
+	if preview.Outcome != trace.Consumed || len(preview.Egress) != 0 {
+		t.Fatalf("preview = %+v, want consumed without egress", preview)
+	}
 	if after := sw.Neighbors(); !reflect.DeepEqual(after, before) {
 		t.Errorf("neighbors after Peek = %+v, want %+v", after, before)
 	}

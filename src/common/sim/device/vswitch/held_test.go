@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/netip"
 	"reflect"
 	"slices"
@@ -24,6 +25,125 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func neighborIngressSwitch(t *testing.T, ipv6 bool) *vswitch.Switch {
+	t.Helper()
+	cfg := baseRoutingConfig(t)
+	cfg.Ports = mustTable(t, port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{
+		Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up,
+	}))
+	p10 := vlan.ID(10)
+	for _, name := range []string{"1/1/2", "1/1/3"} {
+		cfg.Bridge.VLAN.Switchports[name] = bridge.Switchport{PVID: &p10, Untagged: []vlan.ID{10}}
+	}
+	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+	vrf.Neighbors = nil
+	if ipv6 {
+		iface := vrf.Interfaces["vlan10"]
+		iface.Prefixes = []netip.Prefix{netip.MustParsePrefix("2001:db8:10::1/64")}
+		vrf.Interfaces["vlan10"] = iface
+	}
+	cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+	return mustSwitch(t, cfg)
+}
+
+func TestVLANNeighborLearningPrecedesAnswer(t *testing.T) {
+	concrete := 0
+	for _, family := range []string{"ARP", "NDP"} {
+		t.Run(family, func(t *testing.T) {
+			sw := neighborIngressSwitch(t, family == "NDP")
+			var frame ethernet.Frame
+			if family == "ARP" {
+				var err error
+				frame, err = arp.Encode(arp.Message{
+					HardwareType: 1, ProtocolType: 0x0800,
+					Operation: arp.Request, SenderMAC: macH1, SenderAddr: ipH1,
+					TargetAddr: netip.MustParseAddr("10.0.10.1"),
+				}, netaddr.MAC{255, 255, 255, 255, 255, 255})
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				frame = makeNDPFrame(t, netip.MustParseAddr("2001:db8:10::11"), netip.MustParseAddr("ff02::1:ff00:1"),
+					macH1, netaddr.MAC{0x33, 0x33, 0xff, 0, 0, 1}, 255,
+					ndp.Message{
+						Type: ndp.NeighborSolicitation, Target: netip.MustParseAddr("2001:db8:10::1"),
+						HasLinkLayerAddr: true, LinkLayerAddr: macH1,
+					})
+			}
+			out := sw.Receive(fixedTime, "1/1/1", frame)
+			if len(out.Emissions) != 1 || out.Emissions[0].Port != "1/1/1" || out.Emissions[0].Frame.Dst != macH1 {
+				t.Fatalf("answer = %+v, want one unicast to the learned ingress", out.Emissions)
+			}
+			if family == "ARP" {
+				answer, err := arp.Decode(out.Emissions[0].Frame)
+				if err != nil || answer.Operation != arp.Reply || answer.TargetAddr != ipH1 {
+					t.Fatalf("ARP answer = %+v/%v, want reply to source", answer, err)
+				}
+			} else {
+				hdr, body, err := ip.Decode(out.Emissions[0].Frame.Payload)
+				if err != nil {
+					t.Fatal(err)
+				}
+				answer, err := ndp.Decode(hdr, body)
+				if err != nil || answer.Type != ndp.NeighborAdvertisement || answer.Target != netip.MustParseAddr("2001:db8:10::1") {
+					t.Fatalf("NDP answer = %+v/%v, want advertisement for interface", answer, err)
+				}
+			}
+			if out.Outcome != trace.Flooded || len(out.Egress) != 2 || out.Egress[0].Port != "1/1/2" || out.Egress[1].Port != "1/1/3" {
+				t.Fatalf("relay = %+v, want flood to both other VLAN ports", out)
+			}
+			if entries := sw.Neighbors(); len(entries) != 1 || entries[0].MAC != macH1 {
+				t.Fatalf("neighbors = %+v, want the request source", entries)
+			}
+			concrete++
+		})
+	}
+	if concrete != 2 {
+		t.Fatalf("concrete families = %d, want 2", concrete)
+	}
+}
+
+func TestVLANNeighborToOwnMACConsumed(t *testing.T) {
+	concrete := 0
+	for _, malformed := range []bool{false, true} {
+		t.Run(fmt.Sprint(malformed), func(t *testing.T) {
+			sw := neighborIngressSwitch(t, false)
+			frame := makeARPReply(t, ipH1, netip.MustParseAddr("10.0.10.1"), macH1, macRouter)
+			if malformed {
+				frame.Payload = []byte("undecodable")
+				if _, err := arp.Decode(frame); err == nil {
+					t.Fatal("malformed fixture decoded")
+				}
+			}
+			out := sw.Receive(fixedTime, "1/1/1", frame)
+			if out.Outcome != trace.Consumed || len(out.Egress) != 0 {
+				t.Fatalf("output = %+v, want consumed without relay egress", out)
+			}
+			concrete++
+		})
+	}
+	if concrete != 2 {
+		t.Fatalf("concrete payload cases = %d, want 2", concrete)
+	}
+}
+
+func TestVLANNeighborForOtherStationRelayedOnly(t *testing.T) {
+	sw := neighborIngressSwitch(t, false)
+	held := sw.Receive(fixedTime, "1/1/2", ethernet.Frame{
+		Src: macH2, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, netip.MustParseAddr("10.0.10.22"), ipH1, 64, []byte("pending")),
+	})
+	if held.Outcome != trace.Held {
+		t.Fatalf("setup = %s, want Held", held.Outcome)
+	}
+	before := sw.Neighbors()
+	frame := makeARPReply(t, ipH1, netip.MustParseAddr("10.0.10.22"), macH1, macH2)
+	out := sw.Receive(fixedTime, "1/1/1", frame)
+	if out.Outcome != trace.Forwarded || len(out.Egress) != 1 || out.Egress[0].Port != "1/1/2" || len(out.Emissions) != 0 || !reflect.DeepEqual(sw.Neighbors(), before) {
+		t.Fatalf("output/neighbors = %+v/%+v, want relay only and unchanged neighbors", out, sw.Neighbors())
+	}
+}
 
 func TestHeldOutputKeepsReleaseIdentity(t *testing.T) {
 	sw := buildBaseRoutingSwitch(t)
@@ -302,11 +422,10 @@ func TestARPObservationReleasesHeldFrameOnRoutedPort(t *testing.T) {
 
 	learnedMAC := netaddr.MAC{0x02, 0, 0, 0, 0x20, 0x77}
 	reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), learnedMAC, macRouter)
-	captureOutput(
-		// An ARP frame is not owned by a routed port (Owns admits only IPv4 and
-		// IPv6), so its ordinary path here is a not-bridged drop; observation is
-		// a side effect of that path, not an interception of it.
-		callOutputs, sw, sw.Receive(fixedTime.Add(time.Millisecond), "1/1/2", reply))
+	observed := captureOutput(callOutputs, sw, sw.Receive(fixedTime.Add(time.Millisecond), "1/1/2", reply))
+	if observed.Outcome != trace.Consumed {
+		t.Fatalf("ARP reply outcome = %s, want Consumed", observed.Outcome)
+	}
 	captureOutput(callOutputs, sw, sw.Advance(fixedTime.Add(time.Millisecond)))
 	emissions := dataAfterSolicitations(t, takeEmissions(callOutputs, sw), 1)
 	if len(emissions) != 1 {

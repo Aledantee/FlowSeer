@@ -175,7 +175,7 @@ func TestSeedNamesAndRefusals(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			b := mustNewBridge(t, bridge.Config{}, buildTestPorts(t, 2))
-			err := b.Learn([]bridge.Seed{{MAC: macA, Port: "1/1/1", Origin: tc.origin, Lifetime: tc.lifetime, LearnedAt: testTime0}})
+			err := b.InstallSeeds([]bridge.Seed{{MAC: macA, Port: "1/1/1", Origin: tc.origin, Lifetime: tc.lifetime, LearnedAt: testTime0}})
 			if tc.field != "" {
 				if got := errs.Attributes(err)["field"]; err == nil || got != tc.field {
 					t.Fatalf("Learn error = %v, field = %v, want %s", err, got, tc.field)
