@@ -153,16 +153,21 @@ What each says, as read:
   is a filtering entry, so the rule is the switch's, stated in the README.
   A frame of any other EtherType to that MAC is relayed as today, which the
   README states as a limit.
-- A mirror output port sends copies, and the LACPDUs of its own members
-  when it is a LAG. It sends no BPDU, no probe, and no relayed or released
-  frame. Why: `OVS-XML` reserves the port, and `OVS-BRIDGE` names a mirror
-  output in three places: spanning tree off, rapid spanning tree off, and
-  the choice of the bridge address. It leaves LACP on, and a mirror output
-  LAG needs an enabled member to carry a copy (`L/traffic/README.md:38`).
-  No source read covers a loop-protection probe, so excluding it is the
+- A mirror output port sends copies. It sends no BPDU, no probe, and no
+  relayed or released frame. Why: `OVS-XML` reserves the port, and
+  `OVS-BRIDGE` names a mirror output in three places: spanning tree off,
+  rapid spanning tree off, and the choice of the bridge address. No source
+  read covers a loop-protection probe, so excluding it is the
   switch's rule, drawn from the reservation. Today a BPDU, a probe, a
   solicitation, and a released frame can leave through one
   (`V/switch.go:2884,2934,3007,3144`).
+- A mirror output port is never a LAG or a LAG member, and this phase
+  plans and tests no such case. Why: `Validate` refuses that configuration
+  (`src/common/sim/layer/traffic/config.go`, "cannot be a LAG or LAG
+  member"). The traffic README's "logical LAG output" is an output VLAN's
+  switchport, which the mirror does not reserve. Accepting a LAG as a
+  mirror output port would be new behavior in the traffic layer, outside
+  this phase (decided by the user, 2026-10-08).
 - A port under a loop-protection action keeps sending protocol frames. Why:
   `L/loopprotect/README.md` (Emission ignores the gate, Not modeled) states
   that a blocked port keeps probing and that the layer never takes the port
@@ -261,8 +266,7 @@ to an interface's own MAC is not relayed. Example: an ARP request on `1/1/1`
 in VLAN 10 for the address of `vlan10` returns one emission, the reply, on
 `1/1/1` alone. A unicast ARP reply to the MAC of `vlan10` is `Consumed`.
 
-R9. A mirror output port emits copies and, as a LAG, its members' LACPDUs
-and Marker responses.
+R9. A mirror output port emits copies alone.
 Example: with `1/1/4` a mirror output and a spanning tree port, `Start` and
 `Advance` across three hello times return no emission on `1/1/4`.
 
@@ -448,7 +452,7 @@ Each retired phase plan was read at the commit before its retire commit
 | Retention reports `Kept: true` for a LAG layer absent on both sides | phase 4, Open questions | Decided: stays, defined in U10 |
 | A refused LACPDU's decode fact is not asserted | phase 4, Review gaps | U9 |
 | The multicast retention verdict and the spanning tree predicate in `Derive` | phase 5, Decisions and Open questions | U10 |
-| Whether a mirror destination or a loop-protected port emits protocol frames | phase 5, Open questions | U9: a mirror output emits copies and its members' LACPDUs and Marker responses alone, a loop-protected port emits as today |
+| Whether a mirror destination or a loop-protected port emits protocol frames | phase 5, Open questions | U9: a mirror output emits copies alone, a loop-protected port emits as today |
 | `bridge.Origin` and `bridge.Lifetime` use the empty string | phase 5, Open questions | No longer applies: the four constants are non-empty strings (`L/bridge/fdb.go:46-61`), and `NormalizeSeeds` maps an empty value to `Configured` and `Aging` (`L/bridge/seed.go:28-32`) |
 | The filter on a released frame | phase 6, Out of scope | U7 |
 | The hold token and the ingress interface on the switch's result, emission, and drop | phase 6, Open questions | U7 |
@@ -907,8 +911,8 @@ joins `Output.Emissions`. Rules:
   frame names a mirror output port. The emission's port is the logical
   port, which is what `traffic.Layer.MirrorForOutput` is keyed by. A
   released frame refused there is a `NeighborDrop` with reason
-  `mirror-output`. An LACPDU or Marker response names a member and is sent.
-  Source: Decisions.
+  `mirror-output`. No LACPDU or Marker response names a mirror output
+  port, because none is a LAG or a LAG member. Source: Decisions.
 - P5. A port under a loop-protection action emits what its layers emit.
   Source: `L/loopprotect/README.md`.
 - P6. A mirror selects on the logical ingress port. One function resolves
@@ -933,9 +937,7 @@ fact for it. `protocol_link_test.go`: P2, where the
 issue names `1/1/1` and no issue names the unlisted `1/1/3`.
 `mirror_test.go`: R9's example, a mirror with `SelectSrcPorts: lag1` that
 copies an LACPDU received on a member, a released frame that is not
-flooded to a mirror output, and a mirror output LAG whose members still
-send LACPDUs and answer a Marker PDU, on a member not yet enabled for data
-as well (both pass today). `lag_test.go`: P7 in
+flooded to a mirror output. `lag_test.go`: P7 in
 `TestLACPDUHandlingAtSwitch` (mutation: swapping the two fact functions
 fails it). `loopprotect_test.go`: P8, and P5 as a test that passes today.
 The generated check is `emission_matrix_test.go`: over the subsets of
