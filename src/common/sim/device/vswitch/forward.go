@@ -244,7 +244,7 @@ func (s *Switch) forwardBridge(now time.Time, ingress string, f ethernet.Frame, 
 			"vlans", fmt.Sprint(in.FID),
 		))
 		if s.mcast.Snooped(in.FID) {
-			res := s.forwardMulticastControl(now, ingress, f, in, mutate)
+			res := s.forwardMulticastControl(now, f, in, mutate)
 			return s.finishForward(now, ingress, f, res, mutate)
 		}
 	}

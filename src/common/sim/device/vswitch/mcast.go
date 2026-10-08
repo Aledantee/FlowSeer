@@ -43,7 +43,6 @@ func multicastControlCandidate(f ethernet.Frame) bool {
 
 func (s *Switch) forwardMulticastControl(
 	now time.Time,
-	ingress string,
 	f ethernet.Frame,
 	in bridge.Ingress,
 	mutate bool,
