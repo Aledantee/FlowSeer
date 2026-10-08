@@ -1,8 +1,10 @@
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from hooks import worktree_guard
 from tests.hooks.support import BASH, HookCase, across
@@ -640,8 +642,49 @@ class WorktreeGuardTest(GuardCase):
         self.write(self.linked / ".claude" / "no-worktree-guard")
         hook.silent(payload)
 
+    @across("worktree-guard")
+    def test_a_name_that_holds_a_line_break_is_judged_as_one_word(self, hook):
+        """`rm *.tmp` names the tracked a<LF>b.tmp, and `touch a?/out.tmp` names a relative path"""
+        repo = self.make_repo("breaks")
+        self.write(repo / "README.md", "# fixture\n")
+        self.write(repo / "a\nb.tmp", "x\n")
+        self.git(repo, "add", "-A")
+        self.git(repo, "commit", "-qm", "init")
+        self.write(repo / "plain.tmp", "x\n")
+        self.write(repo / "a\n" / "out.tmp", "x\n")
+        env = self.env_with(HOME=str(self.home))
+        for command in ("rm *.tmp", "rm a?b.tmp", "touch a?/out.tmp"):
+            with self.subTest(command=command):
+                self.assertEqual(hook.decide(self.guard("Bash", repo, command=command), env=env), "deny")
+        hook.silent(self.guard("Bash", repo, command="rm plain.tmp"), env=env)
 
-WORD_FIXTURE = ("a.tmp", "b.tmp", "^.tmp", "[.tmp", "!.tmp", ".hidden")
+    @across("worktree-guard")
+    def test_a_host_without_bash_keeps_the_denial(self, hook):
+        """no operand can be judged without the shell's expansion, so `rm` and `touch` stay denied"""
+        repo = self.checkout()
+        commands = ("rm untracked.txt", f"touch {self.out}/f")
+        without = self.env_with(HOME=str(self.home), PATH=self.path_of(self.parent / "no-bash", "git", "uv"))
+        with_bash = self.env_with(HOME=str(self.home), PATH=self.path_of(self.parent / "with-bash", "git", "uv", "bash"))
+        for command in commands:
+            with self.subTest(command=command, bash=False):
+                self.assertEqual(hook.decide(self.guard("Bash", repo, command=command), env=without), "deny")
+            with self.subTest(command=command, bash=True):
+                hook.silent(self.guard("Bash", repo, command=command), env=with_bash)
+
+    @across("worktree-guard")
+    def test_a_bash_that_fails_keeps_the_denial(self, hook):
+        """a `bash` that exits 9 gives no words, and `rm` of a tracked or an untracked file is denied"""
+        repo = self.checkout()
+        failing = self.parent / "failing-bash"
+        self.write(failing / "bash", "#!/bin/sh\nprintf 'rm\\0'\nexit 9\n", 0o755)
+        env = self.env_with(HOME=str(self.home), PATH=self.path_with(failing))
+        for command in ("rm README.md", "rm untracked.txt"):
+            with self.subTest(command=command):
+                self.assertEqual(hook.decide(self.guard("Bash", repo, command=command), env=env), "deny")
+
+
+WORD_FIXTURE = ("a.tmp", "b.tmp", "^.tmp", "[.tmp", "!.tmp", ".hidden", "a\nb.tmp", "c\rd.tmp")
+WORD_DIRECTORY = "a\n"
 WORD_PATTERNS = (
     "*",
     "?",
@@ -657,23 +700,68 @@ WORD_PATTERNS = (
     "[^a].tmp",
     "[[^a].tmp",
     "*.tmp [^a].tmp",
+    "*.tmp",
+    "a?b.tmp",
+    "c?d.tmp",
+    "a?/out.tmp",
+    "",
+    " \n \n",
 )
+# The loop the hook's words come from, written out so the expected list does not share the hook's code.
+LOOP = 'for tok in $1; do printf "%s\\0" "$tok"; done'
+
+
+def loop_words(command: str, directory: str) -> list[str]:
+    """The words of bash's own loop over the unquoted command, split on NUL."""
+    done = subprocess.run([BASH, "-c", LOOP, "_", command], cwd=directory, capture_output=True, check=True)
+    return done.stdout.decode("utf-8", errors="surrogateescape").split("\0")[:-1]
 
 
 class WordsTest(unittest.TestCase):
-    """`words` gives the names bash gives the unquoted expansion of a command."""
+    """`words` gives the words bash's unquoted expansion of a command gives in a directory."""
 
     def test_words_equals_the_expansion_bash_gives_in_the_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             for name in WORD_FIXTURE:
                 (Path(directory) / name).write_text("x\n")
+            (Path(directory) / WORD_DIRECTORY).mkdir()
+            (Path(directory) / WORD_DIRECTORY / "out.tmp").write_text("x\n")
             for pattern in WORD_PATTERNS:
                 with self.subTest(pattern=pattern):
-                    done = subprocess.run(
-                        [BASH, "-c", 'printf "%s\\n" $1', "_", pattern], cwd=directory, capture_output=True, check=True
-                    )
-                    expected = done.stdout.decode().split("\n")[:-1]
-                    self.assertEqual(worktree_guard.words(pattern, directory), expected)
+                    self.assertEqual(worktree_guard.words(pattern, directory), loop_words(pattern, directory))
+
+    def test_a_name_that_holds_a_line_break_stays_one_word(self):
+        """Literals that no bash call supplies, so the matrix cannot pass on what it shares with `words`."""
+        with tempfile.TemporaryDirectory() as directory:
+            for name in ("a\nb.tmp", "plain.tmp", "c\rd.tmp"):
+                (Path(directory) / name).write_text("x\n")
+            (Path(directory) / "a\n").mkdir()
+            (Path(directory) / "a\n" / "out.tmp").write_text("x\n")
+            rows = (
+                ("rm *.tmp", ["rm", "a\nb.tmp", "c\rd.tmp", "plain.tmp"]),
+                ("rm a?b.tmp", ["rm", "a\nb.tmp"]),
+                ("touch a?/out.tmp", ["touch", "a\n/out.tmp"]),
+                ("rm c?d.tmp", ["rm", "c\rd.tmp"]),
+                ("rm nomatch*.zip", ["rm", "nomatch*.zip"]),
+                ("", []),
+                (" \n \n", []),
+            )
+            for command, expected in rows:
+                with self.subTest(command=command):
+                    self.assertEqual(worktree_guard.words(command, directory), expected)
+
+    def test_words_gives_none_when_bash_cannot_be_started_or_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            empty = Path(directory) / "empty"
+            empty.mkdir()
+            failing = Path(directory) / "failing"
+            failing.mkdir()
+            stub = failing / "bash"
+            stub.write_text("#!/bin/sh\nprintf 'rm\\0'\nexit 9\n")
+            stub.chmod(0o755)
+            for label, path in (("no bash", empty), ("bash exits 9", failing)):
+                with self.subTest(label), mock.patch.dict(os.environ, {"PATH": str(path)}):
+                    self.assertIsNone(worktree_guard.words("rm README.md", directory))
 
     def test_a_command_is_never_evaluated_by_the_expansion(self):
         with tempfile.TemporaryDirectory() as directory:
