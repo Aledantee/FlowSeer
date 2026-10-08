@@ -6,10 +6,10 @@
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 3,
+    "units": 8,
     "from": "2026-10-07T21:46:34Z",
-    "to": "2026-10-07T22:07:01Z",
-    "note": "Source and test moves and call issue ownership passed. Output unit blocked: exact recent-root deadline assertion needs private STP state outside permitted unit scope. Later chained units not started."
+    "to": "2026-10-08T16:54:47Z",
+    "note": "U1-U8 passed. U9 blocked: traffic/config.go:190-195 rejects the required mirror-output LAG, and the brief forbids editing the unnamed traffic layer. Partial U9 work parked separately. U10-U12 not started."
   },
   "superseded_by": null,
   "branch": "Aledantee/sim9-plan",
