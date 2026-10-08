@@ -104,7 +104,7 @@ func TestControlMessageFactsPreserveBehaviorSignificantRecordOrder(t *testing.T)
 			Type:    igmp.ReportV3,
 			Records: records,
 		})
-		return layer.Groups(vid)
+		return layer.Groups(vid, time.Unix(5_000, 0))
 	}
 
 	joinedThenLeft := []igmp.GroupRecord{joinRecord, leaveRecord}

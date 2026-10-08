@@ -171,14 +171,10 @@ func Diff(a, b Config) []trace.Change {
 				From:    nil,
 				To:      snapshotSet(setB),
 			})
-			for idx, r := range setB.Rules {
-				ruleKey := r.Name
-				if ruleKey == "" {
-					ruleKey = strconv.Itoa(idx)
-				}
+			for ruleKey, r := range indexRules(setName, setB.Rules) {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
+					Subject: trace.Subject{Kind: "rule", Key: ruleKey},
 					Field:   "",
 					From:    nil,
 					To:      SnapshotRule(r),
@@ -195,14 +191,10 @@ func Diff(a, b Config) []trace.Change {
 				From:    snapshotSet(setA),
 				To:      nil,
 			})
-			for idx, r := range setA.Rules {
-				ruleKey := r.Name
-				if ruleKey == "" {
-					ruleKey = strconv.Itoa(idx)
-				}
+			for ruleKey, r := range indexRules(setName, setA.Rules) {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
-					Subject: trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, ruleKey)},
+					Subject: trace.Subject{Kind: "rule", Key: ruleKey},
 					Field:   "",
 					From:    SnapshotRule(r),
 					To:      nil,
@@ -316,8 +308,8 @@ func Diff(a, b Config) []trace.Change {
 }
 
 func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []trace.Change {
-	rulesMapA := indexRules(rulesA)
-	rulesMapB := indexRules(rulesB)
+	rulesMapA := indexRules(setName, rulesA)
+	rulesMapB := indexRules(setName, rulesB)
 
 	allRuleKeys := make(map[string]struct{})
 	for k := range rulesMapA {
@@ -336,7 +328,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 	for _, k := range keys {
 		rA, inA := rulesMapA[k]
 		rB, inB := rulesMapB[k]
-		subject := trace.Subject{Kind: "rule", Key: trace.CompositeKey(setName, k)}
+		subject := trace.Subject{Kind: "rule", Key: k}
 
 		if !inA {
 			changes = append(changes, trace.Change{
@@ -372,7 +364,7 @@ func diffRules(changes []trace.Change, setName string, rulesA, rulesB []Rule) []
 	return changes
 }
 
-func indexRules(rules []Rule) map[string]Rule {
+func indexRules(setName string, rules []Rule) map[string]Rule {
 	out := make(map[string]Rule, len(rules))
 	seenNames := make(map[string]int, len(rules))
 
@@ -383,9 +375,9 @@ func indexRules(rules []Rule) map[string]Rule {
 	}
 
 	for idx, r := range rules {
-		key := r.Name
-		if key == "" || seenNames[key] > 1 {
-			key = strconv.Itoa(idx)
+		key := trace.CompositeKey(setName, r.Name)
+		if r.Name == "" || seenNames[r.Name] > 1 {
+			key = trace.CompositeKey(setName, "", strconv.Itoa(idx))
 		}
 		out[key] = r
 	}

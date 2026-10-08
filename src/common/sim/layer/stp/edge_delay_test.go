@@ -88,7 +88,10 @@ func TestNonCISTProposalCannotRestartEdgeDelay(t *testing.T) {
 	if info := l.VLANPortInfo(10, "p2"); info.State != stp.StateForwarding {
 		t.Fatalf("VLAN 10 before cut = %+v", info)
 	}
+	better := edgeTestBPDU(t, 4096, bpdu.RoleDesignated, false, false)
+	l.ReceiveSSTP(start.Add(3*time.Second), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, better)
 	proposal := edgeTestBPDU(t, 4096, bpdu.RoleDesignated, true, false)
+	proposal.RootPathCost = 20_000
 	l.ReceiveSSTP(start.Add(5*time.Second), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, proposal)
 	if info := l.VLANPortInfo(10, "p2"); info.State != stp.StateDiscarding {
 		t.Fatalf("VLAN 10 after cut = %+v, want Discarding", info)
@@ -123,6 +126,7 @@ func TestNonCISTProposalCannotRestartEdgeDelay(t *testing.T) {
 	if info := agreed.PortInfo("p2"); info.State != stp.StateForwarding {
 		t.Fatalf("agreed CIST port = %+v, want Forwarding", info)
 	}
+	agreed.ReceiveSSTP(start.Add(3*time.Second), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, better)
 	agreed.Advance(start.Add(5 * time.Second))
 	agreed.ReceiveSSTP(start.Add(5*time.Second), "p1", stp.SSTPArrival{ArrivalVID: 10, TLVVID: 10, Admitted: true}, proposal)
 	agreed.Advance(start.Add(8 * time.Second))

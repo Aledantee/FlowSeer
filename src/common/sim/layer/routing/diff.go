@@ -122,14 +122,14 @@ func (f reachableTimeFact) TypeID() string { return "routing.neighbor_policy.rea
 // Canonical returns the duration string.
 func (f reachableTimeFact) Canonical() string { return time.Duration(f).String() }
 
-// resolutionTimeoutFact wraps a neighbor policy ResolutionTimeout as a trace.Fact.
-type resolutionTimeoutFact time.Duration
+// retransTimerFact wraps a neighbor policy RetransTimer as a trace.Fact.
+type retransTimerFact time.Duration
 
-// TypeID returns the fact type identifier for resolutionTimeoutFact.
-func (f resolutionTimeoutFact) TypeID() string { return "routing.neighbor_policy.resolution_timeout" }
+// TypeID returns the fact type identifier for retransTimerFact.
+func (f retransTimerFact) TypeID() string { return "routing.neighbor_policy.retrans_timer" }
 
 // Canonical returns the duration string.
-func (f resolutionTimeoutFact) Canonical() string { return time.Duration(f).String() }
+func (f retransTimerFact) Canonical() string { return time.Duration(f).String() }
 
 // holdDepthFact wraps a neighbor policy HoldDepth as a trace.Fact.
 type holdDepthFact int
@@ -207,8 +207,8 @@ func snapshotVRF(vrf VRF) vrfSnapshotFact {
 	b.WriteString(strconv.Quote(string(vrf.NeighborPolicy.Mode)))
 	b.WriteString(";reachable_time=")
 	b.WriteString(vrf.NeighborPolicy.ReachableTime.String())
-	b.WriteString(";resolution_timeout=")
-	b.WriteString(vrf.NeighborPolicy.ResolutionTimeout.String())
+	b.WriteString(";retrans_timer=")
+	b.WriteString(vrf.NeighborPolicy.RetransTimer.String())
 	b.WriteString(";hold_depth=")
 	b.WriteString(strconv.Itoa(vrf.NeighborPolicy.HoldDepth))
 	b.WriteString("}")
@@ -508,13 +508,13 @@ func Diff(a, b Config) []trace.Change {
 					To:      reachableTimeFact(bVRF.NeighborPolicy.ReachableTime),
 				})
 			}
-			if aVRF.NeighborPolicy.ResolutionTimeout != bVRF.NeighborPolicy.ResolutionTimeout {
+			if aVRF.NeighborPolicy.RetransTimer != bVRF.NeighborPolicy.RetransTimer {
 				changes = append(changes, trace.Change{
 					Layer:   LayerName,
 					Subject: policySubject,
-					Field:   "resolution_timeout",
-					From:    resolutionTimeoutFact(aVRF.NeighborPolicy.ResolutionTimeout),
-					To:      resolutionTimeoutFact(bVRF.NeighborPolicy.ResolutionTimeout),
+					Field:   "retrans_timer",
+					From:    retransTimerFact(aVRF.NeighborPolicy.RetransTimer),
+					To:      retransTimerFact(bVRF.NeighborPolicy.RetransTimer),
 				})
 			}
 			if aVRF.NeighborPolicy.HoldDepth != bVRF.NeighborPolicy.HoldDepth {

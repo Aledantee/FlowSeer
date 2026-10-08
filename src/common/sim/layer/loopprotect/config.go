@@ -145,8 +145,9 @@ func (c Config) Normalize(_ layer.Env) Config {
 // Validate checks the configuration against the port table: Interval must
 // not be negative, every configured port must exist in the port table and
 // must not be a LAG member, each port's Action and Recovery.Mode must be one
-// of the defined values, Recovery.Duration must not be negative, a port name
-// must not exceed the probe payload's 255-octet name-length field, and
+// of the defined values, Recovery.Duration must not be negative, every VLANs
+// member must be 1 to 4094, a port name must not exceed the probe payload's
+// 255-octet name-length field, and
 // LoopCleared cannot pair with Disable because a disabled port sends no
 // probes and can never observe the loop clearing.
 func (c Config) Validate(env layer.Env) error {
@@ -183,6 +184,16 @@ func (c Config) Validate(env layer.Env) error {
 		}
 
 		cfgPort := c.Ports[name]
+
+		for _, vid := range cfgPort.VLANs {
+			if !vid.Valid() {
+				return errs.New().
+					Attr("field", "ports."+name+".vlans").
+					Attr("port", name).
+					Attr("vlan", uint16(vid)).
+					Msgf("loop protection port %q probes VLAN %d outside 1 to 4094", name, uint16(vid))
+			}
+		}
 
 		switch cfgPort.Action {
 		case Block, NoLearn, Disable:

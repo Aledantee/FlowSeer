@@ -1,6 +1,7 @@
 package traffic
 
 import (
+	"maps"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -14,6 +15,7 @@ import (
 type Layer struct {
 	cfg     Config
 	buckets map[string]*bucket
+	lags    map[string]string
 }
 
 // New builds a traffic layer with one bucket per configured policer.
@@ -30,9 +32,17 @@ func New(cfg Config, env layer.Env) (*Layer, error) {
 		}
 		buckets[name] = b
 	}
+	lags := make(map[string]string)
+	for _, p := range env.Ports.Ports() {
+		if p.LagParent != "" {
+			lags[p.Name] = p.LagParent
+		}
+	}
+
 	return &Layer{
 		cfg:     norm,
 		buckets: buckets,
+		lags:    lags,
 	}, nil
 }
 
@@ -57,6 +67,7 @@ func (l *Layer) Clone() *Layer {
 	cp := &Layer{
 		cfg:     l.cfg.Clone(),
 		buckets: make(map[string]*bucket, len(l.buckets)),
+		lags:    maps.Clone(l.lags),
 	}
 	for k, b := range l.buckets {
 		cp.buckets[k] = b.Clone()
@@ -87,22 +98,22 @@ func (l *Layer) Copies(switchports map[string]Switchport, ingress string, vid vl
 	return copies(l.cfg, switchports, ingress, vid, received, egress)
 }
 
-// MaxRate returns the configured maximum rate in bits per second for the queue on port
-// with traffic class pcp, and whether an explicit rate was configured.
+// MaxRate returns the configured maximum rate in bits per second for the queue on name
+// with traffic class pcp, and whether one was configured. A LAG member uses its LAG's statement.
 func (l *Layer) MaxRate(name string, pcp vlan.PCP) (uint64, bool) {
 	if l == nil {
 		return 0, false
 	}
-	return l.cfg.MaxRate(name, pcp)
+	return l.cfg.MaxRate(l.queueOwner(name), pcp)
 }
 
-// QueueBuffer returns the configured buffer size in octets for the queue on port with
-// traffic class pcp, and whether an explicit buffer size was configured.
+// QueueBuffer returns the configured buffer size in octets for the queue on name with
+// traffic class pcp, and whether one was configured. A LAG member uses its LAG's statement.
 func (l *Layer) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
 	if l == nil {
 		return 0, false
 	}
-	return l.cfg.QueueBuffer(name, pcp)
+	return l.cfg.QueueBuffer(l.queueOwner(name), pcp)
 }
 
 // MirrorForOutput reports whether port is configured as the output port for a mirror,
@@ -117,4 +128,12 @@ func (l *Layer) MirrorForOutput(port string) (name string, ok bool) {
 		}
 	}
 	return "", false
+}
+
+func (l *Layer) queueOwner(name string) string {
+	if lag, ok := l.lags[name]; ok {
+		return lag
+	}
+
+	return name
 }

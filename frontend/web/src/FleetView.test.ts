@@ -1,14 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, h, nextTick } from 'vue'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { nextTick } from 'vue'
 import FleetView from './FleetView.vue'
-import { UiAppRoot } from './ui'
 import { isMac } from './navigation/shortcuts'
-import { createAiRegistry } from './ai'
 import type { AiRegistry } from './ai'
-import { aiRegistryKey } from './ui/ai/context'
-import { createWebI18n } from './i18n'
+import { chooseAccountItem, mountInFrame } from './navigation/frameTesting'
 import * as clientsDomain from './domain/clients'
 import type { Band } from './domain/clients'
 
@@ -68,33 +64,17 @@ async function settle() {
 }
 
 async function mountAt(path: string) {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      {
-        path: '/:view(dashboard|devices|clients|sites|topology)',
-        component: FleetView,
-      },
-      { path: '/devices/:deviceId', component: FleetView },
-    ],
-  })
-  registry = createAiRegistry()
-  const app = createApp({
-    render() {
-      return h(UiAppRoot, {}, () => h(FleetView))
+  const mounted = await mountInFrame(FleetView, path, [
+    {
+      path: '/:view(dashboard|devices|clients|sites|topology)',
+      component: FleetView,
     },
-  })
-  await router.push(path)
-  app.use(createWebI18n())
-  app.use(router)
-  app.provide(aiRegistryKey, registry)
-  await router.isReady()
-  app.mount(host)
-  dispose = () => app.unmount()
+    { path: '/devices/:deviceId', component: FleetView },
+  ])
+  registry = mounted.registry
+  dispose = mounted.dispose
   await settle()
-  return { host, router }
+  return mounted
 }
 
 async function mountFleet(path: string) {
@@ -129,6 +109,17 @@ function column(table: Element, label: string) {
 }
 
 describe('FleetView workspace shortcuts', () => {
+  it('opens Devices from the menu inside the frame sidebar', async () => {
+    const { host, router } = await mountFleet('/dashboard')
+    const devices = host.querySelector<HTMLAnchorElement>(
+      'aside.sidebar a[href^="/devices"]',
+    )
+    expect(devices).not.toBeNull()
+    devices?.click()
+    await settle()
+    expect(router.currentRoute.value.path).toBe('/devices')
+  })
+
   it('runs a held workspace command once per key press', async () => {
     await mountFleet('/dashboard')
 
@@ -173,11 +164,7 @@ describe('FleetView workspace shortcuts', () => {
   it('does not run a workspace shortcut behind a modal dialog', async () => {
     await mountFleet('/dashboard')
 
-    const reportBug = document.querySelector<HTMLButtonElement>(
-      '[aria-label="Report bug"]',
-    )
-    expect(reportBug).not.toBeNull()
-    reportBug?.click()
+    await chooseAccountItem('report')
     await settle()
 
     expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
@@ -297,9 +284,7 @@ describe('FleetView motion layout', () => {
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     expect(toggle?.classList).toContain('sidebar-toggle')
 
-    toggle?.click()
-    await settle()
-
+    // The sidebar starts collapsed.
     expect(host.querySelector('.shell')?.classList).toContain(
       'sidebar-collapsed',
     )
@@ -331,6 +316,19 @@ describe('FleetView motion layout', () => {
 })
 
 describe('fleet view', () => {
+  it('leaves the top bar to the frame and insets the split pane by its header', async () => {
+    const { host } = await mountAt('/dashboard')
+    expect(host.querySelector('header.topbar .topbar-glass')).toBeNull()
+    expect(host.querySelector('header.topbar')?.className).not.toMatch(
+      /(?:^|[\s:])backdrop-/,
+    )
+    window.dispatchEvent(workspaceShortcut())
+    await settle()
+    expect(
+      host.querySelector<HTMLElement>('.split-pane')?.getAttribute('style'),
+    ).toContain('--pane-inset-top: 36px')
+  })
+
   it('reports an unknown site as an error instead of a healthy empty scope', async () => {
     const { host } = await mountAt('/dashboard?site=nowhere')
     expect(host.textContent).toContain('Scope not found')
@@ -434,14 +432,6 @@ describe('fleet view', () => {
     )
 
     expect(severity?.classList).toContain('text-sm')
-  })
-
-  it('owns bug-button phone visibility in the component utility', async () => {
-    const { host } = await mountAt('/dashboard')
-    const button = host.querySelector('[aria-label="Report bug"]')
-
-    expect(button?.classList).toContain('max-[560px]:hidden')
-    expect(button?.classList).not.toContain('report-bug-button')
   })
 
   it('fills in the tenant of a selected site so the scope never reads all tenants', async () => {

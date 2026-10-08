@@ -197,7 +197,6 @@
       "initials": "OP",
       "label": "Operator account",
       "logout": "Log out",
-      "logoutUnavailable": "Logout is unavailable until sign-in is connected",
       "operator": "Operator"
     },
     "clients": {
@@ -487,6 +486,49 @@
       "title": "Workspace help",
       "trigger": "Help"
     },
+    "login": {
+      "devSkip": "Skip login as admin (dev only)",
+      "documentTitle": "Sign in · {brand}",
+      "email": "Work email",
+      "emailInvalid": "Enter an email address such as name{'@'}company.com.",
+      "emailPlaceholder": "name{'@'}company.com",
+      "emailRequired": "Enter your work email.",
+      "lead": "Your organization's identity provider signs you in.",
+      "overview": {
+        "example": "Example network",
+        "eyebrow": "Inside the console",
+        "inspect": {
+          "body": "Inspect device health, port state, and traffic. Find connected clients and check their signal.",
+          "title": "Get down to the port."
+        },
+        "lead": "From a site to a single port. Explore how your devices connect and what passes between them.",
+        "path": {
+          "accessPoint": {
+            "detail": "Where clients connect",
+            "title": "Access point"
+          },
+          "gateway": {
+            "detail": "The way out",
+            "title": "Gateway"
+          },
+          "switch": {
+            "detail": "The links between",
+            "title": "Switch"
+          }
+        },
+        "site": "A view into one site",
+        "title": "See the network. Follow the connection.",
+        "trace": {
+          "body": "Move from your sites to their devices. Use topology to see which links hold them together.",
+          "title": "Keep the connections in view."
+        },
+        "trafficPeriod": "An illustrative 15-minute window",
+        "trafficSummary": "Example traffic rises from {start} to {end} over 15 minutes.",
+        "trafficTitle": "Traffic at a glance"
+      },
+      "submit": "Continue with single sign-on",
+      "title": "Sign in to {brand}"
+    },
     "localeSwitcher": {
       "changed": "Language set to {language}.",
       "label": "Switch language to {language}",
@@ -504,8 +546,7 @@
       "reportText": "Report text",
       "summary": "Summary",
       "title": "Report a bug",
-      "trigger": "Report a bug",
-      "triggerLabel": "Report bug"
+      "trigger": "Report a bug"
     },
     "scopeSwitcher": {
       "searchPlaceholder": "Search…",

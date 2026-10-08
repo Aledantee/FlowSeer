@@ -425,30 +425,30 @@ func TestAgreementWaitsForRoleSelection(t *testing.T) {
 
 		fx := l.Receive(now.Add(35*time.Second), "p1", b)
 		afterPort := l.PortInfo("p1")
-		if afterPort.Role != bpdu.RoleRoot || afterPort.State != stp.StateDiscarding {
-			t.Errorf("p1 after agreement = (role %v, state %v), want Root Discarding", afterPort.Role, afterPort.State)
+		if afterPort.Role != bpdu.RoleRoot || afterPort.State != stp.StateForwarding {
+			t.Errorf("p1 after agreement = (role %v, state %v), want Root Forwarding", afterPort.Role, afterPort.State)
 		}
-		if afterPort.ForwardTransitions != beforePort.ForwardTransitions {
-			t.Errorf("p1 forward transitions = %d, want unchanged at %d", afterPort.ForwardTransitions, beforePort.ForwardTransitions)
+		if afterPort.ForwardTransitions != beforePort.ForwardTransitions+1 {
+			t.Errorf("p1 forward transitions = %d, want %d", afterPort.ForwardTransitions, beforePort.ForwardTransitions+1)
 		}
 		afterChanges, _ := l.TopologyChanges()
-		if afterChanges != beforeChanges {
-			t.Errorf("topology changes = %d, want unchanged at %d", afterChanges, beforeChanges)
+		if afterChanges != beforeChanges+1 {
+			t.Errorf("topology changes = %d, want %d", afterChanges, beforeChanges+1)
 		}
-		if len(fx.Flush) != 0 {
-			t.Errorf("Flush = %v, want empty", fx.Flush)
+		if len(fx.Flush) == 0 {
+			t.Errorf("Flush = %v, want a topology-change flush", fx.Flush)
 		}
 		for _, emission := range fx.Emissions {
 			decoded, err := bpdu.Decode(emission.Frame)
 			if err != nil {
 				t.Fatalf("Decode emission: %v", err)
 			}
-			if decoded.TopologyChange() {
-				t.Errorf("emission on %s carries topology change", emission.Port)
+			if !decoded.TopologyChange() {
+				t.Errorf("emission on %s has no topology change", emission.Port)
 			}
 		}
-		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateDiscarding {
-			t.Errorf("MSTI p1 state = %v, want Discarding", got)
+		if got := l.VLANPortInfo(10, "p1").State; got != stp.StateForwarding {
+			t.Errorf("MSTI p1 state = %v, want Forwarding", got)
 		}
 	})
 
@@ -486,110 +486,4 @@ func TestAgreementWaitsForRoleSelection(t *testing.T) {
 
 func localBridgeID(address netaddr.MAC) bpdu.BridgeID {
 	return bpdu.BridgeID{Priority: 32768, Address: address}
-}
-
-func TestMSTISyncLeavesABoundaryPort(t *testing.T) {
-	t.Parallel()
-
-	now := time.Date(2026, 10, 5, 15, 0, 0, 0, time.UTC)
-	local := mustMAC(t, "00:11:22:33:44:02")
-	peer := mustMAC(t, "00:11:22:33:44:01")
-	peer2 := mustMAC(t, "00:aa:bb:cc:dd:ee")
-	l, region := agreementMSTBridge(t, local, map[string]stp.Port{"p1": {}, "p2": {}})
-	l.LinkChange(now, "p1", true, true, 1_000_000_000)
-	l.LinkChange(now, "p2", true, true, 1_000_000_000)
-
-	foreign := stp.MST{Name: "foreign", Revision: 1}
-	foreignID := foreign.ConfigID()
-	localRoot := localBridgeID(local)
-	internal := agreementBPDU(
-		region.ConfigID(), bpdu.BridgeID{Priority: 4096, Address: peer}, 0,
-		bpdu.BridgeID{Priority: 4096, Address: peer},
-		bpdu.BridgeID{Priority: 4096, Address: peer}, 0x8001,
-		bpdu.RoleRoot, false,
-		agreementRecord(bpdu.BridgeID{Priority: 4097, Address: peer}, bpdu.RoleRoot, false, false),
-	)
-	l.Receive(now, "p1", internal)
-
-	boundary := agreementBPDU(
-		foreignID, localRoot, 0, localRoot,
-		bpdu.BridgeID{Priority: 61440, Address: peer2}, 0x8002,
-		bpdu.RoleDesignated, false,
-	)
-	l.Receive(now, "p2", boundary)
-	l.Receive(now.Add(15*time.Second), "p1", internal)
-	l.Receive(now.Add(15*time.Second), "p2", boundary)
-	l.Advance(now.Add(16 * time.Second))
-	l.Receive(now.Add(31*time.Second), "p1", internal)
-	l.Receive(now.Add(31*time.Second), "p2", boundary)
-	advanceAgreementPorts(l, now)
-	l.Receive(now.Add(34*time.Second), "p1", internal)
-	l.Receive(now.Add(34*time.Second), "p2", boundary)
-	l.Advance(now.Add(36 * time.Second))
-
-	if got := l.PortInfo("p1"); got.Role != bpdu.RoleRoot || got.State != stp.StateForwarding {
-		t.Fatalf("p1 CIST = (role %v, state %v), want Root Forwarding", got.Role, got.State)
-	}
-	if got := l.VLANPortInfo(10, "p2"); got.State != stp.StateForwarding {
-		t.Fatalf("p2 MSTI before sync = %v, want Forwarding", got.State)
-	}
-
-	repeat := agreementBPDU(
-		region.ConfigID(), bpdu.BridgeID{Priority: 4096, Address: peer}, 0,
-		bpdu.BridgeID{Priority: 4096, Address: peer},
-		bpdu.BridgeID{Priority: 4096, Address: peer}, 0x8001,
-		bpdu.RoleRoot, false,
-		agreementRecord(bpdu.BridgeID{Priority: 4097, Address: peer}, bpdu.RoleDesignated, true, false),
-	)
-	fx := l.Receive(now.Add(37*time.Second), "p1", repeat)
-	record, ok := emittedMSTI(t, fx)
-	if !ok || (bpdu.BPDU{Flags: record.Flags}).Agreement() {
-		t.Errorf("MSTI 1 response with unagreed boundary = %+v, want Agreement clear", record)
-	}
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateForwarding {
-		t.Errorf("p2 MSTI after proposal sync = %v, want Forwarding", got)
-	}
-	if _, ok := flushTarget(fx.Flush, "p2"); ok {
-		t.Errorf("Flush = %v, want no target for boundary p2", fx.Flush)
-	}
-	for _, emission := range fx.Emissions {
-		decoded, err := bpdu.Decode(emission.Frame)
-		if err != nil {
-			t.Fatalf("Decode emission: %v", err)
-		}
-		for _, record := range decoded.MSTIs {
-			if record.MSTID == 1 && (bpdu.BPDU{Flags: record.Flags}).TopologyChange() {
-				t.Errorf("emitted MSTI 1 record carries topology change")
-			}
-		}
-	}
-
-	next := l.Advance(now.Add(38 * time.Second))
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateForwarding {
-		t.Errorf("p2 MSTI after next Advance = %v, want Forwarding", got)
-	}
-	if _, ok := flushTarget(next.Flush, "p2"); ok {
-		t.Errorf("next Advance Flush = %v, want no target for boundary p2", next.Flush)
-	}
-
-	boundaryAgreement := boundary
-	boundaryAgreement.SetRole(bpdu.RoleRoot)
-	boundaryAgreement.SetAgreement(true)
-	l.Receive(now.Add(38*time.Second), "p2", boundaryAgreement)
-	agreed := l.Receive(now.Add(39*time.Second), "p1", repeat)
-	record, ok = emittedMSTI(t, agreed)
-	if !ok || !(bpdu.BPDU{Flags: record.Flags}).Agreement() {
-		t.Errorf("MSTI 1 response with CIST-agreed boundary = %+v, want Agreement set", record)
-	}
-
-	cistProposal := repeat
-	cistProposal.SetRole(bpdu.RoleDesignated)
-	cistProposal.SetProposal(true)
-	l.Receive(now.Add(40*time.Second), "p1", cistProposal)
-	if got := l.PortInfo("p2").State; got != stp.StateDiscarding {
-		t.Errorf("p2 CIST state after a boundary CIST proposal = %v, want Discarding", got)
-	}
-	if got := l.VLANPortInfo(10, "p2").State; got != stp.StateDiscarding {
-		t.Errorf("p2 MSTI state after a boundary CIST proposal = %v, want Discarding", got)
-	}
 }

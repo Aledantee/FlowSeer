@@ -114,6 +114,7 @@ func TestFabricConstructionSpecPreservesCompleteSwitchSpecs(t *testing.T) {
 	seed := bridge.Seed{
 		MAC:      netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66},
 		Port:     "1/1/1",
+		Origin:   bridge.Configured,
 		Lifetime: bridge.Static,
 	}
 	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{

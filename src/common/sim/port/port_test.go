@@ -7,7 +7,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func TestTableBuiltWithCanonicalNameOrder(t *testing.T) {
@@ -764,8 +763,123 @@ func TestTableTransmit(t *testing.T) {
 	})
 }
 
-func TestPortRuleConstants(t *testing.T) {
-	if got, want := port.RuleEgressNoMember, trace.RuleID("lag.egress.no_member"); got != want {
-		t.Errorf("RuleEgressNoMember = %q, want %q", got, want)
+func TestWithOperStatus(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "1/1/1", AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/3", AdminStatus: port.Up, OperStatus: port.Down})
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v, want nil", err)
 	}
+
+	t.Run("changed port reads the new state and the receiver is untouched", func(t *testing.T) {
+		got, err := tbl.WithOperStatus("1/1/1", port.Down)
+		if err != nil {
+			t.Fatalf("WithOperStatus() error = %v, want nil", err)
+		}
+
+		changed, _ := got.Port("1/1/1")
+		if changed.OperStatus != port.Down {
+			t.Errorf("result port 1/1/1 oper = %q, want %q", changed.OperStatus, port.Down)
+		}
+		original, _ := tbl.Port("1/1/1")
+		if original.OperStatus != port.Up {
+			t.Errorf("receiver port 1/1/1 oper = %q, want %q", original.OperStatus, port.Up)
+		}
+		if ports := tbl.Ports(); ports[0].OperStatus != port.Up {
+			t.Errorf("receiver Ports()[0] oper = %q, want %q", ports[0].OperStatus, port.Up)
+		}
+
+		want := tbl.Ports()
+		want[0].OperStatus = port.Down
+		if gotPorts := got.Ports(); !slices.Equal(gotPorts, want) {
+			t.Errorf("result Ports() = %v, want %v", gotPorts, want)
+		}
+	})
+
+	t.Run("LAG change reaches every lookup without changing the receiver", func(t *testing.T) {
+		if result := tbl.Receive("1/1/2"); result.Reason != "" || result.Resolved.Name != "lag1" || result.Resolved.OperStatus != port.Up {
+			t.Fatalf("receiver Receive = %+v, want admitted through Up lag1", result)
+		}
+		got, err := tbl.WithOperStatus("lag1", port.Down)
+		if err != nil {
+			t.Fatal(err)
+		}
+		changed, ok := got.Port("lag1")
+		if !ok || changed.OperStatus != port.Down {
+			t.Errorf("Port(lag1) = %+v, %t, want Down and true", changed, ok)
+		}
+		want := tbl.Ports()
+		want[3].OperStatus = port.Down
+		if gotPorts := got.Ports(); !slices.Equal(gotPorts, want) {
+			t.Errorf("Ports() = %+v, want %+v", gotPorts, want)
+		}
+		resolved, ok := got.Resolve("1/1/2")
+		if !ok || resolved.Name != "lag1" || resolved.OperStatus != port.Down {
+			t.Errorf("Resolve(1/1/2) = %+v, %t, want Down lag1 and true", resolved, ok)
+		}
+		if result := got.Receive("1/1/2"); result.Reason != port.ReasonPortDown || result.Decisive != "lag1" || result.Physical.OperStatus != port.Up {
+			t.Errorf("Receive(1/1/2) = %+v, want refusal by lag1 with Up member", result)
+		}
+		original, ok := tbl.Port("lag1")
+		if !ok || original.OperStatus != port.Up {
+			t.Errorf("receiver Port(lag1) = %+v, %t, want Up and true", original, ok)
+		}
+		if ports := tbl.Ports(); ports[3].OperStatus != port.Up {
+			t.Errorf("receiver Ports()[3] = %+v, want Up lag1", ports[3])
+		}
+		if result := tbl.Receive("1/1/2"); result.Reason != "" || result.Resolved.OperStatus != port.Up {
+			t.Errorf("receiver Receive = %+v, want admitted through Up lag1", result)
+		}
+	})
+
+	t.Run("member change preserves its LAG parent", func(t *testing.T) {
+		got, err := tbl.WithOperStatus("1/1/2", port.Down)
+		if err != nil {
+			t.Fatal(err)
+		}
+		member, ok := got.Port("1/1/2")
+		if !ok || member.OperStatus != port.Down || member.LagParent != "lag1" {
+			t.Errorf("Port(1/1/2) = %+v, %t, want Down member of lag1 and true", member, ok)
+		}
+		if member := got.Ports()[1]; member.OperStatus != port.Down || member.LagParent != "lag1" {
+			t.Errorf("Ports()[1] = %+v, want Down member of lag1", member)
+		}
+	})
+
+	t.Run("empty state is stored as Unknown", func(t *testing.T) {
+		got, err := tbl.WithOperStatus("1/1/2", "")
+		if err != nil {
+			t.Fatalf("WithOperStatus() error = %v, want nil", err)
+		}
+		p, _ := got.Port("1/1/2")
+		if p.OperStatus != port.Unknown {
+			t.Errorf("port 1/1/2 oper = %q, want %q", p.OperStatus, port.Unknown)
+		}
+		if got.Ports()[1].OperStatus != port.Unknown {
+			t.Errorf("Ports()[1] oper = %q, want %q", got.Ports()[1].OperStatus, port.Unknown)
+		}
+	})
+
+	t.Run("absent name is refused at the port field", func(t *testing.T) {
+		_, err := tbl.WithOperStatus("absent", port.Down)
+		if err == nil {
+			t.Fatal("WithOperStatus(\"absent\") error = nil, want error")
+		}
+		if got, want := errs.Attributes(err)["field"], "ports.absent"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("state outside the domain is refused on a known port", func(t *testing.T) {
+		_, err := tbl.WithOperStatus("1/1/1", port.LinkState("Sideways"))
+		if err == nil {
+			t.Fatal("WithOperStatus(Sideways) error = nil, want error")
+		}
+		if got, want := errs.Attributes(err)["field"], "ports.1/1/1.oper_status"; got != want {
+			t.Errorf("attrs[\"field\"] = %v, want %v", got, want)
+		}
+	})
 }

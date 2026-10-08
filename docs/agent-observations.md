@@ -26,6 +26,22 @@ Suggested change: <smallest edit to the skill, agent, or hook>.
 
 ## Entries
 
+## 2026-10-07 plan: a launcher port had no required live start check
+Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks,
+and `.claude/skills/implement/SKILL.md`, step 2.3.
+What happened: the uv scripts Phase 5 plan's U2 Tests line (2026-10-05,
+retired with its land; its text at `6b831fb4`) required shell and Python lifecycle suites with controlled tool replies.
+Its Verification section required documented replacements on fixtures.
+Neither required a live Orca start. The port refused a terminal reply
+without a status field until `da5a613f` removed that refusal.
+`tools/scripts/skills/delegate/orca_worker.py:269` records that Orca
+1.4.221's terminal object has no status field. The regression test at
+`tools/scripts/tests/skills/delegate/test_orca_worker.py:1493` now accepts
+that reply. The prescribed checks left the real reply shape unchecked.
+Suggested change: decide whether plan or implement should require a live
+start check when changing a launcher that drive itself uses. Name the
+runtime version and preserve the observed reply as test evidence.
+
 ## 2026-10-07 plan: a filename scan missed inline module imports
 Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks.
 What happened: U6 of the uv scripts Phase 2 plan (2026-10-05, retired
@@ -74,3 +90,19 @@ blob hash per unit) instead of parking, and routes a unit whose `Files:`
 line names a policy surface to a Claude worker only, since Codex cannot
 answer `ask`. `delegate` records in Orca worker that the prompt is not
 reliable under the launch flags.
+
+## 2026-10-08 delegate: a lane whose terminal Orca reclaimed cannot be stopped
+Skill or agent: `tools/scripts/skills/delegate/orca_worker.py`, `stop`, and
+`.claude/skills/delegate/references/orca.md`, When a step fails.
+What happened: an Orca restart on 2026-10-07 reclaimed every worker terminal
+(`orca terminal show` answered `terminal_handle_stale`). `stop <slug>
+--keep-worktree` then failed at the terminal close and recorded nothing, and
+`start --join` refused the kept worktree because the dead lane still read as
+live. The coordinator wrote the run log `end` and the `kept` mark by hand,
+which is what `stop --keep-worktree` writes after a close that succeeds.
+`orca.md` covers a terminal that exited, with a `terminal show` status of
+`exited`, not a handle the runtime no longer knows.
+Suggested change: `stop` treats `terminal_handle_stale` (and any reply that
+names no terminal) as a closed terminal: it logs `end`, marks the lane kept
+or removes it, and says so. `orca.md` names the stale handle beside the
+exited terminal.

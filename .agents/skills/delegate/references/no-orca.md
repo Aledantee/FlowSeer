@@ -31,7 +31,7 @@ report `runtime.reachable: true`.
   that steps 1 and 2 of "Pick the role" leave. Stop and name the stage for
   the user to run in a fresh session only when no such model is left or
   the Agent tool cannot run.
-  - The coordinator logs the lane in place of `orca-worker.sh`, so
+  - The coordinator logs the lane in place of `delegate orca-worker`, so
     `drive`'s `$base` and `review-lanes.md`'s executor lookup still work.
     Before the dispatch it records `base=$(git rev-parse HEAD)`. Once the
     result names the subagent's worktree and branch, it runs the line
@@ -57,8 +57,8 @@ report `runtime.reachable: true`.
     mutation, and git in a stage worker's worktree.
   - After the merge it runs `delegate runlog end --run <run> --head <sha>`, and
     `delegate runlog grade --run <run> --outcome <outcome> --verify <result>` in
-    place of `orca-worker.sh grade`. `git worktree remove <path>` takes the
-    place of `orca-worker.sh stop`. When the harness refuses it, the
+    place of `delegate orca-worker grade`. `git worktree remove <path>` takes the
+    place of `delegate orca-worker stop`. When the harness refuses it, the
     report names the path. The rest of the calling skill's after-stage
     steps run unchanged.
 - Other editing work whose role's fit set holds no Claude model:

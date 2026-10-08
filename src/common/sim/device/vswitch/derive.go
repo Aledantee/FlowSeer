@@ -1,12 +1,9 @@
 package vswitch
 
 import (
-	"net/netip"
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/net/igmp"
-	"go.aledante.io/FlowSeer/src/common/net/mld"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -157,7 +154,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 	next.recomputeProtocolLinkIssues()
 
 	// Mcast retention: multicast snooping is snoop-driven and unconditionally
-	// replays retained dynamic state into the new switch, filtered per-entry
+	// restores retained dynamic state into the new switch, filtered per-entry
 	// by port forwarding and VLAN membership. It reports kept when both switches
 	// have multicast enabled.
 	var curMcastKey, nextMcastKey string
@@ -177,8 +174,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 		next.retention.Mcast = LayerRetention{Kept: true}
 	}
 	if cur != nil && cur.mcast != nil && next.mcast != nil {
-		retained := cur.mcast.Clone()
-		retained.Retain(next.ports, func(vid vlan.ID, name string) bool {
+		next.mcast.Restore(cur.mcast, func(vid vlan.ID, name string) bool {
 			if _, ok := next.cfg.Mcast.VLANs[vid]; !ok {
 				return false
 			}
@@ -194,7 +190,6 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 
 			return next.stp == nil || next.stp.Forwards(name, vid)
 		})
-		restoreMulticastState(next, retained)
 	}
 
 	// Routing retention
@@ -285,38 +280,6 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, error) {
 type bridgeSeedKey struct {
 	fid vlan.ID
 	mac netaddr.MAC
-}
-
-// restoreMulticastState replays retained dynamic records into the new layer so
-// new options and static router ports take effect without resetting expiries.
-func restoreMulticastState(next *Switch, retained *mcast.Layer) {
-	for vid, cfg := range next.cfg.Mcast.VLANs {
-		membershipInterval := cfg.MembershipInterval
-		if membershipInterval == 0 {
-			membershipInterval = mcast.DefaultMembershipInterval
-		}
-		for _, entry := range retained.Groups(vid) {
-			learnedAt := entry.GroupExpires.Add(-membershipInterval)
-			if entry.Group.Is4() {
-				next.mcast.Learn(learnedAt, vid, entry.Port, netip.Addr{}, igmp.Message{
-					Type:  igmp.ReportV2,
-					Group: entry.Group,
-				})
-			} else {
-				next.mcast.LearnMLD(learnedAt, vid, entry.Port, netip.Addr{}, mld.Message{
-					Type:  mld.ReportV1,
-					Group: entry.Group,
-				})
-			}
-		}
-
-		for _, router := range retained.RouterPorts(vid) {
-			if router.Lifetime == mcast.Static || slices.Contains(cfg.RouterPorts, router.Port) {
-				continue
-			}
-			next.mcast.InstallObserved(vid, router.Port, router.Expires)
-		}
-	}
 }
 
 func resolvedSpeeds(s *Switch) map[string]uint64 {

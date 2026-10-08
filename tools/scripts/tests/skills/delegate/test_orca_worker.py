@@ -1,18 +1,18 @@
+import contextlib
+import io
 import json
 import os
 from pathlib import Path
 import re
-import shutil
-import stat
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 from lib import repo
-
-
-SCRIPT = repo.root(Path(__file__).parent) / ".agents/skills/delegate/scripts/orca-worker.sh"
+from skills.delegate import orca_worker
 
 
 class OrcaWorkerTests(unittest.TestCase):
@@ -30,13 +30,9 @@ class OrcaWorkerTests(unittest.TestCase):
         subprocess.run(["git", "add", "."], cwd=self.repo, check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", "initial commit"], cwd=self.repo, check=True, capture_output=True)
 
-        self.bin_dir = self.root / "bin"
-        self.bin_dir.mkdir()
         self.orca_log = self.root / "orca_calls.log"
 
-        stub_orca = self.bin_dir / "orca"
-        stub_script = f"""#!{sys.executable}
-import json
+        stub_script = f"""import json
 import os
 from pathlib import Path
 import subprocess
@@ -54,6 +50,12 @@ pointer_file = Path(os.environ["ORCA_STUB_POINTER_FILE"])
 if args and args[0] == "status":
     print(json.dumps({{"result": {{"runtime": {{"reachable": True}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "read":
+    # ORCA_STUB_READ_FAIL: "always", or "once" for the first read only.
+    read_fail = os.environ.get("ORCA_STUB_READ_FAIL")
+    failed_once = Path(str(log_file) + ".read-failed")
+    if read_fail == "always" or (read_fail == "once" and not failed_once.exists()):
+        failed_once.write_text("failed")
+        sys.exit(1)
     if args[args.index("--terminal") + 1] == "":
         print("esc to interrupt")
     elif failure == "terminal-read":
@@ -111,7 +113,9 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "create":
         exclude.mkdir()
     print(json.dumps({{"result": {{"terminal": {{"handle": "term-1"}}}}}}))
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
-    if failure == "terminal-wait-exited":
+    if "ORCA_STUB_WAIT_REPLY" in os.environ:
+        print(os.environ["ORCA_STUB_WAIT_REPLY"])
+    elif failure == "terminal-wait-exited":
         print(json.dumps({{"result": {{"wait": {{"status": "exited"}}}}}}))
     elif failure in ("terminal-wait", "terminal-exited"):
         sys.exit(1)
@@ -124,7 +128,12 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "wait":
 elif len(args) >= 2 and args[0] == "terminal" and args[1] == "show":
     if failure == "terminal-show":
         sys.exit(1)
-    status = {{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
+    if failure == "terminal-show-live":
+        # The reply of Orca 1.4.221 for a live terminal: no status field.
+        terminal = {{"handle": "term-1", "ptyId": "pty-1", "orphaned": False, "connected": True, "writable": True, "title": "l1", "preview": "", "agentWait": None}}
+        print(json.dumps({{"result": {{"terminal": terminal}}}}))
+        sys.exit(0)
+    status ={{"terminal-wait": "running", "terminal-exited": "exited"}}.get(failure, "idle")
     print(json.dumps({{"result": {{"terminal": {{"status": status}}}}}}))
 elif len(args) >= 2 and args[0] == "worktree" and args[1] == "show":
     # ORCA_STUB_CHILDREN_FROM: the query, counting from 1, that first reports the children.
@@ -134,6 +143,8 @@ elif len(args) >= 2 and args[0] == "worktree" and args[1] == "show":
     count = int(shows.read_text()) + 1 if shows.exists() else 1
     shows.write_text(str(count))
     children = [c for c in os.environ.get("ORCA_STUB_CHILDREN", "").split(",") if c]
+    if "ORCA_STUB_CHILDREN_JSON" in os.environ:
+        children = json.loads(os.environ["ORCA_STUB_CHILDREN_JSON"])
     if count < int(os.environ.get("ORCA_STUB_CHILDREN_FROM", "1")):
         children = []
     print(json.dumps({{"result": {{"worktree": {{"childWorktreeIds": children}}}}}}))
@@ -163,50 +174,8 @@ elif len(args) >= 2 and args[0] == "terminal" and args[1] == "send":
 else:
     print(json.dumps({{"result": {{}}}}))
 """
-        stub_orca.write_text(stub_script)
-        stub_orca.chmod(stub_orca.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-
-        stub_python = self.bin_dir / "python3"
-        stub_python.write_text(f"""#!{sys.executable}
-import os
-import sys
-
-if os.environ.get("ORCA_STUB_FAIL") == "state-write" and len(sys.argv) > 2 and sys.argv[1] == "-c" and "json.dump(dict(zip" in sys.argv[2]:
-    marker = os.environ.get("ORCA_STUB_STATE_WRITE_MARKER")
-    if not marker or not os.path.exists(marker):
-        if marker:
-            open(marker, "w").close()
-        print("injected state write failure", file=sys.stderr)
-        sys.exit(1)
-os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
-""")
-        stub_python.chmod(stub_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-
-        stub_sleep = self.bin_dir / "sleep"
-        stub_sleep.write_text(f"""#!{sys.executable}
-import os
-import sys
-
-clock = os.environ["ORCA_STUB_CLOCK"]
-with open(clock, "r+") as stream:
-    elapsed = int(stream.read() or "0")
-    stream.seek(0)
-    stream.write(str(elapsed + int(sys.argv[1])))
-    stream.truncate()
-""")
-        stub_sleep.chmod(stub_sleep.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-
-        stub_date = self.bin_dir / "date"
-        stub_date.write_text(f"""#!{sys.executable}
-import os
-import sys
-
-if sys.argv[1:] == ["+%s"]:
-    print(open(os.environ["ORCA_STUB_CLOCK"]).read().strip() or "0")
-else:
-    os.execv(os.environ["ORCA_REAL_DATE"], [os.environ["ORCA_REAL_DATE"], *sys.argv[1:]])
-""")
-        stub_date.chmod(stub_date.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+        self.orca_stub = compile(stub_script, "orca-fixture", "exec")
+        self.launcher_failure = None
 
         self.runlog = self.root / "runs.jsonl"
         self.clock = self.root / "clock"
@@ -216,7 +185,6 @@ else:
 
         self.env = {
             **os.environ,
-            "PATH": f"{self.bin_dir}:{os.environ.get('PATH', '')}",
             "FLOWSEER_RUNLOG": str(self.runlog),
             "ORCA_STUB_LOG": str(self.orca_log),
             "ORCA_STUB_CHILD": str(self.root / "child-l1"),
@@ -224,18 +192,53 @@ else:
             "ORCA_STUB_STATE_DIR": str(self.state_dir),
             "ORCA_STUB_AT_RM": str(self.root / "runlog-at-rm.jsonl"),
             "ORCA_STUB_CLOCK": str(self.clock),
-            "ORCA_REAL_DATE": shutil.which("date"),
         }
 
     def command(self, *args, cwd=None):
-        return subprocess.run(
-            [str(SCRIPT), *args],
-            cwd=cwd or self.repo,
-            env=self.env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        output, errors = io.StringIO(), io.StringIO()
+        original_run = orca_worker.run
+        original_save = orca_worker.Worker.save
+        original_runlog_main = orca_worker.runlog.main
+        write_attempts = 0
+
+        def transport(argv, cwd=None):
+            if argv[0] != "orca":
+                return original_run(argv, cwd)
+            out, err = io.StringIO(), io.StringIO()
+            code = 0
+            with mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                try:
+                    exec(self.orca_stub, {})
+                except SystemExit as error:
+                    code = error.code or 0
+            return subprocess.CompletedProcess(argv, code, out.getvalue(), err.getvalue())
+
+        def save(worker, state):
+            nonlocal write_attempts
+            write_attempts += 1
+            if self.env.get("ORCA_STUB_FAIL") == "state-write" and write_attempts == 1:
+                raise OSError("injected state write failure")
+            return original_save(worker, state)
+
+        def runlog_main(argv):
+            if argv[0] == "start" and self.launcher_failure is not None:
+                print("launcher notice", file=sys.stderr)
+                if self.launcher_failure:
+                    print("launcher output")
+                    return 1
+            return original_runlog_main(argv)
+
+        def sleep(seconds):
+            self.clock.write_text(str(int(float(self.clock.read_text()) + seconds)))
+
+        previous = Path.cwd()
+        try:
+            os.chdir(cwd or self.repo)
+            with mock.patch.dict(os.environ, self.env, clear=True), mock.patch.object(orca_worker, "windows", return_value=False), mock.patch.object(orca_worker, "run", side_effect=transport), mock.patch.object(orca_worker.Worker, "save", save), mock.patch.object(orca_worker.runlog, "main", side_effect=runlog_main), mock.patch.object(orca_worker, "time", SimpleNamespace(sleep=sleep, monotonic=lambda: float(self.clock.read_text()))), contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors):
+                code = orca_worker.main(list(args))
+        finally:
+            os.chdir(previous)
+        return subprocess.CompletedProcess(args, code, output.getvalue(), errors.getvalue())
 
     def orca_calls(self):
         if not self.orca_log.exists():
@@ -304,19 +307,7 @@ else:
         self.assertIn("-c check_for_update_on_startup=false", self.orca_calls())
 
     def uv_start_wrapper(self, fail=False):
-        wrapper = self.bin_dir / "uv"
-        wrapper.write_text(f"""#!{sys.executable}
-import os
-import sys
-
-if sys.argv[1:3] == ["run", "--quiet"] and sys.argv[4:7] == ["delegate", "runlog", "start"]:
-    print("launcher notice", file=sys.stderr)
-    if {fail!r}:
-        print("launcher output")
-        sys.exit(1)
-os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
-""")
-        wrapper.chmod(wrapper.stat().st_mode | stat.S_IEXEC)
+        self.launcher_failure = fail
 
     def test_start_stores_only_stdout_when_launcher_writes_stderr(self):
         self.uv_start_wrapper()
@@ -382,7 +373,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
             "--brief", str(brief),
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("--role is required", result.stderr)
+        self.assertIn("the following arguments are required: --role", result.stderr)
         self.assertNotIn("worktree create", self.orca_calls())
         self.assertFalse((self.state_dir / "l1.json").exists())
 
@@ -477,7 +468,9 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.state_dir.rmdir()
         self.env["ORCA_STUB_FAIL"] = "state-mkdir"
         result = self.start()
-        self.assert_rolled_back_run(result, "cannot create lane state directory")
+        self.assert_rolled_back_run(result, "cannot write lane state")
+        self.assertTrue(self.state_dir.is_file())
+        self.assertIn(str(self.state_dir), result.stderr)
 
     def test_start_state_write_failure_closes_run(self):
         self.env["ORCA_STUB_FAIL"] = "state-write"
@@ -870,7 +863,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
     def test_wait_until_reports_done_on_a_screen_that_names_a_usage_limit(self):
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "usage limit reached earlier; report written"
-        result = self.command("wait", "l1", "--until", "true", "--stall", "5", "--max", "10")
+        result = self.command("wait", "l1", "--until", json.dumps([sys.executable, "-c", ""]), "--stall", "5", "--max", "10")
         self.assert_wait(result, ["done", "usage limit reached earlier; report written"], 5)
 
     def test_keys_refuses_text_the_terminal_would_truncate(self):
@@ -1052,7 +1045,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.live_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "10",
         )
         self.assert_wait(result, ["idle", "> lane done"], 5)
 
@@ -1061,7 +1054,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         (lane_path / "DONE").write_text("")
         self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "20",
         )
         self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
 
@@ -1070,7 +1063,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         marker = lane_path / "until-ran"
         self.env["ORCA_STUB_SCREEN"] = "esc to interrupt"
         result = self.command(
-            "wait", "l1", "--until", "touch until-ran", "--stall", "5", "--max", "20",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; Path('until-ran').touch()"]), "--stall", "5", "--max", "20",
         )
         self.assert_wait(result, ["stalled", "esc to interrupt"], 15)
         self.assertFalse(marker.exists())
@@ -1080,7 +1073,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         (lane_path / "DONE").write_text("")
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "10",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "10",
         )
         self.assert_wait(result, ["done", "> lane done"], 5)
 
@@ -1090,7 +1083,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.child_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "0", "--max", "10",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "0", "--max", "10",
         )
         self.assert_wait(result, ["done", "> lane done"], 5)
 
@@ -1099,7 +1092,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.child_lane()
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "20",
         )
         self.assert_wait(result, ["idle-children c1", "> lane done"], 15)
 
@@ -1109,7 +1102,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.child_lane(screen="esc to interrupt")
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "20",
         )
         self.assert_wait(result, ["timeout", "> lane done"], 20)
 
@@ -1122,7 +1115,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         )
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command(
-            "wait", "l1", "--until", "test -f DONE", "--stall", "5", "--max", "20",
+            "wait", "l1", "--until", json.dumps([sys.executable, "-c", "from pathlib import Path; import sys; sys.exit(0 if Path('DONE').is_file() else 1)"]), "--stall", "5", "--max", "20",
         )
         self.assert_wait(result, ["timeout", "> lane done"], 20)
 
@@ -1181,7 +1174,7 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.env["ORCA_STUB_SCREEN"] = "> lane done"
         result = self.command("wait", "l1", "--timeout", "1000")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("replaced by --max", result.stderr)
+        self.assertIn("unrecognized arguments: --timeout", result.stderr)
         self.assertEqual(self.clock.read_text().strip(), "0")
 
     def test_wait_rejects_a_zero_maximum(self):
@@ -1419,6 +1412,194 @@ os.execv({shutil.which('uv')!r}, [{shutil.which('uv')!r}, *sys.argv[1:]])
         self.assertEqual(self.orca_calls().count("worktree rm"), 1)
         self.assertFalse(child.exists())
         self.assertEqual(list(self.state_dir.glob("*.json")), [])
+
+    def test_until_rejects_invalid_json_before_any_orca_call(self):
+        for value in ('true', '[]', '[""]', '["uv",1]', '{}', 'null', '[false]', '["uv",null]'):
+            with self.subTest(value=value):
+                result = self.command("wait", "l1", "--until", value)
+                self.assertEqual(result.returncode, 2, result.stderr)
+                self.assertIn("JSON argv array", result.stderr)
+                self.assertEqual(self.orca_calls(), "")
+
+    def test_until_passes_empty_and_shell_metacharacter_arguments_literally(self):
+        lane = self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        value = '$(touch hacked); & | "quoted"'
+        argv = [sys.executable, "-c", "import json,sys; from pathlib import Path; Path('argv.json').write_text(json.dumps(sys.argv[1:]))", "", value]
+        result = self.command("wait", "l1", "--max", "10", "--until", json.dumps(argv))
+        self.assert_wait(result, ["done", "> done"], 5)
+        self.assertEqual(json.loads((lane / "argv.json").read_text()), ["", value])
+
+    def test_until_timeout_is_capped_by_the_remaining_deadline(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        original = subprocess.run
+        observed = []
+        def run(argv, **kwargs):
+            if "timeout" in kwargs:
+                observed.append((argv, kwargs["timeout"], kwargs["cwd"]))
+                raise subprocess.TimeoutExpired(argv, kwargs["timeout"])
+            return original(argv, **kwargs)
+        argv = [sys.executable, "-c", ""]
+        with mock.patch.object(subprocess, "run", side_effect=run):
+            result = self.command("wait", "l1", "--max", "7", "--until", json.dumps(argv))
+        self.assertEqual(result.stdout, "timeout\n> done\n")
+        self.assertEqual(observed, [(argv, 2.0, str(self.root / "child-l1"))])
+
+    def test_run_keeps_carriage_returns_in_stdout(self):
+        result = orca_worker.run([
+            sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'a\\rb\\r\\nc')",
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "a\rb\r\nc")
+
+    def test_screen_keeps_carriage_returns_inside_one_line(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "junk\res\rc to cancel"
+        result = self.command("wait", "l1", "--max", "10")
+        self.assertEqual(result.stdout, "idle\njunk\res\rc to cancel\n")
+
+    def test_start_handles_brief_and_checkout_paths_with_spaces(self):
+        child = self.root / "child with spaces"
+        self.env["ORCA_STUB_CHILD"] = str(child)
+        brief = self.repo / "brief with spaces.md"
+        brief.write_text("task with spaces")
+        result = self.command("start", "--lane", "l1", "--cli", "codex", "--model", "model with spaces; $literal", "--role", "execute", "--brief", str(brief))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["path"], str(child))
+        self.assertEqual((child / ".orca-brief.md").read_text(), "task with spaces")
+        self.assertIn("-m 'model with spaces; $literal'", self.orca_calls())
+
+    def test_windows_launch_refuses_before_any_side_effect(self):
+        for argv in (["line", "--cli", "codex", "--model", "m"], ["start", "--lane", "l1", "--cli", "codex", "--model", "m", "--role", "execute", "--brief", "absent"]):
+            with self.subTest(argv=argv), mock.patch.object(orca_worker, "windows", return_value=True), mock.patch.object(orca_worker, "run") as calls, contextlib.redirect_stderr(io.StringIO()) as error:
+                self.assertEqual(orca_worker.main(argv), 1)
+                self.assertIn("Windows terminal launches are unsupported", error.getvalue())
+                calls.assert_not_called()
+
+    def test_stop_refuses_malformed_children_without_removing_anything(self):
+        state_file, child, _ = self.graded_lane()
+        for value in ("null", "{}", '"id"', '[1]'):
+            with self.subTest(value=value):
+                self.env["ORCA_STUB_CHILDREN_JSON"] = value
+                result = self.command("stop", "l1")
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn("cannot read the child worktrees", result.stderr)
+                self.assertTrue(state_file.exists())
+                self.assertTrue(child.is_dir())
+                self.assertNotIn("terminal close", self.orca_calls())
+                self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_accepts_a_terminal_reply_without_status(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-show-live"
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["terminal"], "term-1")
+        self.assertTrue((self.state_dir / "l1.json").exists())
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def assert_unusable_startup_wait_reply_starts(self, reply):
+        self.env["ORCA_STUB_WAIT_REPLY"] = reply
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("terminal wait --terminal term-1"), 1)
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_treats_a_null_wait_result_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts('{"result": null}')
+
+    def test_start_treats_a_null_wait_object_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts('{"result": {"wait": null}}')
+
+    def test_start_treats_a_wait_reply_that_is_an_array_as_satisfied(self):
+        self.assert_unusable_startup_wait_reply_starts("[]")
+
+    def test_wait_treats_an_unusable_wait_reply_as_no_status(self):
+        self.live_lane()
+        self.env["ORCA_STUB_SCREEN"] = "> done"
+        for reply in ('{"result": null}', '{"result": {"wait": null}}', "[]", '{"result": {"wait": "exited"}}'):
+            with self.subTest(reply=reply):
+                self.clock.write_text("0")
+                self.env["ORCA_STUB_WAIT_REPLY"] = reply
+                result = self.command("wait", "l1", "--stall", "5", "--max", "10")
+                self.assert_wait(result, ["idle", "> done"], 5)
+
+    def test_read_keys_and_tell_refuse_a_kept_lane_before_any_orca_call_or_write(self):
+        child = self.kept_lane()
+        self.orca_log.unlink()
+        note = self.root / "note.md"
+        note.write_text("note")
+        exclude = self.repo / ".git" / "info" / "exclude"
+        for argv, message in ((("read", "l1"), "no lane named l1; status lists them"),
+                              (("keys", "l1", "y"), "keys SLUG TEXT"),
+                              (("tell", "l1", str(note)), "tell SLUG FILE")):
+            with self.subTest(command=argv[0]):
+                result = self.command(*argv)
+                self.assertEqual(result.returncode, 1, result.stderr)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(self.orca_calls(), "")
+                self.assertNotIn("/.orca-note.md", exclude.read_text().splitlines())
+                self.assertFalse((child / ".orca-note.md").exists())
+
+    def test_tell_refuses_a_missing_file_before_writing_anything(self):
+        child = self.live_lane()
+        missing = self.root / "missing.md"
+        result = self.command("tell", "l1", str(missing))
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn(f"file {missing} not found", result.stderr)
+        self.assertEqual(self.orca_calls(), "")
+        exclude = self.repo / ".git" / "info" / "exclude"
+        self.assertNotIn("/.orca-note.md", exclude.read_text().splitlines() if exclude.exists() else [])
+        self.assertFalse((child / ".orca-note.md").exists())
+
+    def test_stop_treats_an_unreadable_screen_as_not_working(self):
+        state_file, _, _ = self.graded_lane()
+        self.env["ORCA_STUB_READ_FAIL"] = "always"
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("terminal close --terminal term-1", self.orca_calls())
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        self.assertFalse(state_file.exists())
+
+    def test_stop_treats_a_checkout_git_cannot_read_as_clean(self):
+        state_file, _, _ = self.graded_lane()
+        state = json.loads(state_file.read_text())
+        state["path"] = str(self.root / "gone")
+        state_file.write_text(json.dumps(state))
+        result = self.command("stop", "l1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("worktree rm --worktree id:wt-1", self.orca_calls())
+        self.assertFalse(state_file.exists())
+
+    def test_tell_delivers_after_a_failed_screen_read_before_the_pointer(self):
+        child = self.live_lane()
+        note = self.root / "note.md"
+        note.write_text("note")
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.command("tell", "l1", str(note))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((child / ".orca-note.md").read_text(), "note")
+        self.assertEqual(self.orca_calls().count("terminal send --terminal term-1"), 1)
+
+    def test_start_sends_the_pointer_again_after_a_failed_screen_read(self):
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.start(cli="claude", model="claude-opus-5-5")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.orca_calls().count("--text Read .orca-brief.md"), 2)
+
+    def test_start_continues_codex_startup_after_a_failed_screen_read(self):
+        self.env["ORCA_STUB_READ_FAIL"] = "once"
+        result = self.start()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("worktree rm", self.orca_calls())
+
+    def test_start_names_the_exited_cli_when_its_screen_cannot_be_read(self):
+        self.env["ORCA_STUB_FAIL"] = "terminal-exited"
+        self.env["ORCA_STUB_READ_FAIL"] = "always"
+        result = self.start(cli="agy", model="gemini-4-pro")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("agy exited at startup", result.stderr)
+        self.assertFalse((self.state_dir / "l1.json").exists())
 
 
 if __name__ == "__main__":

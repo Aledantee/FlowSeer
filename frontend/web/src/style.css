@@ -105,6 +105,7 @@ html:has(.shell) {
   position: absolute;
   inset: 0;
   clip-path: path('M16 0C16 12 30 12 30 24V40C30 52 16 52 16 64Z');
+  box-shadow: inset 0 0 0 64px var(--glass);
 }
 
 .sidebar-toggle svg {
@@ -151,6 +152,14 @@ html:has(.shell) {
 }
 
 @media (min-width: 801px) {
+  .sidebar-login .sidebar {
+    width: 420px;
+  }
+
+  .sidebar-login .main-shell {
+    margin-left: 420px;
+  }
+
   .sidebar-collapsed .sidebar {
     --sidebar-inset: 8px;
     width: 64px;
@@ -186,9 +195,6 @@ html:has(.shell) {
     pointer-events: none;
     opacity: 0;
     transform: translate(-4px, -50%);
-    transition:
-      opacity 120ms ease,
-      transform 120ms ease;
   }
 
   .sidebar-collapsed .sidebar nav a:hover .nav-text,
@@ -221,7 +227,7 @@ html:has(.shell) {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  --topbar-height: 54px;
+  --pane-inset-top: 0px;
 }
 
 @media (max-width: 800px) {
@@ -239,54 +245,12 @@ html:has(.shell) {
   color: var(--chrome-foreground);
 }
 
-.topbar-glass {
-  --glow-bar-fade: linear-gradient(
-    to bottom,
-    var(--foreground) 35%,
-    transparent
-  );
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  backdrop-filter: blur(24px) saturate(140%);
-}
-
-/* Chrome-coloured wedge that reads as a rounded inner corner where the
-   sidebar and top bar meet. It carries the shared glow so it stays
-   continuous with both surfaces. */
-.main-notch {
-  /* The wedge sits where both fades have already run out, so it carries the
-     glow without any bars. */
-  --glow-bar-fade: linear-gradient(transparent, transparent);
-  position: absolute;
-  z-index: 3;
-  top: var(--topbar-height);
-  left: 0;
-  width: 18px;
-  height: 18px;
-  pointer-events: none;
-  backdrop-filter: blur(24px) saturate(140%);
-  mask-image: radial-gradient(
-    circle at bottom right,
-    transparent 18px,
-    var(--foreground) 18.5px
-  );
-}
-
-@media (max-width: 800px) {
-  .main-notch {
-    display: none;
-  }
-}
-
 /* The main area holds one pane, or two side by side; each pane scrolls on
-   its own and runs up under the glass top bar. */
-.main-shell > main.panes {
+   its own and starts at the page panel's top edge. */
+#frame-page main.panes {
   display: flex;
   flex: 1;
   max-width: none;
-  margin-top: calc(-1 * var(--topbar-height));
   padding: 0;
   overflow: hidden;
 }
@@ -305,19 +269,19 @@ html:has(.shell) {
 .pane-scroll {
   height: 100%;
   overscroll-behavior-y: contain;
-  padding: calc(var(--topbar-height) + 31px) 34px 0;
-  scroll-padding-top: calc(var(--topbar-height) + 12px);
+  padding: calc(var(--pane-inset-top) + 31px) 34px 0;
+  scroll-padding-top: calc(var(--pane-inset-top) + 12px);
 }
 
 @media (max-width: 1150px) {
   .pane-scroll {
-    padding: calc(var(--topbar-height) + 26px) 24px 0;
+    padding: calc(var(--pane-inset-top) + 26px) 24px 0;
   }
 }
 
 @media (max-width: 800px) {
   .pane-scroll {
-    padding: calc(var(--topbar-height) + 25px) 20px 0;
+    padding: calc(var(--pane-inset-top) + 25px) 20px 0;
   }
 }
 
@@ -399,7 +363,7 @@ html:has(.shell) {
 .pane-divider::after {
   content: '';
   position: absolute;
-  inset: var(--topbar-height) 4px 0;
+  inset: var(--pane-inset-top) 4px 0;
   background: var(--border);
   transition: background 120ms ease;
 }
@@ -491,9 +455,9 @@ html:has(.shell) {
   height: 10px;
 }
 
-/* A page's bar runs from under the top bar to above the dock. */
+/* A page's bar runs from the pane's inset to above the dock. */
 .pane .scroll-bar[data-orientation='vertical'] {
-  top: var(--topbar-height) !important;
+  top: var(--pane-inset-top) !important;
 }
 
 .panes.docked .pane .scroll-bar[data-orientation='vertical'] {

@@ -148,6 +148,16 @@ func TestConfigValidation(t *testing.T) {
 			},
 			wantErr: true,
 		},
+		{
+			name:    "mapped source prefix",
+			cfg:     filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: filter.Match{Src: []netip.Prefix{netip.MustParsePrefix("::ffff:10.0.0.0/104")}}}}}}},
+			wantErr: true,
+		},
+		{
+			name:    "mapped destination prefix",
+			cfg:     filter.Config{Sets: map[string]filter.RuleSet{"s": {Default: filter.Drop, Rules: []filter.Rule{{Action: filter.Accept, Match: filter.Match{Dst: []netip.Prefix{netip.MustParsePrefix("::ffff:10.0.0.0/104")}}}}}}},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

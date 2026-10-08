@@ -490,6 +490,28 @@ describe('UiCombobox', () => {
     expect(document.getElementById(ariaControls!)).not.toBeNull()
   })
 
+  // The popper parks its content at translate(0, -200%) until it has an
+  // anchor to measure, so an unanchored popup opens off the page.
+  it.each([
+    ['the default input', undefined],
+    [
+      'a custom trigger',
+      { trigger: () => h('button', { class: 'scope-trigger' }, 'Sites') },
+    ],
+  ])('positions the popup against %s', async (_, slots) => {
+    mountApp(() =>
+      h(UiCombobox, { options: sampleOptions, defaultOpen: true }, slots),
+    )
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const wrapper = document.body.querySelector<HTMLElement>(
+      '[data-reka-popper-content-wrapper]',
+    )
+    expect(wrapper).not.toBeNull()
+    expect(wrapper?.style.transform).not.toContain('-200%')
+  })
+
   it('shows public labels in a custom-trigger input and keeps filtering usable', async () => {
     const selected = ref('')
     const host = mountApp(() =>

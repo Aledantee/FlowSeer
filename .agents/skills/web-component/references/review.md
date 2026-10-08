@@ -7,7 +7,8 @@ Report only findings you verified in code or in a screenshot.
 
 Run from the worktree root, over the changed files. The verifier covers
 lint, stylelint, types, tests, and axe. The impeccable detector adds
-design anti-patterns, when `check-tools.sh` reports it:
+design anti-patterns, when `uv run tools/scripts/run.py web-component check-tools`
+reports it:
 
 ```bash
 ~/.claude/plugins/marketplaces/impeccable/.claude/skills/impeccable/scripts/impeccable detect --quiet frontend/web/src/ui

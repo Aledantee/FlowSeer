@@ -149,8 +149,9 @@ established across the library:
   with outcome Held and reason `neighbor-pending`, and the forward's metadata
   carries `neighbor-unresolved` at Incomplete scoped to the neighbor lookup,
   disproving the false answer that an unresolved next hop is a definite drop.
-  The case goes on to observe an ARP reply, proving the hold is releasable
-  rather than a disguised, permanent drop; the observing `Forward` already
+  The case checks the emitted ARP request separately from the data frame
+  released after an ARP reply, proving the hold is releasable
+  rather than a disguised, permanent drop. The observing `Forward` already
   releases the frame, so the case's own `Wake` call is a no-op kept to make
   a future move of the release onto `Wake` visible here.
 - `troubleshooting/recursive-route-not-installed`: A `/24` static route names a

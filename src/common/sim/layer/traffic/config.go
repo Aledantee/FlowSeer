@@ -143,9 +143,20 @@ func (c Config) Normalize(_ layer.Env) Config {
 
 // Validate checks mirror names and destinations, logical selector ports and
 // VLANs, policer bursts, and queue rates and buffers against the supplied
-// environment.
+// environment. A policer names a port that is no LAG, and a queue names a
+// port that is no LAG member.
 func (c Config) Validate(env layer.Env) error {
-	ports := env.Ports
+	if err := c.validateMirrors(env.Ports); err != nil {
+		return err
+	}
+	if err := c.validatePolicers(env.Ports); err != nil {
+		return err
+	}
+
+	return c.validateQueues(env.Ports)
+}
+
+func (c Config) validateMirrors(ports port.Table) error {
 	mirrorNames := make(map[string]struct{}, len(c.Mirrors))
 	outputPorts := make(map[string]struct{}, len(c.Mirrors))
 	for mirrorIndex, mirror := range c.Mirrors {
@@ -268,13 +279,24 @@ func (c Config) Validate(env layer.Env) error {
 		}
 	}
 
+	return nil
+}
+
+func (c Config) validatePolicers(ports port.Table) error {
 	for _, name := range sortedKeys(c.Policers) {
 		policer := c.Policers[name]
-		if _, ok := ports.Port(name); !ok {
+		named, ok := ports.Port(name)
+		if !ok {
 			return errs.New().
 				Attr("field", "policers."+name).
 				Attr("port", name).
 				Msgf("policer port %q absent from port table", name)
+		}
+		if named.Kind == port.LAG {
+			return errs.New().
+				Attr("field", "policers."+name).
+				Attr("port", name).
+				Msgf("policer port %q is a LAG, which polices no ingress", name)
 		}
 		if policer.RateBPS > 0 && policer.BurstOctets < 1 {
 			return errs.New().
@@ -286,13 +308,25 @@ func (c Config) Validate(env layer.Env) error {
 		}
 	}
 
+	return nil
+}
+
+func (c Config) validateQueues(ports port.Table) error {
 	for _, name := range sortedKeys(c.Queues) {
 		queues := c.Queues[name]
-		if _, ok := ports.Port(name); !ok {
+		named, ok := ports.Port(name)
+		if !ok {
 			return errs.New().
 				Attr("field", "queues."+name).
 				Attr("port", name).
 				Msgf("queue port %q absent from port table", name)
+		}
+		if named.LagParent != "" {
+			return errs.New().
+				Attr("field", "queues."+name).
+				Attr("port", name).
+				Attr("lag", named.LagParent).
+				Msgf("queue port %q is a LAG member, whose queue is its LAG's", name)
 		}
 		for _, pcp := range unionPCPs(queues.MaxRateBPS, queues.BufferOctets) {
 			field := "queues." + name + ".max_rate_bps." + strconv.Itoa(int(pcp))
