@@ -706,22 +706,23 @@ The comparison evaluates three dispositions:
 - `analysis.Different`: Divergence detected at a behavioral observable.
   `Comparison.Difference` names the first differing observable and the observed
   values on each side (`Difference.Current` and `Difference.Expected`).
-- `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
-  one or both results did not complete (such as an unresolved transceiver, unknown
-  port operational status, or incomplete model readiness).
+- `analysis.Inconclusive`: Either result is incomplete, including when an
+  observable differs. `Difference` still names the first difference found,
+  because incomplete input cannot support a definitive disposition.
 
 ### Behavioral versus diagnostic split
 
-Comparison walks the complete normalized `ForwardResult`:
+Comparison reads the normalized `Output` and its embedded `ForwardResult`:
 
-1. **Outcome**: Typed forwarding decision (`Forwarded`, `Dropped`, `Consumed`).
+1. **Outcome**: Typed forwarding decision (`Forwarded`, `Flooded`, `Dropped`, `Consumed`, `Held`).
 2. **Reason**: Specific discard or forwarding reason (`ReasonNoEgress`, `ReasonPortDown`, etc.).
 3. **FID**: Classified Filtering Database identifier.
 4. **Egress ports**: Set of transmitted egress ports and per-port drops.
 5. **Rewritten frame fields**: Destination MAC, source MAC, EtherType, VLAN tags, and payload.
 6. **LAG member**: Selected physical link aggregation member port.
 7. **Egress PCP**: Output Priority Code Point.
-8. **Mirror copies**: Mirrored frames emitted to monitor ports.
+8. **Mirror copies**: Mirror, logical port, VLAN, selected member, and frame
+   content. Copies are ordered by mirror, port, and VLAN before comparison.
 
 Semantic traces (`Steps`), rule IDs, evidence references, and trust metadata are
 diagnostic: differences in trace steps or diagnostic text alone never produce
@@ -731,7 +732,7 @@ diagnostic: differences in trace steps or diagnostic text alone never produce
 
 `vswitch.Compare` evaluates both switches using `[Switch.Peek]`, which executes
 forwarding without learning source MACs into the filtering database, advancing
-aging timers, or mutating internal tables.
+aging timers, policing traffic, or mutating internal tables.
 
 ## Concurrency contract
 

@@ -411,9 +411,9 @@ A caller compares a current network or switch against a candidate to detect
 regressions and verify equivalence. Comparison evaluates behavioral observables
 rather than whole-state fingerprints or shallow boolean equality:
 
-- **Switch observables.** For `vswitch.ForwardResult`, comparison checks
+- **Switch observables.** For `vswitch.Output`, comparison checks
   forwarded frames per egress port with rewritten fields, the selected LAG
-  member, mirror copies, PCP, and the typed forwarding outcome (`Forwarded`,
+  member, mirror copy VLAN, selected member and frame content, PCP, and the typed forwarding outcome (`Forwarded`,
   `Flooded`, `Dropped`, or `Consumed`, with domain reason). Semantic trace
   steps and metadata are diagnostic and never cause a `Different` verdict.
 - **Fabric observables.** Per paired journey in `fabric.Journey`, comparison
@@ -1118,3 +1118,10 @@ through the shared table. Multicast restoration excludes the spanning tree
 predicate. Bridge and multicast verdicts count lost records, while whole
 layers and traffic compare keys. `Retention` includes bridge and filter.
 `Forget` removes construction seeds as well as the active FDB entry.
+
+### 2026-10-08: Comparison reads mirror content
+
+[`compare.go`](../../src/common/sim/device/vswitch/compare.go) compares
+returned copies by mirror, port, VLAN, member, and frame. Trace facts are
+diagnostic. An incomplete side makes the disposition inconclusive even
+when a behavioral difference is found, and the difference remains visible.

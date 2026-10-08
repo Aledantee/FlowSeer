@@ -1072,6 +1072,13 @@ values. `compare_internal_test.go` gains C3 with an incomplete side that
 also differs. Existing tests that change:
 `TestCompareDetectsMissingMirrorCopy` (`compare_test.go:152`) asserts the
 decision fact's text as the difference and now asserts the copy.
+The first-observable tests construct public `Output` values and assert the
+public `Comparison.Difference` through a test-only adapter in
+`compare_internal_test.go`. This keeps the listed tests in `compare_test.go`
+without reading private layer state. The mirror tests compare literal VLAN,
+member, and snap-length differences with exact values on both sides.
+`TestCompareDetectsMissingMirrorCopy` has no difference-text assertion on
+this tree. It gains the exact copy descriptor and absent expected value.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/internal/simtest docs/architecture/2026-09-10-virtual-device-direction.md`
 
 ### U12. README, comments, and test hygiene
