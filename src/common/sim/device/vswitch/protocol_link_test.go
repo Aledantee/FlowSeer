@@ -406,13 +406,13 @@ func hasProtocolLinkIssue(res vswitch.Output) bool {
 	})
 }
 
-func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
+func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	t.Parallel()
 
 	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {PathCost: 20000}})
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/1", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -422,6 +422,13 @@ func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 	}
 	res := sw.Receive(t0.Add(time.Second), "1/1/3", frame)
+	if hasProtocolLinkIssue(res) {
+		t.Fatalf("unconfigured unknown link raised protocol issues: %+v", res.Metadata.Issues())
+	}
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
+	res = sw.Receive(t0.Add(2*time.Second), "1/1/3", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
@@ -433,7 +440,7 @@ func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
 		if issue.Scope == analysis.PortScope("", "1/1/1") {
 			found = true
 		}
-		if issue.Scope == analysis.PortScope("", "1/1/3") {
+		if issue.Scope == analysis.PortScope("", "1/1/3") || issue.Scope == analysis.PortScope("", "1/1/2") {
 			t.Errorf("unlisted port has protocol issue: %+v", issue)
 		}
 	}

@@ -947,7 +947,11 @@ loop-protected port, and a VLAN member, it runs `Start`, sixty seconds of
 `Advance` at each `NextWake`, and the frame list of U6, and requires that
 no emission names the mirror output. Existing tests that change:
 `TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts` pins entry 6
-and is rewritten to P2. The following migrations retain their original proofs.
+and is renamed to `TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts`,
+rewritten to P2. Its unknown link stays on unconfigured port 1/1/2,
+which raises no protocol-link issue. A second arrival after configured
+port 1/1/1 becomes unknown pins the positive issue and its exact scope.
+The following migrations retain their original proofs.
 P3 also migrates `TestSSTPTraceShapeIsTheSameWithAndWithoutMutation`:
 the classification shape still matches after separating the decision from
 the exact set of per-tree transitions. `Peek` has one decision and no
