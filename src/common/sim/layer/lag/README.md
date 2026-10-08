@@ -478,3 +478,14 @@ not read, so equivalence to its text remains unverified.
 [ovs-bond]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/ofproto/bond.c
 [ovs-lacp]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/lib/lacp.c
 [ovs-bridge]: https://raw.githubusercontent.com/openvswitch/ovs/73e38c8dfd9ff5f95a92e583780cd996ac11bca7/vswitchd/bridge.c
+
+## Switch integration
+
+The switch [intercepts](../../device/vswitch/forward.go) Slow Protocols
+frames on up physical members before relay processing. Subtype 1 decodes
+as LACP and subtype 2 as Marker. A valid LACPDU is consumed. An invalid
+LACPDU drops with `unsupported-lacpdu`. A Slow Protocols group frame on a
+nonmember follows reserved-address handling
+([LACP tests](../../device/vswitch/lag_test.go)). Member link reports update
+the logical LAG's state and the link and speed supplied to spanning tree
+([link.go](../../device/vswitch/link.go)).

@@ -231,7 +231,7 @@ and `ingress_admission_test.go` check cross-cutting contracts.
 - VLAN membership comes from configuration. Q2003 8.10.9 combines static
   and dynamic registration. Group membership arrives through the resolver.
 - A port without a PVID drops untagged ingress as `no-pvid`. Q2003 8.4.4
-  supplies a PVID for every port. The [loader defaults](../../device/vswitch/README.md#loader-defaults)
+  supplies a PVID for every port. The [loader defaults](../../netmodel/README.md#loader-defaults)
   leave it unset when several untagged VLANs exist.
 - Reserved destinations are refused before classification and source
   learning. Q2003 8.6.1 submits ingress-permitted frames to learning.

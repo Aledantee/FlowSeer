@@ -287,8 +287,8 @@ func TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame(t *testing.
 	staticPkt := makeIPv4Packet(t, ipH1, netip.MustParseAddr("10.0.20.9"), 64, []byte("warm"))
 	staticFrame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: staticPkt}
 	warm := captureOutput(callOutputs, sw, sw.Receive(t0, "1/1/1", staticFrame))
-	if warm.Outcome != trace.Forwarded && warm.Outcome != trace.Flooded {
-		t.Fatalf("outcome = %v, want Forwarded or Flooded", warm.Outcome)
+	if warm.Outcome != trace.Forwarded {
+		t.Fatalf("outcome = %v, want Forwarded", warm.Outcome)
 	}
 	if hasIssueCode(warm.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
 		t.Fatalf("issues at t0 = %+v, want none yet: this is the bucket's first assignment", warm.Metadata.Issues())
@@ -403,7 +403,7 @@ func makeNDPFrame(t *testing.T, src, dst netip.Addr, srcMAC, dstMAC netaddr.MAC,
 	return ethernet.Frame{Dst: dstMAC, Src: srcMAC, EtherType: ethernet.EtherTypeIPv6, Payload: packet}
 }
 
-// TestARPObservationReleasesHeldFrameOnRoutedPort covers R21a and R21b on a
+// TestARPObservationReleasesHeldFrameOnRoutedPort checks neighbor reception on a
 // routed port: a routed frame with no neighbor entry holds, an observed ARP
 // reply moves the entry, and Wake releases the held frame as ordinary data
 // (Protocol: false) rather than a protocol frame of the switch's own.
@@ -800,7 +800,7 @@ func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
 	}
 }
 
-// TestARPReplyUnderPeekLeavesTableUntouched covers R20c: Peek observes
+// TestARPReplyUnderPeekLeavesTableUntouched checks that Peek observes
 // nothing, so the same reply that releases a held frame under Forward
 // changes nothing under Peek, and two consecutive Peeks over the pending
 // destination agree.
@@ -971,7 +971,7 @@ func TestRoutingSolicitationDoesNotChargeMulticastQueryToHeldFrame(t *testing.T)
 	}
 }
 
-// TestNDPReachesNeighborPathNotMulticastPath covers R21a for IPv6: a valid
+// TestNDPReachesNeighborPathNotMulticastPath checks IPv6 neighbor reception: a valid
 // Neighbor Advertisement releases the held frame even on a VLAN where MLD
 // snooping is live, because an NDP frame carries no Hop-by-Hop header and so
 // is never a multicast control candidate — it never reaches

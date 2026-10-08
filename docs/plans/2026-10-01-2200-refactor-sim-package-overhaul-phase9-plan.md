@@ -947,7 +947,7 @@ loop-protected port, and a VLAN member, it runs `Start`, sixty seconds of
 `Advance` at each `NextWake`, and the frame list of U6, and requires that
 no emission names the mirror output. Existing tests that change:
 `TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts` pins entry 6
-and is rewritten to P2. No other expectation moves.
+and is rewritten to P2. The following migrations retain their original proofs.
 P3 also migrates `TestSSTPTraceShapeIsTheSameWithAndWithoutMutation`:
 the classification shape still matches after separating the decision from
 the exact set of per-tree transitions. `Peek` has one decision and no
@@ -1095,7 +1095,9 @@ README's file table lists the files of U1. The sentence on exact
 reproducibility says what `Spec` holds: configuration, seeds, node
 identity, and trust metadata, with ports as constructed. Each doc comment
 under Inventory, Completeness says what its code does. `forwardHub` is cut
-under 150 lines. The tests of `acceptance_review_test.go` move to the file
+under 150 lines. It already meets that bound after the ingress split.
+The size gate also exposes `Config.Validate` at 275 lines. Its layer
+composition checks move to private methods without changing check order. The tests of `acceptance_review_test.go` move to the file
 of their subject and the file goes. The five either-outcome assertions
 name the one outcome the test produces. The comments under Inventory,
 Tests lose their history and keep the rule they explain. The three
@@ -1107,7 +1109,10 @@ non-test file of `V` exceeds 1,200 lines or a function 150 without the
 comment R5 allows: `TestSourceSizeLimits` in `size_test.go`, written with
 `go/parser`. Existing tests that change: the five
 assertions, each to the outcome read from a run of the test before the
-edit.
+edit. The seed-time identity fixture uses a fixed wall instant. A clock
+reading shifted with `Time.Add` supplies the monotonic representation
+without changing that instant, preserving the test of monotonic removal.
+The other two timestamp fixtures use literal instants.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/stp/README.md src/common/sim/layer/loopprotect/README.md src/common/sim/layer/lag/README.md src/common/sim/layer/phy/README.md src/common/sim/layer/bridge/README.md src/common/sim/netmodel/README.md`
 
 Waves: U1 U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12

@@ -9,18 +9,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// Derive builds a new [Switch] from the target construction specification, seeding it with every
-// dynamic forwarding database entry from the current switch that the new configuration
-// still admits. Reseeded dynamic entries count as learned and are bounded by the new
-// configuration's MaxEntries, evicting from the oldest. Static entries and construction
-// trust come only from target.
-// A derived standalone switch keeps spanning tree roles when their layer
-// configuration is unchanged, and keeps eligible multicast memberships and
-// learned router ports whenever multicast snooping remains enabled.
-// It keeps LAG runtime state only while every member's administrative and operational
-// state also matches the target.
-// Output reports held frames failed by a routing rebuild as Drops.
-// Derive returns an error if the target specification fails validation.
+// Derive constructs the target and carries eligible state through the layer table.
+// Whole-layer retention compares normalized dependency keys. Bridge and multicast
+// retention report whether any source record was lost. Traffic retains unchanged
+// policer buckets independently of its whole-layer verdict. Filter is rebuilt.
+// Dynamic bridge entries remain bounded by target capacity. Static seeds and
+// construction trust come from the target. Port duplex and speed move together
+// only where port and PHY dependencies match. Output reports held-frame drops
+// from rebuilt routing. An invalid target returns an error.
 func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 	next, err := NewWithSpec(target)
 	if err != nil {

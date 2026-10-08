@@ -117,7 +117,7 @@ func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 }
 
 // NextWake returns the earliest scheduled time at which the switch needs to be woken,
-// and reports whether any timer is active across the switch's timed layers.
+// and reports whether any timer is active in the shared layer table.
 func (s *Switch) NextWake() (time.Time, bool) {
 	var (
 		earliest time.Time

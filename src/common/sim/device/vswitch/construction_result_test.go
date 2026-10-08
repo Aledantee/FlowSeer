@@ -464,7 +464,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0x01, 0x02, 0x03, 0x04, 0x05},
 		Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	}
-	now := time.Now()
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 
 	// Ingress on Unknown oper status port: produces Incomplete issue and does not forward
 	resUnknown := sw.Receive(now, "1/1/1", frame)
@@ -540,7 +540,7 @@ func TestRepresentativeSemanticTraceSteps(t *testing.T) {
 		t.Fatalf("vswitch.New: %v", err)
 	}
 
-	now := time.Now()
+	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{
 		Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 		Dst: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},

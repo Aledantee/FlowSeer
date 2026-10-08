@@ -152,7 +152,7 @@ func (s *Switch) Roles() map[string]stp.PortInfo {
 }
 
 // TreeRoles returns the runtime spanning tree status for each configured port
-// across each configured VLAN, or nil if the spanning tree layer is absent.
+// across each configured VLAN, or nil if the layer or VLAN table is absent.
 func (s *Switch) TreeRoles() map[vlan.ID]map[string]stp.PortInfo {
 	if s.stp == nil || s.cfg.STP == nil {
 		return nil
@@ -194,9 +194,8 @@ func (s *Switch) configuredVLANs() []vlan.ID {
 				}
 			}
 			// Sample the CIST via VLAN 1 (which maps to MSTID 0 by default).
-			// Residual limitation: if VLAN 1 is itself assigned to an MSTI, VLAN 1
-			// no longer maps to the CIST and a fuller fix must sample the CIST directly
-			// via MSTID 0, which the vlan.ID-keyed TreeRoles shape cannot express.
+			// If VLAN 1 is assigned to an MSTI, this sample names that MSTI.
+			// The VLAN-keyed return shape cannot express MSTID 0 directly.
 			seen[1] = struct{}{}
 		}
 	}

@@ -671,8 +671,8 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 	}
 
 	res := nextSw.Receive(fixedTime, "1/1/1", frame)
-	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
-		t.Fatalf("outcome = %v, want Forwarded or Flooded", res.Outcome)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("outcome = %v, want Flooded", res.Outcome)
 	}
 	if res.FID != 20 {
 		t.Errorf("res.FID = %d, want 20", res.FID)
@@ -760,8 +760,8 @@ func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
 	}
 
 	resA := captureOutput(callOutputs, next, next.Receive(fixedTime.Add(3*time.Millisecond), "1/1/1", frameA))
-	if resA.Outcome != trace.Flooded && resA.Outcome != trace.Forwarded {
-		t.Fatalf("outcome for the retained neighbor = %v, want Forwarded or Flooded", resA.Outcome)
+	if resA.Outcome != trace.Forwarded {
+		t.Fatalf("outcome for the retained neighbor = %v, want Forwarded", resA.Outcome)
 	}
 
 	// Held frame survived Derive: resolve it via ARP reply and Advance
@@ -805,5 +805,49 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 	// Held frame is reported as failed rather than silently lost
 	if failures := takeDrops(callOutputs, next); len(failures) != 1 {
 		t.Errorf("neighbor failures = %d, want 1", len(failures))
+	}
+}
+
+func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
+	frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}}
+	for _, test := range []struct {
+		name  string
+		admin port.LinkState
+		oper  port.LinkState
+	}{
+		{name: "oper up to down", admin: port.Up, oper: port.Down},
+		{name: "oper up to unknown", admin: port.Up, oper: port.Unknown},
+		{name: "admin up to down", admin: port.Down, oper: port.Up},
+		{name: "admin up to unknown", admin: port.Unknown, oper: port.Up},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			currentConfig := lagDeriveConfig(t, port.Up, port.Up)
+			current := mustSwitch(t, currentConfig)
+			if member, ok := current.SelectMember(fixedTime, "lag1", frame, 0); !ok || member != "member" {
+				t.Fatalf("current selection = (%q, %t), want member", member, ok)
+			}
+
+			targetConfig := lagDeriveConfig(t, test.admin, test.oper)
+			derived, _, err := vswitch.Derive(current, vswitch.ConstructionSpec{Config: targetConfig})
+			if err != nil {
+				t.Fatalf("Derive: %v", err)
+			}
+			fresh := mustSwitch(t, targetConfig)
+
+			derivedMember, derivedOK := derived.SelectMember(fixedTime, "lag1", frame, 0)
+			freshMember, freshOK := fresh.SelectMember(fixedTime, "lag1", frame, 0)
+			if derivedMember != freshMember || derivedOK != freshOK {
+				t.Errorf("derived selection = (%q, %t), fresh = (%q, %t)", derivedMember, derivedOK, freshMember, freshOK)
+			}
+
+			derivedResult := derived.Receive(fixedTime, "in", frame)
+			freshResult := fresh.Receive(fixedTime, "in", frame)
+			if !reflect.DeepEqual(derivedResult.Result, freshResult.Result) {
+				t.Errorf("derived forwarding = %+v, fresh = %+v", derivedResult.Result, freshResult.Result)
+			}
+			if derivedResult.Metadata.Status() != freshResult.Metadata.Status() {
+				t.Errorf("derived status = %s, fresh = %s", derivedResult.Metadata.Status(), freshResult.Metadata.Status())
+			}
+		})
 	}
 }

@@ -33,8 +33,8 @@ type PowerResult struct {
 }
 
 // Switch simulates a network device composed of a port table and optional
-// physical-layer, bridge, link aggregation, spanning tree, multicast snooping,
-// layer 3 routing, and traffic subsystems.
+// physical, bridge, filter, link aggregation, spanning tree, loop protection,
+// multicast, routing, and traffic layers.
 // [Switch.Receive], [Switch.ReceiveMirrored], and [Switch.Advance] return their
 // output directly. [Switch.Peek] returns the output without changing runtime state.
 //

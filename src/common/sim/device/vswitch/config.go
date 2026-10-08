@@ -1,4 +1,5 @@
-// Package vswitch composes port, physical, and bridge layers into a virtual switch.
+// Package vswitch composes Ethernet relay, routing, protocol, and traffic layers
+// into a synchronous virtual switch with per-call output and trust metadata.
 package vswitch
 
 import (
@@ -175,6 +176,23 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	if err := c.validateLoopProtectComposition(env); err != nil {
+		return err
+	}
+	if err := c.validateMcastComposition(env); err != nil {
+		return err
+	}
+	if err := c.validateRoutingComposition(env); err != nil {
+		return err
+	}
+	if err := c.validateFilterComposition(env); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c Config) validateLoopProtectComposition(env layer.Env) error {
 	if c.LoopProtect != nil {
 		if c.Bridge == nil {
 			return errs.New().Attr("field", "loop_protect").Msg("loop protection requires bridge configuration")
@@ -246,6 +264,11 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func (c Config) validateMcastComposition(env layer.Env) error {
 	if c.Mcast != nil {
 		if err := c.Mcast.Validate(env); err != nil {
 			return err
@@ -279,6 +302,11 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func (c Config) validateRoutingComposition(env layer.Env) error {
 	if c.Routing != nil {
 		if err := c.Routing.Validate(env); err != nil {
 			return err
@@ -379,6 +407,11 @@ func (c Config) Validate() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+func (c Config) validateFilterComposition(env layer.Env) error {
 	if c.Filter != nil {
 		if c.Routing == nil {
 			return errs.New().Attr("field", "filter").Msg("filter requires routing configuration")

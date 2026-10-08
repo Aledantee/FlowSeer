@@ -1,10 +1,14 @@
 package vswitch_test
 
 import (
+	"net/netip"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -14,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -546,5 +551,105 @@ func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {
 	outRes := sw.Receive(t0.Add(10*time.Second), "in", outFrame)
 	if hasIssueCode(outRes.Metadata.Issues(), vswitch.IssueLAGRebalanceUnmodeled) {
 		t.Errorf("unrelated journey through out issues = %+v, want no lag-rebalance-unmodeled", outRes.Metadata.Issues())
+	}
+}
+
+func TestFailedLAGMemberIngressReportsBothStatesAndDecisivePort(t *testing.T) {
+	deviceMAC := netaddr.MAC{2, 0, 0, 0, 0, 1}
+	frame := ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 2}, Dst: deviceMAC}
+	bpdu := mustEncode(t, bpdu.BPDU{
+		RootID:       bpdu.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
+		BridgeID:     bpdu.BridgeID{Priority: stp.DefaultBridgePriority, Address: deviceMAC},
+		PortID:       0x8001,
+		HelloTime:    stp.DefaultHelloTime,
+		MaxAge:       stp.DefaultMaxAge,
+		ForwardDelay: stp.DefaultForwardDelay,
+	}, deviceMAC)
+
+	for _, state := range []struct {
+		name       string
+		memberOper port.LinkState
+		parentOper port.LinkState
+		decisive   string
+		factNames  []string
+	}{
+		{name: "member down", memberOper: port.Down, parentOper: port.Up, decisive: "member", factNames: []string{"member"}},
+		{name: "parent down", memberOper: port.Up, parentOper: port.Down, decisive: "lag1", factNames: []string{"member", "lag1"}},
+	} {
+		for _, pipeline := range []struct {
+			name  string
+			frame ethernet.Frame
+			cfg   func(port.Table) vswitch.Config
+		}{
+			{
+				name:  "bridge",
+				frame: frame,
+				cfg: func(ports port.Table) vswitch.Config {
+					return vswitch.Config{MAC: deviceMAC, Ports: ports, Bridge: &bridge.Config{}}
+				},
+			},
+			{
+				name:  "routed",
+				frame: frame,
+				cfg: func(ports port.Table) vswitch.Config {
+					return vswitch.Config{
+						MAC: deviceMAC, Ports: ports,
+						Routing: &routing.Config{VRFs: map[string]routing.VRF{
+							routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+								"lag1": {Port: "lag1", Prefixes: []netip.Prefix{netip.MustParsePrefix("192.0.2.1/24")}},
+							}},
+						}},
+					}
+				},
+			},
+			{
+				name:  "bpdu",
+				frame: bpdu,
+				cfg: func(ports port.Table) vswitch.Config {
+					return vswitch.Config{
+						MAC: deviceMAC, Ports: ports, Bridge: &bridge.Config{},
+						STP: &stp.Config{Address: deviceMAC, Ports: map[string]stp.Port{"lag1": {}}},
+					}
+				},
+			},
+		} {
+			t.Run(pipeline.name+"/"+state.name, func(t *testing.T) {
+				ports := mustTable(t, port.NewBuilder().
+					Add(port.Port{Name: "member", LagParent: "lag1", AdminStatus: port.Up, OperStatus: state.memberOper}).
+					Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: state.parentOper}))
+				res := mustSwitch(t, pipeline.cfg(ports)).Receive(fixedTime, "member", pipeline.frame)
+				if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
+					t.Fatalf("result = %s/%s, want Dropped/port-down", res.Outcome, res.Reason)
+				}
+				if len(res.Steps) == 0 || res.Steps[0].Subject != (trace.Subject{Kind: "port", Key: state.decisive}) {
+					t.Fatalf("steps = %+v, want decisive port %q", res.Steps, state.decisive)
+				}
+
+				facts := append(slices.Clone(res.Steps[0].Inputs), res.Steps[0].Outputs...)
+				for _, name := range state.factNames {
+					if !slices.ContainsFunc(facts, func(fact trace.Fact) bool {
+						return fact.TypeID() == "port.forwarding" && strings.Contains(fact.Canonical(), `name="`+name+`"`)
+					}) {
+						t.Errorf("decision facts = %+v, want state for %q", facts, name)
+					}
+				}
+			})
+		}
+	}
+}
+
+func lagDeriveConfig(t *testing.T, admin, oper port.LinkState) vswitch.Config {
+	t.Helper()
+
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: admin, OperStatus: oper}))
+
+	return vswitch.Config{
+		Ports: ports,
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Members: map[string]lag.Member{"member": {}}},
+		}},
 	}
 }

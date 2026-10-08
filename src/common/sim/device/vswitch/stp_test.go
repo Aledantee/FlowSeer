@@ -1320,10 +1320,8 @@ func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 	}
 }
 
-// TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1 is evidence for the
-// boundary this phase reports: a journey on a VLAN whose tree stops at the
-// port carries the issue, and a VLAN 1 journey through the same port does
-// not, because VLAN 1 is the one tree that does converge across the boundary.
+// A VLAN whose tree stops at a boundary port carries the issue. VLAN 1
+// converges through the IEEE-addressed common tree and carries no boundary issue.
 func TestPVSTBoundaryIssueIsRaisedPerVLANAndNotForVLAN1(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
@@ -1748,12 +1746,8 @@ func TestSSTPFrameConsultsTheSTPScopeWhenSpanningTreeIsMissing(t *testing.T) {
 	}
 }
 
-// TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard is the regression test for
-// the defect this unit fixes: a rogue bridge cannot evade BPDU guard by
-// tagging its BPDU with a VLAN the ingress port does not admit. BPDU guard
-// lives in the link half of a receive, which now runs before the switch's
-// admission answer decides anything about the tree, so a frame that decodes
-// still disables the port even when the layer goes on to refuse the VLAN.
+// BPDU guard applies to the link before tree admission. A decoded rogue
+// BPDU disables the port even when its VLAN is not admitted.
 func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
@@ -1770,7 +1764,7 @@ func TestSSTPForAnUnadmittedVLANStillFiresBPDUGuard(t *testing.T) {
 
 	// VLAN 30 is not in the bridge's VLAN table, so it is not admitted on
 	// this port. A gate that refused the frame before the layer saw it would
-	// never let BPDU guard fire; the fix is that the layer's link half runs
+	// prevent BPDU guard. The layer's link half runs
 	// regardless.
 	rogue, err := bpdu.EncodeSSTP(bpdu.BPDU{
 		RootID:       bpdu.BridgeID{Priority: 0, Address: peer},
@@ -1998,14 +1992,8 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 	}
 }
 
-// TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted is the regression
-// test for the defect where a bpdu-guard hit on a VLAN the port does not
-// admit rendered as stp.sstp.admit with an all-zero decision fact: ReceiveSSTP
-// returns SSTPGuarded because the link half of a receive runs before
-// admission is judged, and the outcome alone does not say whether the
-// frame's own VLAN was ever admitted. The journey must say
-// vlan-not-admitted, not admit, for this frame — the port carries VLANs 1
-// and 10 only.
+// A guard action does not admit the frame's VLAN. The trace records
+// vlan-not-admitted when the ingress port does not carry that VLAN.
 func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
@@ -2065,20 +2053,15 @@ func TestSSTPGuardedFrameOnAnUnadmittedVLANTracesAsNotAdmitted(t *testing.T) {
 		t.Errorf("decision fact before != after: %q vs %q, want equal for an unadmitted, untracked VLAN", beforeSeg, afterSeg)
 	}
 
-	// BPDU guard still disabled the port: the fix must not weaken the guard
-	// while correcting how the frame is traced.
+	// BPDU guard disables the port independently of the VLAN admission trace.
 	info := sw.Roles()["1/1/1"]
 	if info.BlockReason != stp.BlockReasonBPDUGuard {
 		t.Errorf("block reason = %q, want %q", info.BlockReason, stp.BlockReasonBPDUGuard)
 	}
 }
 
-// TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown is the regression test
-// for the defect where stp.SSTPPortDown fell through to the default arm and
-// rendered as stp.sstp.admit: Config.Validate checks that every STP port
-// exists in the port table, not the reverse, so an operationally-up port
-// stp.Config.Ports omits passes the port table's own receive check and
-// reaches ReceiveSSTP, which is what actually refuses it.
+// An operationally-up port omitted from stp.Config.Ports is unlinked in
+// the spanning tree layer and reports port-down.
 func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
@@ -2116,15 +2099,8 @@ func TestSSTPOnAPortTheLayerDoesNotTrackTracesAsPortDown(t *testing.T) {
 	}
 }
 
-// TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress is the regression test
-// for the defect where arrivalVID took an outer tag's VID under any TPID
-// while tagged required a dot1Q-shaped TPID: a frame with an 0x88A8 outer tag
-// carrying VID 10 read as arrivalVID=10, tagged=false, which
-// AdmitsVIDOnIngress judges as an untagged VLAN 10 frame on a port whose
-// untagged VLAN is 1 and refuses — while bridge.Layer.Ingress treats an
-// outer tag whose TPID names neither dot1Q nor the codec's untagged zero
-// value as not a VLAN tag at all, and classifies the same frame into the
-// port's untagged VLAN 1.
+// An outer service tag does not select an SSTP arrival VLAN. The frame
+// uses the port's untagged VLAN, matching bridge ingress classification.
 func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()

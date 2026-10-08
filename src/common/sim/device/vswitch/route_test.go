@@ -1121,8 +1121,8 @@ func TestRoutedSubInterfaceForwardingAndTagMiss(t *testing.T) {
 	})
 
 	t.Run("a bridge VLAN sharing the sub-interface's VID still floods rather than routing to it", func(t *testing.T) {
-		// If the bridge VLAN index answered VLAN 10 with the sub-interface (the regression
-		// this pins), Owns would match the frame's router-MAC destination and it would leave
+		// A bridge VLAN lookup must exclude the sub-interface. Otherwise Owns
+		// would match the frame's router-MAC destination and it would leave
 		// tagged out eth1 instead of taking the ordinary no-egress flood drop on swport alone.
 		frame := ethernet.Frame{
 			Src:       macH1,
@@ -1250,8 +1250,8 @@ func TestRoutedFrameLeavesOnSameTrunkPort(t *testing.T) {
 	}
 
 	res := sw.Receive(fixedTime, "1/1/1", frame)
-	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
-		t.Fatalf("outcome = %v, want Forwarded or Flooded", res.Outcome)
+	if res.Outcome != trace.Flooded {
+		t.Fatalf("outcome = %v, want Flooded", res.Outcome)
 	}
 	if len(res.Egress) != 1 {
 		t.Fatalf("len(res.Egress) = %d, want 1", len(res.Egress))
@@ -1599,8 +1599,8 @@ func TestPeekLeavesFDBUnchangedWithRouting(t *testing.T) {
 	}
 
 	res := sw.Peek(fixedTime, "1/1/1", frame)
-	if res.Outcome != trace.Flooded && res.Outcome != trace.Forwarded {
-		t.Errorf("Peek outcome = %v, want Forwarded or Flooded", res.Outcome)
+	if res.Outcome != trace.Flooded {
+		t.Errorf("Peek outcome = %v, want Flooded", res.Outcome)
 	}
 	entriesAfter := sw.Entries()
 	if len(entriesBefore) != len(entriesAfter) {

@@ -55,7 +55,8 @@ func compareResults(cur, exp Output) Comparison {
 // Compare evaluates a frame arrival on both switches using [Switch.Peek] without mutating
 // their forwarding tables, returning both results and reporting their exact behavioral
 // disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-// On [analysis.Different], Difference names the first differing observable in declared order:
+// Difference names the first differing observable even when incomplete input
+// makes the disposition [analysis.Inconclusive]. Its declared order is:
 // typed forwarding outcome and reason, classified FID, egress ports and per-port drops,
 // rewritten frame fields (dst, src, ethertype, tags, payload), selected LAG member,
 // egress PCP, and mirror copies. Semantic traces and metadata are diagnostic and never
