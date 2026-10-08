@@ -402,20 +402,24 @@ or a runtime configuration the next one edits.
 
 ## Review gaps
 
-Open items of the review of `8c4c85ea..633242b6` and of its fix round over
-`d4c9891f..cc4094f0`. The first item holds the verdict, and the others do
-not. The behavior findings that hold it are in the commits that record each
-verdict.
+Open items of the review of `8c4c85ea..633242b6` and of its fix rounds over
+`d4c9891f..cc4094f0` and `316b0150..3cdc9f28`. The first item is a blocking
+false test. The others do not hold the verdict. The behavior findings that
+hold it are in the commits that record each verdict.
 
-- tools/scripts/tests/hooks/test_mark_verification_dirty.py:48: the `finally` that removes the temporary listing in `mark_verification_dirty.py:76` replaced by `pass`; fails: a Bash call whose tree listing fails, expecting no `flowseer-tree-state.*` file in the git directory; class: false test, blocking; review-fix-test: yes
+- tools/scripts/tests/hooks/test_worktree.py:663: `return None` in `worktree_guard.words` replaced by `return []`, and `return False` after `names is None` replaced by `return True` in `deletes_only_untracked` and in `writes_only_outside`; fails: a `PATH` that holds `git` and no `bash`, expecting `deny` for `rm <untracked file>` and for `touch <outside>/f`; class: false test, blocking; review-fix-test: yes
+- tools/scripts/tests/hooks/test_worktree.py:666: the expected list comes from the command and the split that `worktree_guard.words` runs, so a name that holds a line feed passes, and `.splitlines()` and a removed blank-command return also pass; fails: an expected list from `for tok in $1` with each word ended by a NUL, over a blank command, a name with a carriage return, and a name with a line feed; class: false test
+- tools/scripts/tests/hooks/test_mark_verification_dirty.py:67: the append in `mark_edit` wrapped in `except OSError: pass`; fails: an Edit event with the marker path a directory, expecting a non-zero exit; class: gap
+- tools/scripts/hooks/worktree_guard.py:232: the exit status of `bash` is not read, so a `bash` that exits non-zero with no output gives no words and `rm README.md` is allowed; fails: a `bash` stub that exits 9, expecting `deny`; class: hardening
+- tools/scripts/hooks/mark_verification_dirty.py:106: the marks are one write where the shell appended one line per `printf`, so an append that fails after the first line drops the later marks while the listing is saved; fails: an append that fails once after `a.go`, expecting `b.go` marked; class: gap
+- docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase3-plan.md:71: the Decision says the port expands each token with `glob.glob`, and `worktree_guard.words` runs `bash`; fails: none; class: convention
 - tools/scripts/tests/hooks/test_pre_tool_policy.py:1: the `except Exception` deny removed from `pre_tool_policy.py:115` and from `protect_generated_bash.py:121`; fails: a case that makes each guard raise and expects `deny`; class: gap
 - tools/scripts/tests/hooks/test_protect_generated_bash.py:215: the `MUTATE` reason sentence replaced by `CHANGED REASON.`; fails: a table row that pins the reason of each branch that prints one; class: gap
-- tools/scripts/tests/hooks/test_worktree.py:137: `names = []` in `worktree_guard.words`; fails: `touch <parent>/nor*/README.md` from the checkout `normal`, expecting `deny`; class: false test
 - tools/scripts/tests/hooks/test_stop_check.py:126: `failed_gate` runs every gate and returns the first failure's output; fails: a recording `go` stub under two gate directories, expecting one `go test` call; class: false test
 - tools/scripts/tests/hooks/test_post_tool.py:226: the hook prints `{"hookSpecificOutput":{"additionalContext":""}}` where it printed nothing, also at `:284`, `:286`, `:289`, `:291`; fails: `hook.silent` on those calls; class: false test
 - tools/scripts/tests/verify/test_service_otel_integration.py:107: the wrapper also prints a line on standard output, also at `:114`, `:127`, `:149`, `:161`, `:173`; fails: an empty standard output beside the exact standard error; class: false test
 - tools/scripts/tests/hooks/test_idle_stdin.py:93: the `*.sh` scan and `BARE_READ` search a directory that holds no shell script, and `assertTrue(commands)` at `:41` follows a call that raises on an empty list; fails: none, the lines cannot fail; class: convention
 - tools/scripts/lib/hookio.py:117: git output read in text mode turns a carriage return into a line feed, also at `worktree_guard.py:157`, `create_worktree.py:70` and `:126`, `mark_verification_dirty.py:73`, `proto_check.py:52`, `stop_check.py:59` and `:88`; fails: an Edit under `generated/` in a checkout directory named with a carriage return, expecting `deny`; class: convention
 - tools/scripts/hooks/go_format.py:64: standard output is printed before standard error where the shell merged them in the order written, also at `proto_check.py:113`; fails: a stub that writes error, output, error, expecting that order; class: convention
-- tools/scripts/lib/hookio.py:106: a field of the wrong JSON type, a second JSON value, a line feed inside or after a field, and a NUL in a command give a verdict the shell did not, also at `hookio.py:193`, `worktree_guard.py:163` and `:339` (an uncaught `ValueError`), `create_worktree.py:85`, `stop_check.py:125`, `treestate.py:35`; fails: a Write with `file_path: 7` in the primary checkout, expecting `deny`; class: hardening
-- tools/scripts/hooks/worktree_guard.py:316: `CLAUDE_WORKTREE_GUARD_BRANCHES` is split on every blank and its words are not expanded; fails: the value `ma*` beside a file named `main`, expecting `deny`; class: hardening
+- tools/scripts/lib/hookio.py:106: a field of the wrong JSON type, a second JSON value, a line feed inside or after a field, and a NUL in a command give a verdict the shell did not, also at `hookio.py:193`, `worktree_guard.py:163` and `:353` (an uncaught `ValueError`), `create_worktree.py:85`, `stop_check.py:125`, `treestate.py:35`; fails: a Write with `file_path: 7` in the primary checkout, expecting `deny`; class: hardening
+- tools/scripts/hooks/worktree_guard.py:330: `CLAUDE_WORKTREE_GUARD_BRANCHES` is split on every blank and its words are not expanded; fails: the value `ma*` beside a file named `main`, expecting `deny`; class: hardening
