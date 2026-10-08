@@ -402,9 +402,12 @@ or a runtime configuration the next one edits.
 
 ## Review gaps
 
-Follow-ups of the review of `8c4c85ea..633242b6`. None holds the verdict.
-The two behavior findings that do are in the commit that records it.
+Open items of the review of `8c4c85ea..633242b6` and of its fix round over
+`d4c9891f..cc4094f0`. The first item holds the verdict, and the others do
+not. The behavior findings that hold it are in the commits that record each
+verdict.
 
+- tools/scripts/tests/hooks/test_mark_verification_dirty.py:48: the `finally` that removes the temporary listing in `mark_verification_dirty.py:76` replaced by `pass`; fails: a Bash call whose tree listing fails, expecting no `flowseer-tree-state.*` file in the git directory; class: false test, blocking; review-fix-test: yes
 - tools/scripts/tests/hooks/test_pre_tool_policy.py:1: the `except Exception` deny removed from `pre_tool_policy.py:115` and from `protect_generated_bash.py:121`; fails: a case that makes each guard raise and expects `deny`; class: gap
 - tools/scripts/tests/hooks/test_protect_generated_bash.py:215: the `MUTATE` reason sentence replaced by `CHANGED REASON.`; fails: a table row that pins the reason of each branch that prints one; class: gap
 - tools/scripts/tests/hooks/test_worktree.py:137: `names = []` in `worktree_guard.words`; fails: `touch <parent>/nor*/README.md` from the checkout `normal`, expecting `deny`; class: false test
@@ -412,9 +415,7 @@ The two behavior findings that do are in the commit that records it.
 - tools/scripts/tests/hooks/test_post_tool.py:226: the hook prints `{"hookSpecificOutput":{"additionalContext":""}}` where it printed nothing, also at `:284`, `:286`, `:289`, `:291`; fails: `hook.silent` on those calls; class: false test
 - tools/scripts/tests/verify/test_service_otel_integration.py:107: the wrapper also prints a line on standard output, also at `:114`, `:127`, `:149`, `:161`, `:173`; fails: an empty standard output beside the exact standard error; class: false test
 - tools/scripts/tests/hooks/test_idle_stdin.py:93: the `*.sh` scan and `BARE_READ` search a directory that holds no shell script, and `assertTrue(commands)` at `:41` follows a call that raises on an empty list; fails: none, the lines cannot fail; class: convention
-- tools/scripts/hooks/worktree_guard.py:163: the docstring names `jq`, so the Verification search of Requirement 3 prints a line; fails: `git grep -w jq -- tools/scripts/hooks tools/scripts/lib tools/scripts/verify` printing nothing; class: convention
-- tools/scripts/hooks/create_worktree.py:14: comments describe the deleted shell script, also at `:67`, `mark_verification_dirty.py:78`, `suppression_warn.py:40`; fails: none; class: convention
-- tools/scripts/lib/hookio.py:117: git output read in text mode turns a carriage return into a line feed, also at `worktree_guard.py:156`, `create_worktree.py:70` and `:126`, `mark_verification_dirty.py:73`, `proto_check.py:52`, `stop_check.py:59` and `:88`; fails: an Edit under `generated/` in a checkout directory named with a carriage return, expecting `deny`; class: convention
+- tools/scripts/lib/hookio.py:117: git output read in text mode turns a carriage return into a line feed, also at `worktree_guard.py:157`, `create_worktree.py:70` and `:126`, `mark_verification_dirty.py:73`, `proto_check.py:52`, `stop_check.py:59` and `:88`; fails: an Edit under `generated/` in a checkout directory named with a carriage return, expecting `deny`; class: convention
 - tools/scripts/hooks/go_format.py:64: standard output is printed before standard error where the shell merged them in the order written, also at `proto_check.py:113`; fails: a stub that writes error, output, error, expecting that order; class: convention
-- tools/scripts/lib/hookio.py:106: a field of the wrong JSON type, a second JSON value, a line feed inside or after a field, and a NUL in a command give a verdict the shell did not, also at `hookio.py:193`, `worktree_guard.py:162` and `:335` (an uncaught `ValueError`), `create_worktree.py:85`, `stop_check.py:125`, `treestate.py:35`; fails: a Write with `file_path: 7` in the primary checkout, expecting `deny`; class: hardening
-- tools/scripts/hooks/worktree_guard.py:312: `CLAUDE_WORKTREE_GUARD_BRANCHES` is split on every blank and its words are not expanded; fails: the value `ma*` beside a file named `main`, expecting `deny`; class: hardening
+- tools/scripts/lib/hookio.py:106: a field of the wrong JSON type, a second JSON value, a line feed inside or after a field, and a NUL in a command give a verdict the shell did not, also at `hookio.py:193`, `worktree_guard.py:163` and `:339` (an uncaught `ValueError`), `create_worktree.py:85`, `stop_check.py:125`, `treestate.py:35`; fails: a Write with `file_path: 7` in the primary checkout, expecting `deny`; class: hardening
+- tools/scripts/hooks/worktree_guard.py:316: `CLAUDE_WORKTREE_GUARD_BRANCHES` is split on every blank and its words are not expanded; fails: the value `ma*` beside a file named `main`, expecting `deny`; class: hardening
