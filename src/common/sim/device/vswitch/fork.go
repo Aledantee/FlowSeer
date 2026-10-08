@@ -3,18 +3,14 @@ package vswitch
 import (
 	"maps"
 	"slices"
-
-	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"time"
 )
 
 // Fork returns an independent executable copy of the switch. Construction
 // configuration, ports, phy resolution, node identity, and trust metadata are
-// shared; capability layers, policer buckets, seeds, and forwarding issues are
-// deep-copied. Fork leaves the packet filter unset on the fork. Bridge selector,
-// resolver, and gate bindings are rebound to the fork's own cloned layers.
+// shared. Capability layers, including packet filters, policer buckets, seeds,
+// and forwarding issues are deep-copied. Bridge selector, resolver, and gate
+// bindings are rebound to the fork's own cloned layers.
 // The call in progress is unset on the fork.
 func (s *Switch) Fork() *Switch {
 	cp := &Switch{
@@ -39,37 +35,17 @@ func (s *Switch) Fork() *Switch {
 	if s.protocolIssues != nil {
 		cp.protocolIssues = maps.Clone(s.protocolIssues)
 	}
-	if s.traffic != nil {
-		cp.traffic = s.traffic.Clone()
-	}
-	if s.stp != nil {
-		cp.stp = s.stp.Clone()
-	}
-	if s.loopprotect != nil {
-		cp.loopprotect = s.loopprotect.Clone()
-	}
-	if s.lag != nil {
-		cp.lag = s.lag.Clone()
-	}
-	if s.mcast != nil {
-		cp.mcast = s.mcast.Clone()
-	}
-	if s.routing != nil {
-		cp.routing = s.routing.Clone()
-	}
-	if s.bridge != nil {
-		cp.bridge = s.bridge.Clone()
-		if cp.stp != nil {
-			cp.bridge.SetGate(cp.stp, protocolScope(cp.nodeID, stp.LayerName))
+	entries := s.layers(time.Time{})
+	for _, entry := range entries {
+		if entry.clone != nil {
+			entry.clone(s, cp)
 		}
-		if cp.loopprotect != nil {
-			cp.bridge.SetGate(cp.loopprotect, protocolScope(cp.nodeID, loopprotect.LayerName))
-		}
-		if cp.lag != nil {
-			cp.bridge.SetSelector(lagSelector{sw: cp}, protocolScope(cp.nodeID, lag.LayerName))
-		}
-		if cp.mcast != nil {
-			cp.bridge.SetGroupResolver(mcastResolver{sw: cp}, protocolScope(cp.nodeID, mcast.LayerName), mcast.LayerName, mcast.RuleGroupMembers)
+	}
+	if cp.bridge != nil {
+		for _, entry := range entries {
+			if entry.bind != nil {
+				entry.bind(cp)
+			}
 		}
 	}
 	cp.retention = allKeptRetention()

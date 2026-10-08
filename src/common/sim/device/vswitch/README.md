@@ -517,12 +517,17 @@ Exported constructors validate and normalize configurations:
 - [Switch.Fork] creates an independent executable copy of a running switch that
   diverges freely. Construction inputs (`cfg`, `nodeID`, `metadata`) are
   shared, while mutable runtime state (forwarding tables, dynamic entries,
-  seeds, counters, layer states) is deep-copied. Fork leaves the packet filter
-  unset on the fork. Bridge back-pointers (STP/loop-protect gates, LAG
+  seeds, counters, layer states) is deep-copied. `Fork` loops over the layer
+  table in `layers.go` to clone every configured layer, including the packet
+  filter. Bridge back-pointers (STP/loop-protect gates, LAG
   selectors, multicast resolvers) are rebound to the fork's own layers.
   [bridge.Layer.Clone] provides the underlying bridge copy, cloning FDB entries,
   dynamic counts, and counters while resetting bindings for the caller to
   rebind. Neither `Fork` nor `Clone` blocks or allocates goroutines.
+  `TestForkKeepsTheFilter` checks that the same bound rule drops a frame on
+  the source and its fork. `TestForkCapabilityMatrix` checks equal outputs
+  across 192 valid capability combinations and isolates an hour of fork
+  advancement from the source.
 - [Switch.Receive] and [Switch.Peek] return [Output], embedding [ForwardResult]
   and carrying emissions, copies, and held-frame drops. The result combines the domain
   [bridge.Result] with [analysis.Metadata] recording scoped issues, operational

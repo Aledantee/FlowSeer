@@ -233,18 +233,24 @@ the state between two devices is what this operation exists to show.
 `Fork`'s copy rule follows from what each field is, not from a rule written
 once and trusted. Construction fixes some fields and execution mutates the
 rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
-classes. An `immutableShared` field is unwritten after construction; the
+classes. An `immutableShared` field is unwritten after construction. The
 fork points at the same value the source does. A `deepCopied` field is
-mutated by execution; the fork gets its own copy the source's later writes
-cannot reach. A `resetOnFork` field is a binding back to the switch or
-bridge that holds it — the bridge's spanning-tree gate, its LAG selector,
-its multicast resolver — and is rebound to the fork's own layers rather than
+mutated by execution. The fork gets its own copy the source's later writes
+cannot reach. `Switch.Fork` loops over the table in
+`src/common/sim/device/vswitch/layers.go` to clone each layer, including the
+packet filter, then applies the table's relay bindings to those clones.
+A `resetOnFork` field is a binding back to the switch or
+bridge that holds it (the bridge's spanning-tree gate, its LAG selector,
+its multicast resolver) and is rebound to the fork's own layers rather than
 copied, because a copied binding would have the fork asking the source for a
 LAG member or a multicast resolution. Each class has its own assertion:
-pointer identity for the first, a mutation probe for the second, a
-zero-value check for the third before the switch rebinds it. A table
-recording a class per field and never checking it back is a defect this
-phase has already seen once; see [one slot, two
+pointer identity and equality of value fields for the first, a mutation probe
+for the second, a zero-value check for the third before the switch rebinds it. A table
+classifies only fields populated on at least one source fixture, with an
+explicit reason for a field that is zero between calls. The switch gate in
+`fork_internal_test.go` uses populated layers and a separate no-spanning-tree
+fixture with scoped trust metadata. Recording a class per field and never
+checking it back is a defect. See [one slot, two
 roles](../solutions/architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md).
 
 An `ethernet.Frame` is an immutable value: nothing in the library writes

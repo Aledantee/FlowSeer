@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -26,6 +27,7 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 	"lag":            probeSwitchLAG,
 	"mcast":          probeSwitchMcast,
 	"routing":        probeSwitchRouting,
+	"filter":         probeSwitchFilter,
 	"traffic":        probeSwitchTraffic,
 	"portP2P":        probeSwitchPortP2P,
 	"portSpeed":      probeSwitchPortSpeed,
@@ -154,6 +156,9 @@ func probeSwitchMcast(t *testing.T) {
 
 func probeSwitchRouting(t *testing.T) {
 	sw := newTestSwitchForFork(t)
+	if sw.routing == nil {
+		t.Fatal("source routing is nil")
+	}
 	fork := sw.Fork()
 
 	now := time.Unix(6000, 0)
@@ -180,6 +185,9 @@ func probeSwitchRouting(t *testing.T) {
 
 func probeSwitchTraffic(t *testing.T) {
 	sw := newTestSwitchForFork(t)
+	if sw.traffic == nil {
+		t.Fatal("source traffic is nil")
+	}
 	fork := sw.Fork()
 
 	now := time.Unix(7000, 0)
@@ -189,6 +197,42 @@ func probeSwitchTraffic(t *testing.T) {
 	if fork.Receive(now, "1/1/1", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 400-38)}).Reason == traffic.ReasonPoliced {
 		t.Errorf("police rejected on fork")
 	}
+}
+
+func TestForkKeepsTheFilter(t *testing.T) {
+	sw := newTestSwitchForFork(t)
+	frame := forkFilterFrame(t, sw.cfg.MAC)
+	now := time.Unix(1001, 0)
+	fork := sw.Fork()
+	if got := sw.Receive(now, "1/1/1", frame); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("source reason = %v, want %v", got.Reason, filter.ReasonFilterDrop)
+	}
+	if got := fork.Receive(now, "1/1/1", frame); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("fork reason = %v, want %v", got.Reason, filter.ReasonFilterDrop)
+	}
+}
+
+func probeSwitchFilter(t *testing.T) {
+	sw := newTestSwitchForFork(t)
+	fork := sw.Fork()
+	if sw.filter == nil || fork.filter == nil || sw.filter == fork.filter {
+		t.Fatal("filter must be present and independently cloned")
+	}
+	// The filter has no mutable execution state. Replacement exposes ownership
+	// without reaching into the layer's private configuration.
+	sw.filter = nil
+	if got := fork.Receive(time.Unix(1001, 0), "1/1/1", forkFilterFrame(t, sw.cfg.MAC)); got.Reason != filter.ReasonFilterDrop {
+		t.Fatalf("fork reason after replacing source filter = %v, want %v", got.Reason, filter.ReasonFilterDrop)
+	}
+}
+
+func forkFilterFrame(t *testing.T, dst netaddr.MAC) ethernet.Frame {
+	t.Helper()
+	payload, err := (ip.Header{Src: netip.MustParseAddr("10.0.10.51"), Dst: netip.MustParseAddr("10.0.10.2"), HopLimit: 64, Protocol: 17, V4: &ip.V4{}}).Encode([]byte("filter probe"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ethernet.Frame{Src: netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x51}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: payload}
 }
 
 func probeSwitchPortP2P(t *testing.T) {
