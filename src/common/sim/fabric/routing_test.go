@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1768,5 +1769,113 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	}
 	if failures[0].At != derived.Snapshot().Clock || failures[0].Reason != routing.ReasonNeighborMiss {
 		t.Errorf("derive drop = %+v, want neighbor-miss at derived clock", failures[0])
+	}
+}
+
+func TestFabricDeriveOrdersHeldFrameDropsBySwitchName(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	nextHop := netip.MustParseAddr("10.0.60.2")
+	cfg := fabric.Config{Start: start, Switches: make(map[string]vswitch.Config), Hosts: make(map[string]fabric.Host)}
+	for i, name := range []string{"sw1", "sw2"} {
+		mac := netaddr.MAC{2, 0, 0, 0, 0, byte(i + 1)}
+		cfg.Switches[name] = vswitch.Config{
+			MAC: mac, Ports: twoPorts(t),
+			Routing: &routing.Config{VRFs: map[string]routing.VRF{
+				routing.DefaultVRF: {Interfaces: map[string]routing.Interface{
+					"in":  {Port: "1/1/1", MAC: mac, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+					"out": {Port: "1/1/2", MAC: mac, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+				}},
+			}},
+		}
+	}
+	for i, name := range []string{"h1", "h2", "h3", "h4"} {
+		cfg.Hosts[name] = fabric.Host{Address: netaddr.MAC{2, 0, 0, 0, 1, byte(i + 1)}}
+	}
+	cfg.Cables = []fabric.Cable{
+		{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+		{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+		{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+		{A: fabric.Endpoint{Node: "h4"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+	}
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	packet, err := (ip.Header{
+		Src: netip.MustParseAddr("10.0.50.7"), Dst: nextHop,
+		HopLimit: 64, Protocol: 17, V4: &ip.V4{},
+	}).Encode([]byte("held"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var heldIDs []fabric.FrameID
+	for _, name := range []string{"sw1", "sw2"} {
+		id, err := fab.Inject(fabric.Injection{
+			At: start, Origin: fabric.Endpoint{Node: name, Port: "1/1/1"},
+			Frame: ethernet.Frame{
+				Src: cfg.Hosts["h1"].Address, Dst: cfg.Switches[name].MAC,
+				EtherType: ethernet.EtherTypeIPv4, Payload: packet,
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		heldIDs = append(heldIDs, id)
+	}
+	for range 2 {
+		if _, ok := fab.Step(); !ok {
+			t.Fatal("fabric.Step failed")
+		}
+	}
+	for _, id := range heldIDs {
+		journey := findJourney(t, fab, id)
+		last := journey.Entries[len(journey.Entries)-1]
+		if last.Result == nil || last.Result.Outcome != trace.Held {
+			t.Fatalf("frame %d last entry = %+v, want Held", id, last)
+		}
+	}
+	targetCfg := cfg.Clone()
+	for _, name := range []string{"sw1", "sw2"} {
+		vrf := targetCfg.Switches[name].Routing.VRFs[routing.DefaultVRF]
+		vrf.NeighborPolicy.RetransTimer = 10 * time.Second
+		targetCfg.Switches[name].Routing.VRFs[routing.DefaultVRF] = vrf
+	}
+	const runs = 128
+	var baseline []fabric.Journey
+	var reversed, different int
+	for run := range runs {
+		derived, err := fabric.Derive(fab, constructionSpec(statedPhysical(targetCfg)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		report := derived.Report()
+		ids := make(map[string]fabric.FrameID)
+		for _, journey := range report {
+			for _, entry := range journey.Entries {
+				if entry.Kind == fabric.EntryDrop && entry.Reason == routing.ReasonNeighborMiss {
+					if _, exists := ids[entry.Device]; exists {
+						t.Fatalf("run %d: duplicate drop for %s", run, entry.Device)
+					}
+					ids[entry.Device] = journey.FrameID
+				}
+			}
+		}
+		if len(ids) != 2 || ids["sw1"] == 0 || ids["sw2"] == 0 {
+			t.Fatalf("run %d: drop IDs = %v, want one per switch", run, ids)
+		}
+		if ids["sw1"] >= ids["sw2"] {
+			reversed++
+		}
+		if run == 0 {
+			baseline = report
+		} else if !reflect.DeepEqual(report, baseline) {
+			different++
+		}
+	}
+	if reversed != 0 {
+		t.Errorf("sw1 drop FrameID >= sw2 drop FrameID in %d of %d derives, want 0", reversed, runs)
+	}
+	if different != 0 {
+		t.Errorf("reports differ from first derive in %d of %d derives, want 0", different, runs)
 	}
 }
