@@ -234,7 +234,7 @@ func TestCompareSameOverFrameTable(t *testing.T) {
 	}
 }
 
-// TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination covers R20c
+// TestCompareAgreesOverConsecutiveCallsOnUnresolvedDestination checks
 // across two switches: [vswitch.Compare] runs [Switch.Peek] on both sides, and
 // a pending destination must not perturb either one. Two consecutive Compare
 // calls over the same pair of switches and the same unresolved destination
