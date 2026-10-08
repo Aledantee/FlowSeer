@@ -90,3 +90,19 @@ blob hash per unit) instead of parking, and routes a unit whose `Files:`
 line names a policy surface to a Claude worker only, since Codex cannot
 answer `ask`. `delegate` records in Orca worker that the prompt is not
 reliable under the launch flags.
+
+## 2026-10-08 delegate: a lane whose terminal Orca reclaimed cannot be stopped
+Skill or agent: `tools/scripts/skills/delegate/orca_worker.py`, `stop`, and
+`.claude/skills/delegate/references/orca.md`, When a step fails.
+What happened: an Orca restart on 2026-10-07 reclaimed every worker terminal
+(`orca terminal show` answered `terminal_handle_stale`). `stop <slug>
+--keep-worktree` then failed at the terminal close and recorded nothing, and
+`start --join` refused the kept worktree because the dead lane still read as
+live. The coordinator wrote the run log `end` and the `kept` mark by hand,
+which is what `stop --keep-worktree` writes after a close that succeeds.
+`orca.md` covers a terminal that exited, with a `terminal show` status of
+`exited`, not a handle the runtime no longer knows.
+Suggested change: `stop` treats `terminal_handle_stale` (and any reply that
+names no terminal) as a closed terminal: it logs `end`, marks the lane kept
+or removes it, and says so. `orca.md` names the stale handle beside the
+exited terminal.
