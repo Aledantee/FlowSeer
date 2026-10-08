@@ -28,7 +28,8 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 		return next, nil
 	}
 
-	for name, sw := range next.switches {
+	for _, name := range next.switchNames() {
+		sw := next.switches[name]
 		curSw := cur.Switch(name)
 		if curSw == nil {
 			continue
