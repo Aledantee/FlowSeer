@@ -12,6 +12,7 @@ applies_when:
   - "Investigating a false test that passes when a state transition guard or state assignment is mutated or deleted"
   - "Testing multi-step timer expirations where intermediate and terminal states produce identical external forwarding behavior"
   - "Testing a state-machine branch where an internal request flag, sibling tree, or held emission can mask the state or frame under test"
+  - "Testing membership expiry when a default forwarding policy can hide the removal of the last member"
 related_components: [conformance-gates, bpdu]
 tags: [testing, state-machine, mutation-testing, false-test, lacp, stp]
 ---
@@ -74,6 +75,32 @@ observable distinguishes a request from a frame built with the final state.
 When two internal flags share a record, assert the wire or public state they
 control when that is the behavior under test. A helper-level test may inspect
 the flag directly when the helper's contract is the subject.
+
+## A forwarding default can hide membership expiry
+
+The same problem occurs when a default policy keeps the destination
+reachable after state expires. Multicast floods unregistered groups by
+default (`src/common/sim/layer/mcast/config.go:200-208`). A frame reaching
+the former member therefore cannot distinguish live membership from
+expired membership followed by flooding.
+
+The queried-leave corpus explicitly disables that default and asserts
+unregistered membership with a `no-egress` drop
+(`src/common/sim/internal/simtest/cases.go:1866-1874,1920-1925`). Its router
+port is also the ingress, so the expired membership leaves no egress.
+Commit `3d9e887f` records the discriminating failure before that fixture
+correction: `outcome = Flooded, want Dropped`.
+
+The configuration line at `cases.go:1924` is:
+
+```go
+FloodUnregistered:       new(false),
+```
+
+For an expiry test, assert membership state and select a forwarding policy
+that exposes its loss. Keep coverage of default flooding in a separate
+case. Changing an expectation to accept flooding would discard this
+case's question about when forwarding to the last member stops.
 
 ## Evidence
 

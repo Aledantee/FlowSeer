@@ -735,7 +735,7 @@ func TestPVSTDoesNotInheritCISTProposalSync(t *testing.T) {
 	b := bpdu.BPDU{}
 	b.SetRole(bpdu.RoleDesignated)
 	b.SetProposal(true)
-	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now, &[]layer.FlushTarget{}); len(answered) != 1 || answered[0] != l.cist() {
+	if answered := l.answerProposals(l.cist(), l.cist().ports["p1"], l.links["p1"], b, nil, now); len(answered) != 1 || answered[0] != l.cist() {
 		t.Fatalf("proposal answered %d trees, want only the CIST", len(answered))
 	}
 
@@ -825,6 +825,9 @@ func TestMSTITopologyChangeNotifiesTheCISTRootPort(t *testing.T) {
 	l.Advance(now.Add(16 * time.Second))
 	l.Receive(now.Add(16*time.Second), "p1", peer)
 	l.Advance(now.Add(32 * time.Second))
+	// The CIST's p2 climbed the ladder through a proposal that did not cut it
+	// again, so its topology change timer outlives the climb by a few seconds.
+	l.Advance(now.Add(35 * time.Second))
 
 	if got := l.PortInfo("p1"); got.Role != bpdu.RoleRoot || got.State != StateForwarding {
 		t.Fatalf("CIST p1 = %v/%v, want Root/Forwarding", got.Role, got.State)
@@ -1035,6 +1038,7 @@ func TestBoundaryStateMirrorMaintainsTopologyActivity(t *testing.T) {
 	mstiP := msti.ports["p1"]
 	cistP.role = bpdu.RoleDesignated
 	cistP.state = StateForwarding
+	cistP.synced = false
 	mstiP.role = bpdu.RoleDesignated
 	mstiP.state = StateDiscarding
 

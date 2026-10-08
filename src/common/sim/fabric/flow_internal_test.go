@@ -437,7 +437,7 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 				},
 			}},
 			Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
-				NeighborPolicy: routing.NeighborPolicy{ResolutionTimeout: time.Hour},
+				NeighborPolicy: routing.NeighborPolicy{RetransTimer: time.Hour},
 				Interfaces: map[string]routing.Interface{
 					"vlan10": {VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
 					"vlan20": {VLAN: 20, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
@@ -594,8 +594,8 @@ type heldPropertyRun struct {
 // is resolved in turn, while the later ones are still held, so every release
 // happens beside a held frame another retention kept. Four more frames for a
 // fourth address exceed the default neighbor HoldDepth of three, so the oldest
-// is evicted; that address is never resolved, and the default three-second
-// resolution timeout expires the rest. The replies land before that timeout.
+// is evicted; that address is never resolved, and the three unanswered
+// solicitations fail the rest after three seconds. The replies land before that timeout.
 func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 	t.Helper()
 

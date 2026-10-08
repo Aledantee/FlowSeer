@@ -21,6 +21,91 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestFabricRoutersResolveNextHopAndDeliverHeldFrame(t *testing.T) {
+	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw1MAC := netaddr.MAC{2, 0, 0, 0, 0, 1}
+	sw2MAC := netaddr.MAC{2, 0, 0, 0, 0, 2}
+	h1MAC := netaddr.MAC{2, 0, 0, 0, 0, 7}
+	h2MAC := netaddr.MAC{2, 0, 0, 0, 0, 8}
+	h2 := netip.MustParseAddr("10.0.20.7")
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {MAC: sw1MAC, Ports: ports, Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"host": {Port: "1/1/1", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+					"link": {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.99.1/24")}},
+				},
+				Routes: []routing.Route{{Prefix: netip.MustParsePrefix("10.0.20.0/24"), NextHop: netip.MustParseAddr("10.0.99.2"), Interface: "link"}},
+			}}}},
+			"sw2": {MAC: sw2MAC, Ports: ports, Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+				Interfaces: map[string]routing.Interface{
+					"link": {Port: "1/1/1", MAC: sw2MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.99.2/24")}},
+					"host": {Port: "1/1/2", MAC: sw2MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.20.1/24")}},
+				},
+				Neighbors: []routing.Neighbor{{Interface: "host", Addr: h2, MAC: h2MAC}},
+			}}}},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {Address: h1MAC, IP: &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")}, Gateway: netip.MustParseAddr("10.0.10.1"), Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): sw1MAC}}},
+			"h2": {Address: h2MAC},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+		},
+	}
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fab.Inject(fabric.Injection{At: cfg.Start, Origin: fabric.Endpoint{Node: "h1"}, Packet: &fabric.Packet{To: h2, Protocol: 17, Payload: []byte("held-through-two-routers")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fab.Run(50)
+	var held, request, reply, delivered bool
+	for _, journey := range fab.Report() {
+		for _, entry := range journey.Entries {
+			if entry.Result != nil && entry.Result.Outcome == trace.Held {
+				held = true
+			}
+		}
+		if journey.Protocol && journey.Injection.Frame.EtherType == ethernet.EtherTypeARP {
+			msg, err := arp.Decode(journey.Injection.Frame)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if msg.Operation == arp.Request && msg.TargetAddr == netip.MustParseAddr("10.0.99.2") {
+				request = true
+			}
+			if msg.Operation == arp.Reply && msg.SenderAddr == netip.MustParseAddr("10.0.99.2") {
+				reply = true
+			}
+		}
+		for _, delivery := range journey.Deliveries {
+			if delivery.Host != "h2" || delivery.Frame.EtherType != ethernet.EtherTypeIPv4 {
+				continue
+			}
+			hdr, payload, err := ip.Decode(delivery.Frame.Payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if hdr.Src != netip.MustParseAddr("10.0.10.7") || hdr.Dst != h2 || hdr.HopLimit != 62 || string(payload) != "held-through-two-routers" {
+				t.Fatalf("delivery = %+v/%q, want two routed hops", hdr, payload)
+			}
+			delivered = true
+		}
+	}
+	if !held || !request || !reply || !delivered {
+		t.Fatalf("held/request/reply/delivered = %t/%t/%t/%t, want all true", held, request, reply, delivered)
+	}
+}
+
 func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -87,7 +172,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 			"h1": {
 				Address: macH1,
 				IP: &fabric.HostIP{
-					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.5.7/24"), netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
 						netip.MustParseAddr("10.0.10.1"): swMAC,
@@ -182,6 +267,10 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("decode delivered IP payload: %v", err)
 	}
+	if hdr.Src != netip.MustParseAddr("10.0.10.7") {
+		t.Errorf("delivered source = %s, want 10.0.10.7 on the gateway subnet", hdr.Src)
+	}
+
 	if hdr.HopLimit != 63 {
 		t.Errorf("delivered HopLimit = %d, want 63", hdr.HopLimit)
 	}
@@ -758,7 +847,7 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		if j.FrameID == heldID || j.FrameID == replyID {
 			continue
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -899,7 +988,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 		if j.FrameID == heldID || j.FrameID == replyID {
 			continue
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -1391,8 +1480,8 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 	}
 
 	// Both runs take the same injections, so the only difference between them is whether the
-	// binding was configured up front. Netsim never solicits, so the reply is what resolves the
-	// held run's next hop; the configured run ignores it, because Observe never overwrites a
+	// binding was configured up front. The injected reply resolves the held run's next hop.
+	// The configured run ignores it, because Receive never overwrites a
 	// configured binding.
 	run := func(t *testing.T, neighbors []routing.Neighbor) vlan.PCP {
 		t.Helper()
@@ -1430,7 +1519,7 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 		var found []vlan.PCP
 		for _, j := range fab.Report() {
 			for _, e := range j.Entries {
-				if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+				if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
 					found = append(found, e.PCP)
 				}
 			}
@@ -1568,7 +1657,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 	var released bool
 	for _, j := range derived.Report() {
 		for _, e := range j.Entries {
-			if e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
+			if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && e.Kind == fabric.EntryCrossing && e.Device == "sw2" {
 				released = true
 			}
 		}
@@ -1578,7 +1667,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 	}
 }
 
-// Changing NeighborPolicy.ResolutionTimeout rebuilds the routing layer and
+// Changing NeighborPolicy.RetransTimer rebuilds the routing layer and
 // reports held frames as failed.
 func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
@@ -1655,7 +1744,7 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	targetCfg := cfg.Clone()
 	sw1Cfg := targetCfg.Switches["sw1"]
 	vrf := sw1Cfg.Routing.VRFs[routing.DefaultVRF]
-	vrf.NeighborPolicy.ResolutionTimeout = 10 * time.Second
+	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	sw1Cfg.Routing.VRFs[routing.DefaultVRF] = vrf
 	targetCfg.Switches["sw1"] = sw1Cfg
 

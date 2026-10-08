@@ -1268,9 +1268,16 @@ func TestSyncCutRestartsAutoEdgeDelay(t *testing.T) {
 		t.Fatalf("p2 before sync cut = %+v, want non-edge Designated Forwarding", info)
 	}
 
+	// A better root arrives first. p2 keeps its agreement, since its vector only
+	// improves, and the proposal that follows worsens the vector it holds.
 	proposal := legacyConfigBPDU(t, 4096, "02:00:00:00:00:0a")
 	proposal.Type = bpdu.TypeRapid
 	proposal.SetRole(bpdu.RoleDesignated)
+	l.Receive(start.Add(3*time.Second), "p1", proposal)
+	if info := l.PortInfo("p2"); info.State != stp.StateForwarding || info.Edge {
+		t.Fatalf("p2 after the better root = %+v, want non-edge Forwarding", info)
+	}
+	proposal.RootPathCost = 20_000
 	proposal.SetProposal(true)
 	cut := start.Add(5250 * time.Millisecond)
 	cutEffects := l.Receive(cut, "p1", proposal)

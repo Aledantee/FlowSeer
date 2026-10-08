@@ -3,11 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import FleetView from './FleetView.vue'
-import { createAiRegistry } from './ai'
-import type { AiRegistry } from './ai'
+import { mountInFrame } from './navigation/frameTesting'
+import { FRAME_MOVE_SECONDS } from './navigation/frame'
 import { UiAppRoot } from './ui'
-import { aiRegistryKey } from './ui/ai/context'
+import { UiMotionConfig } from './ui/motion'
+import AppFrame from './navigation/AppFrame.vue'
 import { createWebI18n } from './i18n'
+import { createAiRegistry } from './ai'
+import { aiRegistryKey } from './ui/ai/context'
 
 let dispose = () => {}
 let preference: (EventTarget & { matches: boolean }) | undefined
@@ -34,12 +37,17 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
     function (this: HTMLElement) {
       const element = this instanceof HTMLElement ? this : undefined
-      const collapsed = element
-        ?.closest('.shell')
-        ?.classList.contains('sidebar-collapsed')
-      const isMainShell = element?.classList.contains('main-shell')
+      // The nav measures its own class before Vue patches it after the shell update.
+      const collapsed =
+        element?.tagName === 'NAV'
+          ? element.classList.contains('max-[800px]:!hidden')
+          : element?.closest('.shell')?.classList.contains('sidebar-collapsed')
+      const movesWithSidebar = element?.matches(
+        '#frame-page, #frame-topbar, .sidebar nav',
+      )
       const width = collapsed ? 64 : 204
-      const left = isMainShell ? width : 0
+      const left = movesWithSidebar ? width : 0
+      const top = element?.tagName === 'NAV' && !collapsed ? 28 : 0
       const navLink = element?.closest('nav a')
       if (navLink) {
         const navItems = [
@@ -66,14 +74,14 @@ beforeEach(() => {
         } as DOMRect
       }
       return {
-        bottom: 64,
+        bottom: top + 64,
         height: 64,
         left,
         right: left + width,
-        top: 0,
+        top,
         width,
         x: left,
-        y: 0,
+        y: top,
         toJSON: () => ({}),
       } as DOMRect
     },
@@ -139,34 +147,17 @@ async function finishAnimations(...elements: HTMLElement[]) {
 }
 
 async function mountFleet() {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const router = createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      {
-        path: '/:view(dashboard|devices|clients|sites|topology)',
-        component: FleetView,
-      },
-      { path: '/devices/:deviceId', component: FleetView },
-    ],
-  })
-  const registry: AiRegistry = createAiRegistry()
-  const app = createApp({
-    render() {
-      return h(UiAppRoot, {}, () => h(FleetView))
+  const mounted = await mountInFrame(FleetView, '/dashboard', [
+    {
+      path: '/:view(dashboard|devices|clients|sites|topology)',
+      component: FleetView,
     },
-  })
-  app.use(createWebI18n())
-  await router.push('/dashboard')
-  app.use(router)
-  app.provide(aiRegistryKey, registry)
-  await router.isReady()
-  app.mount(host)
-  dispose = () => app.unmount()
+    { path: '/devices/:deviceId', component: FleetView },
+  ])
+  dispose = mounted.dispose
   await nextTick()
   await wait(20)
-  return { host, router }
+  return mounted
 }
 
 function parseTranslateY(transform: string | undefined): number | null {
@@ -178,23 +169,147 @@ function parseTranslateY(transform: string | undefined): number | null {
 }
 
 describe('FleetView motion layout', () => {
-  it('animates the sidebar size and main-shell position', async () => {
+  it('ends panel, breadcrumb, and nav collapse moves within 160 ms', async () => {
+    installMotionClock()
+    // UiAppRoot's 140 ms fallback would conceal a missing frame transition.
+    const host = document.createElement('div')
+    document.body.append(host)
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/dashboard', component: FleetView }],
+    })
+    const app = createApp({
+      render: () =>
+        h(UiAppRoot, {}, () =>
+          h(UiMotionConfig, { transition: { duration: 0.45 } }, () =>
+            h(AppFrame, {}, () => h(FleetView)),
+          ),
+        ),
+    })
+    await router.push('/dashboard')
+    app.use(createWebI18n('en')).use(router)
+    app.provide(aiRegistryKey, createAiRegistry())
+    await router.isReady()
+    app.mount(host)
+    dispose = () => app.unmount()
+    await nextTick()
+    await advanceMotion(0)
+    const selectors = ['#frame-page', '#frame-topbar', '.sidebar nav']
+    const elements = selectors.map((selector) => {
+      const element = host.querySelector<HTMLElement>(selector)
+      if (!element) throw new Error(`Missing moving element: ${selector}`)
+      return element
+    })
+    const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
+    toggle?.click()
+    await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
+    await advanceMotion(30)
+    for (const element of elements)
+      expect(
+        element.style.transform,
+        element.id || element.className,
+      ).toContain('translate')
+    // 250 ms is past the frame duration and inside motion's 450 ms default.
+    await advanceMotion(220)
+    for (const element of elements)
+      expect(
+        element.style.transform,
+        element.id || element.className,
+      ).not.toContain('translate')
+  })
+
+  it('moves the page panel when the sidebar collapses and scales nothing', async () => {
     installMotionClock()
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
+    // The sidebar starts collapsed, so it is expanded and settled first.
     toggle?.click()
     await nextTick()
+    await advanceMotion(250)
+    expect(toggle?.getAttribute('aria-expanded')).toBe('true')
+    toggle?.click()
+    await nextTick()
+    expect(toggle?.getAttribute('aria-expanded')).toBe('false')
     await advanceMotion(30)
 
     expect(
       host.querySelector<HTMLElement>('.sidebar')?.style.transform,
-    ).toContain('scale(')
-    expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
-    ).toContain('translate')
-    expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
     ).not.toContain('scale(')
+    const transform =
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform ?? ''
+    expect(transform).toContain('translate')
+    expect(transform).not.toContain('scale(')
+    const offset = /translate(?:3d)?\((-?[\d.]+)px/.exec(transform)
+    expect(offset).not.toBeNull()
+    const distance = Math.abs(Number(offset?.[1]))
+    expect(distance).toBeGreaterThan(0)
+    expect(distance).toBeLessThan(140)
+  })
+
+  it('keeps the account menu and its ancestors still while the panel and breadcrumb move', async () => {
+    installMotionClock()
+    const { host } = await mountFleet()
+    const account = host.querySelector('header.topbar button.account-trigger')
+    const header = host.querySelector('header.topbar')
+    const shell = host.querySelector('.main-shell')
+    if (!account || !header || !shell) throw new Error('Missing account menu')
+    const ancestors = new Set<Element>([header, shell])
+    for (
+      let parent = account.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      ancestors.add(parent)
+      if (parent === header) break
+    }
+    const transforms: string[] = []
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (
+          record.target instanceof HTMLElement &&
+          ancestors.has(record.target)
+        ) {
+          transforms.push(
+            record.oldValue ?? '',
+            record.target.getAttribute('style') ?? '',
+          )
+        }
+      }
+    })
+    observer.observe(shell, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style'],
+      attributeOldValue: true,
+    })
+    try {
+      host.querySelector<HTMLButtonElement>('.sidebar-toggle')?.click()
+      await nextTick()
+      await advanceMotion(30)
+      for (const region of ['#frame-page', '#frame-topbar'])
+        expect(
+          host.querySelector<HTMLElement>(region)?.style.transform,
+        ).toContain('translate')
+      await advanceMotion(200)
+      expect(host.querySelector('header.topbar button.account-trigger')).toBe(
+        account,
+      )
+      for (const ancestor of ancestors)
+        expect(ancestor.getAttribute('style') ?? '').not.toMatch(
+          /transform\s*:/,
+        )
+      expect(transforms.every((style) => !/transform\s*:/.test(style))).toBe(
+        true,
+      )
+    } finally {
+      observer.disconnect()
+    }
   })
 
   it('stops layout transforms after the user enables reduced motion', async () => {
@@ -217,7 +332,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     await advanceMotion(200)
@@ -226,7 +341,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
   })
 
@@ -291,25 +406,52 @@ describe('FleetView motion layout', () => {
 
     expect(nav.getAnimations()).toHaveLength(0)
     expect(nav.style.opacity).toBe('0.42')
+    const labels = host.querySelectorAll<HTMLElement>(
+      '.product-brand > span, .nav-label, .nav-text, .nav-count',
+    )
+    expect(labels).toHaveLength(8)
+    for (const label of labels) expect(opacityAnimations(label)).toHaveLength(0)
   })
 
-  it('starts no nav fade when expanding at desktop width', async () => {
+  it('fades labels without fading nav or icons when expanding at desktop width', async () => {
     const { host } = await mountFleet()
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     const nav = host.querySelector<HTMLElement>('nav')
     if (!toggle || !nav) throw new Error('Missing navigation controls')
+    const labels = host.querySelectorAll<HTMLElement>(
+      '.product-brand > span, .nav-label, .nav-text, .nav-count',
+    )
+    const icons = nav.querySelectorAll<SVGElement>('a > svg')
+    expect(labels).toHaveLength(8)
+    expect(icons).toHaveLength(5)
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav, ...labels)
 
     toggle.click()
     await nextTick()
     expect(opacityAnimations(nav)).toHaveLength(0)
+    for (const label of labels) expect(opacityAnimations(label)).toHaveLength(0)
 
     toggle.click()
     await nextTick()
-    // The nav's own layout animation rewrites its inline transform and clears
-    // an inline opacity (FleetView.vue:869-874), so only the native animations
-    // stay assertable. A fade started at desktop width is a native opacity
-    // animation that the layout write cannot hide.
     expect(opacityAnimations(nav)).toHaveLength(0)
+    for (const icon of icons) expect(icon.getAnimations()).toHaveLength(0)
+    for (const label of labels) {
+      const animations = opacityAnimations(label)
+      expect(animations, label.className).toHaveLength(1)
+      const animation = animations[0]
+      if (!animation) throw new Error('Missing sidebar label fade')
+      expect(animation.playState).toBe('running')
+      expect(keyframeEffect(animation).getKeyframes()).toMatchObject([
+        { opacity: '0' },
+        { opacity: '1' },
+      ])
+      expect(keyframeEffect(animation).getTiming()).toMatchObject({
+        duration: FRAME_MOVE_SECONDS * 1000,
+      })
+    }
   })
 
   it('fades the pane scope when the tenant or site changes', async () => {
@@ -369,6 +511,10 @@ describe('FleetView motion layout', () => {
     const toggle = host.querySelector<HTMLButtonElement>('.sidebar-toggle')
     const nav = host.querySelector<HTMLElement>('nav')
     if (!toggle || !nav) throw new Error('Missing mobile navigation controls')
+    // The sidebar starts collapsed.
+    toggle.click()
+    await nextTick()
+    await finishAnimations(nav)
     nav.style.opacity = '0.37'
 
     toggle.click()
@@ -378,7 +524,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     expect(nav.getAnimations()).toHaveLength(0)
@@ -391,7 +537,7 @@ describe('FleetView motion layout', () => {
       '',
     )
     expect(
-      host.querySelector<HTMLElement>('.main-shell')?.style.transform,
+      host.querySelector<HTMLElement>('#frame-page')?.style.transform,
     ).toBe('')
 
     const expandAnimations = nav.getAnimations()

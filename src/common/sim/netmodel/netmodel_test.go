@@ -1678,3 +1678,103 @@ func TestLoad_FilterICMPMatchNarrowingReportsIssue(t *testing.T) {
 		t.Errorf("issues = %+v, want issue %s for the narrowed ICMP match", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet)
 	}
 }
+
+func TestLoad_FilterSetWithMappedPrefixIsSkipped(t *testing.T) {
+	for _, field := range []string{"source", "destination"} {
+		t.Run(field, func(t *testing.T) {
+			adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP
+			operUp := interfacev1.OperStatus_OPER_STATUS_UP
+			vid10 := uint32(10)
+			vlan10Name := "vlan10"
+			mappedSetName := "mapped-set"
+			ipSetName := "ip-set"
+			ruleName := "drop-mapped"
+			acceptAction := filterv1.FilterAction_FILTER_ACTION_ACCEPT
+			dropAction := filterv1.FilterAction_FILTER_ACTION_DROP
+
+			prefixes := []*addrv1.IpPrefix{protoIPv6Prefix([16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 10}, 104)}
+			match := filterv1.FilterMatch_builder{}.Build()
+			if field == "source" {
+				match.SetSrcPrefixes(prefixes)
+			} else {
+				match.SetDstPrefixes(prefixes)
+			}
+			mappedSet := filterv1.FilterRuleSet_builder{
+				Name:    new(mappedSetName),
+				Default: new(acceptAction),
+				Rules: []*filterv1.FilterRule{filterv1.FilterRule_builder{
+					Name:   new(ruleName),
+					Action: new(dropAction),
+					Match:  match,
+				}.Build()},
+			}.Build()
+			ipSet := filterv1.FilterRuleSet_builder{
+				Name:    new(ipSetName),
+				Default: new(acceptAction),
+			}.Build()
+
+			filterSets := []*filterv1.FilterRuleSet{mappedSet, ipSet}
+			for _, s := range filterSets {
+				if err := protovalidate.Validate(s); err != nil {
+					t.Fatalf("filter set validation failed: %v", err)
+				}
+			}
+
+			vlan10 := interfacev1.Interface_builder{
+				Name:        new(vlan10Name),
+				AdminStatus: new(adminUp),
+				OperStatus:  new(operUp),
+				Vlan: interfacev1.VlanInterface_builder{
+					VlanId: new(vid10),
+				}.Build(),
+				Ip: ipv1.IpFacet_builder{
+					NetworkInstance: new("default"),
+					Ipv4:            ipv1.Ipv4Facet_builder{}.Build(),
+				}.Build(),
+				Filter: filterv1.FilterFacet_builder{
+					InSet:  new(mappedSetName),
+					OutSet: new(ipSetName),
+				}.Build(),
+			}.Build()
+
+			res, err := netmodel.Load(testTime, netmodel.SourceContext{DeviceID: "sw1"}, []*interfacev1.Interface{vlan10}, nil, nil, nil, nil, nil, nil, nil, nil, nil, filterSets, nil)
+			if err != nil {
+				t.Fatalf("netmodel.Load failed: %v", err)
+			}
+
+			cfg := res.Spec.Config
+			if cfg.Filter == nil {
+				t.Fatal("expected cfg.Filter to be non-nil for the evaluable egress set")
+			}
+			if _, ok := cfg.Filter.Sets[mappedSetName]; ok {
+				t.Errorf("sets = %v, want %q left out", cfg.Filter.Sets, mappedSetName)
+			}
+			var boundOut bool
+			for _, b := range cfg.Filter.Bindings {
+				if b.Set == mappedSetName {
+					t.Errorf("binding %+v names the skipped set", b)
+				}
+				if b.Interface == vlan10Name && b.Direction == filter.Out && b.Set == ipSetName {
+					boundOut = true
+				}
+			}
+			if !boundOut {
+				t.Errorf("bindings = %+v, want vlan10 out->%s", cfg.Filter.Bindings, ipSetName)
+			}
+
+			wantScope := routing.OwnershipScope("sw1", routing.DefaultVRF, vlan10Name)
+			var skippedAtInterface bool
+			for _, issue := range res.Metadata.Issues() {
+				if issue.Code == netmodel.IssueMissingFilterSet {
+					t.Errorf("unexpected issue %+v: the set exists but is skipped", issue)
+				}
+				if issue.Code == netmodel.IssueSkippedUnsupportedFacet && issue.Scope.Compare(wantScope) == 0 {
+					skippedAtInterface = true
+				}
+			}
+			if !skippedAtInterface {
+				t.Errorf("issues = %+v, want issue %s with scope %s", res.Metadata.Issues(), netmodel.IssueSkippedUnsupportedFacet, wantScope)
+			}
+		})
+	}
+}

@@ -349,6 +349,29 @@ func TestEgressLagBufferEnforcedOnMember(t *testing.T) {
 	}
 }
 
+// TestEgressMemberNamedProtocolFrameReadsLagBuffer covers a protocol frame
+// sent on a member under the member's own name: the LAG's stated buffer
+// answers it, so the member queue tail-drops and raises no
+// queue-buffer-unstated issue.
+func TestEgressMemberNamedProtocolFrameReadsLagBuffer(t *testing.T) {
+	buffer := uint64(2000)
+	fab, eps := lagAccountingFabric(t, 0, &buffer)
+	member := eps[0]
+	frame := egressBufferFrame()
+	journey := &Journey{}
+	for range 2 {
+		fab.enqueueEgress(fab.clock, member, member.Port, frame, 1, 1, journey, 0, "")
+	}
+
+	if got := fab.egress[member].depth[0]; got != 1014 {
+		t.Errorf("member depth = %d, want 1014: the LAG's 2000-octet buffer refuses the second frame", got)
+	}
+	scope := analysis.PortScope(member.Node, member.Port)
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+		t.Errorf("a protocol frame on a member of a LAG with a stated buffer raised %d queue-buffer-unstated issues, want none", got)
+	}
+}
+
 // TestEgressLagThresholdUsesLagMTU covers the threshold of an unstated-buffer
 // member queue behind a LAG that states an MTU: the threshold comes from the
 // LAG name, not the member, so one 9014-octet frame on a member with no MTU of

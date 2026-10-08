@@ -126,8 +126,8 @@ func TestMSTIRecordPortIdentifierKeepsTheCISTPortNumber(t *testing.T) {
 }
 
 // TestInstancePortPriorityIsResolvedOnceInNormalize pins that an instance or
-// VLAN port without a priority takes the bridge port's, and that the
-// retention key, Diff, and the layer read that value alone.
+// VLAN port without a priority takes the bridge port's on each normalize.
+// The retention key, Diff, and the layer read that value alone.
 func TestInstancePortPriorityIsResolvedOnceInNormalize(t *testing.T) {
 	t.Parallel()
 
@@ -174,12 +174,12 @@ func TestInstancePortPriorityIsResolvedOnceInNormalize(t *testing.T) {
 		}
 	})
 
-	t.Run("Normalize fills the instance port and marks it present", func(t *testing.T) {
+	t.Run("Normalize fills the instance port without an override", func(t *testing.T) {
 		t.Parallel()
 
 		got := config(stp.InstancePort{}).Normalize(env).MST.Instances[1].Ports["1/1/1"]
-		if got.Priority != 32 || !got.PriorityPresent {
-			t.Errorf("normalized instance port = %+v, want priority 32 present", got)
+		if got.Priority != 32 || got.PriorityPresent {
+			t.Errorf("normalized instance port = %+v, want priority 32 without an override", got)
 		}
 	})
 
@@ -190,10 +190,91 @@ func TestInstancePortPriorityIsResolvedOnceInNormalize(t *testing.T) {
 		cfg.MST = nil
 		cfg.PVST = &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Ports: map[string]stp.InstancePort{"1/1/1": {}}}}}
 		got := cfg.Normalize(env).PVST.Trees[10].Ports["1/1/1"]
-		if got.Priority != 32 || !got.PriorityPresent {
-			t.Errorf("normalized tree port = %+v, want priority 32 present", got)
+		if got.Priority != 32 || got.PriorityPresent {
+			t.Errorf("normalized tree port = %+v, want priority 32 without an override", got)
 		}
 	})
+	for _, mode := range []string{"MSTI", "VLAN"} {
+		t.Run(mode+" follows a changed bridge port", func(t *testing.T) {
+			t.Parallel()
+
+			cfg := config(stp.InstancePort{PathCost: 200_000})
+			cfg.Ports["1/1/1"] = stp.Port{Priority: 128, PriorityPresent: true}
+			if mode == "VLAN" {
+				cfg.MST = nil
+				cfg.PVST = &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200_000}}}}}
+			}
+			before := cfg.Normalize(env)
+			changed := before.Clone()
+			changed.Ports["1/1/1"] = stp.Port{Priority: 64, PriorityPresent: true}
+			after := changed.Normalize(env)
+			var got stp.InstancePort
+			if mode == "MSTI" {
+				got = after.MST.Instances[1].Ports["1/1/1"]
+			} else {
+				got = after.PVST.Trees[10].Ports["1/1/1"]
+			}
+			if got.Priority != 64 || got.PriorityPresent || got.PathCost != 200_000 {
+				t.Errorf("normalized port = %+v, want priority 64 without override and cost 200000", got)
+			}
+			l := mustNewSTP(t, after, env.Ports)
+			if got := l.VLANPortInfo(10, "1/1/1").Priority; got != 64 {
+				t.Errorf("VLANPortInfo priority = %d, want 64", got)
+			}
+		})
+	}
+
+	t.Run("an explicit priority survives inheritance", func(t *testing.T) {
+		t.Parallel()
+
+		l := mustNewSTP(t, config(stp.InstancePort{Priority: 128, PriorityPresent: true}), env.Ports)
+		if got := l.VLANPortInfo(10, "1/1/1").Priority; got != 128 {
+			t.Errorf("VLANPortInfo priority = %d, want 128", got)
+		}
+	})
+
+	t.Run("Diff reports a changed inherited MSTI priority", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := config(stp.InstancePort{PathCost: 200_000})
+		cfg.Ports["1/1/1"] = stp.Port{Priority: 128, PriorityPresent: true}
+		before := cfg.Normalize(env)
+		changed := before.Clone()
+		changed.Ports["1/1/1"] = stp.Port{Priority: 64, PriorityPresent: true}
+		after := changed.Normalize(env)
+		var from, to string
+		for _, c := range stp.Diff(before, after) {
+			if c.Subject.Kind == "mst_instance_port" && c.Field == "priority" {
+				from, to = factCanonical(c.From), factCanonical(c.To)
+			}
+		}
+		if from != "stp.port_priority=128" || to != "stp.port_priority=64" {
+			t.Errorf("Diff priority = %q to %q, want 128 to 64", from, to)
+		}
+	})
+
+	for _, mode := range []string{"MSTI", "VLAN"} {
+		t.Run(mode+" port without a bridge port takes the default", func(t *testing.T) {
+			t.Parallel()
+
+			cfg := config(stp.InstancePort{PathCost: 200_000})
+			cfg.Ports = nil
+			if mode == "VLAN" {
+				cfg.MST = nil
+				cfg.PVST = &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {Ports: map[string]stp.InstancePort{"1/1/1": {PathCost: 200_000}}}}}
+			}
+			norm := cfg.Normalize(env)
+			var got stp.InstancePort
+			if mode == "MSTI" {
+				got = norm.MST.Instances[1].Ports["1/1/1"]
+			} else {
+				got = norm.PVST.Trees[10].Ports["1/1/1"]
+			}
+			if got.Priority != 128 || got.PriorityPresent {
+				t.Errorf("normalized port = %+v, want priority 128 without override", got)
+			}
+		})
+	}
 }
 
 // TestReceivedHelloTimeBelowOneSecondIsStoredAsOneSecond pins that a BPDU

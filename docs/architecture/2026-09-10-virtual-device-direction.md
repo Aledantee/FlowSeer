@@ -260,11 +260,10 @@ A retained record's provenance and its lifetime are two separate axes.
 `Lifetime` is `Static` or `Aging`, naming whether it expires on its own. The
 two vary independently: a configured record can still age out, and an
 observed one can be pinned past the interval that would otherwise expire it.
-A single `Static` boolean cannot say both at once, which is why
-`restoreMulticastState` used to synthesize a fabricated IGMP query just to
-get an aging router port back — there was no way to install an observed
-record with its own expiry directly. A record with only one reachable
-origin, such as `mcast.Entry`, keeps no `Origin` field; its package README
+A single `Static` boolean cannot say both at once. Multicast's `Restore`
+copies an observed router port with its original deadline while the target's
+static configuration takes precedence. A record with only one reachable
+origin, such as `mcast.Entry`, keeps no `Origin` field. Its package README
 says why, because splitting an axis nothing ever disagrees about would add a
 field with one value forever.
 
@@ -274,9 +273,18 @@ its own `Config`: spanning tree's roles depend on link state and speed that
 live on the port table, and LAG's member selection depends on the switch's
 base MAC, which reaches the layer only as a normalization input. Each
 capability layer exports `RetentionKey(...) string`, a canonical encoding of
-every normalized input its runtime state actually depends on, and `Derive`
-retains a layer only when the current switch's key and the target's agree.
-Both keys are computed from constructed switches, never from a raw target
+every normalized input its runtime state actually depends on. `Derive` gates
+STP, LoopProtect, LAG, and routing state retention on equality of the current
+and target keys. Traffic calls `Retain` whenever both switches have a traffic
+layer. The bridge filtering database is reseeded per eligible dynamic entry
+([`derive.go`](../../src/common/sim/device/vswitch/derive.go)).
+Multicast restores state per entry on VLANs both
+layers snoop, restricted to target logical ports admitted by the switch's
+port forwarding, VLAN membership, and spanning-tree predicate. Its key names
+only the difference in the retention report. `mcast.Layer.Restore` copies
+the whole group state and each observed router port with their deadlines,
+while the target's static router ports take precedence.
+Dependency keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
 and MAC assignment that decide what a field becomes; see [validate and
 derive judge what New
@@ -508,6 +516,22 @@ bounded equivalence under a resource contract:
   tell whether one was sent and lost or never existed. With no router port
   there is no querier to have sent one, so the full membership interval is
   the real behavior and the result stays Complete.
+  Multicast state is read as of a time: `Resolve`, `Groups`, and
+  `RouterPorts` ignore expired state without writing, and a fabric snapshot
+  uses the fabric clock. Learning ages a port's state before applying a
+  record, so its timers determine the transition even without a prior
+  `Advance` call (`src/common/sim/layer/mcast/layer.go`).
+  IGMPv1 and IGMPv2 host timers start only on reports, with the second also
+  serving MLDv1. An IGMPv1 timer makes Leave and `TO_IN` ineffective even
+  with fast leave. A group query obligation ends on an observed `Q(G)` or
+  a record that sets the group timer. A source obligation ends per queried
+  source when `Q(G,A)` names it, a record sets its timer, or it is deleted.
+  A matching query ends its obligation however late it arrives. A group
+  query leaves source obligations intact because RFC 3376 §6.6.1 lowers
+  only the group timer. MLD reports may come from `::` under RFC 4541 §3,
+  while queries and Done require a link-local source
+  (`src/common/sim/layer/mcast/state.go`,
+  `src/common/sim/device/vswitch/switch.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 
@@ -558,8 +582,12 @@ bounded equivalence under a resource contract:
   layer maps the VLAN to a tree. With no region configured, one tree, the
   CIST, carries every VLAN, so the answers agree; with a region configured, a
   VLAN an instance claims maps to that MSTI instead, and a boundary port's
-  answer for it still traces back to the CIST because an MSTI takes the CIST
-  port's role there. The port identifier and the port key set stay
+  answer for it traces back to the CIST because an MSTI takes the CIST
+  port's role there. During an MSTI's own sync cut on a Designated boundary
+  port, its state is the less forward of its own ladder and the CIST's state
+  to suppress temporary loops. An agreement or the end of that ladder
+  restores the CIST's answer (`src/common/sim/layer/stp/sync_boundary_test.go`).
+  The port identifier and the port key set stay
   bridge-global: the identifier appears on the wire, and the key set's order
   reaches the caller as the order of `Effects.Flush`.
 
@@ -789,42 +817,38 @@ bounded equivalence under a resource contract:
 
 ### Neighbor resolution and held frames
 
-- **`neighbor-miss` and `neighbor-pending` are two different answers to "who
-  is at this next hop", not degrees of the same failure.** `neighbor-miss` is
-  a routing VRF that will never resolve the next hop to a MAC address, either
-  because it does not observe neighbors at all or because it already tried
-  and gave up; `neighbor-pending` is a next hop the routing table reached
-  whose neighbor entry is newly or still unresolved, and it is not a drop —
-  the frame is held. A withdrawn route is a third, earlier failure: no chain
-  of routes reaches the next hop at all, decided once when the table is
-  built, before any neighbor lookup runs.
-- **A neighbor entry has five states, and two states of RFC 4861's machine
-  are missing on purpose.** `Unobserved`, `Incomplete`, `Reachable`, `Stale`,
-  and `Failed` are the states a lookup can report; `Delay` and `Probe` exist
-  in the RFC only to schedule a unicast solicitation toward Neighbor
-  Unreachability Detection, and netsim never solicits, so no input can ever
-  drive them. A state nothing in the simulator can reach is worse than no
-  state, so it is left out rather than sitting dead in the type. The same
-  five states serve ARP and NDP alike: section 7.3.2's set already covers
-  everything an ARP binding has to say, so a vocabulary invented separately
-  for IPv4 would name the same five things a second time.
+Amendment 2026-10-07: sending and reception are implemented in
+`src/common/sim/layer/routing/neighbor.go`, `solicitation.go`, and `receive.go`.
+
+- **A miss either starts resolution or cannot solicit.** An observed VRF
+  holds the frame and emits a solicitation on its first committing miss.
+  A disabled VRF or an interface without an address of the target's family
+  reports `neighbor-miss`. Failed resolution deletes the entry, so later
+  traffic can try again.
+- **Observed neighbors run the RFC 4861 states for both families.**
+  Incomplete sends three solicitations one `RetransTimer` apart, then
+  deletes the entry and fails held frames. Reachable ages to Stale. Traffic
+  to a Stale entry forwards on the cached MAC and starts the five second
+  Delay, followed by three unicast probes. An unanswered Probe is deleted.
+  Configured entries never change. `Unobserved` means no entry exists.
 - **The wire formats live in two packages, `arp` and `ndp` under
   `src/common/net`, alongside `netaddr`, `vlan`, and `ethernet`.** Each rides
-  Ethernet or ICMPv6 directly and encodes or decodes one message shape; they
-  hold no neighbor table and no lifecycle of their own; that state lives in
-  `routing.Layer`, which applies one RFC 4861 section 7.2.5 merge rule to
-  both families. ARP has no solicited or override flags of its own, so the
-  switch maps a reply or a request onto the flags the layer takes.
-- **The switch observes and never solicits, so an unresolved neighbor a
-  lookup depended on degrades readiness instead of silently blocking the
-  frame forever.** It reads ARP replies and requests, and Neighbor
-  Solicitation and Advertisement messages, off the wire as they pass, and
-  applies RFC 4861 section 7.2.5 to what they say, without ever sending a
-  solicitation of its own. A host's routing layer does not resolve at all:
-  `HostRoutingConfig` writes `NeighborDisabled` into every host VRF, because
-  nothing wakes a host stack the way `Fabric` wakes a switch, and a frame a
-  host held would hold forever. A miss on a host is always `neighbor-miss`,
-  never `neighbor-pending`.
+  Ethernet or ICMPv6 directly and encodes or decodes one message shape. They
+  hold no neighbor table or lifecycle. That state lives in `routing.Layer`,
+  and `Receive` writes it. ARP follows RFC 826 reception, merging an existing
+  sender before checking whether the target is local. A reply confirms the
+  sender as a solicited override update, and a request is unsolicited.
+  Neighbor Discovery follows RFC 4861 sections 7.1 and 7.2.3 to 7.2.5,
+  discarding a non-local solicitation before learning its source.
+- **Routing returns neighbor protocol emissions to the switch.** The switch
+  hands received ARP and Neighbor Discovery frames to the layer. A local
+  solicitation is answered, including under `NeighborDisabled`, while only
+  an observed VRF learns bindings. The layer admits only the interface's
+  unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs.
+  The switch sends routing emissions as protocol frames at priority zero,
+  with the same VLAN, routed-port, and sub-interface egress paths as a
+  released frame. A host stack remains `NeighborDisabled`, since fabric
+  hosts do not process these control frames.
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
@@ -836,10 +860,9 @@ bounded equivalence under a resource contract:
   timed-out one reports them dropped with `neighbor-miss`. `Emission`
   carries a `Protocol` field, because a released frame is exactly the kind of
   emission that is not one: everything else the switch emits on its own is a
-  BPDU, an LACPDU, a Marker response emitted by the switch, or a loop-protect
-  probe, and the fabric
-  seam that injects emissions needs to tell a held user frame apart from a frame
-  the switch originated.
+  BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
+  solicitation, probe, or answer. The fabric seam that injects emissions needs
+  to tell a held user frame apart from a frame the switch originated.
 
 ### Semantic traces and producer-owned facts
 
@@ -936,11 +959,11 @@ The following areas remain outside the foundation established here:
   README lists what it does not model. LACP runs in `lag` as a Version 1
   implementation with the Marker Responder. Its remaining gaps are the
   [LAG Limits](../../src/common/sim/layer/lag/README.md#limits).
-- **Neighbor solicitation and unreachability detection**: the switch observes
-  ARP and NDP traffic but never sends a solicitation of its own, and a stale
-  or incomplete neighbor entry never moves through `Delay` or `Probe` toward
-  a fresh answer; the `Reachable` cache is trusted until it ages out or a
-  received advertisement changes it.
+- **Neighbor resolution limits**: routing sends solicitations and unicast
+  probes, but no ICMP Address Unreachable errors, MLD joins, randomized
+  ReachableTime, or upper-layer reachability hints. The
+  [routing Limits](../../src/common/sim/layer/routing/README.md#limits)
+  state the remaining protocol scope.
 - **Firewall and reflector depth**: NAT, connection tracking, ICMP error
   generation for a `reject` rule, DNS-aware mDNS reflection, and a
   multicast snooping schema in the network model, all of which the
@@ -1028,3 +1051,15 @@ Marker generation and reception and preserving frame order across a detached
 link's conversations. Open vSwitch supplies the distribution and fallback
 choices that the README identifies. Equivalence to the published standard
 remains unverified because that text was not read.
+
+### 2026-10-07: Multicast restores complete state per entry
+
+`mcast.Layer.Restore` owns multicast retention because a legacy-report replay
+loses source filters and pending queries. It copies each admitted port's group
+state with every deadline unchanged, including an INCLUDE state's source timers
+when its group timer is zero. Observed router ports keep their expiry and yield
+to target static configuration. The target's intervals govern later learning.
+`TestRestore` in `src/common/sim/layer/mcast/layer_test.go` checks the copy and
+its independence. `TestDeriveKeepsSourceSpecificMulticast` in
+`src/common/sim/device/vswitch/derive_internal_test.go` checks that an unrelated
+VLAN edit keeps `INCLUDE {10.0.0.9}` and its forwarding result.

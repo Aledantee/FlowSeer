@@ -9,12 +9,36 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestPendingResultUsesMetadataWithoutTraceSubjects(t *testing.T) {
+	t.Parallel()
+	l, err := routing.New(routing.Config{}, layer.Env{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := &Switch{nodeID: "sw1", routing: l}
+	addr := netip.MustParseAddr("10.0.99.2")
+	res := s.assembleRouteResult(time.Time{}, "in", 10, 0, false, nil, "vlan10", filter.Result{}, routing.Result{
+		Reason: routing.ReasonNeighborPending, Interface: "out", VRF: "tenant", NextHop: addr,
+	}, false)
+	if res.Outcome != trace.Held {
+		t.Fatalf("outcome = %v, want Held", res.Outcome)
+	}
+	issues := s.neighborUnresolvedIssues()
+	wantScope := routing.NeighborLookupScope("sw1", "tenant", "out", addr)
+	if len(issues) != 1 || issues[0].issue.Scope.Compare(wantScope) != 0 || issues[0].issue.Status != analysis.Incomplete {
+		t.Fatalf("issues = %+v, want unresolved tenant/out/10.0.99.2 at Incomplete", issues)
+	}
+}
 
 func TestSwitchSpeedsInternal(t *testing.T) {
 	t.Parallel()

@@ -314,7 +314,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 		if j.FrameID == heldID || j.FrameID == replyID {
 			continue
 		}
-		if len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break

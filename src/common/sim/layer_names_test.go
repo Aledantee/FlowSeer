@@ -41,3 +41,27 @@ func TestLayerNames(t *testing.T) {
 		}
 	}
 }
+
+func TestRuleConstantsAgreeAcrossLayers(t *testing.T) {
+	tests := []struct {
+		name  string
+		rules map[string]trace.RuleID
+	}{
+		{"port.status.down", map[string]trace.RuleID{
+			"port": port.RuleStatusDown, "stp": stp.RuleStatusDown, "routing": routing.RuleStatusDown,
+		}},
+		{"lag.egress.no_member", map[string]trace.RuleID{
+			"port": port.RuleEgressNoMember, "lag": lag.RuleEgressNoMember, "routing": routing.RuleEgressNoMember,
+		}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for layer, rule := range tt.rules {
+				if string(rule) != tt.name {
+					t.Errorf("%s rule = %q, want %q", layer, rule, tt.name)
+				}
+			}
+		})
+	}
+}

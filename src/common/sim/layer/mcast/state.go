@@ -1,6 +1,7 @@
 package mcast
 
 import (
+	"maps"
 	"net/netip"
 	"time"
 )
@@ -43,18 +44,17 @@ const (
 // set A, in Exclude a zero time.Time marks a source in Y (blocked) and any other value marks
 // a source in X (still forwarded). groupExpires is meaningful only in Exclude.
 //
-// pendingGroupFiredAt and pendingSourceFiredAt record when an unmatched "Send Q" action last
-// fired, for the group-specific and the group-and-source-specific query respectively. A zero
-// value means no action is outstanding. olderHostUntil is the deadline of a compatibility
-// timer started by a legacy report or leave; while it runs, BLOCK records are ignored and
-// CHANGE_TO_EXCLUDE_MODE records are treated as carrying no sources (RFC 3810 §8.3.2).
+// pendingGroupFiredAt and queriedSources record unmatched "Send Q" actions and their times.
+// igmpV1HostUntil and igmpV2HostUntil are compatibility deadlines started only by reports
+// (RFC 3376 §7.3.2). The second also serves MLDv1 (RFC 3810 §8.3.2).
 type groupPortState struct {
-	mode                 FilterMode
-	groupExpires         time.Time
-	sources              map[netip.Addr]time.Time
-	olderHostUntil       time.Time
-	pendingGroupFiredAt  time.Time
-	pendingSourceFiredAt time.Time
+	mode                FilterMode
+	groupExpires        time.Time
+	sources             map[netip.Addr]time.Time
+	igmpV1HostUntil     time.Time
+	igmpV2HostUntil     time.Time
+	pendingGroupFiredAt time.Time
+	queriedSources      map[netip.Addr]time.Time
 }
 
 func newGroupPortState() *groupPortState {
@@ -63,12 +63,13 @@ func newGroupPortState() *groupPortState {
 
 func cloneGroupPortState(gps *groupPortState) *groupPortState {
 	cp := &groupPortState{
-		mode:                 gps.mode,
-		groupExpires:         gps.groupExpires,
-		olderHostUntil:       gps.olderHostUntil,
-		pendingGroupFiredAt:  gps.pendingGroupFiredAt,
-		pendingSourceFiredAt: gps.pendingSourceFiredAt,
-		sources:              make(map[netip.Addr]time.Time, len(gps.sources)),
+		mode:                gps.mode,
+		groupExpires:        gps.groupExpires,
+		igmpV1HostUntil:     gps.igmpV1HostUntil,
+		igmpV2HostUntil:     gps.igmpV2HostUntil,
+		pendingGroupFiredAt: gps.pendingGroupFiredAt,
+		queriedSources:      maps.Clone(gps.queriedSources),
+		sources:             make(map[netip.Addr]time.Time, len(gps.sources)),
 	}
 	for addr, expires := range gps.sources {
 		cp.sources[addr] = expires
@@ -84,14 +85,19 @@ func (gps *groupPortState) isEmptyInclude() bool {
 }
 
 // applyRecord applies one RFC 3376 §6.4 record to gps, in place.
-// startsOlderHost marks a record produced by the version-compatibility mapping
-// (RFC 3810 §8.3.2), which (re)starts the older-version-host timer instead of being
-// subject to it.
-func applyRecord(now time.Time, gmi time.Duration, gps *groupPortState, kind recordKind, reported []netip.Addr, startsOlderHost bool) {
-	olderHostActive := gps.olderHostUntil.After(now)
-	if startsOlderHost {
-		gps.olderHostUntil = now.Add(gmi)
-	} else if olderHostActive {
+// legacyVersion is 1 for an IGMPv1 report, 2 for an IGMPv2 or MLDv1 report, and zero
+// otherwise. Only reports refresh compatibility timers.
+func applyRecord(now time.Time, gmi time.Duration, gps *groupPortState, kind recordKind, reported []netip.Addr, legacyVersion uint8) {
+	switch legacyVersion {
+	case 1:
+		gps.igmpV1HostUntil = now.Add(gmi)
+	case 2:
+		gps.igmpV2HostUntil = now.Add(gmi)
+	}
+	if gps.igmpV1HostUntil.After(now) && kind == recToInclude {
+		return
+	}
+	if gps.igmpV1HostUntil.After(now) || gps.igmpV2HostUntil.After(now) {
 		switch kind {
 		case recBlock:
 			return
@@ -109,6 +115,11 @@ func applyRecord(now time.Time, gmi time.Duration, gps *groupPortState, kind rec
 	} else {
 		applyExcludeRecord(now, gmi, gps, kind, reported)
 	}
+	for source := range gps.queriedSources {
+		if _, exists := gps.sources[source]; !exists {
+			delete(gps.queriedSources, source)
+		}
+	}
 }
 
 // applyIncludeRecord applies the §6.4.1 and §6.4.2 rows whose router state is INCLUDE(A).
@@ -119,10 +130,10 @@ func applyIncludeRecord(now time.Time, gmi time.Duration, gps *groupPortState, k
 	case recToInclude:
 		blocked := keysNotIn(gps.sources, reported)
 		refreshSources(gps, now.Add(gmi), reported)
-		fireSourceQuery(gps, now, len(blocked) > 0)
+		fireSourceQuery(gps, now, blocked)
 	case recBlock:
 		queried := keysIn(gps.sources, reported)
-		fireSourceQuery(gps, now, len(queried) > 0)
+		fireSourceQuery(gps, now, queried)
 	case recIsExclude, recToExclude:
 		transitionIncludeToExclude(now, gmi, gps, reported, kind == recToExclude)
 	}
@@ -136,11 +147,11 @@ func applyExcludeRecord(now time.Time, gmi time.Duration, gps *groupPortState, k
 	case recToInclude:
 		blocked := runningKeysNotIn(gps.sources, reported)
 		refreshSources(gps, now.Add(gmi), reported)
-		fireSourceQuery(gps, now, len(blocked) > 0)
+		fireSourceQuery(gps, now, blocked)
 		gps.pendingGroupFiredAt = now
 	case recBlock:
 		added := addBlockedSources(gps, reported)
-		fireSourceQuery(gps, now, len(added) > 0)
+		fireSourceQuery(gps, now, added)
 	case recIsExclude, recToExclude:
 		rebuildExclude(now, gmi, gps, reported, kind == recToExclude)
 	}
@@ -152,11 +163,11 @@ func applyExcludeRecord(now time.Time, gmi time.Duration, gps *groupPortState, k
 func transitionIncludeToExclude(now time.Time, gmi time.Duration, gps *groupPortState, reported []netip.Addr, isToEx bool) {
 	old := gps.sources
 	next := make(map[netip.Addr]time.Time, len(reported))
-	var commonCount int
+	var common []netip.Addr
 	for _, s := range reported {
 		if expires, ok := old[s]; ok {
 			next[s] = expires
-			commonCount++
+			common = append(common, s)
 		} else {
 			next[s] = time.Time{}
 		}
@@ -165,8 +176,9 @@ func transitionIncludeToExclude(now time.Time, gmi time.Duration, gps *groupPort
 	gps.mode = Exclude
 	gps.sources = next
 	gps.groupExpires = now.Add(gmi)
+	gps.pendingGroupFiredAt = time.Time{}
 	if isToEx {
-		fireSourceQuery(gps, now, commonCount > 0)
+		fireSourceQuery(gps, now, common)
 	}
 }
 
@@ -179,7 +191,7 @@ func rebuildExclude(now time.Time, gmi time.Duration, gps *groupPortState, repor
 	old := gps.sources
 	oldGroupExpires := gps.groupExpires
 	next := make(map[netip.Addr]time.Time, len(reported))
-	var queriedCount int
+	var queried []netip.Addr
 	for _, s := range reported {
 		expires, existed := old[s]
 		switch {
@@ -191,14 +203,15 @@ func rebuildExclude(now time.Time, gmi time.Duration, gps *groupPortState, repor
 			next[s] = now.Add(gmi)
 		}
 		if !existed || !expires.IsZero() {
-			queriedCount++
+			queried = append(queried, s)
 		}
 	}
 
 	gps.sources = next
 	gps.groupExpires = now.Add(gmi)
+	gps.pendingGroupFiredAt = time.Time{}
 	if isToEx {
-		fireSourceQuery(gps, now, queriedCount > 0)
+		fireSourceQuery(gps, now, queried)
 	}
 }
 
@@ -223,12 +236,16 @@ func addBlockedSources(gps *groupPortState, reported []netip.Addr) []netip.Addr 
 func refreshSources(gps *groupPortState, expires time.Time, reported []netip.Addr) {
 	for _, s := range reported {
 		gps.sources[s] = expires
+		delete(gps.queriedSources, s)
 	}
 }
 
-func fireSourceQuery(gps *groupPortState, now time.Time, fire bool) {
-	if fire {
-		gps.pendingSourceFiredAt = now
+func fireSourceQuery(gps *groupPortState, now time.Time, sources []netip.Addr) {
+	if len(sources) > 0 && gps.queriedSources == nil {
+		gps.queriedSources = make(map[netip.Addr]time.Time, len(sources))
+	}
+	for _, source := range sources {
+		gps.queriedSources[source] = now
 	}
 }
 
@@ -303,13 +320,19 @@ func obligationPending(gps *groupPortState, lmqt time.Duration, now time.Time) b
 		return true
 	}
 
-	return !gps.pendingSourceFiredAt.IsZero() && !now.Before(gps.pendingSourceFiredAt.Add(lmqt))
+	for source, firedAt := range gps.queriedSources {
+		expires, exists := gps.sources[source]
+		retained := gps.mode == Exclude && gps.groupExpires.After(now) || expires.After(now)
+		if exists && retained && !now.Before(firedAt.Add(lmqt)) {
+			return true
+		}
+	}
+	return false
 }
 
 // observeQuery applies an observed, unsuppressed group-specific or group-and-source-specific
 // query to every port's state for group: it lowers the relevant timers to LMQT (never raising
-// them) and, when the query arrived within LMQT of the obligation that requested it, clears
-// that obligation.
+// them) and clears only the obligations for the queried group or named sources, however late.
 func observeQuery(now time.Time, group netip.Addr, sources []netip.Addr, suppress bool, state *vlanState) {
 	if suppress || !group.IsValid() {
 		return
@@ -325,7 +348,7 @@ func observeQuery(now time.Time, group netip.Addr, sources []netip.Addr, suppres
 			if gps.mode == Exclude && gps.groupExpires.After(deadline) {
 				gps.groupExpires = deadline
 			}
-			clearIfMatched(&gps.pendingGroupFiredAt, now, state.lmqt)
+			gps.pendingGroupFiredAt = time.Time{}
 
 			continue
 		}
@@ -334,13 +357,7 @@ func observeQuery(now time.Time, group netip.Addr, sources []netip.Addr, suppres
 			if expires, ok := gps.sources[s]; ok && !expires.IsZero() && expires.After(deadline) {
 				gps.sources[s] = deadline
 			}
+			delete(gps.queriedSources, s)
 		}
-		clearIfMatched(&gps.pendingSourceFiredAt, now, state.lmqt)
-	}
-}
-
-func clearIfMatched(firedAt *time.Time, now time.Time, lmqt time.Duration) {
-	if !firedAt.IsZero() && !now.After(firedAt.Add(lmqt)) {
-		*firedAt = time.Time{}
 	}
 }

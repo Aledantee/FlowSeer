@@ -143,7 +143,7 @@ func caseTroubleshootingFilterDropsMDNSUnicastProbe() Case {
 	matchFact := expectedFact("filter.match",
 		`proto=17;src="10.0.10.7";dst="10.0.20.5";src_port=40000;dst_port=5353`)
 	ruleDec := expectedFact("filter.rule_decision",
-		`set="lan-in";rule="deny-mdns-unicast";action="drop";direction="in";interface="vlan10"`)
+		`set="lan-in";rule="deny-mdns-unicast";index=0;action="drop";direction="in";interface="vlan10"`)
 
 	steps := []StepExpectation{
 		expectedStep("vlan", trace.OpClassify, "vlan-classify", trace.Subject{Kind: "vlan", Key: "10"},
@@ -252,9 +252,9 @@ func caseTroubleshootingStatefulReplyAllowed() Case {
 	matchFact := expectedFact("filter.match",
 		`proto=6;src="10.0.20.5";dst="10.0.10.7";src_port=443;dst_port=40000`)
 	fwdDecFact := expectedFact("filter.rule_decision",
-		`set="lan-in";rule="allow-https";action="accept";direction="in";interface="vlan10"`)
+		`set="lan-in";rule="allow-https";index=0;action="accept";direction="in";interface="vlan10"`)
 	stateDecFact := expectedFact("filter.rule_decision",
-		`set="srv-in";rule="state";action="accept";direction="in";interface="vlan20"`)
+		`set="srv-in";rule="state";index=-1;action="accept";direction="in";interface="vlan20"`)
 
 	pktIn := expectedFact("routing.packet_decision",
 		`interface="vlan20";ether_type=2048;src="10.0.20.5";dst="10.0.10.7";hop_limit=64;valid=true;reason=""`)
@@ -409,9 +409,9 @@ func casePlanningFilterRuleChange() Case {
 	matchFact := expectedFact("filter.match",
 		`proto=17;src="10.0.10.7";dst="10.0.20.5";src_port=40000;dst_port=5353`)
 	defaultDec := expectedFact("filter.rule_decision",
-		`set="lan-in";rule="default";action="accept";direction="in";interface="vlan10"`)
+		`set="lan-in";rule="default";index=-1;action="accept";direction="in";interface="vlan10"`)
 	denyRuleDec := expectedFact("filter.rule_decision",
-		`set="lan-in";rule="deny-mdns-unicast";action="drop";direction="in";interface="vlan10"`)
+		`set="lan-in";rule="deny-mdns-unicast";index=0;action="drop";direction="in";interface="vlan10"`)
 
 	pktIn := expectedFact("routing.packet_decision",
 		`interface="vlan10";ether_type=2048;src="10.0.10.7";dst="10.0.20.5";hop_limit=64;valid=true;reason=""`)

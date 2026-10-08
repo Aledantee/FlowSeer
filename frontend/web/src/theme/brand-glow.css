@@ -9,7 +9,6 @@
 }
 
 .brand-glow,
-.main-shell::before,
 .sidebar-toggle::before {
   background-color: color-mix(in srgb, var(--glow-base) 82%, transparent);
   background-image:
