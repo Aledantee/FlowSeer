@@ -1,6 +1,7 @@
 package vswitch_test
 
 import (
+	"reflect"
 	"slices"
 	"testing"
 	"time"
@@ -232,9 +233,32 @@ func TestConformanceDeriveInvalidation(t *testing.T) {
 	}
 
 	// 2. Invalidation: set port 1/1/2 Down
-	if _, err := sw.LinkChange(time.Time{}, "1/1/2", port.Down, vswitch.PointToPointTrue, 0); err != nil {
-		t.Fatalf("LinkChange: %v", err)
+	target := sw.Spec()
+	builder := port.NewBuilder()
+	for _, p := range target.Config.Ports.Ports() {
+		if p.Name == "1/1/2" {
+			p.OperStatus = port.Down
+		}
+		builder.Add(p)
 	}
+	target.Config.Ports, err = builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, _, err := vswitch.Derive(sw, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ret := reflect.ValueOf(next.Retention())
+	if !ret.FieldByName("Bridge").IsValid() || !ret.FieldByName("Filter").IsValid() {
+		t.Fatal("Retention omits bridge or filter")
+	}
+	for i := range ret.NumField() {
+		if got := ret.Field(i).Interface().(vswitch.LayerRetention); !got.Kept || got.Difference != "" {
+			t.Errorf("%s retention = %+v, want kept", ret.Type().Field(i).Name, got)
+		}
+	}
+	sw = next
 
 	// 3. Derived state invalidated: packet must not egress on down port
 	resDown := sw.Receive(t0, "1/1/1", frame)

@@ -13,6 +13,27 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestSwitchportAdmitsFID(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		port bridge.Switchport
+		want bool
+	}{
+		{"PVID", bridge.Switchport{PVID: new(vlan.ID(10))}, true},
+		{"tagged", bridge.Switchport{Tagged: []vlan.ID{10}}, true},
+		{"untagged", bridge.Switchport{Untagged: []vlan.ID{10}}, true},
+		{"tunnel", bridge.Switchport{Tunnel: &bridge.Tunnel{VID: 10}}, true},
+		{"other VLAN", bridge.Switchport{Tagged: []vlan.ID{20}}, false},
+		{"absent", bridge.Switchport{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := bridge.SwitchportAdmitsFID(tc.port, 10); got != tc.want {
+				t.Fatalf("SwitchportAdmitsFID = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestSeedNamingALagMemberIsStoredUnderTheLag(t *testing.T) {
 	now := time.Date(2026, 9, 10, 18, 0, 0, 0, time.UTC)
 	b := port.NewBuilder()

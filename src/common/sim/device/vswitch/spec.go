@@ -138,11 +138,14 @@ func (s *Switch) Learn(seeds []bridge.Seed) error {
 
 // Forget removes a forwarding database entry with the given FID and MAC address from
 // the switch's bridge relay, reporting whether an entry was present. It returns false
-// when the switch has no bridge relay.
+// when the switch has no bridge relay. The same key is removed from construction
+// seeds so a rebuild cannot resurrect the forgotten entry.
 func (s *Switch) Forget(fid vlan.ID, mac netaddr.MAC) bool {
 	if s.bridge == nil {
 		return false
 	}
 
-	return s.bridge.Forget(fid, mac)
+	forgot := s.bridge.Forget(fid, mac)
+	s.seeds = slices.DeleteFunc(s.seeds, func(seed bridge.Seed) bool { return seed.FID == fid && seed.MAC == mac })
+	return forgot
 }

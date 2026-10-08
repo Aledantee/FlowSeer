@@ -1028,7 +1028,15 @@ Existing tests that change: two subtests of `TestLayerDependencyMutationMatrix`
 (`derive_internal_test.go:224`), "port admin status drops entry per-entry"
 and "port oper status drops entry per-entry". Each drops a membership and
 asserts `Mcast.Kept` true, and under D1 asserts false with the dependency
-named. `TestMulticastValidationAndDerivation`, the three key-changing
+named. D1 also migrates "vlan removed from mcast drops group memberships" from
+kept to not kept with difference `config`, because its source membership
+is absent afterwards. The unchanged group-count assertion still proves
+removal. `TestRestore` counts group and router keys absent after restoration,
+including a configured source router that the target configuration omits.
+`TestDeriveCarriesLinkReportsTogether` checks both maps before `LinkChange`.
+The public call initializes each map independently on this tree, so the
+pre-call assertion pins D4 even when no panic follows.
+`TestMulticastValidationAndDerivation`, the three key-changing
 multicast subtests, and the traffic subtests (`:977-1056`) keep passing.
 Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- src/common/sim/device/vswitch src/common/sim/layer/bridge src/common/sim/layer/mcast src/common/sim/fabric/fabric.go docs/architecture/2026-09-10-virtual-device-direction.md`
 

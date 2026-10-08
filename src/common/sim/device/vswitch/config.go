@@ -268,8 +268,7 @@ func (c Config) Validate() error {
 			}
 			for _, name := range c.Mcast.VLANs[vid].RouterPorts {
 				switchport, ok := c.Bridge.VLAN.Switchports[name]
-				member := ok && (slices.Contains(switchport.Tagged, vid) || slices.Contains(switchport.Untagged, vid) ||
-					(switchport.Tunnel != nil && switchport.Tunnel.VID == vid))
+				member := ok && switchport.CarriesVID(vid)
 				if !member {
 					return errs.New().
 						Attr("field", fmt.Sprintf("mcast.vlans.%d.router_ports.%s", vid, name)).

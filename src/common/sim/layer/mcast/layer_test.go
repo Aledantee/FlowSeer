@@ -421,7 +421,21 @@ func TestRestore(t *testing.T) {
 				cfg.VLANs[vid] = v
 			}
 			next := mustNewMcast(t, cfg, ports)
-			next.Restore(prev, keep)
+			restorer, ok := any(next).(interface {
+				Restore(*mcast.Layer, func(vlan.ID, string) bool) int
+			})
+			if !ok {
+				t.Fatal("Restore does not report lost records")
+			}
+			lost := restorer.Restore(prev, keep)
+			wantLost := 1
+			switch name {
+			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
+				wantLost = 3
+			}
+			if lost != wantLost {
+				t.Fatalf("lost records = %d, want %d", lost, wantLost)
+			}
 			switch name {
 			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
 				if got, routers := next.Groups(vid, t0.Add(time.Second)), next.RouterPorts(vid, t0.Add(time.Second)); len(got) != 0 || len(routers) != 0 {

@@ -656,13 +656,23 @@ flowchart LR
 
 ## Derivation and state retention
 
-`Derive(cur, spec)` produces an updated switch while retaining capability layer
-runtime state whose inputs have not changed. Each capability layer exports a
-`RetentionKey` computed from constructed switches rather than raw specs. When
-both keys match, the runtime layer is retained; otherwise it is rebuilt from the
-target specification. `Switch.Retention()` reports each layer's outcome and the
-differing dependency name (`config`, `port-state`, `resolved-speed`,
-`member-state`, `mac`, or `system-id`). `Switch.Fork()` marks all layers kept.
+`Derive(cur, spec)` builds the target and carries state through the layer
+table in `layers.go`. Spanning tree, loop protection, LAG, routing, traffic,
+and filter report `Kept` when their normalized dependency keys match.
+Traffic carries unchanged policer buckets even when its whole key differs.
+Filter holds no runtime records and is rebuilt from the target.
+
+Multicast and the bridge report `Kept` when no source record is absent
+afterwards, regardless of key equality. Multicast restores memberships
+without consulting spanning tree, because the relay gates their egress
+when a frame arrives. The bridge replays eligible dynamic entries and
+counts those lost to seed admission or capacity eviction. A lost record
+with equal keys names `config`. Other differences use `diffDependency`.
+An absent layer on both sides is kept. `Retention` covers every layer
+constructed with `New`, including bridge and filter (`retention.go`).
+
+`Forget` removes the same key from both the FDB and construction seeds so
+a rebuild cannot resurrect it (`TestForgetRemovesTheSeed`).
 
 Runtime duplex and speed are carried per port independently of STP retention,
 retained only where the target's port and PHY resolved speed match. A port whose

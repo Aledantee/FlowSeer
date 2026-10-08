@@ -287,10 +287,18 @@ layer. The bridge filtering database is reseeded per eligible dynamic entry
 ([`derive.go`](../../src/common/sim/device/vswitch/derive.go)).
 Multicast restores state per entry on VLANs both
 layers snoop, restricted to target logical ports admitted by the switch's
-port forwarding, VLAN membership, and spanning-tree predicate. Its key names
+port forwarding and VLAN membership. Spanning tree gates egress when a
+frame arrives and never decides which membership Derive retains. Its key names
 only the difference in the retention report. `mcast.Layer.Restore` copies
 the whole group state and each observed router port with their deadlines,
 while the target's static router ports take precedence.
+`Kept` means key equality for a layer carried whole and for traffic.
+Multicast and the bridge are carried per record and report kept when no
+source record is absent afterwards. The bridge counts keys missing after
+reseed, including capacity evictions. A lost record with equal keys names
+`config`. An absent layer on both sides is kept. Filter is rebuilt from
+configuration and reports key equality because it holds no runtime record.
+
 Dependency keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
 and MAC assignment that decide what a field becomes; see [validate and
@@ -1102,3 +1110,11 @@ to target static configuration. The target's intervals govern later learning.
 its independence. `TestDeriveKeepsSourceSpecificMulticast` in
 `src/common/sim/device/vswitch/derive_internal_test.go` checks that an unrelated
 VLAN edit keeps `INCLUDE {10.0.0.9}` and its forwarding result.
+
+### 2026-10-08: Derivation reports record loss
+
+[`derive.go`](../../src/common/sim/device/vswitch/derive.go) carries layers
+through the shared table. Multicast restoration excludes the spanning tree
+predicate. Bridge and multicast verdicts count lost records, while whole
+layers and traffic compare keys. `Retention` includes bridge and filter.
+`Forget` removes construction seeds as well as the active FDB entry.

@@ -26,6 +26,48 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
+func TestDeriveCarriesLinkReportsTogether(t *testing.T) {
+	ports, err := port.NewBuilder().Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).Add(port.Port{Name: "1/1/3", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw, err := New(Config{MAC: netaddr.MAC{2, 0, 0, 0, 0, 1}, Ports: ports, Bridge: &bridge.Config{}, LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sw.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
+	target := sw.Spec()
+	b := port.NewBuilder()
+	for _, p := range target.Config.Ports.Ports() {
+		if p.Name == "1/1/3" {
+			p.OperStatus = port.Down
+		}
+		b.Add(p)
+	}
+	target.Config.Ports, err = b.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, _, err := Derive(sw, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+		t.Fatalf("changed member report = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
+	}
+	if (next.portP2P == nil) != (next.portSpeed == nil) {
+		t.Fatal("Derive left only one link-report map nil")
+	}
+	if _, err := next.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointUnknown, 0); err != nil {
+		t.Fatal(err)
+	}
+	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+		t.Fatalf("member report after LinkChange = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
+	}
+}
+
 func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 	if err != nil {
@@ -747,8 +789,8 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
-			if !derived.Retention().Mcast.Kept {
-				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			if got := derived.Retention().Mcast; got.Kept || got.Difference != "config" {
+				t.Errorf("Mcast retention = %+v, want Kept: false, Difference: config", derived.Retention().Mcast)
 			}
 			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
@@ -768,8 +810,8 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
-			if !derived.Retention().Mcast.Kept {
-				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			if got := derived.Retention().Mcast; got.Kept || got.Difference != "config" {
+				t.Errorf("Mcast retention = %+v, want Kept: false, Difference: config", derived.Retention().Mcast)
 			}
 			groups := derived.mcast.Groups(vid10, fixedTime)
 			if len(groups) != 1 || groups[0].Port != "1/1/2" || groups[0].Group != group2 {
@@ -786,8 +828,8 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
-			if !derived.Retention().Mcast.Kept {
-				t.Errorf("Mcast retention = %+v, want Kept: true", derived.Retention().Mcast)
+			if got := derived.Retention().Mcast; got.Kept || got.Difference != "config" {
+				t.Errorf("Mcast retention = %+v, want Kept: false, Difference: config", derived.Retention().Mcast)
 			}
 			if groups := derived.mcast.Groups(vid10, fixedTime); len(groups) != 0 {
 				t.Errorf("groups after vlan removed = %+v, want none", groups)

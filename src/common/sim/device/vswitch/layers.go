@@ -4,10 +4,14 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 )
 
 type timed interface {
@@ -16,12 +20,17 @@ type timed interface {
 }
 
 type layerEntry struct {
-	advance func(*Switch, time.Time) layer.Effects
-	timer   timed
-	apply   func(*Switch, time.Time, layer.Effects)
-	age     bool
-	clone   func(*Switch, *Switch)
-	bind    func(*Switch)
+	key       func(*Switch) string
+	retention func(*Switch) *LayerRetention
+	carry     func(*Switch, *Switch) (int, error)
+	perRecord bool
+	rebuild   bool
+	advance   func(*Switch, time.Time) layer.Effects
+	timer     timed
+	apply     func(*Switch, time.Time, layer.Effects)
+	age       bool
+	clone     func(*Switch, *Switch)
+	bind      func(*Switch)
 }
 
 func (s *Switch) layers(_ time.Time) [8]layerEntry {
@@ -73,6 +82,71 @@ func (s *Switch) layers(_ time.Time) [8]layerEntry {
 	}
 	if s.traffic != nil {
 		entries[7] = layerEntry{clone: func(s, cp *Switch) { cp.traffic = s.traffic.Clone() }}
+	}
+	entries[0].key = func(s *Switch) string {
+		if s.cfg.STP == nil {
+			return ""
+		}
+		return stp.RetentionKey(*s.cfg.STP, s.env())
+	}
+	entries[0].retention = func(s *Switch) *LayerRetention { return &s.retention.STP }
+	entries[1].key = func(s *Switch) string {
+		if s.cfg.LAG == nil {
+			return ""
+		}
+		return lag.RetentionKey(*s.cfg.LAG, s.env())
+	}
+	entries[1].retention = func(s *Switch) *LayerRetention { return &s.retention.LAG }
+	entries[2].key = func(s *Switch) string {
+		if s.cfg.LoopProtect == nil {
+			return ""
+		}
+		return loopprotect.RetentionKey(*s.cfg.LoopProtect, s.env())
+	}
+	entries[2].retention = func(s *Switch) *LayerRetention { return &s.retention.LoopProtect }
+	entries[3].key = func(s *Switch) string {
+		if s.cfg.Bridge == nil {
+			return ""
+		}
+		return bridge.RetentionKey(*s.cfg.Bridge, s.env())
+	}
+	entries[3].retention = func(s *Switch) *LayerRetention { return &s.retention.Bridge }
+	entries[4].key = func(s *Switch) string {
+		if s.cfg.Mcast == nil {
+			return ""
+		}
+		return mcast.RetentionKey(*s.cfg.Mcast, s.env())
+	}
+	entries[4].retention = func(s *Switch) *LayerRetention { return &s.retention.Mcast }
+	entries[5].key = func(s *Switch) string {
+		if s.cfg.Routing == nil {
+			return ""
+		}
+		return routing.RetentionKey(*s.cfg.Routing, s.env())
+	}
+	entries[5].retention = func(s *Switch) *LayerRetention { return &s.retention.Routing }
+	entries[6].key = func(s *Switch) string {
+		if s.cfg.Filter == nil {
+			return ""
+		}
+		return filter.RetentionKey(*s.cfg.Filter, s.env())
+	}
+	entries[6].retention = func(s *Switch) *LayerRetention { return &s.retention.Filter }
+	entries[7].key = func(s *Switch) string {
+		if s.cfg.Traffic == nil {
+			return ""
+		}
+		return traffic.RetentionKey(*s.cfg.Traffic, s.env())
+	}
+	entries[7].retention = func(s *Switch) *LayerRetention { return &s.retention.Traffic }
+	entries[3].carry, entries[3].perRecord = carryBridge, true
+	entries[4].carry, entries[4].perRecord = carryMcast, true
+	entries[6].rebuild = true
+	entries[7].carry = func(cur, next *Switch) (int, error) {
+		if cur.traffic != nil && next.traffic != nil {
+			next.traffic.Retain(cur.traffic)
+		}
+		return 0, nil
 	}
 	return entries
 }

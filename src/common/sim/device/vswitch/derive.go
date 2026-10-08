@@ -1,18 +1,11 @@
 package vswitch
 
 import (
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -37,248 +30,125 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 	c, end := next.beginCall(time.Time{}, true)
 	defer end()
 
-	// Traffic retention
-	var curTrafficKey, nextTrafficKey string
-	if cur != nil && cur.traffic != nil && cur.cfg.Traffic != nil {
-		curTrafficKey = traffic.RetentionKey(*cur.cfg.Traffic, cur.env())
+	if cur == nil {
+		cur = &Switch{}
 	}
-	if next.cfg.Traffic != nil {
-		nextTrafficKey = traffic.RetentionKey(*next.cfg.Traffic, next.env())
-	}
-	if curTrafficKey == nextTrafficKey {
-		next.retention.Traffic = LayerRetention{Kept: true}
-	} else {
-		next.retention.Traffic = LayerRetention{Kept: false, Difference: diffDependency(curTrafficKey, nextTrafficKey)}
-	}
-	if cur != nil && cur.traffic != nil && next.traffic != nil {
-		next.traffic.Retain(cur.traffic)
-	}
-
-	// STP retention: both sides are compared as New filled them, so a bridge address
-	// the switch assigned does not read as a change.
-	var curSTPKey, nextSTPKey string
-	if cur != nil && cur.stp != nil && cur.cfg.STP != nil {
-		curSTPKey = stp.RetentionKey(*cur.cfg.STP, cur.env())
-	}
-	if next.cfg.STP != nil {
-		nextSTPKey = stp.RetentionKey(*next.cfg.STP, next.env())
-	}
-	if curSTPKey == nextSTPKey {
-		next.retention.STP = LayerRetention{Kept: true}
-		if cur != nil && cur.stp != nil {
-			next.stp = cur.stp.Clone()
-			if next.bridge != nil {
-				next.bridge.SetGate(next.stp, protocolScope(next.nodeID, stp.LayerName))
+	source, targetLayers := cur.layers(time.Time{}), next.layers(time.Time{})
+	for i, entry := range targetLayers {
+		oldKey, newKey := source[i].key(cur), entry.key(next)
+		lost := 0
+		if entry.carry != nil {
+			lost, err = entry.carry(cur, next)
+			if err != nil {
+				return nil, Output{}, err
+			}
+		} else if oldKey != "" && oldKey == newKey && source[i].clone != nil && !entry.rebuild {
+			source[i].clone(cur, next)
+		}
+		kept := oldKey == newKey
+		if entry.perRecord {
+			kept = lost == 0
+		}
+		report := entry.retention(next)
+		*report = LayerRetention{Kept: kept}
+		if !kept {
+			report.Difference = diffDependency(oldKey, newKey)
+			if report.Difference == "" {
+				report.Difference = "config"
 			}
 		}
-	} else {
-		next.retention.STP = LayerRetention{Kept: false, Difference: diffDependency(curSTPKey, nextSTPKey)}
 	}
+	if next.bridge != nil {
+		for _, entry := range next.layers(time.Time{}) {
+			if entry.bind != nil {
+				entry.bind(next)
+			}
+		}
+	}
+	if cur.portP2P != nil || cur.portSpeed != nil {
 
-	// Carry portP2P and portSpeed per port rather than wholesale,
-	// only where target's port and resolved speed match.
-	if cur != nil {
+		next.portP2P = make(map[string]PointToPoint)
+		next.portSpeed = make(map[string]uint64)
 		for _, p := range next.ports.Ports() {
-			curPort, ok := cur.ports.Port(p.Name)
+			old, ok := cur.ports.Port(p.Name)
 			if !ok {
 				continue
 			}
-			if curPort != p || cur.linkSpeed(curPort) != next.linkSpeed(p) {
-				if cur.portP2P != nil {
-					if _, heard := cur.portP2P[p.Name]; heard {
-						if next.portP2P == nil {
-							next.portP2P = make(map[string]PointToPoint)
-						}
-						next.portP2P[p.Name] = PointToPointUnknown
-					}
+			if old != p || cur.linkSpeed(old) != next.linkSpeed(p) {
+				if _, heard := cur.portP2P[p.Name]; heard {
+					next.portP2P[p.Name] = PointToPointUnknown
 				}
 				continue
 			}
-			if cur.portP2P != nil {
-				if p2p, ok := cur.portP2P[p.Name]; ok {
-					if next.portP2P == nil {
-						next.portP2P = make(map[string]PointToPoint)
-					}
-					next.portP2P[p.Name] = p2p
-				}
+			if p2p, ok := cur.portP2P[p.Name]; ok {
+				next.portP2P[p.Name] = p2p
 			}
-			if cur.portSpeed != nil {
-				if sp, ok := cur.portSpeed[p.Name]; ok {
-					if next.portSpeed == nil {
-						next.portSpeed = make(map[string]uint64)
-					}
-					next.portSpeed[p.Name] = sp
-				}
+			if speed, ok := cur.portSpeed[p.Name]; ok {
+				next.portSpeed[p.Name] = speed
 			}
 		}
 	}
-
-	// LoopProtect retention
-	var curLPKey, nextLPKey string
-	if cur != nil && cur.loopprotect != nil && cur.cfg.LoopProtect != nil {
-		curLPKey = loopprotect.RetentionKey(*cur.cfg.LoopProtect, cur.env())
-	}
-	if next.cfg.LoopProtect != nil {
-		nextLPKey = loopprotect.RetentionKey(*next.cfg.LoopProtect, next.env())
-	}
-	if curLPKey == nextLPKey {
-		next.retention.LoopProtect = LayerRetention{Kept: true}
-		if cur != nil && cur.loopprotect != nil {
-			next.loopprotect = cur.loopprotect.Clone()
-			if next.bridge != nil {
-				next.bridge.SetGate(next.loopprotect, protocolScope(next.nodeID, loopprotect.LayerName))
-			}
-		}
-	} else {
-		next.retention.LoopProtect = LayerRetention{Kept: false, Difference: diffDependency(curLPKey, nextLPKey)}
-	}
-
-	// LAG retention
-	var curLAGKey, nextLAGKey string
-	if cur != nil && cur.lag != nil && cur.cfg.LAG != nil {
-		curLAGKey = lag.RetentionKey(*cur.cfg.LAG, cur.env())
-	}
-	if next.cfg.LAG != nil {
-		nextLAGKey = lag.RetentionKey(*next.cfg.LAG, next.env())
-	}
-	if curLAGKey == nextLAGKey {
-		next.retention.LAG = LayerRetention{Kept: true}
-		if cur != nil && cur.lag != nil {
-			next.lag = cur.lag.Clone()
-			if next.bridge != nil {
-				next.bridge.SetSelector(lagSelector{sw: next}, protocolScope(next.nodeID, lag.LayerName))
-			}
-		}
-	} else {
-		next.retention.LAG = LayerRetention{Kept: false, Difference: diffDependency(curLAGKey, nextLAGKey)}
-	}
-
-	// Retained point-to-point reports change which spanning tree inputs are
-	// unknown, so the issues New computed from an empty report set are stale.
 	next.recomputeProtocolLinkIssues()
+	if !next.retention.Routing.Kept && cur.routing != nil {
+		next.applyRoutingExits(time.Time{}, cur.routing.Clone().FailHeld())
+	}
+	return next, c.output(ForwardResult{}), nil
+}
 
-	// Mcast retention: multicast snooping is snoop-driven and unconditionally
-	// restores retained dynamic state into the new switch, filtered per-entry
-	// by port forwarding and VLAN membership. It reports kept when both switches
-	// have multicast enabled.
-	var curMcastKey, nextMcastKey string
-	if cur != nil && cur.mcast != nil && cur.cfg.Mcast != nil {
-		curMcastKey = mcast.RetentionKey(*cur.cfg.Mcast, cur.env())
-	}
-	if next.cfg.Mcast != nil {
-		nextMcastKey = mcast.RetentionKey(*next.cfg.Mcast, next.env())
-	}
-	diff := diffDependency(curMcastKey, nextMcastKey)
-	if curMcastKey == "" && nextMcastKey == "" {
-		diff = "config"
-	}
-	if (cur != nil && cur.mcast != nil) != (next.mcast != nil) {
-		next.retention.Mcast = LayerRetention{Kept: false, Difference: diff}
-	} else {
-		next.retention.Mcast = LayerRetention{Kept: true}
-	}
-	if cur != nil && cur.mcast != nil && next.mcast != nil {
-		next.mcast.Restore(cur.mcast, func(vid vlan.ID, name string) bool {
-			if _, ok := next.cfg.Mcast.VLANs[vid]; !ok {
-				return false
-			}
-			p, ok := next.ports.Port(name)
-			if !ok || p.LagParent != "" || !p.Forwards() {
-				return false
-			}
-			switchport, ok := next.cfg.Bridge.VLAN.Switchports[name]
-			if !ok || !slices.Contains(switchport.Tagged, vid) && !slices.Contains(switchport.Untagged, vid) &&
-				(switchport.Tunnel == nil || switchport.Tunnel.VID != vid) {
-				return false
-			}
-
-			return next.stp == nil || next.stp.Forwards(name, vid)
-		})
-	}
-
-	// Routing retention
-	var curRoutingKey, nextRoutingKey string
-	if cur != nil && cur.routing != nil && cur.cfg.Routing != nil {
-		curRoutingKey = routing.RetentionKey(*cur.cfg.Routing, cur.env())
-	}
-	if next.cfg.Routing != nil {
-		nextRoutingKey = routing.RetentionKey(*next.cfg.Routing, next.env())
-	}
-	if curRoutingKey == nextRoutingKey {
-		next.retention.Routing = LayerRetention{Kept: true}
-		if cur != nil && cur.routing != nil {
-			next.routing = cur.routing.Clone()
+func carryMcast(cur, next *Switch) (int, error) {
+	return next.mcast.Restore(cur.mcast, func(vid vlan.ID, name string) bool {
+		p, ok := next.ports.Port(name)
+		if !ok || p.LagParent != "" || !p.Forwards() {
+			return false
 		}
-	} else {
-		next.retention.Routing = LayerRetention{Kept: false, Difference: diffDependency(curRoutingKey, nextRoutingKey)}
-		if cur != nil && cur.routing != nil {
-			exits := cur.routing.Clone().FailHeld()
-			next.applyRoutingExits(time.Time{}, exits)
-		}
-	}
+		sw, ok := next.cfg.Bridge.VLAN.Switchports[name]
+		return ok && sw.CarriesVID(vid)
+	}), nil
+}
 
-	if cur == nil || cur.bridge == nil || next.bridge == nil {
-		return next, c.output(ForwardResult{}), nil
-	}
-
-	curVLAN := cur.cfg.Bridge != nil && cur.cfg.Bridge.VLAN != nil
-	nextVLAN := next.cfg.Bridge != nil && next.cfg.Bridge.VLAN != nil
-	targetSeeds := make(map[bridgeSeedKey]struct{}, len(next.seeds))
+func carryBridge(cur, next *Switch) (int, error) {
+	old := cur.Entries()
+	targetSeeds := make(map[bridgeSeedKey]bool)
 	for _, seed := range next.seeds {
-		if seed.Lifetime != bridge.Static {
-			continue
+		if seed.Lifetime == bridge.Static {
+			targetSeeds[bridgeSeedKey{seed.FID, seed.MAC}] = true
 		}
-		targetSeeds[bridgeSeedKey{fid: seed.FID, mac: seed.MAC}] = struct{}{}
 	}
-
 	var seeds []bridge.Seed
-	for _, entry := range cur.Entries() {
-		if entry.Lifetime == bridge.Static {
+	for _, entry := range old {
+		if entry.Lifetime == bridge.Static || targetSeeds[bridgeSeedKey{entry.FID, entry.MAC}] || next.bridge == nil {
 			continue
 		}
-		if _, configured := targetSeeds[bridgeSeedKey{fid: entry.FID, mac: entry.MAC}]; configured {
+		p, ok := next.ports.Port(entry.Port)
+		if !ok || (p.Kind == port.LAG && len(next.ports.Members(entry.Port)) == 0) {
 			continue
 		}
-
-		p, ok := next.cfg.Ports.Port(entry.Port)
-		if !ok {
-			continue
-		}
-		if p.Kind == port.LAG && len(next.cfg.Ports.Members(entry.Port)) == 0 {
-			continue
-		}
-
-		if nextVLAN {
+		if next.cfg.Bridge.VLAN != nil {
 			sw, ok := next.cfg.Bridge.VLAN.Switchports[entry.Port]
-			if !ok {
+			if !ok || !bridge.SwitchportAdmitsFID(sw, entry.FID) {
 				continue
 			}
-			admitted := slices.Contains(sw.Tagged, entry.FID) || slices.Contains(sw.Untagged, entry.FID) ||
-				(sw.PVID != nil && *sw.PVID == entry.FID) ||
-				(sw.Tunnel != nil && sw.Tunnel.VID == entry.FID)
-			if !admitted {
-				continue
-			}
-			seeds = append(seeds, bridge.Seed(entry))
-		} else if !curVLAN {
-			seeds = append(seeds, bridge.Seed{
-				FID:       0,
-				MAC:       entry.MAC,
-				Port:      entry.Port,
-				Origin:    entry.Origin,
-				Lifetime:  entry.Lifetime,
-				LearnedAt: entry.LearnedAt,
-			})
+		} else if cur.cfg.Bridge.VLAN != nil {
+			continue
 		}
+		seeds = append(seeds, bridge.Seed(entry))
 	}
-
 	if len(seeds) > 0 {
 		if err := next.bridge.InstallSeeds(seeds); err != nil {
-			return nil, Output{}, err
+			return 0, err
 		}
 	}
-
-	return next, c.output(ForwardResult{}), nil
+	keys := make(map[bridgeSeedKey]bool)
+	for _, entry := range next.Entries() {
+		keys[bridgeSeedKey{entry.FID, entry.MAC}] = true
+	}
+	lost := 0
+	for _, entry := range old {
+		if entry.Lifetime != bridge.Static && !keys[bridgeSeedKey{entry.FID, entry.MAC}] {
+			lost++
+		}
+	}
+	return lost, nil
 }
 
 type bridgeSeedKey struct {

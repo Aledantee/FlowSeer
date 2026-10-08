@@ -2,11 +2,13 @@ package vswitch_test
 
 import (
 	"net/netip"
+	"reflect"
 	"testing"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -18,6 +20,127 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestDeriveKeepsMembershipAcrossSpanningTreeRebuild(t *testing.T) {
+	cfg := mcastSwitchConfig(t, nil)
+	cfg.STP = &stp.Config{Ports: map[string]stp.Port{"1/1/1": {AdminEdge: true}}}
+	sw := mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	group := netip.MustParseAddr("239.1.1.1")
+	report := makeIGMPControlFrame(t, ipH1, group, macH1, mcastGroupMAC, 1, igmp.Message{Type: igmp.ReportV2, Group: group})
+	sw.Receive(fixedTime, "1/1/1", report)
+	if got := sw.Groups(10, fixedTime); len(got) != 1 {
+		t.Fatalf("source memberships = %+v, want one", got)
+	}
+	target := sw.Spec()
+	target.Config.STP.Priority = 4096
+	next, _, err := vswitch.Derive(sw, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention().Mcast; !got.Kept || got.Difference != "" {
+		t.Fatalf("Mcast retention = %+v, want kept", got)
+	}
+	if got := next.Groups(10, fixedTime); len(got) != 1 || got[0].Port != "1/1/1" {
+		t.Fatalf("derived memberships = %+v, want source membership", got)
+	}
+	data := ethernet.Frame{
+		Src: macH2, Dst: mcastGroupMAC, EtherType: ethernet.EtherTypeIPv4,
+		Payload: makeIPv4Packet(t, ipH2, group, 64, []byte("data")),
+	}
+	before := next.Peek(fixedTime, "1/1/2", data)
+	if len(before.Egress) != 1 || before.Egress[0].Port != "1/1/1" || before.Egress[0].Dropped != bridge.ReasonPortBlocked {
+		t.Fatalf("before tree forwarding = %+v, want blocked member egress", before)
+	}
+	next.Start(fixedTime)
+	after := next.Peek(fixedTime, "1/1/2", data)
+	if len(after.Egress) != 1 || after.Egress[0].Port != "1/1/1" || after.Egress[0].Dropped != "" {
+		t.Fatalf("after tree forwarding = %+v, want member egress", after)
+	}
+}
+
+func TestDeriveReportsRemovedVLANMembership(t *testing.T) {
+	cfg := mcastSwitchConfig(t, nil)
+	cfg.Bridge.VLAN.Table[20] = "voice"
+	cfg.Mcast.VLANs[20] = cfg.Mcast.VLANs[10]
+	sp := cfg.Bridge.VLAN.Switchports["1/1/1"]
+	sp.Tagged = []vlan.ID{20}
+	cfg.Bridge.VLAN.Switchports["1/1/1"] = sp
+	sw := mustSwitch(t, cfg)
+	group := netip.MustParseAddr("239.1.1.1")
+	f := makeIGMPControlFrame(t, ipH1, group, macH1, mcastGroupMAC, 1, igmp.Message{Type: igmp.ReportV2, Group: group})
+	f.Tags = []vlan.Tag{{VID: 20}}
+	sw.Receive(fixedTime, "1/1/1", f)
+	if got := sw.Groups(20, fixedTime); len(got) != 1 {
+		t.Fatalf("source memberships = %+v, want one", got)
+	}
+	target := sw.Spec()
+	delete(target.Config.Mcast.VLANs, 20)
+	delete(target.Config.Bridge.VLAN.Table, 20)
+	sp = target.Config.Bridge.VLAN.Switchports["1/1/1"]
+	sp.Tagged = nil
+	target.Config.Bridge.VLAN.Switchports["1/1/1"] = sp
+	next, _, err := vswitch.Derive(sw, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention().Mcast; got.Kept || got.Difference != "config" {
+		t.Fatalf("Mcast retention = %+v, want config loss", got)
+	}
+	if got := next.Groups(20, fixedTime); len(got) != 0 {
+		t.Fatalf("derived memberships = %+v, want none", got)
+	}
+}
+
+func TestForgetRemovesTheSeed(t *testing.T) {
+	sw := mustSwitch(t, vswitch.Config{Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})), Bridge: &bridge.Config{}})
+	seed := bridge.Seed{MAC: macH1, Port: "p1", Lifetime: bridge.Static}
+	mustSwitchLearn(t, sw, []bridge.Seed{seed})
+	if !sw.Forget(0, macH1) {
+		t.Fatal("Forget refused present seed")
+	}
+	if got := sw.Spec().Seeds; len(got) != 0 {
+		t.Fatalf("Spec seeds = %+v, want none", got)
+	}
+	next, _, err := vswitch.Derive(sw, sw.Spec())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next.Entries()) != 0 {
+		t.Fatalf("rebuilt entries = %+v, want none", next.Entries())
+	}
+	if err := next.Learn([]bridge.Seed{seed}); err != nil {
+		t.Fatalf("relearn forgotten key: %v", err)
+	}
+	if got := next.Entries(); len(got) != 1 || got[0].MAC != macH1 {
+		t.Fatalf("relearned entries = %+v, want seed", got)
+	}
+}
+
+func TestDeriveCountsAnEvictedEntry(t *testing.T) {
+	sw := mustSwitch(t, vswitch.Config{Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})), Bridge: &bridge.Config{MaxEntries: 2}})
+	sw.Receive(fixedTime, "p1", ethernet.Frame{Src: macH1, Dst: macH2})
+	sw.Receive(fixedTime.Add(time.Second), "p2", ethernet.Frame{Src: macH2, Dst: macH1})
+	if len(sw.Entries()) != 2 {
+		t.Fatalf("source entries = %+v, want two", sw.Entries())
+	}
+	target := sw.Spec()
+	target.Config.Bridge.MaxEntries = 1
+	next, _, err := vswitch.Derive(sw, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next.Entries()) != 1 {
+		t.Fatalf("derived entries = %+v, want one", next.Entries())
+	}
+	f := reflect.ValueOf(next.Retention()).FieldByName("Bridge")
+	if !f.IsValid() {
+		t.Fatal("Retention omits Bridge")
+	}
+	if got := f.Interface().(vswitch.LayerRetention); got.Kept || got.Difference != "config" {
+		t.Fatalf("Bridge retention = %+v, want config loss", got)
+	}
+}
 
 func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
