@@ -28,10 +28,10 @@ USAGE_LAST = "--print-selection reports the selected gates without running them 
 WEB_TOOLS = ("vue-tsc", "vite", "eslint", "stylelint", "prettier", "vitest")
 STUB_NAMES = ("go", "gofumpt", "goimports", "golangci-lint", "jq", "shellcheck", "docker", "node", *WEB_TOOLS)
 
-# The verifier starts git and diff and requires uv to start script suites.
+# The verifier starts git and requires uv to start script suites.
 # The go stub needs chmod, cp, dirname, and mkdir. Keeping only these on PATH
 # lets cases expose missing gate tools.
-ESSENTIAL_TOOLS = ("chmod", "cp", "diff", "dirname", "git", "mkdir", "uv")
+ESSENTIAL_TOOLS = ("chmod", "cp", "dirname", "git", "mkdir", "uv")
 
 # Each stub logs its working directory and arguments, tab separated.
 LOG_PRELUDE = """\
