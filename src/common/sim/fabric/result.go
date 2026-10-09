@@ -23,6 +23,9 @@ const (
 	StopOscillating StopReason = "Oscillating"
 	// StopFault indicates that a scheduling-invariant breach halted simulation.
 	StopFault StopReason = "Fault"
+	// StopActionRefused indicates that a scenario action was refused, such as an injection at an unknown node.
+	// The result carries the refusal as its error, the fabric is not faulted, and actions after it did not fire.
+	StopActionRefused StopReason = "ActionRefused"
 )
 
 const (
@@ -68,6 +71,7 @@ func (s ReplaySpec) Checkpoint() *Fabric {
 
 // RunResult captures the complete outcome of executing a simulation run.
 // Replay is populated and replayable only for RunScenario and Replay; plain Run leaves Replay zero.
+// Err is the scheduling fault that halted the run, or the error of the scenario action it refused.
 type RunResult struct {
 	Stop           StopReason
 	Steps          int

@@ -184,3 +184,25 @@ func (f *Fabric) enqueueActions(actions []Action) {
 		f.nextSeq++
 	}
 }
+
+// removeActionArrivals drops every scenario action from the queue and
+// restores the heap and the key indexes over what remains. A run enqueues its
+// actions and owns them, so none outlives the run that scheduled it.
+func (q *arrivalQueue) removeActionArrivals() {
+	kept := q.queue[:0]
+	for _, arr := range q.queue {
+		if arr.Kind != ArrivalAction {
+			kept = append(kept, arr)
+		}
+	}
+	if len(kept) == len(q.queue) {
+		return
+	}
+	clear(q.queue[len(kept):])
+	q.queue = kept
+	for i := range q.queue {
+		q.queue[i].index = i
+		q.reindex(q.queue[i])
+	}
+	heap.Init(q)
+}

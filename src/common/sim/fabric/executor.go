@@ -134,8 +134,13 @@ func (f *Fabric) run(budget int, window int) RunResult {
 	return res
 }
 
+// runWithActions runs the queue under budget with actions scheduled in it. The
+// actions belong to this run: none stays queued when it returns, fired or not,
+// so a later run on the fabric starts from the work that is not a scenario's.
+// A refused action ends the run with the error and leaves the fabric unfaulted.
 func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunResult, error) {
 	f.enqueueActions(actions)
+	defer f.removeActionArrivals()
 
 	if budget <= 0 {
 		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil
@@ -177,14 +182,15 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		if arr.Kind == ArrivalStream {
 			ordinal = f.attachments[arr.source].ordinal
 		}
-		entry, ok := f.Step()
+		_, ok, refused := f.step()
 		if !ok {
-			if arr.Kind == ArrivalAction && f.err != nil {
-				actionErr = f.err
-			}
-			if f.err != nil {
+			actionErr = refused
+			switch {
+			case f.err != nil:
 				stop = StopFault
-			} else {
+			case refused != nil:
+				stop = StopActionRefused
+			default:
 				stop = StopQueueDrained
 			}
 			break
@@ -212,7 +218,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 				lastFingerprint = fp
 				wakeArrivalsSinceChange = 0
 			}
-			if entry.Arrival == ArrivalWake {
+			if arr.Kind == ArrivalWake {
 				wakeArrivalsSinceChange++
 			}
 
@@ -242,6 +248,10 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 
 	res := f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount())
 	res.roots = roots
+	if res.Err == nil {
+		res.Err = actionErr
+	}
+
 	return res, actionErr
 }
 

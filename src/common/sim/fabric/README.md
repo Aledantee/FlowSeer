@@ -932,7 +932,7 @@ The package declares reasons for link failures and frame discards:
 
 A simulation run is driven by `Run(options)` or `RunScenario(scenario, options)` under an
 explicit step limit, halting with a typed `RunResult`. The run halts with one
-of six stop reasons:
+of seven stop reasons:
 
 - `StopQueueDrained`: Every scheduled arrival has been processed,
   leaving no pending work in queues or buffers.
@@ -945,6 +945,10 @@ of six stop reasons:
   raising an `IssueBudgetExhausted` issue at `analysis.Exhausted` status.
 - `StopFault`: A scheduling invariant was breached, halting execution with an
   `analysis.Unsupported` issue.
+- `StopActionRefused`: A scenario action was refused, such as an injection at
+  an unknown node. The result carries the error, no `scheduling-fault` issue
+  is raised, the fabric is not faulted and runs again, and the actions after
+  the refused one are reported in `DroppedActions`.
 - `StopNotRun`: A non-positive budget was provided; zero steps were executed.
 
 A zero window skips fingerprints. A positive window enables convergence and
@@ -954,6 +958,10 @@ the run pending. Status and issues merge retained journeys and folded flows,
 so retention does not change the run's trust result. An action error returns
 the completed steps, clock, issues and replay checkpoint with the error
 (`TestRunResultAcrossRetentions`, `TestActionErrorKeepsSteps` in the package tests).
+A scenario's actions belong to its run. Those that did not fire before the
+run stopped are counted in `DroppedActions` and removed from the fabric's
+queue, so a later `Run` or `RunScenario` on the same fabric never fires them
+(`TestRunScenarioDiscardsUnfiredActions`).
 
 ### Scenarios and replay
 

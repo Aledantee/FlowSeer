@@ -147,23 +147,29 @@ func (f *Fabric) portCable(node, portName string) *Cable {
 // and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
 // A switch's normal arrivals are policed before dynamic MAC aging and forwarding, then un-dropped egress frames
 // are enqueued onto connected cables or delivered to target hosts.
-// Step returns false when the arrival queue is empty or a scheduling fault has
-// been recorded; [Fabric.Err] distinguishes the two.
+// Step returns false when the arrival queue is empty, a scheduling fault has
+// been recorded, or the arrival was a scenario action the fabric refused;
+// [Fabric.Err] is non-nil only for the fault. A refused action is consumed and
+// does not fault the fabric, so the next Step proceeds. Only a scenario run
+// queues actions, and it returns the refusal as its error.
 func (f *Fabric) Step() (StepResult, bool) {
 	if f.err != nil || len(f.queue) == 0 {
 		return StepResult{}, false
 	}
 	kind := f.queue[0].Kind
-	entry, ok := f.step()
+	entry, ok, _ := f.step()
 	return StepResult{Entry: entry, Arrival: kind}, ok
 }
 
-func (f *Fabric) step() (Entry, bool) {
+// step processes the earliest arrival. It reports a scenario action the fabric
+// refused in refused and leaves the fabric unfaulted, since the action is
+// caller input, not a scheduling invariant.
+func (f *Fabric) step() (entry Entry, ok bool, refused error) {
 	if f.err != nil {
-		return Entry{}, false
+		return Entry{}, false, nil
 	}
 	if len(f.queue) == 0 {
-		return Entry{}, false
+		return Entry{}, false, nil
 	}
 	defer f.settleTouched()
 
@@ -186,18 +192,17 @@ func (f *Fabric) step() (Entry, bool) {
 			action.Record.At = arr.At
 		}
 		if err := f.applyAction(action); err != nil {
-			f.recordFault(err)
-			return Entry{}, false
+			return Entry{}, false, err
 		}
-		return Entry{At: arr.At, Kind: EntryAction}, true
+		return Entry{At: arr.At, Kind: EntryAction}, true, nil
 	}
 	if arr.Kind == ArrivalStream {
 		f.stepStream(arr.At, arr.source)
-		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device, Port: arr.Port}, true
+		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device, Port: arr.Port}, true, nil
 	}
 	if arr.Kind == ArrivalHost {
 		f.injectHostFrame(arr.At, Endpoint{Node: arr.Device}, arr.Frame, arr.pcp, arr.Seq, arr.FrameID, f.journeys[arr.FrameID])
-		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device}, true
+		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device}, true, nil
 	}
 
 	if arr.Kind == ArrivalWake {
@@ -212,7 +217,7 @@ func (f *Fabric) step() (Entry, bool) {
 		return Entry{
 			At:     arr.At,
 			Device: arr.Device,
-		}, true
+		}, true, nil
 	}
 	if arr.Kind == ArrivalDequeue {
 		ep := Endpoint{Node: arr.Device, Port: arr.Port}
@@ -226,10 +231,12 @@ func (f *Fabric) step() (Entry, bool) {
 			At:     arr.At,
 			Device: arr.Device,
 			Port:   arr.Port,
-		}, true
+		}, true, nil
 	}
 
-	return f.stepFrame(arr)
+	entry, ok = f.stepFrame(arr)
+
+	return entry, ok, nil
 }
 
 // cloneEntered returns an independent copy of a frame's re-entry set, so a
@@ -294,8 +301,9 @@ func (f *Fabric) recordFault(err error) {
 }
 
 // Err reports the first scheduling-invariant breach a run recorded, or nil if
-// none occurred. A short [Fabric.Run] count or a false [Fabric.Step] means
-// either an empty queue or a fault; Err is how a caller tells them apart.
+// none occurred. A refused scenario action is not a breach and leaves it nil.
+// A short [Fabric.Run] count or a false [Fabric.Step] means an empty queue, a
+// fault, or a refused action; Err tells a fault from the other two.
 func (f *Fabric) Err() error {
 	return f.err
 }

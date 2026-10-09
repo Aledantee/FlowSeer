@@ -98,11 +98,11 @@ func TestActionErrorKeepsSteps(t *testing.T) {
 		{At: cfg.Start.Add(time.Second), Origin: fabric.Endpoint{Node: "missing"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
 	})
 	run, err := f.RunScenario(sc, fabric.RunOptions{Budget: 100, Window: 0})
-	if err == nil || run.Err == nil || run.Stop != fabric.StopFault || run.Steps != 5 || !run.Clock.Equal(cfg.Start.Add(time.Second)) || run.Replay.Checkpoint() == nil {
-		t.Fatalf("run = %+v, error %v, want fault after five steps at failed action with replay", run, err)
+	if err == nil || run.Err == nil || run.Stop != fabric.StopActionRefused || run.Steps != 5 || !run.Clock.Equal(cfg.Start.Add(time.Second)) || run.Replay.Checkpoint() == nil {
+		t.Fatalf("run = %+v, error %v, want refusal after five steps at failed action with replay", run, err)
 	}
-	if !hasIssueCode(run.Issues, fabric.IssueSchedulingFault) {
-		t.Errorf("issues = %+v, want scheduling fault", run.Issues)
+	if hasIssueCode(run.Issues, fabric.IssueSchedulingFault) || f.Err() != nil {
+		t.Errorf("issues = %+v, fabric error = %v, want no scheduling fault for a refused action", run.Issues, f.Err())
 	}
 	base, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
