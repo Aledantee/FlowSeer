@@ -41,7 +41,6 @@ POLICY_FILES = frozenset(
 )
 POLICY_DIRECTORIES = (
     "test/conformance/a11y/",
-    ".agents/skills/verify-change/scripts/",
     "tools/scripts/lib/",
     "tools/scripts/verify/",
     "tools/scripts/hooks/",

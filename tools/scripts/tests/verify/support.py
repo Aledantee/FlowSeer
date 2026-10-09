@@ -21,8 +21,6 @@ import run
 REPO = Path(__file__).resolve().parents[4]
 RUN_PY = REPO / "tools" / "scripts" / "run.py"
 VERIFY_GROUP = REPO / "tools" / "scripts" / "verify" / "__init__.py"
-SHELL_VERIFIER = REPO / ".claude" / "skills" / "verify-change" / "scripts" / "verify-change.sh"
-WRAPPER = REPO / "tools" / "test" / "service-otel-integration.sh"
 
 PASSED = "FlowSeer verification passed."
 USAGE_OPTIONS = "[--full] [--print-selection] [--base REF] [-- PATH...]"
@@ -98,10 +96,8 @@ class Result(NamedTuple):
 
 
 def implementations() -> list[list[str]]:
-    """The argument lists that start the verifier: the shell script while it exists, `verify change` once registered."""
+    """The argument lists that start the verifier: `verify change` once registered."""
     commands = []
-    if SHELL_VERIFIER.is_file():
-        commands.append([str(SHELL_VERIFIER)])
     if "change" in run.read_commands(VERIFY_GROUP):
         # Resolved here because a case may give the verifier a PATH that holds no uv.
         commands.append([shutil.which("uv") or "uv", "run", str(RUN_PY), "verify", "change"])
@@ -295,7 +291,7 @@ class VerifierCase(unittest.TestCase):
         )
 
     def populate_full(self):
-        """Everything a `--full` run finds: a Go module, the pinned buf module, schemas, mibgen, web, hook tooling, and the wrapper."""
+        """Everything a `--full` run finds: a Go module, the pinned buf module, schemas, mibgen, web, and hook tooling."""
         self.populate_go()
         self.populate_hook_tooling()
         self.write("tools/buf/go.mod", "module example.invalid/buf-tool\n\ngo 1.27\n")
@@ -304,8 +300,6 @@ class VerifierCase(unittest.TestCase):
         self.write("frontend/web/package.json", "{}\n")
         self.write(".gitignore", "node_modules/\n")
         self.stubs.add_web(self.root)
-        # The shell starts the wrapper by a path relative to the tree it verifies.
-        self.write("tools/test/service-otel-integration.sh", WRAPPER.read_text(), 0o755)
 
     def verify(self, *args: str, env: dict[str, str] | None = None, cwd: Path | None = None) -> Result:
         """Run the verifier of `self.command` with the fake tools first on PATH."""

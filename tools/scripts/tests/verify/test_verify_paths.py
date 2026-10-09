@@ -41,7 +41,7 @@ ROWS = [
     ("14 agents", {"x.txt": ""}, ".agents/x.txt", HOOKS),
     ("14 claude settings", {}, ".claude/settings.json", HOOKS),
     ("14 codex hooks", {}, ".codex/hooks.json", HOOKS),
-    ("14 test script", {"tools/test/x.sh": ""}, "tools/test/x.sh", HOOKS),
+    ("19 test script", {"tools/test/x.sh": ""}, "tools/test/x.sh", OFF),
     ("14 scripts", {"tools/scripts/lib/x.py": ""}, "tools/scripts/lib/x.py", HOOKS),
     ("14 uv pin", {"uv.toml": ""}, "uv.toml", HOOKS),
     ("16 buf tool file", {"tools/buf/x.txt": ""}, "tools/buf/x.txt", BUF_MODULE),

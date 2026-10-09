@@ -127,6 +127,21 @@ class RecordedRunTest(support.VerifierCase):
         self.assertIn("Ran 1 tests", result.stdout)
 
     @across
+    def test_hook_tooling_without_a_shell_script_skips_shellcheck(self):
+        self.write("tools/scripts/run.py", self.suite_script(tests=1))
+        result = self.passes("--", "uv.toml")
+        self.assertEqual(
+            self.calls(),
+            [
+                *guard("uv.toml"),
+                ".\tjq empty .claude/settings.json",
+                ".\tjq empty .codex/hooks.json",
+            ],
+        )
+        self.assertIn("shellcheck skipped: no host-side shell script matched.", result.stdout)
+        self.assertIn("Ran 1 tests", result.stdout)
+
+    @across
     def test_full_run_starts_every_gate(self):
         self.populate_full()
         self.commit_all("full")
@@ -158,7 +173,7 @@ class RecordedRunTest(support.VerifierCase):
             DIFFERENTIAL,
             ".\tjq empty .claude/settings.json",
             ".\tjq empty .codex/hooks.json",
-            ".\tshellcheck tools/test/service-otel-integration.sh tools/test/x.sh .claude/skills/x/scripts/y.sh",
+            ".\tshellcheck tools/test/x.sh .claude/skills/x/scripts/y.sh",
             ".\tdocker info",
             ".\tgo test -race -count=1 -short=false -tags=service_otel_integration ./src/common/service/test/integration/...",
         ]

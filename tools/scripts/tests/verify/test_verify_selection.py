@@ -1,13 +1,9 @@
 import os
-import re
-import shutil
-import subprocess
 import unittest
 
 from tests.verify import support
 from tests.verify.support import across
 
-BASH = shutil.which("bash") or "bash"
 PLACEHOLDER = "v0.0.0-00010101000000-000000000000"
 
 
@@ -91,7 +87,7 @@ class VerifierSelectionTest(support.VerifierCase):
             "src/common/service/telemetry_config.go",
             "src/common/service/test/integration/otel_test.go",
             "src/common/service/test/integration/testdata/otel-collector.yaml",
-            "tools/test/service-otel-integration.sh",
+            "tools/scripts/verify/service_otel_integration.py",
         ):
             with self.subTest(path=path):
                 self.assertEqual(self.select("--", path).split("\n")[0], "service_otel_integration=true")
@@ -199,25 +195,6 @@ class NestedSelectionTest(support.VerifierCase):
         output = self.select_path("go.mod")
         self.assertIn("\ndependent=generated/go/yang mode=build", output)
         self.assertIn("\ndependent=src/edge/netpen mode=build-vet", output)
-
-
-class RunHelperTest(unittest.TestCase):
-    """Shell only: it evaluates the shell verifier's own `run` function."""
-
-    def test_verifier_run_helper_fails_a_command_checked_inside_a_condition(self):
-        """verifier run helper fails a command checked inside a condition"""
-        helper = re.search(r"^run\(\) \{\n.*?^\}\n", support.SHELL_VERIFIER.read_text(), re.MULTILINE | re.DOTALL)
-        self.assertIsNotNone(helper, "the verifier defines no run() helper")
-        script = (
-            "set -euo pipefail\n"
-            "gate_label() { :; }\n"
-            "gate_file=/dev/null\n"
-            'eval "$1"\n'
-            "if run false >/dev/null 2>&1; then exit 1; fi\n"
-            "run true >/dev/null\n"
-        )
-        done = subprocess.run([BASH, "-c", script, "_", helper.group(0)], capture_output=True, text=True, check=False)
-        self.assertEqual(done.returncode, 0, done.stderr)
 
 
 if __name__ == "__main__":
