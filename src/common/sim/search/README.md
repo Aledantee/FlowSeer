@@ -7,7 +7,15 @@ to `fabric`, which owns injection and descendant pairing.
 ## Search and reduce a counterexample
 
 ```go
-func compareDomain(current, candidate *fabric.Fabric) error {
+func compareDomain(currentConfig, candidateConfig assembly.Config) error {
+    current, err := assembly.New(currentConfig)
+    if err != nil {
+        return err
+    }
+    candidate, err := assembly.New(candidateConfig)
+    if err != nil {
+        return err
+    }
     domain, err := search.NewL2TrafficDomain(search.L2TrafficDomainConfig{
         Sources: []fabric.Endpoint{{Node: "h1"}},
         Destinations: []netaddr.MAC{{2, 0, 0, 0, 0, 2}},
@@ -51,8 +59,9 @@ func compareDomain(current, candidate *fabric.Fabric) error {
 }
 ```
 
-The snippet uses `fmt`, `net/ethernet`, `net/netaddr`, `net/vlan`, `sim/fabric`,
-and `sim/search`. The caller supplies fabrics containing host `h1`.
+The snippet uses `fmt`, `net/ethernet`, `net/netaddr`, `net/vlan`, `sim/assembly`,
+`sim/fabric`, and `sim/search`. The caller supplies configurations containing
+host `h1` and its cable attachment.
 
 ```mermaid
 flowchart LR
@@ -93,6 +102,9 @@ Invalid limits return an error before enumeration.
 Every evaluated candidate increments exactly one of `EquivalentCount`,
 `InconclusiveCount`, `TotalDifferences`, or `Errors`. Candidate errors do not
 halt enumeration. `Result.Err` keeps the first error wrapped with its tuple.
+`InconclusiveCount` includes incomplete runs even when a difference was found.
+Equal settled aggregate roots also count as inconclusive because flow totals
+cannot prove journey equivalence ([fabric/compare.go](../fabric/compare.go)).
 `Coverage.Tested + len(Result.Remainder)` equals the domain size, including
 errors. Retained differences carry independent candidates and both replay
 checkpoints. Each replay is an in-memory value preserving its fabric's

@@ -5,10 +5,19 @@ so a caller can record forwarding without depending on a device's engines.
 The switch implements it in [vswitch](vswitch/README.md).
 
 ```go
-func receive(d device.Device, now time.Time, ingress string, frame ethernet.Frame) device.Output {
-    return d.Receive(now, ingress, frame)
+func receive(cfg assembly.Config, node, ingress string, frame ethernet.Frame) (device.Output, error) {
+    fab, err := assembly.New(cfg)
+    if err != nil {
+        return device.Output{}, err
+    }
+    d := fab.Device(node)
+    return d.Receive(fab.Clock(), ingress, frame), nil
 }
 ```
+
+The caller supplies a validated configuration and a node and port it contains.
+`Fabric.Device` returns a fork, so this example evaluates the seam without
+changing the fabric. Use `Inject` and `Run` to execute on the fabric's queue.
 
 Calls require serial access and a caller-owned clock. `Receive` settles due
 timers before processing the frame. `ReceiveMirrored` skips policing and

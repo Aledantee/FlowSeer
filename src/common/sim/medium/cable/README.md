@@ -4,8 +4,6 @@
 keeps endpoint identities, counts crossings, and schedules delivery.
 
 ```go
-import "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
-
 wire := cable.Cable{
     Medium: cable.TwistedPair,
     LengthMeters: 10,
@@ -13,6 +11,21 @@ wire := cable.Cable{
 }
 lost, corrupt := wire.Crossing(2, true) // true, false
 delay := wire.Propagation()
+fab, err := assembly.New(assembly.Config{
+    Hosts: map[string]host.Config{
+        "a": {Address: netaddr.MAC{2, 0, 0, 0, 0, 1}},
+        "b": {Address: netaddr.MAC{2, 0, 0, 0, 0, 2}},
+    },
+    Cables: []fabric.Cable{{
+        Cable: wire,
+        A: fabric.Endpoint{Node: "a"},
+        B: fabric.Endpoint{Node: "b"},
+    }},
+})
+if err != nil {
+    return err
+}
+fmt.Println(lost, corrupt, delay, fab.Clock())
 ```
 
 Fault positions are one-based and count every transmitted frame on the cable

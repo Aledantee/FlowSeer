@@ -225,10 +225,8 @@ exposes what a device or a run holds — the clock, the frames in flight, each
 device's forwarding database, port and neighbor state, and held-frame depth
 — as values a caller can compare but never step forward. A fork is an
 executable copy: a second `Switch` or `Fabric` that starts identical to its
-source and diverges under its own steps from there. It is the input a
-current-against-candidate comparison will take once one exists;
-`fabric.Compare`'s present precondition that neither fabric has injected a
-frame is the next phase's to lift, not this one's. `Derive` is neither. It
+source and diverges under its own steps from there. Comparison forks its
+inputs to evaluate a scenario without consuming their live state. `Derive`
 rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
@@ -452,16 +450,20 @@ rather than whole-state fingerprints or shallow boolean equality:
   stored:
   - `Equivalent` requires both sides' `Status` to be `Complete` and every
     behavioral observable to match.
-  - `Different` requires a proven behavioral observable mismatch, naming the
-    first differing observable and carrying a `ReplaySpec` whose checkpoint
+  - `Different` requires Complete readiness on both sides and a proven
+    behavioral observable mismatch, naming the first differing observable
+    and carrying a `ReplaySpec` whose checkpoint
     preserves the fabric's pre-action live state. Replay forks that checkpoint
     on each call, including its cable crossing counts, and has no written form.
     Fabric comparisons also name a `DifferenceLocation`: journey, run, or
     snapshot area, subject, and exact field. Journey targets retain the
     injection index and UTC time plus mirror/release lineage.
-  - `Inconclusive` occurs when either side reports `Incomplete`, `Exhausted`,
-    `Unstable`, or `Unsupported`, or when budget stopped a run that still held
-    pending work. Equivalence over partial evaluation is never assumed.
+  - `Inconclusive` occurs on an execution error or when either side reports
+    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, or when budget stopped a run that still held
+    pending work. It takes precedence even when an observable differs, and
+    `Difference` and `Location` keep that difference. Equal settled aggregate
+    roots are also inconclusive because flow totals cannot prove journey
+    equivalence ([compare.go](../../src/common/sim/fabric/compare.go)).
 - **Internal forking and lifted precondition.** `fabric.Compare` forks both
   inputs internally via `a.Fork()` and `b.Fork()`, injects the scenario, runs
   the forks to budget, and compares. The caller's `a` and `b` fabrics are never

@@ -16,7 +16,12 @@ goroutines or wall-clock dependencies.
 | `analysis`             | Analysis trust metadata, scoped issues, and evidence catalog |
 | `stream`               | Finite Ethernet frame sources with deterministic timing      |
 | `port`                 | Port table, administrative state, and MTU                    |
+| `device`               | Layer-free runtime contract and state projections           |
 | `device/vswitch`       | Virtual switch composing pipeline capabilities               |
+| `device/host`          | Host origination, local acceptance, and ARP/ND answers       |
+| `device/reflector`     | mDNS acceptance and reflected copies                        |
+| `medium/cable`         | Physical resolution, propagation, and crossing faults       |
+| `assembly`             | Builds devices and fabrics, derives and configures them     |
 | `layer`                | Environment, emission, flush target, and effect types for pipeline layers |
 | `layer/lag`            | Bond modes, the 256-bucket member selection table, member delays, LACP |
 | `layer/phy`            | Physical Ethernet speeds and PoE budget allocation           |
@@ -32,7 +37,22 @@ goroutines or wall-clock dependencies.
 | `search`               | Validated finite domains, bounded differential search, exact counterexample minimization |
 
 A run is a function of the configuration, the frame, and the time the caller
-passes; nothing here reads a clock.
+passes. Nothing here reads a clock.
+
+```go
+func run(cfg assembly.Config) error {
+    fab, err := assembly.New(cfg)
+    if err != nil {
+        return err
+    }
+    result := fab.Run(fabric.RunOptions{Budget: 100})
+    fmt.Println(result.Stop, result.Status)
+    return nil
+}
+```
+
+The caller supplies switches, hosts, and cables in `assembly.Config`. The
+[fabric example](fabric/README.md#example) supplies a two-switch topology.
 
 Simulation workflows can be driven step-by-step, executed through declared
 scenarios via `fabric.Fabric.RunScenario(scenario, options)`, and reproduced
@@ -54,9 +74,11 @@ Comparison returns an exact `analysis.Disposition`:
   replay specification for each side (`[0]` current, `[1]` candidate).
   `Comparison.Location` identifies the exact journey, run, or snapshot field.
   Journey locations retain injection time and index plus mirror/release lineage.
-- `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
-  the comparison could not complete (such as step budget exhaustion leaving pending
-  frames in transit, or incomplete operational knowledge).
+- `analysis.Inconclusive`: Either side has non-Complete readiness or an
+  execution error, even when an observable differs. `Difference` retains the
+  first difference found. Equal settled aggregate roots are also inconclusive
+  because flow totals cannot prove journey equivalence
+  ([fabric/compare.go](fabric/compare.go), [vswitch/compare.go](device/vswitch/compare.go)).
 
 ### Comparison invariants
 

@@ -1227,7 +1227,7 @@ The comparison evaluates three dispositions:
 
 - `analysis.Equivalent`: Observable behavior matches across all scenario journeys,
   run-level status and issues, and final behavioral snapshots.
-- `analysis.Different`: The simulation results diverged at an observable behavior.
+- `analysis.Different`: Both runs are Complete and an observable behavior differs.
   `Comparison.Difference` names the first differing observable and the observed
   values on both sides (`Difference.Current` and `Difference.Expected`), and
   `Comparison.Replay` is a `[2]ReplaySpec` carrying a pre-action checkpoint
@@ -1237,9 +1237,11 @@ The comparison evaluates three dispositions:
   `Comparison.Location` identifies the exact behavioral field in a journey,
   run result, or snapshot (`comparison_location.go`). Journey locations retain
   injection index and UTC time plus parent-relative mirror/release lineage.
-- `analysis.Inconclusive`: Observable behaviors matched but one or both runs
-  did not complete (such as step budget exhaustion before pending arrivals or
-  egress queues drained, or an underlying component reporting incomplete readiness).
+- `analysis.Inconclusive`: Either run reports non-Complete readiness or an
+  execution error, even when an observable differs. `Difference` and `Location`
+  retain the first difference found. Equal settled aggregate roots are also
+  inconclusive because flow totals cannot prove journey equivalence
+  ([compare.go](compare.go)).
 
 ### Behavioral versus diagnostic split
 

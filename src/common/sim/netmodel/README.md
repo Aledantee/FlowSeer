@@ -51,11 +51,21 @@ case analysis.Unstable:
     // Model contains contradictory or conflicting state rows.
 }
 
-// Build the switch directly from the construction specification.
-sw, err := vswitch.NewWithSpec(res.Spec)
+// Build the fabric, then apply the loaded specification with its FDB seeds.
+fab, err := assembly.New(assembly.Config{
+    Start: now,
+    Switches: map[string]vswitch.Config{"sw1": res.Spec.Config},
+})
 if err != nil {
     return err
 }
+spec := assembly.Spec(fab)
+spec.Switches["sw1"] = res.Spec
+fab, err = assembly.Derive(fab, spec)
+if err != nil {
+    return err
+}
+fmt.Println(fab.Snapshot().Devices["sw1"])
 ```
 
 ## Error versus result separation

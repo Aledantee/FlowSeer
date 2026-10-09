@@ -15,11 +15,18 @@ cfg := reflector.Config{
         "media": {Port: "p2", Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
     },
 }
-r, err := reflector.New("mdns", cfg)
+fab, err := assembly.New(assembly.Config{
+    Reflectors: map[string]reflector.Config{"mdns": cfg},
+    Hosts: map[string]host.Config{"office": {}, "media": {}},
+    Cables: []fabric.Cable{
+        {A: fabric.Endpoint{Node: "mdns", Port: "p1"}, B: fabric.Endpoint{Node: "office"}},
+        {A: fabric.Endpoint{Node: "mdns", Port: "p2"}, B: fabric.Endpoint{Node: "media"}},
+    },
+})
 if err != nil {
     return err
 }
-fmt.Println(len(r.Spec().Attachments)) // 2
+fmt.Println(len(assembly.Spec(fab).Reflectors["mdns"].Attachments)) // 2
 ```
 
 `Receive` returns copies in attachment name order. It rewrites the source MAC,

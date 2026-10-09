@@ -202,3 +202,14 @@ distinguishes delivery from reflection so `fabric` records the decision
 without looking up the node kind (`src/common/sim/device/reflector/reflector.go`,
 `src/common/sim/fabric/acceptance.go`). Reflected copies carry
 `OriginReflection` and name their source frame in `Origin.Of`.
+
+### 2026-10-09: fabric runtime and assembly imports
+
+`fabric` imports `sim/device` and `medium/cable`. It names no concrete device
+package or capability layer. `sim/device` imports no layer, including the
+root `sim/layer`. `sim/assembly` builds what `fabric` runs and owns
+construction, configuration, derivation, and diffs. These boundaries let
+the runtime drive another device kind without importing its implementation
+([fabric/topology.go](../../src/common/sim/fabric/topology.go),
+[device/device.go](../../src/common/sim/device/device.go),
+[assembly/assemble.go](../../src/common/sim/assembly/assemble.go)).

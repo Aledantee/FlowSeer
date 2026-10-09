@@ -6,17 +6,17 @@ reconfiguration, and configuration diffs. The fabric imports the device seam
 and the cable medium so another device kind can run without changing it.
 
 ```go
-spec, err := assembly.NewConstructionSpec(cfg)
-if err != nil {
-    return err
-}
-fab, err := assembly.NewWithSpec(spec)
+fab, err := assembly.New(cfg)
 if err != nil {
     return err
 }
 next := assembly.Spec(fab)
 next.Switches["sw1"] = target
 candidate, err := assembly.Derive(fab, next)
+if err != nil {
+    return err
+}
+fmt.Println(candidate.Clock())
 ```
 
 `Spec` reads the live devices' specifications and the configured port tables

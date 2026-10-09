@@ -6,12 +6,21 @@ uses `NeighborDisabled`, so packet origination requires a configured neighbor.
 Neighbor Advertisements clear the Router flag.
 
 ```go
-h, err := host.New("workstation", host.Config{
-    Address: netaddr.MAC{2, 0, 0, 0, 0, 1},
+fab, err := assembly.New(assembly.Config{
+    Start: now,
+    Hosts: map[string]host.Config{
+        "workstation": {Address: netaddr.MAC{2, 0, 0, 0, 0, 1}},
+        "peer": {Address: netaddr.MAC{2, 0, 0, 0, 0, 2}},
+    },
+    Cables: []fabric.Cable{{
+        A: fabric.Endpoint{Node: "workstation"},
+        B: fabric.Endpoint{Node: "peer"},
+    }},
 })
 if err != nil {
     return err
 }
+h := fab.Device("workstation")
 out, err := h.Originate(now, "", ethernet.Frame{
     Src: netaddr.MAC{2, 0, 0, 0, 0, 1},
     Dst: netaddr.MAC{2, 0, 0, 0, 0, 2},
@@ -20,7 +29,7 @@ out, err := h.Originate(now, "", ethernet.Frame{
 if err != nil {
     return err
 }
-// out.Emissions[0] is untagged and carries PCP 5.
+fmt.Println(len(out.Emissions[0].Frame.Tags), out.Emissions[0].PCP) // 0 5
 ```
 
 `Originate` applies the host's VLAN form to the VID and retains the supplied

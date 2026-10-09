@@ -21,8 +21,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -54,10 +59,28 @@ func main() {
 	}
 
 	now := time.Unix(1700000000, 0)
-	sw, err := vswitch.New(swCfg)
+	fab, err := assembly.New(assembly.Config{
+		Start:    now,
+		Switches: map[string]vswitch.Config{"sw1": swCfg},
+		Hosts:    map[string]host.Config{"h1": {}, "h2": {}, "h3": {}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "h3"}},
+		},
+		PhyAssumption: &cable.PhyAssumption{
+			Medium: cable.TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:        []uint64{1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
+	sw := fab.Device("sw1").(*vswitch.Switch)
 
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -459,11 +482,14 @@ Exported constructors validate and normalize configurations:
   keeping PoE uncertainty scoped to the port's PoE field and out of forwarding
   metadata.
 - Protocol layers maintain `protocol-link-unknown` Incomplete issues. When
-  spanning tree computes topology while any STP port's operational state or
-  point-to-point duplex status is unknown, every STP port on the switch receives
-  an issue. When a LAG computes membership or operational state with an unknown
+  spanning tree computes topology while a port configured under `STP.Ports`
+  has unknown operational state or point-to-point duplex status, every port
+  configured under `STP.Ports` receives an issue. When a LAG computes
+  membership or operational state with an unknown
   member, the LAG and all its member ports receive an issue. Results that consult
-  those ports attach these issues to their forwarding metadata.
+  those ports attach these issues to their forwarding metadata
+  ([issues.go](issues.go), `TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts`
+  in [protocol_link_test.go](protocol_link_test.go)).
 - A forward or peek that used a balanced-mode LAG selection old enough that
   unmodeled rebalancing could have moved it raises `lag-rebalance-unmodeled`
   on that LAG's aggregator scope, only for the journeys that went through it.
@@ -590,10 +616,10 @@ The comparison evaluates three dispositions:
 
 - `analysis.Equivalent`: Forwarding outcome, discard reason, classified FID, rewritten
   frame fields, egress ports, selected LAG members, egress PCP, and mirror copies match.
-- `analysis.Different`: Divergence detected at a behavioral observable.
+- `analysis.Different`: Both results are Complete and a behavioral observable differs.
   `Comparison.Difference` names the first differing observable and the observed
   values on each side (`Difference.Current` and `Difference.Expected`).
-- `analysis.Inconclusive`: Either result is incomplete, including when an
+- `analysis.Inconclusive`: Either result has non-Complete readiness, including when an
   observable differs. `Difference` still names the first difference found,
   because incomplete input cannot support a definitive disposition.
 
