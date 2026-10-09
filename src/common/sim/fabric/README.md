@@ -958,7 +958,9 @@ the completed steps, clock, issues and replay checkpoint with the error
 ### Scenarios and replay
 
 `Record.Validate` refuses conflicting `Frame` and `Bytes` values and a
-`CapturedLen` above `OriginalLen`. `Record.Clone` owns the frame value and raw
+`CapturedLen` above a set `OriginalLen`, where zero means unset. `Record.Normalize`
+defaults an unset length and refuses the record when the default breaks that
+rule. `Record.Clone` owns the frame value and raw
 bytes, while frame tags and payload remain shared as immutable inputs.
 [record_test.go](record_test.go) checks validation and clone ownership.
 

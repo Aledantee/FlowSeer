@@ -93,6 +93,45 @@ func TestRecordRefusesCapturedAboveOriginal(t *testing.T) {
 	}
 }
 
+func TestRecordNormalizeAcceptsCapturedLenAlone(t *testing.T) {
+	frame := ethernet.Frame{Payload: make([]byte, 46)}
+	raw, err := frame.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+
+	capturedOnly := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Bytes: raw, CapturedLen: len(raw)}
+	if err := capturedOnly.Validate(); err != nil {
+		t.Fatalf("Validate with only CapturedLen set: %v", err)
+	}
+	norm, err := capturedOnly.Normalize()
+	if err != nil {
+		t.Fatalf("Normalize with only CapturedLen set: %v", err)
+	}
+	if norm.CapturedLen != len(raw) || norm.OriginalLen != len(raw) {
+		t.Errorf("Normalize lengths = %d/%d, want %d/%d", norm.CapturedLen, norm.OriginalLen, len(raw), len(raw))
+	}
+	if err := norm.Validate(); err != nil {
+		t.Errorf("Validate of a normalized record: %v", err)
+	}
+
+}
+
+func TestRecordNormalizeRefusesDefaultedCapturedAboveOriginal(t *testing.T) {
+	frame := ethernet.Frame{Payload: make([]byte, 46)}
+	raw, err := frame.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	short := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame, OriginalLen: len(raw) - 1}
+	if err := short.Validate(); err != nil {
+		t.Fatalf("Validate with CapturedLen unset: %v", err)
+	}
+	if got, err := short.Normalize(); err == nil {
+		t.Fatalf("Normalize returned %d/%d for a defaulted CapturedLen above OriginalLen, want an error", got.CapturedLen, got.OriginalLen)
+	}
+}
+
 func TestRecordCloneOwnsFrameValue(t *testing.T) {
 	frame := ethernet.Frame{Src: netaddr.MAC{0, 0, 0, 0, 0, 1}, Payload: []byte("immutable")}
 	rec := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame, Bytes: []byte{1}}

@@ -24,7 +24,7 @@ type Record struct {
 
 // Validate ensures the record's endpoints and payloads are well-formed.
 // Raw Bytes must decode as Ethernet and agree with Frame when both are supplied.
-// CapturedLen cannot exceed OriginalLen.
+// A zero length is unset, and CapturedLen cannot exceed a set OriginalLen.
 func (r Record) Validate() error {
 	if r.Origin.Node == "" {
 		return errs.Msg("record origin node cannot be empty")
@@ -52,13 +52,14 @@ func (r Record) Validate() error {
 	if r.OriginalLen < 0 {
 		return errs.Msgf("record OriginalLen cannot be negative, got %d", r.OriginalLen)
 	}
-	if r.CapturedLen > r.OriginalLen {
+	if r.OriginalLen != 0 && r.CapturedLen > r.OriginalLen {
 		return errs.Msgf("record CapturedLen %d exceeds OriginalLen %d", r.CapturedLen, r.OriginalLen)
 	}
 	return nil
 }
 
 // Normalize ensures Frame is decoded from Bytes if omitted and default lengths are populated.
+// It refuses a record whose defaulted CapturedLen exceeds a set OriginalLen.
 func (r Record) Normalize() (Record, error) {
 	if err := r.Validate(); err != nil {
 		return Record{}, err
@@ -84,6 +85,9 @@ func (r Record) Normalize() (Record, error) {
 	}
 	if cp.OriginalLen == 0 {
 		cp.OriginalLen = cp.CapturedLen
+	}
+	if err := cp.Validate(); err != nil {
+		return Record{}, err
 	}
 	return cp, nil
 }
