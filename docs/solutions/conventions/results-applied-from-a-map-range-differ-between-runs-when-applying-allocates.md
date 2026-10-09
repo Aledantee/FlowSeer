@@ -64,7 +64,8 @@ A test for it needs two things a single run lacks:
   (`src/common/sim/device/vswitch/stp_test.go:118`).
 - Enough repetitions that a wrong order is near-certain, and a recorded
   mutation to prove it. The fabric test derives 128 times
-  (`src/common/sim/fabric/routing_test.go:1776`).
+  (`TestFabricDeriveOrdersHeldFrameDropsBySwitchName` in
+  [`routing_test.go`](../../../src/common/sim/fabric/routing_test.go)).
 
 ## Evidence
 
