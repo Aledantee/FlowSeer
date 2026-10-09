@@ -11,14 +11,15 @@ execution: mixed
 ## Goal
 
 A host needs one runtime, uv, to run every hook, the verifier, and every
-skill script, on macOS, Linux, and Windows. The means: the host-side shell
+skill script, on macOS and Linux. Windows is the intent the layout is cut
+for, and proving it there is a later plan's (Decisions). The means: the host-side shell
 (about 5,400 lines once the embedded Python is set aside) is ported to
 Python, the existing Python moves with it under `tools/scripts/` behind one
 entry point, and hooks, verifier, and skills share one library there.
 
 **Stop condition:** a hook or gate cannot be started as `uv run` by an agent
-runtime the repository supports (Claude Code or Codex) on one of the three
-platforms. The entry point and the registration shape in U3 are then wrong.
+runtime the repository supports (Claude Code or Codex) on macOS or Linux.
+The entry point and the registration shape in U3 are then wrong.
 
 ## Branch
 
@@ -78,6 +79,13 @@ local to the work.
   first, the hooks and the verifier are policy surfaces that a person
   reviews edit by edit, and the package-local scripts share no file with the
   rest.
+- The run on a Windows host is not part of this plan. Requirement 10, which
+  asked that the hooks, the verifier, and the test suites pass on Windows
+  without Git Bash, is removed, and the last phase no longer claims it. The
+  run and the path failures reading the code predicts for it belong to a
+  later plan. The last phase plan's Decisions name those lines. Why: no
+  Windows host is reachable, so the failures are unverified. (decided by
+  the user, 2026-10-09)
 
 ## Requirements
 
@@ -115,10 +123,6 @@ local to the work.
 9. A command runs inside the Claude Code sandbox. Example: `uv run
    tools/scripts/run.py list` exits 0 from a sandboxed Bash call, where
    today it exits 2 with `Failed to initialize cache`.
-10. The hooks, the verifier, and the test suites pass on Windows without
-    Git Bash. Example: on a Windows host with uv, git, and Go installed,
-    `uv run tools/scripts/run.py test` reports no failure and a hook
-    registered in exec form denies an edit under `generated/`.
 
 ## Out of scope
 
@@ -126,6 +130,8 @@ local to the work.
   `frontend/web/pnpm-lock.yaml` is untouched.
 - Scripts the record exempts: in-container scripts, vendored files under
   `spec/`, and the research scripts.
+- A run on a Windows host. Requirement 7 keeps the modules importable
+  there, and nothing in this plan proves a hook or a gate passes on it.
 - Orca worker lanes on Windows. The delegate scripts drive `orca`, `claude`,
   `codex`, `agy`, and `omp`. U5 ports the scripts. Whether those CLIs run on
   Windows is unverified and not this plan's to fix.
@@ -197,14 +203,14 @@ The two bench gates, the four lab scripts under `deploy/lab/`, and
 `capture-snmprec.sh` are standalone uv scripts in place, and the Go tests,
 task files, and runbooks that run or read them follow.
 
-### U7. Layout gate and Windows run
+### U7. Layout gate
 
 Files: docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase7-plan.md
 
 A conformance gate fails a host-side shell script or a bare `python3`
-invocation, `jq` and `shellcheck` leave the verifier's required tools,
-`CONTRIBUTING.md` names uv as the one script runtime, and the suites and
-hooks run on a Windows host. Claims requirements 3, 4, and 10.
+invocation, `jq` and `shellcheck` leave the verifier's required tools, and
+`CONTRIBUTING.md` names uv as the one script runtime. Claims requirements
+3 and 4.
 
 Waves: U1 | U2 U6 | U3 U5 | U4 | U7
 
@@ -216,8 +222,6 @@ Waves: U1 | U2 U6 | U3 U5 | U4 | U7
   result of the last phase.
 - `go test ./test/conformance/...` passes with the layout gate in place.
 - `git ls-files '*.sh'` lists only the exempt paths.
-- On a Windows host: the three commands above, and one denied edit under
-  `generated/` in a Claude Code session.
 
 ## Definition of done
 
@@ -241,8 +245,6 @@ Waves: U1 | U2 U6 | U3 U5 | U4 | U7
 - How does Codex start a hook command on Windows? Unverified.
   `.codex/hooks.json` holds POSIX shell strings today. U3 decides the
   registration once this is read from the Codex documentation or source.
-- Who runs requirement 10? No Windows host is reachable from the
-  development machines. U7 needs a person with one.
 - Where do the statements for uv and the interpreter live?
   `docs/dependencies/statements/` holds `go/` and `npm/` only, and the
   dependency admission work that records "other inputs" has not landed. U1

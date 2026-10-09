@@ -70,6 +70,12 @@ class PathClassTest(support.VerifierCase):
                 self.assertEqual(self.select("--", path), expected)
 
     @across
+    def test_a_path_argument_keeps_no_trailing_line_feed(self):
+        self.write("README.md", "# Fixture\n\nChanged.\n")
+        result = self.passes("--", "README.md\n")
+        self.assertIn("+ run.py verify check-markdown-links README.md \n", result.stdout)
+
+    @across
     def test_directory_expands_to_its_files(self):
         self.write("pkg/go.mod", NESTED_MOD)
         self.git("add", "pkg/go.mod")
@@ -139,6 +145,16 @@ class ExitPathTest(support.VerifierCase):
     @across
     def test_empty_path_argument_is_refused(self):
         result = self.verify("--", "")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_line_feed_only_path_argument_is_refused(self):
+        result = self.verify("--", "\n")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_line_feeds_only_path_among_others_is_refused(self):
+        result = self.verify("--", "README.md", "\n\n")
         self.failed(result, 2, "empty path argument after --")
 
     @across

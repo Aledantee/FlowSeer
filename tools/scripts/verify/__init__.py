@@ -1,5 +1,6 @@
 COMMANDS = {
     "change": "change",
+    "check-json": "check_json",
     "check-markdown-links": "check_markdown_links",
     "check-plan-state": "check_plan_state",
     "check-plan-status": "check_plan_status",

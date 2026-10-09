@@ -221,8 +221,9 @@ def words(command: str, cwd: str) -> list[str] | None:
     ends each word with a NUL and no file name holds one. Bash does the
     expansion, since its bracket and `^` rules are not glob's. The command is a
     positional argument and never part of the script, so nothing in it is
-    evaluated. A `bash` that is missing or exits non-zero returns None, and the
-    callers then keep the denial, since no operand can be judged.
+    evaluated. A `bash` that is missing or exits non-zero, or a command that
+    holds a NUL and so cannot be an argument, returns None, and the callers then
+    keep the denial, since no operand can be judged.
     """
     try:
         done = subprocess.run(
@@ -231,7 +232,7 @@ def words(command: str, cwd: str) -> list[str] | None:
             capture_output=True,
             check=False,
         )
-    except OSError:
+    except (OSError, ValueError):
         return None
     if done.returncode != 0:
         return None

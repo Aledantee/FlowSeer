@@ -26,7 +26,7 @@ PASSED = "FlowSeer verification passed."
 USAGE_OPTIONS = "[--full] [--print-selection] [--base REF] [-- PATH...]"
 USAGE_LAST = "--print-selection reports the selected gates without running them or writing a receipt."
 WEB_TOOLS = ("vue-tsc", "vite", "eslint", "stylelint", "prettier", "vitest")
-STUB_NAMES = ("go", "gofumpt", "goimports", "golangci-lint", "jq", "shellcheck", "docker", "node", *WEB_TOOLS)
+STUB_NAMES = ("go", "gofumpt", "goimports", "golangci-lint", "docker", "node", *WEB_TOOLS)
 
 # The verifier starts git and requires uv to start script suites.
 # The go stub needs chmod, cp, dirname, and mkdir. Keeping only these on PATH
@@ -270,9 +270,9 @@ class VerifierCase(unittest.TestCase):
         self.write("a.go", "package a\n")
 
     def populate_hook_tooling(self):
-        """A script for each pattern the lint gate globs, one behind the `.claude/skills` link."""
-        self.write("tools/test/x.sh", "#!/bin/sh\n", 0o755)
-        self.write(".agents/skills/x/scripts/y.sh", "#!/bin/sh\n", 0o755)
+        """The two hook configuration files the JSON check parses, and a suite behind `tools/scripts/run.py`."""
+        self.write(".claude/settings.json", "{}\n")
+        self.write(".codex/hooks.json", "{}\n")
         (self.root / ".claude").mkdir(exist_ok=True)
         if not (self.root / ".claude/skills").is_symlink():
             (self.root / ".claude/skills").symlink_to("../.agents/skills")

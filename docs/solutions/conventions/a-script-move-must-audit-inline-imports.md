@@ -1,7 +1,7 @@
 ---
 title: A script move must audit inline imports
 date: 2026-10-07
-last_verified: 2026-10-07
+last_verified: 2026-10-09
 category: conventions
 module: tools/scripts/skills/delegate
 problem_type: bug

@@ -90,6 +90,14 @@ blob hash per unit) instead of parking, and routes a unit whose `Files:`
 line names a policy surface to a Claude worker only, since Codex cannot
 answer `ask`. `delegate` records in Orca worker that the prompt is not
 reliable under the launch flags.
+Update 2026-10-09: the Phase 7 plan routes its U2 and U3 the same way
+(`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase7-plan.md`,
+Decisions, and the checklist line that requires the commits to hold the
+approved blobs), so the fallback has now been written into plans of phases 2
+to 7 by hand. Neither `drive` nor `delegate` names it yet. One failure mode
+was reported at the Phase 7 stage: the hook's `ask` prompt appeared in the
+stage worker's terminal, where the user had to answer in person. The tree
+holds no record of it, so it stays unverified.
 
 ## 2026-10-08 delegate: a lane whose terminal Orca reclaimed cannot be stopped
 Skill or agent: `tools/scripts/skills/delegate/orca_worker.py`, `stop`, and
@@ -141,3 +149,20 @@ followed as written.
 Suggested change: in item 4, give every stage worker a report file under the
 session scratchpad directory and name that rule in `drive` where it briefs
 `implement` and `compound`, not only `review`.
+
+## 2026-10-09 drive: a parked question's answer that removes a requirement has no step
+Skill or agent: `.claude/skills/drive/references/parking.md`, Answer, and
+`.claude/skills/plan/SKILL.md`.
+What happened: the Phase 7 plan parked on the Windows run. The user's
+answer removed the requirement instead of choosing between the options.
+Answer says to write the answer into Decisions and drop the `Parked by drive:`
+line. It does not say what to do when the answer deletes a requirement. The
+change went into both the phase plan and the parent plan's Requirement 10
+(`d6065fc3`, two files), and a later plan owns the run. No step told the
+worker to edit the parent, to move the dropped work into Out of scope, or to
+check that no unit still cites the requirement. The step was followed as
+written.
+Suggested change: add a sentence to Answer that an answer removing a
+requirement edits the requirement in the phase and in its parent in the same
+commit, names where the dropped work now lives, and runs the verifier on
+both paths. `steer` decides whether `plan` needs the same line.

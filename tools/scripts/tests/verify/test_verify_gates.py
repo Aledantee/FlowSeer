@@ -122,34 +122,26 @@ class RecordedRunTest(support.VerifierCase):
         )
 
     @across
-    def test_hook_tooling_validates_the_settings_and_lints_both_script_patterns(self):
+    def test_hook_tooling_parses_the_configuration_and_runs_the_scripting_gate(self):
         self.populate_hook_tooling()
         result = self.passes("--", "uv.toml")
         self.assertEqual(
             self.calls(),
             [
                 *guard("uv.toml"),
-                ".\tjq empty .claude/settings.json",
-                ".\tjq empty .codex/hooks.json",
-                ".\tshellcheck tools/test/x.sh .claude/skills/x/scripts/y.sh",
+                ".\tgo test -count=1 ./test/conformance/scripting/",
             ],
         )
+        self.assertIn("+ run.py verify check-json .claude/settings.json .codex/hooks.json", result.stdout)
         self.assertIn("Ran 1 tests", result.stdout)
 
     @across
-    def test_hook_tooling_without_a_shell_script_skips_shellcheck(self):
-        self.write("tools/scripts/run.py", self.suite_script(tests=1))
-        result = self.passes("--", "uv.toml")
-        self.assertEqual(
-            self.calls(),
-            [
-                *guard("uv.toml"),
-                ".\tjq empty .claude/settings.json",
-                ".\tjq empty .codex/hooks.json",
-            ],
-        )
-        self.assertIn("shellcheck skipped: no host-side shell script matched.", result.stdout)
-        self.assertIn("Ran 1 tests", result.stdout)
+    def test_a_malformed_hook_configuration_fails_the_json_check(self):
+        self.populate_hook_tooling()
+        self.write(".codex/hooks.json", '{"hooks": [\n')
+        result = self.fails("--", "uv.toml", code=1, gate="run.py verify check-json")
+        self.assertIn(".codex/hooks.json:2:1:", result.stderr)
+        self.assertEqual(self.calls(), guard("uv.toml"))
 
     @across
     def test_full_run_starts_every_gate(self):
@@ -181,9 +173,7 @@ class RecordedRunTest(support.VerifierCase):
             ".\tgo test -tags=mibgen_baseline_complete -run TestBaselineComplete ./src/protocol/snmp/cmd/mibgen/",
             CORPUS,
             DIFFERENTIAL,
-            ".\tjq empty .claude/settings.json",
-            ".\tjq empty .codex/hooks.json",
-            ".\tshellcheck tools/test/x.sh .claude/skills/x/scripts/y.sh",
+            ".\tgo test -count=1 ./test/conformance/scripting/",
             ".\tdocker info",
             ".\tgo test -race -count=1 -short=false -tags=service_otel_integration ./src/common/service/test/integration/...",
         ]
@@ -273,15 +263,11 @@ class FixTest(support.VerifierCase):
         result = self.fails("--", "a.go", "uv.toml", code=1, env=env)
         self.assertEqual(
             result.stderr.split("\n")[:-1],
-            ["required tools are not on PATH: gofumpt goimports golangci-lint python3 jq shellcheck", hint, support.verdict(1)],
+            ["required tools are not on PATH: gofumpt goimports golangci-lint", hint, support.verdict(1)],
         )
         self.assertEqual((result.stdout, self.calls()), ("", []))
-        # The hint is for Go tools, so a run that misses none leaves it out.
-        result = self.fails("--", "uv.toml", code=1, env=env)
-        self.assertEqual(
-            result.stderr.split("\n")[:-1],
-            ["required tools are not on PATH: jq shellcheck python3", support.verdict(1)],
-        )
+        # The hook tooling needs neither jq, shellcheck, nor python3, so a run that names it passes.
+        self.passes("--", "uv.toml", env=env)
 
     @across
     def test_web_path_runs_the_six_web_gates(self):

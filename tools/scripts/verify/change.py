@@ -39,6 +39,7 @@ from pathlib import Path
 
 from lib import treestate
 from verify import (
+    check_json,
     check_markdown_links,
     check_plan_state,
     check_plan_status,
@@ -62,7 +63,6 @@ TREE_STATE_NAME = "flowseer-tree-state"
 WEB_TOOLS = ("vue-tsc", "vite", "eslint", "stylelint", "prettier", "vitest")
 GOPATH_HINT = "Go tools install to $(go env GOPATH)/bin; put that directory on PATH or install the missing ones there."
 GO_LIST_ROWS = '{{.ImportPath}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}'
-HOST_SCRIPT_PATTERNS = ("tools/test/*.sh", ".claude/skills/*/scripts/*.sh")
 
 # The patterns of a `case` arm, where `*` crosses `/`. fnmatchcase has the
 # same reading, and `glob` does not.
@@ -132,8 +132,8 @@ def on_path(tool: str) -> bool:
     """Whether the host offers tool, as `command -v` answers it.
 
     `uv run` puts its own environment's `bin` first and that directory holds
-    a `python3`, so it is left out: a host without `python3` must get the same
-    verdict from this command as from a shell that `uv` did not start.
+    the interpreter, so it is left out: a host without a tool must get the
+    same verdict from this command as from a shell that `uv` did not start.
     """
     path = os.environ.get("PATH", "")
     environment = os.environ.get("VIRTUAL_ENV")
@@ -377,7 +377,11 @@ def _diff_pair(left: str, right: str) -> int:
             out(f"Files {left} and {right} differ")
         return 0 if same else 1
     status = 0
-    left_names, right_names = set(os.listdir(left)), set(os.listdir(right))
+    try:
+        left_names, right_names = set(os.listdir(left)), set(os.listdir(right))
+    except OSError as error:
+        say(f"diff: {error.filename}: {error.strerror}")
+        return 2
     for name in sorted(left_names | right_names, key=treestate.sort_key):
         if name not in right_names:
             out(f"Only in {left}: {name}")
@@ -408,24 +412,6 @@ def system_exit_status(leave: SystemExit) -> int:
     return 1
 
 
-def host_scripts() -> list[str]:
-    """Return the host-side shell scripts, each pattern globbed as a shell would without a dot match."""
-
-    def visible(directory: str, suffix: str = "") -> list[str]:
-        try:
-            names = os.listdir(directory)
-        except OSError:
-            return []
-        return sorted((name for name in names if not name.startswith(".") and name.endswith(suffix)), key=treestate.sort_key)
-
-    found = [f"tools/test/{name}" for name in visible("tools/test", ".sh")]
-    for skill in visible(".claude/skills"):
-        scripts = f".claude/skills/{skill}/scripts"
-        if os.path.isdir(scripts):
-            found += [f"{scripts}/{name}" for name in visible(scripts, ".sh")]
-    return found
-
-
 class Verification:
     """One run: the arguments it was given, the gates they select, and the gate running now."""
 
@@ -454,8 +440,6 @@ class Verification:
         self.plan_state = False
         self.dependent_modules: list[str] = []
 
-    # Arguments and paths.
-
     def parse(self, argv: Sequence[str]) -> None:
         index = 0
         while index < len(argv):
@@ -478,7 +462,7 @@ class Verification:
                 for word in argv[index + 1 :]:
                     # An empty word, usually an unset variable, would resolve to the
                     # root and select every module.
-                    if word == "":
+                    if word.rstrip("\n") == "":
                         say("empty path argument after --")
                         raise Stop(2)
                     self.paths.append(word)
@@ -497,7 +481,7 @@ class Verification:
             self.paths.append(candidate)
 
     def collect_paths(self) -> None:
-        self.paths = [canonical_path(path.removeprefix("./"), self.root_physical) for path in self.paths]
+        self.paths = [canonical_path(path.rstrip("\n").removeprefix("./"), self.root_physical) for path in self.paths]
         if not self.explicit and not self.full:
             code, _ = git("rev-parse", "--verify", f"{self.base}^{{commit}}")
             if code != 0:
@@ -548,8 +532,6 @@ class Verification:
             raise Stop(2)
         for path in expanded:
             self.add_path(path)
-
-    # Selection.
 
     def add_module(self, candidate: str) -> None:
         if candidate not in self.modules:
@@ -743,8 +725,6 @@ class Verification:
             or any((self.proto, self.hook_tooling, self.mib, self.service_otel_integration, self.web, self.plan_state))
         )
 
-    # Tools.
-
     def search_gopath(self) -> None:
         """Put `$(go env GOPATH)/bin` on PATH, so whether the tree verifies does not depend on the launching shell."""
         if not on_path("go"):
@@ -763,11 +743,11 @@ class Verification:
         if self.go_files:
             tools += ["gofumpt", "goimports"]
         if self.modules:
-            tools += ["go", "golangci-lint", "python3"]
+            tools += ["go", "golangci-lint"]
         if self.proto or self.mib:
             tools.append("go")
         if self.hook_tooling:
-            tools += ["jq", "shellcheck", "go", "python3"]
+            tools.append("go")
         if self.web:
             tools.append("node")
             for tool in WEB_TOOLS:
@@ -792,8 +772,6 @@ class Verification:
         if not on_path(tool):
             say(f"required tool is not on PATH: {tool}")
             raise Stop(1)
-
-    # Gates.
 
     def run(self, command: Sequence[str], *, cwd: str | None = None) -> None:
         """Print and start a gate. A failure ends the run with the gate's status and leaves its name for the verdict."""
@@ -1070,17 +1048,9 @@ class Verification:
             self.run(["go", "test", "-C", "src/protocol/smi/differential", "-count=1", "./..."])
 
     def check_hook_tooling(self) -> None:
-        self.need_tool("jq")
-        self.need_tool("shellcheck")
-        self.run(["jq", "empty", ".claude/settings.json"])
-        self.run(["jq", "empty", ".codex/hooks.json"])
-        # Every skill's scripts are globbed so a shell script added to any skill
-        # is linted without an edit here.
-        scripts = host_scripts()
-        if scripts:
-            self.run(["shellcheck", *scripts])
-        else:
-            out("shellcheck skipped: no host-side shell script matched.")
+        self.run_check("check-json", check_json.main, [".claude/settings.json", ".codex/hooks.json"])
+        # -count=1: the gate lists files through git, whose output go test's cache does not track.
+        self.run(["go", "test", "-count=1", "./test/conformance/scripting/"])
         # The repository scripts: run their suites, the hook suite among them. The
         # suite compiles every module, so a module no test imports still parses.
         if os.path.isdir("tools/scripts"):
@@ -1100,8 +1070,6 @@ class Verification:
             say("tools/scripts tests ran zero tests.")
             self.gate = "uv run tools/scripts/run.py test"
             raise Stop(1)
-
-    # Marker and receipt.
 
     def git_dir(self) -> str:
         code, printed = git("rev-parse", "--git-dir")
@@ -1168,10 +1136,11 @@ class Verification:
         descriptor, temporary = tempfile.mkstemp(prefix="flowseer-tree-state.", dir=git_dir)
         try:
             listing = treestate.listing(Path(self.root))
-        except (RuntimeError, OSError):
+        except (RuntimeError, OSError) as error:
             os.close(descriptor)
             os.unlink(temporary)
             say("verify-change: hooks tree-state failed; the dirty marker would mark verified files again")
+            say(f"verify-change: {error}")
             raise Stop(1) from None
         with os.fdopen(descriptor, "wb") as handle:
             handle.write(encode("".join(f"{line}\n" for line in listing)))
@@ -1185,8 +1154,6 @@ class Verification:
             f"paths={''.join(f'{shell_quote(word)} ' for word in words)}\n"
         )
         Path(f"{git_dir}/{RECEIPT_NAME}").write_bytes(encode(text))
-
-    # The run.
 
     def execute(self, argv: Sequence[str]) -> None:
         self.parse(argv)
@@ -1240,7 +1207,6 @@ class Verification:
         if self.modules:
             self.need_tool("go")
             self.need_tool("golangci-lint")
-            self.need_tool("python3")
             for module in self.modules:
                 self.check_module(module)
         self.check_repository_wide()
