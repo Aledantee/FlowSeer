@@ -1,3 +1,4 @@
+import locale
 import os
 import unittest
 
@@ -114,8 +115,14 @@ class MarkerTest(support.VerifierCase):
 
     @across
     def test_surviving_lines_are_sorted_by_bytes_and_unique(self):
-        # The shell sorts by locale, so it is pinned to bytes for the comparison.
-        env = self.stubs.env(self.env, LC_ALL="C")
+        previous = locale.setlocale(locale.LC_COLLATE)
+        try:
+            locale.setlocale(locale.LC_COLLATE, "en_US.UTF-8")
+        except locale.Error as error:
+            self.fail(f"required UTF-8 locale en_US.UTF-8 is unavailable: {error}")
+        finally:
+            locale.setlocale(locale.LC_COLLATE, previous)
+        env = self.stubs.env(self.env, LC_ALL="en_US.UTF-8")
         self.mark("b.go", "é.go", "B.go", "b.go", "Z.go", "B.go")
         self.passes("--", "README.md", env=env)
         self.assertEqual(self.marker.read_bytes(), "B.go\nZ.go\nb.go\né.go\n".encode())

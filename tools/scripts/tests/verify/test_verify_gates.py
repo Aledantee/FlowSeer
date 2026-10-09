@@ -21,6 +21,16 @@ class RecordedRunTest(support.VerifierCase):
     """The gates a path class starts, in order, with the directory and arguments of each."""
 
     @across
+    def test_go_and_web_paths_run_the_conformance_gates_once(self):
+        self.populate_go()
+        self.stubs.add_web(self.root)
+        self.write("frontend/web/src/a.ts", "export {}\n")
+        self.passes("--", "a.go", "frontend/web/src/a.ts")
+        calls = self.calls()
+        self.assertEqual(calls.count(REPOSITORY_WIDE), 1, calls)
+        self.assertNotIn(".\tgo test -race ./test/conformance/...", calls)
+
+    @across
     def test_web_path_alone_runs_the_conformance_gates_after_the_web_gates(self):
         self.stubs.add_web(self.root)
         self.write("frontend/web/src/a.ts", "export {}\n")
@@ -182,6 +192,26 @@ class RecordedRunTest(support.VerifierCase):
 class FixTest(support.VerifierCase):
     """Each case pins a defect that once let a gate pass what it should refuse."""
 
+    @across
+    def test_breaking_names_only_the_schema_files_main_holds(self):
+        existing = "spec/proto/x/v1/a.proto"
+        added = "spec/proto/x/v1/b.proto"
+        self.write(existing, 'syntax = "proto3";\n')
+        self.write("generated/go/proto/x.pb.go", "package proto\n")
+        self.commit_all("schema")
+        self.git("checkout", "-qb", "schemas")
+        self.write(existing, 'syntax = "proto3";\n\n// Changed.\n')
+        self.write(added, 'syntax = "proto3";\n')
+        self.passes("--", existing, added)
+        self.assertEqual(
+            [call for call in self.calls() if " buf breaking " in call],
+            [f"{BUF} breaking --against .git#branch=main --path {existing}"],
+        )
+        self.stubs.log.unlink()
+        result = self.passes("--", added)
+        self.assertFalse(any(" buf breaking " in call for call in self.calls()), self.calls())
+        self.assertIn("breaking skipped: every changed .proto file is new on this branch.", result.stdout)
+
     def full_run(self):
         self.populate_full()
         self.commit_all("full")
@@ -279,6 +309,22 @@ class FixTest(support.VerifierCase):
 
 class ExitPathTest(support.VerifierCase):
     """The exits after the selection, each with its code and last line."""
+
+    @across
+    def test_a_gate_killed_by_term_reports_exit_143(self):
+        self.populate_go()
+        self.stubs.add("golangci-lint", "kill -TERM $$")
+        self.fails("--", "a.go", code=143, gate="golangci-lint run")
+
+    @across
+    def test_failing_directory_listing_skips_lint_and_passes(self):
+        self.populate_go()
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_FAIL_ON_ARGS="list -f {{.Dir}}", FLOWSEER_FAKE_FAIL_CODE="4")
+        self.passes("--", "a.go", env=env)
+        calls = self.calls()
+        self.assertFalse(any("golangci-lint" in call for call in calls), calls)
+        self.assertIn(".\tgo test -race example.invalid/m", calls)
+        self.assertIn(REPOSITORY_WIDE, calls)
 
     @across
     def test_missing_web_binary_stops_the_run_naming_it(self):

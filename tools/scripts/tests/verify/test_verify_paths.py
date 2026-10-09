@@ -254,8 +254,6 @@ class VerdictTest(support.VerifierCase):
 
     @across
     def test_prose_failure_names_its_run_py_command(self):
-        # The fixture holds no tools/scripts, so the checks resolve run.py
-        # from the checkout that holds the verifier.
         self.write("README.md", "# Fixture\n\nA claim (session history) with no source.\n")
         result = self.verify("--", "README.md")
         self.assertEqual(result.code, 1, result.stdout + result.stderr)
