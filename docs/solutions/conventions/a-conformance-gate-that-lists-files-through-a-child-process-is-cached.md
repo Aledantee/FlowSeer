@@ -66,8 +66,8 @@ a pass (see
   `go test ./test/conformance/<name>/...` with no `-count=1`.
 - `tools/scripts/verify/change.py:1053`: the verifier runs the gate with
   `-count=1`, which catches what the reads cannot.
-- The plan's Decisions (`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase7-plan.md`)
-  cite the Go source for the cache key: `cmd/go/internal/test/test.go:2056`
+- The uv scripts Phase 7 plan's Decisions (2026-10-05, retired with its
+  land; its text at `92860e50`) cite the Go source for the cache key: `cmd/go/internal/test/test.go:2056`
   to `:2115` in Go 1.27.1.
 
 ## What it does not cover

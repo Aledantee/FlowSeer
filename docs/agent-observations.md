@@ -61,10 +61,10 @@ blob hash per unit) instead of parking, and routes a unit whose `Files:`
 line names a policy surface to a Claude worker only, since Codex cannot
 answer `ask`. `delegate` records in Orca worker that the prompt is not
 reliable under the launch flags.
-Update 2026-10-09: the Phase 7 plan routes its U2 and U3 the same way
-(`docs/plans/2026-10-05-2216-refactor-uv-python-scripts-phase7-plan.md`,
-Decisions, and the checklist line that requires the commits to hold the
-approved blobs), so the fallback has now been written into plans of phases 2
+Update 2026-10-09: the uv scripts Phase 7 plan (2026-10-05, retired with
+its land; its text at `92860e50`) routes its U2 and U3 the same way in its
+Decisions and in the checklist line that requires the commits to hold the
+approved blobs, so the fallback has now been written into plans of phases 2
 to 7 by hand. Neither `drive` nor `delegate` names it yet. One failure mode
 was reported at the Phase 7 stage: the hook's `ask` prompt appeared in the
 stage worker's terminal, where the user had to answer in person. The tree
