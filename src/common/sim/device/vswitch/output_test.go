@@ -186,15 +186,15 @@ func outputData() ethernet.Frame {
 func TestReceivePolicesAndReceiveMirroredDoesNot(t *testing.T) {
 	sw := outputTrafficSwitch(t, false)
 	first := sw.Receive(fixedTime, "in", outputData())
-	if first.Outcome != trace.Flooded || len(first.Copies) != 1 {
+	if first.Policed || first.Outcome != trace.Flooded || len(first.Copies) != 1 {
 		t.Fatalf("first output = %+v, want Flooded and one copy", first)
 	}
 	out := sw.Receive(fixedTime, "in", outputData())
-	if out.Outcome != trace.Dropped || out.Reason != traffic.ReasonPoliced || len(out.Steps) != 1 || out.Steps[0].RuleID != traffic.RulePolicerRefuse {
+	if !out.Policed || out.Outcome != trace.Dropped || out.Reason != traffic.ReasonPoliced || len(out.Steps) != 1 || out.Steps[0].RuleID != traffic.RulePolicerRefuse {
 		t.Errorf("exhausted output = %+v, want policer refusal", out)
 	}
 	mirrored := sw.ReceiveMirrored(fixedTime, "in", outputData())
-	if mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
+	if mirrored.Policed || mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
 		t.Errorf("mirrored output = %+v, want Flooded with egress and no copies", mirrored)
 	}
 

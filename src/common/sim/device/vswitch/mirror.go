@@ -6,11 +6,26 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+// AdmitEgress decides queue admission without changing occupancy. A nil switch
+// has no queue table or stated MTU. Calls require serial access.
+func (s *Switch) AdmitEgress(name string, pcp vlan.PCP, depth, octets uint64) device.QueueDecision {
+	var queues *traffic.Layer
+	var mtu int
+	if s != nil {
+		queues = s.traffic
+		p, _ := s.ports.Port(name)
+		mtu = p.MTU
+	}
+	decision := queues.AdmitEgress(name, pcp, depth, octets, mtu)
+	return device.QueueDecision{Admitted: decision.Admitted, Reason: decision.Reason, Step: decision.Step, MaxRateBPS: decision.MaxRateBPS}
+}
 
 func buildTrafficSwitchports(cfg Config) map[string]traffic.Switchport {
 	if cfg.Bridge == nil || cfg.Bridge.VLAN == nil {
@@ -36,25 +51,6 @@ func (s *Switch) police(now time.Time, name string, octets int) bool {
 	}
 
 	return s.traffic.Admit(now, name, octets)
-}
-
-// QueueMaxRate returns the configured maximum bit rate for a port and priority.
-func (s *Switch) QueueMaxRate(name string, pcp vlan.PCP) (uint64, bool) {
-	if s.traffic == nil {
-		return 0, false
-	}
-
-	return s.traffic.MaxRate(name, pcp)
-}
-
-// QueueBuffer returns the stated buffer in encoded frame octets for a port and
-// priority. A port or priority without a stated buffer reports false.
-func (s *Switch) QueueBuffer(name string, pcp vlan.PCP) (uint64, bool) {
-	if s.traffic == nil {
-		return 0, false
-	}
-
-	return s.traffic.QueueBuffer(name, pcp)
 }
 
 func (s *Switch) readyMirrorCopies(now time.Time, res *bridge.Result, copies []traffic.Copy, mutate bool) []traffic.Copy {

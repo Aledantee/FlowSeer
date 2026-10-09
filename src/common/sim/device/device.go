@@ -14,7 +14,10 @@ import (
 
 // Device processes frames and timers under a caller-owned clock. Calls require
 // serial access. Fork returns an independent device at the same runtime state.
+// AdmitEgress reads queue policy without changing occupancy. Its depth and frame
+// size are encoded octets, excluding preamble and gap.
 type Device interface {
+	AdmitEgress(string, vlan.PCP, uint64, uint64) QueueDecision
 	Receive(time.Time, string, ethernet.Frame) Output
 	ReceiveMirrored(time.Time, string, ethernet.Frame) Output
 	Advance(time.Time) Output
@@ -28,10 +31,23 @@ type Device interface {
 // Timer and link calls may leave Result zero. Output is safe for concurrent reads.
 type Output struct {
 	Result
+	// Policed reports an ingress policer refusal.
+	Policed   bool
 	Hold      HoldToken
 	Emissions []Emission
 	Copies    []Copy
 	Drops     []Drop
+}
+
+// QueueDecision admits or refuses an encoded frame at the supplied queue depth.
+// Step is a tail-drop or unstated-buffer threshold step, or nil. MaxRateBPS is
+// the queue's maximum bit rate, with zero meaning unlimited. QueueDecision is
+// safe for concurrent reads.
+type QueueDecision struct {
+	Admitted   bool
+	Reason     trace.Reason
+	Step       *trace.Step
+	MaxRateBPS uint64
 }
 
 // Result records forwarding and the facts its trust metadata depends on.

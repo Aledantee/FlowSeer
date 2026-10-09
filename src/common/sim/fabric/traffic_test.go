@@ -635,6 +635,52 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	t.Error("frame after 10 ms refill did not reach sw1 forwarding")
 }
 
+func TestQueuedFrameUsesServiceTimeRate(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fab, macs := newTrafficTopology(t, &traffic.Config{Queues: map[string]traffic.PortQueues{
+		"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+	}})
+	for _, dst := range []byte{1, 2} {
+		_, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: ethernet.Frame{
+			Dst: netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, dst}, Src: macs["h1"],
+			Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}}, Payload: make([]byte, 46),
+		}})
+		if err != nil {
+			t.Fatalf("Inject: %v", err)
+		}
+	}
+	for range 2 {
+		if entry, ok := fab.Step(); !ok || entry.Kind != fabric.EntryHop {
+			t.Fatalf("Step = (%+v, %t), want ingress hop", entry, ok)
+		}
+	}
+	trunk := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
+	if got := fab.Snapshot().Queued[trunk]; got != 2 {
+		t.Fatalf("queued frames before Configure = %d, want 2", got)
+	}
+	cfg := fab.Spec().Switches["sw1"].Config
+	cfg.Traffic.Queues["1/1/24"].MaxRateBPS[0] = 200_000_000
+	if err := fab.Configure("sw1", cfg); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if got := fab.Snapshot().Queued[trunk]; got != 2 {
+		t.Fatalf("queued frames after Configure = %d, want 2", got)
+	}
+	fab.Run(100)
+	var crossings []time.Time
+	for _, journey := range fab.Report() {
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryCrossing && entry.Device == "sw2" && entry.Port == "1/1/24" {
+				crossings = append(crossings, entry.At)
+			}
+		}
+	}
+	slices.SortFunc(crossings, time.Time.Compare)
+	if len(crossings) != 2 || !crossings[0].Equal(t0) || !crossings[1].Equal(t0.Add(3520*time.Nanosecond)) {
+		t.Fatalf("crossings = %v, want t0 and t0+3520ns for 704 bits at 200 Mbit/s", crossings)
+	}
+}
+
 func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	newFabric := func() (*fabric.Fabric, map[string]netaddr.MAC) {

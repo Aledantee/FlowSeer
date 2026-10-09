@@ -14,6 +14,46 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+// AdmitEgress decides admission using encoded frame octets and the depth before
+// enqueue. An unstated buffer is unbounded. Its threshold is mtu plus 18 octets,
+// or 1518 when mtu is zero. The caller applies the returned step serially.
+func (c Config) AdmitEgress(name string, pcp vlan.PCP, depth, octets uint64, mtu int) QueueDecision {
+	rate, _ := c.MaxRate(name, pcp)
+	decision := QueueDecision{Admitted: true, MaxRateBPS: rate}
+	subject := trace.Subject{Kind: "port", Key: trace.CompositeKey(name, strconv.Itoa(int(pcp)))}
+	if buffer, stated := c.QueueBuffer(name, pcp); stated {
+		if depth+octets > buffer {
+			decision.Admitted = false
+			decision.Reason = ReasonQueueFull
+			decision.Step = &trace.Step{
+				Layer: LayerName, Op: trace.OpDrop, RuleID: RuleQueueDrop,
+				Subject: subject, Inputs: []trace.Fact{QueueDropFact(depth, buffer, int(octets))},
+			}
+		}
+		return decision
+	}
+	threshold := uint64(1518)
+	if mtu > 0 {
+		threshold = uint64(mtu + 18)
+	}
+	if depth <= threshold && depth+octets > threshold {
+		decision.Step = &trace.Step{
+			Layer: LayerName, Op: trace.OpQueue, RuleID: RuleQueueBufferUnstated,
+			Subject: subject, Inputs: []trace.Fact{QueueThresholdFact(depth, octets, threshold)},
+		}
+	}
+	return decision
+}
+
+// QueueDecision reports admission, a drop or threshold step, and the maximum
+// bit rate (zero means unlimited). QueueDecision is safe for concurrent reads.
+type QueueDecision struct {
+	Admitted   bool
+	Reason     trace.Reason
+	Step       *trace.Step
+	MaxRateBPS uint64
+}
+
 const (
 	// LayerName identifies traffic configuration changes.
 	LayerName trace.Layer = "traffic"

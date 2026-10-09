@@ -8,7 +8,6 @@ import (
 	"math/bits"
 	"net/netip"
 	"slices"
-	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -24,7 +23,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -537,13 +535,13 @@ func (f *Fabric) Step() (Entry, bool) {
 		f.recordNeighborFailure(arr.At, arr.Device, drop)
 	}
 	f.scheduleWake(arr.Device)
-	if res.Reason == traffic.ReasonPoliced {
+	if out.Policed {
 		for _, p := range inPorts {
-			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
+			f.countWholeFrameDrop(arr.Device, p, res.Reason)
 		}
 		dropEntry := Entry{
 			At: arr.At, Kind: EntryDrop, Device: arr.Device,
-			Port: arr.Port, Result: &res, Reason: traffic.ReasonPoliced,
+			Port: arr.Port, Result: &res, Reason: res.Reason,
 		}
 		f.record(journey, dropEntry)
 		return dropEntry, true
@@ -914,40 +912,24 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 	}
 	raw, _ := frame.Encode()
 	octets := uint64(len(raw))
-	if sw := f.switches[txEnd.Node]; sw != nil {
-		buffer, stated := sw.QueueBuffer(egressPort, pcp)
-		if stated {
-			if q.depth[pcp]+octets > buffer {
-				f.record(journey, Entry{
-					At:     now,
-					Kind:   EntryDrop,
-					Device: txEnd.Node,
-					Port:   egressPort,
-					Reason: traffic.ReasonQueueFull,
-					Step: &trace.Step{
-						Layer:   traffic.LayerName,
-						Op:      trace.OpDrop,
-						RuleID:  traffic.RuleQueueDrop,
-						Subject: trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))},
-						Inputs:  []trace.Fact{traffic.QueueDropFact(q.depth[pcp], buffer, int(octets))},
-					},
-				})
-				f.countEgressDrop(txEnd.Node, egressPort, traffic.ReasonQueueFull)
-				if egressPort != txEnd.Port {
-					f.countEgressDrop(txEnd.Node, txEnd.Port, traffic.ReasonQueueFull)
-				}
-
-				return false
-			}
-		} else {
-			threshold := uint64(1500 + 18)
-			if mtu, ok := sw.PortMTU(egressPort); ok {
-				threshold = uint64(mtu + 18)
-			}
-			f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, q.depth[pcp], octets, threshold, journey)
+	queueDevice := f.devices[txEnd.Node]
+	if queueDevice == nil {
+		queueDevice = (*vswitch.Switch)(nil)
+	}
+	decision := queueDevice.AdmitEgress(egressPort, pcp, q.depth[pcp], octets)
+	if !decision.Admitted {
+		f.record(journey, Entry{
+			At: now, Kind: EntryDrop, Device: txEnd.Node, Port: egressPort,
+			Reason: decision.Reason, Step: decision.Step,
+		})
+		f.countEgressDrop(txEnd.Node, egressPort, decision.Reason)
+		if egressPort != txEnd.Port {
+			f.countEgressDrop(txEnd.Node, txEnd.Port, decision.Reason)
 		}
-	} else {
-		f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, q.depth[pcp], octets, 1500+18, journey)
+		return false
+	}
+	if decision.Step != nil {
+		f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, *decision.Step, journey)
 	}
 	q.pending[pcp] = append(q.pending[pcp], queued{
 		frame:      cloneFrame(frame),
@@ -1058,8 +1040,9 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 		}
 
 		end := f.transmitCable(now, txEnd, ref, item)
-		if sw := f.switches[txEnd.Node]; sw != nil {
-			if rate, limited := sw.QueueMaxRate(item.egressPort, item.pcp); limited {
+		if d := f.devices[txEnd.Node]; d != nil {
+			rate := d.AdmitEgress(item.egressPort, item.pcp, 0, 0).MaxRateBPS
+			if rate != 0 {
 				q.rateClock[selected] = now.Add(serialization(item.frame, rate))
 			}
 		}

@@ -17,6 +17,45 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestLoneJumboThreshold(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mtu    int
+		issues int
+	}{
+		{"unstated MTU", 0, 1},
+		{"stated MTU", 9000, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fab, ep := mtuAccountingFabric(t, tc.mtu, nil)
+			if fab.egress[ep] != nil {
+				t.Fatal("queue must be empty before the lone frame")
+			}
+			frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{3}, Payload: make([]byte, 9004)}
+			raw, err := frame.Encode()
+			if err != nil || len(raw) != 9018 {
+				t.Fatalf("encoded frame = %d octets, error %v, want 9018", len(raw), err)
+			}
+			journey := &Journey{}
+			if !fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "") {
+				t.Fatal("unstated buffer refused the jumbo frame")
+			}
+			if got := fab.egress[ep].depth[0]; got != 9018 {
+				t.Fatalf("depth = %d, want 9018", got)
+			}
+			if got := countIssueScope(fab.Metadata().Issues(), IssueQueueBufferUnstated, analysis.PortScope(ep.Node, ep.Port)); got != tc.issues {
+				t.Fatalf("queue-buffer-unstated issues = %d, want %d", got, tc.issues)
+			}
+			if len(journey.Entries) != tc.issues {
+				t.Fatalf("threshold entries = %d, want %d", len(journey.Entries), tc.issues)
+			}
+			if tc.issues == 1 && journey.Entries[0].Step.Inputs[0].Canonical() != "depth_before_octets=0;frame_octets=9018;threshold_octets=1518" {
+				t.Fatalf("threshold fact = %s", journey.Entries[0].Step.Inputs[0].Canonical())
+			}
+		})
+	}
+}
+
 // queueBufferTopology builds one untagged switch joining h1, h2, and h3 at a
 // gigabit, with an optional buffer stated on the port toward h3. A nil buffer
 // leaves every queue unstated.

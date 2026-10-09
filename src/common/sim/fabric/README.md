@@ -250,6 +250,10 @@ same semantic trace consumers as ordinary switch hops.
 
 ## Egress queues
 
+`Device.AdmitEgress` supplies admission, a drop or threshold step, and the
+queue's maximum rate. The fabric owns occupancy and scheduling and applies
+the supplied step. The traffic configuration and its rules stay in the device.
+
 Every transmitting endpoint has eight FIFO queues, one for each PCP. Normal
 egress keeps the PCP from ingress classification even when the egress frame is
 untagged. Protocol emissions, mirror copies, and host injections use the outer
@@ -263,7 +267,9 @@ end while frames remain. `Snapshot.Queued` gives the pending count for each
 non-empty endpoint queue, and `Snapshot.Busy` lists endpoints still serializing
 after `Clock`.
 
-A configured queue maximum rate controls start-to-start spacing. After a frame
+A configured queue maximum rate controls start-to-start spacing. The scheduler
+reads the current device decision at service time, so a configuration change
+applies to frames still waiting. After a frame
 starts, that PCP is next eligible at `start + ceil(wire bits / max rate)`. The
 link still serializes the frame at its negotiated speed. If every pending PCP is
 rate-limited, the endpoint schedules its dequeue at the earliest rate clock.

@@ -273,8 +273,9 @@ The virtual switch uses a ladder of architectural layers:
   state suppresses it with complete readiness. `Output.Copies` carries the
   admitted copies so the fabric can enqueue them as separate transmissions.
   `Receive` applies the switch-owned token bucket at arrival, while
-  `QueueMaxRate` gives the fabric scheduler the maximum rate
-  for an egress port and PCP.
+  `Output.Policed` reports an ingress refusal. `AdmitEgress` returns admission,
+  the drop or threshold step, and the maximum rate for an egress port and PCP.
+  The fabric owns queue occupancy and passes its depth to this decision.
 
 Optional [physical subsystems](../../layer/phy/README.md) (`phy.Config`)
 provide Ethernet speed resolution, negotiation, and PoE budget allocation.

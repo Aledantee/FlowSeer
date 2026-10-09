@@ -19,7 +19,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -1048,10 +1047,7 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 
 // markQueueBufferUnstated records the first threshold crossing per physical
 // endpoint before enqueue, retaining its evidence for later metadata reads.
-func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, depthBefore, frameOctets, threshold uint64, journey *Journey) {
-	if depthBefore > threshold || depthBefore+frameOctets <= threshold {
-		return
-	}
+func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, step trace.Step, journey *Journey) {
 	if _, marked := f.unstatedBacked[ep]; marked {
 		return
 	}
@@ -1059,13 +1055,12 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 		f.unstatedBacked = make(map[Endpoint]trace.EvidenceRef)
 	}
 	target := egressPort
-	subject := trace.Subject{Kind: "port", Key: trace.CompositeKey(egressPort, strconv.Itoa(int(pcp)))}
 	if egressPort == "" {
 		target = ep.Node
-		subject = trace.Subject{Kind: "host", Key: trace.CompositeKey(ep.Node, strconv.Itoa(int(pcp)))}
+		step.Subject = trace.Subject{Kind: "host", Key: trace.CompositeKey(ep.Node, strconv.Itoa(int(pcp)))}
 	}
-	fact := traffic.QueueThresholdFact(depthBefore, frameOctets, threshold)
-	context := "rule=" + strconv.Quote(string(traffic.RuleQueueBufferUnstated)) +
+	fact := step.Inputs[0]
+	context := "rule=" + strconv.Quote(string(step.RuleID)) +
 		";physical_node=" + strconv.Quote(ep.Node) +
 		";physical_port=" + strconv.Quote(ep.Port) +
 		";egress_port=" + strconv.Quote(target) +
@@ -1079,13 +1074,10 @@ func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort 
 	})
 	f.unstatedBacked[ep] = ref
 	f.metadataCache = nil
+	step.Evidence = []trace.EvidenceRef{ref}
 	f.record(journey, Entry{
 		At: now, Kind: EntryQueueThreshold, Device: ep.Node, Port: ep.Port, PCP: pcp,
-		Step: &trace.Step{
-			Layer: traffic.LayerName, Op: trace.OpQueue, RuleID: traffic.RuleQueueBufferUnstated,
-			Subject: subject,
-			Inputs:  []trace.Fact{fact}, Evidence: []trace.EvidenceRef{ref},
-		},
+		Step: &step,
 	})
 }
 

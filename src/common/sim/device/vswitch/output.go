@@ -50,7 +50,9 @@ func (s *Switch) receive(now time.Time, ingress string, frame ethernet.Frame, mi
 	if mirrored {
 		c.copies = nil
 	}
-	return c.output(s.wrapResult(c, res))
+	out := c.output(s.wrapResult(c, res))
+	out.Policed = res.Reason == traffic.ReasonPoliced
+	return out
 }
 
 func (c *call) output(res forwardResult) device.Output {

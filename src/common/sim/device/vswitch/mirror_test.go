@@ -669,17 +669,14 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 	if sw.Receive(fixedTime, "1/1/2", ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: make([]byte, 1_000_000-38)}).Reason == traffic.ReasonPoliced {
 		t.Error("unconfigured port was policed")
 	}
-	if rate, ok := sw.QueueMaxRate("1/1/2", 5); !ok || rate != 100_000_000 {
-		t.Errorf("QueueMaxRate(1/1/2, 5) = (%d, %t), want (100000000, true)", rate, ok)
+	if got := sw.AdmitEgress("1/1/2", 5, 0, 4096); !got.Admitted || got.MaxRateBPS != 100_000_000 || got.Step != nil {
+		t.Errorf("at-buffer decision = %+v, want admitted at rate 100000000 without step", got)
 	}
-	if rate, ok := sw.QueueMaxRate("1/1/2", 0); ok || rate != 0 {
-		t.Errorf("QueueMaxRate(1/1/2, 0) = (%d, %t), want (0, false)", rate, ok)
+	if got := sw.AdmitEgress("1/1/2", 5, 0, 4097); got.Admitted || got.Reason != traffic.ReasonQueueFull {
+		t.Errorf("over-buffer decision = %+v, want queue-full", got)
 	}
-	if buffer, ok := sw.QueueBuffer("1/1/2", 5); !ok || buffer != 4096 {
-		t.Errorf("QueueBuffer(1/1/2, 5) = (%d, %t), want (4096, true)", buffer, ok)
-	}
-	if buffer, ok := sw.QueueBuffer("1/1/2", 0); ok || buffer != 0 {
-		t.Errorf("QueueBuffer(1/1/2, 0) = (%d, %t), want (0, false)", buffer, ok)
+	if got := sw.AdmitEgress("1/1/2", 0, 0, 4097); !got.Admitted || got.MaxRateBPS != 0 || got.Step == nil || got.Step.RuleID != traffic.RuleQueueBufferUnstated {
+		t.Errorf("unstated decision = %+v, want unbounded with threshold step", got)
 	}
 
 	tests := []struct {

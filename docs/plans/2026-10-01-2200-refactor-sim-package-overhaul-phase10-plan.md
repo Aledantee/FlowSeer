@@ -538,6 +538,8 @@ an unstated MTU the threshold is 1,518 and the frame raises
 and it raises nothing.
 `TestQueueAdmit` in `L/traffic/config_test.go`: stated buffer at, one
 under, and one over the limit, and the unstated threshold at depth zero.
+`TestQueuedFrameUsesServiceTimeRate` in `Fb/traffic_test.go` keeps two
+frames queued across `Configure` and pins their spacing to the new rate.
 Expected to change: none of the existing tail-drop expectations. The step
 bytes are pinned by `Fb/egress_buffer_internal_test.go` and must not move.
 
