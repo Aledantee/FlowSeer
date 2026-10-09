@@ -30,7 +30,9 @@ type Comparison struct {
 // Injected and recorded roots pair by injection ordinal. Attached frames pair by
 // attachment and frame ordinal, including frames present on only one side.
 // Pre-scenario journeys are excluded. Faults are topology events, not journeys.
-// A settled aggregate pairs by its flow statistics. Equal statistics cannot
+// A settled aggregate pairs by what the scenario added to its flow's statistics on each side.
+// A latency extreme or hold count that either side had before the scenario cannot be
+// separated from what the scenario added, so it is not compared. Equal statistics cannot
 // prove journey equivalence, so the comparison is Inconclusive without another difference.
 // Comparison walks, per paired journey, State, Origin, ordered Entries (path hops,
 // cable crossings, deliveries, and drops with reason and location), Deliveries,
@@ -81,6 +83,7 @@ func Compare(a, b *Fabric, scenario Scenario, options RunOptions) Comparison {
 		}
 	}
 
+	preA, preB := forkA.Flows(), forkB.Flows()
 	runResA, errA := forkA.runWithActions(options.Budget, options.Window, norm.Actions)
 	runResB, errB := forkB.runWithActions(options.Budget, options.Window, norm.Actions)
 	injFIDsA, injFIDsB := rootIDs(runResA.roots), rootIDs(runResB.roots)
@@ -91,7 +94,7 @@ func Compare(a, b *Fabric, scenario Scenario, options RunOptions) Comparison {
 	scenarioJourneysA := collectScenarioJourneys(allJourneysA, injFIDsA)
 	scenarioJourneysB := collectScenarioJourneys(allJourneysB, injFIDsB)
 
-	diff, location, hasDiff, uncertain := diffRunRoots(runResA.roots, runResB.roots, scenarioJourneysA, scenarioJourneysB, forkA.Flows(), forkB.Flows())
+	diff, location, hasDiff, uncertain := diffRunRoots(runResA.roots, runResB.roots, scenarioJourneysA, scenarioJourneysB, forkA.Flows(), forkB.Flows(), preA, preB)
 	if !hasDiff {
 		diff, location, hasDiff = diffFabricRuns(nil, nil, nil, nil, nil, runResA, runResB, forkA.Snapshot(), forkB.Snapshot())
 	}
@@ -155,7 +158,7 @@ func (r runRoot) key() rootKey {
 	return rootKey{index: r.ordinal}
 }
 
-func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB map[FlowID]FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
+func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB, preA, preB map[FlowID]FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
 	byA, byB := make(map[rootKey]runRoot), make(map[rootKey]runRoot)
 	for _, r := range a {
 		byA[r.key()] = r
@@ -197,7 +200,7 @@ func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB
 		retainedA := slices.ContainsFunc(journeysA, func(j Journey) bool { return j.FrameID == ra.fid })
 		retainedB := slices.ContainsFunc(journeysB, func(j Journey) bool { return j.FrameID == rb.fid })
 		if (!retainedA && ra.retention == RetainAggregate) || (!retainedB && rb.retention == RetainAggregate) {
-			if diff, field, found := diffFlowStats(flowsA[ra.flow], flowsB[rb.flow]); found {
+			if diff, field, found := diffFlowStats(flowsA[ra.flow], flowsB[rb.flow], preA[ra.flow], preB[rb.flow]); found {
 				location.Field = "Flow." + field
 				return diff, location, true, uncertain
 			}

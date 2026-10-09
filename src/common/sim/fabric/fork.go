@@ -129,6 +129,7 @@ func (f *Fabric) Fork() *Fabric {
 		inflight:        inflight,
 		held:            held,
 		flows:           flows,
+		protocolIssues:  slices.Clone(f.protocolIssues),
 		touched:         nil,
 		err:             f.err,
 	}
