@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/results-applied-from-a-map-range-differ-between-runs-when-applying-allocates.md",
   "outcome": {
     "units": 12,
     "from": "2026-10-07T21:46:34Z",
