@@ -185,7 +185,9 @@ function clearAccessPoint() {
         <span translate="no">{{ accessPoint.name }}</span
         ><AppIcon name="close" class="w-3 h-3 text-muted-foreground" />
       </button>
-      <span class="ml-auto text-xs text-muted-foreground font-mono tabular-nums">
+      <span
+        class="ml-auto text-xs text-muted-foreground font-mono tabular-nums"
+      >
         {{ format.counted('view.common.results', filtered.length) }}
       </span>
     </div>
@@ -255,8 +257,12 @@ function clearAccessPoint() {
                     signalQuality(client.signal) === 'Weak',
                 }"
               >
-                <span class="font-sans">{{ labels.signal(signalQuality(client.signal)) }}</span>
-                <small class="text-2xs text-muted-foreground font-mono tabular-nums">
+                <span class="font-sans">{{
+                  labels.signal(signalQuality(client.signal))
+                }}</span>
+                <small
+                  class="text-2xs text-muted-foreground font-mono tabular-nums"
+                >
                   {{ format.quantity(client.signal, 'dbm') }}
                 </small>
               </span>

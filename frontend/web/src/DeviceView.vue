@@ -298,7 +298,10 @@ function to(path: string, extra: Record<string, string> = {}) {
         class="w-12 h-12 text-accent-foreground"
       />
       <div class="flex-1 min-w-0">
-        <h1 translate="no" class="font-mono text-3xl font-semibold text-foreground tracking-tight my-1">
+        <h1
+          translate="no"
+          class="font-mono text-3xl font-semibold text-foreground tracking-tight my-1"
+        >
           {{ device.name }}
         </h1>
         <p class="text-xs text-muted-foreground">
@@ -324,7 +327,10 @@ function to(path: string, extra: Record<string, string> = {}) {
 
     <UiCard as="section" aria-labelledby="issues-title">
       <template #header>
-        <h2 id="issues-title" class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+        <h2
+          id="issues-title"
+          class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
+        >
           {{
             device.health === 'Healthy'
               ? t('view.device.issuesTitleHealthy')
@@ -459,7 +465,10 @@ function to(path: string, extra: Record<string, string> = {}) {
 
     <UiCard as="section" aria-labelledby="paths-title">
       <template #header>
-        <h2 id="paths-title" class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
+        <h2
+          id="paths-title"
+          class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
+        >
           <I18nT scope="global" keypath="view.device.pathsTitle">
             <template #brand>
               <span translate="no">{{ BRAND }}</span>
@@ -507,7 +516,9 @@ function to(path: string, extra: Record<string, string> = {}) {
       class="ui-card relative grid grid-cols-4 max-[800px]:grid-cols-2 max-[500px]:grid-cols-1 m-0 border border-border rounded-panel bg-card overflow-hidden"
     >
       <div class="p-4 border-border">
-        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        <dt
+          class="font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        >
           {{ t('view.device.lifecycle') }}
         </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
@@ -517,10 +528,14 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[500px]:border-t"
       >
-        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        <dt
+          class="font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        >
           {{ t('view.common.columns.clients') }}
         </dt>
-        <dd class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums">
+        <dd
+          class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums"
+        >
           {{
             device.health === 'Offline'
               ? t('view.common.noReading')
@@ -531,10 +546,14 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[800px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        <dt
+          class="font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        >
           {{ t('view.common.columns.traffic') }}
         </dt>
-        <dd class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums">
+        <dd
+          class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums"
+        >
           {{
             device.health === 'Offline'
               ? t('view.common.noReading')
@@ -545,7 +564,9 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+        <dt
+          class="font-mono text-xs uppercase tracking-wider text-muted-foreground"
+        >
           {{ t('view.device.uplink') }}
         </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
@@ -569,7 +590,9 @@ function to(path: string, extra: Record<string, string> = {}) {
         class="ui-card relative overflow-hidden border border-border rounded-panel bg-card"
         aria-labelledby="clients-title"
       >
-        <div class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3">
+        <div
+          class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3"
+        >
           <h2
             id="clients-title"
             class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
@@ -636,7 +659,9 @@ function to(path: string, extra: Record<string, string> = {}) {
           class="ui-card relative overflow-hidden border border-border rounded-panel bg-card"
           aria-labelledby="links-title"
         >
-          <div class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3">
+          <div
+            class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3"
+          >
             <h2
               id="links-title"
               class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
