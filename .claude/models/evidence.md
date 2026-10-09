@@ -150,7 +150,7 @@ Synthetic `execute` lanes of the 2026-09-23 `Merge` calibration, written to the 
 
 ## Calibration 2026-09-28 — `Merge` task, Claude Sonnet 5.5 `execute` effort sweep
 
-Base bd9e0862, four lanes through `bench.sh --cli claude --model claude-sonnet-5-5 --effort <level>` on Claude Code 2.1.284 against `calibration/brief.md`. The four lanes overlapped on the claude pool, so cost is each lane's CLI figure and the pool meter was not split. Graded with each of the 7 hidden acceptance tests alone under `-race -count=3`. The full verifier on this base expands to `go test -race` over `generated/go/mib`, which the host cannot afford, so the lanes were checked with `golangci-lint run ./src/common/pump/` and `go test -race ./src/common/pump/` instead of `verify-change.sh`.
+Base bd9e0862, four lanes through `bench.sh --cli claude --model claude-sonnet-5-5 --effort <level>` on Claude Code 2.1.284 against `calibration/brief.md`. The four lanes overlapped on the claude pool, so cost is each lane's CLI figure and the pool meter was not split. Graded with each of the 7 hidden acceptance tests alone under `-race -count=3`. The full verifier on this base expands to `go test -race` over `generated/go/mib`, which the host cannot afford, so the lanes were checked with `golangci-lint run ./src/common/pump/` and `go test -race ./src/common/pump/` instead of `verify change`.
 
 - medium — 7/7, 74 s, $0.32 reported (3.7K reasoning tokens), lint fails with one revive `unused-parameter` in `merge_test.go` — 2026-09-28.
 - high — 7/7, 132 s, $0.49 reported (10K reasoning tokens), lint clean — 2026-09-28.

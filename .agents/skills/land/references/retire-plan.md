@@ -91,7 +91,7 @@ Under `land`, step 5 verifies the result. A sweep outside `land` runs the
 verifier on the changed paths itself, sandbox disabled:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh --base main -- <changed paths>
+uv run tools/scripts/run.py verify change --base main -- <changed paths>
 ```
 
 ## 5. Report

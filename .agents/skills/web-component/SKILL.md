@@ -187,7 +187,7 @@ over every changed path, from the worktree root, and update the README's
 component list in the same change:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+uv run tools/scripts/run.py verify change -- <changed paths>
 ```
 
 Never add a lint, stylelint, or detector suppression to make the

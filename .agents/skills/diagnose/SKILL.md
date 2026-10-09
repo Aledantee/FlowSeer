@@ -170,7 +170,7 @@ defect.
    command of its invocation:
 
    ```bash
-   .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
+   uv run tools/scripts/run.py verify change -- <paths>
    ```
 
 Report, outcome first: the cause, the loop command with its red and green

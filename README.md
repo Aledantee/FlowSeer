@@ -82,7 +82,7 @@ human contributors as much as to coding agents. The parts that catch people out:
   handoff:
 
   ```bash
-  .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+  uv run tools/scripts/run.py verify change -- <changed paths>
   ```
 
 Start with the [documentation map](docs/README.md) when you need architecture or
