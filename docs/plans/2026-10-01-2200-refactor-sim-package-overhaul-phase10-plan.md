@@ -1071,3 +1071,68 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
+
+## Review gaps
+
+Follow-ups of the review. They do not hold the verdict. `S` is
+`src/common/sim`.
+
+False tests:
+
+- S/fabric/result_test.go:505: delete the `Learn` call on `fab.Device("sw1")`, which is a fork (also :575 and S/fabric/record_test.go:57); fails: the dependent tests that expect known-unicast forwarding to `1/1/2`; class: false test
+- S/fabric/fingerprint_test.go:1011: run zero steps in the second `Run`; fails: `TestFingerprintUnchangedAcrossHelloWake` requires a hello wake and a BPDU crossing between the two fingerprints; class: false test
+- S/fabric/scenario_test.go:494: delete the missing-checkpoint refusal in `Replay`; fails: `TestReplayRefusesMissingCheckpoint` with a named scenario and budget 1; class: false test
+- S/fabric/scenario_test.go:766: delete the `Mcheck` or `Configure` copy in `Action.Clone`; fails: the clone test with one action per kind mutated through the cloned pointer; class: false test
+- S/fabric/flow_internal_test.go:861: make the timed-out holds exit in hold order in the reverse case; fails: `TestHoldExits` timed-out reverse with two deadlines; class: false test
+- S/fabric/flow_internal_test.go:956: keep routing across the `Configure` so the holds time out; fails: `TestHoldExits` reconfigured forward asserting two exits at the `Configure` clock; class: false test
+- S/fabric/flow_internal_test.go:565: never hold the frame at the end; fails: `TestHeldFlowCountsHeld` asserting `Held` after a fixed run; class: false test
+- S/fabric/fork_internal_test.go:145: set `clock: f.topology.start` in `Fork`; fails: the fork gate comparing the whole `time.Time` value; class: false test
+- S/fabric/run_test.go:1408: produce a wake entry in the journey; fails: an assertion on `StepResult.Arrival` in place of the strings `"Wake"` and `"Dequeue"` no code produces; class: false test
+- S/device/vswitch/routed_egress_matrix_test.go:124: leave `Member` empty in `emitRouting`; fails: the eight solicitation and probe cells compared against a data frame of the flow; class: false test
+
+Gaps:
+
+- S/fabric/topology.go:116: do not restore the previous node when `relinkAt` fails; fails: a failed `Replace` with a changed cable keeps the old node; class: gap
+- S/device/vswitch/derive_test.go:25: drop the prior-aging twin; fails: `TestDeriveAgesBeforeCarry` comparing an aged fork with the unaged source, with a membership and a router port past expiry; class: gap
+- S/device/vswitch/state_test.go:81: drop a field from a hand-written converter in S/device/vswitch/state.go; fails: `TestStateCarriesEveryLayerField` comparing converted values field by field; class: gap
+- S/device/state.go:337: return the whole top-level field from `State.Diff`; fails: a test that `Current` lacks the differing entry and `Expected` lacks an unrelated one; class: gap
+- S/medium/cable/crossing_test.go:57: skip the crossing count for a switch emission with `Protocol` set; fails: a `LoseSequence` position after k emitted BPDUs on a trunk; class: gap
+- S/fabric/queue_buffer_internal_test.go:25: threshold `mtu+19` in place of `mtu+18`; fails: a row one octet over a stated-MTU threshold; class: gap
+- S/layer/traffic/config_test.go:14: `depth < threshold` in place of `<=`; fails: a row with depth equal to the threshold; class: gap
+- S/fabric/attach_test.go:479: apply every action before the loop; fails: `TestScenarioRunsWithAttachedStream` with a stream frame on both sides of an action; class: gap
+- S/fabric/attach_internal_test.go:146: delete the kind comparison in `compareArrival`; fails: a wake and a stream event at one time with the stream's sequence lower; class: gap
+- S/fabric/replay_test.go:107: `TestReplayKnownUnicastAndSamePortDrop` runs `Run(100)` where it stepped exactly; fails: an extra step before the drop; class: gap
+- S/fabric/egress.go:123: `At.Equal(now)` misses a head event dated before the clock; fails: a same-instant higher-PCP frame behind a past-dated event; class: gap
+- S/layer/traffic/layer.go:107: the tail-drop and threshold step subject is the queue owner, not the member port handed in; fails: a pinned subject for a LAG member egress; class: gap
+- S/device/vswitch/timers.go:193: a protocol emission on a LAG with no selectable member is dropped with no record; fails: a recorded no-member drop where loop protection emits on such a LAG; class: gap
+- S/internal/simtest/corpus_test.go:1500: omit `validateReceiveResult` in one executor; fails: `TestCorpusReceiveOutcomes` counting validated receives; class: gap
+- S/fabric/topology.go:69: never settle the journeys touched at construction; fails: a replay of a fabric whose start emission met no link; class: gap
+- S/fabric/flow_internal_test.go:986: measure latency from the release time; fails: a release case asserting `Latency.Min` at least the hold duration; class: gap
+- S/fabric/routing_test.go:925: the `Held` outcome on any entry in place of the last entry (also :1067, :1192), and :68 no stop reason; fails: a held journey with a later entry; class: gap
+- S/fabric/fork_test.go:297: reduce `journey.shallowClone`, `cloneEgressQueue`, `topology.clone` of cables, `Counters.Clone`, or `FlowStats.Clone` to a shallow copy; fails: fork probes that write through a journey entry, a queued journey, a cable fault, and a counter map; class: gap
+- S/fabric/record_test.go:65: ignore the `Encode` error in `Record.Validate`; fails: the VID case with `Dst` reset and the message asserted; class: gap
+- S/device/host/host.go:152: drop a field in the host's neighbor conversion; fails: a host `State` read with a neighbor; class: gap
+- S/fabric/result_test.go:30: `TestRunResultAcrossRetentions` passes when `buildRunResult` skips journeys; fails: a fixture with no flow; class: gap
+
+Convention:
+
+- S/fabric/compare_journey.go:51: the `Origin.Kind` and `Origin.Mirror` branches of `diffJourney` and the journey half of `diffFabricRuns` (S/fabric/compare.go:256) are unreachable from `Compare`; fails: the Carried item that reaches or deletes them; class: convention
+- S/fabric/topology.go:154: `Config.DefaultQueue`, the nil-receiver branch in S/device/vswitch/mirror.go:21, and the guards for a hand-built fabric (S/fabric/executor.go:250, egress.go:69, output.go:135, fork.go:171, queue.go:161) have no reachable reader; fails: the unit text that removes hand-built supports; class: convention
+- S/fabric/journey.go:295: `isJourneyHeld` and the exports `ExportIsJourneyHeld`, `ExportFabricFields`, `ExportLinkTrust` in S/fabric/export_test.go are unused, and journey.go:472,481 assign a value to itself; fails: nothing reads them; class: convention
+- S/fabric/README.md:811: host deferral paragraph, :1034 "refuses attached streams", :1316 "16,815 allocations", :1239 and :1300 "release" lineage, :407 and :1254 cite `run.go` and `diffFabricRuns`, :1349 "310 and 309 before" without a source, :692 `cfg`, :961 "independent storage"; fails: each sentence against the code; class: convention
+- S/README.md:59: "recorded specifications" (also :73, :76); S/search/README.md:130; S/medium/cable/README.md:35 cites `fabric/run.go` and :31 omits "since construction"; S/device/reflector/README.md:41; S/device/README.md:25; fails: each sentence against the code; class: convention
+- S/netmodel/README.md:54: the example builds with no cables, so every port reads `Unknown`, and :159 still names `vswitch.NewWithSpec`; S/device/vswitch/README.md:83 and S/device/host/README.md:23 drive a fork of `fab.Device` without saying so; S/assembly/README.md:13 prints the original start and :36 says "Normalize and validate", and the README omits `NewWithSpec`, `NewConstructionSpec`, `Diff`, `PrefixesFact`, `Retention`; fails: a working example; class: convention
+- docs/architecture/2026-09-10-virtual-device-direction.md:113: `Fabric.Spec()` (also :350, :356), `Fabric.Configure` (:234, :1090, :1098), `NeighborDrop` (:931, :937, :1186), `run.go` (:942, :1193), release lineage (:460), "validate only after normalization" (:201), heading form (:209, :1191); fails: each premise against the tree; class: convention
+- docs/architecture/2026-10-01-simulation-package-shape-direction.md:16: the Context bullet states the outcome under a heading that counts three disagreements, and :110 cites `fabric/run.go`; docs/architecture/2026-09-16-local-network-analysis-direction.md:138 "now lives in" and :141 `run.go`; docs/architecture/2026-09-18-offered-load-streams-direction.md:15 `run.go`; fails: each citation at HEAD; class: convention
+- docs/solutions/conventions/a-convergence-fingerprint-lies-when-it-omits-a-resolution-axis-or-keeps-a-timer.md:45: line citations at :45, :47, :49, :50, :58, :76, :91 and the sentence that cites a review; docs/solutions/conventions/results-applied-from-a-map-range-differ-between-runs-when-applying-allocates.md:40; docs/solutions/architecture-patterns/validate-and-derive-judge-what-new-builds.md:36 (:39, :52, :75, :84); docs/solutions/architecture-patterns/a-metadata-issue-needs-a-trace-event-where-the-observation-happens.md:96 (:98, :100); history wording in a-reconfigure-path and a-third-kind (:39, :77); the retitled settled-aggregate entry's `applies_when`; fails: each cited line at HEAD; class: convention
+- CONCEPTS.md:211: the five new entries are hard-wrapped where every neighbour is one paragraph; fails: the file's form; class: convention
+- S/device/vswitch/timers.go:40: `[Fabric.injectEmission]`; S/device/vswitch/held_test.go:1319 `[NeighborDrop]`; S/device/vswitch/protocol_link_test.go:440; S/fabric/fabric.go:46 and S/fabric/metadata.go:35 `[Fabric.Configure]`, metadata.go:29 `[Diff]`; S/fabric/scenario.go:48,77; S/fabric/run.go:67,146; S/fabric/queue.go:21,25; S/fabric/snapshot.go:11; S/fabric/journey.go:207; S/fabric/flow.go:17,109; S/fabric/result.go:53; S/fabric/comparison_location.go:27; S/fabric/compare.go:26; S/medium/cable/resolve.go:24; S/assembly/derive.go:5; S/fabric/fabric_test.go:96; fails: each comment against the code; class: convention
+- S/fabric/attach_test.go:435: test names that name removed mechanisms (`TestEagerHostInjection*`, `TestStepPullsFromEmptyQueue`, `TestPendingWorkHandBuiltQueue`), the stranded comment at S/fabric/fork_internal_test.go:256, stale wording at S/fabric/routing_test.go:947 and S/fabric/scenario_test.go:714; fails: the name against what the test does; class: convention
+
+Hardening:
+
+- S/fabric/topology.go:100: a failed `Replace` keeps the new node's links, trust, start emissions, and peer reports, and a `Replace` whose node carries no drops leaks the old device's hold keys; fails: a hand-built node that errors or drops nothing; class: hardening
+- S/fabric/topology.go:143: `Node.Snapshot` also means "is a switch" in S/fabric/attach.go:57, egress.go:123, metadata.go:52; fails: a non-switch with `Snapshot` set, or a switch without it; class: hardening
+- S/fabric/attach.go:49: `AttachStream` classifies the origin by kind and falls through to "reflector"; S/fabric/injection.go:78 indexes `Emissions[0]` unguarded; fails: a fourth device kind; class: hardening
+- S/fabric/scenario.go:323: `Action.Diff` calls a nil `Operation` (`assembly.McheckAction` with an empty port), and :389 `sameInjection` ignores `Encode` errors; S/fabric/align.go:44 fallback pairs source journeys under an action; fails: a direct `Action.Diff` call on unvalidated actions; class: hardening
+- S/fabric/injection.go:13: frame sharing is stated in the README alone, not on `Inject`, `Step`, `Snapshot`, `Device`; fails: a caller that writes a returned payload; class: hardening
