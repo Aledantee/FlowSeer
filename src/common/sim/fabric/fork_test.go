@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -470,7 +472,7 @@ func buildSteppableTwinFabrics(t *testing.T) (*Fabric, *Fabric) {
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -753,10 +755,10 @@ func TestSnapshotPhase4b(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{

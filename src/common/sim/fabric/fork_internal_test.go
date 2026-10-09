@@ -7,6 +7,8 @@ import (
 	"time"
 	"unsafe"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -230,10 +232,10 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 				},
 			},

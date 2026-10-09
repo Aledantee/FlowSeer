@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -77,7 +79,7 @@ func makeMinimizeFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC, 
 			Switches: map[string]vswitch.Config{
 				"sw1": swCfg,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: h1MAC},
 				"h2": {Address: h2MAC},
 				"h3": {Address: h3MAC, VLAN: &v99},
@@ -417,7 +419,7 @@ func makeFixedPointFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC
 			Switches: map[string]vswitch.Config{
 				"sw1": swCfg,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: h1MAC},
 				"h2": {Address: h2MAC},
 				"h3": {Address: h3MAC},
@@ -677,7 +679,7 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 	})
 	t.Run("snapshot fields with identical displayed values", func(t *testing.T) {
 		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-		cfg := fabric.Config{Start: at, Hosts: map[string]fabric.Host{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
+		cfg := fabric.Config{Start: at, Hosts: map[string]hostmodel.Config{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
 			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}},
 			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "c"}, B: fabric.Endpoint{Node: "d"}},
 		}}
@@ -831,7 +833,7 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 	vid := vlan.ID(10)
 	sw.Bridge.VLAN.Switchports["1/1/4"] = bridge.Switchport{PVID: &vid, Untagged: []vlan.ID{10}}
 	cfg.Switches["sw1"] = sw
-	cfg.Hosts["h4"] = fabric.Host{Address: netaddr.MAC{2, 0, 0, 0, 1, 4}}
+	cfg.Hosts["h4"] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 1, 4}}
 	cfg.Cables = append(cfg.Cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h4"}})
 	current, err := fabric.New(cfg)
 	if err != nil {

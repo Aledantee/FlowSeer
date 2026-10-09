@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -17,7 +19,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -90,176 +91,6 @@ func (e Endpoint) Canonical() string {
 
 func encodeEndpointPart(value string) string {
 	return strings.NewReplacer("%", "%25", ":", "%3A", "-", "%2D").Replace(value)
-}
-
-// HostIP configures the layer 3 addressing, default gateway, and static link-layer neighbors
-// for a simulated host.
-type HostIP struct {
-	Addresses []netip.Prefix
-	Gateway   netip.Addr
-	Neighbors map[netip.Addr]netaddr.MAC
-}
-
-// Host is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
-//
-// A nil VLAN emits untagged frames and accepts untagged and VID 0 priority-tagged ones, while a non-nil VLAN
-// restricts the host to C-TAG frames with that VID. An optional IP stack enables packet origination through
-// routing and neighbor lookup, and makes the host accept only IP packets addressed to it. Accept widens which
-// destinations the host takes; the fabric delivers a frame only when the host accepts it.
-// Ethernet holds the physical facts of the host's one port under the rules a switch port's facts follow;
-// the zero value reports none, so the host's link is Unknown unless [Config.PhyAssumption] fills them.
-type Host struct {
-	Address  netaddr.MAC
-	VLAN     *vlan.ID
-	IP       *HostIP
-	Ethernet phy.Ethernet
-	Accept   HostAccept
-}
-
-// HostAccept widens which frames a host accepts beyond its own address, broadcast, and the groups its IP
-// stack joins. Promiscuous accepts every destination MAC and skips the IP check, AllMulticast accepts every
-// group MAC, and Multicast lists further group MACs; a unicast entry is invalid. The zero value accepts
-// nothing more.
-type HostAccept struct {
-	Promiscuous  bool
-	AllMulticast bool
-	Multicast    []netaddr.MAC
-}
-
-// Clone returns an independent deep copy of the host configuration.
-func (h Host) Clone() Host {
-	cp := h
-	cp.Ethernet = h.Ethernet.Clone()
-	cp.Accept.Multicast = slices.Clone(h.Accept.Multicast)
-	if h.VLAN != nil {
-		v := *h.VLAN
-		cp.VLAN = &v
-	}
-	if h.IP != nil {
-		ip := HostIP{
-			Addresses: slices.Clone(h.IP.Addresses),
-			Gateway:   h.IP.Gateway,
-		}
-		if h.IP.Neighbors != nil {
-			ip.Neighbors = make(map[netip.Addr]netaddr.MAC, len(h.IP.Neighbors))
-			for k, v := range h.IP.Neighbors {
-				ip.Neighbors[k] = v
-			}
-		}
-		cp.IP = &ip
-	}
-
-	return cp
-}
-
-// Equal reports whether two host configurations are identical.
-func (h Host) Equal(other Host) bool {
-	if h.Address != other.Address {
-		return false
-	}
-	if (h.VLAN == nil) != (other.VLAN == nil) {
-		return false
-	}
-	if h.VLAN != nil && *h.VLAN != *other.VLAN {
-		return false
-	}
-	if h.Ethernet.Canonical() != other.Ethernet.Canonical() {
-		return false
-	}
-	if h.Accept.Promiscuous != other.Accept.Promiscuous || h.Accept.AllMulticast != other.Accept.AllMulticast ||
-		!slices.Equal(h.Accept.Multicast, other.Accept.Multicast) {
-		return false
-	}
-	if (h.IP == nil) != (other.IP == nil) {
-		return false
-	}
-	if h.IP != nil {
-		if !slices.Equal(h.IP.Addresses, other.IP.Addresses) || h.IP.Gateway != other.IP.Gateway {
-			return false
-		}
-		if len(h.IP.Neighbors) != len(other.IP.Neighbors) {
-			return false
-		}
-		for k, v := range h.IP.Neighbors {
-			if other.IP.Neighbors[k] != v {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// HostRoutingConfig translates a host's IP configuration into a virtual switch routing configuration
-// and single-port table for layer 3 packet origination.
-func HostRoutingConfig(name string, h Host) (routing.Config, port.Table) {
-	b := port.NewBuilder()
-	b.Add(port.Port{
-		Name:        name,
-		Kind:        port.Physical,
-		AdminStatus: port.Up,
-		OperStatus:  port.Up,
-	})
-	// One physical port with a name and no LAG parent cannot fail the
-	// table's rules; Config.Validate refuses an empty host name before this.
-	tbl, _ := b.Build()
-
-	if h.IP == nil {
-		return routing.Config{}, tbl
-	}
-
-	var routes []routing.Route
-	if h.IP.Gateway.IsValid() {
-		var pfx netip.Prefix
-		if h.IP.Gateway.Is4() {
-			pfx = netip.MustParsePrefix("0.0.0.0/0")
-		} else if h.IP.Gateway.Is6() {
-			pfx = netip.MustParsePrefix("::/0")
-		}
-		routes = append(routes, routing.Route{
-			Prefix:  pfx,
-			NextHop: h.IP.Gateway,
-		})
-	}
-
-	var neighbors []routing.Neighbor
-	if len(h.IP.Neighbors) > 0 {
-		addrs := make([]netip.Addr, 0, len(h.IP.Neighbors))
-		for addr := range h.IP.Neighbors {
-			addrs = append(addrs, addr)
-		}
-		slices.SortFunc(addrs, func(a, b netip.Addr) int {
-			return a.Compare(b)
-		})
-		for _, addr := range addrs {
-			neighbors = append(neighbors, routing.Neighbor{
-				Interface: name,
-				Addr:      addr,
-				MAC:       h.IP.Neighbors[addr],
-			})
-		}
-	}
-
-	vrf := routing.VRF{
-		Interfaces: map[string]routing.Interface{
-			name: {
-				Port:     name,
-				MAC:      h.Address,
-				Prefixes: slices.Clone(h.IP.Addresses),
-			},
-		},
-		Routes:    routes,
-		Neighbors: neighbors,
-		// A host stack resolves no neighbors: nothing wakes it, so an entry
-		// it held would hold forever. The switch is where resolution is
-		// modeled; a host is a packet source.
-		NeighborPolicy: routing.NeighborPolicy{Mode: routing.NeighborDisabled},
-	}
-
-	return routing.Config{
-		VRFs: map[string]routing.VRF{
-			routing.DefaultVRF: vrf,
-		},
-	}, tbl
 }
 
 // Reflector is a third node kind beside a switch and a host: an endpoint with
@@ -410,7 +241,7 @@ func (u Uncabled) Equal(other Uncabled) bool {
 type Config struct {
 	Start         time.Time
 	Switches      map[string]vswitch.Config
-	Hosts         map[string]Host
+	Hosts         map[string]hostmodel.Config
 	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
@@ -431,7 +262,7 @@ func (c Config) Clone() Config {
 		}
 	}
 	if c.Hosts != nil {
-		cp.Hosts = make(map[string]Host, len(c.Hosts))
+		cp.Hosts = make(map[string]hostmodel.Config, len(c.Hosts))
 		for k, v := range c.Hosts {
 			cp.Hosts[k] = v.Clone()
 		}
@@ -813,7 +644,7 @@ func (c Config) Validate() error {
 		if err := cablemodel.ValidateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
 			return errs.Wrapf(err, "host %q", name)
 		}
-		if err := h.Accept.validate("hosts." + name + ".accept"); err != nil {
+		if err := h.Accept.Validate("hosts." + name + ".accept"); err != nil {
 			return err
 		}
 		if h.IP != nil {
@@ -822,7 +653,7 @@ func (c Config) Validate() error {
 					Attr("host", name).
 					Msgf("host %q with IP stack must configure at least one address", name)
 			}
-			rtCfg, tbl := HostRoutingConfig(name, h)
+			rtCfg, tbl := hostmodel.RoutingConfig(name, h)
 			if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
 				return errs.Wrapf(err, "host %q", name)
 			}
@@ -952,19 +783,6 @@ func (c Config) validateUncabled(portCables map[Endpoint]int) error {
 				Msgf("uncabled entry names port %q on switch %q twice", ep.Port, ep.Node)
 		}
 		listed[ep] = i
-	}
-
-	return nil
-}
-
-func (a HostAccept) validate(field string) error {
-	for i, mac := range a.Multicast {
-		if !mac.IsGroup() {
-			return errs.New().
-				Attr("field", field+".multicast."+strconv.Itoa(i)).
-				Attr("mac", mac).
-				Msgf("accepted multicast entry %s is not a group address", mac)
-		}
 	}
 
 	return nil

@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -77,7 +79,7 @@ func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.
 			"sw1": {Ports: newPorts(), Bridge: makeBridge()},
 			"sw2": {Ports: newPorts(), Bridge: makeBridge()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -506,10 +508,10 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.50.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.50.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{

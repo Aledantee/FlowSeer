@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"buf.build/go/protovalidate"
@@ -102,7 +104,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -193,7 +195,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -320,7 +322,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg(), Phy: forcedPhy()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg(), Phy: forcedPhy()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -459,7 +461,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		},
 		Cables: []fabric.Cable{
@@ -521,7 +523,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 			"sw1": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}}, "1/1/2": {Tagged: []vlan.ID{10}}}}}},
 			"sw2": {Ports: pTable, Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "VLAN10"}, Switchports: map[string]bridge.Switchport{"1/1/2": {Tagged: []vlan.ID{10}}}}}},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macSrc},
 		},
 		Cables: []fabric.Cable{
@@ -585,7 +587,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable, Bridge: brCfg},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -682,7 +684,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		},
 		Cables: []fabric.Cable{

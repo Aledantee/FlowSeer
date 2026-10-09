@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -77,7 +79,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fa
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -120,7 +122,7 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 0x02}
 	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: macH1}, "h2": {Address: macH2}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
@@ -156,7 +158,7 @@ func TestVlanHostReplacesTheCallersTag(t *testing.T) {
 	vid10 := vlan.ID(10)
 	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
@@ -193,7 +195,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: table()}, "sw2": {Ports: table()}, "sw3": {Ports: table()},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 10}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}},
@@ -651,7 +653,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -761,7 +763,7 @@ func TestHostTagFormHandling(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 				"h2": {Address: macH2, VLAN: &vid10},
 			},
@@ -826,7 +828,7 @@ func TestHostTagFormHandling(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1, VLAN: &vid10},
 			},
 			Cables: []fabric.Cable{
@@ -898,7 +900,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
 		},
 		Cables: []fabric.Cable{
@@ -1068,7 +1070,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 		},
 		Cables: []fabric.Cable{{
@@ -1145,7 +1147,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 		},
 		Cables: []fabric.Cable{{
@@ -1352,10 +1354,10 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   gateway,
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1460,10 +1462,10 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("2001:db8:1::7/64")},
 					Gateway:   gateway,
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1534,9 +1536,9 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 
 func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 	gateway := netip.MustParseAddr("10.0.10.1")
-	h := fabric.Host{
+	h := hostmodel.Config{
 		Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
-		IP: &fabric.HostIP{
+		IP: &hostmodel.IP{
 			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 			Gateway:   gateway,
 			Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1545,7 +1547,7 @@ func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 		},
 	}
 
-	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
+	rtCfg, tbl := hostmodel.RoutingConfig("h1", h)
 	if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
 		t.Fatalf("HostRoutingConfig failed Validate: %v", err)
 	}
@@ -1611,7 +1613,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 			"h3": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}},
@@ -1859,7 +1861,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 				"h2": {Address: macH2},
 			},
@@ -1963,7 +1965,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -2114,7 +2116,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -2175,7 +2177,7 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -2332,7 +2334,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
 			"h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 			"h3": {Address: netaddr.MAC{0, 0, 0, 0, 0, 3}},
@@ -2468,12 +2470,12 @@ func reflectCopyConfig(t *testing.T) fabric.Config {
 	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
 
 	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 			"h2": {
 				Address: reflectH2Address, VLAN: &vid20,
-				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
-				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+				IP:     &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: hostmodel.Accept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
 			},
 			"h3": {Address: reflectH3Address, VLAN: &vid30},
 		},
@@ -2589,7 +2591,7 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
 	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
 		Reflectors: map[string]fabric.Reflector{
@@ -2670,7 +2672,7 @@ func reflectSiblingConfig(t *testing.T) fabric.Config {
 
 	return fabric.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
 		Reflectors: map[string]fabric.Reflector{

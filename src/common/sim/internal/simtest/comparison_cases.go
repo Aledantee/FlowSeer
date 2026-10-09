@@ -6,6 +6,8 @@ import (
 	"slices"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -392,7 +394,7 @@ func ComparisonCorpus() []ComparisonCase {
 				},
 			}
 
-			hosts := map[string]fabric.Host{
+			hosts := map[string]hostmodel.Config{
 				"h1": {Address: mac1, Ethernet: gigabit},
 				"h2": {Address: mac2, Ethernet: gigabit},
 			}

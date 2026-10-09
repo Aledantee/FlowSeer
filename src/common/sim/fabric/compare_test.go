@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -97,7 +99,7 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -350,7 +352,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macB},
 			"h2": {Address: macA},
 			"h3": {Address: macC},
@@ -455,7 +457,7 @@ func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
 			},
 		},
 	}
-	expCfg.Hosts["h3"] = fabric.Host{Address: netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x03}}
+	expCfg.Hosts["h3"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x03}}
 	expCfg.Cables = append(expCfg.Cables, fabric.Cable{
 		A: fabric.Endpoint{Node: "h3"},
 		B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
@@ -568,7 +570,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			Switches: map[string]vswitch.Config{
 				"sw1": {Ports: tbl},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1, VLAN: &vid10},
 			},
 			Cables: []fabric.Cable{
@@ -581,7 +583,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			Switches: map[string]vswitch.Config{
 				"sw1": {Ports: tbl},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1New, VLAN: &vid20},
 			},
 			Cables: []fabric.Cable{
@@ -627,7 +629,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			Switches: map[string]vswitch.Config{
 				"sw1": {Ports: tbl},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 			},
 			Cables: []fabric.Cable{
@@ -639,7 +641,7 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 			Switches: map[string]vswitch.Config{
 				"sw2": {Ports: tbl},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h2": {Address: macH1},
 			},
 			Cables: []fabric.Cable{
@@ -690,10 +692,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x22}
 
 		cfgA := fabric.Config{
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {
 					Address: macH1,
-					IP: &fabric.HostIP{
+					IP: &hostmodel.IP{
 						Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
 						Gateway:   gw1,
 						Neighbors: map[netip.Addr]netaddr.MAC{
@@ -705,10 +707,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 		}
 
 		cfgB := fabric.Config{
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {
 					Address: macH1,
-					IP: &fabric.HostIP{
+					IP: &hostmodel.IP{
 						Addresses: []netip.Prefix{
 							netip.MustParsePrefix("10.0.10.10/24"),
 							netip.MustParsePrefix("fd00::10/64"),
@@ -818,10 +820,10 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	vid20 := vlan.ID(20)
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
 	gateway := netip.MustParseAddr("10.0.10.1")
-	host := fabric.Host{
+	host := hostmodel.Config{
 		Address: mac,
 		VLAN:    &vid10,
-		IP: &fabric.HostIP{
+		IP: &hostmodel.IP{
 			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
 			Gateway:   gateway,
 			Neighbors: map[netip.Addr]netaddr.MAC{
@@ -830,7 +832,7 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 		},
 	}
 
-	hostCfgA := fabric.Config{Hosts: map[string]fabric.Host{"h1": host}}
+	hostCfgA := fabric.Config{Hosts: map[string]hostmodel.Config{"h1": host}}
 	hostCfgB := hostCfgA.Clone()
 	hostB := hostCfgB.Hosts["h1"]
 	hostB.VLAN = &vid20
@@ -840,22 +842,22 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	if trace.EqualFact(hostFactA, hostFactB) {
 		t.Error("host snapshot facts collide when VLAN behavior differs")
 	}
-	if got := reflect.TypeOf(hostFactA); got == reflect.TypeOf(fabric.Host{}) {
+	if got := reflect.TypeOf(hostFactA); got == reflect.TypeOf(hostmodel.Config{}) {
 		t.Errorf("host diff fact has mutable config type %v", got)
 	}
 	hostVariants := []struct {
 		name   string
-		mutate func(*fabric.Host)
+		mutate func(*hostmodel.Config)
 	}{
-		{name: "address", mutate: func(h *fabric.Host) { h.Address[5]++ }},
-		{name: "IP presence", mutate: func(h *fabric.Host) { h.IP = nil }},
-		{name: "IP address", mutate: func(h *fabric.Host) {
+		{name: "address", mutate: func(h *hostmodel.Config) { h.Address[5]++ }},
+		{name: "IP presence", mutate: func(h *hostmodel.Config) { h.IP = nil }},
+		{name: "IP address", mutate: func(h *hostmodel.Config) {
 			h.IP.Addresses[0] = netip.MustParsePrefix("10.0.20.10/24")
 		}},
-		{name: "gateway", mutate: func(h *fabric.Host) {
+		{name: "gateway", mutate: func(h *hostmodel.Config) {
 			h.IP.Gateway = netip.MustParseAddr("10.0.10.254")
 		}},
-		{name: "neighbor", mutate: func(h *fabric.Host) {
+		{name: "neighbor", mutate: func(h *hostmodel.Config) {
 			h.IP.Neighbors[gateway] = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 		}},
 	}
@@ -863,7 +865,7 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 		t.Run("host "+variant.name, func(t *testing.T) {
 			changed := host.Clone()
 			variant.mutate(&changed)
-			fact := addedFact(t, "host", fabric.Config{Hosts: map[string]fabric.Host{"h1": changed}})
+			fact := addedFact(t, "host", fabric.Config{Hosts: map[string]hostmodel.Config{"h1": changed}})
 			if trace.EqualFact(hostFactA, fact) {
 				t.Errorf("host snapshot facts collide when %s differs", variant.name)
 			}
@@ -2161,7 +2163,7 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			Switches: map[string]vswitch.Config{
 				"sw1": sw1Clone,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 			},
 			Cables: []fabric.Cable{

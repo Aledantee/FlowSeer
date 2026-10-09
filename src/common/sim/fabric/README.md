@@ -27,6 +27,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -92,7 +93,7 @@ func main() {
 			"sw1": {Ports: ports1, Bridge: makeBridge()},
 			"sw2": {Ports: ports2, Bridge: makeBridge()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]host.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -483,7 +484,7 @@ issue on its `analysis.JourneyScope`.
 For example, a unicast frame to `02:00:00:00:00:09` that floods to `h2`, whose
 address is `02:00:00:00:00:02`, ends in `Rejection` with
 `host-unicast-not-addressed` under rule `host.mac.unicast_not_addressed`, and
-`Deliveries` stays empty. With `Accept: fabric.HostAccept{Promiscuous: true}`
+`Deliveries` stays empty. With `Accept: host.Accept{Promiscuous: true}`
 on `h2`, the same frame ends in `Delivery` under `host.mac.promiscuous`.
 
 A group frame whose MAC step 2 takes can still be refused at step 3. A packet
@@ -622,7 +623,7 @@ originated:
 - Packet origination encounters `no-route` (destination off every prefix with
   no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
   naming the address and reason without creating a journey. A host stack never
-  reports `neighbor-pending`: `HostRoutingConfig` writes `NeighborDisabled`
+  reports `neighbor-pending`: `host.RoutingConfig` writes `NeighborDisabled`
   into every host VRF, because nothing wakes a host stack the way `Fabric`
   wakes a switch, and a frame a host held would hold forever. The switch is
   where address resolution is modelled; a host is a packet source.
@@ -998,6 +999,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+    "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -1050,7 +1052,7 @@ func main() {
 			"sw1": {Ports: makePorts(), Bridge: bridgeVLAN10},
 			"sw2": {Ports: makePorts(), Bridge: bridgeVLAN10},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]host.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},

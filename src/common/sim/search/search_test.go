@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -69,7 +71,7 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			Switches: map[string]vswitch.Config{
 				"sw1": swCfg,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: h1MAC},
 				"h2": {Address: h2MAC},
 			},

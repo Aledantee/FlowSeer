@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -71,12 +73,12 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 				}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macs["h1"]},
 			"h2": {Address: macs["h2"]},
 			// h3 sits on the mirror output port and, like an analyzer, takes
 			// copies addressed to other hosts.
-			"h3": {Address: macs["h3"], Accept: fabric.HostAccept{Promiscuous: true}},
+			"h3": {Address: macs["h3"], Accept: hostmodel.Accept{Promiscuous: true}},
 			"h4": {Address: macs["h4"], VLAN: &vid10},
 		},
 		Cables: []fabric.Cable{
@@ -428,11 +430,11 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 						}}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"source":      {Address: macSource},
 					"destination": {Address: macDestination},
-					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, Accept: fabric.HostAccept{Promiscuous: true}},
-					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}, Accept: fabric.HostAccept{Promiscuous: true}},
+					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, Accept: hostmodel.Accept{Promiscuous: true}},
+					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}, Accept: hostmodel.Accept{Promiscuous: true}},
 				},
 				Cables: []fabric.Cable{
 					{A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "sw1", Port: "in"}},
@@ -813,7 +815,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 			"h3": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 3}},
@@ -917,7 +919,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 			},
 			"sw2": {Ports: buildPorts()},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},

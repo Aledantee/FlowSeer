@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -306,7 +308,7 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1v10": {Address: stpMSTSrc10, Ethernet: gigabitAuto()},
 			"h1v20": {Address: stpMSTSrc20, Ethernet: gigabitAuto()},
 			"h2v10": {Address: stpMSTDst10, Ethernet: gigabitAuto()},

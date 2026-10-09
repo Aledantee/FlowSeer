@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -309,7 +311,7 @@ func (f *Fabric) accept(name string, frame ethernet.Frame) (EntryKind, trace.Ste
 		}, reason
 	}
 
-	if !host.acceptsTags(frame.Tags) {
+	if !hostAcceptsTags(host, frame.Tags) {
 		return decide(EntryRejection, ruleHostVLANForm, ReasonHostVLANNotAccepted)
 	}
 
@@ -317,7 +319,7 @@ func (f *Fabric) accept(name string, frame ethernet.Frame) (EntryKind, trace.Ste
 	if host.Accept.Promiscuous {
 		return decide(EntryDelivery, ruleHostMACPromiscuous, "")
 	}
-	macRule, ok := host.macRule(frame.Dst)
+	macRule, ok := hostMACRule(host, frame.Dst)
 	switch {
 	case !ok && frame.Dst.IsGroup():
 		return decide(EntryRejection, ruleHostMACMulticastNotAccepted, ReasonHostMulticastNotAccepted)
@@ -341,7 +343,7 @@ func (f *Fabric) accept(name string, frame ethernet.Frame) (EntryKind, trace.Ste
 	}
 
 	inputs = append(inputs, routing.AddrFact(header.Dst))
-	ipRule, ok := host.ipRule(header.Dst)
+	ipRule, ok := hostIPRule(host, header.Dst)
 	if !ok {
 		return decide(EntryRejection, ruleHostIPNotAddressed, ReasonHostIPNotAddressed)
 	}
@@ -352,7 +354,7 @@ func (f *Fabric) accept(name string, frame ethernet.Frame) (EntryKind, trace.Ste
 // acceptsTags reports whether the tag stack is a form the host receives: with
 // no VLAN, untagged or one VID 0 priority C-TAG; with a VLAN, one C-TAG with
 // that VID.
-func (h Host) acceptsTags(tags []vlan.Tag) bool {
+func hostAcceptsTags(h hostmodel.Config, tags []vlan.Tag) bool {
 	if len(tags) > 1 {
 		return false
 	}
@@ -367,7 +369,7 @@ func (h Host) acceptsTags(tags []vlan.Tag) bool {
 }
 
 // macRule returns the rule under which the host accepts a destination MAC.
-func (h Host) macRule(dst netaddr.MAC) (trace.RuleID, bool) {
+func hostMACRule(h hostmodel.Config, dst netaddr.MAC) (trace.RuleID, bool) {
 	switch {
 	case dst == h.Address:
 		return ruleHostMACOwn, true
@@ -401,9 +403,9 @@ func (h Host) macRule(dst netaddr.MAC) (trace.RuleID, bool) {
 // ipRule returns the rule under which a host with an IP stack accepts a packet
 // to dst: an own address, the limited or directed broadcast of an own IPv4
 // prefix, or a group whose MAC the host accepts.
-func (h Host) ipRule(dst netip.Addr) (trace.RuleID, bool) {
+func hostIPRule(h hostmodel.Config, dst netip.Addr) (trace.RuleID, bool) {
 	if dst.IsMulticast() {
-		if _, ok := h.macRule(groupMAC(dst)); ok {
+		if _, ok := hostMACRule(h, groupMAC(dst)); ok {
 			return ruleHostIPGroup, true
 		}
 

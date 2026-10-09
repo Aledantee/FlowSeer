@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -38,7 +40,7 @@ func buildReplayPorts(t *testing.T) port.Table {
 func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, trafficCfg ...*traffic.Config) *fabric.Fabric {
 	t.Helper()
 
-	hosts := make(map[string]fabric.Host)
+	hosts := make(map[string]hostmodel.Config)
 	var cables []fabric.Cable
 
 	ports := pTable.Ports()
@@ -46,7 +48,7 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 		hostName := "h" + string(rune('1'+i))
 		mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, byte(i + 1)}
 
-		hosts[hostName] = fabric.Host{
+		hosts[hostName] = hostmodel.Config{
 			Address: mac,
 		}
 		cables = append(cables, fabric.Cable{

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -18,9 +20,9 @@ func TestFaultPositionCountsBothDirections(t *testing.T) {
 	macB := netaddr.MAC{0x02, 0, 0, 0, 0, 2}
 	cfg := fabric.Config{
 		Start: start,
-		Hosts: map[string]fabric.Host{
-			"a": {Address: macA, Accept: fabric.HostAccept{Promiscuous: true}},
-			"b": {Address: macB, Accept: fabric.HostAccept{Promiscuous: true}},
+		Hosts: map[string]hostmodel.Config{
+			"a": {Address: macA, Accept: hostmodel.Accept{Promiscuous: true}},
+			"b": {Address: macB, Accept: hostmodel.Accept{Promiscuous: true}},
 		},
 		Cables: []fabric.Cable{{
 			A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"},

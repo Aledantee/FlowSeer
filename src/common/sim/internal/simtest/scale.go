@@ -5,6 +5,8 @@ import (
 	"net/netip"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -175,15 +177,15 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		}
 	}
 
-	hosts := make(map[string]fabric.Host, RepresentativeScaleHostCount)
+	hosts := make(map[string]hostmodel.Config, RepresentativeScaleHostCount)
 	for h := 1; h <= RepresentativeScaleHostCount; h++ {
 		hName := fmt.Sprintf("h%d", h)
 		hMAC := netaddr.MAC{0x02, 0x00, 0x00, 0x00, byte(h >> 8), byte(h)}
 		hIP := netip.MustParseAddr(fmt.Sprintf("10.100.0.%d", h))
-		hosts[hName] = fabric.Host{
+		hosts[hName] = hostmodel.Config{
 			Address: hMAC,
 			VLAN:    &vlanList[0],
-			IP: &fabric.HostIP{
+			IP: &hostmodel.IP{
 				Addresses: []netip.Prefix{netip.PrefixFrom(hIP, 24)},
 			},
 		}

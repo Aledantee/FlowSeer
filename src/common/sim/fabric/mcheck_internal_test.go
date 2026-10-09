@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -43,7 +45,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 				},
 			},
 		},
-		Hosts:  map[string]Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
+		Hosts:  map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
 		Cables: []Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}}},
 	}
 	fab, err := New(cfg)

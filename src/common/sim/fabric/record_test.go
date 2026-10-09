@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -35,7 +37,7 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
 				Bridge: &bridge.Config{},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},

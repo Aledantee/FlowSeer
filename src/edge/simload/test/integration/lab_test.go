@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -147,7 +149,7 @@ func oneSwitchFabric(config labConfig) (*fabric.Fabric, error) {
 				},
 			}},
 		}},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"tx": {Address: config.txMAC, Ethernet: ethernetProfile(config.txSpeedBPS)},
 			"rx": {Address: config.rxMAC, Ethernet: ethernetProfile(config.rxSpeedBPS)},
 		},

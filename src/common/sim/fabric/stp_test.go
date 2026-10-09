@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
@@ -158,7 +160,7 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},
 		},
@@ -565,7 +567,7 @@ func TestHubTransparentInRing(t *testing.T) {
 				Ports: newHubPorts(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},
 		},
@@ -883,7 +885,7 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -1029,7 +1031,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -1253,7 +1255,7 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1-v10": {Address: macs["h1-v10"]},
 			"h1-v20": {Address: macs["h1-v20"]},
 			"h2-v10": {Address: macs["h2-v10"]},

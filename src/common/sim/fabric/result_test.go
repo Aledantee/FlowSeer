@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -293,7 +295,7 @@ func TestOscillatingRootCycle(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"peer": {Address: peerMAC},
 		},
 		Cables: []Cable{
@@ -391,7 +393,7 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 				Bridge: &bridge.Config{},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []Cable{
@@ -457,7 +459,7 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *Fabric {
 				Bridge: &bridge.Config{},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},

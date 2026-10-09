@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -52,8 +54,8 @@ func TestFabricRoutersResolveNextHopAndDeliverHeldFrame(t *testing.T) {
 				Neighbors: []routing.Neighbor{{Interface: "host", Addr: h2, MAC: h2MAC}},
 			}}}},
 		},
-		Hosts: map[string]fabric.Host{
-			"h1": {Address: h1MAC, IP: &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")}, Gateway: netip.MustParseAddr("10.0.10.1"), Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): sw1MAC}}},
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: h1MAC, IP: &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")}, Gateway: netip.MustParseAddr("10.0.10.1"), Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): sw1MAC}}},
 			"h2": {Address: h2MAC},
 		},
 		Cables: []fabric.Cable{
@@ -171,10 +173,10 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.5.7/24"), netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -354,9 +356,9 @@ func TestFabricMACAssignment(t *testing.T) {
 					Ports: ports2,
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {
-					IP: &fabric.HostIP{
+					IP: &hostmodel.IP{
 						Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 						Gateway:   netip.MustParseAddr("10.0.10.1"),
 						Neighbors: map[netip.Addr]netaddr.MAC{
@@ -578,10 +580,10 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.50.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.50.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -684,7 +686,7 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		return fabric.Config{
 			Start:    time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 			Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-			Hosts:    map[string]fabric.Host{"h1": {Address: h1}},
+			Hosts:    map[string]hostmodel.Config{"h1": {Address: h1}},
 			Cables: []fabric.Cable{{
 				A: fabric.Endpoint{Node: "h1"},
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
@@ -773,10 +775,10 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -920,10 +922,10 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.30.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.30.1"): swMAC},
@@ -1066,10 +1068,10 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.50.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.50.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1187,11 +1189,11 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 				}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				VLAN:    nil,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
@@ -1309,10 +1311,10 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 				}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
@@ -1434,7 +1436,7 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 			},
 			// h1 exists only to give 1/1/1 a link: an unconnected port comes up Down, and a
 			// frame injected onto a down port never reaches the switch at all.
-			Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+			Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 			Cables: []fabric.Cable{
 				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
@@ -1580,7 +1582,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
@@ -1705,7 +1707,7 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
@@ -1776,7 +1778,7 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 func TestFabricDeriveOrdersHeldFrameDropsBySwitchName(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	nextHop := netip.MustParseAddr("10.0.60.2")
-	cfg := fabric.Config{Start: start, Switches: make(map[string]vswitch.Config), Hosts: make(map[string]fabric.Host)}
+	cfg := fabric.Config{Start: start, Switches: make(map[string]vswitch.Config), Hosts: make(map[string]hostmodel.Config)}
 	for i, name := range []string{"sw1", "sw2"} {
 		mac := netaddr.MAC{2, 0, 0, 0, 0, byte(i + 1)}
 		cfg.Switches[name] = vswitch.Config{
@@ -1790,7 +1792,7 @@ func TestFabricDeriveOrdersHeldFrameDropsBySwitchName(t *testing.T) {
 		}
 	}
 	for i, name := range []string{"h1", "h2", "h3", "h4"} {
-		cfg.Hosts[name] = fabric.Host{Address: netaddr.MAC{2, 0, 0, 0, 1, byte(i + 1)}}
+		cfg.Hosts[name] = hostmodel.Config{Address: netaddr.MAC{2, 0, 0, 0, 1, byte(i + 1)}}
 	}
 	cfg.Cables = []fabric.Cable{
 		{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
@@ -1921,10 +1923,10 @@ func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.30.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.30.1"): swMAC},
@@ -2029,7 +2031,7 @@ func TestRoutingOnlySwitchWakesAfterDerive(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},

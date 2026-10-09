@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -313,7 +315,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 				Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2, Ethernet: gigabit},
 			"h3": {Address: macH3, Ethernet: gigabit},
@@ -427,7 +429,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
-		Hosts:    map[string]fabric.Host{"h1": {Address: macH1, Ethernet: gigabit}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: macH1, Ethernet: gigabit}},
 		Cables:   []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}}},
 		Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 	}
@@ -527,13 +529,13 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	b.Add(port.Port{Name: "5", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "6", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	ethernetFacts := map[string]phy.Ethernet{"1": gigabit, "2": gigabit, "3": gigabit, "4": gigabit}
-	hosts := map[string]fabric.Host{}
+	hosts := map[string]hostmodel.Config{}
 	var cables []fabric.Cable
 	for i, name := range []string{"h1", "h2", "h3"} {
-		hosts[name] = fabric.Host{Address: macs[name], Ethernet: gigabit}
+		hosts[name] = hostmodel.Config{Address: macs[name], Ethernet: gigabit}
 		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: name}, B: fabric.Endpoint{Node: "sw1", Port: string(rune('1' + i))}})
 	}
-	hosts["h4"] = fabric.Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x04}, Ethernet: gigabit}
+	hosts["h4"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x04}, Ethernet: gigabit}
 	cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h4"}, B: fabric.Endpoint{Node: "sw1", Port: "4"}})
 
 	spec := constructionSpec(fabric.Config{
@@ -626,7 +628,7 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 	b.Add(port.Port{Name: "2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	ethernetFacts := map[string]phy.Ethernet{"2": gigabit, "3": gigabit}
-	hosts := map[string]fabric.Host{
+	hosts := map[string]hostmodel.Config{
 		"h2": {Address: macs["h2"], Ethernet: gigabit},
 		"h3": {Address: macs["h3"], Ethernet: gigabit},
 	}
@@ -699,7 +701,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 			"sw1": switchConfig(4096, netaddr.MAC{0, 0, 0, 0, 1, 1}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit}),
 			"sw2": switchConfig(8192, netaddr.MAC{0, 0, 0, 0, 1, 2}, map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/3": gigabit}),
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1, Ethernet: gigabit},
 			"h2": {Address: macH2, Ethernet: gigabit},
 		},
@@ -762,7 +764,7 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, b), Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit}}},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}, Ethernet: gigabit},
 			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 		},
@@ -1043,10 +1045,10 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 
 	t.Run("host ethernet reports phy fields under the host", func(t *testing.T) {
 		a := base()
-		a.Hosts = map[string]fabric.Host{"h1": {}}
+		a.Hosts = map[string]hostmodel.Config{"h1": {}}
 		a.Cables = append(a.Cables, fabric.Cable{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}})
 		b := a.Clone()
-		b.Hosts["h1"] = fabric.Host{Ethernet: phy.Ethernet{AutoNegotiationSupported: phy.CapabilitySupported}}
+		b.Hosts["h1"] = hostmodel.Config{Ethernet: phy.Ethernet{AutoNegotiationSupported: phy.CapabilitySupported}}
 
 		changes, err := fabric.DiffSpecs(a, b)
 		if err != nil {

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -101,7 +103,7 @@ func queueBufferTopology(t *testing.T, buffer *uint64) (*Fabric, map[string]neta
 				Traffic: &traffic.Config{Queues: queues},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macs["h1"]},
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -119,7 +121,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 						Seeds: []bridge.Seed{{MAC: linkFlapH1, Port: "1/1/1", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: linkFlapH1, Ethernet: gigabit},
 					"h2": {Address: linkFlapH2, Ethernet: gigabit},
 				},

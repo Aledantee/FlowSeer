@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
@@ -271,7 +273,7 @@ func casePlanningCandidateForkDiverges() Case {
 						Seeds: []bridge.Seed{{MAC: candForkH2, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: candForkH1, Ethernet: gigabit},
 					"h2": {Address: candForkH2, Ethernet: gigabit},
 				},
@@ -702,7 +704,7 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: transceiverH1, Ethernet: gigabit},
 			"h2": {Address: transceiverH2, Ethernet: observed},
 			"h3": {Address: transceiverH3, Ethernet: gigabit},
@@ -1029,7 +1031,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 						},
 					},
 				},
-				Hosts:    map[string]fabric.Host{"h1": {Address: uncabledH1, Ethernet: gigabit}},
+				Hosts:    map[string]hostmodel.Config{"h1": {Address: uncabledH1, Ethernet: gigabit}},
 				Cables:   []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}}},
 				Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 				Evidence: cat,
@@ -1168,7 +1170,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 						Seeds: []bridge.Seed{{MAC: unreportedNegotiationH2, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: unreportedNegotiationH1, Ethernet: gigabit},
 					"h2": {Address: unreportedNegotiationH2},
 				},
@@ -1347,7 +1349,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
 					"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Lifetime: bridge.Static}}},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: unknownUplinkH1, Ethernet: gigabit},
 					"h2": {Address: unknownUplinkH2, Ethernet: gigabit},
 				},
@@ -1469,7 +1471,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 						Seeds: []bridge.Seed{{MAC: foreignUnicastForeign, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: foreignUnicastH1, Ethernet: gigabit},
 					"h2": {Address: foreignUnicastH2, Ethernet: gigabit},
 				},

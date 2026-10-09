@@ -1,10 +1,16 @@
-package fabric_test
+package host_test
 
 import (
+	"maps"
 	"net/netip"
 	"slices"
 	"strconv"
 	"testing"
+	"time"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -26,14 +32,14 @@ var (
 // arrivalAtReceiver joins h1 and receiver h2 through a hub, injects frame at
 // the hub port facing h1, and returns the journey once the frame has reached h2
 // unchanged.
-func arrivalAtReceiver(t *testing.T, receiver fabric.Host, frame ethernet.Frame) fabric.Journey {
+func arrivalAtReceiver(t *testing.T, receiver hostmodel.Config, frame ethernet.Frame) fabric.Journey {
 	t.Helper()
 	receiver.Address = acceptReceiver
 	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: mustTable(t, port.NewBuilder().Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: acceptSender}, "h2": receiver},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: acceptSender}, "h2": receiver},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
@@ -72,12 +78,12 @@ func ipPayload(t *testing.T, header ip.Header) []byte {
 	return raw
 }
 
-func ipv4Stack() *fabric.HostIP {
-	return &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("192.0.2.10/24")}}
+func ipv4Stack() *hostmodel.IP {
+	return &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("192.0.2.10/24")}}
 }
 
-func ipv6Stack() *fabric.HostIP {
-	return &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("2001:db8::a/64")}}
+func ipv6Stack() *hostmodel.IP {
+	return &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("2001:db8::a/64")}}
 }
 
 func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
@@ -96,7 +102,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 	)
 	tests := []struct {
 		name       string
-		host       fabric.Host
+		host       hostmodel.Config
 		frame      ethernet.Frame
 		wantKind   fabric.EntryKind
 		wantRule   trace.RuleID
@@ -120,25 +126,25 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		},
 		{
 			name:     "a host with a VLAN accepts a C-TAG with its VID",
-			host:     fabric.Host{VLAN: &vid10},
+			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x8100, VID: 10}}, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.own", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a host with a VLAN refuses an untagged frame",
-			host:     fabric.Host{VLAN: &vid10},
+			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a host with a VLAN refuses another VID",
-			host:     fabric.Host{VLAN: &vid10},
+			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x8100, VID: 20}}, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a host with a VLAN refuses an S-TAG with its VID",
-			host:     fabric.Host{VLAN: &vid10},
+			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x88a8, VID: 10}}, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
 		},
@@ -149,13 +155,13 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		},
 		{
 			name:     "a promiscuous host accepts a unicast frame to another MAC",
-			host:     fabric.Host{Accept: fabric.HostAccept{Promiscuous: true}},
+			host:     hostmodel.Config{Accept: hostmodel.Accept{Promiscuous: true}},
 			frame:    ethernet.Frame{Dst: other, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.promiscuous", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a promiscuous host skips the IP check",
-			host:     fabric.Host{IP: ipv4Stack(), Accept: fabric.HostAccept{Promiscuous: true}},
+			host:     hostmodel.Config{IP: ipv4Stack(), Accept: hostmodel.Accept{Promiscuous: true}},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "198.51.100.1")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.promiscuous", wantRead: []string{readVLAN, readMAC},
 		},
@@ -171,97 +177,97 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		},
 		{
 			name:     "all-multicast accepts any group MAC",
-			host:     fabric.Host{Accept: fabric.HostAccept{AllMulticast: true}},
+			host:     hostmodel.Config{Accept: hostmodel.Accept{AllMulticast: true}},
 			frame:    ethernet.Frame{Dst: groupMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.all_multicast", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a listed multicast MAC is accepted",
-			host:     fabric.Host{Accept: fabric.HostAccept{Multicast: []netaddr.MAC{groupMAC}}},
+			host:     hostmodel.Config{Accept: hostmodel.Accept{Multicast: []netaddr.MAC{groupMAC}}},
 			frame:    ethernet.Frame{Dst: groupMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.listed_multicast", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv4 stack accepts the MAC of 224.0.0.1",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.ipv4_all_hosts", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a host without an IPv4 stack refuses the MAC of 224.0.0.1",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv6 stack accepts the MAC of ff02::1",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: allNodesMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.ipv6_all_nodes", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a host without an IPv6 stack refuses the MAC of ff02::1",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allNodesMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv6 stack accepts the solicited-node MAC of an own address",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: solicitedMAC, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.solicited_node", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv6 stack refuses the solicited-node MAC of another address",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: netaddr.MAC{0x33, 0x33, 0xff, 0x00, 0x00, 0x0b}, EtherType: ethernet.EtherTypeARP},
 			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a non-IP EtherType to a host with an IP stack is accepted at the MAC check",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeARP, Payload: []byte("not an IP header")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.mac.own", wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv4 packet to an own address is accepted",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.10")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.own", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an IPv6 packet to an own address is accepted",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv6, Payload: ipv6Payload(t, "2001:db8::a")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.own", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an IP packet to another address is refused",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.11")},
 			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "the limited broadcast is accepted",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "255.255.255.255")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.limited_broadcast", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "the directed broadcast of an own prefix is accepted",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.255")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.directed_broadcast", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "the directed broadcast of another prefix is refused",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "198.51.100.255")},
 			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name: "a 31-bit prefix has no directed broadcast",
-			host: fabric.Host{IP: &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("192.0.2.10/31")}}},
+			host: hostmodel.Config{IP: &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("192.0.2.10/31")}}},
 			frame: ethernet.Frame{
 				Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.11"),
 			},
@@ -269,31 +275,31 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		},
 		{
 			name:     "an IPv4 packet to 224.0.0.1 is accepted as a group",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "224.0.0.1")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.group", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an IPv6 packet to the solicited-node group of an own address is accepted",
-			host:     fabric.Host{IP: ipv6Stack()},
+			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: solicitedMAC, EtherType: ethernet.EtherTypeIPv6, Payload: ipv6Payload(t, "ff02::1:ff00:a")},
 			wantKind: fabric.EntryDelivery, wantRule: "host.ip.group", wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "a group whose MAC the MAC check would refuse is refused inside an accepted frame",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "224.0.0.5")},
 			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an undecodable IP header leaves acceptance unknown",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{0x45, 0x00, 0x00}},
 			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: fabric.ReasonHostIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IP header of the other version than its EtherType is undecodable",
-			host:     fabric.Host{IP: ipv4Stack()},
+			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv6Payload(t, "2001:db8::a")},
 			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: fabric.ReasonHostIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
 		},
@@ -361,7 +367,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 func TestForeignUnicastIsRejectedUnlessPromiscuous(t *testing.T) {
 	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 0x09}, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("hello")}
 
-	journey := arrivalAtReceiver(t, fabric.Host{}, frame)
+	journey := arrivalAtReceiver(t, hostmodel.Config{}, frame)
 	if len(journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none", journey.Deliveries)
 	}
@@ -369,7 +375,7 @@ func TestForeignUnicastIsRejectedUnlessPromiscuous(t *testing.T) {
 		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
 	}
 
-	promiscuous := arrivalAtReceiver(t, fabric.Host{Accept: fabric.HostAccept{Promiscuous: true}}, frame)
+	promiscuous := arrivalAtReceiver(t, hostmodel.Config{Accept: hostmodel.Accept{Promiscuous: true}}, frame)
 	if len(promiscuous.Deliveries) != 1 || promiscuous.Deliveries[0].Host != "h2" {
 		t.Errorf("promiscuous deliveries = %+v, want one to h2", promiscuous.Deliveries)
 	}
@@ -381,7 +387,7 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 	base := func() fabric.ConstructionSpec {
 		return constructionSpec(twoSwitchBaseConfig(t))
 	}
-	withAccept := func(accept fabric.HostAccept) fabric.ConstructionSpec {
+	withAccept := func(accept hostmodel.Accept) fabric.ConstructionSpec {
 		spec := base()
 		h1 := spec.Hosts["h1"]
 		h1.Accept = accept
@@ -391,12 +397,12 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		accept    fabric.HostAccept
+		accept    hostmodel.Accept
 		wantField string
 	}{
-		{name: "setting promiscuous", accept: fabric.HostAccept{Promiscuous: true}, wantField: "accept.promiscuous"},
-		{name: "setting all-multicast", accept: fabric.HostAccept{AllMulticast: true}, wantField: "accept.all_multicast"},
-		{name: "listing a multicast MAC", accept: fabric.HostAccept{Multicast: []netaddr.MAC{groupA}}, wantField: "accept.multicast." + groupA.String()},
+		{name: "setting promiscuous", accept: hostmodel.Accept{Promiscuous: true}, wantField: "accept.promiscuous"},
+		{name: "setting all-multicast", accept: hostmodel.Accept{AllMulticast: true}, wantField: "accept.all_multicast"},
+		{name: "listing a multicast MAC", accept: hostmodel.Accept{Multicast: []netaddr.MAC{groupA}}, wantField: "accept.multicast." + groupA.String()},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -433,7 +439,7 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 	}
 
 	t.Run("a unicast multicast entry is invalid", func(t *testing.T) {
-		_, err := fabric.NewWithSpec(withAccept(fabric.HostAccept{Multicast: []netaddr.MAC{acceptSender, groupA}}))
+		_, err := fabric.NewWithSpec(withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{acceptSender, groupA}}))
 		if err == nil {
 			t.Fatal("NewWithSpec accepted a unicast multicast entry")
 		}
@@ -443,17 +449,17 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 	})
 
 	t.Run("normalization sorts and deduplicates the multicast list", func(t *testing.T) {
-		cfg := withAccept(fabric.HostAccept{Multicast: []netaddr.MAC{groupB, groupA, groupB}}).Config()
+		cfg := withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{groupB, groupA, groupB}}).Config()
 		if got := cfg.Normalize().Hosts["h1"].Accept.Multicast; !slices.Equal(got, []netaddr.MAC{groupA, groupB}) {
 			t.Errorf("normalized multicast = %v, want [%s %s]", got, groupA, groupB)
 		}
-		if !cfg.Equal(withAccept(fabric.HostAccept{Multicast: []netaddr.MAC{groupA, groupB}}).Config()) {
+		if !cfg.Equal(withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{groupA, groupB}}).Config()) {
 			t.Error("the same multicast set in another order is not Equal")
 		}
 	})
 
 	t.Run("clone", func(t *testing.T) {
-		spec := withAccept(fabric.HostAccept{Multicast: []netaddr.MAC{groupA}})
+		spec := withAccept(hostmodel.Accept{Multicast: []netaddr.MAC{groupA}})
 		cfg := spec.Config()
 		copies := map[string]fabric.Config{
 			"ConstructionSpec.Config": spec.Config(),
@@ -469,4 +475,132 @@ func TestHostAcceptFieldMatrix(t *testing.T) {
 			}
 		}
 	})
+}
+
+var fixedTime = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+
+func mustTable(t *testing.T, b *port.Builder) port.Table {
+	t.Helper()
+	tbl, err := b.Build()
+	if err != nil {
+		t.Fatalf("build port table: %v", err)
+	}
+
+	return tbl
+}
+
+func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
+	switches := make(map[string]vswitch.ConstructionSpec, len(cfg.Switches))
+	for name, swCfg := range cfg.Switches {
+		switches[name] = vswitch.ConstructionSpec{Config: swCfg, NodeID: name}
+	}
+
+	return fabric.ConstructionSpec{
+		Start:         cfg.Start,
+		Switches:      switches,
+		Hosts:         cfg.Hosts,
+		Reflectors:    cfg.Reflectors,
+		Cables:        cfg.Cables,
+		Uncabled:      cfg.Uncabled,
+		PhyAssumption: cfg.PhyAssumption,
+	}
+}
+
+// gigabitCopper is the profile a fixture assumes when its test is not about
+// negotiation: auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair, so two
+// ends with no facts of their own resolve 1 Gb/s full duplex.
+func gigabitCopper() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
+		Ethernet: phy.Ethernet{
+			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
+			AutoNegotiationSupported: phy.CapabilitySupported,
+			Setting:                  &phy.Setting{AutoNegotiation: true},
+		},
+	}
+}
+
+// statedPhysical returns a copy of cfg that states what its fixture leaves
+// unreported: the gigabit copper profile for every missing physical fact, and
+// an Uncabled entry for every non-LAG switch port no cable names. A fixture
+// written before unreported facts became unknown keeps the links it was
+// written against. A test of unknown facts builds its configuration without it.
+//
+// An added Uncabled port's configured operational status is cleared, since the
+// fixture observed nothing about it; left Up, it would conflict with the Down
+// its entry derives and put that conflict into every journey consulting it.
+func statedPhysical(cfg fabric.Config) fabric.Config {
+	cfg = cfg.Clone()
+	if cfg.PhyAssumption == nil {
+		cfg.PhyAssumption = gigabitCopper()
+	}
+
+	named := make(map[fabric.Endpoint]bool)
+	for _, cable := range cfg.Cables {
+		named[cable.A] = true
+		named[cable.B] = true
+	}
+	for _, entry := range cfg.Uncabled {
+		named[entry.Endpoint] = true
+	}
+	switchNames := slices.Sorted(maps.Keys(cfg.Switches))
+	for _, name := range switchNames {
+		swCfg := cfg.Switches[name]
+		b := port.NewBuilder()
+		for _, p := range swCfg.Ports.Ports() {
+			ep := fabric.Endpoint{Node: name, Port: p.Name}
+			if p.Kind != port.LAG && !named[ep] {
+				cfg.Uncabled = append(cfg.Uncabled, fabric.Uncabled{Endpoint: ep})
+				p.OperStatus = ""
+			}
+			b.Add(p)
+		}
+		// The table already built from these ports, so it builds again.
+		swCfg.Ports, _ = b.Build()
+		cfg.Switches[name] = swCfg
+	}
+
+	return cfg
+}
+
+func twoSwitchBaseConfig(t *testing.T) fabric.Config {
+	t.Helper()
+	b1 := port.NewBuilder()
+	b1.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b1.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+
+	b2 := port.NewBuilder()
+	b2.Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	b2.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
+
+	return fabric.Config{
+		Switches: map[string]vswitch.Config{
+			"sw1": {Ports: mustTable(t, b1)},
+			"sw2": {Ports: mustTable(t, b2)},
+		},
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: macH1},
+			"h2": {Address: macH2},
+		},
+		Cables: []fabric.Cable{
+			{
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			},
+			{
+				Cable: cablemodel.Cable{LengthMeters: 20},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
+			},
+			{
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+			},
+		},
+	}
 }

@@ -6,6 +6,8 @@ import (
 	"slices"
 	"testing"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -50,7 +52,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 				Phy:    &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": observed, "1/1/3": gigabit}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: journeyH1, Ethernet: gigabit},
 			"h2": {Address: journeyH2, Ethernet: observed},
 			"h3": {Address: netaddr.MAC{0x02, 0, 0, 0, 1, 0x03}},
@@ -173,7 +175,7 @@ func reflectMetadataConfig(t *testing.T) fabric.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
 	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
 			"h2": {Address: reflectH2Address, VLAN: &vid20},
 		},

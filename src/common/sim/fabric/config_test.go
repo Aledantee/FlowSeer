@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -126,7 +128,7 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 			"sw1": {Ports: mustTable(t, b1)},
 			"sw2": {Ports: mustTable(t, b2)},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -221,7 +223,7 @@ func TestConfigValidateRules(t *testing.T) {
 		{
 			name: "host on no cables",
 			mutate: func(c *fabric.Config) {
-				c.Hosts["h3"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
+				c.Hosts["h3"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 3}}
 			},
 			wantError: true,
 		},
@@ -349,7 +351,7 @@ func TestConfigValidateRules(t *testing.T) {
 			name: "host with invalid VLAN ID zero",
 			mutate: func(c *fabric.Config) {
 				vid := vlan.ID(0)
-				c.Hosts["h1"] = fabric.Host{
+				c.Hosts["h1"] = hostmodel.Config{
 					Address: c.Hosts["h1"].Address,
 					VLAN:    &vid,
 				}
@@ -360,7 +362,7 @@ func TestConfigValidateRules(t *testing.T) {
 			name: "host with invalid VLAN ID above 4094",
 			mutate: func(c *fabric.Config) {
 				vid := vlan.ID(4095)
-				c.Hosts["h1"] = fabric.Host{
+				c.Hosts["h1"] = hostmodel.Config{
 					Address: c.Hosts["h1"].Address,
 					VLAN:    &vid,
 				}
@@ -370,7 +372,7 @@ func TestConfigValidateRules(t *testing.T) {
 		{
 			name: "node name collision between switch and host",
 			mutate: func(c *fabric.Config) {
-				c.Hosts["sw1"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
+				c.Hosts["sw1"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}
 			},
 			wantError: true,
 		},
@@ -588,7 +590,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			name: "host with IP stack but no addresses",
 			mutate: func(c *fabric.Config) {
 				h1 := c.Hosts["h1"]
-				h1.IP = &fabric.HostIP{Addresses: nil}
+				h1.IP = &hostmodel.IP{Addresses: nil}
 				c.Hosts["h1"] = h1
 			},
 			wantError: true,
@@ -599,7 +601,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			name: "host with IP stack gateway unreachable",
 			mutate: func(c *fabric.Config) {
 				h1 := c.Hosts["h1"]
-				h1.IP = &fabric.HostIP{
+				h1.IP = &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.20.1"),
 				}
@@ -611,7 +613,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			name: "host with IP stack prefix length 0",
 			mutate: func(c *fabric.Config) {
 				h1 := c.Hosts["h1"]
-				h1.IP = &fabric.HostIP{
+				h1.IP = &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/0")},
 				}
 				c.Hosts["h1"] = h1
@@ -623,7 +625,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			mutate: func(c *fabric.Config) {
 				gw := netip.MustParseAddr("10.0.10.1")
 				h1 := c.Hosts["h1"]
-				h1.IP = &fabric.HostIP{
+				h1.IP = &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   gw,
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -769,7 +771,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 		{
 			name: "node name collision between reflector and host",
 			mutate: func(c *fabric.Config) {
-				c.Hosts["r1"] = fabric.Host{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
+				c.Hosts["r1"] = hostmodel.Config{Address: netaddr.MAC{0, 0, 0, 0, 0, 9}}
 			},
 			wantField: "hosts.r1",
 		},
@@ -932,7 +934,7 @@ func TestConfigClone(t *testing.T) {
 	h1 := cfg.Hosts["h1"]
 	h1.VLAN = &vid
 	gw := netip.MustParseAddr("10.0.10.1")
-	h1.IP = &fabric.HostIP{
+	h1.IP = &hostmodel.IP{
 		Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 		Gateway:   gw,
 		Neighbors: map[netip.Addr]netaddr.MAC{
@@ -997,10 +999,10 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 		netip.MustParsePrefix("10.0.10.10/24"),
 	}
 	hostA := cfgA.Hosts["h1"]
-	hostA.IP = &fabric.HostIP{Addresses: slices.Clone(addresses)}
+	hostA.IP = &hostmodel.IP{Addresses: slices.Clone(addresses)}
 	cfgA.Hosts["h1"] = hostA
 	hostB := cfgB.Hosts["h1"]
-	hostB.IP = &fabric.HostIP{Addresses: []netip.Prefix{addresses[1], addresses[0]}}
+	hostB.IP = &hostmodel.IP{Addresses: []netip.Prefix{addresses[1], addresses[0]}}
 	cfgB.Hosts["h1"] = hostB
 
 	norm := cfgA.Normalize()
@@ -1197,15 +1199,15 @@ func TestNestedSwitchDiffKeysAreInjective(t *testing.T) {
 func TestHostWithOffLinkGatewayHasNoDefaultRoute(t *testing.T) {
 	t.Parallel()
 
-	h := fabric.Host{
+	h := hostmodel.Config{
 		Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
-		IP: &fabric.HostIP{
+		IP: &hostmodel.IP{
 			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 			Gateway:   netip.MustParseAddr("10.0.20.1"),
 		},
 	}
 
-	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
+	rtCfg, tbl := hostmodel.RoutingConfig("h1", h)
 	stack, err := routing.New(rtCfg, layer.Env{Ports: tbl, NodeID: "h1"})
 	if err != nil {
 		t.Fatalf("routing.New for a host with an off-link gateway: %v", err)

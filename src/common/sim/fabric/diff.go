@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -581,7 +583,7 @@ func diffHostEthernet(changes *[]trace.Change, name string, a, b phy.Ethernet) {
 	}
 }
 
-func diffHostAccept(changes *[]trace.Change, name string, a, b HostAccept) {
+func diffHostAccept(changes *[]trace.Change, name string, a, b hostmodel.Accept) {
 	subject := trace.Subject{Kind: "host", Key: name}
 	if a.Promiscuous != b.Promiscuous {
 		*changes = append(*changes, trace.Change{Layer: Layer, Subject: subject, Field: "accept.promiscuous", From: boolFact(a.Promiscuous), To: boolFact(b.Promiscuous)})
@@ -735,7 +737,7 @@ func writeMetadata(out *strings.Builder, metadata analysis.Metadata) {
 	out.WriteString("];")
 }
 
-func diffHostIP(changes *[]trace.Change, name string, a, b *HostIP) {
+func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 	if a == nil && b == nil {
 		return
 	}
@@ -983,7 +985,7 @@ func phyAssumptionSnapshot(a *cablemodel.PhyAssumption) trace.Fact {
 	return phyAssumptionSnapshotFact(out.String())
 }
 
-func hostSnapshot(h Host) hostSnapshotFact {
+func hostSnapshot(h hostmodel.Config) hostSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "address", h.Address.String())
 	writeStringField(&out, "ethernet", h.Ethernet.Canonical())

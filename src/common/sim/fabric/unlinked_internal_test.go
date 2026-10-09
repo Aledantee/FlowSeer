@@ -3,6 +3,8 @@ package fabric
 import (
 	"testing"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -50,7 +52,7 @@ func TestFabricUnlinkedInternal(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports, Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
-		Hosts:    map[string]Host{"h1": {Address: macH1, Ethernet: gigabit}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: macH1, Ethernet: gigabit}},
 		Cables:   []Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1"}}},
 		Uncabled: []Uncabled{{Endpoint: Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 	}
@@ -98,7 +100,7 @@ func TestFabricUnlinkedOmittedPortConfiguredUp(t *testing.T) {
 
 	cfg := Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports, Bridge: &bridge.Config{}}},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 		},

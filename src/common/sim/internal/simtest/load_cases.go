@@ -3,6 +3,8 @@ package simtest
 import (
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -73,7 +75,7 @@ func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error)
 				Seeds: []bridge.Seed{{FID: 10, MAC: loadH2, Port: "1/1/2", Lifetime: bridge.Static}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: loadH1, Ethernet: physical(1_000_000_000)},
 			"h2": {Address: loadH2, VLAN: &vid10, Ethernet: physical(10_000_000)},
 		},

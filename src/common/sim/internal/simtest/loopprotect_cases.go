@@ -3,6 +3,8 @@ package simtest
 import (
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -93,7 +95,7 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 			"sw1": {NodeID: "sw1", Config: sw1Cfg},
 			"sw2": {NodeID: "sw2", Config: sw2Cfg},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: loopProtectCaseH1, Ethernet: gigabit},
 			"h2": {Address: loopProtectCaseH2, Ethernet: gigabit},
 		},

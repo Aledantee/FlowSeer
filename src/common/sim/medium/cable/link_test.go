@@ -3,6 +3,8 @@ package cable_test
 import (
 	"testing"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
@@ -301,7 +303,7 @@ func TestHostAgainstPortForcedTo10ResolvesTo10(t *testing.T) {
 				Phy:   &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": forced10}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH},
 		},
 		Cables: []fabric.Cable{
@@ -335,7 +337,7 @@ func TestTwoHostsOnOneCableResolveTo1000(t *testing.T) {
 	mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
 	cfg := fabric.Config{
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: mac1},
 			"h2": {Address: mac2},
 		},
@@ -386,7 +388,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 		ethB         *phy.Ethernet
 		nodeA        fabric.Endpoint
 		nodeB        fabric.Endpoint
-		hosts        map[string]fabric.Host
+		hosts        map[string]hostmodel.Config
 		medium       cablemodel.Medium
 		lengthMeters float64
 		wantOper     port.LinkState
@@ -452,7 +454,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 			name:         "300m twisted pair between two hosts is reach exceeded",
 			nodeA:        fabric.Endpoint{Node: "h1"},
 			nodeB:        fabric.Endpoint{Node: "h2"},
-			hosts:        map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
+			hosts:        map[string]hostmodel.Config{"h1": {Address: macH1}, "h2": {Address: macH2}},
 			medium:       cablemodel.TwistedPair,
 			lengthMeters: 300,
 			wantOper:     port.Down,
@@ -462,7 +464,7 @@ func TestCableReachBoundsLinkNegotiation(t *testing.T) {
 			name:         "300m twisted pair between host and undeclared port is reach exceeded",
 			nodeA:        fabric.Endpoint{Node: "h1"},
 			nodeB:        fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-			hosts:        map[string]fabric.Host{"h1": {Address: macH1}},
+			hosts:        map[string]hostmodel.Config{"h1": {Address: macH1}},
 			medium:       cablemodel.TwistedPair,
 			lengthMeters: 300,
 			wantOper:     port.Down,

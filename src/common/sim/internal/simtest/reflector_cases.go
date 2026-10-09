@@ -4,6 +4,8 @@ import (
 	"net/netip"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -97,12 +99,12 @@ func reflectedQueryConfig() (fabric.Config, error) {
 				Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"p1": gigabit, "p2": gigabit, "p9": gigabit}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectedQueryH1MAC, Ethernet: gigabit},
 			"h2": {
 				Address: reflectedQueryH2MAC, Ethernet: gigabit,
-				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
-				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+				IP:     &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: hostmodel.Accept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
 			},
 		},
 		Reflectors: map[string]fabric.Reflector{
@@ -255,7 +257,7 @@ func reflectorLoopConfig() fabric.Config {
 	gigabit := gigabitAuto()
 
 	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectorLoopH1MAC, VLAN: &vid10, Ethernet: gigabit},
 		},
 		Reflectors: map[string]fabric.Reflector{

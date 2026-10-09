@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -251,7 +253,7 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 		{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}},
 	}
 
-	hosts := map[string]Host{
+	hosts := map[string]hostmodel.Config{
 		"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 		"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 	}
@@ -265,11 +267,11 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 			A:     Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/2"},
 		})
 	case "mirror":
-		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: HostAccept{Promiscuous: true}}
+		hosts["an"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: hostmodel.Accept{Promiscuous: true}}
 		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "mirror-reject":
-		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
+		hosts["an"] = hostmodel.Config{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
 		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "reflector":
@@ -446,10 +448,10 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 				},
 			}}},
 		}},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},
@@ -558,8 +560,8 @@ func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
 				},
 			}}},
 		}},
-		Hosts: map[string]Host{
-			"h1": {Address: macH1, IP: &HostIP{
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: macH1, IP: &hostmodel.IP{
 				Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 				Gateway:   netip.MustParseAddr("10.0.10.1"),
 				Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.10.1"): swMAC},

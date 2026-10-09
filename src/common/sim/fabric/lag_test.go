@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -45,7 +47,7 @@ func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
 			},
 			"a": {Ports: peerPorts}, "b": {Ports: peerPorts},
 		},
-		Hosts: map[string]fabric.Host{"source": {Address: netaddr.MAC{2}}, "prime-source": {Address: netaddr.MAC{4}}},
+		Hosts: map[string]hostmodel.Config{"source": {Address: netaddr.MAC{2}}, "prime-source": {Address: netaddr.MAC{4}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "sw", Port: "in"}, B: fabric.Endpoint{Node: "source"}},
 			{A: fabric.Endpoint{Node: "sw", Port: "prime"}, B: fabric.Endpoint{Node: "prime-source"}},
@@ -155,7 +157,7 @@ func newLagTopology(t *testing.T, start time.Time, lagA, lagB *lag.Config) (*fab
 				LAG:    lagB,
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -1008,7 +1010,7 @@ func TestMemberlessLagIsDown(t *testing.T) {
 	fab, err := fabric.New(statedPhysical(fabric.Config{
 		Start:    t0,
 		Switches: map[string]vswitch.Config{"A": {Ports: tbl, Bridge: &bridge.Config{}}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x01}}},
 		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "A", Port: "1/1/1"}}},
 	}))
 	if err != nil {

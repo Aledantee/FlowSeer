@@ -5,6 +5,8 @@ import (
 	"slices"
 	"testing"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	addrv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/addr/v1"
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	stpv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/protocol/stp/v1"
@@ -50,7 +52,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": loaded.Spec,
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},

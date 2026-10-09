@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -152,10 +154,10 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	fab, err := fabric.New(fabric.Config{
 		Start:    fixedTime,
 		Switches: map[string]vswitch.Config{"sw": cfg},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"source": {Address: macH1},
-			"a":      {Address: macH2, VLAN: &vid, Accept: fabric.HostAccept{Promiscuous: true}},
-			"b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, VLAN: &vid, Accept: fabric.HostAccept{Promiscuous: true}},
+			"a":      {Address: macH2, VLAN: &vid, Accept: hostmodel.Accept{Promiscuous: true}},
+			"b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, VLAN: &vid, Accept: hostmodel.Accept{Promiscuous: true}},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "sw", Port: "1/1/1"}, B: fabric.Endpoint{Node: "source"}},

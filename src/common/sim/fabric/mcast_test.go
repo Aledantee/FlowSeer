@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -65,11 +67,11 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 		},
 		// The hosts accept every group MAC, so a delivery shows what the
 		// snooping switch sent out a port rather than what a host joined.
-		Hosts: map[string]fabric.Host{
-			"h1": {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h2": {Address: mcastFabricMACs["h2"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h3": {Address: mcastFabricMACs["h3"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h4": {Address: mcastFabricMACs["h4"], Accept: fabric.HostAccept{AllMulticast: true}},
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: mcastFabricMACs["h1"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h2": {Address: mcastFabricMACs["h2"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h3": {Address: mcastFabricMACs["h3"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h4": {Address: mcastFabricMACs["h4"], Accept: hostmodel.Accept{AllMulticast: true}},
 		},
 		Cables: cables,
 	}))
@@ -346,9 +348,9 @@ func TestFabricSourceFilterAcrossUplink(t *testing.T) {
 				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}, Switchports: switchports}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
-			"h1":  {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"src": {Address: srcMAC, Accept: fabric.HostAccept{AllMulticast: true}},
+		Hosts: map[string]hostmodel.Config{
+			"h1":  {Address: mcastFabricMACs["h1"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"src": {Address: srcMAC, Accept: hostmodel.Accept{AllMulticast: true}},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "A", Port: "uplink"}, B: fabric.Endpoint{Node: "B", Port: "uplink"}},

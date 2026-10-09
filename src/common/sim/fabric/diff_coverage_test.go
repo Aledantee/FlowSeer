@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
@@ -29,11 +31,11 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		Switches: map[string]vswitch.Config{
 			"sw1": {MAC: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01}},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x02},
 				VLAN:    &vid,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   netip.MustParseAddr("10.0.10.1"),
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -41,7 +43,7 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 					},
 				},
 				Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}},
-				Accept: fabric.HostAccept{
+				Accept: hostmodel.Accept{
 					Promiscuous:  true,
 					AllMulticast: true,
 					Multicast:    []netaddr.MAC{{0x01, 0x00, 0x5e, 0x00, 0x00, 0x01}},

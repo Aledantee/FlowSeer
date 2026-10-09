@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -29,7 +31,7 @@ import (
 type ConstructionSpec struct {
 	Start         time.Time
 	Switches      map[string]vswitch.ConstructionSpec
-	Hosts         map[string]Host
+	Hosts         map[string]hostmodel.Config
 	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
@@ -52,7 +54,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 		}
 	}
 	if s.Hosts != nil {
-		cp.Hosts = make(map[string]Host, len(s.Hosts))
+		cp.Hosts = make(map[string]hostmodel.Config, len(s.Hosts))
 		for name, host := range s.Hosts {
 			cp.Hosts[name] = host.Clone()
 		}
@@ -89,7 +91,7 @@ func (s ConstructionSpec) Config() Config {
 		}
 	}
 	if s.Hosts != nil {
-		cfg.Hosts = make(map[string]Host, len(s.Hosts))
+		cfg.Hosts = make(map[string]hostmodel.Config, len(s.Hosts))
 		for name, host := range s.Hosts {
 			cfg.Hosts[name] = host.Clone()
 		}
@@ -274,7 +276,7 @@ func (f *Fabric) Spec() ConstructionSpec {
 	spec := ConstructionSpec{
 		Start:         f.cfg.Start,
 		Switches:      make(map[string]vswitch.ConstructionSpec, len(f.switches)),
-		Hosts:         make(map[string]Host, len(f.cfg.Hosts)),
+		Hosts:         make(map[string]hostmodel.Config, len(f.cfg.Hosts)),
 		Reflectors:    make(map[string]Reflector, len(f.cfg.Reflectors)),
 		Cables:        make([]Cable, len(f.cfg.Cables)),
 		Uncabled:      cloneUncabled(f.cfg.Uncabled),
@@ -341,7 +343,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 		return ConstructionSpec{}, err
 	}
 	for _, name := range slices.Sorted(maps.Keys(cfg.Hosts)) {
-		if err := cfg.Hosts[name].Accept.validate("hosts." + name + ".accept"); err != nil {
+		if err := cfg.Hosts[name].Accept.Validate("hosts." + name + ".accept"); err != nil {
 			return ConstructionSpec{}, err
 		}
 	}
@@ -520,7 +522,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
 	for name, h := range cloned.Hosts {
 		if h.IP != nil {
-			rtCfg, tbl := HostRoutingConfig(name, h)
+			rtCfg, tbl := hostmodel.RoutingConfig(name, h)
 			rt, err := routing.New(rtCfg, layer.Env{Ports: tbl, NodeID: name})
 			if err != nil {
 				return nil, errs.Wrapf(err, "host %q routing", name)

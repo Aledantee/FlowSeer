@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
@@ -1482,7 +1484,7 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts()},
 		},
-		Hosts: map[string]Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/1"}},
