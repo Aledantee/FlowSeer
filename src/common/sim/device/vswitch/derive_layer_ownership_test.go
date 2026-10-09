@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"fmt"
+	"net/netip"
 	"reflect"
 	"slices"
 	"testing"
@@ -10,7 +11,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
+	"go.aledante.io/FlowSeer/src/common/net/ndp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
@@ -18,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -38,6 +42,9 @@ func decodeProtocolLayer(em device.Emission) protocolLayer {
 	if _, err := bpdu.Decode(em.Frame); err == nil {
 		return layerSTP
 	}
+	if _, _, err := bpdu.DecodeSSTP(em.Frame); err == nil {
+		return layerSTP
+	}
 	if _, err := lacp.Decode(em.Frame); err == nil {
 		return layerLAG
 	}
@@ -49,7 +56,8 @@ func decodeProtocolLayer(em device.Emission) protocolLayer {
 
 // layerOwnershipConfig builds a switch whose three protocol layers all emit on a timer. The
 // LAG's members come up after upDelay, which makes the LAG layer report a state change to
-// spanning tree and loop protection from inside an advance.
+// spanning tree from inside an advance. Loop protection hears the change too, but
+// [loopprotect.Layer.LinkChange] emits nothing, so it never speaks from the LAG layer's timer.
 func layerOwnershipConfig(t *testing.T, upDelay time.Duration, mode lag.LACPMode) vswitch.Config {
 	t.Helper()
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -81,8 +89,8 @@ func layerOwnershipConfig(t *testing.T, upDelay time.Duration, mode lag.LACPMode
 
 // TestDeriveReturnsNoProtocolFrameOfRebuiltLayer checks that Derive withholds a protocol
 // frame exactly when the layer that built it is rebuilt, whichever layer's timer was running
-// when the frame was produced. A LAG transition makes spanning tree and loop protection speak
-// from inside the LAG layer's timer, and the frame is still theirs.
+// when the frame was produced. A LAG transition makes spanning tree speak from inside the LAG
+// layer's timer, and the BPDU is still spanning tree's.
 func TestDeriveReturnsNoProtocolFrameOfRebuiltLayer(t *testing.T) {
 	type rebuilt struct{ stp, lag, loop bool }
 	rebuildSets := func(own protocolLayer) []rebuilt {
@@ -101,24 +109,33 @@ func TestDeriveReturnsNoProtocolFrameOfRebuiltLayer(t *testing.T) {
 		upDelay time.Duration
 		mode    lag.LACPMode
 		advance time.Duration
+		perVLAN bool
 	}{
-		{"spanning tree by its own timer", layerSTP, 0, lag.Off, 2 * time.Second},
-		{"spanning tree through a LAG transition", layerSTP, 1500 * time.Millisecond, lag.Off, 1500 * time.Millisecond},
-		{"LACP", layerLAG, 0, lag.Active, 2 * time.Second},
-		{"loop protection by its own timer", layerLoopProtect, 0, lag.Off, 5 * time.Second},
-		{"loop protection through a LAG transition", layerLoopProtect, 5 * time.Second, lag.Off, 5 * time.Second},
+		{"spanning tree by its own timer", layerSTP, 0, lag.Off, 2 * time.Second, false},
+		{"spanning tree through a LAG transition", layerSTP, 1500 * time.Millisecond, lag.Off, 1500 * time.Millisecond, false},
+		{"per-VLAN spanning tree by its own timer", layerSTP, 0, lag.Off, 2 * time.Second, true},
+		{"per-VLAN spanning tree through a LAG transition", layerSTP, 1500 * time.Millisecond, lag.Off, 1500 * time.Millisecond, true},
+		{"LACP", layerLAG, 0, lag.Active, 2 * time.Second, false},
+		{"loop protection by its own timer", layerLoopProtect, 0, lag.Off, 5 * time.Second, false},
 	}
 	cases := 0
 	for _, sc := range scenarios {
 		for _, r := range rebuildSets(sc.own) {
 			cases++
 			t.Run(fmt.Sprintf("%s/rebuilt %+v", sc.name, r), func(t *testing.T) {
-				sw := mustSwitch(t, layerOwnershipConfig(t, sc.upDelay, sc.mode))
+				cfg := layerOwnershipConfig(t, sc.upDelay, sc.mode)
+				if sc.perVLAN {
+					cfg.STP.PVST = &stp.PVST{Trees: map[vlan.ID]stp.Tree{10: {}}}
+				}
+				sw := mustSwitch(t, cfg)
 				sw.Start(fixedTime)
 				now := fixedTime.Add(sc.advance)
 				owed := sw.Fork().(*vswitch.Switch).Advance(now)
 				if !emitsLayer(owed.Emissions, sc.own) {
 					t.Fatalf("the unrebuilt advance emits no %s frame, so the case checks nothing: %+v", sc.own, owed.Emissions)
+				}
+				if sc.perVLAN && !slices.ContainsFunc(owed.Emissions, func(em device.Emission) bool { return em.Frame.Dst == bpdu.GroupAddressSSTP() }) {
+					t.Fatalf("the unrebuilt advance emits no per-VLAN BPDU, so the case checks nothing: %+v", owed.Emissions)
 				}
 				target := sw.Spec()
 				if r.stp {
@@ -221,49 +238,80 @@ func TestDeriveReturnsNoProtocolFrameOfRebuiltLayer(t *testing.T) {
 		}
 	})
 
-	for _, rebuildRouting := range []bool{false, true} {
-		t.Run(fmt.Sprintf("neighbor solicitation/routing rebuilt %v", rebuildRouting), func(t *testing.T) {
-			cases++
-			cfg, _, _, _, _, _ := routedEgressConfig(t, "routed port", "none")
-			sw := mustSwitch(t, cfg)
-			frame := ethernet.Frame{
-				Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
-				Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
-				Payload: makeIPv4Packet(t, ipH1, ipH2, 64, []byte("awaiting a neighbor")),
-			}
-			sw.Receive(fixedTime, "1/1/1", frame)
-			now := fixedTime.Add(time.Second)
-			owed := sw.Fork().(*vswitch.Switch).Advance(now)
-			if !slices.ContainsFunc(owed.Emissions, isSolicitation) {
-				t.Fatalf("the unrebuilt advance emits no solicitation, so the case checks nothing: %+v", owed.Emissions)
-			}
-			target := sw.Spec()
-			if rebuildRouting {
-				vrf := target.Config.Routing.VRFs["default"]
-				vrf.NeighborPolicy.HoldDepth = 7
-				target.Config.Routing.VRFs["default"] = vrf
-			}
-			next, out, err := vswitch.Derive(sw, target, now)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if next.Retention().Routing.Kept == rebuildRouting {
-				t.Fatalf("routing kept = %v, want %v", next.Retention().Routing.Kept, !rebuildRouting)
-			}
-			if got := slices.ContainsFunc(out.Emissions, isSolicitation); got == rebuildRouting {
-				t.Errorf("derive returned a solicitation = %v with routing rebuilt = %v", got, rebuildRouting)
-			}
-		})
+	for _, sol := range []struct {
+		name   string
+		kind   string
+		family string
+	}{
+		{"routed port", "routed port", "IPv4"},
+		{"VLAN interface", "VLAN interface", "IPv4"},
+		{"VLAN interface", "VLAN interface", "IPv6"},
+	} {
+		for _, rebuildRouting := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s %s neighbor solicitation/routing rebuilt %v", sol.name, sol.family, rebuildRouting), func(t *testing.T) {
+				cases++
+				cfg, _, _, _, _, _ := routedEgressConfig(t, sol.kind, "none")
+				frame := ethernet.Frame{
+					Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+					Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+					Payload: makeIPv4Packet(t, ipH1, ipH2, 64, []byte("awaiting a neighbor")),
+				}
+				if sol.family == "IPv6" {
+					vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+					for name, prefix := range map[string]string{"vlan10": "2001:db8:10::1/64", "vlan20": "2001:db8:20::1/64"} {
+						iface := vrf.Interfaces[name]
+						iface.Prefixes = []netip.Prefix{netip.MustParsePrefix(prefix)}
+						vrf.Interfaces[name] = iface
+					}
+					cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+					frame.EtherType = ethernet.EtherTypeIPv6
+					frame.Payload = makeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("awaiting a neighbor"))
+				}
+				sw := mustSwitch(t, cfg)
+				sw.Receive(fixedTime, "1/1/1", frame)
+				now := fixedTime.Add(time.Second)
+				owed := sw.Fork().(*vswitch.Switch).Advance(now)
+				if !slices.ContainsFunc(owed.Emissions, isSolicitation) {
+					t.Fatalf("the unrebuilt advance emits no solicitation, so the case checks nothing: %+v", owed.Emissions)
+				}
+				target := sw.Spec()
+				if rebuildRouting {
+					vrf := target.Config.Routing.VRFs["default"]
+					vrf.NeighborPolicy.HoldDepth = 7
+					target.Config.Routing.VRFs["default"] = vrf
+				}
+				next, out, err := vswitch.Derive(sw, target, now)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if next.Retention().Routing.Kept == rebuildRouting {
+					t.Fatalf("routing kept = %v, want %v", next.Retention().Routing.Kept, !rebuildRouting)
+				}
+				if got := slices.ContainsFunc(out.Emissions, isSolicitation); got == rebuildRouting {
+					t.Errorf("derive returned a solicitation = %v with routing rebuilt = %v", got, rebuildRouting)
+				}
+			})
+		}
 	}
 
-	if want := 21; cases != want {
+	if want := 29; cases != want {
 		t.Fatalf("ran %d cases, want %d", cases, want)
 	}
 }
 
 func isSolicitation(em device.Emission) bool {
-	msg, err := arp.Decode(em.Frame)
-	return err == nil && msg.Operation == arp.Request
+	if msg, err := arp.Decode(em.Frame); err == nil {
+		return msg.Operation == arp.Request
+	}
+	if em.Frame.EtherType != ethernet.EtherTypeIPv6 {
+		return false
+	}
+	hdr, payload, err := ip.Decode(em.Frame.Payload)
+	if err != nil {
+		return false
+	}
+	msg, err := ndp.Decode(hdr, payload)
+	return err == nil && msg.Type == ndp.NeighborSolicitation
 }
 
 func emitsLayer(emissions []device.Emission, layer protocolLayer) bool {
