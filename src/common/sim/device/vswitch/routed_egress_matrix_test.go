@@ -124,6 +124,25 @@ func TestRoutedLAGEmissionMatrix(t *testing.T) {
 				if first.Port != "lag1" || first.Member != "member-a" || second.Port != "lag1" || second.Member != first.Member || second.Frame.Src != first.Frame.Src {
 					t.Fatalf("first = %+v, second = %+v, want same flow on lag1/member-a", first, second)
 				}
+				if path != "release" {
+					// A data frame of the same flow, forwarded with its neighbor resolved,
+					// names the member the protocol frame has to share.
+					liveCfg := cfg.Clone()
+					vrf := liveCfg.Routing.VRFs[routing.DefaultVRF]
+					nextHop := ipH2
+					if path == "Neighbor Solicitation" {
+						nextHop = netip.MustParseAddr("2001:db8:20::7")
+					}
+					vrf.Neighbors = []routing.Neighbor{{Interface: "vlan20", Addr: nextHop, MAC: macH2}}
+					liveCfg.Routing.VRFs[routing.DefaultVRF] = vrf
+					live := mustSwitch(t, liveCfg).Receive(fixedTime, "1/1/1", frame)
+					if len(live.Egress) != 1 {
+						t.Fatalf("live outcome = %s with egress %+v, want one egress", live.Outcome, live.Egress)
+					}
+					if eg := live.Egress[0]; eg.Port != first.Port || eg.Member != first.Member {
+						t.Errorf("%s leaves on %s/%s, want the data frame's %s/%s", path, first.Port, first.Member, eg.Port, eg.Member)
+					}
+				}
 				cells++
 			})
 		}

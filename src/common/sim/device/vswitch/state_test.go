@@ -2,6 +2,7 @@ package vswitch
 
 import (
 	"fmt"
+	"net/netip"
 	"reflect"
 	"testing"
 	"time"
@@ -75,6 +76,151 @@ func TestStateCarriesEveryLayerField(t *testing.T) {
 	}
 	if constants != 29 {
 		t.Fatalf("constants reaching expectations = %d, want 29", constants)
+	}
+}
+
+// TestStateConvertersCopyEveryField fills every exported field of a layer row with a distinct
+// nonzero value and compares what each hand-written converter returns with it field by field,
+// so a converter that leaves a field at its zero value or copies it from the wrong source fails.
+func TestStateConvertersCopyEveryField(t *testing.T) {
+	cases := []struct {
+		name    string
+		layer   any
+		convert func(any) any
+	}{
+		{"bridge.Entry", bridge.Entry{}, func(v any) any { return stateEntry(v.(bridge.Entry)) }},
+		{"mcast.Entry", mcast.Entry{}, func(v any) any { return stateGroup(v.(mcast.Entry)) }},
+		{"mcast.RouterPort", mcast.RouterPort{}, func(v any) any { return stateRouterPort(v.(mcast.RouterPort)) }},
+		{"routing.NeighborEntry", routing.NeighborEntry{}, func(v any) any { return stateNeighbor(v.(routing.NeighborEntry)) }},
+		{"stp.PortInfo", stp.PortInfo{}, func(v any) any { return statePortInfo(v.(stp.PortInfo)) }},
+		{"phy.Allocation", phy.Allocation{}, func(v any) any { return stateAllocation(v.(phy.Allocation)) }},
+	}
+	reached := 0
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			in := reflect.New(reflect.TypeOf(tc.layer)).Elem()
+			next := 0
+			fillDistinct(t, in, &next)
+			compareConverted(t, tc.name, in, reflect.ValueOf(tc.convert(in.Interface())))
+			reached++
+		})
+	}
+	if reached != 6 {
+		t.Fatalf("converters reaching expectations = %d, want 6", reached)
+	}
+}
+
+// fillDistinct sets every exported field under v to a nonzero value that no other field under
+// the same root shares, descending into structs, slices, and maps.
+func fillDistinct(t *testing.T, v reflect.Value, next *int) {
+	t.Helper()
+	*next++
+	n := *next
+	switch v.Type() {
+	case reflect.TypeFor[time.Time]():
+		v.Set(reflect.ValueOf(time.Unix(int64(n)*1000, 0).UTC()))
+		return
+	case reflect.TypeFor[netip.Addr]():
+		v.Set(reflect.ValueOf(netip.AddrFrom4([4]byte{10, 0, 0, byte(n)})))
+		return
+	}
+	switch v.Kind() {
+	case reflect.Bool:
+		v.SetBool(true)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		v.SetInt(int64(n))
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		v.SetUint(uint64(n))
+	case reflect.String:
+		v.SetString(fmt.Sprintf("value-%d", n))
+	case reflect.Array:
+		for i := range v.Len() {
+			fillDistinct(t, v.Index(i), next)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() {
+				fillDistinct(t, v.Field(i), next)
+			}
+		}
+	case reflect.Slice:
+		v.Set(reflect.MakeSlice(v.Type(), 1, 1))
+		fillDistinct(t, v.Index(0), next)
+	case reflect.Map:
+		v.Set(reflect.MakeMap(v.Type()))
+		key := reflect.New(v.Type().Key()).Elem()
+		fillDistinct(t, key, next)
+		elem := reflect.New(v.Type().Elem()).Elem()
+		fillDistinct(t, elem, next)
+		v.SetMapIndex(key, elem)
+	default:
+		t.Fatalf("cannot fill a %s", v.Type())
+	}
+}
+
+// compareConverted checks that every exported field of layer reaches the same-named field of
+// seam with the same value.
+func compareConverted(t *testing.T, path string, layer, seam reflect.Value) {
+	t.Helper()
+	if layer.Type() == seam.Type() {
+		if !reflect.DeepEqual(layer.Interface(), seam.Interface()) {
+			t.Errorf("%s = %v, want %v", path, seam.Interface(), layer.Interface())
+		}
+		return
+	}
+	switch layer.Kind() {
+	case reflect.Struct:
+		for i := range layer.NumField() {
+			field := layer.Type().Field(i)
+			if !field.IsExported() {
+				continue
+			}
+			target := seam.FieldByName(field.Name)
+			if !target.IsValid() {
+				t.Errorf("%s.%s has no field in %s", path, field.Name, seam.Type())
+				continue
+			}
+			compareConverted(t, path+"."+field.Name, layer.Field(i), target)
+		}
+	case reflect.Slice:
+		if layer.Len() != seam.Len() {
+			t.Errorf("%s has %d elements, want %d", path, seam.Len(), layer.Len())
+			return
+		}
+		for i := range layer.Len() {
+			compareConverted(t, fmt.Sprintf("%s[%d]", path, i), layer.Index(i), seam.Index(i))
+		}
+	case reflect.Map:
+		if layer.Len() != seam.Len() {
+			t.Errorf("%s has %d entries, want %d", path, seam.Len(), layer.Len())
+			return
+		}
+		for _, key := range layer.MapKeys() {
+			got := seam.MapIndex(key.Convert(seam.Type().Key()))
+			if !got.IsValid() {
+				t.Errorf("%s has no entry %v", path, key)
+				continue
+			}
+			compareConverted(t, fmt.Sprintf("%s[%v]", path, key), layer.MapIndex(key), got)
+		}
+	case reflect.String:
+		if layer.String() != seam.String() {
+			t.Errorf("%s = %q, want %q", path, seam.String(), layer.String())
+		}
+	case reflect.Bool:
+		if layer.Bool() != seam.Bool() {
+			t.Errorf("%s = %v, want %v", path, seam.Bool(), layer.Bool())
+		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if layer.Int() != seam.Int() {
+			t.Errorf("%s = %d, want %d", path, seam.Int(), layer.Int())
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if layer.Uint() != seam.Uint() {
+			t.Errorf("%s = %d, want %d", path, seam.Uint(), layer.Uint())
+		}
+	default:
+		t.Errorf("%s: cannot compare a %s with a %s", path, layer.Type(), seam.Type())
 	}
 }
 
