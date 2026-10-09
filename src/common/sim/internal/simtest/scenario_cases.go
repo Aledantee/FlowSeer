@@ -329,16 +329,25 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				return ExecutionResult{}, err
 			}
 
+			// Retain the received BPDU as a caller frame. Internal protocol
+			// journeys are freed once their arrivals settle.
+			initial := fab.Report()
+			if len(initial) == 0 {
+				return ExecutionResult{}, errs.Msg("no initial BPDU")
+			}
+			fid, err := fab.Inject(fabric.Injection{At: periodicT0, Origin: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Frame: initial[0].Injection.Frame})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			runRes := fab.Run(2)
 			if runRes.Stop != fabric.StopBudget {
 				return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 			}
 
-			report := fab.Report()
-			if len(report) == 0 {
-				return ExecutionResult{}, errs.Msg("expected at least one journey in report")
+			j, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
 			}
-			j := report[0]
 
 			issue := analysis.Issue{
 				Code:     fabric.IssueBudgetExhausted,

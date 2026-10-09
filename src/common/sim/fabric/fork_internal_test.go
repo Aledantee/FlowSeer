@@ -75,7 +75,7 @@ var fabricFieldClasses = map[string]forkClass{
 	"unstatedBacked":  classDeepCopied,
 	"metadataCache":   classImmutableShared,
 	"inflight":        classDeepCopied,
-	"heldAggregates":  classDeepCopied,
+	"held":            classDeepCopied,
 	"flows":           classDeepCopied,
 	"touched":         classResetOnFork,
 	"err":             classImmutableShared,
@@ -283,8 +283,8 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	(*fabric.ExportFabricCableCrossings(fab)) = map[fabric.Endpoint]uint{
 		{Node: "sw1", Port: "1/1/1"}: 1,
 	}
-	(*fabric.ExportFabricHeldAggregates(fab)) = map[string][]fabric.FrameID{
-		"sw1": {5},
+	(*fabric.ExportFabricHeld(fab)) = map[fabric.ExportHoldKey]fabric.FrameID{
+		fabric.MakeTestHoldKey("sw1", 1): 5,
 	}
 	(*fabric.ExportFabricBusyUntil(fab)) = map[fabric.Endpoint]time.Time{
 		{Node: "sw1", Port: "1/1/1"}: fabric.ExportFabricClock(fab).Add(10 * time.Millisecond),

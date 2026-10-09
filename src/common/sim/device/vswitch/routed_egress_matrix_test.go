@@ -212,7 +212,7 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	}
 	releases := 0
 	for _, journey := range fab.Report() {
-		if journey.Origin.Kind != fabric.OriginRelease || journey.Origin.Of != heldID {
+		if journey.FrameID != heldID {
 			continue
 		}
 		releases++

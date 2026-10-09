@@ -55,18 +55,12 @@ type Fabric struct {
 	metadataCache *analysis.Metadata
 
 	// inflight counts the arrivals of each frame that are still in the queue
-	// or an egress queue. A frame settles, folding and possibly freeing its
-	// journey, when its count reaches zero at the end of the call that
+	// or an egress queue, including device holds. A frame settles, folding
+	// and possibly freeing its journey, when its count reaches zero at the end of the call that
 	// touched it.
 	inflight map[FrameID]int
-	// heldAggregates records what a freed aggregate journey left behind: a
-	// switch held the frame for neighbor resolution, so the frame's FrameID
-	// stays under the device of the frame's last entry, ascending, as a
-	// placeholder a release can claim. The journey itself is freed, and a
-	// placeholder carries no payload. A hold resolution abandons stays a
-	// candidate, as a retained held journey does, so a later release on the
-	// same device may name it and claim its placeholder.
-	heldAggregates map[string][]FrameID
+	// held maps device-scoped tokens to frames still in flight.
+	held map[holdKey]FrameID
 	// flows accumulates per-flow statistics as journeys settle.
 	flows map[FlowID]*FlowStats
 	// touched collects the frame IDs count changes touched during the current
@@ -190,12 +184,9 @@ func (f *Fabric) Fork() *Fabric {
 		inflight = maps.Clone(f.inflight)
 	}
 
-	var heldAggregates map[string][]FrameID
-	if len(f.heldAggregates) > 0 {
-		heldAggregates = make(map[string][]FrameID, len(f.heldAggregates))
-		for device, ids := range f.heldAggregates {
-			heldAggregates[device] = slices.Clone(ids)
-		}
+	var held map[holdKey]FrameID
+	if len(f.held) > 0 {
+		held = maps.Clone(f.held)
 	}
 
 	var flows map[FlowID]*FlowStats
@@ -241,7 +232,7 @@ func (f *Fabric) Fork() *Fabric {
 		unstatedBacked:  unstatedBacked,
 		metadataCache:   f.metadataCache,
 		inflight:        inflight,
-		heldAggregates:  heldAggregates,
+		held:            held,
 		flows:           flows,
 		touched:         nil,
 		err:             f.err,
@@ -644,10 +635,10 @@ func linkReport(cfg topology, end LinkEnd, peer Endpoint) device.Link {
 }
 
 func (f *Fabric) applyOutput(now time.Time, node string, out device.Output) {
-	for _, em := range out.Emissions {
-		f.injectEmission(now, node, em)
-	}
-	for _, drop := range out.Drops {
-		f.recordNeighborFailure(now, node, drop)
-	}
+	f.applyDeviceOutput(now, node, out, nil)
+}
+
+type holdKey struct {
+	node  string
+	token device.HoldToken
 }

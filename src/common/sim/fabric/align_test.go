@@ -40,7 +40,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 		change      func(*Journey)
 	}{
 		{"terminal", "State", func(j *Journey) { j.State = JourneyDropped }},
-		{"origin kind", "Origin.Kind", func(j *Journey) { j.Origin.Kind = OriginRelease }},
+		{"origin kind", "Origin.Kind", func(j *Journey) { j.Origin.Kind = OriginReflection }},
 		{"origin mirror", "Origin.Mirror", func(j *Journey) { j.Origin.Mirror = "span" }},
 		{"protocol", "Protocol", func(j *Journey) { j.Protocol = true }},
 		{"entry kind", "Entries[0].Kind", func(j *Journey) { j.Entries[0].Kind = EntryArrival }},
@@ -120,7 +120,7 @@ func TestAlignAncestryAndBehavior(t *testing.T) {
 		{"second root extra mirror", []Journey{root(10), root(20)}, []Journey{root(110), root(120), child(130, 120, OriginMirror, "span")}, []FrameID{10, 20}, []FrameID{110, 120}, 2, -1, 2, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}}, "Journey", true},
 		{"prior ids reorder reports", []Journey{root(10), root(20), child(30, 10, OriginMirror, "span")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), root(130)}, []FrameID{10, 20}, []FrameID{110, 130}, 2, 1, 2, 1, []LineageStep{{Kind: OriginInjection}}, "Entries[1].Device", true},
 		{"extra mirror", []Journey{root(10)}, []Journey{root(110), child(120, 110, OriginMirror, "span")}, []FrameID{10}, []FrameID{110}, 1, -1, 1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}}, "Journey", true},
-		{"extra release", []Journey{root(10), child(20, 10, OriginRelease, "")}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 1, -1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginRelease}}, "Journey", true},
+		{"extra reflection", []Journey{root(10), child(20, 10, OriginReflection, "")}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 1, -1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginReflection}}, "Journey", true},
 		{"nested mirrors", []Journey{root(10), child(20, 10, OriginMirror, "span"), child(30, 20, OriginMirror, "nested")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), child(130, 120, OriginMirror, "nested")}, []FrameID{10}, []FrameID{110}, 1, 2, 2, 1, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}, {Kind: OriginMirror, Mirror: "nested"}}, "Entries[1].Device", true},
 		{"same name occurrence", []Journey{root(10), child(20, 10, OriginMirror, "span"), child(30, 10, OriginMirror, "span")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), child(130, 110, OriginMirror, "span")}, []FrameID{10}, []FrameID{110}, 1, 2, 2, 1, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span", Occurrence: 1}}, "Entries[1].Device", true},
 		{"terminal equal traces", []Journey{root(10)}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 0, 0, 0, []LineageStep{{Kind: OriginInjection}}, "State", false},

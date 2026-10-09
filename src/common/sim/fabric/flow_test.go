@@ -215,11 +215,8 @@ func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	}
 }
 
-// TestAggregateHeldFrameReleaseKeepsItsProvenance covers the journey of an
-// aggregate frame a switch holds for neighbor resolution: the hold settles the
-// frame's own journey and folds Held once, but the journey is not freed until
-// the switch releases it, so the released frame links back through
-// OriginRelease instead of appearing as a fresh injection.
+// TestAggregateHeldFrameReleaseKeepsItsProvenance checks that release folds
+// the original flow's delivery and latency before freeing its journey.
 func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -305,7 +302,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("encode ARP reply: %v", err)
 	}
-	replyID, err := fab.Inject(fabric.Injection{
+	_, err = fab.Inject(fabric.Injection{
 		At:     cfg.Start.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame:  replyFrame,
@@ -316,29 +313,14 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 
 	fab.Run(20)
 
-	if got := fab.Flows()[9].Held; got != 1 {
-		t.Fatalf("Held = %d, want the held frame counted once", got)
+	stats := fab.Flows()[9]
+	if stats.Held != 0 || stats.Delivered["h2"] != 1 || stats.Offered != 1 || stats.Latency.Count != 1 {
+		t.Fatalf("held frame flow = %+v, want Held=0, Delivered[h2]=1, Offered=1, Latency.Count=1", stats)
 	}
-
-	var released *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID || j.FrameID == replyID {
-			continue
+		if j.FrameID == heldID {
+			t.Fatalf("settled aggregate holder %d survived", heldID)
 		}
-		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
-			jj := j
-			released = &jj
-			break
-		}
-	}
-	if released == nil {
-		t.Fatalf("no released journey delivered to h2 among: %+v", fab.Report())
-	}
-	if released.Origin.Kind != fabric.OriginRelease {
-		t.Errorf("released origin kind = %s, want %s", released.Origin.Kind, fabric.OriginRelease)
-	}
-	if released.Origin.Of != heldID {
-		t.Errorf("released origin parent = %d, want the held frame %d", released.Origin.Of, heldID)
 	}
 }
 

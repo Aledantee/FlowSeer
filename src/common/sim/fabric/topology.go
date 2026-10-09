@@ -73,7 +73,7 @@ func newTopology(t topology) (*Fabric, error) {
 		byEnd: make(map[Endpoint]linkEndRef), uncabled: make(map[Endpoint]Uncabled),
 		arrivalQueue: arrivalQueue{wakes: make(map[string]time.Time), dequeueItems: make(map[Endpoint]int), wakeItems: make(map[string]int)},
 		nextFrameID:  1, nextSeq: 1, journeys: make(map[FrameID]*Journey), entered: make(map[FrameID]map[Endpoint]bool),
-		cableCrossings: make(map[Endpoint]uint), inflight: make(map[FrameID]int), heldAggregates: make(map[string][]FrameID),
+		cableCrossings: make(map[Endpoint]uint), inflight: make(map[FrameID]int), held: make(map[holdKey]FrameID),
 	}
 	for i, c := range t.cables {
 		f.links[i], f.linkTrust[i] = resolveLink(c, t)

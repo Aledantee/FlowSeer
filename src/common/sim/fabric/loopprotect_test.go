@@ -76,13 +76,11 @@ func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (assembl
 // runToQuiescence runs the fabric until its arrival queue drains on its own
 // or the budget is exhausted, whichever comes first, and fails the test if
 // a scheduling fault occurred.
-func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
+func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) []fabric.Entry {
 	t.Helper()
 
-	fab.Run(budget)
-	if err := fab.Err(); err != nil {
-		t.Fatalf("fabric run fault: %v", err)
-	}
+	_, entries := observeJourneys(t, fab, budget)
+	return entries
 }
 
 // TestLoopProtectSelfLoopBlockActsOnExactlyOnePort proves Block's two-port
@@ -152,7 +150,7 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 		t.Fatalf("assembly.New: %v", err)
 	}
 
-	runToQuiescence(t, fab, 200)
+	entries := runToQuiescence(t, fab, 200)
 
 	for _, name := range []string{"1/1/1", "1/1/2"} {
 		if loopProtectPortBlocked(t, fab, name) {
@@ -161,7 +159,7 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 	}
 
 	for _, name := range []string{"1/1/1", "1/1/2"} {
-		if !traceLoopProtectBlockStepSeen(t, fab, name) {
+		if !traceLoopProtectBlockStepSeen(entries, name) {
 			t.Errorf("port %s never recorded a loop-protection port.block step, want both ports acted on under NoLearn", name)
 		}
 	}
@@ -224,25 +222,17 @@ func loopProtectBlockedPort(t *testing.T, fab *fabric.Fabric, a, b string) (bloc
 	}
 }
 
-func traceLoopProtectBlockStepSeen(t *testing.T, fab *fabric.Fabric, portName string) bool {
-	t.Helper()
-
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Result == nil {
-				continue
-			}
-			for _, step := range e.Result.Steps {
-				if step.RuleID != "loopprotect.port.block" {
-					continue
-				}
-				if step.Subject.Kind == "port" && step.Subject.Key == portName {
-					return true
-				}
+func traceLoopProtectBlockStepSeen(entries []fabric.Entry, portName string) bool {
+	for _, e := range entries {
+		if e.Result == nil {
+			continue
+		}
+		for _, step := range e.Result.Steps {
+			if step.RuleID == "loopprotect.port.block" && step.Subject.Kind == "port" && step.Subject.Key == portName {
+				return true
 			}
 		}
 	}
-
 	return false
 }
 
@@ -435,26 +425,24 @@ func TestLoopProtectInterVLANReturn(t *testing.T) {
 		t.Fatalf("assembly.New: %v", err)
 	}
 
-	runToQuiescence(t, fab, 200)
+	entries := runToQuiescence(t, fab, 200)
 
 	found := false
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Result == nil {
+	for _, e := range entries {
+		if e.Result == nil {
+			continue
+		}
+		for _, step := range e.Result.Steps {
+			if step.RuleID != "loopprotect.probe.return" {
 				continue
 			}
-			for _, step := range e.Result.Steps {
-				if step.RuleID != "loopprotect.probe.return" {
+			for _, fact := range step.Outputs {
+				if fact == nil {
 					continue
 				}
-				for _, fact := range step.Outputs {
-					if fact == nil {
-						continue
-					}
-					c := fact.Canonical()
-					if containsAll(c, "sent_vid=10", "returned_vid=20", "inter_vlan=true") {
-						found = true
-					}
+				c := fact.Canonical()
+				if containsAll(c, "sent_vid=10", "returned_vid=20", "inter_vlan=true") {
+					found = true
 				}
 			}
 		}

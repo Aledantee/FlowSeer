@@ -585,7 +585,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 
 	var dropEntry *fabric.Entry
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID {
+		if j.FrameID != heldID {
 			continue
 		}
 		for _, e := range j.Entries {

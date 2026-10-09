@@ -1,6 +1,8 @@
 package fabric_test
 
 import (
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
@@ -705,17 +708,20 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 
 	_ = mac2
 
+	var journeys []fabric.Journey
+	var lastEntry fabric.Entry
 	for {
+		journeys = fab.Report()
 		entry, ok := fab.Step()
 		if !ok {
 			break
 		}
 		if entry.Device == "sw2" {
+			lastEntry = entry
 			break
 		}
 	}
 
-	journeys := fab.Report()
 	if len(journeys) == 0 {
 		t.Fatal("expected at least one journey")
 	}
@@ -725,9 +731,8 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 		t.Errorf("journey.Protocol = %t, want true", bpduJourney.Protocol)
 	}
 
-	lastEntry := bpduJourney.Entries[len(bpduJourney.Entries)-1]
-	if lastEntry.Kind != fabric.EntryDrop || lastEntry.Reason != "reserved-address" || lastEntry.Device != "sw2" {
-		t.Errorf("last entry = %+v, want Drop at sw2 with reserved-address", lastEntry)
+	if lastEntry.Kind != fabric.EntryHop || lastEntry.Result == nil || lastEntry.Result.Outcome != trace.Dropped || lastEntry.Result.Reason != "reserved-address" || lastEntry.Device != "sw2" {
+		t.Errorf("last entry = %+v, want dropped hop at sw2 with reserved-address", lastEntry)
 	}
 }
 
@@ -1083,7 +1088,11 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 
+	observed := make(map[fabric.FrameID]fabric.Journey)
 	for {
+		for _, j := range fab.Report() {
+			observed[j.FrameID] = j
+		}
 		entry, ok := fab.Step()
 		if !ok {
 			break
@@ -1104,8 +1113,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		t.Errorf("sw2:1/1/2 busy until %v, want %v", busyUntil, wantBusy)
 	}
 
-	var replies []fabric.Journey
 	for _, j := range fab.Report() {
+		observed[j.FrameID] = j
+	}
+	var replies []fabric.Journey
+	for _, fid := range slices.Sorted(maps.Keys(observed)) {
+		j := observed[fid]
 		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
 			if j.Injection.At.After(t0.Add(4 * time.Second)) {
 				replies = append(replies, j)
@@ -1131,6 +1144,9 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	}
 
 	for {
+		for _, j := range fab.Report() {
+			observed[j.FrameID] = j
+		}
 		snap := fab.Snapshot()
 		if snap.Clock.After(t0.Add(5500 * time.Millisecond)) {
 			break
@@ -1140,8 +1156,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 
-	repliesAfter := 0
 	for _, j := range fab.Report() {
+		observed[j.FrameID] = j
+	}
+	repliesAfter := 0
+	for _, fid := range slices.Sorted(maps.Keys(observed)) {
+		j := observed[fid]
 		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
 			if j.Injection.At.After(t0.Add(4*time.Second)) && j.Injection.At.Before(t0.Add(6*time.Second)) {
 				repliesAfter++

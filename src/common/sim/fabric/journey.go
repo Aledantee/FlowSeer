@@ -124,9 +124,6 @@ const (
 
 	// JourneyUnresolved indicates the frame reached an unknown link state or undecodable header at host or reflector.
 	JourneyUnresolved JourneyState = "Unresolved"
-
-	// JourneyReleased indicates a frame held in a neighbor hold queue was released after address resolution.
-	JourneyReleased JourneyState = "Released"
 )
 
 // JourneyOriginKind identifies how a frame journey entered the simulation.
@@ -141,9 +138,6 @@ const (
 
 	// OriginReflection indicates a rebuilt datagram copied from an accepted frame.
 	OriginReflection JourneyOriginKind = "Reflection"
-
-	// OriginRelease indicates a frame released from a neighbor hold queue after address resolution.
-	OriginRelease JourneyOriginKind = "Release"
 )
 
 // JourneyOrigin records how a journey began and its relationship to ancestor frames.
@@ -167,7 +161,6 @@ var journeyStatePrecedence = []JourneyState{
 	JourneyUnresolved,
 	JourneyLooped,
 	JourneyTruncated,
-	JourneyReleased,
 	JourneyDelivered,
 	JourneyRejected,
 	JourneyDropped,
@@ -220,23 +213,14 @@ func (f *Fabric) Report() []Journey {
 		}
 	}
 
-	releasedFrames := make(map[FrameID]bool)
-	for _, j := range f.journeys {
-		if j.Origin.Kind == OriginRelease && j.Origin.Of != 0 {
-			releasedFrames[j.Origin.Of] = true
-		}
-	}
-
-	for fid, j := range f.journeys {
-		if isJourneyHeld(j) && !releasedFrames[fid] {
-			pendingFrames[fid] = true
-		}
+	for _, fid := range f.held {
+		pendingFrames[fid] = true
 	}
 
 	out := make([]Journey, 0, len(f.journeys))
 	for _, j := range f.journeys {
 		cp := j.clone()
-		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID], releasedFrames[j.FrameID])
+		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID])
 		out = append(out, cp)
 	}
 	slices.SortFunc(out, func(a, b Journey) int {
@@ -246,7 +230,7 @@ func (f *Fabric) Report() []Journey {
 	return out
 }
 
-func assignJourneyState(j *Journey, pending, released bool) JourneyState {
+func assignJourneyState(j *Journey, pending bool) JourneyState {
 	for _, state := range journeyStatePrecedence {
 		switch state {
 		case JourneyPending:
@@ -264,10 +248,6 @@ func assignJourneyState(j *Journey, pending, released bool) JourneyState {
 		case JourneyTruncated:
 			if isJourneyTruncated(j) {
 				return JourneyTruncated
-			}
-		case JourneyReleased:
-			if released {
-				return JourneyReleased
 			}
 		case JourneyDelivered:
 			if len(j.Deliveries) > 0 || hasEntryKind(j, EntryDelivery) || hasEntryKind(j, EntryReflection) || isJourneyConsumed(j) {

@@ -363,9 +363,8 @@ func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src,
 		return fab, fabric.Journey{}, err
 	}
 
-	report := fab.Report()
-
-	return fab, report[fid-1], nil
+	journey, err := reportJourney(fab, fid)
+	return fab, journey, err
 }
 
 // stpMSTRegion returns the MST region the two MST corpus cases share: VLAN 10

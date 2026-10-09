@@ -3,6 +3,7 @@ package fabric_test
 import (
 	"net/netip"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -67,12 +68,12 @@ func TestSwitchResolvesHostWithoutStaticNeighbor(t *testing.T) {
 			if _, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "sw", Port: "p1"}, Frame: ethernet.Frame{Src: cfg.Hosts["source"].Address, Dst: swMAC, EtherType: etherType, Payload: payload}}); err != nil {
 				t.Fatal(err)
 			}
-			result := fab.Run(50)
-			if result.Stop != fabric.StopQueueDrained {
-				t.Errorf("stop = %s, want QueueDrained", result.Stop)
+			observed, _ := observeJourneys(t, fab, 50)
+			if len(fab.Snapshot().Queue) != 0 {
+				t.Fatal("queue did not drain")
 			}
 			var held, answers, delivered int
-			for _, j := range fab.Report() {
+			for _, j := range observed {
 				for _, e := range j.Entries {
 					if e.Result != nil && e.Result.Outcome == trace.Held {
 						held++
@@ -155,9 +156,9 @@ func TestFabricRoutersResolveNextHopAndDeliverHeldFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(50)
+	observed, _ := observeJourneys(t, fab, 50)
 	var held, request, reply, delivered bool
-	for _, journey := range fab.Report() {
+	for _, journey := range observed {
 		for _, entry := range journey.Entries {
 			if entry.Result != nil && entry.Result.Outcome == trace.Held {
 				held = true
@@ -909,7 +910,7 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		t.Fatalf("encode ARP reply: %v", err)
 	}
 
-	replyID, err := fab.Inject(fabric.Injection{
+	_, err = fab.Inject(fabric.Injection{
 		At:     cfg.Start.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame:  replyFrame,
@@ -924,18 +925,17 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 	if len(heldJourney.Entries) == 0 {
 		t.Fatalf("held journey has no entries")
 	}
-	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
-		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
+		t.Fatal("continued journey has no Held hop")
 	}
 
-	// The released frame is a new injected journey at the switch, distinct from
-	// both the held journey and the ARP reply's own.
+	// The original journey continues through the release to the host.
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID || j.FrameID == replyID {
+		if j.FrameID != heldID {
 			continue
 		}
-		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -1052,7 +1052,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 
 	// h2 carries a VLAN tag form, so the fabric stamps VID 10 on what it sends,
 	// which is the only tag that names eth1.10 on the parent port.
-	replyID, err := fab.Inject(fabric.Injection{
+	_, err = fab.Inject(fabric.Injection{
 		At:     cfg.Start.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "h2"},
 		Frame:  replyFrame,
@@ -1067,16 +1067,16 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	if len(heldJourney.Entries) == 0 {
 		t.Fatalf("held journey has no entries")
 	}
-	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
-		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
+		t.Fatal("continued journey has no Held hop")
 	}
 
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID || j.FrameID == replyID {
+		if j.FrameID != heldID {
 			continue
 		}
-		if !j.Protocol && j.Injection.Frame.EtherType == ethernet.EtherTypeIPv4 && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
+		if !j.Protocol && len(j.Deliveries) == 1 && j.Deliveries[0].Host == "h2" {
 			jj := j
 			released = &jj
 			break
@@ -1192,13 +1192,13 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 	if len(heldJourney.Entries) == 0 {
 		t.Fatalf("held journey has no entries")
 	}
-	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
-		t.Fatalf("held journey's last entry = %+v, want outcome Held", last)
+	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
+		t.Fatal("continued journey has no Held hop")
 	}
 
 	var dropEntry *fabric.Entry
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID {
+		if j.FrameID != heldID {
 			continue
 		}
 		for _, e := range j.Entries {
@@ -1306,7 +1306,7 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 
 	var dropEntry *fabric.Entry
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID {
+		if j.FrameID != heldID {
 			continue
 		}
 		for _, e := range j.Entries {
@@ -1343,16 +1343,9 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 	}
 }
 
-// TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch is the case
-// TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort does not check: recordNeighborFailure
-// opens a journey with an empty Port, and dependencies must not read that empty Port as "this is a
-// host's one unnamed port" the way it correctly does for a real host. sw1 is not a host, so an
-// empty Port here means no port was involved, not the whole switch.
-//
-// The narrowing costs the node-level half too: a portless entry now depends on no scope at all,
-// so a node-scoped issue would not reach it either. Nothing asserts that, because nothing can
-// produce one — [Fabric.Metadata] builds issues from link trust and a per-port loop, both of
-// which name a link or a port. The plan's open questions hold the trade-off.
+// TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch checks that a
+// portless SVI drop on the held journey does not inherit an unrelated port's
+// issue on the same switch.
 func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -1444,7 +1437,7 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 
 	var dropJourney *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.FrameID == heldID {
+		if j.FrameID != heldID {
 			continue
 		}
 		for _, e := range j.Entries {
@@ -2057,7 +2050,7 @@ func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
 
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
-		if j.Origin.Kind == fabric.OriginRelease && j.Origin.Of == heldID {
+		if j.FrameID == heldID {
 			released = &j
 			break
 		}

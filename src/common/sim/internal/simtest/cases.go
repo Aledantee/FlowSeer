@@ -339,7 +339,10 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -809,7 +812,10 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			steps := journeySteps(journey)
 			fabricMetadata := fab.Metadata()
 
@@ -890,7 +896,10 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			steps := journeySteps(journey)
 			fabricMetadata := fab.Metadata()
 
@@ -1057,7 +1066,10 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1201,7 +1213,10 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1385,7 +1400,10 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1504,7 +1522,10 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				return ExecutionResult{}, err
 			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -2423,6 +2444,49 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
 			}
 
+			// The same unresolved forward must finish under its original fabric identity.
+			fabricSwitch := spec.Clone()
+			fabricSwitch.NodeID = "router"
+			gigabit := gigabitAuto()
+			fabricSwitch.Config.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{"in": gigabit, "out": gigabit}}
+			fab, err := assembly.NewWithSpec(assembly.ConstructionSpec{
+				Start:    now,
+				Switches: map[string]vswitch.ConstructionSpec{"router": fabricSwitch},
+				Hosts: map[string]hostmodel.Config{
+					"source": {Address: hostMAC, Ethernet: gigabit},
+					"target": {Address: learnedMAC, Ethernet: gigabit},
+				},
+				Cables: []fabric.Cable{
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "router", Port: "in"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "target"}, B: fabric.Endpoint{Node: "router", Port: "out"}},
+				},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			fid, err := fab.Inject(fabric.Injection{
+				At: now, Origin: fabric.Endpoint{Node: "router", Port: "in"}, Flow: 1,
+				Frame: ethernet.Frame{Dst: routerMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: pkt},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			if _, err := fab.Inject(fabric.Injection{At: now.Add(time.Second), Origin: fabric.Endpoint{Node: "router", Port: "out"}, Frame: reply}); err != nil {
+				return ExecutionResult{}, err
+			}
+			run := fab.Run(1000)
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			if run.Err != nil || run.Stop != fabric.StopQueueDrained || journey.State != fabric.JourneyDelivered || len(journey.Deliveries) != 1 || journey.Deliveries[0].Host != "target" {
+				return ExecutionResult{}, errs.Msgf("held journey %d = %+v, stop = %v, want one delivery to target and a drained queue", fid, journey, run.Stop)
+			}
+			stats := fab.Flows()
+			if len(stats) != 1 || stats[1].Offered != 1 || stats[1].Delivered["target"] != 1 || stats[1].Held != 0 {
+				return ExecutionResult{}, errs.Msgf("released flow = %+v, want one offered, one target delivery, no holds", stats)
+			}
+
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
 				Reason:   fwd.Reason,
@@ -2616,4 +2680,13 @@ func DefaultRegistry() *Registry {
 	r.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
 	r.MustRegister(casePlanningPolicedStream())
 	return r
+}
+
+func reportJourney(fab *fabric.Fabric, fid fabric.FrameID) (fabric.Journey, error) {
+	for _, j := range fab.Report() {
+		if j.FrameID == fid {
+			return j, nil
+		}
+	}
+	return fabric.Journey{}, errs.Msgf("retained frame %d has no journey", fid)
 }

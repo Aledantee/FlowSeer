@@ -2,7 +2,6 @@ package fabric
 
 import (
 	"maps"
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -18,12 +17,13 @@ type FlowID uint32
 // deliveries of mirror and reflector copies per mirror name or "reflection",
 // which are never the stream being delivered: a copy contributes only this
 // count and its metadata, so its latency and its drops, losses, unresolved,
-// rejection, or held outcome stay out of the stream's counters. Drops counts
+// rejection outcomes stay out of the stream's counters. Drops counts
 // drop events by reason, so a flooded frame refused on two egress ports counts
-// twice; Lost counts cable losses; Unresolved, Rejected, and Held count frames
-// whose journey ended in those outcomes. Latency summarizes Delivery.At minus
-// the injection time over every non-copy delivery. Metadata is the merge of
-// every folded journey's metadata.
+// twice; Lost counts cable losses; Unresolved and Rejected count frames
+// whose journey ended in those outcomes. Held is the number of the flow
+// frames currently in device hold queues when Flows is read, including copies.
+// Latency summarizes Delivery.At minus the injection time over every
+// non-copy delivery. Metadata is the merge of every folded journey's metadata.
 type FlowStats struct {
 	Offered    uint64
 	Delivered  map[string]uint64
@@ -59,9 +59,9 @@ func (s FlowStats) Clone() FlowStats {
 }
 
 // Flows returns an independent copy of every flow's statistics, keyed by flow
-// id. A run that folded nothing returns nil.
+// id. A run with no folded statistics or held flow returns nil.
 func (f *Fabric) Flows() map[FlowID]FlowStats {
-	if len(f.flows) == 0 {
+	if len(f.flows) == 0 && len(f.held) == 0 {
 		return nil
 	}
 	out := make(map[FlowID]FlowStats, len(f.flows))
@@ -69,16 +69,24 @@ func (f *Fabric) Flows() map[FlowID]FlowStats {
 		out[id] = stats.Clone()
 	}
 
+	for _, fid := range f.held {
+		j := f.journeys[fid]
+		if j == nil || j.Injection.Flow == 0 {
+			continue
+		}
+		stats := out[j.Injection.Flow]
+		stats.Held++
+		out[j.Injection.Flow] = stats
+	}
+
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
-// settle folds a journey whose last in-flight arrival has left into its flow
-// and, when its retention is [RetainAggregate], frees it. A journey a switch
-// holds for neighbor resolution settles at the hold, counting under
-// [FlowStats.Held] once; because the frame then travels with no journey, the
-// freed journey leaves a placeholder keyed by the holding device so
-// [Fabric.injectEmission] can still name it as the holder of the released
-// frame. A journey settles once; a later settle of the same frame is a no-op.
+// settle folds a journey once its last arrival, queued transmission, or hold
+// leaves. Aggregate and unretained protocol journeys release their traversal storage.
 func (f *Fabric) settle(fid FrameID) {
 	j := f.journeys[fid]
 	if j == nil || j.settled || f.inflight[fid] > 0 {
@@ -89,39 +97,9 @@ func (f *Fabric) settle(fid FrameID) {
 		f.foldJourney(j)
 	}
 	delete(f.inflight, fid)
-	if j.Injection.Retention == RetainAggregate {
-		if isJourneyHeld(j) {
-			f.recordHeldAggregate(fid, j)
-		}
+	if j.Injection.Retention == RetainAggregate || j.Protocol {
 		delete(f.journeys, fid)
 		delete(f.entered, fid)
-	}
-}
-
-// recordHeldAggregate keeps the FrameID of a freed aggregate journey a switch
-// held for neighbor resolution, under the device of the frame's last entry and
-// ascending, so a release can still name the frame it was held from. The
-// journey is gone; only the identity stays.
-func (f *Fabric) recordHeldAggregate(fid FrameID, j *Journey) {
-	device := j.Entries[len(j.Entries)-1].Device
-	if f.heldAggregates == nil {
-		f.heldAggregates = make(map[string][]FrameID)
-	}
-	ids := f.heldAggregates[device]
-	at, _ := slices.BinarySearch(ids, fid)
-	ids = slices.Insert(ids, at, fid)
-	f.heldAggregates[device] = ids
-}
-
-// claimHeldAggregate removes the placeholder a release just named, so a later
-// release cannot name the same held frame twice.
-func (f *Fabric) claimHeldAggregate(device string, fid FrameID) {
-	ids := f.heldAggregates[device]
-	for i, id := range ids {
-		if id == fid {
-			f.heldAggregates[device] = slices.Delete(ids, i, i+1)
-			break
-		}
 	}
 }
 
@@ -170,10 +148,6 @@ func (f *Fabric) foldJourney(j *Journey) {
 			stats.Unresolved++
 		case EntryRejection:
 			stats.Rejected++
-		case EntryHop:
-			if e.Result != nil && e.Result.Outcome == trace.Held {
-				stats.Held++
-			}
 		}
 	}
 

@@ -41,7 +41,7 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"counters":       probeFabricCounters,
 	"unstatedBacked": probeFabricUnstatedBacked,
 	"inflight":       probeFabricInflight,
-	"heldAggregates": probeFabricHeldAggregates,
+	"held":           probeFabricHeld,
 	"flows":          probeFabricFlows,
 }
 
@@ -247,20 +247,20 @@ func probeFabricInflight(t *testing.T) {
 	}
 }
 
-func probeFabricHeldAggregates(t *testing.T) {
+func probeFabricHeld(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-	(*fabric.ExportFabricHeldAggregates(fab))["sw2"] = []fabric.FrameID{1}
-	if _, ok := (*fabric.ExportFabricHeldAggregates(fork))["sw2"]; ok {
-		t.Errorf("fork heldAggregates saw entry added to source")
+	(*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw2", 1)] = 1
+	if _, ok := (*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw2", 1)]; ok {
+		t.Errorf("fork held saw entry added to source")
 	}
-	(*fabric.ExportFabricHeldAggregates(fork))["sw3"] = []fabric.FrameID{2}
-	if _, ok := (*fabric.ExportFabricHeldAggregates(fab))["sw3"]; ok {
-		t.Errorf("source heldAggregates saw entry added to fork")
+	(*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw3", 1)] = 2
+	if _, ok := (*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw3", 1)]; ok {
+		t.Errorf("source held saw entry added to fork")
 	}
-	(*fabric.ExportFabricHeldAggregates(fork))["sw1"][0] = 3
-	if (*fabric.ExportFabricHeldAggregates(fab))["sw1"][0] == 3 {
-		t.Errorf("source heldAggregates slice changed when fork's changed")
+	(*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw1", 1)] = 3
+	if (*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw1", 1)] == 3 {
+		t.Errorf("source held mapping changed when fork's changed")
 	}
 }
 

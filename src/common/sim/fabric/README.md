@@ -329,21 +329,21 @@ the second PCP 0 frame.
 
 ## Journey retention and flow statistics
 
-An injection names a `Flow` and a `Retention`. A frame is in flight while it
-has an arrival in the queue or an item in an egress queue; when its last one
-leaves, the frame settles at the end of the call that removed it. A settled
-journey that names a flow folds into that flow's `FlowStats`:
+An injection names a `Flow` and a `Retention`. A frame stays in flight while
+it has an arrival, queued transmission, or device hold. When its last work
+leaves, the frame settles at the end of that call. A settled journey that
+names a flow folds into its `FlowStats`:
 
 - `Offered` counts the frames the caller injected directly;
 - `Delivered` counts accepted deliveries per destination host;
 - `Copies` counts the deliveries of mirror and reflector copies per mirror
   name, or `"reflection"` for a reflector copy, which is never the stream
   being delivered: a copy contributes only this count and its metadata, so its
-  latency and its drops, losses, unresolved, rejection, or held outcome stay
+  latency and its drops, losses, unresolved, and rejection outcomes stay
   out of the stream's counters;
-- `Drops`, `Lost`, `Unresolved`, `Rejected`, and `Held` count what became of a
-  frame instead of a delivery, `Held` naming a frame a switch held for
-  neighbor resolution; `Drops` counts drop events by reason, so a frame a
+- `Held` is the number of flow frames, including copies, still held for neighbor resolution
+  when `Flows()` is read. `Drops`, `Lost`, `Unresolved`, and `Rejected` count
+  completed outcomes. `Drops` counts drop events by reason, so a frame a
   two-port flood refused twice counts twice;
 - `Latency` summarizes `Delivery.At` minus the injection time over every
   non-copy delivery;
@@ -351,14 +351,27 @@ journey that names a flow folds into that flow's `FlowStats`:
   carries the issues its frames depended on.
 
 `RetainJourney` is the zero value and keeps the settled journey in `Report()`.
-`RetainAggregate` frees it, and `Inject` refuses it with a zero flow. A frame
-a switch holds for neighbor resolution settles and folds `Held` at the hold,
-and its aggregate journey is freed there too: the frame then travels with no
-journey, so the fabric keeps only its `FrameID` under the holding device until
-the release claims it, which is what lets the released frame name the frame it
-was held from. A hold resolution abandons stays a candidate, as a retained
-held journey does, so a later release on the same device may name it and claim
-its placeholder. A protocol journey is never freed.
+`RetainAggregate` frees it, and `Inject` refuses it with a zero flow.
+A hold keeps its frame in flight, with its original flow, injection time, and
+retention. The fabric maps each device and hold token to that frame's `FrameID`.
+Release or failure continues the same journey. Copies in the releasing output
+name that frame as their parent and inherit its flow and retention. The key
+remains available to every part of that output and is then removed.
+`TestHoldExits` checks release, timeout, overflow, filter refusal, and routing
+reconfiguration under both retentions and both exit orders.
+Protocol journeys and their re-entry sets are freed at settle. An unknown hold
+token, including on a fabric rebuilt by `assembly.Derive`, starts a new journey.
+
+```mermaid
+flowchart LR
+    receive --> hold[Device and token name FrameID]
+    hold --> output[Resolve once for output]
+    output --> release[Continue frame or drop]
+    output --> copy[Copy names held frame]
+    release --> settle[Remove key and settle after transmissions]
+    copy --> settle
+```
+
 `Fabric.Flows()` returns an independent copy of every flow's statistics,
 keyed by flow.
 
@@ -910,7 +923,7 @@ A simulation run is driven by `Run(budget)` or `RunScenario(scenario)` under an
 explicit step limit, halting with a typed `RunResult`. The run halts with one
 of six stop reasons:
 
-- `StopQueueDrained`: Every scheduled arrival and held frame has been processed,
+- `StopQueueDrained`: Every scheduled arrival has been processed,
   leaving no pending work in queues or buffers.
 - `StopConverged`: State fingerprints were stable across the sliding evaluation
   window, queues hold only periodic protocol wakes (such as spanning tree hellos),

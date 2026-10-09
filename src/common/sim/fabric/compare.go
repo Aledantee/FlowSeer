@@ -229,7 +229,7 @@ func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {
 		changed = false
 		for i := range allJourneys {
 			j := &allJourneys[i]
-			if (j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginReflection || j.Origin.Kind == OriginRelease) && descendants[j.Origin.Of] {
+			if (j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginReflection) && descendants[j.Origin.Of] {
 				if !descendants[j.FrameID] {
 					descendants[j.FrameID] = true
 					changed = true

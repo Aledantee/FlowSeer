@@ -12,16 +12,16 @@ func TestDiffFabricRunsOneSidedJourneyPresence(t *testing.T) {
 	root := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}}
 	mirrorA := Journey{FrameID: 20, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-a"}}
 	mirrorB := Journey{FrameID: 30, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-b"}}
-	release := Journey{FrameID: 40, Origin: JourneyOrigin{Kind: OriginRelease, Of: 10}}
+	release := Journey{FrameID: 40, Origin: JourneyOrigin{Kind: OriginReflection, Of: 10}}
 	cases := []struct {
 		name    string
 		a, b    []Journey
 		lineage []LineageStep
 	}{
 		{"different mirror names", []Journey{root, mirrorA}, []Journey{root, mirrorB}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
-		{"mirror and release", []Journey{root, mirrorA}, []Journey{root, release}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
+		{"mirror and reflection", []Journey{root, mirrorA}, []Journey{root, release}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
 		{"extra mirror", []Journey{root, mirrorA}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
-		{"extra release", []Journey{root, release}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginRelease}}},
+		{"extra reflection", []Journey{root, release}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginReflection}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

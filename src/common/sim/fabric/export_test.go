@@ -90,6 +90,14 @@ func ExportFabricEnqueueEgress(x *Fabric, a0 time.Time, a1 Endpoint, a2 string, 
 // ExportFabricEntered exposes internal state to external package tests.
 func ExportFabricEntered(x *Fabric) *map[FrameID]map[Endpoint]bool { return &x.entered }
 
+// ExportHoldKey exposes device-scoped hold identity to external tests.
+type ExportHoldKey = holdKey
+
+// MakeTestHoldKey returns a hold key for a device token.
+func MakeTestHoldKey(node string, token device.HoldToken) holdKey {
+	return holdKey{node: node, token: token}
+}
+
 // ExportFabricFields exposes internal state to external package tests.
 type ExportFabricFields struct {
 	Topology        topology
@@ -117,7 +125,7 @@ type ExportFabricFields struct {
 	UnstatedBacked  map[Endpoint]trace.EvidenceRef
 	MetadataCache   *analysis.Metadata
 	Inflight        map[FrameID]int
-	HeldAggregates  map[string][]FrameID
+	Held            map[holdKey]FrameID
 	Flows           map[FlowID]*FlowStats
 	Touched         []FrameID
 	Err             error
@@ -129,8 +137,8 @@ func ExportFabricFlows(x *Fabric) *map[FlowID]*FlowStats { return &x.flows }
 // ExportFabricHasPendingJourneys exposes internal state to external package tests.
 func ExportFabricHasPendingJourneys(x *Fabric) bool { return x.hasPendingJourneys() }
 
-// ExportFabricHeldAggregates exposes internal state to external package tests.
-func ExportFabricHeldAggregates(x *Fabric) *map[string][]FrameID { return &x.heldAggregates }
+// ExportFabricHeld exposes internal state to external package tests.
+func ExportFabricHeld(x *Fabric) *map[holdKey]FrameID { return &x.held }
 
 // ExportFabricInflight exposes internal state to external package tests.
 func ExportFabricInflight(x *Fabric) *map[FrameID]int { return &x.inflight }
@@ -325,7 +333,7 @@ func MakeTestEgressQueuePointer(x ExportEgressQueueFields) *egressQueue {
 
 // MakeTestFabric exposes internal state to external package tests.
 func MakeTestFabric(x ExportFabricFields) Fabric {
-	return Fabric{topology: x.Topology, evidence: x.Evidence, runtimeEvidence: x.RuntimeEvidence, links: x.Links, linkTrust: x.LinkTrust, uncabled: x.Uncabled, byEnd: x.ByEnd, clock: x.Clock, stepped: x.Stepped, arrivalQueue: arrivalQueue{queue: x.Queue, wakes: x.Wakes, dequeueItems: x.DequeueItems, wakeItems: x.WakeItems}, attachments: x.Attachments, nextFrameID: x.NextFrameID, nextSeq: x.NextSeq, journeys: x.Journeys, entered: x.Entered, cableCrossings: x.CableCrossings, busyUntil: x.BusyUntil, egress: x.Egress, counters: x.Counters, unstatedBacked: x.UnstatedBacked, metadataCache: x.MetadataCache, inflight: x.Inflight, heldAggregates: x.HeldAggregates, flows: x.Flows, touched: x.Touched, err: x.Err}
+	return Fabric{topology: x.Topology, evidence: x.Evidence, runtimeEvidence: x.RuntimeEvidence, links: x.Links, linkTrust: x.LinkTrust, uncabled: x.Uncabled, byEnd: x.ByEnd, clock: x.Clock, stepped: x.Stepped, arrivalQueue: arrivalQueue{queue: x.Queue, wakes: x.Wakes, dequeueItems: x.DequeueItems, wakeItems: x.WakeItems}, attachments: x.Attachments, nextFrameID: x.NextFrameID, nextSeq: x.NextSeq, journeys: x.Journeys, entered: x.Entered, cableCrossings: x.CableCrossings, busyUntil: x.BusyUntil, egress: x.Egress, counters: x.Counters, unstatedBacked: x.UnstatedBacked, metadataCache: x.MetadataCache, inflight: x.Inflight, held: x.Held, flows: x.Flows, touched: x.Touched, err: x.Err}
 }
 
 // MakeTestFabricPointer exposes internal state to external package tests.
@@ -368,12 +376,12 @@ func (o JourneyOrigin) validate() error {
 		if o.Of == 0 {
 			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
 		}
-	case OriginReflection, OriginRelease:
+	case OriginReflection:
 		if o.Of == 0 {
-			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
+			return errs.New().Attr("kind", o.Kind).Msg("reflection origin must specify parent frame ID")
 		}
 		if o.Mirror != "" {
-			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("release origin must not specify mirror name")
+			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("reflection origin must not specify mirror name")
 		}
 	default:
 		return errs.New().Attr("kind", o.Kind).Msg("unknown journey origin kind")

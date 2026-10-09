@@ -892,7 +892,13 @@ change: `Fb/flow_internal_test.go:686-690,726-728`,
 `Fb/journey_state_test.go:184,269`, `Fb/fork_test.go:221-222`, `TestHeldLAGEgressUsesSelectedMemberOnWire`
 (`V/routed_egress_matrix_test.go:87-95`), which asserts the held journey
 itself reaches its host by the committed member, and the
-release cases of `ST`, each from a release journey to one journey.
+release cases of `ST`, each from a release journey to one journey. Protocol
+trace checks read live reports or `Step` results before settle frees the
+protocol journey. `TestBPDUVisibleOnSwitchWithoutLayer` asserts the dropped
+hop's outcome, reason, and device through `Step`. The periodic-protocol budget
+corpus case retains its BPDU as a caller injection, so the run still exposes
+the same consumed outcome and exact transition facts after two steps.
+`TestProtocolJourneyFreedAtSettle` checks the unretained protocol path.
 
 ### U14. One executor
 Files: src/common/sim/fabric/run.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/comparison_location.go, src/common/sim/fabric/compare_journey.go, src/common/sim/fabric/result.go, src/common/sim/fabric/flow.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/compare_internal_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/record_test.go, src/common/sim/fabric/bench_test.go, src/common/sim/fabric/README.md, src/common/sim/search, src/common/sim/internal/simtest

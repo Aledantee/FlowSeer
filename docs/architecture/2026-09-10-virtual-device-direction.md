@@ -402,7 +402,7 @@ Every recorded journey receives exactly one result state. `JourneyPending` is th
 sole nonterminal state, assigned when work on the frame remains queued, in an
 egress buffer, or held awaiting neighbor resolution at the run boundary. All other
 states are terminal: `JourneyDelivered`, `JourneyRejected`, `JourneyDropped`,
-`JourneyLooped`, `JourneyTruncated`, `JourneyUnresolved`, and `JourneyReleased`.
+`JourneyLooped`, `JourneyTruncated`, and `JourneyUnresolved`.
 Host rejection is separated from delivery at this layer: a physical arrival that
 the destination host refuses (due to MAC mismatch, VLAN filter, or IP rejection)
 is terminal `JourneyRejected` and is excluded from deliveries.
@@ -410,10 +410,9 @@ is terminal `JourneyRejected` and is excluded from deliveries.
 A journey's origin is a typed relation rather than an overloaded parent pointer.
 Its kind records how the frame entered the simulation: a caller's direct
 injection (`OriginInjection`), a mirror copy produced by port mirroring
-(`OriginMirror`), or a frame released from a neighbor hold queue
-(`OriginRelease`). For mirror copies and releases, the origin links back to the
-holding or source frame ID without adding forward-pointing pointers that could
-drift out of agreement.
+(`OriginMirror`), or a reflected datagram (`OriginReflection`). Copies name
+the source frame ID. A release continues the held frame's own journey and
+keeps its original origin.
 
 Convergence and oscillation are evaluated on a canonical state fingerprint of
 protocol-relevant snapshot state across consecutive periodic wake arrivals. The
@@ -936,7 +935,7 @@ Amendment 2026-10-07: sending and reception are implemented in
   Live and released frames share `putRoutedFrame` in
   `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
   priority agree. The fabric transmits a release on that selected member
-  (`src/common/sim/fabric/run.go:injectEmission`).
+  (`src/common/sim/fabric/run.go:applyDeviceOutput`).
 
 ### Semantic traces and producer-owned facts
 
@@ -1184,3 +1183,21 @@ egress binding alone. `Output.Hold`, `Emission.Hold`, and `NeighborDrop.Hold`
 carry one token for a held frame, with its ingress interface, and the fabric
 transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
 `src/common/sim/device/vswitch/filter_test.go` checks the filtering.
+
+### A hold continues the same journey (2026-10-09)
+
+[`run.go`](../../src/common/sim/fabric/run.go) maps a device and hold token to
+its frame's `FrameID`. A hold counts as in flight. One output resolves each
+token once for all its emissions, drops, and copies, then removes the key.
+A release continues that journey. A failure appends its drop there. A mirror
+copy names the held frame and inherits its flow and retention. An unknown
+token starts a new journey, as on a fabric rebuilt by `assembly.Derive`.
+
+[`flow.go`](../../src/common/sim/fabric/flow.go) folds at settle, after the
+hold and all transmissions end. It frees aggregate and protocol traversal
+storage. `FlowStats.Held` counts keys for the flow when `Flows()` is read.
+Release contributes to `Delivered`, and failure to `Drops`.
+`TestHoldExits` in
+[`flow_internal_test.go`](../../src/common/sim/fabric/flow_internal_test.go)
+checks all five exits under both retentions in both orders, with no keys
+remaining and `StopConverged`.

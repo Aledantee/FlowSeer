@@ -1,7 +1,6 @@
 package fabric
 
 import (
-	"bytes"
 	"fmt"
 	"maps"
 	"math"
@@ -36,9 +35,8 @@ const (
 	// RetainJourney keeps a settled journey in [Fabric.Report].
 	RetainJourney Retention = iota
 	// RetainAggregate frees a settled journey once its flow's statistics hold
-	// a frame's worth of what became of it. It requires a nonzero flow. A
-	// frame a switch held for neighbor resolution leaves only its FrameID
-	// behind, under the holding device, until a release claims it.
+	// a frame's worth of what became of it. It requires a nonzero flow.
+	// A held frame settles only after its hold and all transmissions end.
 	RetainAggregate
 )
 
@@ -46,9 +44,8 @@ const (
 //
 // Retention and Flow decide what the fabric keeps of the frame once it
 // settles: a zero Flow folds into no statistics, and RetainAggregate frees
-// the settled journey, leaving only a held frame's FrameID until a release
-// claims it. A mirror or reflector copy inherits both from the frame it
-// copies.
+// the settled journey. A hold keeps the original journey in flight.
+// A mirror or reflector copy inherits both from the frame it copies.
 type Injection struct {
 	At        time.Time
 	Origin    Endpoint
@@ -340,12 +337,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		sw := f.nodeDevice(arr.Device)
 		if sw != nil {
 			out := sw.Advance(arr.At)
-			for _, em := range out.Emissions {
-				f.injectEmission(arr.At, arr.Device, em)
-			}
-			for _, drop := range out.Drops {
-				f.recordNeighborFailure(arr.At, arr.Device, drop)
-			}
+			f.applyOutput(arr.At, arr.Device, out)
 			f.scheduleWake(arr.Device)
 		}
 
@@ -445,16 +437,11 @@ func (f *Fabric) Step() (Entry, bool) {
 	if out.Err != nil {
 		f.recordFault(out.Err)
 	}
-	for _, em := range out.Emissions {
-		f.injectEmission(arr.At, arr.Device, em)
+	if out.Hold != 0 {
+		f.held[holdKey{node: arr.Device, token: out.Hold}] = arr.FrameID
+		f.inflightAdd(arr.FrameID)
 	}
-	for _, drop := range out.Drops {
-		if drop.Hold == 0 && acceptanceEntry != nil {
-			f.record(journey, Entry{At: arr.At, Kind: EntryDrop, Device: arr.Device, Port: drop.Port, Reason: drop.Reason})
-		} else {
-			f.recordNeighborFailure(arr.At, arr.Device, drop)
-		}
-	}
+
 	f.scheduleWake(arr.Device)
 	if out.Policed {
 		for _, p := range inPorts {
@@ -519,62 +506,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey, eg.PCP, "")
 	}
 
-	copies := out.Copies
-	for _, copy := range copies {
-		fid := f.nextFrameID
-		f.nextFrameID++
-		seq := f.nextSeq
-		f.nextSeq++
-		inj := Injection{
-			At:        arr.At,
-			Origin:    Endpoint{Node: arr.Device, Port: copy.Port},
-			Frame:     cloneFrame(copy.Frame),
-			Retention: journey.Injection.Retention,
-			Flow:      journey.Injection.Flow,
-		}
-		kind := OriginMirror
-		if res.Acceptance == device.ReflectionAcceptance {
-			kind = OriginReflection
-		}
-		copyJourney := &Journey{
-			FrameID: fid,
-			Origin: JourneyOrigin{
-				Kind:   kind,
-				Of:     arr.FrameID,
-				Mirror: copy.Mirror,
-			},
-			Injection: inj,
-		}
-		f.journeys[fid] = copyJourney
-		f.touch(fid)
-		if kind == OriginReflection {
-			f.entered[fid] = cloneEntered(f.entered[arr.FrameID])
-		}
-		f.record(copyJourney, Entry{
-			At:     arr.At,
-			Kind:   EntryInjection,
-			Device: arr.Device,
-			Port:   copy.Port,
-			Cable:  f.portCable(arr.Device, copy.Port),
-		})
-		if kind == OriginReflection {
-			ref, ok := f.linkEnd(arr.Device, copy.Port)
-			if !ok {
-				continue
-			}
-			if ref.end.Oper != port.Up {
-				entryKind := EntryDrop
-				if ref.end.Oper == port.Unknown {
-					entryKind = EntryUnresolved
-				}
-				cable := ref.link.Cable.Clone()
-				f.record(copyJourney, Entry{At: arr.At, Kind: entryKind, Device: arr.Device, Cable: &cable, Reason: ref.end.Reason})
-				continue
-			}
-		}
-		pcp, _ := copy.Frame.Priority()
-		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, pcp, copy.Mirror)
-	}
+	f.applyDeviceOutput(arr.At, arr.Device, out, journey)
 
 	if acceptanceEntry != nil {
 		return *acceptanceEntry, true
@@ -952,136 +884,126 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	return end
 }
 
-func (f *Fabric) injectEmission(now time.Time, device string, em device.Emission) {
+// applyDeviceOutput keeps token resolutions until every emission, drop, and
+// copy has used its parent. Device tokens can repeat across nodes.
+func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output, current *Journey) {
 	f.initRunState()
-
-	inj := Injection{
-		At:     now,
-		Origin: Endpoint{Node: device, Port: em.Port},
-		Frame:  cloneFrame(em.Frame),
+	if out.Err != nil {
+		f.recordFault(out.Err)
 	}
-
-	fid := f.nextFrameID
-	f.nextFrameID++
-
-	seq := f.nextSeq
-	f.nextSeq++
-
-	origin := JourneyOrigin{Kind: OriginInjection}
-	if !em.Protocol {
-		if holdingFID := f.findAndPopHeld(device, em.Frame); holdingFID != 0 {
-			origin = JourneyOrigin{
-				Kind: OriginRelease,
-				Of:   holdingFID,
-			}
-			f.claimHeldAggregate(device, holdingFID)
-		}
-	}
-
-	journey := &Journey{
-		FrameID:   fid,
-		Protocol:  em.Protocol,
-		Origin:    origin,
-		Injection: inj,
-	}
-	f.journeys[fid] = journey
-	f.touch(fid)
-	f.record(journey, Entry{
-		At:     now,
-		Kind:   EntryInjection,
-		Device: device,
-		Port:   em.Port,
-		Cable:  f.portCable(device, em.Port),
-	})
-
-	// em.PCP rather than a priority re-derived from em.Frame: a released held frame leaving an
-	// untagged access port or a routed port carries no tag to derive from, so deriving would
-	// queue at 0 a frame the live path queues at the priority it arrived with.
-	f.transmit(now, device, em.Port, em.Member, em.Frame, seq, fid, journey, em.PCP, "")
-}
-
-func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {
-	released := make(map[FrameID]bool)
-	for _, j := range f.journeys {
-		if j.Origin.Kind == OriginRelease && j.Origin.Of != 0 {
-			released[j.Origin.Of] = true
-		}
-	}
-
-	var candidateIDs []FrameID
-	for fid, j := range f.journeys {
-		if released[fid] {
-			continue
-		}
-		if isJourneyHeld(j) {
-			if len(j.Entries) > 0 && j.Entries[len(j.Entries)-1].Device == device {
-				candidateIDs = append(candidateIDs, fid)
+	var resolved map[device.HoldToken]*Journey
+	resolve := func(token device.HoldToken, ingress string, frame ethernet.Frame, protocol bool) *Journey {
+		if token != 0 {
+			if j := resolved[token]; j != nil {
+				return j
 			}
 		}
+		var j *Journey
+		if fid := f.held[holdKey{node: node, token: token}]; token != 0 && fid != 0 {
+			j = f.journeys[fid]
+		}
+		if j == nil {
+			fid := f.nextFrameID
+			f.nextFrameID++
+			j = &Journey{
+				FrameID: fid, Protocol: protocol, Origin: JourneyOrigin{Kind: OriginInjection},
+				Injection: Injection{At: now, Origin: Endpoint{Node: node, Port: ingress}, Frame: cloneFrame(frame)},
+			}
+			f.journeys[fid] = j
+			f.touch(fid)
+			f.record(j, Entry{At: now, Kind: EntryInjection, Device: node, Port: ingress, Cable: f.portCable(node, ingress)})
+		}
+		if token != 0 {
+			if resolved == nil {
+				resolved = make(map[device.HoldToken]*Journey)
+			}
+			resolved[token] = j
+		}
+		return j
 	}
-	for _, fid := range f.heldAggregates[device] {
-		if !released[fid] {
-			candidateIDs = append(candidateIDs, fid)
+	for _, em := range out.Emissions {
+		j := resolve(em.Hold, em.Port, em.Frame, em.Protocol)
+		seq := f.nextSeq
+		f.nextSeq++
+		f.transmit(now, node, em.Port, em.Member, em.Frame, seq, j.FrameID, j, em.PCP, "")
+	}
+	for _, drop := range out.Drops {
+		j := current
+		if drop.Hold != 0 || j == nil {
+			j = resolve(drop.Hold, drop.Ingress, ethernet.Frame{}, false)
+		}
+		if drop.Port != "" {
+			f.countEgressDrop(node, drop.Port, drop.Reason)
+		}
+		step := drop.Step
+		f.record(j, Entry{At: now, Kind: EntryDrop, Device: node, Port: drop.Port, Reason: drop.Reason, Step: &step})
+	}
+	for _, copy := range out.Copies {
+		parent := current
+		if copy.Hold != 0 || parent == nil {
+			parent = resolve(copy.Hold, copy.Port, copy.Frame, false)
+		}
+		fid := f.nextFrameID
+		f.nextFrameID++
+		seq := f.nextSeq
+		f.nextSeq++
+		inj := Injection{
+			At:        now,
+			Origin:    Endpoint{Node: node, Port: copy.Port},
+			Frame:     cloneFrame(copy.Frame),
+			Retention: parent.Injection.Retention,
+			Flow:      parent.Injection.Flow,
+		}
+		kind := OriginMirror
+		if out.Acceptance == device.ReflectionAcceptance {
+			kind = OriginReflection
+		}
+		copyJourney := &Journey{
+			FrameID: fid,
+			Origin: JourneyOrigin{
+				Kind:   kind,
+				Of:     parent.FrameID,
+				Mirror: copy.Mirror,
+			},
+			Injection: inj,
+		}
+		f.journeys[fid] = copyJourney
+		f.touch(fid)
+		if kind == OriginReflection {
+			f.entered[fid] = cloneEntered(f.entered[parent.FrameID])
+		}
+		f.record(copyJourney, Entry{
+			At:     now,
+			Kind:   EntryInjection,
+			Device: node,
+			Port:   copy.Port,
+			Cable:  f.portCable(node, copy.Port),
+		})
+		if kind == OriginReflection {
+			ref, ok := f.linkEnd(node, copy.Port)
+			if !ok {
+				continue
+			}
+			if ref.end.Oper != port.Up {
+				entryKind := EntryDrop
+				if ref.end.Oper == port.Unknown {
+					entryKind = EntryUnresolved
+				}
+				cable := ref.link.Cable.Clone()
+				f.record(copyJourney, Entry{At: now, Kind: entryKind, Device: node, Cable: &cable, Reason: ref.end.Reason})
+				continue
+			}
+		}
+		pcp, _ := copy.Frame.Priority()
+		f.transmit(now, node, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, pcp, copy.Mirror)
+	}
+	for _, token := range slices.Sorted(maps.Keys(resolved)) {
+		key := holdKey{node: node, token: token}
+		if fid, ok := f.held[key]; ok {
+			delete(f.held, key)
+			f.inflightRemove(fid)
 		}
 	}
-	slices.Sort(candidateIDs)
-
-	for _, fid := range candidateIDs {
-		j := f.journeys[fid]
-		if j != nil && bytes.Equal(j.Injection.Frame.Payload, frame.Payload) {
-			return fid
-		}
-	}
-
-	if len(candidateIDs) > 0 {
-		return candidateIDs[0]
-	}
-
-	return 0
-}
-
-// recordNeighborFailure turns one [device.Drop] reported for a held
-// frame that reached no wire into the same kind of answer a live drop gets: a
-// counter, and a journey entry. Both the port and the reason come from the
-// drop itself: the switch knows which stage refused the frame and which port,
-// if any, that stage was acting for, and a reader that recovered either from
-// the step's subject would be guessing — a subject naming a VLAN interface is
-// not a port, and the counter it created could never appear in a Snapshot.
-//
-// A drop with no port increments nothing. An [Endpoint] whose Port is not a
-// port is worse than an absent counter, because snapshotCounters iterates the
-// device's real ports and would never show it, while a later reader finding
-// it would believe it meant something.
-//
-// The held frame carried no fabric frame ID of its own — no [FrameID]
-// travels with a held frame while it waits — so this opens a new one-entry
-// journey for it, the way injectEmission opens one for a released frame's own
-// injection, rather than attaching it to a frame journey it was never part
-// of.
-func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop device.Drop) {
-	f.initRunState()
-
-	if drop.Port != "" {
-		f.countEgressDrop(device, drop.Port, drop.Reason)
-	}
-
-	fid := f.nextFrameID
-	f.nextFrameID++
-
-	step := drop.Step
-	journey := &Journey{
-		FrameID: fid,
-		Origin:  JourneyOrigin{Kind: OriginInjection},
-	}
-	f.journeys[fid] = journey
-	f.record(journey, Entry{
-		At:     now,
-		Kind:   EntryDrop,
-		Device: device,
-		Port:   drop.Port,
-		Step:   &step,
-		Reason: drop.Reason,
-	})
 }
 
 func (f *Fabric) scheduleWake(device string) {
@@ -1559,8 +1481,8 @@ func (f *Fabric) initRunState() {
 	if f.inflight == nil {
 		f.inflight = make(map[FrameID]int)
 	}
-	if f.heldAggregates == nil {
-		f.heldAggregates = make(map[string][]FrameID)
+	if f.held == nil {
+		f.held = make(map[holdKey]FrameID)
 	}
 	if f.nextFrameID == 0 {
 		f.nextFrameID = 1

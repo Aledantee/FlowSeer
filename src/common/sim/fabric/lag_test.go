@@ -86,12 +86,12 @@ func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(4)
+	observed, _ := observeJourneys(t, fab, 4)
 	if err := fab.Err(); err != nil {
 		t.Fatal(err)
 	}
 	crossings := 0
-	for _, journey := range fab.Report() {
+	for _, journey := range observed {
 		if !journey.Protocol || journey.Injection.Frame.EtherType != ethernet.EtherTypeARP || !journey.Injection.At.Equal(start) {
 			continue
 		}
@@ -939,14 +939,12 @@ func TestPassive(t *testing.T) {
 	fab, _, _ := newLagTopology(t, t0, lagActive, lagPassive)
 
 	// Step until A's first LACPDU arrives at B and B emits a reply.
-	for i := 0; i < 20; i++ {
-		fab.Step()
-	}
+	observed, _ := observeJourneys(t, fab, 20)
 
 	var firstArrivalAtB time.Time
 	var firstBJourneyAt time.Time
 
-	for _, j := range fab.Report() {
+	for _, j := range observed {
 		if !j.Protocol {
 			continue
 		}

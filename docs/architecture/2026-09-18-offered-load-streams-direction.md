@@ -85,8 +85,12 @@ be compared.
   offered, deliveries per host, drops per reason, cable losses, unresolved
   fates, host rejections, frames held for neighbor resolution, latency from
   injection to each delivery as minimum, maximum, sum and count, and the
-  merged trust metadata of every folded journey. A held frame settles at the
-  hold and the frame the switch later releases carries no flow. Mirror and
+  merged trust metadata of every folded journey. A hold keeps its frame in
+  flight. Release continues that frame's journey and folds its delivery into
+  the original flow. Timeout, overflow, filter refusal, and routing rebuild
+  fold a drop into that flow. `FlowStats.Held` is a gauge of frames in the
+  fabric's device-and-token hold map at `Flows()` time. The simload report
+  exposes the end-of-run reading as `HeldAtEnd` (`held_at_end`). Mirror and
   reflector copies are counted apart, per mirror name or `reflection`, and
   never as deliveries of the stream. Why: the planning answer is the
   aggregate, and the trust metadata has to survive the fold or an `Unknown`
@@ -164,3 +168,12 @@ corpus cases, the `src/common/net/pcap` reader with the capture source, and
 the `src/edge/simload` transmitter with its opt-in ICX7150 comparison
 test. The live comparison run is an owner-run step and had not run when the
 transmitter landed.
+
+### Held-frame accounting (2026-10-09)
+
+[`TestHeldIsAGauge`](../../src/common/sim/fabric/flow_internal_test.go) reads
+two frames held in one flow, then one held and one delivered after release.
+[`TestReleaseWithMirrorUnderAggregate`](../../src/common/sim/fabric/flow_internal_test.go)
+checks that a released frame and its egress mirror contribute one delivery,
+one copy, and one latency sample. A held frame retains its journey until its
+hold and transmissions end. Aggregate retention frees that journey at settle.

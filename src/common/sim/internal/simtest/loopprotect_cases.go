@@ -259,7 +259,10 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 			}
 			fab.Run(50)
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{

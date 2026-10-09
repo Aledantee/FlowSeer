@@ -169,22 +169,22 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 }
 
-// TestRecordNeighborFailureCountsOnlyAgainstAPort reaches into the package because the invariant
+// TestHeldDropCountsOnlyAgainstAPort reaches into the package because the invariant
 // is about a counter nothing can read: snapshotCounters walks a device's real ports, so an
 // Endpoint whose Port names a VLAN interface never appears in a Snapshot and is invisible from
 // outside — a later reader finding it would believe it meant something. A drop that names no
 // port has to create nothing at all, which only the counter map itself can show.
-func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
+func TestHeldDropCountsOnlyAgainstAPort(t *testing.T) {
 	t.Parallel()
 	base := time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC)
 
 	t.Run("a drop naming no port creates no endpoint", func(t *testing.T) {
 		t.Parallel()
 		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", device.Drop{
+		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			Reason: routing.ReasonNeighborMiss,
-		})
+		}}})
 
 		if len(f.counters) != 0 {
 			t.Errorf("counters = %+v, want none: the drop named no port", f.counters)
@@ -194,11 +194,11 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 	t.Run("a drop naming a port counts against it", func(t *testing.T) {
 		t.Parallel()
 		f := &Fabric{clock: base}
-		f.recordNeighborFailure(base, "sw1", device.Drop{
+		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			Port:   "1/1/2",
 			Reason: routing.ReasonNeighborHoldOverflow,
-		})
+		}}})
 
 		c, ok := f.counters[Endpoint{Node: "sw1", Port: "1/1/2"}]
 		if !ok {
@@ -213,7 +213,7 @@ func TestRecordNeighborFailureCountsOnlyAgainstAPort(t *testing.T) {
 	})
 }
 
-func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) {
+func TestUnknownHoldTokenStartsOneJourney(t *testing.T) {
 	t.Parallel()
 
 	f := &Fabric{
@@ -223,11 +223,12 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 
 	em := device.Emission{
 		Port:     "swp1",
+		Hold:     9,
 		Frame:    ethernet.Frame{Payload: []byte("non-protocol-payload")},
 		Protocol: false,
 	}
 
-	f.injectEmission(time.Now(), "sw1", em)
+	f.applyOutput(time.Now(), "sw1", device.Output{Emissions: []device.Emission{em, em}})
 
 	if len(f.journeys) != 1 {
 		t.Fatalf("len(journeys) = %d, want 1", len(f.journeys))

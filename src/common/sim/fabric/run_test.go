@@ -2345,14 +2345,15 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		t.Fatalf("New fabric: %v", err)
 	}
 
+	var journeys []fabric.Journey
 	for {
+		journeys = fab.Report()
 		entry, ok := fab.Step()
 		if !ok || entry.Device == "sw2" {
 			break
 		}
 	}
 
-	journeys := fab.Report()
 	if len(journeys) == 0 {
 		t.Fatal("expected at least one journey")
 	}

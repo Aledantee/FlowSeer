@@ -26,9 +26,9 @@ type originClassificationRule struct {
 	forbidMirror bool
 }
 
-var originClassificationTable = map[fabric.JourneyOriginKind]originClassificationRule{fabric.OriginInjection: {requireOf: false, forbidMirror: true}, fabric.OriginMirror: {requireOf: true, forbidMirror: false}, fabric.OriginReflection: {requireOf: true, forbidMirror: true}, fabric.OriginRelease: {requireOf: true, forbidMirror: true}}
+var originClassificationTable = map[fabric.JourneyOriginKind]originClassificationRule{fabric.OriginInjection: {requireOf: false, forbidMirror: true}, fabric.OriginMirror: {requireOf: true, forbidMirror: false}, fabric.OriginReflection: {requireOf: true, forbidMirror: true}}
 
-var allDeclaredOriginKinds = []fabric.JourneyOriginKind{fabric.OriginInjection, fabric.OriginMirror, fabric.OriginReflection, fabric.OriginRelease}
+var allDeclaredOriginKinds = []fabric.JourneyOriginKind{fabric.OriginInjection, fabric.OriginMirror, fabric.OriginReflection}
 
 func TestJourneyOriginKindClassificationGate(t *testing.T) {
 	t.Parallel()
@@ -108,12 +108,11 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 	cases := []struct {
 		name      string
 		pending   bool
-		released  bool
 		entries   []fabric.Entry
 		issues    []analysis.Issue
 		wantState fabric.JourneyState
 	}{
-		// 8 individual state cases
+		// Each state is exercised on its own.
 		{
 			name:      "individual_pending",
 			pending:   true,
@@ -146,11 +145,6 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 				{Reason: fabric.ExportReasonTruncatedRecord},
 			},
 			wantState: fabric.JourneyTruncated,
-		},
-		{
-			name:      "individual_released",
-			released:  true,
-			wantState: fabric.JourneyReleased,
 		},
 		{
 			name: "individual_delivered_entry",
@@ -188,7 +182,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			wantState: fabric.JourneyDropped,
 		},
 
-		// 7 adjacent pair cases testing strict declared precedence:
+		// Adjacent states follow the declared precedence.
 		// 1. Pending outranks Unresolved
 		{
 			name:    "pair_pending_over_unresolved",
@@ -219,25 +213,15 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			},
 			wantState: fabric.JourneyLooped,
 		},
-		// 4. Truncated outranks Released
+		// Truncated outranks Delivered.
 		{
-			name:     "pair_truncated_over_released",
-			released: true,
-			issues: []analysis.Issue{
-				{Code: fabric.IssueTruncatedRecord},
-			},
+			name:      "pair_truncated_over_delivered",
+			issues:    []analysis.Issue{{Code: fabric.IssueTruncatedRecord}},
+			entries:   []fabric.Entry{{Kind: fabric.EntryDelivery}},
 			wantState: fabric.JourneyTruncated,
 		},
-		// 5. Released outranks Delivered
-		{
-			name:     "pair_released_over_delivered",
-			released: true,
-			entries: []fabric.Entry{
-				{Kind: fabric.EntryDelivery},
-			},
-			wantState: fabric.JourneyReleased,
-		},
-		// 6. Delivered outranks Rejected
+
+		// Delivered outranks Rejected
 		{
 			name: "pair_delivered_over_rejected",
 			entries: []fabric.Entry{
@@ -246,7 +230,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			},
 			wantState: fabric.JourneyDelivered,
 		},
-		// 7. Rejected outranks Dropped
+		// Rejected outranks Dropped
 		{
 			name: "pair_rejected_over_dropped",
 			entries: []fabric.Entry{
@@ -276,7 +260,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 				Entries:  tc.entries,
 				Metadata: analysis.NewMetadata(analysis.WholeScope(), tc.issues, analysis.EvidenceCatalog{}, nil),
 			})
-			got := fabric.ExportAssignJourneyState(j, tc.pending, tc.released)
+			got := fabric.ExportAssignJourneyState(j, tc.pending)
 			if got != tc.wantState {
 				t.Fatalf("assignJourneyState() = %q, want %q", got, tc.wantState)
 			}

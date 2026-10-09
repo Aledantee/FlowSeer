@@ -353,7 +353,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 	}
 	fab.Run(20)
 
-	journey := fab.Report()[fid-1]
+	journey := findJourney(t, fab, fid)
 	var hop *device.Result
 	for _, entry := range journey.Entries {
 		if entry.Kind == fabric.EntryHop {
@@ -477,7 +477,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 		fab.Run(10)
-		journey := fab.Report()[fid-1]
+		journey := findJourney(t, fab, fid)
 		for _, entry := range journey.Entries {
 			if entry.Kind == fabric.EntryHop {
 				return entry.Result, journey
@@ -593,7 +593,7 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 	fab.Run(10)
-	journey := fab.Report()[fid-1]
+	journey := findJourney(t, fab, fid)
 	for _, entry := range journey.Entries {
 		if entry.Kind != fabric.EntryHop {
 			continue
@@ -740,7 +740,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 	fab.Run(50)
-	journey := fab.Report()[fid-1]
+	journey := findJourney(t, fab, fid)
 	if got := journey.Metadata.Status(); got != analysis.Incomplete || !hasIssue(journey.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown) {
 		t.Errorf("journey status = %s, issues %+v; want incomplete with protocol-link-unknown", got, journey.Metadata.Issues())
 	}
