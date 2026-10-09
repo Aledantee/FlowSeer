@@ -444,9 +444,10 @@ const sourcesList = computed(() => {
           class="flex flex-col gap-0.5 text-xs ai-fade-in motion-reduce:animate-none"
           data-ai-result-impact
         >
-          <span class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{{
-            t('ui.aiResult.impact')
-          }}</span>
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >{{ t('ui.aiResult.impact') }}</span
+          >
           <p class="text-foreground">
             {{ summaryResult.impact.text }}
           </p>
@@ -476,7 +477,9 @@ const sourcesList = computed(() => {
               <dt class="text-muted-foreground">
                 {{ item.label }}
               </dt>
-              <dd class="font-mono text-xs font-medium tabular-nums text-foreground">
+              <dd
+                class="font-mono text-xs font-medium tabular-nums text-foreground"
+              >
                 {{ item.value }}
               </dd>
             </template>
@@ -489,9 +492,10 @@ const sourcesList = computed(() => {
           class="flex flex-col gap-1 text-xs ai-fade-in motion-reduce:animate-none"
           data-ai-result-next-steps
         >
-          <span class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{{
-            t('ui.aiResult.nextSteps')
-          }}</span>
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+            >{{ t('ui.aiResult.nextSteps') }}</span
+          >
           <ol class="list-decimal pl-4 space-y-0.5 text-foreground">
             <li v-for="(step, idx) in nextStepsList" :key="idx">
               <span>{{ step.label }}</span>

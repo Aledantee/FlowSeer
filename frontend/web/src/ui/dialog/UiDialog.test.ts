@@ -329,9 +329,8 @@ describe('UiDialog', () => {
     await nextTick()
     await new Promise((r) => setTimeout(r, 20))
 
-    const trigger = document.body.querySelector<HTMLButtonElement>(
-      '#nested-trigger',
-    )
+    const trigger =
+      document.body.querySelector<HTMLButtonElement>('#nested-trigger')
     expect(trigger).not.toBeNull()
     trigger?.focus()
     expect(document.activeElement).toBe(trigger)
@@ -372,6 +371,3 @@ describe('UiDialog', () => {
     expect(title?.className).toContain('font-mono')
   })
 })
-
-
-

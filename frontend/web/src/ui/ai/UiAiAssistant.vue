@@ -355,7 +355,9 @@ onUnmounted(() => {
     <header
       class="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0"
     >
-      <h2 class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground">
+      <h2
+        class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
+      >
         {{ props.labels?.title ?? t('ui.aiAssistant.title') }}
       </h2>
       <button
@@ -426,7 +428,9 @@ onUnmounted(() => {
         data-ai-assistant-empty
       >
         <div v-if="suggestions.length > 0" class="flex flex-col gap-2">
-          <span class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span
+            class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
+          >
             {{ props.labels?.suggestions ?? t('ui.aiAssistant.suggestions') }}
           </span>
           <div class="flex flex-col gap-1.5 items-start">

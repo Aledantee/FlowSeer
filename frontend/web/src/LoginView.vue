@@ -137,7 +137,9 @@ async function submit() {
     >
       <div class="login-overview">
         <header class="login-intro">
-          <p class="login-eyebrow font-mono text-xs font-semibold uppercase tracking-wide text-accent-foreground">
+          <p
+            class="login-eyebrow font-mono text-xs font-semibold uppercase tracking-wide text-accent-foreground"
+          >
             <AppIcon name="topology" />
             {{ t('view.login.overview.eyebrow') }}
           </p>
@@ -155,14 +157,17 @@ async function submit() {
         </header>
 
         <figure class="ui-card relative login-network m-0">
-          <figcaption class="login-network-caption font-mono text-xs font-semibold uppercase tracking-wide">
+          <figcaption
+            class="login-network-caption font-mono text-xs font-semibold uppercase tracking-wide"
+          >
             <span class="inline-flex items-center gap-2">
               <AppIcon name="sites" />
               {{ t('view.login.overview.site') }}
             </span>
-            <span class="text-xs text-muted-foreground normal-case tracking-normal">{{
-              t('view.login.overview.example')
-            }}</span>
+            <span
+              class="text-xs text-muted-foreground normal-case tracking-normal"
+              >{{ t('view.login.overview.example') }}</span
+            >
           </figcaption>
           <ol class="login-path">
             <li v-for="node in PATH" :key="node" class="login-node">
@@ -170,7 +175,9 @@ async function submit() {
                 <AppIcon :name="PATH_ICONS[node]" />
               </div>
               <div class="login-node-copy">
-                <h3 class="m-0 font-mono text-base font-semibold tracking-tight">
+                <h3
+                  class="m-0 font-mono text-base font-semibold tracking-tight"
+                >
                   {{ t(`view.login.overview.path.${node}.title`) }}
                 </h3>
                 <p class="mt-1 mb-0 text-md text-muted-foreground">
@@ -181,7 +188,9 @@ async function submit() {
           </ol>
           <div class="login-traffic">
             <div>
-              <p class="m-0 font-mono text-xs font-semibold uppercase tracking-wide">
+              <p
+                class="m-0 font-mono text-xs font-semibold uppercase tracking-wide"
+              >
                 {{ t('view.login.overview.trafficTitle') }}
               </p>
               <p class="mt-1 mb-0 text-md text-muted-foreground">
@@ -198,7 +207,9 @@ async function submit() {
                 })
               "
             />
-            <p class="login-traffic-value m-0 font-mono text-display font-normal tabular-nums">
+            <p
+              class="login-traffic-value m-0 font-mono text-display font-normal tabular-nums"
+            >
               {{ fmt.rate(84) }}
             </p>
           </div>

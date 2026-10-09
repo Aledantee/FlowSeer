@@ -78,7 +78,9 @@ const emit = defineEmits<
           @ai-origin-acknowledged="emit('aiOriginAcknowledged', $event)"
         />
         <div class="flex flex-col gap-1.5 pb-3 mb-4 border-b border-border">
-          <AlertDialogTitle class="font-mono text-lg font-semibold tracking-tight text-foreground">
+          <AlertDialogTitle
+            class="font-mono text-lg font-semibold tracking-tight text-foreground"
+          >
             {{ title }}
           </AlertDialogTitle>
           <AlertDialogDescription class="text-sm text-muted-foreground">

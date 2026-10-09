@@ -470,7 +470,11 @@ async function handleUndo() {
       class="page-heading flex justify-between items-center gap-5 mb-6 max-[800px]:items-start max-[560px]:block"
     >
       <div>
-        <h1 class="font-mono text-3xl font-semibold text-foreground tracking-tight">{{ title }}</h1>
+        <h1
+          class="font-mono text-3xl font-semibold text-foreground tracking-tight"
+        >
+          {{ title }}
+        </h1>
         <p
           v-if="!scopeError"
           class="text-sm text-muted-foreground tabular-nums mt-1.5 max-[800px]:max-w-[330px]"
@@ -610,7 +614,9 @@ async function handleUndo() {
                 "
               />
             </div>
-            <span class="ml-auto text-xs text-muted-foreground font-mono tabular-nums">
+            <span
+              class="ml-auto text-xs text-muted-foreground font-mono tabular-nums"
+            >
               {{ format.counted('view.common.results', filtered.length) }}
             </span>
           </div>
@@ -900,8 +906,13 @@ async function handleUndo() {
         class="ui-card relative bg-card border border-border rounded-panel overflow-hidden"
         aria-labelledby="sites-title"
       >
-        <div class="px-6 py-4 border-b border-border flex items-center justify-between gap-3">
-          <h2 id="sites-title" class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground">
+        <div
+          class="px-6 py-4 border-b border-border flex items-center justify-between gap-3"
+        >
+          <h2
+            id="sites-title"
+            class="font-mono text-xs font-semibold uppercase tracking-wide text-foreground"
+          >
             {{ labels.page('sites') }}
             <span
               class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"

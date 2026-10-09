@@ -558,9 +558,13 @@ describe('UiAiAssistant', () => {
 
     // Switch 2 should be in available targets, but Switch 1 should be filtered out
     const items = Array.from(document.body.querySelectorAll('[role="option"]'))
-    const switch2Option = items.find((el) => el.textContent?.includes('Switch 2'))
+    const switch2Option = items.find((el) =>
+      el.textContent?.includes('Switch 2'),
+    )
     expect(switch2Option).toBeDefined()
-    const switch1Option = items.find((el) => el.textContent?.includes('Switch 1'))
+    const switch1Option = items.find((el) =>
+      el.textContent?.includes('Switch 1'),
+    )
     expect(switch1Option).toBeUndefined()
 
     // Selecting Switch 2 adds it to chips

@@ -230,7 +230,8 @@ describe('global search selection', () => {
     trigger?.click()
     await settle()
 
-    const input = document.body.querySelector<HTMLInputElement>('[role="combobox"]')
+    const input =
+      document.body.querySelector<HTMLInputElement>('[role="combobox"]')
     expect(input).not.toBeNull()
     input?.focus()
     expect(document.activeElement).toBe(input)
