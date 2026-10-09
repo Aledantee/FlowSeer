@@ -148,6 +148,16 @@ class ExitPathTest(support.VerifierCase):
         self.failed(result, 2, "empty path argument after --")
 
     @across
+    def test_line_feed_only_path_argument_is_refused(self):
+        result = self.verify("--", "\n")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_line_feeds_only_path_among_others_is_refused(self):
+        result = self.verify("--", "README.md", "\n\n")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
     def test_empty_path_among_others_is_refused(self):
         result = self.verify("--", "README.md", "")
         self.failed(result, 2, "empty path argument after --")

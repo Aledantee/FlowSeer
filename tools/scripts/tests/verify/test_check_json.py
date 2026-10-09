@@ -51,6 +51,15 @@ class CheckJsonTest(unittest.TestCase):
         self.assertTrue(stderr.startswith("gone.json: "), stderr)
         self.assertIn("No such file or directory", stderr)
 
+    def test_invalid_utf8_names_the_path_and_exits_1(self):
+        (self.root / "a.json").write_bytes(b"\xff")
+        try:
+            code, stderr = self.check("a.json")
+        except UnicodeDecodeError as error:
+            self.fail(f"check-json raised instead of returning exit 1: {error}")
+        self.assertEqual(code, 1)
+        self.assertTrue(stderr.startswith("a.json: "), stderr)
+
     def test_every_failing_file_is_named_and_a_good_one_is_not(self):
         (self.root / "good.json").write_text("{}\n")
         (self.root / "bad.json").write_text("[")
