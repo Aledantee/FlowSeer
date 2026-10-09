@@ -68,6 +68,8 @@ const (
 
 	metadataOpen  = "# /// script"
 	metadataClose = "# ///"
+
+	assignmentWords = `(?:[A-Za-z_][A-Za-z0-9_]*=(?:[^\s"'\\]|"(?:[^"\\]|\\.)*"|'[^']*'|\\.)*[ \t]+)*`
 )
 
 var (
@@ -77,9 +79,9 @@ var (
 
 	// lineStartCall matches an interpreter as the command word at the start of
 	// a line, after blanks, an optional prompt, and NAME=value words.
-	lineStartCall = regexp.MustCompile(`^[ \t]*(?:\$ )?(?:[A-Za-z_][A-Za-z0-9_]*=\S*[ \t]+)*python3?(?:[ \t]|$)`)
+	lineStartCall = regexp.MustCompile(`^[ \t]*(?:\$ )?` + assignmentWords + `python3?(?:[ \t]|$)`)
 	// yamlStartCall is lineStartCall for a YAML list item.
-	yamlStartCall = regexp.MustCompile(`^[ \t]*(?:- )?(?:\$ )?(?:[A-Za-z_][A-Za-z0-9_]*=\S*[ \t]+)*python3?(?:[ \t]|$)`)
+	yamlStartCall = regexp.MustCompile(`^[ \t]*(?:- )?(?:\$ )?` + assignmentWords + `python3?(?:[ \t]|$)`)
 	// commandKey captures the string value of a "command" key in a JSON hook
 	// configuration.
 	commandKey = regexp.MustCompile(`"command"[ \t]*:[ \t]*"((?:[^"\\]|\\.)*)"`)
@@ -320,8 +322,20 @@ func shebangInterpreter(line string) string {
 	if program != "env" {
 		return program
 	}
-	for _, word := range words[1:] {
-		if strings.HasPrefix(word, "-") || strings.Contains(word, "=") {
+	for i := 1; i < len(words); i++ {
+		word := words[i]
+		if strings.HasPrefix(word, "-") {
+			if !strings.HasPrefix(word, "--") {
+				// -S leaves the split words here for the next iteration.
+				option := strings.IndexAny(word, "SuPC")
+				if option == len(word)-1 && word[option] != 'S' {
+					i++
+				}
+			}
+
+			continue
+		}
+		if strings.Contains(word, "=") {
 			continue
 		}
 
@@ -436,6 +450,18 @@ func TestFindings(t *testing.T) {
 		{name: "sibling of an exempt exact path", file: "src/protocol/yang/test/integration/testenv/testdata/clixon/other.sh", body: "echo hi\n", want: "other.sh: shell script"},
 		{name: "bash first line without suffix", file: "tools/x", body: "#!/bin/bash\necho hi\n", want: "tools/x: shell script"},
 		{name: "env bash first line", file: "tools/x", body: "#!/usr/bin/env bash\n", want: "tools/x: shell script"},
+		{name: "env split unset first line", file: "tools/x", body: "#!/usr/bin/env -S -u PYTHONPATH python3\n", want: "tools/x: bare interpreter"},
+		{name: "env split unset uv first line", file: "tools/x", body: "#!/usr/bin/env -S -u PYTHONPATH uv run --script\n"},
+		{name: "env unset first line", file: "tools/x", body: "#!/usr/bin/env -u PYTHONPATH bash\n", want: "tools/x: shell script"},
+		{name: "env unset uv first line", file: "tools/x", body: "#!/usr/bin/env -u PYTHONPATH uv run --script\n"},
+		{name: "env path first line", file: "tools/x", body: "#!/usr/bin/env -P /opt/bin bash\n", want: "tools/x: shell script"},
+		{name: "env path uv first line", file: "tools/x", body: "#!/usr/bin/env -P /opt/bin uv run --script\n"},
+		{name: "env directory first line", file: "tools/x", body: "#!/usr/bin/env -C /tmp bash\n", want: "tools/x: shell script"},
+		{name: "env directory uv first line", file: "tools/x", body: "#!/usr/bin/env -C /tmp uv run --script\n"},
+		{name: "env combined unset first line", file: "tools/x", body: "#!/usr/bin/env -iu PYTHONPATH bash\n", want: "tools/x: shell script"},
+		{name: "env combined unset uv first line", file: "tools/x", body: "#!/usr/bin/env -iu PYTHONPATH uv run --script\n"},
+		{name: "env attached unset first line", file: "tools/x", body: "#!/usr/bin/env -iuPYTHONPATH bash\n", want: "tools/x: shell script"},
+		{name: "env attached unset uv first line", file: "tools/x", body: "#!/usr/bin/env -iuPYTHONPATH uv run --script\n"},
 		{name: "sh with a flag", file: "tools/x", body: "#!/bin/sh -e\n", want: "tools/x: shell script"},
 		{name: "python first line", file: "tools/x", body: "#!/usr/bin/env python3\n", want: "tools/x: bare interpreter"},
 		{name: "uv first line", file: "tools/x", body: "#!/usr/bin/env -S uv run --script\n"},
@@ -443,6 +469,24 @@ func TestFindings(t *testing.T) {
 		{name: "SKILL line starts python3", file: ".agents/skills/x/SKILL.md", body: "text\npython3 a.py\n", want: "SKILL.md:2: bare interpreter call"},
 		{name: "prompt and python", file: ".agents/skills/x/SKILL.md", body: "  $ python a.py\n", want: "SKILL.md:1: bare interpreter call"},
 		{name: "assignment and python3", file: ".agents/skills/x/SKILL.md", body: "A=1 python3 a.py\n", want: "SKILL.md:1: bare interpreter call"},
+		{name: "double quoted assignment in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT=\"two words\" python3 a.py\n", want: "SKILL.md:1: bare interpreter call"},
+		{name: "double quoted assignment with uv in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT=\"two words\" uv run a.py\n"},
+		{name: "double quoted assignment in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT=\"two words\" python3 a.py\n", want: "Taskfile.yml:1: bare interpreter call"},
+		{name: "double quoted assignment with uv in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT=\"two words\" uv run a.py\n"},
+		{name: "double quoted assignment in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT=\\\"two words\\\" python3 a.py\"}\n", want: "hooks.json:1: bare interpreter call"},
+		{name: "double quoted assignment with uv in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT=\\\"two words\\\" uv run a.py\"}\n"},
+		{name: "single quoted assignment in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT='two words' python3 a.py\n", want: "SKILL.md:1: bare interpreter call"},
+		{name: "single quoted assignment with uv in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT='two words' uv run a.py\n"},
+		{name: "single quoted assignment in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT='two words' python3 a.py\n", want: "Taskfile.yml:1: bare interpreter call"},
+		{name: "single quoted assignment with uv in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT='two words' uv run a.py\n"},
+		{name: "single quoted assignment in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT='two words' python3 a.py\"}\n", want: "hooks.json:1: bare interpreter call"},
+		{name: "single quoted assignment with uv in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT='two words' uv run a.py\"}\n"},
+		{name: "escaped assignment in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT=two\\ words python3 a.py\n", want: "SKILL.md:1: bare interpreter call"},
+		{name: "escaped assignment with uv in skill", file: ".agents/skills/x/SKILL.md", body: "OUTPUT=two\\ words uv run a.py\n"},
+		{name: "escaped assignment in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT=two\\ words python3 a.py\n", want: "Taskfile.yml:1: bare interpreter call"},
+		{name: "escaped assignment with uv in Taskfile", file: "Taskfile.yml", body: "  - OUTPUT=two\\ words uv run a.py\n"},
+		{name: "escaped assignment in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT=two\\\\ words python3 a.py\"}\n", want: "hooks.json:1: bare interpreter call"},
+		{name: "escaped assignment with uv in command key", file: ".codex/hooks.json", body: "{\"command\":\"OUTPUT=two\\\\ words uv run a.py\"}\n"},
 		{name: "assignment with a quoted-free value", file: "AGENTS.md", body: "A=1 B=two python3 a.py\n", want: "AGENTS.md:1: bare interpreter call"},
 		{name: "list item in a Taskfile", file: "src/protocol/smi/bench/Taskfile.yml", body: "cmds:\n  - python3 a.py\n", want: "Taskfile.yml:2: bare interpreter call"},
 		{name: "list item with assignment in a Taskfile", file: "src/protocol/smi/bench/Taskfile.yml", body: "  - COUNT=1 python3 a.py\n", want: "Taskfile.yml:1: bare interpreter call"},
