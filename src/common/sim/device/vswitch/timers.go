@@ -40,6 +40,12 @@ type emission struct {
 	// [Fabric.injectEmission] reads it instead of assuming every emission
 	// is a protocol frame.
 	Protocol bool
+
+	// slot is one more than the index in the layer table of the layer whose
+	// timer produced the frame, or zero for a frame no table advance produced.
+	// [Derive] reads it to tell a frame a replaced layer still owes from one a
+	// kept layer does.
+	slot int
 }
 
 func (s *Switch) applySTPEffects(fx layer.Effects) {

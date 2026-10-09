@@ -187,6 +187,17 @@ also produces the copies selected by its successful egress. Each copy
 carries the held frame's token and owns its frame storage
 (`TestReleasedFrameIsMirroredOnEgress`).
 
+Open vSwitch mirrors a packet to a given destination once, even when several
+selectors match it. A held frame keeps that rule across the hold. The switch
+records, per hold token, the logical ingress port, the ingress VLAN, and the
+mirrors that copied the frame on arrival (`heldMirror` in `mirror.go`). At
+release the selectors see that ingress and VLAN, and a mirror that already
+copied the frame is skipped, so only a mirror selecting by the release port
+adds a copy (`TestHeldFrameIsMirroredOncePerMirror`). `Fork` and `Derive` carry
+the record with the routing layer's queue. `ReceiveMirrored` makes no copies
+of its own frame, held or released, and keeps the copies of the held frames
+its arrival releases (`TestReceiveMirroredKeepsCopiesOfReleasedFrames`).
+
 Open vSwitch reserves a mirror output port for mirror copies and runs
 no spanning tree on it. Keeping loop-protection probes off the port is the
 switch's own rule, drawn from that reservation, because no source read

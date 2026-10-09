@@ -56,6 +56,7 @@ type Switch struct {
 	portP2P            map[string]pointToPoint
 	portSpeed          map[string]uint64
 	protocolIssues     map[string]analysis.Issue
+	heldMirrors        map[routing.HoldToken]heldMirror
 	seeds              []bridge.Seed
 	nodeID             string
 	metadata           analysis.Metadata

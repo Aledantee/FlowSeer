@@ -263,6 +263,7 @@ func (s *Switch) applyRoutingExits(now time.Time, exits []routing.HeldFrame) {
 			// neighborDrop.
 			s.recordHeldExitDrop(hf, reasonHeldCauseUnknown)
 		}
+		delete(s.heldMirrors, hf.Token)
 	}
 }
 
@@ -307,6 +308,9 @@ func (s *Switch) recordHeldEgressDrop(hf routing.HeldFrame, egressPort, member s
 func (s *Switch) releaseHeldFrame(now time.Time, hf routing.HeldFrame) {
 	c, end := s.beginCall(now, true)
 	defer end()
+	if h, ok := s.heldMirrors[hf.Token]; ok {
+		c.release = &h
+	}
 
 	if _, ok := s.routing.Interface(hf.Interface); !ok {
 		s.recordHeldEgressDrop(hf, "", "", trace.RuleID(reasonHeldInterfaceUnknown), reasonHeldInterfaceUnknown, nil)

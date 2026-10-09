@@ -152,13 +152,18 @@ func (s *Switch) layers(_ time.Time) [8]layerEntry {
 }
 
 func (s *Switch) advance(now time.Time) {
-	for _, entry := range s.layers(now) {
+	for i, entry := range s.layers(now) {
 		if entry.advance == nil {
 			continue
 		}
 		fx := entry.advance(s, now)
-		if entry.apply != nil {
-			entry.apply(s, now, fx)
+		if entry.apply == nil {
+			continue
+		}
+		first := len(s.call.emissions)
+		entry.apply(s, now, fx)
+		for j := first; j < len(s.call.emissions); j++ {
+			s.call.emissions[j].slot = i + 1
 		}
 	}
 }

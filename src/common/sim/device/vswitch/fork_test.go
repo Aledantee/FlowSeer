@@ -32,6 +32,7 @@ var switchDeepCopiedProbes = map[string]func(t *testing.T){
 	"portP2P":        probeSwitchPortP2P,
 	"portSpeed":      probeSwitchPortSpeed,
 	"protocolIssues": probeSwitchProtocolIssues,
+	"heldMirrors":    probeSwitchHeldMirrors,
 	"seeds":          probeSwitchSeeds,
 	"retention":      probeSwitchRetention,
 }
@@ -285,6 +286,21 @@ func probeSwitchProtocolIssues(t *testing.T) {
 	fork.protocolIssues["1/1/1"] = analysis.Issue{Code: "fork-issue"}
 	if sw.protocolIssues["1/1/1"].Code != "source-issue" {
 		t.Errorf("source protocolIssues changed when fork mutated")
+	}
+}
+
+func probeSwitchHeldMirrors(t *testing.T) {
+	sw := newTestSwitchForFork(t)
+	fork := sw.Fork().(*Switch)
+
+	sw.heldMirrors[1].Mirrors[0] = "source-mirror"
+	if fork.heldMirrors[1].Mirrors[0] == "source-mirror" {
+		t.Errorf("fork heldMirrors changed when source mutated")
+	}
+
+	fork.heldMirrors[2] = heldMirror{Silent: true}
+	if _, ok := sw.heldMirrors[2]; ok {
+		t.Errorf("source heldMirrors changed when fork mutated")
 	}
 }
 
