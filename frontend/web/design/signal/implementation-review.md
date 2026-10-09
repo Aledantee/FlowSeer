@@ -6,15 +6,15 @@ assistant and login views. The existing sidebar and top bar remain in place.
 
 ## Captures
 
-| View | Capture |
-| --- | --- |
-| Dashboard, dark, 1440px | [dashboard-dark-1440.png](implementation/dashboard-dark-1440.png) |
-| Dashboard, light German, 1440px with expanded sidebar | [dashboard-light-de-1440.png](implementation/dashboard-light-de-1440.png) |
-| Dashboard, light German, 390px | [dashboard-light-de-390.png](implementation/dashboard-light-de-390.png) |
-| Device detail, dark, 1440px | [device-detail-dark-1440.png](implementation/device-detail-dark-1440.png) |
-| Topology, dark, 1440px | [topology-dark-1440.png](implementation/topology-dark-1440.png) |
-| Dashboard with assistant, dark, 1440px | [dashboard-assistant-dark-1440.png](implementation/dashboard-assistant-dark-1440.png) |
-| Split device view with assistant, dark, 1440px | [split-assistant-dark-1440.png](implementation/split-assistant-dark-1440.png) |
+| View                                                  | Capture                                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Dashboard, dark, 1440px                               | [dashboard-dark-1440.png](implementation/dashboard-dark-1440.png)                     |
+| Dashboard, light German, 1440px with expanded sidebar | [dashboard-light-de-1440.png](implementation/dashboard-light-de-1440.png)             |
+| Dashboard, light German, 390px                        | [dashboard-light-de-390.png](implementation/dashboard-light-de-390.png)               |
+| Device detail, dark, 1440px                           | [device-detail-dark-1440.png](implementation/device-detail-dark-1440.png)             |
+| Topology, dark, 1440px                                | [topology-dark-1440.png](implementation/topology-dark-1440.png)                       |
+| Dashboard with assistant, dark, 1440px                | [dashboard-assistant-dark-1440.png](implementation/dashboard-assistant-dark-1440.png) |
+| Split device view with assistant, dark, 1440px        | [split-assistant-dark-1440.png](implementation/split-assistant-dark-1440.png)         |
 
 ## Acceptance evidence
 
