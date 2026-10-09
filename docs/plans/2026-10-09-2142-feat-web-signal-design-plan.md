@@ -209,13 +209,13 @@ unit tests do not prove rendered geometry or contrast on blurred surfaces.
 ## Definition of done
 
 - [x] Signal direction is accepted before implementation begins.
-- [ ] Every routed view uses the shared design language and preserves its actions.
-- [ ] Reference comparison and responsive/theme/locale matrix are recorded.
-- [ ] Every changed component has updated stories and required behavior coverage.
-- [ ] Verifier is green for every changed path and Storybook builds.
-- [ ] Frontend documentation describes the implemented styling.
-- [ ] Outcome is recorded with `plan record implemented` or `partial`.
-- [ ] No plan labels appear in application code or comments.
+- [x] Every routed view uses the shared design language and preserves its actions.
+- [x] Reference comparison and responsive/theme/locale matrix are recorded.
+- [x] Every changed component has updated stories and required behavior coverage.
+- [x] Verifier is green for every changed path and Storybook builds.
+- [x] Frontend documentation describes the implemented styling.
+- [x] Outcome is recorded with `plan record implemented` or `partial`.
+- [x] No plan labels appear in application code or comments.
 
 ## Open questions
 
