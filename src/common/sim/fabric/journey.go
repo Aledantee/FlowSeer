@@ -435,7 +435,7 @@ func scopedMetadata(m analysis.Metadata, scopes []analysis.Scope) analysis.Metad
 func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	var scopes []analysis.Scope
 	endpoint := func(ep Endpoint) {
-		if _, isHost := f.cfg.Hosts[ep.Node]; ep.Port != "" || isHost {
+		if _, unnamed := f.topology.nodes[ep.Node].physical[""]; ep.Port != "" || unnamed {
 			scopes = append(scopes, endpointScope(ep))
 		}
 		if ref, ok := f.byEnd[ep]; ok {

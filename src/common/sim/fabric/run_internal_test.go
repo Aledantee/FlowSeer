@@ -10,7 +10,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -218,7 +217,6 @@ func TestInjectEmissionWithoutHeldFrameFallsBackToInjectionOrigin(t *testing.T) 
 
 	f := &Fabric{
 		journeys: make(map[FrameID]*Journey),
-		switches: make(map[string]*vswitch.Switch),
 	}
 	f.initRunState()
 

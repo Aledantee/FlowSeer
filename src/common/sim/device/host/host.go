@@ -154,3 +154,6 @@ func (h *Host) State(time.Time) device.State {
 	}
 	return state
 }
+
+// Spec returns an independent copy of the configured host.
+func (h *Host) Spec() Config { return h.cfg.Clone() }

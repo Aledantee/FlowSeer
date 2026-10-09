@@ -24,12 +24,10 @@ import (
 )
 
 var fabricDeepCopiedProbes = map[string]func(t *testing.T){
-	"cfg":            probeFabricCfg,
+	"topology":       probeFabricTopology,
 	"links":          probeFabricLinks,
 	"linkTrust":      probeFabricLinkTrust,
 	"uncabled":       probeFabricUncabled,
-	"switches":       probeFabricSwitches,
-	"devices":        probeFabricDevices,
 	"byEnd":          probeFabricByEnd,
 	"queue":          probeFabricQueue,
 	"wakes":          probeFabricWakes,
@@ -67,17 +65,19 @@ func probeFabricUnstatedBacked(t *testing.T) {
 	}
 }
 
-func probeFabricCfg(t *testing.T) {
+func probeFabricTopology(t *testing.T) {
+	probeFabricSwitches(t)
+	probeFabricDevices(t)
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
 
-	fab.cfg.Start = time.Unix(9999, 0)
-	if fork.cfg.Start.Unix() == 9999 {
+	fab.topology.start = time.Unix(9999, 0)
+	if fork.topology.start.Unix() == 9999 {
 		t.Errorf("fork cfg.Start changed when source mutated")
 	}
 
-	fork.cfg.Start = time.Unix(8888, 0)
-	if fab.cfg.Start.Unix() == 8888 {
+	fork.topology.start = time.Unix(8888, 0)
+	if fab.topology.start.Unix() == 8888 {
 		t.Errorf("source cfg.Start changed when fork mutated")
 	}
 }
@@ -135,18 +135,18 @@ func probeFabricSwitches(t *testing.T) {
 	fork := fab.Fork()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
-	if err := fab.switches["sw1"].Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fab.Switch("sw1").Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fab learn: %v", err)
 	}
-	if fork.switches["sw1"].Forget(10, mac) {
+	if fork.Switch("sw1").Forget(10, mac) {
 		t.Errorf("fork switch learned entry learned on source")
 	}
 
 	forkMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
-	if err := fork.switches["sw1"].Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fork.Switch("sw1").Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fork learn: %v", err)
 	}
-	if fab.switches["sw1"].Forget(10, forkMAC) {
+	if fab.Switch("sw1").Forget(10, forkMAC) {
 		t.Errorf("source switch learned entry learned on fork")
 	}
 }
@@ -154,13 +154,13 @@ func probeFabricSwitches(t *testing.T) {
 func probeFabricDevices(t *testing.T) {
 	h := newTestFabricForFork(t)
 	forkHost := h.Fork()
-	if h.devices["h1"] == forkHost.devices["h1"] {
+	if h.nodeDevice("h1") == forkHost.nodeDevice("h1") {
 		t.Error("host device aliased across fork")
 	}
-	if _, err := h.devices["h1"].LinkChange(h.clock, "", device.Link{State: port.Down}); err != nil {
+	if _, err := h.nodeDevice("h1").LinkChange(h.clock, "", device.Link{State: port.Down}); err != nil {
 		t.Fatal(err)
 	}
-	if source, forkState := h.devices["h1"].State(h.clock), forkHost.devices["h1"].State(h.clock); source.Ports[0].OperStatus != port.Down || forkState.Ports[0].OperStatus != port.Up {
+	if source, forkState := h.nodeDevice("h1").State(h.clock), forkHost.nodeDevice("h1").State(h.clock); source.Ports[0].OperStatus != port.Down || forkState.Ports[0].OperStatus != port.Up {
 		t.Errorf("host link states = %s/%s, want Down/Up", source.Ports[0].OperStatus, forkState.Ports[0].OperStatus)
 	}
 	initial := newTestFabricForFork(t).Config()
@@ -645,7 +645,7 @@ func TestSnapshotImmutability(t *testing.T) {
 		steps++
 
 		queueMoved := len(fab.queue) != initialFabricQueueLen
-		fdbMoved := len(fab.switches["sw1"].Entries()) > len(initialSw1Entries)
+		fdbMoved := len(fab.Switch("sw1").Entries()) > len(initialSw1Entries)
 		countersMoved := false
 		for _, c := range fab.counters {
 			if c.InBytes > 0 || c.OutBytes > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
@@ -675,7 +675,7 @@ func TestSnapshotImmutability(t *testing.T) {
 	if !hasCounterMoved {
 		t.Fatalf("fabric counters did not move")
 	}
-	if len(fab.switches["sw1"].Entries()) <= len(initialSw1Entries) {
+	if len(fab.Switch("sw1").Entries()) <= len(initialSw1Entries) {
 		t.Fatalf("fabric sw1 entries did not move")
 	}
 

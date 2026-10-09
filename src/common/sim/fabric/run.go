@@ -14,7 +14,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -196,7 +195,8 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 		hostRef      *linkEndRef
 	)
 
-	d, ok := f.devices[inj.Origin.Node]
+	d := f.nodeDevice(inj.Origin.Node)
+	ok := d != nil
 	if !ok {
 		return 0, errs.New().Attr("node", inj.Origin.Node).Msgf("origin node %q not found in fabric", inj.Origin.Node)
 	}
@@ -329,7 +329,7 @@ func (f *Fabric) Step() (Entry, bool) {
 
 	if arr.Kind == ArrivalWake {
 		delete(f.wakes, arr.Device)
-		sw := f.devices[arr.Device]
+		sw := f.nodeDevice(arr.Device)
 		if sw != nil {
 			out := sw.Advance(arr.At)
 			for _, em := range out.Emissions {
@@ -380,7 +380,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	f.entered[arr.FrameID][ep] = true
 
-	sw := f.devices[arr.Device]
+	sw := f.nodeDevice(arr.Device)
 	var inPorts []string
 	inPorts = append(inPorts, arr.Port)
 	if p, ok := sw.Ports().Port(arr.Port); ok && p.LagParent != "" {
@@ -645,9 +645,9 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 	}
 	raw, _ := frame.Encode()
 	octets := uint64(len(raw))
-	queueDevice := f.devices[txEnd.Node]
+	queueDevice := f.nodeDevice(txEnd.Node)
 	if queueDevice == nil {
-		queueDevice = (*vswitch.Switch)(nil)
+		queueDevice = f.topology.defaultQueue
 	}
 	decision := queueDevice.AdmitEgress(egressPort, pcp, q.depth[pcp], octets)
 	if !decision.Admitted {
@@ -773,7 +773,7 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 		}
 
 		end := f.transmitCable(now, txEnd, ref, item)
-		if d := f.devices[txEnd.Node]; d != nil {
+		if d := f.nodeDevice(txEnd.Node); d != nil {
 			rate := d.AdmitEgress(item.egressPort, item.pcp, 0, 0).MaxRateBPS
 			if rate != 0 {
 				q.rateClock[selected] = now.Add(serialization(item.frame, rate))
@@ -1077,7 +1077,8 @@ func (f *Fabric) recordNeighborFailure(now time.Time, device string, drop device
 }
 
 func (f *Fabric) scheduleWake(device string) {
-	sw, ok := f.devices[device]
+	sw := f.nodeDevice(device)
+	ok := sw != nil
 	if !ok {
 		return
 	}
@@ -1483,9 +1484,9 @@ func (f *Fabric) Snapshot() Snapshot {
 
 	links := f.Links()
 
-	devices := make(map[string]device.State, len(f.switches))
+	devices := make(map[string]device.State, len(f.switchNames()))
 	for _, name := range f.switchNames() {
-		state := f.switches[name].State(f.clock)
+		state := f.nodeDevice(name).State(f.clock)
 		state.Counters = make(map[string]device.PortCounters)
 		for portName, counters := range f.snapshotCounters(name) {
 			state.Counters[portName] = device.PortCounters(counters)

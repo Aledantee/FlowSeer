@@ -1,57 +1,11 @@
 package fabric
 
-import (
-	"go.aledante.io/FlowSeer/src/common/errs"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-)
-
-// Derive constructs a new [Fabric] from the target specification, seeding each switch
-// with dynamic forwarding database entries from its namesake in cur that the target
-// still admits. A caller deriving mid-run passes cur.Snapshot().Clock as Start in target so
-// cloned timers continue from the simulation clock; an unset Start takes cur's clock.
-// Switches in target without a namesake in cur are built fresh. The layers start only after
-// the cloned ones are in place, so no proposal from a switch that is thrown away reaches
-// the queue. Each switch hears every port's link report before its next wake
-// is scheduled.
-// A held frame failed by a routing rebuild is reported as a drop journey at
-// the derived fabric's initial clock, before any step runs.
+// Derive builds the target topology, retaining the layers each switch admits
+// from its namesake in cur. An unset Start takes cur's current clock. Every
+// built device hears its links before its output and next wake are scheduled.
 func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 	if cur != nil && target.Start.IsZero() {
 		target.Start = cur.clock
 	}
-	next, err := build(cur, target)
-	if err != nil {
-		return nil, err
-	}
-	if cur == nil {
-		if err := next.startLayers(next.switchNames()); err != nil {
-			return nil, err
-		}
-
-		return next, nil
-	}
-
-	for _, name := range next.switchNames() {
-		sw := next.switches[name]
-		curSw := cur.Switch(name)
-		if curSw == nil {
-			continue
-		}
-
-		derived, out, err := vswitch.Derive(curSw, sw.Spec(), next.clock)
-		if err != nil {
-			return nil, errs.Wrapf(err, "derive switch %q", name)
-		}
-		next.switches[name] = derived
-		next.devices[name] = derived
-		next.applyOutput(next.clock, name, out)
-		derivedCfg := derived.Config()
-		derivedCfg.Ports = next.cfg.Switches[name].Ports
-		next.cfg.Switches[name] = derivedCfg
-	}
-	if err := next.startLayers(next.switchNames()); err != nil {
-		return nil, err
-	}
-
-	return next, nil
+	return build(cur, target)
 }

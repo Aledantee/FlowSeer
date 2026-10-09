@@ -12,12 +12,8 @@ import (
 // forkAllocationBaseline is the measured heap allocation count of Fabric.Fork
 // at representative scale (8 nodes of 32 ports, 16 VLANs, 64 routes and 64 neighbors
 // per node, 64 hosts, 2048 learned forwarding entries, and 4096 queued arrivals).
-// Measured on 2026-09-23.
-const forkAllocationBaseline = 16829
-
-// forkAllocationFixedFloor is the measured heap allocation count of Fabric.Fork
-// at representative scale with zero queued arrivals. Measured on 2026-09-23.
-const forkAllocationFixedFloor = 4515
+// Measured on 2026-10-09, with two allocations of headroom.
+const forkAllocationBaseline = 15949
 
 func TestRepresentativeFabricEnvelope(t *testing.T) {
 	fab := simtest.RepresentativeFabric()
@@ -119,11 +115,15 @@ func TestRepresentativeFabricForkAllocs(t *testing.T) {
 	})
 
 	if allocs > forkAllocationBaseline {
-		t.Fatalf("Fabric.Fork allocated %.0f objects, want <= %d (baseline measured 2026-09-23)", allocs, forkAllocationBaseline)
+		t.Fatalf("Fabric.Fork allocated %.0f objects, want <= %d (baseline measured 2026-10-09)", allocs, forkAllocationBaseline)
 	}
 }
 
 func TestRepresentativeFabricForkAllocsQueueScaling(t *testing.T) {
+	fab0x := simtest.RepresentativeFabricAtQueueDepth(0)
+	allocs0x := testing.AllocsPerRun(5, func() {
+		_ = fab0x.Fork()
+	})
 	fab1x := simtest.RepresentativeFabric()
 	allocs1x := testing.AllocsPerRun(5, func() {
 		_ = fab1x.Fork()
@@ -136,7 +136,7 @@ func TestRepresentativeFabricForkAllocsQueueScaling(t *testing.T) {
 
 	// Incremental allocations scale linearly with queue depth (3x queue delta).
 	// Allow slight headroom for map bucket growth over the linear multiple.
-	incremental1x := allocs1x - float64(forkAllocationFixedFloor)
+	incremental1x := allocs1x - allocs0x
 	const linearMultiple = 3.05
 	maxAllowed := allocs1x + linearMultiple*incremental1x
 	if allocs4x > maxAllowed {

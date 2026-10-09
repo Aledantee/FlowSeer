@@ -11,7 +11,8 @@ import (
 // It returns an error and leaves the fabric untouched if node is not a switch
 // or if the configuration fails validation.
 func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
-	curSw, ok := f.switches[node]
+	curSw := f.Switch(node)
+	ok := curSw != nil
 	if !ok {
 		return errs.New().
 			Attr("node", node).
@@ -37,13 +38,13 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 	newLinks := make(map[int]resolvedLink)
 	var changedLinks []int
 
-	for i, c := range f.cfg.Cables {
+	for i, c := range f.topology.cables {
 		if c.A.Node != node && c.B.Node != node {
 			continue
 		}
-		nl, nt := resolveLink(c, normCfg)
+		nl, nt := resolveLink(c, configuredTopology(normCfg))
 		newLinks[i] = resolvedLink{link: nl, trust: nt}
-		if linkStateChanged(f.links[i], f.cfg, nl, normCfg) {
+		if linkStateChanged(f.links[i], f.topology, nl, configuredTopology(normCfg)) {
 			changedLinks = append(changedLinks, i)
 		}
 	}
@@ -70,52 +71,18 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 		return errs.Wrapf(err, "derive switch %q", node)
 	}
 
-	f.initRunState()
-	defer f.settleTouched()
-
+	nextLinks := f.Links()
+	nextTrust := cloneLinkTrustSlice(f.linkTrust)
 	for i, rl := range newLinks {
-		f.links[i] = rl.link
-		f.linkTrust[i] = rl.trust
+		nextLinks[i] = rl.link
+		nextTrust[i] = rl.trust
 	}
-
-	f.switches[node] = derived
-	f.devices[node] = derived
-	derivedCfg := derived.Config()
-	derivedCfg.Ports = normSpec.Switches[node].Config.Ports
-	f.cfg.Switches[node] = derivedCfg
-
-	memberOutput, err := notifyLAGMembers(derived, node, f.cfg, f.clock, f.byEnd)
-	if err != nil {
-		return err
-	}
-	f.applyOutput(f.clock, node, memberOutput)
-
-	for _, idx := range changedLinks {
-		if err := f.relinkAt(idx); err != nil {
-			return err
-		}
-	}
-
-	if err := f.startLayers([]string{node}); err != nil {
-		return err
-	}
-
-	for _, em := range out.Emissions {
-		f.injectEmission(f.clock, node, em)
-	}
-	for _, drop := range out.Drops {
-		f.recordNeighborFailure(f.clock, node, drop)
-	}
-
-	f.removeWake(node)
-	f.scheduleWake(node)
-
-	f.metadataCache = nil
-
-	return nil
+	n := configuredTopology(normCfg).nodes[node]
+	n.device, n.output = derived, out
+	return f.replace(node, n, nextLinks, nextTrust, changedLinks)
 }
 
-func linkStateChanged(old Link, oldCfg Config, next Link, nextCfg Config) bool {
+func linkStateChanged(old Link, oldCfg topology, next Link, nextCfg topology) bool {
 	if old.A.Oper != next.A.Oper || old.A.Reason != next.A.Reason || old.A.Speed != next.A.Speed {
 		return true
 	}

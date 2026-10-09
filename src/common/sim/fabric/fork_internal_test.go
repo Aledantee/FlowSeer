@@ -51,14 +51,12 @@ func (c forkClass) String() string {
 }
 
 var fabricFieldClasses = map[string]forkClass{
-	"cfg":             classDeepCopied,
+	"topology":        classDeepCopied,
 	"evidence":        classImmutableShared,
 	"runtimeEvidence": classImmutableShared,
 	"links":           classDeepCopied,
 	"linkTrust":       classDeepCopied,
 	"uncabled":        classDeepCopied,
-	"switches":        classDeepCopied,
-	"devices":         classDeepCopied,
 	"byEnd":           classDeepCopied,
 	"clock":           classImmutableShared,
 	"stepped":         classImmutableShared,

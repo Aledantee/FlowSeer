@@ -43,7 +43,7 @@ func (f *Fabric) AttachStream(att StreamAttachment) error {
 	if att.Retention > RetainAggregate {
 		return errs.New().Attr("retention", att.Retention).Msgf("unknown retention %d", att.Retention)
 	}
-	if _, isHost := f.cfg.Hosts[att.Origin.Node]; isHost {
+	if _, unnamed := f.topology.nodes[att.Origin.Node].physical[""]; unnamed {
 		if att.Origin.Port != "" {
 			return errs.New().Attr("node", att.Origin.Node).Attr("port", att.Origin.Port).
 				Msgf("host origin %q must have empty port", att.Origin.Node)
@@ -51,12 +51,12 @@ func (f *Fabric) AttachStream(att StreamAttachment) error {
 		if _, ok := f.linkEnd(att.Origin.Node, ""); !ok {
 			return errs.New().Attr("host", att.Origin.Node).Msgf("host %q has no connected cable", att.Origin.Node)
 		}
-	} else if sw, isSwitch := f.cfg.Switches[att.Origin.Node]; isSwitch {
-		if _, ok := sw.Ports.Port(att.Origin.Port); !ok {
+	} else if n, isNode := f.topology.nodes[att.Origin.Node]; isNode && n.snapshot {
+		if _, ok := n.ports.Port(att.Origin.Port); !ok {
 			return errs.New().Attr("node", att.Origin.Node).Attr("port", att.Origin.Port).
 				Msgf("port %q not found on switch %q", att.Origin.Port, att.Origin.Node)
 		}
-	} else if _, isReflector := f.cfg.Reflectors[att.Origin.Node]; isReflector {
+	} else if _, exists := f.topology.nodes[att.Origin.Node]; exists {
 		return errs.New().Attr("node", att.Origin.Node).
 			Msgf("reflector %q cannot originate an injection: it has no host or switch port to inject at", att.Origin.Node)
 	} else {
@@ -64,7 +64,7 @@ func (f *Fabric) AttachStream(att StreamAttachment) error {
 			Msgf("origin node %q not found in fabric", att.Origin.Node)
 	}
 
-	start := f.cfg.Start.Add(att.Start)
+	start := f.topology.start.Add(att.Start)
 	if f.runStarted() && start.Before(f.clock) {
 		return errs.New().Attr("at", start).Attr("clock", f.clock).
 			Msg("stream start precedes fabric clock")
@@ -96,7 +96,7 @@ func (f *Fabric) pullInputs() {
 			source.ended = true
 			continue
 		}
-		source.at = f.cfg.Start.Add(source.attachment.Start).Add(offset)
+		source.at = f.topology.start.Add(source.attachment.Start).Add(offset)
 		source.frame = frame
 		source.peeked = true
 	}
@@ -135,7 +135,7 @@ func (f *Fabric) pullInputs() {
 		}
 
 		source := &f.attachments[selected]
-		if _, isHost := f.cfg.Hosts[source.attachment.Origin.Node]; isHost {
+		if _, unnamed := f.topology.nodes[source.attachment.Origin.Node].physical[""]; unnamed {
 			ref, _ := f.linkEnd(source.attachment.Origin.Node, "")
 			if ref.end.Oper == port.Down {
 				source.ended = true
@@ -158,7 +158,7 @@ func (f *Fabric) pullInputs() {
 			source.ended = true
 			continue
 		}
-		source.at = f.cfg.Start.Add(source.attachment.Start).Add(offset)
+		source.at = f.topology.start.Add(source.attachment.Start).Add(offset)
 		source.frame = frame
 		source.peeked = true
 	}
