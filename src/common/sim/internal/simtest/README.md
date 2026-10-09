@@ -151,9 +151,9 @@ established across the library:
   disproving the false answer that an unresolved next hop is a definite drop.
   The case checks the emitted ARP request separately from the data frame
   released after an ARP reply, proving the hold is releasable
-  rather than a disguised, permanent drop. The observing `Forward` already
-  releases the frame, so the case's own `Wake` call is a no-op kept to make
-  a future move of the release onto `Wake` visible here.
+  rather than a disguised, permanent drop. The observing `Receive` already
+  releases the frame, so the case's own `Advance` call is a no-op kept to make
+  a future move of the release onto `Advance` visible here.
 - `troubleshooting/recursive-route-not-installed`: A `/24` static route names a
   next hop no other route reaches. The device still constructs, the `/24` is
   withdrawn instead of installed, and the packet takes the less specific `/8`

@@ -125,7 +125,8 @@ type Layer struct {
 // Configured router ports are not copied, and this layer's static ports prevail.
 // The target configuration governs subsequent learning. Restore returns the
 // number of source group and router records absent from the target afterwards.
-// A nil target loses every record. A nil source loses none.
+// A record whose deadline has passed but that the source has not yet aged out
+// counts like any other. A nil target loses every record. A nil source loses none.
 func (l *Layer) Restore(prev *Layer, keep func(vlan.ID, string) bool) int {
 	if prev == nil {
 		return 0

@@ -220,7 +220,7 @@ Tests are grouped by subject in `config_test.go`,
 `layer_test.go`, `diff_test.go`, and `group_resolver_test.go`.
 Shared fixtures and doubles live in [helpers_test.go](helpers_test.go).
 `fork_internal_test.go`, `diff_coverage_test.go`, `dependency_test.go`,
-and `ingress_admission_test.go` check cross-cutting contracts.
+`ingress_admission_test.go`, and `ingress_learn_test.go` check cross-cutting contracts.
 `export_test.go` supplies forwarding helpers only to tests.
 
 ## Limits

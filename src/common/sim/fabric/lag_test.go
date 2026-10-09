@@ -932,3 +932,43 @@ func TestMemberlessLagIsDown(t *testing.T) {
 		}
 	}
 }
+
+// Configure reports every LAG member's link state to the rebuilt switch, and
+// the LACPDUs those reports emit enter the fabric at the configuration instant.
+func TestConfigureInjectsTheLACPDUsOfMemberReports(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 10, 0, 0, 0, time.UTC)
+	lagCfg := func(minLinks int) *lag.Config {
+		return &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Mode: lag.ActiveBackup, MinLinks: minLinks, LACP: lag.LACPConfig{Mode: lag.Active, Fast: true}},
+		}}
+	}
+	fab, _, _ := newLagTopology(t, t0, lagCfg(1), lagCfg(1))
+
+	target := t0.Add(5 * time.Second)
+	for !targetSettled(fab.Snapshot(), target) {
+		if _, ok := fab.Step(); !ok {
+			break
+		}
+	}
+
+	lacpdusFrom := func(node string) int {
+		n := 0
+		for _, j := range fab.Report() {
+			if j.Protocol && j.Origin.Kind == fabric.OriginInjection && j.Injection.Origin.Node == node {
+				n++
+			}
+		}
+		return n
+	}
+	before := lacpdusFrom("A")
+
+	cfg := fab.Switch("A").Config()
+	cfg.LAG = lagCfg(2)
+	if err := fab.Configure("A", cfg); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+
+	if after := lacpdusFrom("A"); after <= before {
+		t.Errorf("LACPDU journeys from A = %d after Configure, want more than the %d before", after, before)
+	}
+}

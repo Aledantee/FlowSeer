@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -1017,11 +1018,11 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	}
 }
 
-// TestFabricRecordsNeighborFailureOnHeldFrameTimeout is evidence that the
-// fabric drains [vswitch.Switch.DrainNeighborFailures] alongside
-// [vswitch.Switch.Drain]: a held frame whose neighbor never resolves must
-// leave a drop entry and a discard counter behind, not vanish after a held
-// journey entry with nothing following it.
+// TestFabricRecordsNeighborFailureOnHeldFrameTimeout checks that the fabric
+// records the [vswitch.Output] drops of a call alongside its emissions: a held
+// frame whose neighbor never resolves must leave a drop entry and a discard
+// counter behind, not vanish after a held journey entry with nothing
+// following it.
 func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -1877,5 +1878,119 @@ func TestFabricDeriveOrdersHeldFrameDropsBySwitchName(t *testing.T) {
 	}
 	if different != 0 {
 		t.Errorf("reports differ from first derive in %d of %d derives, want 0", different, runs)
+	}
+}
+
+// A frame released onto a routed LAG leaves by the member the switch selected
+// for it. The fabric's own selection would hash the frame's sub-interface tag
+// into the choice and could pick the other member.
+func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
+	b := port.NewBuilder()
+	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
+	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up, LagParent: "lag1"})
+	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
+	ports, err := b.Build()
+	if err != nil {
+		t.Fatalf("build switch ports: %v", err)
+	}
+
+	vid10 := vlan.ID(10)
+	swMAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
+	macH3 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x78}
+	addrH2 := netip.MustParseAddr("10.0.10.7")
+
+	cfg := fabric.Config{
+		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   swMAC,
+				Ports: ports,
+				LAG:   &lag.Config{LAGs: map[string]lag.LAG{"lag1": {Mode: lag.BalanceSLB}}},
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"lag1.10": {Port: "lag1", VLAN: 10, MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.10.1/24")}},
+								"1/1/3":   {Port: "1/1/3", MAC: swMAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.30.1/24")}},
+							},
+						},
+					},
+				},
+			},
+		},
+		Hosts: map[string]fabric.Host{
+			"h1": {
+				Address: macH1,
+				IP: &fabric.HostIP{
+					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.7/24")},
+					Gateway:   netip.MustParseAddr("10.0.30.1"),
+					Neighbors: map[netip.Addr]netaddr.MAC{netip.MustParseAddr("10.0.30.1"): swMAC},
+				},
+			},
+			"h2": {Address: macH2, VLAN: &vid10},
+			"h3": {Address: macH3, VLAN: &vid10},
+		},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h3"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	heldID, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start,
+		Origin: fabric.Endpoint{Node: "h1"},
+		Packet: &fabric.Packet{To: addrH2, Protocol: 17, Payload: []byte("ping")},
+	})
+	if err != nil {
+		t.Fatalf("Inject packet: %v", err)
+	}
+	replyFrame, err := arp.Encode(arp.Message{
+		HardwareType: 1, ProtocolType: 0x0800, Operation: arp.Reply,
+		SenderMAC: macH2, SenderAddr: addrH2,
+		TargetMAC: swMAC, TargetAddr: netip.MustParseAddr("10.0.10.1"),
+	}, swMAC)
+	if err != nil {
+		t.Fatalf("encode ARP reply: %v", err)
+	}
+	if _, err := fab.Inject(fabric.Injection{
+		At:     cfg.Start.Add(time.Second),
+		Origin: fabric.Endpoint{Node: "h2"},
+		Frame:  replyFrame,
+	}); err != nil {
+		t.Fatalf("Inject ARP reply: %v", err)
+	}
+	fab.Run(40)
+
+	var released *fabric.Journey
+	for _, j := range fab.Report() {
+		if j.Origin.Kind == fabric.OriginRelease && j.Origin.Of == heldID {
+			released = &j
+			break
+		}
+	}
+	if released == nil {
+		t.Fatalf("no release of frame %d among %+v", heldID, fab.Report())
+	}
+	// The switch selects member 1/1/1, the cable to h2, when it releases the
+	// frame. Selecting again at the fabric with the sub-interface's VID 10
+	// hashes to another bucket and takes 1/1/2, the cable to h3.
+	if len(released.Deliveries) != 1 || released.Deliveries[0].Host != "h2" {
+		t.Errorf("released frame deliveries = %+v, want one to h2 through member 1/1/1", released.Deliveries)
+	}
+	counters := fab.Snapshot().Devices["sw1"].Counters
+	if got := counters["1/1/1"].OutUnicast; got != 1 {
+		t.Errorf("sw1 1/1/1 OutUnicast = %d, want the released frame", got)
+	}
+	if got := counters["1/1/2"].OutUnicast; got != 0 {
+		t.Errorf("sw1 1/1/2 OutUnicast = %d, want 0", got)
 	}
 }

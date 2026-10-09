@@ -60,6 +60,15 @@ func TestReceivesNeighborDestinationAndNextHeader(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	udp := nd
+	hdr.Protocol = 17
+	udp.Payload, err = hdr.Encode(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if udp.Payload[ip.V6HeaderLen] != byte(ndp.NeighborSolicitation) {
+		t.Fatalf("UDP fixture first transport octet = %d, want %d", udp.Payload[ip.V6HeaderLen], ndp.NeighborSolicitation)
+	}
 	cases := []struct {
 		name, iface string
 		frame       ethernet.Frame
@@ -71,6 +80,7 @@ func TestReceivesNeighborDestinationAndNextHeader(t *testing.T) {
 		{"unknown interface", "absent", nd, false},
 		{"NDP own", "vlan10", nd, true},
 		{"hop by hop before NDP", "vlan10", hop, false},
+		{"UDP with a solicitation-shaped first octet", "vlan10", udp, false},
 		{"non neighbor", "vlan10", ethernet.Frame{Dst: local, EtherType: ethernet.EtherTypeIPv4}, false},
 	}
 	concrete := 0
@@ -79,17 +89,17 @@ func TestReceivesNeighborDestinationAndNextHeader(t *testing.T) {
 			if got := l.Receives(tc.iface, tc.frame); got != tc.want {
 				t.Fatalf("Receives = %v, want %v", got, tc.want)
 			}
-			if tc.name == "hop by hop before NDP" {
+			if !tc.want && tc.frame.EtherType == ethernet.EtherTypeIPv6 && tc.iface == "vlan10" {
 				before := l.Neighbors()
 				if fx := receiveChecked(t, l, testNow, tc.iface, tc.frame); len(fx.Emissions) != 0 || !reflect.DeepEqual(l.Neighbors(), before) {
-					t.Fatalf("hop-by-hop received: %+v", fx)
+					t.Fatalf("refused frame received: %+v", fx)
 				}
 			}
 			concrete++
 		})
 	}
-	if concrete != 7 {
-		t.Fatalf("concrete cases = %d, want 7", concrete)
+	if concrete != 8 {
+		t.Fatalf("concrete cases = %d, want 8", concrete)
 	}
 }
 
