@@ -9,10 +9,10 @@
     "units": 9,
     "from": "2026-10-09T09:16:37Z",
     "to": "2026-10-09T13:23:00Z",
-    "note": "Built-node topology is blocked by the unchanged fork allocation-scaling calibration. The prepared refactor reduces fixed allocations by 880 but the fabric suite fails its bound. Remaining units have not run."
+    "note": "Built-node topology remains blocked by the required actual Derive and Configure link-error proof. Derive rebuilds concrete devices. Configure refuses the failing wrapper as not a switch. Prepared topology, allocation recalibration, and test-package moves are on parked/sim10-topology-resume at f54f377e. Remaining units have not run."
   },
   "superseded_by": null,
-  "branch": null,
+  "branch": "parked/sim10-topology-resume",
   "parent": "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-plan.md",
   "after": [
     "docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase8-plan.md",
