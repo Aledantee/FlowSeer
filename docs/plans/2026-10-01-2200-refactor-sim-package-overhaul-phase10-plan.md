@@ -761,9 +761,14 @@ and read unexported state through `Fb/export_test.go`:
 `result_test.go`, and `scenario_test.go`. No exported name and no
 behaviour changes.
 Tests: `TestLinkChangeErrorReachesNew` hands a built test device whose
-`LinkChange` returns an error to the fabric, and asserts construction returns
-that error and no fabric, with the same check for `Derive` and `Configure`
-wherever those paths live after U10 and U11.
+`LinkChange` returns an error to build-and-start, replacement at the clock,
+and an operation callback that calls `LinkChange`, and checks that each
+returns the error, construction returns no fabric, and a failed replacement
+keeps the old node through `Snapshot().Devices`.
+`Derive` and `Configure` build concrete devices from validated configurations,
+so their propagation, together with `New` and `NewWithSpec`, is checked by
+reading each call into these entries and its returned error, recorded with
+file and line in the commit body.
 `TestRunHalfImportsNoDeviceKind` in `Fb` parses the imports of
 every non-test file but the five of the construction half and
 `scenario.go`, and fails on a path under `sim/layer` or `sim/device/`. `TestSpecRoundTrip`: for a
@@ -1057,22 +1062,3 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
-- The built-node topology remains blocked by the actual-path link-error
-  proof in U10. Prepared work is kept on `parked/sim10-topology-resume`
-  at `f54f377e`, without counting as passed or integrating it.
-  Its `src/common/sim/fabric/assemble.go:400-422` builds concrete devices
-  from configurations before calling the built-device runtime entry.
-  `Derive` replaces a failing test-device wrapper with a concrete switch
-  and returns success. `Configure` refuses the wrapper with
-  `node "n" is not a switch` at `configure.go:13-19`. A test calling
-  the runtime entries alone cannot detect either caller discarding an
-  error. U11 moves those construction contracts unchanged, so moving
-  the proof there does not make the required failing device admissible.
-- The parked work removes the allocation-calibration blocker. Its scaling
-  gate measures the zero-queue floor and keeps the depths and 3.05
-  multiplier. Fork allocations at depths 0, 4,096, and 16,384 are
-  3,622, 15,947, and 52,907, compared with 4,502, 16,827, and 53,787
-  before the topology change. The baseline tightens to 15,949. The
-  paired measurements and failing nonlinear-growth and three-fixed-allocation
-  mutations are recorded in `e2a038e5`. This calibration and the completed
-  test-package moves remain parked with the topology.

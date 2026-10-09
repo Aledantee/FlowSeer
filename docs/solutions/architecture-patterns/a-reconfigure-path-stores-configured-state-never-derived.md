@@ -39,6 +39,9 @@ The configured table now belongs to `builtNode.ports` in
 `rebuiltPorts` to `vswitch.Derive`, then replaces the node with the configured
 port table from `configuredTopology(normCfg)`. The derived device and its
 output travel beside that table.
+[`topology.go`](../../../src/common/sim/fabric/topology.go) restores the old
+node when its replacement's link reports fail. `TestLinkChangeErrorReachesNew`
+checks the retained node through `Snapshot().Devices`.
 
 [`assemble.go`](../../../src/common/sim/fabric/assemble.go) follows the same
 rule during construction and derivation. `Spec()` reads each device's own

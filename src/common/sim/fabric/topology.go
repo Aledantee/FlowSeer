@@ -103,12 +103,15 @@ func (f *Fabric) replace(name string, node builtNode, links []Link, trust []link
 		f.byEnd[l.A.Endpoint] = linkEndRef{link: l, end: &l.A, peer: &l.B}
 		f.byEnd[l.B.Endpoint] = linkEndRef{link: l, end: &l.B, peer: &l.A}
 	}
+	previous := f.topology.nodes[name]
 	f.topology.nodes[name] = node
 	if err := f.startLayers([]string{name}); err != nil {
+		f.topology.nodes[name] = previous
 		return err
 	}
 	for _, idx := range changed {
 		if err := f.relinkAt(idx); err != nil {
+			f.topology.nodes[name] = previous
 			return err
 		}
 	}
