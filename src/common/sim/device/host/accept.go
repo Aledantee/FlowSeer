@@ -120,7 +120,7 @@ func (h *Host) accept(frame ethernet.Frame) device.Result {
 			Subject: trace.Subject{Kind: "host", Key: name},
 			Inputs:  inputs,
 		}
-		res := device.Result{Trace: trace.Trace{Outcome: outcome, Reason: reason, Steps: []trace.Step{step}}}
+		res := device.Result{Acceptance: device.DeliveryAcceptance, Trace: trace.Trace{Outcome: outcome, Reason: reason, Steps: []trace.Step{step}}}
 		if reason == ReasonIPHeaderUndecodable {
 			scope := analysis.NodeScope(name)
 			res.Metadata = analysis.NewMetadata(scope, []analysis.Issue{{Code: analysis.IssueCode(reason), Status: analysis.Incomplete, Scope: scope, Message: "host IP header does not decode"}}, analysis.EvidenceCatalog{}, nil)

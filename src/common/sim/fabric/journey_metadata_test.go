@@ -1,11 +1,12 @@
 package fabric_test
 
 import (
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"reflect"
 	"slices"
 	"testing"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -219,12 +220,12 @@ func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
 
 	var copyJourney fabric.Journey
 	for _, j := range fab.Report() {
-		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
+		if j.Origin.Kind == fabric.OriginReflection && j.Origin.Of == parentID {
 			copyJourney = j
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found with OriginMirror of parent %d", parentID)
+		t.Fatalf("no copy journey found with OriginReflection of parent %d", parentID)
 	}
 	if len(copyJourney.Deliveries) != 0 {
 		t.Fatalf("copy deliveries = %+v, want none: the egress link to h2 is Unknown", copyJourney.Deliveries)

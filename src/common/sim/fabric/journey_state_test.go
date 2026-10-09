@@ -33,7 +33,7 @@ func (o JourneyOrigin) validate() error {
 		if o.Of == 0 {
 			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
 		}
-	case OriginRelease:
+	case OriginReflection, OriginRelease:
 		if o.Of == 0 {
 			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
 		}
@@ -53,14 +53,16 @@ type originClassificationRule struct {
 }
 
 var originClassificationTable = map[JourneyOriginKind]originClassificationRule{
-	OriginInjection: {requireOf: false, forbidMirror: true},
-	OriginMirror:    {requireOf: true, forbidMirror: false},
-	OriginRelease:   {requireOf: true, forbidMirror: true},
+	OriginInjection:  {requireOf: false, forbidMirror: true},
+	OriginMirror:     {requireOf: true, forbidMirror: false},
+	OriginReflection: {requireOf: true, forbidMirror: true},
+	OriginRelease:    {requireOf: true, forbidMirror: true},
 }
 
 var allDeclaredOriginKinds = []JourneyOriginKind{
 	OriginInjection,
 	OriginMirror,
+	OriginReflection,
 	OriginRelease,
 }
 

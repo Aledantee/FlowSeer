@@ -1,13 +1,14 @@
 package fabric_test
 
 import (
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"maps"
 	"math"
 	"net/netip"
 	"slices"
 	"testing"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 

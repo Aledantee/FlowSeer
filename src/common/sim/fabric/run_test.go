@@ -1,12 +1,13 @@
 package fabric_test
 
 import (
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"slices"
 	"strings"
 	"testing"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -205,6 +206,9 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	last := j.Entries[len(j.Entries)-1]
 	if last.Kind != fabric.EntryDrop || last.Reason != cablemodel.ReasonBadFrame || last.Device != "h2" {
 		t.Errorf("last entry = %+v, want a bad-frame drop at h2", last)
+	}
+	if last.Cable == nil || last.Cable.A != (fabric.Endpoint{Node: "h2"}) || last.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
+		t.Fatalf("host corrupt-entry cable = %+v, want sw1:1/1/2 to h2", last.Cable)
 	}
 }
 
@@ -2597,20 +2601,20 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 	}
 
 	if !slices.ContainsFunc(parent.Entries, func(e fabric.Entry) bool {
-		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == fabric.ReasonReflectorNoAddress
+		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == reflectormodel.ReasonReflectorNoAddress
 	}) {
 		t.Errorf("parent entries = %+v, want a no-address drop naming rp3", parent.Entries)
 	}
 
 	var copyJourney fabric.Journey
 	for _, j := range journeys {
-		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
+		if j.Origin.Kind == fabric.OriginReflection && j.Origin.Of == parentID {
 			copyJourney = j
 			break
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found with OriginMirror of parent %d among: %+v", parentID, journeys)
+		t.Fatalf("no copy journey found with OriginReflection of parent %d among: %+v", parentID, journeys)
 	}
 
 	ipHeader, ipPayload, err := ip.Decode(copyJourney.Injection.Frame.Payload)

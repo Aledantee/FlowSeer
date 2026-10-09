@@ -678,6 +678,10 @@ packet to `ff02::fb` is rejected with `reflector-ip-not-group`.
 trip, written first: a fabric built with a reflector
 returns it from `Spec()`. Expected to change: every assertion of
 `OriginMirror` on a reflected copy under `Fb`, found by grep.
+`TestReflectorSpecRoundTrip` also reconstructs the returned specification.
+The acceptance suite pins the undecodable-header messages and journey scopes.
+`TestCorruptingCableToAHostDropsTheCopy` keeps the cable reference on the host's
+drop, and the reflector corrupt-arrival test keeps its cable reference absent.
 
 ### U9. A scenario names no topology, and a replay is a checkpoint
 Files: src/common/sim/fabric/run.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/result.go, src/common/sim/fabric/scenario.go, src/common/sim/fabric/align.go, src/common/sim/fabric/replay_test.go, src/common/sim/fabric/scenario_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/record_test.go, src/common/sim/fabric/seed_defaults_test.go, src/common/sim/fabric/README.md, src/common/sim/search, src/common/sim/internal/simtest/scenario_cases.go, docs/architecture/2026-09-10-virtual-device-direction.md

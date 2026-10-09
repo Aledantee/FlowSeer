@@ -2,13 +2,14 @@ package fabric
 
 import (
 	"cmp"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"math"
 	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 

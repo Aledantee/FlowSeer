@@ -3,13 +3,14 @@ package fabric
 import (
 	"bytes"
 	"cmp"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"math"
 	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -37,9 +38,6 @@ const (
 	// [Config.Uncabled] does not list it, so nothing says what, if anything, is attached.
 	ReasonAdjacencyUnresolved trace.Reason = "adjacency-unresolved"
 )
-
-// ReflectorLayer is the trace layer of a reflector's acceptance decisions.
-const ReflectorLayer trace.Layer = "reflector"
 
 const (
 	// IssueOperStatusConflict marks a switch port whose configured operational status, Up or Down,
@@ -557,18 +555,7 @@ func (c Config) Validate() error {
 		if err := checkMAC(name, refl.Address); err != nil {
 			return err
 		}
-		portNames := make([]string, 0, len(refl.Ports))
-		for portName := range refl.Ports {
-			portNames = append(portNames, portName)
-		}
-		slices.Sort(portNames)
-		for _, portName := range portNames {
-			field := "reflectors." + name + ".ports." + portName
-			if err := cablemodel.ValidateEthernet(field, refl.Ports[portName]); err != nil {
-				return errs.Wrapf(err, "reflector %q port %q", name, portName)
-			}
-		}
-		if err := refl.ValidateAttachments("reflectors." + name); err != nil {
+		if err := refl.Validate("reflectors." + name); err != nil {
 			return err
 		}
 	}

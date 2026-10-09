@@ -4,11 +4,12 @@ package fabric
 import (
 	"cmp"
 	"fmt"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"maps"
 	"slices"
 	"strconv"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -289,8 +290,8 @@ func (f *Fabric) Spec() ConstructionSpec {
 	for name, host := range f.cfg.Hosts {
 		spec.Hosts[name] = host.Clone()
 	}
-	for name, refl := range f.cfg.Reflectors {
-		spec.Reflectors[name] = refl.Clone()
+	for name := range f.cfg.Reflectors {
+		spec.Reflectors[name] = f.devices[name].(*reflectormodel.Reflector).Spec()
 	}
 	for i, cable := range f.cfg.Cables {
 		spec.Cables[i] = cable.Clone()
@@ -523,6 +524,20 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 			return nil, err
 		}
 		devices[name] = h
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(cloned.Reflectors)) {
+		refl, err := reflectormodel.New(name, cloned.Reflectors[name])
+		if err != nil {
+			return nil, err
+		}
+		for _, p := range refl.Ports().Ports() {
+			ref := byEnd[Endpoint{Node: name, Port: p.Name}]
+			if _, err := refl.LinkChange(cloned.Start, p.Name, device.Link{State: ref.end.Oper}); err != nil {
+				return nil, err
+			}
+		}
+		devices[name] = refl
 	}
 
 	fab := &Fabric{

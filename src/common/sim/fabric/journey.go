@@ -134,8 +134,11 @@ const (
 	// OriginInjection indicates a frame introduced directly by a caller or switch protocol emission.
 	OriginInjection JourneyOriginKind = "Injection"
 
-	// OriginMirror indicates a frame produced as a port mirror or reflector copy of another frame.
+	// OriginMirror indicates a frame produced as a port mirror copy of another frame.
 	OriginMirror JourneyOriginKind = "Mirror"
+
+	// OriginReflection indicates a rebuilt datagram copied from an accepted frame.
+	OriginReflection JourneyOriginKind = "Reflection"
 
 	// OriginRelease indicates a frame released from a neighbor hold queue after address resolution.
 	OriginRelease JourneyOriginKind = "Release"

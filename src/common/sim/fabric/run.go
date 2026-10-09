@@ -3,8 +3,6 @@ package fabric
 import (
 	"bytes"
 	"fmt"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
-	"maps"
 	"math"
 	"math/bits"
 	"net/netip"
@@ -13,8 +11,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
-	"go.aledante.io/FlowSeer/src/common/net/ip"
-	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
@@ -202,9 +198,6 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 
 	d, ok := f.devices[inj.Origin.Node]
 	if !ok {
-		if _, reflector := f.cfg.Reflectors[inj.Origin.Node]; reflector {
-			return 0, errs.New().Attr("node", inj.Origin.Node).Msgf("reflector %q cannot originate an injection: it has no host or switch port to inject at", inj.Origin.Node)
-		}
 		return 0, errs.New().Attr("node", inj.Origin.Node).Msgf("origin node %q not found in fabric", inj.Origin.Node)
 	}
 	var packet *device.Packet
@@ -387,46 +380,6 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	f.entered[arr.FrameID][ep] = true
 
-	if arr.Port == "" {
-		if arr.Corrupt {
-			drop := Entry{At: arr.At, Kind: EntryDrop, Device: arr.Device, Cable: f.portCable(arr.Device, ""), Reason: cablemodel.ReasonBadFrame}
-			f.record(journey, drop)
-			return drop, true
-		}
-		out := f.devices[arr.Device].Receive(arr.At, "", arr.Frame)
-		entry := f.arriveHost(journey, arr.Device, arr.Frame, arr.At, out.Result)
-		f.applyOutput(arr.At, arr.Device, out)
-		return entry, true
-	}
-
-	// A reflector arrival is decided here rather than through the switch
-	// lookup below, which is unguarded and would nil-dereference on a
-	// reflector's arrival: f.switches holds no entry for it. Corruption is
-	// checked first, as the host far-end branch checks it before ever calling
-	// arrive, so a corrupt arrival never reaches a clause that could accept
-	// it.
-	if refl, isReflector := f.cfg.Reflectors[arr.Device]; isReflector {
-		if arr.Corrupt {
-			dropEntry := Entry{
-				At:     arr.At,
-				Kind:   EntryDrop,
-				Device: arr.Device,
-				Port:   arr.Port,
-				Reason: cablemodel.ReasonBadFrame,
-			}
-			f.record(journey, dropEntry)
-
-			return dropEntry, true
-		}
-
-		entry := f.arriveReflector(journey, arr.Device, refl, arr.Port, arr.Frame, arr.At)
-		if entry.Kind == EntryReflection {
-			f.reflectFrame(journey, arr.Device, refl, arr.Port, arr.Frame, arr.At)
-		}
-
-		return entry, true
-	}
-
 	sw := f.devices[arr.Device]
 	var inPorts []string
 	inPorts = append(inPorts, arr.Port)
@@ -444,12 +397,17 @@ func (f *Fabric) Step() (Entry, bool) {
 			f.countCorruptIngress(arr.Device, p, inOctets)
 		}
 
+		var cable *Cable
+		if arr.Port == "" {
+			cable = f.portCable(arr.Device, arr.Port)
+		}
 		dropEntry := Entry{
 			At:     arr.At,
 			Kind:   EntryDrop,
 			Device: arr.Device,
 			Port:   arr.Port,
 			Reason: cablemodel.ReasonBadFrame,
+			Cable:  cable,
 		}
 		f.record(journey, dropEntry)
 
@@ -462,7 +420,7 @@ func (f *Fabric) Step() (Entry, bool) {
 	}
 	// A SPAN mirror copy carries a non-empty Origin.Mirror and has already
 	// passed the original ingress policy, so a downstream switch must not charge
-	// its bytes again. A reflection carries OriginMirror for provenance but no
+	// its bytes again. A reflection carries OriginReflection for provenance but no
 	// mirror name; it is a first-class datagram the policer must still see.
 	var out device.Output
 	if journey.Origin.Mirror == "" {
@@ -471,11 +429,23 @@ func (f *Fabric) Step() (Entry, bool) {
 		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
 	}
 	res := out.Result
+	var acceptanceEntry *Entry
+	if res.Acceptance != device.NoAcceptance {
+		e := f.recordAcceptance(journey, arr.Device, arr.Port, arr.Frame, arr.At, res)
+		acceptanceEntry = &e
+	}
+	if out.Err != nil {
+		f.recordFault(out.Err)
+	}
 	for _, em := range out.Emissions {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
 	for _, drop := range out.Drops {
-		f.recordNeighborFailure(arr.At, arr.Device, drop)
+		if drop.Hold == 0 && acceptanceEntry != nil {
+			f.record(journey, Entry{At: arr.At, Kind: EntryDrop, Device: arr.Device, Port: drop.Port, Reason: drop.Reason})
+		} else {
+			f.recordNeighborFailure(arr.At, arr.Device, drop)
+		}
 	}
 	f.scheduleWake(arr.Device)
 	if out.Policed {
@@ -497,9 +467,11 @@ func (f *Fabric) Step() (Entry, bool) {
 		Port:   arr.Port,
 		Result: cloneResult(res),
 	}
-	f.record(journey, hopEntry)
+	if acceptanceEntry == nil {
+		f.record(journey, hopEntry)
+	}
 
-	if res.Outcome == trace.Dropped {
+	if res.Outcome == trace.Dropped && acceptanceEntry == nil {
 		for _, p := range inPorts {
 			f.countWholeFrameDrop(arr.Device, p, res.Reason)
 		}
@@ -552,10 +524,14 @@ func (f *Fabric) Step() (Entry, bool) {
 			Retention: journey.Injection.Retention,
 			Flow:      journey.Injection.Flow,
 		}
+		kind := OriginMirror
+		if res.Acceptance == device.ReflectionAcceptance {
+			kind = OriginReflection
+		}
 		copyJourney := &Journey{
 			FrameID: fid,
 			Origin: JourneyOrigin{
-				Kind:   OriginMirror,
+				Kind:   kind,
 				Of:     arr.FrameID,
 				Mirror: copy.Mirror,
 			},
@@ -563,6 +539,9 @@ func (f *Fabric) Step() (Entry, bool) {
 		}
 		f.journeys[fid] = copyJourney
 		f.touch(fid)
+		if kind == OriginReflection {
+			f.entered[fid] = cloneEntered(f.entered[arr.FrameID])
+		}
 		f.record(copyJourney, Entry{
 			At:     arr.At,
 			Kind:   EntryInjection,
@@ -570,218 +549,29 @@ func (f *Fabric) Step() (Entry, bool) {
 			Port:   copy.Port,
 			Cable:  f.portCable(arr.Device, copy.Port),
 		})
+		if kind == OriginReflection {
+			ref, ok := f.linkEnd(arr.Device, copy.Port)
+			if !ok {
+				continue
+			}
+			if ref.end.Oper != port.Up {
+				entryKind := EntryDrop
+				if ref.end.Oper == port.Unknown {
+					entryKind = EntryUnresolved
+				}
+				cable := ref.link.Cable.Clone()
+				f.record(copyJourney, Entry{At: arr.At, Kind: entryKind, Device: arr.Device, Cable: &cable, Reason: ref.end.Reason})
+				continue
+			}
+		}
 		pcp, _ := copy.Frame.Priority()
 		f.transmit(arr.At, arr.Device, copy.Port, copy.Member, copy.Frame, seq, fid, copyJourney, pcp, copy.Mirror)
 	}
 
+	if acceptanceEntry != nil {
+		return *acceptanceEntry, true
+	}
 	return hopEntry, true
-}
-
-// reflectFrame originates one copy of an accepted mDNS query per other
-// attachment of the datagram's address family, on the reflector's own
-// acceptance the Step reflector branch just recorded. It is the counterpart
-// to arriveReflector: arriveReflector decides whether the frame is taken for
-// reflection, and reflectFrame is what "taken for reflection" does. The
-// arriving frame's IP and UDP headers already decoded once inside
-// acceptReflector to reach EntryReflection, so decoding them again here
-// cannot fail.
-func (f *Fabric) reflectFrame(parent *Journey, name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame, at time.Time) {
-	header, ipPayload, err := ip.Decode(frame.Payload)
-	if err != nil {
-		f.recordFault(errs.Wrap(err, "decode accepted reflector frame's IP header"))
-		return
-	}
-	udpHeader, udpPayload, err := udp.Decode(ipPayload)
-	if err != nil {
-		f.recordFault(errs.Wrap(err, "decode accepted reflector frame's UDP header"))
-		return
-	}
-
-	arrivalName, _ := reflectorArrivalAttachment(refl, arrivalPort, frame.Tags)
-	family4 := header.Dst.Is4()
-
-	for _, attName := range slices.Sorted(maps.Keys(refl.Attachments)) {
-		if attName == arrivalName {
-			continue
-		}
-		att := refl.Attachments[attName]
-		addr, ok := attachmentAddress(att, family4)
-		if !ok {
-			f.record(parent, Entry{
-				At:     at,
-				Kind:   EntryDrop,
-				Device: name,
-				Port:   att.Port,
-				Reason: ReasonReflectorNoAddress,
-			})
-
-			continue
-		}
-
-		f.originateReflection(parent, name, refl, att, addr, frame, header, udpHeader, udpPayload, at)
-	}
-}
-
-// reflectorArrivalAttachment returns the name of the attachment whose port
-// and tag form match the arriving frame. [reflectormodel.Config.acceptsTags] answers the
-// same question as a bool, so the two share this function rather than each
-// carrying the tag-form guards on their own: more than one tag refuses, and
-// a first tag whose TPID names neither the zero value nor a C-TAG refuses,
-// before any attachment is considered. acceptReflector already established
-// that exactly one attachment matches before this runs, so a caller that
-// gets ok == false has nothing to exclude and reflects onto every
-// attachment; that only happens if this invariant breaks.
-func reflectorArrivalAttachment(refl reflectormodel.Config, arrivalPort string, tags []vlan.Tag) (string, bool) {
-	if len(tags) > 1 {
-		return "", false
-	}
-	if len(tags) == 1 && tags[0].TPID != 0 && tags[0].TPID != uint16(ethernet.EtherTypeDot1Q) {
-		return "", false
-	}
-	for attName, a := range refl.Attachments {
-		if a.Port != arrivalPort {
-			continue
-		}
-		if a.VLAN == nil {
-			if len(tags) == 0 || tags[0].VID == 0 {
-				return attName, true
-			}
-
-			continue
-		}
-		if len(tags) == 1 && tags[0].VID == *a.VLAN {
-			return attName, true
-		}
-	}
-
-	return "", false
-}
-
-// attachmentAddress returns one of the attachment's addresses matching the
-// requested family (true for IPv4), or false if it names none.
-func attachmentAddress(att reflectormodel.Attachment, family4 bool) (netip.Addr, bool) {
-	for _, prefix := range att.Addresses {
-		if addr := prefix.Addr(); addr.Is4() == family4 {
-			return addr, true
-		}
-	}
-
-	return netip.Addr{}, false
-}
-
-// attachmentTags returns the tag stack a reflector copy carries onto an
-// attachment: no tag for an untagged attachment, or one C-TAG with the
-// attachment's VLAN. Mirrors the tag form Inject gives a host origin.
-func attachmentTags(att reflectormodel.Attachment) []vlan.Tag {
-	if att.VLAN == nil {
-		return nil
-	}
-
-	return []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: *att.VLAN}}
-}
-
-// originateReflection rebuilds the accepted datagram end to end onto one
-// attachment and originates it as a new journey: fresh FrameID, Parent set to
-// the arriving frame, and its own entered set seeded from a copy of the
-// parent's. Seeding rather than sharing is load-bearing: a shared set cannot
-// tell a sibling copy from an ancestor, and a reflector with three
-// attachments would report a false loop on its first query.
-//
-// The datagram is rebuilt through udp.Encode and then ip.Header.Encode rather
-// than patched in place, because changing the IP source address invalidates
-// the IPv4 header checksum; ip.Decode refuses a header whose checksum does
-// not match, so a receiving host would record an unrecomputed copy as
-// undecodable instead of accepting it. Hop limit is 255 and UDP source port
-// is 5353 (RFC 6762 section 11 and section 5.2); every other IPv4 field is
-// carried from the arriving header unchanged.
-func (f *Fabric) originateReflection(parent *Journey, name string, refl reflectormodel.Config, att reflectormodel.Attachment, addr netip.Addr, frame ethernet.Frame, header ip.Header, udpHeader udp.Header, udpPayload []byte, at time.Time) {
-	copyUDP := udpHeader
-	copyUDP.SrcPort = mdnsUDPPort
-	udpBytes, err := udp.Encode(copyUDP, udpPayload, addr, header.Dst)
-	if err != nil {
-		// The arriving datagram already encoded at this length over a
-		// same-family address pair, so re-encoding it with another
-		// same-family source cannot fail.
-		f.recordFault(errs.Wrap(err, "encode reflected UDP datagram"))
-		return
-	}
-
-	copyHeader := header
-	copyHeader.Src = addr
-	copyHeader.HopLimit = 255
-	ipBytes, err := copyHeader.Encode(udpBytes)
-	if err != nil {
-		// The arriving header already encoded this options length and total
-		// length; replacing only the source address and hop limit cannot
-		// make it exceed either limit.
-		f.recordFault(errs.Wrap(err, "encode reflected IP header"))
-		return
-	}
-
-	copyFrame := ethernet.Frame{
-		Dst:       frame.Dst,
-		Src:       refl.Address,
-		Tags:      attachmentTags(att),
-		EtherType: frame.EtherType,
-		Payload:   ipBytes,
-	}
-
-	fid := f.nextFrameID
-	f.nextFrameID++
-	seq := f.nextSeq
-	f.nextSeq++
-
-	inj := Injection{
-		At:        at,
-		Origin:    Endpoint{Node: name, Port: att.Port},
-		Frame:     copyFrame,
-		Retention: parent.Injection.Retention,
-		Flow:      parent.Injection.Flow,
-	}
-	copyJourney := &Journey{
-		FrameID: fid,
-		Origin: JourneyOrigin{
-			Kind: OriginMirror,
-			Of:   parent.FrameID,
-		},
-		Injection: inj,
-	}
-	f.journeys[fid] = copyJourney
-	f.touch(fid)
-	f.entered[fid] = cloneEntered(f.entered[parent.FrameID])
-	f.record(copyJourney, Entry{
-		At:     at,
-		Kind:   EntryInjection,
-		Device: name,
-		Port:   att.Port,
-		Cable:  f.portCable(name, att.Port),
-	})
-
-	ref, ok := f.linkEnd(name, att.Port)
-	if !ok {
-		// Validate requires every reflector port to be cabled, so a
-		// configured fabric never reaches this.
-		return
-	}
-	if ref.end.Oper != port.Up {
-		kind := EntryDrop
-		if ref.end.Oper == port.Unknown {
-			kind = EntryUnresolved
-		}
-		cable := ref.link.Cable.Clone()
-		f.record(copyJourney, Entry{
-			At:     at,
-			Kind:   kind,
-			Device: name,
-			Cable:  &cable,
-			Reason: ref.end.Reason,
-		})
-
-		return
-	}
-
-	pcp, _ := copyFrame.Priority()
-	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, copyFrame, seq, fid, copyJourney, pcp, "")
 }
 
 // cloneEntered returns an independent copy of a frame's re-entry set, so a

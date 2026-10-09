@@ -237,11 +237,10 @@ copy entered the simulation: `Origin.Kind` is `OriginMirror`, `Origin.Mirror`
 names the mirror configuration that made the copy, and `Origin.Of` identifies
 the original frame's journey. The copy's injection origin is the switch and
 mirror output port, followed by its own crossings, delivery, or drop. A
-reflector-originated copy also carries `OriginMirror` with `Origin.Of` for
-provenance but an empty `Origin.Mirror`: it is a first-class datagram, so —
-unlike a SPAN copy, which the non-empty `Origin.Mirror` marks as already
-policed and non-recursive — it is policed at ingress and may itself be
-mirrored.
+reflector-originated copy carries `OriginReflection` with `Origin.Of` for
+provenance and an empty `Origin.Mirror`. It is policed at ingress and may
+itself be mirrored. A SPAN copy has a non-empty `Origin.Mirror`, which marks
+it as already policed and non-recursive.
 
 An ingress policer rejection happens before the forwarding pipeline and remains an
 `EntryDrop`. Its `Result` records a traffic-layer drop step with a typed
@@ -500,20 +499,20 @@ position, such as `hosts.h1.accept.multicast.0`.
 
 ## Reflector configuration
 
-A `Reflector` is a third node kind beside a switch and a host: `Config.Reflectors
-map[string]Reflector`. Unlike a host, which has one unnamed port, a reflector
-names its ports explicitly in `Ports map[string]phy.Ethernet`, one entry per
+A `reflector.Config` configures a third node kind beside a switch and a host:
+`Config.Reflectors map[string]reflector.Config`. Unlike a host, which has one
+unnamed port, a reflector names its ports explicitly in `Ports map[string]phy.Ethernet`, one entry per
 physical port under a switch port's Ethernet validation rules. Every declared
-port must carry a cable; a port with no cable has no VLAN to reflect onto, so
+port must carry a cable. A port with no cable has no VLAN to reflect onto, so
 `Validate` refuses one and refuses a reflector port named in `Config.Uncabled`
 the same way it refuses any non-switch node there.
 
-`Attachments map[string]Attachment` names the VLANs a reflector answers on. An
-`Attachment` is `{Port string, VLAN *vlan.ID, Addresses []netip.Prefix}`: `Port`
+`Attachments map[string]reflector.Attachment` names the VLANs a reflector
+answers on. An `reflector.Attachment` is `{Port string, VLAN *vlan.ID, Addresses []netip.Prefix}`: `Port`
 must name a declared port, a nil `VLAN` is the port's untagged form, and
-`Addresses` must be non-empty. `Validate` refuses an attachment naming an
-unknown port, an invalid VLAN ID, no address, or a port and VLAN pair another
-attachment already uses, since a frame on that pair could not be told apart.
+`Addresses` must contain valid prefixes and be non-empty. `Validate` refuses
+an attachment naming an unknown port, an invalid VLAN ID, an invalid prefix,
+no address, or a port and VLAN pair another attachment already uses, since a frame on that pair could not be told apart.
 Attachments are walked in sorted name order, so a rejection names the same
 field on every run, such as `reflectors.r1.attachments.b.vlan`.
 
@@ -543,9 +542,9 @@ the dotted `reflectors.r1.attachments.a.vlan`.
 ## Reflector acceptance
 
 A frame that reaches a reflector's port is decided in the same step the
-arrival is processed, with no leading `Arrival` entry of its own: the fabric
-runs the checks directly and appends `Reflection`, `Rejection`, or
-`Unresolved`. Each decision entry carries a `trace.Step` on layer `reflector`
+arrival is processed, with no leading `Arrival` entry of its own.
+`reflector.Reflector.Receive` runs the checks and `fabric` appends
+`Reflection`, `Rejection`, or `Unresolved`. Each decision entry carries a `trace.Step` on layer `reflector`
 with op `filter`. The reflector is its subject, its rule names the clause
 that decided, and its inputs are the facts read up to that point. Unlike a
 host's several ways to accept a MAC or an IP destination, each of a
@@ -589,14 +588,12 @@ journey's `analysis.JourneyScope`, and neither is a `Rejection`: the
 reflector cannot tell whether the frame qualifies.
 
 A frame taken for reflection is never a `Delivery`: a reflector is not a
-host, and `Journey.Deliveries` never holds it. Instead the fabric originates
-one fresh copy per other attachment of the query's address family, skipping
-the attachment the query itself arrived on, each its own journey. The copy
-rebuilds the accepted datagram end to
-end — a new UDP source port of 5353, a new IP source address from the
-target attachment, and a recomputed IPv4 checksum — rather than patching
-bytes in place, because changing the source address invalidates the
-original checksum. The copy's own re-entry set for loop detection is seeded
+host, and `Journey.Deliveries` never holds it. The reflector returns
+one rebuilt `device.Copy` per other attachment of the query's address family.
+It skips the attachment the query arrived on. Each copy has its own journey.
+The reflector rebuilds the datagram with UDP source port 5353 and an IP source
+address from the target attachment. It recomputes the IPv4 checksum because
+changing the source address invalidates the original checksum. The copy's own re-entry set for loop detection is seeded
 from a copy of the arriving frame's, not shared with it: a reflector with
 three attachments answering the same query would otherwise report a false
 loop on its first reflected copy.
@@ -1240,11 +1237,11 @@ alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
 for continued simulation or subsequent comparisons.
 
 The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
-by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`); pre-scenario journeys
+by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`). Pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
-scenario comparison. Mirror and release descendants pair by parent-relative
-kind, mirror name, and occurrence, including descendants present on one side
+scenario comparison. Mirror, reflection, and release descendants pair by
+parent-relative kind, mirror name, and occurrence, including descendants present on one side
 only (`pairJourneys` in `comparison_location.go`).
 
 ## Representative scale and fork cost

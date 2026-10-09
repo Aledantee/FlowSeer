@@ -1,25 +1,23 @@
-package fabric
+package reflector
 
 import (
 	"fmt"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
-	"strconv"
 	"strings"
-	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// reflectormodel.Config acceptance rules. Each rejection names the clause that failed,
+// Layer names reflector acceptance decisions.
+const Layer trace.Layer = "reflector"
+
+// Reflector acceptance rules. Each rejection names the clause that failed,
 // since a reflector's clauses have exactly one way to be satisfied, unlike a
 // host's several MAC and IP rules. The acceptance names itself rather than
 // reusing the last clause it passed, so a step alone says which of the two
@@ -37,7 +35,7 @@ const (
 	ruleReflectorAccepted       trace.RuleID = "reflector.accepted"
 )
 
-// reflectormodel.Config acceptance reasons, one per rule above that can refuse or leave a
+// Reflector acceptance reasons, one per rule above that can refuse or leave a
 // frame undecided.
 const (
 	// ReasonReflectorOwnSource records a reflector refusing a frame whose
@@ -86,10 +84,10 @@ var (
 	mdnsIPv6Group = netip.MustParseAddr("ff02::fb")
 
 	// mdnsIPv4MAC is the Ethernet group MAC of mdnsIPv4Group (RFC 1112 §6.4).
-	mdnsIPv4MAC = groupMAC(mdnsIPv4Group)
+	mdnsIPv4MAC = netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0xfb}
 
 	// mdnsIPv6MAC is the Ethernet group MAC of mdnsIPv6Group (RFC 2464 §7).
-	mdnsIPv6MAC = groupMAC(mdnsIPv6Group)
+	mdnsIPv6MAC = netaddr.MAC{0x33, 0x33, 0x00, 0x00, 0x00, 0xfb}
 )
 
 // mdnsUDPPort is the UDP port an mDNS querier and responder both use
@@ -136,41 +134,11 @@ func udpPortsFactFor(header udp.Header) trace.Fact {
 	return udpPortsFact(fmt.Sprintf("src=%d;dst=%d", header.SrcPort, header.DstPort))
 }
 
-// arriveReflector records a reflector's decision on an arrived frame,
-// journaled on the arriving frame's own journey rather than on any copy: a
-// copy does not exist yet at this point, only the frame that reached the
-// reflector. Unlike arriveHost, it never appends to Deliveries, since an
-// EntryReflection is not a host taking delivery of a frame, and Compare pairs
-// journeys on Deliveries alone.
-func (f *Fabric) arriveReflector(j *Journey, name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame, at time.Time) Entry {
-	kind, step, reason := acceptReflector(name, refl, arrivalPort, frame)
-	var raised []analysis.Issue
-	if kind == EntryUnresolved {
-		raised = append(raised, analysis.Issue{
-			Code:    analysis.IssueCode(reason),
-			Status:  analysis.Incomplete,
-			Scope:   analysis.JourneyScope(strconv.FormatUint(uint64(j.FrameID), 10)),
-			Message: fmt.Sprintf("reflector %q cannot decide on frame %d: its header does not decode", name, j.FrameID),
-		})
-	}
-	entry := Entry{At: at, Kind: kind, Device: name, Port: arrivalPort, Step: &step, Reason: reason}
-	f.record(j, entry, raised...)
-
-	return entry
-}
-
-// acceptReflector runs a reflector's checks on an arrived frame in order: that
-// its Ethernet source is not the reflector's own MAC, that its tag form
-// matches an attachment on the arrival port, that its destination MAC is the
-// IPv4 or IPv6 mDNS group MAC, that its IP destination is the corresponding
-// mDNS group, that its protocol is UDP, and that its UDP destination is port
-// 5353. It returns EntryReflection, EntryRejection, or EntryUnresolved, with
-// the step of the deciding rule over the facts read up to it.
-func acceptReflector(name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame) (EntryKind, trace.Step, trace.Reason) {
+func accept(name string, refl Config, arrivalPort string, frame ethernet.Frame) (trace.Outcome, trace.Step, trace.Reason) {
 	inputs := []trace.Fact{vlanTagsFact(frame.Tags)}
-	decide := func(kind EntryKind, rule trace.RuleID, reason trace.Reason) (EntryKind, trace.Step, trace.Reason) {
+	decide := func(kind trace.Outcome, rule trace.RuleID, reason trace.Reason) (trace.Outcome, trace.Step, trace.Reason) {
 		return kind, trace.Step{
-			Layer:   ReflectorLayer,
+			Layer:   Layer,
 			Op:      trace.OpFilter,
 			RuleID:  rule,
 			Subject: trace.Subject{Kind: "reflector", Key: name},
@@ -179,15 +147,15 @@ func acceptReflector(name string, refl reflectormodel.Config, arrivalPort string
 	}
 
 	if frame.Src == refl.Address {
-		return decide(EntryRejection, ruleReflectorMACOwnSource, ReasonReflectorOwnSource)
+		return decide(trace.Dropped, ruleReflectorMACOwnSource, ReasonReflectorOwnSource)
 	}
 	if !acceptsReflectorTags(refl, arrivalPort, frame.Tags) {
-		return decide(EntryRejection, ruleReflectorVLANForm, ReasonReflectorTagFormNotAccepted)
+		return decide(trace.Dropped, ruleReflectorVLANForm, ReasonReflectorTagFormNotAccepted)
 	}
 
 	inputs = append(inputs, macFact(frame.Dst))
 	if frame.Dst != mdnsIPv4MAC && frame.Dst != mdnsIPv6MAC {
-		return decide(EntryRejection, ruleReflectorMACGroup, ReasonReflectorMACNotGroup)
+		return decide(trace.Dropped, ruleReflectorMACGroup, ReasonReflectorMACNotGroup)
 	}
 
 	var version int
@@ -199,73 +167,38 @@ func acceptReflector(name string, refl reflectormodel.Config, arrivalPort string
 	}
 	header, payload, err := ip.Decode(frame.Payload)
 	if version == 0 || err != nil || header.Version() != version {
-		return decide(EntryUnresolved, ruleReflectorIPUndecodable, ReasonReflectorIPHeaderUndecodable)
+		return decide(trace.Dropped, ruleReflectorIPUndecodable, ReasonReflectorIPHeaderUndecodable)
 	}
 
 	inputs = append(inputs, routing.AddrFact(header.Dst))
-	if header.Dst != mdnsIPv4Group && header.Dst != mdnsIPv6Group {
-		return decide(EntryRejection, ruleReflectorIPGroup, ReasonReflectorIPNotGroup)
+	if (frame.Dst == mdnsIPv4MAC && header.Dst != mdnsIPv4Group) || (frame.Dst == mdnsIPv6MAC && header.Dst != mdnsIPv6Group) {
+		return decide(trace.Dropped, ruleReflectorIPGroup, ReasonReflectorIPNotGroup)
 	}
 
 	if header.Protocol != udpProtocolNumber {
-		return decide(EntryRejection, ruleReflectorUDPProtocol, ReasonReflectorProtocolNotUDP)
+		return decide(trace.Dropped, ruleReflectorUDPProtocol, ReasonReflectorProtocolNotUDP)
 	}
 
 	udpHeader, _, err := udp.Decode(payload)
 	if err != nil {
-		return decide(EntryUnresolved, ruleReflectorUDPUndecodable, ReasonReflectorUDPHeaderUndecodable)
+		return decide(trace.Dropped, ruleReflectorUDPUndecodable, ReasonReflectorUDPHeaderUndecodable)
 	}
 
 	inputs = append(inputs, udpPortsFactFor(udpHeader))
 	if udpHeader.DstPort != mdnsUDPPort {
-		return decide(EntryRejection, ruleReflectorUDPPort, ReasonReflectorUDPPortNotMDNS)
+		return decide(trace.Dropped, ruleReflectorUDPPort, ReasonReflectorUDPPortNotMDNS)
 	}
 
-	return decide(EntryReflection, ruleReflectorAccepted, "")
+	return decide(trace.Consumed, ruleReflectorAccepted, "")
 }
 
-// acceptsTags reports whether tags is the tag form of one of the reflector's
-// attachments on port: with no VLAN, untagged or one VID 0 priority C-TAG;
-// with a VLAN, one C-TAG with that VID. Mirrors host acceptance, but over
-// the several attachments a port may carry rather than one host VLAN. It
-// answers the same question as [reflectorArrivalAttachment], over the same
-// attachments, so the two are defined in terms of each other rather than
-// carrying the tag-form guards twice.
-func acceptsReflectorTags(r reflectormodel.Config, port string, tags []vlan.Tag) bool {
-	_, ok := reflectorArrivalAttachment(r, port, tags)
+func acceptsReflectorTags(r Config, port string, tags []vlan.Tag) bool {
+	_, ok := arrivalAttachment(r, port, tags)
 
 	return ok
 }
 
-// arriveHost records the queued arrival and the host's acceptance decision.
-func (f *Fabric) arriveHost(j *Journey, name string, frame ethernet.Frame, at time.Time, res device.Result) Entry {
-	cable := f.portCable(name, "")
-	f.record(j, Entry{At: at, Kind: EntryArrival, Device: name, Cable: cable})
-	kind := EntryRejection
-	var raised []analysis.Issue
-	if res.Outcome == trace.Consumed {
-		kind = EntryDelivery
-		j.Deliveries = append(j.Deliveries, Delivery{Host: name, At: at, Frame: cloneFrame(frame)})
-	} else if res.Metadata.Status() == analysis.Incomplete {
-		kind = EntryUnresolved
-		raised = append(raised, analysis.Issue{Code: analysis.IssueCode(res.Reason), Status: analysis.Incomplete, Scope: analysis.JourneyScope(strconv.FormatUint(uint64(j.FrameID), 10)), Message: fmt.Sprintf("host %q cannot decide on frame %d: its IP header does not decode", name, j.FrameID)})
-	}
-	step := res.Steps[len(res.Steps)-1]
-	entry := Entry{At: at, Kind: kind, Device: name, Cable: cable, Step: &step, Reason: res.Reason}
-	f.record(j, entry, raised...)
-	return entry
-}
+type macFact netaddr.MAC
 
-// groupMAC maps an IP group address to its Ethernet group MAC: the low 23 bits
-// of an IPv4 group under 01:00:5e (RFC 1112 §6.4), or the low 32 bits of an
-// IPv6 group under 33:33 (RFC 2464 §7).
-func groupMAC(group netip.Addr) netaddr.MAC {
-	if group.Is4() {
-		a := group.As4()
-
-		return netaddr.MAC{0x01, 0x00, 0x5e, a[1] & 0x7f, a[2], a[3]}
-	}
-	a := group.As16()
-
-	return netaddr.MAC{0x33, 0x33, a[12], a[13], a[14], a[15]}
-}
+func (f macFact) TypeID() string    { return "fabric.mac" }
+func (f macFact) Canonical() string { return netaddr.MAC(f).String() }

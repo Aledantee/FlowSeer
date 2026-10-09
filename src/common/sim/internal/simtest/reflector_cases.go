@@ -1,9 +1,10 @@
 package simtest
 
 import (
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -310,7 +311,7 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 	udpPorts := expectedFact("fabric.udp_ports", "src=5353;dst=5353")
 
 	steps := []StepExpectation{
-		expectedStep(fabric.ReflectorLayer, trace.OpFilter, "reflector.accepted", trace.Subject{Kind: "reflector", Key: "r2"},
+		expectedStep(reflectormodel.Layer, trace.OpFilter, "reflector.accepted", trace.Subject{Kind: "reflector", Key: "r2"},
 			[]FactExpectation{vlanTags, macFact, addrFact, udpPorts}, nil),
 	}
 

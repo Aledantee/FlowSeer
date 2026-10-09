@@ -56,6 +56,7 @@ src/common/sim/
   device/                        the seam a fabric drives
     vswitch/                     a switch: layers composed over a port table
     host/                        an endpoint: an IP stack and its acceptance rules
+    reflector/                   an mDNS endpoint: acceptance and reflected copies
   medium/
     cable/                       length, propagation, speed bound, faults
   fabric/                        topology, the event queue, journeys, comparison
@@ -92,9 +93,9 @@ diagram cannot show:
 
 **The device seam.** `device` declares the interface `fabric` drives: receive
 a frame on a port at a time, advance to a time, report the next wake, take a
-link change, fork, and expose state. The switch and the host both implement
+link change, fork, and expose state. The switch, host, and reflector implement
 it, which is what `docs/code-style.md` asks of an interface. An access point
-or a client with behaviour is a third package under `device/`, built from the
+or a client with behaviour is another package under `device/`, built from the
 same layers plus its own.
 
 The seam's types name no layer. `Device.Originate` presents a switch injection
@@ -188,3 +189,12 @@ in `test/conformance/sim`. Two lines of the contract above changed to match
 it. `Config.Clone` takes no `layer.Env`, since a copy needs no device
 context. A subject key of several parts has one form, built by
 `trace.CompositeKey`.
+
+### 2026-10-09: reflector device
+
+`device/reflector` owns configuration, validation, and acceptance. Its
+`Receive` returns copies in attachment name order. `device.Result.Acceptance`
+distinguishes delivery from reflection so `fabric` records the decision
+without looking up the node kind (`src/common/sim/device/reflector/reflector.go`,
+`src/common/sim/fabric/acceptance.go`). Reflected copies carry
+`OriginReflection` and name their source frame in `Origin.Of`.

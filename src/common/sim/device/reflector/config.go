@@ -2,12 +2,16 @@
 package reflector
 
 import (
+	"maps"
+	"net/netip"
+	"slices"
+	"strings"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
-	"net/netip"
-	"slices"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 // Config is a third node kind beside a switch and a host: an endpoint with
@@ -104,11 +108,16 @@ func (a Attachment) Equal(other Attachment) bool {
 	return slices.Equal(a.Addresses, other.Addresses)
 }
 
-// ValidateAttachments checks that every attachment names a declared port with a valid VLAN
+// Validate checks that every attachment names a declared port with a valid VLAN
 // and at least one address, and that no two attachments share a port and tag form, which would
 // leave a frame on that port unable to tell which attachment it belongs to. Attachments are
 // walked in sorted name order, so the field path a rejection names is the same on every run.
-func (r Config) ValidateAttachments(field string) error {
+func (r Config) Validate(field string) error {
+	for _, name := range slices.Sorted(maps.Keys(r.Ports)) {
+		if err := cablemodel.ValidateEthernet(field+".ports."+name, r.Ports[name]); err != nil {
+			return errs.Wrapf(err, "reflector %q port %q", strings.TrimPrefix(field, "reflectors."), name)
+		}
+	}
 	type portVLAN struct {
 		port string
 		vlan vlan.ID
@@ -143,6 +152,11 @@ func (r Config) ValidateAttachments(field string) error {
 				Msgf("attachment %q has no address to originate a copy from", name)
 		}
 
+		for i, prefix := range a.Addresses {
+			if !prefix.IsValid() {
+				return errs.New().Attr("field", afield+".addresses").Attr("index", i).Msg("attachment address prefix is invalid")
+			}
+		}
 		key := portVLAN{port: a.Port}
 		if a.VLAN != nil {
 			key.vlan = *a.VLAN

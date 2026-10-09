@@ -59,6 +59,8 @@ type Origination struct {
 // Timer and link calls may leave Result zero. Output is safe for concurrent reads.
 type Output struct {
 	Result
+	// Err reports an output construction failure. Already produced frames remain valid.
+	Err error
 	// Policed reports an ingress policer refusal.
 	Policed   bool
 	Hold      HoldToken
@@ -83,6 +85,7 @@ type QueueDecision struct {
 // Result is safe for concurrent reads, but not concurrent mutation.
 type Result struct {
 	trace.Trace
+	Acceptance        AcceptanceKind
 	Ingress           string
 	FID               vlan.ID
 	Egress            []Egress
@@ -90,6 +93,19 @@ type Result struct {
 	PortDependencies  []port.Port
 	ScopeDependencies []analysis.Scope
 }
+
+// AcceptanceKind identifies an endpoint decision carried by Result.
+// NoAcceptance leaves forwarding to the relay path.
+type AcceptanceKind uint8
+
+const (
+	// NoAcceptance reports no endpoint decision.
+	NoAcceptance AcceptanceKind = iota
+	// DeliveryAcceptance reports a local delivery decision.
+	DeliveryAcceptance
+	// ReflectionAcceptance reports a reflection decision whose copies are new datagrams.
+	ReflectionAcceptance
+)
 
 // ConsultedPorts returns independent snapshots in first-consulted order.
 func (r Result) ConsultedPorts() []port.Port { return slices.Clone(r.PortDependencies) }
@@ -136,7 +152,7 @@ type Drop struct {
 	Ingress string
 }
 
-// Copy records a mirrored frame. Mirror names its configuration, VLAN its
+// Copy records a mirrored or reflected frame. Mirror names a mirror configuration, VLAN its
 // logical output (zero for a direct port), and Member its selected LAG member
 // (empty for a non-LAG output). Copy is safe for concurrent reads.
 type Copy struct {

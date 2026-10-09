@@ -2,7 +2,6 @@ package fabric_test
 
 import (
 	"bytes"
-	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"io"
 	"os"
 	"reflect"
@@ -10,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"

@@ -73,7 +73,7 @@ func injectionLineages(journeys []Journey, root FrameID) []lineageJourney {
 		}
 		var children []int
 		for i, j := range journeys {
-			if j.Origin.Of == id && (j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginRelease) {
+			if j.Origin.Of == id && (j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginReflection || j.Origin.Kind == OriginRelease) {
 				children = append(children, i)
 			}
 		}

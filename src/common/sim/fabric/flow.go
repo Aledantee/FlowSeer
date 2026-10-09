@@ -137,7 +137,7 @@ func (f *Fabric) foldJourney(j *Journey) {
 		stats.Offered++
 	}
 
-	if j.Origin.Kind == OriginMirror {
+	if j.Origin.Kind == OriginMirror || j.Origin.Kind == OriginReflection {
 		for range j.Deliveries {
 			if stats.Copies == nil {
 				stats.Copies = make(map[string]uint64)
