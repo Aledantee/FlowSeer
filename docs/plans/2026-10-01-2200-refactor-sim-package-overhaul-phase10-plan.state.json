@@ -9,7 +9,7 @@
     "units": 2,
     "from": "2026-10-09T09:16:37Z",
     "to": "2026-10-09T09:41:49Z",
-    "note": "U3 blocked: TestLinkChangeErrorReachesNew fixtures are refused before startup. U4 through U18 remain pending behind U3."
+    "note": "Link report unit blocked: aging before carry releases a planted resolved held frame before routing rebuild, so the existing rebuild-drop assertion observes 0 drops instead of 1. Changing it to release loses its proof. Queue decisions through close-out remain pending."
   },
   "superseded_by": null,
   "branch": null,
