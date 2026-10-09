@@ -46,7 +46,7 @@ const { n } = useI18n({ useScope: 'global' })
     <div class="flex items-baseline gap-1 mt-1">
       <span
         v-if="valueText"
-        class="font-mono text-2xl font-semibold tabular-nums text-foreground metric-value"
+        class="font-mono text-display font-normal tabular-nums text-foreground metric-value"
       >
         {{ valueText(value, unit) }}
       </span>
@@ -57,7 +57,7 @@ const { n } = useI18n({ useScope: 'global' })
       >
         <template #value>
           <span
-            class="font-mono text-2xl font-semibold tabular-nums text-foreground metric-value"
+            class="font-mono text-display font-normal tabular-nums text-foreground metric-value"
           >
             {{ n(value, 'decimal') }}
           </span>
@@ -70,7 +70,7 @@ const { n } = useI18n({ useScope: 'global' })
       </I18nT>
       <span
         v-else
-        class="font-mono text-2xl font-semibold tabular-nums text-foreground metric-value"
+        class="font-mono text-display font-normal tabular-nums text-foreground metric-value"
       >
         {{ n(value, 'decimal') }}
       </span>

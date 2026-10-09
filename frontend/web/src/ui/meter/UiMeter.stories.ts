@@ -70,7 +70,7 @@ export const SegmentedDistribution: StoryObj<typeof UiSegmentedMeter> = {
   render: () => ({
     components: { UiSegmentedMeter },
     setup() {
-      const counts = { Healthy: 18, Degraded: 3, Offline: 1 }
+      const counts = { Healthy: 25, Degraded: 2, Offline: 1 }
       return { counts }
     },
     template: `
@@ -116,7 +116,7 @@ export const SegmentedOverrides: StoryObj<typeof UiSegmentedMeter> = {
   render: () => ({
     components: { UiSegmentedMeter },
     setup() {
-      const counts = { Healthy: 120, Degraded: 14, Offline: 2 }
+      const counts = { Healthy: 980, Degraded: 10, Offline: 10 }
       const labels = { Healthy: 'Operational', Degraded: 'Warning' }
       return { counts, labels }
     },

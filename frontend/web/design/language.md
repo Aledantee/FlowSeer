@@ -1,16 +1,18 @@
 # Console design language
 
-Open Storybook (`pnpm storybook`) and choose **Foundations** to inspect Inter
-and Mono using interface text, changing numbers, and addresses. Switch the
-theme toggle in Storybook to inspect the same specimens in light and dark mode.
+The [Signal design record](../../../docs/architecture/2026-10-09-web-signal-design-direction.md)
+sets the panel geometry, typography and dashboard hierarchy. This file records
+how the app implements that direction. Open Storybook (`pnpm storybook`) and
+choose **Foundations** to inspect the scale in both themes.
 
 ## Typography decision
 
-Use Inter Variable for the interface, with automatic optical sizing, regular
-body text, and 600-weight headings. Its text optical size and tall x-height help
-small labels; tabular figures keep metric columns stable. Device addresses use
-the platform monospace stack. The `standard.css` font import includes Inter's
-weight and optical-size axes. Fonts are bundled locally.
+Use Inter Variable for navigation, body text and descriptions, with automatic
+optical sizing and regular weight. Use the platform monospace stack for page
+titles, section headings, metric values, table headers and identifiers. Metric
+columns use tabular figures. The interface keeps text at 11px or larger. Display
+metrics use the named `display` and `display-xl` tokens. Fonts are bundled
+locally.
 
 The choice is a design judgment for this console, not a claim that one font is
 universally more readable. The alternatives considered were:
@@ -38,20 +40,22 @@ the geometric family and its intended small-text use.
 ## Shared rules
 
 `src/theme/tokens.css` defines the interface and mono font stacks, spacing
-steps, control heights, and corner radii via Tailwind theme directives, while
+steps, control heights, display sizes and corner radii through Tailwind theme directives, while
 Tailwind Preflight in `src/theme/tailwind.css` standardizes base element styles.
 The semantic color tokens in `src/theme/semantic.css` remain the contrast-tested
 layer over the [palette](README.md).
 
-Use 8px gaps within controls, 16px between related elements, and 24px panel
-padding. Controls have 8px corners; content panels have 12px corners. Page
-headings are 28px, section headings are smaller, and supporting labels remain
-quiet. Metrics use tabular figures and place units beside the value.
+Use 8px gaps within controls and 16px between related panels. Controls have
+4px corners. Content panels have square edges, a one-pixel border and small
+corner ticks. Panel headers use a thin bottom rule. Panel heights follow their
+contents instead of the screenshot dimensions. Page headings use the 28px title
+token. Section headings use monospace uppercase styling. Descriptions and event
+summaries remain in Inter. Metrics put their units beside the value.
 
-Cyan identifies selection. Coral emphasizes the primary action with dark text.
-Health badges always include a word as well as color. Focus rings must remain
-visible on buttons, links, selects, and text fields. Motion is short action
-feedback; live values do not animate.
+Cyan identifies selection and telemetry. Coral emphasizes primary actions.
+Health statuses keep their semantic colors and include a word. Focus rings
+remain visible on buttons, links, selects and text fields. Motion gives short
+action feedback. Live values do not animate.
 
 For example, use the design system button and status badge:
 

@@ -36,7 +36,7 @@ useAiOrigin(
 )
 
 const badgeVariants = tv({
-  base: 'inline-flex items-center gap-1.5 font-medium rounded-full whitespace-nowrap',
+  base: 'inline-flex items-center gap-1.5 font-medium rounded-sm whitespace-nowrap',
   variants: {
     variant: {
       default: 'bg-subtle text-foreground border border-border',
@@ -52,8 +52,8 @@ const badgeVariants = tv({
       info: 'bg-info-surface text-info-foreground border border-info-border',
     },
     size: {
-      sm: 'h-5 px-2 text-2xs',
-      md: 'h-6 px-2.5 text-xs',
+      sm: 'min-h-5 h-auto px-2 text-2xs',
+      md: 'min-h-6 h-auto px-2.5 text-xs',
     },
   },
   defaultVariants: {

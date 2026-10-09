@@ -77,10 +77,14 @@
   --text-2xl--line-height: 32px;
   --text-3xl: 28px;
   --text-3xl--line-height: 36px;
+  --text-display: 32px;
+  --text-display--line-height: 40px;
+  --text-display-xl: 64px;
+  --text-display-xl--line-height: 64px;
 
   --radius-sm: 4px;
-  --radius-control: 8px;
-  --radius-panel: 12px;
+  --radius-control: 4px;
+  --radius-panel: 0px;
 
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
 }

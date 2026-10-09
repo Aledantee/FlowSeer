@@ -66,13 +66,13 @@ const dotVariants = tv({
 <template>
   <UiBadge
     ref="anchor"
-    class="!text-sm max-w-full"
+    class="max-w-full"
     :variant="variantMap[props.status]"
     :size="props.size"
     :title="$slots.default ? undefined : displayLabel"
   >
     <i aria-hidden="true" :class="dotVariants({ status })" />
-    <span class="truncate">
+    <span class="truncate font-mono uppercase tracking-wide">
       <slot>{{ displayLabel }}</slot>
     </span>
   </UiBadge>

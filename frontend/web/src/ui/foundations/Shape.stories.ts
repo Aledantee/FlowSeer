@@ -11,9 +11,9 @@ export default meta
 type Story = StoryObj
 
 const radii = [
+  { name: 'panel', value: '0px', className: 'rounded-panel' },
   { name: 'sm', value: '4px', className: 'rounded-sm' },
-  { name: 'control', value: '8px', className: 'rounded-control' },
-  { name: 'panel', value: '12px', className: 'rounded-panel' },
+  { name: 'control', value: '4px', className: 'rounded-control' },
 ]
 
 const shadows = [
@@ -43,18 +43,18 @@ export const Default: Story = {
     template: `
       <div class="p-6 max-w-5xl mx-auto font-sans text-foreground bg-background space-y-10">
         <div>
-          <div role="heading" aria-level="1" class="text-2xl font-bold mb-2">Shape &amp; Spacing</div>
-          <div class="text-sm text-muted-foreground">Border radii, card shadows, and spacing scale steps 1 to 8.</div>
+          <div role="heading" aria-level="1" class="font-mono text-3xl font-medium mb-2">SHAPE &amp; SPACING</div>
+          <div class="text-sm text-muted-foreground">Panel frames, control corners, overlay shadows, and spacing steps 1 to 8.</div>
         </div>
 
         <!-- Radii -->
         <section>
-          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Corner Radii</div>
+          <div role="heading" aria-level="2" class="font-mono text-xs uppercase tracking-wide font-semibold mb-4 pb-2 border-b border-border">Corner Radii</div>
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div
               v-for="r in radii"
               :key="r.name"
-              class="flex flex-col items-center p-4 border border-border bg-card rounded-panel shadow-xs"
+              class="flex flex-col items-center p-4 border border-border bg-card rounded-panel relative"
             >
               <div
                 class="w-16 h-16 border-2 border-primary bg-subtle mb-3"
@@ -69,7 +69,7 @@ export const Default: Story = {
 
         <!-- Shadows -->
         <section>
-          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Card Shadows</div>
+          <div role="heading" aria-level="2" class="font-mono text-xs uppercase tracking-wide font-semibold mb-4 pb-2 border-b border-border">Overlay Elevation</div>
           <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             <div
               v-for="s in shadows"
@@ -87,7 +87,7 @@ export const Default: Story = {
 
         <!-- Spacing -->
         <section>
-          <div role="heading" aria-level="2" class="text-lg font-semibold mb-4 pb-2 border-b border-border">Spacing (Steps 1 to 8)</div>
+          <div role="heading" aria-level="2" class="font-mono text-xs uppercase tracking-wide font-semibold mb-4 pb-2 border-b border-border">Spacing (Steps 1 to 8)</div>
           <div class="border border-border rounded-panel overflow-hidden bg-card shadow-xs">
             <table class="w-full text-left border-collapse">
               <caption class="sr-only">Spacing scale steps 1 through 8</caption>

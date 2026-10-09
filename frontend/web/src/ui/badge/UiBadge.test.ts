@@ -86,7 +86,8 @@ describe('UiBadge', () => {
       const { el } = mount(UiStatusBadge, { status })
       expect(el.textContent?.trim()).toBe(text)
       expect(el.className).toContain(expectedClass)
-      expect(el.classList).toContain('!text-sm')
+      expect(el.querySelector('.truncate')?.classList).toContain('font-mono')
+      expect(el.querySelector('.truncate')?.classList).toContain('uppercase')
       dispose()
     }
   })
@@ -113,7 +114,8 @@ describe('UiBadge', () => {
       const { el } = mount(UiStatusBadge, { status }, {}, 'de')
       expect(el.textContent?.trim()).toBe(text)
       expect(el.className).toContain(expectedClass)
-      expect(el.classList).toContain('!text-sm')
+      expect(el.querySelector('.truncate')?.classList).toContain('font-mono')
+      expect(el.querySelector('.truncate')?.classList).toContain('uppercase')
       dispose()
     }
   })
