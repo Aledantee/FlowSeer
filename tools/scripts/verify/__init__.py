@@ -5,4 +5,5 @@ COMMANDS = {
     "check-prose": "check_prose",
     "check-test-integrity": "check_test_integrity",
     "ledger": "ledger",
+    "service-otel-integration": "service_otel_integration",
 }
