@@ -1,6 +1,7 @@
 package vswitch
 
 import (
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -17,8 +18,11 @@ import (
 // policer buckets independently of its whole-layer verdict. Filter is rebuilt.
 // Dynamic bridge entries remain bounded by target capacity. Static seeds and
 // construction trust come from the target. Port duplex and speed move together
-// only where port and PHY dependencies match. device.Output reports held-frame drops
-// from rebuilt routing. An invalid target returns an error.
+// only where port and PHY dependencies match. The clone of cur first advances to now.
+// device.Output reports what that advance emitted, copied, or dropped, minus the
+// protocol frames of a layer the target did not keep, which the target no longer
+// owes. Frames carrying a hold token stay. It also reports the held-frame drops of
+// rebuilt routing. An invalid target returns an error.
 func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, device.Output, error) {
 	next, err := NewWithSpec(target)
 	if err != nil {
@@ -28,14 +32,18 @@ func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, devic
 	c, end := next.beginCall(now, true)
 	defer end()
 
-	var aged device.Output
+	var aged *call
 	if cur == nil {
 		cur = &Switch{}
 	} else {
 		cur = cur.Fork().(*Switch)
-		aged = cur.Advance(now)
+		var endAge func()
+		aged, endAge = cur.beginCall(now, true)
+		cur.advance(now)
+		endAge()
 	}
 	source, targetLayers := cur.layers(time.Time{}), next.layers(time.Time{})
+	layerKept := make([]bool, len(targetLayers))
 	for i, entry := range targetLayers {
 		oldKey, newKey := source[i].key(cur), entry.key(next)
 		lost := 0
@@ -51,6 +59,7 @@ func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, devic
 		if entry.perRecord {
 			kept = lost == 0
 		}
+		layerKept[i] = kept
 		report := entry.retention(next)
 		*report = LayerRetention{Kept: kept}
 		if !kept {
@@ -95,9 +104,15 @@ func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, devic
 		next.applyRoutingExits(now, cur.routing.Clone().FailHeld())
 	}
 	out := c.output(forwardResult{})
-	out.Emissions = append(aged.Emissions, out.Emissions...)
-	out.Copies = append(aged.Copies, out.Copies...)
-	out.Drops = append(aged.Drops, out.Drops...)
+	if aged != nil {
+		aged.emissions = slices.DeleteFunc(aged.emissions, func(em emission) bool {
+			return em.Hold == 0 && em.slot > 0 && !layerKept[em.slot-1]
+		})
+		agedOut := aged.output(forwardResult{})
+		out.Emissions = append(agedOut.Emissions, out.Emissions...)
+		out.Copies = append(agedOut.Copies, out.Copies...)
+		out.Drops = append(agedOut.Drops, out.Drops...)
+	}
 	return next, out, nil
 }
 
