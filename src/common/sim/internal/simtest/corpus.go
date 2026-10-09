@@ -918,8 +918,8 @@ func assertOptionalComparisonExpectation(t testing.TB, caseID string, actual *vs
 	if actual.Disposition != expectedDisp {
 		t.Errorf("case %s comparison disposition = %v, want %v", caseID, actual.Disposition, expectedDisp)
 	}
-	assertForwardExpectation(t, caseID, "comparison current", actual.Current, expected.Current)
-	assertForwardExpectation(t, caseID, "comparison expected", actual.Expected, expected.Expected)
+	assertForwardExpectation(t, caseID, "comparison current", actual.Current.ForwardResult, expected.Current)
+	assertForwardExpectation(t, caseID, "comparison expected", actual.Expected.ForwardResult, expected.Expected)
 }
 
 func assertForwardExpectation(t testing.TB, caseID, axis string, actual vswitch.ForwardResult, expected ForwardExpectation) {
@@ -1098,8 +1098,8 @@ func assertDeterministicComparison(t testing.TB, caseID string, first, second *v
 	if first.Disposition != second.Disposition {
 		t.Errorf("case %s non-deterministic comparison disposition across runs: %v vs %v", caseID, first.Disposition, second.Disposition)
 	}
-	assertDeterministicForwardResult(t, caseID, "comparison current", &first.Current, &second.Current)
-	assertDeterministicForwardResult(t, caseID, "comparison expected", &first.Expected, &second.Expected)
+	assertDeterministicForwardResult(t, caseID, "comparison current", &first.Current.ForwardResult, &second.Current.ForwardResult)
+	assertDeterministicForwardResult(t, caseID, "comparison expected", &first.Expected.ForwardResult, &second.Expected.ForwardResult)
 }
 
 func assertDeterministicModelResult(t testing.TB, caseID string, first, second *netmodel.Result) {

@@ -1,10 +1,32 @@
 package analysis
 
 import (
+	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestMetadataAssumptionsForSharesNoStorage(t *testing.T) {
+	t.Parallel()
+
+	scope := PortScope("sw1", "p1")
+	metadata := NewMetadata(scope, nil, EvidenceCatalog{}, []Assumption{
+		{Scope: scope, Statement: "original", Evidence: []trace.EvidenceRef{"b", "a", "a"}},
+	})
+	got := metadata.AssumptionsFor(scope)
+	if len(got) != 1 || len(got[0].Evidence) != 2 {
+		t.Fatalf("AssumptionsFor = %+v, want one assumption with two evidence references", got)
+	}
+	got[0].Statement = "changed"
+	got[0].Evidence[0] = "changed"
+	if kept := metadata.assumptions[0]; kept.Statement != "original" || !slices.Equal(kept.Evidence, []trace.EvidenceRef{"a", "b"}) {
+		t.Errorf("stored assumption after returned mutation = %+v, want original with [a b]", kept)
+	}
+	if again := metadata.AssumptionsFor(scope); again[0].Statement != "original" || !slices.Equal(again[0].Evidence, []trace.EvidenceRef{"a", "b"}) {
+		t.Errorf("second AssumptionsFor = %+v, want original with [a b]", again)
+	}
+}
 
 // TestMetadataCloneSharesNoStorage writes through every field a clone holds and
 // reads the source back through its accessors. The accessors copy on every

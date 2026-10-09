@@ -22,7 +22,7 @@ func TestPeekReadsFDBAtFrameTime(t *testing.T) {
 				mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH1, Port: "1/1/1", LearnedAt: fixedTime}})
 				now := fixedTime.Add(age)
 				if priorAdvance {
-					sw.Age(now)
+					sw.Advance(now)
 				}
 				entries, counters := sw.Entries(), sw.RelayCounters()
 				res := sw.Peek(now, "1/1/2", ethernet.Frame{Src: macH2, Dst: macH1})

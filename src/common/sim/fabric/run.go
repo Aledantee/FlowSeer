@@ -408,11 +408,11 @@ func (f *Fabric) Step() (Entry, bool) {
 		delete(f.wakes, arr.Device)
 		sw := f.switches[arr.Device]
 		if sw != nil {
-			sw.Wake(arr.At)
-			for _, em := range sw.Drain() {
+			out := sw.Advance(arr.At)
+			for _, em := range out.Emissions {
 				f.injectEmission(arr.At, arr.Device, em)
 			}
-			for _, drop := range sw.DrainNeighborFailures() {
+			for _, drop := range out.Drops {
 				f.recordNeighborFailure(arr.At, arr.Device, drop)
 			}
 			f.scheduleWake(arr.Device)
@@ -522,53 +522,31 @@ func (f *Fabric) Step() (Entry, bool) {
 	// passed the original ingress policy, so a downstream switch must not charge
 	// its bytes again. A reflection carries OriginMirror for provenance but no
 	// mirror name; it is a first-class datagram the policer must still see.
-	frameWireOctets := arr.Frame.WireOctets()
-	if journey.Origin.Mirror == "" && !sw.Police(arr.At, arr.Port, frameWireOctets) {
-		for _, p := range inPorts {
-			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
-		}
-
-		policer := f.cfg.Switches[arr.Device].Traffic.Policers[arr.Port]
-		result := sw.ComposeForwardResult(
-			bridge.Result{
-				Trace: trace.Trace{
-					Outcome: trace.Dropped,
-					Reason:  traffic.ReasonPoliced,
-					Steps: []trace.Step{{
-						Layer:   traffic.LayerName,
-						Op:      trace.OpDrop,
-						RuleID:  traffic.RulePolicerRefuse,
-						Subject: trace.Subject{Kind: "port", Key: arr.Port},
-						Outputs: []trace.Fact{traffic.PolicerDecisionFact(policer.RateBPS, policer.BurstOctets, frameWireOctets, false)},
-					}},
-				},
-				Ingress: arr.Port,
-			},
-			arr.Port,
-		)
-		dropEntry := Entry{
-			At:     arr.At,
-			Kind:   EntryDrop,
-			Device: arr.Device,
-			Port:   arr.Port,
-			Result: &result,
-			Reason: traffic.ReasonPoliced,
-		}
-		f.record(journey, dropEntry)
-
-		return dropEntry, true
+	var out vswitch.Output
+	if journey.Origin.Mirror == "" {
+		out = sw.Receive(arr.At, arr.Port, arr.Frame)
+	} else {
+		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
 	}
-
-	sw.Age(arr.At)
-	res := sw.Forward(arr.At, arr.Port, arr.Frame)
-
-	for _, em := range sw.Drain() {
+	res := out.ForwardResult
+	for _, em := range out.Emissions {
 		f.injectEmission(arr.At, arr.Device, em)
 	}
-	for _, drop := range sw.DrainNeighborFailures() {
+	for _, drop := range out.Drops {
 		f.recordNeighborFailure(arr.At, arr.Device, drop)
 	}
 	f.scheduleWake(arr.Device)
+	if res.Reason == traffic.ReasonPoliced {
+		for _, p := range inPorts {
+			f.countWholeFrameDrop(arr.Device, p, traffic.ReasonPoliced)
+		}
+		dropEntry := Entry{
+			At: arr.At, Kind: EntryDrop, Device: arr.Device,
+			Port: arr.Port, Result: &res, Reason: traffic.ReasonPoliced,
+		}
+		f.record(journey, dropEntry)
+		return dropEntry, true
+	}
 
 	hopEntry := Entry{
 		At:     arr.At,
@@ -619,13 +597,7 @@ func (f *Fabric) Step() (Entry, bool) {
 		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey, eg.PCP, "")
 	}
 
-	copies := sw.Copies()
-	if journey.Origin.Mirror != "" {
-		// Draining and discarding downstream copies makes mirror provenance a
-		// single generation instead of a recursively mirrored frame. Only a SPAN
-		// copy (a named mirror) is suppressed; a reflection may still be mirrored.
-		copies = nil
-	}
+	copies := out.Copies
 	for _, copy := range copies {
 		fid := f.nextFrameID
 		f.nextFrameID++
@@ -1373,7 +1345,7 @@ func (f *Fabric) injectEmission(now time.Time, device string, em vswitch.Emissio
 	// em.PCP rather than a priority re-derived from em.Frame: a released held frame leaving an
 	// untagged access port or a routed port carries no tag to derive from, so deriving would
 	// queue at 0 a frame the live path queues at the priority it arrived with.
-	f.transmit(now, device, em.Port, "", em.Frame, seq, fid, journey, em.PCP, "")
+	f.transmit(now, device, em.Port, em.Member, em.Frame, seq, fid, journey, em.PCP, "")
 }
 
 func (f *Fabric) findAndPopHeld(device string, frame ethernet.Frame) FrameID {

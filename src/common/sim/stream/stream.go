@@ -18,7 +18,7 @@ type Rate struct {
 
 // Spec describes a finite stream of Ethernet frames. Frame and the values in
 // Variations, including their slices, are immutable while a source uses them.
-// Start belongs to the consumer's epoch; a source returns offsets relative to it.
+// Start delays the first frame relative to the consumer epoch.
 type Spec struct {
 	Frame ethernet.Frame
 	Rate  Rate
@@ -43,6 +43,9 @@ func (s Spec) Validate() error {
 	if (s.Rate.FramesPerSecond == 0) == (s.Rate.BitsPerSecond == 0) {
 		return errs.Msg("stream rate must specify exactly one unit")
 	}
+	if s.Start < 0 {
+		return errs.Msg("stream start must be nonnegative")
+	}
 	if s.Burst < 0 || s.Gap < 0 {
 		return errs.Msg("stream burst and gap must be nonnegative")
 	}
@@ -52,8 +55,8 @@ func (s Spec) Validate() error {
 	if _, err := s.Frame.Encode(); err != nil {
 		return errs.Wrap(err, "encode stream frame")
 	}
-	minEarlierSize := math.MaxInt
-	customEarlierVariation := false
+	minSize := math.MaxInt
+	packetSize := 0
 	for i, variation := range s.Variations {
 		if variation == nil {
 			return errs.Msgf("variation %d is nil", i)
@@ -68,9 +71,6 @@ func (s Spec) Validate() error {
 		case *SizeVariation:
 			sizes = v.Sizes
 		case UDPPortVariation, *UDPPortVariation:
-			if customEarlierVariation {
-				return errs.Msgf("variation %d: UDP port variation cannot follow a custom variation", i)
-			}
 			ipHeader, udpHeader, payload, err := decodeUDPFrame(s.Frame)
 			if err != nil {
 				return errs.Wrapf(err, "variation %d", i)
@@ -83,13 +83,7 @@ func (s Spec) Validate() error {
 			if encodedLen := ipPacketLength(encoded.Payload, ipHeader); encodedLen != packetLen {
 				return errs.Msgf("variation %d: UDP variation changes IP packet length from %d to %d", i, packetLen, encodedLen)
 			}
-			packetSize := 18 + 4*len(s.Frame.Tags) + packetLen
-			if minEarlierSize < packetSize {
-				return errs.Msgf("variation %d: earlier frame size %d truncates the IP packet of %d octets", i, minEarlierSize, packetSize)
-			}
-		case MACVariation, *MACVariation:
-		default:
-			customEarlierVariation = true
+			packetSize = 18 + 4*len(s.Frame.Tags) + packetLen
 		}
 		if len(sizes) > 0 && s.Rate.BitsPerSecond != 0 {
 			return errs.Msgf("variation %d: size variation requires a frames-per-second rate", i)
@@ -98,8 +92,12 @@ func (s Spec) Validate() error {
 			if size < 18+4*len(s.Frame.Tags) {
 				return errs.Msgf("variation %d: frame size %d is smaller than tagged Ethernet header and FCS", i, size)
 			}
-			minEarlierSize = min(minEarlierSize, size)
+			minSize = min(minSize, size)
 		}
+	}
+
+	if minSize < packetSize {
+		return errs.Msgf("frame size %d truncates the IP packet of %d octets", minSize, packetSize)
 	}
 
 	numerator, rate, err := s.spacing()
@@ -124,6 +122,10 @@ func (s Spec) Validate() error {
 		return errs.Msg("stream last offset exceeds time.Duration")
 	}
 	base, _ := bits.Div64(hi, lo, rate)
+	if base > math.MaxInt64 {
+		return errs.Msg("stream last offset exceeds time.Duration")
+	}
+	base += uint64(s.Start)
 	if base > math.MaxInt64 {
 		return errs.Msg("stream last offset exceeds time.Duration")
 	}
@@ -165,8 +167,8 @@ func (s Spec) Clone() Spec {
 	return s
 }
 
-// Source constructs an independent iterator over a normalized spec. The
-// caller adds Start to each offset returned by [Source.Next].
+// Source constructs an independent iterator over a normalized spec. Its
+// offsets include Start relative to the consumer epoch.
 func (s Spec) Source() (Source, error) {
 	normalized, err := s.Normalize()
 	if err != nil {

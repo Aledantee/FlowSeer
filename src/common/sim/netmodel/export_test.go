@@ -47,7 +47,7 @@ func TestExportNamesTheDefaultInstance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vswitch.New: %v", err)
 	}
-	sw.Forward(testTime, "1/1/1", ethernet.Frame{
+	sw.Receive(testTime, "1/1/1", ethernet.Frame{
 		Dst:     netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 		Src:     netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 		Payload: []byte("untagged packet"),

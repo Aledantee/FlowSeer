@@ -12,6 +12,26 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 )
 
+// Receives reports whether iface admits a neighbor frame's destination before
+// decoding it. IPv6 requires an immediate ICMPv6 neighbor message.
+// Receives is safe for concurrent use when the layer is not being mutated.
+func (l *Layer) Receives(ifaceName string, frame ethernet.Frame) bool {
+	iface, ok := l.ifaces[ifaceName]
+	if !ok {
+		return false
+	}
+	switch frame.EtherType {
+	case ethernet.EtherTypeARP:
+		return frame.Dst == iface.MAC || frame.Dst == (netaddr.MAC{255, 255, 255, 255, 255, 255})
+	case ethernet.EtherTypeIPv6:
+		return ndpReceiver(iface, frame.Dst) && len(frame.Payload) > ip.V6HeaderLen &&
+			frame.Payload[6] == 58 &&
+			(frame.Payload[ip.V6HeaderLen] == byte(ndp.NeighborSolicitation) || frame.Payload[ip.V6HeaderLen] == byte(ndp.NeighborAdvertisement))
+	default:
+		return false
+	}
+}
+
 // Receive processes ARP and Neighbor Discovery addressed to iface, ignoring
 // malformed frames and frames for another receiver. Replies are returned as
 // emissions. Resolved held frames leave through Advance and DrainExits.
@@ -20,6 +40,9 @@ import (
 // NeighborDisabled answers requests without changing the neighbor table.
 // Receive is not safe for concurrent use.
 func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) layer.Effects {
+	if !l.Receives(ifaceName, frame) {
+		return layer.Effects{}
+	}
 	vrf, ok := l.ifaceVRF[ifaceName]
 	if !ok {
 		return layer.Effects{}
@@ -28,9 +51,6 @@ func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) l
 	vs := l.vrfs[vrf]
 	switch frame.EtherType {
 	case ethernet.EtherTypeARP:
-		if frame.Dst != iface.MAC && frame.Dst != (netaddr.MAC{255, 255, 255, 255, 255, 255}) {
-			return layer.Effects{}
-		}
 		msg, err := arp.Decode(frame)
 		if err != nil {
 			return layer.Effects{}
@@ -61,9 +81,6 @@ func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) l
 		}
 		return layer.Effects{Emissions: []layer.Emission{{Port: iface.Port, VID: iface.VLAN, Frame: reply}}}
 	case ethernet.EtherTypeIPv6:
-		if !ndpReceiver(iface, frame.Dst) {
-			return layer.Effects{}
-		}
 		hdr, body, err := ip.Decode(frame.Payload)
 		if err != nil {
 			return layer.Effects{}

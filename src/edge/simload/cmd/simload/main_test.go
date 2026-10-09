@@ -2,12 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/edge/simload"
@@ -161,5 +163,46 @@ func TestREADMETransmitExampleUsesLabEtherType(t *testing.T) {
 	}
 	if spec.Frame.EtherType != ethernet.EtherType(0x88b5) || len(spec.Frame.Payload) < simload.SignatureSize {
 		t.Fatalf("README frame EtherType = %#04x, payload = %d octets", spec.Frame.EtherType, len(spec.Frame.Payload))
+	}
+}
+
+type deadlineClock struct {
+	epoch    time.Time
+	deadline time.Time
+}
+
+func (c *deadlineClock) Now() time.Time { return c.epoch }
+func (c *deadlineClock) Wait(_ context.Context, at time.Time) error {
+	c.deadline = at
+	return errors.New("stop at deadline")
+}
+
+type idleReceiver struct{}
+
+func (idleReceiver) Receive(context.Context) <-chan rawsocket.Frame {
+	return make(chan rawsocket.Frame)
+}
+func (idleReceiver) Stats() (uint64, uint64, error) { return 0, 0, nil }
+func (idleReceiver) Close() error                   { return nil }
+
+type unusedSender struct{}
+
+func (unusedSender) Send(context.Context, []byte) error { return errors.New("unexpected send") }
+func (unusedSender) Close() error                       { return nil }
+func TestTransmitStartSetsFirstDeadline(t *testing.T) {
+	frame, err := (ethernet.Frame{Payload: make([]byte, simload.SignatureSize)}).Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := `{"version":1,"tx_interface":"tx0","rx_interface":"rx0","flows":[{"id":1,"frame_hex":"` + hex.EncodeToString(frame) + `","frames_per_second":1000,"count":1,"start":"1h"}]}`
+	clock := &deadlineClock{epoch: time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)}
+	deps := simload.Dependencies{Clock: clock, ResolveInterface: upResolver, OpenSender: func(string) (packetio.Sender, error) { return unusedSender{}, nil }, OpenReceiver: func(string) (rawsocket.Source, error) { return idleReceiver{}, nil }}
+	var output, diagnostics bytes.Buffer
+	code := run([]string{"transmit"}, strings.NewReader(input), &output, &diagnostics, deps)
+	if code == 0 || !strings.Contains(diagnostics.String(), "stop at deadline") {
+		t.Fatalf("code=%d diagnostics=%s", code, diagnostics.String())
+	}
+	if want := clock.epoch.Add(time.Hour); !clock.deadline.Equal(want) {
+		t.Fatalf("first transmit deadline = %s, want %s", clock.deadline, want)
 	}
 }

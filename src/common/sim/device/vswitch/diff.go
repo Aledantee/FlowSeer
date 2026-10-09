@@ -35,11 +35,8 @@ func (f layerFact) TypeID() string { return "vswitch.layer" }
 // Canonical returns the layer string.
 func (f layerFact) Canonical() string { return string(f) }
 
-// Diff computes the difference between two switch configurations, concatenating
-// device-level MAC differences, port table differences, capability presence changes,
-// physical layer differences, bridge relay differences, link aggregation differences,
-// spanning tree differences, multicast snooping differences, routing differences,
-// and traffic differences.
+// Diff normalizes both configurations and reports MAC, port table, capability
+// presence, and configured layer changes in deterministic layer order.
 func Diff(a, b Config) []trace.Change {
 	a = a.Normalize()
 	b = b.Normalize()

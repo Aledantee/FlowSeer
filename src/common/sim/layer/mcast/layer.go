@@ -123,25 +123,45 @@ type Layer struct {
 // layers snoop, restricted to this layer's logical ports that keep admits.
 // It preserves every deadline and pending query without sharing mutable state.
 // Configured router ports are not copied, and this layer's static ports prevail.
-// The target configuration governs subsequent learning. Both layers must be non-nil.
-func (l *Layer) Restore(prev *Layer, keep func(vlan.ID, string) bool) {
-	for vid, state := range l.byVLAN {
-		old, ok := prev.byVLAN[vid]
-		if !ok {
-			continue
+// The target configuration governs subsequent learning. Restore returns the
+// number of source group and router records absent from the target afterwards.
+// A record whose deadline has passed but that the source has not yet aged out
+// counts like any other. A nil target loses every record. A nil source loses none.
+func (l *Layer) Restore(prev *Layer, keep func(vlan.ID, string) bool) int {
+	if prev == nil {
+		return 0
+	}
+	lost := 0
+	for vid, old := range prev.byVLAN {
+		var state *vlanState
+		if l != nil {
+			state = l.byVLAN[vid]
 		}
 		for key, gps := range old.groups {
-			if _, ok := l.ports[key.port]; ok && keep(vid, key.port) {
-				state.groups[key] = cloneGroupPortState(gps)
-			}
-		}
-		for name, router := range old.routers {
-			if _, ok := l.ports[name]; !ok || !keep(vid, name) || router.origin != Observed || state.routers[name].lifetime == Static {
+			if state == nil {
+				lost++
 				continue
 			}
-			state.routers[name] = router
+			if _, ok := l.ports[key.port]; !ok || !keep(vid, key.port) {
+				lost++
+				continue
+			}
+			state.groups[key] = cloneGroupPortState(gps)
+		}
+		for name, router := range old.routers {
+			if state == nil {
+				lost++
+				continue
+			}
+			if _, ok := l.ports[name]; ok && keep(vid, name) && router.origin == Observed && state.routers[name].lifetime != Static {
+				state.routers[name] = router
+			}
+			if _, ok := state.routers[name]; !ok {
+				lost++
+			}
 		}
 	}
+	return lost
 }
 
 // New builds an empty snooping layer and installs valid static router ports from cfg.

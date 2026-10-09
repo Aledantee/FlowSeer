@@ -173,7 +173,8 @@ stats := fab.Flows()[7]
 fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 ```
 
-The source reports offsets from its own start. The injection time is
+The source reports offsets from the consumer epoch. Spec sources include
+`Spec.Start` in that offset. The injection time is
 `Config.Start + StreamAttachment.Start + source offset`. Before each step, the
 run releases pending host injections and pulls stream frames
 due no later than the earliest queued arrival. When the queue is empty, it
@@ -664,9 +665,9 @@ would otherwise fire in year 1, ahead of any frame a caller injects.
 
 Spanning tree and other internal protocols schedule state transitions and
 frame emissions through the run's arrival queue. Each device holds at most one
-wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
-0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
-before frames scheduled for the same instant. `Step` returns `EntryWake` for
+wake entry in the queue (`Kind` is `ArrivalWake`, port empty, frame ID 0,
+sequence 0). Because `ArrivalWake` sorts ahead of `ArrivalFrame` at one
+instant, a wake executes before frames scheduled for the same instant. `Step` returns `EntryWake` for
 these timer events without appending to any frame journey. A scenario's
 `ActionMcheck` is the one out-of-band protocol call: it runs the switch's
 management check at the current clock and queues the emission and the next wake
@@ -676,10 +677,10 @@ Frames emitted by switch layers during wake-ups or forwarding cross cables and
 hubs as journeys marked `Protocol`. The one exception is a released held
 frame: it carries a neighbor resolution's ordinary data, not a frame of the
 switch's own, so its journey is marked `Protocol` false like the data frame
-that was held. A release usually happens during the `Forward` that observes
-the advertisement resolving the neighbor, not during a wake-up; `Switch.Wake`
-and `Switch.Age` settle a resolution timeout and report a frame the hold queue
-pushed out. Periodic
+that was held. A release usually happens during the `Receive` that observes
+the advertisement resolving the neighbor. `Switch.Advance` settles a
+resolution timeout. The `Receive` that overflows the hold queue reports the
+frame it pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
 `Run(budget)` which returns a `RunResult` containing the stop reason, steps
 taken, pending work, status, issues, and fingerprints. In scenarios configured
@@ -1167,6 +1168,9 @@ The comparison evaluates three dispositions:
   `Comparison.Replay` is a `[2]ReplaySpec` carrying an immutable replay
   specification for each side: `[0]` reconstructs the current fabric, `[1]` the
   candidate, so a `Different` reproduces both sides of the divergence.
+  `Comparison.Location` identifies the exact behavioral field in a journey,
+  run result, or snapshot (`comparison_location.go`). Journey locations retain
+  injection index and UTC time plus parent-relative mirror/release lineage.
 - `analysis.Inconclusive`: Observable behaviors matched but one or both runs
   did not complete (such as step budget exhaustion before pending arrivals or
   egress queues drained, or an underlying component reporting incomplete readiness).
@@ -1179,7 +1183,10 @@ behavioral snapshots:
 - **Path**: Crossing endpoints, link speeds, cable media, and delivery destination hosts.
 - **Timing**: Event timestamps (`At`), propagation latency, serialization delay,
   and queue wait durations.
-- **Multiplicity**: Number of primary journeys, mirror copies, and delivery records.
+- **Multiplicity**: Injection and delivery counts at `Injections.Length` and
+  `Deliveries.Length`. A descendant present on only one side reports the located
+  lineage's presence at `Location.Field == "Journey"`, with `Current` and
+  `Expected` set to `"true"` or `"false"` (`diffFabricRuns` in `compare.go`).
 - **Drop reason and location**: Discard reasons and drop endpoints.
 - **Journey rewrite**: Priority Code Point (PCP) alterations and forwarded frame rewrites.
 - **Journey terminal**: Acceptance state (`Delivered`, `Dropped`, `Rejected`, `Looped`),
@@ -1195,6 +1202,15 @@ are diagnostic: differences in diagnostics alone never yield `Different`.
 comparison, including its entry count. A changed delivery or drop still yields
 a difference.
 
+`fabric.Align(cmp)` returns an `Alignment` and a presence flag. A `Different`
+result always retains its behavioral location, even if traces agree. Its
+optional `Trace` names the injection, lineage, both report journey indices,
+and an original entry index. One-sided journeys use index `-1` for the absent
+side. Queue diagnostics stay available to alignment while behavioral field
+ordinals skip them. An inconclusive comparison may carry a diagnostic trace
+without asserting a behavioral difference. Equivalent comparisons have no
+alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
+
 ### Internal fork lifecycle
 
 `Compare` executes internally on `[Fabric.Fork]` copies of both fabrics. Neither
@@ -1205,7 +1221,9 @@ The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
 by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`); pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
-scenario comparison.
+scenario comparison. Mirror and release descendants pair by parent-relative
+kind, mirror name, and occurrence, including descendants present on one side
+only (`pairJourneys` in `comparison_location.go`).
 
 ## Representative scale and fork cost
 

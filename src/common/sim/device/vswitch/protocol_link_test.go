@@ -34,7 +34,9 @@ func TestLinkChangePortStaysUnknown(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
-	sw.LinkChange(t0, "1/1/1", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0, "1/1/1", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	p, ok := sw.Ports().Port("1/1/1")
 	if !ok {
@@ -94,14 +96,15 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 		ForwardDelay: 15 * time.Second,
 		MessageAge:   0,
 	}
-	swSTP.Forward(t0, "1/1/1", mustEncode(t, rootBPDU, macRoot))
-	swSTP.Forward(t0, "1/1/2", mustEncode(t, rootBPDU, macRoot))
-
+	swSTP.Receive(t0, "1/1/1", mustEncode(t, rootBPDU, macRoot))
+	swSTP.Receive(t0, "1/1/2", mustEncode(t, rootBPDU, macRoot))
 	// Redundant uplink 1/1/2 transitions to Unknown link state.
-	swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{Src: macHost, Dst: macDest, EtherType: ethernet.EtherTypeIPv4}
-	resSTP := swSTP.Forward(t0.Add(2*time.Second), "1/1/3", frame)
+	resSTP := swSTP.Receive(t0.Add(2*time.Second), "1/1/3", frame)
 
 	if got := resSTP.Metadata.Status(); got != analysis.Incomplete {
 		t.Errorf("STP forward status = %v, want %v", got, analysis.Incomplete)
@@ -125,9 +128,11 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 		t.Fatalf("learn static entry on non-stp: %v", err)
 	}
 	swNoSTP.Start(t0)
-	swNoSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := swNoSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
-	resNoSTP := swNoSTP.Forward(t0.Add(2*time.Second), "1/1/3", frame)
+	resNoSTP := swNoSTP.Receive(t0.Add(2*time.Second), "1/1/3", frame)
 	if got := resNoSTP.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("non-STP forward status = %v, want %v", got, analysis.Complete)
 	}
@@ -172,13 +177,14 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-
 	// Member 1/1/2 becomes Unknown. Member 1/1/1 is still Up, so lag1 remains forwarding.
-	sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	// Traffic destined to lag1 consults lag1 and its members -> Incomplete with protocol-link-unknown.
 	frameLag := ethernet.Frame{Src: macSrc, Dst: macLagDest, EtherType: ethernet.EtherTypeIPv4}
-	resLag := sw.Forward(t0.Add(2*time.Second), "1/1/3", frameLag)
+	resLag := sw.Receive(t0.Add(2*time.Second), "1/1/3", frameLag)
 
 	if got := resLag.Metadata.Status(); got != analysis.Incomplete {
 		t.Errorf("traffic through LAG status = %v, want %v", got, analysis.Incomplete)
@@ -192,7 +198,7 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 
 	// Traffic destined to 1/1/4 does not consult lag1 -> Complete.
 	frameOther := ethernet.Frame{Src: macSrc, Dst: macPort4Dest, EtherType: ethernet.EtherTypeIPv4}
-	resOther := sw.Forward(t0.Add(2*time.Second), "1/1/3", frameOther)
+	resOther := sw.Receive(t0.Add(2*time.Second), "1/1/3", frameOther)
 
 	if got := resOther.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("traffic through other port status = %v, want %v", got, analysis.Complete)
@@ -235,20 +241,22 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-
 	// Member 1/1/2 becomes Unknown.
-	sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{Src: macSrc, Dst: macLagDest, EtherType: ethernet.EtherTypeIPv4}
-	resIncomplete := sw.Forward(t0.Add(2*time.Second), "1/1/3", frame)
+	resIncomplete := sw.Receive(t0.Add(2*time.Second), "1/1/3", frame)
 	if resIncomplete.Metadata.Status() != analysis.Incomplete {
 		t.Fatalf("got status %v while member is unknown, want Incomplete", resIncomplete.Metadata.Status())
 	}
-
 	// Member 1/1/2 receives a known Up report -> clears the issue.
-	sw.LinkChange(t0.Add(3*time.Second), "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0.Add(3*time.Second), "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
-	resCleared := sw.Forward(t0.Add(4*time.Second), "1/1/3", frame)
+	resCleared := sw.Receive(t0.Add(4*time.Second), "1/1/3", frame)
 	if got := resCleared.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("status after known Up report = %v, want %v", got, analysis.Complete)
 	}
@@ -295,12 +303,13 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("learn seed: %v", err)
 	}
 	swAuto.Start(t0)
-
 	// 1/1/1 has unknown duplex -> point-to-point status is unknown.
-	swAuto.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000)
+	if _, err := swAuto.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{Src: macSrc, Dst: macDest, EtherType: ethernet.EtherTypeIPv4}
-	resAuto := swAuto.Forward(t0.Add(2*time.Second), "1/1/1", frame)
+	resAuto := swAuto.Receive(t0.Add(2*time.Second), "1/1/1", frame)
 	if got := resAuto.Metadata.Status(); got != analysis.Incomplete {
 		t.Errorf("status with unknown duplex = %v, want %v", got, analysis.Incomplete)
 	}
@@ -332,9 +341,10 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("learn seed: %v", err)
 	}
 	swForced.Start(t0)
-
-	swForced.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000)
-	resForced := swForced.Forward(t0.Add(2*time.Second), "1/1/1", frame)
+	if _, err := swForced.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
+	resForced := swForced.Receive(t0.Add(2*time.Second), "1/1/1", frame)
 	if got := resForced.Metadata.Status(); got != analysis.Complete {
 		t.Errorf("status with forced point-to-point = %v, want %v", got, analysis.Complete)
 	}
@@ -378,31 +388,52 @@ func allAutoSTPPorts() map[string]stp.Port {
 	}
 }
 
-func hasProtocolLinkIssue(res vswitch.ForwardResult) bool {
+func hasProtocolLinkIssue(res vswitch.Output) bool {
 	return slices.ContainsFunc(res.Metadata.Issues(), func(iss analysis.Issue) bool {
 		return iss.Code == vswitch.IssueProtocolLinkUnknown
 	})
 }
 
-// Spanning tree computes roles on every non-member port, so an unknown link on
-// a port without explicit spanning tree configuration still makes results
-// through the others incomplete.
-func TestUnknownLinkOnUnconfiguredSTPPortMarksSpanningTreePorts(t *testing.T) {
+func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	t.Parallel()
 
 	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {PathCost: 20000}})
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0)
+	if _, err := sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
 		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	res := sw.Forward(t0.Add(time.Second), "1/1/3", frame)
+	res := sw.Receive(t0.Add(time.Second), "1/1/3", frame)
+	if hasProtocolLinkIssue(res) {
+		t.Fatalf("unconfigured unknown link raised protocol issues: %+v", res.Metadata.Issues())
+	}
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
+	res = sw.Receive(t0.Add(2*time.Second), "1/1/3", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
+	}
+	found := false
+	for _, issue := range res.Metadata.Issues() {
+		if issue.Code != vswitch.IssueProtocolLinkUnknown {
+			continue
+		}
+		if issue.Scope == analysis.PortScope("", "1/1/1") {
+			found = true
+		}
+		if issue.Scope == analysis.PortScope("", "1/1/3") || issue.Scope == analysis.PortScope("", "1/1/2") {
+			t.Errorf("unlisted port has protocol issue: %+v", issue)
+		}
+	}
+	if !found {
+		t.Errorf("no protocol issue names 1/1/1: %+v", res.Metadata.Issues())
 	}
 }
 
@@ -414,14 +445,16 @@ func TestLinkChangeUnsetPointToPointIsUnknown(t *testing.T) {
 	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.LinkChange(t0, "1/1/2", port.Up, "", 1_000_000_000)
+	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, "", 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
 		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	res := sw.Forward(t0.Add(time.Second), "1/1/1", frame)
+	res := sw.Receive(t0.Add(time.Second), "1/1/1", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
@@ -435,7 +468,9 @@ func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
 	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointUnknown, 1_000_000_000)
+	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x02, 0, 0, 0, 0, 1},
@@ -446,11 +481,11 @@ func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
 		t.Fatalf("precondition: current switch carries no %q issue", vswitch.IssueProtocolLinkUnknown)
 	}
 
-	next, err := vswitch.Derive(sw, sw.Spec())
+	next, _, err := vswitch.Derive(sw, sw.Spec())
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
-	res := next.Forward(t0.Add(time.Second), "1/1/1", frame)
+	res := next.Receive(t0.Add(time.Second), "1/1/1", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Errorf("derived issues = %v, want %q", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
@@ -504,8 +539,12 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 	}
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
-	sw.LinkChange(t0, "1/1/3", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sw.LinkChange(t0, "1/1/3", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		t.Fatal(err)
+	}
 
 	targetCfg := baseCfg.Clone()
 	targetCfg.Phy.Ethernet["1/1/3"] = phy.Ethernet{
@@ -513,7 +552,7 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 		Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
 	}
 
-	next, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+	next, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
@@ -523,14 +562,15 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 		Dst:       netaddr.MAC{0x02, 0, 0, 0, 0, 2},
 		EtherType: ethernet.EtherTypeIPv4,
 	}
-	res := next.Forward(t0.Add(time.Second), "1/1/1", frame)
+	res := next.Receive(t0.Add(time.Second), "1/1/1", frame)
 	if !hasProtocolLinkIssue(res) {
 		t.Fatalf("derived issues = %v, want %q for unobserved 1/1/3", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
-
 	// LinkChange on 1/1/3 clears the issue
-	next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000)
-	resAfter := next.Forward(t0.Add(3*time.Second), "1/1/1", frame)
+	if _, err := next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000); err != nil {
+		t.Fatal(err)
+	}
+	resAfter := next.Receive(t0.Add(3*time.Second), "1/1/1", frame)
 	if hasProtocolLinkIssue(resAfter) {
 		t.Errorf("after LinkChange on 1/1/3, issues = %v, want issue cleared", resAfter.Metadata.Issues())
 	}

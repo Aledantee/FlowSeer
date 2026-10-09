@@ -3,10 +3,13 @@ package vswitch
 import (
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/net/arp"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -43,36 +46,34 @@ func (c forkClass) String() string {
 	}
 }
 
-var switchFieldClasses = map[string]forkClass{
-	"cfg":                      classImmutableShared,
-	"ports":                    classImmutableShared,
-	"bridge":                   classDeepCopied,
-	"speeds":                   classImmutableShared,
-	"power":                    classImmutableShared,
-	"stp":                      classDeepCopied,
-	"loopprotect":              classDeepCopied,
-	"lag":                      classDeepCopied,
-	"mcast":                    classDeepCopied,
-	"routing":                  classDeepCopied,
-	"filter":                   classResetOnFork,
-	"traffic":                  classDeepCopied,
-	"trafficSwitchports":       classImmutableShared,
-	"copies":                   classDeepCopied,
-	"emissions":                classDeepCopied,
-	"portP2P":                  classDeepCopied,
-	"portSpeed":                classDeepCopied,
-	"protocolIssues":           classDeepCopied,
-	"seeds":                    classDeepCopied,
-	"nodeID":                   classImmutableShared,
-	"metadata":                 classImmutableShared,
-	"missingSTP":               classImmutableShared,
-	"operErr":                  classImmutableShared,
-	"lagRebalanceHits":         classResetOnFork,
-	"mcastQueryUnobservedHits": classResetOnFork,
-	"neighborUnresolvedHits":   classResetOnFork,
-	"pvstBoundaryHits":         classResetOnFork,
-	"neighborFailures":         classDeepCopied,
-	"retention":                classDeepCopied,
+type forkFieldClass struct {
+	class      forkClass
+	zeroReason string
+}
+
+var switchFieldClasses = map[string]forkFieldClass{
+	"call":               {class: classResetOnFork, zeroReason: "The active call is nil between public entries."},
+	"cfg":                {class: classImmutableShared},
+	"ports":              {class: classImmutableShared},
+	"bridge":             {class: classDeepCopied},
+	"speeds":             {class: classImmutableShared},
+	"power":              {class: classImmutableShared},
+	"stp":                {class: classDeepCopied},
+	"loopprotect":        {class: classDeepCopied},
+	"lag":                {class: classDeepCopied},
+	"mcast":              {class: classDeepCopied},
+	"routing":            {class: classDeepCopied},
+	"filter":             {class: classDeepCopied},
+	"traffic":            {class: classDeepCopied},
+	"trafficSwitchports": {class: classImmutableShared},
+	"portP2P":            {class: classDeepCopied},
+	"portSpeed":          {class: classDeepCopied},
+	"protocolIssues":     {class: classDeepCopied},
+	"seeds":              {class: classDeepCopied},
+	"nodeID":             {class: classImmutableShared},
+	"metadata":           {class: classImmutableShared},
+	"missingSTP":         {class: classImmutableShared},
+	"retention":          {class: classDeepCopied},
 }
 
 func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
@@ -87,7 +88,7 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 			t.Errorf("field %q has no classification in switchFieldClasses", f.Name)
 			continue
 		}
-		if class == classDeepCopied {
+		if class.class == classDeepCopied {
 			if _, hasProbe := switchDeepCopiedProbes[f.Name]; !hasProbe {
 				t.Errorf("deepCopied field %q has no probe in switchDeepCopiedProbes", f.Name)
 			}
@@ -100,26 +101,55 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 		}
 	}
 
-	// Now check classes on an actual fully-populated Switch instance and its Fork.
 	sw := newTestSwitchForFork(t)
-	fork := sw.Fork()
+	spec := sw.Spec()
+	spec.Config.STP = nil
+	spec.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{Code: "missing-stp", Scope: protocolScope("sw1", stp.LayerName), Status: analysis.Incomplete}}, analysis.EvidenceCatalog{}, nil)
+	missingSTP, err := NewWithSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixtures := []*Switch{sw, missingSTP}
+	populated := make(map[string]bool)
 
-	for i := 0; i < typ.NumField(); i++ {
-		f := typ.Field(i)
-		class := switchFieldClasses[f.Name]
-		vSrc := reflect.ValueOf(sw).Elem().Field(i)
-		vDst := reflect.ValueOf(fork).Elem().Field(i)
+	for _, source := range fixtures {
+		fork := source.Fork()
+		for i := 0; i < typ.NumField(); i++ {
+			f := typ.Field(i)
+			class := switchFieldClasses[f.Name].class
+			vSrc := reflect.ValueOf(source).Elem().Field(i)
+			vDst := reflect.ValueOf(fork).Elem().Field(i)
+			populated[f.Name] = populated[f.Name] || !vSrc.IsZero()
 
-		switch class {
-		case classImmutableShared:
-			assertPointerOrValueIdentical(t, "Switch."+f.Name, vSrc, vDst)
-		case classResetOnFork:
-			if !vDst.IsZero() {
-				t.Errorf("field %q is classified resetOnFork but has non-zero value %+v on fork", f.Name, exportValue(vDst).Interface())
+			switch class {
+			case classImmutableShared:
+				assertPointerOrValueIdentical(t, "Switch."+f.Name, vSrc, vDst)
+			case classResetOnFork:
+				if !vDst.IsZero() {
+					t.Errorf("field %q is classified resetOnFork but has non-zero value %+v on fork", f.Name, exportValue(vDst).Interface())
+				}
+			case classDeepCopied:
+				if vSrc.Kind() == reflect.Pointer && !vSrc.IsNil() && (vDst.IsNil() || vSrc.Pointer() == vDst.Pointer()) {
+					t.Errorf("field %q must have its own non-nil clone", f.Name)
+				}
 			}
-		case classDeepCopied:
-			// Verified by running each probe below.
 		}
+	}
+	for name := range switchFieldClasses {
+		if !populated[name] && switchFieldClasses[name].zeroReason == "" {
+			t.Errorf("field %q is zero in every fixture", name)
+		}
+	}
+
+	// newTestSwitchForFork spends the policer bucket on "1/1/1" and learns a
+	// neighbor, both at the same instant, so a fork carries them over.
+	spent := ethernet.Frame{Payload: make([]byte, 400-38)}
+	forked := sw.Fork()
+	if got := forked.Receive(time.Unix(1000, 0), "1/1/1", spent); got.Reason != traffic.ReasonPoliced {
+		t.Errorf("fork of the spent-bucket source: reason = %v, want %v as the source refuses", got.Reason, traffic.ReasonPoliced)
+	}
+	if !slices.ContainsFunc(forked.Neighbors(), func(n routing.NeighborEntry) bool { return n.Addr == netip.MustParseAddr("10.0.10.98") }) {
+		t.Errorf("fork neighbors = %+v, want the learned 10.0.10.98", forked.Neighbors())
 	}
 
 	for name, probe := range switchDeepCopiedProbes {
@@ -149,22 +179,17 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 		}
 	case reflect.Struct:
 		typ := src.Type()
-		hasPointers := false
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
-			fSrc := exportValue(src.Field(i))
-			fDst := exportValue(dst.Field(i))
+			fSrc, fDst := exportValue(src.Field(i)), exportValue(dst.Field(i))
 			if fSrc.Kind() == reflect.Map || fSrc.Kind() == reflect.Slice || fSrc.Kind() == reflect.Pointer {
-				hasPointers = true
 				if fSrc.Pointer() != fDst.Pointer() {
-					t.Errorf("%s.%s: pointer not identical across fork: got %v and %v", name, f.Name, fSrc.Pointer(), fDst.Pointer())
+					t.Errorf("%s.%s: pointer differs across fork", name, f.Name)
 				}
 			}
 		}
-		if !hasPointers {
-			if !reflect.DeepEqual(src.Interface(), dst.Interface()) {
-				t.Errorf("%s: struct value differs across fork: got %+v, want %+v", name, dst.Interface(), src.Interface())
-			}
+		if !reflect.DeepEqual(src.Interface(), dst.Interface()) {
+			t.Errorf("%s: struct value differs across fork: got %+v, want %+v", name, dst.Interface(), src.Interface())
 		}
 	default:
 		if !reflect.DeepEqual(src.Interface(), dst.Interface()) {
@@ -252,8 +277,21 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 					"1/1/1": {RateBPS: 1000, BurstOctets: 500},
 				},
 			},
-			Filter: &filter.Config{},
+			Filter: &filter.Config{
+				Sets: map[string]filter.RuleSet{"ingress": {
+					Default: filter.Accept,
+					Rules: []filter.Rule{{
+						Name: "blocked-source", Action: filter.Drop,
+						Match: filter.Match{Src: []netip.Prefix{netip.MustParsePrefix("10.0.10.51/32")}},
+					}},
+				}},
+				Bindings: []filter.Binding{{Interface: "vlan10", Direction: filter.In, Set: "ingress"}},
+			},
 			Phy: &phy.Config{
+				PoE: &phy.PoE{
+					Groups: map[string]phy.Group{"pse": {PowerNanowatts: 30_000_000_000}},
+					Ports:  map[string]phy.PsePort{"1/1/1": {Group: "pse", MaxClass: 4, Enabled: true, PD: phy.PDAttached, PDClass: phy.Class(1)}},
+				},
 				Ethernet: map[string]phy.Ethernet{
 					"1/1/1": {
 						SupportedSpeedsBPS: []uint64{1_000_000_000},
@@ -275,22 +313,40 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if sw.filter == nil {
 		t.Fatal("newTestSwitchForFork produced nil filter")
 	}
-	sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0)
-	sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0)
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0); err != nil {
+		t.Fatal(err)
+	}
 
 	// Populate runtime maps so they are non-empty for the pointer check.
 	sw.portP2P = map[string]PointToPoint{"1/1/1": PointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}
-	sw.copies = []traffic.Copy{{Port: "1/1/2"}}
-	sw.emissions = []Emission{{Port: "1/1/1"}}
-	sw.neighborFailures = []NeighborDrop{{Port: "1/1/1", Reason: "held-test"}}
+	sw.retention = allKeptRetention()
 
-	// Populate transient hit sets on sw to verify resetOnFork clears them.
-	sw.lagRebalanceHits = map[string]lag.Selection{"lag1": {Member: "1/1/3"}}
-	sw.mcastQueryUnobservedHits = []mcastQueryUnobservedHit{{vid: 10, group: netip.MustParseAddr("224.0.0.1")}}
-	sw.neighborUnresolvedHits = []neighborUnresolvedHit{{iface: "vlan10", addr: netip.MustParseAddr("10.0.10.99")}}
-	sw.pvstBoundaryHits = map[pvstBoundaryHit]struct{}{{port: "1/1/1", vid: 10}: {}}
+	frame, err := arp.Encode(arp.Message{
+		HardwareType: 1, ProtocolType: 0x0800, Operation: arp.Reply,
+		SenderMAC: netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, 0xef}, SenderAddr: netip.MustParseAddr("10.0.10.98"),
+		TargetMAC: mac, TargetAddr: netip.MustParseAddr("10.0.10.1"),
+	}, mac)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sw.Receive(time.Unix(1000, 0), "1/1/1", frame)
+	found := false
+	for _, n := range sw.Neighbors() {
+		found = found || n.Addr == netip.MustParseAddr("10.0.10.98")
+	}
+	if !found {
+		t.Fatal("source did not learn runtime neighbor")
+	}
+	spent := ethernet.Frame{Payload: make([]byte, 400-38)}
+	sw.Receive(time.Unix(1000, 0), "1/1/1", spent)
+	if got := sw.Receive(time.Unix(1000, 0), "1/1/1", spent); got.Reason != traffic.ReasonPoliced {
+		t.Fatalf("spent source bucket reason = %v, want %v", got.Reason, traffic.ReasonPoliced)
+	}
 
 	return sw
 }

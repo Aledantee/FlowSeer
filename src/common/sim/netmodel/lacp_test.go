@@ -362,7 +362,7 @@ func TestLacpExport_Converged(t *testing.T) {
 	}
 
 	clock := fab.Snapshot().Clock
-	swA.Wake(clock.Add(3 * time.Second))
+	swA.Advance(clock.Add(3 * time.Second))
 	_, expiredPorts := netmodel.Lacp(swA)
 	for _, ps := range expiredPorts {
 		if err := protovalidate.Validate(ps); err != nil {
@@ -374,7 +374,7 @@ func TestLacpExport_Converged(t *testing.T) {
 			t.Errorf("expired port %s enabled = %t, state = %v, want Expired without Collecting or Distributing", ps.GetInterfaceName(), ps.GetEnabled(), state)
 		}
 	}
-	swA.Wake(clock.Add(6 * time.Second))
+	swA.Advance(clock.Add(6 * time.Second))
 	_, defaultedPorts := netmodel.Lacp(swA)
 	for _, ps := range defaultedPorts {
 		if err := protovalidate.Validate(ps); err != nil {

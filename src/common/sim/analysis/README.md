@@ -8,7 +8,7 @@ with metadata that explains which scope is affected.
 ```go
 func analyze(valid bool) (analysis.Metadata, error) {
 	if !valid {
-		return analysis.Metadata{}, errs.Msg("invalid input")
+		return analysis.Metadata{}, errors.New("invalid input")
 	}
 
 	port := analysis.PortScope("switch-a", "1/1")
@@ -35,7 +35,10 @@ metadata.StatusFor(analysis.PortScope("switch-a", "1/1")) // incomplete
 metadata.StatusFor(analysis.PortScope("switch-a", "1/2")) // complete
 ```
 
-Issues use capability-owned codes; the shared package does not register them.
+The example uses `errors`, `analysis`, and `trace`, as
+[`example_test.go`](example_test.go) does.
+
+Issues use capability-owned codes. The shared package does not register them.
 All causes are retained in canonical order. Status uses the fixed conservative
 precedence `unsupported > unstable > exhausted > incomplete > complete`.
 
@@ -51,3 +54,12 @@ even when an identifier contains `/`.
 concurrent readers. `EvidenceCatalog.Add` returns a new catalog. Collection
 accessors return copies, so changing a returned slice cannot alter stored
 metadata.
+
+`Metadata.AssumptionsFor(scope)` returns canonical independent assumptions
+whose scopes overlap the request. Ancestor assumptions affect descendants,
+and a node request includes its child assumptions. Siblings remain disjoint.
+`TestMetadataAssumptionsForOverlappingScopes` in `analysis_test.go` pins this
+filter, and `metadata_internal_test.go` checks returned evidence independence.
+
+`analysis.Disposition` and `analysis.Difference` are shared comparison verdicts.
+Dataplane outcomes and execution stop reasons belong to their producers.

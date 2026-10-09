@@ -135,7 +135,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		Tags:    []vlan.Tag{tag10},
 		Payload: []byte("test payload"),
 	}
-	resIngress := sw.Forward(testTime, "1/1/6", ingressFrame)
+	resIngress := sw.Receive(testTime, "1/1/6", ingressFrame)
 	if resIngress.Ingress != "lag1" {
 		t.Errorf("ingress port = %q, want %q", resIngress.Ingress, "lag1")
 	}
@@ -147,7 +147,7 @@ func TestLagForwardingAndSkippedFacet(t *testing.T) {
 		Tags:    []vlan.Tag{tag10},
 		Payload: []byte("flood payload"),
 	}
-	resFlood := sw.Forward(testTime, "1/1/1", floodFrame)
+	resFlood := sw.Receive(testTime, "1/1/1", floodFrame)
 	if len(resFlood.Egress) != 1 {
 		t.Fatalf("flood egress count = %d, want 1", len(resFlood.Egress))
 	}
@@ -337,7 +337,7 @@ func TestFdbAndPoeExport(t *testing.T) {
 		Src:     srcMAC,
 		Payload: []byte("untagged packet"),
 	}
-	sw.Forward(testTime, "1/1/1", frame)
+	sw.Receive(testTime, "1/1/1", frame)
 
 	entries := sw.Entries()
 	fdbExport, err := netmodel.FdbEntries(entries)

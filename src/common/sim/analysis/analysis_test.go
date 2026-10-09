@@ -130,6 +130,51 @@ func TestScopeOrderingAndRendering(t *testing.T) {
 	}
 }
 
+func TestMetadataAssumptionsForOverlappingScopes(t *testing.T) {
+	t.Parallel()
+
+	node := analysis.NodeScope("sw1")
+	port := analysis.PortScope("sw1", "p1")
+	field := analysis.FieldScope(port, "speed")
+	metadata := analysis.NewMetadata(analysis.WholeScope(), nil, analysis.EvidenceCatalog{}, []analysis.Assumption{
+		{Scope: field, Statement: "field", Evidence: []trace.EvidenceRef{"b", "a", "a"}},
+		{Scope: port, Statement: "port"},
+		{Scope: node, Statement: "node"},
+	})
+	tests := []struct {
+		name  string
+		scope analysis.Scope
+		want  []string
+	}{
+		{name: "ancestor", scope: node, want: []string{"node", "port", "field"}},
+		{name: "child", scope: field, want: []string{"node", "port", "field"}},
+		{name: "sibling", scope: analysis.PortScope("sw1", "p2"), want: []string{"node"}},
+		{name: "whole", scope: analysis.WholeScope(), want: []string{"node", "port", "field"}},
+		{name: "empty", scope: analysis.NodeScope("sw2")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := metadata.AssumptionsFor(tt.scope)
+			if len(got) != len(tt.want) {
+				t.Fatalf("AssumptionsFor(%s) = %+v, want statements %q", tt.scope, got, tt.want)
+			}
+			for i, want := range tt.want {
+				if got[i].Statement != want {
+					t.Errorf("assumption[%d].Statement = %q, want %q", i, got[i].Statement, want)
+				}
+				if want == "field" && !slices.Equal(got[i].Evidence, []trace.EvidenceRef{"a", "b"}) {
+					t.Errorf("field evidence = %q, want [a b]", got[i].Evidence)
+				}
+			}
+		})
+	}
+	if got := (analysis.Metadata{}).AssumptionsFor(analysis.WholeScope()); len(got) != 0 {
+		t.Errorf("zero metadata assumptions = %+v, want empty", got)
+	}
+}
+
 func TestFieldScopePreservesPathIdentityAndContainment(t *testing.T) {
 	t.Parallel()
 

@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"net/netip"
+	"reflect"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -93,6 +95,27 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		Traffic: &traffic.Config{
 			Mirrors: []traffic.Mirror{{Name: "m1", OutputPort: "1/1/1", OutputVLAN: &outputVLAN}},
 		},
+		Filter: &filter.Config{
+			Sets: map[string]filter.RuleSet{"ingress": {
+				Default: filter.Accept, Stateful: true,
+				Rules: []filter.Rule{{Name: "drop", Action: filter.Drop, Match: filter.Match{
+					Protocol: new(uint8(17)),
+					Src:      []netip.Prefix{netip.MustParsePrefix("10.0.10.2/32")},
+					Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.10.3/32")},
+					SrcPorts: []filter.PortRange{{Start: 100, End: 200}},
+					DstPorts: []filter.PortRange{{Start: 300, End: 400}},
+					ICMP:     &filter.ICMPMatch{Type: 8, Code: new(uint8(1))},
+					TCPFlags: &filter.FlagMatch{Mask: 2, Value: 2},
+				}}},
+			}},
+			Bindings: []filter.Binding{{Interface: "vlan10", Direction: filter.In, Set: "ingress"}},
+		},
+	}
+	value := reflect.ValueOf(seed)
+	for i := 0; i < value.NumField(); i++ {
+		if value.Field(i).Kind() == reflect.Pointer && value.Field(i).IsNil() {
+			t.Fatalf("seed capability %s is nil", value.Type().Field(i).Name)
+		}
 	}
 
 	simtest.AssertDiffCoversConfig(t, seed, vswitch.Config.Normalize, vswitch.Diff, nil)

@@ -366,7 +366,7 @@ func TestRestore(t *testing.T) {
 	running := netip.MustParseAddr("10.0.0.9")
 	blocked := netip.MustParseAddr("10.0.0.8")
 	allow := func(vlan.ID, string) bool { return true }
-	for _, name := range []string{"include", "exclude", "multiple ports", "compatibility", "pending group", "pending source", "independent", "keep refusal", "unsnooped VLAN", "LAG member", "departed port", "router expiry", "static router", "configured router"} {
+	for _, name := range []string{"include", "exclude", "multiple ports", "compatibility", "pending group", "pending source", "independent", "keep refusal", "unsnooped VLAN", "LAG member", "departed port", "router expiry", "static router", "configured router", "kept configured router"} {
 		t.Run(name, func(t *testing.T) {
 			ports := mcastPortTable(t)
 			prev := mustNewMcast(t, mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{vid: {RouterPorts: []string{"1/1/8"}}}}, ports)
@@ -419,9 +419,29 @@ func TestRestore(t *testing.T) {
 				v := cfg.VLANs[vid]
 				v.RouterPorts = []string{memberPort}
 				cfg.VLANs[vid] = v
+			case "kept configured router":
+				v := cfg.VLANs[vid]
+				v.RouterPorts = []string{"1/1/8"}
+				cfg.VLANs[vid] = v
 			}
 			next := mustNewMcast(t, cfg, ports)
-			next.Restore(prev, keep)
+			restorer, ok := any(next).(interface {
+				Restore(*mcast.Layer, func(vlan.ID, string) bool) int
+			})
+			if !ok {
+				t.Fatal("Restore does not report lost records")
+			}
+			lost := restorer.Restore(prev, keep)
+			wantLost := 1
+			switch name {
+			case "kept configured router":
+				wantLost = 0
+			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
+				wantLost = 3
+			}
+			if lost != wantLost {
+				t.Fatalf("lost records = %d, want %d", lost, wantLost)
+			}
 			switch name {
 			case "keep refusal", "unsnooped VLAN", "LAG member", "departed port":
 				if got, routers := next.Groups(vid, t0.Add(time.Second)), next.RouterPorts(vid, t0.Add(time.Second)); len(got) != 0 || len(routers) != 0 {
@@ -443,6 +463,14 @@ func TestRestore(t *testing.T) {
 				}
 			case "router expiry", "configured router":
 				want := []mcast.RouterPort{{Port: memberPort, Origin: mcast.Observed, Lifetime: mcast.Aging, Expires: t0.Add(260 * time.Second)}}
+				if got := next.RouterPorts(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, want) {
+					t.Fatalf("routers = %+v, want %+v", got, want)
+				}
+			case "kept configured router":
+				want := []mcast.RouterPort{
+					{Port: memberPort, Origin: mcast.Observed, Lifetime: mcast.Aging, Expires: t0.Add(260 * time.Second)},
+					{Port: "1/1/8", Origin: mcast.Configured, Lifetime: mcast.Static},
+				}
 				if got := next.RouterPorts(vid, t0.Add(time.Second)); !reflect.DeepEqual(got, want) {
 					t.Fatalf("routers = %+v, want %+v", got, want)
 				}

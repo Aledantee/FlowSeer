@@ -111,7 +111,7 @@ func validateSeedFID(cfg Config, seed Seed, prefix string) error {
 	}
 
 	switchport, ok := cfg.VLAN.Switchports[seed.Port]
-	if !ok || !switchportAdmitsFID(switchport, seed.FID) {
+	if !ok || !SwitchportAdmitsFID(switchport, seed.FID) {
 		return errs.New().
 			Attr("field", prefix+".port").
 			Attr("port", seed.Port).
@@ -122,7 +122,9 @@ func validateSeedFID(cfg Config, seed Seed, prefix string) error {
 	return nil
 }
 
-func switchportAdmitsFID(switchport Switchport, fid vlan.ID) bool {
+// SwitchportAdmitsFID reports whether a seed can name fid on this port,
+// including ingress-only PVID membership and a tunnel.
+func SwitchportAdmitsFID(switchport Switchport, fid vlan.ID) bool {
 	return switchport.PVID != nil && *switchport.PVID == fid ||
 		slices.Contains(switchport.Tagged, fid) ||
 		slices.Contains(switchport.Untagged, fid) ||

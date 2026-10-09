@@ -80,8 +80,11 @@ evaluating whether prospective changes introduce behavioral divergence. Unlike
 Batfish, FlowSeer applies exact IEEE 802.1Q bridging, FDB learning, and STP
 filtering directly to Layer-2 networks, exploring finite traffic and fault
 domains (`L2TrafficDomain`, `TimedFaultDomain`) with deterministic counterexample
-reduction (`search.Minimize`) and trace alignment (`search.Align`). Routed
-Layer-3 domain reachability (`L3Domain`) is deferred to a subsequent increment.
+reduction (`search.Minimize`) and trace alignment (`fabric.Align`). Domain
+constructors and search return validation errors. Candidates hold timed fabric
+actions, and minimization retains the exact comparison location and difference
+values (`src/common/sim/search/minimize.go`). The concrete domains cover L2
+traffic and timed faults. No routed-domain interface is declared.
 
 ### Header Space Analysis and Forward Networks
 

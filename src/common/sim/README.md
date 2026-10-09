@@ -29,7 +29,7 @@ goroutines or wall-clock dependencies.
 | `layer/traffic`        | Mirrors, ingress policers, and per-PCP queue limits          |
 | `netmodel`             | Translation boundary for FlowSeer network model protos       |
 | `fabric`               | Switched topology, timed cables, stepped execution, journeys |
-| `search`               | Bounded differential search, counterexample minimization, trace alignment |
+| `search`               | Validated finite domains, bounded differential search, exact counterexample minimization |
 
 A run is a function of the configuration, the frame, and the time the caller
 passes; nothing here reads a clock.
@@ -52,6 +52,8 @@ Comparison returns an exact `analysis.Disposition`:
   observed on each side (`Difference.Current` and `Difference.Expected`). On fabric
   comparisons, `Comparison.Replay` is a `[2]ReplaySpec` providing an immutable
   replay specification for each side (`[0]` current, `[1]` candidate).
+  `Comparison.Location` identifies the exact journey, run, or snapshot field.
+  Journey locations retain injection time and index plus mirror/release lineage.
 - `analysis.Inconclusive`: Behavioral observables matched on evaluated elements, but
   the comparison could not complete (such as step budget exhaustion leaving pending
   frames in transit, or incomplete operational knowledge).
@@ -79,11 +81,17 @@ Comparison guarantees three fundamental properties:
   a deterministic total order independent of map iteration.
 - **Counterexample minimization**: `search.Minimize` prunes irrelevant injections
   and faults in fixed order, halting at `Minimal` when no further elements can be
-  removed without altering the observable divergence.
-- **Trace alignment**: `search.Align` locates the first differing hop entry
-  between paired journeys.
+  removed while retaining the same location and all difference values.
+- **Trace alignment**: `fabric.Align` keeps the behavioral location and optionally
+  names a diagnostic trace entry through injection and descendant pairing.
 - **Resource bounds and remainder**: Bounded exploration respects `MaxCandidates`
   and `MaxDifferences`, naming unvisited candidates in `Result.Remainder`.
+
+Domain constructors and `Search` return errors for invalid configuration or
+limits. Candidate failures increment `Result.Errors` separately from
+inconclusive evaluations, with the first error in `Result.Err`. Zero
+`MaxDifferences` counts only, while `-1` retains every difference. Candidates
+hold independent `fabric.Action` values (`search/domain.go`).
 
 ## Conformance corpus
 

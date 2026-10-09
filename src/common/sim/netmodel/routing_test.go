@@ -743,7 +743,7 @@ func TestNeighborMissRetainsLoadedInvalidNeighborEvidence(t *testing.T) {
 		t.Fatalf("encode packet: %v", err)
 	}
 	iface := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[inName]
-	result := sw.Forward(trustTestTime, inName, ethernet.Frame{
+	result := sw.Receive(trustTestTime, inName, ethernet.Frame{
 		Src:       netaddr.MAC{2, 0, 0, 0, 0, 2},
 		Dst:       iface.MAC,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -809,7 +809,7 @@ func TestNoRouteRetainsConflictingOmittedPrefixEvidence(t *testing.T) {
 		t.Fatalf("encode packet: %v", err)
 	}
 	iface := loaded.Spec.Config.Routing.VRFs[routing.DefaultVRF].Interfaces[inName]
-	result := sw.Forward(trustTestTime, inName, ethernet.Frame{
+	result := sw.Receive(trustTestTime, inName, ethernet.Frame{
 		Src:       netaddr.MAC{2, 0, 0, 0, 0, 2},
 		Dst:       iface.MAC,
 		EtherType: ethernet.EtherTypeIPv4,
@@ -1034,7 +1034,7 @@ func TestLoad_VlanInterfaceOtherKindAbsentFromFlood(t *testing.T) {
 		Payload:   []byte("test broadcast payload"),
 	}
 
-	fwdRes := sw.Forward(now, "1/1/1", broadcastFrame)
+	fwdRes := sw.Receive(now, "1/1/1", broadcastFrame)
 	if fwdRes.Outcome != trace.Flooded {
 		t.Fatalf("forward outcome = %v, want Flooded", fwdRes.Outcome)
 	}

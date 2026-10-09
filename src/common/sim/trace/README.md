@@ -83,6 +83,9 @@ unstated buffer's maximum-frame threshold carries a producer-owned
 runtime evidence. It records why readiness is Incomplete; the frame may still
 be delivered.
 
+`Held` names a frame awaiting resolution. The literal values `Held` and
+`queue` are pinned by `TestVocabulary` in `trace_test.go`.
+
 ## Subject keys
 
 [Subject.Key] identifies the entity within its kind:

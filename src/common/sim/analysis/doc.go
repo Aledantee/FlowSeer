@@ -6,6 +6,7 @@
 // to immutable scopes and retain producer-owned codes. Metadata and evidence
 // catalogs use immutable snapshots and are safe for concurrent use.
 //
-// Execution stop reasons and domain outcomes belong to the simulator or
-// capability that produces them, not to this package.
+// Execution stop reasons and dataplane outcomes belong to the simulator or
+// capability that produces them. This package owns the shared comparison
+// verdicts [Disposition] and [Difference].
 package analysis

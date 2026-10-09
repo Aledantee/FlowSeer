@@ -72,7 +72,7 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 	targetSpec := normSpec.Switches[node]
 	targetSpec.Config.Ports = rebuiltPorts
 
-	derived, err := vswitch.Derive(curSw, targetSpec)
+	derived, out, err := vswitch.Derive(curSw, targetSpec)
 	if err != nil {
 		return errs.Wrapf(err, "derive switch %q", node)
 	}
@@ -90,7 +90,11 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 	derivedCfg.Ports = normSpec.Switches[node].Config.Ports
 	f.cfg.Switches[node] = derivedCfg
 
-	notifyLAGMembers(derived, node, f.cfg, f.clock, f.byEnd)
+	memberOutput, err := notifyLAGMembers(derived, node, f.cfg, f.clock, f.byEnd)
+	if err != nil {
+		return err
+	}
+	f.applyOutput(f.clock, node, memberOutput)
 
 	for _, idx := range changedLinks {
 		if err := f.relinkAt(idx); err != nil {
@@ -100,10 +104,10 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 
 	f.startLayers([]string{node})
 
-	for _, em := range derived.Drain() {
+	for _, em := range out.Emissions {
 		f.injectEmission(f.clock, node, em)
 	}
-	for _, drop := range derived.DrainNeighborFailures() {
+	for _, drop := range out.Drops {
 		f.recordNeighborFailure(f.clock, node, drop)
 	}
 

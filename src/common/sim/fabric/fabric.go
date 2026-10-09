@@ -491,6 +491,7 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 
 	// Rebuild each switch's port table with oper states derived from the cables.
 	switches := make(map[string]*vswitch.Switch, len(cloned.Switches))
+	initialOutput := make(map[string]vswitch.Output, len(cloned.Switches))
 	for name, swCfg := range cloned.Switches {
 		newTable, err := rebuildSwitchPorts(name, swCfg.Ports, byEnd, uncabled)
 		if err != nil {
@@ -506,7 +507,11 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		}
 		switches[name] = sw
 
-		notifyLAGMembers(sw, name, cloned, cloned.Start, byEnd)
+		out, err := notifyLAGMembers(sw, name, cloned, cloned.Start, byEnd)
+		if err != nil {
+			return nil, err
+		}
+		initialOutput[name] = out
 	}
 
 	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
@@ -543,6 +548,11 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		heldAggregates: make(map[string][]FrameID),
 	}
 
+	for _, name := range fab.switchNames() {
+		if cur == nil || cur.Switch(name) == nil {
+			fab.applyOutput(fab.clock, name, initialOutput[name])
+		}
+	}
 	return fab, nil
 }
 
@@ -575,7 +585,8 @@ func rebuildSwitchPorts(name string, swPorts port.Table, byEnd map[Endpoint]link
 	return newTable, nil
 }
 
-func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time, byEnd map[Endpoint]linkEndRef) {
+func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time, byEnd map[Endpoint]linkEndRef) (vswitch.Output, error) {
+	var output vswitch.Output
 	memberPorts := sw.Ports().Ports()
 	slices.SortFunc(memberPorts, func(a, b port.Port) int {
 		return cmp.Compare(a.Name, b.Name)
@@ -588,9 +599,15 @@ func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time
 		if ref, ok := byEnd[ep]; ok {
 			p2p := portPointToPoint(cfg, name, p.Name, *ref.end, ref.peer.Endpoint)
 			speed := ref.end.Speed.SpeedBPS
-			sw.LinkChange(now, p.Name, ref.end.Oper, p2p, speed)
+			out, err := sw.LinkChange(now, p.Name, ref.end.Oper, p2p, speed)
+			if err != nil {
+				return vswitch.Output{}, err
+			}
+			output.Emissions = append(output.Emissions, out.Emissions...)
+			output.Drops = append(output.Drops, out.Drops...)
 		}
 	}
+	return output, nil
 }
 
 // Fork returns an independent execution copy of the fabric at its current simulation point.
@@ -859,20 +876,19 @@ func (f *Fabric) startLayers(names []string) {
 			if ref, ok := f.byEnd[ep]; ok {
 				p2p := f.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
 				speed := ref.end.Speed.SpeedBPS
-				sw.LinkChange(f.clock, p.Name, ref.end.Oper, p2p, speed)
+				out, _ := sw.LinkChange(f.clock, p.Name, ref.end.Oper, p2p, speed)
+				f.applyOutput(f.clock, name, out)
 			} else {
 				p2p := f.uncabledPointToPoint(name, p.Name)
 				oper := port.Down
 				if p.OperStatus == port.Unknown {
 					oper = port.Unknown
 				}
-				sw.LinkChange(f.clock, p.Name, oper, p2p, 0)
+				out, _ := sw.LinkChange(f.clock, p.Name, oper, p2p, 0)
+				f.applyOutput(f.clock, name, out)
 			}
 		}
 
-		for _, em := range sw.Drain() {
-			f.injectEmission(f.clock, name, em)
-		}
 		f.scheduleWake(name)
 	}
 }
@@ -1104,7 +1120,8 @@ func (f *Fabric) Config() Config {
 	return f.cfg.Clone()
 }
 
-// Retention reports, for each switch, the layer retention outcome of the most recent Derive, Fork, or
+// Retention reports, for each switch, every layer including bridge and filter
+// from the most recent Derive, Fork, or
 // Configure that produced it; a Configure of one switch leaves the others' outcomes as they were.
 func (f *Fabric) Retention() map[string]vswitch.Retention {
 	ret := make(map[string]vswitch.Retention, len(f.switches))
@@ -1400,10 +1417,7 @@ func (f *Fabric) mcheck(node, portName string) error {
 	}
 	f.initRunState()
 	defer f.settleTouched()
-	sw.Mcheck(f.clock, portName)
-	for _, em := range sw.Drain() {
-		f.injectEmission(f.clock, node, em)
-	}
+	f.applyOutput(f.clock, node, sw.Mcheck(f.clock, portName))
 	f.scheduleWake(node)
 
 	return nil
@@ -1456,16 +1470,13 @@ func (f *Fabric) relinkAt(idx int) error {
 			continue
 		}
 
-		if err := sw.SetOperStatus(info.end.Port, info.end.Oper); err != nil {
-			return errs.Wrapf(err, "update operational status for %s", info.end.Port)
-		}
 		p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
 		speed := info.end.Speed.SpeedBPS
-		sw.LinkChange(f.clock, info.end.Port, info.end.Oper, p2p, speed)
-
-		for _, em := range sw.Drain() {
-			f.injectEmission(f.clock, info.end.Node, em)
+		out, err := sw.LinkChange(f.clock, info.end.Port, info.end.Oper, p2p, speed)
+		if err != nil {
+			return errs.Wrapf(err, "update operational status for %s", info.end.Port)
 		}
+		f.applyOutput(f.clock, info.end.Node, out)
 		f.scheduleWake(info.end.Node)
 	}
 
@@ -1524,4 +1535,13 @@ func (f *Fabric) uncabledPointToPoint(node, portName string) vswitch.PointToPoin
 	}
 
 	return vswitch.PointToPointFalse
+}
+
+func (f *Fabric) applyOutput(now time.Time, node string, out vswitch.Output) {
+	for _, em := range out.Emissions {
+		f.injectEmission(now, node, em)
+	}
+	for _, drop := range out.Drops {
+		f.recordNeighborFailure(now, node, drop)
+	}
 }
