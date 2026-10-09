@@ -511,8 +511,10 @@ derived fabric with one retained hold and no traffic runs to a
 neighbor entry past their lifetime at `now` leave `Retention` at
 `Kept: true`. `TestPointToPointDecidedBySwitch` in `V/link_test.go`: the
 six rows of `Fb/fabric.go:1490-1522` as a table over `device.Link`, plus
-the forced values. `TestLinkChangeErrorReachesNew` in
-`Fb/topology_state_test.go`. Expected to change: no `Fb/stp_test.go`
+the forced values. The startup error path cannot be reached from a validated
+configuration in this unit (`src/common/sim/port/port.go:430`,
+`src/common/sim/fabric/config.go:1262`), so its test is in U10.
+Expected to change: no `Fb/stp_test.go`
 expectation, since the rule moves unchanged.
 
 ### U4. Queue decisions come from the device
@@ -730,7 +732,11 @@ and read unexported state through `Fb/export_test.go`:
 `journey_state_test.go`, `record_test.go`, `unlinked_internal_test.go`,
 `result_test.go`, and `scenario_test.go`. No exported name and no
 behaviour changes.
-Tests: `TestRunHalfImportsNoDeviceKind` in `Fb` parses the imports of
+Tests: `TestLinkChangeErrorReachesNew` hands a built test device whose
+`LinkChange` returns an error to the fabric, and asserts construction returns
+that error and no fabric, with the same check for `Derive` and `Configure`
+wherever those paths live after U10 and U11.
+`TestRunHalfImportsNoDeviceKind` in `Fb` parses the imports of
 every non-test file but the five of the construction half and
 `scenario.go`, and fails on a path under `sim/layer` or `sim/device/`. `TestSpecRoundTrip`: for a
 fabric of a switch with seeds, a tagged host, and a reflector,
@@ -1021,15 +1027,3 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
-- U3 is blocked at `TestLinkChangeErrorReachesNew`. An invalid state fails
-  port-table construction with `port "p" has invalid oper status "invalid"`.
-  An absent cable endpoint fails `fabric.New` with
-  `cable 0 endpoint B: port "missing" not found on switch "sw"`.
-  `Switch.LinkChange` returns only these port-table errors
-  (`src/common/sim/device/vswitch/link.go:213`,
-  `src/common/sim/port/port.go:493`). Startup reads the constructed switch's
-  own ports (`src/common/sim/fabric/fabric.go:877`). Both fixture errors
-  occur before startup, so asserting either would pass while startup still
-  discards its link-report error. A fault-injection seam or moving the test
-  to construction from built devices would change the unit's specification.
-  U4 through U18 wait for this requirement to be settled.
