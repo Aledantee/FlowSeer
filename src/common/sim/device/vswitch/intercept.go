@@ -3,7 +3,6 @@ package vswitch
 import (
 	"fmt"
 	"net/netip"
-	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
@@ -201,18 +200,11 @@ func (s *Switch) bpduPort(ingress string) (string, bridge.Result, bool) {
 func (s *Switch) bpduTrees(name string) []stp.PortInfo {
 	infos := []stp.PortInfo{s.stp.PortInfo(name)}
 	seen := map[stp.TreeRef]bool{infos[0].Tree: true}
-	if s.cfg.Bridge.VLAN != nil {
-		vids := make([]vlan.ID, 0, len(s.cfg.Bridge.VLAN.Table))
-		for vid := range s.cfg.Bridge.VLAN.Table {
-			vids = append(vids, vid)
-		}
-		slices.Sort(vids)
-		for _, vid := range vids {
-			info := s.stp.VLANPortInfo(vid, name)
-			if info.Tree.Kind != "" && !seen[info.Tree] {
-				seen[info.Tree] = true
-				infos = append(infos, info)
-			}
+	for _, vid := range s.configuredVLANs() {
+		info := s.stp.VLANPortInfo(vid, name)
+		if info.Tree.Kind != "" && !seen[info.Tree] {
+			seen[info.Tree] = true
+			infos = append(infos, info)
 		}
 	}
 	return infos

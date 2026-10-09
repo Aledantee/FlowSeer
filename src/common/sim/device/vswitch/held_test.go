@@ -1491,7 +1491,7 @@ func TestReleaseOntoFloodVLANWithNoMemberRecordsTheBridgesReason(t *testing.T) {
 
 // TestEvictedHeldFrameIsNotReportedAsANeighborMiss covers a frame the hold queue pushed out to
 // make room. It is not a neighbor that failed to answer — in this very run the neighbor answers,
-// and the two frames behind it release on the same Wake.
+// and the two frames behind it release when the reply arrives.
 func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	sw := buildHeldEgressSwitch(t, 2)
@@ -1529,28 +1529,69 @@ func TestEvictedHeldFrameIsNotReportedAsANeighborMiss(t *testing.T) {
 	}
 }
 
-func TestFrameEvictedFromHoldQueueDrainedAfterAgeWithNoWake(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
-	sw := buildHeldEgressSwitch(t, 2)
-
-	dst := netip.MustParseAddr("10.0.20.77")
-	for i, payload := range [][]byte{[]byte("first"), []byte("second"), []byte("third")} {
-		captureOutput(callOutputs, sw, holdFrameToward(t, sw, fixedTime.Add(time.Duration(i)*time.Millisecond), dst, payload))
-	}
-	captureOutput(
-
-		// Age with no Wake between drains the evicted frame into neighborFailures.
-		callOutputs, sw, sw.Advance(fixedTime.Add(time.Second)))
-
-	drops := takeDrops(callOutputs, sw)
-	if len(drops) != 1 {
-		t.Fatalf("neighbor drops = %d, want 1: %+v", len(drops), drops)
-	}
-	if drops[0].Reason != routing.ReasonNeighborHoldOverflow {
-		t.Errorf("reason = %v, want %v", drops[0].Reason, routing.ReasonNeighborHoldOverflow)
-	}
-	if drops[0].Step.RuleID != trace.RuleID(routing.ReasonNeighborHoldOverflow) {
-		t.Errorf("rule = %v, want %v", drops[0].Step.RuleID, routing.ReasonNeighborHoldOverflow)
+func TestReceiveReturnsHoldQueueEviction(t *testing.T) {
+	for _, routed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("routed-port=%t", routed), func(t *testing.T) {
+			sw := buildHeldEgressSwitch(t, 2)
+			if routed {
+				cfg := sw.Spec().Config
+				cfg.Bridge = nil
+				vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+				for name, iface := range vrf.Interfaces {
+					if name == "vlan10" {
+						iface.Port, iface.VLAN = "1/1/1", 0
+					}
+					if name == "vlan20" {
+						iface.Port, iface.VLAN = "1/1/2", 0
+					}
+					vrf.Interfaces[name] = iface
+				}
+				cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+				sw = mustSwitch(t, cfg)
+			}
+			dst := netip.MustParseAddr("10.0.20.77")
+			first := holdFrameToward(t, sw, fixedTime, dst, []byte("first"))
+			second := holdFrameToward(t, sw, fixedTime.Add(time.Millisecond), dst, []byte("second"))
+			if first.Hold == 0 || second.Hold == 0 || first.Hold == second.Hold {
+				t.Fatalf("hold tokens = %v, %v, want distinct nonzero tokens", first.Hold, second.Hold)
+			}
+			if len(first.Drops)+len(second.Drops) != 0 {
+				t.Fatal("queue dropped before reaching capacity")
+			}
+			frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: makeIPv4Packet(t, ipH1, dst, 64, []byte("third"))}
+			at := fixedTime.Add(2 * time.Millisecond)
+			peek := sw.Peek(at, "1/1/1", frame)
+			if peek.Outcome != trace.Held || peek.Hold != 0 || len(peek.Drops) != 0 {
+				t.Fatalf("peek = %+v, want held without queue mutation or drop", peek)
+			}
+			third := sw.Receive(at, "1/1/1", frame)
+			if third.Outcome != trace.Held || third.Hold == 0 {
+				t.Fatalf("third = %+v, want held with token", third)
+			}
+			if len(third.Drops) != 1 {
+				t.Fatalf("evicting Receive drops = %d, want 1", len(third.Drops))
+			}
+			drop := third.Drops[0]
+			if drop.Reason != routing.ReasonNeighborHoldOverflow || drop.Step.RuleID != trace.RuleID(routing.ReasonNeighborHoldOverflow) || drop.Hold != first.Hold || drop.Ingress != "vlan10" {
+				t.Errorf("drop = %+v, want overflow of hold %v from vlan10", drop, first.Hold)
+			}
+			for _, later := range []time.Time{at, at.Add(time.Millisecond), fixedTime.Add(time.Second)} {
+				if out := sw.Advance(later); len(out.Drops) != 0 {
+					t.Fatalf("Advance drops = %+v, want none", out.Drops)
+				}
+			}
+			reply := makeARPReply(t, dst, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
+			out := sw.Receive(fixedTime.Add(time.Second), "1/1/2", reply)
+			var tokens []routing.HoldToken
+			for _, em := range out.Emissions {
+				if em.Hold != 0 {
+					tokens = append(tokens, em.Hold)
+				}
+			}
+			if !slices.Equal(tokens, []routing.HoldToken{second.Hold, third.Hold}) {
+				t.Errorf("released tokens = %v, want [%v %v]", tokens, second.Hold, third.Hold)
+			}
+		})
 	}
 }
 

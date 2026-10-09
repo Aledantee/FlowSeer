@@ -55,6 +55,10 @@ type NeighborDrop struct {
 // whose resolution deadline has separately passed by now.
 func (s *Switch) receiveAndRelease(now time.Time, iface string, frame ethernet.Frame) {
 	s.emitRouting(now, s.routing.Receive(now, iface, frame).Emissions)
+	s.settleRouting(now)
+}
+
+func (s *Switch) settleRouting(now time.Time) {
 	s.emitRouting(now, s.routing.Advance(now).Emissions)
 	s.applyRoutingExits(now, s.routing.DrainExits())
 }
