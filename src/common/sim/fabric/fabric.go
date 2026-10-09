@@ -19,7 +19,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -262,7 +261,9 @@ func NewWithSpec(spec ConstructionSpec) (*Fabric, error) {
 	if err != nil {
 		return nil, err
 	}
-	fab.startLayers(fab.switchNames())
+	if err := fab.startLayers(fab.switchNames()); err != nil {
+		return nil, err
+	}
 
 	return fab, nil
 }
@@ -602,9 +603,7 @@ func notifyLAGMembers(sw *vswitch.Switch, name string, cfg Config, now time.Time
 		}
 		ep := Endpoint{Node: name, Port: p.Name}
 		if ref, ok := byEnd[ep]; ok {
-			p2p := portPointToPoint(cfg, name, p.Name, *ref.end, ref.peer.Endpoint)
-			speed := ref.end.Speed.SpeedBPS
-			out, err := sw.LinkChange(now, p.Name, ref.end.Oper, p2p, speed)
+			out, err := sw.LinkChange(now, p.Name, linkReport(cfg, *ref.end, ref.peer.Endpoint))
 			if err != nil {
 				return device.Output{}, err
 			}
@@ -857,54 +856,35 @@ func (f *Fabric) switchNames() []string {
 	return names
 }
 
-// startLayers tells the named switches' protocol layers their links at the
-// fabric's clock, injects what they emit, and schedules their wakes. A layer
-// that already knows a link ignores the report, so a cloned layer hears only
-// the links that differ from the fabric it came from.
-func (f *Fabric) startLayers(names []string) {
+// startLayers reports every port, with LAG members before their parents, and
+// schedules each switch's next timer at the fabric's clock.
+func (f *Fabric) startLayers(names []string) error {
 	for _, name := range names {
-		swCfg := f.cfg.Switches[name]
 		sw := f.switches[name]
-		hasLag := false
-		for _, p := range sw.Ports().Ports() {
-			if p.Kind == port.LAG {
-				hasLag = true
-				break
-			}
-		}
-		if swCfg.STP == nil && swCfg.LoopProtect == nil && !hasLag {
-			continue
-		}
-
 		ports := sw.Ports().Ports()
 		slices.SortFunc(ports, func(a, b port.Port) int {
+			if (a.LagParent != "") != (b.LagParent != "") {
+				if a.LagParent != "" {
+					return -1
+				}
+				return 1
+			}
 			return cmp.Compare(a.Name, b.Name)
 		})
-
 		for _, p := range ports {
-			if p.Kind == port.LAG {
-				continue
+			link := device.Link{State: p.OperStatus, Duplex: device.DuplexHalf}
+			if ref, ok := f.byEnd[Endpoint{Node: name, Port: p.Name}]; ok {
+				link = linkReport(f.cfg, *ref.end, ref.peer.Endpoint)
 			}
-
-			ep := Endpoint{Node: name, Port: p.Name}
-			if ref, ok := f.byEnd[ep]; ok {
-				p2p := f.portPointToPoint(name, p.Name, *ref.end, ref.peer.Endpoint)
-				speed := ref.end.Speed.SpeedBPS
-				out, _ := sw.LinkChange(f.clock, p.Name, ref.end.Oper, p2p, speed)
-				f.applyOutput(f.clock, name, out)
-			} else {
-				p2p := f.uncabledPointToPoint(name, p.Name)
-				oper := port.Down
-				if p.OperStatus == port.Unknown {
-					oper = port.Unknown
-				}
-				out, _ := sw.LinkChange(f.clock, p.Name, oper, p2p, 0)
-				f.applyOutput(f.clock, name, out)
+			out, err := sw.LinkChange(f.clock, p.Name, link)
+			if err != nil {
+				return err
 			}
+			f.applyOutput(f.clock, name, out)
 		}
-
 		f.scheduleWake(name)
 	}
+	return nil
 }
 
 func (f *Fabric) linkEnd(node, portName string) (linkEndRef, bool) {
@@ -1484,9 +1464,7 @@ func (f *Fabric) relinkAt(idx int) error {
 			continue
 		}
 
-		p2p := f.portPointToPoint(info.end.Node, info.end.Port, info.end, info.peer.Endpoint)
-		speed := info.end.Speed.SpeedBPS
-		out, err := sw.LinkChange(f.clock, info.end.Port, info.end.Oper, p2p, speed)
+		out, err := sw.LinkChange(f.clock, info.end.Port, linkReport(f.cfg, info.end, info.peer.Endpoint))
 		if err != nil {
 			return errs.Wrapf(err, "update operational status for %s", info.end.Port)
 		}
@@ -1497,58 +1475,15 @@ func (f *Fabric) relinkAt(idx int) error {
 	return nil
 }
 
-func (f *Fabric) portPointToPoint(node, portName string, end LinkEnd, peer Endpoint) device.PointToPoint {
-	return portPointToPoint(f.cfg, node, portName, end, peer)
-}
-
-func portPointToPoint(cfg Config, node, portName string, end LinkEnd, peer Endpoint) device.PointToPoint {
-	swCfg := cfg.Switches[node]
-	if swCfg.STP != nil {
-		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
-			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return device.PointToPointTrue
-			}
-			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return device.PointToPointFalse
-			}
-		}
+func linkReport(cfg Config, end LinkEnd, peer Endpoint) device.Link {
+	_, host := cfg.Hosts[peer.Node]
+	_, reflector := cfg.Reflectors[peer.Node]
+	peerSwitch, sw := cfg.Switches[peer.Node]
+	return device.Link{
+		State: end.Oper, SpeedBPS: end.Speed.SpeedBPS,
+		Duplex:     device.Duplex(end.Speed.DuplexA),
+		PeerRelays: host || reflector || (sw && peerSwitch.Bridge != nil),
 	}
-
-	if end.Speed.DuplexA == "" || end.Speed.DuplexA == phy.Unknown {
-		return device.PointToPointUnknown
-	}
-	if end.Speed.DuplexA != phy.Full {
-		return device.PointToPointFalse
-	}
-	if _, isHost := cfg.Hosts[peer.Node]; isHost {
-		return device.PointToPointTrue
-	}
-	if _, isReflector := cfg.Reflectors[peer.Node]; isReflector {
-		return device.PointToPointTrue
-	}
-	if peerSw, isSw := cfg.Switches[peer.Node]; isSw {
-		if peerSw.Bridge != nil {
-			return device.PointToPointTrue
-		}
-	}
-
-	return device.PointToPointFalse
-}
-
-func (f *Fabric) uncabledPointToPoint(node, portName string) device.PointToPoint {
-	swCfg := f.cfg.Switches[node]
-	if swCfg.STP != nil {
-		if pCfg, ok := swCfg.STP.Ports[portName]; ok {
-			if pCfg.PointToPoint == stp.PointToPointForceTrue {
-				return device.PointToPointTrue
-			}
-			if pCfg.PointToPoint == stp.PointToPointForceFalse {
-				return device.PointToPointFalse
-			}
-		}
-	}
-
-	return device.PointToPointFalse
 }
 
 func (f *Fabric) applyOutput(now time.Time, node string, out device.Output) {

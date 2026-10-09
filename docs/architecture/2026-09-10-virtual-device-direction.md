@@ -347,14 +347,20 @@ them.
   appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
   knob itself, and each link it fills carries one `Assumption` naming the
   facts, so a standards default runs only on the record.
-- **Protocol link-state input.** `Switch.LinkChange` takes `port.LinkState`,
-  not a boolean, so an `Unknown` link leaves the port `Unknown` instead of
-  being coerced to `Down`; STP and LAG still hear it as not operational. The
+- **Protocol link-state input.** `Switch.LinkChange` takes `device.Link`:
+  operational state, speed, this end's duplex, and whether the peer relays
+  or terminates frames. The switch applies its administrative STP override
+  and decides point-to-point (`src/common/sim/device/vswitch/link.go`).
+  An `Unknown` link leaves the port `Unknown`. STP and LAG hear it as
+  not operational. The
   switch raises `protocol-link-unknown` on every port whose role or
   membership those protocols compute once one of their inputs is unknown; a
   later `Up` report clears it. Without this, an unknown redundant uplink
   would silently re-elect a spanning tree root with every dependent journey
   reading `Complete`.
+  Startup reports every port, with LAG members before their parents, and
+  schedules each switch's wake. Its first link-report error reaches the
+  constructor, `Derive`, or `Configure` (`src/common/sim/fabric/fabric.go`).
 - **Host acceptance.** A frame the pipeline delivers to a host is not
   necessarily one the host keeps. After arrival, the host checks VLAN
   form, destination MAC, and, for a host with an IP stack, the IP

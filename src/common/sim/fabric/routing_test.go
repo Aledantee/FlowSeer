@@ -1622,7 +1622,6 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 		t.Fatalf("sw1 neighbors before derive = %+v, want one neighbor with HoldDepth 1", snap.Devices["sw1"].Neighbors)
 	}
 
-	// Unrelated edit: derive with unchanged routing
 	nextCfg := cfg.Clone()
 	derived, err := fabric.Derive(fab, constructionSpec(statedPhysical(nextCfg)))
 	if err != nil {
@@ -1992,5 +1991,110 @@ func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
 	}
 	if got := counters["1/1/2"].OutUnicast; got != 0 {
 		t.Errorf("sw1 1/1/2 OutUnicast = %d, want 0", got)
+	}
+}
+
+func TestRoutingOnlySwitchWakesAfterDerive(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	sw1MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x01}
+	sw2MAC := netaddr.MAC{0x00, 0x00, 0x5e, 0x00, 0x01, 0x02}
+	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
+	nextHop := netip.MustParseAddr("10.0.60.2")
+
+	vid10 := vlan.ID(10)
+
+	cfg := fabric.Config{
+		Start: start,
+		Switches: map[string]vswitch.Config{
+			"sw1": {
+				MAC:   sw1MAC,
+				Ports: twoPorts(t),
+				Bridge: &bridge.Config{
+					VLAN: &bridge.VLAN{
+						Table:       map[vlan.ID]string{10: "vlan10"},
+						Switchports: map[string]bridge.Switchport{"1/1/1": {PVID: &vid10, Tagged: []vlan.ID{10}}},
+					},
+				},
+				Routing: &routing.Config{
+					VRFs: map[string]routing.VRF{
+						routing.DefaultVRF: {
+							Interfaces: map[string]routing.Interface{
+								"vlan10": {VLAN: 10, MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.50.1/24")}},
+								"rp2":    {Port: "1/1/2", MAC: sw1MAC, Prefixes: []netip.Prefix{netip.MustParsePrefix("10.0.60.1/24")}},
+							},
+						},
+					},
+				},
+			},
+			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
+		},
+		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+		},
+	}
+
+	fab, err := fabric.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatalf("fabric.New: %v", err)
+	}
+
+	packet, _ := ip.Header{
+		Src:      netip.MustParseAddr("10.0.50.7"),
+		Dst:      nextHop,
+		HopLimit: 64,
+		Protocol: 17,
+		V4:       &ip.V4{},
+	}.Encode([]byte("payload"))
+	taggedFrame := ethernet.Frame{
+		Src:       macH1,
+		Dst:       sw1MAC,
+		EtherType: ethernet.EtherTypeIPv4,
+		Tags:      []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+		Payload:   packet,
+	}
+
+	if _, err := fab.Inject(fabric.Injection{
+		At:     start,
+		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		Frame:  taggedFrame,
+	}); err != nil {
+		t.Fatalf("Inject: %v", err)
+	}
+	if _, ok := fab.Step(); !ok {
+		t.Fatal("fab.Step failed")
+	}
+
+	snap := fab.Snapshot()
+	if len(snap.Devices["sw1"].Neighbors) != 1 || snap.Devices["sw1"].Neighbors[0].HoldDepth != 1 {
+		t.Fatalf("sw1 neighbors before derive = %+v, want one neighbor with HoldDepth 1", snap.Devices["sw1"].Neighbors)
+	}
+
+	// Unrelated edit: derive with unchanged routing
+	nextCfg := cfg.Clone()
+	derived, err := fabric.Derive(fab, constructionSpec(statedPhysical(nextCfg)))
+	if err != nil {
+		t.Fatalf("fabric.Derive: %v", err)
+	}
+	if !derived.Retention()["sw1"].Routing.Kept {
+		t.Fatalf("sw1 routing retention = %+v, want Kept: true", derived.Retention()["sw1"].Routing)
+	}
+	snapDerived := derived.Snapshot()
+	if len(snapDerived.Devices["sw1"].Neighbors) != 1 || snapDerived.Devices["sw1"].Neighbors[0].HoldDepth != 1 {
+		t.Errorf("sw1 neighbors on derived = %+v, want HoldDepth 1", snapDerived.Devices["sw1"].Neighbors)
+	}
+
+	derived.Run(200)
+	misses := 0
+	for _, journey := range derived.Report() {
+		for _, entry := range journey.Entries {
+			if entry.Reason == routing.ReasonNeighborMiss {
+				misses++
+			}
+		}
+	}
+	if misses != 1 {
+		t.Fatalf("neighbor-miss drops = %d, want 1: %+v", misses, derived.Report())
 	}
 }

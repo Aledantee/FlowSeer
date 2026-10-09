@@ -82,10 +82,10 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 	}
 	compare(at, oa, ob)
 	for _, sw := range []*vswitch.Switch{a, b} {
-		if _, err := sw.LinkChange(at, "p3", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+		if _, err := sw.LinkChange(at, "p3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := sw.LinkChange(at, "p3", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
+		if _, err := sw.LinkChange(at, "p3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -308,10 +308,10 @@ func TestEntriesReturnTheirOutput(t *testing.T) {
 	if out := sw.Start(fixedTime); len(out.Emissions) == 0 {
 		t.Fatal("Start returned no output")
 	}
-	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
-	out, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Up, device.PointToPointTrue, 1_000_000_000)
+	out, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -327,7 +327,7 @@ func TestEntriesReturnTheirOutput(t *testing.T) {
 	}
 	cfg := routed.Config()
 	cfg.Routing = nil
-	_, out, err = vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg})
+	_, out, err = vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}

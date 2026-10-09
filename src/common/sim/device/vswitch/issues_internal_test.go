@@ -159,7 +159,7 @@ func TestSelectMemberOutsideACallRaisesNothing(t *testing.T) {
 	if callHasIssue(res, IssueLAGRebalanceUnmodeled) {
 		t.Errorf("next frame issues = %+v, want no lag-rebalance-unmodeled", res.Metadata.Issues())
 	}
-	if _, err := sw.LinkChange(now, "in", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "in", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	res = sw.Receive(now, "in", f)
@@ -181,14 +181,14 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 		{"Advance", func(sw *Switch) { sw.Advance(now) }},
 		{"Start", func(sw *Switch) { sw.Start(now) }},
 		{"LinkChange", func(sw *Switch) {
-			if _, err := sw.LinkChange(now, "out", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now, "out", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"Mcheck", func(sw *Switch) { sw.Mcheck(now, "in") }},
 		{"ClearLoopProtect", func(sw *Switch) { sw.ClearLoopProtect(now, "in") }},
 		{"Derive", func(sw *Switch) {
-			next, _, err := Derive(sw, sw.Spec())
+			next, _, err := Derive(sw, sw.Spec(), now)
 			if err != nil {
 				t.Fatal(err)
 			}

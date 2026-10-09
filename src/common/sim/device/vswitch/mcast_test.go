@@ -759,7 +759,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	))
 
-	kept, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()})
+	kept, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
@@ -769,7 +769,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 
 	removed := base.Clone()
 	delete(removed.Mcast.VLANs, 10)
-	dropped, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed})
+	dropped, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive removing snooped VLAN: %v", err)
 	}
@@ -789,7 +789,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	changedMcast.RouterPortInterval = 45 * time.Second
 	changedMcast.RouterPorts = []string{"1/1/3"}
 	changed.Mcast.VLANs[10] = changedMcast
-	retained, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed})
+	retained, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}
@@ -954,7 +954,7 @@ func TestAdvanceAgesAnExpiredMembership(t *testing.T) {
 		t.Helper()
 		sw := sw.Fork().(*vswitch.Switch)
 		sw.Advance(at)
-		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: moved})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: moved}, fixedTime)
 		if err != nil {
 			t.Fatal(err)
 		}

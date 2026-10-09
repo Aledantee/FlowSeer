@@ -205,7 +205,7 @@ func TestHeldFrameMeetsDerivedIngressFilter(t *testing.T) {
 	}
 	cfg := sw.Config()
 	cfg.Filter.Sets["inbound"] = filter.RuleSet{Default: filter.Drop}
-	next, out, err := Derive(sw, ConstructionSpec{Config: cfg})
+	next, out, err := Derive(sw, ConstructionSpec{Config: cfg}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}

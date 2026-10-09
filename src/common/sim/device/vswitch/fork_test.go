@@ -61,7 +61,7 @@ func probeSwitchBridge(t *testing.T) {
 func probeSwitchSTP(t *testing.T) {
 	sw := newTestSwitchForFork(t)
 	fork := sw.Fork().(*Switch)
-	if _, err := sw.LinkChange(time.Unix(2000, 0), "1/1/1", port.Down, device.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(time.Unix(2000, 0), "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 	if got := sw.Roles()["1/1/1"].Role; got != bpdu.RoleDisabled {
@@ -70,7 +70,7 @@ func probeSwitchSTP(t *testing.T) {
 	if fork.Roles()["1/1/1"].Role == bpdu.RoleDisabled {
 		t.Errorf("fork STP port role moved when source changed link")
 	}
-	if _, err := fork.LinkChange(time.Unix(2000, 0), "1/1/2", port.Down, device.PointToPointFalse, 0); err != nil {
+	if _, err := fork.LinkChange(time.Unix(2000, 0), "1/1/2", device.Link{State: port.Down, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 	if sw.Roles()["1/1/2"].Role == bpdu.RoleDisabled {
@@ -83,7 +83,7 @@ func probeSwitchLoopProtect(t *testing.T) {
 	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(3000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	if sw.loopprotect == nil || fork.loopprotect == nil {
@@ -99,7 +99,7 @@ func probeSwitchLAG(t *testing.T) {
 	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(4000, 0)
-	if _, err := sw.LinkChange(now, "1/1/3", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	if fork.lag == nil || sw.lag == nil {
@@ -240,17 +240,17 @@ func probeSwitchPortP2P(t *testing.T) {
 	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Up, device.PointToPointFalse, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
-	if fork.portP2P["1/1/1"] != device.PointToPointTrue {
-		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], device.PointToPointTrue)
+	if fork.portP2P["1/1/1"] != pointToPointTrue {
+		t.Errorf("fork portP2P changed when source changed: got %v, want %v", fork.portP2P["1/1/1"], pointToPointTrue)
 	}
-	if _, err := fork.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := fork.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
-	if sw.portP2P["1/1/1"] != device.PointToPointFalse {
-		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], device.PointToPointFalse)
+	if sw.portP2P["1/1/1"] != pointToPointFalse {
+		t.Errorf("source portP2P changed when fork changed: got %v, want %v", sw.portP2P["1/1/1"], pointToPointFalse)
 	}
 }
 
@@ -259,13 +259,13 @@ func probeSwitchPortSpeed(t *testing.T) {
 	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(8000, 0)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 10_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 10_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	if fork.portSpeed["1/1/1"] != 1_000_000_000 {
 		t.Errorf("fork portSpeed changed when source changed: got %d, want 1000000000", fork.portSpeed["1/1/1"])
 	}
-	if _, err := fork.LinkChange(now, "1/1/1", port.Up, device.PointToPointTrue, 2_500_000_000); err != nil {
+	if _, err := fork.LinkChange(now, "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 2_500_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	if sw.portSpeed["1/1/1"] != 10_000_000_000 {
@@ -315,7 +315,7 @@ func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 	fork := sw.Fork().(*Switch)
 
 	now := time.Unix(9000, 0)
-	if _, err := sw.LinkChange(now, "1/1/3", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -874,7 +874,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 			}),
 		},
 	})
-	if _, err := sw2.LinkChange(start, "p3", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw2.LinkChange(start, "p3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -975,7 +975,7 @@ func TestMSTITopologyChangeFlushesOnlyItsOwnVLAN(t *testing.T) {
 		{FID: 10, MAC: macVLAN10, Port: "p3", LearnedAt: now},
 		{FID: 20, MAC: macVLAN20, Port: "p3", LearnedAt: now},
 	})
-	if _, err := sw2.LinkChange(now, "l2", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw2.LinkChange(now, "l2", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	msti = sw2.TreeRoles()[10]

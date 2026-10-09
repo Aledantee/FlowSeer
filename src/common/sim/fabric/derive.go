@@ -11,7 +11,8 @@ import (
 // cloned timers continue from the simulation clock; an unset Start takes cur's clock.
 // Switches in target without a namesake in cur are built fresh. The layers start only after
 // the cloned ones are in place, so no proposal from a switch that is thrown away reaches
-// the queue, and a cloned layer hears only the links that differ from cur's.
+// the queue. Each switch hears every port's link report before its next wake
+// is scheduled.
 // A held frame failed by a routing rebuild is reported as a drop journey at
 // the derived fabric's initial clock, before any step runs.
 func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
@@ -23,7 +24,9 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 		return nil, err
 	}
 	if cur == nil {
-		next.startLayers(next.switchNames())
+		if err := next.startLayers(next.switchNames()); err != nil {
+			return nil, err
+		}
 
 		return next, nil
 	}
@@ -35,7 +38,7 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 			continue
 		}
 
-		derived, out, err := vswitch.Derive(curSw, sw.Spec())
+		derived, out, err := vswitch.Derive(curSw, sw.Spec(), next.clock)
 		if err != nil {
 			return nil, errs.Wrapf(err, "derive switch %q", name)
 		}
@@ -46,7 +49,9 @@ func Derive(cur *Fabric, target ConstructionSpec) (*Fabric, error) {
 		derivedCfg.Ports = next.cfg.Switches[name].Ports
 		next.cfg.Switches[name] = derivedCfg
 	}
-	next.startLayers(next.switchNames())
+	if err := next.startLayers(next.switchNames()); err != nil {
+		return nil, err
+	}
 
 	return next, nil
 }

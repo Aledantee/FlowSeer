@@ -245,7 +245,7 @@ func TestConformanceDeriveInvalidation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, _, err := vswitch.Derive(sw, target)
+	next, _, err := vswitch.Derive(sw, target, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}

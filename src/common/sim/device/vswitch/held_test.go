@@ -541,7 +541,7 @@ func TestSubInterfaceObservationBindsOnlyItsOuterVID(t *testing.T) {
 			sw := buildSubInterfaceSwitch(t)
 			captureOutput(callOutputs, sw, holdOnSubInterface(t, sw))
 			if tc.down {
-				if _, err := sw.LinkChange(time.Time{}, "eth1", port.Down, device.PointToPointTrue, 0); err != nil {
+				if _, err := sw.LinkChange(time.Time{}, "eth1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 					t.Fatalf("LinkChange(eth1, Down) = %v", err)
 				}
 			}

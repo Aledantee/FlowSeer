@@ -84,7 +84,7 @@ func main() {
 
 	nextSpec := sw.Spec()
 	nextSpec.Config = nextCfg
-	nextSw, out, err := vswitch.Derive(sw, nextSpec)
+	nextSw, out, err := vswitch.Derive(sw, nextSpec, now)
 	if err != nil {
 		panic(err)
 	}
@@ -364,10 +364,11 @@ so the host drives them through explicit calls:
   [IEEE 802.1Q-2003, 13.36.1](https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf)
   advises against a cost that follows every member failure and specifies
   no rate calculation.
-- `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
-  one link moved. `state` ([port.LinkState]) preserves unknown operational state
-  while informing protocol layers that the link is non-operational. `pointToPoint`
-  (`device.PointToPoint`) conveys operational point-to-point duplex status. For a LAG
+- `LinkChange(now, port, device.Link)` reports operational state, speed,
+  this end's duplex, and whether the peer relays or terminates frames.
+  The switch applies the administrative STP override and resolves
+  point-to-point from these facts (`link.go`). An unknown operational state
+  stays unknown while the protocols hear a non-operational link. For a LAG
   member, it notifies the aggregation layer, updates the LAG port's operational
   state, and informs spanning tree of the LAG's link and speed from the enabled
   members. It returns the call's emissions and drops in `Output`, or an
@@ -527,11 +528,15 @@ flowchart LR
 
 ## Derivation and state retention
 
-`Derive(cur, spec)` builds the target and carries state through the layer
+`Derive(cur, spec, now)` builds the target and advances an independent clone
+of `cur` to `now` before carrying state through the layer
 table in `layers.go`. Spanning tree, loop protection, LAG, routing, traffic,
 and filter report `Kept` when their normalized dependency keys match.
 Traffic carries unchanged policer buckets even when its whole key differs.
 Filter holds no runtime records and is rebuilt from the target.
+Expired records are aged before retention is judged. Emissions and held-frame
+drops from that advance are returned with the derivation output
+(`TestDeriveAgesBeforeCarry` in `derive_test.go`).
 
 Multicast and the bridge report `Kept` when no source record is absent
 afterwards, regardless of key equality. Multicast restores memberships

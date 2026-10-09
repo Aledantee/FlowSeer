@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
@@ -54,7 +53,7 @@ type Switch struct {
 	filter             *filter.Layer
 	traffic            *traffic.Layer
 	trafficSwitchports map[string]traffic.Switchport
-	portP2P            map[string]device.PointToPoint
+	portP2P            map[string]pointToPoint
 	portSpeed          map[string]uint64
 	protocolIssues     map[string]analysis.Issue
 	seeds              []bridge.Seed

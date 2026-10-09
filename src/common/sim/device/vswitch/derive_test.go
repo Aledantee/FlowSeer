@@ -22,6 +22,46 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestDeriveAgesBeforeCarry(t *testing.T) {
+	sw := buildBaseRoutingSwitch(t)
+	cfg := sw.Config()
+	cfg.Bridge.AgingTime = time.Second
+	vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+	vrf.Neighbors = nil
+	cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+	sw = mustSwitch(t, cfg)
+	dst := netip.MustParseAddr("10.0.20.77")
+	if out := holdFrameToward(t, sw, fixedTime, dst, []byte("held")); out.Outcome != trace.Held {
+		t.Fatalf("outcome = %s, want Held", out.Outcome)
+	}
+	sw.Advance(fixedTime.Add(time.Second))
+	sw.Advance(fixedTime.Add(2 * time.Second))
+	mustSwitchLearn(t, sw, []bridge.Seed{{FID: 10, MAC: macH1, Port: "1/1/1", Lifetime: bridge.Aging, LearnedAt: fixedTime.Add(2 * time.Second)}})
+	if len(sw.Entries()) != 1 || len(sw.Neighbors()) != 1 || sw.Neighbors()[0].HoldDepth != 1 {
+		t.Fatalf("source entries/neighbors = %+v/%+v, want one of each with one hold", sw.Entries(), sw.Neighbors())
+	}
+	target := sw.Spec()
+	vid20 := vlan.ID(20)
+	target.Config.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: &vid20, Untagged: []vlan.ID{20}}
+	target.Seeds = nil
+	next, out, err := vswitch.Derive(sw, target, fixedTime.Add(4*time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention(); !got.Bridge.Kept || !got.Routing.Kept {
+		t.Errorf("retention = %+v, want bridge and routing kept", got)
+	}
+	if len(next.Entries()) != 0 || len(next.Neighbors()) != 0 {
+		t.Errorf("derived entries/neighbors = %+v/%+v, want expired records aged", next.Entries(), next.Neighbors())
+	}
+	if len(out.Drops) != 1 || out.Drops[0].Reason != routing.ReasonNeighborMiss {
+		t.Errorf("drops = %+v, want one neighbor-miss", out.Drops)
+	}
+	if len(sw.Entries()) != 1 || len(sw.Neighbors()) != 1 || sw.Neighbors()[0].HoldDepth != 1 {
+		t.Errorf("source entries/neighbors = %+v/%+v, want unchanged", sw.Entries(), sw.Neighbors())
+	}
+}
+
 func TestDeriveKeepsMembershipAcrossSpanningTreeRebuild(t *testing.T) {
 	cfg := mcastSwitchConfig(t, nil)
 	cfg.STP = &stp.Config{Ports: map[string]stp.Port{"1/1/1": {AdminEdge: true}}}
@@ -35,7 +75,7 @@ func TestDeriveKeepsMembershipAcrossSpanningTreeRebuild(t *testing.T) {
 	}
 	target := sw.Spec()
 	target.Config.STP.Priority = 4096
-	next, _, err := vswitch.Derive(sw, target)
+	next, _, err := vswitch.Derive(sw, target, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +121,7 @@ func TestDeriveReportsRemovedVLANMembership(t *testing.T) {
 	sp = target.Config.Bridge.VLAN.Switchports["1/1/1"]
 	sp.Tagged = nil
 	target.Config.Bridge.VLAN.Switchports["1/1/1"] = sp
-	next, _, err := vswitch.Derive(sw, target)
+	next, _, err := vswitch.Derive(sw, target, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +143,7 @@ func TestForgetRemovesTheSeed(t *testing.T) {
 	if got := sw.Spec().Seeds; len(got) != 0 {
 		t.Fatalf("Spec seeds = %+v, want none", got)
 	}
-	next, _, err := vswitch.Derive(sw, sw.Spec())
+	next, _, err := vswitch.Derive(sw, sw.Spec(), fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +167,7 @@ func TestDeriveCountsAnEvictedEntry(t *testing.T) {
 	}
 	target := sw.Spec()
 	target.Config.Bridge.MaxEntries = 1
-	next, _, err := vswitch.Derive(sw, target)
+	next, _, err := vswitch.Derive(sw, target, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,7 +218,7 @@ func TestDeriveUsesTargetConstructionTrust(t *testing.T) {
 		Metadata: newMetadata,
 	}
 
-	next, _, err := vswitch.Derive(cur, target)
+	next, _, err := vswitch.Derive(cur, target, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -222,7 +262,7 @@ func TestDeriveReplaysCurrentDynamicEntryOverTargetDynamicSeed(t *testing.T) {
 			next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{
 				Config: cfg,
 				Seeds:  []bridge.Seed{{MAC: mac, Port: "old", Lifetime: test.lifetime, LearnedAt: oldTime}},
-			})
+			}, fixedTime)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}
@@ -258,7 +298,7 @@ func TestDeriveKeepsAnEntryLearnedUnderThePVID(t *testing.T) {
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()}, now)
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -286,7 +326,7 @@ func TestDeriveKeepsAnEntryLearnedOnATunnelPort(t *testing.T) {
 		Dst: netaddr.MAC{0, 0, 0, 0, 0, 0xbb}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0xaa},
 	})
 
-	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()}, now)
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -321,7 +361,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 		t.Fatalf("current switch has %d entries, want 2", len(entries))
 	}
 
-	derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg})
+	derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: expCfg}, fixedTime)
 	if err != nil {
 		t.Fatalf("derive switch: %v", err)
 	}
@@ -366,7 +406,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Bridge: &bridge.Config{},
 		}
 
-		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg}, fixedTime)
 		if err != nil {
 			t.Fatalf("unexpected derive error: %v", err)
 		}
@@ -388,7 +428,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			},
 		}
 
-		if _, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}); err == nil {
+		if _, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: invalidCfg}, fixedTime); err == nil {
 			t.Errorf("got nil validation error from Derive, want non-nil")
 		}
 	})
@@ -406,7 +446,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			EtherType: ethernet.EtherTypeIPv4,
 		})
 
-		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg}, fixedTime)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -442,7 +482,7 @@ func TestDeriveEdgeCases(t *testing.T) {
 			Ports:  ports,
 			Bridge: &bridge.Config{},
 		}
-		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: nonVlanCfg}, fixedTime)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -497,7 +537,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", rolesBefore["1/1/1"].Role, rolesBefore["1/1/1"].State)
 	}
 
-	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg}, now)
 	captureOutput(callOutputs, derived, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
@@ -552,7 +592,7 @@ func TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress(t *testing.T) {
 		t.Fatalf("1/1/1 before derive = %s/%s, want Root/Forwarding", before.Role, before.State)
 	}
 
-	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg})
+	derived, deriveOutput1, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: cfg}, now)
 	captureOutput(callOutputs, derived, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
@@ -577,7 +617,7 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "1/1/1"}
 	sw.Receive(now, "1/1/1", mustEncodeProbe(t, probe, mac))
 
-	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()}, now)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -635,11 +675,11 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
 	}
 
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 
-	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()})
+	derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: sw.Config()}, now)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -670,7 +710,7 @@ func TestDeriveSwitchRoutingUpdated(t *testing.T) {
 	})
 	nextCfg.Routing.VRFs["default"] = defaultVRF
 
-	nextSw, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	nextSw, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
 	}
@@ -725,7 +765,7 @@ func TestDeriveRebuildsRoutingWhenNeighborPolicyChanges(t *testing.T) {
 	defaultVRF.NeighborPolicy.ReachableTime = 60 * time.Second
 	nextCfg.Routing.VRFs["default"] = defaultVRF
 
-	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg}, fixedTime)
 	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
@@ -763,7 +803,7 @@ func TestDeriveRetainsRoutingStateAndHeldFramesUnderUnchangedKey(t *testing.T) {
 		t.Fatalf("outcome = %v, want Held", held.Outcome)
 	}
 
-	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: cur.Config()}, fixedTime)
 	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
@@ -807,7 +847,7 @@ func TestDeriveFailsHeldFramesOnRoutingKeyChange(t *testing.T) {
 	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	nextCfg.Routing.VRFs[routing.DefaultVRF] = vrf
 
-	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg})
+	next, deriveOutput1, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: nextCfg}, fixedTime)
 	captureOutput(callOutputs, next, deriveOutput1)
 	if err != nil {
 		t.Fatalf("Derive failed: %v", err)
@@ -841,7 +881,7 @@ func TestDeriveInvalidatesLAGSelectionWhenMemberStateChanges(t *testing.T) {
 			}
 
 			targetConfig := lagDeriveConfig(t, test.admin, test.oper)
-			derived, _, err := vswitch.Derive(current, vswitch.ConstructionSpec{Config: targetConfig})
+			derived, _, err := vswitch.Derive(current, vswitch.ConstructionSpec{Config: targetConfig}, fixedTime)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}

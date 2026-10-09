@@ -114,7 +114,8 @@ func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 		s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true})
 	}
 	for _, lagName := range fx.Changed {
-		s.updateLagState(now, lagName)
+		// LAG effects name aggregators from the validated configuration and table.
+		_ = s.updateLagState(now, lagName)
 	}
 }
 

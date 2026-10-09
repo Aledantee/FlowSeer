@@ -10,70 +10,49 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// Start initializes the protocol layers with the current link state of every port in the table.
-// It returns protocol emissions in device.Output. On a switch without spanning tree,
-// link aggregation, or loop protection, Start returns an empty device.Output.
+// Start initializes protocol layers from the switch's validated port table.
+// Physical links default to full duplex with a relaying peer. A caller with
+// observed link facts uses LinkChange instead.
 func (s *Switch) Start(now time.Time) device.Output {
 	c, end := s.beginCall(now, true)
 	defer end()
-
-	if s.stp == nil && s.lag == nil && s.loopprotect == nil {
-		return c.output(forwardResult{})
-	}
-	if s.portP2P == nil {
-		s.portP2P = make(map[string]device.PointToPoint)
-	}
-	if s.portSpeed == nil {
-		s.portSpeed = make(map[string]uint64)
-	}
-
-	for _, p := range s.ports.Ports() {
-		if p.LagParent != "" {
-			speed := s.linkSpeed(p)
-			s.portP2P[p.Name] = device.PointToPointTrue
-			s.portSpeed[p.Name] = speed
-			if s.lag != nil {
-				fx := s.lag.LinkChange(now, p.Name, p.Forwards())
-				s.applyLAGEffects(now, fx)
+	ports := s.ports.Ports()
+	for _, members := range []bool{true, false} {
+		for _, p := range ports {
+			if (p.LagParent != "") != members {
+				continue
 			}
+			// The validated table supplies both the name and operational state.
+			_, _ = s.LinkChange(now, p.Name, device.Link{State: p.OperStatus, SpeedBPS: s.linkSpeed(p), Duplex: device.DuplexFull, PeerRelays: true})
 		}
 	}
-	for _, p := range s.ports.Ports() {
-		if p.Kind == port.LAG {
-			s.updateLagState(now, p.Name)
-		}
-	}
-
-	for _, p := range s.ports.Ports() {
-		if p.LagParent != "" || p.Kind == port.LAG {
-			continue
-		}
-		p2p := true
-		if s.cfg.STP != nil {
-			if pCfg, ok := s.cfg.STP.Ports[p.Name]; ok {
-				if pCfg.PointToPoint == stp.PointToPointForceFalse {
-					p2p = false
-				}
-			}
-		}
-		speed := s.linkSpeed(p)
-		s.portP2P[p.Name] = device.PointToPointFalse
-		if p2p {
-			s.portP2P[p.Name] = device.PointToPointTrue
-		}
-		s.portSpeed[p.Name] = speed
-
-		if s.stp != nil {
-			fx := s.stp.LinkChange(now, p.Name, p.Forwards(), p2p, speed)
-			s.applySTPEffects(fx)
-		}
-		if s.loopprotect != nil {
-			fx := s.loopprotect.LinkChange(now, p.Name, p.Forwards())
-			s.applyLoopProtectEffects(fx)
-		}
-	}
-	s.recomputeProtocolLinkIssues()
 	return c.output(forwardResult{})
+}
+
+type pointToPoint string
+
+const (
+	pointToPointUnknown pointToPoint = "Unknown"
+	pointToPointTrue    pointToPoint = "True"
+	pointToPointFalse   pointToPoint = "False"
+)
+
+func (s *Switch) pointToPoint(name string, link device.Link) pointToPoint {
+	if s.cfg.STP != nil {
+		switch s.cfg.STP.Ports[name].PointToPoint {
+		case stp.PointToPointForceTrue:
+			return pointToPointTrue
+		case stp.PointToPointForceFalse:
+			return pointToPointFalse
+		}
+	}
+	if link.Duplex == "" || link.Duplex == device.DuplexUnknown {
+		return pointToPointUnknown
+	}
+	if link.Duplex == device.DuplexFull && link.PeerRelays {
+		return pointToPointTrue
+	}
+	return pointToPointFalse
 }
 
 // linkSpeed is the resolved speed of a port, or of a LAG's fastest member,
@@ -141,12 +120,14 @@ func (s *Switch) sameUntaggedDomain(name string, sent, classified vlan.ID) bool 
 	return slices.Contains(sw.Untagged, sent) && slices.Contains(sw.Untagged, classified)
 }
 
-func (s *Switch) updateLagState(now time.Time, lagName string) {
+func (s *Switch) updateLagState(now time.Time, lagName string) error {
 	// The row follows the members' own rows, not the layer's delayed
 	// link: the relay refuses a LAG whose members are all down, and the row
 	// must say the same.
 	lagOper := aggregateOperStatus(s.ports.Members(lagName))
-	_ = s.setOperStatus(lagName, lagOper)
+	if err := s.setOperStatus(lagName, lagOper); err != nil {
+		return err
+	}
 
 	var enabledMembers []string
 	if s.lag != nil {
@@ -165,19 +146,20 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 			}
 			highestSpeed = max(highestSpeed, memSpeed)
 
-			if p2p, ok := s.portP2P[memName]; ok && p2p != device.PointToPointTrue {
+			if p2p, ok := s.portP2P[memName]; ok && p2p != pointToPointTrue {
 				lagP2P = false
 			}
 		}
-		if s.cfg.STP != nil && s.cfg.STP.Ports != nil {
-			if pCfg, ok := s.cfg.STP.Ports[lagName]; ok && pCfg.PointToPoint == stp.PointToPointForceFalse {
-				lagP2P = false
-			}
+		duplex := device.DuplexHalf
+		if lagP2P {
+			duplex = device.DuplexFull
 		}
+		lagP2P = s.pointToPoint(lagName, device.Link{Duplex: duplex, PeerRelays: true}) == pointToPointTrue
+
 		if s.portP2P != nil {
-			s.portP2P[lagName] = device.PointToPointFalse
+			s.portP2P[lagName] = pointToPointFalse
 			if lagP2P {
-				s.portP2P[lagName] = device.PointToPointTrue
+				s.portP2P[lagName] = pointToPointTrue
 			}
 			s.portSpeed[lagName] = highestSpeed
 		}
@@ -188,6 +170,7 @@ func (s *Switch) updateLagState(now time.Time, lagName string) {
 		fx := s.loopprotect.LinkChange(now, lagName, lagUp)
 		s.applyLoopProtectEffects(fx)
 	}
+	return nil
 }
 
 func aggregateOperStatus(members []port.Port) port.LinkState {
@@ -210,27 +193,23 @@ func aggregateOperStatus(members []port.Port) port.LinkState {
 // LinkChange updates the named port and reports the output of its protocol layers.
 // An absent port or a state outside [port.LinkState] returns an error without
 // changing runtime state.
-func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState, pointToPoint device.PointToPoint, speed uint64) (device.Output, error) {
-	if err := s.setOperStatus(portName, state); err != nil {
+func (s *Switch) LinkChange(now time.Time, portName string, link device.Link) (device.Output, error) {
+	if err := s.setOperStatus(portName, link.State); err != nil {
 		return device.Output{}, err
 	}
 	c, end := s.beginCall(now, true)
 	defer end()
 
 	if s.portP2P == nil {
-		s.portP2P = make(map[string]device.PointToPoint)
+		s.portP2P = make(map[string]pointToPoint)
 	}
 	if s.portSpeed == nil {
 		s.portSpeed = make(map[string]uint64)
 	}
-	// An unset value is a report that says nothing about the link, so it is
-	// unknown rather than shared media.
-	if pointToPoint == "" {
-		pointToPoint = device.PointToPointUnknown
-	}
-
-	up := state == port.Up
-	p2p := pointToPoint == device.PointToPointTrue
+	pointToPoint := s.pointToPoint(portName, link)
+	up := link.State == port.Up
+	p2p := pointToPoint == pointToPointTrue
+	speed := link.SpeedBPS
 
 	p, ok := s.ports.Port(portName)
 	if ok && p.LagParent != "" {
@@ -241,7 +220,17 @@ func (s *Switch) LinkChange(now time.Time, portName string, state port.LinkState
 			fx := s.lag.LinkChange(now, portName, up)
 			s.applyLAGEffects(now, fx)
 		}
-		s.updateLagState(now, p.LagParent)
+		if err := s.updateLagState(now, p.LagParent); err != nil {
+			return device.Output{}, err
+		}
+		s.recomputeProtocolLinkIssues()
+		return c.output(forwardResult{}), nil
+	}
+
+	if ok && p.Kind == port.LAG {
+		if err := s.updateLagState(now, p.Name); err != nil {
+			return device.Output{}, err
+		}
 		s.recomputeProtocolLinkIssues()
 		return c.output(forwardResult{}), nil
 	}

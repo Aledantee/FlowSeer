@@ -832,7 +832,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 	})
 
 	t.Run("down routed port drops with port-down under routing", func(t *testing.T) {
-		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Down, device.PointToPointTrue, 0); err != nil {
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 			t.Fatalf("LinkChange down: %v", err)
 		}
 		frame := ethernet.Frame{
@@ -849,7 +849,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 			t.Errorf("got outcome=%v reason=%v, want Dropped/port-down", res.Outcome, res.Reason)
 		}
-		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Up, device.PointToPointTrue, 0); err != nil {
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 			t.Fatalf("LinkChange up: %v", err)
 		}
 	})

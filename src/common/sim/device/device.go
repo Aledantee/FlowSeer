@@ -19,7 +19,7 @@ type Device interface {
 	ReceiveMirrored(time.Time, string, ethernet.Frame) Output
 	Advance(time.Time) Output
 	NextWake() (time.Time, bool)
-	LinkChange(time.Time, string, port.LinkState, PointToPoint, uint64) (Output, error)
+	LinkChange(time.Time, string, Link) (Output, error)
 	Fork() Device
 	Ports() port.Table
 }
@@ -106,15 +106,25 @@ type Copy struct {
 	Hold HoldToken
 }
 
-// PointToPoint reports the operational duplex status of a link.
-// PointToPoint is safe for concurrent use. An empty value means unknown.
-type PointToPoint string
+// Link reports this end's operational state, speed and duplex. PeerRelays is
+// true for a peer that terminates or relays frames rather than repeating them.
+// Link is safe for concurrent use.
+type Link struct {
+	State      port.LinkState
+	SpeedBPS   uint64
+	Duplex     Duplex
+	PeerRelays bool
+}
+
+// Duplex is this end's observed duplex. Empty means unknown.
+// Duplex is safe for concurrent use.
+type Duplex string
 
 const (
-	// PointToPointUnknown reports an unobserved link duplex.
-	PointToPointUnknown PointToPoint = "Unknown"
-	// PointToPointTrue reports a point-to-point link.
-	PointToPointTrue PointToPoint = "True"
-	// PointToPointFalse reports shared media.
-	PointToPointFalse PointToPoint = "False"
+	// DuplexUnknown reports an unobserved link duplex.
+	DuplexUnknown Duplex = "Unknown"
+	// DuplexFull reports simultaneous transmission in both directions.
+	DuplexFull Duplex = "Full"
+	// DuplexHalf reports transmission in one direction at a time.
+	DuplexHalf Duplex = "Half"
 )

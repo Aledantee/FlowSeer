@@ -12,25 +12,28 @@ import (
 
 // Derive constructs the target and carries eligible state through the layer table.
 // Whole-layer retention compares normalized dependency keys. Bridge and multicast
-// retention report whether any source record was lost. A record past its
-// deadline that the source has not yet aged out counts like any other, as lost
-// when the target does not carry it. Traffic retains unchanged
+// retention report whether any source record was lost after a clone of cur
+// advances to now. Expired records do not count as lost. Traffic retains unchanged
 // policer buckets independently of its whole-layer verdict. Filter is rebuilt.
 // Dynamic bridge entries remain bounded by target capacity. Static seeds and
 // construction trust come from the target. Port duplex and speed move together
 // only where port and PHY dependencies match. device.Output reports held-frame drops
 // from rebuilt routing. An invalid target returns an error.
-func Derive(cur *Switch, target ConstructionSpec) (*Switch, device.Output, error) {
+func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, device.Output, error) {
 	next, err := NewWithSpec(target)
 	if err != nil {
 		return nil, device.Output{}, err
 	}
 
-	c, end := next.beginCall(time.Time{}, true)
+	c, end := next.beginCall(now, true)
 	defer end()
 
+	var aged device.Output
 	if cur == nil {
 		cur = &Switch{}
+	} else {
+		cur = cur.Fork().(*Switch)
+		aged = cur.Advance(now)
 	}
 	source, targetLayers := cur.layers(time.Time{}), next.layers(time.Time{})
 	for i, entry := range targetLayers {
@@ -66,7 +69,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, device.Output, error
 	}
 	if cur.portP2P != nil || cur.portSpeed != nil {
 
-		next.portP2P = make(map[string]device.PointToPoint)
+		next.portP2P = make(map[string]pointToPoint)
 		next.portSpeed = make(map[string]uint64)
 		for _, p := range next.ports.Ports() {
 			old, ok := cur.ports.Port(p.Name)
@@ -75,7 +78,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, device.Output, error
 			}
 			if old != p || cur.linkSpeed(old) != next.linkSpeed(p) {
 				if _, heard := cur.portP2P[p.Name]; heard {
-					next.portP2P[p.Name] = device.PointToPointUnknown
+					next.portP2P[p.Name] = pointToPointUnknown
 				}
 				continue
 			}
@@ -89,9 +92,13 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, device.Output, error
 	}
 	next.recomputeProtocolLinkIssues()
 	if !next.retention.Routing.Kept && cur.routing != nil {
-		next.applyRoutingExits(time.Time{}, cur.routing.Clone().FailHeld())
+		next.applyRoutingExits(now, cur.routing.Clone().FailHeld())
 	}
-	return next, c.output(forwardResult{}), nil
+	out := c.output(forwardResult{})
+	out.Emissions = append(aged.Emissions, out.Emissions...)
+	out.Copies = append(aged.Copies, out.Copies...)
+	out.Drops = append(aged.Drops, out.Drops...)
+	return next, out, nil
 }
 
 func carryMcast(cur, next *Switch) (int, error) {

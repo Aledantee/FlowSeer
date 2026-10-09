@@ -516,6 +516,9 @@ configuration in this unit (`src/common/sim/port/port.go:430`,
 `src/common/sim/fabric/config.go:1262`), so its test is in U10.
 Expected to change: no `Fb/stp_test.go`
 expectation, since the rule moves unchanged.
+The routing rebuild-drop and retain cases use an unresolved neighbor hold
+that survives the advance, while a resolved hold emits during the advance
+on both retain and rebuild.
 
 ### U4. Queue decisions come from the device
 Files: src/common/sim/layer/traffic/config.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/README.md, src/common/sim/layer/traffic/config_test.go, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/egress_buffer_internal_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/traffic_test.go, src/common/sim/fabric/README.md

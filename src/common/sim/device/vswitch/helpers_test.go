@@ -422,7 +422,7 @@ func captureOutput(callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Sw
 
 func captureLinkOutput(t *testing.T, callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch, now time.Time, name string, state port.LinkState) {
 	t.Helper()
-	out, err := sw.LinkChange(now, name, state, device.PointToPointUnknown, 0)
+	out, err := sw.LinkChange(now, name, device.Link{State: state, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 0})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -86,7 +86,7 @@ func TestLinkChangeReturnsInvalidOperStatusFault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	_, first := sw.LinkChange(now, "1/1/1", port.LinkState("bogus"), device.PointToPointTrue, 1_000_000_000)
+	_, first := sw.LinkChange(now, "1/1/1", device.Link{State: port.LinkState("bogus"), Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if first == nil {
 		t.Fatal("LinkChange returned nil after an invalid oper status, want a fault")
 	}
@@ -94,7 +94,7 @@ func TestLinkChangeReturnsInvalidOperStatusFault(t *testing.T) {
 		t.Errorf("fault names port %v, want 1/1/1", got)
 	}
 
-	_, second := sw.LinkChange(now.Add(time.Second), "1/1/2", port.LinkState("worse"), device.PointToPointTrue, 1_000_000_000)
+	_, second := sw.LinkChange(now.Add(time.Second), "1/1/2", device.Link{State: port.LinkState("worse"), Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if second == nil || errs.Attributes(second)["name"] != "1/1/2" {
 		t.Errorf("second fault = %v, want error naming 1/1/2", second)
 	}
@@ -116,7 +116,7 @@ func TestLinkChangeValidTransitionReturnsNoFault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Errorf("LinkChange returned %v after a valid transition, want nil", err)
 	}
 }

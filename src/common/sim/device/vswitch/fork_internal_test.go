@@ -314,15 +314,15 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if sw.filter == nil {
 		t.Fatal("newTestSwitchForFork produced nil filter")
 	}
-	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, device.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, device.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Populate runtime maps so they are non-empty for the pointer check.
-	sw.portP2P = map[string]device.PointToPoint{"1/1/1": device.PointToPointTrue}
+	sw.portP2P = map[string]pointToPoint{"1/1/1": pointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}
 	sw.retention = allKeptRetention()

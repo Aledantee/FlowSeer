@@ -141,7 +141,7 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 			zeroCfg := cfg.Clone()
 			zeroCfg.Bridge = &bridge.Config{}
 			zeroCfg.Traffic = nil
-			zero, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: zeroCfg})
+			zero, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: zeroCfg}, fixedTime)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -158,7 +158,7 @@ func TestOutputVLANMirrorLAGSelectionUsesLogicalVLAN(t *testing.T) {
 			if zeroMembers != 1 {
 				t.Fatalf("VID zero LAG egresses = %d, want 1", zeroMembers)
 			}
-			sw, _, err = vswitch.Derive(zero, vswitch.ConstructionSpec{Config: cfg})
+			sw, _, err = vswitch.Derive(zero, vswitch.ConstructionSpec{Config: cfg}, fixedTime)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -241,7 +241,7 @@ func TestPeekCalculatesMirrorDependenciesAndKeepsReceivedCopies(t *testing.T) {
 	if len(first.Copies) != 1 || !slices.Equal(first.Copies[0].Frame.Payload, received.Payload) {
 		t.Fatalf("Receive copies = %+v, want one copy of the received frame", first.Copies)
 	}
-	if _, err := sw.LinkChange(time.Time{}, "mirror", port.Unknown, device.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(time.Time{}, "mirror", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 	res := sw.Peek(fixedTime, "in", peeked)
@@ -726,7 +726,7 @@ func TestSwitchPolicerAndQueueLookup(t *testing.T) {
 
 			next := cfg.Clone()
 			tt.change(&next)
-			derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: next})
+			derived, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: next}, fixedTime)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
 			}

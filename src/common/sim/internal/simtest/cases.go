@@ -168,7 +168,7 @@ func casePlanningPortVLANChange() Case {
 
 			changes := vswitch.Diff(cfgCur, cfgNext)
 
-			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext})
+			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1620,7 +1620,7 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 
 			// member-a faults. Only the bucket it held (flow1's) needs
 			// reassignment; flow2's bucket was never on member-a.
-			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				return ExecutionResult{}, err
 			}
 			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", flow1).Result); err != nil {
@@ -1735,14 +1735,14 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 				return ExecutionResult{}, err
 			}
 
-			if _, err := sw.LinkChange(now.Add(time.Second), "a", port.Down, device.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "a", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				return ExecutionResult{}, err
 			}
 			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", frame).Result); err != nil {
 				return ExecutionResult{}, err
 			}
 
-			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", port.Up, device.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				return ExecutionResult{}, err
 			}
 			fwd := sw.Receive(now.Add(4*time.Second), "in", frame)

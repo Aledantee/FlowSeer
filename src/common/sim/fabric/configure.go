@@ -3,7 +3,6 @@ package fabric
 import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 )
 
 // Configure changes switch node at f.clock to the provided configuration,
@@ -21,14 +20,8 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 
 	spec := f.Spec()
 	swSpec := curSw.Spec()
-	var staticSeeds []bridge.Seed
-	for _, s := range swSpec.Seeds {
-		if s.Lifetime == bridge.Static {
-			staticSeeds = append(staticSeeds, s)
-		}
-	}
+	swSpec.Seeds = curSw.StaticSeeds()
 	swSpec.Config = cfg
-	swSpec.Seeds = staticSeeds
 	spec.Switches[node] = swSpec
 
 	normSpec, err := normalizeConstructionSpec(f, spec)
@@ -72,7 +65,7 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 	targetSpec := normSpec.Switches[node]
 	targetSpec.Config.Ports = rebuiltPorts
 
-	derived, out, err := vswitch.Derive(curSw, targetSpec)
+	derived, out, err := vswitch.Derive(curSw, targetSpec, f.clock)
 	if err != nil {
 		return errs.Wrapf(err, "derive switch %q", node)
 	}
@@ -103,7 +96,9 @@ func (f *Fabric) Configure(node string, cfg vswitch.Config) error {
 		}
 	}
 
-	f.startLayers([]string{node})
+	if err := f.startLayers([]string{node}); err != nil {
+		return err
+	}
 
 	for _, em := range out.Emissions {
 		f.injectEmission(f.clock, node, em)
@@ -133,12 +128,12 @@ func linkStateChanged(old Link, oldCfg Config, next Link, nextCfg Config) bool {
 	if old.B.Ethernet.Canonical() != next.B.Ethernet.Canonical() {
 		return true
 	}
-	oldP2PA := portPointToPoint(oldCfg, old.A.Node, old.A.Port, old.A, old.B.Endpoint)
-	newP2PA := portPointToPoint(nextCfg, next.A.Node, next.A.Port, next.A, next.B.Endpoint)
-	if oldP2PA != newP2PA {
+	oldReportA := linkReport(oldCfg, old.A, old.B.Endpoint)
+	newReportA := linkReport(nextCfg, next.A, next.B.Endpoint)
+	if oldReportA != newReportA {
 		return true
 	}
-	oldP2PB := portPointToPoint(oldCfg, old.B.Node, old.B.Port, old.B, old.A.Endpoint)
-	newP2PB := portPointToPoint(nextCfg, next.B.Node, next.B.Port, next.B, next.A.Endpoint)
-	return oldP2PB != newP2PB
+	oldReportB := linkReport(oldCfg, old.B, old.A.Endpoint)
+	newReportB := linkReport(nextCfg, next.B, next.A.Endpoint)
+	return oldReportB != newReportB
 }

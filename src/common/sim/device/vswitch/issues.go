@@ -9,7 +9,6 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -465,7 +464,7 @@ func (s *Switch) recomputeProtocolLinkIssues() {
 			continue
 		}
 		forced := pCfg.PointToPoint == stp.PointToPointForceTrue || pCfg.PointToPoint == stp.PointToPointForceFalse
-		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == device.PointToPointUnknown {
+		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == pointToPointUnknown {
 			stpAffected = true
 		}
 	}

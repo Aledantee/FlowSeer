@@ -1134,6 +1134,11 @@ func main() {
 `fabric.Derive(cur, spec)` derives a new simulation fabric from an existing
 fabric and an updated configuration specification, starting a fresh run from
 the new spec's start time while retaining capability layers on unchanged switches.
+Each switch derives at that time from an aged clone. Startup reports every
+port, with LAG members first, then schedules the switch's next wake, including
+on a switch whose only timer is neighbor resolution (`startLayers` in
+`fabric.go`, `TestRoutingOnlySwitchWakesAfterDerive` in `routing_test.go`).
+The first link-report error reaches `New`, `Derive`, or `Configure`.
 
 To modify a switch configuration in-flight within an existing run without starting
 fresh, use `Fabric.Configure(node, cfg)` or `ActionConfigure` in a `Scenario`.
