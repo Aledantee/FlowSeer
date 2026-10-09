@@ -151,6 +151,18 @@ a `NeighborDrop` with reason `mirror-output`. Mirror selectors resolve the
 physical ingress to its logical port, including a received LACPDU's member
 (`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`).
 
+Open vSwitch reserves a mirror output port for mirror copies and runs
+no spanning tree on it. Keeping loop-protection probes off the port is the
+switch's own rule, drawn from that reservation, because no source read
+covers probes.
+
+A port under a loop-protection action keeps sending probes, BPDUs, and
+LACPDUs. `applyLoopProtectEffects`, `applySTPEffects`, and `applyLAGEffects`
+in `timers.go` never consult the loop-protection gate. The
+[loop protection layer](../../layer/loopprotect/README.md#emission-ignores-the-gate)
+documents this for probes. No vendor source was read for BPDUs or LACPDUs on
+such a port.
+
 Protocol transmission and loop-protection gates follow the
 [layer integration rules](../../layer/loopprotect/README.md#switch-integration).
 
@@ -208,8 +220,8 @@ The virtual switch uses a ladder of architectural layers:
   the untagged interface when the frame carries none) or the frame drops
   with `not-bridged` before ownership is even checked. This applies to every
   routed port, so a tagged frame on a plain untagged routed port drops the
-  same way a frame at an unconfigured VID on a trunk of sub-interfaces does;
-  a frame that names a configured interface and passes routing's neighbor
+  same way a frame at an unconfigured VID on a trunk of sub-interfaces does.
+  A frame that names a configured interface and passes routing's neighbor
   reception predicate is consumed. Any other frame that is not IP addressed
   to its MAC drops with the same reason afterward, once ownership is checked. For
   frames arriving on a VLAN or routed port, routing
@@ -236,7 +248,10 @@ The virtual switch uses a ladder of architectural layers:
   neighbors under its own interface name, and an arriving ARP or Neighbor
   Discovery advertisement binds the sub-interface its own outer VLAN tag names
   and no other. On a routed port whose lookup misses, it binds nothing, since
-  such a port has no bridge membership to fall through to.
+  such a port has no bridge membership to fall through to. A filter requires
+  routing in the switch. `Config.Validate` refuses a `Filter` without `Routing`
+  or with a binding that names no routing interface (`validateFilterComposition`
+  in `config.go`), because the switch evaluates a filter on routed paths alone.
 
   VLAN neighbor reception follows bridge classification and source learning,
   so an answer uses the learned ingress port. A neighbor frame addressed to
@@ -244,7 +259,9 @@ The virtual switch uses a ladder of architectural layers:
   Broadcast ARP and group Neighbor Discovery are received and relayed.
   A reply to another station is relayed without changing neighbor state
   ([held_test.go](held_test.go)). Other EtherTypes addressed to the interface
-  MAC retain their ordinary path. This is the switch's consumption rule.
+  MAC are not consumed and are relayed like any unicast frame, apart from IPv4
+  and IPv6, which routing takes. This is a limit of the switch's consumption
+  rule, which covers ARP and Neighbor Discovery only.
 - **Traffic**: Configured with `traffic.Config`. The switch reserves mirror
   output ports from ordinary ingress and egress, then creates selected mirror
   copies after bridge, hub, or routed forwarding. A copy is exposed only when
@@ -290,6 +307,7 @@ Forwarding and allocation behavior follows standard specifications:
 - **Routed frame classification**: A forwarded routed frame's `Result.FID`
   records the egress VLAN on a VLAN interface, or zero on a routed port. A
   refused one keeps the ingress VLAN, zero when it arrived on a routed port.
+
 ## Drop reasons
 
 Drop reasons recorded in traces and egress records:
@@ -330,9 +348,10 @@ Drop reasons recorded in traces and egress records:
 
 ## Protocol schedule
 
-The spanning tree, loop protection, and link aggregation layers operate
-deterministically without background timers. The host drives them through
-explicit calls:
+The layer table in `layers.go` holds the layers that move with time. Spanning
+tree, link aggregation, loop protection, and routing own timers, and bridge
+and multicast age their entries on `Advance`. None runs a background timer,
+so the host drives them through explicit calls:
 
 - `Start(now)` initializes link state across all ports from the port table.
   A switch started alone assumes point-to-point links unless configured
@@ -593,9 +612,17 @@ that will be shared comes from `Clone`.
 | File | Responsibility |
 | --- | --- |
 | [switch.go](switch.go) | Construction and shared state |
+| [config.go](config.go) | Configuration, validation, and normalization |
 | [spec.go](spec.go) | Construction identity and seeds |
 | [fork.go](fork.go) | Independent runtime copies |
 | [issues.go](issues.go) | Per-call readiness and dependency hits |
+| [metadata.go](metadata.go) | Scopes and metadata of a call's result |
+| [output.go](output.go) | `Output` and the `Receive` and `Advance` entry points |
+| [layers.go](layers.go) | Layer table: advance, clone, and retention keys |
+| [retention.go](retention.go) | Per-layer retention outcome |
+| [derive.go](derive.go) | Derivation of a target switch from a current one |
+| [compare.go](compare.go) | Current-against-candidate comparison |
+| [diff.go](diff.go) | Configuration diff |
 | [forward.go](forward.go) | Forwarding stage dispatch |
 | [hub.go](hub.go) | Hub ingress and relay |
 | [route.go](route.go) | Routed forwarding and held-frame release |

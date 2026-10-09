@@ -175,7 +175,8 @@ Every analysis evaluation separates four orthogonal axes:
    checks. Invalid inputs (such as non-existent port references or malformed
    VLAN IDs) are rejected with a Go `error` before simulation begins.
 2. **Domain outcome**: What the simulated dataplane did with the frame:
-   `Forwarded`, `Flooded`, `Dropped`, or `Consumed`, along with a domain reason
+   `Forwarded`, `Flooded`, `Dropped`, `Consumed`, or `Held` (queued on an
+   unresolved neighbor), along with a domain reason
    (such as `ingress-filter`, `port-down`, or `unicast-hit`).
 3. **Analysis readiness**: The trust placed in the answer: `Complete`,
    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, derived from an
@@ -239,11 +240,13 @@ mutated by execution. The fork gets its own copy the source's later writes
 cannot reach. `Switch.Fork` loops over the table in
 `src/common/sim/device/vswitch/layers.go` to clone each layer, including the
 packet filter, then applies the table's relay bindings to those clones.
-A `resetOnFork` field is a binding back to the switch or
-bridge that holds it (the bridge's spanning-tree gate, its LAG selector,
-its multicast resolver) and is rebound to the fork's own layers rather than
-copied, because a copied binding would have the fork asking the source for a
-LAG member or a multicast resolution. Each class has its own assertion:
+A `resetOnFork` field is left at its zero value in the fork. Two kinds
+exist. A binding back to the switch or bridge that holds it (the bridge's
+spanning-tree gate, its LAG selector, its multicast resolver) is rebound to
+the fork's own layers rather than copied, because a copied binding would have
+the fork asking the source for a LAG member or a multicast resolution. The
+switch's active `call` is nil between public entries, so a fork starts
+without one. Each class has its own assertion:
 pointer identity and equality of value fields for the first, a mutation probe
 for the second, a zero-value check for the third before the switch rebinds it. A table
 classifies only fields populated on at least one source fixture, with an
@@ -414,7 +417,7 @@ rather than whole-state fingerprints or shallow boolean equality:
 - **Switch observables.** For `vswitch.Output`, comparison checks
   forwarded frames per egress port with rewritten fields, the selected LAG
   member, mirror copy VLAN, selected member and frame content, PCP, and the typed forwarding outcome (`Forwarded`,
-  `Flooded`, `Dropped`, or `Consumed`, with domain reason). Semantic trace
+  `Flooded`, `Dropped`, `Consumed`, or `Held`, with domain reason). Semantic trace
   steps and metadata are diagnostic and never cause a `Different` verdict.
 - **Fabric observables.** Per paired journey in `fabric.Journey`, comparison
   checks `State`, `Origin`, ordered `Entries` (path hops, cable crossings,
@@ -1125,3 +1128,35 @@ layers and traffic compare keys. `Retention` includes bridge and filter.
 returned copies by mirror, port, VLAN, member, and frame. Trace facts are
 diagnostic. An incomplete side makes the disposition inconclusive even
 when a behavioral difference is found, and the difference remains visible.
+
+### 2026-10-08: Fork clones every layer through the layer table
+
+`Switch.Fork` clones each present layer, the packet filter included, through
+the table in `src/common/sim/device/vswitch/layers.go`, then rebinds the
+bridge's gate, selector, and resolver to the clones. The field classification
+in `fork_internal_test.go` runs over populated fixtures, and an
+`immutableShared` struct is checked by value as well as by pointer.
+`TestForkKeepsTheFilter` in `src/common/sim/device/vswitch/fork_test.go` checks
+that a fork keeps its bound filter.
+
+### 2026-10-08: Receive and advance return their output
+
+`Peek`, `Start`, `Mcheck`, and `Derive` return `Output` directly, and
+`LinkChange` returns it with an error for an absent port or invalid link state.
+The switch holds no pending emissions, copies, or neighbor failures between
+calls (`TestSwitchHoldsNoPendingOutput` in
+`src/common/sim/device/vswitch/switch_internal_test.go`). `Receive` and `Advance` settle the layer
+timers due at their instant, and the `Receive` that evicts a held frame reports
+the drop in its own `Output`.
+
+### 2026-10-08: Held frames meet the filter at release
+
+A held frame leaves through the same routed egress as a live one
+(`putRoutedFrame` in `src/common/sim/device/vswitch/route.go`), so its port,
+selected LAG member, tags, and priority agree. At release the switch evaluates
+the current ingress binding, resolves a deferred decision against the egress
+interface, and evaluates the egress binding. An originated frame meets the
+egress binding alone. `Output.Hold`, `Emission.Hold`, and `NeighborDrop.Hold`
+carry one token for a held frame, with its ingress interface, and the fabric
+transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
+`src/common/sim/device/vswitch/filter_test.go` checks the filtering.

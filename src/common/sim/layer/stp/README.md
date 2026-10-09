@@ -692,9 +692,18 @@ arrival VLAN. A TCN names the arrival VLAN alone. Each changed tree adds
 a port transition fact ([BPDU tests](../../device/vswitch/stp_test.go)).
 
 [Emission](../../device/vswitch/timers.go) tags a nonzero emission VID
-through `bridge.OriginateFrame`. A zero VID leaves untagged without a VLAN
-membership check. A PVST switch requires a VLAN table and a tree for every
-carried VLAN ([configuration](../../device/vswitch/config.go)).
+through `bridge.OriginateFrame`. A per-VLAN BPDU leaves tagged where the VLAN
+is tagged and untagged where it is the port's untagged VLAN. It is withheld
+where the port does not carry the VLAN. A zero VID leaves untagged without a
+VLAN membership check, which an IEEE-addressed BPDU needs on a trunk with no
+native VLAN.
+
+A PVST switch requires a VLAN table and a tree for every carried VLAN
+([configuration](../../device/vswitch/config.go)). Construction refuses a
+carried VLAN with no tree, naming `stp.pvst.trees` and the VLAN, because that
+VLAN would have no defined forwarding state. It refuses a PVST configuration on
+a bridge with no VLAN table, naming `stp.pvst`, because there is nothing
+per-VLAN about a bridge with no VLAN table.
 
 ## Protocol timing at the switch
 
@@ -709,7 +718,7 @@ that status ([receive.go](receive.go), [timers](advance.go)).
 
 `TxHoldCount` caps transmissions per port. Held BPDUs leave at the next
 tick. `PortInfo` exposes sent, received, and undecodable (`BadBPDUs`)
-counts alongside `SendRSTP` ([layer.go](layer.go)). The default hold count
+counts alongside `SendRSTP` ([info.go](info.go)). The default hold count
 is 6 per second per `spec/mib/ietf/RSTP-MIB:73`. Migration checking follows
 `spec/mib/ietf/RSTP-MIB:130`, and CIST auto-edge is specified by
 `spec/mib/ieee/IEEE8021-MSTP-MIB-201806210000Z.mib:1426`. The state

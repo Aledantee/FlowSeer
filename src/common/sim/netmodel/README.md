@@ -147,7 +147,7 @@ synthesis decisions:
 The construction specification contains normalized configuration, executable
 seeds, the source device identity, and an immutable copy of the loading metadata.
 Building a switch with `vswitch.NewWithSpec(res.Spec)` therefore carries scoped
-loading conflicts, skips, assumptions, and their evidence into later `Forward`
+loading conflicts, skips, assumptions, and their evidence into later forwarding
 results. The detailed loading report remains on `Result` because it describes the
 translation rather than runtime forwarding.
 

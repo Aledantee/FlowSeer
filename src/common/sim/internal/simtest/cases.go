@@ -1184,7 +1184,7 @@ var (
 )
 
 // unknownUplinkRuntimeEvidence returns the auto-generated runtime evidence protocol-link-unknown
-// cites for one switch port: the port's own forwarding fact, exactly as [vswitch.Switch.Forward]
+// cites for one switch port: the port's own forwarding fact, exactly as [vswitch.Switch.Receive]
 // composes it. Matching this construction lets the case's expected evidence catalog resolve to
 // the same references the runtime metadata carries, without asserting message wording.
 func unknownUplinkRuntimeEvidence(node, portName string) analysis.Evidence {

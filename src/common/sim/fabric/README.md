@@ -665,9 +665,9 @@ would otherwise fire in year 1, ahead of any frame a caller injects.
 
 Spanning tree and other internal protocols schedule state transitions and
 frame emissions through the run's arrival queue. Each device holds at most one
-wake entry in the queue (`Arrival.Wake` true, port empty, frame ID 0, sequence
-0). Because sequence 0 sorts ahead of positive frame sequences, a wake executes
-before frames scheduled for the same instant. `Step` returns `EntryWake` for
+wake entry in the queue (`Kind` is `ArrivalWake`, port empty, frame ID 0,
+sequence 0). Because `ArrivalWake` sorts ahead of `ArrivalFrame` at one
+instant, a wake executes before frames scheduled for the same instant. `Step` returns `EntryWake` for
 these timer events without appending to any frame journey. A scenario's
 `ActionMcheck` is the one out-of-band protocol call: it runs the switch's
 management check at the current clock and queues the emission and the next wake
@@ -679,7 +679,8 @@ frame: it carries a neighbor resolution's ordinary data, not a frame of the
 switch's own, so its journey is marked `Protocol` false like the data frame
 that was held. A release usually happens during the `Receive` that observes
 the advertisement resolving the neighbor. `Switch.Advance` settles a
-resolution timeout and reports a frame the hold queue pushed out. Periodic
+resolution timeout. The `Receive` that overflows the hold queue reports the
+frame it pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
 `Run(budget)` which returns a `RunResult` containing the stop reason, steps
 taken, pending work, status, issues, and fingerprints. In scenarios configured
