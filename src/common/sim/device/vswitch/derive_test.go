@@ -508,7 +508,7 @@ func TestDerivedSwitchKeepsRootPortForwarding(t *testing.T) {
 	}
 }
 
-// TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress is evidence that
+// TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress proves that
 // Derive compares the spanning tree configuration New filled in, so a bridge
 // address the switch assigned does not read as a change that rebuilds the
 // layer.
@@ -599,13 +599,25 @@ func TestDeriveRetainsLoopProtectOverUnchangedConfig(t *testing.T) {
 // keyed to the link staying up throughout, so a state change invalidates the
 // retained runtime state rather than just the configuration.
 //
-// It changes the current switch's live operational state with LinkChange,
-// which mutates only s.ports and never notifies the loop-protection layer,
-// so it isolates what Derive itself does with the mismatch: the target
-// configuration (sw.Config()) still reads the port Up, so the derived port
-// is usable, and the only thing that can still block it is a retained layer.
+// It changes the current switch's live operational state with LinkChange.
+// The action uses Timer recovery, which a link-down report leaves applied
+// (only Manual recovery lifts it there), so the action is still held when
+// Derive runs. The target configuration (sw.Config()) still
+// reads the port Up, so the derived port is usable and the only thing that
+// can still block it is a loop-protection layer carried over from the current
+// switch.
 func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
-	sw := loopProtectTestSwitch(t)
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		Bridge: &bridge.Config{},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"1/1/1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Timer, Duration: time.Hour}},
+			},
+		},
+	})
 	now := fixedTime
 
 	mac := sw.Config().MAC
@@ -622,7 +634,7 @@ func TestDeriveRebuildsLoopProtectOnAdminStatusCycle(t *testing.T) {
 			precondition.Outcome, precondition.Reason, trace.Dropped, bridge.ReasonPortBlocked)
 	}
 
-	if _, err := sw.LinkChange(time.Time{}, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
 

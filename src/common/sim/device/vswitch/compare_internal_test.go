@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -29,6 +30,17 @@ func TestCompareIncompleteSideStillNamesFirstDifference(t *testing.T) {
 				t.Fatalf("comparison = %+v, want inconclusive with Forwarded/Dropped outcome difference", cmp)
 			}
 		})
+	}
+}
+
+func TestCompareIncompleteSideStillNamesMirrorDifference(t *testing.T) {
+	md := analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{{Code: "unknown", Status: analysis.Incomplete, Scope: analysis.WholeScope()}}, analysis.EvidenceCatalog{}, nil)
+	cur := Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 98}}}
+	cur.Metadata = md
+	exp := Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 99}}}
+	cmp := compareResults(cur, exp)
+	if cmp.Disposition != analysis.Inconclusive || cmp.Difference.Observable != "mirror" {
+		t.Fatalf("comparison = %+v, want inconclusive naming the mirror difference", cmp)
 	}
 }
 

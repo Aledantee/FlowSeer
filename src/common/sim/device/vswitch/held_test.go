@@ -120,6 +120,12 @@ func TestVLANNeighborToOwnMACConsumed(t *testing.T) {
 			if out.Outcome != trace.Consumed || len(out.Egress) != 0 {
 				t.Fatalf("output = %+v, want consumed without relay egress", out)
 			}
+			consumed := out.Steps[len(out.Steps)-1]
+			if consumed.RuleID != routing.RuleClassify || !slices.ContainsFunc(consumed.Inputs, func(f trace.Fact) bool {
+				return f.TypeID() == routing.VLANFact(10).TypeID() && f.Canonical() == routing.VLANFact(10).Canonical()
+			}) {
+				t.Errorf("consumed step = %+v, want a classify step carrying the VLAN 10 fact", consumed)
+			}
 			concrete++
 		})
 	}
@@ -213,8 +219,8 @@ func TestRoutingSolicitationHasNoHoldToken(t *testing.T) {
 	}
 }
 
-// TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame is
-// evidence for this change: a released held frame that egresses a balanced
+// TestObservationReleaseDoesNotChargeLAGRebalanceToObservingFrame proves
+// that a released held frame that egresses a balanced
 // LAG with a stale bucket must not attribute lag-rebalance-unmodeled to the
 // unrelated frame whose observation triggered the release. The switch holds
 // a frame for a neighbor reachable only over a LAG-backed VLAN interface,
@@ -405,7 +411,7 @@ func makeNDPFrame(t *testing.T, src, dst netip.Addr, srcMAC, dstMAC netaddr.MAC,
 
 // TestARPObservationReleasesHeldFrameOnRoutedPort checks neighbor reception on a
 // routed port: a routed frame with no neighbor entry holds, an observed ARP
-// reply moves the entry, and Wake releases the held frame as ordinary data
+// reply moves the entry, and Advance releases the held frame as ordinary data
 // (Protocol: false) rather than a protocol frame of the switch's own.
 func TestARPObservationReleasesHeldFrameOnRoutedPort(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
@@ -801,7 +807,7 @@ func TestReleasedFrameCarriesIngressPCPAndDEI(t *testing.T) {
 }
 
 // TestARPReplyUnderPeekLeavesTableUntouched checks that Peek observes
-// nothing, so the same reply that releases a held frame under Forward
+// nothing, so the same reply that releases a held frame under Receive
 // changes nothing under Peek, and two consecutive Peeks over the pending
 // destination agree.
 func TestARPReplyUnderPeekLeavesTableUntouched(t *testing.T) {
@@ -830,10 +836,10 @@ func TestARPReplyUnderPeekLeavesTableUntouched(t *testing.T) {
 	}
 	captureOutput(callOutputs, sw, sw.Advance(fixedTime.Add(10*time.Second)))
 	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
-		t.Errorf("emissions after Wake with only Peeks = %d, want 0: %+v", len(emissions), emissions)
+		t.Errorf("emissions after Advance with only Peeks = %d, want 0: %+v", len(emissions), emissions)
 	}
 	if failures := takeDrops(callOutputs, sw); len(failures) != 0 {
-		t.Errorf("neighbor failures after Wake with only Peeks = %d, want 0: %+v", len(failures), failures)
+		t.Errorf("neighbor failures after Advance with only Peeks = %d, want 0: %+v", len(failures), failures)
 	}
 }
 
@@ -1122,6 +1128,34 @@ func TestNDPNonLocalSolicitationTeachesNothingAndKeepsBothFramesHeld(t *testing.
 	}
 }
 
+// TestNeighborSolicitationToRoutedPortIsConsumed proves a Neighbor Solicitation
+// for a routed port's own address is consumed and answered, not routed, as an
+// ARP request for the port is.
+func TestNeighborSolicitationToRoutedPortIsConsumed(t *testing.T) {
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Routing: &routing.Config{VRFs: map[string]routing.VRF{"default": {
+			Interfaces: map[string]routing.Interface{
+				"1/1/1": {Port: "1/1/1", MAC: macRouter, Prefixes: []netip.Prefix{netip.MustParsePrefix("2001:db8:10::1/64")}},
+			},
+		}}},
+	})
+	solicitor := netip.MustParseAddr("2001:db8:10::7")
+	solicitorMAC := netaddr.MAC{0x02, 0, 0, 0, 0x10, 0x07}
+	router := netip.MustParseAddr("2001:db8:10::1")
+	ns := makeNDPFrame(t, solicitor, router, solicitorMAC, macRouter, 255,
+		ndp.Message{Type: ndp.NeighborSolicitation, Target: router, LinkLayerAddr: solicitorMAC, HasLinkLayerAddr: true})
+	res := sw.Receive(fixedTime, "1/1/1", ns)
+	if res.Outcome != trace.Consumed {
+		t.Fatalf("outcome = %v, want Consumed", res.Outcome)
+	}
+	if len(res.Emissions) != 1 || !res.Emissions[0].Protocol || res.Emissions[0].Frame.Dst != solicitorMAC {
+		t.Errorf("emissions = %+v, want one protocol advertisement to the solicitor", res.Emissions)
+	}
+}
+
 // TestNDPLocalSolicitationResolvesItsOwnSourceNotTheTarget proves a local
 // solicitation learns its source and leaves the other next hop unresolved,
 // as RFC 4861 section 7.2.3 requires.
@@ -1241,7 +1275,7 @@ func buildHeldEgressSwitch(t *testing.T, depth int) *vswitch.Switch {
 // port table refuses: the record must carry the refusal the port gave, not neighbor-miss, which
 // would say the next hop never answered when it answered a moment ago. The frame is too large
 // for 1/1/3 rather than the port being down, because a down port could not have carried the ARP
-// reply that resolved the neighbor in the first place — the observing Forward is the call that
+// reply that resolved the neighbor in the first place. The observing Receive is the call that
 // releases, so the egress has to be refusing at that moment.
 func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
@@ -1267,6 +1301,9 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 	if drops[0].Port != "1/1/3" {
 		t.Errorf("port = %q, want 1/1/3", drops[0].Port)
 	}
+	if drops[0].Ingress != "vlan10" {
+		t.Errorf("ingress = %q, want vlan10, the interface the held frame arrived on", drops[0].Ingress)
+	}
 	if drops[0].Step.Layer != routing.LayerName {
 		t.Errorf("step layer = %v, want %v", drops[0].Step.Layer, routing.LayerName)
 	}
@@ -1285,7 +1322,7 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 // its member links are up — but distributes to nothing. The advertisement arrives on 1/1/5, a
 // second vlan20 port, and carries a different Ethernet source from the address it advertises, so
 // the forwarding database keeps pointing the destination at the LAG. Nothing simpler reaches
-// this branch: the observing Forward is the call that releases, so the neighbor has to resolve
+// this branch: the observing Receive is the call that releases, so the neighbor has to resolve
 // over a live port while the egress the frame would take is already refusing.
 func TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
@@ -1595,7 +1632,7 @@ func TestReceiveReturnsHoldQueueEviction(t *testing.T) {
 	}
 }
 
-func TestWakeAgeForwardStopConditionInvariance(t *testing.T) {
+func TestRepeatedAdvanceBeforeReceiveLeavesTheSameNeighborAndOutput(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	dst := netip.MustParseAddr("10.0.20.77")
 	setup := func() (*vswitch.Switch, ethernet.Frame, time.Time) {

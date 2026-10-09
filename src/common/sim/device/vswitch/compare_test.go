@@ -57,6 +57,16 @@ func TestCompareDetectsMirrorFrameDifference(t *testing.T) {
 	}
 }
 
+func TestCompareMirrorCopiesIgnoreOrder(t *testing.T) {
+	first := traffic.Copy{Mirror: "span", Port: "monitor-a", VLAN: 98}
+	second := traffic.Copy{Mirror: "span", Port: "monitor-b", VLAN: 98}
+	cur := vswitch.Output{Copies: []traffic.Copy{first, second}}
+	exp := vswitch.Output{Copies: []traffic.Copy{second, first}}
+	if cmp := vswitch.CompareOutputsForTest(cur, exp); cmp.Disposition != analysis.Equivalent || cmp.Difference != (analysis.Difference{}) {
+		t.Fatalf("comparison = %+v, want Equivalent for the same two copies in a different order", cmp)
+	}
+}
+
 func TestCompareNamesEachFirstObservable(t *testing.T) {
 	for _, tc := range []struct {
 		name              string

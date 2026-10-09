@@ -47,11 +47,8 @@ func TestPeekARPReplyKeepsPendingNeighborAndHeldFrame(t *testing.T) {
 	if at, ok := sw.NextWake(); ok != hasWake || !at.Equal(wake) {
 		t.Errorf("wake after Peek = %v/%v, want %v/%v", at, ok, wake, hasWake)
 	}
-	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
-		t.Errorf("emissions after Peek = %+v, want none", emissions)
-	}
-	if failures := takeDrops(callOutputs, sw); len(failures) != 0 {
-		t.Errorf("failures after Peek = %+v, want none", failures)
+	if len(preview.Emissions) != 0 || len(preview.Drops) != 0 {
+		t.Errorf("preview emissions/drops = %+v/%+v, want none", preview.Emissions, preview.Drops)
 	}
 	captureOutput(callOutputs, sw, sw.Receive(fixedTime.Add(2*time.Millisecond), "1/1/2", reply))
 	emission := soleDataEmission(t, takeEmissions(callOutputs, sw), learnedMAC)

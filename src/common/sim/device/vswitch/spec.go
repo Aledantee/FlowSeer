@@ -95,9 +95,11 @@ func (s ConstructionSpec) Equal(other ConstructionSpec) bool {
 	return true
 }
 
-// Spec returns an independent [ConstructionSpec] capturing every construction
-// input needed to reproduce this switch, including its node identity and trust
-// metadata.
+// Spec returns an independent [ConstructionSpec] of the inputs this switch was
+// built from: its configuration with the ports as constructed rather than their
+// present link state, the seeds recorded by construction and [Switch.Learn],
+// its node identity, and its trust metadata. Entries learned from traffic and
+// other runtime state are not part of it.
 func (s *Switch) Spec() ConstructionSpec {
 	spec := ConstructionSpec{
 		Config:   s.cfg.Clone(),

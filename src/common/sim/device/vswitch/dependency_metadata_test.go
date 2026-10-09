@@ -537,7 +537,7 @@ func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 			name string
 			run  func(*vswitch.Switch) vswitch.Output
 		}{
-			{name: "Forward", run: func(sw *vswitch.Switch) vswitch.Output {
+			{name: "Receive", run: func(sw *vswitch.Switch) vswitch.Output {
 				return sw.Receive(fixedTime, "missing", test.frame)
 			}},
 			{name: "Peek", run: func(sw *vswitch.Switch) vswitch.Output {

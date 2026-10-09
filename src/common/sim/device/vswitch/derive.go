@@ -11,7 +11,9 @@ import (
 
 // Derive constructs the target and carries eligible state through the layer table.
 // Whole-layer retention compares normalized dependency keys. Bridge and multicast
-// retention report whether any source record was lost. Traffic retains unchanged
+// retention report whether any source record was lost. A record past its
+// deadline that the source has not yet aged out counts like any other, as lost
+// when the target does not carry it. Traffic retains unchanged
 // policer buckets independently of its whole-layer verdict. Filter is rebuilt.
 // Dynamic bridge entries remain bounded by target capacity. Static seeds and
 // construction trust come from the target. Port duplex and speed move together

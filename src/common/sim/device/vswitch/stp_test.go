@@ -2,6 +2,7 @@ package vswitch_test
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -107,6 +108,58 @@ func TestBPDURecordsEveryChangedTree(t *testing.T) {
 				t.Errorf("outputs = %d, want decision plus %d transitions", len(outputs), len(want))
 			}
 		})
+	}
+}
+
+// TestBPDURecordsTreeTransitionsInVLANOrder proves a BPDU that moves several
+// instances lists their transitions in the order of the VLANs that name them,
+// not the instance numbers or the iteration order of a map.
+func TestBPDURecordsTreeTransitionsInVLANOrder(t *testing.T) {
+	// The instance numbers run opposite to the VLAN ids they carry.
+	instances := map[bpdu.MSTID]stp.Instance{1: {VLANs: []vlan.ID{40}}, 2: {VLANs: []vlan.ID{30}}, 3: {VLANs: []vlan.ID{20}}, 4: {VLANs: []vlan.ID{10}}}
+	region := &stp.MST{Name: "order-region", Revision: 1, Instances: instances}
+	table := map[vlan.ID]string{1: "native", 10: "ten", 20: "twenty", 30: "thirty", 40: "forty"}
+	cfg := vswitch.Config{
+		MAC:   macRouter,
+		Ports: mustTable(t, port.NewBuilder().Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: table, Switchports: map[string]bridge.Switchport{
+			"p1": {Tagged: []vlan.ID{1, 10, 20, 30, 40}},
+		}}},
+		STP: &stp.Config{Address: macRouter, Priority: 32768, Ports: map[string]stp.Port{"p1": {}}, MST: region},
+	}
+	sw := mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	before := sw.TreeRoles()
+
+	id := region.ConfigID()
+	b := bpdu.BPDU{Version: 3, Type: bpdu.TypeRapid, RootID: bpdu.BridgeID{Priority: 61440, Address: macH1}, BridgeID: bpdu.BridgeID{Priority: 61440, Address: macH1}, RegionalRootID: bpdu.BridgeID{Priority: 61440, Address: macH1}, ConfigID: &id, RemainingHops: 20, PortID: 0x8001, HelloTime: stp.DefaultHelloTime, MaxAge: stp.DefaultMaxAge, ForwardDelay: stp.DefaultForwardDelay}
+	b.SetRole(bpdu.RoleDesignated)
+	for mstid := bpdu.MSTID(1); mstid <= 4; mstid++ {
+		b.MSTIs = append(b.MSTIs, bpdu.MSTIRecord{MSTID: mstid, RegionalRootID: bpdu.BridgeID{Priority: 4097, Address: macH1}, BridgePriority: 0x10, PortPriority: 128, RemainingHops: 20, Flags: b.Flags})
+	}
+	out := sw.Receive(fixedTime, "p1", mustEncode(t, b, macH1))
+	after := sw.TreeRoles()
+
+	var outputs []trace.Fact
+	for _, step := range out.Steps {
+		if step.RuleID == stp.RuleBPDUAdmit {
+			outputs = step.Outputs
+		}
+	}
+	var want []trace.Fact
+	for _, vid := range []vlan.ID{10, 20, 30, 40} {
+		if before[vid]["p1"].Role == after[vid]["p1"].Role && before[vid]["p1"].State == after[vid]["p1"].State {
+			t.Fatalf("VLAN %d tree did not move: %+v", vid, after[vid]["p1"])
+		}
+		want = append(want, stp.PortTransitionFact("p1", "bpdu", before[vid]["p1"], after[vid]["p1"]))
+	}
+	if len(outputs) != 1+len(want) {
+		t.Fatalf("outputs = %d, want the decision and %d transitions", len(outputs), len(want))
+	}
+	for i, fact := range want {
+		if !trace.EqualFact(outputs[1+i], fact) {
+			t.Errorf("transition %d = %s, want %s", i, outputs[1+i].Canonical(), fact.Canonical())
+		}
 	}
 }
 
@@ -264,18 +317,22 @@ func TestPeekLeavesSTPLayerUntouched(t *testing.T) {
 
 	frame := mustEncode(t, b, macRoot)
 
+	rolesBefore := sw.Roles()
 	res := sw.Peek(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed {
 		t.Fatalf("Peek outcome = %q, want %q", res.Outcome, trace.Consumed)
 	}
 
-	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 {
-		t.Errorf("Peek generated emissions: %+v, want none", emissions)
+	if len(res.Emissions) != 0 {
+		t.Errorf("Peek generated emissions: %+v, want none", res.Emissions)
 	}
 
 	roles := sw.Roles()
 	if roles["1/1/1"].Role == bpdu.RoleRoot {
 		t.Errorf("Peek modified role of 1/1/1 to Root")
+	}
+	if !reflect.DeepEqual(roles, rolesBefore) {
+		t.Errorf("roles after Peek = %+v, want %+v", roles, rolesBefore)
 	}
 }
 
@@ -396,10 +453,10 @@ func TestUndecodableBPDUIncrementsBadBPDUs(t *testing.T) {
 
 	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", badFrame))
 	if res.Outcome != trace.Dropped {
-		t.Fatalf("Forward outcome = %q, want %q", res.Outcome, trace.Dropped)
+		t.Fatalf("Receive outcome = %q, want %q", res.Outcome, trace.Dropped)
 	}
 	if res.Reason != stp.ReasonUnsupportedBPDU {
-		t.Errorf("Forward reason = %q, want %q", res.Reason, stp.ReasonUnsupportedBPDU)
+		t.Errorf("Receive reason = %q, want %q", res.Reason, stp.ReasonUnsupportedBPDU)
 	}
 	if got := sw.Roles()["1/1/1"].BadBPDUs; got != 1 {
 		t.Fatalf("Roles()[\"1/1/1\"].BadBPDUs = %d, want 1", got)
@@ -494,7 +551,7 @@ func TestSwitchMigrationToLegacySTPAndMcheck(t *testing.T) {
 	}
 }
 
-// TestBPDUOnDownPortIsDropped is evidence that the intercept applies the
+// TestBPDUOnDownPortIsDropped proves that the intercept applies the
 // relay's port check: a BPDU on a port that is not up never reaches the
 // layer, and its trace says so instead of Consumed.
 func TestBPDUOnDownPortIsDropped(t *testing.T) {
@@ -750,8 +807,7 @@ func convergeSwitches(t *testing.T, start time.Time, switches []*vswitch.Switch,
 	return now
 }
 
-// TestMSTITopologyChangeFlushesOnlyItsOwnVLAN is end-to-end evidence for this
-// unit: a topology change confined to one MST instance flushes, on the
+// TestMSTITopologyChangeFlushesOnlyItsOwnVLAN proves end to end that a topology change confined to one MST instance flushes, on the
 // switch's other ports, only the FIDs of the VLANs that instance carries,
 // leaving a different VLAN's entries on the same port untouched. It runs
 // through vswitch.Switch rather than stp.Layer directly, so it exercises the
@@ -976,7 +1032,7 @@ func pvstSwitchConfig(t *testing.T, pvid vlan.ID, carried ...vlan.ID) vswitch.Co
 
 // emittedBPDUShape renders one drained emission as the group address it went
 // to, the VLAN tag it actually carries on the wire, and the VLAN its payload
-// names. The tag is the part this unit decides; the payload VLAN comes from
+// names. The tag is the part the switch decides. The payload VLAN comes from
 // the layer.
 func emittedBPDUShape(t *testing.T, em vswitch.Emission) string {
 	t.Helper()
@@ -1011,7 +1067,7 @@ func emittedBPDUShapes(t *testing.T, emissions []vswitch.Emission) []string {
 	return shapes
 }
 
-// TestPVSTBPDUsRideTheirOwnVLANsEgressTagging is evidence for Cisco's tagging
+// TestPVSTBPDUsRideTheirOwnVLANsEgressTagging proves Cisco's tagging
 // rules on a PVST trunk: each VLAN's BPDU leaves the way any other frame on
 // that VLAN would, and VLAN 1's tree adds one untagged IEEE-addressed frame
 // whatever the native VLAN is. That second frame is what an RSTP or MSTP
@@ -1059,7 +1115,7 @@ func TestPVSTBPDUsRideTheirOwnVLANsEgressTagging(t *testing.T) {
 	})
 }
 
-// TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN is evidence that the
+// TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN proves that the
 // emission goes through the bridge's ordinary origination rules rather than
 // around them: a tree configured for a VLAN the trunk does not carry puts no
 // frame on that trunk.
@@ -1086,8 +1142,8 @@ func TestPVSTBPDUIsWithheldFromAPortThatDoesNotCarryTheVLAN(t *testing.T) {
 	}
 }
 
-// TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree is evidence for the
-// construction check: a VLAN the bridge carries with no tree of its own has
+// TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree proves that New refuses a
+// PVST switch whose bridge carries a VLAN with no tree of its own: such a VLAN has
 // no defined forwarding state, which is the false answer per-VLAN spanning
 // tree exists to remove.
 func TestNewRefusesAPVSTSwitchCarryingAVLANWithNoTree(t *testing.T) {
@@ -1155,7 +1211,7 @@ func pvstSSTPTCNFrame(t *testing.T, tagVID vlan.ID, src netaddr.MAC) ethernet.Fr
 	return frame
 }
 
-// TestPVSTPVIDInconsistencyTraceNamesBothVLANs is evidence that a PVID
+// TestPVSTPVIDInconsistencyTraceNamesBothVLANs proves that a PVID
 // inconsistency is readable from the trace rather than only from the port
 // state: the admit step carries the VLAN the BPDU named and the VLAN the
 // bridge classified it into, which is the whole finding.
@@ -1232,9 +1288,9 @@ func TestPVSTConfigurationBPDUTraceNamesBothVLANs(t *testing.T) {
 	t.Fatal("Configuration trace has no stp.sstp.vlans fact")
 }
 
-// TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN is evidence for the switch-level
-// PVST behavior: an SSTP TCN has no payload VLAN, so its tagged arrival VLAN
-// scopes the flush while the trace records that distinction.
+// TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN proves that an SSTP TCN, which has
+// no payload VLAN, flushes only its tagged arrival VLAN while the trace records
+// that distinction.
 func TestPVSTSSTPTCNFlushesOnlyTheArrivalVLAN(t *testing.T) {
 	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
 	t.Parallel()
@@ -1432,7 +1488,7 @@ func TestPVSTBoundaryIssueIsRaisedOnAnMSTPBridgeToo(t *testing.T) {
 	}
 }
 
-// TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot is evidence that a BPDU tagged
+// TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot proves that a BPDU tagged
 // for a VLAN the bridge does not admit on the ingress port never reaches a
 // tree lookup: the layer's SSTPNotAdmitted outcome stops it before treeFor
 // runs, so a foreign VLAN's BPDU cannot fall back to the CIST, which under
@@ -1484,7 +1540,7 @@ func TestPVSTForeignVLANDoesNotRewriteVLAN1sRoot(t *testing.T) {
 	}
 }
 
-// TestPVSTPriorityTagIsNotReadAsVLAN0 is evidence that a tag whose VID is 0
+// TestPVSTPriorityTagIsNotReadAsVLAN0 proves that a tag whose VID is 0
 // (a priority tag, which PriorityTags: Always emits on an otherwise
 // untagged BPDU) resolves the same as no tag at all. Reading VID 0 as a VLAN
 // selection would classify the frame into VLAN 0 where the bridge classifies
@@ -1513,7 +1569,7 @@ func TestPVSTPriorityTagIsNotReadAsVLAN0(t *testing.T) {
 	}
 }
 
-// TestValidateRefusesPVSTOnAVLANUnawareBridge is evidence that PVST requires
+// TestValidateRefusesPVSTOnAVLANUnawareBridge proves that PVST requires
 // a VLAN-aware bridge: on a bridge with no VLAN table, untaggedVID returns 0
 // for every port, so each end of a link reads the other's BPDU as arriving
 // on the wrong VLAN and blocks VLAN 1 permanently. There is nothing
@@ -1544,10 +1600,10 @@ func TestValidateRefusesPVSTOnAVLANUnawareBridge(t *testing.T) {
 	}
 }
 
-// TestValidateAcceptsPVSTWithImplicitVLAN1Tree is evidence for the ordinary
-// switch shape: a bridge carrying VLAN 1 alongside other VLANs, with a PVST
-// configuration that never names VLAN 1's tree explicitly. Normalize fills
-// it in, so the covered-VLAN check must see it too.
+// TestValidateAcceptsPVSTWithImplicitVLAN1Tree proves that validation accepts
+// the ordinary switch shape, a bridge carrying VLAN 1 alongside other VLANs
+// with a PVST configuration that never names VLAN 1's tree explicitly.
+// Normalize fills it in, so the covered-VLAN check must see it too.
 func TestValidateAcceptsPVSTWithImplicitVLAN1Tree(t *testing.T) {
 	t.Parallel()
 
@@ -1871,8 +1927,8 @@ func sstpStepShape(step trace.Step) string {
 // ReceiveSSTP. Every reachable outcome but SSTPPortDown is covered: a port
 // admitted into the bridge's VLAN table always has a per-VLAN spanning tree
 // under a validly constructed switch (Config.Validate refuses a carried VLAN
-// with no tree), so SSTPUntrackedVLAN — which requires an admitted VLAN with
-// no tree — is not reachable through Switch.Forward and is not one of the
+// with no tree), so SSTPUntrackedVLAN, which requires an admitted VLAN with
+// no tree, is not reachable through Switch.Receive and is not one of the
 // cases below; stp.Layer's own tests cover it directly.
 func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 	t.Parallel()
@@ -1957,7 +2013,7 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 
 			forwardStep, ok := findStep(forwardRes.Steps, c.ruleID)
 			if !ok {
-				t.Fatalf("Forward: no %s step in the trace: %+v", c.ruleID, forwardRes.Steps)
+				t.Fatalf("Receive: no %s step in the trace: %+v", c.ruleID, forwardRes.Steps)
 			}
 			peekStep, ok := findStep(peekRes.Steps, c.ruleID)
 			if !ok {
@@ -1973,7 +2029,7 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 				}
 			}
 			if len(forwardStep.Outputs) != 1+len(wantTransitions) || len(peekStep.Outputs) != 1 {
-				t.Fatalf("Forward/Peek output counts = %d/%d, want %d/1", len(forwardStep.Outputs), len(peekStep.Outputs), 1+len(wantTransitions))
+				t.Fatalf("Receive/Peek output counts = %d/%d, want %d/1", len(forwardStep.Outputs), len(peekStep.Outputs), 1+len(wantTransitions))
 			}
 			for _, want := range wantTransitions {
 				count := 0
@@ -1988,13 +2044,13 @@ func TestSSTPTraceShapeIsTheSameWithAndWithoutMutation(t *testing.T) {
 			}
 			forwardStep.Outputs = forwardStep.Outputs[:1]
 			if got, want := sstpStepShape(peekStep), sstpStepShape(forwardStep); got != want {
-				t.Errorf("Peek step shape = %s, want %s (Forward's shape)", got, want)
+				t.Errorf("Peek step shape = %s, want %s (Receive's shape)", got, want)
 			}
 			if forwardRes.Outcome != peekRes.Outcome {
-				t.Errorf("Forward outcome = %s, Peek outcome = %s, want equal", forwardRes.Outcome, peekRes.Outcome)
+				t.Errorf("Receive outcome = %s, Peek outcome = %s, want equal", forwardRes.Outcome, peekRes.Outcome)
 			}
 			if forwardRes.Reason != peekRes.Reason {
-				t.Errorf("Forward reason = %q, Peek reason = %q, want equal", forwardRes.Reason, peekRes.Reason)
+				t.Errorf("Receive reason = %q, Peek reason = %q, want equal", forwardRes.Reason, peekRes.Reason)
 			}
 		})
 	}
@@ -2162,7 +2218,7 @@ func TestSSTPClassifiesAQinQTaggedFrameLikeBridgeIngress(t *testing.T) {
 // one the layer alone knows: a port the port table calls up that the spanning
 // tree layer has not seen a link-up event for. A Peek that renders it as
 // admitted describes a journey the switch would not have taken.
-func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
+func TestSSTPPortDownTracesTheSameUnderPeekAndReceive(t *testing.T) {
 	t.Parallel()
 
 	now := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
@@ -2185,10 +2241,10 @@ func TestSSTPPortDownTracesTheSameUnderPeekAndForward(t *testing.T) {
 	forwarded := sw.Receive(now, "1/1/1", frame)
 
 	if peeked.Outcome != forwarded.Outcome {
-		t.Errorf("Peek outcome = %s, Forward outcome = %s, want agreement", peeked.Outcome, forwarded.Outcome)
+		t.Errorf("Peek outcome = %s, Receive outcome = %s, want agreement", peeked.Outcome, forwarded.Outcome)
 	}
 	if peeked.Reason != forwarded.Reason {
-		t.Errorf("Peek reason = %q, Forward reason = %q, want agreement", peeked.Reason, forwarded.Reason)
+		t.Errorf("Peek reason = %q, Receive reason = %q, want agreement", peeked.Reason, forwarded.Reason)
 	}
 	if _, ok := findStep(peeked.Steps, "port.status.down"); !ok {
 		t.Errorf("no port.status.down step under Peek: %+v", peeked.Steps)

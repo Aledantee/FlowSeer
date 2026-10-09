@@ -41,11 +41,12 @@ func TestMarkerResponderAtSwitch(t *testing.T) {
 	}
 	request := ethernet.Frame{Dst: lacp.GroupAddress, Src: netaddr.MAC{0xde, 0xad, 0xbe, 0xef, 0, 1}, EtherType: ethernet.EtherTypeSlowProtocols, Payload: payload}
 	before := sw.MemberInfo("1/1/1")
-	if res := sw.Peek(now, "1/1/1", request); res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != "lag.marker.respond" {
-		t.Fatalf("Marker Peek = %+v, want Consumed under lag.marker.respond", res)
+	preview := sw.Peek(now, "1/1/1", request)
+	if preview.Outcome != trace.Consumed || len(preview.Steps) == 0 || preview.Steps[0].RuleID != "lag.marker.respond" {
+		t.Fatalf("Marker Peek = %+v, want Consumed under lag.marker.respond", preview)
 	}
-	if emissions := takeEmissions(callOutputs, sw); len(emissions) != 0 || sw.MemberInfo("1/1/1") != before {
-		t.Fatalf("Marker Peek emissions = %+v, member = %+v, want no mutation", emissions, sw.MemberInfo("1/1/1"))
+	if len(preview.Emissions) != 0 || sw.MemberInfo("1/1/1") != before {
+		t.Fatalf("Marker Peek emissions = %+v, member = %+v, want no mutation", preview.Emissions, sw.MemberInfo("1/1/1"))
 	}
 	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", request))
 	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != "lag.marker.respond" || len(res.Egress) != 0 {
@@ -142,7 +143,7 @@ func TestAdmittedLACPDUTraceInputFact(t *testing.T) {
 
 	res := sw.Receive(now, "1/1/1", frame)
 	if res.Outcome != trace.Consumed || len(res.Steps) == 0 || res.Steps[0].RuleID != lag.RuleLACPDUAdmit {
-		t.Fatalf("LACPDU Forward = %+v, want Consumed under lag.lacpdu.admit", res)
+		t.Fatalf("LACPDU Receive = %+v, want Consumed under lag.lacpdu.admit", res)
 	}
 	wantFact := lag.LACPDecodeFact(frame, true, "")
 	if inputs := res.Steps[0].Inputs; len(inputs) != 1 || inputs[0].TypeID() != wantFact.TypeID() || inputs[0].Canonical() != wantFact.Canonical() {

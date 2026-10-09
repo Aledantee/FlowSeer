@@ -50,7 +50,7 @@ func TestSwitchEgressKeepsClassifiedPCP(t *testing.T) {
 	}
 }
 
-func TestSwitchAge(t *testing.T) {
+func TestAdvanceAgesTheForwardingDatabase(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).

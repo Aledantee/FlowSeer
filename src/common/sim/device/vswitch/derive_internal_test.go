@@ -132,7 +132,7 @@ func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
 	}
 }
 
-// TestDeriveKeepsOneGateEntryPerScope is evidence that Derive's install of the
+// TestDeriveKeepsOneGateEntryPerScope proves that Derive's install of the
 // retained spanning tree clone replaces the entry New already installed for the
 // same scope. An appending install would leave the bridge consulting both the
 // layer New built and the converged clone that replaced it.
@@ -257,6 +257,53 @@ func TestDeriveConfiguredForwardingEntryPortRenameAndDropping(t *testing.T) {
 		if e.MAC == staticMAC {
 			t.Errorf("static entry %v survived when target Seeds dropped it: %+v", staticMAC, e)
 		}
+	}
+}
+
+// TestDeriveBridgeLosesALearnedEntryTheSeedRuleRefuses proves the bridge is
+// reported as not kept when a learned entry cannot be carried: the entry's port
+// no longer admits its VLAN in the target, so it is lost even though no seed was
+// installed for it.
+func TestDeriveBridgeLosesALearnedEntryTheSeedRuleRefuses(t *testing.T) {
+	ports, err := port.NewBuilder().
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	vid10, vid20 := vlan.ID(10), vlan.ID(20)
+	cfg := Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "vlan10", 20: "vlan20"},
+			Switchports: map[string]bridge.Switchport{
+				"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
+				"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
+			},
+		}},
+	}
+	sw, err := New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	learned := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x66}
+	sw.Receive(time.Unix(1000, 0), "1/1/2", ethernet.Frame{Src: learned, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, EtherType: ethernet.EtherTypeIPv4})
+	if !slices.ContainsFunc(sw.Entries(), func(e bridge.Entry) bool { return e.MAC == learned && e.Port == "1/1/2" }) {
+		t.Fatalf("entries = %+v, want the learned entry on 1/1/2", sw.Entries())
+	}
+
+	moved := cfg.Clone()
+	moved.Bridge.VLAN.Switchports["1/1/2"] = bridge.Switchport{PVID: &vid20, Untagged: []vlan.ID{20}}
+	derived, _, err := Derive(sw, ConstructionSpec{Config: moved})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slices.ContainsFunc(derived.Entries(), func(e bridge.Entry) bool { return e.MAC == learned }) {
+		t.Errorf("derived entries = %+v, want the learned entry dropped with its VLAN", derived.Entries())
+	}
+	if ret := derived.Retention().Bridge; ret.Kept {
+		t.Errorf("bridge retention = %+v, want not kept: a learned entry was lost", ret)
 	}
 }
 
@@ -1020,9 +1067,8 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			if len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
 				t.Fatalf("unexpected retained neighbors: %+v", n)
 			}
-			captureOutput(
-				// Following Advance releases held frame
-				callOutputs, derived, derived.Advance(fixedTime.Add(time.Second)))
+			// The following Advance releases the held frame.
+			captureOutput(callOutputs, derived, derived.Advance(fixedTime.Add(time.Second)))
 			if emissions := takeEmissions(callOutputs, derived); len(emissions) != 1 {
 				t.Errorf("emissions = %d, want 1 released held frame", len(emissions))
 			}
@@ -1370,7 +1416,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		return sw
 	}
 
-	t.Run("unrelated VLAN edit keeps Reachable neighbor and held frame released by Wake", func(t *testing.T) {
+	t.Run("unrelated VLAN edit keeps Reachable neighbor and held frame released by Advance", func(t *testing.T) {
 		cur := plantState()
 		tgt := base.Clone()
 		tgt.Bridge.VLAN.Table[20] = "vlan20"

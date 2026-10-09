@@ -78,7 +78,6 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 		if wa != wb || oka != okb {
 			t.Errorf("%v NextWake differs: %v/%v / %v/%v", at, wa, oka, wb, okb)
 		}
-		t.Logf("at=%v roles=%v next=%v/%v emissions=%d/%d", at, a.Roles(), wa, oka, len(oa.Emissions), len(ob.Emissions))
 	}
 	compare(at, oa, ob)
 	for _, sw := range []*vswitch.Switch{a, b} {
@@ -196,6 +195,14 @@ func TestReceivePolicesAndReceiveMirroredDoesNot(t *testing.T) {
 	mirrored := sw.ReceiveMirrored(fixedTime, "in", outputData())
 	if mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
 		t.Errorf("mirrored output = %+v, want Flooded with egress and no copies", mirrored)
+	}
+
+	fresh := outputTrafficSwitch(t, false)
+	if m := fresh.ReceiveMirrored(fixedTime, "in", outputData()); m.Reason == traffic.ReasonPoliced {
+		t.Fatalf("mirrored arrival on a fresh bucket = %+v, want not policed", m)
+	}
+	if afterMirrored := fresh.Receive(fixedTime, "in", outputData()); afterMirrored.Outcome != trace.Flooded {
+		t.Errorf("Receive after a mirrored arrival = %+v, want Flooded from the unspent bucket", afterMirrored)
 	}
 
 	cfg := outputTrafficSwitch(t, false).Config()

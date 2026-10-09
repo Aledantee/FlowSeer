@@ -213,13 +213,15 @@ func TestMirrorCopyDependenciesRetainLoadedConstructionIssues(t *testing.T) {
 	}
 }
 
-func TestPeekCalculatesMirrorDependenciesWithoutReplacingPendingCopies(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+func TestPeekCalculatesMirrorDependenciesAndKeepsReceivedCopies(t *testing.T) {
 	cfg, _ := mirrorOutputConfig(t, "direct", port.Up)
 	sw := mustSwitch(t, cfg)
-	pending := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("pending")}
+	received := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{4}, Payload: []byte("received")}
 	peeked := ethernet.Frame{Src: netaddr.MAC{6}, Dst: netaddr.MAC{8}, Payload: []byte("peeked")}
-	captureOutput(callOutputs, sw, sw.Receive(fixedTime, "in", pending))
+	first := sw.Receive(fixedTime, "in", received)
+	if len(first.Copies) != 1 || !slices.Equal(first.Copies[0].Frame.Payload, received.Payload) {
+		t.Fatalf("Receive copies = %+v, want one copy of the received frame", first.Copies)
+	}
 	if _, err := sw.LinkChange(time.Time{}, "mirror", port.Unknown, vswitch.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
 	}
@@ -231,10 +233,11 @@ func TestPeekCalculatesMirrorDependenciesWithoutReplacingPendingCopies(t *testin
 	if !ok || step.Op != trace.OpDrop {
 		t.Errorf("Peek steps = %+v, want mirror copy drop", res.Steps)
 	}
-
-	copies := takeCopies(callOutputs, sw)
-	if len(copies) != 1 || !slices.Equal(copies[0].Frame.Payload, pending.Payload) {
-		t.Errorf("pending copies = %+v, want original Forward copy", copies)
+	if len(res.Copies) != 0 {
+		t.Errorf("Peek copies = %+v, want none for the refused mirror output", res.Copies)
+	}
+	if len(first.Copies) != 1 || !slices.Equal(first.Copies[0].Frame.Payload, received.Payload) {
+		t.Errorf("Receive copies after Peek = %+v, want the copy of the received frame unchanged", first.Copies)
 	}
 }
 
@@ -432,12 +435,15 @@ func TestConfigValidatesMirrorVLANsAgainstBridge(t *testing.T) {
 }
 
 func TestMirrorCopiesLACPFromLogicalIngress(t *testing.T) {
-	sw := mirrorLAGSwitch(t)
-	cfg := sw.Config()
-	cfg.Traffic.Mirrors[0].OutputPort = "1/1/3"
-	cfg.Traffic.Mirrors[0].SelectAll = false
-	cfg.Traffic.Mirrors[0].SelectSrcPorts = []string{"lag1"}
-	sw = mustSwitch(t, cfg)
+	sw := mustSwitch(t, vswitch.Config{
+		MAC: macRouter, Ports: mustTable(t, port.NewBuilder().
+			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+			Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+		Bridge: &bridge.Config{}, LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}}}},
+		Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectSrcPorts: []string{"lag1"}, OutputPort: "1/1/3"}}},
+	})
 	sw.Start(fixedTime)
 	f := lacp.Encode(lacp.PDU{Actor: lacp.Info{SystemID: macH1, State: lacp.StateActive | lacp.StateAggregation}}, macH1)
 	for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/1", f), sw.Receive(fixedTime, "1/1/1", f)} {
@@ -445,18 +451,6 @@ func TestMirrorCopiesLACPFromLogicalIngress(t *testing.T) {
 			t.Fatalf("LACP mirror = %+v, want member frame copied by lag1 selector", out)
 		}
 	}
-}
-
-func mirrorLAGSwitch(t *testing.T) *vswitch.Switch {
-	t.Helper()
-	return mustSwitch(t, vswitch.Config{
-		MAC: macRouter, Ports: mustTable(t, port.NewBuilder().
-			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
-			Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-			Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-			Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
-		Bridge: &bridge.Config{}, LAG: &lag.Config{LAGs: map[string]lag.LAG{"lag1": {LACP: lag.LACPConfig{Mode: lag.Active}}}}, Traffic: &traffic.Config{Mirrors: []traffic.Mirror{{Name: "span", SelectAll: true, OutputPort: "1/1/3"}}},
-	})
 }
 
 func TestReleasedFrameRefusesMirrorOutput(t *testing.T) {
