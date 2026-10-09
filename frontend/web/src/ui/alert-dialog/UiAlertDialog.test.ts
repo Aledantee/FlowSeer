@@ -296,4 +296,21 @@ describe('UiAlertDialog', () => {
     expect(document.body.textContent).toContain('Keep Confirm')
     expect(document.body.textContent).toContain('Keep Cancel')
   })
+
+  it('applies Signal square panel framing without raised shadow to alert dialog', async () => {
+    mountAlertDialog({
+      title: 'Delete Node',
+      description: 'Are you sure you want to delete this node?',
+      defaultOpen: true,
+    })
+    await nextTick()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const dialog = document.body.querySelector('[role="alertdialog"]')
+    expect(dialog?.classList.contains('ui-card')).toBe(true)
+    expect(dialog?.className).not.toContain('shadow-lg')
+
+    const title = document.body.querySelector('h2')
+    expect(title?.className).toContain('font-mono')
+  })
 })

@@ -104,3 +104,31 @@ export const SuggestionsWithChips: Story = {
     `,
   }),
 }
+
+export const Docked: Story = {
+  render: () => ({
+    components: { UiAiAssistant },
+    setup() {
+      return { seedExample }
+    },
+    template: `
+      <div class="h-[700px] w-[420px] border-l border-border bg-card shadow-none">
+        <UiAiAssistant :seed="seedExample" />
+      </div>
+    `,
+  }),
+}
+
+export const Narrow: Story = {
+  render: () => ({
+    components: { UiAiAssistant },
+    setup() {
+      return { seedExample }
+    },
+    template: `
+      <div class="h-[500px] w-72 border border-border rounded-panel overflow-hidden">
+        <UiAiAssistant :seed="seedExample" />
+      </div>
+    `,
+  }),
+}

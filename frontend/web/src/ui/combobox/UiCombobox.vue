@@ -278,7 +278,7 @@ function UiCustomComboboxTrigger(
           ref="input"
           :placeholder="resolvedPlaceholder"
           :display-value="displayValue"
-          class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
+          class="flex h-9 w-full rounded-control border border-border bg-input px-3 py-1 text-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
         />
       </slot>
     </ComboboxAnchor>
@@ -289,7 +289,7 @@ function UiCustomComboboxTrigger(
         :align="align"
         :side-offset="sideOffset"
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border shadow-lg rounded-control p-1 z-(--z-overlay) max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
+        class="bg-popover text-foreground border border-border rounded-control p-1 z-(--z-overlay) max-h-60 overflow-y-auto min-w-[8rem] focus:outline-none"
         @pointerdown.capture="aiOrigin.acknowledge"
         @keydown.capture="aiOrigin.acknowledge"
         @input.capture="aiOrigin.acknowledge"
@@ -298,7 +298,7 @@ function UiCustomComboboxTrigger(
           <ComboboxInput
             :placeholder="resolvedPlaceholder"
             :display-value="displayValue"
-            class="flex h-8 w-full rounded-xs border border-border bg-input px-2 py-1 text-xs shadow-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
+            class="flex h-8 w-full rounded-control border border-border bg-input px-2 py-1 text-xs transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-foreground"
           />
         </div>
         <ComboboxViewport class="p-1">
@@ -311,7 +311,7 @@ function UiCustomComboboxTrigger(
           >
             <ComboboxGroup v-if="groupName">
               <ComboboxLabel
-                class="px-2 py-1.5 text-xs font-semibold text-muted-foreground"
+                class="px-2 py-1.5 font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground"
               >
                 <slot name="group-header" :group="groupName">
                   {{ groupName }}

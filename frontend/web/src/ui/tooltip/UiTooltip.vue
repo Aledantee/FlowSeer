@@ -125,7 +125,7 @@ watch([labelSpan, () => props.identifier], () => nextTick(markHiddenText), {
         :side="side"
         :side-offset="6"
         :collision-padding="8"
-        class="bg-popover text-foreground border border-border rounded-control shadow-md px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
+        class="bg-popover text-foreground border border-border rounded-control px-2.5 py-1.5 text-xs z-(--z-overlay) flex flex-wrap items-center gap-2 select-none max-w-72"
       >
         <PopupAnchor
           :ai="ai"
