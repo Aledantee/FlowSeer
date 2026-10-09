@@ -37,16 +37,17 @@ type emission struct {
 	// loop-protect probe, or other frame the switch generated for a protocol
 	// of its own, as opposed to a held user frame released once its next hop
 	// resolved.
-	// [Fabric.injectEmission] reads it instead of assuming every emission
-	// is a protocol frame.
+	// `Fabric.applyDeviceOutput` in the fabric package reads it to mark the
+	// journey it opens for an emission with no held frame behind it as a
+	// protocol journey.
 	Protocol bool
 
 	// slot is one more than the index in the layer table of the layer that
 	// built the frame, or zero for a frame no protocol built. The function that
-	// builds a frame sets it, so a frame is its layer's wherever the call that
-	// produced it came from: a BPDU caused by a LAG transition is spanning
-	// tree's, although the LAG layer's timer was running. [Derive] reads it to
-	// tell a frame a replaced layer still owes from one a kept layer does.
+	// builds a frame sets it, so the owner does not depend on which layer's
+	// timer ran the call: a BPDU sent because a LAG changed state carries
+	// spanning tree's slot. [Derive] reads it to tell a frame a replaced layer
+	// still owes from one a kept layer does.
 	slot int
 }
 

@@ -437,8 +437,9 @@ func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	}
 }
 
-// An unset point-to-point report says nothing about the link, so it must count
-// as unknown on a port whose spanning tree point-to-point mode is automatic.
+// A link report with no duplex says nothing about the link, so the switch reads
+// the port's point-to-point state as unknown and raises [vswitch.IssueProtocolLinkUnknown]
+// for a port whose spanning tree point-to-point mode is automatic.
 func TestLinkChangeUnsetDuplexIsUnknown(t *testing.T) {
 	t.Parallel()
 
