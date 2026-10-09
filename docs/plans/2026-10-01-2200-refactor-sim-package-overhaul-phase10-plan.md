@@ -1055,12 +1055,22 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
-- The built-node topology is blocked by the unchanged fork allocation gate
-  in `src/common/sim/fabric/fork_scale_test.go:139-144`. The prepared
-  refactor removes 880 fixed allocations at queue depths 0, 4,096, and
-  16,384. Queue-dependent growth stays unchanged, but the dated fixed
-  floor of 4,515 makes the scaling check fail at 52,907 against 50,815.
-  Updating that calibration conflicts with U10's requirement that the
-  fabric suite pass with no expectation changed. Prepared work is kept on
-  `parked/sim10-u10-topology`, without its unfinished tests or package moves
-  counting as passed.
+- The built-node topology remains blocked by the actual-path link-error
+  proof in U10. Prepared work is kept on `parked/sim10-topology-resume`
+  at `f54f377e`, without counting as passed or integrating it.
+  Its `src/common/sim/fabric/assemble.go:400-422` builds concrete devices
+  from configurations before calling the built-device runtime entry.
+  `Derive` replaces a failing test-device wrapper with a concrete switch
+  and returns success. `Configure` refuses the wrapper with
+  `node "n" is not a switch` at `configure.go:13-19`. A test calling
+  the runtime entries alone cannot detect either caller discarding an
+  error. U11 moves those construction contracts unchanged, so moving
+  the proof there does not make the required failing device admissible.
+- The parked work removes the allocation-calibration blocker. Its scaling
+  gate measures the zero-queue floor and keeps the depths and 3.05
+  multiplier. Fork allocations at depths 0, 4,096, and 16,384 are
+  3,622, 15,947, and 52,907, compared with 4,502, 16,827, and 53,787
+  before the topology change. The baseline tightens to 15,949. The
+  paired measurements and failing nonlinear-growth and three-fixed-allocation
+  mutations are recorded in `e2a038e5`. This calibration and the completed
+  test-package moves remain parked with the topology.
