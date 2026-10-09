@@ -1,6 +1,7 @@
 ---
-title: A Shell-to-Python Port Changes How Empty Variables and Carriage Returns Behave
+title: A Shell-to-Python Port Changes How Empty Variables, Carriage Returns, and Word Splitting Behave
 date: 2026-10-06
+last_verified: 2026-10-09
 category: conventions
 module: src/protocol/smi/bench
 problem_type: convention
@@ -10,11 +11,13 @@ applies_when:
   - "Porting a shell script that reads `${NAME:-default}` to Python, where a caller may export the variable empty."
   - "Porting a shell pipeline that reads a child process's output to Python's `subprocess` in text mode and splits it into lines."
   - "Reviewing a ported script whose tests only cover the unset variable and the plain line feed."
-related_components: [uv-scripts, bench-gate, lab-scripts]
-tags: [python, shell-port, environment, subprocess, text-mode]
+  - "Porting an unquoted `for tok in $cmd` or other shell word expansion (globs, brackets, names that hold a line feed) to Python."
+  - "Writing a matrix test whose expected side calls the function under test or the code it shares."
+related_components: [uv-scripts, bench-gate, lab-scripts, hooks]
+tags: [python, shell-port, environment, subprocess, text-mode, word-splitting, glob]
 ---
 
-Two defaults of Python differ from the shell file a port replaces, and a test
+Three defaults of Python differ from the shell file a port replaces, and a test
 that sets a variable or feeds output the obvious way passes on both.
 
 ## Empty is not unset
@@ -63,7 +66,52 @@ kept = [line for line in raw.split("\n") if KEPT_LINE.match(line)]
 `str.splitlines()` is the same defect, since it also breaks on `\r`, `\x1c`,
 and others.
 
+## An unquoted expansion is bash's, so ask bash
+
+`worktree-guard.sh` iterated `for tok in $cmd`, which splits on blanks and
+line feeds and replaces each pattern word with the names it matches. Two
+ports rebuilt that in Python and both diverged. `glob.glob` reads `[^a]` as
+the set `^` and `a`, bash reads it as "not `a`". Splitting the output of
+`printf "%s\n" $1` on line feeds cuts a tracked `a\nb.tmp` into the words
+`a` and `b.tmp`, which `git ls-files` does not list, so `rm *.tmp` was
+allowed. Measured 2026-10-09 on darwin/arm64 in a directory holding `a.tmp`
+and `b.tmp`:
+
+```text
+$ /bin/bash -c 'for t in $1; do printf "[%s]" "$t"; done' _ '[^a].tmp'
+[b.tmp]
+$ python3 -c "import glob; print(glob.glob('[^a].tmp'))"
+['a.tmp']
+```
+
+Run the loop itself, end each word with a NUL, and split the output on NUL.
+No file name holds a NUL, and the command travels as a positional argument,
+so nothing in it is evaluated. A command that holds a NUL cannot be an
+argument, so `subprocess.run` raises `ValueError`, which the caller must
+handle.
+
+When the guard cannot judge an operand (`bash` missing or a non-zero exit),
+the function returns `None` and both callers keep the denial. An empty word
+list would read as "nothing to check" and allow the command.
+
+## A matrix needs literal rows
+
+A test that compares `words(p, d)` with a helper running the same loop
+cannot fail on what the two share. Keep the matrix, since it covers the
+patterns, and add a table of literal expected lists beside it.
+
 ## Evidence
+
+- `tools/scripts/hooks/worktree_guard.py:214-238`: `words`, the loop, the
+  NUL split, and the `None` returns. `:260` and `:283`: both callers.
+- `tools/scripts/tests/hooks/test_worktree.py:723`: the matrix against
+  `loop_words` (`:714`). `:733`: the literal rows for `a\nb.tmp`,
+  `c\rd.tmp`, a pattern with no match, and an empty command. `:753`: `None`
+  for a missing `bash` and for one that exits 9.
+- Commits `d4c9891f` and `3cdc9f28` carry the two replaced forms, `d6ea0d66`
+  the loop. The plan's Decisions (phase 3) hold the probe table.
+
+### Empty variables and carriage returns
 
 - `src/protocol/smi/bench/bench-gate.py:125-130`: every defaulted variable
   is read with `or`. `RAW_IN` keeps `get(..., "")` because its default is
@@ -93,5 +141,6 @@ disagree (`448eee4f` did so for awk) instead of reasoning about it.
 ## What this does not cover
 
 A required argument that is empty is a different case: `02cbe848` rejects
-it through argparse. The bytes rule does not apply where the shell file
+it through argparse. A shell file that quotes its expansion has no word
+splitting to port. The bytes rule does not apply where the shell file
 itself read the stream in a mode that translates line ends.
