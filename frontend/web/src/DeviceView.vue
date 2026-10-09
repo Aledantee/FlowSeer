@@ -298,7 +298,7 @@ function to(path: string, extra: Record<string, string> = {}) {
         class="w-12 h-12 text-accent-foreground"
       />
       <div class="flex-1 min-w-0">
-        <h1 translate="no" class="text-2xl font-bold text-foreground my-1">
+        <h1 translate="no" class="font-mono text-3xl font-semibold text-foreground tracking-tight my-1">
           {{ device.name }}
         </h1>
         <p class="text-xs text-muted-foreground">
@@ -312,7 +312,7 @@ function to(path: string, extra: Record<string, string> = {}) {
       </div>
       <div class="flex flex-col items-end gap-1">
         <UiStatusBadge :status="device.health" />
-        <span class="text-2xs text-muted-foreground">
+        <span class="text-2xs text-muted-foreground tabular-nums">
           {{
             t('view.device.lastAnswered', {
               age: format.ago(device.lastSeenMinutes),
@@ -324,7 +324,7 @@ function to(path: string, extra: Record<string, string> = {}) {
 
     <UiCard as="section" aria-labelledby="issues-title">
       <template #header>
-        <h2 id="issues-title" class="text-base font-semibold text-foreground">
+        <h2 id="issues-title" class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
           {{
             device.health === 'Healthy'
               ? t('view.device.issuesTitleHealthy')
@@ -459,7 +459,7 @@ function to(path: string, extra: Record<string, string> = {}) {
 
     <UiCard as="section" aria-labelledby="paths-title">
       <template #header>
-        <h2 id="paths-title" class="text-base font-semibold text-foreground">
+        <h2 id="paths-title" class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground">
           <I18nT scope="global" keypath="view.device.pathsTitle">
             <template #brand>
               <span translate="no">{{ BRAND }}</span>
@@ -504,10 +504,10 @@ function to(path: string, extra: Record<string, string> = {}) {
     </UiCard>
 
     <dl
-      class="grid grid-cols-4 max-[800px]:grid-cols-2 max-[500px]:grid-cols-1 m-0 border border-border rounded-panel bg-card overflow-hidden"
+      class="ui-card relative grid grid-cols-4 max-[800px]:grid-cols-2 max-[500px]:grid-cols-1 m-0 border border-border rounded-panel bg-card overflow-hidden"
     >
       <div class="p-4 border-border">
-        <dt class="text-xs text-muted-foreground">
+        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {{ t('view.device.lifecycle') }}
         </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
@@ -517,10 +517,10 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[500px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">
+        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {{ t('view.common.columns.clients') }}
         </dt>
-        <dd class="mt-1.5 text-base font-semibold text-foreground">
+        <dd class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums">
           {{
             device.health === 'Offline'
               ? t('view.common.noReading')
@@ -531,10 +531,10 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[800px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">
+        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {{ t('view.common.columns.traffic') }}
         </dt>
-        <dd class="mt-1.5 text-base font-semibold text-foreground">
+        <dd class="mt-1.5 text-base font-semibold text-foreground font-mono tabular-nums">
           {{
             device.health === 'Offline'
               ? t('view.common.noReading')
@@ -545,14 +545,14 @@ function to(path: string, extra: Record<string, string> = {}) {
       <div
         class="p-4 border-border border-l max-[500px]:border-l-0 max-[800px]:border-t"
       >
-        <dt class="text-xs text-muted-foreground">
+        <dt class="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           {{ t('view.device.uplink') }}
         </dt>
         <dd class="mt-1.5 text-base font-semibold text-foreground">
           <AppLink
             v-if="uplink"
             translate="no"
-            class="text-accent-foreground hover:underline"
+            class="font-mono text-accent-foreground hover:underline"
             :to="to(`/devices/${uplink.id}`)"
           >
             {{ uplink.name }}
@@ -566,17 +566,17 @@ function to(path: string, extra: Record<string, string> = {}) {
       class="grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-[1150px]:grid-cols-1 items-start gap-5"
     >
       <section
-        class="overflow-hidden border border-border rounded-panel bg-card"
+        class="ui-card relative overflow-hidden border border-border rounded-panel bg-card"
         aria-labelledby="clients-title"
       >
-        <div class="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
+        <div class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3">
           <h2
             id="clients-title"
-            class="text-base font-semibold text-foreground"
+            class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
           >
             {{ t('view.common.connectedClients') }}
             <span
-              class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+              class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded-control text-muted-foreground ml-1.5 font-medium"
             >
               {{ n(device.clients, 'integer') }}
             </span>
@@ -596,12 +596,12 @@ function to(path: string, extra: Record<string, string> = {}) {
             :key="client.id"
             as="li"
             :ai="clientTarget(client)"
-            class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
+            class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border first:border-t-0 text-xs"
           >
             <span>
               <strong
                 translate="no"
-                class="block font-semibold text-foreground"
+                class="font-mono block font-semibold text-foreground"
               >
                 {{ client.hostname }}
               </strong>
@@ -612,7 +612,7 @@ function to(path: string, extra: Record<string, string> = {}) {
                 {{ client.address }}
               </small>
             </span>
-            <span class="text-2xs text-muted-foreground">
+            <span class="text-2xs text-muted-foreground font-mono tabular-nums">
               {{
                 format.facts([
                   labels.band(client.band),
@@ -622,7 +622,7 @@ function to(path: string, extra: Record<string, string> = {}) {
             </span>
           </UiAiTarget>
         </ul>
-        <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
+        <p v-else class="px-5 pt-3 pb-5 text-xs text-muted-foreground">
           {{
             device.role === 'access-point'
               ? t('view.device.clientsNoneAccessPoint')
@@ -633,17 +633,17 @@ function to(path: string, extra: Record<string, string> = {}) {
 
       <div class="grid gap-5">
         <section
-          class="overflow-hidden border border-border rounded-panel bg-card"
+          class="ui-card relative overflow-hidden border border-border rounded-panel bg-card"
           aria-labelledby="links-title"
         >
-          <div class="px-5 pt-4 pb-3 flex items-center justify-between gap-3">
+          <div class="px-5 pt-4 pb-3 border-b border-border flex items-center justify-between gap-3">
             <h2
               id="links-title"
-              class="text-base font-semibold text-foreground"
+              class="font-mono text-xs font-semibold uppercase tracking-wider text-foreground"
             >
               {{ t('view.device.downlinks') }}
               <span
-                class="text-xs bg-subtle px-1.5 py-0.5 rounded text-muted-foreground ml-1.5 font-medium"
+                class="font-mono text-2xs bg-subtle px-1.5 py-0.5 rounded-control text-muted-foreground ml-1.5 font-medium"
               >
                 {{ n(links.length, 'integer') }}
               </span>
@@ -655,12 +655,12 @@ function to(path: string, extra: Record<string, string> = {}) {
               :key="link.id"
               as="li"
               :ai="downlinkTarget(link)"
-              class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border text-xs"
+              class="flex items-center justify-between gap-3 px-5 py-2.5 border-t border-border first:border-t-0 text-xs"
             >
               <AppLink class="group" :to="to(`/devices/${link.id}`)">
                 <strong
                   translate="no"
-                  class="block font-semibold text-foreground group-hover:text-accent-foreground"
+                  class="font-mono block font-semibold text-foreground group-hover:text-accent-foreground"
                 >
                   {{ link.name }}
                 </strong>
@@ -671,18 +671,18 @@ function to(path: string, extra: Record<string, string> = {}) {
               <UiStatusBadge :status="link.health" />
             </UiAiTarget>
           </ul>
-          <p v-else class="px-5 pt-1 pb-5 text-xs text-muted-foreground">
+          <p v-else class="px-5 pt-3 pb-5 text-xs text-muted-foreground">
             {{ t('view.device.downlinksNone') }}
           </p>
         </section>
 
         <details
           v-if="allowedSites.length > 1"
-          class="border border-border rounded-panel bg-card p-5 group"
+          class="ui-card relative border border-border rounded-panel bg-card p-5 group"
           @toggle="revealMove"
         >
           <summary
-            class="font-semibold text-sm text-foreground cursor-pointer select-none"
+            class="font-mono uppercase tracking-wider font-semibold text-xs text-foreground cursor-pointer select-none"
           >
             {{ t('view.device.moveSummary') }}
           </summary>
@@ -710,7 +710,7 @@ function to(path: string, extra: Record<string, string> = {}) {
           v-else
           scope="global"
           tag="p"
-          class="text-xs text-muted-foreground p-4 rounded-panel bg-card border border-border"
+          class="ui-card relative text-xs text-muted-foreground p-4 rounded-panel bg-card border border-border"
           keypath="view.device.moveNoSite"
         >
           <template #tenant>
