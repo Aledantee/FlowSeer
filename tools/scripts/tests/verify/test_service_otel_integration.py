@@ -1,12 +1,15 @@
 import os
 import shutil
+import signal
 import stat
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import run
+from tests.verify import support
 
 REPO = Path(__file__).resolve().parents[4]
 RUN_PY = REPO / "tools" / "scripts" / "run.py"
@@ -37,6 +40,13 @@ case "$FLOWSEER_FAKE_GO_MODE" in
   success) exit 0 ;;
   safe-failure) printf "%s\\n" "bounded Collector diagnostic" >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log"; exit 7 ;;
   sentinel-failure) printf "%s\\n" "flowseer-otel-artifact-secret" >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log"; exit 8 ;;
+  unreadable-before-sentinel)
+    : >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/unreadable.log"
+    chmod 000 "$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/unreadable.log"
+    mkdir "$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/nested"
+    printf "%s\\n" "flowseer-otel-artifact-secret" >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/nested/collector.log"
+    exit 8 ;;
+  term) kill -TERM $$ ;;
   scan-failure)
     printf "%s\\n" "bounded Collector diagnostic" >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/collector.log"
     : >"$FLOWSEER_OTEL_TEST_ARTIFACT_DIR/unreadable.log"
@@ -71,12 +81,12 @@ class ServiceOtelWrapperTest(unittest.TestCase):
         self.base = Path(directory.name).resolve()
         self.tmp = self.base / "wrapper-tmp"
         self.bin = self.base / "wrapper-bin"
-        self.scan_error_bin = self.base / "scan-error-bin"
-        for made in (self.tmp, self.bin, self.scan_error_bin):
+        self.root = self.base / "repo"
+        for made in (self.tmp, self.bin, self.root):
             made.mkdir()
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=self.root, env=support.isolated_env(), check=True)
         self.script(self.bin / "docker", DOCKER)
         self.script(self.bin / "go", GO)
-        self.script(self.scan_error_bin / "grep", "#!/usr/bin/env bash\nexit 2\n")
         self.otel_leak = self.base / "wrapper-otel-leaked"
         self.control_missing = self.base / "wrapper-control-missing"
         self.goflags_leak = self.base / "goflags-leaked"
@@ -102,7 +112,7 @@ class ServiceOtelWrapperTest(unittest.TestCase):
         return env
 
     def run_command(self, command: list[str], env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(command, cwd=REPO, env=env, capture_output=True, text=True, check=False)
+        return subprocess.run(command, cwd=self.root, env=env, capture_output=True, text=True, check=False)
 
     def go_run(self, command: list[str], index: int, mode: str, path: str | None = None, **extra: str):
         """Run command with a go that behaves as mode, and return the result and where the go left its notes."""
@@ -158,6 +168,33 @@ class ServiceOtelWrapperTest(unittest.TestCase):
                 done = self.run_command(command, env)
                 self.assert_ends(done, 1, "Docker daemon did not answer 'docker info' within 1s.\n")
                 self.assertFalse(marker.exists())
+
+    def test_service_opentelemetry_wrapper_kills_a_probe_that_ignores_term(self):
+        pid_file = self.base / "docker.pid"
+        self.script(
+            self.bin / "docker",
+            f"#!{sys.executable}\n"
+            "import os, signal, time\n"
+            "from pathlib import Path\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            f"Path({str(pid_file)!r}).write_text(str(os.getpid()))\n"
+            "while True: time.sleep(1)\n",
+        )
+        for command in implementations():
+            with self.subTest(command=command):
+                try:
+                    done = self.run_command(command, self.env(**{KNOB: "1"}))
+                    self.assert_ends(done, 1, "Docker daemon did not answer 'docker info' within 1s.\n")
+                    self.assertTrue(pid_file.exists(), "docker stub did not record its process id")
+                    pid = int(pid_file.read_text())
+                    with self.assertRaises(ProcessLookupError):
+                        os.kill(pid, 0)
+                finally:
+                    if pid_file.exists():
+                        try:
+                            os.kill(int(pid_file.read_text()), signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
 
     def test_service_opentelemetry_wrapper_takes_the_default_probe_timeout_from_an_empty_knob(self):
         """service OpenTelemetry wrapper takes the default probe timeout from an empty knob"""
@@ -216,12 +253,30 @@ class ServiceOtelWrapperTest(unittest.TestCase):
                 self.assertTrue(notes["called"].exists())
                 self.assertFalse(artifacts.exists())
 
-    def test_service_opentelemetry_wrapper_removes_artifacts_after_a_scan_error(self):
-        """service OpenTelemetry wrapper removes artifacts after a scan error"""
-        path = f"{self.scan_error_bin}{os.pathsep}{self.bin}{os.pathsep}{os.environ['PATH']}"
+    def test_service_opentelemetry_wrapper_finds_a_nested_sentinel_after_an_unreadable_file(self):
         for index, command in enumerate(implementations()):
             with self.subTest(command=command):
-                done, notes = self.go_run(command, index, "scan-failure", path)
+                done, notes = self.go_run(command, index, "unreadable-before-sentinel")
+                artifacts = Path(notes["capture"].read_text().strip())
+                self.assert_ends(
+                    done, 8, "Collector artifacts contained the synthetic secret sentinel and were removed.\n"
+                )
+                self.assertTrue(notes["called"].exists())
+                self.assertFalse(artifacts.exists())
+
+    def test_service_opentelemetry_wrapper_reports_exit_143_when_go_is_killed_by_term(self):
+        for index, command in enumerate(implementations()):
+            with self.subTest(command=command):
+                done, notes = self.go_run(command, index, "term")
+                artifacts = Path(notes["capture"].read_text().strip())
+                self.addCleanup(shutil.rmtree, artifacts, ignore_errors=True)
+                self.assert_ends(done, 143, f"Collector failure artifacts retained at: {artifacts}\n")
+
+    def test_service_opentelemetry_wrapper_removes_artifacts_after_a_scan_error(self):
+        """service OpenTelemetry wrapper removes artifacts after a scan error"""
+        for index, command in enumerate(implementations()):
+            with self.subTest(command=command):
+                done, notes = self.go_run(command, index, "scan-failure")
                 artifacts = Path(notes["capture"].read_text().strip())
                 self.assert_ends(done, 9, "Collector artifacts could not be scanned safely and were removed.\n")
                 self.assertTrue(notes["called"].exists())

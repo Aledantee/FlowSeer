@@ -101,6 +101,19 @@ class GateLabelTest(unittest.TestCase):
 class VerdictLineTest(support.VerifierCase):
     """The verdict is the last line of standard error for every way a check ends."""
 
+    def test_failed_tree_state_listing_refuses_a_receipt_and_removes_the_temporary_file(self):
+        self.write("README.md", "# Fixture\n\nChanged.\n")
+        with mock.patch.object(change.treestate, "listing", side_effect=RuntimeError("listing failed")):
+            result = self.verify_in_process("--", "README.md")
+        self.assertEqual(result.code, 1, result.stdout + result.stderr)
+        self.assertIn(
+            "verify-change: hooks tree-state failed; the dirty marker would mark verified files again",
+            result.stderr,
+        )
+        self.assertEqual(support.last_line(result.stderr), support.verdict(1))
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(list(self.tree_state.parent.glob("flowseer-tree-state.*")), [])
+
     def verify_in_process(self, *args: str) -> support.Result:
         stdout, stderr = io.StringIO(), io.StringIO()
         previous = os.getcwd()
