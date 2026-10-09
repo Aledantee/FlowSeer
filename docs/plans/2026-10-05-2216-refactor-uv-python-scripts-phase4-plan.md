@@ -437,3 +437,14 @@ Waves: U1 U2 | U3 | U4 | U5 U6
 - The Phase 7 plan's Requirement 3 still has all three tools to remove
   after this phase, and `python3` is then required by nothing that calls
   it.
+
+## Review gaps
+
+Follow-ups of the review. None holds the verdict. Each needs a policy
+surface changed, so the review's fix loop left it unapplied.
+
+- tools/scripts/hooks/pre_tool_policy.py:28: the comment names "the verifier's script" and "a path through the .claude/skills link resolves to the script", and the script directory left `POLICY_DIRECTORIES`; fails: a reader looks for a verifier script the tree does not hold; class: convention
+- tools/scripts/verify/change.py:457: six section-divider comments in `Verification` (`:457`, `:552`, `:746`, `:796`, `:1104`, `:1189`), which `docs/code-style.md:549` forbids; fails: none, the text is wrong; class: convention
+- tools/scripts/verify/change.py:1171: a failed listing prints only `verify-change: hooks tree-state failed`, without the error `hooks tree-state` printed under the shell verifier; fails: a run whose `git hash-object` fails gives no reason; class: hardening
+- tools/scripts/verify/change.py:500: an explicit path with a trailing line feed keeps it, where the shell's `$(canonical_path ...)` stripped it; fails: `-- $'README.md\n'` exits 2 here and verified `README.md` under the shell; class: hardening
+- tools/scripts/verify/change.py:380: `os.listdir` in `_diff_pair` is outside the `try`; fails: an unreadable directory under the generated tree gives a traceback and exit 1, not a `diff:` line and status 2; class: hardening
