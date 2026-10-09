@@ -114,7 +114,6 @@ func TestRecordNormalizeAcceptsCapturedLenAlone(t *testing.T) {
 	if err := norm.Validate(); err != nil {
 		t.Errorf("Validate of a normalized record: %v", err)
 	}
-
 }
 
 func TestRecordNormalizeRefusesDefaultedCapturedAboveOriginal(t *testing.T) {
