@@ -731,6 +731,9 @@ describe('AI target coverage', () => {
       await settle()
 
       expect(host.querySelector('[data-ai-assistant]')).not.toBeNull()
+      expect(
+        host.querySelector('main.panes')?.classList.contains('assistant-open'),
+      ).toBe(true)
 
       // Shortcut toggles it closed
       window.dispatchEvent(

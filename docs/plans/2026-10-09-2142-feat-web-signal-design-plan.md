@@ -179,7 +179,7 @@ Verify: `uv run tools/scripts/run.py verify change -- frontend/web/src/ui/ai fro
 
 ### U6. Integrated visual acceptance
 
-Files: `frontend/web/src/FleetView.test.ts`, `frontend/web/src/FleetView.locale.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/README.md`, `frontend/web/design/signal/implementation-review.md` (new), `frontend/web/design/signal/implementation/` (new captures).
+Files: `frontend/web/src/FleetView.vue`, `frontend/web/src/FleetView.test.ts`, `frontend/web/src/FleetView.locale.test.ts`, `frontend/web/src/FleetView.motion.test.ts`, `frontend/web/src/DashboardView.vue`, `frontend/web/src/components/GlobalSearch.vue`, `frontend/web/src/components/GlobalSearch.test.ts`, `frontend/web/src/components/AppIcon.vue`, `frontend/web/src/components/topology/TopologyGraph.vue`, `frontend/web/src/components/topology/TopologySemantics.test.ts`, `frontend/web/src/i18n/locales/en.json`, `frontend/web/src/i18n/locales/de.json`, `frontend/web/src/style.css`, `frontend/web/README.md`, `frontend/web/design/signal/implementation-review.md` (new), `frontend/web/design/signal/implementation/` (new captures).
 After: U2, U3, U4, U5
 Change: records application captures and concrete visual comparisons without
 replacing the target references. Updates frontend documentation for the resulting
@@ -188,7 +188,7 @@ Tests: fleet integration, locale and motion suites retain existing behavior.
 Run the full web suite, palette/AI target/story accessibility gates and Storybook
 build. Manually verify layout, open overlays, keyboard navigation and contrast
 on rendered glass surfaces. Record any remaining mismatch as incomplete work.
-Verify: `uv run tools/scripts/run.py verify change -- frontend/web`
+Verify: `uv run tools/scripts/run.py verify change -- frontend/web/src/FleetView.vue frontend/web/src/FleetView.test.ts frontend/web/src/FleetView.locale.test.ts frontend/web/src/FleetView.motion.test.ts frontend/web/src/DashboardView.vue frontend/web/src/components/GlobalSearch.vue frontend/web/src/components/GlobalSearch.test.ts frontend/web/src/components/AppIcon.vue frontend/web/src/components/topology/TopologyGraph.vue frontend/web/src/components/topology/TopologySemantics.test.ts frontend/web/src/i18n/locales/en.json frontend/web/src/i18n/locales/de.json frontend/web/src/style.css frontend/web/README.md frontend/web/design/signal/implementation-review.md frontend/web/design/signal/implementation`
 
 Waves: U1 | U2 U3 U5 | U4 | U6
 

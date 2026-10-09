@@ -400,7 +400,7 @@ const roles = computed(() => {
                 class="px-2 py-0.5 text-xs font-mono rounded-sm transition-colors"
                 :class="
                   selectedRange === 6
-                    ? 'bg-accent text-accent-foreground font-semibold'
+                    ? 'bg-primary text-primary-foreground font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 "
                 :aria-pressed="selectedRange === 6"
@@ -413,7 +413,7 @@ const roles = computed(() => {
                 class="px-2 py-0.5 text-xs font-mono rounded-sm transition-colors"
                 :class="
                   selectedRange === 24
-                    ? 'bg-accent text-accent-foreground font-semibold'
+                    ? 'bg-primary text-primary-foreground font-semibold'
                     : 'text-muted-foreground hover:text-foreground'
                 "
                 :aria-pressed="selectedRange === 24"
@@ -833,7 +833,7 @@ const roles = computed(() => {
                 <template v-if="devicesById.get(event.deviceId)">
                   <AppLink
                     translate="no"
-                    class="text-accent-foreground hover:underline"
+                    class="text-accent-foreground underline underline-offset-2"
                     :to="deviceTo(event.deviceId)"
                   >
                     {{ devicesById.get(event.deviceId)?.name }}

@@ -333,6 +333,18 @@ html:has(.shell) {
   min-width: 0;
 }
 
+.panes.assistant-open:not(.split) > .main-pane {
+  flex: 1 1 0;
+}
+
+.panes.assistant-open.split > .main-pane {
+  flex: var(--split-ratio, 0.5) 1 0;
+}
+
+.panes.assistant-open.split > .split-pane {
+  flex: calc(1 - var(--split-ratio, 0.5)) 1 0;
+}
+
 .split-enter-active,
 .split-leave-active {
   transition: opacity 280ms ease;

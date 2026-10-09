@@ -1100,8 +1100,22 @@ onUnmounted(() => clearInterval(timer))
       <main
         id="main"
         tabindex="-1"
-        :class="['panes', { split: showSplit, docked: tabs.length }]"
-        :style="showSplit ? { '--split': `${splitRatio * 100}%` } : undefined"
+        :class="[
+          'panes',
+          {
+            split: showSplit,
+            docked: tabs.length,
+            'assistant-open': wide && assistantOpen,
+          },
+        ]"
+        :style="
+          showSplit
+            ? {
+                '--split': `${splitRatio * 100}%`,
+                '--split-ratio': splitRatio,
+              }
+            : undefined
+        "
       >
         <UiTooltip
           v-if="showSplit"

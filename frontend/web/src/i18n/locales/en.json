@@ -636,7 +636,9 @@
       "linkTarget": "{speed} link",
       "nodeLabel": "{name}, {kind}, {health}",
       "portLabel": "Port {name}",
-      "siteDevices": "Devices at {site}"
+      "siteDevices": "Devices at {site}",
+      "zoomIn": "Zoom in",
+      "zoomOut": "Zoom out"
     },
     "topologyInspector": {
       "back": "Back to {name}",

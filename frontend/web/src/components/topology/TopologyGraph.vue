@@ -116,8 +116,14 @@ const {
   viewport,
   dimensions,
   getNodes,
+  zoomIn,
+  zoomOut,
 } = useVueFlow(flowId)
 const TRANSITION_MS = 420
+const MIN_ZOOM = 0.2
+const MAX_ZOOM = 1.6
+const zoomInDisabled = computed(() => viewport.value.zoom >= MAX_ZOOM)
+const zoomOutDisabled = computed(() => viewport.value.zoom <= MIN_ZOOM)
 const ease = (t: number) =>
   t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
 function motionAllowed() {
@@ -356,8 +362,8 @@ function edgesChanged(changes: EdgeChange[]) {
         :id="flowId"
         :nodes="nodes"
         :edges="edges"
-        :min-zoom="0.2"
-        :max-zoom="1.6"
+        :min-zoom="MIN_ZOOM"
+        :max-zoom="MAX_ZOOM"
         :nodes-connectable="false"
         :edges-updatable="false"
         :zoom-on-double-click="false"
@@ -386,6 +392,26 @@ function edgesChanged(changes: EdgeChange[]) {
           :show-fit-view="false"
           position="bottom-left"
         >
+          <template #control-zoom-in>
+            <ControlButton
+              class="vue-flow__controls-zoomin"
+              :aria-label="t('view.topology.zoomIn')"
+              :disabled="zoomInDisabled"
+              @click="zoomIn()"
+            >
+              <AppIcon name="plus" />
+            </ControlButton>
+          </template>
+          <template #control-zoom-out>
+            <ControlButton
+              class="vue-flow__controls-zoomout"
+              :aria-label="t('view.topology.zoomOut')"
+              :disabled="zoomOutDisabled"
+              @click="zoomOut()"
+            >
+              <AppIcon name="minus" />
+            </ControlButton>
+          </template>
           <UiTooltip :label="t('view.topology.fitToView')" side="right">
             <ControlButton
               :aria-label="t('view.topology.fitView')"

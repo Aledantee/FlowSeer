@@ -636,7 +636,9 @@
       "linkTarget": "{speed}-Verbindung",
       "nodeLabel": "{name}, {kind}, {health}",
       "portLabel": "Port {name}",
-      "siteDevices": "Geräte bei {site}"
+      "siteDevices": "Geräte bei {site}",
+      "zoomIn": "Vergrößern",
+      "zoomOut": "Verkleinern"
     },
     "topologyInspector": {
       "back": "Zurück zu {name}",

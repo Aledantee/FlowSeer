@@ -144,6 +144,12 @@ function keydown(input: HTMLInputElement, init: KeyboardEventInit) {
 }
 
 describe('global search selection', () => {
+  it('keeps the search trigger named when its visible text is hidden at narrow widths', async () => {
+    const { host } = await mountSearchClosed()
+    const trigger = host.querySelector<HTMLButtonElement>('.search-trigger')
+    expect(trigger?.getAttribute('aria-label')).toBe('Search')
+  })
+
   it('opens the highlighted result once with ordinary Enter', async () => {
     const selected: [SearchResult, boolean][] = []
     const { input } = await mountSearch({
