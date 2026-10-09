@@ -42,35 +42,6 @@ Suggested change: decide whether plan or implement should require a live
 start check when changing a launcher that drive itself uses. Name the
 runtime version and preserve the observed reply as test evidence.
 
-## 2026-10-07 plan: a filename scan missed inline module imports
-Skill or agent: `.claude/skills/plan/SKILL.md`, unit verification checks.
-What happened: U6 of the uv scripts Phase 2 plan (2026-10-05, retired
-with its land; its text at `7d2d5e46`) searched old script names only with a `.py` suffix. The inline programs removed
-by `cfce3311` from `.agents/skills/drive/SKILL.md` and
-`.agents/skills/delegate/references/review-lanes.md` used `import runlog` and
-inserted the old directory into `sys.path`. The prescribed scan could not
-match those callers. Following that check left a caller shape unchecked.
-Suggested change: when planning a script move, include module names, old
-directories, and inline interpreter programs in the caller audit, and execute
-the documented replacement commands against fixtures.
-
-## 2026-10-06 implement: a verifier log under `$TMPDIR` was read back from another directory
-Skill or agent: `.claude/skills/implement/SKILL.md`, step 2.5, and
-`.claude/skills/verify-change/SKILL.md`, "Send output you may need to a file
-under `$TMPDIR`".
-What happened: the verifier runs with the sandbox disabled, where `$TMPDIR`
-is a different directory from the sandboxed one. The coordinator wrote the
-run's log to `$TMPDIR/verify-u1.log` unsandboxed, then read
-`$TMPDIR/verify-u1.log` from a sandboxed command and got a file of that name
-left by an earlier session, whose last line read `FlowSeer verification
-passed.` The real run had failed. A lane was graded `--verify pass` on it
-before `verify ledger` refused the stale receipt. The step was followed as
-written. `delegate`, Write the brief, already rules `$TMPDIR` out for briefs
-for the same reason.
-Suggested change: in both places, name the session scratchpad directory for
-a log an unsandboxed command writes and a later command reads, and keep
-`$TMPDIR` for files one command writes and reads itself.
-
 ## 2026-10-07 drive: policy-surface units cannot be approved edit by edit inside workers
 Skill or agent: `.claude/skills/drive/SKILL.md`, step 4 (park on a change to
 a policy surface) and `.claude/skills/delegate/SKILL.md`, Orca worker.
@@ -90,6 +61,14 @@ blob hash per unit) instead of parking, and routes a unit whose `Files:`
 line names a policy surface to a Claude worker only, since Codex cannot
 answer `ask`. `delegate` records in Orca worker that the prompt is not
 reliable under the launch flags.
+Update 2026-10-09: the uv scripts Phase 7 plan (2026-10-05, retired with
+its land; its text at `92860e50`) routes its U2 and U3 the same way in its
+Decisions and in the checklist line that requires the commits to hold the
+approved blobs, so the fallback has now been written into plans of phases 2
+to 7 by hand. Neither `drive` nor `delegate` names it yet. One failure mode
+was reported at the Phase 7 stage: the hook's `ask` prompt appeared in the
+stage worker's terminal, where the user had to answer in person. The tree
+holds no record of it, so it stays unverified.
 
 ## 2026-10-08 delegate: a lane whose terminal Orca reclaimed cannot be stopped
 Skill or agent: `tools/scripts/skills/delegate/orca_worker.py`, `stop`, and
@@ -124,6 +103,40 @@ construction, for example one wrapper in `tools/scripts/run.py` that turns
 an exception in a `PreToolUse` hook into `hookio.deny`, instead of a
 `try` in each hook. `pre-tool-policy` and `protect-generated-bash` already
 deny on an uncaught exception per the same Decisions.
+
+## 2026-10-09 delegate: a stage worker's report is not routed to a file
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Write the brief, item 4,
+and `.claude/skills/drive/SKILL.md`, the implement row of the stage table.
+What happened: item 4 gives a report file to "a lane whose product is a
+report (`critique`, `research`, a review lane, a review stage ...)", and
+`.claude/skills/drive/references/review-stage.md` repeats it for review. The
+implement and compound stages are not in that list, and `drive` has no
+reference for them that says otherwise. Their reports (changed paths, the
+focused test result, the hash of each commit, and the policy-surface diffs
+that wait for approval) also run long, and `delegate orca-worker read`
+returns only the terminal's last screens, so the coordinator of the uv
+scripts Phase 4 plan had to ask for a file at each stop. The steps were
+followed as written.
+Suggested change: in item 4, give every stage worker a report file under the
+session scratchpad directory and name that rule in `drive` where it briefs
+`implement` and `compound`, not only `review`.
+
+## 2026-10-09 drive: a parked question's answer that removes a requirement has no step
+Skill or agent: `.claude/skills/drive/references/parking.md`, Answer, and
+`.claude/skills/plan/SKILL.md`.
+What happened: the Phase 7 plan parked on the Windows run. The user's
+answer removed the requirement instead of choosing between the options.
+Answer says to write the answer into Decisions and drop the `Parked by drive:`
+line. It does not say what to do when the answer deletes a requirement. The
+change went into both the phase plan and the parent plan's Requirement 10
+(`d6065fc3`, two files), and a later plan owns the run. No step told the
+worker to edit the parent, to move the dropped work into Out of scope, or to
+check that no unit still cites the requirement. The step was followed as
+written.
+Suggested change: add a sentence to Answer that an answer removing a
+requirement edits the requirement in the phase and in its parent in the same
+commit, names where the dropped work now lives, and runs the verifier on
+both paths. `steer` decides whether `plan` needs the same line.
 
 ## 2026-10-09 implement: a stage stops whole when a unit's rule makes a planned or standing test unbuildable
 Skill or agent: `.claude/skills/implement/SKILL.md`, step 2, and

@@ -1,6 +1,6 @@
 ---
 name: Agent steering
-last_updated: 2026-10-06
+last_updated: 2026-10-08
 ---
 
 # Agent steering
@@ -272,7 +272,7 @@ paragraph became a numbered step or a table row, an output contract
 stated at the top and the bottom of an agent definition became one
 section at the end, and a story became its one-clause reason. In
 `verify-change` the gate list is closed because a list restated from
-memory drops gates, and the script is the last command of a background
+memory drops gates, and the command is the last command of a background
 invocation because a trailing `tail` supplies its own exit code over a
 log that holds `FAIL` lines. Dates stay out of skills and agent
 definitions except in format examples. This document keeps them where
@@ -444,6 +444,13 @@ independent review, and `implement` re-reads each unit before starting it.
 Units carry an `After` line so that `implement` can run independent units
 in parallel without guessing.
 
+A script move's `Tests:` line names a caller audit and command fixture tests.
+The [inline-import solution](solutions/conventions/a-script-move-must-audit-inline-imports.md)
+shows why filenames alone miss callers in shell and Markdown. `plan` loads
+its script-move reference when writing those units. The replacement commands
+are exercised by fixtures, since compiling their modules does not execute
+imports or command dispatch.
+
 Send every plan with more than one unit, and every schema change, to an
 independent reviewer. The planner's own three reads are self-review, which
 rarely catches the planner's own mistakes without outside feedback (Huang
@@ -478,6 +485,10 @@ trigger. As of 2026-10-04 the notes dated after that check hold 3 to 8
 units, and the longest span is about three hours for an 8-unit phase,
 which says the same. As of 2026-10-06 the six notes since hold 3 to 6
 units with spans under three hours, and the trigger stays.
+As of 2026-10-08 the three new frame phases each hold four units and spans
+under an hour (`ef7897c1`, `a1194999`, `aa6336d0`). The uv scripts Phase 2
+note holds six units over thirteen hours (`b8648d37`). A verification span
+alone does not establish a session boundary, so the trigger stays at six.
 
 Look up third-party library docs through Context7 when it is connected, and
 nowhere else through a dedicated skill. `plan` and `implement` name the
@@ -1139,6 +1150,11 @@ Enforce with the verifier, not with prose. Every skill ends by running
 `verify-change` on the changed paths. Anthropic's guidance is explicit that
 an instruction in a skill is a request and a hook is a guarantee.
 
+The verifier is the Python command `uv run tools/scripts/run.py verify change`,
+in `tools/scripts/verify/change.py`, and its suites live in
+`tools/scripts/tests/verify/`. It replaced a Bash script, and the history
+below describes the same verifier in both forms.
+
 Verify once, on the integrated result, at the scope the change can reach.
 When every worker and then the coordinator run the verifier, and the
 verifier races the whole module for any Go path, two small tests cost
@@ -1148,27 +1164,35 @@ fixpoint over `go list` dependency and test-import data) and keeps the
 module-wide scope for `--full`; workers run their package's focused tests
 and the coordinator runs the verifier once after merging.
 
+Logs read across commands use one absolute path in the session scratchpad,
+chosen before the verifier starts. `verify-change` owns this rule and
+`implement` links to it. `$TMPDIR` can differ across sandbox boundaries,
+so re-expanding it can read an earlier log. The ledger rejects a receipt
+older than the unit's commit (`tools/scripts/tests/verify/test_ledger.py`,
+`test_passed_refuses_a_receipt_older_than_the_unit_commit`). That check pins
+the unit outcome while the log path keeps the diagnostics tied to the command.
+
 Make a gate's silence impossible to read as a pass. The verifier has
 reported success for reasons unrelated to the code: a directory argument
 selecting no gate, a no-gate exit clearing its own marker, a cached corpus
 pass, a `--path` naming a file the baseline lacks, and a background wrapper
-whose `tail` replaced the script's exit code. Each was fixed in the script
+whose `tail` replaced the command's exit code. Each was fixed in the verifier
 rather than in prose, since a rule that was read and broken wants
 enforcement: a directory expands to its files, a no-gate run exits non-zero
 before touching the receipt, the corpus tier carries `-count=1`,
 `buf breaking` targets only files `main` holds, and the last line of every
 run names the verdict. A `--full` run could also block forever on a
 Docker daemon that had stopped answering, with a verdict line that did
-not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
+not say which gate had failed. The `verify service-otel-integration` command now bounds its `docker info` probe, and the
 verdict line names the gate that was running. The invariant packages (`src/common/errs` and
 everything under `test/conformance/`) run once on every targeted run that
 selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
-failures of that kind live in the script rather than in prose: the lint
+failures of that kind live in the verifier rather than in prose: the lint
 gate passes `--allow-serial-runners`, because `golangci-lint` holds one
 lock per machine and would otherwise die on any concurrent run; the
-script searches `$(go env GOPATH)/bin` and checks every tool the selected
+verifier searches `$(go env GOPATH)/bin` and checks every tool the selected
 gates need before the first gate, because a session's PATH must not
 decide whether the tree verifies and a late tool failure reads as a gate
 result; and a passing run prints the dirty-marker lines it could not
@@ -1211,6 +1235,10 @@ time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv
 # Warm: the same command again.
 time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
 ```
+
+The scripting gate (`test/conformance/scripting/`) joined the packages that
+command runs. On 2026-10-09 (arm64 macOS 26.6.2, Go 1.27.1, uv 0.12.23) the
+cold run took 12.4 seconds and the warm one 1.4, so the timeout stays at 30.
 
 Measure again when a conformance package is added.
 

@@ -1,7 +1,7 @@
 ---
 title: A Stage's Done Test Must Fail Wherever the Stage Applies, and Must Run Through the Wrapper That Polls It
 date: 2026-10-06
-last_verified: 2026-10-07
+last_verified: 2026-10-09
 category: conventions
 module: .agents/skills/drive
 problem_type: convention

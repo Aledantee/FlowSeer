@@ -682,6 +682,12 @@ class WorktreeGuardTest(GuardCase):
             with self.subTest(command=command):
                 self.assertEqual(hook.decide(self.guard("Bash", repo, command=command), env=env), "deny")
 
+    @across("worktree-guard")
+    def test_a_nul_in_a_command_keeps_the_denial(self, hook):
+        """`bash` cannot take an argument holding a NUL, so the words are unknown and `rm` stays denied"""
+        repo = self.checkout()
+        self.assertEqual(hook.decide(self.guard("Bash", repo, command="rm a\0b"), env=self.env_with(HOME=str(self.home))), "deny")
+
 
 WORD_FIXTURE = ("a.tmp", "b.tmp", "^.tmp", "[.tmp", "!.tmp", ".hidden", "a\nb.tmp", "c\rd.tmp")
 WORD_DIRECTORY = "a\n"

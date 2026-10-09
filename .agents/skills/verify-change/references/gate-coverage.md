@@ -43,5 +43,5 @@ These entries complete the closed list in `SKILL.md`.
 - Full runs and telemetry-sensitive paths (service Go sources, its Collector
   integration sources and fixture, the wrapper, root `go.mod` or `go.sum`)
   run the Docker-backed OpenTelemetry tier through
-  `tools/test/service-otel-integration.sh`. An unavailable daemon is a
+  `uv run tools/scripts/run.py verify service-otel-integration`. An unavailable daemon is a
   failed gate.

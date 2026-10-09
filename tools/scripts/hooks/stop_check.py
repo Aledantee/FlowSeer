@@ -113,7 +113,7 @@ def main(argv: list[str]) -> int:
             emit(
                 {
                     "systemMessage": f"Edited but not verified: {unverified}. Run "
-                    ".claude/skills/verify-change/scripts/verify-change.sh -- <changed paths> before handoff."
+                    "uv run tools/scripts/run.py verify change -- <changed paths> before handoff."
                 }
             )
         else:

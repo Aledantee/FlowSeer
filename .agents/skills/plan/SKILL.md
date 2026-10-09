@@ -140,7 +140,7 @@ Files: <paths>
 After: <units that must land first, or none>
 Change: what the code does after the unit, in present tense.
 Tests: the test files and cases that prove it.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>`
+Verify: `uv run tools/scripts/run.py verify change -- <paths>`
 
 ## Verification
 The commands that prove the whole change, and any manual or lab check.
@@ -184,6 +184,9 @@ Rules:
   holding the old shape; an unlisted one blocks the implement pass or
   collides with a parallel unit. Grep `*_test.go` and `testdata/` for the
   distinctive token of the old output (`with-hyphen`).
+- A unit moving Python scripts names its caller audit and replacement-command
+  fixture tests in `Tests:`. Load `references/script-moves.md` before writing
+  those units.
 - A plan for a checker, linter, parser, or other tool that reads input
   says under Out of scope whose input it reads and whether that author is
   trusted. `review` briefs its reviewer with that sentence, so a plan that

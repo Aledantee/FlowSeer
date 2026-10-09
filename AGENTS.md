@@ -47,8 +47,7 @@ Binding on humans and agents equally; each doc states its own scope.
 - Never add an exclusion, ignore, suppression, or hook exception to make your own
   artifacts pass; request the policy change explicitly and separately.
 - `AGENTS.md`, `buf.yaml`, `.golangci.yml`, `test/conformance/a11y/`,
-  `.claude/settings.json`, `.codex/hooks.json`, the verifier's script
-  (`.agents/skills/verify-change/scripts/`), `tools/scripts/run.py`,
+  `.claude/settings.json`, `.codex/hooks.json`, `tools/scripts/run.py`,
   `tools/scripts/lib/`, `tools/scripts/verify/`, `tools/scripts/hooks/`, and
   merge-gate configuration are policy surfaces; changes require explicit
   guardrail review.
@@ -119,7 +118,7 @@ fetches from it or pushes to it: work lands on local `main`. The Claude worktree
    for every changed path:
 
    ```bash
-   .claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+   uv run tools/scripts/run.py verify change -- <changed paths>
    ```
 
 4. Review the final diff against the request and repository guidance. Report the

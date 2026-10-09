@@ -12,15 +12,15 @@ Run the verifier from the worktree root with the Bash sandbox disabled, since
 the Go gates bind loopback listeners and the telemetry tier starts Docker.
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh
+uv run tools/scripts/run.py verify change
 ```
 
 | Scope | Command |
 | --- | --- |
-| every change on the branch, committed included | `verify-change.sh --base main` |
-| named paths only, ignoring other worktree changes | `verify-change.sh -- <paths>` |
-| all Go modules, protobuf sources, web, and Claude configuration | `verify-change.sh --full` |
-| report the selection without running any gate | `verify-change.sh --print-selection -- <paths>` |
+| every change on the branch, committed included | `verify change --base main` |
+| named paths only, ignoring other worktree changes | `verify change -- <paths>` |
+| all Go modules, protobuf sources, web, and Claude configuration | `verify change --full` |
+| report the selection without running any gate | `verify change --print-selection -- <paths>` |
 
 - Run it on the final tree, after the last edit; `land` compares the
   receipt's `verified_at` with the last commit.
@@ -36,12 +36,17 @@ the Go gates bind loopback listeners and the telemetry tier starts Docker.
   `pnpm --dir frontend/web install --frozen-lockfile`, outside the sandbox
   like the verifier (it reaches the npm registry and the global pnpm store),
   rather than linking another worktree's `node_modules`.
-- In the background, make the script the last command of its invocation: a
+- In the background, make the command the last command of its invocation: a
   trailing `tail` or `echo` reports its own exit code as the gate's.
-- Send output you may need to a file under `$TMPDIR` and grep it afterwards.
-  A pipe through a filter drops lines before you know what the run held, and
-  a `.md`, `.json`, or `.yaml` log written into the worktree is a new file of
-  a verified type, which the marker hook records like any other edit.
+- For output read by a later command, choose a fresh log in the session
+  scratchpad directory and resolve its absolute path before launching the
+  verifier. Reuse that exact path when reading it, across sandbox boundaries:
+  `$TMPDIR` can resolve to different directories in the two commands.
+  Keep `$TMPDIR` for files one command both writes and reads.
+  Grep the saved output afterwards. A pipe through a filter drops lines
+  before you know what the run held, and a `.md`, `.json`, or `.yaml` log
+  written into the worktree is a new file of a verified type, which the
+  marker hook records like any other edit.
 
 `--print-selection` says which modules and dependent modules would be
 checked in which mode, whether the OpenTelemetry tier would run, whether the

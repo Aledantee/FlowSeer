@@ -1,188 +1,287 @@
-import os
-import subprocess
-import tempfile
 import unittest
-from pathlib import Path
 
-from lib import repo
+from tests.verify import support
+from tests.verify.support import across
 
-VERIFIER = repo.root(Path(__file__).parent) / ".claude/skills/verify-change/scripts/verify-change.sh"
+GO_MOD = "module example.invalid/m\n\ngo 1.27\n"
+NESTED_MOD = "module example.invalid/nested\n\ngo 1.27\n"
+OFF = "service_otel_integration=false"
+ON = "service_otel_integration=true"
+HOOKS = f"{OFF}\nhook_tooling=true"
+PROTO = f"{OFF}\nproto=true"
+BUF_MODULE = f"{PROTO}\ntool_module=tools/buf mode=mod-verify"
+
+# (class, files that exist, path argument, selection). A path that is not in
+# files is gone from the tree.
+ROWS = [
+    ("2 plan, existing", {"docs/plans/x-plan.md": "# Plan\n"}, "docs/plans/x-plan.md", f"{OFF}\nplan_state=true"),
+    ("2 plan state, deleted", {}, "docs/plans/gone-plan.state.json", f"{OFF}\nplan_state=true"),
+    ("4 markdown, gone", {}, "docs/gone.md", OFF),
+    ("5 skill, deleted", {}, ".agents/skills/x/SKILL.md", HOOKS),
+    ("5 codex note, deleted", {}, ".codex/notes.md", HOOKS),
+    ("5 CLAUDE.md, existing", {"CLAUDE.md": "# Agents\n"}, "CLAUDE.md", HOOKS),
+    ("5 AGENTS.md, deleted", {}, "AGENTS.md", HOOKS),
+    ("5 agent knowledge, deleted", {}, "docs/agent-knowledge.md", HOOKS),
+    ("5 scripts readme, existing", {"tools/scripts/README.md": "# Scripts\n"}, "tools/scripts/README.md", HOOKS),
+    ("6 go under tools/scripts, not 14", {"go.mod": GO_MOD, "tools/scripts/x.go": "package x\n"}, "tools/scripts/x.go", f"{OFF}\nmodule=. mode=full"),
+    (
+        "7 generated nested module, deleted",
+        {"generated/go/yang/go.mod": NESTED_MOD},
+        "generated/go/yang/v/m.go",
+        f"{OFF}\nmodule=generated/go/yang mode=build-sample-lint",
+    ),
+    ("8 generated root module", {"go.mod": GO_MOD, "generated/go/proto/x.pb.go": "package x\n"}, "generated/go/proto/x.pb.go", OFF),
+    ("8 web generated", {"go.mod": GO_MOD, "frontend/web/generated/x.go": "package x\n"}, "frontend/web/generated/x.go", OFF),
+    ("8 deleted outside generated", {"go.mod": GO_MOD}, "src/x/gone.go", OFF),
+    ("9 buf module go.sum", {"tools/buf/go.sum": ""}, "tools/buf/go.sum", BUF_MODULE),
+    ("10 nested go.mod", {"sub/go.mod": NESTED_MOD}, "sub/go.mod", f"{OFF}\nmodule=sub mode=full"),
+    ("10 nested go.sum", {"sub/go.mod": NESTED_MOD, "sub/go.sum": ""}, "sub/go.sum", f"{OFF}\nmodule=sub mode=full"),
+    ("13 buf.yaml", {"buf.yaml": "version: v2\n"}, "buf.yaml", PROTO),
+    ("13 buf.work.yaml", {"buf.work.yaml": "version: v1\n"}, "buf.work.yaml", PROTO),
+    ("14 agents", {"x.txt": ""}, ".agents/x.txt", HOOKS),
+    ("14 claude settings", {}, ".claude/settings.json", HOOKS),
+    ("14 codex hooks", {}, ".codex/hooks.json", HOOKS),
+    ("19 test script", {"tools/test/x.sh": ""}, "tools/test/x.sh", OFF),
+    ("14 scripts", {"tools/scripts/lib/x.py": ""}, "tools/scripts/lib/x.py", HOOKS),
+    ("14 uv pin", {"uv.toml": ""}, "uv.toml", HOOKS),
+    ("16 buf tool file", {"tools/buf/x.txt": ""}, "tools/buf/x.txt", BUF_MODULE),
+    (
+        "17 service package, nested directory",
+        {"go.mod": GO_MOD, "src/common/service/a/b.go": "package b\n"},
+        "src/common/service/a/b.go",
+        f"{ON}\nmodule=. mode=full",
+    ),
+    ("17 otel path crossing a slash", {"src/common/service/test/integration/otel/x.txt": ""}, "src/common/service/test/integration/otel/x.txt", ON),
+    ("19 other file", {"LICENSE": ""}, "LICENSE", OFF),
+    ("19 other directory", {"docs/x.txt": ""}, "docs/x.txt", OFF),
+]
 
 
-class SymlinkedPathTest(unittest.TestCase):
+class PathClassTest(support.VerifierCase):
+    """Each path class of the verifier selects its gates and no others."""
+
+    @across
+    def test_every_path_class_selects_its_gates(self):
+        for label, files, path, expected in ROWS:
+            with self.subTest(row=label):
+                self.fresh()
+                for name, text in files.items():
+                    self.write(name, text)
+                self.assertEqual(self.select("--", path), expected)
+
+    @across
+    def test_a_path_argument_keeps_no_trailing_line_feed(self):
+        self.write("README.md", "# Fixture\n\nChanged.\n")
+        result = self.passes("--", "README.md\n")
+        self.assertIn("+ run.py verify check-markdown-links README.md \n", result.stdout)
+
+    @across
+    def test_directory_expands_to_its_files(self):
+        self.write("pkg/go.mod", NESTED_MOD)
+        self.git("add", "pkg/go.mod")
+        self.write("pkg/b.go", "package b\n")
+        self.assertEqual(self.select("--", "pkg"), f"{OFF}\nmodule=pkg mode=full")
+
+
+class SymlinkedPathTest(support.VerifierCase):
     """A path spelled through a symlinked directory selects what git's spelling selects."""
 
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.root = Path(self.directory.name)
-        self.git("init", "-q", "-b", "main")
-        (self.root / "real/pkg").mkdir(parents=True)
-        (self.root / "real/pkg/go.mod").write_text("module example.invalid/pkg\n\ngo 1.27\n")
-        (self.root / "real/pkg/a.go").write_text("package pkg\n")
+    def populate(self):
+        self.write("real/pkg/go.mod", GO_MOD)
+        self.write("real/pkg/a.go", "package pkg\n")
         (self.root / "real/empty").mkdir()
         (self.root / "alias").symlink_to("real")
-        self.git("add", "-A")
-        self.git("commit", "-qm", "init")
 
-    def git(self, *args):
-        subprocess.run(
-            ["git", "-c", "user.name=Verify", "-c", "user.email=verify@example.invalid", *args],
-            cwd=self.root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-
-    def select(self, *paths):
-        return subprocess.run(
-            [str(VERIFIER), "--print-selection", "--", *paths],
-            cwd=self.root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+    def selection(self, *paths):
+        result = self.verify("--print-selection", "--", *paths)
+        self.assertEqual(result.code, 0, result.stderr)
+        return result.stdout.splitlines()
 
     def test_fixture_tracks_the_target_spelling_only(self):
-        listed = subprocess.run(
-            ["git", "ls-files"], cwd=self.root, check=True, capture_output=True, text=True
-        ).stdout.split()
-        self.assertEqual(listed, ["alias", "real/pkg/a.go", "real/pkg/go.mod"])
+        self.assertEqual(self.git("ls-files").split("\n"), ["alias", "real/pkg/a.go", "real/pkg/go.mod"])
 
+    @across
     def test_directory_through_a_symlink_expands_to_the_tracked_files(self):
-        result = self.select("alias/pkg")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("module=real/pkg mode=full", result.stdout.splitlines())
+        self.assertIn("module=real/pkg mode=full", self.selection("alias/pkg"))
 
+    @across
     def test_file_through_a_symlink_is_rewritten_to_the_tracked_spelling(self):
-        result = self.select("alias/pkg/a.go")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("module=real/pkg mode=full", result.stdout.splitlines())
+        self.assertIn("module=real/pkg mode=full", self.selection("alias/pkg/a.go"))
 
+    @across
     def test_missing_file_through_a_symlink_keeps_its_tail(self):
-        result = self.select("alias/pkg/gone/go.mod")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("module=real/pkg mode=full", result.stdout.splitlines())
+        self.assertIn("module=real/pkg mode=full", self.selection("alias/pkg/gone/go.mod"))
 
+    @across
     def test_repository_scripts_and_uv_pin_select_hook_tooling(self):
-        (self.root / "tools/scripts/lib").mkdir(parents=True)
-        (self.root / "tools/scripts/lib/repo.py").write_text("")
-        (self.root / "uv.toml").write_text('required-version = ">=0.12.18"\n')
+        self.write("tools/scripts/lib/repo.py")
+        self.write("uv.toml", 'required-version = ">=0.12.18"\n')
         for path in ("tools/scripts/lib/repo.py", "uv.toml"):
             with self.subTest(path=path):
-                result = self.select(path)
-                self.assertEqual(result.returncode, 0, result.stderr)
-                self.assertIn("hook_tooling=true", result.stdout.splitlines())
+                self.assertIn("hook_tooling=true", self.selection(path))
 
+    @across
     def test_scripts_readme_selects_hook_tooling(self):
-        (self.root / "tools/scripts").mkdir(parents=True)
-        (self.root / "tools/scripts/README.md").write_text("# Scripts\n")
-        result = self.select("tools/scripts/README.md")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("hook_tooling=true", result.stdout.splitlines())
-
-    def test_empty_argument_is_refused(self):
-        result = self.select("")
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("empty path argument", result.stderr)
-
-    def test_directory_without_files_says_so(self):
-        result = self.select("real/empty")
-        self.assertEqual(result.returncode, 2)
-        self.assertIn("found no files under the named paths", result.stderr)
+        self.write("tools/scripts/README.md", "# Scripts\n")
+        self.assertIn("hook_tooling=true", self.selection("tools/scripts/README.md"))
 
 
-class VerdictTest(unittest.TestCase):
-    """A run that checks nothing, or fails outside `run`, says so in its last line."""
+class ExitPathTest(support.VerifierCase):
+    """Each exit before a gate runs gives its code and its last line."""
 
-    def setUp(self):
-        self.directory = tempfile.TemporaryDirectory()
-        self.addCleanup(self.directory.cleanup)
-        self.root = Path(self.directory.name) / "repo"
-        self.root.mkdir()
-        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=self.root, check=True)
-        (self.root / "README.md").write_text("# Fixture\n")
-        subprocess.run(["git", "add", "-A"], cwd=self.root, check=True)
-        subprocess.run(
-            ["git", "-c", "user.name=Verify", "-c", "user.email=verify@example.invalid", "commit", "-qm", "init"],
-            cwd=self.root,
-            check=True,
-        )
+    def failed(self, result, code, message=None):
+        """Require the code, the verdict as the last line, and message as the first line of standard error."""
+        self.assertEqual(result.code, code, result.stdout + result.stderr)
+        self.assertEqual(support.last_line(result.stderr), support.verdict(code))
+        if message is not None:
+            self.assertEqual(result.stderr.split("\n")[0], message)
 
-    def verify(self, *args, env=None):
-        return subprocess.run(
-            [str(VERIFIER), *args], cwd=self.root, capture_output=True, text=True, check=False, env=env
-        )
+    @across
+    def test_base_without_a_ref_is_refused(self):
+        result = self.verify("--base")
+        self.failed(result, 2, "--base requires a ref")
+        self.assertEqual(result.stdout, "")
 
-    def last_line(self, result):
-        return result.stderr.strip().splitlines()[-1]
+    @across
+    def test_empty_path_argument_is_refused(self):
+        result = self.verify("--", "")
+        self.failed(result, 2, "empty path argument after --")
 
-    def test_no_changed_paths_fails(self):
+    @across
+    def test_line_feed_only_path_argument_is_refused(self):
+        result = self.verify("--", "\n")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_line_feeds_only_path_among_others_is_refused(self):
+        result = self.verify("--", "README.md", "\n\n")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_empty_path_among_others_is_refused(self):
+        result = self.verify("--", "README.md", "")
+        self.failed(result, 2, "empty path argument after --")
+
+    @across
+    def test_help_prints_the_usage_and_exits_0(self):
+        for flag in ("-h", "--help"):
+            with self.subTest(flag=flag):
+                result = self.verify(flag)
+                self.assertEqual(result.code, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                lines = result.stdout.split("\n")
+                self.assertTrue(lines[0].endswith(support.USAGE_OPTIONS), lines[0])
+                self.assertEqual(support.last_line(result.stdout), support.USAGE_LAST)
+
+    @across
+    def test_unknown_argument_is_refused_with_the_usage(self):
+        result = self.verify("--bogus")
+        self.failed(result, 2, "unknown argument: --bogus")
+        lines = result.stderr.split("\n")
+        self.assertTrue(lines[1].endswith(support.USAGE_OPTIONS), lines[1])
+        self.assertIn(support.USAGE_LAST, lines)
+
+    @across
+    def test_outside_a_repository_exits_with_gits_status(self):
+        outside = self.parent / "outside"
+        outside.mkdir()
+        result = self.verify("--print-selection", "--", "README.md", cwd=outside, env=self.stubs.env(self.env, GIT_CEILING_DIRECTORIES=str(self.parent)))
+        self.failed(result, 128)
+        self.assertIn("not a git repository", result.stderr)
+
+    @across
+    def test_base_that_is_no_commit_exits_with_gits_status(self):
+        result = self.verify("--base", "no-such-ref")
+        self.failed(result, 128)
+        self.assertEqual(result.stdout, "")
+
+    @across
+    def test_dash_dash_without_a_path_fails_unless_it_only_selects(self):
+        result = self.verify("--")
+        self.failed(result, 2, "no paths supplied after --")
+        selected = self.verify("--print-selection", "--")
+        self.assertEqual((selected.code, selected.stdout, selected.stderr), (0, f"{OFF}\n", ""))
+
+    @across
+    def test_no_changed_path_fails_unless_it_only_selects(self):
         result = self.verify()
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("No changed paths to verify", result.stderr)
-        self.assertEqual(self.last_line(result), "FlowSeer verification FAILED (exit 2).")
+        self.failed(
+            result,
+            2,
+            "No changed paths to verify against HEAD. After a commit, use --base main, name paths after --, or use --full.",
+        )
+        named = self.verify("--base", "main")
+        self.failed(
+            named,
+            2,
+            "No changed paths to verify against main. After a commit, use --base main, name paths after --, or use --full.",
+        )
+        selected = self.verify("--print-selection")
+        self.assertEqual((selected.code, selected.stdout, selected.stderr), (0, f"{OFF}\n", ""))
 
-    def test_no_changed_paths_selection_still_succeeds(self):
-        result = self.verify("--print-selection")
-        self.assertEqual(result.returncode, 0, result.stderr)
+    @across
+    def test_directories_holding_no_file_are_refused(self):
+        (self.root / "empty").mkdir()
+        self.failed(self.verify("--", "empty"), 2, "FlowSeer verification found no files under the named paths.")
 
+    @across
     def test_lint_config_alone_asks_for_full(self):
-        (self.root / ".golangci.yml").write_text("version: \"2\"\n")
+        self.write(".golangci.yml", 'version: "2"\n')
         result = self.verify("--", ".golangci.yml")
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("run with --full", result.stderr)
+        self.failed(result, 2, ".golangci.yml changed; run with --full to lint every Go module under the new configuration.")
+        self.assertEqual(self.calls(), [])
+        self.assertFalse(self.receipt.exists())
 
+    @across
     def test_lint_config_beside_a_go_file_still_asks_for_full(self):
         # One selected module would be linted under the new configuration,
         # the rest not, and the receipt would read as if all had passed.
-        (self.root / ".golangci.yml").write_text("version: \"2\"\n")
-        (self.root / "go.mod").write_text("module example.invalid/a\n\ngo 1.27\n")
-        (self.root / "a.go").write_text("package a\n")
+        self.write(".golangci.yml", 'version: "2"\n')
+        self.populate_go()
         result = self.verify("--", ".golangci.yml", "a.go")
-        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("run with --full", result.stderr)
+        self.failed(result, 2, ".golangci.yml changed; run with --full to lint every Go module under the new configuration.")
 
-    def stub_go_tools(self):
-        """Stand-ins for go, gofumpt, goimports, and golangci-lint: go builds
-        an empty checker, gofumpt reports a diff. The format gate runs before
-        any module gate, so golangci-lint only has to exist. Returns an
-        environment with the stubs first on PATH."""
-        tools = Path(self.directory.name) / "bin"
-        tools.mkdir()
-        (tools / "golangci-lint").write_text("#!/bin/sh\nexit 0\n")
-        (tools / "go").write_text(
-            "#!/bin/sh\n"
-            "[ \"$1\" = build ] || exit 0\n"
-            "while [ $# -gt 0 ]; do [ \"$1\" = -o ] && out=$2; shift; done\n"
-            "printf '#!/bin/sh\\nexit 0\\n' >\"$out\" && chmod +x \"$out\"\n"
-        )
-        (tools / "gofumpt").write_text("#!/bin/sh\necho '-unformatted'\n")
-        (tools / "goimports").write_text("#!/bin/sh\nexit 0\n")
-        for tool in tools.iterdir():
-            tool.chmod(0o755)
-        return dict(os.environ, PATH=f"{tools}:{os.environ['PATH']}")
+    @across
+    def test_lint_config_only_selects_when_nothing_runs(self):
+        self.write(".golangci.yml", 'version: "2"\n')
+        self.assertEqual(self.select("--", ".golangci.yml"), OFF)
 
-    def test_format_failure_names_its_gate(self):
-        env = self.stub_go_tools()
-        (self.root / "go.mod").write_text("module example.invalid/a\n\ngo 1.27\n")
-        (self.root / "a.go").write_text("package a\n")
+
+class VerdictTest(support.VerifierCase):
+    """A run that checks nothing, or fails, says so in its last line."""
+
+    @across
+    def test_failing_gate_is_named_in_the_last_line(self):
+        self.populate_go()
+        env = self.stubs.env(self.env, FLOWSEER_FAKE_FAIL="vet", FLOWSEER_FAKE_FAIL_CODE="3")
         result = self.verify("--", "a.go", env=env)
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertEqual(
-            self.last_line(result), "FlowSeer verification FAILED (exit 1) in gate: gofumpt/goimports -d"
-        )
+        self.assertEqual(result.code, 3, result.stdout + result.stderr)
+        self.assertEqual(support.last_line(result.stderr), support.verdict(3, "go vet"))
+        self.assertFalse(self.receipt.exists())
 
+    @across
+    def test_format_failure_names_its_gate(self):
+        self.populate_go()
+        self.stubs.add("gofumpt", "echo '-unformatted'")
+        result = self.verify("--", "a.go")
+        self.assertEqual(result.code, 1, result.stdout + result.stderr)
+        self.assertEqual(support.last_line(result.stderr), support.verdict(1, "gofumpt/goimports -d"))
+        self.assertIn("Go formatting differs; run gofumpt and goimports.", result.stderr)
+
+    @across
     def test_prose_failure_names_its_run_py_command(self):
-        # The fixture holds no tools/scripts, so the checks resolve run.py
-        # from the checkout that holds the verifier.
-        env = self.stub_go_tools()
-        (self.root / "README.md").write_text("# Fixture\n\nA claim (session history) with no source.\n")
-        result = self.verify("--", "README.md", env=env)
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertEqual(
-            self.last_line(result), "FlowSeer verification FAILED (exit 1) in gate: run.py verify check-prose"
-        )
+        self.write("README.md", "# Fixture\n\nA claim (session history) with no source.\n")
+        result = self.verify("--", "README.md")
+        self.assertEqual(result.code, 1, result.stdout + result.stderr)
+        self.assertEqual(support.last_line(result.stderr), support.verdict(1, "run.py verify check-prose"))
+
+    @across
+    def test_file_name_with_a_carriage_return_reaches_its_check(self):
+        name = "bad\rname.md"
+        self.write(name, "# Bad\n\nA claim (session history) with no source.\n")
+        result = self.verify("--", name)
+        self.assertEqual(result.code, 1, result.stdout + result.stderr)
+        self.assertEqual(support.last_line(result.stderr), support.verdict(1, "run.py verify check-prose"))
 
 
 if __name__ == "__main__":

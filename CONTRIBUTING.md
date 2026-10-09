@@ -9,7 +9,27 @@ the first stable release.
 
 ## Set up
 
-You need Go 1.27. Everything else depends on what you touch:
+You need Go 1.27 and uv 0.12.18 or newer (`uv.toml:1`). uv is the one runtime
+for the hooks, the verifier, and every script in the repository, and it
+downloads the Python interpreter they pin, so no separate Python install is
+needed. The commands below come from the
+[uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+On macOS and Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+On Windows, in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+A package manager works too: `brew install uv`, or
+`winget install --id=astral-sh.uv -e` on Windows.
+
+Everything else depends on what you touch:
 
 | If you change | You also need |
 | --- | --- |
@@ -82,6 +102,9 @@ Some boundaries are enforced by hooks and tests rather than by review:
   Schema rules are enforced through `go tool -modfile=tools/buf/go.mod buf lint`, never through executable tests.
 - Protocol and common libraries carry no FlowSeer domain types. Keep the
   direction of dependency pointing away from them.
+- A host-side shell script, or a line that starts a script with `python3`
+  instead of `uv run`, fails `test/conformance/scripting/`. Write the script
+  as Python and start it through `uv run`.
 - Do not add an exclusion, ignore, suppression, or hook exception so that your
   own change passes. Propose the policy change separately, on its own merits.
 - The policy surfaces `AGENTS.md`, Hard boundaries, names (the instruction
@@ -94,7 +117,7 @@ The diff-aware verifier picks its gates from the paths you changed and runs them
 over the packages that can observe the change:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+uv run tools/scripts/run.py verify change -- <changed paths>
 ```
 
 Use `--full` for a cross-module or schema change. The last line is the verdict,

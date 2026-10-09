@@ -16,7 +16,7 @@ related_components: [spec/proto, generated]
 tags: [buf, codegen, generated, protobuf, verify]
 symptoms:
   - "go tool -modfile=tools/buf/go.mod buf generate reports 175 to 308 changed .pb.go files after a one-field proto edit, or with no proto edit at all"
-  - "verify-change.sh fails in gate: diff generated/go/proto on files like ruckus/sci/sci-rogue.pb.go that have nothing to do with the change"
+  - "verify change fails in gate: diff generated/go/proto on files like ruckus/sci/sci-rogue.pb.go that have nothing to do with the change"
   - "git diff of a drifted file shows only a descriptor length prefix moving by two and a P\\x01 byte appearing or disappearing, no Go API change"
 root_cause: "buf managed mode writes the java_multiple_files file option into each descriptor it hands the plugins, and whether it does depends on the buf CLI release. Before the pin, each contributor's local buf decided the byte, and the committed tree matched whichever version last regenerated it."
 resolution_type: fix
@@ -66,12 +66,12 @@ plugins alone would not stop it.
 The verifier regenerates and diffs on every change that touches a `.proto`
 file, not only under `--full`:
 
-```bash
-  run "${buf_cmd[@]}" generate -o "$generated_dir"
-  run diff -qr generated/go/proto "$generated_dir/generated/go/proto"
+```python
+self.run([*buf, "generate", "-o", generated])
+self.run_diff("generated/go/proto", f"{generated}/generated/go/proto")
 ```
 
-(`.agents/skills/verify-change/scripts/verify-change.sh:800`). With a
+(`Verification.check_protobuf` in `tools/scripts/verify/change.py`). With a
 CLI that disagrees with the last regeneration, that gate fails on `main` and
 on every branch, on files the change never reached. The trap is reading the
 failure as caused by your change, or sweeping the churn into the feature

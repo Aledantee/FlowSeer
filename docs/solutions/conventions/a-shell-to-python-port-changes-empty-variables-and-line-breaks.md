@@ -102,11 +102,11 @@ patterns, and add a table of literal expected lists beside it.
 
 ## Evidence
 
-- `tools/scripts/hooks/worktree_guard.py:214-238`: `words`, the loop, the
-  NUL split, and the `None` returns. `:260` and `:283`: both callers.
-- `tools/scripts/tests/hooks/test_worktree.py:723`: the matrix against
-  `loop_words` (`:714`). `:733`: the literal rows for `a\nb.tmp`,
-  `c\rd.tmp`, a pattern with no match, and an empty command. `:753`: `None`
+- `tools/scripts/hooks/worktree_guard.py:214-239`: `words`, the loop, the
+  NUL split, and the `None` returns. `:261` and `:284`: both callers.
+- `tools/scripts/tests/hooks/test_worktree.py:729`: the matrix against
+  `loop_words` (`:720`). `:739`: the literal rows for `a\nb.tmp`,
+  `c\rd.tmp`, a pattern with no match, and an empty command. `:759`: `None`
   for a missing `bash` and for one that exits 9.
 - Commits `d4c9891f` and `3cdc9f28` carry the two replaced forms, `d6ea0d66`
   the loop. The plan's Decisions (phase 3) hold the probe table.
@@ -118,7 +118,7 @@ patterns, and add a table of literal expected lists beside it.
   empty.
 - `src/protocol/smi/bench/bench-gate.py:142-155`: output is read as bytes
   and split on `"\n"`.
-- `src/protocol/smi/bench/gate_test.go:296`
+- `src/protocol/smi/bench/gate_test.go:298`
   (`TestGateTakesTheDefaultForAnEmptyVariable`): sets `MIN_DELTA=` and
   `BASELINE=` and expects exit 0.
 - `src/protocol/smi/bench/gate_test.go:356`
