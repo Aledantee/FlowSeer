@@ -332,8 +332,10 @@ func MakeTestJourney(x ExportJourneyFields) Journey {
 
 // MakeTestJourneyPointer exposes internal state to external package tests.
 func MakeTestJourneyPointer(x ExportJourneyFields) *journey {
-	return &journey{FrameID: x.FrameID, Protocol: x.Protocol, Origin: x.Origin,
-		Injection: x.Injection, Entries: x.Entries, Deliveries: x.Deliveries, Metadata: x.Metadata, settled: x.Settled}
+	return &journey{
+		FrameID: x.FrameID, Protocol: x.Protocol, Origin: x.Origin,
+		Injection: x.Injection, Entries: x.Entries, Deliveries: x.Deliveries, Metadata: x.Metadata, settled: x.Settled,
+	}
 }
 
 // ExportJourney exposes the execution record to package tests.

@@ -198,8 +198,10 @@ type journey struct {
 }
 
 func (j *journey) report() Journey {
-	return Journey{FrameID: j.FrameID, Protocol: j.Protocol, Origin: j.Origin,
-		Injection: j.Injection, Entries: j.Entries, Deliveries: j.Deliveries, Metadata: j.Metadata}
+	return Journey{
+		FrameID: j.FrameID, Protocol: j.Protocol, Origin: j.Origin,
+		Injection: j.Injection, Entries: j.Entries, Deliveries: j.Deliveries, Metadata: j.Metadata,
+	}
 }
 
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.

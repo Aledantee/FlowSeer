@@ -219,7 +219,6 @@ func probeFabricByEnd(t *testing.T) {
 	if (*fabric.ExportLinkEndRefEnd(&refSrc)).Oper != port.Up {
 		t.Error("source link end changed through fork")
 	}
-
 }
 
 func probeFabricQueue(t *testing.T) {

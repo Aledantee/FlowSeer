@@ -135,7 +135,6 @@ func (f *Fabric) run(budget int, window int) RunResult {
 }
 
 func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunResult, error) {
-
 	f.enqueueActions(actions)
 
 	if budget <= 0 {
