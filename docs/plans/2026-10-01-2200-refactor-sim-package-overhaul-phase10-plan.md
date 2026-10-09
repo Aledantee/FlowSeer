@@ -1055,3 +1055,12 @@ For the implementer:
   After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
+- The built-node topology is blocked by the unchanged fork allocation gate
+  in `src/common/sim/fabric/fork_scale_test.go:139-144`. The prepared
+  refactor removes 880 fixed allocations at queue depths 0, 4,096, and
+  16,384. Queue-dependent growth stays unchanged, but the dated fixed
+  floor of 4,515 makes the scaling check fail at 52,907 against 50,815.
+  Updating that calibration conflicts with U10's requirement that the
+  fabric suite pass with no expectation changed. Prepared work is kept on
+  `parked/sim10-u10-topology`, without its unfinished tests or package moves
+  counting as passed.
