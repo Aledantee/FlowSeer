@@ -3,7 +3,9 @@ import io
 import os
 import shutil
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from tests.verify import support
@@ -98,6 +100,27 @@ class GateLabelTest(unittest.TestCase):
                 self.assertEqual(change.gate_label(command), expected)
 
 
+class DiffTreesTest(unittest.TestCase):
+    @unittest.skipIf(os.name == "nt", "the mode bits of a directory do not deny a read on Windows")
+    def test_a_directory_that_cannot_be_read_is_a_diff_line_and_status_2(self):
+        with tempfile.TemporaryDirectory() as directory:
+            left, right = Path(directory, "left"), Path(directory, "right")
+            for side in (left, right):
+                (side / "sub").mkdir(parents=True)
+            (left / "sub").chmod(0)
+            try:
+                if os.access(left / "sub", os.R_OK):
+                    self.skipTest("this user reads a directory without its read bit")
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                    code = change.diff_trees(str(left), str(right))
+            finally:
+                (left / "sub").chmod(0o755)
+        self.assertEqual(code, 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), f"diff: {left}/sub: Permission denied\n")
+
+
 class VerdictLineTest(support.VerifierCase):
     """The verdict is the last line of standard error for every way a check ends."""
 
@@ -110,6 +133,7 @@ class VerdictLineTest(support.VerifierCase):
             "verify-change: hooks tree-state failed; the dirty marker would mark verified files again",
             result.stderr,
         )
+        self.assertIn("listing failed", result.stderr)
         self.assertEqual(support.last_line(result.stderr), support.verdict(1))
         self.assertFalse(self.receipt.exists())
         self.assertEqual(list(self.tree_state.parent.glob("flowseer-tree-state.*")), [])

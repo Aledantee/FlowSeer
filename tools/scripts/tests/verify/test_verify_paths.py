@@ -70,6 +70,12 @@ class PathClassTest(support.VerifierCase):
                 self.assertEqual(self.select("--", path), expected)
 
     @across
+    def test_a_path_argument_keeps_no_trailing_line_feed(self):
+        self.write("README.md", "# Fixture\n\nChanged.\n")
+        result = self.passes("--", "README.md\n")
+        self.assertIn("+ run.py verify check-markdown-links README.md \n", result.stdout)
+
+    @across
     def test_directory_expands_to_its_files(self):
         self.write("pkg/go.mod", NESTED_MOD)
         self.git("add", "pkg/go.mod")
