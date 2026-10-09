@@ -11,16 +11,19 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 
 ## Goal
 
-`fabric` schedules and records, and nothing else. It drives a switch, a
-host, and a reflector through `sim/device`, asks `medium/cable` what a
-crossing costs, treats every input as a queue event, and lets a held frame
-continue its own journey. The means is fifteen units: the seam and what
-crosses it, the cable, the two endpoint devices, then the event queue, the
-hold, one executor, the scenario, and the close-out.
+`fabric` schedules and records, and nothing else. It takes devices that are
+already built, drives a switch, a host, and a reflector through `sim/device`
+without naming one, asks `medium/cable` what a crossing costs, treats every
+input as a queue event, and lets a held frame continue its own journey. A new
+package, `sim/assembly`, builds the devices from configurations and holds
+`Configure`, `Derive`, and `Diff`. The means is eighteen units: the seam and
+what crosses it, the cable, the two endpoint devices, the checkpoint replay,
+the split of `fabric` from its construction, then the event queue, the hold,
+one executor, the scenario, and the close-out.
 
-Stop condition: the parent's. If the device seam cannot carry what `fabric`
-reads from a switch without `fabric` importing a capability package, the
-package shape record is revised before this phase writes code.
+Stop condition: the parent's. If a layer-free `sim/device` cannot carry what
+`fabric` reads from a switch, the package shape record is revised before
+this phase writes code.
 
 ## Stop condition result
 
@@ -29,27 +32,44 @@ Checked on this tree. `Fb` is `src/common/sim/fabric`, `V` is
 
 `go list -f '{{join .Imports "\n"}}' ./src/common/sim/fabric` prints six
 packages under `sim/layer/`: `bridge`, `mcast`, `phy`, `routing`, `stp`,
-and `traffic`. What each is imported for, and what carries it instead:
+and `traffic`. It also prints the root `sim/layer` and `device/vswitch`.
+What each is imported for, and what carries it instead:
 
 | Import | Read for | Carried by |
 | --- | --- | --- |
-| `bridge`, `mcast`, `stp`, `routing` types | the fields of `fabric.Device` (`Fb/run.go:70-83`), `Fb/fingerprint.go`, `Fb/compare_state.go` | one state value the device returns (U5) |
-| `routing.Layer`, `routing.Config`, `routing.AddrFact` | the host's IP stack and acceptance (`Fb/fabric.go:181,517-526`, `Fb/config.go:271`, `Fb/accept.go:237,343`) | `device/host` and `device/reflector` (U7, U8) |
+| `bridge`, `mcast`, `stp`, `routing` types | the fields of `fabric.Device` (`Fb/run.go:70-83`), `Fb/fingerprint.go`, `Fb/compare_state.go` | one state value the device returns, in types `sim/device` declares (U5) |
+| `routing.Layer`, `routing.Config`, `routing.AddrFact`, `layer.Env` | the host's IP stack and acceptance (`Fb/fabric.go:181,517-526`, `Fb/config.go:271`, `Fb/accept.go:237,343`) | `device/host` and `device/reflector` (U7, U8) |
 | `phy` | negotiation and link values (`Fb/fabric.go:1143-1345`, `Fb/link.go`), host and reflector Ethernet facts | `medium/cable` (U6), the endpoint devices |
 | `stp.PointToPointForce*` | the administrative override, read twice (`Fb/fabric.go:1490-1538`) and a third time in `V/link.go:50-57` | the switch decides from a link report (U3) |
 | `traffic` rules, reasons, facts | the tail drop and threshold steps (`Fb/run.go:955-961`, `Fb/fabric.go:1073-1093`), the policed test (`Fb/run.go:539`) | a decision the device returns with its step (U4) |
-| `bridge.ReasonNoMember`, `bridge.Seed` | member selection in `transmit` (`Fb/run.go:870-883`), `Fb/configure.go` | every emission names its member (U2). The switch keeps its static seeds itself (U3) |
+| `bridge.ReasonNoMember`, `bridge.Egress`, `bridge.Seed` | member selection in `transmit` (`Fb/run.go:870-883`), `Fb/journey.go:469`, `Fb/configure.go` | every emission names its member (U2), in a type of `sim/device` (U1). The seeds go with `Configure` to `sim/assembly` (U11) |
+| `vswitch.Config`, `ConstructionSpec`, `Derive`, `Diff`, `NewWithSpec`, `Retention` | construction, `Configure`, `Derive`, `Diff`, and the `Configure` action of a scenario (`Fb/config.go:540`, `Fb/fabric.go:505`, `Fb/configure.go:75`, `Fb/derive.go:38`, `Fb/scenario.go:39,351`) | `sim/assembly` (U10, U11) |
 
-Result: the seam carries all of it, read as the record's rule is written,
-"no capability package directly". The stop condition does not fire for
-direct imports. It does fire for one sentence. The record adds that `fabric`
-depends "on no other layer" than `phy`, and the parent's R2 turns that into
-`go list -deps` printing `sim/layer/phy` alone. `go list -deps
-./src/common/sim/device/vswitch` prints all nine layer packages, and the
-record's own diagram draws `device/*` into `fabric`. No seam changes that
-while `fabric` builds a switch from `vswitch.Config`
-(`Fb/config.go:540`, `Fb/fabric.go:505`). Open question 1 puts the choice
-to the user. Every unit below is written for the direct reading.
+Result: the seam carries all of it, and the stop condition does not fire.
+The first pass found one sentence it could not meet while `fabric` built a
+switch from `vswitch.Config`: the record's "on no other layer" and the
+parent's `go list -deps` clause. The user's answer removes the cause, since
+`fabric` no longer builds a device.
+
+Whether the parent's R2 holds exactly, probed on this tree:
+
+- `go list -deps ./src/common/sim/layer/phy` prints four packages under
+  `src/common/sim`: `trace`, `port`, `layer`, and `layer/phy`.
+- `sim/port` imports `errs` and `sim/trace`. `sim/analysis` imports the
+  same two. `sim/stream` imports no package under `sim`.
+- A test import is not a dependency. `go list -deps
+  ./src/common/sim/device/vswitch` prints no `sim/fabric`, although
+  `V/routed_egress_matrix_test.go:34` calls `fabric.New`.
+
+After U11, `fabric` imports `sim/device`, `sim/medium/cable`, `sim/port`,
+`sim/trace`, `sim/analysis`, `sim/stream`, and packages outside `sim`.
+`sim/device` imports no layer. So R2 holds exactly as the parent writes it:
+the direct imports hold no package under `sim/layer/`, and `go list -deps`
+prints `sim/layer/phy` as the only one, reached through `medium/cable`.
+One package stands beside it that the parent's sentence does not count. The
+root `sim/layer`, which holds the contract's shared types, is in the list
+because `L/phy/phy.go:46` takes a `layer.Env`. Its path is not under
+`sim/layer/`, and it is not a capability package.
 
 ## Decisions
 
@@ -57,25 +77,96 @@ to the user. Every unit below is written for the direct reading.
   the landed ranges of phases 8 and 9 (`c885895c`, `82fdcc23`) are
   ancestors of `HEAD`, and `main` holds this phase neither landed nor
   retired.
+- `fabric` takes built devices and imports `sim/device` alone, with
+  layer-free types there. Construction, `Configure`, `Derive`, and `Diff`
+  move to callers or to a new assembly package. Cost: every caller of
+  `fabric.New` changes, `sim/device` duplicates the state types of four
+  layers, and this phase grows by an assembly package (decided by the user,
+  2026-10-09).
+- A host hands ARP and Neighbor Discovery frames to its stack and answers
+  for its own addresses, and resolves nothing itself. A switch then
+  resolves a host without a configured neighbor. A Neighbor Advertisement
+  from a host has the Router flag clear, which RFC 4861 section 4.4 defines
+  as "the sender is a router" (https://www.rfc-editor.org/rfc/rfc4861.txt),
+  so the routing layer gains that input. `neighbor-unresolved` stays, since
+  an absent host may be unmodelled. Cost: every routed fixture that
+  configures a static neighbor for a host may drop it, and runs gain two
+  steps per resolution (decided by the user, 2026-10-09).
+- A replay of a run that continues a stepped fabric is a checkpoint.
+  `ReplaySpec` holds a fork of each fabric taken before the scenario.
+  Exact, including a cable's crossing count. Cost: a replay is an in-memory
+  value and cannot be written out, and `search` keeps two forks per
+  retained difference (decided by the user, 2026-10-09).
+- `FlowStats.Held` counts the frames of the flow in a hold queue when
+  `Flows()` is read. A released frame counts under `Delivered`, a timed-out
+  one under `Drops`. Cost: the field is a gauge beside counters (decided by
+  the user, 2026-10-09).
+- One frame larger than the threshold raises `queue-buffer-unstated` on an
+  empty queue, as the offered-load record (`:73-77`) has it. A lone jumbo
+  frame on a port with no stated MTU reads `Incomplete`. Entry 11 is struck
+  as the recorded rule (decided by the user, 2026-10-09).
+- "Alone" in the import decision is read among device packages: `fabric`
+  names `sim/device` and no package beneath it. `medium/cable` stays an
+  import. Why: the shape record draws `medium/cable` into `fabric`
+  (`:72-73,84`), and the parent's R2 names it as the path to `layer/phy`.
+- The assembly package is `src/common/sim/assembly`, public, and not part
+  of `netmodel`. Why: the answer's own words are "a new assembly package".
+  The virtual-device record gives `netmodel` "the protobuf boundary"
+  (`:70`), and `src/common/sim/netmodel/README.md:3-9` has it produce one
+  switch's `vswitch.ConstructionSpec`. A caller outside `src/common/sim`
+  builds a fabric from Go values
+  (`src/edge/simload/test/integration/lab_test.go:137`), which an
+  `internal` package would refuse.
+- `sim/assembly` is functions over `*fabric.Fabric`, with no type that
+  wraps one: `New`, `NewWithSpec`, `Spec`, `Derive`, `Configure`, `Diff`,
+  `DiffSpecs`, and `Retention`. It keeps no state of its own. `Spec` reads
+  each device's own specification and the configured port facts the fabric
+  holds. Why: `docs/code-style.md` returns concrete types and adds nothing
+  that was not asked for (`:184-186,553-556`), and a caller keeps holding a
+  `*fabric.Fabric`, which `search`, `Compare`, and `simload` take.
+- `sim/device` imports no package under `sim/layer` and not the root. It
+  restates what crosses: the result of a receive, an emission, a copy, a
+  drop, the hold token, a link report, and the state of the forwarding
+  database, the groups, the router ports, the tree roles, the neighbors,
+  and the power allocation. That is five layers, one more than the
+  answer's cost names, since `vswitch.PowerResult` embeds `phy.Allocation`
+  (`V/switch.go:30-33`). Why: one gate row then states the rule, and
+  `sim/device` importing `layer/phy` would be a layer type in a package the
+  answer calls layer-free. Types under `src/common/net`, such as
+  `bpdu.Role`, cross as they are.
+- A scenario keeps its `Configure` and `Mcheck` actions, and `fabric` keeps
+  the executor and `Compare`. Each of the two actions carries a node and
+  an `Operation`, an interface `fabric` declares with two methods: apply
+  to a fabric, and diff against another operation. `sim/assembly` supplies
+  both implementations. Why: the virtual-device record names
+  `ActionConfigure` a scenario action (`:1063-1072`), the shape record
+  puts comparison in `fabric` (`:61`), and `fabric` can no longer name
+  `vswitch.Config` (`Fb/scenario.go:39,351`). `docs/code-style.md:184-186`
+  defines an interface where it is consumed, once a second implementation
+  or a test seam needs it. Both exist here.
+- `fabric` keeps, per node, what a layer-free device cannot tell it: each
+  port's Ethernet settings and its configured administrative and
+  operational state, as a value of `medium/cable`, and whether the node
+  repeats frames without a relay. `sim/assembly` supplies them. Why:
+  `Fb/fabric.go:991-1015` reports a conflict between the configured and
+  the derived state, and
+  `docs/solutions/architecture-patterns/a-reconfigure-path-stores-configured-state-never-derived.md`
+  keeps the two apart.
+- `sim/assembly` derives each switch's port states from the cables before
+  it builds the switch, as `build` does today (`Fb/fabric.go:492-508`),
+  through the resolution `medium/cable` holds. `fabric` resolves the same
+  cables with the same function. Why: building a switch from its
+  configured states and correcting them by link reports is a behaviour
+  change no test on this tree covers.
+- A replay holds no contract string. `ReplayContract` and
+  `ReplaySpec.Contract` go. Why: `Fb/result.go:47` names it the version of
+  a written form, and the checkpoint decision leaves no written form.
 - The plan stays whole. Why: every unit edits `Fb`, and
-  `.claude/skills/plan/references/phases.md` keeps one cluster in one plan.
-  The units form a chain, since each edits `Fb/README.md` in the change
-  that invalidates it (`docs/doc-style.md`). The ledger carries the phase
-  across sessions.
-- `sim/device` declares `Device`, and the types that cross it: `Output`,
-  `Result`, `Emission`, `Drop`, `Copy`, `HoldToken`, `Link`, and `State`.
-  `vswitch.Output`, `ForwardResult`, `Emission`, `NeighborDrop`, and
-  `PointToPoint` move there or go. Why: a method set two packages
-  implement needs its result types below both, and the shape record lists
-  the verbs: receive, advance, next wake, link change, fork, state
-  (`docs/architecture/2026-10-01-simulation-package-shape-direction.md`,
-  The device seam). `sim/device` imports capability packages for field
-  types, as the record's diagram allows a device.
-- `fabric` names `vswitch`, `host`, and `reflector` for construction and
-  for the switch-only actions `Configure`, `Derive`, and `Mcheck`. The run
-  loop, the snapshot, and the fork go through `device.Device` alone. Why:
-  `Config.Switches` is `map[string]vswitch.Config`, and the record draws
-  `device/*` into `fabric`. Open question 1 can change this.
+  `.claude/skills/plan/references/phases.md` keeps one cluster in one
+  plan, with a new package joining the cluster of the units that import
+  it. The units form a chain, since each edits `Fb/README.md` in the
+  change that invalidates it (`docs/doc-style.md`). The ledger carries the
+  phase across sessions.
 - A reflector is a third package, `device/reflector`. Why: the shape record
   puts each device kind with behaviour in its own package under `device/`,
   and a reflector shares no rule with a host beyond the tag form
@@ -107,7 +198,7 @@ to the user. Every unit below is written for the direct reading.
 - Every input is a queue event, and a held frame continues its own
   journey. Both are the parent's U10. `OriginRelease`, `JourneyReleased`,
   `heldAggregates`, and `findAndPopHeld` go. The virtual-device record
-  (`:383-399`) and the offered-load record (`:88-89`) are amended in U10.
+  (`:383-399`) and the offered-load record (`:88-89`) are amended in U13.
 - A host arrival is a queue event. Why: the seam's receive verb takes a
   time, and the host-bound leg then records its crossing like any other
   (`Fb/run.go:1258-1274` returns before the crossing today). Step counts
@@ -116,10 +207,12 @@ to the user. Every unit below is written for the direct reading.
   value. An action is paired by a required identity, not by its index. Why: the
   inventory's Design entries state both, and `Compare` already discards
   the scenario's spec and overrides its budget (`Fb/compare.go:45-47,60-61`).
-- `Config.Validate` is the contract for a configuration, and
+- `assembly.Config.Validate` is the contract for a configuration, and
   `normalizeConstructionSpec` calls it after the checks only a
   specification can fail (`Fb/fabric.go:310-397`). The fault and
-  host-accept checks it repeats (`:318,343`) go.
+  host-accept checks it repeats (`:318,343`) go. `fabric.New` refuses a
+  topology on its own terms: an endpoint that names no node or no port of
+  it, two cables on one port, and an invalid fault.
 - `Switch.Roles` names the CIST (`V/inspect.go:148`, `L/stp/info.go:181`).
   `TreeRoles` keeps sampling VLAN 1 until `State` names the trees by
   identifier in U5.
@@ -129,14 +222,17 @@ to the user. Every unit below is written for the direct reading.
 ## Requirements
 
 R1. Every inventory entry ends as a test that fails before its fix, or is
-struck with its commit. Example: entry 14, a scenario of one `ActionRecord`
-compared on two fabrics that deliver it differently, returns `Different`
-with one journey per side.
+struck with its commit or its decision. Example: entry 14, a scenario of
+one `ActionRecord` compared on two fabrics that deliver it differently,
+returns `Different` with one journey per side.
 
-R2. `go list -f '{{join .Imports "\n"}}' ./src/common/sim/fabric` prints no
-package under `sim/layer/`. Example: a row of `test/conformance/sim` fails
-when `fabric` imports `sim/layer/traffic`. The parent's `-deps` clause is
-Open question 1.
+R2. The parent's R2, as written. `go list -f '{{join .Imports "\n"}}'
+./src/common/sim/fabric` prints no package under `sim/layer/` and none
+under `sim/device/`, and `go list -deps ./src/common/sim/fabric` prints
+`sim/layer/phy` as the only package under `sim/layer/`. Example: a row of
+`test/conformance/sim` fails when `fabric` imports `sim/layer/traffic` or
+`sim/device/vswitch`, and a second fails when `sim/device` imports
+`sim/layer/bridge`.
 
 R3. A host injection takes effect at its own time. Example: on a stepped
 fabric, injecting from one host at +10 s and then at +5 s transmits the
@@ -167,22 +263,35 @@ R9. The fabric clock never moves backward. Example: an injection at a time
 before the clock is refused before and after the first step, and a wake a
 device reports before the clock is handled at the clock.
 
+R10. A fabric built by `sim/assembly` runs as one built by `fabric.New`
+does today. Example: every case of the corpus in `ST` passes with its
+expectations unchanged across U10 and U11, and
+`assembly.Spec(f)` of a fabric after a `Configure` that changes nothing
+equals its value before.
+
+R11. A replay reproduces a run that began on a stepped fabric. Example: a
+fabric steps three frames across a cable whose fault loses position 4,
+then runs a scenario of one injection. `Replay` of the result loses that
+injection, as the run did.
+
 ## Out of scope
 
 - A `Medium` interface, a radio medium, and an access point. The parent.
 - Whether the layer engines move under `internal/`. The parent reopens it
   after this phase (Open questions).
-- ICMP errors, and the Neighbor Discovery roles `L/routing/README.md`
-  lists under Limits.
+- ICMP errors, a host that resolves its own next hop, and the Neighbor
+  Discovery roles `L/routing/README.md` lists under Limits.
+- A written form of a replay. The checkpoint decision leaves none.
 - The review gaps of the switch composition phase that name no fabric
   file: the step of a release refused at a mirror output (`V/route.go:358`),
   the BPDU drop on an untracked port (`V/intercept.go:178`), the unread
   field in `V/layers.go:31`, and `badBPDU` (`V/intercept.go:240`).
 - `netmodel`'s loaders. Phase 11. `netmodel` and `simtest` follow each
   renamed type in the unit that renames it.
-- `fabric` reads configurations and scenarios built by FlowSeer's Go
-  callers, trusted for shape. A frame from a capture is untrusted for
-  shape: one a codec refuses is refused at injection and never panics.
+- `fabric` and `sim/assembly` read configurations and scenarios built by
+  FlowSeer's Go callers, trusted for shape. A frame from a capture is
+  untrusted for shape: one a codec refuses is refused at injection and
+  never panics.
 
 ## Inventory
 
@@ -192,52 +301,52 @@ Re-read on this tree. A struck entry names the commit that fixed it.
 
 | # | State | Where now | Unit |
 | --- | --- | --- | --- |
-| 1 | Holds. The token exists and the fabric ignores it | `Fb/run.go:1351-1389`, `V/timers.go:19`, `L/routing/layer.go:915-916` | U10 |
-| 2 | Narrower. Deferred before the first step when the queue holds an earlier arrival. Charged at call time otherwise | `Fb/run.go:332-341,1284` | U9 |
-| 3 | Holds | `Fb/run.go:1760-1764`, `Fb/flow.go:92-98` | U11 |
-| 4 | Holds. Pinned by `Fb/flow_internal_test.go:726-728` | `Fb/journey.go:226-230`, `Fb/run.go:1409-1433` | U10 |
+| 1 | Holds. The token exists and the fabric ignores it | `Fb/run.go:1351-1389`, `V/timers.go:19`, `L/routing/layer.go:915-916` | U13 |
+| 2 | Narrower. Deferred before the first step when the queue holds an earlier arrival. Charged at call time otherwise | `Fb/run.go:332-341,1284` | U12 |
+| 3 | Holds | `Fb/run.go:1760-1764`, `Fb/flow.go:92-98` | U14 |
+| 4 | Holds. Pinned by `Fb/flow_internal_test.go:726-728` | `Fb/journey.go:226-230`, `Fb/run.go:1409-1433` | U13 |
 | 5 | Wake half holds. ~~Drain half~~ fixed by `e3013067` | `Fb/fabric.go:861-863` | U3 |
-| 6 | Holds | `Fb/run.go:175-177,303,400-402` | U9 |
-| 7 | Holds | `Fb/run.go:1485-1497,1511` | U12 |
+| 6 | Holds | `Fb/run.go:175-177,303,400-402` | U12 |
+| 7 | Holds | `Fb/run.go:1485-1497,1511` | U9 |
 | 8 | Holds | `Fb/accept.go:221,238` | U8 |
 | 9 | Holds. Decided: documented | `Fb/run.go:1215-1232`, `Fb/README.md:832-833` | U6 |
-| 10 | Holds | `Fb/attach.go:124,140-154` | U9 |
-| 11 | Narrower. A stated port MTU moves the threshold. Open question 5 | `Fb/run.go:971-978`, `Fb/fabric.go:1058` | U4 |
-| 12 | Holds, in both executors | `Fb/run.go:1615-1617`, `Fb/compare.go:164-172` | U11 |
-| 13 | Holds | `Fb/record.go:27-46` | U13 |
+| 10 | Holds | `Fb/attach.go:124,140-154` | U12 |
+| ~~11~~ | Struck as the recorded rule (Decisions). A stated port MTU moves the threshold | `Fb/run.go:971-978`, `Fb/fabric.go:1058` | U4 pins it |
+| 12 | Holds, in both executors | `Fb/run.go:1615-1617`, `Fb/compare.go:164-172` | U14 |
+| 13 | Holds | `Fb/record.go:27-46` | U16 |
 
 ### Correctness, comparison and scenario
 
 | # | State | Where now | Unit |
 | --- | --- | --- | --- |
-| 14 | Holds | `Fb/compare.go:163-170`, `Fb/comparison_location.go:102` | U11 |
-| 15 | Holds. Pinned by `Fb/compare_test.go:2276` | `Fb/compare.go:95-96`, `Fb/comparison_location.go:67-71` | U11 |
+| 14 | Holds | `Fb/compare.go:163-170`, `Fb/comparison_location.go:102` | U14 |
+| 15 | Holds. Pinned by `Fb/compare_test.go:2276` | `Fb/compare.go:95-96`, `Fb/comparison_location.go:67-71` | U14 |
 | 16 | Holds | `Fb/compare_state.go:27-48,80,120-136` | U5 |
-| 17 | Holds | `Fb/compare.go:38-39,52,57` | U12 |
-| 18 | ~~Injection and loss sequence~~ fixed by `1ad039c1`. `Record.Clone` still shares the frame pointer | `Fb/record.go:79-86`, `Fb/run.go:319` | U13 |
-| 19 | Holds when the queue is empty. The convergence test also omits `sourcesPending` | `Fb/compare.go:153-181,213` | U11 |
+| 17 | Holds | `Fb/compare.go:38-39,52,57` | U9 |
+| 18 | ~~Injection and loss sequence~~ fixed by `1ad039c1`. `Record.Clone` still shares the frame pointer | `Fb/record.go:79-86`, `Fb/run.go:319` | U16 |
+| 19 | Holds when the queue is empty. The convergence test also omits `sourcesPending` | `Fb/compare.go:153-181,213` | U14 |
 | 20 | Holds. Pinned by `Fb/align_test.go:297-316` | `Fb/compare_state.go:48,228-239` | U5 |
-| 21 | Holds | `Fb/scenario.go:372-379` | U12 |
+| 21 | Holds | `Fb/scenario.go:372-379` | U15 |
 | 22 | Holds | `Fb/config.go:1139` | U8 |
-| 23 | Holds | `Fb/diff.go:674,691-731` against `:161` | U13 |
-| 24 | Holds | `Fb/scenario.go:392,399` | U12 |
+| 23 | Holds | `Fb/diff.go:674,691-731` against `:161` | U16 |
+| 24 | Holds | `Fb/scenario.go:392,399` | U15 |
 | 25 | Narrower. `Location.Field` names the entry since `71e930c8`. `Difference` text is still a count | `Fb/compare_state.go:30-69` | U5 |
 
 ### Completeness
 
 | Entry | State | Unit |
 | --- | --- | --- |
-| README promises on comparison (`Fb/README.md:1163-1170,1220`) | Holds until 14 to 19 land | U11, U12 |
-| `Inconclusive` wording (`Fb/README.md:1174-1176`, `src/common/sim/README.md:57-59`) | Holds. The code agrees with the record | U15 |
+| README promises on comparison (`Fb/README.md:1163-1170,1220`) | Holds until 14 to 19 land | U9, U14, U15 |
+| `Inconclusive` wording (`Fb/README.md:1174-1176`, `src/common/sim/README.md:57-59`) | Holds. The code agrees with the record | U18 |
 | Snapshot neighbors "origin, lifetime" (`Fb/README.md:647`) | Holds | U5 |
-| `PendingWork` omits sources and deferred hosts (`Fb/result.go:40-45`) | Holds | U9 |
+| `PendingWork` omits sources and deferred hosts (`Fb/result.go:40-45`) | Holds | U12 |
 | ~~`Arrival.Wake` in the README~~ | Fixed by `b20921f5` | none |
-| Copy paths clone the frame (`Fb/run.go:260,285,609,981,1296,1309`) | Holds | U14 |
+| Copy paths clone the frame (`Fb/run.go:260,285,609,981,1296,1309`) | Holds | U17 |
 | Host PCP (`Fb/README.md:255-256`, `Fb/run.go:265-269`) | Holds | U7 |
 | Admin-unknown rule undocumented (`Fb/fabric.go:1216-1218`) | Holds | U6 |
 | `Parent` in the local-network record (`:72-73`) and `Fb/run.go:742` | Holds | U8 |
-| No-injection precondition (virtual-device record `:219-220`) | Holds | U15 |
-| Protocol journeys and `entered` never freed (`Fb/flow.go:92`) | Holds | U10 |
+| No-injection precondition (virtual-device record `:219-220`) | Holds | U18 |
+| Protocol journeys and `entered` never freed (`Fb/flow.go:92`) | Holds | U13 |
 | Host-bound leg records no crossing (`Fb/run.go:1258-1274`) | Holds | U7 |
 
 ### Design
@@ -245,37 +354,37 @@ Re-read on this tree. A struck entry names the commit that fixed it.
 | Entry | State | Unit |
 | --- | --- | --- |
 | Reaches past the switch | Holds at every site but the policer, fixed by `d7f98aa5` | U2 to U5 |
-| One scenario executor (`Fb/compare.go:131-229`, `Fb/run.go:1579-1673`) | Holds | U11 |
+| One scenario executor (`Fb/compare.go:131-229`, `Fb/run.go:1579-1673`) | Holds | U14 |
 | One behavioural projection (`Fb/compare_state.go:16`, `Fb/fingerprint.go:44`) | Holds | U5 |
-| Checkpoint against spec | Holds | U12, Open question 3 |
-| `Scenario` carries a topology and a budget (`Fb/scenario.go:419-421`) | Holds | U12 |
-| Action matched by index (`Fb/scenario.go:266,444-457,615-617`) | Holds | U12 |
+| Checkpoint against spec | Holds. Decided: a checkpoint (Decisions) | U9 |
+| `Scenario` carries a topology and a budget (`Fb/scenario.go:419-421`) | Holds | U9 for the topology, U15 for the budget |
+| Action matched by index (`Fb/scenario.go:266,444-457,615-617`) | Holds | U15 |
 | `HostRoutingConfig` exported (`Fb/config.go:271`) | Holds | U7 |
-| File sizes: `config.go` 1,318, `diff.go` 1,141, `run.go` 1,943, `fabric.go` 1,547. ~~`compare.go`~~ split by `71e930c8` | Holds | U6 to U8, U13, U14 |
-| `sw.Ports()` per arrival (`Fb/run.go:491,862`), three `Encode` per hop (`:497,892,943`) | Holds | U14 |
-| Fingerprint every step (`Fb/run.go:1638`), `Report()` for a pending test (`:1722,1746`) | Holds | U11 |
-| Aggregate builds then discards (`Fb/run.go:551-558`) | Holds | U14 |
-| Duplicate queue state (`Fb/fabric.go:188-190`, `Fb/run.go:122-123`) | Holds | U9 |
-| Hand-built `&Fabric{}` support (`Fb/run.go:1911-1943`, `Fb/queue.go:128-135`, sixteen guards in `Fork`) | Holds | U14 |
-| Names | Holds for all seven | U14, and U6 for `Link` |
-| `Fabric.Clock()` missing, 60 readers of `Snapshot().Clock` | Holds | U14 |
-| `Run` has no window (`Fb/run.go:1467-1468`) | Holds | U11 |
-| `Fabric.Switch()` returns the live switch (`Fb/fabric.go:1113`) | Holds | U14 |
+| File sizes: `config.go` 1,318, `diff.go` 1,141, `run.go` 1,943, `fabric.go` 1,547. ~~`compare.go`~~ split by `71e930c8` | Holds | U6 to U8, U11, U16, U17 |
+| `sw.Ports()` per arrival (`Fb/run.go:491,862`), three `Encode` per hop (`:497,892,943`) | Holds | U17 |
+| Fingerprint every step (`Fb/run.go:1638`), `Report()` for a pending test (`:1722,1746`) | Holds | U14 |
+| Aggregate builds then discards (`Fb/run.go:551-558`) | Holds | U17 |
+| Duplicate queue state (`Fb/fabric.go:188-190`, `Fb/run.go:122-123`) | Holds | U12 |
+| Hand-built `&Fabric{}` support (`Fb/run.go:1911-1943`, `Fb/queue.go:128-135`, sixteen guards in `Fork`) | Holds | U17 |
+| Names | Holds for all seven | U17, and U6 for `Link` |
+| `Fabric.Clock()` missing, 60 readers of `Snapshot().Clock` | Holds | U17 |
+| `Run` has no window (`Fb/run.go:1467-1468`) | Holds | U14 |
+| `Fabric.Switch()` returns the live switch (`Fb/fabric.go:1113`) | Holds | U11 replaces it with `Device`, U17 returns a fork |
 
 ### Tests
 
 | Entry | State | Unit |
 | --- | --- | --- |
-| Fork probes that cannot fail (`Fb/fork_test.go:66-79,97-110,150-157,177-190,352-366`, and the map probes) | Holds | U14 |
-| Wrong classes (`Fb/fork_internal_test.go:53,60,61,66,67,80`), table extended from `Fb/attach_internal_test.go:18-23` | Holds | U14 |
-| Missing tests | Out-of-order holds U10. Host injection cases U9. Retention parity U11. Derived fabric with a hold U3 | as named |
+| Fork probes that cannot fail (`Fb/fork_test.go:66-79,97-110,150-157,177-190,352-366`, and the map probes) | Holds | U17 |
+| Wrong classes (`Fb/fork_internal_test.go:53,60,61,66,67,80`), table extended from `Fb/attach_internal_test.go:18-23` | Holds | U17 |
+| Missing tests | Out-of-order holds U13. Host injection cases U12. Retention parity U14. Derived fabric with a hold U3 | as named |
 | Hello-wake case discards its runs (`Fb/fingerprint_test.go:944-1009`) | Holds | U5 |
-| Before-start refusal (`Fb/scenario_test.go:286-298`) | Holds | U12 |
-| Clone mutation (`Fb/scenario_test.go:803-805`), ignored `Err` (`Fb/compare_test.go:1814`) | Holds | U12 |
-| FDB count asserts the name only (`Fb/compare_test.go:1237`), fresh-only replay (`:1952-2043`) | Holds | U5, U12 |
-| `compare_test.go` holds `Derive` and `Diff` tests (`:317,431,482,765,816`) | Holds | U14 |
-| `TestStopReasonTableNoEmptyConstant` (`Fb/result_test.go:33-56`) | Holds | U14 |
-| Routed fixtures inline (`Fb/flow_internal_test.go:439,552`, `Fb/flow_test.go:242`, thirteen in `Fb/routing_test.go`) | Holds | U14 |
+| Before-start refusal (`Fb/scenario_test.go:286-298`) | Holds | U9 |
+| Clone mutation (`Fb/scenario_test.go:803-805`), ignored `Err` (`Fb/compare_test.go:1814`) | Holds | U15 |
+| FDB count asserts the name only (`Fb/compare_test.go:1237`), fresh-only replay (`:1952-2043`) | Holds | U5, U9 |
+| `compare_test.go` holds `Derive` and `Diff` tests (`:317,431,482,765,816`) | Holds | U11 |
+| `TestStopReasonTableNoEmptyConstant` (`Fb/result_test.go:33-56`) | Holds | U17 |
+| Routed fixtures inline (`Fb/flow_internal_test.go:439,552`, `Fb/flow_test.go:242`, thirteen in `Fb/routing_test.go`) | Holds | U17 |
 
 ## Carried items
 
@@ -286,19 +395,19 @@ carry nothing here.
 
 | Item | Source | Disposition |
 | --- | --- | --- |
-| `fabric`'s layer constant, rule literals, and `nestedSubjectKey` | phase 2, Out of scope | U13. `Fb/diff.go:859` and `Fb/scenario.go:355` move to `trace.CompositeKey` |
+| `fabric`'s layer constant, rule literals, and `nestedSubjectKey` | phase 2, Out of scope | U16. `Fb/diff.go:859` and `Fb/scenario.go:355` move to `trace.CompositeKey` |
 | The fabric never uses the switch's point-to-point default | phase 3, Open questions | U3. The switch decides from the link report on both paths |
-| A host answering a solicitation, ARP and Neighbor Discovery to a host's stack, the Router flag | phase 6, Out of scope and Open questions. Phase 9, Out of scope | Open question 2 |
-| Whether an unanswered next hop still raises `neighbor-unresolved` | phase 6 and phase 9, Decisions | Open question 2 |
+| A host answering a solicitation, ARP and Neighbor Discovery to a host's stack, the Router flag | phase 6, Out of scope and Open questions. Phase 9, Out of scope | Decided: a host answers for its own addresses (Decisions). U7 |
+| Whether an unanswered next hop still raises `neighbor-unresolved` | phase 6 and phase 9, Decisions | Decided: it does (Decisions). U7 |
 | No wake for a routing-only switch | phase 6, Inventory | U3, entry 5 |
-| The journey of a release | phase 6, Out of scope | U10 |
+| The journey of a release | phase 6, Out of scope | U13 |
 | Whether a flood lists a down member port | phase 7, Decisions and Open questions | Decided: it does not (Decisions) |
 | The home of the egress queue discipline | phase 7, Out of scope, Inventory, Open questions | Decided (Decisions). U4 |
-| `Origin.Kind` and `Origin.Mirror` branches of `diffJourney` unreachable from `Compare` (`Fb/compare_journey.go:23`) | phase 8, Review gaps | U10 removes the release kind. U11 reaches the mirror branch through a recorded mirror root or deletes it |
+| `Origin.Kind` and `Origin.Mirror` branches of `diffJourney` unreachable from `Compare` (`Fb/compare_journey.go:23`) | phase 8, Review gaps | U13 removes the release kind. U14 reaches the mirror branch through a recorded mirror root or deletes it |
 | `State()` and the accessors the fabric reads | phase 9, Out of scope | U5 |
 | `SelectMember`, `QueueMaxRate`, `QueueBuffer`, `PortMTU` | phase 9, Out of scope | U2, U4 |
 | Three forms of point-to-point | phase 9, Out of scope | U3 removes the report type |
-| The fabric reads no token: hold, ingress interface, emission member | named by the coordinator, confirmed at `Fb/run.go:1303-1349,1409-1433` | U2, U10 |
+| The fabric reads no token: hold, ingress interface, emission member | named by the coordinator, confirmed at `Fb/run.go:1303-1349,1409-1433` | U2, U13 |
 | A routing solicitation on a routed LAG commits a member and emits without it. The fabric selects again with the wire tag's VID | named by the coordinator, confirmed at `V/route.go:225-228`, `Fb/run.go:863-870` | U2 |
 | A released frame produces no egress-selected mirror copy | named by the coordinator, confirmed at `V/route.go:302-363` against `V/forward.go:381` | U2 |
 | `Derive` has no clock, so an expired record not yet aged counts as lost | named by the coordinator, confirmed at `V/derive.go:22,28,91`, stated at `V/derive.go:14-16` | U3 |
@@ -308,30 +417,45 @@ carry nothing here.
 
 `Fb/README.md` and `V/README.md` have no Limits section. The layer READMEs'
 Limits add one item: `L/routing/README.md` says a host joins no group by
-MLD, which bears on Open question 2.
+MLD, which U7 leaves as it is: a host answers for its own addresses and
+joins nothing.
 
 ## Units
 
 Each unit's Verify is
 `.claude/skills/verify-change/scripts/verify-change.sh -- <its Files>`.
 `D` is `src/common/sim/device`, `C` is `src/common/sim/medium/cable`,
-`ST` is `src/common/sim/internal/simtest`, `N` is `src/common/sim/netmodel`.
+`A` is `src/common/sim/assembly`, `ST` is `src/common/sim/internal/simtest`,
+`N` is `src/common/sim/netmodel`. Until U11, `fabric` still builds its
+devices from configurations, and names `vswitch`, `host`, and `reflector`
+for that alone.
 
 ### U1. The device seam
-Files: src/common/sim/device/device.go, src/common/sim/device/README.md, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, test/conformance/sim/layer_contract_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md
+Files: src/common/sim/device/device.go, src/common/sim/device/device_test.go, src/common/sim/device/README.md, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, test/conformance/sim/layer_contract_test.go, test/conformance/sim/testdata, docs/architecture/2026-10-01-simulation-package-shape-direction.md
 After: none
 Change: `D` declares `Device` with `Receive`, `ReceiveMirrored`, `Advance`,
-`NextWake`, `LinkChange`, and `Fork`, and the types `Output`, `Result`,
-`Emission`, `Drop`, `Copy`, and `HoldToken`. `*vswitch.Switch` implements
-it and returns those types. `vswitch.Output`, `ForwardResult`, `Emission`,
-and `NeighborDrop` are gone, with no alias. `Fb` holds
-`map[string]device.Device` beside the switch map and calls `Receive`,
-`Advance`, and `NextWake` through it. No behaviour changes. The gate in
-`test/conformance/sim` refuses an import of `fabric` from `D`.
+`NextWake`, `LinkChange`, `Fork`, and `Ports`, and the types `Output`,
+`Result`, `Emission`, `Drop`, `Copy`, and `HoldToken`. `D` imports no
+package under `sim/layer` and not the root. `Result` restates what leaves
+the switch of `bridge.Result` (`L/bridge/result.go:54-71`): the trace, the
+ingress, the FID, and each egress with its port, member, frame, PCP, and
+drop reason, beside the metadata. `Copy` restates `traffic.Copy`
+(`L/traffic/mirror.go:35-41`), and `HoldToken` restates
+`routing.HoldToken`. `*vswitch.Switch` implements `Device` and converts in
+one place, `call.output` (`V/output.go`). `vswitch.Output`,
+`ForwardResult`, `Emission`, and `NeighborDrop` are gone, with no alias.
+`Fb` holds `map[string]device.Device` beside the switch map and calls
+`Receive`, `Advance`, and `NextWake` through it. A journey's hop holds a
+`device.Result` (`Fb/journey.go:97,460-469`, `Fb/compare_journey.go:217`).
+No behaviour changes. The gate in `test/conformance/sim` refuses, in the
+non-test files of `D` itself, an import of `fabric` and an import of any
+path under `sim/layer`. The shape record's device-seam paragraph
+(`:93-98`) gains the sentence that the seam's types name no layer.
 Tests: `D/device_test.go` asserts at compile time that `*vswitch.Switch`
-is a `Device`. The suites of `V`, `Fb`, `N`, `search`, and `ST` pass with
-type names changed and no expectation changed. An expectation that moves
-is a deviation to report.
+is a `Device`. The gate's fixture `testdata/device_imports_layer` fails
+with the import named. The suites of `V`, `Fb`, `N`, `search`, and `ST`
+pass with type names changed and no expectation changed. An expectation
+that moves is a deviation to report.
 
 ### U2. Every emission is complete
 Files: src/common/sim/device/vswitch, src/common/sim/device/device.go, src/common/sim/fabric/run.go, src/common/sim/fabric/lag_test.go, src/common/sim/fabric/routing_test.go
@@ -340,7 +464,7 @@ Change: an emission or copy on a LAG names the member the switch
 committed, on every path (R8). `emitRouting` sets it
 (`V/route.go:225-228`). A released frame yields the copies its egress
 selects. Each copy names the held frame's `HoldToken` as its parent, and
-is a frame of its own (U10). `Switch.SelectMember`
+is a frame of its own (U13). `Switch.SelectMember`
 has no caller outside `V` and is unexported, and the LAG branch of
 `Fb/run.go:859-889` is deleted.
 Tests: a generated check in `V/routed_egress_matrix_test.go` of 12 cases:
@@ -358,14 +482,15 @@ hashes to another member than VID 0. Expected to change: any
 Files: src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/internal/simtest, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U2
 Change: `LinkChange(now, port, device.Link)` takes the state, the speed,
-this end's duplex, and whether the peer relays. The switch applies its
-administrative override and decides point-to-point in one place.
-`vswitch.PointToPoint`, `portPointToPoint`, and `uncabledPointToPoint` are
-gone. `startLayers` reports every port of every switch and schedules its
-wake (entry 5), and returns the first `LinkChange` error to `New`,
-`Derive`, and `Configure`. `V/link.go:148` returns its error. `Configure` keeps a switch's static
-seeds through a method of the switch, so `Fb/configure.go:23-28` names
-no `bridge` type.
+this end's duplex, and whether the peer relays, in types `D` declares.
+The switch applies its administrative override and decides point-to-point
+in one place. `vswitch.PointToPoint`, `portPointToPoint`, and
+`uncabledPointToPoint` are gone. `startLayers` reports every port of
+every switch, the members of a LAG first, and schedules its wake
+(entry 5). It returns the first `LinkChange` error to `New`, `Derive`,
+and `Configure`. `V/link.go:148` returns its error. `Configure` keeps a
+switch's static seeds through a method of the switch
+(`Fb/configure.go:23-28`).
 `vswitch.Derive(cur, target, now)` advances a clone of `cur` to `now`
 before it carries a record, so a record past its lifetime is aged and not
 reported lost. The record's Protocol link-state input paragraph is amended.
@@ -381,29 +506,38 @@ the forced values. `TestLinkChangeErrorReachesNew` in
 expectation, since the rule moves unchanged.
 
 ### U4. Queue decisions come from the device
-Files: src/common/sim/layer/traffic/config.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/README.md, src/common/sim/layer/traffic/config_test.go, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/egress_buffer_internal_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/traffic_test.go, src/common/sim/fabric/README.md, docs/architecture/2026-09-18-offered-load-streams-direction.md
+Files: src/common/sim/layer/traffic/config.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/README.md, src/common/sim/layer/traffic/config_test.go, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/egress_buffer_internal_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/traffic_test.go, src/common/sim/fabric/README.md
 After: U3
 Change: `Device.AdmitEgress(port, pcp, depth, octets)` returns whether
 the queue takes the frame, the drop or threshold step, and the queue's
-maximum rate. `traffic.Config` builds both steps. The threshold rule stays as the
-offered-load record states it (`:73-77`) unless Open question 5 changes
-it, and this unit lands that answer with the record's amendment. `Output.Policed`
+maximum rate. `traffic.Config` builds both steps. The threshold rule stays
+as the offered-load record states it (`:73-77`) and as `Fb/fabric.go:1058`
+applies it. `Output.Policed`
 replaces the test on `traffic.ReasonPoliced`. `Fb` imports no `traffic`.
 `QueueMaxRate`, `QueueBuffer`, and `PortMTU` leave the switch's exported
 surface. A host's queue uses the same decision with no table, in U7.
 Tests: `TestLoneJumboThreshold` in `Fb/queue_buffer_internal_test.go`
-pins Open question 5's answer for one 9,018-octet frame on an empty
-queue, once with an unstated MTU and once with a stated MTU of 9,000.
+pins the recorded rule for one 9,018-octet frame on an empty queue. With
+an unstated MTU the threshold is 1,518 and the frame raises
+`queue-buffer-unstated`. With a stated MTU of 9,000 the threshold is 9,018
+and it raises nothing.
 `TestQueueAdmit` in `L/traffic/config_test.go`: stated buffer at, one
 under, and one over the limit, and the unstated threshold at depth zero.
 Expected to change: none of the existing tail-drop expectations. The step
 bytes are pinned by `Fb/egress_buffer_internal_test.go` and must not move.
 
 ### U5. One device state and one projection
-Files: src/common/sim/device/device.go, src/common/sim/device/state.go, src/common/sim/device/state_test.go, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/internal/simtest
+Files: src/common/sim/device/device.go, src/common/sim/device/state.go, src/common/sim/device/state_test.go, src/common/sim/device/README.md, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest
 After: U4
 Change: `Device.State(now)` returns `device.State`, which replaces
-`fabric.Device` and the nine accessors of `Fb/run.go:1845-1865`. `D`
+`fabric.Device` and the nine accessors of `Fb/run.go:1845-1865`. Its
+fields are types `D` declares, one for each layer type the snapshot holds
+today: `bridge.Entry` and `bridge.Counters`, `mcast.Entry` with
+`mcast.SourceEntry`, `mcast.RouterPort`, `stp.PortInfo`,
+`routing.NeighborEntry`, and `phy.Allocation` with its port and group
+rows. A field keeps the name it has in the layer. An enumeration crosses
+as a named type of `D` with the layer's values. The switch converts in
+`V/state.go`, and nothing else does. `D`
 classifies every field of `State` once as behavioural or diagnostic, and
 `State.Fingerprint` and `State.Diff` both read that table. Behavioural:
 the FDB with origin and lifetime, groups, router ports, ports, power,
@@ -417,9 +551,14 @@ and named sub-field: `Entries`, FDB origin, FDB lifetime, `Groups`,
 neighbor VRF, neighbor hold depth, `Counters`, `RelayCounters`, and the
 four `PortInfo` counters. A behavioural case changes both `Fingerprint`
 and `Diff`. A diagnostic case changes neither. The test fails on a field
-of `State` with no class. Expected to change: `Fb/align_test.go:297-316`,
+of `State` with no class. `TestStateCarriesEveryLayerField` in
+`V/state_test.go` walks the exported fields of the nine layer types by
+reflection and fails on one with no field of the same name in its `D`
+type, and on two constants of a layer enumeration that convert to one
+value. Expected to change: `Fb/align_test.go:297-316`,
 which expects the four counters as differences, and
-`Fb/compare_test.go:1237`, which now asserts the entry.
+`Fb/compare_test.go:1237`, which now asserts the entry. Every test that
+compares a snapshot field to a layer value names the `D` type instead.
 `TestFingerprintUnchangedAcrossHelloWake` runs on an `Up` link and
 asserts a BPDU crossed.
 
@@ -429,7 +568,10 @@ After: U5
 Change: `C` holds the medium, reach, propagation, the top speed, the
 fault, the two-ended resolution of `Fb/fabric.go:1143-1345`, and the
 crossing decision of `Fb/run.go:1215-1243` as a method that takes the
-crossing count and the direction. `fabric.Cable` keeps the two endpoints
+crossing count and the direction. The resolution takes each end as one
+value of `C`: its Ethernet settings and its administrative state. It
+returns each end's state, reason, speed, and duplex, with the issues and
+the assumption it filled. `fabric.Cable` keeps the two endpoints
 and holds a `cable.Cable`. `Link` no longer embeds `Cable`. `C` also holds the physical assumption
 profile and the Ethernet validation of `Fb/config.go:511-535,790,1190`.
 `Fb` names `phy` only for the host's and the reflector's Ethernet
@@ -442,37 +584,53 @@ positions 2 and 3 of a `LoseSequence` are one frame each way, and a BPDU
 takes a position. It pins the documented count.
 
 ### U7. The host
-Files: src/common/sim/device/host, src/common/sim/fabric, src/common/sim/layer/routing, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/host, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/layer/routing, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U6
 Change: `device/host` holds the host's configuration, its acceptance
 rules, and its IP stack, and implements `Device`. `fabric.Host`,
-`HostIP`, `HostAccept`, and `HostRoutingConfig` are gone. A frame bound
+`HostIP`, `HostAccept`, and `HostRoutingConfig` are gone. `Device` gains
+`Originate(at, port, frame, packet)`, the one verb an injection goes
+through. A host builds the frame from a packet with its stack, applies
+its VLAN form to the VID alone, and returns it as an emission at the PCP
+it was handed. A switch returns the frame as an arrival on the named
+port. A device that cannot originate returns the error `Inject` returns
+today (`Fb/run.go:222-295`). A frame bound
 for a host is a queue event at its delivery time, and the leg records a
 crossing with wait, serialization, and PCP. The host returns `Consumed`
 or `Dropped` with the acceptance step, and `fabric` records the delivery.
-A host transmits at the PCP of the frame it was handed, with its VLAN
-form applied to the VID alone. Sites that classify by `cfg.Hosts`:
+A host hands an ARP or Neighbor Discovery frame to its stack and returns
+the answer for one of its own addresses as an emission. Its stack stays
+`NeighborDisabled`, so it learns and resolves nothing, and the layer
+already answers a local solicitation in that mode (virtual-device record
+`:880-881`). `routing.Config` gains a field that clears the Router flag
+of `L/routing/receive.go:136-139`, set for a host. The record's host
+sentence (`:885-886`) is amended: a host processes these frames to answer
+them. `neighbor-unresolved` is raised as today. Sites that classify by
+`cfg.Hosts`:
 `Fb/run.go:222,1259`, `Fb/attach.go:46,138`, `Fb/journey.go:436`,
 `Fb/fabric.go:1387,1509`. Sites that iterate it: `Fb/fabric.go:94,276,288,
-342,371,453,517,643`. Whether the host answers a solicitation is Open
-question 2, and this unit lands the answer. Under its first two options
-`routing.Config` gains a field that clears the Router flag of
-`L/routing/receive.go:136-139`, and the virtual-device record's host
-sentence (`:885-886`) is amended.
+342,371,453,517,643`.
 Tests: `Fb/host_accept_test.go` moves to `device/host` with its
 expectations unchanged. `TestHostBoundLegRecordsCrossing` in
 `Fb/run_test.go`. `TestHostInjectionKeepsPCP`: a frame injected with PCP 5
-on a tagged host crosses at 5. Under Open question 2's first two
-options, `TestHostAdvertisementClearsRouterFlag` in `L/routing` and a
-fabric case in which a switch resolves a host with no configured
-neighbor. Expected to change: every expectation of
+on a tagged host crosses at 5. `TestHostAnswersForItsOwnAddress` in
+`device/host`: an ARP request and a Neighbor Solicitation for the host's
+address each return one answer, and one for another address returns none.
+`TestHostAdvertisementClearsRouterFlag` in `L/routing`, against the
+Neighbor Advertisement layout of RFC 4861 section 4.4.
+`TestSwitchResolvesHostWithoutStaticNeighbor` in `Fb/routing_test.go`: a
+routed frame to a host with no configured neighbor is held, the host
+answers, and the frame is delivered. `TestHostResolvesNothing`: a packet
+injection whose next hop has no configured neighbor is refused as today.
+Expected to change: every expectation of
 `Steps` and of entry order on a run that delivers to a host, in
 `Fb/run_test.go`, `Fb/result_test.go`, `Fb/flow_test.go`, and the scenario
 cases of `ST`. Each rises by one step per delivery, and an Arrival entry
-follows a Crossing.
+follows a Crossing. A routed fixture keeps its static neighbor for a host
+unless its test is about resolution.
 
-### U8. The reflector, and the import rule
-Files: src/common/sim/device/reflector, src/common/sim/fabric, src/common/sim/internal/simtest, test/conformance/sim/layer_contract_test.go, test/conformance/sim/testdata, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-16-local-network-analysis-direction.md
+### U8. The reflector
+Files: src/common/sim/device/reflector, src/common/sim/fabric, src/common/sim/internal/simtest, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-16-local-network-analysis-direction.md
 After: U7
 Change: `device/reflector` holds the reflector's configuration and
 rules, implements `Device`, and returns each reflected copy as a `Copy`.
@@ -480,20 +638,136 @@ rules, implements `Device`, and returns each reflected copy as a `Copy`.
 only when its group MAC and its IP destination are of one family (entry
 8). An attachment with an invalid prefix fails `Validate` (entry 22). The
 copy's origin kind is `OriginReflection`, apart from `OriginMirror`.
-`Fb/accept.go` is deleted. The gate gains the row of R2. The shape
+`Fb/accept.go` is deleted. The shape
 record's tree gains `reflector/`, and the local-network record's `Parent`
 sentence names `Origin.Of`.
 Tests: `TestReflectorRefusesMixedFamily`: the IPv4 mDNS MAC with an IPv6
 packet to `ff02::fb` is rejected with `reflector-ip-not-group`.
-`TestReflectorAttachmentRefusesZeroPrefix` in `device/reflector`. The
-gate's fixture `testdata/fabric_imports_layer` fails with the import
-named. A round trip, written first: a fabric built with a reflector
+`TestReflectorAttachmentRefusesZeroPrefix` in `device/reflector`. A round
+trip, written first: a fabric built with a reflector
 returns it from `Spec()`. Expected to change: every assertion of
 `OriginMirror` on a reflected copy under `Fb`, found by grep.
 
-### U9. Every input is a queue event
-Files: src/common/sim/fabric/queue.go, src/common/sim/fabric/run.go, src/common/sim/fabric/attach.go, src/common/sim/fabric/result.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/queue_internal_test.go, src/common/sim/fabric/attach_test.go, src/common/sim/fabric/attach_internal_test.go, src/common/sim/fabric/run_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/scenario_test.go, src/common/sim/fabric/README.md
+### U9. A scenario names no topology, and a replay is a checkpoint
+Files: src/common/sim/fabric/run.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/result.go, src/common/sim/fabric/scenario.go, src/common/sim/fabric/align.go, src/common/sim/fabric/replay_test.go, src/common/sim/fabric/scenario_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/README.md, src/common/sim/search, src/common/sim/internal/simtest/scenario_cases.go, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U8
+Change: `ReplaySpec` holds a fork of the fabric taken before the first
+action, and the scenario. `RunScenario` and each side of `Compare` take
+that fork before they apply anything (entries 7 and 17, R11). `Replay`
+runs the scenario on a fork of the checkpoint, so one replay value runs
+any number of times. `ReplayContract` and `ReplaySpec.Contract` are gone.
+`Scenario.Spec` is gone. The start guard of `Fb/scenario.go:438` moves to
+`RunScenario` and `Compare`, which refuse an action of any kind dated
+before the clock of the fabric it runs on, each side of a comparison
+against its own. `Fb/README.md` and `src/common/sim/search/README.md:96`
+say a replay is an in-memory value. The virtual-device record's sentences
+on an immutable `ReplaySpec` (`:439,496`) are amended to name the
+checkpoint.
+Tests: `TestReplayOfSteppedFabric` in `Fb/replay_test.go` is R11's
+example, and also asserts an FDB entry learned before the scenario
+forwards the replayed frame. It fails today, where the replay rebuilds
+from a specification. `TestCompareReplayOfSteppedFabrics`: the same
+through `Compare`, one replay per side. `TestReplayRunsTwice`: two
+replays of one value return equal results. The
+before-start case of `Fb/scenario_test.go:286-298` runs through
+`RunScenario` with an inner time equal to its action time, once per
+action kind, so only the guard can refuse it. Expected to change:
+`Fb/compare_test.go:1952-2043`, `ST/scenario_cases.go:186`, which rebuilds
+from `Replay.Spec`, and the four uses of `ReplayContract` in the tests of
+`search`.
+
+### U10. The fabric runs on built nodes
+Files: src/common/sim/fabric, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/device/host, src/common/sim/device/reflector
+After: U9
+Change: `Fb` is two halves that meet at one unexported value, the
+topology: per node its device, each port's Ethernet settings and
+configured states as a value of `C`, and whether it repeats, with the
+cables, the uncabled entries, the assumption, the evidence, and the start.
+The construction half reads configurations and builds devices. It is
+`config.go`, `diff.go`, `configure.go`, `derive.go`, and a new
+`assemble.go` that takes `normalizeConstructionSpec`, the device-building
+part of `build`, `rebuildSwitchPorts`, `Spec`, and `Retention`
+(`Fb/fabric.go:272-557,559-586,1126`). The run half is every other file.
+It holds the topology in place of `cfg`, `switches`, and `hostStacks`
+(`Fb/fabric.go:174-182`), and imports no device kind and no layer. Its
+reads of `cfg.Switches`, `cfg.Hosts`, and `cfg.Reflectors` go through the
+node or the seam. A grep counts 60 such reads in the non-test files of
+`Fb` today, 46 of them in `fabric.go`. The run half gains
+three unexported entry points. One builds a fabric from a topology and
+starts it: it reports every link itself, the members of a LAG first, in
+place of `notifyLAGMembers` (`Fb/fabric.go:588-613`), and applies the
+output a device was built with. One replaces a node at the clock, as the
+second half of `Configure` does (`Fb/configure.go:80-118`). One runs a
+function on the live device at the clock, applies its output, and
+schedules its wake, as `mcheck` does (`Fb/fabric.go:1411-1425`). `Spec`
+is rebuilt from each device's own specification and the configured states
+the node holds, never from a stored configuration. The twelve test files
+of package `fabric` that call a constructor join package `fabric_test`
+and read unexported state through `Fb/export_test.go`:
+`egress_buffer_internal_test.go`, `flow_internal_test.go`,
+`fingerprint_test.go`, `fork_internal_test.go`, `fork_test.go`,
+`queue_buffer_internal_test.go`, `mcheck_internal_test.go`,
+`journey_state_test.go`, `record_test.go`, `unlinked_internal_test.go`,
+`result_test.go`, and `scenario_test.go`. No exported name and no
+behaviour changes.
+Tests: `TestRunHalfImportsNoDeviceKind` in `Fb` parses the imports of
+every non-test file but the five of the construction half and fails on a
+path under `sim/layer` or `sim/device/`. `TestSpecRoundTrip`: for a
+fabric of a switch with seeds, a tagged host, and a reflector,
+`NewWithSpec(f.Spec())` returns a fabric whose `Spec()` equals the first.
+`TestConfigureWithoutChangeKeepsSpec` is R10's second example. The corpus
+of `ST` and the suites of `Fb`, `search`, and `N` pass with no expectation
+changed. An expectation that moves on a derived fabric with a LAG is the
+first unverified item of Open questions, and is reported.
+
+### U11. The assembly package and the import rule
+Files: src/common/sim/assembly, src/common/sim/fabric, src/common/sim/device/vswitch/routed_egress_matrix_test.go, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/common/sim/fact_contract_test.go, src/edge/simload/test/integration/lab_test.go, test/conformance/sim/layer_contract_test.go, test/conformance/sim/testdata, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-10-virtual-device-direction.md
+After: U10
+Change: the construction half of U10 moves to `A` with its tests, and
+`fabric` keeps the run half. `A` exports `Config`, `ConstructionSpec`,
+`NewConstructionSpec`, `New`, `NewWithSpec`, `Spec`, `Derive`,
+`Configure`, `Diff`, `DiffSpecs`, and `Retention`, each with the
+behaviour of the `fabric` name it replaces and a `*fabric.Fabric` where
+that name had a receiver. `fabric` exports the topology as `Config` with
+its `Node`, and the three entry points of U10 as `New`, `Replace`, and
+`Operate`. `Fabric.Device(name)` replaces `Fabric.Switch`, and a caller
+that needs a switch asserts `*vswitch.Switch`. `Fabric.Config`,
+`Fabric.Spec`, `Fabric.Retention`, `Fabric.Configure`, `fabric.Derive`,
+`fabric.Diff`, `fabric.DiffSpecs`, `fabric.NewWithSpec`,
+`fabric.NewConstructionSpec`, `fabric.ConstructionSpec`, and
+`fabric.PrefixesFact` are gone, with no alias. `fabric` declares
+`Operation`. `ConfigureAction` and `McheckAction` hold a node and an
+`Operation`, and `A` builds both: one calls `A.Configure`, one calls
+`Operate` with the switch's `Mcheck`. `Action.Diff` asks the operation
+for its changes in place of `vswitch.Diff` (`Fb/scenario.go:351`). The
+`Derive` and `Diff` tests of `Fb/compare_test.go` (`:317,431,482,765,816`)
+move to `A`. Every caller follows: some 280 calls of a constructor,
+`Derive`, `Configure`, or `Diff` in the tests of `Fb`, the corpus builders of `ST`, the tests of `N` and
+`search`, `V/routed_egress_matrix_test.go:34`, and
+`src/edge/simload/test/integration/lab_test.go:137`. The gate gains R2's
+rows. The shape record changes in four places: the tree (`:50-65`) gains
+`assembly/`, the diagram (`:67-76`) draws `device/*` and `fabric` into
+`assembly`, the import rule (`:84-86`) says `fabric` imports `device`
+and no package beneath it, and the `netmodel` sentence (`:90-91`) says it
+builds switch specifications. The virtual-device record gains a dated
+amendment that names `assembly.Configure`, `assembly.Derive`, and
+`assembly.ConstructionSpec` where it names the `fabric` ones
+(`:205,225-232`). The parent's R2 needs no change.
+Tests: two gate fixtures, `testdata/fabric_imports_layer` and
+`testdata/fabric_imports_device_kind`, each fail with the import named.
+`TestFabricDependsOnPhyAlone` in `test/conformance/sim` reads
+`go list -deps ./src/common/sim/fabric` and fails on a path under
+`sim/layer/` other than `phy`. The same function applied to `A` must
+report `bridge`, so the test can fail. `TestOperationNeedsNoAssembly` in
+`Fb`: a scenario whose `Configure` action carries a stub operation over a
+stub device runs and diffs, with no import of `A`.
+`TestFabricRefusesUnknownEndpoint` and `TestFabricRefusesTwoCablesOnAPort`
+in `Fb`. `TestRunHalfImportsNoDeviceKind` is deleted for the gate row.
+The corpus of `ST` passes with no expectation changed (R10).
+
+### U12. Every input is a queue event
+Files: src/common/sim/fabric/queue.go, src/common/sim/fabric/run.go, src/common/sim/fabric/attach.go, src/common/sim/fabric/result.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/queue_internal_test.go, src/common/sim/fabric/attach_test.go, src/common/sim/fabric/attach_internal_test.go, src/common/sim/fabric/run_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/scenario_test.go, src/common/sim/fabric/README.md
+After: U11
 Change: a host transmit, a scenario action, and a stream's next frame are
 arrivals of their own kinds, ordered with frames and wakes by
 `compareArrival`. `pendingHosts`, `pullInputs`' merge, and the deferral
@@ -516,27 +790,31 @@ the first step. `TestStreamFaultEndsOneStream`. `TestUnknownLinkPullsOne`.
 keeps its assertion and loses its setup arrival, and `Fb/run_test.go:
 2042-2109` keeps `Wait == 672ns`.
 
-### U10. A held frame continues its journey
+### U13. A held frame continues its journey
 Files: src/common/sim/fabric/run.go, src/common/sim/fabric/flow.go, src/common/sim/fabric/journey.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/compare_journey.go, src/common/sim/fabric/comparison_location.go, src/common/sim/fabric/flow_internal_test.go, src/common/sim/fabric/flow_test.go, src/common/sim/fabric/routing_test.go, src/common/sim/fabric/journey_state_test.go, src/common/sim/fabric/fork_test.go, src/common/sim/fabric/align_test.go, src/common/sim/fabric/README.md, src/common/sim/internal/simtest, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-09-18-offered-load-streams-direction.md, docs/solutions/architecture-patterns/a-settled-aggregate-record-is-freed-at-settle-keep-its-identity-in-a-key.md
-After: U9
+After: U12
 Change: `Output.Hold` enters a map from device and token to `FrameID`,
 and the frame counts as in flight while held. The fabric resolves a token once for a whole
 `Output`. An emission or a drop that carries it continues the held
 journey. A copy that carries it starts a mirror journey whose origin
 names the held frame, with that frame's flow and retention, as a live
 copy does (`Fb/run.go:600-633`). The key is removed after the output is
-applied. A token the fabric does not know, as after `Derive`,
+applied. A token the fabric does not know, as after `assembly.Derive`,
 starts a journey of its own. `OriginRelease`, `JourneyReleased`,
 `heldAggregates`, `findAndPopHeld`, and the one-entry journey of
 `recordNeighborFailure` are gone. A protocol journey and its `entered`
-set are freed at settle when nothing retains them. What `FlowStats.Held`
-counts is Open question 4. Both records and the solution are amended.
+set are freed at settle when nothing retains them. `FlowStats.Held` is
+the number of the flow's frames in the hold map when `Flows()` is read.
+A released frame counts under `Delivered`, and a timed-out one under
+`Drops`. Both records and the solution are amended.
 Tests: a generated check `TestHoldExits` of 20 cases: {released, timed
-out, evicted by overflow, refused by the filter at release, failed by a
-`Configure` that rebuilds routing} by {`RetainJourney`,
+out, evicted by overflow, refused by the filter at release, failed by an
+`assembly.Configure` that rebuilds routing} by {`RetainJourney`,
 `RetainAggregate`} by {holds end in order, in reverse}. Each asserts the
-journey or flow of the right frame, an empty hold map, and
-`StopConverged`. R4's example as `TestReleaseOutOfOrder`.
+journey or flow of the right frame, an empty hold map, `Held == 0` at the
+end, and `StopConverged`. `TestHeldIsAGauge`: two frames of one flow
+held read `Held == 2`, and after one is released `Held == 1` and
+`Delivered == 1`. R4's example as `TestReleaseOutOfOrder`.
 `TestReleaseWithMirrorUnderAggregate`: one held frame released past an
 egress mirror counts one `Delivered`, one `Copies`, one latency sample,
 and leaves no key. Expected to
@@ -545,9 +823,9 @@ change: `Fb/flow_internal_test.go:686-690,726-728`,
 `Fb/journey_state_test.go:184,269`, `Fb/fork_test.go:221-222`, and the
 release cases of `ST`, each from a release journey to one journey.
 
-### U11. One executor
+### U14. One executor
 Files: src/common/sim/fabric/run.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/comparison_location.go, src/common/sim/fabric/compare_journey.go, src/common/sim/fabric/result.go, src/common/sim/fabric/flow.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/compare_internal_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/record_test.go, src/common/sim/fabric/bench_test.go, src/common/sim/fabric/README.md, src/common/sim/search, src/common/sim/internal/simtest
-After: U10
+After: U13
 Change: `Compare` runs each fork through the run loop, which reports the
 root of every action that injects, records included (entry 14). The loop
 keeps a count of pending journeys and reads no `Report()`. It computes a
@@ -566,82 +844,91 @@ state, where one side's host rejects the frame, compares `Different`.
 released, timed out, unresolved, rejected, mirrored), each run under both
 retentions with equal `Status` and `Issues`. `TestActionErrorKeepsSteps`.
 `TestRunComputesNoFingerprint`, by a counter in an internal test. The
-scale benchmark's figure and command go into `Fb/README.md`. Expected to
+scale benchmark's figure and command go into `Fb/README.md`, with the
+figure of a `RunScenario` over the same fabric beside it, which carries
+U9's fork. Expected to
 change: `Fb/compare_test.go:2276`.
 
-### U12. Scenario and replay
-Files: src/common/sim/fabric, src/common/sim/search, src/common/sim/internal/simtest
-After: U11
+### U15. Scenario
+Files: src/common/sim/fabric, src/common/sim/assembly, src/common/sim/search, src/common/sim/internal/simtest
+After: U14
 Change: `Scenario` is an action schedule, and budget and window travel in
 one options value. An action has an `ID`, required and unique in its scenario,
 and `DiffScenarios` pairs by it. `search` and `ST` name their actions.
-The start guard of `Fb/scenario.go:438` moves to `RunScenario` and
-`Compare`, which refuse an action of any kind dated before the clock of
-the fabric it runs on, each side of a comparison against its own. `sameInjection` compares
+`sameInjection` compares
 `Packet`, `Retention`, and `Flow` (entry 21), and a summary names what
-differs (entry 24). How a replay represents a continued run is Open
-question 3, and entries 7 and 17 land its answer here.
+differs (entry 24).
 Tests: `TestInsertedActionReportsOne`: one action inserted before five
 reports one change. `TestDiffScenariosEveryInjectionField` with a case
 each for `Packet`, `Retention`, and `Flow`. `TestActionSummaryNamesLoss`:
-an interval of 2 against 3 reads differently on the two sides. The
-before-start case of `Fb/scenario_test.go:286-298` runs through
-`RunScenario` with an inner time equal to its action time, once per
-action kind, so only the guard can refuse it.
+an interval of 2 against 3 reads differently on the two sides.
+`TestDiffScenariosPairsConfigureByID` in `A`: two scenarios whose
+`Configure` actions differ in one switch field report that field.
 `Fb/scenario_test.go:803` mutates every field of the clone, and
 `Fb/compare_test.go:1814` asserts `Err`.
 
-### U13. Records, differences, and identifiers
-Files: src/common/sim/fabric
-After: U12
+### U16. Records, differences, and identifiers
+Files: src/common/sim/fabric, src/common/sim/assembly
+After: U15
 Change: `Record.Validate` refuses a `Frame` that does not encode to
 `Bytes` and a `CapturedLen` above `OriginalLen` (entry 13).
 `Record.Clone` copies the frame value. An evidence-only edit produces no
 change (entry 23). `nestedSubjectKey` is replaced by
-`trace.CompositeKey`. The fabric's rule identifiers are named constants.
-`diff.go` splits into the configuration walk and its serialization.
+`trace.CompositeKey`, in `A/diff.go` and in `Fb/scenario.go`. The
+fabric's and the assembly's rule identifiers are named constants.
+`A/diff.go` splits into the configuration walk and its serialization.
 `normalizeConstructionSpec` drops the two checks `Validate` repeats.
 Tests: `TestRecordRefusesDisagreeingFrame`,
-`TestRecordRefusesCapturedAboveOriginal`,
-`TestEvidenceOnlyEditIsNoChange` in `Fb/construction_result_test.go`.
-Expected to change: the subject keys in `Fb/diff_coverage_test.go` and
-`Fb/reflector_diff_test.go`, from the hand-joined form to the quoted one.
+`TestRecordRefusesCapturedAboveOriginal` in `Fb/record_test.go`.
+`TestEvidenceOnlyEditIsNoChange` in `A/construction_result_test.go`.
+Expected to change: the subject keys in `A/diff_coverage_test.go` and
+`A/reflector_diff_test.go`, from the hand-joined form to the quoted one.
 
-### U14. Fork gate, hot path, names, and file sizes
-Files: src/common/sim/fabric
-After: U13
+### U17. Fork gate, hot path, names, and file sizes
+Files: src/common/sim/fabric, src/common/sim/assembly, src/common/sim/search, src/common/sim/internal/simtest
+After: U16
 Change: the fork gate classes `clock`, `stepped`, `nextFrameID`,
 `nextSeq`, `runtimeEvidence`, and `err` as copied, holds its whole table
 in one file, and every probe writes through an existing element. The
 supports for a hand-built `&Fabric{}` are gone, and the tests that built
-one use `New`. `Fabric.Clock()` exists. `Fabric.Switch()` returns a fork.
+one use `assembly.New` or `fabric.New`. `Fabric.Clock()` exists.
+`Fabric.Device()` returns a fork, and `assembly.Configure` and
+`assembly.Spec` read it.
 A frame is shared on every copy path but `Report()`, as the record says.
 `Step` encodes a frame once, reads no cloned port table, and builds no
 hop result for an aggregated journey. The names of the inventory are
 settled: `Retention` the type becomes `JourneyRetention`, `EntryWake` and
 `EntryDequeue` become a step result, `Journey.State` is not stored.
-`run.go` and `fabric.go` split by subject, each under 1,200 lines and
-each function under 150 (parent R9). `compare_test.go` loses its `Derive`
-and `Diff` tests to files of those names. One routed fixture serves the
-sixteen inline sites.
+`run.go` and `fabric.go` split by subject, and every non-test file of
+`Fb` and `A` is under 1,200 lines and each function under 150 (parent
+R9). One routed fixture serves the sixteen inline sites.
 Tests: each probe of `Fb/fork_test.go` is rerun against a `Fork` that
 shares that field and fails, per
 `docs/solutions/conventions/a-perturbation-gate-that-copies-structs-by-field-passes-vacuously.md`.
-`TestStopReasonTableNoEmptyConstant` is deleted. `TestSwitchAccessorIsACopy`.
-`V/size_test.go`'s check is repeated for `Fb`. `Fb/bench_test.go` records
-allocations per step before and after.
+`TestStopReasonTableNoEmptyConstant` is deleted. `TestDeviceAccessorIsACopy`:
+a link change on the returned device leaves the fabric's snapshot
+unchanged. `V/size_test.go`'s check is repeated for `Fb` and `A`.
+`Fb/bench_test.go` records allocations per step before and after.
 
-### U15. READMEs and records
-Files: src/common/sim/fabric/README.md, src/common/sim/README.md, src/common/sim/device/README.md, src/common/sim/device/host/README.md, src/common/sim/device/reflector/README.md, src/common/sim/medium/cable/README.md, CONCEPTS.md, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-10-01-simulation-package-shape-direction.md
-After: U14
+### U18. READMEs and records
+Files: src/common/sim/fabric/README.md, src/common/sim/README.md, src/common/sim/assembly/README.md, src/common/sim/device/README.md, src/common/sim/device/vswitch/README.md, src/common/sim/device/host/README.md, src/common/sim/device/reflector/README.md, src/common/sim/medium/cable/README.md, src/common/sim/netmodel/README.md, src/common/sim/search/README.md, CONCEPTS.md, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-10-01-simulation-package-shape-direction.md
+After: U17
 Change: the READMEs word `Inconclusive` as the code and the record have
 it. The record's no-injection sentence (`:219-220`) is removed. The shape
-record's import sentence reads as Open question 1 is answered, in a dated
-amendment. `CONCEPTS.md` names the device, the host, the reflector, and
-the cable.
+record gains one dated amendment that states the import rule as it
+landed: `fabric` imports `sim/device` and `medium/cable`, `sim/device`
+imports no layer, and `sim/assembly` builds what `fabric` runs. Each
+README's working example builds its fabric through `assembly.New`.
+`V/README.md:444-449` says which ports a `protocol-link-unknown` issue
+names as `V/issues.go:413-458` has it: the ports configured under
+`STP.Ports`, the members of a LAG with an unknown member, and that LAG.
+Its "every STP port on the switch" becomes the configured ports. The code
+and `TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts`
+(`V/protocol_link_test.go:397`) do not change. `CONCEPTS.md` names the
+device, the host, the reflector, the cable, and the assembly.
 Tests: `uv run tools/scripts/run.py verify check-prose` on each file.
 
-Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12 | U13 | U14 | U15
+Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12 | U13 | U14 | U15 | U16 | U17 | U18
 
 ## Verification
 
@@ -649,7 +936,8 @@ Waves: U1 | U2 | U3 | U4 | U5 | U6 | U7 | U8 | U9 | U10 | U11 | U12 | U13 | U14 
 go build ./src/common/sim/... ./src/edge/simload/...
 go test -race ./src/common/sim/... ./src/edge/simload/... ./test/conformance/...
 golangci-lint run ./src/common/sim/... ./src/edge/simload/...
-go list -f '{{join .Imports "\n"}}' ./src/common/sim/fabric | grep 'sim/layer/' ; test $? -eq 1
+go list -f '{{join .Imports "\n"}}' ./src/common/sim/fabric | grep -E 'sim/(layer|device)/' ; test $? -eq 1
+test "$(go list -deps ./src/common/sim/fabric | grep 'sim/layer/')" = go.aledante.io/FlowSeer/src/common/sim/layer/phy
 ```
 
 Never `--full`, as the parent says.
@@ -659,84 +947,25 @@ Never `--full`, as the parent says.
 - [ ] Verifier green for every changed path of every unit.
 - [ ] Every row of Inventory and Carried items is closed by its unit, is
       struck, or is decided with its reason.
-- [ ] `Fb/README.md`, the new package READMEs, and the three records are
+- [ ] `Fb/README.md`, the new package READMEs, and the four records are
       updated in the unit that invalidates them.
 - [ ] The outcome is recorded with `uv run tools/scripts/run.py plan
-      record implemented <plan> --units 15 --from <t> --to <t>` or
+      record implemented <plan> --units 18 --from <t> --to <t>` or
       `partial`.
 - [ ] No plan label in code, comments, or commit messages.
 
 ## Open questions
 
-Questions 1 to 5 are the user's. Readiness stays `needs-decisions` until
-they are answered. The first option of each is the recommendation.
-
-1. What does the import rule bound, and what may `fabric` name? The
-   parent's R2 and the shape record ask that `go list -deps` on `fabric`
-   print `sim/layer/phy` alone. That cannot hold while `fabric` imports a
-   device, since `vswitch` imports all nine layers.
-   - Direct imports only. `fabric` builds devices from `vswitch.Config`,
-     `host.Config`, and `reflector.Config` and drives them through
-     `device.Device`. The record's "on no other layer" and the parent's
-     `-deps` clause are corrected. Cost: one sentence in each. The units
-     above are written for this.
-   - `fabric` takes built devices and imports `sim/device` alone, with
-     layer-free types there. Construction, `Configure`, `Derive`, and
-     `Diff` move to callers or to a new assembly package. Cost: every
-     caller of `fabric.New` changes, `sim/device` duplicates the state
-     types of four layers, and this phase grows by an assembly package.
-   - Keep the rule as written and stop. The record is revised first, as
-     the parent's stop condition says.
-2. Does a host answer ARP and Neighbor Discovery? The virtual-device
-   record (`:885-886`) says a host stack stays `NeighborDisabled` because
-   hosts do not process these frames. Phases 6 and 9 carried the answer
-   here.
-   - A host hands these frames to its stack and answers for its own
-     addresses, and resolves nothing itself. A switch then resolves a
-     host without a configured neighbor. A Neighbor Advertisement from a
-     host has the Router flag clear, which RFC 4861 section 4.4 defines
-     as "the sender is a router"
-     (https://www.rfc-editor.org/rfc/rfc4861.txt), so the routing layer
-     gains that input. `neighbor-unresolved` stays, since an absent host
-     may be unmodelled. Cost: every routed fixture that configures a
-     static neighbor for a host may drop it, and runs gain two steps per
-     resolution.
-   - The same, and a host resolves its own next hop. A packet injection
-     without a configured neighbor is held and solicited. Cost: the
-     injection error of `Fb/run.go:251-257` becomes a hold, and a host
-     needs wakes.
-   - No change. Hosts stay silent, the record stands, and the carried
-     items close as not done.
-3. How does a replay represent a run that continues a stepped fabric
-   (entries 7 and 17)?
-   - A checkpoint. `ReplaySpec` holds a fork of each fabric taken before
-     the scenario. Exact, including a cable's crossing count. Cost: a
-     replay is an in-memory value and cannot be written out, and `search`
-     keeps two forks per retained difference.
-   - The input history. A fabric records every input since construction,
-     and a replay rebuilds and re-applies them. Cost: memory grows with
-     the run, and a stream source must be replayable.
-   - A stated restriction. `RunScenario` and `Compare` on a stepped
-     fabric return no replay, and the README and record say so. Cost:
-     `search` cannot minimize a difference found mid-run.
-4. What does `FlowStats.Held` count once a held frame keeps its flow?
-   - Frames of the flow in a hold queue when `Flows()` is read. A
-     released frame counts under `Delivered`, a timed-out one under
-     `Drops`. Cost: the field is a gauge beside counters.
-   - Frames ever held. Cost: a delivered frame counts twice, under
-     `Held` and `Delivered`.
-   - Remove the field. Cost: a caller cannot see a hold in a flow.
-5. Does one frame larger than the threshold raise `queue-buffer-unstated`
-   on an empty queue (entry 11)? The offered-load record (`:73-77`) raises
-   it "once the depth passes one maximum-size frame".
-   - Keep the record. A lone jumbo frame on a port with no stated MTU
-     reads `Incomplete`. Entry 11 is struck as the recorded rule.
-   - Raise it only when a frame already waits. Cost: the record is
-     amended, and a port whose MTU is unstated reports `Complete` for a
-     frame larger than the 1,518 default.
+None is the user's. The five of the first pass are Decisions, each marked
+with its date.
 
 For the implementer:
 
+- Whether a link report to a LAG member changes a derived switch at start
+  is unverified. `Derive` reports none to a derived switch today
+  (`Fb/derive.go:22-49`, `Fb/fabric.go:552`), and `Configure` reports them
+  (`Fb/configure.go:93`). U10 reports them on both paths. A `Derive`
+  expectation that moves is a deviation to report, not to absorb.
 - Whether a `Result` with no egress can carry an empty outcome is
   unverified (`L/bridge/egress.go:181-192`, `V/hub.go:98-108`). U1 adds a
   check over the corpus that every `Receive` returns one of the five
@@ -745,10 +974,13 @@ For the implementer:
   unverified. R9 holds either way.
 - Whether `port.Table.WithOperStatus` can fail for a port of its own
   table is unverified. U3 returns the error either way.
-- The names of fields inside `device.Link`, `device.State`, and the
-  options value are the implementer's. The exported type names and the
-  rules above are fixed.
+- What a fork per `RunScenario` costs is unmeasured. U14 records it
+  beside R6's figure.
+- The names of fields inside `device.Link`, `device.State`,
+  `fabric.Node`, and the options value, and the method names of
+  `Operation`, are the implementer's. The exported type and function
+  names and the rules above are fixed.
 - Not decided here: whether the layer engines move under `internal/`.
-  After U8, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
+  After U11, `go list -f '{{.ImportPath}}: {{join .Imports " "}}'
   ./src/common/sim/...` names the importers of each engine, which is the
   input the parent's question waits for.
