@@ -1,10 +1,11 @@
-package fabric
+package fabric_test
 
 import (
 	"testing"
 	"time"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -24,7 +25,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, _ := b.Build()
-	cfg := Config{
+	cfg := fabric.Config{
 		Start: t0,
 		PhyAssumption: &cablemodel.PhyAssumption{
 			Medium: cablemodel.TwistedPair,
@@ -46,9 +47,9 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 			},
 		},
 		Hosts:  map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
-		Cables: []Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}}},
+		Cables: []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}}},
 	}
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -62,9 +63,9 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bpdu.Encode: %v", err)
 	}
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:     t0.Add(4 * time.Second),
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  frame,
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
@@ -79,7 +80,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 		t.Fatal("the port did not migrate")
 	}
 	clock := fab.Snapshot().Clock
-	if err := fab.mcheck("sw1", "1/1/1"); err != nil {
+	if err := fabric.ExportFabricMcheck(fab, "sw1", "1/1/1"); err != nil {
 		t.Fatalf("mcheck: %v", err)
 	}
 	if !fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
@@ -97,7 +98,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if !found {
 		t.Errorf("no RST BPDU journey dated the fabric clock %v after mcheck", clock)
 	}
-	if err := fab.mcheck("h1", ""); err == nil {
+	if err := fabric.ExportFabricMcheck(fab, "h1", ""); err == nil {
 		t.Error("mcheck on a host returned no error")
 	}
 }

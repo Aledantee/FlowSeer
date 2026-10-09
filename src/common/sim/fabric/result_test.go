@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"slices"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -34,16 +35,9 @@ func testPhyAssumption() *cablemodel.PhyAssumption {
 }
 
 func TestStopReasonTableNoEmptyConstant(t *testing.T) {
-	reasons := []StopReason{
-		StopNotRun,
-		StopQueueDrained,
-		StopBudget,
-		StopConverged,
-		StopOscillating,
-		StopFault,
-	}
+	reasons := []fabric.StopReason{fabric.StopNotRun, fabric.StopQueueDrained, fabric.StopBudget, fabric.StopConverged, fabric.StopOscillating, fabric.StopFault}
 
-	seen := make(map[StopReason]bool)
+	seen := make(map[fabric.StopReason]bool)
 	for _, r := range reasons {
 		if r == "" {
 			t.Errorf("StopReason constant is empty string")
@@ -62,22 +56,22 @@ func TestStopReasonsCoverage(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
 	// StopNotRun
-	fab, err := New(Config{Start: t0, PhyAssumption: testPhyAssumption()})
+	fab, err := fabric.New(fabric.Config{Start: t0, PhyAssumption: testPhyAssumption()})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if res := fab.Run(0); res.Stop != StopNotRun || res.Steps != 0 {
+	if res := fab.Run(0); res.Stop != fabric.StopNotRun || res.Steps != 0 {
 		t.Errorf("Run(0) stop = %v, steps = %d, want StopNotRun, 0", res.Stop, res.Steps)
 	}
-	if res := fab.Run(-5); res.Stop != StopNotRun || res.Steps != 0 {
+	if res := fab.Run(-5); res.Stop != fabric.StopNotRun || res.Steps != 0 {
 		t.Errorf("Run(-5) stop = %v, steps = %d, want StopNotRun, 0", res.Stop, res.Steps)
 	}
 
 	// StopQueueDrained
 	fabQueue := newTestHostSwitchFabric(t, t0)
-	inj := Injection{
+	inj := fabric.Injection{
 		At:     t0,
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 0, 1},
 			Dst:     netaddr.MAC{0, 0, 0, 0, 0, 2},
@@ -88,7 +82,7 @@ func TestStopReasonsCoverage(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 	resQueue := fabQueue.Run(50)
-	if resQueue.Stop != StopQueueDrained {
+	if resQueue.Stop != fabric.StopQueueDrained {
 		t.Errorf("resQueue.Stop = %v, want StopQueueDrained", resQueue.Stop)
 	}
 	if resQueue.Steps != 2 {
@@ -98,32 +92,32 @@ func TestStopReasonsCoverage(t *testing.T) {
 	// StopBudget
 	fabSTP := newTestSTPFabric(t, t0, 4096, 8192)
 	resBudget := fabSTP.Run(2)
-	if resBudget.Stop != StopBudget {
+	if resBudget.Stop != fabric.StopBudget {
 		t.Errorf("resBudget.Stop = %v, want StopBudget", resBudget.Stop)
 	}
 	if resBudget.Steps != 2 {
 		t.Errorf("resBudget.Steps = %d, want 2", resBudget.Steps)
 	}
-	if !hasIssueCode(resBudget.Issues, IssueBudgetExhausted) {
+	if !hasIssueCode(resBudget.Issues, fabric.IssueBudgetExhausted) {
 		t.Errorf("resBudget.Issues missing IssueBudgetExhausted: %+v", resBudget.Issues)
 	}
 
 	// StopFault
-	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
-	fabFault := &Fabric{
-		clock:   t0,
-		stepped: true,
-		egress:  map[Endpoint]*egressQueue{ep: {}},
-	}
-	fabFault.scheduleDequeue(ep, t0.Add(-time.Second))
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	fabFault := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{
+		Clock:   t0,
+		Stepped: true,
+		Egress:  map[fabric.Endpoint]*fabric.ExportEgressQueue{ep: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{})},
+	})
+	fabric.ExportFabricScheduleDequeue(fabFault, ep, t0.Add(-time.Second))
 	resFault := fabFault.Run(10)
-	if resFault.Stop != StopFault {
+	if resFault.Stop != fabric.StopFault {
 		t.Errorf("resFault.Stop = %v, want StopFault", resFault.Stop)
 	}
 	if resFault.Err == nil {
 		t.Errorf("resFault.Err = nil, want fault error")
 	}
-	if !hasIssueCode(resFault.Issues, IssueSchedulingFault) {
+	if !hasIssueCode(resFault.Issues, fabric.IssueSchedulingFault) {
 		t.Errorf("resFault.Issues missing IssueSchedulingFault: %+v", resFault.Issues)
 	}
 }
@@ -138,15 +132,16 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 		Scope:   analysis.WholeScope(),
 		Message: "unsupported hardware feature",
 	}
-	fab.linkTrust = append(fab.linkTrust, linkTrust{
-		issues: []analysis.Issue{unsupportedIssue},
-	})
-	// A direct linkTrust write bypasses SetFault, the one writer whose cache
-	// invalidation a real fabric sees.
-	fab.metadataCache = nil
+	(*fabric.ExportFabricLinkTrust(fab)) = append((*fabric.ExportFabricLinkTrust(fab)), fabric.MakeTestLinkTrust(fabric.ExportLinkTrustFields{
+		Issues: []analysis.Issue{unsupportedIssue},
+	}))
+	(*fabric.
+		// A direct linkTrust write bypasses SetFault, the one writer whose cache
+		// invalidation a real fabric sees.
+		ExportFabricMetadataCache(fab)) = nil
 
 	res := fab.Run(5)
-	if res.Stop != StopBudget {
+	if res.Stop != fabric.StopBudget {
 		t.Fatalf("res.Stop = %v, want StopBudget", res.Stop)
 	}
 	if res.Steps != 5 {
@@ -159,7 +154,7 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 		t.Errorf("res.Pending.Arrivals = %d, want >= 1", res.Pending.Arrivals)
 	}
 
-	hasExhausted := hasIssueCode(res.Issues, IssueBudgetExhausted)
+	hasExhausted := hasIssueCode(res.Issues, fabric.IssueBudgetExhausted)
 	hasUnsup := hasIssueCode(res.Issues, "test.unsupported")
 	if !hasExhausted {
 		t.Errorf("res.Issues missing IssueBudgetExhausted: %+v", res.Issues)
@@ -174,39 +169,33 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 
 func TestPendingWorkHandBuiltQueue(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	f := &Fabric{
-		queue: []Arrival{
-			{Kind: ArrivalFrame, At: t0},
-			{Kind: ArrivalFrame, At: t0.Add(time.Microsecond)},
-			{Kind: ArrivalWake, At: t0.Add(2 * time.Microsecond)},
-			{Kind: ArrivalWake, At: t0.Add(3 * time.Microsecond)},
-			{Kind: ArrivalDequeue, At: t0.Add(4 * time.Microsecond)},
-		},
-		egress: map[Endpoint]*egressQueue{
-			{Node: "sw1", Port: "1/1/1"}: {
-				pending: [8][]queued{
-					0: {{frame: ethernet.Frame{Payload: []byte("a")}}},
-					1: {{frame: ethernet.Frame{Payload: []byte("b")}}, {frame: ethernet.Frame{Payload: []byte("c")}}},
+	f := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{
+		Queue: []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0.Add(time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(2 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(3 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalDequeue, At: t0.Add(4 * time.Microsecond)})},
+		Egress: map[fabric.Endpoint]*fabric.ExportEgressQueue{
+			{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
+				Pending: [8][]fabric.ExportQueued{
+					0: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Frame: ethernet.Frame{Payload: []byte("a")}})},
+					1: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Frame: ethernet.Frame{Payload: []byte("b")}}), fabric.MakeTestQueued(fabric.ExportQueuedFields{Frame: ethernet.Frame{Payload: []byte("c")}})},
 				},
-			},
+			}),
 		},
-		journeys: map[FrameID]*Journey{
-			1: {
+		Journeys: map[fabric.FrameID]*fabric.Journey{
+			1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
 				FrameID: 1,
-				Entries: []Entry{
+				Entries: []fabric.Entry{
 					{
-						Kind:   EntryHop,
+						Kind:   fabric.EntryHop,
 						Device: "sw1",
 						Result: &device.Result{
 							Trace: trace.Trace{Outcome: trace.Held},
 						},
 					},
 				},
-			},
+			}),
 		},
-	}
+	})
 
-	pw := f.pendingWork()
+	pw := fabric.ExportFabricPendingWork(f)
 	if pw.Arrivals != 2 {
 		t.Errorf("pw.Arrivals = %d, want 2", pw.Arrivals)
 	}
@@ -225,8 +214,8 @@ func TestConvergenceSpanningTreeWithHellosStillFiring(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
 
-	res := fab.run(100, 3)
-	if res.Stop != StopConverged {
+	res := fabric.ExportFabricRun(fab, 100, 3)
+	if res.Stop != fabric.StopConverged {
 		t.Fatalf("res.Stop = %v, want StopConverged", res.Stop)
 	}
 	if res.Steps >= 100 {
@@ -244,24 +233,24 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
 
-	fid := fab.nextFrameID
-	fab.nextFrameID++
-	fab.journeys[fid] = &Journey{
+	fid := (*fabric.ExportFabricNextFrameID(fab))
+	(*fabric.ExportFabricNextFrameID(fab))++
+	(*fabric.ExportFabricJourneys(fab))[fid] = fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
 		FrameID: fid,
-		Origin:  JourneyOrigin{Kind: OriginInjection},
-		Entries: []Entry{
+		Origin:  fabric.JourneyOrigin{Kind: fabric.OriginInjection},
+		Entries: []fabric.Entry{
 			{
-				Kind:   EntryHop,
+				Kind:   fabric.EntryHop,
 				Device: "sw1",
 				Result: &device.Result{
 					Trace: trace.Trace{Outcome: trace.Held},
 				},
 			},
 		},
-	}
+	})
 
-	res := fab.run(21, 3)
-	if res.Stop == StopConverged {
+	res := fabric.ExportFabricRun(fab, 21, 3)
+	if res.Stop == fabric.StopConverged {
 		t.Errorf("res.Stop = StopConverged, want convergence blocked by pending journey")
 	}
 	if res.Pending.Journeys != 2 {
@@ -281,7 +270,7 @@ func TestOscillatingRootCycle(t *testing.T) {
 		return tbl
 	}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -298,15 +287,15 @@ func TestOscillatingRootCycle(t *testing.T) {
 		Hosts: map[string]hostmodel.Config{
 			"peer": {Address: peerMAC},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/1"},
-				B: Endpoint{Node: "peer"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B: fabric.Endpoint{Node: "peer"},
 			},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -342,25 +331,25 @@ func TestOscillatingRootCycle(t *testing.T) {
 	roots := []ethernet.Frame{frameA, frameB, frameA, frameB}
 	for i, f := range roots {
 		at := t0.Add(time.Duration(i+1) * time.Millisecond)
-		fid := fab.nextFrameID
-		fab.nextFrameID++
-		fab.journeys[fid] = &Journey{
+		fid := (*fabric.ExportFabricNextFrameID(fab))
+		(*fabric.ExportFabricNextFrameID(fab))++
+		(*fabric.ExportFabricJourneys(fab))[fid] = fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
 			FrameID: fid,
-			Origin:  JourneyOrigin{Kind: OriginInjection},
-		}
-		fab.enqueue(Arrival{
+			Origin:  fabric.JourneyOrigin{Kind: fabric.OriginInjection},
+		})
+		fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{
 			At:      at,
-			Kind:    ArrivalFrame,
+			Kind:    fabric.ArrivalFrame,
 			Seq:     uint64(i + 1),
 			Device:  "sw1",
 			Port:    "1/1/1",
 			FrameID: fid,
 			Frame:   f,
-		})
+		}))
 	}
 
-	res := fab.run(10, 3)
-	if res.Stop != StopOscillating {
+	res := fabric.ExportFabricRun(fab, 10, 3)
+	if res.Stop != fabric.StopOscillating {
 		t.Fatalf("res.Stop = %v, want StopOscillating", res.Stop)
 	}
 	if res.Status != analysis.Unstable {
@@ -384,7 +373,7 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -396,16 +385,16 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/1"},
-				B: Endpoint{Node: "h1"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B: fabric.Endpoint{Node: "h1"},
 			},
 		},
 		// Port 1/1/2 is neither cabled nor in Uncabled -> ReasonAdjacencyUnresolved
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -415,9 +404,9 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		t.Fatalf("Learn: %v", err)
 	}
 
-	inj := Injection{
+	inj := fabric.Injection{
 		At:     t0,
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame: ethernet.Frame{
 			Src:     macH1,
 			Dst:     macUnknown,
@@ -429,18 +418,18 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 	}
 
 	res := fab.Run(10)
-	if res.Stop != StopQueueDrained {
+	if res.Stop != fabric.StopQueueDrained {
 		t.Errorf("res.Stop = %v, want StopQueueDrained", res.Stop)
 	}
 	if res.Status != analysis.Incomplete {
 		t.Errorf("res.Status = %v, want Incomplete", res.Status)
 	}
-	if !hasIssueCode(res.Issues, analysis.IssueCode(ReasonAdjacencyUnresolved)) {
+	if !hasIssueCode(res.Issues, analysis.IssueCode(fabric.ReasonAdjacencyUnresolved)) {
 		t.Errorf("res.Issues missing ReasonAdjacencyUnresolved: %+v", res.Issues)
 	}
 }
 
-func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *Fabric {
+func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	t.Helper()
 	macH1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
@@ -450,7 +439,7 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *Fabric {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -463,19 +452,19 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *Fabric {
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/1"},
-				B: Endpoint{Node: "h1"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B: fabric.Endpoint{Node: "h1"},
 			},
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/2"},
-				B: Endpoint{Node: "h2"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B: fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -487,7 +476,7 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *Fabric {
 	return fab
 }
 
-func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *Fabric {
+func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *fabric.Fabric {
 	t.Helper()
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	mac2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
@@ -499,7 +488,7 @@ func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *Fabric {
 		return tbl
 	}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -522,22 +511,22 @@ func newTestSTPFabric(t *testing.T, t0 time.Time, prio1, prio2 uint16) *Fabric {
 				},
 			},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/1"},
-				B: Endpoint{Node: "sw2", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New STP fabric: %v", err)
 	}
 	return fab
 }
 
-func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
+func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	t.Helper()
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 
@@ -548,7 +537,7 @@ func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 		return tbl
 	}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -566,16 +555,16 @@ func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 				Bridge: &bridge.Config{},
 			},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
 				Cable: cablemodel.Cable{Delay: func() *time.Duration { d := 3 * time.Second; return &d }()},
-				A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New single switch STP fabric: %v", err)
 	}
@@ -601,7 +590,7 @@ func TestScenarioReplayHasCheckpoint(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestTwoSwitchSTPFabric(t, t0)
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name:   "test-checkpoint",
 		Budget: 10,
 		Window: 1,
@@ -626,24 +615,24 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 		Payload: []byte("ping"),
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name:   "budget-drops-actions",
 		Budget: 1,
 		Window: 0,
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t0.Add(time.Second),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 					Frame:  frame,
 				},
 			},
 			{
 				At:   t0.Add(2 * time.Second),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "sw1", Port: "1/1/1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 					Frame:  frame,
 				},
 			},
@@ -654,7 +643,7 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop != StopBudget {
+	if res.Stop != fabric.StopBudget {
 		t.Fatalf("res.Stop = %v, want StopBudget", res.Stop)
 	}
 	if res.DroppedActions != 2 {
@@ -662,7 +651,7 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 	}
 	var found bool
 	for _, iss := range res.Issues {
-		if iss.Code == IssueActionsDropped {
+		if iss.Code == fabric.IssueActionsDropped {
 			found = true
 			if !strings.Contains(iss.Message, "2 timed actions did not fire before the run stopped") {
 				t.Errorf("issue message = %q, want naming 2 timed actions did not fire before the run stopped", iss.Message)
@@ -670,6 +659,6 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("res.Issues missing IssueActionsDropped (%q): %+v", IssueActionsDropped, res.Issues)
+		t.Errorf("res.Issues missing IssueActionsDropped (%q): %+v", fabric.IssueActionsDropped, res.Issues)
 	}
 }

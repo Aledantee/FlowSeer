@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"net/netip"
@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -82,7 +83,7 @@ var fabricFieldClasses = map[string]forkClass{
 }
 
 func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
-	typ := reflect.TypeOf(Fabric{})
+	typ := reflect.TypeOf(fabric.MakeTestFabric(fabric.ExportFabricFields{}))
 	fieldNames := make(map[string]bool, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
@@ -178,7 +179,7 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 	}
 }
 
-func newTestFabricForFork(t *testing.T) *Fabric {
+func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	t.Helper()
 
 	b1 := port.NewBuilder()
@@ -217,7 +218,7 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start: time.Unix(1000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -238,67 +239,65 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "h1"},
-				B: Endpoint{Node: "sw1", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A: Endpoint{Node: "h2"},
-				B: Endpoint{Node: "sw2", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "h2"},
+				B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
 				Cable: cablemodel.Cable{LengthMeters: 300},
-				A:     Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:     Endpoint{Node: "sw2", Port: "1/1/24"},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 		},
-		Uncabled: []Uncabled{
-			{Endpoint: Endpoint{Node: "sw1", Port: "1/1/2"}},
+		Uncabled: []fabric.Uncabled{
+			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 		},
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
+	(*fabric.
 
-	// Populate runtime maps and slices for non-empty pointer checks
-	fab.clock = time.Unix(1500, 0)
-	fab.stepped = true
-	fab.nextFrameID = 10
-	fab.nextSeq = 20
-
-	fab.queue = []Arrival{
-		{At: fab.clock.Add(time.Millisecond), Device: "sw1", Port: "1/1/1", Seq: 1},
+		// Populate runtime maps and slices for non-empty pointer checks
+		ExportFabricClock(fab)) = time.Unix(1500, 0)
+	(*fabric.ExportFabricStepped(fab)) = true
+	(*fabric.ExportFabricNextFrameID(fab)) = 10
+	(*fabric.ExportFabricNextSeq(fab)) = 20
+	(*fabric.ExportFabricQueue(fab)) = []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{At: fabric.ExportFabricClock(fab).Add(time.Millisecond), Device: "sw1", Port: "1/1/1", Seq: 1})}
+	(*fabric.ExportFabricWakes(fab)) = map[string]time.Time{
+		"sw1": fabric.ExportFabricClock(fab).Add(time.Second),
 	}
-	fab.wakes = map[string]time.Time{
-		"sw1": fab.clock.Add(time.Second),
+	(*fabric.ExportFabricJourneys(fab)) = map[fabric.FrameID]*fabric.Journey{
+		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{FrameID: 1, Injection: fabric.Injection{At: (*fabric.ExportFabricClock(fab))}}),
 	}
-	fab.journeys = map[FrameID]*Journey{
-		1: {FrameID: 1, Injection: Injection{At: fab.clock}},
-	}
-	fab.entered = map[FrameID]map[Endpoint]bool{
+	(*fabric.ExportFabricEntered(fab)) = map[fabric.FrameID]map[fabric.Endpoint]bool{
 		1: {{Node: "sw1", Port: "1/1/1"}: true},
 	}
-	fab.cableCrossings = map[Endpoint]uint{
+	(*fabric.ExportFabricCableCrossings(fab)) = map[fabric.Endpoint]uint{
 		{Node: "sw1", Port: "1/1/1"}: 1,
 	}
-	fab.heldAggregates = map[string][]FrameID{
+	(*fabric.ExportFabricHeldAggregates(fab)) = map[string][]fabric.FrameID{
 		"sw1": {5},
 	}
-	fab.busyUntil = map[Endpoint]time.Time{
-		{Node: "sw1", Port: "1/1/1"}: fab.clock.Add(10 * time.Millisecond),
+	(*fabric.ExportFabricBusyUntil(fab)) = map[fabric.Endpoint]time.Time{
+		{Node: "sw1", Port: "1/1/1"}: fabric.ExportFabricClock(fab).Add(10 * time.Millisecond),
 	}
-	fab.egress = map[Endpoint]*egressQueue{
-		{Node: "sw1", Port: "1/1/1"}: {
-			pending: [8][]queued{
-				{{seq: 1, fid: 1, enqueued: fab.clock}},
+	(*fabric.ExportFabricEgress(fab)) = map[fabric.Endpoint]*fabric.ExportEgressQueue{
+		{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
+			Pending: [8][]fabric.ExportQueued{
+				{fabric.MakeTestQueued(fabric.ExportQueuedFields{Seq: 1, Fid: 1, Enqueued: (*fabric.ExportFabricClock(fab))})},
 			},
-		},
+		}),
 	}
-	fab.counters = map[Endpoint]*Counters{
+	(*fabric.ExportFabricCounters(fab)) = map[fabric.Endpoint]*fabric.Counters{
 		{Node: "sw1", Port: "1/1/1"}: {InBytes: 100},
 	}
 

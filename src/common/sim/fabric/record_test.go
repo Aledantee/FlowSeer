@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"slices"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -18,7 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func newTestTwoHostFabric(t *testing.T, t0 time.Time) *Fabric {
+func newTestTwoHostFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	t.Helper()
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
@@ -28,7 +29,7 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *Fabric {
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -41,13 +42,13 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *Fabric {
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -69,19 +70,19 @@ func TestRecordDecodedFrame(t *testing.T) {
 		Payload: []byte("decoded-test-payload"),
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "capture.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  &frame,
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "record-decoded",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:     t0,
-				Kind:   ActionRecord,
+				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
@@ -92,15 +93,15 @@ func TestRecordDecodedFrame(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop != StopQueueDrained {
+	if res.Stop != fabric.StopQueueDrained {
 		t.Errorf("res.Stop = %v, want StopQueueDrained", res.Stop)
 	}
 	journeys := fab.Report()
 	if len(journeys) != 1 {
 		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
 	}
-	if journeys[0].State != JourneyDelivered {
-		t.Errorf("journeys[0].State = %v, want %v", journeys[0].State, JourneyDelivered)
+	if journeys[0].State != fabric.JourneyDelivered {
+		t.Errorf("journeys[0].State = %v, want %v", journeys[0].State, fabric.JourneyDelivered)
 	}
 }
 
@@ -118,19 +119,19 @@ func TestRecordRawBytes(t *testing.T) {
 		t.Fatalf("Encode: %v", err)
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "raw.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Bytes:  raw,
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "record-raw-bytes",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:     t0,
-				Kind:   ActionRecord,
+				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
@@ -141,15 +142,15 @@ func TestRecordRawBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop != StopQueueDrained {
+	if res.Stop != fabric.StopQueueDrained {
 		t.Errorf("res.Stop = %v, want StopQueueDrained", res.Stop)
 	}
 	journeys := fab.Report()
 	if len(journeys) != 1 {
 		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
 	}
-	if journeys[0].State != JourneyDelivered {
-		t.Errorf("journeys[0].State = %v, want %v", journeys[0].State, JourneyDelivered)
+	if journeys[0].State != fabric.JourneyDelivered {
+		t.Errorf("journeys[0].State = %v, want %v", journeys[0].State, fabric.JourneyDelivered)
 	}
 }
 
@@ -170,21 +171,21 @@ func TestRecordTruncatedIssueAndState(t *testing.T) {
 		t.Fatalf("len(raw) = %d, want 64", len(raw))
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:          t0,
 		Source:      "sensor-eth0.pcap",
-		Origin:      Endpoint{Node: "h1"},
+		Origin:      fabric.Endpoint{Node: "h1"},
 		Bytes:       raw,
 		CapturedLen: 64,
 		OriginalLen: 1500,
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "record-truncated",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:     t0,
-				Kind:   ActionRecord,
+				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
@@ -204,13 +205,13 @@ func TestRecordTruncatedIssueAndState(t *testing.T) {
 		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
 	}
 	j := journeys[0]
-	if j.State != JourneyTruncated {
+	if j.State != fabric.JourneyTruncated {
 		t.Errorf("j.State = %v, want JourneyTruncated", j.State)
 	}
 
 	issues := j.Metadata.Issues()
 	truncIssueIdx := slices.IndexFunc(issues, func(iss analysis.Issue) bool {
-		return iss.Code == IssueTruncatedRecord
+		return iss.Code == fabric.IssueTruncatedRecord
 	})
 	if truncIssueIdx < 0 {
 		t.Fatalf("j.Metadata.Issues missing IssueTruncatedRecord: %+v", issues)
@@ -228,19 +229,19 @@ func TestRecordUndecodableBytesError(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestTwoHostFabric(t, t0)
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "corrupt.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Bytes:  []byte{0x01, 0x02, 0x03}, // Too short to be a valid ethernet header
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "record-undecodable",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:     t0,
-				Kind:   ActionRecord,
+				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
@@ -255,7 +256,7 @@ func TestRecordUndecodableBytesError(t *testing.T) {
 	if err == nil {
 		t.Fatal("fab.RunScenario(sc) succeeded on undecodable bytes, want error")
 	}
-	if fab.stepped {
+	if *fabric.ExportFabricStepped(fab) {
 		t.Errorf("fab was stepped when scenario was invalid")
 	}
 }
@@ -273,10 +274,10 @@ func TestRecordDiffFields(t *testing.T) {
 		Payload: []byte("diff-payload-2"),
 	}
 
-	base := Record{
+	base := fabric.Record{
 		At:          t0,
 		Source:      "src1",
-		Origin:      Endpoint{Node: "h1"},
+		Origin:      fabric.Endpoint{Node: "h1"},
 		Frame:       baseFrame,
 		Bytes:       []byte("raw-bytes-1"),
 		CapturedLen: 64,
@@ -285,42 +286,42 @@ func TestRecordDiffFields(t *testing.T) {
 
 	fields := []struct {
 		name     string
-		mutate   func(r *Record)
+		mutate   func(r *fabric.Record)
 		expField string
 	}{
 		{
 			name:     "at",
-			mutate:   func(r *Record) { r.At = t0.Add(time.Second) },
+			mutate:   func(r *fabric.Record) { r.At = t0.Add(time.Second) },
 			expField: "at",
 		},
 		{
 			name:     "source",
-			mutate:   func(r *Record) { r.Source = "src2" },
+			mutate:   func(r *fabric.Record) { r.Source = "src2" },
 			expField: "source",
 		},
 		{
 			name:     "origin",
-			mutate:   func(r *Record) { r.Origin = Endpoint{Node: "h2"} },
+			mutate:   func(r *fabric.Record) { r.Origin = fabric.Endpoint{Node: "h2"} },
 			expField: "origin",
 		},
 		{
 			name:     "bytes",
-			mutate:   func(r *Record) { r.Bytes = []byte("raw-bytes-2") },
+			mutate:   func(r *fabric.Record) { r.Bytes = []byte("raw-bytes-2") },
 			expField: "bytes",
 		},
 		{
 			name:     "captured_len",
-			mutate:   func(r *Record) { r.CapturedLen = 70 },
+			mutate:   func(r *fabric.Record) { r.CapturedLen = 70 },
 			expField: "captured_len",
 		},
 		{
 			name:     "original_len",
-			mutate:   func(r *Record) { r.OriginalLen = 256 },
+			mutate:   func(r *fabric.Record) { r.OriginalLen = 256 },
 			expField: "original_len",
 		},
 		{
 			name:     "frame",
-			mutate:   func(r *Record) { r.Frame = otherFrame },
+			mutate:   func(r *fabric.Record) { r.Frame = otherFrame },
 			expField: "frame",
 		},
 	}
@@ -352,10 +353,10 @@ func TestRecordNormalizeDefaults(t *testing.T) {
 		t.Fatalf("Encode: %v", err)
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "test.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Bytes:  raw,
 	}
 
@@ -389,10 +390,10 @@ func TestRecordNormalizeFrameDefaults(t *testing.T) {
 		t.Fatalf("Encode: %v", err)
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "test.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  &frame,
 	}
 
@@ -419,10 +420,10 @@ func TestRecordNormalizeEncodeError(t *testing.T) {
 		},
 	}
 
-	rec := Record{
+	rec := fabric.Record{
 		At:     t0,
 		Source: "invalid.pcap",
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  &invalidFrame,
 	}
 

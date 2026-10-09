@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"slices"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -30,7 +31,7 @@ func TestLoneJumboThreshold(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fab, ep := mtuAccountingFabric(t, tc.mtu, nil)
-			if fab.egress[ep] != nil {
+			if (*fabric.ExportFabricEgress(fab))[ep] != nil {
 				t.Fatal("queue must be empty before the lone frame")
 			}
 			frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{3}, Payload: make([]byte, 9004)}
@@ -38,14 +39,14 @@ func TestLoneJumboThreshold(t *testing.T) {
 			if err != nil || len(raw) != 9018 {
 				t.Fatalf("encoded frame = %d octets, error %v, want 9018", len(raw), err)
 			}
-			journey := &Journey{}
-			if !fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, 0, "") {
+			journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+			if !fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "") {
 				t.Fatal("unstated buffer refused the jumbo frame")
 			}
-			if got := fab.egress[ep].depth[0]; got != 9018 {
+			if got := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[ep])[0]; got != 9018 {
 				t.Fatalf("depth = %d, want 9018", got)
 			}
-			if got := countIssueScope(fab.Metadata().Issues(), IssueQueueBufferUnstated, analysis.PortScope(ep.Node, ep.Port)); got != tc.issues {
+			if got := countIssueScope(fab.Metadata().Issues(), fabric.IssueQueueBufferUnstated, analysis.PortScope(ep.Node, ep.Port)); got != tc.issues {
 				t.Fatalf("queue-buffer-unstated issues = %d, want %d", got, tc.issues)
 			}
 			if len(journey.Entries) != tc.issues {
@@ -61,7 +62,7 @@ func TestLoneJumboThreshold(t *testing.T) {
 // queueBufferTopology builds one untagged switch joining h1, h2, and h3 at a
 // gigabit, with an optional buffer stated on the port toward h3. A nil buffer
 // leaves every queue unstated.
-func queueBufferTopology(t *testing.T, buffer *uint64) (*Fabric, map[string]netaddr.MAC) {
+func queueBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[string]netaddr.MAC) {
 	t.Helper()
 
 	builder := port.NewBuilder()
@@ -87,7 +88,7 @@ func queueBufferTopology(t *testing.T, buffer *uint64) (*Fabric, map[string]neta
 		"h3": {0x03, 0, 0, 0, 0, 0x03},
 	}
 
-	fab, err := New(Config{
+	fab, err := fabric.New(fabric.Config{
 		Start: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -108,10 +109,10 @@ func queueBufferTopology(t *testing.T, buffer *uint64) (*Fabric, map[string]neta
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}},
-			{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "h3"}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "h3"}},
 		},
 		PhyAssumption: defaultPhyAssumption(),
 	})
@@ -128,11 +129,11 @@ func queueBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 
 // primeQueueBufferLearning teaches sw1 h3's address on the port toward h3, so
 // a later h1 or h2 frame is known unicast rather than a flood.
-func primeQueueBufferLearning(t *testing.T, fab *Fabric, macs map[string]netaddr.MAC) {
+func primeQueueBufferLearning(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC) {
 	t.Helper()
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:     fab.Snapshot().Clock,
-		Origin: Endpoint{Node: "h3"},
+		Origin: fabric.Endpoint{Node: "h3"},
 		Frame:  ethernet.Frame{Src: macs["h3"], Dst: macs["h1"]},
 	}); err != nil {
 		t.Fatalf("prime Inject: %v", err)
@@ -143,7 +144,7 @@ func primeQueueBufferLearning(t *testing.T, fab *Fabric, macs map[string]netaddr
 // unstatedBackedFabric returns a one-switch fabric with one port per name, all
 // busy, so enqueueing two frames onto each marks every endpoint as an
 // unstated-buffer queue that backed up.
-func unstatedBackedFabric(t *testing.T, names []string) (*Fabric, []Endpoint) {
+func unstatedBackedFabric(t *testing.T, names []string) (*fabric.Fabric, []fabric.Endpoint) {
 	t.Helper()
 
 	builder := port.NewBuilder()
@@ -155,18 +156,18 @@ func unstatedBackedFabric(t *testing.T, names []string) (*Fabric, []Endpoint) {
 		t.Fatalf("build ports: %v", err)
 	}
 
-	fab, err := New(Config{Switches: map[string]vswitch.Config{
+	fab, err := fabric.New(fabric.Config{Switches: map[string]vswitch.Config{
 		"sw1": {Ports: ports},
 	}})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fab.initRunState()
+	fabric.ExportFabricInitRunState(fab)
 
-	eps := make([]Endpoint, 0, len(names))
+	eps := make([]fabric.Endpoint, 0, len(names))
 	for _, name := range names {
-		ep := Endpoint{Node: "sw1", Port: name}
-		fab.busyUntil[ep] = fab.clock.Add(time.Hour)
+		ep := fabric.Endpoint{Node: "sw1", Port: name}
+		(*fabric.ExportFabricBusyUntil(fab))[ep] = fabric.ExportFabricClock(fab).Add(time.Hour)
 		eps = append(eps, ep)
 	}
 
@@ -206,11 +207,11 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	// octets and crosses the 1518-octet threshold.
 	at := fab.Snapshot().Clock
 	for _, host := range []string{"h1", "h2"} {
-		if _, err := fab.Inject(Injection{
+		if _, err := fab.Inject(fabric.Injection{
 			At:        at,
-			Origin:    Endpoint{Node: host},
+			Origin:    fabric.Endpoint{Node: host},
 			Frame:     queueBufferFrame(macs[host], macs["h3"]),
-			Retention: RetainAggregate,
+			Retention: fabric.RetainAggregate,
 			Flow:      1,
 		}); err != nil {
 			t.Fatalf("Inject %s: %v", host, err)
@@ -219,17 +220,17 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 	fab.Run(1_000_000)
 
 	issues := fab.Metadata().IssuesFor(scope)
-	if len(issues) != 1 || issues[0].Code != IssueQueueBufferUnstated || issues[0].Status != analysis.Incomplete {
+	if len(issues) != 1 || issues[0].Code != fabric.IssueQueueBufferUnstated || issues[0].Status != analysis.Incomplete {
 		t.Fatalf("Metadata issues on %v = %+v, want one queue-buffer-unstated at Incomplete", scope, issues)
 	}
 
-	flow := fab.Flows()[FlowID(1)]
-	if !hasIssueScope(flow.Metadata.Issues(), IssueQueueBufferUnstated, scope) {
+	flow := fab.Flows()[fabric.FlowID(1)]
+	if !hasIssueScope(flow.Metadata.Issues(), fabric.IssueQueueBufferUnstated, scope) {
 		t.Errorf("flow metadata issues = %+v, want queue-buffer-unstated on %v", flow.Metadata.Issues(), scope)
 	}
 	var ref trace.EvidenceRef
 	for _, issue := range flow.Metadata.Issues() {
-		if issue.Code == IssueQueueBufferUnstated {
+		if issue.Code == fabric.IssueQueueBufferUnstated {
 			if len(issue.Evidence) != 1 {
 				t.Fatalf("flow queue issue evidence = %v, want one reference", issue.Evidence)
 			}
@@ -252,23 +253,23 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 // octets raises one, because the crossing counts the enqueued frame.
 func TestQueueBufferUnstatedThreshold(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 
-	first := &Journey{}
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, first, 0, "")
-	if len(fab.unstatedBacked) != 0 {
-		t.Fatalf("one 1014-octet frame marked %v, want no mark below the 1518-octet threshold", fab.unstatedBacked)
+	first := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, first, 0, "")
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 0 {
+		t.Fatalf("one 1014-octet frame marked %v, want no mark below the 1518-octet threshold", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
-	if len(first.Entries) != 0 || len(fab.runtimeEvidence.Entries()) != 0 {
-		t.Fatalf("below-threshold enqueue recorded %d entries and %d evidence entries", len(first.Entries), len(fab.runtimeEvidence.Entries()))
+	if len(first.Entries) != 0 || len(fabric.ExportFabricRuntimeEvidence(fab).Entries()) != 0 {
+		t.Fatalf("below-threshold enqueue recorded %d entries and %d evidence entries", len(first.Entries), len(fabric.ExportFabricRuntimeEvidence(fab).Entries()))
 	}
 
-	second := &Journey{}
-	fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 2, 2, second, 0, "")
-	if _, marked := fab.unstatedBacked[ep]; !marked {
-		t.Fatalf("the second frame left %v unmarked, want a mark at 2028 octets", fab.unstatedBacked)
+	second := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 2, 2, second, 0, "")
+	if _, marked := (*fabric.ExportFabricUnstatedBacked(fab))[ep]; !marked {
+		t.Fatalf("the second frame left %v unmarked, want a mark at 2028 octets", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
-	if len(second.Entries) != 1 || second.Entries[0].Kind != EntryQueueThreshold {
+	if len(second.Entries) != 1 || second.Entries[0].Kind != fabric.EntryQueueThreshold {
 		t.Errorf("crossing enqueue entries = %+v, want one queue threshold", second.Entries)
 	}
 }
@@ -282,10 +283,10 @@ func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 	before := fab.Metadata()
 	beforeCatalog := before.Evidence().Entries()
 
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 	for _, ep := range eps {
 		for range 2 {
-			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+			fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
 		}
 	}
 
@@ -295,10 +296,10 @@ func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 	}
 	for _, ep := range eps {
 		scope := analysis.PortScope(ep.Node, ep.Port)
-		if got := countIssueScope(before.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+		if got := countIssueScope(before.IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
 			t.Errorf("the earlier Metadata value gained %d queue-buffer-unstated issues on %v after the crossing", got, scope)
 		}
-		if got := countIssueScope(after.IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+		if got := countIssueScope(after.IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 1 {
 			t.Errorf("the read after the crossing holds %d queue-buffer-unstated issues on %v, want one", got, scope)
 		}
 	}
@@ -308,24 +309,24 @@ func TestQueueBufferUnstatedMetadataIsStable(t *testing.T) {
 // port: the endpoint is marked once and Metadata reports one issue.
 func TestQueueBufferUnstatedMarksOncePerEndpoint(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 	var recorded int
 	for _, pcp := range []vlan.PCP{0, 7} {
 		for range 2 {
-			journey := &Journey{}
-			fab.enqueueEgress(fab.clock, ep, ep.Port, frame, 1, 1, journey, pcp, "")
+			journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+			fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, pcp, "")
 			recorded += len(journey.Entries)
 		}
 	}
 
-	if len(fab.unstatedBacked) != 1 {
-		t.Fatalf("marked endpoints = %v, want one", fab.unstatedBacked)
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 1 {
+		t.Fatalf("marked endpoints = %v, want one", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
-	if recorded != 1 || len(fab.runtimeEvidence.Entries()) != 1 {
-		t.Errorf("two PCP crossings recorded %d entries and %d evidence values, want one each", recorded, len(fab.runtimeEvidence.Entries()))
+	if recorded != 1 || len(fabric.ExportFabricRuntimeEvidence(fab).Entries()) != 1 {
+		t.Errorf("two PCP crossings recorded %d entries and %d evidence values, want one each", recorded, len(fabric.ExportFabricRuntimeEvidence(fab).Entries()))
 	}
 	scope := analysis.PortScope(ep.Node, ep.Port)
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("Metadata holds %d queue-buffer-unstated issues, want one for the marked endpoint", got)
 	}
 }
@@ -337,29 +338,29 @@ func TestQueueBufferUnstatedMarksOncePerEndpoint(t *testing.T) {
 func TestQueueBufferUnstatedAlreadyAboveThresholdRecordsNothing(t *testing.T) {
 	fab, members := lagAccountingFabric(t, 9000, nil)
 	member := members[0]
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 
 	for i := range 5 {
-		j := &Journey{}
-		fab.enqueueEgress(fab.clock, member, "lag1", frame, uint64(i+1), FrameID(i+1), j, 0, "")
+		j := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+		fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, "lag1", frame, uint64(i+1), fabric.FrameID(i+1), j, 0, "")
 		if len(j.Entries) != 0 {
 			t.Fatalf("enqueue %d under lag1 recorded entries: %+v", i, j.Entries)
 		}
 	}
-	if len(fab.unstatedBacked) != 0 {
-		t.Fatalf("unstatedBacked marked unexpectedly: %v", fab.unstatedBacked)
+	if len((*fabric.ExportFabricUnstatedBacked(fab))) != 0 {
+		t.Fatalf("unstatedBacked marked unexpectedly: %v", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 
-	journey := &Journey{}
-	fab.enqueueEgress(fab.clock, member, member.Port, frame, 6, 6, journey, 0, "")
+	journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), member, member.Port, frame, 6, 6, journey, 0, "")
 	if len(journey.Entries) != 0 {
 		t.Errorf("enqueue when depthBefore > threshold recorded entries = %+v, want none", journey.Entries)
 	}
-	if _, marked := fab.unstatedBacked[member]; marked {
-		t.Errorf("member was marked when depthBefore > threshold: %v", fab.unstatedBacked)
+	if _, marked := (*fabric.ExportFabricUnstatedBacked(fab))[member]; marked {
+		t.Errorf("member was marked when depthBefore > threshold: %v", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
-	if len(fab.runtimeEvidence.Entries()) != 0 {
-		t.Errorf("runtime evidence recorded when depthBefore > threshold: %+v", fab.runtimeEvidence.Entries())
+	if len(fabric.ExportFabricRuntimeEvidence(fab).Entries()) != 0 {
+		t.Errorf("runtime evidence recorded when depthBefore > threshold: %+v", fabric.ExportFabricRuntimeEvidence(fab).Entries())
 	}
 }
 
@@ -368,19 +369,19 @@ func TestQueueBufferUnstatedAlreadyAboveThresholdRecordsNothing(t *testing.T) {
 // and names the node in context.
 func TestQueueBufferUnstatedHostScope(t *testing.T) {
 	fab, _ := bufferAccountingFabric(t, nil)
-	hostEnd := Endpoint{Node: "h1"}
-	fab.busyUntil[hostEnd] = fab.clock.Add(time.Hour)
-	frame := egressBufferFrame()
-	first := &Journey{}
-	fab.enqueueEgress(fab.clock, hostEnd, "", frame, 1, 1, first, 0, "")
-	second := &Journey{}
-	fab.enqueueEgress(fab.clock, hostEnd, "", frame, 2, 2, second, 0, "")
+	hostEnd := fabric.Endpoint{Node: "h1"}
+	(*fabric.ExportFabricBusyUntil(fab))[hostEnd] = fabric.ExportFabricClock(fab).Add(time.Hour)
+	frame := accountingEgressFrame()
+	first := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), hostEnd, "", frame, 1, 1, first, 0, "")
+	second := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
+	fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), hostEnd, "", frame, 2, 2, second, 0, "")
 
-	if _, marked := fab.unstatedBacked[hostEnd]; !marked {
-		t.Fatalf("host end left unmarked: %v", fab.unstatedBacked)
+	if _, marked := (*fabric.ExportFabricUnstatedBacked(fab))[hostEnd]; !marked {
+		t.Fatalf("host end left unmarked: %v", (*fabric.ExportFabricUnstatedBacked(fab)))
 	}
 	scope := analysis.NodeScope("h1")
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("Metadata holds %d queue-buffer-unstated issues on the host node, want one", got)
 	}
 	if len(second.Entries) != 1 || second.Entries[0].Step == nil {
@@ -390,8 +391,8 @@ func TestQueueBufferUnstatedHostScope(t *testing.T) {
 	if got := second.Entries[0].Step.Subject; got != wantSubject {
 		t.Errorf("host queue subject = %+v, want %+v", got, wantSubject)
 	}
-	ref := fab.unstatedBacked[hostEnd]
-	ev, ok := fab.runtimeEvidence.Lookup(ref)
+	ref := (*fabric.ExportFabricUnstatedBacked(fab))[hostEnd]
+	ev, ok := fabric.ExportFabricRuntimeEvidence(fab).Lookup(ref)
 	if !ok {
 		t.Fatalf("runtime evidence for %q not found", ref)
 	}
@@ -406,31 +407,31 @@ func TestQueueBufferUnstatedHostScope(t *testing.T) {
 func TestQueueBufferUnstatedForkIsIndependent(t *testing.T) {
 	fab, ep := bufferAccountingFabric(t, nil)
 	scope := analysis.PortScope(ep.Node, ep.Port)
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
 		t.Fatalf("source Metadata before the fork holds %d queue-buffer-unstated issues, want none", got)
 	}
 
 	fork := fab.Fork()
-	frame := egressBufferFrame()
+	frame := accountingEgressFrame()
 	for range 2 {
-		fork.enqueueEgress(fork.clock, ep, ep.Port, frame, 1, 1, &Journey{}, 0, "")
+		fabric.ExportFabricEnqueueEgress(fork, (*fabric.ExportFabricClock(fork)), ep, ep.Port, frame, 1, 1, fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{}), 0, "")
 	}
 
-	if got := countIssueScope(fork.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 1 {
+	if got := countIssueScope(fork.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 1 {
 		t.Errorf("fork Metadata holds %d queue-buffer-unstated issues, want one", got)
 	}
-	if got := countIssueScope(fab.Metadata().IssuesFor(scope), IssueQueueBufferUnstated, scope); got != 0 {
+	if got := countIssueScope(fab.Metadata().IssuesFor(scope), fabric.IssueQueueBufferUnstated, scope); got != 0 {
 		t.Errorf("source Metadata holds %d queue-buffer-unstated issues after the fork marked, want none", got)
 	}
-	if len(fab.runtimeEvidence.Entries()) != 0 {
-		t.Errorf("source gained runtime evidence after fork marked: %+v", fab.runtimeEvidence.Entries())
+	if len(fabric.ExportFabricRuntimeEvidence(fab).Entries()) != 0 {
+		t.Errorf("source gained runtime evidence after fork marked: %+v", fabric.ExportFabricRuntimeEvidence(fab).Entries())
 	}
-	ref := fork.unstatedBacked[ep]
+	ref := (*fabric.ExportFabricUnstatedBacked(fork))[ep]
 	if _, ok := fork.Metadata().Evidence().Lookup(ref); !ok {
 		t.Errorf("fork catalog does not resolve %q", ref)
 	}
 	copyAfterCrossing := fork.Fork()
-	if got := copyAfterCrossing.unstatedBacked[ep]; got != ref {
+	if got := (*fabric.ExportFabricUnstatedBacked(copyAfterCrossing))[ep]; got != ref {
 		t.Errorf("forked crossing ref = %q, want %q", got, ref)
 	}
 	if _, ok := copyAfterCrossing.Metadata().Evidence().Lookup(ref); !ok {

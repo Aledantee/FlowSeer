@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"slices"
@@ -7,6 +7,7 @@ import (
 	"time"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -24,20 +25,20 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	at := t0.Add(-time.Second)
 	frame := ethernet.Frame{Payload: []byte("before-clock")}
-	actions := []Action{
-		{At: at, Kind: ActionInject, Inject: &Injection{At: at, Origin: Endpoint{Node: "h1"}, Frame: frame}},
-		{At: at, Kind: ActionRecord, Record: &Record{At: at, Source: "capture", Origin: Endpoint{Node: "h1"}, Frame: &frame}},
-		{At: at, Kind: ActionFault, Fault: &FaultAction{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
-		{At: at, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1"}},
-		{At: at, Kind: ActionMcheck, Mcheck: &McheckAction{Node: "sw1", Port: "1/1/1"}},
+	actions := []fabric.Action{
+		{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}},
+		{At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Source: "capture", Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}},
+		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
+		{At: at, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1"}},
+		{At: at, Kind: fabric.ActionMcheck, Mcheck: &fabric.McheckAction{Node: "sw1", Port: "1/1/1"}},
 	}
-	laterFabric := func(t *testing.T, stepped bool) *Fabric {
+	laterFabric := func(t *testing.T, stepped bool) *fabric.Fabric {
 		t.Helper()
 		if !stepped {
 			return newTestHostSwitchFabric(t, t0)
 		}
 		fab := newTestHostSwitchFabric(t, at)
-		if _, err := fab.Inject(Injection{At: t0, Origin: Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 			t.Fatal(err)
 		}
 		if res := fab.Run(10); res.Steps == 0 || !res.Clock.After(at) {
@@ -55,7 +56,7 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 				if err := action.Validate(); err != nil {
 					t.Fatalf("action must be valid before checking clock: %v", err)
 				}
-				sc := Scenario{Name: "before-clock", Budget: 10, Actions: []Action{action}}
+				sc := fabric.Scenario{Name: "before-clock", Budget: 10, Actions: []fabric.Action{action}}
 				fab := laterFabric(t, clock.stepped)
 				if _, err := fab.RunScenario(sc); err == nil || !strings.HasPrefix(err.Error(), "action 0 at ") || !strings.Contains(err.Error(), "precedes fabric clock") {
 					t.Errorf("RunScenario error = %v, want precedes fabric clock", err)
@@ -69,7 +70,7 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 					} else {
 						b = laterFabric(t, clock.stepped)
 					}
-					cmp := Compare(a, b, sc, sc.Budget)
+					cmp := fabric.Compare(a, b, sc, sc.Budget)
 					if cmp.Err == nil || !strings.HasPrefix(cmp.Err.Error(), "action 0 at ") || !strings.Contains(cmp.Err.Error(), "precedes fabric clock") {
 						t.Errorf("Compare currentLater=%t error = %v, want precedes fabric clock", currentLater, cmp.Err)
 					}
@@ -83,7 +84,7 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 	}
 }
 
-func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
+func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	t.Helper()
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	mac2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
@@ -97,7 +98,7 @@ func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 		return tbl
 	}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -123,19 +124,19 @@ func newTestTwoSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/1"},
-				B: Endpoint{Node: "sw2", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A: Endpoint{Node: "sw1", Port: "1/1/2"},
-				B: Endpoint{Node: "h1"},
+				A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B: fabric.Endpoint{Node: "h1"},
 			},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New STP fabric: %v", err)
 	}
@@ -157,22 +158,22 @@ func TestScenarioSameTimeDeclarationOrder(t *testing.T) {
 		Payload: []byte("frame-2"),
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "same-time-order",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t0,
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame:  frame1,
 				},
 			},
 			{
 				At:   t0,
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h2"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h2"},
 					Frame:  frame2,
 				},
 			},
@@ -184,7 +185,7 @@ func TestScenarioSameTimeDeclarationOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop != StopQueueDrained {
+	if res.Stop != fabric.StopQueueDrained {
 		t.Errorf("res.Stop = %v, want StopQueueDrained", res.Stop)
 	}
 
@@ -208,27 +209,27 @@ func TestScenarioShuffledActionSliceNormalizes(t *testing.T) {
 		Payload: []byte("ping"),
 	}
 
-	act1 := Action{
+	act1 := fabric.Action{
 		At:   t0,
-		Kind: ActionInject,
-		Inject: &Injection{
-			Origin: Endpoint{Node: "h1"},
+		Kind: fabric.ActionInject,
+		Inject: &fabric.Injection{
+			Origin: fabric.Endpoint{Node: "h1"},
 			Frame:  frame,
 		},
 	}
-	act2 := Action{
+	act2 := fabric.Action{
 		At:   t0.Add(time.Second),
-		Kind: ActionInject,
-		Inject: &Injection{
-			Origin: Endpoint{Node: "h2"},
+		Kind: fabric.ActionInject,
+		Inject: &fabric.Injection{
+			Origin: fabric.Endpoint{Node: "h2"},
 			Frame:  frame,
 		},
 	}
 
 	// Deliberately shuffled slice: later action first
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name:    "shuffled",
-		Actions: []Action{act2, act1},
+		Actions: []fabric.Action{act2, act1},
 		Budget:  10,
 	}
 
@@ -249,45 +250,45 @@ func TestScenarioShuffledActionSliceNormalizes(t *testing.T) {
 
 func TestScenarioValidateRefusalTable(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	validInject := &Injection{
+	validInject := &fabric.Injection{
 		At:     t0,
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  ethernet.Frame{Payload: []byte("x")},
 	}
-	validFault := &FaultAction{
-		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+	validFault := &fabric.FaultAction{
+		A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
 
 	cases := []struct {
 		name string
-		sc   Scenario
+		sc   fabric.Scenario
 	}{
 		{
 			name: "empty name",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "",
 				Budget: 10,
 			},
 		},
 		{
 			name: "zero budget",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "zero-budget",
 				Budget: 0,
 			},
 		},
 		{
 			name: "negative budget",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "negative-budget",
 				Budget: -5,
 			},
 		},
 		{
 			name: "negative window",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "negative-window",
 				Budget: 10,
 				Window: -1,
@@ -295,47 +296,47 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 		},
 		{
 			name: "kind with no pointer",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "no-pointer",
 				Budget: 10,
-				Actions: []Action{
-					{At: t0, Kind: ActionInject, Inject: nil},
+				Actions: []fabric.Action{
+					{At: t0, Kind: fabric.ActionInject, Inject: nil},
 				},
 			},
 		},
 		{
 			name: "kind with two pointers",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "two-pointers",
 				Budget: 10,
-				Actions: []Action{
-					{At: t0, Kind: ActionInject, Inject: validInject, Fault: validFault},
+				Actions: []fabric.Action{
+					{At: t0, Kind: fabric.ActionInject, Inject: validInject, Fault: validFault},
 				},
 			},
 		},
 		{
 			name: "partially numbered index slice",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "partially-numbered",
 				Budget: 10,
-				Actions: []Action{
-					{At: t0, Index: 1, Kind: ActionInject, Inject: validInject},
-					{At: t0, Index: 0, Kind: ActionInject, Inject: validInject},
+				Actions: []fabric.Action{
+					{At: t0, Index: 1, Kind: fabric.ActionInject, Inject: validInject},
+					{At: t0, Index: 0, Kind: fabric.ActionInject, Inject: validInject},
 				},
 			},
 		},
 		{
 			name: "inner At disagrees with Action.At",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "disagreeing-inner-at",
 				Budget: 10,
-				Actions: []Action{
+				Actions: []fabric.Action{
 					{
 						At:   t0,
-						Kind: ActionInject,
-						Inject: &Injection{
+						Kind: fabric.ActionInject,
+						Inject: &fabric.Injection{
 							At:     t0.Add(time.Hour),
-							Origin: Endpoint{Node: "h1"},
+							Origin: fabric.Endpoint{Node: "h1"},
 							Frame:  ethernet.Frame{Payload: []byte("x")},
 						},
 					},
@@ -344,20 +345,20 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 		},
 		{
 			name: "duplicate numbered at and index",
-			sc: Scenario{
+			sc: fabric.Scenario{
 				Name:   "duplicate-at-index",
 				Budget: 10,
-				Actions: []Action{
+				Actions: []fabric.Action{
 					{
 						At:     t0,
 						Index:  1,
-						Kind:   ActionInject,
+						Kind:   fabric.ActionInject,
 						Inject: validInject,
 					},
 					{
 						At:    t0,
 						Index: 1,
-						Kind:  ActionFault,
+						Kind:  fabric.ActionFault,
 						Fault: validFault,
 					},
 				},
@@ -376,40 +377,40 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 
 func TestScenarioNumberedIndexUniqueness(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	validInject := &Injection{
+	validInject := &fabric.Injection{
 		At:     t0,
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  ethernet.Frame{Payload: []byte("x")},
 	}
-	validFault := &FaultAction{
-		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+	validFault := &fabric.FaultAction{
+		A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
 
-	scValidSameTimeDiffIndex := Scenario{
+	scValidSameTimeDiffIndex := fabric.Scenario{
 		Name:   "valid-same-time-diff-index",
 		Budget: 10,
-		Actions: []Action{
-			{At: t0, Index: 1, Kind: ActionInject, Inject: validInject},
-			{At: t0, Index: 2, Kind: ActionFault, Fault: validFault},
+		Actions: []fabric.Action{
+			{At: t0, Index: 1, Kind: fabric.ActionInject, Inject: validInject},
+			{At: t0, Index: 2, Kind: fabric.ActionFault, Fault: validFault},
 		},
 	}
 	if err := scValidSameTimeDiffIndex.Validate(); err != nil {
 		t.Fatalf("Validate failed for valid distinct indices at same time: %v", err)
 	}
 
-	validFaultLater := &FaultAction{
-		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+	validFaultLater := &fabric.FaultAction{
+		A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+		B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
-	scValidDiffTimeSameIndex := Scenario{
+	scValidDiffTimeSameIndex := fabric.Scenario{
 		Name:   "valid-diff-time-same-index",
 		Budget: 10,
-		Actions: []Action{
-			{At: t0, Index: 1, Kind: ActionInject, Inject: validInject},
-			{At: t0.Add(time.Second), Index: 1, Kind: ActionFault, Fault: validFaultLater},
+		Actions: []fabric.Action{
+			{At: t0, Index: 1, Kind: fabric.ActionInject, Inject: validInject},
+			{At: t0.Add(time.Second), Index: 1, Kind: fabric.ActionFault, Fault: validFaultLater},
 		},
 	}
 	if err := scValidDiffTimeSameIndex.Validate(); err != nil {
@@ -419,18 +420,18 @@ func TestScenarioNumberedIndexUniqueness(t *testing.T) {
 
 func TestScenarioDiffEveryField(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	base := Scenario{
+	base := fabric.Scenario{
 		Name:   "base-scenario",
 		Budget: 10,
 		Window: 3,
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:    t0,
 				Index: 1,
-				Kind:  ActionInject,
-				Inject: &Injection{
+				Kind:  fabric.ActionInject,
+				Inject: &fabric.Injection{
 					At:     t0,
-					Origin: Endpoint{Node: "h1"},
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame:  ethernet.Frame{Payload: []byte("a")},
 				},
 			},
@@ -440,7 +441,7 @@ func TestScenarioDiffEveryField(t *testing.T) {
 	t.Run("name", func(t *testing.T) {
 		mut := base.Clone()
 		mut.Name = "different-name"
-		changes, err := DiffScenarios(base, mut)
+		changes, err := fabric.DiffScenarios(base, mut)
 		if err != nil {
 			t.Fatalf("DiffScenarios: %v", err)
 		}
@@ -452,7 +453,7 @@ func TestScenarioDiffEveryField(t *testing.T) {
 	t.Run("budget", func(t *testing.T) {
 		mut := base.Clone()
 		mut.Budget = 50
-		changes, err := DiffScenarios(base, mut)
+		changes, err := fabric.DiffScenarios(base, mut)
 		if err != nil {
 			t.Fatalf("DiffScenarios: %v", err)
 		}
@@ -464,7 +465,7 @@ func TestScenarioDiffEveryField(t *testing.T) {
 	t.Run("window", func(t *testing.T) {
 		mut := base.Clone()
 		mut.Window = 5
-		changes, err := DiffScenarios(base, mut)
+		changes, err := fabric.DiffScenarios(base, mut)
 		if err != nil {
 			t.Fatalf("DiffScenarios: %v", err)
 		}
@@ -480,7 +481,7 @@ func TestScenarioDiffEveryField(t *testing.T) {
 		mut := base.Clone()
 		mut.Actions[0].At = t0.Add(time.Second)
 		mut.Actions[0].Inject.At = t0.Add(time.Second)
-		changes, err := DiffScenarios(base, mut)
+		changes, err := fabric.DiffScenarios(base, mut)
 		if err != nil {
 			t.Fatalf("DiffScenarios: %v", err)
 		}
@@ -491,14 +492,14 @@ func TestScenarioDiffEveryField(t *testing.T) {
 
 	t.Run("action kind", func(t *testing.T) {
 		mut := base.Clone()
-		mut.Actions[0].Kind = ActionFault
+		mut.Actions[0].Kind = fabric.ActionFault
 		mut.Actions[0].Inject = nil
-		mut.Actions[0].Fault = &FaultAction{
-			A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-			B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+		mut.Actions[0].Fault = &fabric.FaultAction{
+			A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 		}
-		changes, err := DiffScenarios(base, mut)
+		changes, err := fabric.DiffScenarios(base, mut)
 		if err != nil {
 			t.Fatalf("DiffScenarios: %v", err)
 		}
@@ -510,16 +511,16 @@ func TestScenarioDiffEveryField(t *testing.T) {
 
 func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	raw := Scenario{
+	raw := fabric.Scenario{
 		Name:   "raw-scenario",
 		Budget: 10,
 		Window: 3,
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t0,
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame:  ethernet.Frame{Payload: []byte("raw")},
 				},
 			},
@@ -531,7 +532,7 @@ func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 		t.Fatalf("raw.Normalize: %v", err)
 	}
 
-	changes, err := DiffScenarios(raw, norm)
+	changes, err := fabric.DiffScenarios(raw, norm)
 	if err != nil {
 		t.Fatalf("DiffScenarios(raw, norm): %v", err)
 	}
@@ -541,9 +542,9 @@ func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 }
 
 func TestReplayRefusesMissingCheckpoint(t *testing.T) {
-	spec := ReplaySpec{}
+	spec := fabric.MakeTestReplaySpec(fabric.ExportReplaySpecFields{})
 
-	_, err := Replay(spec)
+	_, err := fabric.Replay(spec)
 	if err == nil {
 		t.Fatal("Replay succeeded without checkpoint, want error")
 	}
@@ -553,7 +554,7 @@ func TestScenarioSpanningTreeWindowZeroStopsAtBudget(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestTwoSwitchSTPFabric(t, t0)
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name:   "stp-window-zero",
 		Budget: 5,
 		Window: 0,
@@ -563,7 +564,7 @@ func TestScenarioSpanningTreeWindowZeroStopsAtBudget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop != StopBudget {
+	if res.Stop != fabric.StopBudget {
 		t.Errorf("res.Stop = %v, want StopBudget", res.Stop)
 	}
 	if res.Steps != 5 {
@@ -581,23 +582,23 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 		Payload: []byte("journey-payload"),
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "cut-and-inject",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t0.Add(time.Second),
-				Kind: ActionFault,
-				Fault: &FaultAction{
-					A:     Endpoint{Node: "sw1", Port: "1/1/1"},
-					B:     Endpoint{Node: "sw2", Port: "1/1/1"},
+				Kind: fabric.ActionFault,
+				Fault: &fabric.FaultAction{
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+					B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 					Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 				},
 			},
 			{
 				At:   t0.Add(2 * time.Second),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame:  frame,
 				},
 			},
@@ -611,7 +612,7 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 		t.Fatalf("RunScenario 1: %v", err)
 	}
 
-	res2, err := Replay(res1.Replay)
+	res2, err := fabric.Replay(res1.Replay)
 	if err != nil {
 		t.Fatalf("Replay 2: %v", err)
 	}
@@ -646,7 +647,7 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 	}
 }
 
-func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
+func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*fabric.Fabric, fabric.Config) {
 	t.Helper()
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 2}
@@ -658,7 +659,7 @@ func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
 		Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start:         t0,
 		PhyAssumption: testPhyAssumption(),
 		Switches: map[string]vswitch.Config{
@@ -672,14 +673,14 @@ func newTestThreeHostFabric(t *testing.T, t0 time.Time) (*Fabric, Config) {
 			"h2": {Address: macH2},
 			"h3": {Address: macH3},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}},
-			{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "h3"}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "h3"}},
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -703,14 +704,14 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 		Payload: []byte("seeded-payload"),
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "seeded-unicast",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t0.Add(time.Second),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame:  frame,
 				},
 			},
@@ -724,7 +725,7 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 		t.Fatalf("RunScenario 1: %v", err)
 	}
 
-	res2, err := Replay(res1.Replay)
+	res2, err := fabric.Replay(res1.Replay)
 	if err != nil {
 		t.Fatalf("Replay 2: %v", err)
 	}
@@ -780,18 +781,18 @@ func TestScenarioMutationIndependence(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestTwoHostFabric(t, t0)
 
-	actions := []Action{
+	actions := []fabric.Action{
 		{
 			At:   t0,
-			Kind: ActionInject,
-			Inject: &Injection{
-				Origin: Endpoint{Node: "h1"},
+			Kind: fabric.ActionInject,
+			Inject: &fabric.Injection{
+				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Payload: []byte("initial")},
 			},
 		},
 	}
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name:    "mutation-isolation",
 		Actions: actions,
 		Budget:  10,
@@ -804,7 +805,7 @@ func TestScenarioMutationIndependence(t *testing.T) {
 
 	// Mutate caller's slice
 	actions[0].At = t0.Add(time.Hour)
-	actions[0].Inject.Origin = Endpoint{Node: "h2"}
+	actions[0].Inject.Origin = fabric.Endpoint{Node: "h2"}
 
 	replayAction := res.Replay.Scenario.Actions[0]
 	if !replayAction.At.Equal(t0) {
@@ -872,7 +873,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		}
 	}
 
-	cfg := Config{
+	cfg := fabric.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: newPorts(), Bridge: makeBridge10()},
@@ -882,10 +883,10 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
-			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}},
-			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}},
+		Cables: []fabric.Cable{
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 		PhyAssumption: &cablemodel.PhyAssumption{
 			Medium: cablemodel.TwistedPair,
@@ -897,7 +898,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		},
 	}
 
-	fab, err := New(cfg)
+	fab, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -905,22 +906,22 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 	t1 := t0.Add(time.Second)
 	t2 := t1.Add(time.Second)
 
-	sc := Scenario{
+	sc := fabric.Scenario{
 		Name: "vlan-migration",
-		Actions: []Action{
+		Actions: []fabric.Action{
 			{
 				At:   t1,
-				Kind: ActionConfigure,
-				Configure: &ConfigureAction{
+				Kind: fabric.ActionConfigure,
+				Configure: &fabric.ConfigureAction{
 					Node:   "sw1",
 					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
 				},
 			},
 			{
 				At:   t1.Add(100 * time.Millisecond),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame: ethernet.Frame{
 						Dst:       macH2,
 						Src:       macH1,
@@ -931,17 +932,17 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 			},
 			{
 				At:   t2,
-				Kind: ActionConfigure,
-				Configure: &ConfigureAction{
+				Kind: fabric.ActionConfigure,
+				Configure: &fabric.ConfigureAction{
 					Node:   "sw2",
 					Config: vswitch.Config{Ports: newPorts(), Bridge: makeBridge20()},
 				},
 			},
 			{
 				At:   t2.Add(100 * time.Millisecond),
-				Kind: ActionInject,
-				Inject: &Injection{
-					Origin: Endpoint{Node: "h1"},
+				Kind: fabric.ActionInject,
+				Inject: &fabric.Injection{
+					Origin: fabric.Endpoint{Node: "h1"},
 					Frame: ethernet.Frame{
 						Dst:       macH2,
 						Src:       macH1,
@@ -958,7 +959,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
-	if res.Stop == StopFault {
+	if res.Stop == fabric.StopFault {
 		t.Fatalf("RunScenario stopped with Fault: %v", fab.Err())
 	}
 
@@ -973,7 +974,7 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 		t.Fatal("first journey has no entries")
 	}
 	last1 := j1.Entries[len(j1.Entries)-1]
-	if last1.Kind != EntryDrop || last1.Reason != bridge.ReasonIngressFilter || last1.Device != "sw2" {
+	if last1.Kind != fabric.EntryDrop || last1.Reason != bridge.ReasonIngressFilter || last1.Device != "sw2" {
 		t.Fatalf("first journey last entry = %+v, want EntryDrop at sw2 with ingress-filter reason", last1)
 	}
 
@@ -1011,23 +1012,23 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	}
 
 	// Validation
-	if err := (ConfigureAction{Node: ""}).Validate(); err == nil {
+	if err := (fabric.ConfigureAction{Node: ""}).Validate(); err == nil {
 		t.Error("ConfigureAction.Validate accepted empty node")
 	}
-	if err := (Action{At: t0, Kind: ActionConfigure, Configure: nil}).Validate(); err == nil {
+	if err := (fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: nil}).Validate(); err == nil {
 		t.Error("Action.Validate accepted ActionConfigure with nil Configure")
 	}
-	if err := (Action{At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1"}, Fault: &FaultAction{}}).Validate(); err == nil {
+	if err := (fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1"}, Fault: &fabric.FaultAction{}}).Validate(); err == nil {
 		t.Error("Action.Validate accepted multiple payloads")
 	}
-	valid := Action{At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}
+	valid := fabric.Action{At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}
 	if err := valid.Validate(); err != nil {
 		t.Errorf("Action.Validate rejected valid action: %v", err)
 	}
 
 	// Diff: changed node
-	act1 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}
-	act2 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw2", Config: cfg1}}
+	act1 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}
+	act2 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw2", Config: cfg1}}
 	diffNode := act1.Diff(act2)
 	var foundNodeChange bool
 	for _, c := range diffNode {
@@ -1044,12 +1045,9 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 
 	// Diff: same node and index, changed config. The two VLAN renames must stay
 	// distinguishable through the nested action/index/inner-kind/inner-key.
-	act3 := Action{Index: 0, At: t0, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg2}}
+	act3 := fabric.Action{Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg2}}
 	diffConfig := act1.Diff(act3)
-	wantKeys := []string{
-		nestedSubjectKey("0", nestedSubjectKey("vlan", "10")),
-		nestedSubjectKey("0", nestedSubjectKey("vlan", "20")),
-	}
+	wantKeys := []string{fabric.ExportNestedSubjectKey("0", fabric.ExportNestedSubjectKey("vlan", "10")), fabric.ExportNestedSubjectKey("0", fabric.ExportNestedSubjectKey("vlan", "20"))}
 	for _, wantKey := range wantKeys {
 		var found bool
 		for _, c := range diffConfig {
@@ -1069,18 +1067,18 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	}
 
 	// DiffScenarios carries the same nested key.
-	scA := Scenario{
+	scA := fabric.Scenario{
 		Name:    "configure-a",
 		Budget:  10,
-		Actions: []Action{{At: t0, Index: 1, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "sw1", Config: cfg1}}},
+		Actions: []fabric.Action{{At: t0, Index: 1, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: cfg1}}},
 	}
 	scB := scA.Clone()
-	scB.Actions[0].Configure = &ConfigureAction{Node: "sw1", Config: cfg2}
-	scChanges, err := DiffScenarios(scA, scB)
+	scB.Actions[0].Configure = &fabric.ConfigureAction{Node: "sw1", Config: cfg2}
+	scChanges, err := fabric.DiffScenarios(scA, scB)
 	if err != nil {
 		t.Fatalf("DiffScenarios: %v", err)
 	}
-	wantScenarioKey := nestedSubjectKey("1", nestedSubjectKey("vlan", "10"))
+	wantScenarioKey := fabric.ExportNestedSubjectKey("1", fabric.ExportNestedSubjectKey("vlan", "10"))
 	if !slices.ContainsFunc(scChanges, func(c trace.Change) bool {
 		return c.Subject.Kind == "scenario.action" && c.Subject.Key == wantScenarioKey && c.Field == "name"
 	}) {
@@ -1089,9 +1087,9 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 }
 
 func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
-	original := Action{
-		At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Kind: ActionInject,
-		Inject: &Injection{Frame: ethernet.Frame{Tags: []vlan.Tag{{VID: 10}}, Payload: []byte{1}}, Packet: &Packet{Payload: []byte{2}}},
+	original := fabric.Action{
+		At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Kind: fabric.ActionInject,
+		Inject: &fabric.Injection{Frame: ethernet.Frame{Tags: []vlan.Tag{{VID: 10}}, Payload: []byte{1}}, Packet: &fabric.Packet{Payload: []byte{2}}},
 	}
 	clone := original.Clone()
 	clone.Inject.Frame.Tags[0].VID = 20
@@ -1100,7 +1098,7 @@ func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
 	if original.Inject.Frame.Tags[0].VID != 10 || original.Inject.Frame.Payload[0] != 1 || original.Inject.Packet.Payload[0] != 2 {
 		t.Fatal("clone shares injection buffers")
 	}
-	fault := Action{Kind: ActionFault, Fault: &FaultAction{Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1, 3}}}}
+	fault := fabric.Action{Kind: fabric.ActionFault, Fault: &fabric.FaultAction{Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1, 3}}}}
 	copyFault := fault.Clone()
 	copyFault.Fault.Fault.Sequence[0] = 2
 	if fault.Fault.Fault.Sequence[0] != 1 {
@@ -1109,7 +1107,7 @@ func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
 }
 
 func TestFaultActionValidateFaultParameters(t *testing.T) {
-	base := FaultAction{A: Endpoint{Node: "a"}, B: Endpoint{Node: "b"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}
+	base := fabric.FaultAction{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}
 	if err := base.Validate(); err != nil {
 		t.Fatal(err)
 	}
