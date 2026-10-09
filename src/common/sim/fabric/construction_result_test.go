@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -47,9 +48,9 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:      fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:      fabric.Endpoint{Node: "h1"},
-				Medium: fabric.TwistedPair,
+				Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "h1"},
 			},
 		},
 	}
@@ -255,15 +256,15 @@ func TestFabricDiffSpecsIgnoresConstructionIssueMessages(t *testing.T) {
 func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 	tests := []struct {
 		name  string
-		fault fabric.Fault
+		fault cablemodel.Fault
 	}{
 		{
 			name:  "N on cut fault",
-			fault: fabric.Fault{Kind: fabric.FaultCut, N: 2},
+			fault: cablemodel.Fault{Kind: cablemodel.FaultCut, N: 2},
 		},
 		{
 			name:  "sequence on every Nth fault",
-			fault: fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2, Sequence: []uint{1}},
+			fault: cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2, Sequence: []uint{1}},
 		},
 	}
 	constructors := []struct {
@@ -432,19 +433,19 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:      fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:      fabric.Endpoint{Node: "h1"},
-				Medium: fabric.TwistedPair,
+				Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "h1"},
 			},
 			{
-				A:      fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:      fabric.Endpoint{Node: "h2"},
-				Medium: fabric.TwistedPair,
+				Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 			{
-				A:      fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				B:      fabric.Endpoint{Node: "h3"},
-				Medium: fabric.TwistedPair,
+				Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "h3"},
 			},
 		},
 	}

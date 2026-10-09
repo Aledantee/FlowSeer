@@ -15,13 +15,14 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func testPhyAssumption() *PhyAssumption {
-	return &PhyAssumption{
-		Medium: TwistedPair,
+func testPhyAssumption() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -565,9 +566,9 @@ func newSingleSwitchSTPFabric(t *testing.T, t0 time.Time) *Fabric {
 		},
 		Cables: []Cable{
 			{
+				Cable: cablemodel.Cable{Delay: func() *time.Duration { d := 3 * time.Second; return &d }()},
 				A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 				B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-				Delay: func() *time.Duration { d := 3 * time.Second; return &d }(),
 			},
 		},
 	}

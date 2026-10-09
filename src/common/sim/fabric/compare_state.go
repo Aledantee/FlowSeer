@@ -69,7 +69,7 @@ func linkField(a, b []Link) string {
 		if q.B.Oper != l.B.Oper {
 			return prefix + ".B.Oper"
 		}
-		if field := faultField(q.Fault, l.Fault); field != "" {
+		if field := faultField(q.Cable.Fault, l.Cable.Fault); field != "" {
 			return prefix + ".Fault." + field
 		}
 	}

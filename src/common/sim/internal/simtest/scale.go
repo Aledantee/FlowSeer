@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -196,10 +197,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 			hIndex := (s-1)*8 + k + 1
 			hName := fmt.Sprintf("h%d", hIndex)
 			cables = append(cables, fabric.Cable{
-				A:            fabric.Endpoint{Node: hName, Port: ""},
-				B:            fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: hName, Port: ""},
+				B:     fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
 			})
 		}
 	}
@@ -208,10 +208,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
 		nextS := (s % RepresentativeScaleNodeCount) + 1
 		cables = append(cables, fabric.Cable{
-			A:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
-			B:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
-			LengthMeters: 10,
-			Medium:       fabric.TwistedPair,
+			Cable: cablemodel.Cable{LengthMeters: 10, Medium: cablemodel.TwistedPair},
+			A:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
+			B:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
 		})
 	}
 

@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -57,8 +58,8 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 		}
 
 		cfg := fabric.Config{
-			PhyAssumption: &fabric.PhyAssumption{
-				Medium: fabric.TwistedPair,
+			PhyAssumption: &cablemodel.PhyAssumption{
+				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
 					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 					AutoNegotiationSupported: phy.CapabilitySupported,
@@ -74,16 +75,14 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			},
 			Cables: []fabric.Cable{
 				{
-					A:            fabric.Endpoint{Node: "h1"},
-					B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "h1"},
+					B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-					B:            fabric.Endpoint{Node: "h2"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+					B:     fabric.Endpoint{Node: "h2"},
 				},
 			},
 		}
@@ -341,7 +340,7 @@ func TestTimedFaultDomainBehavioralTime(t *testing.T) {
 			{
 				A:     fabric.Endpoint{Node: "h1"},
 				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
 		Times:       []time.Time{t1, t2},
@@ -399,7 +398,7 @@ func TestTimedFaultDomainUncabledPairError(t *testing.T) {
 			{
 				A:     fabric.Endpoint{Node: "sw1", Port: "9/9/9"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "9/9/9"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
 		Times:       []time.Time{t0},
@@ -550,7 +549,7 @@ func TestTimedFaultDomainInjectsBeforeFaultAtEqualTime(t *testing.T) {
 	cur, _, twin, _, src, dst := makeTestFabrics(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	injection := fabric.Action{At: at, Index: 7, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst, Payload: []byte("tie")}}}
-	domain, err := NewTimedFaultDomain(TimedFaultDomainConfig{BaseTraffic: []fabric.Action{injection}, Times: []time.Time{at}, Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}})
+	domain, err := NewTimedFaultDomain(TimedFaultDomainConfig{BaseTraffic: []fabric.Action{injection}, Times: []time.Time{at}, Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

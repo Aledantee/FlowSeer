@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -33,7 +34,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	const frames = 1000
 
-	single, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	single, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame := flowFrame(src, dst)
 	if _, err := single.Inject(fabric.Injection{At: base, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("single Inject: %v", err)
@@ -45,7 +46,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 	}
 	singleLatency := delivery[0].At.Sub(base)
 
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame = flowFrame(src, dst)
 	for range frames {
 		if _, err := fab.Inject(fabric.Injection{
@@ -88,8 +89,8 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 // drop under the link's reason, and leaves no journey behind.
 func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 
@@ -114,8 +115,8 @@ func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 	if stats.Offered != frames {
 		t.Errorf("Offered = %d, want %d", stats.Offered, frames)
 	}
-	if got := stats.Drops[fabric.ReasonCut]; got != frames {
-		t.Errorf("Drops[%s] = %d, want %d", fabric.ReasonCut, got, frames)
+	if got := stats.Drops[cablemodel.ReasonCut]; got != frames {
+		t.Errorf("Drops[%s] = %d, want %d", cablemodel.ReasonCut, got, frames)
 	}
 }
 
@@ -199,7 +200,7 @@ func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	fab.Run(10)
 
 	stats := fab.Flows()[7]
-	if !hasIssue(stats.Metadata.Issues(), fabric.IssuePropagationUnknown) {
+	if !hasIssue(stats.Metadata.Issues(), cablemodel.IssuePropagationUnknown) {
 		t.Errorf("flow metadata issues = %+v, want propagation-unknown", stats.Metadata.Issues())
 	}
 }
@@ -262,8 +263,8 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 			"h2": {Address: macH2},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 	fab, err := fabric.New(statedPhysical(cfg))
@@ -335,7 +336,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 // above RetainAggregate is refused rather than silently treated as
 // RetainJourney.
 func TestInjectRefusesUnknownRetention(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	_, err := fab.Inject(fabric.Injection{
 		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 		Origin:    fabric.Endpoint{Node: "h1"},
@@ -351,7 +352,7 @@ func TestInjectRefusesUnknownRetention(t *testing.T) {
 // TestAggregateRequiresAFlow covers the refusal: RetainAggregate with a zero
 // flow is an error from Inject.
 func TestAggregateRequiresAFlow(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	_, err := fab.Inject(fabric.Injection{
 		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 		Origin:    fabric.Endpoint{Node: "h1"},

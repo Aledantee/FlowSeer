@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -180,7 +181,7 @@ func cableField(a, b *Cable) string {
 	return "Fault." + faultField(a.Fault, b.Fault)
 }
 
-func faultField(a, b Fault) string {
+func faultField(a, b cablemodel.Fault) string {
 	if a.Kind != b.Kind {
 		return "Kind"
 	}

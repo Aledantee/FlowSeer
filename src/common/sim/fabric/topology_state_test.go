@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -87,51 +88,51 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 		{
 			name: "stated medium in range at the negotiated speed is Up",
 			ethA: autoEthernet(g1), ethB: autoEthernet(g1),
-			cable:    fabric.Cable{LengthMeters: 90, Medium: fabric.TwistedPair},
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 90, Medium: cablemodel.TwistedPair}},
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceNegotiated,
 		},
 		{
 			name: "every candidate exceeded is Down reach-exceeded",
 			ethA: autoEthernet(g1, g10), ethB: autoEthernet(g1, g10),
-			cable:    fabric.Cable{LengthMeters: 600, Medium: fabric.MultimodeFiber},
-			wantOper: port.Down, wantReason: fabric.ReasonReachExceeded,
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 600, Medium: cablemodel.MultimodeFiber}},
+			wantOper: port.Down, wantReason: cablemodel.ReasonReachExceeded,
 		},
 		{
 			name: "an exceeded higher candidate is removed before negotiation",
 			ethA: autoEthernet(g1, g10), ethB: autoEthernet(g1, g10),
-			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.MultimodeFiber},
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 400, Medium: cablemodel.MultimodeFiber}},
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceNegotiated,
 		},
 		{
 			name: "the negotiated speed without a row is Unknown reach-unknown",
 			ethA: autoEthernet(g1, g25), ethB: autoEthernet(g1, g25),
-			cable:      fabric.Cable{LengthMeters: 5, Medium: fabric.TwistedPair},
+			cable:      fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair}},
 			wantOper:   port.Unknown,
-			wantReason: fabric.ReasonReachUnknown,
+			wantReason: cablemodel.ReasonReachUnknown,
 		},
 		{
 			name: "the remaining lower candidate without a row is Unknown reach-unknown",
 			ethA: autoEthernet(m100, g10), ethB: autoEthernet(m100, g10),
-			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.MultimodeFiber},
-			wantOper: port.Unknown, wantReason: fabric.ReasonReachUnknown,
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 400, Medium: cablemodel.MultimodeFiber}},
+			wantOper: port.Unknown, wantReason: cablemodel.ReasonReachUnknown,
 		},
 		{
 			name: "a speed above the top speed is no candidate",
 			ethA: autoEthernet(g1, g25), ethB: autoEthernet(g1, g25),
-			cable:    fabric.Cable{LengthMeters: 5, Medium: fabric.TwistedPair, TopSpeedBPS: g1},
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair, TopSpeedBPS: g1}},
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceNegotiated,
 		},
 		{
 			name: "a forced speed past reach is Down reach-exceeded",
 			ethA: forcedEthernet(g10, phy.Full), ethB: autoEthernet(g1, g10),
-			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.MultimodeFiber},
-			wantOper: port.Down, wantReason: fabric.ReasonReachExceeded,
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 400, Medium: cablemodel.MultimodeFiber}},
+			wantOper: port.Down, wantReason: cablemodel.ReasonReachExceeded,
 		},
 		{
 			name: "a delay does not resolve an unspecified medium",
 			ethA: autoEthernet(g1), ethB: autoEthernet(g1),
-			cable:    fabric.Cable{LengthMeters: 2, Delay: &delay},
-			wantOper: port.Unknown, wantReason: fabric.ReasonReachUnknown,
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2, Delay: &delay}},
+			wantOper: port.Unknown, wantReason: cablemodel.ReasonReachUnknown,
 		},
 		{
 			name: "matching observations resolve an unknown reach",
@@ -145,7 +146,7 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 				e.Observed = &phy.Observed{SpeedBPS: g1, Duplex: phy.Full}
 				return e
 			}(),
-			cable:    fabric.Cable{LengthMeters: 2},
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2}},
 			wantOper: port.Up, wantSpeed: g1, wantSource: phy.SourceObserved,
 		},
 		{
@@ -160,7 +161,7 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 				e.Observed = &phy.Observed{SpeedBPS: g10, Duplex: phy.Full}
 				return e
 			}(),
-			cable:         fabric.Cable{LengthMeters: 2, TopSpeedBPS: m100},
+			cable:         fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2, TopSpeedBPS: m100}},
 			wantOper:      port.Down,
 			wantReason:    phy.ReasonSpeedMismatch,
 			wantPHYState:  phy.LinkFailed,
@@ -169,7 +170,7 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 		{
 			name: "no candidate leaves negotiation to decide",
 			ethA: phy.Ethernet{}, ethB: autoEthernet(g1),
-			cable:    fabric.Cable{LengthMeters: 400, Medium: fabric.TwistedPair},
+			cable:    fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 400, Medium: cablemodel.TwistedPair}},
 			wantOper: port.Unknown, wantReason: phy.ReasonCapabilityUnknown,
 		},
 	}
@@ -196,9 +197,9 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 
 			linkIssues := fab.Metadata().IssuesFor(analysis.LinkScope(pairLinkKey))
 			reachIssue := slices.ContainsFunc(linkIssues, func(issue analysis.Issue) bool {
-				return issue.Code == analysis.IssueCode(fabric.ReasonReachUnknown)
+				return issue.Code == analysis.IssueCode(cablemodel.ReasonReachUnknown)
 			})
-			if want := tc.wantReason == fabric.ReasonReachUnknown; reachIssue != want {
+			if want := tc.wantReason == cablemodel.ReasonReachUnknown; reachIssue != want {
 				t.Errorf("link issues = %+v, reach-unknown present %t, want %t", linkIssues, reachIssue, want)
 			}
 		})
@@ -208,8 +209,9 @@ func TestLinkReachFollowsItsTable(t *testing.T) {
 func TestUnspecifiedMediumBetweenGigabitEndsIsReachUnknownNotExceeded(t *testing.T) {
 	catalog, cableRef := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "inventory", Origin: "cable-plan", Context: "sw1 1/1/1"})
 	cfg := switchPair(t, autoEthernet(1_000_000_000), autoEthernet(1_000_000_000), fabric.Cable{
-		LengthMeters: 2,
-		Evidence:     []trace.EvidenceRef{cableRef},
+		Cable: cablemodel.Cable{LengthMeters: 2},
+
+		Evidence: []trace.EvidenceRef{cableRef},
 	})
 	spec := constructionSpec(cfg)
 	spec.Evidence = catalog
@@ -220,10 +222,10 @@ func TestUnspecifiedMediumBetweenGigabitEndsIsReachUnknownNotExceeded(t *testing
 	}
 
 	l := fab.Links()[0]
-	if l.A.Oper != port.Unknown || l.A.Reason != fabric.ReasonReachUnknown || l.B.Oper != port.Unknown {
+	if l.A.Oper != port.Unknown || l.A.Reason != cablemodel.ReasonReachUnknown || l.B.Oper != port.Unknown {
 		t.Errorf("link ends = %+v / %+v, want both Unknown with reach-unknown", l.A, l.B)
 	}
-	if l.A.Reason == fabric.ReasonReachExceeded {
+	if l.A.Reason == cablemodel.ReasonReachExceeded {
 		t.Error("an unspecified medium reads reach-exceeded")
 	}
 	for _, name := range []string{"sw1", "sw2"} {
@@ -238,7 +240,7 @@ func TestUnspecifiedMediumBetweenGigabitEndsIsReachUnknownNotExceeded(t *testing
 		t.Fatalf("link issues = %+v, want one", issues)
 	}
 	issue := issues[0]
-	if issue.Code != analysis.IssueCode(fabric.ReasonReachUnknown) || issue.Status != analysis.Incomplete {
+	if issue.Code != analysis.IssueCode(cablemodel.ReasonReachUnknown) || issue.Status != analysis.Incomplete {
 		t.Errorf("link issue = %+v, want Incomplete reach-unknown", issue)
 	}
 	if !slices.Equal(issue.Evidence, []trace.EvidenceRef{cableRef}) {
@@ -256,16 +258,16 @@ func TestObservedLinkOverUnspecifiedMediumReportsUnknownPropagation(t *testing.T
 	observed := autoEthernet(1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
 
-	fab, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{LengthMeters: 2}))
+	fab, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
-	if got := issueCodes(fab.Metadata().IssuesFor(analysis.LinkScope(pairLinkKey))); !slices.Equal(got, []analysis.IssueCode{fabric.IssuePropagationUnknown}) {
-		t.Errorf("link issue codes = %v, want [%s]", got, fabric.IssuePropagationUnknown)
+	if got := issueCodes(fab.Metadata().IssuesFor(analysis.LinkScope(pairLinkKey))); !slices.Equal(got, []analysis.IssueCode{cablemodel.IssuePropagationUnknown}) {
+		t.Errorf("link issue codes = %v, want [%s]", got, cablemodel.IssuePropagationUnknown)
 	}
 
 	delay := time.Nanosecond
-	withDelay, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{LengthMeters: 2, Delay: &delay}))
+	withDelay, err := fabric.New(switchPair(t, observed, observed, fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 2, Delay: &delay}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -278,7 +280,7 @@ func TestObservedSpeedThatDisagreesWithNegotiationConflicts(t *testing.T) {
 	observed := autoEthernet(100_000_000, 1_000_000_000)
 	observed.Observed = &phy.Observed{SpeedBPS: 100_000_000, Duplex: phy.Full}
 
-	fab, err := fabric.New(switchPair(t, observed, autoEthernet(100_000_000, 1_000_000_000), fabric.Cable{Medium: fabric.TwistedPair}))
+	fab, err := fabric.New(switchPair(t, observed, autoEthernet(100_000_000, 1_000_000_000), fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}}))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -287,8 +289,8 @@ func TestObservedSpeedThatDisagreesWithNegotiationConflicts(t *testing.T) {
 		t.Fatalf("link end A = %+v, want Up at 1 Gb/s", l.A)
 	}
 	meta := fab.Metadata()
-	if got := issueCodes(meta.IssuesFor(analysis.PortScope("sw1", "1/1/1"))); !slices.Equal(got, []analysis.IssueCode{fabric.IssueObservedSpeedConflict}) {
-		t.Errorf("sw1 port issue codes = %v, want [%s]", got, fabric.IssueObservedSpeedConflict)
+	if got := issueCodes(meta.IssuesFor(analysis.PortScope("sw1", "1/1/1"))); !slices.Equal(got, []analysis.IssueCode{cablemodel.IssueObservedSpeedConflict}) {
+		t.Errorf("sw1 port issue codes = %v, want [%s]", got, cablemodel.IssueObservedSpeedConflict)
 	}
 	if got := meta.IssuesFor(analysis.PortScope("sw2", "1/1/1")); len(got) != 0 {
 		t.Errorf("sw2 port issues = %+v, want none", got)
@@ -317,9 +319,9 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 			"h3": {Address: macH3, Ethernet: gigabit},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 	})
 	if err != nil {
@@ -371,7 +373,7 @@ func TestForcedHundredFullAgainstKnownAutoResolvesWithDuplexMismatch(t *testing.
 	fab, err := fabric.New(switchPair(t,
 		forcedEthernet(100_000_000, phy.Full),
 		autoEthernet(10_000_000, 100_000_000, 1_000_000_000),
-		fabric.Cable{Medium: fabric.TwistedPair, LengthMeters: 10},
+		fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, LengthMeters: 10}},
 	))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
@@ -393,7 +395,7 @@ func TestForcedGigabitAgainstAutoIsUnsupported(t *testing.T) {
 	fab, err := fabric.New(switchPair(t,
 		forcedEthernet(1_000_000_000, phy.Full),
 		autoEthernet(1_000_000_000, 10_000_000_000),
-		fabric.Cable{Medium: fabric.MultimodeFiber, LengthMeters: 400},
+		fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.MultimodeFiber, LengthMeters: 400}},
 	))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
@@ -426,7 +428,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 			"sw1": {Ports: mustTable(t, b), Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
 		Hosts:    map[string]fabric.Host{"h1": {Address: macH1, Ethernet: gigabit}},
-		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}, Medium: fabric.TwistedPair}},
+		Cables:   []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}}},
 		Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 	}
 	spec := constructionSpec(cfg)
@@ -529,10 +531,10 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	var cables []fabric.Cable
 	for i, name := range []string{"h1", "h2", "h3"} {
 		hosts[name] = fabric.Host{Address: macs[name], Ethernet: gigabit}
-		cables = append(cables, fabric.Cable{A: fabric.Endpoint{Node: name}, B: fabric.Endpoint{Node: "sw1", Port: string(rune('1' + i))}, Medium: fabric.TwistedPair})
+		cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: name}, B: fabric.Endpoint{Node: "sw1", Port: string(rune('1' + i))}})
 	}
 	hosts["h4"] = fabric.Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x04}, Ethernet: gigabit}
-	cables = append(cables, fabric.Cable{A: fabric.Endpoint{Node: "h4"}, B: fabric.Endpoint{Node: "sw1", Port: "4"}, Medium: fabric.TwistedPair})
+	cables = append(cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h4"}, B: fabric.Endpoint{Node: "sw1", Port: "4"}})
 
 	spec := constructionSpec(fabric.Config{
 		Switches: map[string]vswitch.Config{
@@ -629,8 +631,8 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 		"h3": {Address: macs["h3"], Ethernet: gigabit},
 	}
 	cables := []fabric.Cable{
-		{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "2"}, Medium: fabric.TwistedPair},
-		{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "3"}, Medium: fabric.TwistedPair},
+		{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "2"}},
+		{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "3"}},
 	}
 
 	spec := constructionSpec(fabric.Config{
@@ -702,10 +704,10 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 			"h2": {Address: macH2, Ethernet: gigabit},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
 		},
 	})
 	if err != nil {
@@ -765,7 +767,7 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 		},
 	}
@@ -794,17 +796,17 @@ func TestPhyAssumptionRecordsOneAssumptionPerFilledLink(t *testing.T) {
 	}
 
 	h2Link := fab.Links()[1]
-	if h2Link.Medium != fabric.TwistedPair || h2Link.A.Ethernet.Setting == nil || len(h2Link.A.Ethernet.SupportedSpeedsBPS) != 3 {
+	if h2Link.Cable.Medium != cablemodel.TwistedPair || h2Link.A.Ethernet.Setting == nil || len(h2Link.A.Ethernet.SupportedSpeedsBPS) != 3 {
 		t.Errorf("Links() h2 link = %+v, want the filled medium and Ethernet facts", h2Link)
 	}
 	if h2Link.A.Oper != port.Up || h2Link.A.Speed.SpeedBPS != 1_000_000_000 {
 		t.Errorf("h2 link end = %+v, want Up at 1 Gb/s", h2Link.A)
 	}
-	if cfg := fab.Config(); cfg.Cables[1].Medium != fabric.MediumUnspecified || cfg.Hosts["h2"].Ethernet.Setting != nil {
+	if cfg := fab.Config(); cfg.Cables[1].Medium != cablemodel.MediumUnspecified || cfg.Hosts["h2"].Ethernet.Setting != nil {
 		t.Errorf("Config() shows filled values: cable %+v, host %+v", cfg.Cables[1], cfg.Hosts["h2"])
 	}
 	spec := fab.Spec()
-	if spec.Cables[1].Medium != fabric.MediumUnspecified || spec.Hosts["h2"].Ethernet.Setting != nil || !spec.PhyAssumption.Equal(gigabitCopper()) {
+	if spec.Cables[1].Medium != cablemodel.MediumUnspecified || spec.Hosts["h2"].Ethernet.Setting != nil || !spec.PhyAssumption.Equal(gigabitCopper()) {
 		t.Errorf("Spec() = cable %+v, host %+v, assumption %+v; want configured values and the assumption", spec.Cables[1], spec.Hosts["h2"], spec.PhyAssumption)
 	}
 	changes := fabric.Diff(stated, assumed)
@@ -910,21 +912,21 @@ func TestConstructionFieldPathsForEvidenceAndPhysicalFacts(t *testing.T) {
 		{
 			name: "an assumed observation",
 			mutate: func(s *fabric.ConstructionSpec) {
-				s.PhyAssumption = &fabric.PhyAssumption{Ethernet: phy.Ethernet{Observed: &phy.Observed{SpeedBPS: 1}}}
+				s.PhyAssumption = &cablemodel.PhyAssumption{Ethernet: phy.Ethernet{Observed: &phy.Observed{SpeedBPS: 1}}}
 			},
 			wantField: "phy_assumption.ethernet.observed",
 		},
 		{
 			name: "an assumed unknown medium",
 			mutate: func(s *fabric.ConstructionSpec) {
-				s.PhyAssumption = &fabric.PhyAssumption{Medium: "coax"}
+				s.PhyAssumption = &cablemodel.PhyAssumption{Medium: "coax"}
 			},
 			wantField: "phy_assumption.medium",
 		},
 		{
 			name: "an assumed auto-negotiation the profile does not support",
 			mutate: func(s *fabric.ConstructionSpec) {
-				s.PhyAssumption = &fabric.PhyAssumption{Ethernet: phy.Ethernet{
+				s.PhyAssumption = &cablemodel.PhyAssumption{Ethernet: phy.Ethernet{
 					AutoNegotiationSupported: phy.CapabilityUnsupported,
 					Setting:                  &phy.Setting{AutoNegotiation: true},
 				}}
@@ -984,7 +986,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 			name: "changing the assumed medium",
 			mutate: func(s *fabric.ConstructionSpec) {
 				s.PhyAssumption = gigabitCopper()
-				s.PhyAssumption.Medium = fabric.Twinax
+				s.PhyAssumption.Medium = cablemodel.Twinax
 			},
 			wantChanges: 1, wantKind: "fabric", wantField: "phy_assumption",
 		},
@@ -1067,7 +1069,7 @@ func TestAddedFabricFieldsFieldMatrix(t *testing.T) {
 			{Endpoint: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Evidence: []trace.EvidenceRef{refB, refA, refA}},
 			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		}
-		cfg.PhyAssumption = &fabric.PhyAssumption{Ethernet: phy.Ethernet{
+		cfg.PhyAssumption = &cablemodel.PhyAssumption{Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS: []uint64{100_000_000, 10_000_000, 100_000_000},
 			Setting:            &phy.Setting{SpeedBPS: 10_000_000},
 		}}

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -77,8 +78,8 @@ func loadCaseSpec(buffer *uint64, policed bool) (fabric.ConstructionSpec, error)
 			"h2": {Address: loadH2, VLAN: &vid10, Ethernet: physical(10_000_000)},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair, TopSpeedBPS: 1_000_000_000},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Medium: fabric.TwistedPair, TopSpeedBPS: 10_000_000},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: 1_000_000_000}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: 10_000_000}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}, nil
 }

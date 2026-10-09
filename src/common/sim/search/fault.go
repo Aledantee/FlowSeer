@@ -9,6 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 // TimedFaultDomainConfig configures a finite timed cable fault exploration domain. Its
@@ -154,7 +155,7 @@ func deduplicateAndSortFaults(in []fabric.FaultAction) []fabric.FaultAction {
 	type key struct {
 		aNode, aPort string
 		bNode, bPort string
-		kind         fabric.FaultKind
+		kind         cablemodel.FaultKind
 		n            uint
 		seq          string
 	}

@@ -5,6 +5,8 @@ import (
 	"slices"
 	"time"
 
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
+
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -274,8 +276,8 @@ func casePlanningCandidateForkDiverges() Case {
 					"h2": {Address: candForkH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 				},
 			}
 
@@ -293,7 +295,7 @@ func casePlanningCandidateForkDiverges() Case {
 			cand := fab.Fork()
 
 			// The candidate fork diverges: fault the link to h2 and run on the candidate.
-			if err := cand.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+			if err := cand.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 				return ExecutionResult{}, err
 			}
 			_, err = cand.Inject(fabric.Injection{
@@ -706,9 +708,9 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 			"h3": {Address: transceiverH3, Ethernet: gigabit},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, LengthMeters: 2, Evidence: []trace.EvidenceRef{ref}},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Evidence: []trace.EvidenceRef{ref}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 		Evidence: cat,
 	}
@@ -733,7 +735,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 	linkScope := analysis.LinkScope("h2:-sw1:1/1/2")
 	cat, ref := analysis.EvidenceCatalog{}.Add(unresolvedTransceiverEvidence)
 	issue := IssueExpectation{
-		Code:     fabric.IssuePropagationUnknown,
+		Code:     cablemodel.IssuePropagationUnknown,
 		Status:   analysis.Incomplete,
 		Scope:    linkScope,
 		Evidence: []trace.EvidenceRef{ref},
@@ -1028,7 +1030,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 					},
 				},
 				Hosts:    map[string]fabric.Host{"h1": {Address: uncabledH1, Ethernet: gigabit}},
-				Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}, Medium: fabric.TwistedPair}},
+				Cables:   []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}}},
 				Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 				Evidence: cat,
 			}
@@ -1171,8 +1173,8 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 					"h2": {Address: unreportedNegotiationH2},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair, Evidence: []trace.EvidenceRef{linkRef}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Evidence: []trace.EvidenceRef{linkRef}},
 				},
 				Evidence: specCat,
 			}
@@ -1350,10 +1352,10 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 					"h2": {Address: unknownUplinkH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
 				},
 			}
 
@@ -1472,8 +1474,8 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 					"h2": {Address: foreignUnicastH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 				},
 			}
 

@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -23,8 +24,8 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	ports, _ := b.Build()
 	cfg := Config{
 		Start: t0,
-		PhyAssumption: &PhyAssumption{
-			Medium: TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -43,7 +44,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 			},
 		},
 		Hosts:  map[string]Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
-		Cables: []Cable{{A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}, Medium: TwistedPair}},
+		Cables: []Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}}},
 	}
 	fab, err := New(cfg)
 	if err != nil {

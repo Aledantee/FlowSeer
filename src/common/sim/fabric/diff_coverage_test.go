@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -58,14 +59,11 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "h1"},
-				LengthMeters: 3,
-				TopSpeedBPS:  1_000_000_000,
-				Fault:        fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 5, Sequence: []uint{1}},
-				Medium:       fabric.TwistedPair,
-				Delay:        &delay,
-				Evidence:     []trace.EvidenceRef{"survey:rack-walk"},
+				Cable: cablemodel.Cable{LengthMeters: 3, TopSpeedBPS: 1_000_000_000, Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 5, Sequence: []uint{1}}, Medium: cablemodel.TwistedPair, Delay: &delay},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "h1"},
+
+				Evidence: []trace.EvidenceRef{"survey:rack-walk"},
 			},
 		},
 		Uncabled: []fabric.Uncabled{
@@ -74,14 +72,14 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 				Evidence: []trace.EvidenceRef{"survey:empty-port"},
 			},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium:   fabric.MultimodeFiber,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium:   cablemodel.MultimodeFiber,
 			Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{10_000_000_000}},
 		},
 	}
 
 	exemptions := map[string]string{
-		".Cables.*.Fault.Sequence.*": "normalizedFault (fabric/diff.go) clears Sequence whenever Kind is not " +
+		".Cables.*.Cable.Fault.Sequence.*": "normalizedFault (fabric/diff.go) clears Sequence whenever Kind is not " +
 			"FaultLoseSequence; this fixture's Kind is FaultLoseEveryNth, under which N is the active field and " +
 			"Sequence has no arm to exercise, the same one-slot-two-roles split Fault.N and Fault.Sequence share",
 		".Cables.*.Evidence.*": "Evidence is provenance for why a cable's other fields hold their values, not part " +

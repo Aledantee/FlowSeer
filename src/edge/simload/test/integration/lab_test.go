@@ -22,6 +22,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 	"go.aledante.io/FlowSeer/src/edge/simload"
@@ -151,10 +152,10 @@ func oneSwitchFabric(config labConfig) (*fabric.Fabric, error) {
 			"rx": {Address: config.rxMAC, Ethernet: ethernetProfile(config.rxSpeedBPS)},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "tx"}, B: fabric.Endpoint{Node: "LABSW06", Port: config.txPort}, Medium: fabric.TwistedPair, TopSpeedBPS: config.txSpeedBPS},
-			{A: fabric.Endpoint{Node: "LABSW06", Port: config.rxPort}, B: fabric.Endpoint{Node: "rx"}, Medium: fabric.TwistedPair, TopSpeedBPS: config.rxSpeedBPS},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: config.txSpeedBPS}, A: fabric.Endpoint{Node: "tx"}, B: fabric.Endpoint{Node: "LABSW06", Port: config.txPort}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, TopSpeedBPS: config.rxSpeedBPS}, A: fabric.Endpoint{Node: "LABSW06", Port: config.rxPort}, B: fabric.Endpoint{Node: "rx"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{Medium: fabric.TwistedPair, Ethernet: phy.Ethernet{
+		PhyAssumption: &cablemodel.PhyAssumption{Medium: cablemodel.TwistedPair, Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{config.txSpeedBPS, config.rxSpeedBPS},
 			AutoNegotiationSupported: phy.CapabilitySupported,
 			Setting:                  &phy.Setting{AutoNegotiation: true},

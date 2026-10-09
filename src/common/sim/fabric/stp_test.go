@@ -6,6 +6,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -163,29 +164,29 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 			},
 		},
 	}
@@ -397,7 +398,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	err = fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault cut: %v", err)
@@ -570,34 +571,34 @@ func TestHubTransparentInRing(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "hub", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "hub", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "hub", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "hub", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 			},
 		},
 	}
@@ -688,9 +689,9 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}))
@@ -823,7 +824,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
-	cut := fabric.Fault{Kind: fabric.FaultCut}
+	cut := cablemodel.Fault{Kind: cablemodel.FaultCut}
 	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, cut); err != nil {
 		t.Fatalf("SetFault first member: %v", err)
 	}
@@ -887,14 +888,14 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 		},
 	}))
@@ -1033,14 +1034,14 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 		},
 	}))
@@ -1259,12 +1260,12 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 			"h2-v20": {Address: macs["h2-v20"]},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h1-v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h1-v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h2-v10"}, B: fabric.Endpoint{Node: "sw2", Port: "v10"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h2-v20"}, B: fabric.Endpoint{Node: "sw2", Port: "v20"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1-v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1-v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h2-v10"}, B: fabric.Endpoint{Node: "sw2", Port: "v10"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h2-v20"}, B: fabric.Endpoint{Node: "sw2", Port: "v20"}},
 		},
 	}
 
@@ -1541,10 +1542,10 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 		Start:    t0,
 		Switches: switches,
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "a"}, B: fabric.Endpoint{Node: "sw2", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw2", Port: "b"}, B: fabric.Endpoint{Node: "sw3", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw3", Port: "b"}, B: fabric.Endpoint{Node: "sw4", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw4", Port: "b"}, B: fabric.Endpoint{Node: "sw1", Port: "b"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "a"}, B: fabric.Endpoint{Node: "sw2", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "b"}, B: fabric.Endpoint{Node: "sw3", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw3", Port: "b"}, B: fabric.Endpoint{Node: "sw4", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw4", Port: "b"}, B: fabric.Endpoint{Node: "sw1", Port: "b"}},
 		},
 	}
 
@@ -1587,13 +1588,13 @@ func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 	// than being corrected by a fresh superior BPDU from sw1 itself.
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "a"}, fabric.Endpoint{Node: "sw2", Port: "a"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault sw1-sw2: %v", err)
 	}
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "sw4", Port: "b"}, fabric.Endpoint{Node: "sw1", Port: "b"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault sw4-sw1: %v", err)
 	}

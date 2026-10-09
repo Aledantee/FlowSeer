@@ -19,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -56,9 +57,9 @@ func TestFabricRoutersResolveNextHopAndDeliverHeldFrame(t *testing.T) {
 			"h2": {Address: h2MAC},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 	fab, err := fabric.New(statedPhysical(cfg))
@@ -187,14 +188,14 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "h2"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
@@ -367,19 +368,19 @@ func TestFabricMACAssignment(t *testing.T) {
 			},
 			Cables: []fabric.Cable{
 				{
-					A:            fabric.Endpoint{Node: "h1"},
-					B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-					LengthMeters: 5,
+					Cable: cablemodel.Cable{LengthMeters: 5},
+					A:     fabric.Endpoint{Node: "h1"},
+					B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-					B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-					LengthMeters: 10,
+					Cable: cablemodel.Cable{LengthMeters: 10},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+					B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-					B:            fabric.Endpoint{Node: "h2"},
-					LengthMeters: 5,
+					Cable: cablemodel.Cable{LengthMeters: 5},
+					A:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
+					B:     fabric.Endpoint{Node: "h2"},
 				},
 			},
 		}
@@ -594,14 +595,14 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "h2"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
@@ -786,8 +787,8 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 			"h2": {Address: macH2},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 
@@ -931,8 +932,8 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 			"h2": {Address: macH2, VLAN: &vid10},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "eth3"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "eth1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "eth3"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "eth1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 
@@ -1078,7 +1079,7 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
 	}
 
@@ -1198,7 +1199,7 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
 	}
 
@@ -1319,7 +1320,7 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
 		Uncabled: []fabric.Uncabled{
 			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
@@ -1435,8 +1436,8 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 			// frame injected onto a down port never reaches the switch at all.
 			Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
 			Cables: []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-				{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 			},
 		}
 
@@ -1581,8 +1582,8 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 		},
 		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}
 
@@ -1706,8 +1707,8 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 		},
 		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}
 
@@ -1933,9 +1934,9 @@ func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
 			"h3": {Address: macH3, VLAN: &vid10},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h3"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h3"}},
 		},
 	}
 
@@ -2030,8 +2031,8 @@ func TestRoutingOnlySwitchWakesAfterDerive(t *testing.T) {
 		},
 		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}
 

@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -60,8 +61,8 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "r1", Port: "p1"}},
 		},
 	}
 }
@@ -282,14 +283,14 @@ func TestReflectorAcceptanceFollowsItsCheckOrder(t *testing.T) {
 // fully accepted mDNS query: only the corruption can explain the drop.
 func TestReflectorDropsACorruptArrivalBeforeAnyClauseRuns(t *testing.T) {
 	cfg := reflectorAcceptConfig(t)
-	cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}
+	cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}
 
 	frame := mdnsFrame(t, reflectorSenderMAC, acceptedVID10(), reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	journey := reflectorArrival(t, cfg, frame)
 	decision := reflectorDecision(t, journey)
 
-	if decision.Kind != fabric.EntryDrop || decision.Reason != fabric.ReasonBadFrame {
-		t.Errorf("decision = %s %q, want Drop %q", decision.Kind, decision.Reason, fabric.ReasonBadFrame)
+	if decision.Kind != fabric.EntryDrop || decision.Reason != cablemodel.ReasonBadFrame {
+		t.Errorf("decision = %s %q, want Drop %q", decision.Kind, decision.Reason, cablemodel.ReasonBadFrame)
 	}
 	if decision.Step != nil {
 		t.Errorf("decision step = %+v, want none: a corrupt arrival never reaches a clause", decision.Step)

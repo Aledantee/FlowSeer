@@ -20,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -147,7 +148,7 @@ func (f *Fabric) portCable(node, portName string) *Cable {
 	if !ok {
 		return nil
 	}
-	cable := ref.link.Clone()
+	cable := ref.link.Cable.Clone()
 
 	return &cable
 }
@@ -343,7 +344,7 @@ func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.F
 		if ref.end.Oper == port.Unknown {
 			kind = EntryUnresolved
 		}
-		cable := ref.link.Clone()
+		cable := ref.link.Cable.Clone()
 		f.record(journey, Entry{
 			At: at, Kind: kind, Device: origin.Node, Cable: &cable, Reason: ref.end.Reason,
 		})
@@ -357,7 +358,7 @@ func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.F
 //
 // Pending host injections and attached stream frames are released before the next arrival is chosen.
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
-// Corrupted arrivals are discarded with [ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
+// Corrupted arrivals are discarded with [cablemodel.ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
 // and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
 // A switch's normal arrivals are policed before dynamic MAC aging and forwarding, then un-dropped egress frames
 // are enqueued onto connected cables or delivered to target hosts.
@@ -450,7 +451,7 @@ func (f *Fabric) Step() (Entry, bool) {
 				Kind:   EntryDrop,
 				Device: arr.Device,
 				Port:   arr.Port,
-				Reason: ReasonBadFrame,
+				Reason: cablemodel.ReasonBadFrame,
 			}
 			f.record(journey, dropEntry)
 
@@ -487,7 +488,7 @@ func (f *Fabric) Step() (Entry, bool) {
 			Kind:   EntryDrop,
 			Device: arr.Device,
 			Port:   arr.Port,
-			Reason: ReasonBadFrame,
+			Reason: cablemodel.ReasonBadFrame,
 		}
 		f.record(journey, dropEntry)
 
@@ -806,7 +807,7 @@ func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflecto
 		if ref.end.Oper == port.Unknown {
 			kind = EntryUnresolved
 		}
-		cable := ref.link.Clone()
+		cable := ref.link.Cable.Clone()
 		f.record(copyJourney, Entry{
 			At:     at,
 			Kind:   kind,
@@ -863,12 +864,12 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 
 	if ref.end.Speed.SpeedBPS == 0 {
 		countOut()
-		cableCopy := ref.link.Clone()
+		cableCopy := ref.link.Cable.Clone()
 		f.record(journey, Entry{
 			At:     now,
 			Kind:   EntryLoss,
 			Cable:  &cableCopy,
-			Reason: ReasonCableLoss,
+			Reason: cablemodel.ReasonCableLoss,
 		})
 
 		return
@@ -1009,12 +1010,12 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 			continue
 		}
 		if ref.end.Speed.SpeedBPS == 0 {
-			cableCopy := ref.link.Clone()
+			cableCopy := ref.link.Cable.Clone()
 			f.record(item.journey, Entry{
 				At:     now,
 				Kind:   EntryLoss,
 				Cable:  &cableCopy,
-				Reason: ReasonCableLoss,
+				Reason: cablemodel.ReasonCableLoss,
 			})
 
 			continue
@@ -1142,41 +1143,13 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	end := start.Add(ser)
 	f.busyUntil[txEnd] = end
 
-	prop := Propagation(cable.LengthMeters, cable.Medium)
-	if cable.Delay != nil {
-		prop = *cable.Delay
-	}
+	prop := cable.Propagation()
 	deliveryAt := end.Add(prop)
 
 	f.cableCrossings[cable.A]++
 	count := f.cableCrossings[cable.A]
 
-	var (
-		lost    bool
-		corrupt bool
-	)
-	switch cable.Fault.Kind {
-	case FaultLoseEveryNth:
-		if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
-			lost = true
-		}
-	case FaultLoseSequence:
-		if slices.Contains(cable.Fault.Sequence, count) {
-			lost = true
-		}
-	case FaultCorruptEveryNth:
-		if cable.Fault.N > 0 && count%cable.Fault.N == 0 {
-			corrupt = true
-		}
-	case FaultDeadAToB:
-		if ref.end.Endpoint == cable.A {
-			lost = true
-		}
-	case FaultDeadBToA:
-		if ref.end.Endpoint == cable.B {
-			lost = true
-		}
-	}
+	lost, corrupt := cable.Crossing(count, ref.end.Endpoint == cable.A)
 
 	cableCopy := cable.Clone()
 
@@ -1185,7 +1158,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 			At:     start,
 			Kind:   EntryLoss,
 			Cable:  &cableCopy,
-			Reason: ReasonCableLoss,
+			Reason: cablemodel.ReasonCableLoss,
 		})
 
 		return end
@@ -1199,7 +1172,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 				Kind:   EntryDrop,
 				Device: farEnd.Node,
 				Cable:  &cableCopy,
-				Reason: ReasonBadFrame,
+				Reason: cablemodel.ReasonBadFrame,
 			})
 
 			return end

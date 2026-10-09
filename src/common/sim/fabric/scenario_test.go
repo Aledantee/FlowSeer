@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -197,7 +198,7 @@ func TestScenarioValidateRefusalTable(t *testing.T) {
 	validFault := &FaultAction{
 		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-		Fault: Fault{Kind: FaultCut},
+		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
 
 	cases := []struct {
@@ -339,7 +340,7 @@ func TestScenarioNumberedIndexUniqueness(t *testing.T) {
 	validFault := &FaultAction{
 		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-		Fault: Fault{Kind: FaultCut},
+		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
 
 	scValidSameTimeDiffIndex := Scenario{
@@ -357,7 +358,7 @@ func TestScenarioNumberedIndexUniqueness(t *testing.T) {
 	validFaultLater := &FaultAction{
 		A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 		B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-		Fault: Fault{Kind: FaultCut},
+		Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 	}
 	scValidDiffTimeSameIndex := Scenario{
 		Name:   "valid-diff-time-same-index",
@@ -452,7 +453,7 @@ func TestScenarioDiffEveryField(t *testing.T) {
 		mut.Actions[0].Fault = &FaultAction{
 			A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 			B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-			Fault: Fault{Kind: FaultCut},
+			Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 		}
 		changes, err := DiffScenarios(base, mut)
 		if err != nil {
@@ -563,7 +564,7 @@ func TestScenarioReplayDoubleExecutionEquality(t *testing.T) {
 				Fault: &FaultAction{
 					A:     Endpoint{Node: "sw1", Port: "1/1/1"},
 					B:     Endpoint{Node: "sw2", Port: "1/1/1"},
-					Fault: Fault{Kind: FaultCut},
+					Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 				},
 			},
 			{
@@ -881,12 +882,12 @@ func TestScenarioConfigureTransientBetweenSwitches(t *testing.T) {
 			"h2": {Address: macH2},
 		},
 		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 1.0},
-			{A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: MultimodeFiber},
-			{A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}},
 		},
-		PhyAssumption: &PhyAssumption{
-			Medium: TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -1100,7 +1101,7 @@ func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
 	if original.Inject.Frame.Tags[0].VID != 10 || original.Inject.Frame.Payload[0] != 1 || original.Inject.Packet.Payload[0] != 2 {
 		t.Fatal("clone shares injection buffers")
 	}
-	fault := Action{Kind: ActionFault, Fault: &FaultAction{Fault: Fault{Kind: FaultLoseSequence, Sequence: []uint{1, 3}}}}
+	fault := Action{Kind: ActionFault, Fault: &FaultAction{Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1, 3}}}}
 	copyFault := fault.Clone()
 	copyFault.Fault.Fault.Sequence[0] = 2
 	if fault.Fault.Fault.Sequence[0] != 1 {
@@ -1109,11 +1110,11 @@ func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
 }
 
 func TestFaultActionValidateFaultParameters(t *testing.T) {
-	base := FaultAction{A: Endpoint{Node: "a"}, B: Endpoint{Node: "b"}, Fault: Fault{Kind: FaultCut}}
+	base := FaultAction{A: Endpoint{Node: "a"}, B: Endpoint{Node: "b"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}
 	if err := base.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	for _, fault := range []Fault{{Kind: "unknown"}, {Kind: FaultCut, N: 1}, {Kind: FaultLoseEveryNth}, {Kind: FaultLoseSequence, Sequence: []uint{0}}} {
+	for _, fault := range []cablemodel.Fault{{Kind: "unknown"}, {Kind: cablemodel.FaultCut, N: 1}, {Kind: cablemodel.FaultLoseEveryNth}, {Kind: cablemodel.FaultLoseSequence, Sequence: []uint{0}}} {
 		action := base
 		action.Fault = fault
 		if err := action.Validate(); err == nil {

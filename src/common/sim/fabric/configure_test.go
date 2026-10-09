@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -86,18 +87,17 @@ func newTwoSwitchFabricWith(t *testing.T, mutate func(*fabric.Config)) (*fabric.
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 				B: fabric.Endpoint{Node: "h2"},
 			},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -519,10 +519,10 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -666,12 +666,12 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/2"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw3", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw3", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,

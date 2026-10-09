@@ -17,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -106,10 +107,9 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -223,7 +223,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 
 	for i := range expCfg.Cables {
 		if expCfg.Cables[i].A.Node == "sw1" && expCfg.Cables[i].B.Node == "sw2" {
-			expCfg.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			expCfg.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	for _, swName := range []string{"sw1", "sw2"} {
@@ -296,10 +296,10 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		if ch.Subject.Kind == "cable" && ch.Subject.Key == "sw1:1/1/24-sw2:1/1/24" {
 			if ch.Field == "fault" && ch.Layer == fabric.Layer {
 				foundCableFaultChange = true
-				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(fabric.FaultNone)) {
+				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(cablemodel.FaultNone)) {
 					t.Errorf("cable fault From = %v:%q, want FaultNone snapshot", ch.From.TypeID(), ch.From.Canonical())
 				}
-				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(fabric.FaultCut)) {
+				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(cablemodel.FaultCut)) {
 					t.Errorf("cable fault To = %v:%q, want FaultCut snapshot", ch.To.TypeID(), ch.To.Canonical())
 				}
 			}
@@ -514,32 +514,32 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 
 	t.Run("unspecified medium diffs against twisted pair", func(t *testing.T) {
 		cfgA := curCfg.Clone()
-		cfgA.Cables[0].Medium = fabric.MediumUnspecified
+		cfgA.Cables[0].Medium = cablemodel.MediumUnspecified
 
 		cfgB := cfgA.Clone()
-		cfgB.Cables[0].Medium = fabric.TwistedPair
+		cfgB.Cables[0].Medium = cablemodel.TwistedPair
 
 		from, to := changedFieldFacts(t, "medium", cfgA, cfgB)
-		if from != fabric.MediumUnspecified || to != fabric.TwistedPair {
+		if from != cablemodel.MediumUnspecified || to != cablemodel.TwistedPair {
 			t.Errorf("medium change = %v -> %v, want Unspecified -> TwistedPair", from, to)
 		}
 	})
 
 	t.Run("cable medium and delay modifications", func(t *testing.T) {
 		cfgA := curCfg.Clone()
-		cfgA.Cables[0].Medium = fabric.TwistedPair
+		cfgA.Cables[0].Medium = cablemodel.TwistedPair
 		cfgA.Cables[0].Delay = nil
 
 		cfgB := cfgA.Clone()
 		d := 1 * time.Microsecond
-		cfgB.Cables[0].Medium = fabric.SinglemodeFiber
+		cfgB.Cables[0].Medium = cablemodel.SinglemodeFiber
 		cfgB.Cables[0].Delay = &d
 
 		changes := fabric.Diff(cfgA, cfgB)
 		var foundMedium, foundDelay bool
 		for _, ch := range changes {
 			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
+				if ch.Field == "medium" && ch.From == cablemodel.TwistedPair && ch.To == cablemodel.SinglemodeFiber {
 					foundMedium = true
 				}
 				if ch.Field == "delay" && ch.From == nil && isFact(ch.To, "fabric.delay", (1*time.Microsecond).String()) {
@@ -763,10 +763,10 @@ func TestDiffAllSubjectKinds(t *testing.T) {
 }
 
 func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
-	for _, kind := range []fabric.FaultKind{fabric.FaultDeadAToB, fabric.FaultDeadBToA} {
+	for _, kind := range []cablemodel.FaultKind{cablemodel.FaultDeadAToB, cablemodel.FaultDeadBToA} {
 		t.Run(string(kind), func(t *testing.T) {
 			cfgA, _, _ := makeTwoSwitchConfigs(t)
-			cfgA.Cables[1].Fault = fabric.Fault{Kind: kind}
+			cfgA.Cables[1].Fault = cablemodel.Fault{Kind: kind}
 			cfgB := cfgA.Clone()
 			cfgB.Cables[1].A, cfgB.Cables[1].B = cfgB.Cables[1].B, cfgB.Cables[1].A
 
@@ -784,9 +784,9 @@ func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
 			if trace.EqualFact(faultChange.From, faultChange.To) {
 				t.Errorf("fault change has equal facts: %v -> %v", faultChange.From, faultChange.To)
 			}
-			wantFrom, wantTo := kind, fabric.FaultDeadAToB
-			if kind == fabric.FaultDeadAToB {
-				wantTo = fabric.FaultDeadBToA
+			wantFrom, wantTo := kind, cablemodel.FaultDeadAToB
+			if kind == cablemodel.FaultDeadAToB {
+				wantTo = cablemodel.FaultDeadBToA
 			}
 			if !strings.Contains(faultChange.From.Canonical(), string(wantFrom)) ||
 				!strings.Contains(faultChange.To.Canonical(), string(wantTo)) {
@@ -801,10 +801,10 @@ func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
 
 			equivalent := cfgA.Clone()
 			equivalent.Cables[1].A, equivalent.Cables[1].B = equivalent.Cables[1].B, equivalent.Cables[1].A
-			if kind == fabric.FaultDeadAToB {
-				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadBToA
+			if kind == cablemodel.FaultDeadAToB {
+				equivalent.Cables[1].Fault.Kind = cablemodel.FaultDeadBToA
 			} else {
-				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadAToB
+				equivalent.Cables[1].Fault.Kind = cablemodel.FaultDeadAToB
 			}
 			if changes := fabric.Diff(cfgA, equivalent); len(changes) != 0 {
 				t.Errorf("equivalent reversed cable diff = %v, want no changes", changes)
@@ -877,7 +877,7 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	}
 	cableB := cableA.Clone()
 	cableB.Delay = &delay
-	cableB.Fault = fabric.Fault{Kind: fabric.FaultCut}
+	cableB.Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 	cableCfgA := fabric.Config{Cables: []fabric.Cable{cableA}}
 	cableCfgB := fabric.Config{Cables: []fabric.Cable{cableB}}
 	cableFactA := addedFact(t, "cable", cableCfgA)
@@ -893,8 +893,8 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 		{name: "endpoint port", mutate: func(c *fabric.Cable) { c.A.Port = "one:two" }},
 		{name: "length", mutate: func(c *fabric.Cable) { c.LengthMeters = 1.5 }},
 		{name: "top speed", mutate: func(c *fabric.Cable) { c.TopSpeedBPS = 1_000_000_000 }},
-		{name: "fault", mutate: func(c *fabric.Cable) { c.Fault = fabric.Fault{Kind: fabric.FaultCut} }},
-		{name: "medium", mutate: func(c *fabric.Cable) { c.Medium = fabric.SinglemodeFiber }},
+		{name: "fault", mutate: func(c *fabric.Cable) { c.Fault = cablemodel.Fault{Kind: cablemodel.FaultCut} }},
+		{name: "medium", mutate: func(c *fabric.Cable) { c.Medium = cablemodel.SinglemodeFiber }},
 		{name: "delay", mutate: func(c *fabric.Cable) { c.Delay = &delay }},
 	}
 	for _, variant := range cableVariants {
@@ -909,9 +909,9 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	}
 
 	faultCfgA := fabric.Config{Cables: []fabric.Cable{{
+		Cable: cablemodel.Cable{Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1}}},
 		A:     cableA.A,
 		B:     cableA.B,
-		Fault: fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{1}},
 	}}}
 	faultCfgB := faultCfgA.Clone()
 	faultCfgB.Cables[0].Fault.Sequence[0] = 2
@@ -919,7 +919,7 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	if trace.EqualFact(faultFactA, faultFactB) {
 		t.Error("fault snapshot facts collide when loss sequence differs")
 	}
-	if got := reflect.TypeOf(faultFactA); got == reflect.TypeOf(fabric.Fault{}) {
+	if got := reflect.TypeOf(faultFactA); got == reflect.TypeOf(cablemodel.Fault{}) {
 		t.Errorf("fault diff fact has mutable config type %v", got)
 	}
 
@@ -930,7 +930,7 @@ func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
 	hostCfgA.Hosts["h1"].IP.Addresses[0] = netip.MustParsePrefix("10.0.30.10/24")
 	hostCfgA.Hosts["h1"].IP.Neighbors[gateway] = netaddr.MAC{}
 	*cableCfgB.Cables[0].Delay = 2 * time.Nanosecond
-	cableCfgB.Cables[0].Fault.Kind = fabric.FaultNone
+	cableCfgB.Cables[0].Fault.Kind = cablemodel.FaultNone
 	faultCfgA.Cables[0].Fault.Sequence[0] = 99
 	if got := hostFactA.Canonical(); got != wantHost {
 		t.Errorf("host fact changed after source mutation: got %q, want %q", got, wantHost)
@@ -974,7 +974,7 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
 	// Change cable medium between sw1 and sw2 in cfgB.
-	cfgB.Cables[1].Medium = fabric.SinglemodeFiber
+	cfgB.Cables[1].Medium = cablemodel.SinglemodeFiber
 
 	fabA, err := fabric.New(statedPhysical(cfgA))
 	if err != nil {
@@ -1061,12 +1061,12 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 	// In both configs: cut cable to h4 (on 1/1/2) and cable to h3 (on 1/1/4).
 	for i := range cfgA.Cables {
 		if cfgA.Cables[i].A.Port == "1/1/2" || cfgA.Cables[i].B.Port == "1/1/2" {
-			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgA.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 		if cfgA.Cables[i].A.Port == "1/1/4" || cfgA.Cables[i].B.Port == "1/1/4" {
-			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgA.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	for _, cfg := range []*fabric.Config{&cfgA, &cfgB} {
@@ -1138,7 +1138,7 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 	// Cut cable to h2 in cfgB so frame drops instead of delivering.
 	for i := range cfgB.Cables {
 		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()
@@ -1959,7 +1959,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 	// Cut cable to h2 in cfgB so frame drops instead of delivering.
 	for i := range cfgB.Cables {
 		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()

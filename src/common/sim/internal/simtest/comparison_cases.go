@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -347,8 +348,8 @@ func ComparisonCorpus() []ComparisonCase {
 	) (*fabric.Fabric, *fabric.Fabric, error) {
 		makeFab := func(mutateCables func([]fabric.Cable) []fabric.Cable) (*fabric.Fabric, error) {
 			baseCables := []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+				{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+				{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 			}
 			if mutateCables != nil {
 				baseCables = mutateCables(baseCables)
@@ -359,7 +360,7 @@ func ComparisonCorpus() []ComparisonCase {
 				{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 			}
 			for _, c := range baseCables {
-				if c.Fault.Kind == fabric.FaultCut {
+				if c.Fault.Kind == cablemodel.FaultCut {
 					for pi := range portList {
 						if (c.A.Node == "sw1" && c.A.Port == portList[pi].Name) ||
 							(c.B.Node == "sw1" && c.B.Port == portList[pi].Name) {
@@ -495,7 +496,7 @@ func ComparisonCorpus() []ComparisonCase {
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+				res[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 			}
 		}
 		return res
@@ -577,7 +578,7 @@ func ComparisonCorpus() []ComparisonCase {
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Medium = fabric.SinglemodeFiber
+				res[i].Medium = cablemodel.SinglemodeFiber
 			}
 		}
 		return res

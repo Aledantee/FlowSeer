@@ -25,10 +25,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -101,18 +102,17 @@ func main() {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 				B: fabric.Endpoint{Node: "h2"},
 			},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -709,6 +709,7 @@ Every non-LAG switch port falls into one of three cases:
 - Neither: `Unknown` with reason `adjacency-unresolved`, since nothing says
   what is attached. `Metadata()` reports it as an Incomplete issue on the port.
 
+The [cable package](../medium/cable/README.md) owns two-ended resolution.
 A cabled link resolves in this order:
 
 1. A severed cable (`FaultCut`) leaves both endpoints `Down` with `cut`.
@@ -718,8 +719,10 @@ A cabled link resolves in this order:
    `Unknown`.
 3. When either end is administratively disabled both are `Down`: the disabled
    end reads `admin-down`, the other `peer-down`.
-4. Reach, as in [Media and reach](#media-and-reach).
-5. Two-ended negotiation (`phy.Negotiate`) over each end's `phy.Ethernet`: a
+4. An unknown administrative state leaves both ends `Unknown` with
+   `cable.ReasonAdminUnknown` (`unknown-operational-status`).
+5. Reach, as in [Media and reach](#media-and-reach).
+6. Two-ended negotiation (`phy.Negotiate`) over each end's `phy.Ethernet`: a
    switch port's from its `Phy` configuration, a host's from `Host.Ethernet`.
    `LinkFailed` is `Down` with its reason (`speed-mismatch`), `LinkUnknown` is
    `Unknown` (`capability-unknown`), and `LinkUnsupported` is `Unknown` with
@@ -933,7 +936,7 @@ sc := fabric.Scenario{
 			Fault: &fabric.FaultAction{
 				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
 		{
@@ -993,10 +996,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
-	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -1051,12 +1055,12 @@ func main() {
 			"h2": {Address: macH2},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
-			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,

@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 var (
@@ -48,8 +49,8 @@ func TestCandidateCloneIsolation(t *testing.T) {
 				At: time.Date(2026, 1, 1, 0, 0, 1, 0, time.UTC), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{
 					A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 					B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-					Fault: fabric.Fault{
-						Kind:     fabric.FaultLoseSequence,
+					Fault: cablemodel.Fault{
+						Kind:     cablemodel.FaultLoseSequence,
 						Sequence: []uint{1, 3},
 					},
 				},
@@ -130,7 +131,7 @@ func TestProductSizeBounds(t *testing.T) {
 func TestCandidateNumbersInjectionBeforeTiedFault(t *testing.T) {
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	candidate := Candidate{Actions: []fabric.Action{
-		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}},
+		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
 		{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}}},
 	}}
 	if err := candidate.Validate(); err != nil {

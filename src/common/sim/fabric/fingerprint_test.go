@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 
@@ -237,9 +238,9 @@ func baseSnapshotForTest() Snapshot {
 		Links: []Link{
 			{
 				Cable: Cable{
-					A:      Endpoint{Node: "sw1", Port: "1/1/1"},
-					B:      Endpoint{Node: "sw2", Port: "1/1/1"},
-					Medium: TwistedPair,
+					Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+					A:     Endpoint{Node: "sw1", Port: "1/1/1"},
+					B:     Endpoint{Node: "sw2", Port: "1/1/1"},
 				},
 				A: LinkEnd{
 					Endpoint: Endpoint{Node: "sw1", Port: "1/1/1"},
@@ -682,13 +683,13 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 		{
 			name: "link_fault",
 			mutate: func(s *Snapshot) {
-				s.Links[0].Fault = Fault{Kind: FaultCut}
+				s.Links[0].Cable.Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 			},
 		},
 		{
 			name: "link_medium",
 			mutate: func(s *Snapshot) {
-				s.Links[0].Medium = MultimodeFiber
+				s.Links[0].Cable.Medium = cablemodel.MultimodeFiber
 			},
 		},
 		{
@@ -959,7 +960,7 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 	}
 
 	cfg := Config{
-		PhyAssumption: &PhyAssumption{Medium: TwistedPair, Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}, AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true}}},
+		PhyAssumption: &cablemodel.PhyAssumption{Medium: cablemodel.TwistedPair, Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}, AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true}}},
 		Start:         t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -983,9 +984,9 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 		},
 		Cables: []Cable{
 			{
-				A:      Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:      Endpoint{Node: "sw2", Port: "1/1/1"},
-				Medium: TwistedPair,
+				Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+				A:     Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}
@@ -1483,11 +1484,11 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 		},
 		Hosts: map[string]Host{"h1": {Address: macH1}},
 		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
-		PhyAssumption: &PhyAssumption{
-			Medium: TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,

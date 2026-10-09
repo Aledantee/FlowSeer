@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -245,9 +246,9 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 	sw1 := vswitch.Config{Ports: sw1Ports, Bridge: bridgeCfg("1/1/1", "1/1/2", "1/1/3", "1/1/24")}
 	sw2 := vswitch.Config{Ports: sw2Ports, Bridge: bridgeCfg("1/1/1", "1/1/2", "1/1/24")}
 	cables := []Cable{
-		{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-		{A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 5, Medium: MultimodeFiber},
-		{A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+		{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+		{Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.MultimodeFiber}, A: Endpoint{Node: "sw1", Port: "1/1/24"}, B: Endpoint{Node: "sw2", Port: "1/1/24"}},
+		{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw2", Port: "1/1/1"}, B: Endpoint{Node: "h2"}},
 	}
 
 	hosts := map[string]Host{
@@ -257,18 +258,19 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 
 	switch variant {
 	case "cable-loss":
-		cables[1].Fault = Fault{Kind: FaultLoseEveryNth, N: 1}
+		cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 1}
 	case "loop":
 		cables = append(cables, Cable{
-			A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 5, Medium: MultimodeFiber,
+			Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.MultimodeFiber},
+			A:     Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "sw2", Port: "1/1/2"},
 		})
 	case "mirror":
 		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}, Accept: HostAccept{Promiscuous: true}}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
+		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "mirror-reject":
 		hosts["an"] = Host{Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x09}}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}, LengthMeters: 5})
+		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "reflector":
 		reflec := Reflector{
@@ -278,7 +280,7 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 				"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 			},
 		}
-		cables = append(cables, Cable{A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "reflector", Port: "rp1"}, LengthMeters: 5})
+		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "reflector", Port: "rp1"}})
 		cfg := Config{
 			Start:         t0,
 			PhyAssumption: testPhyAssumption(),
@@ -456,8 +458,8 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 			"h2": {Address: macH2},
 		},
 		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}},
 		},
 	}
 	fab := newInvariantFabric(t, cfg)
@@ -565,8 +567,8 @@ func heldPropertyFixture(t *testing.T) (*Fabric, netaddr.MAC, netaddr.MAC) {
 			"h2": {Address: macH2},
 		},
 		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, LengthMeters: 5},
-			{A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}, LengthMeters: 5},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/2"}, B: Endpoint{Node: "h2"}},
 		},
 	}
 

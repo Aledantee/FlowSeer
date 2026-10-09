@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -55,7 +56,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 		{"cable B port", "Entries[0].Cable.B.Port", func(j *Journey) { j.Entries[0].Cable.B.Port = "other" }},
 		{"cable length", "Entries[0].Cable.LengthMeters", func(j *Journey) { j.Entries[0].Cable.LengthMeters = 1 }},
 		{"cable medium", "Entries[0].Cable.Medium", func(j *Journey) { j.Entries[0].Cable.Medium = "changed" }},
-		{"cable fault kind", "Entries[0].Cable.Fault.Kind", func(j *Journey) { j.Entries[0].Cable.Fault.Kind = FaultLoseEveryNth }},
+		{"cable fault kind", "Entries[0].Cable.Fault.Kind", func(j *Journey) { j.Entries[0].Cable.Fault.Kind = cablemodel.FaultLoseEveryNth }},
 		{"cable fault n", "Entries[0].Cable.Fault.N", func(j *Journey) { j.Entries[0].Cable.Fault.N = 1 }},
 		{"cable fault sequence", "Entries[0].Cable.Fault.Sequence", func(j *Journey) { j.Entries[0].Cable.Fault.Sequence = []uint{1} }},
 		{"reason", "Entries[0].Reason", func(j *Journey) { j.Entries[0].Reason = "refused" }},
@@ -322,9 +323,9 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 		{"link B speed", "fabric", "Links.[a:-b:].B.Speed.SpeedBPS", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].B.Speed.SpeedBPS = 1 }},
 		{"link A oper", "fabric", "Links.[a:-b:].A.Oper", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].A.Oper = port.Down }},
 		{"link B oper", "fabric", "Links.[a:-b:].B.Oper", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].B.Oper = port.Down }},
-		{"link fault kind", "fabric", "Links.[a:-b:].Fault.Kind", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.Kind = FaultLoseEveryNth }},
-		{"link fault n", "fabric", "Links.[a:-b:].Fault.N", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.N = 1 }},
-		{"link fault sequence", "fabric", "Links.[a:-b:].Fault.Sequence", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.Sequence = []uint{1} }},
+		{"link fault kind", "fabric", "Links.[a:-b:].Fault.Kind", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.Kind = cablemodel.FaultLoseEveryNth }},
+		{"link fault n", "fabric", "Links.[a:-b:].Fault.N", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.N = 1 }},
+		{"link fault sequence", "fabric", "Links.[a:-b:].Fault.Sequence", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.Sequence = []uint{1} }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

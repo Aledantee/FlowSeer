@@ -10,6 +10,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -51,7 +52,7 @@ func (c ConfigureAction) Validate() error {
 type FaultAction struct {
 	A     Endpoint
 	B     Endpoint
-	Fault Fault
+	Fault cablemodel.Fault
 }
 
 // Validate rejects empty endpoint nodes and invalid fault parameters.
@@ -59,7 +60,7 @@ func (f FaultAction) Validate() error {
 	if f.A.Node == "" || f.B.Node == "" {
 		return errs.Msg("fault endpoints must have node specified")
 	}
-	return validateFault(f.Fault)
+	return cablemodel.ValidateFault(f.Fault)
 }
 
 // McheckAction specifies a target virtual switch port to run protocol migration check.

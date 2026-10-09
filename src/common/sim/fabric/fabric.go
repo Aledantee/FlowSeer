@@ -7,7 +7,6 @@ import (
 	"maps"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -17,8 +16,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -34,7 +33,7 @@ type ConstructionSpec struct {
 	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
-	PhyAssumption *PhyAssumption
+	PhyAssumption *cablemodel.PhyAssumption
 	Evidence      analysis.EvidenceCatalog
 }
 
@@ -317,7 +316,7 @@ func normalizeConstructionSpec(cur *Fabric, spec ConstructionSpec) (Construction
 		}
 	}
 	for i, cable := range owned.Cables {
-		if err := validateFault(cable.Fault); err != nil {
+		if err := cablemodel.ValidateFault(cable.Fault); err != nil {
 			return ConstructionSpec{}, errs.Wrapf(err, "cable %d fault", i)
 		}
 		if err := validateEvidence("cables."+strconv.Itoa(i), cable.Evidence, owned.Evidence); err != nil {
@@ -800,7 +799,7 @@ func (f *Fabric) Fork() *Fabric {
 
 func cloneLink(l Link) Link {
 	cp := l
-	cp.Cable = l.Clone()
+	cp.Cable = l.Cable.Clone()
 	cp.A = l.A.clone()
 	cp.B = l.B.clone()
 	return cp
@@ -902,7 +901,7 @@ func (f *Fabric) Links() []Link {
 	cp := make([]Link, len(f.links))
 	for i, l := range f.links {
 		cp[i] = Link{
-			Cable: l.Clone(),
+			Cable: l.Cable.Clone(),
 			A:     l.A.clone(),
 			B:     l.B.clone(),
 		}
@@ -1089,7 +1088,7 @@ func observedOperStatus(state port.LinkState) bool {
 
 func (f *Fabric) derivedEnd(ep Endpoint) (LinkEnd, []trace.EvidenceRef) {
 	if ref, ok := f.byEnd[ep]; ok {
-		return *ref.end, ref.link.Evidence
+		return *ref.end, ref.link.Cable.Evidence
 	}
 
 	return unlinkedEnd(ep, f.uncabled), f.uncabled[ep].Evidence
@@ -1123,227 +1122,12 @@ type linkTrust struct {
 	assumption *analysis.Assumption
 }
 
-// resolveLink derives a cable's link in the order fault, administrative state,
-// reach, negotiation, and the observed rule, after filling unreported facts from
-// the configuration's physical assumption.
-func resolveLink(cable Cable, cfg Config) (Link, linkTrust) {
-	ethA, adminA := endpointPhyAndAdmin(cable.A, cfg)
-	ethB, adminB := endpointPhyAndAdmin(cable.B, cfg)
-
-	key := cableEndpointsFor(cable).Canonical()
-	scope := analysis.LinkScope(key)
-	var trust linkTrust
-	if assumed := cfg.PhyAssumption; assumed != nil {
-		var filled []string
-		if cable.Medium == MediumUnspecified && assumed.Medium != MediumUnspecified {
-			cable.Medium = assumed.Medium
-			filled = append(filled, "medium")
-		}
-		ethA = assumed.fill(ethA, endpointLabel(cable.A), &filled)
-		ethB = assumed.fill(ethB, endpointLabel(cable.B), &filled)
-		if len(filled) > 0 {
-			trust.assumption = &analysis.Assumption{
-				Scope:     scope,
-				Statement: "assumed physical facts: " + strings.Join(filled, ", "),
-			}
-		}
-	}
-
-	link := Link{
-		Cable: cable,
-		A:     LinkEnd{Endpoint: cable.A, Ethernet: ethA},
-		B:     LinkEnd{Endpoint: cable.B, Ethernet: ethB},
-	}
-	unknown := func(reason trace.Reason, status analysis.Status, speed phy.Link) (Link, linkTrust) {
-		link.setBoth(port.Unknown, reason, speed)
-		trust.issues = append(trust.issues, analysis.Issue{
-			Code:     analysis.IssueCode(reason),
-			Status:   status,
-			Scope:    scope,
-			Message:  fmt.Sprintf("link %q is unknown: %s", key, reason),
-			Evidence: cable.Evidence,
-		})
-
-		return link, trust
-	}
-	down := func(reason trace.Reason, speed phy.Link) (Link, linkTrust) {
-		link.setBoth(port.Down, reason, speed)
-
-		return link, trust
-	}
-
-	if cable.Fault.Kind == FaultCut {
-		return down(ReasonCut, phy.Link{})
-	}
-
-	// Two ends that both disable auto-negotiation still pass frames the dead
-	// direction does not carry; an end whose mode is unreported might be either.
-	if cable.Fault.Kind == FaultDeadAToB || cable.Fault.Kind == FaultDeadBToA {
-		switch {
-		case isAuto(ethA) || isAuto(ethB):
-			return down(ReasonDeadDirection, phy.Link{})
-		case !isForced(ethA) || !isForced(ethB):
-			return unknown(phy.ReasonCapabilityUnknown, analysis.Incomplete, phy.Link{})
-		}
-	}
-
-	if adminA == port.Down || adminB == port.Down {
-		link.setBoth(port.Down, ReasonPeerDown, phy.Link{})
-		if adminA == port.Down {
-			link.A.Reason = ReasonAdminDown
-		}
-		if adminB == port.Down {
-			link.B.Reason = ReasonAdminDown
-		}
-
-		return link, trust
-	}
-
-	if adminA == port.Unknown || adminB == port.Unknown {
-		return unknown(trace.Reason("unknown-operational-status"), analysis.Incomplete, phy.Link{})
-	}
-
-	for _, eth := range []phy.Ethernet{ethA, ethB} {
-		if isForced(eth) && eth.Setting.SpeedBPS > 0 && cable.reach(eth.Setting.SpeedBPS) == ReachExceeded {
-			return down(ReasonReachExceeded, phy.Link{})
-		}
-	}
-
-	candidates := negotiableSpeeds(ethA, ethB, cable.TopSpeedBPS)
-	remaining := slices.DeleteFunc(slices.Clone(candidates), func(speed uint64) bool {
-		return cable.reach(speed) == ReachExceeded
-	})
-	if len(candidates) > 0 && len(remaining) == 0 {
-		return down(ReasonReachExceeded, phy.Link{})
-	}
-	top := cable.TopSpeedBPS
-	if len(remaining) < len(candidates) {
-		top = slices.Max(remaining)
-	}
-
-	negotiated := phy.Negotiate(ethA, ethB, top)
-	if negotiated.State == phy.LinkResolved && negotiated.Source != phy.SourceObserved &&
-		slices.ContainsFunc(remaining, func(speed uint64) bool {
-			return speed >= negotiated.SpeedBPS && cable.reach(speed) == ReachUnknown
-		}) {
-		negotiated = observedLink(ethA, ethB, top)
-		if negotiated.State != phy.LinkResolved && negotiated.State != phy.LinkFailed {
-			return unknown(ReasonReachUnknown, analysis.Incomplete, phy.Link{State: phy.LinkUnknown, Reason: ReasonReachUnknown})
-		}
-	}
-
-	switch negotiated.State {
-	case phy.LinkResolved:
-	case phy.LinkFailed:
-		return down(negotiated.Reason, negotiated)
-	case phy.LinkUnsupported:
-		return unknown(negotiated.Reason, analysis.Unsupported, negotiated)
-	default:
-		return unknown(negotiated.Reason, analysis.Incomplete, negotiated)
-	}
-
-	link.setBoth(port.Up, "", negotiated)
-	if cable.Medium == MediumUnspecified && cable.Delay == nil && cable.LengthMeters > 0 {
-		trust.issues = append(trust.issues, analysis.Issue{
-			Code:     IssuePropagationUnknown,
-			Status:   analysis.Incomplete,
-			Scope:    scope,
-			Message:  fmt.Sprintf("link %q has an unspecified medium and no delay", key),
-			Evidence: cable.Evidence,
-		})
-	}
-	if negotiated.Source == phy.SourceObserved {
-		return link, trust
-	}
-	for _, end := range []LinkEnd{link.A, link.B} {
-		observed := end.Ethernet.Observed
-		if observed == nil || observed.SpeedBPS == 0 || observed.SpeedBPS == negotiated.SpeedBPS {
-			continue
-		}
-		trust.issues = append(trust.issues, analysis.Issue{
-			Code:   IssueObservedSpeedConflict,
-			Status: analysis.Incomplete,
-			Scope:  endpointScope(end.Endpoint),
-			Message: fmt.Sprintf("%s observed %d b/s but its link negotiated %d b/s",
-				endpointLabel(end.Endpoint), observed.SpeedBPS, negotiated.SpeedBPS),
-			Evidence: cable.Evidence,
-		})
-	}
-
-	return link, trust
-}
-
-// setBoth gives both ends a state and reason, with speed as end A sees it.
-func (l *Link) setBoth(oper port.LinkState, reason trace.Reason, speed phy.Link) {
-	l.A.Oper, l.A.Reason, l.A.Speed = oper, reason, speed
-	l.B.Oper, l.B.Reason, l.B.Speed = oper, reason, speed
-	l.B.Speed.DuplexA, l.B.Speed.DuplexB = speed.DuplexB, speed.DuplexA
-}
-
-// negotiableSpeeds returns the speeds negotiation could select at or below top
-// (0 is unlimited): the forced speeds when an end forces one, otherwise the
-// speeds both ends report.
-func negotiableSpeeds(a, b phy.Ethernet, top uint64) []uint64 {
-	var speeds []uint64
-	for _, eth := range []phy.Ethernet{a, b} {
-		if isForced(eth) && eth.Setting.SpeedBPS > 0 {
-			speeds = append(speeds, eth.Setting.SpeedBPS)
-		}
-	}
-	if len(speeds) == 0 {
-		for _, speed := range a.SupportedSpeedsBPS {
-			if slices.Contains(b.SupportedSpeedsBPS, speed) {
-				speeds = append(speeds, speed)
-			}
-		}
-	}
-
-	return slices.DeleteFunc(speeds, func(speed uint64) bool {
-		return top != 0 && speed > top
-	})
-}
-
-// observedLink applies phy's observed rule on its own. phy owns the rule and
-// reaches it only through ends whose mode is unreported, so the settings are
-// dropped here.
-func observedLink(a, b phy.Ethernet, top uint64) phy.Link {
-	a.Setting, b.Setting = nil, nil
-
-	return phy.Negotiate(a, b, top)
-}
-
-func (c Cable) reach(speedBPS uint64) ReachState {
-	state, _ := c.Medium.Reach(c.LengthMeters, speedBPS)
-
-	return state
-}
-
-func isForced(e phy.Ethernet) bool {
-	return e.Setting != nil && !e.Setting.AutoNegotiation
-}
-
-func isAuto(e phy.Ethernet) bool {
-	return e.Setting != nil && e.Setting.AutoNegotiation
-}
-
-// fill returns eth with the facts its source did not report taken from the
-// assumption, appending the name of each filled fact under label.
-func (a *PhyAssumption) fill(eth phy.Ethernet, label string, filled *[]string) phy.Ethernet {
-	eth = eth.Clone()
-	if len(eth.SupportedSpeedsBPS) == 0 && len(a.Ethernet.SupportedSpeedsBPS) > 0 {
-		eth.SupportedSpeedsBPS = slices.Clone(a.Ethernet.SupportedSpeedsBPS)
-		*filled = append(*filled, label+" supported_speeds_bps")
-	}
-	if eth.AutoNegotiationSupported == phy.CapabilityUnknown && a.Ethernet.AutoNegotiationSupported != phy.CapabilityUnknown {
-		eth.AutoNegotiationSupported = a.Ethernet.AutoNegotiationSupported
-		*filled = append(*filled, label+" auto_negotiation_supported")
-	}
-	if eth.Setting == nil && a.Ethernet.Setting != nil {
-		eth.Setting = a.Ethernet.Setting.Clone()
-		*filled = append(*filled, label+" setting")
-	}
-
-	return eth
+func resolveLink(c Cable, cfg Config) (Link, linkTrust) {
+	a := endpointPhyAndAdmin(c.A, cfg)
+	b := endpointPhyAndAdmin(c.B, cfg)
+	resolved := c.Resolve(a, b, cfg.PhyAssumption, cableEndpointsFor(c).Canonical(), c.Evidence)
+	c.Cable = resolved.Cable
+	return Link{Cable: c, A: LinkEnd{Endpoint: c.A, EndState: resolved.A}, B: LinkEnd{Endpoint: c.B, EndState: resolved.B}}, linkTrust{issues: resolved.Issues, assumption: resolved.Assumption}
 }
 
 func endpointLabel(ep Endpoint) string {
@@ -1369,25 +1153,23 @@ func endpointScope(ep Endpoint) analysis.Scope {
 	return analysis.PortScope(ep.Node, ep.Port)
 }
 
-func endpointPhyAndAdmin(ep Endpoint, cfg Config) (phy.Ethernet, port.LinkState) {
-	if host, isHost := cfg.Hosts[ep.Node]; isHost {
-		return host.Ethernet, port.Up
+func endpointPhyAndAdmin(ep Endpoint, cfg Config) cablemodel.End {
+	end := cablemodel.End{Admin: port.Up, Label: endpointLabel(ep), Scope: endpointScope(ep)}
+	if host, ok := cfg.Hosts[ep.Node]; ok {
+		end.Ethernet = host.Ethernet
+		return end
 	}
-	if refl, isReflector := cfg.Reflectors[ep.Node]; isReflector {
-		return refl.Ports[ep.Port], port.Up
+	if refl, ok := cfg.Reflectors[ep.Node]; ok {
+		end.Ethernet = refl.Ports[ep.Port]
+		return end
 	}
 	swCfg := cfg.Switches[ep.Node]
 	p, _ := swCfg.Ports.Port(ep.Port)
-	admin := p.AdminStatus
-
-	var eth phy.Ethernet
-	if swCfg.Phy != nil && swCfg.Phy.Ethernet != nil {
-		if e, ok := swCfg.Phy.Ethernet[ep.Port]; ok {
-			eth = e
-		}
+	end.Admin = p.AdminStatus
+	if swCfg.Phy != nil {
+		end.Ethernet = swCfg.Phy.Ethernet[ep.Port]
 	}
-
-	return eth, admin
+	return end
 }
 
 // mcheck forces protocol migration checking on a switch port at the current
@@ -1412,9 +1194,9 @@ func (f *Fabric) mcheck(node, portName string) error {
 // SetFault modifies the declared fault on the cable connecting endpoints a and b at the
 // current fabric clock, re-evaluating operational link states and notifying attached switches.
 // It returns an error if no cable connects the specified endpoints or if the fault configuration is invalid.
-func (f *Fabric) SetFault(a, b Endpoint, fault Fault) error {
+func (f *Fabric) SetFault(a, b Endpoint, fault cablemodel.Fault) error {
 	defer f.settleTouched()
-	if err := validateFault(fault); err != nil {
+	if err := cablemodel.ValidateFault(fault); err != nil {
 		return err
 	}
 	normalized := normalizedFault(fault)

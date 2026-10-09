@@ -1,4 +1,4 @@
-package fabric
+package cable
 
 import (
 	"math"

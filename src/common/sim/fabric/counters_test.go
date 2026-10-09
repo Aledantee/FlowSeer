@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
+
 	"buf.build/go/protovalidate"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -18,7 +20,7 @@ import (
 )
 
 func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload := []byte("ping-unicast")
@@ -200,15 +202,14 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 100,
+				Cable: cablemodel.Cable{LengthMeters: 100},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				LengthMeters: 200,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 200, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 			},
 		},
 	}
@@ -329,10 +330,9 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 100,
-				Fault:        fabric.Fault{Kind: fabric.FaultDeadAToB},
+				Cable: cablemodel.Cable{LengthMeters: 100, Fault: cablemodel.Fault{Kind: cablemodel.FaultDeadAToB}},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -393,7 +393,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 
 	foundLoss := false
 	for _, entry := range j1.Entries {
-		if entry.Kind == fabric.EntryLoss && entry.Reason == fabric.ReasonCableLoss {
+		if entry.Kind == fabric.EntryLoss && entry.Reason == cablemodel.ReasonCableLoss {
 			foundLoss = true
 			break
 		}
@@ -514,7 +514,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		t.Errorf("InBytes = %d, want %d", got, want)
 	}
 
-	// 3. Corrupt arrival across a cable with FaultCorruptEveryNth: 1.
+	// 3. Corrupt arrival across a cable with cablemodel.FaultCorruptEveryNth: 1.
 	// Connect two switches so the cable crossing applies the fault.
 	cfgCorrupt := fabric.Config{
 		Switches: map[string]vswitch.Config{
@@ -526,7 +526,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, LengthMeters: 100, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
+			{Cable: cablemodel.Cable{LengthMeters: 100, Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 		},
 	}
 	fabCorrupt, err := fabric.New(statedPhysical(cfgCorrupt))
@@ -547,7 +547,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if got, want := cSw2Port2.InDiscards, uint64(0); got != want {
 		t.Errorf("sw2:1/1/2 InDiscards = %d, want %d: a corrupt arrival is an error, not a discard", got, want)
 	}
-	if got, want := cSw2Port2.Discards[fabric.ReasonBadFrame], uint64(1); got != want {
+	if got, want := cSw2Port2.Discards[cablemodel.ReasonBadFrame], uint64(1); got != want {
 		t.Errorf("sw2:1/1/2 Discards[ReasonBadFrame] = %d, want %d", got, want)
 	}
 	if cSw2Port2.InBroadcast != 0 || cSw2Port2.InMulticast != 0 || cSw2Port2.InUnicast != 0 {

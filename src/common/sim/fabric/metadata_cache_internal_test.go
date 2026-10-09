@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 // TestFabricMetadataCachesUntilSetFault pins the two halves of the cache:
@@ -23,7 +24,7 @@ func TestFabricMetadataCachesUntilSetFault(t *testing.T) {
 
 	a := Endpoint{Node: "h1"}
 	b := Endpoint{Node: "sw1", Port: "1/1/1"}
-	if err := fab.SetFault(a, b, Fault{Kind: FaultCut}); err != nil {
+	if err := fab.SetFault(a, b, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 

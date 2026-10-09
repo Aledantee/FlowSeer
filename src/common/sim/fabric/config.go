@@ -18,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -26,15 +27,6 @@ import (
 const Layer trace.Layer = "fabric"
 
 const (
-	// ReasonCut records that a link cannot operate because its physical cable is severed.
-	ReasonCut trace.Reason = "cut"
-
-	// ReasonPeerDown records that a link cannot operate because the peer switch port is administratively disabled.
-	ReasonPeerDown trace.Reason = "peer-down"
-
-	// ReasonAdminDown records that a link cannot operate because this end's own port is administratively
-	// disabled; the other end reads peer-down, so a reader is pointed at the disabled device.
-	ReasonAdminDown trace.Reason = "admin-down"
 
 	// ReasonNoCable records that a port is Down because [Config.Uncabled] states no cable reaches it;
 	// unlinked ports carry it, since a port without a cable has no Link.
@@ -43,22 +35,6 @@ const (
 	// ReasonAdjacencyUnresolved records that a switch port is Unknown because no cable names it and
 	// [Config.Uncabled] does not list it, so nothing says what, if anything, is attached.
 	ReasonAdjacencyUnresolved trace.Reason = "adjacency-unresolved"
-
-	// ReasonReachUnknown records that a link is Unknown because the medium's reach is unknown at the speed
-	// negotiation would select or at a higher candidate speed.
-	ReasonReachUnknown trace.Reason = "reach-unknown"
-
-	// ReasonDeadDirection records that two-ended auto-negotiation cannot succeed because the cable is impaired in one direction.
-	ReasonDeadDirection trace.Reason = "dead-direction"
-
-	// ReasonCableLoss records that a transmitted frame was lost during cable propagation due to a configured fault.
-	ReasonCableLoss trace.Reason = "cable-loss"
-
-	// ReasonBadFrame records that an arriving frame was dropped because it was corrupted during transmission.
-	ReasonBadFrame trace.Reason = "bad-frame"
-
-	// ReasonReachExceeded records that a link cannot operate because the cable length exceeds the medium reach for every candidate speed.
-	ReasonReachExceeded trace.Reason = "reach-exceeded"
 
 	// ReasonHostVLANNotAccepted records a host refusing a frame whose tag form its VLAN does not accept.
 	ReasonHostVLANNotAccepted trace.Reason = "host-vlan-not-accepted"
@@ -89,64 +65,11 @@ const (
 	// differs from the status its cable derives. The derived status is the one that executes.
 	IssueOperStatusConflict analysis.IssueCode = "oper-status-conflict"
 
-	// IssueObservedSpeedConflict marks a link end whose observed speed differs from the speed its link
-	// resolved to by negotiation.
-	IssueObservedSpeedConflict analysis.IssueCode = "observed-speed-conflict"
-
-	// IssuePropagationUnknown marks an operational link whose medium is unspecified and which has no
-	// Delay, so the propagation time of every frame crossing it is unknown and taken as zero.
-	IssuePropagationUnknown analysis.IssueCode = "propagation-unknown"
-
 	// IssueQueueBufferUnstated marks an endpoint whose egress queue has backed
 	// up past one maximum-size frame without a stated buffer, so its loss
 	// figure is unknown.
 	IssueQueueBufferUnstated analysis.IssueCode = "queue-buffer-unstated"
 )
-
-// FaultKind identifies the nature of a cable impairment, distinguishing physical defects
-// from frame-level transmission losses and corruptions.
-type FaultKind string
-
-const (
-	// FaultNone indicates an unimpaired, fully operational cable.
-	FaultNone FaultKind = "None"
-
-	// FaultCut models complete physical severance, disabling transmission in both directions.
-	FaultCut FaultKind = "Cut"
-
-	// FaultDeadAToB models unidirectional failure blocking transmission from endpoint A to endpoint B.
-	FaultDeadAToB FaultKind = "DeadAToB"
-
-	// FaultDeadBToA models unidirectional failure blocking transmission from endpoint B to endpoint A.
-	FaultDeadBToA FaultKind = "DeadBToA"
-
-	// FaultLoseEveryNth models periodic packet loss dropping every Nth transmitted frame.
-	FaultLoseEveryNth FaultKind = "LoseEveryNth"
-
-	// FaultLoseSequence models deterministic packet loss at designated 1-based frame positions.
-	FaultLoseSequence FaultKind = "LoseSequence"
-
-	// FaultCorruptEveryNth models periodic frame corruption marking every Nth transmitted frame damaged.
-	FaultCorruptEveryNth FaultKind = "CorruptEveryNth"
-)
-
-// Fault specifies physical defects or frame-level loss and corruption policies applied to a cable.
-type Fault struct {
-	Kind     FaultKind
-	N        uint
-	Sequence []uint
-}
-
-// Clone returns an independent deep copy of the fault configuration.
-func (f Fault) Clone() Fault {
-	cp := f
-	if len(f.Sequence) > 0 {
-		cp.Sequence = make([]uint, len(f.Sequence))
-		copy(cp.Sequence, f.Sequence)
-	}
-
-	return cp
-}
 
 // Endpoint names a specific attachment point in the fabric, referencing a virtual switch port
 // or a single-port host when Port is empty.
@@ -439,44 +362,23 @@ func (a Attachment) Equal(other Attachment) bool {
 // [ConstructionSpec.Evidence] that support the cable; issues resting on the cable cite them. Evidence is not
 // behavior, so [Diff] does not report it.
 type Cable struct {
-	A            Endpoint
-	B            Endpoint
-	LengthMeters float64
-	TopSpeedBPS  uint64
-	Fault        Fault
-	Medium       Medium
-	Delay        *time.Duration
-	Evidence     []trace.EvidenceRef
+	A Endpoint
+	B Endpoint
+	cablemodel.Cable
+	Evidence []trace.EvidenceRef
 }
 
-// Clone returns an independent deep copy of the cable configuration.
+// Clone copies physical facts and evidence references independently.
 func (c Cable) Clone() Cable {
 	cp := c
-	cp.Fault = c.Fault.Clone()
+	cp.Cable = c.Cable.Clone()
 	cp.Evidence = slices.Clone(c.Evidence)
-	if c.Delay != nil {
-		d := *c.Delay
-		cp.Delay = &d
-	}
-
 	return cp
 }
 
-// Equal reports whether two cable configurations are semantically equal.
+// Equal compares endpoints, physical facts, and ordered evidence references.
 func (c Cable) Equal(other Cable) bool {
-	if c.A != other.A || c.B != other.B || !sameLengthMeters(c.LengthMeters, other.LengthMeters) || c.TopSpeedBPS != other.TopSpeedBPS || c.Medium != other.Medium {
-		return false
-	}
-	if (c.Delay == nil) != (other.Delay == nil) {
-		return false
-	}
-	if c.Delay != nil && *c.Delay != *other.Delay {
-		return false
-	}
-	if c.Fault.Kind != other.Fault.Kind || c.Fault.N != other.Fault.N || !slices.Equal(c.Fault.Sequence, other.Fault.Sequence) {
-		return false
-	}
-	return slices.Equal(c.Evidence, other.Evidence)
+	return c.A == other.A && c.B == other.B && c.Cable.Equal(other.Cable) && slices.Equal(c.Evidence, other.Evidence)
 }
 
 func sameLengthMeters(a, b float64) bool {
@@ -501,39 +403,9 @@ func (u Uncabled) Equal(other Uncabled) bool {
 	return u.Endpoint == other.Endpoint && slices.Equal(u.Evidence, other.Evidence)
 }
 
-// PhyAssumption is the physical profile a fabric assumes for facts no source reported. On each link it
-// fills an end's empty SupportedSpeedsBPS, unknown AutoNegotiationSupported, and nil Setting from Ethernet,
-// and an unspecified cable Medium from Medium; a stated fact is never replaced, and an unspecified Medium or
-// an unreported Ethernet field fills nothing. Ethernet follows a switch port's validation rules and must not
-// carry Observed, since an observation cannot be assumed. The filled values show in [Fabric.Links], and
-// [Fabric.Metadata] carries one assumption per link it filled, naming the facts. PhyAssumption values
-// are safe for concurrent reads but not for concurrent mutation.
-type PhyAssumption struct {
-	Medium   Medium
-	Ethernet phy.Ethernet
-}
-
-// Clone returns an independent deep copy of the assumption, or nil for nil.
-func (a *PhyAssumption) Clone() *PhyAssumption {
-	if a == nil {
-		return nil
-	}
-
-	return &PhyAssumption{Medium: a.Medium, Ethernet: a.Ethernet.Clone()}
-}
-
-// Equal reports whether two assumptions are both nil or hold the same medium and Ethernet facts.
-func (a *PhyAssumption) Equal(other *PhyAssumption) bool {
-	if a == nil || other == nil {
-		return a == other
-	}
-
-	return a.Medium == other.Medium && a.Ethernet.Canonical() == other.Ethernet.Canonical()
-}
-
 // Config declares the full static topology of a simulated network fabric.
 //
-// Every non-LAG switch port is cabled, listed in Uncabled, or unresolved. A nil PhyAssumption leaves every
+// Every non-LAG switch port is cabled, listed in Uncabled, or unresolved. A nil cablemodel.PhyAssumption leaves every
 // unreported physical fact unknown.
 type Config struct {
 	Start         time.Time
@@ -542,7 +414,7 @@ type Config struct {
 	Reflectors    map[string]Reflector
 	Cables        []Cable
 	Uncabled      []Uncabled
-	PhyAssumption *PhyAssumption
+	PhyAssumption *cablemodel.PhyAssumption
 }
 
 // Clone returns an independent deep copy of the fabric configuration.
@@ -708,7 +580,7 @@ func (c Config) Normalize() Config {
 			slices.SortFunc(h.IP.Addresses, comparePrefix)
 			h.IP.Addresses = slices.Compact(h.IP.Addresses)
 		}
-		h.Ethernet = normalizedEthernet(h.Ethernet)
+		h.Ethernet = cablemodel.NormalizeEthernet(h.Ethernet)
 		if len(h.Accept.Multicast) > 0 {
 			slices.SortFunc(h.Accept.Multicast, compareMAC)
 			h.Accept.Multicast = slices.Compact(h.Accept.Multicast)
@@ -729,7 +601,7 @@ func (c Config) Normalize() Config {
 		if r.Ports != nil {
 			normalizedPorts := make(map[string]phy.Ethernet, len(r.Ports))
 			for portName, e := range r.Ports {
-				normalizedPorts[portName] = normalizedEthernet(e)
+				normalizedPorts[portName] = cablemodel.NormalizeEthernet(e)
 			}
 			r.Ports = normalizedPorts
 		}
@@ -766,7 +638,7 @@ func (c Config) Normalize() Config {
 	})
 
 	if cloned.PhyAssumption != nil {
-		cloned.PhyAssumption.Ethernet = normalizedEthernet(cloned.PhyAssumption.Ethernet)
+		cloned.PhyAssumption.Ethernet = cablemodel.NormalizeEthernet(cloned.PhyAssumption.Ethernet)
 	}
 
 	slices.SortFunc(cloned.Cables, func(i, j Cable) int {
@@ -786,11 +658,6 @@ func (c Config) Normalize() Config {
 	return cloned
 }
 
-// normalizedEthernet applies the normalization phy applies to a switch port's facts.
-func normalizedEthernet(e phy.Ethernet) phy.Ethernet {
-	return phy.Config{Ethernet: map[string]phy.Ethernet{"": e}}.Normalize(layer.Env{}).Ethernet[""]
-}
-
 func canonicalEvidence(refs []trace.EvidenceRef) []trace.EvidenceRef {
 	if len(refs) == 0 {
 		return nil
@@ -808,10 +675,10 @@ func canonicalCableOrientation(c Cable) Cable {
 
 	c.A, c.B = c.B, c.A
 	switch c.Fault.Kind {
-	case FaultDeadAToB:
-		c.Fault.Kind = FaultDeadBToA
-	case FaultDeadBToA:
-		c.Fault.Kind = FaultDeadAToB
+	case cablemodel.FaultDeadAToB:
+		c.Fault.Kind = cablemodel.FaultDeadBToA
+	case cablemodel.FaultDeadBToA:
+		c.Fault.Kind = cablemodel.FaultDeadAToB
 	}
 
 	return c
@@ -943,7 +810,7 @@ func (c Config) Validate() error {
 				Attr("vlan", *h.VLAN).
 				Msgf("host %q has invalid VLAN ID %d", name, *h.VLAN)
 		}
-		if err := validateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
+		if err := cablemodel.ValidateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
 			return errs.Wrapf(err, "host %q", name)
 		}
 		if err := h.Accept.validate("hosts." + name + ".accept"); err != nil {
@@ -980,7 +847,7 @@ func (c Config) Validate() error {
 		slices.Sort(portNames)
 		for _, portName := range portNames {
 			field := "reflectors." + name + ".ports." + portName
-			if err := validateEthernet(field, refl.Ports[portName]); err != nil {
+			if err := cablemodel.ValidateEthernet(field, refl.Ports[portName]); err != nil {
 				return errs.Wrapf(err, "reflector %q port %q", name, portName)
 			}
 		}
@@ -1007,11 +874,11 @@ func (c Config) Validate() error {
 				Msg("cable delay cannot be negative")
 		}
 
-		if err := validateMedium("cables."+strconv.Itoa(i)+".medium", cable.Medium); err != nil {
+		if err := cablemodel.ValidateMedium("cables."+strconv.Itoa(i)+".medium", cable.Medium); err != nil {
 			return errs.Wrapf(err, "cable %d", i)
 		}
 
-		if err := validateFault(cable.Fault); err != nil {
+		if err := cablemodel.ValidateFault(cable.Fault); err != nil {
 			return errs.Wrapf(err, "cable %d fault", i)
 		}
 
@@ -1056,7 +923,7 @@ func (c Config) Validate() error {
 		return err
 	}
 
-	return c.PhyAssumption.validate()
+	return c.PhyAssumption.Validate()
 }
 
 func (c Config) validateUncabled(portCables map[Endpoint]int) error {
@@ -1160,50 +1027,6 @@ func (r Reflector) validateAttachments(field string) error {
 	return nil
 }
 
-func (a *PhyAssumption) validate() error {
-	if a == nil {
-		return nil
-	}
-	if err := validateMedium("phy_assumption.medium", a.Medium); err != nil {
-		return err
-	}
-	if a.Ethernet.Observed != nil {
-		return errs.New().
-			Attr("field", "phy_assumption.ethernet.observed").
-			Msg("a physical assumption cannot carry an observation")
-	}
-
-	return validateEthernet("phy_assumption.ethernet", a.Ethernet)
-}
-
-func validateMedium(field string, m Medium) error {
-	switch m {
-	case MediumUnspecified, TwistedPair, MultimodeFiber, SinglemodeFiber, Twinax:
-		return nil
-	default:
-		return errs.New().Attr("field", field).Attr("medium", m).Msg("unknown cable medium")
-	}
-}
-
-// validateEthernet checks facts that belong to no switch under the rules phy
-// applies to a switch port's, reporting phy's field path beneath field.
-func validateEthernet(field string, e phy.Ethernet) error {
-	const name = "end"
-	// A table of one physical port always builds.
-	tbl, _ := port.NewBuilder().
-		Add(port.Port{Name: name, Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Build()
-	err := phy.Config{Ethernet: map[string]phy.Ethernet{name: e}}.Validate(layer.Env{Ports: tbl})
-	if err == nil {
-		return nil
-	}
-	inner, _ := errs.Attributes(err)["field"].(string)
-
-	return errs.From(err).
-		Attr("field", field+strings.TrimPrefix(inner, "ethernet."+name)).
-		Msg("invalid ethernet facts")
-}
-
 func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCables map[Endpoint]int) error {
 	if ep.Node == "" {
 		return errs.New().Msg("endpoint node name cannot be empty")
@@ -1278,41 +1101,4 @@ func (c Config) validateEndpoint(ep Endpoint, hostCables map[string]int, portCab
 	}
 
 	return nil
-}
-
-func validateFault(f Fault) error {
-	switch f.Kind {
-	case "", FaultNone, FaultCut, FaultDeadAToB, FaultDeadBToA:
-		if f.N != 0 || len(f.Sequence) != 0 {
-			return errs.New().
-				Attr("kind", f.Kind).
-				Msg("fault parameters are set for a kind that does not use them")
-		}
-		return nil
-	case FaultLoseEveryNth, FaultCorruptEveryNth:
-		if f.N == 0 {
-			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N must be greater than zero")
-		}
-		if len(f.Sequence) != 0 {
-			return errs.New().Attr("kind", f.Kind).Msg("fault sequence is set for an every-Nth kind")
-		}
-
-		return nil
-	case FaultLoseSequence:
-		if f.N != 0 {
-			return errs.New().Attr("kind", f.Kind).Msg("fault parameter N is set for a sequence kind")
-		}
-		if len(f.Sequence) == 0 {
-			return errs.New().Attr("kind", f.Kind).Msg("fault sequence cannot be empty")
-		}
-		for _, position := range f.Sequence {
-			if position == 0 {
-				return errs.New().Attr("kind", f.Kind).Msg("fault sequence positions must be greater than zero")
-			}
-		}
-
-		return nil
-	default:
-		return errs.New().Attr("kind", f.Kind).Msgf("unsupported fault kind %q", f.Kind)
-	}
 }

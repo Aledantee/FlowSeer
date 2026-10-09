@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -49,9 +50,9 @@ func makeReplayFabric(t *testing.T, pTable port.Table, brCfg *bridge.Config, tra
 			Address: mac,
 		}
 		cables = append(cables, fabric.Cable{
-			A:            fabric.Endpoint{Node: hostName},
-			B:            fabric.Endpoint{Node: "sw1", Port: p.Name},
-			LengthMeters: 1.0,
+			Cable: cablemodel.Cable{LengthMeters: 1.0},
+			A:     fabric.Endpoint{Node: hostName},
+			B:     fabric.Endpoint{Node: "sw1", Port: p.Name},
 		})
 	}
 
@@ -289,7 +290,7 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject on host with down link: %v", err)
 	}
-	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != fabric.ReasonPeerDown {
+	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != cablemodel.ReasonPeerDown {
 		t.Errorf("host journey entries = %+v, want injection then a peer-down drop", entries)
 	}
 

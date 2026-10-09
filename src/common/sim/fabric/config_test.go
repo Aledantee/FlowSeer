@@ -18,6 +18,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -53,9 +54,9 @@ func constructionSpec(cfg fabric.Config) fabric.ConstructionSpec {
 // gigabitCopper is the profile a fixture assumes when its test is not about
 // negotiation: auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair, so two
 // ends with no facts of their own resolve 1 Gb/s full duplex.
-func gigabitCopper() *fabric.PhyAssumption {
-	return &fabric.PhyAssumption{
-		Medium: fabric.TwistedPair,
+func gigabitCopper() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -131,19 +132,19 @@ func twoSwitchBaseConfig(t *testing.T) fabric.Config {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 20,
+				Cable: cablemodel.Cable{LengthMeters: 20},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 5,
+				Cable: cablemodel.Cable{LengthMeters: 5},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}
@@ -291,56 +292,56 @@ func TestConfigValidateRules(t *testing.T) {
 		{
 			name: "cable fault LoseEveryNth with N zero",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 0}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 0}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault CorruptEveryNth with N zero",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 0}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 0}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault LoseSequence with empty sequence",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: nil}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: nil}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive N on cut fault",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCut, N: 2}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut, N: 2}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive sequence on every Nth fault",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2, Sequence: []uint{1}}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2, Sequence: []uint{1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "inactive N on sequence fault",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, N: 2, Sequence: []uint{1}}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, N: 2, Sequence: []uint{1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "sequence fault with zero position",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{0, 1}}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{0, 1}}
 			},
 			wantError: true,
 		},
 		{
 			name: "cable fault with unknown kind",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: "InvalidKind"}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: "InvalidKind"}
 			},
 			wantError: true,
 		},
@@ -447,9 +448,9 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 		{
 			name: "valid with cable faults",
 			mutate: func(c *fabric.Config) {
-				c.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCut}
-				c.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 3}
-				c.Cables[2].Fault = fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{1, 5, 10}}
+				c.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+				c.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 3}
+				c.Cables[2].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseSequence, Sequence: []uint{1, 5, 10}}
 			},
 			wantError: false,
 		},
@@ -458,7 +459,7 @@ func TestTwoSwitchConfigValidation(t *testing.T) {
 			mutate: func(c *fabric.Config) {
 				c.Cables[1].TopSpeedBPS = 100_000_000
 				c.Cables[1].LengthMeters = 300.5
-				c.Cables[1].Medium = fabric.MultimodeFiber
+				c.Cables[1].Medium = cablemodel.MultimodeFiber
 			},
 			wantError: false,
 		},
@@ -676,9 +677,9 @@ func reflectorBaseConfig(t *testing.T) fabric.Config {
 		},
 	}
 	cfg.Cables = append(cfg.Cables, fabric.Cable{
-		A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-		B:            fabric.Endpoint{Node: "r1", Port: "p1"},
-		LengthMeters: 5,
+		Cable: cablemodel.Cable{LengthMeters: 5},
+		A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+		B:     fabric.Endpoint{Node: "r1", Port: "p1"},
 	})
 
 	return cfg
@@ -939,8 +940,8 @@ func TestConfigClone(t *testing.T) {
 		},
 	}
 	cfg.Hosts["h1"] = h1
-	cfg.Cables[0].Fault = fabric.Fault{
-		Kind:     fabric.FaultLoseSequence,
+	cfg.Cables[0].Fault = cablemodel.Fault{
+		Kind:     cablemodel.FaultLoseSequence,
 		Sequence: []uint{1, 2, 3},
 	}
 	d := 10 * time.Microsecond
@@ -979,15 +980,15 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	cfgA := twoSwitchBaseConfig(t)
 	cfgB := cfgA.Clone()
 
-	cfgA.Cables[0].Fault = fabric.Fault{}
-	cfgB.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultNone}
+	cfgA.Cables[0].Fault = cablemodel.Fault{}
+	cfgB.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultNone}
 
-	cfgA.Cables[1].Fault = fabric.Fault{
-		Kind:     fabric.FaultLoseSequence,
+	cfgA.Cables[1].Fault = cablemodel.Fault{
+		Kind:     cablemodel.FaultLoseSequence,
 		Sequence: []uint{5, 1, 3},
 	}
-	cfgB.Cables[1].Fault = fabric.Fault{
-		Kind:     fabric.FaultLoseSequence,
+	cfgB.Cables[1].Fault = cablemodel.Fault{
+		Kind:     cablemodel.FaultLoseSequence,
 		Sequence: []uint{1, 3, 5},
 	}
 
@@ -1003,12 +1004,12 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 	cfgB.Hosts["h1"] = hostB
 
 	norm := cfgA.Normalize()
-	if got := norm.Cables[0].Fault.Kind; got != fabric.FaultNone {
-		t.Errorf("normalized fault kind = %q, want %q", got, fabric.FaultNone)
+	if got := norm.Cables[0].Fault.Kind; got != cablemodel.FaultNone {
+		t.Errorf("normalized fault kind = %q, want %q", got, cablemodel.FaultNone)
 	}
 	var normalizedSequence []uint
 	for _, cable := range norm.Cables {
-		if cable.Fault.Kind == fabric.FaultLoseSequence {
+		if cable.Fault.Kind == cablemodel.FaultLoseSequence {
 			normalizedSequence = cable.Fault.Sequence
 		}
 	}
@@ -1029,11 +1030,11 @@ func TestConfigNormalizeDefinesBehavioralEquivalence(t *testing.T) {
 
 func TestConfigNormalizeKeepsAnUnspecifiedMedium(t *testing.T) {
 	unspecified := twoSwitchBaseConfig(t)
-	unspecified.Cables[0].Medium = fabric.MediumUnspecified
+	unspecified.Cables[0].Medium = cablemodel.MediumUnspecified
 	twistedPair := unspecified.Clone()
-	twistedPair.Cables[0].Medium = fabric.TwistedPair
+	twistedPair.Cables[0].Medium = cablemodel.TwistedPair
 
-	if got := unspecified.Normalize().Cables[0].Medium; got != fabric.MediumUnspecified {
+	if got := unspecified.Normalize().Cables[0].Medium; got != cablemodel.MediumUnspecified {
 		t.Errorf("normalized medium = %q, want unspecified", got)
 	}
 	if unspecified.Equal(twistedPair) {
@@ -1044,13 +1045,13 @@ func TestConfigNormalizeKeepsAnUnspecifiedMedium(t *testing.T) {
 func TestConfigNormalizeClearsInactiveFaultParametersAndNegativeZero(t *testing.T) {
 	cfg := twoSwitchBaseConfig(t)
 	cfg.Cables[0].LengthMeters = math.Copysign(0, -1)
-	cfg.Cables[0].Fault = fabric.Fault{
-		Kind:     fabric.FaultCut,
+	cfg.Cables[0].Fault = cablemodel.Fault{
+		Kind:     cablemodel.FaultCut,
 		N:        7,
 		Sequence: []uint{3, 1},
 	}
-	cfg.Cables[1].Fault = fabric.Fault{
-		Kind:     fabric.FaultLoseEveryNth,
+	cfg.Cables[1].Fault = cablemodel.Fault{
+		Kind:     cablemodel.FaultLoseEveryNth,
 		N:        3,
 		Sequence: []uint{4, 2},
 	}
@@ -1061,11 +1062,11 @@ func TestConfigNormalizeClearsInactiveFaultParametersAndNegativeZero(t *testing.
 			t.Error("normalized cable retained negative zero length")
 		}
 		switch cable.Fault.Kind {
-		case fabric.FaultCut:
+		case cablemodel.FaultCut:
 			if cable.Fault.N != 0 || cable.Fault.Sequence != nil {
 				t.Errorf("normalized Cut fault retained inactive parameters: %+v", cable.Fault)
 			}
-		case fabric.FaultLoseEveryNth:
+		case cablemodel.FaultLoseEveryNth:
 			if cable.Fault.N != 3 || cable.Fault.Sequence != nil {
 				t.Errorf("normalized LoseEveryNth fault = %+v, want N only", cable.Fault)
 			}
@@ -1088,7 +1089,7 @@ func TestCableLengthEqualityAndDiffAreReflexive(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cable := fabric.Cable{LengthMeters: tt.length}
+			cable := fabric.Cable{Cable: cablemodel.Cable{LengthMeters: tt.length}}
 			if !cable.Equal(cable.Clone()) {
 				t.Error("Cable.Equal is not reflexive")
 			}
@@ -1103,8 +1104,8 @@ func TestCableLengthEqualityAndDiffAreReflexive(t *testing.T) {
 		})
 	}
 
-	negativeZero := fabric.Cable{LengthMeters: math.Copysign(0, -1)}
-	positiveZero := fabric.Cable{LengthMeters: 0}
+	negativeZero := fabric.Cable{Cable: cablemodel.Cable{LengthMeters: math.Copysign(0, -1)}}
+	positiveZero := fabric.Cable{Cable: cablemodel.Cable{LengthMeters: 0}}
 	if !negativeZero.Equal(positiveZero) {
 		t.Error("negative and positive zero lengths are not semantically equal")
 	}
@@ -1114,20 +1115,20 @@ func TestConfigNormalizeCanonicalizesCableOrientation(t *testing.T) {
 	cfg := twoSwitchBaseConfig(t)
 	cable := cfg.Cables[1]
 	cable.A, cable.B = cable.B, cable.A
-	cable.Fault.Kind = fabric.FaultDeadBToA
+	cable.Fault.Kind = cablemodel.FaultDeadBToA
 	cfg.Cables = []fabric.Cable{cable}
 
 	norm := cfg.Normalize()
 	if got := norm.Cables[0]; got.A != cable.B || got.B != cable.A {
 		t.Fatalf("normalized endpoints = %v -> %v, want %v -> %v", got.A, got.B, cable.B, cable.A)
 	}
-	if got := norm.Cables[0].Fault.Kind; got != fabric.FaultDeadAToB {
-		t.Errorf("normalized directional fault = %s, want %s", got, fabric.FaultDeadAToB)
+	if got := norm.Cables[0].Fault.Kind; got != cablemodel.FaultDeadAToB {
+		t.Errorf("normalized directional fault = %s, want %s", got, cablemodel.FaultDeadAToB)
 	}
 
 	equivalent := cfg.Clone()
 	equivalent.Cables[0].A, equivalent.Cables[0].B = equivalent.Cables[0].B, equivalent.Cables[0].A
-	equivalent.Cables[0].Fault.Kind = fabric.FaultDeadAToB
+	equivalent.Cables[0].Fault.Kind = cablemodel.FaultDeadAToB
 	if !cfg.Equal(equivalent) {
 		t.Error("reversing endpoints and the directional fault changed config equality")
 	}

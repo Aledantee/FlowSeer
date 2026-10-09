@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -55,9 +56,9 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 			"h3": {Address: netaddr.MAC{0x02, 0, 0, 0, 1, 0x03}},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, LengthMeters: 2},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 	})
 	if seedH2 {
@@ -109,7 +110,7 @@ func TestJourneyMetadataHoldsTheIssuesOfWhatItCrossed(t *testing.T) {
 	if got := meta.Scope(); got.Compare(analysis.WholeScope()) != 0 {
 		t.Errorf("journey metadata scope = %s, want the whole analysis", got)
 	}
-	if !hasIssue(meta.IssuesFor(analysis.LinkScope(h2LinkKey)), fabric.IssuePropagationUnknown) {
+	if !hasIssue(meta.IssuesFor(analysis.LinkScope(h2LinkKey)), cablemodel.IssuePropagationUnknown) {
 		t.Errorf("journey issues = %+v, want propagation-unknown on the crossed h2 link", meta.Issues())
 	}
 	if got := meta.IssuesFor(analysis.LinkScope(h3LinkKey)); len(got) != 0 {
@@ -126,7 +127,7 @@ func TestJourneyMetadataHoldsTheIssuesOfWhatItCrossed(t *testing.T) {
 	}
 
 	before := meta.Issues()
-	if err := fab.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 	if got := fab.Metadata().IssuesFor(analysis.LinkScope(h2LinkKey)); len(got) != 0 {
@@ -187,8 +188,8 @@ func reflectMetadataConfig(t *testing.T) fabric.Config {
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}, LengthMeters: 2},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "rp1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "r1", Port: "rp2"}},
 		},
 	}
 }

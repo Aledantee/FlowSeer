@@ -19,11 +19,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
+func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
 	b1 := port.NewBuilder()
@@ -86,11 +87,9 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
-				Fault:        cableFault,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber, Fault: cableFault},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -124,7 +123,7 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 		Hosts:    map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
+			{Cable: cablemodel.Cable{Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}))
 	if err != nil {
@@ -139,7 +138,7 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 		t.Errorf("Deliveries = %+v, want none from a corrupting cable", j.Deliveries)
 	}
 	last := j.Entries[len(j.Entries)-1]
-	if last.Kind != fabric.EntryDrop || last.Reason != fabric.ReasonBadFrame || last.Device != "h2" {
+	if last.Kind != fabric.EntryDrop || last.Reason != cablemodel.ReasonBadFrame || last.Device != "h2" {
 		t.Errorf("last entry = %+v, want a bad-frame drop at h2", last)
 	}
 }
@@ -197,8 +196,8 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 		Hosts: map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}, LengthMeters: 10},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 10},
+			{Cable: cablemodel.Cable{LengthMeters: 10}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 10}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}))
 	if err != nil {
@@ -218,7 +217,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 // A frame the codec cannot encode is refused at injection, where the caller
 // can act on it, rather than counted as zero octets in a run.
 func TestInjectRefusesAFrameTheCodecRejects(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	bad := ethernet.Frame{Dst: macH2, Src: macH1, Tags: []vlan.Tag{{TPID: 0x9100, VID: 10}}}
 	if _, err := fab.Inject(fabric.Injection{Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: bad}); err == nil {
 		t.Error("Inject(frame with TPID 0x9100) error = nil, want an error")
@@ -226,7 +225,7 @@ func TestInjectRefusesAFrameTheCodecRejects(t *testing.T) {
 }
 
 func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -362,7 +361,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 }
 
 func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -429,7 +428,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 }
 
 func TestInterleavedFramesByArrivalTime(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj1 := fabric.Injection{
@@ -503,8 +502,8 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 }
 
 func TestCableLossFault(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{
-		Kind: fabric.FaultLoseEveryNth,
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{
+		Kind: cablemodel.FaultLoseEveryNth,
 		N:    2,
 	})
 
@@ -548,8 +547,8 @@ func TestCableLossFault(t *testing.T) {
 	if lastEntry.Kind != fabric.EntryLoss {
 		t.Errorf("frame 2 last entry Kind = %v, want Loss", lastEntry.Kind)
 	}
-	if lastEntry.Reason != fabric.ReasonCableLoss {
-		t.Errorf("frame 2 last entry Reason = %v, want %v", lastEntry.Reason, fabric.ReasonCableLoss)
+	if lastEntry.Reason != cablemodel.ReasonCableLoss {
+		t.Errorf("frame 2 last entry Reason = %v, want %v", lastEntry.Reason, cablemodel.ReasonCableLoss)
 	}
 	if lastEntry.Cable == nil {
 		t.Errorf("frame 2 last entry Cable is nil")
@@ -563,8 +562,8 @@ func TestCableLossFault(t *testing.T) {
 }
 
 func TestCableCorruptionFault(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{
-		Kind: fabric.FaultCorruptEveryNth,
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{
+		Kind: cablemodel.FaultCorruptEveryNth,
 		N:    1,
 	})
 
@@ -597,8 +596,8 @@ func TestCableCorruptionFault(t *testing.T) {
 	if lastEntry.Device != "sw2" || lastEntry.Port != "1/1/24" {
 		t.Errorf("last entry location = (%q, %q), want (sw2, 1/1/24)", lastEntry.Device, lastEntry.Port)
 	}
-	if lastEntry.Reason != fabric.ReasonBadFrame {
-		t.Errorf("last entry Reason = %v, want %v", lastEntry.Reason, fabric.ReasonBadFrame)
+	if lastEntry.Reason != cablemodel.ReasonBadFrame {
+		t.Errorf("last entry Reason = %v, want %v", lastEntry.Reason, cablemodel.ReasonBadFrame)
 	}
 }
 
@@ -661,14 +660,14 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 10,
+				Cable: cablemodel.Cable{LengthMeters: 10},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				LengthMeters: 10,
+				Cable: cablemodel.Cable{LengthMeters: 10},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 			},
 		},
 	}
@@ -946,7 +945,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 }
 
 func TestRunZeroSteps(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -978,7 +977,7 @@ func TestRunZeroSteps(t *testing.T) {
 }
 
 func TestInjectInvalidOrigins(t *testing.T) {
-	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	dummyFrame := ethernet.Frame{Payload: []byte("x")}
@@ -1180,7 +1179,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 }
 
 func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
-	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	snapBefore := fab.Snapshot()
 	found := false
@@ -1200,7 +1199,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 	err := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault: %v", err)
@@ -1212,7 +1211,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 			if l.A.Oper != port.Down || l.B.Oper != port.Down {
 				t.Errorf("after SetFault cut, link ends are A=%v, B=%v, want Down", l.A.Oper, l.B.Oper)
 			}
-			if l.A.Reason != fabric.ReasonCut || l.B.Reason != fabric.ReasonCut {
+			if l.A.Reason != cablemodel.ReasonCut || l.B.Reason != cablemodel.ReasonCut {
 				t.Errorf("after SetFault cut, reasons are A=%v, B=%v, want cut", l.A.Reason, l.B.Reason)
 			}
 		}
@@ -1221,7 +1220,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 	errUnknown := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/99"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/99"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if errUnknown == nil {
 		t.Error("SetFault expected error for unknown endpoints, got nil")
@@ -1233,22 +1232,22 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 	b := fabric.Endpoint{Node: "sw2", Port: "1/1/24"}
 	tests := []struct {
 		name  string
-		fault fabric.Fault
-		want  fabric.Fault
+		fault cablemodel.Fault
+		want  cablemodel.Fault
 	}{
 		{
 			name:  "empty kind",
-			fault: fabric.Fault{},
-			want:  fabric.Fault{Kind: fabric.FaultNone},
+			fault: cablemodel.Fault{},
+			want:  cablemodel.Fault{Kind: cablemodel.FaultNone},
 		},
 		{
 			name: "unsorted duplicate sequence",
-			fault: fabric.Fault{
-				Kind:     fabric.FaultLoseSequence,
+			fault: cablemodel.Fault{
+				Kind:     cablemodel.FaultLoseSequence,
 				Sequence: []uint{5, 1, 5, 3},
 			},
-			want: fabric.Fault{
-				Kind:     fabric.FaultLoseSequence,
+			want: cablemodel.Fault{
+				Kind:     cablemodel.FaultLoseSequence,
 				Sequence: []uint{1, 3, 5},
 			},
 		},
@@ -1256,7 +1255,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+			fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 			if err := fab.SetFault(a, b, test.fault); err != nil {
 				t.Fatalf("SetFault: %v", err)
 			}
@@ -1264,7 +1263,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 				test.fault.Sequence[0] = 99
 			}
 
-			assertFault := func(where string, got fabric.Fault) {
+			assertFault := func(where string, got cablemodel.Fault) {
 				t.Helper()
 				if got.Kind != test.want.Kind || got.N != test.want.N || !slices.Equal(got.Sequence, test.want.Sequence) {
 					t.Errorf("%s fault = %+v, want %+v", where, got, test.want)
@@ -1274,7 +1273,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 			for _, link := range fab.Links() {
 				if (link.Cable.A == a && link.Cable.B == b) || (link.Cable.A == b && link.Cable.B == a) {
 					foundLink = true
-					assertFault("live link", link.Fault)
+					assertFault("live link", link.Cable.Fault)
 				}
 			}
 			if !foundLink {
@@ -1297,7 +1296,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 }
 
 func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	for _, arr := range fab.Snapshot().Queue {
 		if arr.Kind == fabric.ArrivalWake {
@@ -1621,10 +1620,9 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
@@ -1737,7 +1735,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 }
 
 func TestSerializationAndPropagationTiming(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload46 := make([]byte, 46)
@@ -1868,11 +1866,9 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 			Cables: []fabric.Cable{
 				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-					B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-					LengthMeters: 300,
-					Medium:       fabric.MultimodeFiber,
-					Delay:        &delayOverride,
+					Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber, Delay: &delayOverride},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+					B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 				},
 				{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 			},
@@ -1974,10 +1970,9 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 10000,
-				Medium:       fabric.SinglemodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 10000, Medium: cablemodel.SinglemodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
@@ -2040,7 +2035,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 }
 
 func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload46 := make([]byte, 46)
@@ -2124,10 +2119,9 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 300,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 		},
 	})
@@ -2163,7 +2157,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 		t.Fatalf("journey entries = %+v, want injection then drop", entries)
 	}
 	drop := entries[1]
-	if drop.Kind != fabric.EntryDrop || drop.Reason != fabric.ReasonReachExceeded || drop.Device != "h1" || !drop.At.Equal(t0) {
+	if drop.Kind != fabric.EntryDrop || drop.Reason != cablemodel.ReasonReachExceeded || drop.Device != "h1" || !drop.At.Equal(t0) {
 		t.Errorf("second entry = %+v, want drop at h1 at t0 with reason reach-exceeded", drop)
 	}
 	if drop.Cable == nil || drop.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
@@ -2185,7 +2179,7 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
 	})
 	if err != nil {
@@ -2259,10 +2253,9 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 100,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 100, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}))
@@ -2402,7 +2395,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 }
 
 func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
 
@@ -2415,7 +2408,7 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 	}
 	hostEnd := fabric.Endpoint{Node: "h1"}
 	switchEnd := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	if err := fab.SetFault(hostEnd, switchEnd, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(hostEnd, switchEnd, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 	fab.Run(50)
@@ -2425,7 +2418,7 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 			continue
 		}
 		for _, entry := range journey.Entries {
-			if entry.Kind == fabric.EntryLoss && entry.Reason == fabric.ReasonCableLoss {
+			if entry.Kind == fabric.EntryLoss && entry.Reason == cablemodel.ReasonCableLoss {
 				if got := fab.Snapshot().Queued[hostEnd]; got != 0 {
 					t.Errorf("queued host frames = %d, want 0", got)
 				}
@@ -2437,7 +2430,7 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 }
 
 func TestInjectRefusesTimeBeforeRunningClock(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {

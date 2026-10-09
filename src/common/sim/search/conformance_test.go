@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/search"
 )
@@ -49,8 +50,8 @@ func buildSearchConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, ne
 	}
 
 	cfg := fabric.Config{
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -64,16 +65,14 @@ func buildSearchConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, ne
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "h2"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
@@ -165,7 +164,7 @@ func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
 	expected, _ := buildSearchConformanceFabric(t, 20)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	injection := fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 1}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("target")}}
-	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
 	initial := fabric.Compare(current, expected, input.ToScenario(30), 30)
 	if initial.Disposition != analysis.Different {
 		t.Fatalf("initial disposition = %s, want Different", initial.Disposition)

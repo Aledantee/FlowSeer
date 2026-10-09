@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -80,7 +81,7 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h3"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h4"}},
@@ -860,7 +861,7 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 		"1/1/1": {RateBPS: 1, BurstOctets: 84},
 	}})
 	cfg := base.Config()
-	cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}
+	cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}
 	fab, err := fabric.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
@@ -870,7 +871,7 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 		t.Fatalf("Inject corrupt frame: %v", err)
 	}
 	fab.Run(20)
-	if err := fab.SetFault(cfg.Cables[0].A, cfg.Cables[0].B, fabric.Fault{}); err != nil {
+	if err := fab.SetFault(cfg.Cables[0].A, cfg.Cables[0].B, cablemodel.Fault{}); err != nil {
 		t.Fatalf("clear fault: %v", err)
 	}
 	goodID, err := fab.Inject(fabric.Injection{At: t0.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})

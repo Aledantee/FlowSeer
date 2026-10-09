@@ -12,12 +12,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-func defaultPhyAssumption() *PhyAssumption {
-	return &PhyAssumption{
-		Medium: TwistedPair,
+func defaultPhyAssumption() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -248,9 +249,9 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 				B: Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
+				Cable: cablemodel.Cable{LengthMeters: 300},
+				A:     Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 		},
 		Uncabled: []Uncabled{

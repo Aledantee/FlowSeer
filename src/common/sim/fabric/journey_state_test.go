@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -207,14 +208,14 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 		{
 			name: "individual_dropped_entry",
 			entries: []Entry{
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+				{Kind: EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
 			wantState: JourneyDropped,
 		},
 		{
 			name: "individual_dropped_loss",
 			entries: []Entry{
-				{Kind: EntryLoss, Reason: ReasonCableLoss},
+				{Kind: EntryLoss, Reason: cablemodel.ReasonCableLoss},
 			},
 			wantState: JourneyDropped,
 		},
@@ -282,7 +283,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			name: "pair_rejected_over_dropped",
 			entries: []Entry{
 				{Kind: EntryRejection, Reason: "mac-mismatch"},
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+				{Kind: EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
 			wantState: JourneyRejected,
 		},
@@ -291,7 +292,7 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 			name: "delivered_over_dropped",
 			entries: []Entry{
 				{Kind: EntryDelivery},
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+				{Kind: EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
 			wantState: JourneyDelivered,
 		},
@@ -371,9 +372,9 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 			"span": {Address: macSpan, Ethernet: gig},
 		},
 		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: TwistedPair},
-			{A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: TwistedPair},
-			{A: Endpoint{Node: "span"}, B: Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "span"}, B: Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 		PhyAssumption: defaultPhyAssumption(),
 	}

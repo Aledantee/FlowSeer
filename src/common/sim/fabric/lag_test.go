@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -413,7 +414,7 @@ func TestActiveBackupFailover(t *testing.T) {
 	err = fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault: %v", err)
@@ -502,7 +503,7 @@ func TestDelays(t *testing.T) {
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault cut: %v", err)
 	}
@@ -530,7 +531,7 @@ func TestDelays(t *testing.T) {
 	}
 	var hadLoss bool
 	for _, e := range jLoss.Entries {
-		if e.Kind == fabric.EntryLoss && e.Reason == fabric.ReasonCableLoss && e.Cable != nil && e.Cable.A.Port == "1/1/1" {
+		if e.Kind == fabric.EntryLoss && e.Reason == cablemodel.ReasonCableLoss && e.Cable != nil && e.Cable.A.Port == "1/1/1" {
 			hadLoss = true
 			break
 		}
@@ -576,7 +577,7 @@ func TestDelays(t *testing.T) {
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},
-		fabric.Fault{Kind: fabric.FaultNone},
+		cablemodel.Fault{Kind: cablemodel.FaultNone},
 	); err != nil {
 		t.Fatalf("SetFault restore: %v", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -40,9 +41,9 @@ func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 // gigabitCopper is the physical profile these fabric fixtures assume, since
 // they exercise protocol export and loading rather than link negotiation:
 // auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair.
-func gigabitCopper() *fabric.PhyAssumption {
-	return &fabric.PhyAssumption{
-		Medium: fabric.TwistedPair,
+func gigabitCopper() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -116,19 +117,19 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 		},
 		Uncabled: []fabric.Uncabled{

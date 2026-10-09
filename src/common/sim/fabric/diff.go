@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -909,17 +910,17 @@ func (e cableEndpoints) Canonical() string {
 	return e.A.Canonical() + "-" + e.B.Canonical()
 }
 
-// normalizedFault reads an unset kind as FaultNone, so a change reports the
+// normalizedFault reads an unset kind as cablemodel.FaultNone, so a change reports the
 // kind a reader compares against.
-func normalizedFault(f Fault) Fault {
+func normalizedFault(f cablemodel.Fault) cablemodel.Fault {
 	f = f.Clone()
 	if f.Kind == "" {
-		f.Kind = FaultNone
+		f.Kind = cablemodel.FaultNone
 	}
 	switch f.Kind {
-	case FaultLoseEveryNth, FaultCorruptEveryNth:
+	case cablemodel.FaultLoseEveryNth, cablemodel.FaultCorruptEveryNth:
 		f.Sequence = nil
-	case FaultLoseSequence:
+	case cablemodel.FaultLoseSequence:
 		f.N = 0
 		slices.Sort(f.Sequence)
 		f.Sequence = slices.Compact(f.Sequence)
@@ -931,7 +932,7 @@ func normalizedFault(f Fault) Fault {
 	return f
 }
 
-func sameFault(a, b Fault) bool {
+func sameFault(a, b cablemodel.Fault) bool {
 	return a.Kind == b.Kind && a.N == b.N && slices.Equal(a.Sequence, b.Sequence)
 }
 
@@ -955,7 +956,7 @@ func hostEndpoint(name string, cables []Cable) (Endpoint, bool) {
 	return Endpoint{}, false
 }
 
-func faultSnapshot(f Fault) faultSnapshotFact {
+func faultSnapshot(f cablemodel.Fault) faultSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "kind", string(f.Kind))
 	writeUintField(&out, "n", uint64(f.N))
@@ -971,7 +972,7 @@ func faultSnapshot(f Fault) faultSnapshotFact {
 	return faultSnapshotFact(out.String())
 }
 
-func phyAssumptionSnapshot(a *PhyAssumption) trace.Fact {
+func phyAssumptionSnapshot(a *cablemodel.PhyAssumption) trace.Fact {
 	if a == nil {
 		return nil
 	}

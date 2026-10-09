@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -50,7 +51,7 @@ func TestFabricUnlinkedInternal(t *testing.T) {
 			"sw1": {Ports: ports, Bridge: &bridge.Config{}, Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"1": gigabit}}},
 		},
 		Hosts:    map[string]Host{"h1": {Address: macH1, Ethernet: gigabit}},
-		Cables:   []Cable{{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1"}, Medium: TwistedPair}},
+		Cables:   []Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1"}}},
 		Uncabled: []Uncabled{{Endpoint: Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 	}
 	spec := testConstructionSpec(cfg)
@@ -105,8 +106,8 @@ func TestFabricUnlinkedOmittedPortConfiguredUp(t *testing.T) {
 			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}},
 		},
-		PhyAssumption: &PhyAssumption{
-			Medium: TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,

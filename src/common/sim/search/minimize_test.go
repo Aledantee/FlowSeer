@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -65,8 +66,8 @@ func makeMinimizeFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC, 
 
 		v99 := vlan.ID(99)
 		cfg := fabric.Config{
-			PhyAssumption: &fabric.PhyAssumption{
-				Medium: fabric.TwistedPair,
+			PhyAssumption: &cablemodel.PhyAssumption{
+				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
 					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 					AutoNegotiationSupported: phy.CapabilitySupported,
@@ -83,22 +84,19 @@ func makeMinimizeFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC, 
 			},
 			Cables: []fabric.Cable{
 				{
-					A:            fabric.Endpoint{Node: "h1"},
-					B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "h1"},
+					B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-					B:            fabric.Endpoint{Node: "h2"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+					B:     fabric.Endpoint{Node: "h2"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-					B:            fabric.Endpoint{Node: "h3"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+					B:     fabric.Endpoint{Node: "h3"},
 				},
 			},
 		}
@@ -408,8 +406,8 @@ func makeFixedPointFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC
 		}
 
 		cfg := fabric.Config{
-			PhyAssumption: &fabric.PhyAssumption{
-				Medium: fabric.TwistedPair,
+			PhyAssumption: &cablemodel.PhyAssumption{
+				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
 					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 					AutoNegotiationSupported: phy.CapabilitySupported,
@@ -426,22 +424,19 @@ func makeFixedPointFabrics(t *testing.T) (cur, cand *fabric.Fabric, h1MAC, h2MAC
 			},
 			Cables: []fabric.Cable{
 				{
-					A:            fabric.Endpoint{Node: "h1"},
-					B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "h1"},
+					B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-					B:            fabric.Endpoint{Node: "h2"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+					B:     fabric.Endpoint{Node: "h2"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-					B:            fabric.Endpoint{Node: "h3"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+					B:     fabric.Endpoint{Node: "h3"},
 				},
 			},
 		}
@@ -666,7 +661,7 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 		}
 		scheduled := prior
 		scheduled.At = at.Add(time.Second)
-		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionInject, At: scheduled.At, Inject: &scheduled}, {Kind: fabric.ActionFault, At: scheduled.At.Add(time.Millisecond), Fault: &fabric.FaultAction{A: spec.Cables[0].A, B: spec.Cables[0].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionInject, At: scheduled.At, Inject: &scheduled}, {Kind: fabric.ActionFault, At: scheduled.At.Add(time.Millisecond), Fault: &fabric.FaultAction{A: spec.Cables[0].A, B: spec.Cables[0].B, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
 		initial := runCompare(current, expected, input, 30)
 		if initial.Disposition != analysis.Different || initial.Location.Area != fabric.DifferenceRun || initial.Location.Field != "Issues.Length" || initial.Location.Injection != nil || len(initial.Location.Lineage) != 0 {
 			t.Fatalf("initial = %s %+v %+v, want run Issues.Length without journey", initial.Disposition, initial.Location, initial.Difference)
@@ -683,20 +678,20 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 	t.Run("snapshot fields with identical displayed values", func(t *testing.T) {
 		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 		cfg := fabric.Config{Start: at, Hosts: map[string]fabric.Host{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "c"}, B: fabric.Endpoint{Node: "d"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "c"}, B: fabric.Endpoint{Node: "d"}},
 		}}
 		current, err := fabric.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
-		cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2}
-		cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2}
+		cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2}
+		cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 2}
 		expected, err := fabric.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
-		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
 		initial := runCompare(current, expected, input, 30)
 		without := runCompare(current, expected, Candidate{}, 30)
 		if initial.Disposition != analysis.Different || without.Disposition != analysis.Different || initial.Difference != without.Difference || initial.Location.Field != "Links.[c:-d:].Fault.Kind" || without.Location.Field != "Links.[a:-b:].Fault.Kind" {
@@ -714,14 +709,14 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 	t.Run("snapshot text identifies the differing port", func(t *testing.T) {
 		current, _, _, _, _ := makeMinimizeFabrics(t)
 		cfg := current.Config()
-		cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCut}
-		cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultCut}
+		cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+		cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		expected, err := fabric.New(cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
 		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
 		initial := runCompare(current, expected, input, 30)
 		without := runCompare(current, expected, Candidate{}, 30)
 		if initial.Disposition != analysis.Different || without.Disposition != analysis.Different || initial.Difference == without.Difference || initial.Location.Field != "Ports.[\"1/1/2\"].OperStatus" || without.Location.Field != "Ports.[\"1/1/1\"].OperStatus" {
@@ -837,7 +832,7 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 	sw.Bridge.VLAN.Switchports["1/1/4"] = bridge.Switchport{PVID: &vid, Untagged: []vlan.ID{10}}
 	cfg.Switches["sw1"] = sw
 	cfg.Hosts["h4"] = fabric.Host{Address: netaddr.MAC{2, 0, 0, 0, 1, 4}}
-	cfg.Cables = append(cfg.Cables, fabric.Cable{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h4"}, Medium: fabric.TwistedPair, LengthMeters: 5})
+	cfg.Cables = append(cfg.Cables, fabric.Cable{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair, LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h4"}})
 	current, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -893,7 +888,7 @@ func TestMinimizeRejectsMovingMirrorLineage(t *testing.T) {
 func TestMinimizeRejectsInconclusiveTrialWithExactTarget(t *testing.T) {
 	base, _, src, dst, _ := makeMinimizeFabrics(t)
 	cfg := base.Config()
-	cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultCut}
+	cfg.Cables[1].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 	current, err := fabric.New(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -907,7 +902,7 @@ func TestMinimizeRejectsInconclusiveTrialWithExactTarget(t *testing.T) {
 	}
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	input := Candidate{Actions: []fabric.Action{
-		{At: at, Index: 1, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: cfg.Cables[1].A, B: cfg.Cables[1].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}},
+		{At: at, Index: 1, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: cfg.Cables[1].A, B: cfg.Cables[1].B, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}},
 		{At: at.Add(time.Millisecond), Index: 2, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}},
 	}}
 	initial := runCompare(current, expected, input, 30)
