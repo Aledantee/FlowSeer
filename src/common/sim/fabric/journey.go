@@ -78,6 +78,8 @@ const (
 // Rejection, or Unresolved entry, which carries no preceding Arrival, and on the Drop entry a
 // [device.Drop] produces for a held frame that left its hold queue and reached no wire, where
 // Port and Reason likewise come from the drop rather than from reading the step back.
+// A drop that declares no step, as a reflector's drop for an attachment with no address, records no
+// step and counts no discard at its port, since nothing was sent toward it.
 // A QueueThreshold entry carries the physical endpoint and the queue observation step.
 type Entry struct {
 	At            time.Time

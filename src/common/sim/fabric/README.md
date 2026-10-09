@@ -926,7 +926,7 @@ The package declares reasons for link failures and frame discards:
 | `reflector-protocol-not-udp` | Frame's IP protocol is not UDP |
 | `reflector-udp-header-undecodable` | Reflector cannot decode the UDP header it must check |
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
-| `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
+| `reflector-no-address` | Target attachment names no address of the accepted datagram's family; the entry carries no step and counts no discard at that port |
 
 ## Run lifecycle and scenarios
 
