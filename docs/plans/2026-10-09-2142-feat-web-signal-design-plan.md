@@ -221,3 +221,7 @@ unit tests do not prove rendered geometry or contrast on blurred surfaces.
 
 None. The pane-width thresholds are implementation choices governed by the
 responsive acceptance matrix.
+
+## Review gaps
+
+- frontend/web/src/components/topology/TopologySemantics.test.ts:157: /#control-zoom-in[\s\S]*aria-label[\s\S]*view\.topology\.zoomIn/; fails: checks template source with readFileSync instead of mounted DOM node accessible names; class: false test, other
