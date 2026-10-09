@@ -87,7 +87,7 @@ func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
 	}
 
 	fab := newTestFabricForFork(t)
-	*fabric.ExportFabricRuntimeEvidence(fab), _ = (*fabric.ExportFabricRuntimeEvidence(fab)).Add(analysis.Evidence{Kind: "runtime", Context: "copy proof"})
+	*fabric.ExportFabricRuntimeEvidence(fab), _ = fabric.ExportFabricRuntimeEvidence(fab).Add(analysis.Evidence{Kind: "runtime", Context: "copy proof"})
 	exportValue(reflect.ValueOf(fab).Elem().FieldByName("err")).Set(reflect.ValueOf(errors.New("sticky fault")))
 	exportValue(reflect.ValueOf(fab).Elem().FieldByName("touched")).Set(reflect.ValueOf([]fabric.FrameID{1}))
 	fork := fab.Fork()

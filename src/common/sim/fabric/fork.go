@@ -21,8 +21,7 @@ func (f *Fabric) Fork() *Fabric {
 		byEnd[links[i].B.Endpoint] = linkEndRef{link: &links[i], end: &links[i].B, peer: &links[i].A}
 	}
 
-	var uncabled map[Endpoint]Uncabled
-	uncabled = make(map[Endpoint]Uncabled, len(f.uncabled))
+	uncabled := make(map[Endpoint]Uncabled, len(f.uncabled))
 	for ep, u := range f.uncabled {
 		uncabled[ep] = u.Clone()
 	}
@@ -56,14 +55,12 @@ func (f *Fabric) Fork() *Fabric {
 		wakeItems = maps.Clone(f.wakeItems)
 	}
 
-	var journeys map[FrameID]*journey
-	journeys = make(map[FrameID]*journey, len(f.journeys))
+	journeys := make(map[FrameID]*journey, len(f.journeys))
 	for id, j := range f.journeys {
 		journeys[id] = j.shallowClone()
 	}
 
-	var entered map[FrameID]map[Endpoint]bool
-	entered = make(map[FrameID]map[Endpoint]bool, len(f.entered))
+	entered := make(map[FrameID]map[Endpoint]bool, len(f.entered))
 	for id, eps := range f.entered {
 		entered[id] = maps.Clone(eps)
 	}
@@ -72,8 +69,7 @@ func (f *Fabric) Fork() *Fabric {
 
 	busyUntil := maps.Clone(f.busyUntil)
 
-	var egress map[Endpoint]*egressQueue
-	egress = make(map[Endpoint]*egressQueue, len(f.egress))
+	egress := make(map[Endpoint]*egressQueue, len(f.egress))
 	for ep, q := range f.egress {
 		egress[ep] = cloneEgressQueue(q, journeys)
 	}
