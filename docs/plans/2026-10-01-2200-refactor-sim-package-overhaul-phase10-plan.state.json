@@ -6,10 +6,10 @@
   "review_rounds": 0,
   "compound": null,
   "outcome": {
-    "units": 2,
+    "units": 9,
     "from": "2026-10-09T09:16:37Z",
-    "to": "2026-10-09T09:41:49Z",
-    "note": "Link report unit blocked: aging before carry releases a planted resolved held frame before routing rebuild, so the existing rebuild-drop assertion observes 0 drops instead of 1. Changing it to release loses its proof. Queue decisions through close-out remain pending."
+    "to": "2026-10-09T13:23:00Z",
+    "note": "Built-node topology is blocked by the unchanged fork allocation-scaling calibration. The prepared refactor reduces fixed allocations by 880 but the fabric suite fails its bound. Remaining units have not run."
   },
   "superseded_by": null,
   "branch": null,
