@@ -74,9 +74,9 @@ length := v.Sizes[n%len(v.Sizes)] - 18 - 4*len(frame.Tags)
 payload := make([]byte, length)
 ```
 
-The existing Review gaps in
-`docs/plans/2026-10-01-2200-refactor-sim-package-overhaul-phase8-plan.md:392-393`
-record both the missing default case and the inaccurate closure claim:
+The review gaps that commit `7d149d7b` added to the plan of the analysis,
+trace, stream, and search work (2026-10-07) record both the missing default
+case and the inaccurate closure claim:
 
 > a type embedding a variation implements the interface through the promoted `apply`
 
