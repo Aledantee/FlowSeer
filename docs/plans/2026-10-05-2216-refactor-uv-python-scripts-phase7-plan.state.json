@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 1,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-conformance-gate-that-lists-files-through-a-child-process-is-cached.md",
   "outcome": {
     "units": 4,
     "from": "2026-10-09T15:44:11Z",
