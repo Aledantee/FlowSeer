@@ -19,7 +19,8 @@ Fault positions are one-based and count every transmitted frame on the cable
 in both directions together. A BPDU takes a position. Positions 2 and 3 can
 therefore lose one frame each way. `Crossing` receives the count and whether
 the frame travels from A to B. The fabric increments the count before calling
-it (`fabric/run.go`, `transmitCable`).
+it (`fabric/run.go`, `transmitCable`). `TestFaultPositionCountsBothDirections`
+pins that count through the fabric's journeys.
 
 `Resolve` takes each end's Ethernet facts and administrative state. It returns
 the facts used, each end's operational state, reason, speed and duplex, with
