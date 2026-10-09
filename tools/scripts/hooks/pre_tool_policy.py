@@ -25,9 +25,8 @@ PROTO_FIXTURE_DIRECTORIES = ("/_test_fixtures/", "/fixtures/", "/testdata/")
 
 # Policy surfaces stay editable, but the person running the session approves
 # each edit. test/conformance/a11y holds the axe rules the audit may disable,
-# the web analogue of .golangci.yml. The verifier's script and the checks it
-# runs under tools/scripts/verify are the gate an agent's own work must pass,
-# and a path through the .claude/skills link resolves to the script.
+# the web analogue of .golangci.yml. tools/scripts/verify/ is the gate an
+# agent's own work must pass.
 POLICY_FILES = frozenset(
     {
         "AGENTS.md",
