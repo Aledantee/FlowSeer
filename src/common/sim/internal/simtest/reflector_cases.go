@@ -1,6 +1,7 @@
 package simtest
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"time"
 
@@ -107,11 +108,11 @@ func reflectedQueryConfig() (fabric.Config, error) {
 				Accept: hostmodel.Accept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
 			},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectedQueryR1MAC,
 				Ports:   map[string]phy.Ethernet{"trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"v10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"v20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 				},
@@ -260,11 +261,11 @@ func reflectorLoopConfig() fabric.Config {
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectorLoopH1MAC, VLAN: &vid10, Ethernet: gigabit},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectorLoopR1MAC,
 				Ports:   map[string]phy.Ethernet{"up": gigabit, "trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"up":  {Port: "up", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.10/24")}},
@@ -273,7 +274,7 @@ func reflectorLoopConfig() fabric.Config {
 			"r2": {
 				Address: reflectorLoopR2MAC,
 				Ports:   map[string]phy.Ethernet{"trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.20/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.20/24")}},
 				},

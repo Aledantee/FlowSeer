@@ -1,6 +1,7 @@
 package fabric
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"slices"
 	"testing"
@@ -275,10 +276,10 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 		cables = append(cables, Cable{Cable: cablemodel.Cable{LengthMeters: 5}, A: Endpoint{Node: "sw1", Port: "1/1/3"}, B: Endpoint{Node: "an"}})
 		sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{Name: "analyzer", SelectAll: true, OutputPort: "1/1/3"}}}
 	case "reflector":
-		reflec := Reflector{
+		reflec := reflectormodel.Config{
 			Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x01, 0xaa},
 			Ports:   map[string]phy.Ethernet{"rp1": {}},
-			Attachments: map[string]Attachment{
+			Attachments: map[string]reflectormodel.Attachment{
 				"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 			},
 		}
@@ -288,7 +289,7 @@ func invariantFabric(t *testing.T, variant string, t0 time.Time) *Fabric {
 			PhyAssumption: testPhyAssumption(),
 			Switches:      map[string]vswitch.Config{"sw1": sw1, "sw2": sw2},
 			Hosts:         hosts,
-			Reflectors:    map[string]Reflector{"reflector": reflec},
+			Reflectors:    map[string]reflectormodel.Config{"reflector": reflec},
 			Cables:        cables,
 		}
 		return newInvariantFabric(t, cfg)

@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"reflect"
 	"slices"
@@ -179,11 +180,11 @@ func reflectMetadataConfig(t *testing.T) fabric.Config {
 			"h1": {Address: reflectH1Address, VLAN: &vid10, Ethernet: gigabit},
 			"h2": {Address: reflectH2Address, VLAN: &vid20},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"rp1": gigabit, "rp2": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 				},

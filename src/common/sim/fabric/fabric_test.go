@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"testing"
 	"time"
@@ -137,10 +138,10 @@ func TestFabricUsesTheReflectorsOwnPortFacts(t *testing.T) {
 				Phy:   &phy.Config{Ethernet: map[string]phy.Ethernet{"1/1/1": forced100}},
 			},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Ports: map[string]phy.Ethernet{"p1": forced100},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "p1", Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.0.9/24")}},
 				},
 			},

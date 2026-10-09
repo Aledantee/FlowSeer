@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"slices"
 	"strings"
@@ -2526,7 +2527,7 @@ var (
 
 // reflectCopyConfig cables a reflector directly to three hosts, one per
 // attachment, so each attachment's fate is unambiguous: no switch and no
-// shared port stand between a copy and its destination. Attachment "a" is
+// shared port stand between a copy and its destination. reflectormodel.Attachment "a" is
 // the arrival side (VLAN 10); "b" (VLAN 20) has an IPv4 address and answers
 // on h2; "c" (VLAN 30) carries only an IPv6 address, so an IPv4 query gives
 // it no copy.
@@ -2544,11 +2545,11 @@ func reflectCopyConfig(t *testing.T) fabric.Config {
 			},
 			"h3": {Address: reflectH3Address, VLAN: &vid30},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"rp1": {}, "rp2": {}, "rp3": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 					"c": {Port: "rp3", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("fd00::9/64")}},
@@ -2659,11 +2660,11 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"up": {}, "trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"up":  {Port: "up", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.10/24")}},
@@ -2672,7 +2673,7 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 			"r2": {
 				Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x02, 0xbb},
 				Ports:   map[string]phy.Ethernet{"trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.20/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.20/24")}},
 				},
@@ -2740,11 +2741,11 @@ func reflectSiblingConfig(t *testing.T) fabric.Config {
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 					"c": {Port: "trunk", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.9/24")}},

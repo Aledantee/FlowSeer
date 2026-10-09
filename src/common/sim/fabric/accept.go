@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"fmt"
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -18,7 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-// Reflector acceptance rules. Each rejection names the clause that failed,
+// reflectormodel.Config acceptance rules. Each rejection names the clause that failed,
 // since a reflector's clauses have exactly one way to be satisfied, unlike a
 // host's several MAC and IP rules. The acceptance names itself rather than
 // reusing the last clause it passed, so a step alone says which of the two
@@ -36,7 +37,7 @@ const (
 	ruleReflectorAccepted       trace.RuleID = "reflector.accepted"
 )
 
-// Reflector acceptance reasons, one per rule above that can refuse or leave a
+// reflectormodel.Config acceptance reasons, one per rule above that can refuse or leave a
 // frame undecided.
 const (
 	// ReasonReflectorOwnSource records a reflector refusing a frame whose
@@ -141,7 +142,7 @@ func udpPortsFactFor(header udp.Header) trace.Fact {
 // reflector. Unlike arriveHost, it never appends to Deliveries, since an
 // EntryReflection is not a host taking delivery of a frame, and Compare pairs
 // journeys on Deliveries alone.
-func (f *Fabric) arriveReflector(j *Journey, name string, refl Reflector, arrivalPort string, frame ethernet.Frame, at time.Time) Entry {
+func (f *Fabric) arriveReflector(j *Journey, name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame, at time.Time) Entry {
 	kind, step, reason := acceptReflector(name, refl, arrivalPort, frame)
 	var raised []analysis.Issue
 	if kind == EntryUnresolved {
@@ -165,7 +166,7 @@ func (f *Fabric) arriveReflector(j *Journey, name string, refl Reflector, arriva
 // mDNS group, that its protocol is UDP, and that its UDP destination is port
 // 5353. It returns EntryReflection, EntryRejection, or EntryUnresolved, with
 // the step of the deciding rule over the facts read up to it.
-func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethernet.Frame) (EntryKind, trace.Step, trace.Reason) {
+func acceptReflector(name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame) (EntryKind, trace.Step, trace.Reason) {
 	inputs := []trace.Fact{vlanTagsFact(frame.Tags)}
 	decide := func(kind EntryKind, rule trace.RuleID, reason trace.Reason) (EntryKind, trace.Step, trace.Reason) {
 		return kind, trace.Step{
@@ -180,7 +181,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 	if frame.Src == refl.Address {
 		return decide(EntryRejection, ruleReflectorMACOwnSource, ReasonReflectorOwnSource)
 	}
-	if !refl.acceptsTags(arrivalPort, frame.Tags) {
+	if !acceptsReflectorTags(refl, arrivalPort, frame.Tags) {
 		return decide(EntryRejection, ruleReflectorVLANForm, ReasonReflectorTagFormNotAccepted)
 	}
 
@@ -230,7 +231,7 @@ func acceptReflector(name string, refl Reflector, arrivalPort string, frame ethe
 // answers the same question as [reflectorArrivalAttachment], over the same
 // attachments, so the two are defined in terms of each other rather than
 // carrying the tag-form guards twice.
-func (r Reflector) acceptsTags(port string, tags []vlan.Tag) bool {
+func acceptsReflectorTags(r reflectormodel.Config, port string, tags []vlan.Tag) bool {
 	_, ok := reflectorArrivalAttachment(r, port, tags)
 
 	return ok

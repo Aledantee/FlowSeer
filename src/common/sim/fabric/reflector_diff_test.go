@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"testing"
 
@@ -87,7 +88,7 @@ func TestReflectorDiffChangedAttachmentVLAN(t *testing.T) {
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	attach := b.Reflectors["r1"].Attachments["a"]
 	newVID := vlan.ID(20)
 	attach.VLAN = &newVID
@@ -133,7 +134,7 @@ func TestReflectorDiffPortAdded(t *testing.T) {
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p2"] = phy.Ethernet{}
 
 	changes := fabric.Diff(a, b)
@@ -165,7 +166,7 @@ func TestReflectorDiffChangedPortSpeed(t *testing.T) {
 	a.Reflectors["r1"] = r1
 
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	b.Reflectors["r1"].Ports["p1"] = phy.Ethernet{Setting: &phy.Setting{SpeedBPS: 1_000_000_000, Duplex: phy.Full}}
 
 	changes := fabric.Diff(a, b)
@@ -192,7 +193,7 @@ func TestReflectorDiffAttachmentAddressChange(t *testing.T) {
 
 	a := reflectorBaseConfig(t)
 	b := a
-	b.Reflectors = map[string]fabric.Reflector{"r1": a.Reflectors["r1"].Clone()}
+	b.Reflectors = map[string]reflectormodel.Config{"r1": a.Reflectors["r1"].Clone()}
 	attach := b.Reflectors["r1"].Attachments["a"]
 	attach.Addresses = []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}
 	b.Reflectors["r1"].Attachments["a"] = attach

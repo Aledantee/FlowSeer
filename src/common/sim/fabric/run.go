@@ -3,6 +3,7 @@ package fabric
 import (
 	"bytes"
 	"fmt"
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"maps"
 	"math"
 	"math/bits"
@@ -584,7 +585,7 @@ func (f *Fabric) Step() (Entry, bool) {
 // arriving frame's IP and UDP headers already decoded once inside
 // acceptReflector to reach EntryReflection, so decoding them again here
 // cannot fail.
-func (f *Fabric) reflectFrame(parent *Journey, name string, refl Reflector, arrivalPort string, frame ethernet.Frame, at time.Time) {
+func (f *Fabric) reflectFrame(parent *Journey, name string, refl reflectormodel.Config, arrivalPort string, frame ethernet.Frame, at time.Time) {
 	header, ipPayload, err := ip.Decode(frame.Payload)
 	if err != nil {
 		f.recordFault(errs.Wrap(err, "decode accepted reflector frame's IP header"))
@@ -622,7 +623,7 @@ func (f *Fabric) reflectFrame(parent *Journey, name string, refl Reflector, arri
 }
 
 // reflectorArrivalAttachment returns the name of the attachment whose port
-// and tag form match the arriving frame. [Reflector.acceptsTags] answers the
+// and tag form match the arriving frame. [reflectormodel.Config.acceptsTags] answers the
 // same question as a bool, so the two share this function rather than each
 // carrying the tag-form guards on their own: more than one tag refuses, and
 // a first tag whose TPID names neither the zero value nor a C-TAG refuses,
@@ -630,7 +631,7 @@ func (f *Fabric) reflectFrame(parent *Journey, name string, refl Reflector, arri
 // that exactly one attachment matches before this runs, so a caller that
 // gets ok == false has nothing to exclude and reflects onto every
 // attachment; that only happens if this invariant breaks.
-func reflectorArrivalAttachment(refl Reflector, arrivalPort string, tags []vlan.Tag) (string, bool) {
+func reflectorArrivalAttachment(refl reflectormodel.Config, arrivalPort string, tags []vlan.Tag) (string, bool) {
 	if len(tags) > 1 {
 		return "", false
 	}
@@ -658,7 +659,7 @@ func reflectorArrivalAttachment(refl Reflector, arrivalPort string, tags []vlan.
 
 // attachmentAddress returns one of the attachment's addresses matching the
 // requested family (true for IPv4), or false if it names none.
-func attachmentAddress(att Attachment, family4 bool) (netip.Addr, bool) {
+func attachmentAddress(att reflectormodel.Attachment, family4 bool) (netip.Addr, bool) {
 	for _, prefix := range att.Addresses {
 		if addr := prefix.Addr(); addr.Is4() == family4 {
 			return addr, true
@@ -671,7 +672,7 @@ func attachmentAddress(att Attachment, family4 bool) (netip.Addr, bool) {
 // attachmentTags returns the tag stack a reflector copy carries onto an
 // attachment: no tag for an untagged attachment, or one C-TAG with the
 // attachment's VLAN. Mirrors the tag form Inject gives a host origin.
-func attachmentTags(att Attachment) []vlan.Tag {
+func attachmentTags(att reflectormodel.Attachment) []vlan.Tag {
 	if att.VLAN == nil {
 		return nil
 	}
@@ -693,7 +694,7 @@ func attachmentTags(att Attachment) []vlan.Tag {
 // undecodable instead of accepting it. Hop limit is 255 and UDP source port
 // is 5353 (RFC 6762 section 11 and section 5.2); every other IPv4 field is
 // carried from the arriving header unchanged.
-func (f *Fabric) originateReflection(parent *Journey, name string, refl Reflector, att Attachment, addr netip.Addr, frame ethernet.Frame, header ip.Header, udpHeader udp.Header, udpPayload []byte, at time.Time) {
+func (f *Fabric) originateReflection(parent *Journey, name string, refl reflectormodel.Config, att reflectormodel.Attachment, addr netip.Addr, frame ethernet.Frame, header ip.Header, udpHeader udp.Header, udpPayload []byte, at time.Time) {
 	copyUDP := udpHeader
 	copyUDP.SrcPort = mdnsUDPPort
 	udpBytes, err := udp.Encode(copyUDP, udpPayload, addr, header.Dst)

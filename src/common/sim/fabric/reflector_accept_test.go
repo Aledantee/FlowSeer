@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"net/netip"
 	"strconv"
 	"testing"
@@ -31,6 +32,25 @@ var (
 	reflectorGroupAddr = netip.AddrFrom4([4]byte{224, 0, 0, 251})
 )
 
+func TestReflectorSpecRoundTrip(t *testing.T) {
+	cfg := statedPhysical(reflectorAcceptConfig(t))
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := fab.Spec()
+	if len(spec.Reflectors) != 1 || !spec.Reflectors["r1"].Equal(cfg.Reflectors["r1"]) {
+		t.Fatalf("Spec reflectors = %+v, want configured r1", spec.Reflectors)
+	}
+	copy, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !copy.Spec().Equal(spec) {
+		t.Fatal("reflector specification changed on round trip")
+	}
+}
+
 // reflectorAcceptConfig builds a fabric with one switch of two ports, a host
 // h1 cabled to the first, and a reflector r1 attached to the second, on VLAN
 // 10. Injecting at the port facing h1 floods to the port facing r1, the only
@@ -49,11 +69,11 @@ func reflectorAcceptConfig(t *testing.T) fabric.Config {
 		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectorOwnAddress,
 				Ports:   map[string]phy.Ethernet{"p1": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {
 						Port:      "p1",
 						VLAN:      &vid10,
@@ -299,24 +319,5 @@ func TestReflectorDropsACorruptArrivalBeforeAnyClauseRuns(t *testing.T) {
 	}
 	if len(journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none", journey.Deliveries)
-	}
-}
-
-func TestReflectorSpecRoundTrip(t *testing.T) {
-	cfg := statedPhysical(reflectorAcceptConfig(t))
-	fab, err := fabric.New(cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
-	spec := fab.Spec()
-	if len(spec.Reflectors) != 1 || !spec.Reflectors["r1"].Equal(cfg.Reflectors["r1"]) {
-		t.Fatalf("Spec reflectors = %+v, want configured r1", spec.Reflectors)
-	}
-	copy, err := fabric.NewWithSpec(spec)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !copy.Spec().Equal(spec) {
-		t.Fatal("reflector specification changed on round trip")
 	}
 }

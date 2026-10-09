@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"maps"
 	"math"
 	"net/netip"
@@ -666,10 +667,10 @@ func reflectorBaseConfig(t *testing.T) fabric.Config {
 	cfg.Switches["sw1"] = sw1
 
 	vid10 := vlan.ID(10)
-	cfg.Reflectors = map[string]fabric.Reflector{
+	cfg.Reflectors = map[string]reflectormodel.Config{
 		"r1": {
 			Ports: map[string]phy.Ethernet{"p1": {}},
-			Attachments: map[string]fabric.Attachment{
+			Attachments: map[string]reflectormodel.Attachment{
 				"a": {
 					Port:      "p1",
 					VLAN:      &vid10,
@@ -838,7 +839,7 @@ func TestReflectorValidateRejectionsNameTheirField(t *testing.T) {
 			mutate: func(c *fabric.Config) {
 				r1 := c.Reflectors["r1"]
 				a := r1.Attachments["a"]
-				r1.Attachments["b"] = fabric.Attachment{Port: a.Port, VLAN: a.VLAN, Addresses: a.Addresses}
+				r1.Attachments["b"] = reflectormodel.Attachment{Port: a.Port, VLAN: a.VLAN, Addresses: a.Addresses}
 				c.Reflectors["r1"] = r1
 			},
 			wantField: "reflectors.r1.attachments.b.vlan",

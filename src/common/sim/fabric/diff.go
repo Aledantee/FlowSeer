@@ -2,6 +2,7 @@ package fabric
 
 import (
 	"cmp"
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"math"
 	"net/netip"
 	"slices"
@@ -608,7 +609,7 @@ func diffHostAccept(changes *[]trace.Change, name string, a, b hostmodel.Accept)
 // An added or removed attachment reports its whole snapshot under "attachments.<name>"; a
 // changed one reports each differing sub-field under "attachments.<name>.port",
 // ".vlan", or ".addresses".
-func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[string]Attachment) {
+func diffAttachments(changes *[]trace.Change, reflectorName string, a, b map[string]reflectormodel.Attachment) {
 	subject := trace.Subject{Kind: "reflector", Key: reflectorName}
 
 	names := make(map[string]struct{}, len(a)+len(b))
@@ -1041,7 +1042,7 @@ func hostSnapshot(h hostmodel.Config) hostSnapshotFact {
 	return hostSnapshotFact(out.String())
 }
 
-func reflectorSnapshot(r Reflector) reflectorSnapshotFact {
+func reflectorSnapshot(r reflectormodel.Config) reflectorSnapshotFact {
 	var out strings.Builder
 	writeStringField(&out, "address", r.Address.String())
 
@@ -1082,13 +1083,13 @@ func reflectorSnapshot(r Reflector) reflectorSnapshotFact {
 	return reflectorSnapshotFact(out.String())
 }
 
-func attachmentSnapshot(a Attachment) attachmentSnapshotFact {
+func attachmentSnapshot(a reflectormodel.Attachment) attachmentSnapshotFact {
 	return attachmentSnapshotFact(attachmentFields(a))
 }
 
 // attachmentFields writes an attachment's fields as key=value pairs, reused by both the
 // whole-reflector snapshot and the standalone added/removed attachment snapshot.
-func attachmentFields(a Attachment) string {
+func attachmentFields(a reflectormodel.Attachment) string {
 	var out strings.Builder
 	writeStringField(&out, "port", a.Port)
 	if a.VLAN == nil {

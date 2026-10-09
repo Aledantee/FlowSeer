@@ -4,6 +4,7 @@ package fabric
 import (
 	"cmp"
 	"fmt"
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"maps"
 	"slices"
 	"strconv"
@@ -30,7 +31,7 @@ type ConstructionSpec struct {
 	Start         time.Time
 	Switches      map[string]vswitch.ConstructionSpec
 	Hosts         map[string]hostmodel.Config
-	Reflectors    map[string]Reflector
+	Reflectors    map[string]reflectormodel.Config
 	Cables        []Cable
 	Uncabled      []Uncabled
 	PhyAssumption *cablemodel.PhyAssumption
@@ -58,7 +59,7 @@ func (s ConstructionSpec) Clone() ConstructionSpec {
 		}
 	}
 	if s.Reflectors != nil {
-		cp.Reflectors = make(map[string]Reflector, len(s.Reflectors))
+		cp.Reflectors = make(map[string]reflectormodel.Config, len(s.Reflectors))
 		for name, refl := range s.Reflectors {
 			cp.Reflectors[name] = refl.Clone()
 		}
@@ -95,7 +96,7 @@ func (s ConstructionSpec) Config() Config {
 		}
 	}
 	if s.Reflectors != nil {
-		cfg.Reflectors = make(map[string]Reflector, len(s.Reflectors))
+		cfg.Reflectors = make(map[string]reflectormodel.Config, len(s.Reflectors))
 		for name, refl := range s.Reflectors {
 			cfg.Reflectors[name] = refl.Clone()
 		}
@@ -274,7 +275,7 @@ func (f *Fabric) Spec() ConstructionSpec {
 		Start:         f.cfg.Start,
 		Switches:      make(map[string]vswitch.ConstructionSpec, len(f.switches)),
 		Hosts:         make(map[string]hostmodel.Config, len(f.cfg.Hosts)),
-		Reflectors:    make(map[string]Reflector, len(f.cfg.Reflectors)),
+		Reflectors:    make(map[string]reflectormodel.Config, len(f.cfg.Reflectors)),
 		Cables:        make([]Cable, len(f.cfg.Cables)),
 		Uncabled:      cloneUncabled(f.cfg.Uncabled),
 		PhyAssumption: f.cfg.PhyAssumption.Clone(),

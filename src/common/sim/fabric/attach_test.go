@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"bytes"
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
 	"io"
 	"os"
 	"reflect"
@@ -189,7 +190,7 @@ func TestAttachStreamRefusals(t *testing.T) {
 	}
 	t.Run("reflector origin", func(t *testing.T) {
 		cfg := fab.Config()
-		cfg.Reflectors = map[string]fabric.Reflector{"r1": {Address: netaddr.MAC{2, 0, 0, 0, 0, 10}}}
+		cfg.Reflectors = map[string]reflectormodel.Config{"r1": {Address: netaddr.MAC{2, 0, 0, 0, 0, 10}}}
 		withReflector, err := fabric.New(cfg)
 		if err != nil {
 			t.Fatalf("New: %v", err)
