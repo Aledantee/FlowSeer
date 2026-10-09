@@ -127,6 +127,6 @@ field but changes displayed FDB counts from 2/2 to 1/1. Both injections remain.
 `Minimal` means no further single-action removal preserves this exact target.
 
 `fabric.Align` returns the behavioral location separately from an optional
-diagnostic trace. It uses scenario injection identity and mirror/release
+diagnostic trace. It uses scenario injection identity and mirror and reflection
 ancestry, includes one-sided descendants, and indexes original report entries.
 Diagnostic facts never change the behavioral disposition.

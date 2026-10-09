@@ -2,6 +2,7 @@ package host_test
 
 import (
 	"net/netip"
+	"slices"
 	"strings"
 	"testing"
 
@@ -137,5 +138,25 @@ func TestHostOriginateRefusesInvalidPriority(t *testing.T) {
 	}
 	if checked != 2 {
 		t.Fatalf("checked cases = %d, want 2", checked)
+	}
+}
+
+// TestHostStateReportsConfiguredNeighbors checks that State carries every field of a configured
+// neighbor from the routing layer's table into the device state.
+func TestHostStateReportsConfiguredNeighbors(t *testing.T) {
+	peer, peerMAC := netip.MustParseAddr("192.0.2.20"), netaddr.MAC{0x02, 0, 0, 0, 0, 0x20}
+	h, err := hostmodel.New("h", hostmodel.Config{
+		Address: acceptReceiver,
+		IP: &hostmodel.IP{
+			Addresses: []netip.Prefix{netip.MustParsePrefix("192.0.2.10/24")},
+			Neighbors: map[netip.Addr]netaddr.MAC{peer: peerMAC},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []device.NeighborEntry{{VRF: routing.DefaultVRF, Interface: "h", Addr: peer, MAC: peerMAC, State: device.NeighborReachable}}
+	if got := h.State(fixedTime).Neighbors; !slices.Equal(got, want) {
+		t.Fatalf("neighbors = %+v, want %+v", got, want)
 	}
 }

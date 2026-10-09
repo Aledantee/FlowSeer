@@ -22,8 +22,9 @@ changing the fabric. Use `Inject` and `Run` to execute on the fabric's queue.
 Calls require serial access and a caller-owned clock. `Receive` settles due
 timers before processing the frame. `ReceiveMirrored` skips policing and
 copy generation. `Advance` settles timers, and `NextWake` reports their next
-deadline. `LinkChange` reports operational state, point-to-point status, and
-speed in bits per second. `Fork` returns an independent executable copy.
+deadline. `LinkChange` reports operational state, speed in bits per second,
+duplex, and whether the peer relays frames, from which a switch derives
+point-to-point status. `Fork` returns an independent executable copy.
 `Ports` returns the port table as a value.
 
 `Output` carries the receive's `Result`, emissions, mirror copies, hold token,

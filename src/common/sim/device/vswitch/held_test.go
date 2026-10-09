@@ -1316,7 +1316,7 @@ func TestReleaseOntoRefusingRoutedPortRecordsThePortsOwnReason(t *testing.T) {
 // TestReleaseOntoSVIWithNoSelectableMemberRecordsTheBridgesReason covers a released frame whose
 // SVI egress is a LAG that fails member selection: the bridge's selectMember records its own
 // [bridge.ReasonNoMember] entry, naming the LAG, and releaseHeldFrame carries that reason and
-// that port name onto the [NeighborDrop] unchanged, rather than reporting a reason of its own
+// that port name onto the [device.Drop] unchanged, rather than reporting a reason of its own
 // invention.
 //
 // The shape: vlan20's member is a LAG whose LACP never converged, so the aggregation forwards —

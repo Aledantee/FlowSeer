@@ -56,7 +56,9 @@ The caller supplies switches, hosts, and cables in `assembly.Config`. The
 
 Simulation workflows can be driven step-by-step, executed through declared
 scenarios via `fabric.Fabric.RunScenario(scenario, options)`, and reproduced
-deterministically from recorded specifications via `fabric.Replay(replaySpec)`.
+deterministically by passing the `RunResult.Replay` of a scenario run to
+`fabric.Replay`, which runs the scenario again on a fresh fork of the fabric as
+it stood before the first action.
 
 ## Exact comparison and dispositions
 
@@ -70,10 +72,12 @@ Comparison returns an exact `analysis.Disposition`:
 - `analysis.Different`: Divergence detected at a behavioral observable; the result
   names the first differing observable (`Difference.Observable`) and the values
   observed on each side (`Difference.Current` and `Difference.Expected`). On fabric
-  comparisons, `Comparison.Replay` is a `[2]ReplaySpec` providing an immutable
-  replay specification for each side (`[0]` current, `[1]` candidate).
-  `Comparison.Location` identifies the exact journey, run, or snapshot field.
-  Journey locations retain injection time and index plus mirror/release lineage.
+  comparisons, `Comparison.Replay` is a `[2]ReplaySpec` holding the pre-action
+  checkpoint, scenario, and run options of each side (`[0]` current, `[1]`
+  candidate). `Comparison.Location` identifies the exact journey, run, or
+  snapshot field. Journey locations retain the injection time and index, or the
+  attachment and frame ordinal of a streamed frame, plus the mirror and
+  reflection lineage of a child journey.
 - `analysis.Inconclusive`: Either side has non-Complete readiness or an
   execution error, even when an observable differs. `Difference` retains the
   first difference found. Equal settled aggregate roots are also inconclusive

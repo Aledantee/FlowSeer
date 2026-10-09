@@ -38,4 +38,5 @@ and keeps link changes independent through the immutable port table.
 The fabric records the acceptance on the arriving journey, assigns each copy a
 fresh frame identity, and seeds its re-entry history from its parent.
 `OriginReflection` and `Origin.Of` preserve that relationship
-(`src/common/sim/fabric/run.go`). A reflector acceptance is never host delivery.
+(`fabric/run.go` records the acceptance and `fabric/output.go` builds the
+copies). A reflector acceptance is never host delivery.

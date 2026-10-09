@@ -16,6 +16,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -59,6 +60,44 @@ func TestDeriveAgesBeforeCarry(t *testing.T) {
 	}
 	if len(sw.Entries()) != 1 || len(sw.Neighbors()) != 1 || sw.Neighbors()[0].HoldDepth != 1 {
 		t.Errorf("source entries/neighbors = %+v/%+v, want unchanged", sw.Entries(), sw.Neighbors())
+	}
+}
+
+// TestDeriveAgesMulticastBeforeCarry checks that a membership and a router port past their
+// expiry at the derive time are aged out of the derived switch, where the source keeps them,
+// and that their expiry is not counted as a loss of the multicast layer.
+func TestDeriveAgesMulticastBeforeCarry(t *testing.T) {
+	cfg := mcastSwitchConfig(t, nil)
+	cfg.Mcast.VLANs[10] = mcast.VLANSnooping{MembershipInterval: 10 * time.Second, RouterPortInterval: 10 * time.Second}
+	cfg.STP = &stp.Config{Ports: map[string]stp.Port{"1/1/1": {AdminEdge: true}}}
+	sw := mustSwitch(t, cfg)
+	sw.Start(fixedTime)
+	group := netip.MustParseAddr("239.1.1.1")
+	query := makeIGMPControlFrame(t, netip.MustParseAddr("10.0.0.254"), netip.MustParseAddr("224.0.0.1"),
+		mcastRouterMAC, allHostsMAC, 1, igmp.Message{Type: igmp.Query, Version: igmp.V2})
+	sw.Receive(fixedTime, "1/1/4", query)
+	report := makeIGMPControlFrame(t, ipH1, group, macH1, mcastGroupMAC, 1, igmp.Message{Type: igmp.ReportV2, Group: group})
+	sw.Receive(fixedTime, "1/1/1", report)
+	if len(sw.Groups(10, fixedTime)) != 1 || len(sw.RouterPorts(10, fixedTime)) != 1 {
+		t.Fatalf("source groups/router ports = %+v/%+v, want one of each", sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
+	}
+	target := sw.Spec()
+	target.Config.STP.Priority = 4096
+	next, _, err := vswitch.Derive(sw, target, fixedTime.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := next.Retention().Mcast; !got.Kept || got.Difference != "" {
+		t.Errorf("Mcast retention = %+v, want kept, since an expired record is not a loss", got)
+	}
+	if got := next.Groups(10, fixedTime); len(got) != 0 {
+		t.Errorf("derived groups = %+v, want the expired membership aged out", got)
+	}
+	if got := next.RouterPorts(10, fixedTime); len(got) != 0 {
+		t.Errorf("derived router ports = %+v, want the expired router port aged out", got)
+	}
+	if len(sw.Groups(10, fixedTime)) != 1 || len(sw.RouterPorts(10, fixedTime)) != 1 {
+		t.Errorf("source groups/router ports = %+v/%+v, want unchanged", sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
 	}
 }
 

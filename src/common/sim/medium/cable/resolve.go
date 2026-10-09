@@ -21,7 +21,8 @@ type End struct {
 }
 
 // EndState carries the facts resolution used and the result at one end.
-// Speed.DuplexA is this end's duplex. Speed is nonzero only on an Up end.
+// Speed.DuplexA is this end's duplex and Speed.DuplexB the peer's. Speed.SpeedBPS is
+// nonzero only on an Up end.
 type EndState struct {
 	Oper     port.LinkState
 	Reason   trace.Reason

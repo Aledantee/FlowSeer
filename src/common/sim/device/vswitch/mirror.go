@@ -63,12 +63,13 @@ func (s *Switch) police(now time.Time, name string, octets int) bool {
 // destination no more often than the live path would copy it.
 //
 // The memory keeps destinations next to names so that it survives a rebuild of the traffic
-// layer. Open vSwitch mirrors a frame to a destination once, however many selectors or mirrors
-// reach it, so a rebuilt mirror that sends to the same output port or VLAN under another name
-// must not copy what its predecessor copied. A name match is taken first, which keeps two
-// mirrors that share an output apart when both survive the rebuild. Ingress and VLAN are the
-// logical port and the VLAN the frame arrived on, which the routing layer's own record of the
-// ingress interface cannot supply and which a release must select on as a live route would.
+// layer. Each mirror that selects a frame takes its own copy, so two mirrors that share an
+// output each copy to it, but a rebuilt mirror that sends to the same output port or VLAN under
+// another name must not copy what its predecessor copied on arrival. A name match is taken
+// first, which keeps two mirrors that share an output apart when both survive the rebuild.
+// Ingress and VLAN are the logical port and the VLAN the frame arrived on, which the routing
+// layer's own record of the ingress interface cannot supply and which a release must select on
+// as a live route would.
 // Silent marks a frame that arrived as a mirror copy and therefore produces no copies at all.
 type heldMirror struct {
 	Ingress      string
