@@ -4,7 +4,7 @@
   "readiness": "implementation-ready",
   "review": "accept after fixes",
   "review_rounds": 2,
-  "compound": null,
+  "compound": "docs/solutions/conventions/a-gate-that-subtracts-a-recorded-constant-fails-when-the-code-improves.md, docs/solutions/architecture-patterns/a-frame-belongs-to-the-layer-that-builds-it-not-the-layer-whose-timer-ran.md; refreshed validate-and-derive, settled-aggregate, test-time-aware",
   "outcome": {
     "units": 18,
     "from": "2026-10-09T09:16:37Z",

@@ -1,6 +1,7 @@
 ---
 title: Validate and Derive Judge What New Builds, Not What the Caller Wrote
 date: 2026-09-11
+last_verified: 2026-10-09
 category: architecture-patterns
 module: src/common/sim/device/vswitch
 problem_type: bug
@@ -17,6 +18,7 @@ applies_when:
   - "Building a lookup map in a constructor from a name inside a nested map, and writing the Validate that is supposed to keep that name unique"
   - "Carrying an assigned value from a current instance into a derived one whose new configuration may claim the value explicitly"
   - "A derived simulator state loses roles, timers, or learned entries for a configuration that did not change"
+  - "A Validate runs before a Normalize and refuses a form that the standalone constructor, which normalizes first, accepts"
 related_components: [routing, fabric, stp]
 tags: [derive, validate, assigned-defaults, key-space, netsim, determinism]
 ---
@@ -64,6 +66,11 @@ writing the functions that judge the result:
    a container? Then `Validate` claims that key at the level the index
    lives, and refuses the second claimant.
 
+3. Does `Validate` run before `Normalize`? Then it refuses input the
+   constructor accepts. Validate a normalized copy, and judge on the
+   submitted form only the checks whose answer or field path normalization
+   changes.
+
 ```go
 next := New(cfg)
 // Both sides as New filled them, so an assigned default is not a change.
@@ -84,6 +91,21 @@ if len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 { ... }
 - `src/common/sim/fabric/routing_test.go`
   `TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims`: the switch
   takes the next free address when a host claims the carried one.
+
+The third question came from two later defects. `assembly.Config.Validate`
+judged a route prefix with host bits set (`10.0.20.5/24`) as submitted, so
+`assembly.New` refused what a switch built alone accepted. It now accepts a
+configuration valid after `Normalize`, and judges the cable fault, the
+accepted multicast list and `fabric.Uncabled` as submitted
+(`src/common/sim/assembly/config.go:340-344`). `fabric.Record.Normalize`
+validates again after it fills defaults (`src/common/sim/fabric/record.go:63-65`),
+so a defaulted `CapturedLen` above a set `OriginalLen` is refused. Commits
+`d26f21c1` and `bfe71bcc` record the failing tests:
+`TestRecordNormalizeRefusesDefaultedCapturedAboveOriginal` and
+`TestRecordNormalizeAcceptsCapturedLenAlone`
+(`src/common/sim/fabric/record_test.go:104`). A route prefix and a fault
+parameter are the inputs that tell the two orders apart in
+`src/common/sim/assembly/normalize_first_test.go`.
 
 ## What it does not cover
 

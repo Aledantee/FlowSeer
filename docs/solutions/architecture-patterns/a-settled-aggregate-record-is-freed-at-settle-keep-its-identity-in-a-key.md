@@ -59,6 +59,20 @@ The checks live in
 - `TestProtocolJourneyFreedAtSettle` checks that settled protocol journeys
   leave no traversal or re-entry storage.
 
+A result must not read what settle freed. `settle` folds a protocol
+journey's issues into a fabric-level set of distinct issues before freeing it
+(`foldProtocolIssues`, `src/common/sim/fabric/flow.go:139,201`), so
+`RunResult.Issues` and `Status` do not depend on whether a protocol frame was
+still unsettled at the stop step.
+`TestSettledProtocolJourneyKeepsItsIssues`
+(`src/common/sim/fabric/protocol_issues_test.go:74`) stops at budgets 8 and 12
+and fails if the fixture stops separating the two. A comparison of an
+aggregated root reads each side's flow statistics before the run and compares
+what the scenario added, since lifetime totals include earlier frames
+(`TestCompareAggregateIgnoresPreScenarioFlowTotals`,
+`src/common/sim/fabric/compare_baseline_test.go:27`). Commit `3e99cbaf` records
+the mutation failures.
+
 ## Boundary
 
 A new fabric from `assembly.Derive` has no hold map for its inherited device
