@@ -81,7 +81,7 @@ func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MA
 // batch at the run's current clock and followed by a draining run, and fails
 // the benchmark if a batch leaves the arrival queue non-empty. It returns the
 // total frames injected.
-func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.Retention, scenario bool) int {
+func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.JourneyRetention, scenario bool) int {
 	b.Helper()
 	frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
 	injected := 0

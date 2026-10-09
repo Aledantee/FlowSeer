@@ -19,7 +19,7 @@ type StreamAttachment struct {
 	Source    stream.Source
 	Start     time.Duration
 	Flow      FlowID
-	Retention Retention
+	Retention JourneyRetention
 }
 
 type attachedSource struct {

@@ -333,7 +333,7 @@ func TestInjectRefusesUnknownRetention(t *testing.T) {
 		At:        time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC),
 		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     flowFrame(src, dst),
-		Retention: fabric.Retention(2),
+		Retention: fabric.JourneyRetention(2),
 		Flow:      1,
 	})
 	if err == nil {

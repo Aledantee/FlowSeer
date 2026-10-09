@@ -120,7 +120,7 @@ func egressBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 	return ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 1000)}
 }
 
-func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.Retention) {
+func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.JourneyRetention) {
 	t.Helper()
 	at := fab.Snapshot().Clock
 	for range 20 {

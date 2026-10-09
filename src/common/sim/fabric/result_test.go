@@ -33,7 +33,7 @@ func TestRunResultAcrossRetentions(t *testing.T) {
 	for _, name := range cases {
 		t.Run(name, func(t *testing.T) {
 			var results [2]fabric.RunResult
-			for i, retention := range []fabric.Retention{fabric.RetainJourney, fabric.RetainAggregate} {
+			for i, retention := range []fabric.JourneyRetention{fabric.RetainJourney, fabric.RetainAggregate} {
 				f, inj, actions := retentionResultFixture(t, name)
 				inj.Flow, inj.Retention = 71, retention
 				fid, err := f.Inject(inj)

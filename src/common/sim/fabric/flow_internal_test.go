@@ -32,7 +32,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func injectHeldPair(t *testing.T, retention fabric.Retention) (*fabric.Fabric, [2]fabric.FrameID, netaddr.MAC) {
+func injectHeldPair(t *testing.T, retention fabric.JourneyRetention) (*fabric.Fabric, [2]fabric.FrameID, netaddr.MAC) {
 	t.Helper()
 	fab, swMAC, srcMAC := heldPropertyFixture(t)
 	var ids [2]fabric.FrameID
@@ -702,7 +702,7 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 		flowRetention = fabric.RetainAggregate
 	}
 
-	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow fabric.FlowID, retention fabric.Retention) fabric.FrameID {
+	injectFrame := func(at time.Time, daddr netip.Addr, payload []byte, flow fabric.FlowID, retention fabric.JourneyRetention) fabric.FrameID {
 		fid, err := fab.Inject(fabric.Injection{
 			At:        at,
 			Origin:    fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
@@ -798,7 +798,7 @@ func TestAggregateRetentionPreservesReleaseAttribution(t *testing.T) {
 func TestHoldExits(t *testing.T) {
 	var cases int
 	for _, exit := range []string{"released", "timed out", "overflow", "filtered", "reconfigured"} {
-		for _, retention := range []fabric.Retention{fabric.RetainJourney, fabric.RetainAggregate} {
+		for _, retention := range []fabric.JourneyRetention{fabric.RetainJourney, fabric.RetainAggregate} {
 			for _, reverse := range []bool{false, true} {
 				name := fmt.Sprintf("%s/retention=%d/reverse=%t", exit, retention, reverse)
 				t.Run(name, func(t *testing.T) {
@@ -813,7 +813,7 @@ func TestHoldExits(t *testing.T) {
 	}
 }
 
-func checkHoldExit(t *testing.T, exit string, retention fabric.Retention, reverse bool) {
+func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention, reverse bool) {
 	t.Helper()
 	base, swMAC, srcMAC := heldPropertyFixture(t)
 	cfg := assembly.Spec(base).Config()

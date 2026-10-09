@@ -87,7 +87,7 @@ type runRoot struct {
 	fid       FrameID
 	ordinal   int
 	flow      FlowID
-	retention Retention
+	retention JourneyRetention
 	injection *InjectionLocation
 	source    *SourceLocation
 }
