@@ -91,8 +91,8 @@ func TestStopReasonsCoverage(t *testing.T) {
 	if resQueue.Stop != StopQueueDrained {
 		t.Errorf("resQueue.Stop = %v, want StopQueueDrained", resQueue.Stop)
 	}
-	if resQueue.Steps != 1 {
-		t.Errorf("resQueue.Steps = %d, want 1", resQueue.Steps)
+	if resQueue.Steps != 2 {
+		t.Errorf("resQueue.Steps = %d, want 2", resQueue.Steps)
 	}
 
 	// StopBudget

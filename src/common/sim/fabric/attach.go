@@ -130,7 +130,7 @@ func (f *Fabric) pullInputs() {
 			f.pendingHosts[0] = pendingHostInjection{}
 			f.pendingHosts = f.pendingHosts[1:]
 			f.inflightRemove(item.fid)
-			f.injectHostFrame(item.at, item.origin, item.frame, item.seq, item.fid, f.journeys[item.fid])
+			f.injectHostFrame(item.at, item.origin, item.frame, item.pcp, item.seq, item.fid, f.journeys[item.fid])
 			continue
 		}
 

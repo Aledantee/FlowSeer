@@ -401,7 +401,8 @@ override update. An ARP probe's zero sender address changes no entry
 A Neighbor Solicitation for a local target learns its IP source from the
 Source Link-Layer Address option as RFC 4861 section 7.2.3 specifies.
 A non-local target is discarded before learning. The answer follows
-section 7.2.4, with Router and Override set, and Solicited set only for a
+section 7.2.4, with Override set and Router set unless `Config.ClearRouterFlag`
+names a host. Solicited is set only for a
 specified source. A specified source receives a unicast answer at its
 option's MAC, else its cached MAC. An unspecified source receives an
 all-nodes advertisement and leaves no entry.

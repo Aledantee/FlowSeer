@@ -22,14 +22,11 @@ type IP struct {
 	Neighbors map[netip.Addr]netaddr.MAC
 }
 
-// Config is an endpoint with one address and no relay; modeling it as a one-port switch would give it a forwarding database it must never use.
-//
-// A nil VLAN emits untagged frames and accepts untagged and VID 0 priority-tagged ones, while a non-nil VLAN
-// restricts the host to C-TAG frames with that VID. An optional IP stack enables packet origination through
-// routing and neighbor lookup, and makes the host accept only IP packets addressed to it. Accept widens which
-// destinations the host takes; the fabric delivers a frame only when the host accepts it.
-// Ethernet holds the physical facts of the host's one port under the rules a switch port's facts follow;
-// the zero value reports none, so the host's link is Unknown unless [Config.PhyAssumption] fills them.
+// Config describes a single-port endpoint with no relay or forwarding database.
+// A nil VLAN emits untagged frames and accepts untagged or VID 0 C-tags.
+// A non-nil VLAN requires a C-tag with that VID. IP enables packet origination
+// through static neighbors and narrows IP acceptance. Accept widens destination
+// acceptance. Ethernet's zero value reports no physical facts.
 type Config struct {
 	Address  netaddr.MAC
 	VLAN     *vlan.ID
@@ -51,24 +48,39 @@ type Accept struct {
 // Clone returns an independent deep copy of the host configuration.
 func (h Config) Clone() Config {
 	cp := h
-	cp.Ethernet = h.Ethernet.Clone()
+	cp.Ethernet.SupportedSpeedsBPS = slices.Clone(h.Ethernet.SupportedSpeedsBPS)
 	cp.Accept.Multicast = slices.Clone(h.Accept.Multicast)
-	if h.VLAN != nil {
-		v := *h.VLAN
-		cp.VLAN = &v
-	}
-	if h.IP != nil {
-		ip := IP{
-			Addresses: slices.Clone(h.IP.Addresses),
-			Gateway:   h.IP.Gateway,
+	// Addressing and port facts share backing storage to avoid an allocation
+	// per optional pointer. Each clone owns its storage and mutable collections.
+	if h.VLAN != nil || h.IP != nil || h.Ethernet.Setting != nil || h.Ethernet.Observed != nil {
+		facts := new(struct {
+			vlan     vlan.ID
+			ip       IP
+			setting  phy.Setting
+			observed phy.Observed
+		})
+		if h.VLAN != nil {
+			facts.vlan = *h.VLAN
+			cp.VLAN = &facts.vlan
 		}
-		if h.IP.Neighbors != nil {
-			ip.Neighbors = make(map[netip.Addr]netaddr.MAC, len(h.IP.Neighbors))
-			for k, v := range h.IP.Neighbors {
-				ip.Neighbors[k] = v
+		if h.Ethernet.Setting != nil {
+			facts.setting = *h.Ethernet.Setting
+			cp.Ethernet.Setting = &facts.setting
+		}
+		if h.Ethernet.Observed != nil {
+			facts.observed = *h.Ethernet.Observed
+			cp.Ethernet.Observed = &facts.observed
+		}
+		if h.IP != nil {
+			facts.ip = IP{Addresses: slices.Clone(h.IP.Addresses), Gateway: h.IP.Gateway}
+			if h.IP.Neighbors != nil {
+				facts.ip.Neighbors = make(map[netip.Addr]netaddr.MAC, len(h.IP.Neighbors))
+				for k, v := range h.IP.Neighbors {
+					facts.ip.Neighbors[k] = v
+				}
 			}
+			cp.IP = &facts.ip
 		}
-		cp.IP = &ip
 	}
 
 	return cp
@@ -171,13 +183,13 @@ func RoutingConfig(name string, h Config) (routing.Config, port.Table) {
 		},
 		Routes:    routes,
 		Neighbors: neighbors,
-		// A host stack resolves no neighbors: nothing wakes it, so an entry
-		// it held would hold forever. The switch is where resolution is
-		// modeled; a host is a packet source.
+		// A host answers local solicitations but only originates through
+		// configured neighbors. It owns no resolution timers or hold queue.
 		NeighborPolicy: routing.NeighborPolicy{Mode: routing.NeighborDisabled},
 	}
 
 	return routing.Config{
+		ClearRouterFlag: true,
 		VRFs: map[string]routing.VRF{
 			routing.DefaultVRF: vrf,
 		},

@@ -122,7 +122,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		{
 			name:     "a host without a VLAN refuses a C-TAG with a VID",
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x8100, VID: 10}}, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
+			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: hostmodel.ReasonVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a host with a VLAN accepts a C-TAG with its VID",
@@ -134,24 +134,24 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "a host with a VLAN refuses an untagged frame",
 			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
+			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: hostmodel.ReasonVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a host with a VLAN refuses another VID",
 			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x8100, VID: 20}}, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
+			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: hostmodel.ReasonVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a host with a VLAN refuses an S-TAG with its VID",
 			host:     hostmodel.Config{VLAN: &vid10},
 			frame:    ethernet.Frame{Dst: acceptReceiver, Tags: []vlan.Tag{{TPID: 0x88a8, VID: 10}}, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: fabric.ReasonHostVLANNotAccepted, wantRead: []string{readVLAN},
+			wantKind: fabric.EntryRejection, wantRule: "host.vlan.form", wantReason: hostmodel.ReasonVLANNotAccepted, wantRead: []string{readVLAN},
 		},
 		{
 			name:     "a unicast frame to another MAC is refused",
 			frame:    ethernet.Frame{Dst: other, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.mac.unicast_not_addressed", wantReason: fabric.ReasonHostUnicastNotAddressed, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryRejection, wantRule: "host.mac.unicast_not_addressed", wantReason: hostmodel.ReasonUnicastNotAddressed, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a promiscuous host accepts a unicast frame to another MAC",
@@ -173,7 +173,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 		{
 			name:     "a group MAC nothing accepts is refused",
 			frame:    ethernet.Frame{Dst: groupMAC, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: hostmodel.ReasonMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "all-multicast accepts any group MAC",
@@ -197,7 +197,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "a host without an IPv4 stack refuses the MAC of 224.0.0.1",
 			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: hostmodel.ReasonMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv6 stack accepts the MAC of ff02::1",
@@ -209,7 +209,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "a host without an IPv6 stack refuses the MAC of ff02::1",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allNodesMAC, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: hostmodel.ReasonMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IPv6 stack accepts the solicited-node MAC of an own address",
@@ -221,7 +221,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "an IPv6 stack refuses the solicited-node MAC of another address",
 			host:     hostmodel.Config{IP: ipv6Stack()},
 			frame:    ethernet.Frame{Dst: netaddr.MAC{0x33, 0x33, 0xff, 0x00, 0x00, 0x0b}, EtherType: ethernet.EtherTypeARP},
-			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: fabric.ReasonHostMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryRejection, wantRule: "host.mac.multicast_not_accepted", wantReason: hostmodel.ReasonMulticastNotAccepted, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "a non-IP EtherType to a host with an IP stack is accepted at the MAC check",
@@ -245,7 +245,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "an IP packet to another address is refused",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.11")},
-			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
+			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: hostmodel.ReasonIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "the limited broadcast is accepted",
@@ -263,7 +263,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "the directed broadcast of another prefix is refused",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "198.51.100.255")},
-			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
+			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: hostmodel.ReasonIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name: "a 31-bit prefix has no directed broadcast",
@@ -271,7 +271,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			frame: ethernet.Frame{
 				Dst: broadcast, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "192.0.2.11"),
 			},
-			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
+			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: hostmodel.ReasonIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an IPv4 packet to 224.0.0.1 is accepted as a group",
@@ -289,19 +289,19 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			name:     "a group whose MAC the MAC check would refuse is refused inside an accepted frame",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: allHostsMAC, EtherType: ethernet.EtherTypeIPv4, Payload: ipv4Payload(t, "224.0.0.5")},
-			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: fabric.ReasonHostIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
+			wantKind: fabric.EntryRejection, wantRule: "host.ip.not_addressed", wantReason: hostmodel.ReasonIPNotAddressed, wantRead: []string{readVLAN, readMAC, readIP},
 		},
 		{
 			name:     "an undecodable IP header leaves acceptance unknown",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{0x45, 0x00, 0x00}},
-			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: fabric.ReasonHostIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: hostmodel.ReasonIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
 		},
 		{
 			name:     "an IP header of the other version than its EtherType is undecodable",
 			host:     hostmodel.Config{IP: ipv4Stack()},
 			frame:    ethernet.Frame{Dst: acceptReceiver, EtherType: ethernet.EtherTypeIPv4, Payload: ipv6Payload(t, "2001:db8::a")},
-			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: fabric.ReasonHostIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
+			wantKind: fabric.EntryUnresolved, wantRule: "host.ip.undecodable", wantReason: hostmodel.ReasonIPHeaderUndecodable, wantRead: []string{readVLAN, readMAC},
 		},
 	}
 
@@ -328,7 +328,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			if step == nil {
 				t.Fatalf("decision %+v carries no step", decision)
 			}
-			if step.Layer != fabric.HostLayer || step.Op != trace.OpFilter || step.RuleID != tc.wantRule || step.Subject != (trace.Subject{Kind: "host", Key: "h2"}) {
+			if step.Layer != hostmodel.Layer || step.Op != trace.OpFilter || step.RuleID != tc.wantRule || step.Subject != (trace.Subject{Kind: "host", Key: "h2"}) {
 				t.Errorf("step = %s %s %s %+v, want host filter %s on host h2", step.Layer, step.Op, step.RuleID, step.Subject, tc.wantRule)
 			}
 			var gotTypes, wantTypes []string
@@ -350,7 +350,7 @@ func TestHostAcceptanceFollowsItsCheckOrder(t *testing.T) {
 			}
 
 			undecided := slices.ContainsFunc(journey.Metadata.Issues(), func(issue analysis.Issue) bool {
-				return issue.Code == analysis.IssueCode(fabric.ReasonHostIPHeaderUndecodable) &&
+				return issue.Code == analysis.IssueCode(hostmodel.ReasonIPHeaderUndecodable) &&
 					issue.Status == analysis.Incomplete &&
 					issue.Scope.Compare(analysis.JourneyScope(strconv.FormatUint(uint64(journey.FrameID), 10))) == 0
 			})
@@ -371,8 +371,8 @@ func TestForeignUnicastIsRejectedUnlessPromiscuous(t *testing.T) {
 	if len(journey.Deliveries) != 0 {
 		t.Errorf("deliveries = %+v, want none", journey.Deliveries)
 	}
-	if last := journey.Entries[len(journey.Entries)-1]; last.Kind != fabric.EntryRejection || last.Reason != fabric.ReasonHostUnicastNotAddressed {
-		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
+	if last := journey.Entries[len(journey.Entries)-1]; last.Kind != fabric.EntryRejection || last.Reason != hostmodel.ReasonUnicastNotAddressed {
+		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, hostmodel.ReasonUnicastNotAddressed)
 	}
 
 	promiscuous := arrivalAtReceiver(t, hostmodel.Config{Accept: hostmodel.Accept{Promiscuous: true}}, frame)

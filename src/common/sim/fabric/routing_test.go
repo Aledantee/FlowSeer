@@ -26,6 +26,87 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestSwitchResolvesHostWithoutStaticNeighbor(t *testing.T) {
+	var cases int
+	for _, family := range []string{"IPv4", "IPv6"} {
+		t.Run(family, func(t *testing.T) {
+			srcPrefix, dstPrefix := netip.MustParsePrefix("192.0.2.1/24"), netip.MustParsePrefix("198.51.100.1/24")
+			hostPrefix := netip.MustParsePrefix("198.51.100.10/24")
+			src := netip.MustParseAddr("192.0.2.10")
+			etherType := ethernet.EtherTypeIPv4
+			if family == "IPv6" {
+				srcPrefix, dstPrefix = netip.MustParsePrefix("2001:db8:1::1/64"), netip.MustParsePrefix("2001:db8:2::1/64")
+				hostPrefix, src = netip.MustParsePrefix("2001:db8:2::10/64"), netip.MustParseAddr("2001:db8:1::10")
+				etherType = ethernet.EtherTypeIPv6
+			}
+			swMAC, hostMAC := netaddr.MAC{2, 0, 0, 0, 0, 1}, netaddr.MAC{2, 0, 0, 0, 0, 10}
+			cfg := fabric.Config{
+				Start: fixedTime,
+				Switches: map[string]vswitch.Config{"sw": {MAC: swMAC, Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})), Routing: &routing.Config{VRFs: map[string]routing.VRF{routing.DefaultVRF: {
+					Interfaces: map[string]routing.Interface{"source": {Port: "p1", MAC: swMAC, Prefixes: []netip.Prefix{srcPrefix}}, "target": {Port: "p2", MAC: swMAC, Prefixes: []netip.Prefix{dstPrefix}}},
+				}}}}},
+				Hosts:  map[string]hostmodel.Config{"source": {Address: netaddr.MAC{2, 0, 0, 0, 0, 2}}, "target": {Address: hostMAC, IP: &hostmodel.IP{Addresses: []netip.Prefix{hostPrefix}}}},
+				Cables: []fabric.Cable{{A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "sw", Port: "p1"}}, {A: fabric.Endpoint{Node: "sw", Port: "p2"}, B: fabric.Endpoint{Node: "target"}}},
+			}
+			fab, err := fabric.New(statedPhysical(cfg))
+			if err != nil {
+				t.Fatal(err)
+			}
+			header := ip.Header{Src: src, Dst: hostPrefix.Addr(), Protocol: 17, HopLimit: 64}
+			if family == "IPv4" {
+				header.V4 = &ip.V4{}
+			} else {
+				header.V6 = &ip.V6{}
+			}
+			payload, err := header.Encode([]byte("host-resolution"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "sw", Port: "p1"}, Frame: ethernet.Frame{Src: cfg.Hosts["source"].Address, Dst: swMAC, EtherType: etherType, Payload: payload}}); err != nil {
+				t.Fatal(err)
+			}
+			result := fab.Run(50)
+			if result.Stop != fabric.StopQueueDrained {
+				t.Errorf("stop = %s, want QueueDrained", result.Stop)
+			}
+			var held, answers, delivered int
+			for _, j := range fab.Report() {
+				for _, e := range j.Entries {
+					if e.Result != nil && e.Result.Outcome == trace.Held {
+						held++
+					}
+				}
+				if j.Protocol && j.Injection.Origin.Node == "target" {
+					answers++
+				}
+				for _, d := range j.Deliveries {
+					if d.Host != "target" || d.Frame.EtherType != etherType {
+						continue
+					}
+					hdr, body, err := ip.Decode(d.Frame.Payload)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if hdr.Protocol != 17 {
+						continue
+					}
+					if hdr.Dst != hostPrefix.Addr() || hdr.Src != src || hdr.HopLimit != 63 || string(body) != "host-resolution" {
+						t.Fatalf("delivery = %+v/%q, want routed original", hdr, body)
+					}
+					delivered++
+				}
+			}
+			if held != 1 || answers != 1 || delivered != 1 {
+				t.Fatalf("held/answers/delivered = %d/%d/%d, want 1/1/1", held, answers, delivered)
+			}
+			cases++
+		})
+	}
+	if cases != 2 {
+		t.Fatalf("checked cases = %d, want 2", cases)
+	}
+}
+
 func TestFabricRoutersResolveNextHopAndDeliverHeldFrame(t *testing.T) {
 	ports, err := port.NewBuilder().Range("1/1/%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 	if err != nil {
@@ -295,7 +376,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	if !strings.Contains(err.Error(), "10.0.10.9") {
 		t.Errorf("Inject error %q does not contain address 10.0.10.9", err.Error())
 	}
-	// A host stack resolves no neighbors (HostRoutingConfig writes
+	// A host stack resolves no neighbors (host.RoutingConfig writes
 	// NeighborDisabled into every host VRF), so this is a definite miss, not
 	// a hold nothing ever wakes.
 	if !strings.Contains(err.Error(), string(routing.ReasonNeighborMiss)) {

@@ -13,13 +13,11 @@ import (
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
-	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/udp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -91,6 +89,7 @@ type queued struct {
 }
 
 type pendingHostInjection struct {
+	pcp    vlan.PCP
 	at     time.Time
 	frame  ethernet.Frame
 	fid    FrameID
@@ -200,80 +199,30 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 		hostRef      *linkEndRef
 	)
 
-	if host, isHost := f.cfg.Hosts[inj.Origin.Node]; isHost {
-		if inj.Origin.Port != "" {
-			return 0, errs.New().
-				Attr("node", inj.Origin.Node).
-				Attr("port", inj.Origin.Port).
-				Msgf("host origin %q must have empty port", inj.Origin.Node)
+	d, ok := f.devices[inj.Origin.Node]
+	if !ok {
+		if _, reflector := f.cfg.Reflectors[inj.Origin.Node]; reflector {
+			return 0, errs.New().Attr("node", inj.Origin.Node).Msgf("reflector %q cannot originate an injection: it has no host or switch port to inject at", inj.Origin.Node)
 		}
-
+		return 0, errs.New().Attr("node", inj.Origin.Node).Msgf("origin node %q not found in fabric", inj.Origin.Node)
+	}
+	var packet *device.Packet
+	if inj.Packet != nil {
+		packet = &device.Packet{To: inj.Packet.To, Protocol: inj.Packet.Protocol, Payload: inj.Packet.Payload}
+	}
+	originated, err := d.Originate(inj.At, inj.Origin.Port, inj.Frame, packet)
+	if err != nil {
+		return 0, err
+	}
+	if originated.Arrival != nil {
+		targetDevice, targetPort, frame = inj.Origin.Node, originated.Arrival.Port, originated.Arrival.Frame
+	} else {
 		ref, ok := f.linkEnd(inj.Origin.Node, "")
 		if !ok {
-			return 0, errs.New().
-				Attr("host", inj.Origin.Node).
-				Msgf("host %q has no connected cable", inj.Origin.Node)
+			return 0, errs.New().Attr("host", inj.Origin.Node).Msgf("host %q has no connected cable", inj.Origin.Node)
 		}
-
-		if inj.Packet != nil {
-			if inj.Frame.Dst != (netaddr.MAC{}) || inj.Frame.Src != (netaddr.MAC{}) || inj.Frame.EtherType != 0 ||
-				len(inj.Frame.Tags) != 0 || len(inj.Frame.Payload) != 0 {
-				return 0, errs.New().
-					Attr("host", inj.Origin.Node).
-					Msg("packet injection cannot specify frame fields")
-			}
-			stack, ok := f.hostStacks[inj.Origin.Node]
-			if !ok {
-				return 0, errs.New().
-					Attr("host", inj.Origin.Node).
-					Msgf("host %q has no IP stack", inj.Origin.Node)
-			}
-			res := stack.Originate(inj.At, routing.DefaultVRF, inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload, true)
-			if res.Reason != "" {
-				return 0, errs.New().
-					Attr("host", inj.Origin.Node).
-					Attr("address", inj.Packet.To).
-					Attr("reason", res.Reason).
-					Msgf("host %q cannot originate packet to %s: %s", inj.Origin.Node, inj.Packet.To, res.Reason)
-			}
-			frame = res.Frame
-		} else {
-			frame = cloneFrame(inj.Frame)
-		}
-
-		// A host emits one form only, so its tag replaces whatever the caller
-		// put on the frame; a second tag would be a form no host port emits.
-		if host.VLAN != nil {
-			frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: *host.VLAN}}
-		} else {
-			frame.Tags = nil
-		}
-
 		hostRef = &ref
-	} else if swCfg, isSwitch := f.cfg.Switches[inj.Origin.Node]; isSwitch {
-		if inj.Packet != nil {
-			return 0, errs.New().
-				Attr("switch", inj.Origin.Node).
-				Msgf("cannot inject packet at switch origin %q", inj.Origin.Node)
-		}
-		if _, ok := swCfg.Ports.Port(inj.Origin.Port); !ok {
-			return 0, errs.New().
-				Attr("node", inj.Origin.Node).
-				Attr("port", inj.Origin.Port).
-				Msgf("port %q not found on switch %q", inj.Origin.Port, inj.Origin.Node)
-		}
-
-		frame = cloneFrame(inj.Frame)
-		targetDevice = inj.Origin.Node
-		targetPort = inj.Origin.Port
-	} else if _, isReflector := f.cfg.Reflectors[inj.Origin.Node]; isReflector {
-		return 0, errs.New().
-			Attr("node", inj.Origin.Node).
-			Msgf("reflector %q cannot originate an injection: it has no host or switch port to inject at", inj.Origin.Node)
-	} else {
-		return 0, errs.New().
-			Attr("node", inj.Origin.Node).
-			Msgf("origin node %q not found in fabric", inj.Origin.Node)
+		frame = originated.Emissions[0].Frame
 	}
 
 	// The run counts octets from the encoded frame, so a frame the codec
@@ -311,7 +260,7 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 
 	switch {
 	case hostRef != nil && deferHost && !f.runStarted() && ((len(f.queue) > 0 && f.queue[0].At.Before(inj.At)) || len(f.pendingHosts) > 0):
-		item := pendingHostInjection{at: inj.At, frame: frame, fid: fid, seq: seq, origin: inj.Origin}
+		item := pendingHostInjection{at: inj.At, frame: frame, pcp: originated.Emissions[0].PCP, fid: fid, seq: seq, origin: inj.Origin}
 		index := len(f.pendingHosts)
 		for index > 0 && item.at.Before(f.pendingHosts[index-1].at) {
 			index--
@@ -319,7 +268,7 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 		f.pendingHosts = slices.Insert(f.pendingHosts, index, item)
 		f.inflightAdd(fid)
 	case hostRef != nil:
-		f.injectHostFrame(inj.At, inj.Origin, frame, seq, fid, journey)
+		f.injectHostFrame(inj.At, inj.Origin, frame, originated.Emissions[0].PCP, seq, fid, journey)
 	default:
 		arr := Arrival{
 			At:      inj.At,
@@ -337,7 +286,7 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 	return fid, nil
 }
 
-func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey) {
+func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.Frame, pcp vlan.PCP, seq uint64, fid FrameID, journey *Journey) {
 	ref, _ := f.linkEnd(origin.Node, "")
 	if ref.end.Oper != port.Up {
 		kind := EntryDrop
@@ -350,7 +299,6 @@ func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.F
 		})
 		return
 	}
-	pcp, _ := frame.Priority()
 	f.enqueueEgress(at, ref.end.Endpoint, ref.end.Port, frame, seq, fid, journey, pcp, "")
 }
 
@@ -437,6 +385,18 @@ func (f *Fabric) Step() (Entry, bool) {
 		f.record(journey, loopEntry)
 	}
 	f.entered[arr.FrameID][ep] = true
+
+	if arr.Port == "" {
+		if arr.Corrupt {
+			drop := Entry{At: arr.At, Kind: EntryDrop, Device: arr.Device, Cable: f.portCable(arr.Device, ""), Reason: cablemodel.ReasonBadFrame}
+			f.record(journey, drop)
+			return drop, true
+		}
+		out := f.devices[arr.Device].Receive(arr.At, "", arr.Frame)
+		entry := f.arriveHost(journey, arr.Device, arr.Frame, arr.At, out.Result)
+		f.applyOutput(arr.At, arr.Device, out)
+		return entry, true
+	}
 
 	// A reflector arrival is decided here rather than through the switch
 	// lookup below, which is unguarded and would nil-dereference on a
@@ -1165,22 +1125,6 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 	}
 
 	farEnd := ref.peer.Endpoint
-	if _, isHost := f.cfg.Hosts[farEnd.Node]; isHost {
-		if corrupt {
-			f.record(item.journey, Entry{
-				At:     deliveryAt,
-				Kind:   EntryDrop,
-				Device: farEnd.Node,
-				Cable:  &cableCopy,
-				Reason: cablemodel.ReasonBadFrame,
-			})
-
-			return end
-		}
-		f.arrive(item.journey, farEnd.Node, cable, item.frame, deliveryAt)
-
-		return end
-	}
 
 	crossingEntry := Entry{
 		At:            start,

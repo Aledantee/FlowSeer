@@ -59,7 +59,6 @@ var fabricFieldClasses = map[string]forkClass{
 	"uncabled":        classDeepCopied,
 	"switches":        classDeepCopied,
 	"devices":         classDeepCopied,
-	"hostStacks":      classDeepCopied,
 	"byEnd":           classDeepCopied,
 	"clock":           classImmutableShared,
 	"stepped":         classImmutableShared,

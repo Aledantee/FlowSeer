@@ -17,8 +17,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -179,7 +177,6 @@ type Fabric struct {
 	uncabled        map[Endpoint]Uncabled
 	switches        map[string]*vswitch.Switch
 	devices         map[string]device.Device
-	hostStacks      map[string]*routing.Layer
 	byEnd           map[Endpoint]linkEndRef
 	clock           time.Time
 	stepped         bool
@@ -519,16 +516,12 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		initialOutput[name] = out
 	}
 
-	hostStacks := make(map[string]*routing.Layer, len(cloned.Hosts))
-	for name, h := range cloned.Hosts {
-		if h.IP != nil {
-			rtCfg, tbl := hostmodel.RoutingConfig(name, h)
-			rt, err := routing.New(rtCfg, layer.Env{Ports: tbl, NodeID: name})
-			if err != nil {
-				return nil, errs.Wrapf(err, "host %q routing", name)
-			}
-			hostStacks[name] = rt
+	for _, name := range slices.Sorted(maps.Keys(cloned.Hosts)) {
+		h, err := hostmodel.New(name, cloned.Hosts[name])
+		if err != nil {
+			return nil, err
 		}
+		devices[name] = h
 	}
 
 	fab := &Fabric{
@@ -539,7 +532,6 @@ func build(cur *Fabric, spec ConstructionSpec) (*Fabric, error) {
 		uncabled:       uncabled,
 		switches:       switches,
 		devices:        devices,
-		hostStacks:     hostStacks,
 		byEnd:          byEnd,
 		clock:          cloned.Start,
 		wakes:          make(map[string]time.Time),
@@ -647,16 +639,12 @@ func (f *Fabric) Fork() *Fabric {
 	var devices map[string]device.Device
 	if f.devices != nil {
 		devices = make(map[string]device.Device, len(f.devices))
-		for name := range f.devices {
-			devices[name] = switches[name]
-		}
-	}
-
-	var hostStacks map[string]*routing.Layer
-	if f.hostStacks != nil {
-		hostStacks = make(map[string]*routing.Layer, len(f.hostStacks))
-		for name, l := range f.hostStacks {
-			hostStacks[name] = l.Clone()
+		for name, d := range f.devices {
+			if sw, ok := switches[name]; ok {
+				devices[name] = sw
+			} else {
+				devices[name] = d.Fork()
+			}
 		}
 	}
 
@@ -771,7 +759,6 @@ func (f *Fabric) Fork() *Fabric {
 		uncabled:        uncabled,
 		switches:        switches,
 		devices:         devices,
-		hostStacks:      hostStacks,
 		byEnd:           byEnd,
 		clock:           f.clock,
 		stepped:         f.stepped,

@@ -888,8 +888,12 @@ Amendment 2026-10-07: sending and reception are implemented in
   unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs.
   The switch sends routing emissions as protocol frames at priority zero,
   with the same VLAN, routed-port, and sub-interface egress paths as a
-  released frame. A host stack remains `NeighborDisabled`, since fabric
-  hosts do not process these control frames.
+  released frame. A host stack remains `NeighborDisabled` and processes
+  these control frames to answer for its own addresses, without learning or
+  resolving neighbors (`src/common/sim/device/host/host.go`, `Receive`).
+  Its advertisements clear the Router flag through `routing.Config.ClearRouterFlag`,
+  because RFC 4861 section 4.4 identifies that flag with a router sender
+  (https://www.rfc-editor.org/rfc/rfc4861.html#section-4.4).
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the

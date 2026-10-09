@@ -257,8 +257,9 @@ the supplied step. The traffic configuration and its rules stay in the device.
 
 Every transmitting endpoint has eight FIFO queues, one for each PCP. Normal
 egress keeps the PCP from ingress classification even when the egress frame is
-untagged. Protocol emissions, mirror copies, and host injections use the outer
-C-tag's PCP, or PCP 0 when the frame has no outer C-tag.
+untagged. A host injection retains the supplied frame's PCP while replacing
+the VID with the host's VLAN form. Protocol emissions use PCP 0. Mirror copies
+use the outer C-tag's PCP, or PCP 0 when the frame has no outer C-tag.
 
 An idle endpoint serves a lone frame immediately. When another frame arrival is
 already scheduled for the same instant, the endpoint schedules a dequeue after
@@ -602,7 +603,7 @@ loop on its first reflected copy.
 
 ## Hosts with an IP stack and address assignment
 
-A host configured with `IP *HostIP` translates to an internal routing layer
+A host configured with `IP *host.IP` owns an internal routing layer
 operating with VRF `default` and a single routed port carrying the host's
 assigned MAC and configured IP address prefixes. When an injected packet is
 originated:
@@ -624,9 +625,9 @@ originated:
   no gateway) or `neighbor-miss` (destination or gateway missing from neighbors),
   naming the address and reason without creating a journey. A host stack never
   reports `neighbor-pending`: `host.RoutingConfig` writes `NeighborDisabled`
-  into every host VRF, because nothing wakes a host stack the way `Fabric`
-  wakes a switch, and a frame a host held would hold forever. The switch is
-  where address resolution is modelled; a host is a packet source.
+  into every host VRF. Hosts answer ARP and Neighbor Discovery for their own
+  addresses without learning or resolving a next hop. A switch can resolve
+  an attached host without a configured neighbor.
 
 MAC addresses left zero in a fabric configuration are assigned by `New`
 and `Derive` before any switch or host stack is built. The allocator walks switch names

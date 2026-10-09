@@ -36,27 +36,7 @@ const (
 	// ReasonAdjacencyUnresolved records that a switch port is Unknown because no cable names it and
 	// [Config.Uncabled] does not list it, so nothing says what, if anything, is attached.
 	ReasonAdjacencyUnresolved trace.Reason = "adjacency-unresolved"
-
-	// ReasonHostVLANNotAccepted records a host refusing a frame whose tag form its VLAN does not accept.
-	ReasonHostVLANNotAccepted trace.Reason = "host-vlan-not-accepted"
-
-	// ReasonHostUnicastNotAddressed records a host refusing a unicast frame addressed to another MAC.
-	ReasonHostUnicastNotAddressed trace.Reason = "host-unicast-not-addressed"
-
-	// ReasonHostMulticastNotAccepted records a host refusing a frame to a group MAC it does not accept.
-	ReasonHostMulticastNotAccepted trace.Reason = "host-multicast-not-accepted"
-
-	// ReasonHostIPNotAddressed records a host refusing an IP packet addressed to none of its addresses,
-	// broadcasts, or accepted groups.
-	ReasonHostIPNotAddressed trace.Reason = "host-ip-not-addressed"
-
-	// ReasonHostIPHeaderUndecodable records a host that cannot decide on a frame because its IP header
-	// does not decode.
-	ReasonHostIPHeaderUndecodable trace.Reason = "host-ip-header-undecodable"
 )
-
-// HostLayer is the trace layer of a host's acceptance decisions.
-const HostLayer trace.Layer = "host"
 
 // ReflectorLayer is the trace layer of a reflector's acceptance decisions.
 const ReflectorLayer trace.Layer = "reflector"

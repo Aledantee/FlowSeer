@@ -193,6 +193,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	fab.Step()
 
 	// 2. Return frame from h2 to macA forwards directly to 1/1/1.
+	fab.Step()
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "h2"},
@@ -220,6 +221,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
+	fab.Step()
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},

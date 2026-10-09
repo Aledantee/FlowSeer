@@ -30,7 +30,6 @@ var fabricDeepCopiedProbes = map[string]func(t *testing.T){
 	"uncabled":       probeFabricUncabled,
 	"switches":       probeFabricSwitches,
 	"devices":        probeFabricDevices,
-	"hostStacks":     probeFabricHostStacks,
 	"byEnd":          probeFabricByEnd,
 	"queue":          probeFabricQueue,
 	"wakes":          probeFabricWakes,
@@ -153,6 +152,17 @@ func probeFabricSwitches(t *testing.T) {
 }
 
 func probeFabricDevices(t *testing.T) {
+	h := newTestFabricForFork(t)
+	forkHost := h.Fork()
+	if h.devices["h1"] == forkHost.devices["h1"] {
+		t.Error("host device aliased across fork")
+	}
+	if _, err := h.devices["h1"].LinkChange(h.clock, "", device.Link{State: port.Down}); err != nil {
+		t.Fatal(err)
+	}
+	if source, forkState := h.devices["h1"].State(h.clock), forkHost.devices["h1"].State(h.clock); source.Ports[0].OperStatus != port.Down || forkState.Ports[0].OperStatus != port.Up {
+		t.Errorf("host link states = %s/%s, want Down/Up", source.Ports[0].OperStatus, forkState.Ports[0].OperStatus)
+	}
 	initial := newTestFabricForFork(t).Config()
 	initial.Cables[2].LengthMeters = 1
 	fab, err := New(initial)
@@ -190,15 +200,6 @@ func probeFabricDevices(t *testing.T) {
 				t.Fatalf("outcome/FID = %s/%d, want Flooded/%d", entry.Result.Outcome, entry.Result.FID, tc.fid)
 			}
 		})
-	}
-}
-
-func probeFabricHostStacks(t *testing.T) {
-	fab := newTestFabricForFork(t)
-	fork := fab.Fork()
-
-	if fab.hostStacks["h1"] == fork.hostStacks["h1"] {
-		t.Errorf("hostStacks pointers aliased across fork")
 	}
 }
 

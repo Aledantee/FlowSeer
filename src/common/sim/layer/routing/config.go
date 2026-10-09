@@ -104,16 +104,20 @@ type VRF struct {
 	NeighborPolicy NeighborPolicy
 }
 
-// Config defines the complete routing capability configuration of a virtual switch,
+// Config defines the complete routing capability configuration of a device,
 // structured as a collection of VRFs keyed by name.
 type Config struct {
-	VRFs map[string]VRF
+	// ClearRouterFlag identifies an endpoint that does not forward IP packets.
+	// Its Neighbor Advertisements clear the Router bit. Unset means a router.
+	ClearRouterFlag bool
+	VRFs            map[string]VRF
 }
 
 // Clone returns a deep copy of the routing configuration.
 func (c Config) Clone() Config {
 	cloned := Config{
-		VRFs: make(map[string]VRF, len(c.VRFs)),
+		ClearRouterFlag: c.ClearRouterFlag,
+		VRFs:            make(map[string]VRF, len(c.VRFs)),
 	}
 	for vrfName, vrf := range c.VRFs {
 		clonedVRF := VRF{

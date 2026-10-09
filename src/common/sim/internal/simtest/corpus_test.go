@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
@@ -854,8 +856,8 @@ func TestHostRejectsForeignUnicastOverAFullyResolvedPath(t *testing.T) {
 		t.Errorf("deliveries = %+v, want none: h2 refused the foreign unicast", res.Journey.Deliveries)
 	}
 	last := res.Journey.Entries[len(res.Journey.Entries)-1]
-	if last.Kind != fabric.EntryRejection || last.Reason != fabric.ReasonHostUnicastNotAddressed {
-		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, fabric.ReasonHostUnicastNotAddressed)
+	if last.Kind != fabric.EntryRejection || last.Reason != hostmodel.ReasonUnicastNotAddressed {
+		t.Errorf("last entry = %s %q, want Rejection %q", last.Kind, last.Reason, hostmodel.ReasonUnicastNotAddressed)
 	}
 }
 

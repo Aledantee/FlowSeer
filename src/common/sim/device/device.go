@@ -2,6 +2,7 @@
 package device
 
 import (
+	"net/netip"
 	"slices"
 	"time"
 
@@ -17,7 +18,10 @@ import (
 // State samples independent state without advancing timers.
 // AdmitEgress reads queue policy without changing occupancy. Its depth and frame
 // size are encoded octets, excluding preamble and gap.
+// Originate returns an arrival on the named port or wire emissions, and refuses
+// unsupported origins. Packet origination and frame fields are mutually exclusive.
 type Device interface {
+	Originate(time.Time, string, ethernet.Frame, *Packet) (Origination, error)
 	AdmitEgress(string, vlan.PCP, uint64, uint64) QueueDecision
 	Receive(time.Time, string, ethernet.Frame) Output
 	ReceiveMirrored(time.Time, string, ethernet.Frame) Output
@@ -27,6 +31,28 @@ type Device interface {
 	Fork() Device
 	Ports() port.Table
 	State(time.Time) State
+}
+
+// Packet describes a datagram a device originates through its IP stack.
+// It is safe for concurrent reads.
+type Packet struct {
+	To       netip.Addr
+	Protocol uint8
+	Payload  []byte
+}
+
+// Arrival is an originated frame presented to a device's receive path.
+// It is safe for concurrent reads.
+type Arrival struct {
+	Port  string
+	Frame ethernet.Frame
+}
+
+// Origination returns either an arrival or emissions sent directly to the wire.
+// It is safe for concurrent reads.
+type Origination struct {
+	Arrival   *Arrival
+	Emissions []Emission
 }
 
 // Output holds the result and all frames and held-frame drops produced by a call.

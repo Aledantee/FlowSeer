@@ -652,6 +652,14 @@ cases of `ST`. Each rises by one step per delivery, and an Arrival entry
 follows a Crossing. A routed fixture keeps its static neighbor for a host
 unless its test is about resolution.
 
+`TestHostAdvertisementClearsRouterFlag` checks exactly two stacks, original and
+clone, against literal advertisement bytes. `TestRouterFlagConfigurationChangesDiffAndRetention`
+checks the flag's diff entry and distinct retention keys. The fabric fork's host
+ownership probe uses independent public link state after the host stack moves.
+`TestHostInjectionKeepsPCP` also retains DEI across the VID rewrite.
+`TestHostOriginateRefusesInvalidPriority` checks exactly two VLAN forms and
+refuses PCP 8 before it can become a queue sidecar.
+
 ### U8. The reflector
 Files: src/common/sim/device/reflector, src/common/sim/fabric, src/common/sim/internal/simtest, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-16-local-network-analysis-direction.md
 After: U7

@@ -26,6 +26,68 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
+func TestHostBoundLegRecordsCrossing(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	id, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result := fab.Run(10); result.Steps != 3 {
+		t.Errorf("steps = %d, want 3 (two switches and the host)", result.Steps)
+	}
+	j := fab.Report()[id-1]
+	var crossings int
+	for i, entry := range j.Entries {
+		if entry.Kind != fabric.EntryCrossing || entry.Device != "h2" || entry.Port != "" {
+			continue
+		}
+		crossings++
+		if entry.Wait != 0 || entry.Serialization != 672*time.Nanosecond || entry.PCP != 0 {
+			t.Errorf("host-bound crossing = %+v, want wait 0, serialization 672ns, PCP 0", entry)
+		}
+		if i+1 >= len(j.Entries) || j.Entries[i+1].Kind != fabric.EntryArrival || j.Entries[i+1].Device != "h2" || !j.Entries[i+1].At.Equal(entry.At.Add(entry.Serialization+entry.Latency)) {
+			t.Errorf("entries = %+v, want host arrival after its crossing", j.Entries)
+		}
+	}
+	if crossings != 1 || len(j.Deliveries) != 1 {
+		t.Fatalf("host crossings/deliveries = %d/%d, want 1/1", crossings, len(j.Deliveries))
+	}
+}
+
+func TestHostInjectionKeepsPCP(t *testing.T) {
+	vid := vlan.ID(10)
+	src, dst := netaddr.MAC{2, 0, 0, 0, 0, 1}, netaddr.MAC{2, 0, 0, 0, 0, 2}
+	fab, err := fabric.New(statedPhysical(fabric.Config{
+		Switches: map[string]vswitch.Config{"sw": {Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: src, VLAN: &vid}, "h2": {Address: dst, VLAN: &vid}},
+		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw", Port: "p1"}}, {A: fabric.Endpoint{Node: "sw", Port: "p2"}, B: fabric.Endpoint{Node: "h2"}}},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst, Tags: []vlan.Tag{{VID: 20, PCP: 5, DEI: true}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fab.Run(10)
+	j := fab.Report()[id-1]
+	var crossings int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryCrossing {
+			crossings++
+			if e.PCP != 5 {
+				t.Errorf("crossing PCP = %d, want 5", e.PCP)
+			}
+		}
+	}
+	if crossings != 2 || len(j.Deliveries) != 1 {
+		t.Fatalf("crossings/deliveries = %d/%d, want 2/1", crossings, len(j.Deliveries))
+	}
+	if tags := j.Deliveries[0].Frame.Tags; len(tags) != 1 || tags[0].VID != 10 || tags[0].PCP != 5 || !tags[0].DEI {
+		t.Errorf("delivered tags = %+v, want one VID 10 tag at PCP 5 with DEI set", tags)
+	}
+}
+
 func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
@@ -249,8 +311,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	}
 
 	steps := fab.Run(10).Steps
-	if steps != 2 {
-		t.Fatalf("steps = %d, want 2", steps)
+	if steps != 3 {
+		t.Fatalf("steps = %d, want 3", steps)
 	}
 
 	journeys := fab.Report()
@@ -269,6 +331,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		fabric.EntryHop,
 		fabric.EntryCrossing,
 		fabric.EntryHop,
+		fabric.EntryCrossing,
 		fabric.EntryArrival,
 		fabric.EntryDelivery,
 	}
@@ -306,8 +369,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	if j1.Entries[4].Result.Outcome != trace.Flooded {
 		t.Errorf("sw2 outcome = %v, want Flooded", j1.Entries[4].Result.Outcome)
 	}
-	if j1.Entries[5].Device != "h2" || j1.Entries[6].Device != "h2" {
-		t.Errorf("arrival and delivery devices = %q, %q, want h2", j1.Entries[5].Device, j1.Entries[6].Device)
+	if j1.Entries[6].Device != "h2" || j1.Entries[7].Device != "h2" {
+		t.Errorf("arrival and delivery devices = %q, %q, want h2", j1.Entries[6].Device, j1.Entries[7].Device)
 	}
 
 	if len(j1.Deliveries) != 1 {
@@ -338,8 +401,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	}
 
 	stepsRev := fab.Run(10).Steps
-	if stepsRev != 2 {
-		t.Fatalf("stepsRev = %d, want 2", stepsRev)
+	if stepsRev != 3 {
+		t.Fatalf("stepsRev = %d, want 3", stepsRev)
 	}
 
 	journeys = fab.Report()
@@ -416,8 +479,8 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 	}
 
 	snap2 := fab.Snapshot()
-	if len(snap2.Queue) != 0 {
-		t.Errorf("len(snap2.Queue) = %d, want 0", len(snap2.Queue))
+	if len(snap2.Queue) != 1 {
+		t.Errorf("len(snap2.Queue) = %d, want 1 host arrival", len(snap2.Queue))
 	}
 	if !snap2.Clock.Equal(wantAt) {
 		t.Errorf("snap2.Clock = %v, want %v", snap2.Clock, wantAt)
@@ -471,7 +534,9 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 		{device: "sw1", port: "1/1/1", at: t0.Add(672 * time.Nanosecond)},
 		{device: "sw2", port: "1/1/1", at: t0.Add(1672 * time.Nanosecond)},
 		{device: "sw2", port: "1/1/24", at: t0.Add(2870 * time.Nanosecond)},
+		{device: "h2", at: t0.Add(3542 * time.Nanosecond)},
 		{device: "sw1", port: "1/1/24", at: t0.Add(3870 * time.Nanosecond)},
+		{device: "h1", at: t0.Add(4542 * time.Nanosecond)},
 	}
 
 	for i, want := range expectedSteps {
@@ -488,7 +553,7 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	if _, ok := fab.Step(); ok {
-		t.Errorf("expected queue to be empty after 4 steps")
+		t.Errorf("expected queue to be empty after 6 steps")
 	}
 
 	journeys := fab.Report()
@@ -1549,7 +1614,7 @@ func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 
 	rtCfg, tbl := hostmodel.RoutingConfig("h1", h)
 	if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
-		t.Fatalf("HostRoutingConfig failed Validate: %v", err)
+		t.Fatalf("host RoutingConfig failed Validate: %v", err)
 	}
 
 	vrf, ok := rtCfg.VRFs[routing.DefaultVRF]
@@ -1764,8 +1829,8 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 	}
 
 	j := journeys[0]
-	if len(j.Entries) != 7 {
-		t.Fatalf("len(j.Entries) = %d, want 7", len(j.Entries))
+	if len(j.Entries) != 8 {
+		t.Fatalf("len(j.Entries) = %d, want 8", len(j.Entries))
 	}
 
 	e1 := j.Entries[1]
@@ -1803,11 +1868,11 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 		t.Errorf("e4 = %+v, want hop on sw2 at t0+2870ns", e4)
 	}
 
-	e5 := j.Entries[5]
+	e5 := j.Entries[6]
 	if e5.Kind != fabric.EntryArrival || e5.Device != "h2" || !e5.At.Equal(t0.Add(3542*time.Nanosecond)) {
 		t.Errorf("e5 = %+v, want arrival at h2 at t0+3542ns", e5)
 	}
-	e6 := j.Entries[6]
+	e6 := j.Entries[7]
 	if e6.Kind != fabric.EntryDelivery || e6.Device != "h2" || !e6.At.Equal(t0.Add(3542*time.Nanosecond)) {
 		t.Errorf("e6 = %+v, want delivery to h2 at t0+3542ns", e6)
 	}
