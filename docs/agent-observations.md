@@ -106,3 +106,21 @@ Suggested change: `stop` treats `terminal_handle_stale` (and any reply that
 names no terminal) as a closed terminal: it logs `end`, marks the lane kept
 or removes it, and says so. `orca.md` names the stale handle beside the
 exited terminal.
+
+## 2026-10-09 steer: a hook that crashes lets the call proceed
+Skill or agent: `tools/scripts/hooks/worktree_guard.py`, `main`, and the
+hook registrations in `.claude/settings.json`.
+What happened: a Bash command that holds a NUL in a primary checkout on a
+protected branch makes `words` raise `ValueError: embedded null byte`
+(`worktree_guard.py:228`). `main` catches `ValueError` only around the JSON
+read (`:365`), so the hook exits 1 with a traceback and no decision.
+Reproduced 2026-10-09 with `rm a\0b` on `main`. The plan's Decisions say
+`main` already catches it. Claude Code treats an exit code other than 2 as
+non-blocking (the hooks reference the plan fetched 2026-10-07, quoted in its
+Decisions), so the call proceeds. Whether Codex does the same for exit 1 is
+`codex-rs/hooks/src/events/pre_tool_use.rs:261` to `:284`, unverified here.
+Suggested change: decide whether a guard's uncaught exception is a deny by
+construction, for example one wrapper in `tools/scripts/run.py` that turns
+an exception in a `PreToolUse` hook into `hookio.deny`, instead of a
+`try` in each hook. `pre-tool-policy` and `protect-generated-bash` already
+deny on an uncaught exception per the same Decisions.

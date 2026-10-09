@@ -117,7 +117,7 @@ For each unit:
    citations, and any test or benchmark name the unit made false.
 5. Check, commit, verify, in that order:
    - Run the focused checks (`go test -race ./<pkg>/...`, `go tool -modfile=tools/buf/go.mod buf lint`), never a
-     script under `tools/hooks/` (`delegate`, Write the brief, item 6). Send
+     `run.py hooks` command by hand (`delegate`, Write the brief, item 6). Send
      output that may carry diagnostics to a file and grep it after
      (`go test ... > "$TMPDIR/run.log" 2>&1; grep -E '^(FAIL|--- FAIL)' "$TMPDIR/run.log"`),
      never through a filter that drops what it does not match.

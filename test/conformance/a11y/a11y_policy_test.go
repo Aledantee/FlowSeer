@@ -13,7 +13,7 @@
 // axe.configure, a story skipped by widening the audit's own skip list, an
 // axe context that excludes nodes, a call split across lines, and any of
 // these moved into a helper module or a Vite or Vitest config. This package
-// is a policy surface (tools/hooks/pre-tool-policy.sh), so a rule added to
+// is a policy surface (tools/scripts/hooks/pre_tool_policy.py), so a rule added to
 // allowedDisabledRules waits for guardrail review like a .golangci.yml
 // exclusion does.
 package conformance

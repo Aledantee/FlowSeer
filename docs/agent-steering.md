@@ -72,9 +72,12 @@ judges the operands of a mutating verb rather than any command that names
 exist yet, and the message-sync note stays silent about members the
 file-level comment names. A guard that fires more often on legitimate work
 than on the mistake it was written for gets narrowed, not explained. A
-Codex hook command that cannot reach its script says which of the root,
-`git`, or the script is missing and exits 1, since a bare exit 127 names
-none of them.
+Codex hook command that cannot start says which of the root, `git`, or `uv`
+is missing, since a bare exit 127 names none of them. It exits 2 for
+`PreToolUse`, which Codex reads as a block with that reason, and 1 for every
+other event, since exit 2 at `Stop` would keep the session from stopping
+(`codex-rs/hooks/src/events/pre_tool_use.rs:261` to `:284`, at tag
+`rust-v0.160.0` of https://github.com/openai/codex).
 
 Do not copy a linter manual into `AGENTS.md`. Name the command and document only
 the project-specific judgment that the tool cannot express.
@@ -1190,13 +1193,26 @@ only a change under `generated/` or to the module graph keeps the
 parallel Bash calls would have raced on, and the verifier rewrites the
 listing after a pass so verified content is not marked again.
 
-The Stop gate ran in 20 seconds on an empty Go build cache and 3 on a warm
-one on 2026-10-03 (`tools/hooks/stop-check.sh` fed `{"cwd":"<root>"}` on
-standard input, with `GOCACHE` set to an empty directory), against the 30-second `timeout` both runtime configs
-set. A command hook cancelled at its timeout has its output discarded and
+The shell Stop gate ran in 20 seconds on an empty Go build cache and 3 on a
+warm one on 2026-10-03. The `hooks stop-check` command that replaced it ran in
+11.1 seconds on empty Go and uv caches and in 1.0 on warm ones on 2026-10-07
+(arm64 macOS, Go 1.27.1, uv 0.12.23), against the 30-second `timeout` both
+runtime configs set. The timeout stays at 30 while the cold run takes at most
+24 seconds. Past that, both configs take twice the cold time, rounded up to ten
+seconds. A command hook cancelled at its timeout has its output discarded and
 renders no decision ([Hooks](https://code.claude.com/docs/en/hooks), checked
-2026-10-03), so a run past the timeout would read as a pass. Measure again
-when a conformance package is added.
+2026-10-03), so a run past the timeout would read as a pass. The command that
+reproduces both timings, run from the repository root:
+
+```bash
+cache=$(mktemp -d) && mkdir "$cache/go" "$cache/uv"
+# Cold: empty Go build cache and empty uv cache.
+time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
+# Warm: the same command again.
+time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
+```
+
+Measure again when a conformance package is added.
 
 The integration branch is `main`. `--base master` and `master..HEAD` fail
 in this repository.

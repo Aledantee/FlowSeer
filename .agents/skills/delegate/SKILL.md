@@ -294,8 +294,8 @@ order:
    the policy surfaces `AGENTS.md`, Hard boundaries, names, to
    `generated/`, or to `buf.lock`; no edit to a plan Decision marked
    `decided by the user` (a finding or unit that needs one changed is a
-   blocker); no plan labels in code; no running a script
-   under `tools/hooks/` (it blocks on stdin). A unit worker's checks are
+   blocker); no plan labels in code; no running a `run.py hooks` command by
+   hand (it waits on stdin). A unit worker's checks are
    the focused tests and `go tool -modfile=tools/buf/go.mod buf lint`, and
    the coordinator runs the verifier after the merge. A stage worker (a
    `drive` stage) runs the verifier its skill names, since `verify ledger`
