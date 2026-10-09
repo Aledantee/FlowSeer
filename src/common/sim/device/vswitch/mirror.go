@@ -2,6 +2,7 @@ package vswitch
 
 import (
 	"slices"
+	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -56,20 +57,35 @@ func (s *Switch) police(now time.Time, name string, octets int) bool {
 
 // heldMirror is what the switch remembers about a frame the routing layer holds, keyed by its
 // hold token, so the copies taken when the frame is released agree with the ones taken when it
-// was held. Mirrors names the mirrors that copied the frame on arrival, and a mirror is copied
-// to once per frame however many of its selectors match. Ingress and VLAN are the logical port
-// and the VLAN the frame arrived on, which the routing layer's own record of the ingress
-// interface cannot supply and which a release must select on as a live route would.
+// was held. Mirrors and Destinations describe the copies taken on arrival, one index per copy:
+// the mirror that took it and where it left, as [copyDestination] names it. A copy at release
+// is dropped when one of those arrival copies matches it, so a frame is copied to a
+// destination no more often than the live path would copy it.
+//
+// The memory keeps destinations next to names so that it survives a rebuild of the traffic
+// layer. Open vSwitch mirrors a frame to a destination once, however many selectors or mirrors
+// reach it, so a rebuilt mirror that sends to the same output port or VLAN under another name
+// must not copy what its predecessor copied. A name match is taken first, which keeps two
+// mirrors that share an output apart when both survive the rebuild. Ingress and VLAN are the
+// logical port and the VLAN the frame arrived on, which the routing layer's own record of the
+// ingress interface cannot supply and which a release must select on as a live route would.
 // Silent marks a frame that arrived as a mirror copy and therefore produces no copies at all.
 type heldMirror struct {
-	Ingress string
-	VLAN    vlan.ID
-	Mirrors []string
-	Silent  bool
+	Ingress      string
+	VLAN         vlan.ID
+	Mirrors      []string
+	Destinations []string
+	Silent       bool
+}
+
+// copyDestination names where a copy leaves: its output port and, for a VLAN output, the VLAN.
+func copyDestination(cp traffic.Copy) string {
+	return trace.CompositeKey(cp.Port, strconv.Itoa(int(cp.VLAN)))
 }
 
 func (h heldMirror) clone() heldMirror {
 	h.Mirrors = slices.Clone(h.Mirrors)
+	h.Destinations = slices.Clone(h.Destinations)
 	return h
 }
 
@@ -93,9 +109,8 @@ func (s *Switch) rememberHeldMirror(ingress string, vid vlan.ID, copies []traffi
 	}
 	h := heldMirror{Ingress: ingress, VLAN: vid, Silent: c.mirrored}
 	for _, cp := range copies {
-		if !slices.Contains(h.Mirrors, cp.Mirror) {
-			h.Mirrors = append(h.Mirrors, cp.Mirror)
-		}
+		h.Mirrors = append(h.Mirrors, cp.Mirror)
+		h.Destinations = append(h.Destinations, copyDestination(cp))
 	}
 	if s.heldMirrors == nil {
 		s.heldMirrors = make(map[routing.HoldToken]heldMirror)
@@ -103,14 +118,37 @@ func (s *Switch) rememberHeldMirror(ingress string, vid vlan.ID, copies []traffi
 	s.heldMirrors[c.hold] = h
 }
 
-// withoutMirrored drops the copies the frame's arrival already produced.
+// withoutMirrored drops the copies the frame's arrival already produced. Each remembered copy
+// absorbs at most one candidate: the one from the same mirror to the same destination if there
+// is one, else any to the same destination.
 func (h heldMirror) withoutMirrored(copies []traffic.Copy) []traffic.Copy {
 	if h.Silent {
 		return nil
 	}
-	return slices.DeleteFunc(copies, func(cp traffic.Copy) bool {
-		return slices.Contains(h.Mirrors, cp.Mirror)
-	})
+	spent := make([]bool, len(h.Destinations))
+	absorbed := make([]bool, len(copies))
+	for _, byName := range []bool{true, false} {
+		for i, cp := range copies {
+			if absorbed[i] {
+				continue
+			}
+			dest := copyDestination(cp)
+			for j := range spent {
+				if spent[j] || h.Destinations[j] != dest || (byName && (j >= len(h.Mirrors) || h.Mirrors[j] != cp.Mirror)) {
+					continue
+				}
+				spent[j], absorbed[i] = true, true
+				break
+			}
+		}
+	}
+	kept := copies[:0]
+	for i, cp := range copies {
+		if !absorbed[i] {
+			kept = append(kept, cp)
+		}
+	}
+	return kept
 }
 
 func (s *Switch) readyMirrorCopies(now time.Time, res *bridge.Result, copies []traffic.Copy, mutate bool) []traffic.Copy {
