@@ -1193,7 +1193,7 @@ func TestNestedSwitchDiffKeysAreInjective(t *testing.T) {
 			keys[change.Subject.Key] = struct{}{}
 		}
 	}
-	for _, key := range []string{"edge%2Fa/b", "edge/a%2Fb"} {
+	for _, key := range []string{`"edge/a"/"b"`, `"edge"/"a/b"`} {
 		if _, ok := keys[key]; !ok {
 			t.Errorf("nested switch diff keys = %v, want injective key %q", keys, key)
 		}

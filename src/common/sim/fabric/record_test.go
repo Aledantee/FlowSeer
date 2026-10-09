@@ -62,6 +62,51 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	return fab
 }
 
+func TestRecordRefusesDisagreeingFrame(t *testing.T) {
+	frame := ethernet.Frame{Payload: []byte("captured")}
+	raw, err := frame.Encode()
+	if err != nil {
+		t.Fatalf("Encode: %v", err)
+	}
+	rec := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame, Bytes: raw}
+	if err := rec.Validate(); err != nil {
+		t.Fatalf("Validate matching frame: %v", err)
+	}
+	frame.Dst[5] = 1
+	if err := rec.Validate(); err == nil {
+		t.Fatal("Validate accepted Frame that disagrees with Bytes")
+	}
+	frame.Tags = []vlan.Tag{{VID: 0xffff}}
+	if err := rec.Validate(); err == nil {
+		t.Fatal("Validate accepted unencodable Frame alongside Bytes")
+	}
+}
+
+func TestRecordRefusesCapturedAboveOriginal(t *testing.T) {
+	rec := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Frame: &ethernet.Frame{}, CapturedLen: 64, OriginalLen: 64}
+	if err := rec.Validate(); err != nil {
+		t.Fatalf("Validate equal lengths: %v", err)
+	}
+	rec.CapturedLen = 65
+	if err := rec.Validate(); err == nil {
+		t.Fatal("Validate accepted CapturedLen above OriginalLen")
+	}
+}
+
+func TestRecordCloneOwnsFrameValue(t *testing.T) {
+	frame := ethernet.Frame{Src: netaddr.MAC{0, 0, 0, 0, 0, 1}, Payload: []byte("immutable")}
+	rec := fabric.Record{Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame, Bytes: []byte{1}}
+	clone := rec.Clone()
+	clone.Frame.Src[5] = 2
+	clone.Bytes[0] = 2
+	if rec.Frame.Src[5] != 1 || rec.Bytes[0] != 1 {
+		t.Fatalf("Clone changed original: source = %v, bytes = %v", rec.Frame.Src, rec.Bytes)
+	}
+	if string(clone.Frame.Payload) != "immutable" {
+		t.Fatalf("Clone payload = %q, want immutable", clone.Frame.Payload)
+	}
+}
+
 func TestRecordDecodedFrame(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestTwoHostFabric(t, t0)

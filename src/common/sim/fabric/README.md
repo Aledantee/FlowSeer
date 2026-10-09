@@ -957,6 +957,11 @@ the completed steps, clock, issues and replay checkpoint with the error
 
 ### Scenarios and replay
 
+`Record.Validate` refuses conflicting `Frame` and `Bytes` values and a
+`CapturedLen` above `OriginalLen`. `Record.Clone` owns the frame value and raw
+bytes, while frame tags and payload remain shared as immutable inputs.
+[record_test.go](record_test.go) checks validation and clone ownership.
+
 `Scenario` declares timed actions on an existing fabric. Each action requires an
 `ID` unique within its scenario. `DiffScenarios` pairs actions by that ID, so
 inserting an action leaves the other actions paired. `RunOptions` supplies the

@@ -1020,7 +1020,7 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	// distinguishable through the nested action/ID/inner-kind/inner-key.
 	act3 := fabric.Action{ID: "scenario_test-34", Index: 0, At: t0, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", cfg2))}
 	diffConfig := act1.Diff(act3)
-	wantKeys := []string{fabric.ExportNestedSubjectKey(act1.ID, fabric.ExportNestedSubjectKey("vlan", "10")), fabric.ExportNestedSubjectKey(act1.ID, fabric.ExportNestedSubjectKey("vlan", "20"))}
+	wantKeys := []string{`"scenario_test-34"/"vlan"/"10"`, `"scenario_test-34"/"vlan"/"20"`}
 	for _, wantKey := range wantKeys {
 		var found bool
 		for _, c := range diffConfig {
@@ -1050,7 +1050,7 @@ func TestConfigureActionValidateAndDiff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DiffScenarios: %v", err)
 	}
-	wantScenarioKey := fabric.ExportNestedSubjectKey(scA.Actions[0].ID, fabric.ExportNestedSubjectKey("vlan", "10"))
+	wantScenarioKey := `"scenario_test-37"/"vlan"/"10"`
 	if !slices.ContainsFunc(scChanges, func(c trace.Change) bool {
 		return c.Subject.Kind == "scenario.action" && c.Subject.Key == wantScenarioKey && c.Field == "name"
 	}) {

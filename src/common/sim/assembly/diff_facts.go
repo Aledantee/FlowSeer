@@ -193,31 +193,11 @@ func writeMetadata(out *strings.Builder, metadata analysis.Metadata) {
 		writeStringField(&fact, "code", issue.Code.String())
 		writeUintField(&fact, "status", uint64(issue.Status))
 		writeStringField(&fact, "scope", issue.Scope.String())
-		fact.WriteString("evidence=[")
-		for j, ref := range issue.Evidence {
-			if j > 0 {
-				fact.WriteByte(',')
-			}
-			fact.WriteString(strconv.Quote(string(ref)))
-		}
-		fact.WriteString("]}")
+		fact.WriteByte('}')
 		issueFacts[i] = fact.String()
 	}
 	slices.Sort(issueFacts)
 	out.WriteString(strings.Join(issueFacts, ","))
-	out.WriteString("];")
-	out.WriteString("metadata.evidence=[")
-	for i, entry := range metadata.Evidence().Entries() {
-		if i > 0 {
-			out.WriteByte(',')
-		}
-		out.WriteByte('{')
-		writeStringField(out, "ref", string(entry.Ref))
-		writeStringField(out, "kind", entry.Evidence.Kind.String())
-		writeStringField(out, "origin", entry.Evidence.Origin)
-		writeStringField(out, "context", entry.Evidence.Context)
-		out.WriteByte('}')
-	}
 	out.WriteString("];")
 	out.WriteString("metadata.assumptions=[")
 	for i, assumption := range metadata.Assumptions() {
@@ -227,14 +207,7 @@ func writeMetadata(out *strings.Builder, metadata analysis.Metadata) {
 		out.WriteByte('{')
 		writeStringField(out, "scope", assumption.Scope.String())
 		writeStringField(out, "statement", assumption.Statement)
-		out.WriteString("evidence=[")
-		for j, ref := range assumption.Evidence {
-			if j > 0 {
-				out.WriteByte(',')
-			}
-			out.WriteString(strconv.Quote(string(ref)))
-		}
-		out.WriteString("]}")
+		out.WriteByte('}')
 	}
 	out.WriteString("];")
 }

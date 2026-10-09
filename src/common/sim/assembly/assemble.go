@@ -231,9 +231,6 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 		}
 	}
 	for i, cable := range owned.Cables {
-		if err := cablemodel.ValidateFault(cable.Fault); err != nil {
-			return ConstructionSpec{}, errs.Wrapf(err, "cable %d fault", i)
-		}
 		if err := validateEvidence("cables."+strconv.Itoa(i), cable.Evidence, owned.Evidence); err != nil {
 			return ConstructionSpec{}, err
 		}
@@ -245,7 +242,7 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 	}
 
 	cfg := owned.Config()
-	// fabric.Uncabled and accepted multicast field paths name submitted positions,
+	// fabric.Uncabled field paths name submitted positions,
 	// which normalization's sort would otherwise replace.
 	cabled := make(map[fabric.Endpoint]int, len(cfg.Cables)*2)
 	for _, cable := range cfg.Cables {
@@ -254,11 +251,6 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 	}
 	if err := cfg.validateUncabled(cabled); err != nil {
 		return ConstructionSpec{}, err
-	}
-	for _, name := range slices.Sorted(maps.Keys(cfg.Hosts)) {
-		if err := cfg.Hosts[name].Accept.Validate("hosts." + name + ".accept"); err != nil {
-			return ConstructionSpec{}, err
-		}
 	}
 	if cur != nil {
 		usedMACs := configuredMACs(cfg)
@@ -308,10 +300,10 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 		}
 	}
 
-	cfg = cfg.Normalize()
 	if err := cfg.Validate(); err != nil {
 		return ConstructionSpec{}, err
 	}
+	cfg = cfg.Normalize()
 	owned.Start = cfg.Start
 	owned.Hosts = cfg.Hosts
 	owned.Reflectors = cfg.Reflectors

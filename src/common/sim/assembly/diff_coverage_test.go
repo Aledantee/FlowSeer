@@ -85,14 +85,14 @@ func TestDiffCoversEveryConfigField(t *testing.T) {
 	}
 
 	exemptions := map[string]string{
-		".Cables.*.Cable.Fault.Sequence.*": "normalizedFault (fabric/diff.go) clears Sequence whenever Kind is not " +
+		".Cables.*.Cable.Fault.Sequence.*": "normalizedFault (assembly/diff.go) clears Sequence whenever Kind is not " +
 			"FaultLoseSequence; this fixture's Kind is FaultLoseEveryNth, under which N is the active field and " +
 			"Sequence has no arm to exercise, the same one-slot-two-roles split Fault.N and Fault.Sequence share",
 		".Cables.*.Evidence.*": "Evidence is provenance for why a cable's other fields hold their values, not part " +
 			"of the compared configuration; assembly.Diff never reads Cable.Evidence, the same way it never reads " +
 			"Uncabled.Evidence",
 		".Uncabled.*.Evidence.*": "Evidence is provenance for why an uncabled endpoint is uncabled, not part of " +
-			"the compared configuration; diffUncabled (fabric/diff.go) matches entries by Endpoint alone",
+			"the compared configuration; diffUncabled (assembly/diff.go) matches entries by Endpoint alone",
 	}
 
 	simtest.AssertDiffCoversConfig(t, seed, assembly.Config.Normalize, assembly.Diff, exemptions)

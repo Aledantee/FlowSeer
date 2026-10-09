@@ -22,7 +22,7 @@ func TestDiffScenariosPairsConfigureByID(t *testing.T) {
 	b.Actions[0].Configure = new(assembly.ConfigureAction("sw1", config))
 	b.Actions[0], b.Actions[1] = b.Actions[1], b.Actions[0]
 	changes, err := fabric.DiffScenarios(a, b)
-	if err != nil || len(changes) != 1 || changes[0].Subject.Kind != "scenario.action" || changes[0].Subject.Key != "target/device%2F" || changes[0].Field != "mac" || changes[0].From.Canonical() != "00:00:00:00:00:01" || changes[0].To.Canonical() != "00:00:00:00:00:02" {
+	if err != nil || len(changes) != 1 || changes[0].Subject.Kind != "scenario.action" || changes[0].Subject.Key != `"target"/"device"/""` || changes[0].Field != "mac" || changes[0].From.Canonical() != "00:00:00:00:00:01" || changes[0].To.Canonical() != "00:00:00:00:00:02" {
 		t.Fatalf("configure changes = %+v, error %v, want one MAC change", changes, err)
 	}
 }

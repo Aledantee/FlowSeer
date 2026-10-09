@@ -249,9 +249,6 @@ type ExportLinkTrustFields struct {
 	Assumption *analysis.Assumption
 }
 
-// ExportNestedSubjectKey exposes internal state to external package tests.
-var ExportNestedSubjectKey = nestedSubjectKey
-
 // ExportQueued exposes internal state to external package tests.
 type ExportQueued = queued
 

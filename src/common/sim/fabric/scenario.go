@@ -321,7 +321,7 @@ func (a Action) Diff(other Action) []trace.Change {
 			changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck.node", From: actionStringFact(a.Mcheck.Node), To: actionStringFact(other.Mcheck.Node)})
 		} else {
 			for _, d := range a.Mcheck.Operation.Diff(other.Mcheck.Operation) {
-				d.Subject = trace.Subject{Kind: "scenario.action", Key: nestedSubjectKey(a.ID, nestedSubjectKey(d.Subject.Kind, d.Subject.Key))}
+				d.Subject = trace.Subject{Kind: "scenario.action", Key: trace.CompositeKey(a.ID, d.Subject.Kind, d.Subject.Key)}
 				changes = append(changes, d)
 			}
 		}
@@ -359,7 +359,7 @@ func (a Action) Diff(other Action) []trace.Change {
 			for _, d := range diffs {
 				d.Subject = trace.Subject{
 					Kind: "scenario.action",
-					Key:  nestedSubjectKey(a.ID, nestedSubjectKey(d.Subject.Kind, d.Subject.Key)),
+					Key:  trace.CompositeKey(a.ID, d.Subject.Kind, d.Subject.Key),
 				}
 				changes = append(changes, d)
 			}

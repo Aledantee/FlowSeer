@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"net/netip"
 	"slices"
-	"strings"
 
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
@@ -150,7 +149,7 @@ func Diff(a, b Config) []trace.Change {
 		case inA && inB:
 			swChanges := vswitch.Diff(swA, swB)
 			for _, ch := range swChanges {
-				ch.Subject.Key = nestedSubjectKey(name, ch.Subject.Key)
+				ch.Subject.Key = trace.CompositeKey(name, ch.Subject.Key)
 				changes = append(changes, ch)
 			}
 		}
@@ -636,11 +635,6 @@ func diffHostIP(changes *[]trace.Change, name string, a, b *hostmodel.IP) {
 			}
 		}
 	}
-}
-
-func nestedSubjectKey(outer, inner string) string {
-	escape := strings.NewReplacer("%", "%25", "/", "%2F").Replace
-	return escape(outer) + "/" + escape(inner)
 }
 
 func sortedPrefixStrings(prefixes []netip.Prefix) []string {

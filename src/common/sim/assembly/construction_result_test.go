@@ -258,6 +258,62 @@ func TestFabricDiffSpecsIgnoresConstructionIssueMessages(t *testing.T) {
 	}
 }
 
+func TestEvidenceOnlyEditIsNoChange(t *testing.T) {
+	a := constructionSpec(statedPhysical(twoSwitchBaseConfig(t)))
+	catalog, first := analysis.EvidenceCatalog{}.Add(analysis.Evidence{Kind: "snapshot", Origin: "first"})
+	catalog, second := catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "second"})
+	metadata := func(ref trace.EvidenceRef, evidence analysis.EvidenceCatalog) analysis.Metadata {
+		return analysis.NewMetadata(analysis.NodeScope("sw1"), []analysis.Issue{{
+			Code: "test.unobserved", Status: analysis.Incomplete, Scope: analysis.PortScope("sw1", "1/1/1"),
+			Evidence: []trace.EvidenceRef{ref},
+		}}, evidence, []analysis.Assumption{{Scope: analysis.NodeScope("sw1"), Statement: "port facts assumed", Evidence: []trace.EvidenceRef{ref}}})
+	}
+	sw := a.Switches["sw1"]
+	sw.Metadata = metadata(first, catalog)
+	a.Switches["sw1"] = sw
+	a.Evidence = catalog
+	a.Cables[0].Evidence = []trace.EvidenceRef{first}
+	checked := 0
+	for _, name := range []string{"catalog", "issue", "assumption", "cable", "construction catalog"} {
+		t.Run(name, func(t *testing.T) {
+			b := a.Clone()
+			sw := b.Switches["sw1"]
+			switch name {
+			case "catalog":
+				extra, _ := catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "unused"})
+				sw.Metadata = metadata(first, extra)
+			case "issue":
+				issues := sw.Metadata.Issues()
+				issues[0].Evidence = []trace.EvidenceRef{second}
+				sw.Metadata = analysis.NewMetadata(sw.Metadata.Scope(), issues, catalog, sw.Metadata.Assumptions())
+			case "assumption":
+				assumptions := sw.Metadata.Assumptions()
+				assumptions[0].Evidence = []trace.EvidenceRef{second}
+				sw.Metadata = analysis.NewMetadata(sw.Metadata.Scope(), sw.Metadata.Issues(), catalog, assumptions)
+			case "cable":
+				b.Cables[0].Evidence = []trace.EvidenceRef{second}
+			case "construction catalog":
+				b.Evidence, _ = catalog.Add(analysis.Evidence{Kind: "snapshot", Origin: "unused"})
+			}
+			b.Switches["sw1"] = sw
+			if a.Equal(b) {
+				t.Fatal("Equal ignored edited evidence")
+			}
+			changes, err := assembly.DiffSpecs(a, b)
+			if err != nil {
+				t.Fatalf("DiffSpecs: %v", err)
+			}
+			if len(changes) != 0 {
+				t.Fatalf("evidence-only edit produced %d changes: %+v", len(changes), changes)
+			}
+			checked++
+		})
+	}
+	if checked != 5 {
+		t.Fatalf("checked %d evidence edits, want 5", checked)
+	}
+}
+
 func TestFabricConfigConstructorsRejectInactiveFaultParameters(t *testing.T) {
 	tests := []struct {
 		name  string

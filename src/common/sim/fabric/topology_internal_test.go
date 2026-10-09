@@ -156,7 +156,7 @@ func TestOperationNeedsNoAssembly(t *testing.T) {
 		t.Fatalf("operation changes = %v, want one", changes)
 	}
 	c := changes[0]
-	if c.Layer != "stub" || c.Subject.Kind != "scenario.action" || c.Subject.Key != nestedSubjectKey(before.ID, nestedSubjectKey("stub-device", "n")) || c.Field != "ports" || c.From.Canonical() != (Endpoint{Port: "old"}).Canonical() || c.To.Canonical() != (Endpoint{Port: "new"}).Canonical() {
+	if c.Layer != "stub" || c.Subject.Kind != "scenario.action" || c.Subject.Key != `"topology_internal_test-1"/"stub-device"/"n"` || c.Field != "ports" || c.From.Canonical() != (Endpoint{Port: "old"}).Canonical() || c.To.Canonical() != (Endpoint{Port: "new"}).Canonical() {
 		t.Fatalf("operation change = %+v, want old -> new with nested subject", c)
 	}
 }

@@ -135,11 +135,6 @@ func compareEndpoint(a, b Endpoint) int {
 	return cmp.Compare(a.Port, b.Port)
 }
 
-func nestedSubjectKey(outer, inner string) string {
-	escape := strings.NewReplacer("%", "%25", "/", "%2F").Replace
-	return escape(outer) + "/" + escape(inner)
-}
-
 func cableEndpointsFor(c Cable) cableEndpoints {
 	c = canonicalCableOrientation(c)
 	return cableEndpoints{A: c.A, B: c.B}
