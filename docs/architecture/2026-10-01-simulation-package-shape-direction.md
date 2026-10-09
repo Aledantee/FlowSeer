@@ -15,9 +15,9 @@ The simulator under `src/common/netsim` grew around one device kind. Every
 capability package sits under `vswitch`, so the tree says a relay or an IP
 stack belongs to a switch. Three places already disagree with that:
 
-- Hosts are a second device kind. Their configuration, acceptance rules, and
-  IP stacks now live in `src/common/sim/device/host/`, which implements the
-  device seam through `Host` in `host.go`.
+- `fabric` builds each host's IP stack as a bare `routing.Layer`
+  (`src/common/netsim/fabric/fabric.go`, `hostStacks`). A host is a second
+  device kind with no package of its own.
 - The cable model lives inside `fabric` (`medium.go`, `link.go`), and
   `fabric` calls `phy.Negotiate` per cable. A second medium has nowhere to go.
 - `vswitch/netmodel` imports `fabric` (`netmodel/counters.go`), so the
@@ -107,7 +107,7 @@ as an arrival on its named port and a host injection as a wire emission.
 `device/host` owns configuration, acceptance, and the IP stack
 (`src/common/sim/device/host/host.go`, `src/common/sim/device/host/accept.go`).
 The fabric queues host-bound frames at their delivery time and records their
-crossing before the arrival (`src/common/sim/fabric/run.go`, `transmitCable`).
+crossing before the arrival (`src/common/sim/fabric/egress.go`, `transmitCable`).
 
 **The medium seam.** The cable model moves to `medium/cable` and `fabric`
 calls it as a concrete type. No `Medium` interface is written while the cable

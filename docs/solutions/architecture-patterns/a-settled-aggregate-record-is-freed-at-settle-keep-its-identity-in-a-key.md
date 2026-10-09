@@ -7,10 +7,10 @@ problem_type: architecture_pattern
 component: sim
 severity: high
 applies_when:
-  - "Implementing or reviewing a retention policy that frees a record only once some later event claims it, especially a frame a switch holds until a release."
-  - "Keeping a settled journey, run, or request alive past settle so a future event can name it."
-  - "A run never reports convergence (StopConverged never fires) because a settled frame still counts as a pending journey."
-  - "A release or follow-up event misattributes itself to the wrong frame after retention has freed earlier frames."
+  - "Implementing or reviewing code that maps a device and hold token to the journey of the frame a switch holds."
+  - "Counting a held frame as in flight until the output that releases, drops, or copies it has been applied."
+  - "A release, timeout, overflow, or filter refusal is attributed to another frame with a matching payload."
+  - "Settling or freeing a journey while a hold token still names it."
 related_components: [convergence, comparison]
 tags: [retention, settle, convergence, attribution, hold-token, netsim]
 ---

@@ -37,9 +37,9 @@ produces the values.
   A held-frame drop allocates a journey's `FrameID` from a shared counter,
   so that order decides which switch's drop gets the lower id.
 - `configuredVLANs` collects VLANs into a set and returns them sorted
-  (`src/common/sim/device/vswitch/inspect.go:179`, sorted at `:217`). The BPDU
+  (`Switch.configuredVLANs` in `src/common/sim/device/vswitch/inspect.go`). The BPDU
   step records tree transitions in that order
-  (`src/common/sim/device/vswitch/intercept.go:203`), so the order is the
+  (`src/common/sim/device/vswitch/intercept.go`), so the order is the
   VLAN order and not the map's.
 - A fork or a second construction of equal input is the comparison most
   tests make, so a nondeterministic order shows up as a flaky equality, not
@@ -61,7 +61,7 @@ A test for it needs two things a single run lacks:
 
 - Two or more keys whose map order and sorted order disagree, so the
   fixture's instance numbers run opposite to the VLAN ids they carry
-  (`src/common/sim/device/vswitch/stp_test.go:118`).
+  (`TestBPDURecordsTreeTransitionsInVLANOrder` in `src/common/sim/device/vswitch/stp_test.go`).
 - Enough repetitions that a wrong order is near-certain, and a recorded
   mutation to prove it. The fabric test derives 128 times
   (`TestFabricDeriveOrdersHeldFrameDropsBySwitchName` in

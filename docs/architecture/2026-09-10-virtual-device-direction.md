@@ -110,7 +110,7 @@ ownership across specialized packages:
   The entry names the physical endpoint. The endpoint's issue and that step
   cite the same `fabric.runtime` evidence, whose context records the endpoint,
   queue, frame, instant, and fact values. The runtime catalog is available
-  through `Fabric.Metadata()` and journey metadata; `Fabric.Spec()` remains
+  through `Fabric.Metadata()` and journey metadata; `assembly.Spec(f)` remains
   the construction input and does not acquire runtime evidence. A later
   crossing on another PCP of the same endpoint creates no second event.
   This is the event model of ns-3 without goroutines. The queue also
@@ -199,14 +199,16 @@ None of these axes may be inferred from another:
 ### Construction specifications and singular normalization
 
 Every capability package exposes one normalization function (`Normalize`).
-Public constructors validate only after normalization.
+Public constructors normalize and then validate. Traffic field paths are the exception: they
+are validated before normalization so they name the submitted slice positions
+(`vswitch.ConstructionSpec.Normalize`).
 
 To reproduce simulations without drift, `vswitch.ConstructionSpec` and
 `fabric.ConstructionSpec` pair normalized configuration with non-configuration
 seeds (such as preloaded forwarding database entries). Re-running a simulation
 from its construction specification yields identical state and trace records.
 
-### Assembly amendment, 2026-10-09
+### 2026-10-09: Assembly owns construction
 
 `assembly.ConstructionSpec` replaces `fabric.ConstructionSpec`.
 `assembly.Derive` rebuilds a fabric from that specification, and
@@ -231,7 +233,7 @@ rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
 
-`Fabric.Configure` is a fourth operation, and the only one that changes
+`assembly.Configure` is a fourth operation, and the only one that changes
 configuration without leaving the run. It replaces one switch's configuration
 at the fabric clock, refuses the change unless the whole fabric would still
 construct, and rebuilds that switch through `vswitch.Derive`, so the retention
@@ -347,13 +349,13 @@ them.
   its state; `Uncabled` is `Down` with `no-cable`, a stated absence; neither
   is `Unknown` with `adjacency-unresolved`, since nothing says what, if
   anything, is attached. A configured `OperStatus` that disagrees with the
-  derived state is kept for the reader (`Config()`, `Spec()`), but the
+  derived state is kept for the reader (`Config()`, `assembly.Spec`), but the
   derived state executes, and the disagreement adds an `oper-status-conflict`
   issue instead of the derived value silently overwriting it.
 - **`Config.PhyAssumption`.** An opt-in medium and Ethernet profile that
   fills only what an end or cable leaves unreported: empty speeds, an
   unknown capability, a nil setting, or an unspecified medium. Filled values
-  appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
+  appear in `Fabric.Links()`; `Config()`, `assembly.Spec`, and `Diff` show only the
   knob itself, and each link it fills carries one `Assumption` naming the
   facts, so a standards default runs only on the record.
 - **Protocol link-state input.** `Switch.LinkChange` takes `device.Link`:
@@ -457,7 +459,7 @@ rather than whole-state fingerprints or shallow boolean equality:
     on each call, including its cable crossing counts, and has no written form.
     Fabric comparisons also name a `DifferenceLocation`: journey, run, or
     snapshot area, subject, and exact field. Journey targets retain the
-    injection index and UTC time plus mirror/release lineage.
+    injection index and UTC time plus mirror and reflection lineage.
   - `Inconclusive` occurs on an execution error or when either side reports
     `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, or when budget stopped a run that still held
     pending work. It takes precedence even when an observable differs, and
@@ -475,7 +477,7 @@ rather than whole-state fingerprints or shallow boolean equality:
   pair by frame ID. Instead, journeys pair by injection ordinal: the nth
   scenario injection's journey on side A pairs with the nth injection's journey
   on side B. Pre-scenario journeys represent shared history and are excluded
-  from the diff. Mirror and release descendants pair by kind, mirror name,
+  from the diff. Mirror and reflection descendants pair by kind, mirror name,
   and parent-relative occurrence, including one-sided descendants
   (`src/common/sim/fabric/comparison_location.go`).
 - **Separation from convergence fingerprints.** `Snapshot.Fingerprint()` remains
@@ -928,18 +930,18 @@ Amendment 2026-10-07: sending and reception are implemented in
   On release, the switch evaluates the current ingress binding with the held
   frame's ingress interface, resolves a deferred decision against its egress
   interface, and evaluates the egress binding. A refusal carries the filter's
-  reason and steps in `NeighborDrop`. An originated frame meets only the
+  reason and steps in `device.Drop`. An originated frame meets only the
   egress binding. This also applies after a derive changes the filter while
   retaining the routing hold queue
   (`TestHeldFrameMeetsDerivedIngressFilter` in
   `src/common/sim/device/vswitch/filter_test.go`).
   `Output.Hold` is the routing result's token for a held frame. A later
-  `Emission.Hold` or `NeighborDrop.Hold` carries the same token, alongside
+  `Emission.Hold` or `device.Drop.Hold` carries the same token, alongside
   the held frame's `Ingress`. Protocol emissions carry a zero token.
   Live and released frames share `putRoutedFrame` in
   `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
   priority agree. The fabric transmits a release on that selected member
-  (`src/common/sim/fabric/run.go:applyDeviceOutput`).
+  (`src/common/sim/fabric/output.go:applyDeviceOutput`).
 
 ### Semantic traces and producer-owned facts
 
@@ -1183,14 +1185,14 @@ A held frame leaves through the same routed egress as a live one
 selected LAG member, tags, and priority agree. At release the switch evaluates
 the current ingress binding, resolves a deferred decision against the egress
 interface, and evaluates the egress binding. An originated frame meets the
-egress binding alone. `Output.Hold`, `Emission.Hold`, and `NeighborDrop.Hold`
+egress binding alone. `Output.Hold`, `Emission.Hold`, and `device.Drop.Hold`
 carry one token for a held frame, with its ingress interface, and the fabric
 transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
 `src/common/sim/device/vswitch/filter_test.go` checks the filtering.
 
-### A hold continues the same journey (2026-10-09)
+### 2026-10-09: A hold continues the same journey
 
-[`run.go`](../../src/common/sim/fabric/run.go) maps a device and hold token to
+[`output.go`](../../src/common/sim/fabric/output.go) maps a device and hold token to
 its frame's `FrameID`. A hold counts as in flight. One output resolves each
 token once for all its emissions, drops, and copies, then removes the key.
 A release continues that journey. A failure appends its drop there. A mirror

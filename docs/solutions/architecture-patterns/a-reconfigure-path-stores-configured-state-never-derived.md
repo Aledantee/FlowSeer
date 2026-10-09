@@ -11,7 +11,7 @@ symptoms:
   - "A no-op in-run reconfiguration mutates the fabric Spec"
   - "Oper-status conflict analysis issues disappear after reconfiguring a switch"
   - "A switch port configured Down becomes Up in stored configuration when attached to an active cable"
-root_cause: "Fabric.Configure wrote the cable-rebuilt port table into the stored fabric configuration instead of keeping the normalized configured ports, replacing configured operational states with cable-derived runtime states."
+root_cause: "A reconfigure path wrote the cable-rebuilt port table into the stored fabric configuration instead of keeping the normalized configured ports, replacing configured operational states with cable-derived runtime states."
 resolution_type: code_fix
 applies_when:
   - "Reconfiguring a child node inside a container that tracks both declared configuration and derived runtime state"
@@ -28,10 +28,9 @@ The switch executes with the cable-derived state. The fabric keeps the declared
 state so `assembly.Spec(f)` can reconstruct the input and `Metadata()` can
 report the conflict.
 
-`Fabric.Configure` once stored the cable-rebuilt port table as configuration.
-That erased `IssueOperStatusConflict` and changed the specification after a
-no-op update.
-The configured table now belongs to `builtNode.ports` in
+A reconfigure that stores the cable-rebuilt port table as configuration erases
+`IssueOperStatusConflict` and changes the specification after a no-op update.
+The configured table belongs to `builtNode.ports` in
 [`topology.go`](../../../src/common/sim/fabric/topology.go).
 
 ## What is true
