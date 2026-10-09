@@ -105,7 +105,7 @@ func TestCandidateValidationAndStableIndices(t *testing.T) {
 		t.Fatal("configure action accepted")
 	}
 	candidate.Actions = []fabric.Action{injection}
-	scenario := candidate.ToScenario(10)
+	scenario := candidate.ToScenario()
 	if scenario.Actions[0].Index != 7 {
 		t.Fatalf("Index=%d, want 7", scenario.Actions[0].Index)
 	}
@@ -137,9 +137,16 @@ func TestCandidateNumbersInjectionBeforeTiedFault(t *testing.T) {
 	if err := candidate.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	scenario := candidate.ToScenario(10)
+	scenario := candidate.ToScenario()
 	if len(scenario.Actions) != 2 || scenario.Actions[0].Kind != fabric.ActionInject || scenario.Actions[0].Index != 1 || scenario.Actions[1].Kind != fabric.ActionFault || scenario.Actions[1].Index != 2 {
 		t.Fatalf("actions = %+v, want injection 1 then fault 2", scenario.Actions)
+	}
+	if scenario.Actions[0].ID != "action-2" || scenario.Actions[1].ID != "action-1" {
+		t.Fatalf("action IDs = %q/%q, want action-2/action-1", scenario.Actions[0].ID, scenario.Actions[1].ID)
+	}
+	reduced := Candidate{Actions: scenario.Actions[:1]}.ToScenario()
+	if reduced.Actions[0].ID != "action-2" {
+		t.Fatalf("reduced action ID = %q, want action-2", reduced.Actions[0].ID)
 	}
 	if candidate.Actions[0].Index != 0 || candidate.Actions[1].Index != 0 {
 		t.Fatalf("original indices = %d/%d, want 0/0", candidate.Actions[0].Index, candidate.Actions[1].Index)

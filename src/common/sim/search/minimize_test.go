@@ -557,7 +557,7 @@ func TestMinimizePreservesInjectionIdentity(t *testing.T) {
 			if initial.Disposition != analysis.Different {
 				t.Fatalf("disposition = %s, want Different", initial.Disposition)
 			}
-			onlySecond := Candidate{Actions: []fabric.Action{input.ToScenario(30).Actions[1]}}
+			onlySecond := Candidate{Actions: []fabric.Action{input.ToScenario().Actions[1]}}
 			exchanged := runCompare(current, expected, onlySecond, 30)
 			if exchanged.Disposition != analysis.Different || exchanged.Difference != initial.Difference || reflect.DeepEqual(exchanged.Location, initial.Location) {
 				t.Fatalf("second injection comparison = %+v, want same difference with distinct location", exchanged)
@@ -659,7 +659,7 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 			if _, err := f.Inject(prior); err != nil {
 				t.Fatal(err)
 			}
-			if r := f.Run(30, 0); r.Status != analysis.Complete {
+			if r := f.Run(fabric.RunOptions{Budget: 30, Window: 0}); r.Status != analysis.Complete {
 				t.Fatalf("prior run status = %s, want Complete", r.Status)
 			}
 		}
@@ -773,7 +773,7 @@ func TestMinimizeExactValuesCanRetainOtherwiseRemovableAction(t *testing.T) {
 	pad := fabric.Injection{At: at.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h3"}, Frame: ethernet.Frame{Src: padSrc, Dst: padSrc}}
 	input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionInject, At: target.At, Inject: &target}, {Kind: fabric.ActionInject, At: pad.At, Inject: &pad}}}
 	initial := runCompare(current, expected, input, 30)
-	onlyTarget := Candidate{Actions: input.ToScenario(30).Actions[:1]}
+	onlyTarget := Candidate{Actions: input.ToScenario().Actions[:1]}
 	removed := runCompare(current, expected, onlyTarget, 30)
 	if initial.Disposition != analysis.Different || removed.Disposition != analysis.Different || !reflect.DeepEqual(initial.Location, removed.Location) || initial.Difference.Observable != "final state" || removed.Difference.Observable != initial.Difference.Observable {
 		t.Fatalf("initial = %s %+v %+v, removed = %s %+v %+v, want same snapshot target and label", initial.Disposition, initial.Location, initial.Difference, removed.Disposition, removed.Location, removed.Difference)

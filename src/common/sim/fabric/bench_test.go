@@ -102,12 +102,12 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 		var res fabric.RunResult
 		if scenario {
 			var err error
-			res, err = fab.RunScenario(fabric.Scenario{Name: "aggregate-batch", Budget: 1_000_000})
+			res, err = fab.RunScenario(fabric.Scenario{Name: "aggregate-batch"}, fabric.RunOptions{Budget: 1_000_000, Window: 0})
 			if err != nil {
 				b.Fatal(err)
 			}
 		} else {
-			res = fab.Run(1_000_000, 0)
+			res = fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 		}
 		if res.Stop != fabric.StopQueueDrained {
 			b.Fatalf("Run stop = %s after %d frames, want %s", res.Stop, injected, fabric.StopQueueDrained)

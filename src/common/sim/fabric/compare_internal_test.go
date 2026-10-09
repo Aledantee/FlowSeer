@@ -28,7 +28,7 @@ func TestRunComputesNoFingerprint(t *testing.T) {
 		t.Fatal(err)
 	}
 	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
-	run := f.Run(10, 0)
+	run := f.Run(RunOptions{Budget: 10, Window: 0})
 	if run.Steps != 1 || run.Stop != StopQueueDrained {
 		t.Fatalf("run = %+v, want one drained step", run)
 	}
@@ -36,7 +36,7 @@ func TestRunComputesNoFingerprint(t *testing.T) {
 		t.Errorf("fingerprint state reads/history = %d/%d, want 0/0", d.states, len(run.Fingerprints))
 	}
 	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
-	run = f.Run(10, 2)
+	run = f.Run(RunOptions{Budget: 10, Window: 2})
 	if d.states != 2 || len(run.Fingerprints) != 1 {
 		t.Errorf("window state reads/history = %d/%d, want 2/1", d.states, len(run.Fingerprints))
 	}

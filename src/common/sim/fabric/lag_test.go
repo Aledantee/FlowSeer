@@ -220,7 +220,7 @@ func TestBalanceSLB(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Inject src %v rep %d: %v", src, rep, err)
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 			var j *fabric.Journey
 			for k := range fab.Report() {
@@ -338,7 +338,7 @@ func TestBalanceTCP(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Inject port %d rep %d: %v", srcPort, rep, err)
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 			var j *fabric.Journey
 			for k := range fab.Report() {
@@ -397,7 +397,7 @@ func TestActiveBackupFailover(t *testing.T) {
 		t.Fatalf("Inject f1: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	j1 := fab.Report()[0]
 	if j1.FrameID != fid1 {
@@ -439,7 +439,7 @@ func TestActiveBackupFailover(t *testing.T) {
 		t.Fatalf("Inject f2: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var j2 *fabric.Journey
 	for i := range fab.Report() {
@@ -500,7 +500,7 @@ func TestDelays(t *testing.T) {
 	}
 
 	// Wait for initial up-delay (2s) so 1/1/1 and 1/1/2 become enabled.
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	t1 := fab.Snapshot().Clock // t0 + 2s
 
 	// Cut first cable at t1.
@@ -521,7 +521,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t1+0.5s: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jLoss *fabric.Journey
 	for i := range fab.Report() {
@@ -553,7 +553,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t1+1.5s: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jCross2 *fabric.Journey
 	for i := range fab.Report() {
@@ -595,7 +595,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t2+1s: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jStill2 *fabric.Journey
 	for i := range fab.Report() {
@@ -627,7 +627,7 @@ func TestDelays(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject at t2+2.5s: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jPrimary *fabric.Journey
 	for i := range fab.Report() {
@@ -833,7 +833,7 @@ func TestFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject with fallback: %v", err)
 	}
-	fabWithFallback.Run(10, 0)
+	fabWithFallback.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jWith *fabric.Journey
 	for i := range fabWithFallback.Report() {
@@ -894,7 +894,7 @@ func TestFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject without fallback: %v", err)
 	}
-	fabNoFallback.Run(10, 0)
+	fabNoFallback.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var jWithout *fabric.Journey
 	for i := range fabNoFallback.Report() {

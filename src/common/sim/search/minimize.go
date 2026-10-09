@@ -57,7 +57,7 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 	if maxTrials == 0 {
 		maxTrials = DefaultMinimizationLimit
 	}
-	scenario, err := cand.ToScenario(budget).Normalize()
+	scenario, err := cand.ToScenario().Normalize()
 	if err != nil {
 		return Minimization{}, errs.Wrap(err, "minimization scenario")
 	}
@@ -66,7 +66,7 @@ func MinimizeWithLimit(current, candidate *fabric.Fabric, cand Candidate, budget
 		return Minimization{}, errs.Wrap(err, "minimization candidate")
 	}
 
-	initialCmp := fabric.Compare(current, candidate, scenario, budget)
+	initialCmp := fabric.Compare(current, candidate, scenario, fabric.RunOptions{Budget: budget, Window: 0})
 	if initialCmp.Err != nil {
 		return Minimization{}, errs.Wrap(initialCmp.Err, "initial minimization comparison")
 	}
@@ -150,5 +150,5 @@ func copyCandidateWithoutActionIndex(c Candidate, removeIdx int) Candidate {
 }
 
 func runCompare(current, candidate *fabric.Fabric, cand Candidate, budget int) fabric.Comparison {
-	return fabric.Compare(current, candidate, cand.ToScenario(budget), budget)
+	return fabric.Compare(current, candidate, cand.ToScenario(), fabric.RunOptions{Budget: budget, Window: 0})
 }

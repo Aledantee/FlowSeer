@@ -1041,13 +1041,35 @@ func (f *Fabric) removeWake(device string) {
 // A non-positive budget executes zero steps and returns [StopNotRun].
 // A positive window enables fingerprint convergence and cycle detection.
 // A zero window computes no fingerprints.
-func (f *Fabric) Run(budget, window int) RunResult {
-	return f.run(budget, window)
+func (f *Fabric) Run(options RunOptions) RunResult {
+	return f.run(options.Budget, options.Window)
 }
 
-// RunScenario validates and executes a declared scenario under its specified budget and window.
+// RunOptions bounds execution independently of its action schedule.
+type RunOptions struct {
+	// Budget bounds the number of executed steps.
+	Budget int
+	// Window enables convergence detection when positive. Zero skips fingerprints.
+	Window int
+}
+
+// Validate requires a positive step budget and a nonnegative observation window.
+func (o RunOptions) Validate() error {
+	if o.Budget <= 0 {
+		return errs.Msgf("run budget must be positive, got %d", o.Budget)
+	}
+	if o.Window < 0 {
+		return errs.Msgf("run window cannot be negative, got %d", o.Window)
+	}
+	return nil
+}
+
+// RunScenario validates and executes a declared scenario under options.
 // It refuses any action before the fabric clock and retains a pre-action checkpoint for replay.
-func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
+func (f *Fabric) RunScenario(s Scenario, options RunOptions) (RunResult, error) {
+	if err := options.Validate(); err != nil {
+		return RunResult{}, err
+	}
 	norm, err := s.Normalize()
 	if err != nil {
 		return RunResult{}, err
@@ -1061,10 +1083,11 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 
 	checkpoint := f.Fork()
 
-	res, err := f.runWithActions(norm.Budget, norm.Window, norm.Actions)
+	res, err := f.runWithActions(options.Budget, options.Window, norm.Actions)
 	res.Replay = ReplaySpec{
 		checkpoint: checkpoint,
 		Scenario:   norm.Clone(),
+		Options:    options,
 	}
 	return res, err
 }
@@ -1076,7 +1099,7 @@ func Replay(spec ReplaySpec) (RunResult, error) {
 	if fab == nil {
 		return RunResult{}, errs.Msg("replay refused: missing checkpoint")
 	}
-	return fab.RunScenario(spec.Scenario)
+	return fab.RunScenario(spec.Scenario, spec.Options)
 }
 
 func (f *Fabric) validateActionTimes(actions []Action) error {

@@ -113,7 +113,7 @@ func primeEgressLearning(t *testing.T, fab *fabric.Fabric, macs map[string]netad
 	}); err != nil {
 		t.Fatalf("prime Inject: %v", err)
 	}
-	fab.Run(1000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 }
 
 func egressBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
@@ -147,7 +147,7 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -200,7 +200,7 @@ func TestEgressStatedBufferUnderCapacity(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -249,7 +249,7 @@ func TestEgressBufferCountsEncodedFrameOctets(t *testing.T) {
 					t.Fatalf("Inject %s: %v", host, err)
 				}
 			}
-			fab.Run(1_000_000, 0)
+			fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
 			if got := fab.Flows()[1].Delivered["h3"]; got != tc.delivered {
 				t.Errorf("buffer %d: Delivered[h3] = %d, want %d", tc.buffer, got, tc.delivered)
@@ -265,7 +265,7 @@ func TestEgressUnstatedBufferNeverDrops(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	fab.Run(1_000_000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
 	for _, flow := range []fabric.FlowID{1, 2} {
 		stats := fab.Flows()[flow]
@@ -334,7 +334,7 @@ func TestEgressTailDropEntryCarriesItsFact(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 0, fabric.RetainJourney)
 	injectEgressFlow(t, fab, macs, "h2", 0, fabric.RetainJourney)
-	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 

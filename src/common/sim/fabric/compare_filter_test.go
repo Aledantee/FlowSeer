@@ -41,7 +41,7 @@ func TestFilterChangeComparesDifferent(t *testing.T) {
 		t.Fatal(err)
 	}
 	scenario := scenarioFromInjections([]fabric.Injection{{At: time.Unix(1000, 0), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: payload}}})
-	got := fabric.Compare(a, b, scenario, 20)
+	got := fabric.Compare(a, b, scenario, fabric.RunOptions{Budget: 20, Window: 0})
 	if got.Err != nil {
 		t.Fatal(got.Err)
 	}

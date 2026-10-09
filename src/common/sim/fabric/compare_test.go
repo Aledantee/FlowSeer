@@ -1,6 +1,7 @@
 package fabric_test
 
 import (
+	"fmt"
 	"net/netip"
 	"reflect"
 	"strings"
@@ -47,8 +48,8 @@ func comparisonAcceptanceFabrics(t *testing.T) (*fabric.Fabric, *fabric.Fabric, 
 func TestCompareRecordedFrame(t *testing.T) {
 	a, b, frame := comparisonAcceptanceFabrics(t)
 	at := time.Unix(100, 0).UTC()
-	sc := fabric.Scenario{Name: "record", Actions: []fabric.Action{{At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}}}}
-	cmp := fabric.Compare(a, b, sc, 100)
+	sc := fabric.Scenario{Name: "record", Actions: []fabric.Action{{ID: "record", At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}}}}
+	cmp := fabric.Compare(a, b, sc, fabric.RunOptions{Budget: 100, Window: 0})
 	if cmp.Err != nil || cmp.Disposition != analysis.Different || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
 		t.Fatalf("comparison = %+v, want Different with one recorded root per side", cmp)
 	}
@@ -72,11 +73,11 @@ func TestCompareAttachedSources(t *testing.T) {
 		}
 	}
 	left, right := a.Fork(), b.Fork()
-	ra, rb := left.Run(100, 0), right.Run(100, 0)
+	ra, rb := left.Run(fabric.RunOptions{Budget: 100, Window: 0}), right.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	if ra.Steps != 4 || rb.Steps != 4 || !reflect.DeepEqual(left.Snapshot(), right.Snapshot()) {
 		t.Fatalf("fixture steps = %d/%d, final state equal = %t, want 4/4, true", ra.Steps, rb.Steps, reflect.DeepEqual(left.Snapshot(), right.Snapshot()))
 	}
-	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "attached"}, 100)
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "attached"}, fabric.RunOptions{Budget: 100, Window: 0})
 	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Steps != [2]int{4, 4} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
 		t.Fatalf("comparison = %+v, want Different with steps 4/4 and one source root per side", cmp)
 	}
@@ -96,8 +97,7 @@ func TestActionErrorKeepsSteps(t *testing.T) {
 		{At: cfg.Start, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
 		{At: cfg.Start.Add(time.Second), Origin: fabric.Endpoint{Node: "missing"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
 	})
-	sc.Budget = 100
-	run, err := f.RunScenario(sc)
+	run, err := f.RunScenario(sc, fabric.RunOptions{Budget: 100, Window: 0})
 	if err == nil || run.Err == nil || run.Stop != fabric.StopFault || run.Steps != 5 || !run.Clock.Equal(cfg.Start.Add(time.Second)) || run.Replay.Checkpoint() == nil {
 		t.Fatalf("run = %+v, error %v, want fault after five steps at failed action with replay", run, err)
 	}
@@ -108,7 +108,7 @@ func TestActionErrorKeepsSteps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmp := fabric.Compare(base, base, sc, 100)
+	cmp := fabric.Compare(base, base, sc, fabric.RunOptions{Budget: 100, Window: 0})
 	if cmp.Err == nil || cmp.Disposition != analysis.Inconclusive || cmp.Steps != [2]int{5, 5} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
 		t.Errorf("comparison = %+v, want Inconclusive with error and completed steps/roots", cmp)
 	}
@@ -118,11 +118,11 @@ func TestCompareAggregatedRoots(t *testing.T) {
 	a, b, frame := comparisonAcceptanceFabrics(t)
 	injection := fabric.Injection{At: time.Unix(100, 0).UTC(), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 1, Retention: fabric.RetainAggregate}
 	scenario := scenarioFromInjections([]fabric.Injection{injection})
-	different := fabric.Compare(a, b, scenario, 100)
+	different := fabric.Compare(a, b, scenario, fabric.RunOptions{Budget: 100, Window: 0})
 	if different.Err != nil || different.Disposition != analysis.Different || different.Location.Field != "Flow.Delivered" || len(different.Current) != 0 || len(different.Expected) != 0 {
 		t.Fatalf("aggregated comparison = %+v, want Different at Flow.Delivered with no retained journeys", different)
 	}
-	equal := fabric.Compare(a, a, scenario, 100)
+	equal := fabric.Compare(a, a, scenario, fabric.RunOptions{Budget: 100, Window: 0})
 	if equal.Err != nil || equal.Disposition != analysis.Inconclusive || equal.Difference.Observable != "" {
 		t.Errorf("equal aggregates = %+v, want Inconclusive without a proven difference", equal)
 	}
@@ -149,7 +149,7 @@ func TestCompareAttachedSourceOrdinals(t *testing.T) {
 			}
 		}
 	}
-	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "source-ordinals"}, 100)
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "source-ordinals"}, fabric.RunOptions{Budget: 100, Window: 0})
 	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 1, Frame: 1}) || cmp.Location.Field != "Root" {
 		t.Fatalf("source multiplicity = %+v, want attachment 1 frame 1 root difference", cmp)
 	}
@@ -166,10 +166,10 @@ func TestCompareContinuedAttachedSourceOrdinal(t *testing.T) {
 		t.Fatal(err)
 	}
 	b := a.Fork()
-	if run := a.Run(1, 0); run.Steps != 1 || run.Pending.Journeys != 1 {
+	if run := a.Run(fabric.RunOptions{Budget: 1, Window: 0}); run.Steps != 1 || run.Pending.Journeys != 1 {
 		t.Fatalf("continued fixture = %+v, want first source frame in flight", run)
 	}
-	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "continued-source"}, 100)
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "continued-source"}, fabric.RunOptions{Budget: 100, Window: 0})
 	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 0, Frame: 0}) || cmp.Location.Field != "Root" || cmp.Difference.Current != "false" || cmp.Difference.Expected != "true" {
 		t.Fatalf("continued sources = %+v, want expected-only source frame zero", cmp)
 	}
@@ -180,6 +180,7 @@ func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
 	for i := range injs {
 		inj := injs[i]
 		actions[i] = fabric.Action{
+			ID:     fmt.Sprintf("injection-%d", i+1),
 			At:     inj.At,
 			Kind:   fabric.ActionInject,
 			Inject: &inj,
@@ -295,7 +296,7 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -339,7 +340,7 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 		Frame:  ethernet.Frame{Src: macs["h1"], Dst: macs["h2"], Payload: make([]byte, 46)},
 	}}
 
-	comparison := fabric.Compare(current, expected, scenarioFromInjections(scenario), 100)
+	comparison := fabric.Compare(current, expected, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 100, Window: 0})
 	if comparison.Err != nil {
 		t.Fatalf("Compare: %v", comparison.Err)
 	}
@@ -409,7 +410,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(curFab, expFab, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(curFab, expFab, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -490,7 +491,7 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -533,7 +534,7 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -608,7 +609,7 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -667,7 +668,7 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -719,7 +720,7 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -770,7 +771,7 @@ func TestCompareDetectsStatusDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -822,7 +823,7 @@ func TestCompareDetectsIssuesDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -868,7 +869,7 @@ func TestCompareNonConsuming(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -891,13 +892,13 @@ func TestCompareNonConsuming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	resA := fabA.Run(10, 0)
+	resA := fabA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	_, err = twinA.Inject(scenario[0])
 	if err != nil {
 		t.Fatalf("Inject twinA: %v", err)
 	}
-	resTwin := twinA.Run(10, 0)
+	resTwin := twinA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	if resA.Steps != resTwin.Steps {
 		t.Errorf("Steps mismatch: fabA=%d, twinA=%d", resA.Steps, resTwin.Steps)
@@ -967,8 +968,8 @@ func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
 		},
 	}
 
-	cmp1 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
-	cmp2 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp1 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
+	cmp2 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 
 	if cmp1.Disposition != cmp2.Disposition {
 		t.Errorf("Disposition mismatch: %v vs %v", cmp1.Disposition, cmp2.Disposition)
@@ -1022,7 +1023,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	fabA.Run(10, 0)
+	fabA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	// Inject 3 pre-scenario frames into fabB in a different order/timing.
 	_, err = fabB.Inject(fabric.Injection{
@@ -1064,7 +1065,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabB 3: %v", err)
 	}
-	fabB.Run(10, 0)
+	fabB.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	// Now run Compare with a fresh scenario.
 	scenario := []fabric.Injection{
@@ -1080,7 +1081,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1122,7 +1123,7 @@ func TestCompareEquivalentComplete(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1161,7 +1162,7 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	}
 
 	// Budget of 1 step is exhausted before frame arrives at h2.
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 1)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 1, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1199,7 +1200,7 @@ func TestCompareResultImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1210,8 +1211,8 @@ func TestCompareResultImmutability(t *testing.T) {
 	disposition := cmp.Disposition
 
 	// Step fabA and fabB further.
-	fabA.Run(5, 0)
-	fabB.Run(5, 0)
+	fabA.Run(fabric.RunOptions{Budget: 5, Window: 0})
+	fabB.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	if len(cmp.Current) != curCount || len(cmp.Expected) != expCount {
 		t.Error("Comparison journeys count changed after external stepping")
@@ -1270,7 +1271,7 @@ func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
 
 	// Budget of 2 steps: fabA completes (StopQueueDrained, Complete)
 	// fabB stops at budget (StopBudget, Exhausted) with identical scenario journey.
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 2)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 2, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1306,7 +1307,7 @@ func TestComparePacketOriginImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	// Mutate caller's packet pointer and payload
 	pkt.Protocol = 6
 	pkt.Payload[0] = 'X'
@@ -1365,7 +1366,7 @@ func TestCompareNonEmptyQueueExcludesPreScenarioDescendants(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1429,7 +1430,7 @@ func TestCompareMultiDeviceDivergenceDeterminism(t *testing.T) {
 	// Without sorting, Go map iteration order flakes between sw1 and sw2 across runs.
 	observed := make(map[string]bool)
 	for i := 0; i < 50; i++ {
-		cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+		cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 		if cmp.Err != nil {
 			t.Fatalf("Compare: %v", cmp.Err)
 		}
@@ -1488,7 +1489,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1513,7 +1514,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 	}
 
 	repFabA := cmp.Replay[0].Checkpoint()
-	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario); err != nil {
+	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario, cmp.Replay[0].Options); err != nil {
 		t.Fatalf("RunScenario current: %v", err)
 	}
 	jA := repFabA.Report()
@@ -1522,7 +1523,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 	}
 
 	repFabB := cmp.Replay[1].Checkpoint()
-	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario); err != nil {
+	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario, cmp.Replay[1].Options); err != nil {
 		t.Fatalf("RunScenario candidate: %v", err)
 	}
 	jB := repFabB.Report()
@@ -1563,6 +1564,7 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			Name: "configure-both-sides",
 			Actions: []fabric.Action{
 				{
+					ID:   "compare_test-3",
 					At:   t0,
 					Kind: fabric.ActionInject,
 					Inject: &fabric.Injection{
@@ -1576,11 +1578,13 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 					},
 				},
 				{
+					ID:        "compare_test-4",
 					At:        t0.Add(time.Second),
 					Kind:      fabric.ActionConfigure,
 					Configure: new(assembly.ConfigureAction("sw2", sw2New)),
 				},
 				{
+					ID:   "compare_test-5",
 					At:   t0.Add(2 * time.Second),
 					Kind: fabric.ActionInject,
 					Inject: &fabric.Injection{
@@ -1594,10 +1598,9 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 					},
 				},
 			},
-			Budget: 50,
 		}
 
-		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		cmp := fabric.Compare(fabA, fabB, sc, fabric.RunOptions{Budget: 50, Window: 0})
 		if cmp.Err != nil {
 			t.Fatalf("Compare: %v", cmp.Err)
 		}
@@ -1669,15 +1672,15 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			Name: "configure-missing-switch",
 			Actions: []fabric.Action{
 				{
+					ID:        "compare_test-6",
 					At:        t0,
 					Kind:      fabric.ActionConfigure,
 					Configure: new(assembly.ConfigureAction("sw2", cfgA.Switches["sw2"].Clone())),
 				},
 			},
-			Budget: 50,
 		}
 
-		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		cmp := fabric.Compare(fabA, fabB, sc, fabric.RunOptions{Budget: 50, Window: 0})
 		if cmp.Err == nil {
 			t.Fatal("Compare with missing switch expected error, got nil")
 		}
@@ -1698,7 +1701,7 @@ func TestAlignEquivalentReturnsFalse(t *testing.T) {
 	}
 	b := a.Fork()
 	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
-	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), fabric.RunOptions{Budget: 10, Window: 0})
 	if comparison.Disposition != analysis.Equivalent {
 		t.Fatalf("disposition = %s, want Equivalent", comparison.Disposition)
 	}
@@ -1721,8 +1724,8 @@ func TestAlignNamesFirstDifferingTraceEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
-	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
-	if comparison.Disposition != analysis.Different {
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), fabric.RunOptions{Budget: 10, Window: 0})
+	if comparison.Err != nil || comparison.Disposition != analysis.Different {
 		t.Fatalf("disposition = %s, want Different, error %v", comparison.Disposition, comparison.Err)
 	}
 	alignment, ok := fabric.Align(comparison)
@@ -1752,7 +1755,7 @@ func TestAlignCompareKeepsSettledInjectionOrdinal(t *testing.T) {
 		{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}, Flow: 1, Retention: fabric.RetainAggregate},
 		{At: at.Add(time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
 	})
-	comparison := fabric.Compare(a, b, scenario, 30)
+	comparison := fabric.Compare(a, b, scenario, fabric.RunOptions{Budget: 30, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Different {
 		t.Fatalf("comparison = %+v, want Different without error", comparison)
 	}

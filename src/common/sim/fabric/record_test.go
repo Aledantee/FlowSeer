@@ -83,15 +83,15 @@ func TestRecordDecodedFrame(t *testing.T) {
 		Name: "record-decoded",
 		Actions: []fabric.Action{
 			{
+				ID:     "record_test-1",
 				At:     t0,
 				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
-		Budget: 10,
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 10, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -132,15 +132,15 @@ func TestRecordRawBytes(t *testing.T) {
 		Name: "record-raw-bytes",
 		Actions: []fabric.Action{
 			{
+				ID:     "record_test-2",
 				At:     t0,
 				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
-		Budget: 10,
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 10, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -186,15 +186,15 @@ func TestRecordTruncatedIssueAndState(t *testing.T) {
 		Name: "record-truncated",
 		Actions: []fabric.Action{
 			{
+				ID:     "record_test-3",
 				At:     t0,
 				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
-		Budget: 10,
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 10, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -242,19 +242,19 @@ func TestRecordUndecodableBytesError(t *testing.T) {
 		Name: "record-undecodable",
 		Actions: []fabric.Action{
 			{
+				ID:     "record_test-4",
 				At:     t0,
 				Kind:   fabric.ActionRecord,
 				Record: &rec,
 			},
 		},
-		Budget: 10,
 	}
 
 	if err := sc.Validate(); err == nil {
 		t.Fatal("sc.Validate() succeeded on undecodable bytes, want error")
 	}
 
-	_, err := fab.RunScenario(sc)
+	_, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 10, Window: 0})
 	if err == nil {
 		t.Fatal("fab.RunScenario(sc) succeeded on undecodable bytes, want error")
 	}

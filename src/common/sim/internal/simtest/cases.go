@@ -290,7 +290,7 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			fab.Run(5, 0)
+			fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -315,7 +315,7 @@ func casePlanningCandidateForkDiverges() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			cand.Run(20, 0)
+			cand.Run(fabric.RunOptions{Budget: 20, Window: 0})
 			if err := validateReceiveReport(cand.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -334,7 +334,7 @@ func casePlanningCandidateForkDiverges() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -807,7 +807,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -891,7 +891,7 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1061,7 +1061,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1208,7 +1208,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1382,7 +1382,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(200, 0)
+			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1395,7 +1395,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(50, 0)
+			fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -1517,7 +1517,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -2474,7 +2474,7 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 			if _, err := fab.Inject(fabric.Injection{At: now.Add(time.Second), Origin: fabric.Endpoint{Node: "router", Port: "out"}, Frame: reply}); err != nil {
 				return ExecutionResult{}, err
 			}
-			run := fab.Run(1000, 0)
+			run := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 			journey, err := reportJourney(fab, fid)
 			if err != nil {
 				return ExecutionResult{}, err

@@ -351,7 +351,7 @@ func TestHostWithoutEthernetFactsLeavesLinkUnknownAndFloodsNothing(t *testing.T)
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	journey := findJourney(t, fab, fid)
 	var hop *device.Result
@@ -476,7 +476,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
-		fab.Run(10, 0)
+		fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 		journey := findJourney(t, fab, fid)
 		for _, entry := range journey.Entries {
 			if entry.Kind == fabric.EntryHop {
@@ -592,7 +592,7 @@ func TestOperStatusConflictStaysOnItsPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	journey := findJourney(t, fab, fid)
 	for _, entry := range journey.Entries {
 		if entry.Kind != fabric.EntryHop {
@@ -662,7 +662,7 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	entries := fab.Snapshot().Devices["sw1"].Entries
 	byMAC := make(map[netaddr.MAC]device.Entry, len(entries))
@@ -720,7 +720,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 	if got := fab.Links()[3]; got.A.Endpoint != (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) || got.A.Oper != port.Unknown {
 		t.Fatalf("redundant uplink = %+v, want Unknown", got.A)
 	}
-	fab.Run(200, 0)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	for _, name := range []string{"sw1", "sw2"} {
 		for _, p := range []string{"1/1/1", "1/1/2", "1/1/3"} {
@@ -739,7 +739,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 	journey := findJourney(t, fab, fid)
 	if got := journey.Metadata.Status(); got != analysis.Incomplete || !hasIssue(journey.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown) {
 		t.Errorf("journey status = %s, issues %+v; want incomplete with protocol-link-unknown", got, journey.Metadata.Issues())

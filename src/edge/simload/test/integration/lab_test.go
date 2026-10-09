@@ -276,7 +276,7 @@ func TestOneSwitchFabricDeliversClonedSource(t *testing.T) {
 	if err := lab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "tx"}, Source: source.Clone(), Flow: 1, Retention: fabric.RetainAggregate}); err != nil {
 		t.Fatalf("attach source: %v", err)
 	}
-	if result := lab.Run(100, 0); result.Stop != fabric.StopQueueDrained {
+	if result := lab.Run(fabric.RunOptions{Budget: 100, Window: 0}); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("simulator stop = %s, error %v; want %s", result.Stop, result.Err, fabric.StopQueueDrained)
 	}
 	stats := lab.Flows()[1]
@@ -374,7 +374,7 @@ func TestICX7150Comparison(t *testing.T) {
 				}
 				flows = append(flows, simload.FlowSource{ID: id, Source: source.Clone()})
 			}
-			if result := lab.Run(200_000, 0); result.Stop != fabric.StopQueueDrained {
+			if result := lab.Run(fabric.RunOptions{Budget: 200_000, Window: 0}); result.Stop != fabric.StopQueueDrained {
 				t.Fatalf("simulator stop = %s, error %v; want %s", result.Stop, result.Err, fabric.StopQueueDrained)
 			}
 

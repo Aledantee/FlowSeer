@@ -140,10 +140,10 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 			}
 
 			sc := fabric.Scenario{
-				Name:   "scenario-replays-link-flap",
-				Budget: 20,
+				Name: "scenario-replays-link-flap",
 				Actions: []fabric.Action{
 					{
+						ID:   "cut-trunk",
 						At:   linkFlapT0.Add(time.Second),
 						Kind: fabric.ActionFault,
 						Fault: &fabric.FaultAction{
@@ -153,6 +153,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 						},
 					},
 					{
+						ID:   "offer-after-cut",
 						At:   linkFlapT0.Add(2 * time.Second),
 						Kind: fabric.ActionInject,
 						Inject: &fabric.Injection{
@@ -168,7 +169,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				},
 			}
 
-			runRes, err := fab.RunScenario(sc)
+			runRes, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -188,7 +189,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 			j1 := report[0]
 
 			fab2 := runRes.Replay.Checkpoint()
-			if _, err := fab2.RunScenario(runRes.Replay.Scenario); err != nil {
+			if _, err := fab2.RunScenario(runRes.Replay.Scenario, runRes.Replay.Options); err != nil {
 				return ExecutionResult{}, err
 			}
 			report2 := fab2.Report()
@@ -339,7 +340,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			runRes := fab.Run(2, 0)
+			runRes := fab.Run(fabric.RunOptions{Budget: 2, Window: 0})
 			if runRes.Stop != fabric.StopBudget {
 				return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 			}

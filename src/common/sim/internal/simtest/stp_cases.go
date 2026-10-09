@@ -345,7 +345,7 @@ func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src,
 	if err != nil {
 		return nil, fabric.Journey{}, err
 	}
-	fab.Run(1000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	if err := validateReceiveReport(fab.Report()); err != nil {
 		return fab, fabric.Journey{}, err
 	}
@@ -358,7 +358,7 @@ func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src,
 	if err != nil {
 		return fab, fabric.Journey{}, err
 	}
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 	if err := validateReceiveReport(fab.Report()); err != nil {
 		return fab, fabric.Journey{}, err
 	}

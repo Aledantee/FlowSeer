@@ -54,6 +54,7 @@ type PendingWork struct {
 type ReplaySpec struct {
 	checkpoint *Fabric
 	Scenario   Scenario
+	Options    RunOptions
 }
 
 // Checkpoint returns an independent fork of the pre-action fabric, or nil for a zero replay.

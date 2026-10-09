@@ -31,7 +31,7 @@ func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
 		if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Duration(i) * time.Second), Origin: fabric.Endpoint{Node: "h2"}, Frame: ethernet.Frame{Src: h2, Dst: h1, Payload: []byte("learn")}}); err != nil {
 			t.Fatal(err)
 		}
-		fab.Run(20, 0)
+		fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 	}
 	history := fab.Report()
 	if len(history) != 3 {
@@ -55,7 +55,7 @@ func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
 	if len(entries) != 1 || entries[0].MAC != h2 || entries[0].Port != "1/1/24" {
 		t.Fatalf("learned FDB = %+v, want h2 on 1/1/24", entries)
 	}
-	return fab, fabric.Scenario{Name: "stepped-replay", Budget: 20, Actions: []fabric.Action{{At: t0.Add(3 * time.Second), Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: h1, Dst: h2, Payload: []byte("fourth")}}}}}
+	return fab, fabric.Scenario{Name: "stepped-replay", Actions: []fabric.Action{{ID: "replay_test-1", At: t0.Add(3 * time.Second), Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: h1, Dst: h2, Payload: []byte("fourth")}}}}}
 }
 
 func equalReplayResults(t *testing.T, a, b fabric.RunResult) {
@@ -79,7 +79,7 @@ func assertSteppedReplayJourney(t *testing.T, replay fabric.ReplaySpec) {
 	if len(entries) != 1 || entries[0].MAC != replay.Scenario.Actions[0].Inject.Frame.Dst || entries[0].Port != "1/1/24" {
 		t.Fatalf("replay checkpoint FDB = %+v, want learned destination on 1/1/24", entries)
 	}
-	if _, err := fab.RunScenario(replay.Scenario); err != nil {
+	if _, err := fab.RunScenario(replay.Scenario, replay.Options); err != nil {
 		t.Fatal(err)
 	}
 	journeys := fab.Report()
@@ -106,7 +106,7 @@ func assertSteppedReplayJourney(t *testing.T, replay fabric.ReplaySpec) {
 
 func TestReplayOfSteppedFabric(t *testing.T) {
 	fab, sc := steppedReplayFabric(t)
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,13 +137,13 @@ func TestReplayOfSteppedFabric(t *testing.T) {
 func TestCompareReplayOfSteppedFabrics(t *testing.T) {
 	a, sc := steppedReplayFabric(t)
 	b, _ := steppedReplayFabric(t)
-	cmp := fabric.Compare(a, b, sc, sc.Budget)
+	cmp := fabric.Compare(a, b, sc, fabric.RunOptions{Budget: 20, Window: 0})
 	if cmp.Err != nil {
 		t.Fatal(cmp.Err)
 	}
 	var checked int
 	for i, original := range []*fabric.Fabric{a, b} {
-		want, err := original.Fork().RunScenario(sc)
+		want, err := original.Fork().RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,7 +162,7 @@ func TestCompareReplayOfSteppedFabrics(t *testing.T) {
 
 func TestReplayRunsTwice(t *testing.T) {
 	fab, sc := steppedReplayFabric(t)
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -352,7 +352,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	// 2. Return frame from h2 to macA forwards directly to 1/1/1.
 	_, err = fab.Inject(fabric.Injection{
@@ -383,7 +383,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},
@@ -1040,6 +1040,7 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 		Name: "replay-configure",
 		Actions: []fabric.Action{
 			{
+				ID:   "replay_test-2",
 				At:   t0,
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1053,11 +1054,13 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 				},
 			},
 			{
+				ID:        "replay_test-3",
 				At:        t0.Add(time.Second),
 				Kind:      fabric.ActionConfigure,
 				Configure: new(assembly.ConfigureAction("sw2", sw2New)),
 			},
 			{
+				ID:   "replay_test-4",
 				At:   t0.Add(2 * time.Second),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1071,10 +1074,9 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 				},
 			},
 		},
-		Budget: 50,
 	}
 
-	res1, err := fab.RunScenario(sc)
+	res1, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 50, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -1106,7 +1108,7 @@ func TestScenarioReplayConfigureEquality(t *testing.T) {
 	}
 
 	fab2 := res1.Replay.Checkpoint()
-	if _, err := fab2.RunScenario(res1.Replay.Scenario); err != nil {
+	if _, err := fab2.RunScenario(res1.Replay.Scenario, res1.Replay.Options); err != nil {
 		t.Fatalf("fab2.RunScenario: %v", err)
 	}
 	report2 := fab2.Report()

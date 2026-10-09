@@ -210,7 +210,7 @@ func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10, 0)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}
@@ -355,7 +355,7 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}); err != nil {
 				return ExecutionResult{}, err
 			}
-			steps := fab.Run(reflectorLoopBudget, 0).Steps
+			steps := fab.Run(fabric.RunOptions{Budget: reflectorLoopBudget, Window: 0}).Steps
 			if err := validateReceiveReport(fab.Report()); err != nil {
 				return ExecutionResult{}, err
 			}

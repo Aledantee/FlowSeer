@@ -334,6 +334,7 @@ func ComparisonCorpus() []ComparisonCase {
 		Name: "comparison-scenario",
 		Actions: []fabric.Action{
 			{
+				ID:   "offer",
 				At:   now,
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -343,7 +344,6 @@ func ComparisonCorpus() []ComparisonCase {
 				},
 			},
 		},
-		Budget: 50,
 	}
 
 	buildFabricPair := func(
@@ -445,9 +445,9 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -527,9 +527,9 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -609,9 +609,9 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
@@ -681,9 +681,9 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 1)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 1)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err

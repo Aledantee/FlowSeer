@@ -138,10 +138,10 @@ func TestOperationNeedsNoAssembly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	before := Action{At: start.Add(time.Second), Index: 7, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "n", Operation: stubOperation{ports: oldPorts}}}
+	before := Action{ID: "topology_internal_test-1", At: start.Add(time.Second), Index: 7, Kind: ActionConfigure, Configure: &ConfigureAction{Node: "n", Operation: stubOperation{ports: oldPorts}}}
 	after := before.Clone()
 	after.Configure.Operation = stubOperation{ports: newPorts}
-	result, err := f.RunScenario(Scenario{Name: "stub-operation", Budget: 10, Actions: []Action{after}})
+	result, err := f.RunScenario(Scenario{Name: "stub-operation", Actions: []Action{after}}, RunOptions{Budget: 10, Window: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,7 +156,7 @@ func TestOperationNeedsNoAssembly(t *testing.T) {
 		t.Fatalf("operation changes = %v, want one", changes)
 	}
 	c := changes[0]
-	if c.Layer != "stub" || c.Subject.Kind != "scenario.action" || c.Subject.Key != nestedSubjectKey("7", nestedSubjectKey("stub-device", "n")) || c.Field != "ports" || c.From.Canonical() != (Endpoint{Port: "old"}).Canonical() || c.To.Canonical() != (Endpoint{Port: "new"}).Canonical() {
+	if c.Layer != "stub" || c.Subject.Kind != "scenario.action" || c.Subject.Key != nestedSubjectKey(before.ID, nestedSubjectKey("stub-device", "n")) || c.Field != "ports" || c.From.Canonical() != (Endpoint{Port: "old"}).Canonical() || c.To.Canonical() != (Endpoint{Port: "new"}).Canonical() {
 		t.Fatalf("operation change = %+v, want old -> new with nested subject", c)
 	}
 }

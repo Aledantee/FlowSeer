@@ -144,7 +144,7 @@ func main() {
 		panic(err)
 	}
 
-	res := fab.Run(10, 0)
+	res := fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	fmt.Printf("Completed in %d steps\n", res.Steps)
 }
 ```
@@ -171,7 +171,7 @@ if err := fab.AttachStream(fabric.StreamAttachment{
 }); err != nil {
 	panic(err)
 }
-result := fab.Run(10_000, 0)
+result := fab.Run(fabric.RunOptions{Budget: 10_000, Window: 0})
 stats := fab.Flows()[7]
 fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 ```
@@ -385,7 +385,7 @@ if _, err := fab.Inject(fabric.Injection{
 }); err != nil {
 	log.Fatal(err)
 }
-fab.Run(1_000_000, 0)
+fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 stats := fab.Flows()[7]
 fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 	stats.Offered, stats.Delivered["h2"], stats.Latency.Min)
@@ -669,7 +669,7 @@ configuration leaves them zero.
 
 ## Snapshot after one step
 
-Calling `fab.Run(1, 0)` on the scenario processes the initial arrival at `sw1`
+Calling `fab.Run(fabric.RunOptions{Budget: 1, Window: 0})` on the scenario processes the initial arrival at `sw1`
 and leaves the transmission in flight:
 
 - `Clock`: Set to `t0 + 672ns`, the arrival timestamp of the completed step.
@@ -718,10 +718,10 @@ that was held. A release usually happens during the `Receive` that observes
 the advertisement resolving the neighbor. `Switch.Advance` settles a
 resolution timeout. The `Receive` that overflows the hold queue reports the
 frame it pushed out. Periodic
-hellos ensure the queue never drains; callers supply a step budget to
-`Run(budget, window)` which returns a `RunResult` containing the stop reason, steps
-taken, pending work, status, issues, and fingerprints. In scenarios configured
-with an observation window, `RunScenario` detects convergence automatically when
+hellos ensure the queue never drains. Callers supply a step budget to
+`Run(options)` which returns a `RunResult` containing the stop reason, steps
+taken, pending work, status, issues, and fingerprints. With a positive
+observation window, `RunScenario` detects convergence automatically when
 the canonical fingerprint remains unchanged across consecutive wakes,
 returning `StopConverged`.
 
@@ -930,7 +930,7 @@ The package declares reasons for link failures and frame discards:
 
 ## Run lifecycle and scenarios
 
-A simulation run is driven by `Run(budget, window)` or `RunScenario(scenario)` under an
+A simulation run is driven by `Run(options)` or `RunScenario(scenario, options)` under an
 explicit step limit, halting with a typed `RunResult`. The run halts with one
 of six stop reasons:
 
@@ -957,7 +957,10 @@ the completed steps, clock, issues and replay checkpoint with the error
 
 ### Scenarios and replay
 
-`Scenario` declares timed, sequenced actions on an existing fabric:
+`Scenario` declares timed actions on an existing fabric. Each action requires an
+`ID` unique within its scenario. `DiffScenarios` pairs actions by that ID, so
+inserting an action leaves the other actions paired. `RunOptions` supplies the
+step budget and observation window independently of the schedule. The actions are
 frame injections (`ActionInject`), link faults (`ActionFault`),
 switch reconfigurations (`ActionConfigure`), protocol migration checks
 (`ActionMcheck`), and recorded frames (`ActionRecord`):
@@ -965,10 +968,8 @@ switch reconfigurations (`ActionConfigure`), protocol migration checks
 ```go
 sc := fabric.Scenario{
 	Name:   "trunk-flap-and-inject",
-	Budget: 50,
-	Window: 3,
 	Actions: []fabric.Action{
-		{
+		{ID: "action-1",
 			At:   t0.Add(time.Second),
 			Kind: fabric.ActionFault,
 			Fault: &fabric.FaultAction{
@@ -977,7 +978,7 @@ sc := fabric.Scenario{
 				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
-		{
+		{ID: "action-2",
 			At:   t0.Add(2 * time.Second),
 			Kind: fabric.ActionInject,
 			Inject: &fabric.Injection{
@@ -993,7 +994,7 @@ sc := fabric.Scenario{
 	},
 }
 
-res, err := fab.RunScenario(sc)
+res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 50, Window: 3})
 if err != nil {
 	log.Fatal(err)
 }
@@ -1131,12 +1132,12 @@ func main() {
 	sc := fabric.Scenario{
 		Name: "vlan-migration",
 		Actions: []fabric.Action{
-			{
+			{ID: "action-3",
 				At:   t1,
 				Kind: fabric.ActionConfigure,
 				Configure: new(assembly.ConfigureAction("sw1", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
-			{
+			{ID: "action-4",
 				At:   t1.Add(100 * time.Millisecond),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1149,12 +1150,12 @@ func main() {
 					},
 				},
 			},
-			{
+			{ID: "action-5",
 				At:   t2,
 				Kind: fabric.ActionConfigure,
 				Configure: new(assembly.ConfigureAction("sw2", vswitch.Config{Ports: makePorts(), Bridge: makeBridgeVLAN20()})),
 			},
-			{
+			{ID: "action-6",
 				At:   t2.Add(100 * time.Millisecond),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -1168,10 +1169,9 @@ func main() {
 				},
 			},
 		},
-		Budget: 100,
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 100})
 	if err != nil {
 		panic(err)
 	}
@@ -1205,7 +1205,7 @@ fresh, use `assembly.Configure(fab, node, cfg)` or `ActionConfigure` in a `Scena
 injection scenario over an explicit step budget:
 
 ```go
-cmp := fabric.Compare(currentFab, candidateFab, scenario, 100)
+cmp := fabric.Compare(currentFab, candidateFab, scenario, fabric.RunOptions{Budget: 100})
 switch cmp.Disposition {
 case analysis.Equivalent:
 	// Both topologies deliver or drop scenario frames identically.

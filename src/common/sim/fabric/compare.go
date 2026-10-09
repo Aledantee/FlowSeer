@@ -41,7 +41,7 @@ type Comparison struct {
 // and Replay carries pre-action checkpoints for both fabrics ([0] for current,
 // [1] for candidate) to reproduce the divergence. Actions before either fabric's
 // clock are refused before either fork executes them.
-func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
+func Compare(a, b *Fabric, scenario Scenario, options RunOptions) Comparison {
 	forkA := a.Fork()
 	forkB := b.Fork()
 
@@ -49,18 +49,19 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 	if normSc.Name == "" {
 		normSc.Name = "compare-scenario"
 	}
-	if budget > 0 {
-		normSc.Budget = budget
-	}
-
 	norm, err := normSc.Normalize()
+	if err == nil {
+		err = options.Validate()
+	}
 	replaySpecA := ReplaySpec{
 		checkpoint: a.Fork(),
 		Scenario:   normSc.Clone(),
+		Options:    options,
 	}
 	replaySpecB := ReplaySpec{
 		checkpoint: b.Fork(),
 		Scenario:   normSc.Clone(),
+		Options:    options,
 	}
 	replaySpecs := [2]ReplaySpec{replaySpecA, replaySpecB}
 	if err != nil {
@@ -80,8 +81,8 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 		}
 	}
 
-	runResA, errA := forkA.runWithActions(norm.Budget, norm.Window, norm.Actions)
-	runResB, errB := forkB.runWithActions(norm.Budget, norm.Window, norm.Actions)
+	runResA, errA := forkA.runWithActions(options.Budget, options.Window, norm.Actions)
+	runResB, errB := forkB.runWithActions(options.Budget, options.Window, norm.Actions)
 	injFIDsA, injFIDsB := rootIDs(runResA.roots), rootIDs(runResB.roots)
 
 	allJourneysA := forkA.Report()
@@ -203,7 +204,7 @@ func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB
 			uncertain = true
 			continue
 		}
-		action := Action{Kind: ActionInject}
+		action := Action{ID: "compare-1", Kind: ActionInject}
 		if root.injection != nil {
 			action.Index, action.At = root.injection.Index, root.injection.At
 		}

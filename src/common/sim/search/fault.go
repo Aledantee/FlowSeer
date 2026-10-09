@@ -77,7 +77,7 @@ func NewTimedFaultDomain(cfg TimedFaultDomainConfig) (*TimedFaultDomain, error) 
 	if err != nil {
 		return nil, err
 	}
-	baseTraffic := (Candidate{Actions: cfg.BaseTraffic}).ToScenario(1).Actions
+	baseTraffic := (Candidate{Actions: cfg.BaseTraffic}).ToScenario().Actions
 
 	return &TimedFaultDomain{
 		faults:      faults,
@@ -116,7 +116,7 @@ func (d *TimedFaultDomain) buildCandidate(f fabric.FaultAction, at time.Time) Ca
 	}
 	fault := f
 	fault.Fault = f.Fault.Clone()
-	actions = append(actions, fabric.Action{At: at, Index: index + 1, Kind: fabric.ActionFault, Fault: &fault})
+	actions = append(actions, fabric.Action{ID: fmt.Sprintf("fault-%d", index+1), At: at, Index: index + 1, Kind: fabric.ActionFault, Fault: &fault})
 	return Candidate{Tuple: formatFaultTuple(f, at), Actions: actions}
 }
 

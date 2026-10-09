@@ -36,7 +36,7 @@ func compareDomain(current, candidate *fabric.Fabric) error {
         fmt.Printf("%s: %d actions, target %+v, difference %s\n",
             reduced.Minimality, len(reduced.Candidate.Actions), reduced.Target, reduced.Difference)
         comparison := fabric.Compare(current, candidate,
-            reduced.Candidate.ToScenario(limits.Budget), limits.Budget)
+            reduced.Candidate.ToScenario(), fabric.RunOptions{Budget: limits.Budget})
         if comparison.Err != nil {
             return comparison.Err
         }
@@ -77,8 +77,9 @@ empty domain. A zero L2 `At` uses the default epoch.
 
 `Candidate.Actions` owns injection and fault declarations. `Candidate.Clone`
 deep-copies frame tags, frame and packet payloads, and fault loss sequences.
-`ToScenario` numbers unnumbered declarations once, placing injections before
-faults at tied times. Existing indices survive reduction. Duplicate timestamp
+`ToScenario` names unnamed declarations before sorting, then numbers unnumbered
+declarations with injections before faults at tied times. Existing IDs and
+indices survive reduction. Duplicate IDs and duplicate timestamp
 and index pairs are invalid. Times use full UTC identity, and endpoint tuples
 use `Endpoint.Canonical` so delimiter-bearing names remain distinct.
 

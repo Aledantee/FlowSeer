@@ -3,6 +3,8 @@ package fabric_test
 import (
 	"testing"
 
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+
 	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
 )
 
@@ -19,6 +21,6 @@ func BenchmarkForkAndStep100(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		fork := fab.Fork()
-		_ = fork.Run(100, 0)
+		_ = fork.Run(fabric.RunOptions{Budget: 100})
 	}
 }

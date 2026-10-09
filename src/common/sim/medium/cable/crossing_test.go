@@ -67,7 +67,7 @@ func TestFaultPositionCountsBothDirections(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			result := fab.Run(16, 0)
+			result := fab.Run(fabric.RunOptions{Budget: 16, Window: 0})
 			if result.Stop != fabric.StopQueueDrained {
 				t.Fatalf("Run stop = %v, want QueueDrained", result.Stop)
 			}

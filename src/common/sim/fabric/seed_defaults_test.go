@@ -51,7 +51,7 @@ func TestFabricSeedDefaultsCompareEqual(t *testing.T) {
 	if a.Snapshot().Fingerprint() != b.Snapshot().Fingerprint() {
 		t.Error("snapshots differ for omitted and explicit seed defaults")
 	}
-	comparison := fabric.Compare(a, b, fabric.Scenario{Name: "seed-defaults"}, 10)
+	comparison := fabric.Compare(a, b, fabric.Scenario{Name: "seed-defaults"}, fabric.RunOptions{Budget: 10, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Equivalent {
 		t.Errorf("Compare = %+v, want Equivalent without error", comparison)
 	}

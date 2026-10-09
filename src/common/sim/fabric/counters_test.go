@@ -43,7 +43,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(10, 0).Steps
+	steps := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}).Steps
 	if steps != 4 {
 		t.Fatalf("steps = %d, want 4", steps)
 	}
@@ -136,7 +136,7 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 		t.Fatalf("Inject oversized: %v", err)
 	}
 
-	fabDrop.Run(5, 0)
+	fabDrop.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapDrop := fabDrop.Snapshot()
 	cEgressDrop := snapDrop.Devices["sw1"].Counters["1/1/24"]
@@ -237,7 +237,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps1 := fab.Run(5, 0).Steps
+	steps1 := fab.Run(fabric.RunOptions{Budget: 5, Window: 0}).Steps
 	if steps1 != 5 {
 		t.Fatalf("steps1 = %d, want 5", steps1)
 	}
@@ -251,7 +251,7 @@ func TestStormGrowthAcrossSimulationRuns(t *testing.T) {
 		t.Fatal("expected non-zero traffic on uplinks after first run")
 	}
 
-	steps2 := fab.Run(5, 0).Steps
+	steps2 := fab.Run(fabric.RunOptions{Budget: 5, Window: 0}).Steps
 	if steps2 != 5 {
 		t.Fatalf("steps2 = %d, want 5", steps2)
 	}
@@ -378,7 +378,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		t.Fatalf("Inject A to B: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys := fab.Report()
 	var j1 *fabric.Journey
@@ -417,7 +417,7 @@ func TestDeadDirectionCableLossAndDelivery(t *testing.T) {
 		t.Fatalf("Inject B to A: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys = fab.Report()
 	var j2 *fabric.Journey
@@ -490,7 +490,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: bcastFrame}); err != nil {
 		t.Fatalf("Inject bcast: %v", err)
 	}
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapBcast := fab.Snapshot()
 	cBcast := snapBcast.Devices["sw1"].Counters["1/1/1"]
@@ -507,7 +507,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: mcastFrame}); err != nil {
 		t.Fatalf("Inject mcast: %v", err)
 	}
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapMcast := fab.Snapshot()
 	cMcast := snapMcast.Devices["sw1"].Counters["1/1/1"]
@@ -541,7 +541,7 @@ func TestFrameClassesAndCorruptArrivalCounters(t *testing.T) {
 	if _, err := fabCorrupt.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: bcastFrame}); err != nil {
 		t.Fatalf("Inject into corrupt fab: %v", err)
 	}
-	fabCorrupt.Run(5, 0)
+	fabCorrupt.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapCorrupt := fabCorrupt.Snapshot()
 	cSw2Port2 := snapCorrupt.Devices["sw2"].Counters["1/1/2"]
@@ -615,7 +615,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snap := fab.Snapshot()
 	cLag := snap.Devices["sw1"].Counters["lag1"]
@@ -644,7 +644,7 @@ func TestLagPortAndMemberCounters(t *testing.T) {
 		t.Fatalf("Inject reverse: %v", err)
 	}
 
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snapReverse := fab.Snapshot()
 	cLagRev := snapReverse.Devices["sw1"].Counters["lag1"]
@@ -710,7 +710,7 @@ func TestWholeFrameDropCounters(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	snap := fab.Snapshot()
 	c := snap.Devices["sw1"].Counters["1/1/1"]

@@ -137,7 +137,7 @@ func TestEgressQueueServesStrictPriority(t *testing.T) {
 			break
 		}
 	}
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	var crossings []fabric.Entry
 	for _, journey := range fab.Report() {
@@ -232,7 +232,7 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject h1: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var copyJourney *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -279,7 +279,7 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject h2 flood: %v", err)
 	}
-	fab.Run(200, 0)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	var h3Dropped bool
 	h3Deliveries := 0
@@ -320,7 +320,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject h1: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var trunkCopy, hostCopy *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -370,7 +370,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject reserved destination: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	for _, journey := range fab.Report()[before:] {
 		if journey.Origin.Mirror == "m2" {
 			t.Errorf("reserved destination produced mirror journey %+v", journey)
@@ -458,7 +458,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Inject: %v", err)
 			}
-			fab.Run(100, 0)
+			fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 			var tracedMember string
 			var copyJourney *fabric.Journey
@@ -553,7 +553,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 		}
 		ids = append(ids, fid)
 	}
-	fab.Run(1000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 
 	hops := 0
 	var tenth fabric.Journey
@@ -626,7 +626,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject after refill: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	for _, journey := range fab.Report() {
 		if journey.FrameID != lastID {
 			continue
@@ -671,7 +671,7 @@ func TestQueuedFrameUsesServiceTimeRate(t *testing.T) {
 	if got := fab.Snapshot().Queued[trunk]; got != 2 {
 		t.Fatalf("queued frames after Configure = %d, want 2", got)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	var crossings []time.Time
 	for _, journey := range fab.Report() {
 		for _, entry := range journey.Entries {
@@ -730,7 +730,7 @@ func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
 	fab, macs := newFabric()
 	firstID := injectLow(fab, macs, t0, 1)
 	secondID := injectLow(fab, macs, t0.Add(time.Nanosecond), 2)
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	if got := hopAt(fab, firstID); !got.Equal(t0.Add(2870 * time.Nanosecond)) {
 		t.Errorf("first PCP 0 hop = %v, want %v", got, t0.Add(2870*time.Nanosecond))
 	}
@@ -754,7 +754,7 @@ func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject PCP 7: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	highAt := hopAt(fab, highID)
 	if want := t0.Add(3574 * time.Nanosecond); !highAt.Equal(want) {
 		t.Errorf("PCP 7 hop = %v, want idle-link service at %v", highAt, want)
@@ -838,7 +838,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var upstream *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -874,7 +874,7 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("Inject corrupt frame: %v", err)
 	}
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 	if err := fab.SetFault(cfg.Cables[0].A, cfg.Cables[0].B, cablemodel.Fault{}); err != nil {
 		t.Fatalf("clear fault: %v", err)
 	}
@@ -882,7 +882,7 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject good frame: %v", err)
 	}
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	for _, journey := range fab.Report() {
 		if journey.FrameID != goodID {
@@ -937,7 +937,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	for _, journey := range fab.Report() {
 		for i, entry := range journey.Entries {
@@ -979,7 +979,7 @@ func TestLogicalLAGQueueRateUsesPhysicalMemberClock(t *testing.T) {
 		}
 		ids = append(ids, id)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	starts := make(map[fabric.FrameID]time.Time)
 	ports := make(map[fabric.FrameID]string)

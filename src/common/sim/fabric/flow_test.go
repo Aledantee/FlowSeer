@@ -43,7 +43,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 	if _, err := single.Inject(fabric.Injection{At: base, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("single Inject: %v", err)
 	}
-	single.Run(1000, 0)
+	single.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	delivery := single.Report()[0].Deliveries
 	if len(delivery) != 1 {
 		t.Fatalf("single-frame deliveries = %+v, want one", delivery)
@@ -63,7 +63,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -115,7 +115,7 @@ func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 	if got := len(fab.Report()); got != frames {
 		t.Fatalf("pending journeys = %d, want %d", got, frames)
 	}
-	if got := fab.Run(frames+1, 0).Steps; got != frames {
+	if got := fab.Run(fabric.RunOptions{Budget: frames + 1, Window: 0}).Steps; got != frames {
 		t.Fatalf("steps = %d, want %d", got, frames)
 	}
 	if reported := fab.Report(); len(reported) != 0 {
@@ -153,7 +153,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -179,7 +179,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 			t.Fatalf("bulk Inject: %v", err)
 		}
 	}
-	if res := bulk.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
+	if res := bulk.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("bulk Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -207,7 +207,7 @@ func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	stats := fab.Flows()[7]
 	if !hasIssue(stats.Metadata.Issues(), cablemodel.IssuePropagationUnknown) {
@@ -311,7 +311,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
 
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	stats := fab.Flows()[9]
 	if stats.Held != 0 || stats.Delivered["h2"] != 1 || stats.Offered != 1 || stats.Latency.Count != 1 {

@@ -48,7 +48,7 @@ func TestRunResultAcrossRetentions(t *testing.T) {
 				if j.Metadata.Status() != analysis.Incomplete {
 					t.Fatal("fixture issue was not carried")
 				}
-				results[i], err = f.RunScenario(fabric.Scenario{Name: name, Actions: actions, Budget: 1000})
+				results[i], err = f.RunScenario(fabric.Scenario{Name: name, Actions: actions}, fabric.RunOptions{Budget: 1000, Window: 0})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -110,7 +110,7 @@ func retentionResultFixture(t *testing.T, name string) (*fabric.Fabric, fabric.I
 		if name == "released" {
 			arpAt := at.Add(time.Millisecond)
 			arp := fabric.Injection{At: arpAt, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: heldPropertyARPReply(t, netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x77}, netip.MustParseAddr("10.0.20.7"), swMAC)}
-			actions = []fabric.Action{{At: arpAt, Kind: fabric.ActionInject, Inject: &arp}}
+			actions = []fabric.Action{{ID: "result_test-1", At: arpAt, Kind: fabric.ActionInject, Inject: &arp}}
 		}
 		return f, inj, actions
 	}
@@ -178,10 +178,10 @@ func TestStopReasonsCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if res := fab.Run(0, 0); res.Stop != fabric.StopNotRun || res.Steps != 0 {
+	if res := fab.Run(fabric.RunOptions{Budget: 0, Window: 0}); res.Stop != fabric.StopNotRun || res.Steps != 0 {
 		t.Errorf("Run(0) stop = %v, steps = %d, want StopNotRun, 0", res.Stop, res.Steps)
 	}
-	if res := fab.Run(-5, 0); res.Stop != fabric.StopNotRun || res.Steps != 0 {
+	if res := fab.Run(fabric.RunOptions{Budget: -5, Window: 0}); res.Stop != fabric.StopNotRun || res.Steps != 0 {
 		t.Errorf("Run(-5) stop = %v, steps = %d, want StopNotRun, 0", res.Stop, res.Steps)
 	}
 
@@ -199,7 +199,7 @@ func TestStopReasonsCoverage(t *testing.T) {
 	if _, err := fabQueue.Inject(inj); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	resQueue := fabQueue.Run(50, 0)
+	resQueue := fabQueue.Run(fabric.RunOptions{Budget: 50, Window: 0})
 	if resQueue.Stop != fabric.StopQueueDrained {
 		t.Errorf("resQueue.Stop = %v, want StopQueueDrained", resQueue.Stop)
 	}
@@ -209,7 +209,7 @@ func TestStopReasonsCoverage(t *testing.T) {
 
 	// StopBudget
 	fabSTP := newTestSTPFabric(t, t0, 4096, 8192)
-	resBudget := fabSTP.Run(2, 0)
+	resBudget := fabSTP.Run(fabric.RunOptions{Budget: 2, Window: 0})
 	if resBudget.Stop != fabric.StopBudget {
 		t.Errorf("resBudget.Stop = %v, want StopBudget", resBudget.Stop)
 	}
@@ -228,7 +228,7 @@ func TestStopReasonsCoverage(t *testing.T) {
 		Egress:  map[fabric.Endpoint]*fabric.ExportEgressQueue{ep: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{})},
 	})
 	fabric.ExportFabricScheduleDequeue(fabFault, ep, t0.Add(-time.Second))
-	resFault := fabFault.Run(10, 0)
+	resFault := fabFault.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	if resFault.Stop != fabric.StopFault {
 		t.Errorf("resFault.Stop = %v, want StopFault", resFault.Stop)
 	}
@@ -258,7 +258,7 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 		// invalidation a real fabric sees.
 		ExportFabricMetadataCache(fab)) = nil
 
-	res := fab.Run(5, 0)
+	res := fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 	if res.Stop != fabric.StopBudget {
 		t.Fatalf("res.Stop = %v, want StopBudget", res.Stop)
 	}
@@ -377,7 +377,7 @@ func TestConvergenceBlockedByPendingJourney(t *testing.T) {
 	if res.Pending.Journeys != 2 {
 		t.Errorf("res.Pending.Journeys = %d, want 2", res.Pending.Journeys)
 	}
-	res = withoutWork.Run(21, 3)
+	res = withoutWork.Run(fabric.RunOptions{Budget: 21, Window: 3})
 	if res.Stop != fabric.StopConverged || res.Pending.Journeys != 0 {
 		t.Errorf("record without live work = %+v, want Converged with zero pending journeys", res)
 	}
@@ -542,7 +542,7 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 		t.Fatalf("Inject: %v", err)
 	}
 
-	res := fab.Run(10, 0)
+	res := fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	if res.Stop != fabric.StopQueueDrained {
 		t.Errorf("res.Stop = %v, want StopQueueDrained", res.Stop)
 	}
@@ -705,7 +705,7 @@ func hasIssueCode(issues []analysis.Issue, code analysis.IssueCode) bool {
 func TestPlainRunLeavesReplayZero(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	fab := newTestHostSwitchFabric(t, t0)
-	res := fab.Run(10, 0)
+	res := fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	if res.Replay.Checkpoint() != nil || res.Replay.Scenario.Name != "" {
 		t.Errorf("plain Run returned non-zero Replay: %+v", res.Replay)
 	}
@@ -716,12 +716,10 @@ func TestScenarioReplayHasCheckpoint(t *testing.T) {
 	fab := newTestTwoSwitchSTPFabric(t, t0)
 
 	sc := fabric.Scenario{
-		Name:   "test-checkpoint",
-		Budget: 10,
-		Window: 1,
+		Name: "test-checkpoint",
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 10, Window: 1})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -741,11 +739,10 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 	}
 
 	sc := fabric.Scenario{
-		Name:   "budget-drops-actions",
-		Budget: 1,
-		Window: 0,
+		Name: "budget-drops-actions",
 		Actions: []fabric.Action{
 			{
+				ID:   "result_test-2",
 				At:   t0.Add(time.Second),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -754,6 +751,7 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 				},
 			},
 			{
+				ID:   "result_test-3",
 				At:   t0.Add(2 * time.Second),
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -764,7 +762,7 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 		},
 	}
 
-	res, err := fab.RunScenario(sc)
+	res, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 1, Window: 0})
 	if err != nil {
 		t.Fatalf("RunScenario: %v", err)
 	}
@@ -801,7 +799,7 @@ func TestPendingInputsCounted(t *testing.T) {
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, frame, 1, 1), Start: 2 * time.Second, Flow: 1}); err != nil {
 		t.Fatal(err)
 	}
-	result, err := fab.RunScenario(fabric.Scenario{Name: "pending inputs", Budget: 1, Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h2"}, Frame: frame}}}})
+	result, err := fab.RunScenario(fabric.Scenario{Name: "pending inputs", Actions: []fabric.Action{{ID: "result_test-4", At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h2"}, Frame: frame}}}}, fabric.RunOptions{Budget: 1, Window: 0})
 	if err != nil {
 		t.Fatal(err)
 	}

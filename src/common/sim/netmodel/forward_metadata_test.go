@@ -79,7 +79,7 @@ func TestLoadFabricJourneyPreservesConstructionTrust(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100, 0)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var hop *device.Result
 	for _, journey := range fab.Report() {

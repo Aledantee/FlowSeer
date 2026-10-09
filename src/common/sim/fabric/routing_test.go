@@ -304,7 +304,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var journey *fabric.Journey
 	for _, j := range fab.Report() {
@@ -518,7 +518,7 @@ func TestFabricMACAssignment(t *testing.T) {
 		t.Fatalf("Inject packet from h1: %v", err)
 	}
 
-	fab.Run(5, 0)
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	var journey *fabric.Journey
 	for _, j := range fab.Report() {
@@ -711,7 +711,7 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 		t.Fatalf("Inject from routed port host: %v", err)
 	}
 
-	fab.Run(10, 0)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	var journey *fabric.Journey
 	for _, j := range fab.Report() {
@@ -919,7 +919,7 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
 
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	heldJourney := findJourney(t, fab, heldID)
 	if len(heldJourney.Entries) == 0 {
@@ -1061,7 +1061,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
 
-	fab.Run(20, 0)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	heldJourney := findJourney(t, fab, heldID)
 	if len(heldJourney.Entries) == 0 {
@@ -1186,7 +1186,7 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	heldJourney := findJourney(t, fab, heldID)
 	if len(heldJourney.Entries) == 0 {
@@ -1302,7 +1302,7 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	var dropEntry *fabric.Entry
 	for _, j := range fab.Report() {
@@ -1433,7 +1433,7 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 
-	fab.Run(50, 0)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	var dropJourney *fabric.Journey
 	for _, j := range fab.Report() {
@@ -1581,7 +1581,7 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Inject ARP reply: %v", err)
 		}
-		fab.Run(200, 0)
+		fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 		if neighbors == nil {
 			held := false
@@ -1731,7 +1731,7 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
-	derived.Run(200, 0)
+	derived.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	// Held frame was released and crossed into sw2
 	var released bool
@@ -2046,7 +2046,7 @@ func TestFabricReleasedFrameLeavesByTheMemberTheSwitchSelected(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
-	fab.Run(40, 0)
+	fab.Run(fabric.RunOptions{Budget: 40, Window: 0})
 
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
@@ -2164,7 +2164,7 @@ func TestRoutingOnlySwitchWakesAfterDerive(t *testing.T) {
 		t.Errorf("sw1 neighbors on derived = %+v, want HoldDepth 1", snapDerived.Devices["sw1"].Neighbors)
 	}
 
-	derived.Run(200, 0)
+	derived.Run(fabric.RunOptions{Budget: 200, Window: 0})
 	misses := 0
 	for _, journey := range derived.Report() {
 		for _, entry := range journey.Entries {

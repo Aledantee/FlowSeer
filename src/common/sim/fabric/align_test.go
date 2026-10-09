@@ -31,7 +31,7 @@ func locationComparison(a, b []Journey, rootsA, rootsB []FrameID, actions []Acti
 }
 
 func locationAction(index int) Action {
-	return Action{Kind: ActionInject, Index: index, At: time.Date(2026, 1, 1, 0, 0, index, 0, time.UTC)}
+	return Action{ID: "align_test-1", Kind: ActionInject, Index: index, At: time.Date(2026, 1, 1, 0, 0, index, 0, time.UTC)}
 }
 
 func TestJourneyDifferenceFields(t *testing.T) {

@@ -169,7 +169,7 @@ func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	injection := fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 1}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("target")}}
 	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
-	initial := fabric.Compare(current, expected, input.ToScenario(30), 30)
+	initial := fabric.Compare(current, expected, input.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if initial.Disposition != analysis.Different {
 		t.Fatalf("initial disposition = %s, want Different", initial.Disposition)
 	}
@@ -183,7 +183,7 @@ func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
 	if result.Candidate.Tuple != "h1: -> 02:00:00:00:00:02 etype:0x0800 payload:746172676574" {
 		t.Errorf("tuple = %q, want retained injection tuple", result.Candidate.Tuple)
 	}
-	replay := fabric.Compare(current, expected, result.Candidate.ToScenario(30), 30)
+	replay := fabric.Compare(current, expected, result.Candidate.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if replay.Disposition != analysis.Different || replay.Difference != initial.Difference || result.Difference != initial.Difference || !reflect.DeepEqual(replay.Location, initial.Location) || !reflect.DeepEqual(result.Target, initial.Location) {
 		t.Fatalf("replay = %s %+v %+v, result target %+v difference %+v, want initial target %+v difference %+v", replay.Disposition, replay.Location, replay.Difference, result.Target, result.Difference, initial.Location, initial.Difference)
 	}

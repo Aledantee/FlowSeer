@@ -140,7 +140,7 @@ func primeQueueBufferLearning(t *testing.T, fab *fabric.Fabric, macs map[string]
 	}); err != nil {
 		t.Fatalf("prime Inject: %v", err)
 	}
-	fab.Run(1000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 }
 
 // unstatedBackedFabric returns a one-switch fabric with one port per name, all
@@ -219,7 +219,7 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 			t.Fatalf("Inject %s: %v", host, err)
 		}
 	}
-	fab.Run(1_000_000, 0)
+	fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
 	issues := fab.Metadata().IssuesFor(scope)
 	if len(issues) != 1 || issues[0].Code != fabric.IssueQueueBufferUnstated || issues[0].Status != analysis.Incomplete {

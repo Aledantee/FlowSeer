@@ -420,8 +420,9 @@ fingerprint explicitly excludes the clock, the arrival queue, and counters.
 Without that exclusion, periodic protocol events (such as spanning tree BPDUs)
 would advance the clock and refresh counters on every step, making a settled
 fabric look perpetually changing or disguising budget exhaustion as normal
-progress. A scenario declares its observation window and positive step budget as
-an in-memory Go value; it carries no file persistence or packet-capture parser.
+progress. A scenario declares its action schedule. `fabric.RunOptions` carries
+the observation window and positive step budget beside that schedule. Both are
+in-memory Go values with no file persistence or packet-capture parser.
 When the run names streams, their seeds determine field draws.
 
 ### Current-against-candidate comparison
@@ -502,7 +503,8 @@ bounded equivalence under a resource contract:
   domains. No routed-domain interface is declared (`src/common/sim/search`).
 - **Comparison per candidate.** `search.Search(current, candidate, dom, lim)`
   evaluates each candidate via
-  `fabric.Compare(current, candidate, cand.ToScenario(lim.Budget), lim.Budget)`.
+  `fabric.Compare(current, candidate, cand.ToScenario(),
+  fabric.RunOptions{Budget: lim.Budget})`.
   `fabric.Compare` forks both fabrics internally. Neither the current nor the
   candidate fabric is stepped or consumed across the search, so callers can reuse
   mid-run fabrics directly. Invalid limits return an error before enumeration.

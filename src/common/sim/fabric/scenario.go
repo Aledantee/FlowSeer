@@ -5,7 +5,6 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
-	"strconv"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
@@ -85,6 +84,8 @@ func (m McheckAction) Validate() error {
 
 // Action represents a single timed mutation or frame introduction within a scenario.
 type Action struct {
+	// ID is required and unique within its scenario. It survives schedule edits.
+	ID        string
 	At        time.Time
 	Index     int
 	Kind      ActionKind
@@ -97,6 +98,9 @@ type Action struct {
 
 // Validate ensures exactly one payload is present matching Kind, and inner timestamps agree.
 func (a Action) Validate() error {
+	if a.ID == "" {
+		return errs.Msg("action id cannot be empty")
+	}
 	if a.At.IsZero() {
 		return errs.Msg("action timestamp cannot be zero")
 	}
@@ -248,11 +252,6 @@ type actionKindFact string
 func (f actionKindFact) TypeID() string    { return "fabric.action.kind" }
 func (f actionKindFact) Canonical() string { return string(f) }
 
-type actionIndexFact int
-
-func (f actionIndexFact) TypeID() string    { return "fabric.action.index" }
-func (f actionIndexFact) Canonical() string { return strconv.Itoa(int(f)) }
-
 type actionTimeFact string
 
 func (f actionTimeFact) TypeID() string    { return "fabric.action.at" }
@@ -264,11 +263,11 @@ func (f actionStringFact) TypeID() string    { return "fabric.action.payload" }
 func (f actionStringFact) Canonical() string { return string(f) }
 
 // Diff returns changes between two Actions. A Configure payload diff keeps the
-// kind "scenario.action"; its key nests the action index and the inner operation
+// kind "scenario.action"; its key nests the action ID and the inner operation
 // subject, so two changes inside one switch configuration stay distinguishable.
 func (a Action) Diff(other Action) []trace.Change {
 	var changes []trace.Change
-	subject := trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(a.Index)}
+	subject := trace.Subject{Kind: "scenario.action", Key: a.ID}
 
 	if !a.At.Equal(other.At) {
 		changes = append(changes, trace.Change{
@@ -279,13 +278,13 @@ func (a Action) Diff(other Action) []trace.Change {
 			To:      actionTimeFact(other.At.UTC().Format(time.RFC3339Nano)),
 		})
 	}
-	if a.Index != other.Index {
+	if a.ID != other.ID {
 		changes = append(changes, trace.Change{
 			Layer:   Layer,
 			Subject: subject,
-			Field:   "index",
-			From:    actionIndexFact(a.Index),
-			To:      actionIndexFact(other.Index),
+			Field:   "id",
+			From:    actionStringFact(a.ID),
+			To:      actionStringFact(other.ID),
 		})
 	}
 	if a.Kind != other.Kind {
@@ -322,7 +321,7 @@ func (a Action) Diff(other Action) []trace.Change {
 			changes = append(changes, trace.Change{Layer: Layer, Subject: subject, Field: "mcheck.node", From: actionStringFact(a.Mcheck.Node), To: actionStringFact(other.Mcheck.Node)})
 		} else {
 			for _, d := range a.Mcheck.Operation.Diff(other.Mcheck.Operation) {
-				d.Subject = trace.Subject{Kind: "scenario.action", Key: nestedSubjectKey(strconv.Itoa(a.Index), nestedSubjectKey(d.Subject.Kind, d.Subject.Key))}
+				d.Subject = trace.Subject{Kind: "scenario.action", Key: nestedSubjectKey(a.ID, nestedSubjectKey(d.Subject.Kind, d.Subject.Key))}
 				changes = append(changes, d)
 			}
 		}
@@ -360,7 +359,7 @@ func (a Action) Diff(other Action) []trace.Change {
 			for _, d := range diffs {
 				d.Subject = trace.Subject{
 					Kind: "scenario.action",
-					Key:  nestedSubjectKey(strconv.Itoa(a.Index), nestedSubjectKey(d.Subject.Kind, d.Subject.Key)),
+					Key:  nestedSubjectKey(a.ID, nestedSubjectKey(d.Subject.Kind, d.Subject.Key)),
 				}
 				changes = append(changes, d)
 			}
@@ -378,7 +377,13 @@ func configureSummary(c *ConfigureAction) string {
 }
 
 func sameInjection(a, b Injection) bool {
-	if !a.At.Equal(b.At) || a.Origin != b.Origin {
+	if !a.At.Equal(b.At) || a.Origin != b.Origin || a.Retention != b.Retention || a.Flow != b.Flow {
+		return false
+	}
+	if (a.Packet == nil) != (b.Packet == nil) {
+		return false
+	}
+	if a.Packet != nil && (a.Packet.To != b.Packet.To || a.Packet.Protocol != b.Packet.Protocol || !bytes.Equal(a.Packet.Payload, b.Packet.Payload)) {
 		return false
 	}
 	encA, _ := a.Frame.Encode()
@@ -397,14 +402,19 @@ func injectionSummary(inj *Injection) string {
 	if inj == nil {
 		return ""
 	}
-	return fmt.Sprintf("origin=%s:%s,at=%s", inj.Origin.Node, inj.Origin.Port, inj.At.UTC().Format(time.RFC3339Nano))
+	frame, _ := inj.Frame.Encode()
+	packet := "none"
+	if inj.Packet != nil {
+		packet = fmt.Sprintf("to=%s,protocol=%d,payload=%x", inj.Packet.To, inj.Packet.Protocol, inj.Packet.Payload)
+	}
+	return fmt.Sprintf("origin=%s,at=%s,frame=%x,packet={%s},retention=%d,flow=%d", inj.Origin.Canonical(), inj.At.UTC().Format(time.RFC3339Nano), frame, packet, inj.Retention, inj.Flow)
 }
 
 func faultSummary(f *FaultAction) string {
 	if f == nil {
 		return ""
 	}
-	return fmt.Sprintf("a=%s,b=%s,kind=%s", f.A.Canonical(), f.B.Canonical(), f.Fault.Kind)
+	return fmt.Sprintf("a=%s,b=%s,kind=%s,n=%d,sequence=%v", f.A.Canonical(), f.B.Canonical(), f.Fault.Kind, f.Fault.N, f.Fault.Sequence)
 }
 
 func mcheckSummary(m *McheckAction) string {
@@ -421,26 +431,29 @@ func recordSummary(r *Record) string {
 	return fmt.Sprintf("source=%s,origin=%s", r.Source, r.Origin.Canonical())
 }
 
-// Scenario declares timed actions, a step budget, and an observation window.
+// Scenario declares an action schedule with persistent action identities.
 type Scenario struct {
 	Name    string
 	Actions []Action
-	Budget  int
-	Window  int
 }
 
-// Validate verifies that the scenario has a valid name, positive budget, non-negative window,
-// consistent action indices, and unique (At, Index) pairs in numbered mode.
+// Validate requires a name, unique action IDs, consistent action indices,
+// and unique (At, Index) pairs in numbered mode.
 func (s Scenario) Validate() error {
 	numbered, err := s.validateHeader()
 	if err != nil {
 		return err
 	}
 
+	ids := make(map[string]int, len(s.Actions))
 	for i, a := range s.Actions {
 		if err := a.Validate(); err != nil {
 			return errs.Wrapf(err, "action %d invalid", i)
 		}
+		if prev, ok := ids[a.ID]; ok {
+			return errs.Msgf("duplicate action id %q at actions %d and %d", a.ID, prev, i)
+		}
+		ids[a.ID] = i
 	}
 
 	if numbered {
@@ -466,12 +479,6 @@ func (s Scenario) Validate() error {
 func (s Scenario) validateHeader() (numbered bool, err error) {
 	if s.Name == "" {
 		return false, errs.Msg("scenario name cannot be empty")
-	}
-	if s.Budget <= 0 {
-		return false, errs.Msgf("scenario budget must be positive, got %d", s.Budget)
-	}
-	if s.Window < 0 {
-		return false, errs.Msgf("scenario window cannot be negative, got %d", s.Window)
 	}
 
 	var numCount, unnumCount int
@@ -518,8 +525,6 @@ func (s Scenario) Normalize() (Scenario, error) {
 	norm := Scenario{
 		Name:    s.Name,
 		Actions: actions,
-		Budget:  s.Budget,
-		Window:  s.Window,
 	}
 
 	if err := norm.Validate(); err != nil {
@@ -531,9 +536,7 @@ func (s Scenario) Normalize() (Scenario, error) {
 // Clone returns an independent deep copy of the Scenario.
 func (s Scenario) Clone() Scenario {
 	cp := Scenario{
-		Name:   s.Name,
-		Budget: s.Budget,
-		Window: s.Window,
+		Name: s.Name,
 	}
 	if s.Actions != nil {
 		cp.Actions = make([]Action, len(s.Actions))
@@ -549,18 +552,8 @@ type scenarioNameFact string
 func (f scenarioNameFact) TypeID() string    { return "fabric.scenario.name" }
 func (f scenarioNameFact) Canonical() string { return string(f) }
 
-type scenarioBudgetFact int
-
-func (f scenarioBudgetFact) TypeID() string    { return "fabric.scenario.budget" }
-func (f scenarioBudgetFact) Canonical() string { return strconv.Itoa(int(f)) }
-
-type scenarioWindowFact int
-
-func (f scenarioWindowFact) TypeID() string    { return "fabric.scenario.window" }
-func (f scenarioWindowFact) Canonical() string { return strconv.Itoa(int(f)) }
-
 // DiffScenarios compares two scenarios and returns semantic changes.
-// Both arguments are normalized before comparison so index assignment does not introduce false diffs.
+// Actions pair by ID. Declaration indices order execution and do not identify changes.
 func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 	normA, err := a.Normalize()
 	if err != nil {
@@ -583,50 +576,22 @@ func DiffScenarios(a, b Scenario) ([]trace.Change, error) {
 			To:      scenarioNameFact(normB.Name),
 		})
 	}
-	if normA.Budget != normB.Budget {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "budget",
-			From:    scenarioBudgetFact(normA.Budget),
-			To:      scenarioBudgetFact(normB.Budget),
-		})
+	byID := make(map[string]Action, len(normB.Actions))
+	for _, action := range normB.Actions {
+		byID[action.ID] = action
 	}
-	if normA.Window != normB.Window {
-		changes = append(changes, trace.Change{
-			Layer:   Layer,
-			Subject: subject,
-			Field:   "window",
-			From:    scenarioWindowFact(normA.Window),
-			To:      scenarioWindowFact(normB.Window),
-		})
-	}
-
-	minLen := min(len(normA.Actions), len(normB.Actions))
-	for i := 0; i < minLen; i++ {
-		changes = append(changes, normA.Actions[i].Diff(normB.Actions[i])...)
-	}
-	if len(normA.Actions) < len(normB.Actions) {
-		for i := len(normA.Actions); i < len(normB.Actions); i++ {
-			act := normB.Actions[i]
-			changes = append(changes, trace.Change{
-				Layer:   Layer,
-				Subject: trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(act.Index)},
-				Field:   "action",
-				To:      actionStringFact(fmt.Sprintf("%s:%d", act.Kind, act.Index)),
-			})
-		}
-	} else if len(normA.Actions) > len(normB.Actions) {
-		for i := len(normB.Actions); i < len(normA.Actions); i++ {
-			act := normA.Actions[i]
-			changes = append(changes, trace.Change{
-				Layer:   Layer,
-				Subject: trace.Subject{Kind: "scenario.action", Key: strconv.Itoa(act.Index)},
-				Field:   "action",
-				From:    actionStringFact(fmt.Sprintf("%s:%d", act.Kind, act.Index)),
-			})
+	for _, action := range normA.Actions {
+		if other, ok := byID[action.ID]; ok {
+			changes = append(changes, action.Diff(other)...)
+			delete(byID, action.ID)
+		} else {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: trace.Subject{Kind: "scenario.action", Key: action.ID}, Field: "action", From: actionStringFact(fmt.Sprintf("%s:%s", action.Kind, action.ID))})
 		}
 	}
-
+	for _, action := range normB.Actions {
+		if _, ok := byID[action.ID]; ok {
+			changes = append(changes, trace.Change{Layer: Layer, Subject: trace.Subject{Kind: "scenario.action", Key: action.ID}, Field: "action", To: actionStringFact(fmt.Sprintf("%s:%s", action.Kind, action.ID))})
+		}
+	}
 	return changes, nil
 }

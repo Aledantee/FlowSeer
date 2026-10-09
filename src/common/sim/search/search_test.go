@@ -281,12 +281,12 @@ func TestSearchFabricsUnchangedAfterSearch(t *testing.T) {
 		},
 	}
 
-	cmpCur := fabric.Compare(cur, curTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(10), 10)
+	cmpCur := fabric.Compare(cur, curTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCur.Disposition != analysis.Equivalent {
 		t.Errorf("cur diverged from curTwin after Search: %v (%v)", cmpCur.Disposition, cmpCur.Difference)
 	}
 
-	cmpCand := fabric.Compare(cand, candTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(10), 10)
+	cmpCand := fabric.Compare(cand, candTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCand.Disposition != analysis.Equivalent {
 		t.Errorf("cand diverged from candTwin after Search: %v (%v)", cmpCand.Disposition, cmpCand.Difference)
 	}
@@ -437,7 +437,7 @@ func TestSearchRejectsExecutableConfigureCandidate(t *testing.T) {
 	current, _, twin, _, _, _ := makeTestFabrics(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", assembly.Spec(current).Config().Switches["sw1"]))}}}
-	comparison := fabric.Compare(current, twin, input.ToScenario(30), 30)
+	comparison := fabric.Compare(current, twin, input.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Equivalent {
 		t.Fatalf("fabric comparison = %+v, want executable equivalent configure action", comparison)
 	}
@@ -559,11 +559,11 @@ func TestTimedFaultDomainInjectsBeforeFaultAtEqualTime(t *testing.T) {
 	}
 	var candidate Candidate
 	domain.Enumerate(func(c Candidate) bool { candidate = c; return false })
-	scenario := candidate.ToScenario(20)
+	scenario := candidate.ToScenario()
 	if len(scenario.Actions) != 2 || scenario.Actions[0].Kind != fabric.ActionInject || scenario.Actions[0].Index != 7 || scenario.Actions[1].Kind != fabric.ActionFault || scenario.Actions[1].Index != 8 {
 		t.Fatalf("tied actions=%+v", scenario.Actions)
 	}
-	comparison := fabric.Compare(cur, twin, scenario, 20)
+	comparison := fabric.Compare(cur, twin, scenario, fabric.RunOptions{Budget: 20, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Inconclusive || len(comparison.Current) != 1 {
 		t.Fatalf("comparison=%+v", comparison)
 	}
@@ -575,7 +575,7 @@ func TestTimedFaultDomainInjectsBeforeFaultAtEqualTime(t *testing.T) {
 	reversed := candidate.Clone()
 	reversed.Actions[0].Index = 8
 	reversed.Actions[1].Index = 7
-	reverseComparison := fabric.Compare(cur, twin, reversed.ToScenario(20), 20)
+	reverseComparison := fabric.Compare(cur, twin, reversed.ToScenario(), fabric.RunOptions{Budget: 20, Window: 0})
 	if reverseComparison.Err != nil || len(reverseComparison.Current) != 1 || len(reverseComparison.Current[0].Entries) != 2 || reverseComparison.Current[0].Entries[1].Kind != fabric.EntryDrop {
 		t.Fatalf("fault-first did not drop injection: %+v", reverseComparison.Current)
 	}

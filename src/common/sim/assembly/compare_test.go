@@ -107,7 +107,7 @@ func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
 		t.Fatalf("Inject h1: %v", err)
 	}
 
-	curFab.Run(10, 0)
+	curFab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	entries := curFab.Device("sw1").(*vswitch.Switch).Entries()
 	if len(entries) != 2 {
