@@ -562,15 +562,7 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject packet: %v", err)
 	}
-	for {
-		_, ok := fab.Step()
-		if !ok {
-			t.Fatal("frame was not held")
-		}
-		if fab.Flows()[9].Held == 1 {
-			break
-		}
-	}
+	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	stats := fab.Flows()[9]
 	if stats.Held != 1 {
@@ -831,13 +823,23 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 		}
 	}
 	cfg.Switches["sw1"] = sw
-	if exit == "reconfigured" {
+	if exit == "reconfigured" || exit == "timed out" {
 		second := sw.Clone()
 		second.MAC[5]++
 		secondVRF := second.Routing.VRFs[routing.DefaultVRF]
 		for name, iface := range secondVRF.Interfaces {
 			iface.MAC = second.MAC
 			secondVRF.Interfaces[name] = iface
+		}
+		if exit == "timed out" {
+			if reverse {
+				vrf.NeighborPolicy.RetransTimer = 2 * time.Second
+				sw.Routing.VRFs[routing.DefaultVRF] = vrf
+				cfg.Switches["sw1"] = sw
+				secondVRF.NeighborPolicy.RetransTimer = time.Second
+			} else {
+				secondVRF.NeighborPolicy.RetransTimer = 2 * time.Second
+			}
 		}
 		second.Routing.VRFs[routing.DefaultVRF] = secondVRF
 		cfg.Switches["sw2"] = second
@@ -858,11 +860,8 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 	var ids [2]fabric.FrameID
 	for i, addr := range addresses {
 		offset := i + 1
-		if reverse && exit == "timed out" {
-			offset = 2 - i
-		}
 		node := "sw1"
-		if exit == "reconfigured" && i == 1 {
+		if (exit == "reconfigured" || exit == "timed out") && i == 1 {
 			node = "sw2"
 		}
 		routerMAC := cfg.Switches[node].MAC
@@ -892,6 +891,7 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 	}
 	var exitOrder []fabric.FrameID
 	ended := make(map[fabric.FrameID]bool)
+	exitTimes := make(map[fabric.FrameID]time.Time)
 	observeExit := func() {
 		for _, fid := range ids {
 			present := false
@@ -903,6 +903,7 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 			if !present && !ended[fid] {
 				ended[fid] = true
 				exitOrder = append(exitOrder, fid)
+				exitTimes[fid] = fab.Clock()
 			}
 		}
 	}
@@ -942,6 +943,7 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 		if reverse {
 			slices.Reverse(nodes)
 		}
+		cfgClock := fab.Clock()
 		for _, node := range nodes {
 			sw = assembly.Spec(fab).Config().Switches[node]
 			vrf = sw.Routing.VRFs[routing.DefaultVRF]
@@ -951,6 +953,14 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 				t.Fatal(err)
 			}
 			observeExit()
+		}
+		if len(exitOrder) != 2 {
+			t.Fatalf("reconfigured exit count before step loop = %d, want 2", len(exitOrder))
+		}
+		for _, fid := range ids {
+			if !exitTimes[fid].Equal(cfgClock) {
+				t.Fatalf("reconfigured exit time for frame %d = %v, want configure clock %v", fid, exitTimes[fid], cfgClock)
+			}
 		}
 	}
 	for steps := 0; len(exitOrder) < 2 && steps < 1000; steps++ {
@@ -985,6 +995,9 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 		if wantReason == "" {
 			if stats.Delivered["h2"] != 1 || stats.Latency.Count != 1 || len(stats.Drops) != 0 {
 				t.Fatalf("flow %d = %+v, want one delivery/sample and no drops", i+1, stats)
+			}
+			if stats.Latency.Min < 8*time.Millisecond {
+				t.Fatalf("flow %d Latency.Min = %v, want at least 8ms hold duration", i+1, stats.Latency.Min)
 			}
 		} else if stats.Drops[wantReason] != 1 || len(stats.Delivered) != 0 || stats.Latency.Count != 0 {
 			t.Fatalf("flow %d = %+v, want exactly one %s drop and no delivery/sample", i+1, stats, wantReason)

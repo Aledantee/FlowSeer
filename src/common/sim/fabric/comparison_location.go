@@ -24,7 +24,8 @@ const (
 	DifferenceSnapshot DifferenceArea = "snapshot"
 )
 
-// InjectionLocation is stable across action removal. At is UTC without monotonic time.
+// InjectionLocation identifies a scenario action by its original index and UTC execution time.
+// It is stable across action removal. At is UTC without monotonic time.
 // Values are safe for concurrent reads.
 type InjectionLocation struct {
 	Index int

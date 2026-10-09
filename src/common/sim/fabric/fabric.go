@@ -43,7 +43,7 @@ type Fabric struct {
 
 	// metadataCache holds the value [Fabric.Metadata] last built. Its inputs
 	// are fixed after construction except where [Fabric.SetFault] rewrites a
-	// link and its trust, [Fabric.Configure] rebuilds a switch's ports and
+	// link and its trust, [Replace] rebuilds a switch's ports and
 	// links, or a queue with no stated buffer first backs up past one
 	// maximum-size frame; each nils the cache. The value is immutable, so a
 	// fork may share it.

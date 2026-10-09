@@ -269,6 +269,7 @@ const ExportReasonTruncatedRecord = reasonTruncatedRecord
 type ExportReplaySpecFields struct {
 	Checkpoint *Fabric
 	Scenario   Scenario
+	Options    RunOptions
 }
 
 // ExportAttachedSourceAttachment exposes internal state to external package tests.
@@ -300,6 +301,12 @@ func ExportQueuedFid(x *queued) *FrameID { return &x.fid }
 
 // ExportQueuedSeq exposes internal state to external package tests.
 func ExportQueuedSeq(x *queued) *uint64 { return &x.seq }
+
+// ExportQueuedJourney exposes internal state to external package tests.
+func ExportQueuedJourney(x *queued) **journey { return &x.journey }
+
+// ExportTopologyCables exposes internal state to external package tests.
+func ExportTopologyCables(x *topology) *[]Cable { return &x.cables }
 
 // ExportTopologyStart exposes internal state to external package tests.
 func ExportTopologyStart(x *topology) *time.Time { return &x.start }
@@ -353,7 +360,7 @@ func MakeTestQueued(x ExportQueuedFields) queued {
 
 // MakeTestReplaySpec exposes internal state to external package tests.
 func MakeTestReplaySpec(x ExportReplaySpecFields) ReplaySpec {
-	return ReplaySpec{checkpoint: x.Checkpoint, Scenario: x.Scenario}
+	return ReplaySpec{checkpoint: x.Checkpoint, Scenario: x.Scenario, Options: x.Options}
 }
 
 // validate verifies that Of and Mirror fields are consistent with Kind.

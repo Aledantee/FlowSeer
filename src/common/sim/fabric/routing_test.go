@@ -3,7 +3,6 @@ package fabric_test
 import (
 	"net/netip"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,8 +70,8 @@ func TestSwitchResolvesHostWithoutStaticNeighbor(t *testing.T) {
 				t.Fatal(err)
 			}
 			observed, _ := observeJourneys(t, fab, 50)
-			if len(fab.Snapshot().Queue) != 0 {
-				t.Fatal("queue did not drain")
+			if res := fab.Run(fabric.RunOptions{Budget: 1, Window: 0}); res.Stop != fabric.StopQueueDrained {
+				t.Fatalf("Stop = %s, want StopQueueDrained", res.Stop)
 			}
 			var held, answers, delivered int
 			for _, j := range observed {
@@ -809,11 +808,10 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 // two hosts and a switch: h1's packet to h2 holds at the switch because
 // nothing has been observed for h2's address, an ARP reply injected directly
 // at the switch's port to h2 moves the entry, and the switch releases the
-// held frame without anything else nudging it. The released frame travels as
-// its own injected journey without a link to the journey that held it, so the
-// switch's own release must itself carry the
-// frame all the way to a delivery and must not be marked Protocol: the
-// released frame is h1's ordinary data, not a frame of the switch's own.
+// held frame without anything else nudging it. The released frame continues
+// the original journey identity all the way to delivery at h2 and is not
+// marked Protocol: the released frame is h1's ordinary data, not a frame of the
+// switch's own.
 func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
@@ -912,6 +910,23 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		t.Fatalf("encode ARP reply: %v", err)
 	}
 
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("step drained before frame was held")
+		}
+		if entry.Result != nil && entry.Result.Outcome == trace.Held {
+			break
+		}
+	}
+	heldJourney := findJourney(t, fab, heldID)
+	if len(heldJourney.Entries) == 0 {
+		t.Fatalf("held journey has no entries")
+	}
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("last entry of held journey = %+v, want Held", last)
+	}
+
 	_, err = fab.Inject(fabric.Injection{
 		At:     cfg.Start.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
@@ -922,14 +937,6 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 	}
 
 	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
-
-	heldJourney := findJourney(t, fab, heldID)
-	if len(heldJourney.Entries) == 0 {
-		t.Fatalf("held journey has no entries")
-	}
-	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
-		t.Fatal("continued journey has no Held hop")
-	}
 
 	// The original journey continues through the release to the host.
 	var released *fabric.Journey
@@ -1052,6 +1059,23 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 		t.Fatalf("encode ARP reply: %v", err)
 	}
 
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("step drained before frame was held")
+		}
+		if entry.Result != nil && entry.Result.Outcome == trace.Held {
+			break
+		}
+	}
+	heldJourney := findJourney(t, fab, heldID)
+	if len(heldJourney.Entries) == 0 {
+		t.Fatalf("held journey has no entries")
+	}
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("last entry of held journey = %+v, want Held", last)
+	}
+
 	// h2 carries a VLAN tag form, so the fabric stamps VID 10 on what it sends,
 	// which is the only tag that names eth1.10 on the parent port.
 	_, err = fab.Inject(fabric.Injection{
@@ -1064,14 +1088,6 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	}
 
 	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
-
-	heldJourney := findJourney(t, fab, heldID)
-	if len(heldJourney.Entries) == 0 {
-		t.Fatalf("held journey has no entries")
-	}
-	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
-		t.Fatal("continued journey has no Held hop")
-	}
 
 	var released *fabric.Journey
 	for _, j := range fab.Report() {
@@ -1188,15 +1204,24 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 
-	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
-
+	for {
+		entry, ok := fab.Step()
+		if !ok {
+			t.Fatal("step drained before frame was held")
+		}
+		if entry.Result != nil && entry.Result.Outcome == trace.Held {
+			break
+		}
+	}
 	heldJourney := findJourney(t, fab, heldID)
 	if len(heldJourney.Entries) == 0 {
 		t.Fatalf("held journey has no entries")
 	}
-	if !slices.ContainsFunc(heldJourney.Entries, func(e fabric.Entry) bool { return e.Result != nil && e.Result.Outcome == trace.Held }) {
-		t.Fatal("continued journey has no Held hop")
+	if last := heldJourney.Entries[len(heldJourney.Entries)-1]; last.Result == nil || last.Result.Outcome != trace.Held {
+		t.Fatalf("last entry of held journey = %+v, want Held", last)
 	}
+
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	var dropEntry *fabric.Entry
 	for _, j := range fab.Report() {

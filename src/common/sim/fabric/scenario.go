@@ -45,7 +45,7 @@ type ConfigureAction struct {
 	Operation Operation
 }
 
-// Validate verifies that the target node is non-empty.
+// Validate verifies that the target node is non-empty and the operation is non-nil.
 func (c ConfigureAction) Validate() error {
 	if c.Node == "" || c.Operation == nil {
 		return errs.Msg("configure node and operation cannot be empty")
@@ -74,7 +74,7 @@ type McheckAction struct {
 	Operation Operation
 }
 
-// Validate verifies that the target node and port are non-empty.
+// Validate verifies that the target node is non-empty and the operation is non-nil.
 func (m McheckAction) Validate() error {
 	if m.Node == "" || m.Operation == nil {
 		return errs.Msg("mcheck node and operation cannot be empty")

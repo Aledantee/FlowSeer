@@ -207,6 +207,7 @@ func (j *journey) report() Journey {
 }
 
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.
+// It computes each journey's state from pending work and metadata.
 func (f *Fabric) Report() []Journey {
 	if len(f.journeys) == 0 {
 		return nil

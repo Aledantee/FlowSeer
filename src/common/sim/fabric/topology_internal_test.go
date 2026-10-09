@@ -180,3 +180,51 @@ func TestOperationNeedsNoAssembly(t *testing.T) {
 		t.Fatalf("operation change = %+v, want old -> new with nested subject", c)
 	}
 }
+
+func TestReplaceRestoresPreviousNodeWhenRelinkFails(t *testing.T) {
+	oldPorts, err := port.NewBuilder().Add(port.Port{Name: "p", Kind: port.Physical, AdminStatus: port.Down, MTU: 1500}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	newPorts, err := port.NewBuilder().Add(port.Port{Name: "p", Kind: port.Physical, AdminStatus: port.Up, MTU: 9000}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	peerPorts, err := port.NewBuilder().Add(port.Port{Name: "p", Kind: port.Physical, AdminStatus: port.Up}).Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := errors.New("peer link change rejected")
+	peerDevice := &linkErrorDevice{ports: peerPorts}
+	oldNode := Node{Device: &linkErrorDevice{ports: oldPorts}, Physical: map[string]cablemodel.End{"p": {Admin: port.Down}}, Snapshot: true}
+	peerNode := Node{Device: peerDevice, Physical: map[string]cablemodel.End{"p": {Admin: port.Up}}, Snapshot: true}
+
+	cfg := Config{
+		Nodes: map[string]Node{
+			"n1":   oldNode,
+			"peer": peerNode,
+		},
+		Cables: []Cable{
+			{A: Endpoint{Node: "n1", Port: "p"}, B: Endpoint{Node: "peer", Port: "p"}},
+		},
+	}
+	f, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	peerDevice.err = want
+
+	newNode := Node{Device: &linkErrorDevice{ports: newPorts}, Physical: map[string]cablemodel.End{"p": {Admin: port.Up}}, Snapshot: true}
+	if err := Replace(f, "n1", newNode); !errors.Is(err, want) {
+		t.Fatalf("replace error = %v, want %v", err, want)
+	}
+
+	if got := f.Snapshot().Devices["n1"].Ports; len(got) != 1 || got[0].MTU != 1500 {
+		t.Fatalf("node ports after failed replace = %v, want MTU 1500 preserved", got)
+	}
+	if f.topology.nodes["n1"].device == newNode.Device {
+		t.Fatal("failed replace kept new node device")
+	}
+}

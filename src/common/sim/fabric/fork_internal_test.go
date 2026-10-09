@@ -23,6 +23,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func defaultPhyAssumption() *cablemodel.PhyAssumption {
@@ -143,6 +144,13 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 			t.Errorf("%s: backing pointer not identical across fork: got %v and %v", name, src.Pointer(), dst.Pointer())
 		}
 	case reflect.Struct:
+		if tSrc, ok := src.Interface().(time.Time); ok {
+			tDst := dst.Interface().(time.Time)
+			if !tSrc.Equal(tDst) {
+				t.Errorf("%s: time.Time differs across fork: got %v, want %v", name, tDst, tSrc)
+			}
+			return
+		}
 		typ := src.Type()
 		hasPointers := false
 		for i := 0; i < typ.NumField(); i++ {
@@ -253,10 +261,8 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
-	(*fabric.
-
-		// Populate runtime maps and slices for non-empty pointer checks
-		ExportFabricClock(fab)) = time.Unix(1500, 0)
+	// Populate runtime maps and slices for non-empty pointer checks
+	(*fabric.ExportFabricClock(fab)) = time.Unix(1500, 0)
 	(*fabric.ExportFabricStepped(fab)) = true
 	(*fabric.ExportFabricNextFrameID(fab)) = 10
 	(*fabric.ExportFabricNextSeq(fab)) = 20
@@ -265,7 +271,13 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 		"sw1": fabric.ExportFabricClock(fab).Add(time.Second),
 	}
 	(*fabric.ExportFabricJourneys(fab)) = map[fabric.FrameID]*fabric.ExportJourney{
-		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{FrameID: 1, Injection: fabric.Injection{At: (*fabric.ExportFabricClock(fab))}}),
+		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
+			FrameID:   1,
+			Injection: fabric.Injection{At: (*fabric.ExportFabricClock(fab))},
+			Entries: []fabric.Entry{
+				{Device: "sw1", Port: "1/1/1", Reason: "source"},
+			},
+		}),
 	}
 	(*fabric.ExportFabricEntered(fab)) = map[fabric.FrameID]map[fabric.Endpoint]bool{
 		1: {{Node: "sw1", Port: "1/1/1"}: true},
@@ -282,12 +294,20 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	(*fabric.ExportFabricEgress(fab)) = map[fabric.Endpoint]*fabric.ExportEgressQueue{
 		{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
 			Pending: [8][]fabric.ExportQueued{
-				{fabric.MakeTestQueued(fabric.ExportQueuedFields{Seq: 1, Fid: 1, Enqueued: (*fabric.ExportFabricClock(fab))})},
+				{fabric.MakeTestQueued(fabric.ExportQueuedFields{
+					Seq:      1,
+					Fid:      1,
+					Enqueued: (*fabric.ExportFabricClock(fab)),
+					Journey:  (*fabric.ExportFabricJourneys(fab))[1],
+				})},
 			},
 		}),
 	}
 	(*fabric.ExportFabricCounters(fab)) = map[fabric.Endpoint]*fabric.Counters{
-		{Node: "sw1", Port: "1/1/1"}: {InBytes: 100},
+		{Node: "sw1", Port: "1/1/1"}: {
+			InBytes:  100,
+			Discards: map[trace.Reason]uint64{cablemodel.ReasonBadFrame: 5},
+		},
 	}
 
 	return fab

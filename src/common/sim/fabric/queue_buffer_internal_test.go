@@ -24,29 +24,33 @@ import (
 
 func TestLoneJumboThreshold(t *testing.T) {
 	for _, tc := range []struct {
-		name   string
-		mtu    int
-		issues int
+		name     string
+		mtu      int
+		frameLen int
+		issues   int
+		fact     string
 	}{
-		{"unstated MTU", 0, 1},
-		{"stated MTU", 9000, 0},
+		{"unstated MTU", 0, 9018, 1, "depth_before_octets=0;frame_octets=9018;threshold_octets=1518"},
+		{"stated MTU", 9000, 9018, 0, ""},
+		{"stated MTU one octet over", 9000, 9019, 1, "depth_before_octets=0;frame_octets=9019;threshold_octets=9018"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fab, ep := mtuAccountingFabric(t, tc.mtu, nil)
 			if (*fabric.ExportFabricEgress(fab))[ep] != nil {
 				t.Fatal("queue must be empty before the lone frame")
 			}
-			frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{3}, Payload: make([]byte, 9004)}
+			payloadLen := tc.frameLen - 14
+			frame := ethernet.Frame{Src: netaddr.MAC{2}, Dst: netaddr.MAC{3}, Payload: make([]byte, payloadLen)}
 			raw, err := frame.Encode()
-			if err != nil || len(raw) != 9018 {
-				t.Fatalf("encoded frame = %d octets, error %v, want 9018", len(raw), err)
+			if err != nil || len(raw) != tc.frameLen {
+				t.Fatalf("encoded frame = %d octets, error %v, want %d", len(raw), err, tc.frameLen)
 			}
 			journey := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{})
 			if !fabric.ExportFabricEnqueueEgress(fab, (*fabric.ExportFabricClock(fab)), ep, ep.Port, frame, 1, 1, journey, 0, "") {
 				t.Fatal("unstated buffer refused the jumbo frame")
 			}
-			if got := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[ep])[0]; got != 9018 {
-				t.Fatalf("depth = %d, want 9018", got)
+			if got := fabric.ExportEgressQueueDepth((*fabric.ExportFabricEgress(fab))[ep])[0]; got != uint64(tc.frameLen) {
+				t.Fatalf("depth = %d, want %d", got, tc.frameLen)
 			}
 			if got := countIssueScope(fab.Metadata().Issues(), fabric.IssueQueueBufferUnstated, analysis.PortScope(ep.Node, ep.Port)); got != tc.issues {
 				t.Fatalf("queue-buffer-unstated issues = %d, want %d", got, tc.issues)
@@ -54,8 +58,8 @@ func TestLoneJumboThreshold(t *testing.T) {
 			if len(journey.Entries) != tc.issues {
 				t.Fatalf("threshold entries = %d, want %d", len(journey.Entries), tc.issues)
 			}
-			if tc.issues == 1 && journey.Entries[0].Step.Inputs[0].Canonical() != "depth_before_octets=0;frame_octets=9018;threshold_octets=1518" {
-				t.Fatalf("threshold fact = %s", journey.Entries[0].Step.Inputs[0].Canonical())
+			if tc.issues == 1 && journey.Entries[0].Step.Inputs[0].Canonical() != tc.fact {
+				t.Fatalf("threshold fact = %s, want %s", journey.Entries[0].Step.Inputs[0].Canonical(), tc.fact)
 			}
 		})
 	}
