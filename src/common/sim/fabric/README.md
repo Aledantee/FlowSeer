@@ -404,7 +404,7 @@ per-frame record rather than at retention.
 `BenchmarkAggregateMillionScenario` uses the same fabric and batches through
 `RunScenario`, including each batch's replay checkpoint. With a zero window,
 both entry points compute no fingerprints and read no journey report in the
-executor (`run.go`, `TestRunComputesNoFingerprint`).
+executor (`executor.go`, `TestRunComputesNoFingerprint`).
 
 On Apple M4 Pro, the following command reports:
 
@@ -689,8 +689,8 @@ and leaves the transmission in flight:
 same run. Runtime execution state — the arrival queue, egress queues, journeys,
 counters, clock, frame-id counters, and switches (via `[vswitch.Switch.Fork]`) —
 is deep-copied, while immutable `ethernet.Frame` values in queues and journeys
-are shared rather than copied. Fabric configuration `cfg` is deep-copied (since
-`SetFault` mutates cables in place), and `byEnd` is rebuilt from the newly copied
+are shared rather than copied. Each `Link` and its cable are cloned (since
+`SetFault` mutates cables in place), and `byEnd` is rebuilt from the cloned
 `links` so fault mutations do not alias between source and fork.
 
 ## Protocol traffic and wake-ups
@@ -808,12 +808,11 @@ includes this runtime catalog so the queue issue's ref resolves;
 `assembly.Spec(fab).Evidence` keeps only construction evidence. Earlier metadata snapshots
 and forks retain their own catalog values.
 
-A host injection transmits immediately unless a queued arrival precedes its
-requested time or another host injection is already pending before the first
-step. Pending host injections are released in time order with attached streams.
-The host busy clock and link check happen when the frame transmits, either at
-`Inject` or at release. A fault set after `Inject` can therefore change the
-outcome of a pending injection, but not an immediate transmission.
+A host injection is a queue event (`ArrivalHost`, `Inject` in `injection.go`)
+at its requested time. It runs in time order with the other queue events,
+including attached stream frames. The host busy clock and link check happen
+when the event runs, so a fault set after `Inject` and before that time can
+change the outcome of the injection.
 A valid host injection onto a link that is not `Up` is not an error. On a `Down`
 link the journey records an `EntryDrop` with the link's reason at its injection
 time; on an `Unknown` link, an `EntryUnresolved`. Both carry the host's cable and
@@ -1043,9 +1042,9 @@ reset. Held frames that can no longer be resolved (for example, if a routing lay
 is replaced) are dropped at the current simulation timestamp. Protocol timers
 and port operational states update to match the new configuration.
 
-Like all scenario actions, `ActionConfigure` within `RunScenario` refuses
-attached streams (`assembly.Configure` can be called directly between `Run` calls
-with streams attached).
+`ActionConfigure` runs inside `RunScenario` with attached streams like any other
+scenario action (`RunScenario` in `executor.go`). `assembly.Configure` can also
+be called directly between `Run` calls.
 
 The following example models a rolling two-step VLAN migration across two
 switches joined by a trunk cable. `sw1` is migrated to VLAN 20 at `t1`, causing
@@ -1248,7 +1247,7 @@ The comparison evaluates three dispositions:
   sides of the divergence, including their pre-existing live state.
   `Comparison.Location` identifies the exact behavioral field in a journey,
   run result, or snapshot (`comparison_location.go`). Journey locations retain
-  injection index and UTC time plus parent-relative mirror/release lineage.
+  injection index and UTC time plus parent-relative mirror and reflection lineage.
 - `analysis.Inconclusive`: Either run reports non-Complete readiness or an
   execution error, even when an observable differs. `Difference` and `Location`
   retain the first difference found. Equal settled aggregate roots are also
@@ -1309,7 +1308,7 @@ compared too (`TestCompareAttachedSources`, `TestCompareAttachedSourceOrdinals`,
 `TestCompareContinuedAttachedSourceOrdinal` in `compare_test.go`). Pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
-scenario comparison. Mirror, reflection, and release descendants pair by
+scenario comparison. Mirror and reflection descendants pair by
 parent-relative kind, mirror name, and occurrence, including descendants present on one side
 only (`pairJourneys` in `comparison_location.go`). A freed aggregate root pairs
 by its flow's statistics. Different statistics prove a difference, while equal
@@ -1325,8 +1324,8 @@ primed with two thousand and forty-eight learned forwarding entries and four
 thousand and ninety-six queued arrivals.
 
 `Fabric.Fork` duplicates this topology with zero shared mutable state. Allocation
-overhead at this scale is bounded by a measured allocation constant (16,815
-allocations, measured 2026-09-23). Scaling the queued arrival depth four-fold
+overhead at this scale is bounded by a measured allocation constant (`forkAllocationBaseline`
+in `fork_scale_test.go`). Scaling the queued arrival depth four-fold
 scales allocations proportionally within a bounded multiple.
 
 Runtime is benchmarked (`BenchmarkFork`, `BenchmarkForkAndStep100`) and reported
@@ -1358,5 +1357,4 @@ copy paths. `Report()` copies them for callers that need mutable report values.
 go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkStep$' -benchtime=100x
 ```
 
-It records 303 allocations per retained step and 294 per aggregate step, against
-310 and 309 before the execution copy and port-table changes.
+It records 303 allocations per retained step and 294 per aggregate step.

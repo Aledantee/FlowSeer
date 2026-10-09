@@ -12,7 +12,7 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ## Context
 
 A fabric run takes one frame per `Fabric.Inject` call
-(`src/common/sim/fabric/run.go`). The run already models what load acts
+(`src/common/sim/fabric/injection.go`). The run already models what load acts
 on: serialization at the negotiated rate, a busy clock per endpoint, strict
 priority egress queues with a per-queue maximum rate, ingress policers, and
 mirrors. It has no way to state load. A caller who wants 800 Mbit/s into a

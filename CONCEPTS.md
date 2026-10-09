@@ -210,33 +210,23 @@ A device the simulator under `src/common/sim` builds from a port table and the c
 
 ### Simulation device
 
-The layer-free contract a fabric drives: origination, reception, timers, link
-reports, forks, and state. A switch, host, and reflector implement it
-([device/device.go](src/common/sim/device/device.go)).
+The layer-free contract a fabric drives: origination, reception, timers, link reports, forks, and state. A switch, host, and reflector implement it ([device/device.go](src/common/sim/device/device.go)).
 
 ### Simulation host
 
-A single-attachment device that originates packets, accepts its own traffic,
-and answers local ARP and Neighbor Discovery requests. It learns and resolves
-no neighbors ([host/README.md](src/common/sim/device/host/README.md)).
+A single-attachment device that originates packets, accepts its own traffic, and answers local ARP and Neighbor Discovery requests. It learns and resolves no neighbors ([host/README.md](src/common/sim/device/host/README.md)).
 
 ### Simulation reflector
 
-A device that accepts mDNS queries and returns rebuilt copies through its
-other attachments. A reflection keeps its parent frame identity in the
-journey's origin ([reflector/README.md](src/common/sim/device/reflector/README.md)).
+A device that accepts mDNS queries and returns rebuilt copies through its other attachments. A reflection keeps its parent frame identity in the journey's origin ([reflector/README.md](src/common/sim/device/reflector/README.md)).
 
 ### Simulation cable
 
-The medium that resolves physical link facts and decides loss or corruption
-at a crossing. The fabric counts crossings and schedules delivery
-([cable/README.md](src/common/sim/medium/cable/README.md)).
+The medium that resolves physical link facts and decides loss or corruption at a crossing. The fabric counts crossings and schedules delivery ([cable/README.md](src/common/sim/medium/cable/README.md)).
 
 ### Simulation assembly
 
-The package that builds the devices a fabric runs from Go configurations or
-construction specifications. It owns reconfiguration, derivation, retention,
-and configuration diffs ([assembly/README.md](src/common/sim/assembly/README.md)).
+The package that builds the devices a fabric runs from Go configurations or construction specifications. It owns reconfiguration, derivation, retention, and configuration diffs ([assembly/README.md](src/common/sim/assembly/README.md)).
 
 ### Endpoint
 

@@ -25,31 +25,31 @@ tags: [derive, validate, assigned-defaults, key-space, netsim, determinism]
 
 Phase 4 of the network simulation gave `vswitch.New` two jobs beyond copying
 its input: assign a base MAC and stamp it on every zero interface and bridge
-address, and build the routing layer's lookup maps. Three defects came out of
-the review, all one shape: a check or a comparison ran over the caller's
-configuration, while the behavior it judged ran over what `New` had built.
+address, and build the routing layer's lookup maps. Three defects had one
+shape: a check or a comparison ran over the caller's configuration, while the
+behavior it judged ran over what `New` had built.
 
 ## What is true
 
 - `New` fills state the caller never sees in its own value. The switch
   stamps the assigned base MAC onto a zero bridge address and onto every
-  zero routed interface (`src/common/sim/device/vswitch/switch.go:71`, `:77`).
-- `Derive` therefore compares `cur.cfg`, which `New` filled, against the
-  configuration `New` produced from the new input, never against the raw
-  input (`src/common/sim/device/vswitch/derive.go:29`). Before the fix the raw
+  zero routed interface (`Config.Normalize` in `src/common/sim/device/vswitch/config.go`).
+- `Derive` therefore builds `next` through `NewWithSpec`, which normalizes the
+  target, and compares each layer's key on `cur` with its key on `next`, never
+  the raw input (`Derive` in `src/common/sim/device/vswitch/derive.go`). Before the fix the raw
   input's zero address diffed against the filled one, and every derived
   switch with an assigned bridge address rebuilt its spanning tree layer.
 - `Validate` claims every key the layer indexes on, over the whole
   configuration, not per container. The routing layer keys interfaces by
-  name across every VRF (`src/common/sim/layer/routing/layer.go:118`),
+  name across every VRF (`Layer.ifaces` in `src/common/sim/layer/routing/layer.go`),
   so `Validate` claims each name once across VRFs
-  (`src/common/sim/layer/routing/config.go:99`, `:133`). Before the
+  (`claimedIfaces` in `Config.Validate`, `src/common/sim/layer/routing/config.go`). Before the
   fix two VRFs could name an interface alike, and Go map iteration decided
   which VRF the name resolved to on each construction.
 - A carried assignment yields to an explicit claim. The fabric copies an
   address from the current fabric only when the new configuration's
   explicit addresses do not already hold it
-  (`src/common/sim/fabric/fabric.go:94`, `:98`); otherwise the node
+  (`carry` in `normalizeConstructionSpec`, `src/common/sim/assembly/assemble.go`); otherwise the node
   takes the next free one.
 
 ## How to apply
@@ -72,16 +72,16 @@ if len(stp.Diff(*cur.cfg.STP, *next.cfg.STP)) == 0 { ... }
 
 ## Evidence
 
-- `src/common/sim/device/vswitch/switch_test.go:1243`
+- `src/common/sim/device/vswitch/derive_test.go`
   `TestDerivedSwitchKeepsRolesWithAssignedBridgeAddress`: a switch with a
   zero bridge address, converged as root port, keeps Root/Forwarding through
   `Derive` with the identical input. It failed before the fix with
   `Disabled/Discarding`.
-- `src/common/sim/layer/routing/config_test.go:305`
+- `src/common/sim/layer/routing/config_test.go`
   `duplicate interface name across VRFs`: `Validate` refuses it. A probe on
   2026-09-11 (macOS, go 1.27) had `ByVLAN(20)` answer the VLAN 10 interface
   in 10 of 50 constructions before the fix.
-- `src/common/sim/fabric/routing_test.go:575`
+- `src/common/sim/fabric/routing_test.go`
   `TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims`: the switch
   takes the next free address when a host claims the carried one.
 

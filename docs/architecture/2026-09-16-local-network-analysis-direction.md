@@ -135,7 +135,7 @@ and routed sub-interfaces in `src/common/sim/layer/routing` and
 `src/common/sim/layer/filter`, the `flowseer.net.filter.v1` schema, its
 `netmodel` translation, and the filter corpus cases.
 
-The reflector device now lives in `src/common/sim/device/reflector`. Its
+The reflector device lives in `src/common/sim/device/reflector`. Its
 `Receive` accepts matching MAC and IP mDNS families and returns each rebuilt
 datagram as a `device.Copy`. `fabric` assigns `OriginReflection` and preserves
-`Origin.Of` when recording those copies (`src/common/sim/fabric/run.go`).
+`Origin.Of` when recording those copies (`src/common/sim/fabric/output.go`).
