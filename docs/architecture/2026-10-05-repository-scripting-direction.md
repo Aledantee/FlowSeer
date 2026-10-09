@@ -157,7 +157,17 @@ are checked against.
   network rules refuse, so it is installed once outside the sandbox.
 - A skill no longer carries its scripts in its own directory. Its
   `SKILL.md` names commands of `run.py`.
-- `shellcheck` and `jq` leave the verifier's required tools once the last
-  host-side shell script is gone.
+- `shellcheck` and `jq` left the verifier's required tools once the last
+  host-side shell script was gone.
 - Agent runtimes other than Claude Code start hooks their own way. How Codex
   runs a hook command on Windows is unverified.
+
+## Landed
+
+Landed 2026-10-06: the entry point and shared library in `tools/scripts/run.py` and `tools/scripts/lib/`.
+Landed 2026-10-07: the moved skill Python in `tools/scripts/skills/` and `tools/scripts/verify/`.
+Landed 2026-10-08: the hooks in `tools/scripts/hooks/`.
+Landed 2026-10-09: the verifier in `tools/scripts/verify/`.
+Landed 2026-10-07: the delegate, drive, and tune commands in `tools/scripts/skills/delegate/`, `tools/scripts/skills/drive/`, and `tools/scripts/skills/tune/`.
+Landed 2026-10-06: the package-local scripts in `src/protocol/smi/bench/`, `src/protocol/snmp/bench/`, `deploy/lab/`, and `src/protocol/snmp/test/integration/scripts/`.
+Landed 2026-10-09: the scripting gate in `test/conformance/scripting/`.
