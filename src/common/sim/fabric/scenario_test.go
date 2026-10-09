@@ -492,11 +492,14 @@ func TestScenarioDiffScenariosRawVsNormalized(t *testing.T) {
 }
 
 func TestReplayRefusesMissingCheckpoint(t *testing.T) {
-	spec := fabric.MakeTestReplaySpec(fabric.ExportReplaySpecFields{})
+	spec := fabric.MakeTestReplaySpec(fabric.ExportReplaySpecFields{
+		Scenario: fabric.Scenario{Name: "named-scenario"},
+		Options:  fabric.RunOptions{Budget: 1},
+	})
 
 	_, err := fabric.Replay(spec)
-	if err == nil {
-		t.Fatal("Replay succeeded without checkpoint, want error")
+	if err == nil || !strings.Contains(err.Error(), "missing checkpoint") {
+		t.Fatalf("Replay error = %v, want missing checkpoint", err)
 	}
 }
 
@@ -711,7 +714,7 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 		}
 	}
 
-	// An unseeded checkpoint retains the flooding contrast to seeded unicast.
+	// An unseeded fabric retains the flooding contrast to seeded unicast.
 	droppedFab, _ := newTestThreeHostFabric(t, t0)
 	droppedRes, err := droppedFab.RunScenario(res1.Replay.Scenario, res1.Replay.Options)
 	if err != nil {
@@ -792,6 +795,82 @@ func TestScenarioMutationIndependence(t *testing.T) {
 	}
 	if !i.At.Equal(t0) || i.Origin != (fabric.Endpoint{Node: "h1"}) || i.Frame.Dst != (netaddr.MAC{}) || i.Frame.Src != (netaddr.MAC{}) || len(i.Frame.Tags) != 0 || i.Frame.EtherType != 0 || string(i.Frame.Payload) != "initial" || i.Packet != nil || i.Retention != fabric.RetainJourney || i.Flow != 0 {
 		t.Fatalf("clone changed replay injection: %+v", i)
+	}
+}
+
+func TestActionCloneDeepCopiesEveryPayloadKind(t *testing.T) {
+	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
+	actions := []fabric.Action{
+		{
+			ID:   "act-inject",
+			At:   t0,
+			Kind: fabric.ActionInject,
+			Inject: &fabric.Injection{
+				Origin: fabric.Endpoint{Node: "h1"},
+				Frame:  ethernet.Frame{Payload: []byte("initial")},
+			},
+		},
+		{
+			ID:   "act-fault",
+			At:   t0,
+			Kind: fabric.ActionFault,
+			Fault: &fabric.FaultAction{
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			},
+		},
+		{
+			ID:   "act-mcheck",
+			At:   t0,
+			Kind: fabric.ActionMcheck,
+			Mcheck: &fabric.McheckAction{
+				Node: "sw1",
+			},
+		},
+		{
+			ID:   "act-record",
+			At:   t0,
+			Kind: fabric.ActionRecord,
+			Record: &fabric.Record{
+				Origin: fabric.Endpoint{Node: "h1"},
+				Bytes:  []byte{1, 2, 3},
+			},
+		},
+		{
+			ID:   "act-config",
+			At:   t0,
+			Kind: fabric.ActionConfigure,
+			Configure: &fabric.ConfigureAction{
+				Node: "sw1",
+			},
+		},
+	}
+
+	sc := fabric.Scenario{
+		Name:    "clone-all-kinds",
+		Actions: actions,
+	}
+	clone := sc.Clone()
+	clone.Actions[0].Inject.Origin.Node = "mutated"
+	clone.Actions[1].Fault.A.Node = "mutated"
+	clone.Actions[2].Mcheck.Node = "mutated"
+	clone.Actions[3].Record.Origin.Node = "mutated"
+	clone.Actions[4].Configure.Node = "mutated"
+
+	if sc.Actions[0].Inject.Origin.Node != "h1" {
+		t.Errorf("Inject payload mutated through clone")
+	}
+	if sc.Actions[1].Fault.A.Node != "h1" {
+		t.Errorf("Fault payload mutated through clone")
+	}
+	if sc.Actions[2].Mcheck.Node != "sw1" {
+		t.Errorf("Mcheck payload mutated through clone")
+	}
+	if sc.Actions[3].Record.Origin.Node != "h1" {
+		t.Errorf("Record payload mutated through clone")
+	}
+	if sc.Actions[4].Configure.Node != "sw1" {
+		t.Errorf("Configure payload mutated through clone")
 	}
 }
 

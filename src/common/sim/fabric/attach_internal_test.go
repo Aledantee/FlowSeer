@@ -149,7 +149,7 @@ func TestStreamEventFollowsWakeAtSameTime(t *testing.T) {
 	(*fabric.ExportFabricQueue(fab)) = nil
 	(*fabric.ExportFabricWakeItems(fab)) = nil
 	(*fabric.ExportFabricWakes(fab)) = nil
-	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: t0.Add(10 * time.Microsecond), Kind: fabric.ArrivalWake, Device: "unused"}))
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: t0.Add(10 * time.Microsecond), Kind: fabric.ArrivalWake, Device: "unused", Seq: 10}))
 	attachScripted(t, fab, 10*time.Microsecond, 11*time.Microsecond)
 
 	if _, ok := fab.Step(); !ok {
@@ -167,7 +167,7 @@ func TestStreamEventFollowsWakeAtSameTime(t *testing.T) {
 	}
 }
 
-func TestStepPullsFromEmptyQueue(t *testing.T) {
+func TestStepAdvancesAttachedStreamWithNoOtherWork(t *testing.T) {
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
 	fab := newTestSTPFabric(t, t0, 4096, 8192)
 	(*fabric.ExportFabricQueue(fab)) = nil

@@ -1191,6 +1191,9 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 			if entry.Arrival != fabric.ArrivalWake {
 				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Arrival, fabric.ArrivalWake)
 			}
+			if entry.Kind != "" {
+				t.Fatalf("wake entry kind = %q, want empty", entry.Kind)
+			}
 			break
 		}
 	}
@@ -1398,17 +1401,19 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 		}
 	}
 
-	steps := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}).Steps
-	if steps == 0 {
-		t.Fatal("expected Run to take steps")
-	}
-
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Kind == "Wake" || e.Kind == "Dequeue" {
-				t.Errorf("timer event stored in journey: %+v", e)
-			}
+	var steps int
+	for {
+		stepRes, ok := fab.Step()
+		if !ok {
+			break
 		}
+		steps++
+		if stepRes.Arrival == fabric.ArrivalWake || stepRes.Arrival == fabric.ArrivalDequeue {
+			t.Fatalf("unexpected timer arrival: %v", stepRes.Arrival)
+		}
+	}
+	if steps == 0 {
+		t.Fatal("expected Step to process arrivals")
 	}
 }
 

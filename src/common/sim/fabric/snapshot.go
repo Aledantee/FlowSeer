@@ -8,8 +8,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
-// Snapshot captures the current simulation clock, queued arrivals and egress frames, link states, switch subsystem
-// states, and Busy, the endpoints whose transmission ends after the clock.
+// Snapshot captures the current simulation clock, queued arrivals and egress frames, link states, device states,
+// egress depths, and Busy, the endpoints whose transmission ends after the clock.
 func (f *Fabric) Snapshot() Snapshot {
 	var q []Arrival
 	if len(f.queue) > 0 {

@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -54,8 +55,10 @@ func newTestTwoHostFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
-	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
-		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+	if err := fabric.Operate(fab, "sw1", func(d device.Device, _ time.Time) (device.Output, error) {
+		return device.Output{}, d.(*vswitch.Switch).Learn([]bridge.Seed{
+			{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+		})
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
@@ -76,9 +79,14 @@ func TestRecordRefusesDisagreeingFrame(t *testing.T) {
 	if err := rec.Validate(); err == nil {
 		t.Fatal("Validate accepted Frame that disagrees with Bytes")
 	}
+	frame.Dst[5] = 0
 	frame.Tags = []vlan.Tag{{VID: 0xffff}}
-	if err := rec.Validate(); err == nil {
+	err = rec.Validate()
+	if err == nil {
 		t.Fatal("Validate accepted unencodable Frame alongside Bytes")
+	}
+	if !strings.Contains(err.Error(), "encode record frame") {
+		t.Fatalf("Validate error = %q, want encode record frame", err.Error())
 	}
 }
 

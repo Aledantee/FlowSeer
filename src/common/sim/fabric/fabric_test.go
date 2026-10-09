@@ -93,7 +93,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 }
 
 // TestFabricRoundTripsAReflector proves that New followed by Spec and Config
-// still carries a configured reflector. NewConstructionSpec and Fabric.Spec
+// still carries a configured reflector. NewConstructionSpec and assembly.Spec
 // assign Hosts field by field into a fresh map; a matching assignment
 // dropped for Reflectors would build a fabric with no such node and no
 // error, surfacing only several calls later as an endpoint-not-found error

@@ -21,7 +21,7 @@ type FlowID uint32
 // rejection outcomes stay out of the stream's counters. Drops counts
 // drop events by reason, so a flooded frame refused on two egress ports counts
 // twice; Lost counts cable losses; Unresolved and Rejected count frames
-// whose journey ended in those outcomes. Held is the number of the flow
+// whose journey ended in those outcomes. Held is the number of the flow's
 // frames currently in device hold queues when Flows is read, including copies.
 // Latency summarizes Delivery.At minus the injection time over every
 // non-copy delivery. Metadata is the merge of every folded journey's metadata.

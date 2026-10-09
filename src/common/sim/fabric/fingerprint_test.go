@@ -1009,30 +1009,23 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 
 	// Run initial steps until converged.
 	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
+
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	crossingsBefore := (*fabric.ExportFabricCableCrossings(fab))[ep]
 	snap1 := fab.Snapshot()
 	fp1 := snap1.Fingerprint()
 
 	// Run another hello cycle (e.g. 5 more steps).
-	fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
+	res2 := fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 	snap2 := fab.Snapshot()
 	fp2 := snap2.Fingerprint()
 
-	crossed := false
-	for _, journey := range fab.Report() {
-		if !journey.Protocol {
-			continue
-		}
-		if _, err := bpdu.Decode(journey.Injection.Frame); err != nil {
-			continue
-		}
-		for _, entry := range journey.Entries {
-			if entry.Kind == fabric.EntryCrossing {
-				crossed = true
-			}
-		}
+	if res2.Steps == 0 {
+		t.Fatal("second Run took 0 steps, want hello wake")
 	}
-	if !crossed {
-		t.Fatal("no BPDU crossed the Up link")
+	crossingsAfter := (*fabric.ExportFabricCableCrossings(fab))[ep]
+	if crossingsAfter <= crossingsBefore {
+		t.Fatalf("no BPDU crossing occurred between fingerprints: before=%d, after=%d", crossingsBefore, crossingsAfter)
 	}
 
 	if fp1 != fp2 {

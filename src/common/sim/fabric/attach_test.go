@@ -438,7 +438,7 @@ func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
 	}
 }
 
-func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
+func TestHostInjectionsReleaseInTimeOrder(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	start := assembly.Spec(fab).Config().Start
 	frame := flowFrame(src, dst)
@@ -457,7 +457,7 @@ func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
 	}
 }
 
-func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
+func TestHostInjectionChecksLinkAtRelease(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	start := assembly.Spec(fab).Config().Start
 	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
@@ -479,22 +479,30 @@ func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
 func TestScenarioRunsWithAttachedStream(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	start := assembly.Spec(fab).Config().Start
-	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 1, 10_000), Start: 5 * time.Millisecond, Flow: 1}); err != nil {
+	if err := fab.AttachStream(fabric.StreamAttachment{
+		Origin: fabric.Endpoint{Node: "h1"},
+		Source: streamSource(t, flowFrame(src, dst), 2, 500),
+		Start:  time.Millisecond,
+		Flow:   1,
+	}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
 	result, err := fab.RunScenario(fabric.Scenario{
 		Name: "stream with action",
 		Actions: []fabric.Action{{
 			ID: "attach_test-1",
-			At: start.Add(time.Millisecond), Kind: fabric.ActionFault,
+			At: start.Add(2 * time.Millisecond), Kind: fabric.ActionFault,
 			Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}},
 		}},
 	}, fabric.RunOptions{Budget: 100, Window: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Stop != fabric.StopQueueDrained || fab.Flows()[1].Offered != 0 {
-		t.Fatalf("result = %+v, flows = %+v, want cut before stream", result, fab.Flows())
+	if result.Stop != fabric.StopQueueDrained {
+		t.Fatalf("result = %+v, want StopQueueDrained", result)
+	}
+	if fab.Flows()[1].Offered != 1 || fab.Flows()[1].Delivered["h2"] != 1 {
+		t.Fatalf("flows = %+v, want 1 offered and 1 delivered before cut", fab.Flows())
 	}
 	if fab.Links()[0].A.Oper != port.Down {
 		t.Fatal("scenario did not cut the host link")

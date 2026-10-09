@@ -75,6 +75,13 @@ func probeFabricTopology(t *testing.T) {
 	probeFabricSwitches(t)
 	probeFabricDevices(t)
 	fab := newTestFabricForFork(t)
+	cables := fabric.ExportTopologyCables(fabric.ExportFabricTopology(fab))
+	if len(*cables) > 0 {
+		(*cables)[0].Fault = cablemodel.Fault{
+			Kind:     cablemodel.FaultLoseSequence,
+			Sequence: []uint{1, 2, 3},
+		}
+	}
 	fork := fab.Fork()
 	(*fabric.ExportTopologyStart(fabric.ExportFabricTopology(fab))) = time.Unix(9999, 0)
 	if fabric.ExportTopologyStart(fabric.ExportFabricTopology(fork)).Unix() == 9999 {
@@ -83,6 +90,13 @@ func probeFabricTopology(t *testing.T) {
 	(*fabric.ExportTopologyStart(fabric.ExportFabricTopology(fork))) = time.Unix(8888, 0)
 	if fabric.ExportTopologyStart(fabric.ExportFabricTopology(fab)).Unix() == 8888 {
 		t.Errorf("source cfg.Start changed when fork mutated")
+	}
+	forkCables := fabric.ExportTopologyCables(fabric.ExportFabricTopology(fork))
+	if len(*forkCables) > 0 && len((*forkCables)[0].Fault.Sequence) > 0 {
+		(*forkCables)[0].Fault.Sequence[0] = 99
+		if (*cables)[0].Fault.Sequence[0] == 99 {
+			t.Error("source cable fault changed through fork")
+		}
 	}
 }
 
@@ -255,11 +269,17 @@ func probeFabricHeld(t *testing.T) {
 
 func probeFabricFlows(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	*fabric.ExportFabricFlows(fab) = map[fabric.FlowID]*fabric.FlowStats{1: {Offered: 1}}
+	*fabric.ExportFabricFlows(fab) = map[fabric.FlowID]*fabric.FlowStats{
+		1: {Offered: 1, Drops: map[trace.Reason]uint64{cablemodel.ReasonBadFrame: 1}},
+	}
 	fork := fab.Fork()
 	(*fabric.ExportFabricFlows(fork))[1].Offered = 9
 	if (*fabric.ExportFabricFlows(fab))[1].Offered != 1 {
 		t.Error("source flow changed through fork")
+	}
+	(*fabric.ExportFabricFlows(fork))[1].Drops[cablemodel.ReasonBadFrame] = 99
+	if (*fabric.ExportFabricFlows(fab))[1].Drops[cablemodel.ReasonBadFrame] != 1 {
+		t.Error("source flow map changed through fork")
 	}
 }
 
@@ -313,6 +333,10 @@ func probeFabricJourneys(t *testing.T) {
 	if (*fabric.ExportFabricJourneys(fab))[1].FrameID != 1 {
 		t.Error("source journey changed through fork")
 	}
+	(*fabric.ExportFabricJourneys(fork))[1].Entries[0].Device = "sw2"
+	if (*fabric.ExportFabricJourneys(fab))[1].Entries[0].Device != "sw1" {
+		t.Error("source journey entry changed through fork")
+	}
 }
 
 func probeFabricEntered(t *testing.T) {
@@ -359,9 +383,19 @@ func probeFabricEgress(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	*fabric.ExportQueuedSeq(&fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0][0]) = 9
-	if *fabric.ExportQueuedSeq(&fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0][0]) != 1 {
+	forkQ := &fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0][0]
+	srcQ := &fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0][0]
+	*fabric.ExportQueuedSeq(forkQ) = 9
+	if *fabric.ExportQueuedSeq(srcQ) != 1 {
 		t.Error("source queued element changed through fork")
+	}
+	forkJourney := *fabric.ExportQueuedJourney(forkQ)
+	srcJourney := *fabric.ExportQueuedJourney(srcQ)
+	if forkJourney != nil && srcJourney != nil {
+		forkJourney.FrameID = 99
+		if srcJourney.FrameID == 99 {
+			t.Error("source queued journey changed through fork")
+		}
 	}
 }
 
@@ -377,6 +411,10 @@ func probeFabricCounters(t *testing.T) {
 	(*fabric.ExportFabricCounters(fork))[ep].InBytes = 8888
 	if (*fabric.ExportFabricCounters(fab))[ep].InBytes == 8888 {
 		t.Errorf("source counters changed when fork mutated")
+	}
+	(*fabric.ExportFabricCounters(fork))[ep].Discards[cablemodel.ReasonBadFrame] = 99
+	if (*fabric.ExportFabricCounters(fab))[ep].Discards[cablemodel.ReasonBadFrame] != 5 {
+		t.Error("source counter map changed through fork")
 	}
 }
 

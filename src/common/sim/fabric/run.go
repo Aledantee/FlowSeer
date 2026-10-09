@@ -65,7 +65,7 @@ type Snapshot struct {
 }
 
 // StepResult identifies the executed queue event and its immediate frame entry.
-// A wake or dequeue has an empty Entry.Kind because it is not a journey event.
+// A wake, dequeue, or non-frame scenario action has an empty Entry.Kind because it is not a journey event.
 type StepResult struct {
 	Entry
 	Arrival ArrivalKind
@@ -143,7 +143,7 @@ func (f *Fabric) portCable(node, portName string) *Cable {
 // Host transmissions, scenario actions, and stream frames are processed in queue order.
 // An event dated before the clock is processed at the clock.
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
-// Corrupted arrivals are discarded with [cablemodel.ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
+// Corrupted arrivals are dropped with [cablemodel.ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
 // and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
 // A switch's normal arrivals are policed before dynamic MAC aging and forwarding, then un-dropped egress frames
 // are enqueued onto connected cables or delivered to target hosts.

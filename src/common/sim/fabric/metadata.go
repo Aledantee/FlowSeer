@@ -26,13 +26,13 @@ import (
 //     egress queue states no buffer and has backed up past one maximum-size frame;
 //   - one assumption per link [Config.PhyAssumption] filled.
 //
-// A link's scope key is its cable's [Diff] subject key. Issues cite the evidence
+// A link's scope key is its cable's diff subject key. Issues cite the evidence
 // references of the cable, Uncabled entry, or runtime queue crossing they rest
 // on; Metadata merges the runtime catalog with the construction specification's
 // evidence catalog so all cited references resolve.
 //
 // The result is cached: its inputs are fixed after construction except where
-// [Fabric.SetFault] rewrites a link, [Fabric.Configure] rebuilds a switch, or a
+// [Fabric.SetFault] rewrites a link, [Replace] rebuilds a switch, or a
 // queue with no stated buffer first backs up past one maximum-size frame. Each
 // clears the cache.
 func (f *Fabric) Metadata() analysis.Metadata {

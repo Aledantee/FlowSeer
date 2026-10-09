@@ -383,7 +383,13 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
-	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
+	entryFinish, ok := fab.Step()
+	if !ok || (entryFinish.Kind != fabric.EntryDelivery && entryFinish.Kind != fabric.EntryRejection) {
+		t.Fatalf("step after return failed: ok=%t, entry=%+v", ok, entryFinish)
+	}
+	if len(fab.Snapshot().Queue) != 0 {
+		t.Fatalf("queue has %d remaining arrivals, want 0", len(fab.Snapshot().Queue))
+	}
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},

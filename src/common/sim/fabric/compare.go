@@ -24,7 +24,7 @@ type Comparison struct {
 }
 
 // Compare forks both fabrics internally, applies the scenario's scheduled actions
-// (injections and faults) to the forks, runs each fork up to the step budget,
+// (injections, records, faults, configure, and mcheck) to the forks, runs each fork up to the step budget,
 // and compares their behavioral observables.
 // The caller's fabrics a and b are never stepped, injected, or learned into.
 // Injected and recorded roots pair by injection ordinal. Attached frames pair by

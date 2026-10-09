@@ -18,11 +18,11 @@ const (
 	ArrivalHost ArrivalKind = iota + 1
 	// ArrivalAction executes a scenario action before wakes and stream frames at its time.
 	ArrivalAction
-	// ArrivalWake advances a virtual switch timer.
+	// ArrivalWake advances a device timer.
 	ArrivalWake
 	// ArrivalStream introduces one attached source frame and schedules its successor.
 	ArrivalStream
-	// ArrivalFrame delivers a frame to a virtual switch port.
+	// ArrivalFrame delivers a frame to a device port.
 	ArrivalFrame
 	// ArrivalDequeue serves an endpoint's pending egress frames.
 	ArrivalDequeue

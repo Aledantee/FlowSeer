@@ -95,6 +95,24 @@ func TestRunResultAcrossRetentions(t *testing.T) {
 			}
 		})
 	}
+	t.Run("no flow", func(t *testing.T) {
+		f, inj, actions := retentionResultFixture(t, "delivered")
+		inj.Flow, inj.Retention = 0, fabric.RetainJourney
+		fid, err := f.Inject(inj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		j := (*fabric.ExportFabricJourneys(f))[fid]
+		issue := analysis.Issue{Code: "fixture-observation", Status: analysis.Incomplete, Scope: analysis.WholeScope(), Message: "no flow"}
+		j.Metadata = j.Metadata.Merge(analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, analysis.EvidenceCatalog{}, nil))
+		res, err := f.RunScenario(fabric.Scenario{Name: "no-flow", Actions: actions}, fabric.RunOptions{Budget: 1000, Window: 0})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Status != analysis.Incomplete || !hasIssueCode(res.Issues, "fixture-observation") {
+			t.Fatalf("no-flow result %+v, want Incomplete with carried issue", res)
+		}
+	})
 	if checked != 16 {
 		t.Errorf("checked retention fixtures = %d, want 16", checked)
 	}
@@ -265,7 +283,7 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 	}
 }
 
-func TestPendingWorkHandBuiltQueue(t *testing.T) {
+func TestPendingWorkCountsAllQueueKinds(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	f := newEmptyFabric(t, time.Time{})
 	*fabric.ExportFabricQueue(f) = []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0, FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0.Add(time.Microsecond), FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(2 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(3 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalDequeue, At: t0.Add(4 * time.Microsecond)})}
@@ -502,8 +520,10 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
-		{MAC: macUnknown, Port: "1/1/2", Lifetime: bridge.Static},
+	if err := fabric.Operate(fab, "sw1", func(d device.Device, _ time.Time) (device.Output, error) {
+		return device.Output{}, d.(*vswitch.Switch).Learn([]bridge.Seed{
+			{MAC: macUnknown, Port: "1/1/2", Lifetime: bridge.Static},
+		})
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
@@ -530,6 +550,17 @@ func TestFingerprintStableStatusIncompleteWhenUnknownAdjacencyConsulted(t *testi
 	}
 	if !hasIssueCode(res.Issues, analysis.IssueCode(fabric.ReasonAdjacencyUnresolved)) {
 		t.Errorf("res.Issues missing ReasonAdjacencyUnresolved: %+v", res.Issues)
+	}
+	journeys := fab.Report()
+	if len(journeys) != 1 {
+		t.Fatalf("len(journeys) = %d, want 1", len(journeys))
+	}
+	for _, e := range journeys[0].Entries {
+		if e.Kind == fabric.EntryHop {
+			if e.Result == nil || len(e.Result.Egress) != 1 || e.Result.Egress[0].Port != "1/1/2" {
+				t.Fatalf("expected known unicast egress to 1/1/2, got: %+v", e.Result)
+			}
+		}
 	}
 }
 
@@ -572,8 +603,10 @@ func newTestHostSwitchFabric(t *testing.T, t0 time.Time) *fabric.Fabric {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
-		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+	if err := fabric.Operate(fab, "sw1", func(d device.Device, _ time.Time) (device.Output, error) {
+		return device.Output{}, d.(*vswitch.Switch).Learn([]bridge.Seed{
+			{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+		})
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
