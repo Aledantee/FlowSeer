@@ -11,7 +11,10 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -107,5 +110,60 @@ func TestFaultPositionCountsBothDirections(t *testing.T) {
 	}
 	if journeys := fab.Report(); len(journeys) != 4 {
 		t.Errorf("journeys = %d, want 4", len(journeys))
+	}
+}
+
+// TestFaultPositionCountsSwitchProtocolFrames checks that a switch's own BPDUs take positions in
+// the cable's crossing count like any other frame: a host frame sent after k BPDUs crossed is
+// position k+1, so a LoseSequence naming that position drops it and no earlier or later frame.
+func TestFaultPositionCountsSwitchProtocolFrames(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macSwitch := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
+	macHost := netaddr.MAC{0x02, 0, 0, 0, 0, 0xb1}
+	config := func(fault cable.Fault) assembly.Config {
+		return assembly.Config{
+			Start: start,
+			Switches: map[string]vswitch.Config{"sw": {
+				MAC:    macSwitch,
+				Ports:  mustTable(t, port.NewBuilder().Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+				Bridge: &bridge.Config{},
+				STP:    &stp.Config{Priority: 32768, Address: macSwitch, Ports: map[string]stp.Port{"1/1/1": {}}},
+			}},
+			Hosts: map[string]hostmodel.Config{"h": {Address: macHost, Accept: hostmodel.Accept{Promiscuous: true}}},
+			Cables: []fabric.Cable{{
+				A: fabric.Endpoint{Node: "sw", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h"},
+				Cable: cable.Cable{Medium: cable.TwistedPair, Fault: fault},
+			}},
+			PhyAssumption: gigabitCopper(),
+		}
+	}
+	data := ethernet.Frame{Src: macHost, Dst: macSwitch, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("data")}
+	// The switch sends a BPDU when it starts and one every two seconds after, so the host
+	// frame sent at five seconds follows the BPDUs at zero, two, and four seconds.
+	const wantPosition = 4
+	lostAt := []uint{}
+	for position := uint(1); position <= 6; position++ {
+		fab, err := assembly.New(config(cable.Fault{Kind: cable.FaultLoseSequence, Sequence: []uint{position}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fid, err := fab.Inject(fabric.Injection{At: start.Add(5 * time.Second), Origin: fabric.Endpoint{Node: "h"}, Frame: data})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fab.Run(fabric.RunOptions{Budget: 40})
+		for _, j := range fab.Report() {
+			if j.FrameID != fid {
+				continue
+			}
+			for _, entry := range j.Entries {
+				if entry.Kind == fabric.EntryLoss {
+					lostAt = append(lostAt, position)
+				}
+			}
+		}
+	}
+	if len(lostAt) != 1 || lostAt[0] != wantPosition {
+		t.Fatalf("the host frame is lost at positions %v, want only %d", lostAt, wantPosition)
 	}
 }

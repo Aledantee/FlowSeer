@@ -24,6 +24,7 @@ func TestQueueAdmit(t *testing.T) {
 		{"one under", 899, true, true, "", ""},
 		{"one over", 901, true, false, traffic.RuleQueueDrop, "depth_octets=901;buffer_octets=1000;frame_octets=100"},
 		{"empty unstated", 0, false, true, traffic.RuleQueueBufferUnstated, "depth_before_octets=0;frame_octets=9018;threshold_octets=1518"},
+		{"unstated at threshold", 1518, false, true, traffic.RuleQueueBufferUnstated, "depth_before_octets=1518;frame_octets=9018;threshold_octets=1518"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := traffic.Config{Queues: map[string]traffic.PortQueues{"out": {MaxRateBPS: map[vlan.PCP]uint64{5: 100000000}, BufferOctets: map[vlan.PCP]uint64{5: 1000}}}}
