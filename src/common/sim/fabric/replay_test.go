@@ -283,6 +283,7 @@ func TestReplayUntaggedLearnAndFlood(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -351,10 +352,9 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Step()
+	fab.Run(100)
 
 	// 2. Return frame from h2 to macA forwards directly to 1/1/1.
-	fab.Step()
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(time.Second),
 		Origin: fabric.Endpoint{Node: "h2"},
@@ -369,6 +369,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 		t.Fatalf("Inject return: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step return failed: ok=%t, entry=%+v", ok, entry)
@@ -382,7 +383,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
-	fab.Step()
+	fab.Run(100)
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},
@@ -397,6 +398,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 		t.Fatalf("Inject same-port: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entrySame, ok := fab.Step()
 	if !ok || entrySame.Kind != fabric.EntryHop {
 		t.Fatalf("Step same-port failed: ok=%t, entry=%+v", ok, entrySame)
@@ -455,6 +457,7 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject on host with down link: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if entries := fab.Report()[hostFrame-1].Entries; len(entries) != 2 || entries[1].Kind != fabric.EntryDrop || entries[1].Reason != cablemodel.ReasonPeerDown {
 		t.Errorf("host journey entries = %+v, want injection then a peer-down drop", entries)
 	}
@@ -499,6 +502,7 @@ func TestReplayDownPortNeitherIngressesNorEgresses(t *testing.T) {
 		t.Fatalf("Inject on active port: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entryFlood, ok := fab.Step()
 	if !ok || entryFlood.Kind != fabric.EntryHop {
 		t.Fatalf("Step flood failed: ok=%t, entry=%+v", ok, entryFlood)
@@ -542,6 +546,7 @@ func TestReplayReservedDestinationAddressesDropped(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -690,6 +695,7 @@ func TestReplayOversizedFrameDropsAtEgress(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	entry, ok := fab.Step()
 	if !ok || entry.Kind != fabric.EntryHop {
 		t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)
@@ -775,6 +781,7 @@ func TestReplayAdmissionAndIngressFiltering(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
+		stepHostInputs(t, fab, 1)
 		entry, ok := fab.Step()
 		if !ok || entry.Kind != fabric.EntryHop {
 			t.Fatalf("Step failed: ok=%t, entry=%+v", ok, entry)

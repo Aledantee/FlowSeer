@@ -190,7 +190,7 @@ func checkInflightMatchesContainers(t *testing.T, fab *fabric.Fabric) int {
 	t.Helper()
 	want := make(map[fabric.FrameID]int)
 	for _, arr := range *fabric.ExportFabricQueue(fab) {
-		if arr.Kind == fabric.ArrivalFrame {
+		if arr.Kind == fabric.ArrivalFrame || arr.Kind == fabric.ArrivalHost {
 			want[arr.FrameID]++
 		}
 	}

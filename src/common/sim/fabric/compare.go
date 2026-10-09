@@ -131,6 +131,8 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunResult, []FrameID, error) {
 	f.initRunState()
 
+	f.enqueueActions(actions)
+
 	if budget <= 0 {
 		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil, nil
 	}
@@ -146,7 +148,6 @@ func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunRe
 		steps                   int
 		lastFingerprint         = f.Fingerprint()
 		wakeArrivalsSinceChange int
-		pendingActions          = actions
 		injectFIDs              []FrameID
 	)
 
@@ -156,38 +157,27 @@ func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunRe
 			break
 		}
 
-		if len(pendingActions) > 0 {
-			if len(f.queue) == 0 || !pendingActions[0].At.After(f.queue[0].At) {
-				act := pendingActions[0]
-				pendingActions = pendingActions[1:]
-				if act.Kind == ActionInject {
-					fid, err := f.Inject(*act.Inject)
-					if err != nil {
-						return RunResult{}, nil, err
-					}
-					injectFIDs = append(injectFIDs, fid)
-				} else {
-					if err := f.applyAction(act); err != nil {
-						return RunResult{}, nil, err
-					}
-				}
-				continue
-			}
-		}
-
 		if len(f.queue) == 0 {
 			stop = StopQueueDrained
 			break
 		}
 
+		arr := f.queue[0]
+		fid := f.nextFrameID
 		entry, ok := f.Step()
 		if !ok {
+			if arr.Kind == ArrivalAction && f.err != nil {
+				return RunResult{}, nil, f.err
+			}
 			if f.err != nil {
 				stop = StopFault
 			} else {
 				stop = StopQueueDrained
 			}
 			break
+		}
+		if arr.Kind == ArrivalAction && arr.action.Kind == ActionInject {
+			injectFIDs = append(injectFIDs, fid)
 		}
 		steps++
 
@@ -210,7 +200,7 @@ func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunRe
 			}
 		}
 
-		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
+		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
 			stop = StopConverged
 			break
 		}
@@ -225,7 +215,7 @@ func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunRe
 		stop = StopBudget
 	}
 
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, len(pendingActions)), injectFIDs, nil
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount()), injectFIDs, nil
 }
 
 func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {

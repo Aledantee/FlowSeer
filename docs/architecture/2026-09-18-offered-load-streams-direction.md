@@ -51,14 +51,14 @@ be compared.
   including the spec's start offset, never an absolute time:
   the fabric and the transmitter each add their own epoch, and `Clone`
   lets a fork continue from the same position.
-- A stream is a source the run pulls from. The fabric holds attached sources
-  and, before each step, injects every source frame whose time is not after
-  the earliest queued arrival. Nothing expands a stream ahead of the clock.
-  Why: memory stays flat in the stream length, and a source can end when its
-  origin link goes down. When the queue is empty the run injects the
-  earliest source frame, so a stream alone keeps a run moving. `RunScenario`
-  refuses actions while a stream is attached, because its action loop does
-  not order actions against source frames.
+- A stream contributes one queue event at a time. Attachment reads its first
+  frame and queues that event. Stepping it introduces the frame and reads the
+  successor. Why: memory stays flat in the stream length, and an `Unknown`
+  link consumes one frame per event. A source ends when its host link goes
+  down. Codec refusals and backward offsets end that source with a flow
+  issue, while other sources continue. Scenario actions, host transmissions,
+  and stream frames share the order in `fabric/queue.go`, so `RunScenario`
+  accepts attached streams.
 - Variation is deterministic. A field steps by increment or decrement, or
   draws from a generator the package owns, seeded by the stream spec. The
   generator is SplitMix64, pinned by known-answer vectors. The virtual device

@@ -103,7 +103,6 @@ type ExportFabricFields struct {
 	Stepped         bool
 	Queue           []Arrival
 	Attachments     []attachedSource
-	PendingHosts    []pendingHostInjection
 	Wakes           map[string]time.Time
 	DequeueItems    map[Endpoint]int
 	WakeItems       map[string]int
@@ -159,9 +158,6 @@ func ExportFabricNextSeq(x *Fabric) *uint64 { return &x.nextSeq }
 
 // ExportFabricNodeDevice exposes internal state to external package tests.
 func ExportFabricNodeDevice(x *Fabric, a0 string) device.Device { return x.nodeDevice(a0) }
-
-// ExportFabricPendingHosts exposes internal state to external package tests.
-func ExportFabricPendingHosts(x *Fabric) *[]pendingHostInjection { return &x.pendingHosts }
 
 // ExportFabricPendingWork exposes internal state to external package tests.
 func ExportFabricPendingWork(x *Fabric) PendingWork { return x.pendingWork() }
@@ -248,19 +244,6 @@ type ExportLinkTrustFields struct {
 // ExportNestedSubjectKey exposes internal state to external package tests.
 var ExportNestedSubjectKey = nestedSubjectKey
 
-// ExportPendingHostInjection exposes internal state to external package tests.
-type ExportPendingHostInjection = pendingHostInjection
-
-// ExportPendingHostInjectionFields exposes internal state to external package tests.
-type ExportPendingHostInjectionFields struct {
-	Pcp    vlan.PCP
-	At     time.Time
-	Frame  ethernet.Frame
-	Fid    FrameID
-	Seq    uint64
-	Origin Endpoint
-}
-
 // ExportQueued exposes internal state to external package tests.
 type ExportQueued = queued
 
@@ -310,9 +293,6 @@ func ExportLinkEndRefLink(x *linkEndRef) **Link { return &x.link }
 // ExportLinkTrustIssues exposes internal state to external package tests.
 func ExportLinkTrustIssues(x *linkTrust) *[]analysis.Issue { return &x.issues }
 
-// ExportPendingHostInjectionFrame exposes internal state to external package tests.
-func ExportPendingHostInjectionFrame(x *pendingHostInjection) *ethernet.Frame { return &x.frame }
-
 // ExportQueuedFid exposes internal state to external package tests.
 func ExportQueuedFid(x *queued) *FrameID { return &x.fid }
 
@@ -345,7 +325,7 @@ func MakeTestEgressQueuePointer(x ExportEgressQueueFields) *egressQueue {
 
 // MakeTestFabric exposes internal state to external package tests.
 func MakeTestFabric(x ExportFabricFields) Fabric {
-	return Fabric{topology: x.Topology, evidence: x.Evidence, runtimeEvidence: x.RuntimeEvidence, links: x.Links, linkTrust: x.LinkTrust, uncabled: x.Uncabled, byEnd: x.ByEnd, clock: x.Clock, stepped: x.Stepped, queue: x.Queue, attachments: x.Attachments, pendingHosts: x.PendingHosts, wakes: x.Wakes, dequeueItems: x.DequeueItems, wakeItems: x.WakeItems, nextFrameID: x.NextFrameID, nextSeq: x.NextSeq, journeys: x.Journeys, entered: x.Entered, cableCrossings: x.CableCrossings, busyUntil: x.BusyUntil, egress: x.Egress, counters: x.Counters, unstatedBacked: x.UnstatedBacked, metadataCache: x.MetadataCache, inflight: x.Inflight, heldAggregates: x.HeldAggregates, flows: x.Flows, touched: x.Touched, err: x.Err}
+	return Fabric{topology: x.Topology, evidence: x.Evidence, runtimeEvidence: x.RuntimeEvidence, links: x.Links, linkTrust: x.LinkTrust, uncabled: x.Uncabled, byEnd: x.ByEnd, clock: x.Clock, stepped: x.Stepped, arrivalQueue: arrivalQueue{queue: x.Queue, wakes: x.Wakes, dequeueItems: x.DequeueItems, wakeItems: x.WakeItems}, attachments: x.Attachments, nextFrameID: x.NextFrameID, nextSeq: x.NextSeq, journeys: x.Journeys, entered: x.Entered, cableCrossings: x.CableCrossings, busyUntil: x.BusyUntil, egress: x.Egress, counters: x.Counters, unstatedBacked: x.UnstatedBacked, metadataCache: x.MetadataCache, inflight: x.Inflight, heldAggregates: x.HeldAggregates, flows: x.Flows, touched: x.Touched, err: x.Err}
 }
 
 // MakeTestFabricPointer exposes internal state to external package tests.
@@ -362,11 +342,6 @@ func MakeTestJourneyPointer(x ExportJourneyFields) *Journey { v := MakeTestJourn
 // MakeTestLinkTrust exposes internal state to external package tests.
 func MakeTestLinkTrust(x ExportLinkTrustFields) linkTrust {
 	return linkTrust{issues: x.Issues, assumption: x.Assumption}
-}
-
-// MakeTestPendingHostInjection exposes internal state to external package tests.
-func MakeTestPendingHostInjection(x ExportPendingHostInjectionFields) pendingHostInjection {
-	return pendingHostInjection{pcp: x.Pcp, at: x.At, frame: x.Frame, fid: x.Fid, seq: x.Seq, origin: x.Origin}
 }
 
 // MakeTestQueued exposes internal state to external package tests.

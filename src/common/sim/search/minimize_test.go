@@ -174,16 +174,16 @@ func TestMinimizePaddedCounterexampleReducesToMinimal(t *testing.T) {
 		Actions: []fabric.Action{{At: inj0.At, Kind: fabric.ActionInject, Inject: &inj0}, {At: inj1.At, Kind: fabric.ActionInject, Inject: &inj1}, {At: inj2.At, Kind: fabric.ActionInject, Inject: &inj2}, {At: inj3.At, Kind: fabric.ActionInject, Inject: &inj3}},
 	}
 
-	initialCmp := runCompare(cur, cand, paddedCandidate, 10)
+	initialCmp := runCompare(cur, cand, paddedCandidate, 18)
 	if initialCmp.Disposition != analysis.Different {
 		t.Fatalf("paddedCandidate disposition = %v, want Different", initialCmp.Disposition)
 	}
 
-	result, err := Minimize(cur, cand, paddedCandidate, 10)
+	result, err := Minimize(cur, cand, paddedCandidate, 18)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMinimizationReplay(t, cur, cand, paddedCandidate, 10, result)
+	assertMinimizationReplay(t, cur, cand, paddedCandidate, 18, result)
 	reduced, minimality := result.Candidate, result.Minimality
 
 	if minimality != Minimal {
@@ -200,7 +200,7 @@ func TestMinimizePaddedCounterexampleReducesToMinimal(t *testing.T) {
 	}
 
 	// Verify reduced candidate still exhibits the exact same observable
-	reducedCmp := runCompare(cur, cand, reduced, 10)
+	reducedCmp := runCompare(cur, cand, reduced, 18)
 	if reducedCmp.Disposition != analysis.Different {
 		t.Errorf("reduced candidate disposition = %v, want Different", reducedCmp.Disposition)
 	}
@@ -255,11 +255,11 @@ func TestMinimizeLimitReachedReportedWithPartialReduction(t *testing.T) {
 	}
 
 	// Max 1 trial: will only attempt 1 removal and halt
-	result, err := MinimizeWithLimit(cur, cand, paddedCandidate, 10, 1)
+	result, err := MinimizeWithLimit(cur, cand, paddedCandidate, 20, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMinimizationReplay(t, cur, cand, paddedCandidate, 10, result)
+	assertMinimizationReplay(t, cur, cand, paddedCandidate, 20, result)
 	reduced, minimality := result.Candidate, result.Minimality
 
 	if minimality != LimitReached {
@@ -347,11 +347,11 @@ func TestMinimizeLimitReachedUpdatesReducedTuple(t *testing.T) {
 		Actions: actions,
 	}
 
-	result, err := MinimizeWithLimit(cur, cand, paddedCandidate, 10, 1)
+	result, err := MinimizeWithLimit(cur, cand, paddedCandidate, 20, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMinimizationReplay(t, cur, cand, paddedCandidate, 10, result)
+	assertMinimizationReplay(t, cur, cand, paddedCandidate, 20, result)
 	reduced, minimality := result.Candidate, result.Minimality
 	if minimality != LimitReached {
 		t.Fatalf("minimality = %v, want %v", minimality, LimitReached)
@@ -504,11 +504,11 @@ func TestMinimizeFixedPointSecondPassRemovals(t *testing.T) {
 
 	// Verify that a single pass (3 trials: try injA [fail], try injB [succeed], try injC [fail])
 	// leaves injA in the candidate:
-	singlePass, err := MinimizeWithLimit(cur, cand, candidate, 10, 3)
+	singlePass, err := MinimizeWithLimit(cur, cand, candidate, 16, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMinimizationReplay(t, cur, cand, candidate, 10, singlePass)
+	assertMinimizationReplay(t, cur, cand, candidate, 16, singlePass)
 	singlePassReduced, singlePassMinimality := singlePass.Candidate, singlePass.Minimality
 	if singlePassMinimality != LimitReached {
 		t.Fatalf("single pass minimality = %v, want %v", singlePassMinimality, LimitReached)
@@ -518,11 +518,11 @@ func TestMinimizeFixedPointSecondPassRemovals(t *testing.T) {
 	}
 
 	// Full fixed-point minimization repeats passes until 0 removals, successfully removing injA on pass 2:
-	result, err := Minimize(cur, cand, candidate, 10)
+	result, err := Minimize(cur, cand, candidate, 16)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMinimizationReplay(t, cur, cand, candidate, 10, result)
+	assertMinimizationReplay(t, cur, cand, candidate, 16, result)
 	reduced, minimality := result.Candidate, result.Minimality
 	if minimality != Minimal {
 		t.Fatalf("minimality = %v, want %v", minimality, Minimal)

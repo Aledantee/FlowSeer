@@ -180,7 +180,7 @@ func TestScenarioSameTimeDeclarationOrder(t *testing.T) {
 				},
 			},
 		},
-		Budget: 10,
+		Budget: 12,
 	}
 
 	res, err := fab.RunScenario(sc)

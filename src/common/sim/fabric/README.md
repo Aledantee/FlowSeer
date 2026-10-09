@@ -3,8 +3,8 @@
 The fabric runtime drives built devices over cables in a simulated network.
 [assembly](../assembly/README.md) builds switches, hosts, and reflectors from
 configurations and supplies their configured physical facts. Execution advances synchronously in discrete steps.
-Each step takes the earliest scheduled arrival, forwards it through the
-destination switch, and queues copies onto connected cables.
+Each step handles one queue event. Host transmissions and stream frames enter
+through that queue, so a future injection cannot charge a host ahead of the clock.
 
 ## Example
 
@@ -178,14 +178,20 @@ fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 
 The source reports offsets from the consumer epoch. Spec sources include
 `Spec.Start` in that offset. The injection time is
-`Config.Start + StreamAttachment.Start + source offset`. Before each step, the
-run releases pending host injections and pulls stream frames
-due no later than the earliest queued arrival. When the queue is empty, it
-releases the earliest frame to keep the run moving. Eager host injections win
-ties with stream frames; streams at the same time follow attachment order.
-`RunScenario` refuses actions when streams are attached because the action loop
-does not order actions against source frames. A host source ends
-when its origin link is `Down`; an `Unknown` link leaves each frame unresolved.
+`Config.Start + StreamAttachment.Start + source offset`. Attachment reads one
+frame and queues its stream event. Each such event introduces that frame and
+reads its successor, which bounds memory by the number of attached sources.
+An `Unknown` link consumes one frame per event. A host source ends when its
+origin link is `Down`. A codec refusal or backward offset ends that source
+with `stream-fault` in its flow metadata and the run issues.
+
+Scenario actions share the queue with attached streams. At equal times, kinds
+run in the order host transmission, action, wake, stream, frame, dequeue.
+Within a kind, sequence, device, and port decide the order (`compareArrival`
+in [queue.go](queue.go)). `PendingWork.Inputs` counts queued host transmissions,
+stream frames, and actions. Every event consumes one step of the run budget.
+`Inject` refuses a time before the clock, including before the first step.
+A past-dated queued event executes at the clock.
 
 Every attached frame belongs to a nonzero flow. The default `RetainJourney`
 keeps its journey in `Report`; choose `RetainAggregate` to fold the outcome into

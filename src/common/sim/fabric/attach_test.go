@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -441,9 +442,6 @@ func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	start := assembly.Spec(fab).Config().Start
 	frame := flowFrame(src, dst)
-	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
-		t.Fatalf("Inject switch: %v", err)
-	}
 	for _, offset := range []time.Duration{100 * time.Microsecond, 50 * time.Microsecond} {
 		if _, err := fab.Inject(fabric.Injection{At: start.Add(offset), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 			t.Fatalf("Inject at %s: %v", offset, err)
@@ -451,11 +449,11 @@ func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
 	}
 	fab.Run(1000)
 	journeys := fab.Report()
-	if len(journeys) != 3 || len(journeys[1].Deliveries) == 0 || len(journeys[2].Deliveries) == 0 {
+	if len(journeys) != 2 || len(journeys[0].Deliveries) == 0 || len(journeys[1].Deliveries) == 0 {
 		t.Fatalf("journeys = %+v, want two host deliveries", journeys)
 	}
-	if !journeys[2].Deliveries[0].At.Before(journeys[1].Deliveries[0].At) {
-		t.Fatalf("50us delivery %s is not before 100us delivery %s", journeys[2].Deliveries[0].At, journeys[1].Deliveries[0].At)
+	if !journeys[1].Deliveries[0].At.Before(journeys[0].Deliveries[0].At) {
+		t.Fatalf("50us delivery %s is not before 100us delivery %s", journeys[1].Deliveries[0].At, journeys[0].Deliveries[0].At)
 	}
 }
 
@@ -478,21 +476,122 @@ func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
 	}
 }
 
-func TestRunScenarioRefusesActionsWithAttachedStream(t *testing.T) {
+func TestScenarioRunsWithAttachedStream(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	start := assembly.Spec(fab).Config().Start
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 1, 10_000), Start: 5 * time.Millisecond, Flow: 1}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	_, err := fab.RunScenario(fabric.Scenario{
+	result, err := fab.RunScenario(fabric.Scenario{
 		Name: "stream with action", Budget: 100,
 		Actions: []fabric.Action{{
 			At: start.Add(time.Millisecond), Kind: fabric.ActionFault,
 			Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}},
 		}},
 	})
-	if err == nil || !strings.Contains(err.Error(), "attached stream") {
-		t.Fatalf("RunScenario error = %v, want attached stream refusal", err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Stop != fabric.StopQueueDrained || fab.Flows()[1].Offered != 0 {
+		t.Fatalf("result = %+v, flows = %+v, want cut before stream", result, fab.Flows())
+	}
+	if fab.Links()[0].A.Oper != port.Down {
+		t.Fatal("scenario did not cut the host link")
+	}
+}
+
+func TestHostInjectionOrder(t *testing.T) {
+	orders := [][3]int{{1, 2, 3}, {1, 3, 2}, {2, 1, 3}, {2, 3, 1}, {3, 1, 2}, {3, 2, 1}}
+	checked := 0
+	for _, order := range orders {
+		for _, stepped := range []bool{false, true} {
+			for _, queued := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%v/stepped=%t/queued=%t", order, stepped, queued), func(t *testing.T) {
+					fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+					start := assembly.Spec(fab).Config().Start
+					if stepped {
+						if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+						if _, ok := fab.Step(); !ok {
+							t.Fatal("initial Step failed")
+						}
+						fab.Run(1000)
+					}
+					if queued {
+						if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					for _, offset := range order {
+						if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Duration(offset) * time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					if _, busy := fab.Snapshot().Busy[fabric.Endpoint{Node: "h1"}]; busy {
+						t.Fatal("future injection charged host before its event")
+					}
+					for _, j := range fab.Report() {
+						if j.Injection.Origin.Node != "h1" {
+							continue
+						}
+						if len(j.Entries) != 1 || j.State != fabric.JourneyPending {
+							t.Fatalf("host journey = %+v, want pending injection", j)
+						}
+					}
+					fab.Run(1000)
+					var crossings []time.Time
+					for _, journey := range fab.Report() {
+						for _, entry := range journey.Entries {
+							if entry.Wait < 0 {
+								t.Fatalf("negative Wait: %s", entry.Wait)
+							}
+							if journey.Injection.Origin.Node == "h1" && entry.Kind == fabric.EntryCrossing && entry.Device == "sw1" && entry.Port == "1/1/1" {
+								crossings = append(crossings, entry.At)
+							}
+						}
+					}
+					if len(crossings) != 3 {
+						t.Fatalf("host crossings = %d, want 3", len(crossings))
+					}
+					// Reports use frame identity, so compare the three known injection positions.
+					for i, offset := range order {
+						want := start.Add(time.Duration(offset) * time.Second)
+						if !crossings[i].Equal(want) {
+							t.Fatalf("crossing %d = %s, want %s", i, crossings[i], want)
+						}
+					}
+					checked++
+				})
+			}
+		}
+	}
+	if checked != 24 {
+		t.Fatalf("checked %d cases, want 24", checked)
+	}
+}
+
+func TestInjectBeforeClockRefused(t *testing.T) {
+	for _, stepped := range []bool{false, true} {
+		t.Run(fmt.Sprint(stepped), func(t *testing.T) {
+			fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+			start := assembly.Spec(fab).Config().Start
+			if stepped {
+				if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Second), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := fab.Step(); !ok {
+					t.Fatal("Step failed")
+				}
+			}
+			before := fab.Snapshot()
+			if _, err := fab.Inject(fabric.Injection{At: before.Clock.Add(-time.Nanosecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err == nil {
+				t.Fatal("Inject accepted time before clock")
+			}
+			if !reflect.DeepEqual(before, fab.Snapshot()) {
+				t.Fatal("refused injection changed snapshot")
+			}
+		})
 	}
 }
 

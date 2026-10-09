@@ -11,6 +11,25 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
 
+func TestPastArrivalRunsAtClock(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	clock := fab.Snapshot().Clock
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: clock.Add(-time.Second), Kind: fabric.ArrivalWake, Device: "unused"}))
+	entry, ok := fab.Step()
+	if !ok || !entry.At.Equal(clock) || !fab.Snapshot().Clock.Equal(clock) {
+		t.Fatalf("Step = %+v, %t, clock = %s, want %s", entry, ok, fab.Snapshot().Clock, clock)
+	}
+}
+
+func TestZeroArrivalKindRefused(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	before := len(fab.Snapshot().Queue)
+	fabric.ExportFabricEnqueue(fab, fabric.Arrival{At: fab.Snapshot().Clock})
+	if fab.Err() == nil || len(fab.Snapshot().Queue) != before {
+		t.Fatalf("Err = %v, queue = %d, want fault and %d arrivals", fab.Err(), len(fab.Snapshot().Queue), before)
+	}
+}
+
 // TestQueueStepsWakeFrameDequeueInOrder enqueues one of each arrival kind at
 // the same instant in reverse priority order and checks that Step pops them
 // wake, frame, dequeue, and that Snapshot reports the queue sorted by

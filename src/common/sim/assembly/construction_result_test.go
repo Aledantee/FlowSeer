@@ -81,6 +81,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 		Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
 	}
 	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  frame,
 	})
@@ -466,6 +467,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 
 	// 1. Ingress arriving on unknown oper status port 1/1/2
 	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame:  frame,
 	})
@@ -475,6 +477,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 
 	// 2. Ingress arriving on known down port 1/1/3
 	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 		Frame:  frame,
 	})
@@ -484,6 +487,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 
 	// 3. Ingress arriving on known up port 1/1/1
 	_, err = fab.Inject(fabric.Injection{
+		At:     cfg.Start,
 		Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 		Frame:  frame,
 	})

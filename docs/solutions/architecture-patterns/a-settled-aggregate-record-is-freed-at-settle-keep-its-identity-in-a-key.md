@@ -39,13 +39,13 @@ holder. That rule produces two failures:
 - **Convergence never fires.** `Report` counts a held journey that no release has
   named as `JourneyPending` (`src/common/sim/fabric/journey.go:248-252`),
   `hasPendingJourneys` returns true for it
-  (`src/common/sim/fabric/run.go:1646-1652`), and the convergence check
+  ([`run.go`](../../../src/common/sim/fabric/run.go)), and the convergence check
   requires `!hasPendingJourneys()`
-  (`src/common/sim/fabric/run.go:1581`, `src/common/sim/fabric/compare.go:249`).
+  ([`run.go`](../../../src/common/sim/fabric/run.go), [`compare.go`](../../../src/common/sim/fabric/compare.go)).
   A single abandoned hold therefore pinned the run out of `StopConverged`.
 - **Releases misattribute.** `findAndPopHeld` picks a candidate by payload
   match, then falls back to the lowest candidate ID
-  (`src/common/sim/fabric/run.go:1289-1327`). With no journey for the freed
+  ([`run.go`](../../../src/common/sim/fabric/run.go)). With no journey for the freed
   frame, the release either collapsed to a fresh injection or the fallback
   pinned it to a coexisting held journey — a wrong `Origin.Of`.
 
@@ -59,12 +59,12 @@ key. The record itself is gone.
 The shipped shape: `recordHeldAggregate` stores the freed frame's `FrameID`
 under the device of its last entry, ascending, and `settle` deletes the journey
 and its re-entry set (`src/common/sim/fabric/flow.go:92-114`). The release's
-path adds those IDs to the candidate list (`src/common/sim/fabric/run.go:1308-1312`),
+path adds those IDs to the candidate list ([`run.go`](../../../src/common/sim/fabric/run.go)),
 payload matching skips a placeholder because it has no journey
-(`src/common/sim/fabric/run.go:1315-1319`), and `claimHeldAggregate` removes
+([`run.go`](../../../src/common/sim/fabric/run.go)), and `claimHeldAggregate` removes
 the claimed ID so a later release cannot name it twice
 (`src/common/sim/fabric/flow.go:116-126`, called at
-`src/common/sim/fabric/run.go:1258-1263`). The identity a release needs is a
+[`run.go`](../../../src/common/sim/fabric/run.go)). The identity a release needs is a
 `FrameID`; the journey was never the identity.
 
 ```go
@@ -85,7 +85,7 @@ fixture runs retained and aggregated, and for every release the two runs name
 the same holder, the aggregated run keeps no `RetainAggregate` journey and no
 pending journey, and only the abandoned holds' placeholders remain. The
 direction record that authorized retention, so this reading of it, is
-`docs/architecture/2026-09-18-offered-load-streams-direction.md:67-75`; the
+[offered-load direction](../../architecture/2026-09-18-offered-load-streams-direction.md); the
 virtual device record's run bullet states the same freeing rule
 (`docs/architecture/2026-09-10-virtual-device-direction.md:87-95`).
 

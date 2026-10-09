@@ -27,15 +27,12 @@ import (
 )
 
 var fabricDeepCopiedProbes = map[string]func(t *testing.T){
+	"arrivalQueue":   probeFabricArrivalQueue,
 	"topology":       probeFabricTopology,
 	"links":          probeFabricLinks,
 	"linkTrust":      probeFabricLinkTrust,
 	"uncabled":       probeFabricUncabled,
 	"byEnd":          probeFabricByEnd,
-	"queue":          probeFabricQueue,
-	"wakes":          probeFabricWakes,
-	"dequeueItems":   probeFabricDequeueItems,
-	"wakeItems":      probeFabricWakeItems,
 	"journeys":       probeFabricJourneys,
 	"entered":        probeFabricEntered,
 	"cableCrossings": probeFabricCableCrossings,
@@ -228,6 +225,12 @@ func probeFabricQueue(t *testing.T) {
 	(*fabric.ExportFabricQueue(fork)) = append((*fabric.ExportFabricQueue(fork)), fabric.MakeTestArrival(fabric.ExportArrivalFields{Seq: 8888}))
 	if (*fabric.ExportFabricQueue(fab))[len((*fabric.ExportFabricQueue(fab)))-1].Seq == 8888 {
 		t.Errorf("source queue saw fork arrival")
+	}
+	(*fabric.ExportFabricQueue(fab)) = []fabric.Arrival{{Kind: fabric.ArrivalHost, Frame: ethernet.Frame{Payload: []byte{1}}}}
+	fork = fab.Fork()
+	(*fabric.ExportFabricQueue(fork))[0].Frame.Payload[0] = 2
+	if got := (*fabric.ExportFabricQueue(fab))[0].Frame.Payload[0]; got != 1 {
+		t.Errorf("source queued host payload = %d, want 1", got)
 	}
 }
 
@@ -806,5 +809,27 @@ func TestSnapshotPhase4b(t *testing.T) {
 	}
 	if found.HoldDepth != 1 {
 		t.Errorf("neighbor hold depth = %d, want 1", found.HoldDepth)
+	}
+}
+
+func probeFabricArrivalQueue(t *testing.T) {
+	probes := map[string]func(*testing.T){
+		"queue": probeFabricQueue, "wakes": probeFabricWakes,
+		"dequeueItems": probeFabricDequeueItems, "wakeItems": probeFabricWakeItems,
+	}
+	field, ok := reflect.TypeOf(fabric.MakeTestFabric(fabric.ExportFabricFields{})).FieldByName("arrivalQueue")
+	if !ok {
+		t.Fatal("fabric has no arrivalQueue")
+	}
+	if field.Type.NumField() != len(probes) {
+		t.Fatalf("queue fields = %d, want %d probes", field.Type.NumField(), len(probes))
+	}
+	for i := range field.Type.NumField() {
+		name := field.Type.Field(i).Name
+		probe, ok := probes[name]
+		if !ok {
+			t.Fatalf("queue field %q has no isolation probe", name)
+		}
+		probe(t)
 	}
 }

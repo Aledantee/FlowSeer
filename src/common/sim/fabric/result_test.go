@@ -87,8 +87,8 @@ func TestStopReasonsCoverage(t *testing.T) {
 	if resQueue.Stop != fabric.StopQueueDrained {
 		t.Errorf("resQueue.Stop = %v, want StopQueueDrained", resQueue.Stop)
 	}
-	if resQueue.Steps != 2 {
-		t.Errorf("resQueue.Steps = %d, want 2", resQueue.Steps)
+	if resQueue.Steps != 3 {
+		t.Errorf("resQueue.Steps = %d, want 3", resQueue.Steps)
 	}
 
 	// StopBudget
@@ -662,5 +662,27 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("res.Issues missing IssueActionsDropped (%q): %+v", fabric.IssueActionsDropped, res.Issues)
+	}
+}
+
+func TestPendingInputsCounted(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	at := fab.Snapshot().Clock.Add(time.Second)
+	frame := flowFrame(src, dst)
+	if _, err := fab.Inject(fabric.Injection{At: fab.Snapshot().Clock, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fab.Inject(fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, frame, 1, 1), Start: 2 * time.Second, Flow: 1}); err != nil {
+		t.Fatal(err)
+	}
+	result, err := fab.RunScenario(fabric.Scenario{Name: "pending inputs", Budget: 1, Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h2"}, Frame: frame}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Stop != fabric.StopBudget || result.Pending.Inputs != 3 {
+		t.Fatalf("result = %+v, want Budget with three pending inputs", result)
 	}
 }

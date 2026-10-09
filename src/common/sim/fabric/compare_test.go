@@ -150,8 +150,8 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Compare returned disposition: %v, want Equivalent", cmp.Disposition)
 	}
-	if cmp.Steps[0] != 3 || cmp.Steps[1] != 3 {
-		t.Errorf("Steps = %v, want [3, 3]", cmp.Steps)
+	if cmp.Steps[0] != 5 || cmp.Steps[1] != 5 {
+		t.Errorf("Steps = %v, want [5, 5]", cmp.Steps)
 	}
 	if len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
 		t.Fatalf("Journeys length mismatch: cur=%d, exp=%d", len(cmp.Current), len(cmp.Expected))

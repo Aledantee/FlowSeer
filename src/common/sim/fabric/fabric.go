@@ -32,20 +32,16 @@ type Fabric struct {
 	byEnd           map[Endpoint]linkEndRef
 	clock           time.Time
 	stepped         bool
-	queue           []Arrival
-	attachments     []attachedSource
-	pendingHosts    []pendingHostInjection
-	wakes           map[string]time.Time
-	dequeueItems    map[Endpoint]int
-	wakeItems       map[string]int
-	nextFrameID     FrameID
-	nextSeq         uint64
-	journeys        map[FrameID]*Journey
-	entered         map[FrameID]map[Endpoint]bool
-	cableCrossings  map[Endpoint]uint
-	busyUntil       map[Endpoint]time.Time
-	egress          map[Endpoint]*egressQueue
-	counters        map[Endpoint]*Counters
+	arrivalQueue
+	attachments    []attachedSource
+	nextFrameID    FrameID
+	nextSeq        uint64
+	journeys       map[FrameID]*Journey
+	entered        map[FrameID]map[Endpoint]bool
+	cableCrossings map[Endpoint]uint
+	busyUntil      map[Endpoint]time.Time
+	egress         map[Endpoint]*egressQueue
+	counters       map[Endpoint]*Counters
 
 	// unstatedBacked retains each endpoint's first queue-threshold evidence ref.
 	unstatedBacked map[Endpoint]trace.EvidenceRef
@@ -122,16 +118,17 @@ func (f *Fabric) Fork() *Fabric {
 	var queue []Arrival
 	if len(f.queue) > 0 {
 		queue = slices.Clone(f.queue)
+		for i := range queue {
+			if queue[i].Kind == ArrivalHost {
+				queue[i].Frame = cloneFrame(queue[i].Frame)
+			}
+		}
 	}
 	attachments := make([]attachedSource, len(f.attachments))
 	for i, source := range f.attachments {
 		attachments[i] = source
 		attachments[i].attachment.Source = source.attachment.Source.Clone()
 		attachments[i].frame = cloneFrame(source.frame)
-	}
-	pendingHosts := slices.Clone(f.pendingHosts)
-	for i := range pendingHosts {
-		pendingHosts[i].frame = cloneFrame(pendingHosts[i].frame)
 	}
 
 	var wakes map[string]time.Time
@@ -231,12 +228,8 @@ func (f *Fabric) Fork() *Fabric {
 		byEnd:           byEnd,
 		clock:           f.clock,
 		stepped:         f.stepped,
-		queue:           queue,
+		arrivalQueue:    arrivalQueue{queue: queue, wakes: wakes, dequeueItems: dequeueItems, wakeItems: wakeItems},
 		attachments:     attachments,
-		pendingHosts:    pendingHosts,
-		wakes:           wakes,
-		dequeueItems:    dequeueItems,
-		wakeItems:       wakeItems,
 		nextFrameID:     f.nextFrameID,
 		nextSeq:         f.nextSeq,
 		journeys:        journeys,

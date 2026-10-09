@@ -3,6 +3,7 @@ package fabric
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"math"
 	"math/bits"
 	"net/netip"
@@ -84,15 +85,6 @@ type queued struct {
 	mirror     string
 }
 
-type pendingHostInjection struct {
-	pcp    vlan.PCP
-	at     time.Time
-	frame  ethernet.Frame
-	fid    FrameID
-	seq    uint64
-	origin Endpoint
-}
-
 type egressQueue struct {
 	pending        [8][]queued
 	dequeueAt      time.Time
@@ -155,10 +147,9 @@ func (f *Fabric) runStarted() bool {
 // Inject queues a frame or originated packet for introduction into the fabric at the requested origin endpoint and time.
 //
 // For a host origin, the host's configured VLAN form is applied (adding its C-TAG or leaving the frame untagged).
-// A host transmits immediately unless a queued arrival precedes At or another host injection is pending before
-// the first step. Pending hosts transmit in time order with attached streams at Step. The link state is checked
-// and the host end's busy clock is charged when transmission occurs. A transmitted frame records a crossing and
-// arrives at the connected switch port after serialization and cable propagation.
+// A host transmission is queued at At. Step checks its link and charges its egress at that time.
+// A transmitted frame records a crossing and arrives at the connected switch port
+// after serialization and cable propagation.
 // When Packet is set, the frame is originated by the host's IP stack and Frame must have no field set. For a device
 // port origin, the frame is queued directly as given at At.
 // A host whose link is not Up transmits nothing, and the injection is still valid: the journey records a drop with
@@ -166,15 +157,18 @@ func (f *Fabric) runStarted() bool {
 // Inject returns an error if the origin names an unknown host, an unknown switch port, a reflector (which has
 // no port of its own to inject at), a host without a connected cable, a switch origin with Packet set, a host
 // without an IP stack when Packet is set, a Packet injection specifying Frame fields, a non-empty origin port
-// for host packet injection, if packet origination fails, if At precedes the fabric clock after a
-// nonzero-time step has run, if Retention is above [RetainAggregate], or if Retention is
-// [RetainAggregate] with a zero Flow.
+// for host packet injection, if packet origination fails, if At precedes the fabric clock,
+// if Retention is above [RetainAggregate], or if [RetainAggregate] has a zero Flow.
 func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 	return f.inject(inj, true)
 }
 
-func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
+func (f *Fabric) inject(inj Injection, queueHost bool) (FrameID, error) {
 	f.initRunState()
+	if inj.At.Before(f.clock) {
+		return 0, errs.New().Attr("at", inj.At).Attr("clock", f.clock).
+			Msg("injection time precedes fabric clock")
+	}
 
 	if inj.Retention > RetainAggregate {
 		return 0, errs.New().
@@ -224,12 +218,6 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 	if _, err := frame.Encode(); err != nil {
 		return 0, errs.Wrap(err, "encode the injected frame")
 	}
-	if f.runStarted() && inj.At.Before(f.clock) {
-		return 0, errs.New().
-			Attr("at", inj.At).
-			Attr("clock", f.clock).
-			Msg("injection time precedes fabric clock")
-	}
 
 	fid := f.nextFrameID
 	f.nextFrameID++
@@ -253,14 +241,11 @@ func (f *Fabric) inject(inj Injection, deferHost bool) (FrameID, error) {
 	})
 
 	switch {
-	case hostRef != nil && deferHost && !f.runStarted() && ((len(f.queue) > 0 && f.queue[0].At.Before(inj.At)) || len(f.pendingHosts) > 0):
-		item := pendingHostInjection{at: inj.At, frame: frame, pcp: originated.Emissions[0].PCP, fid: fid, seq: seq, origin: inj.Origin}
-		index := len(f.pendingHosts)
-		for index > 0 && item.at.Before(f.pendingHosts[index-1].at) {
-			index--
-		}
-		f.pendingHosts = slices.Insert(f.pendingHosts, index, item)
-		f.inflightAdd(fid)
+	case hostRef != nil && queueHost:
+		f.enqueue(Arrival{
+			At: inj.At, Kind: ArrivalHost, Seq: seq, Device: inj.Origin.Node,
+			Frame: cloneFrame(frame), FrameID: fid, pcp: originated.Emissions[0].PCP,
+		})
 	case hostRef != nil:
 		f.injectHostFrame(inj.At, inj.Origin, frame, originated.Emissions[0].PCP, seq, fid, journey)
 	default:
@@ -298,7 +283,8 @@ func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.F
 
 // Step advances simulation time to the earliest queued arrival and processes it through the destination device.
 //
-// Pending host injections and attached stream frames are released before the next arrival is chosen.
+// Host transmissions, scenario actions, and stream frames are processed in queue order.
+// An event dated before the clock is processed at the clock.
 // If the arrival device port was previously visited by the frame, a loop entry is recorded before processing.
 // Corrupted arrivals are discarded with [cablemodel.ReasonBadFrame]. An arrival at a reflector runs its acceptance decision
 // and, when accepted, originates the reflected copies; it never reaches the switch forwarding path below.
@@ -310,10 +296,6 @@ func (f *Fabric) Step() (Entry, bool) {
 	if f.err != nil {
 		return Entry{}, false
 	}
-	f.pullInputs()
-	if f.err != nil {
-		return Entry{}, false
-	}
 	if len(f.queue) == 0 {
 		return Entry{}, false
 	}
@@ -321,10 +303,36 @@ func (f *Fabric) Step() (Entry, bool) {
 	defer f.settleTouched()
 
 	arr := f.popArrival()
+	if arr.At.Before(f.clock) {
+		arr.At = f.clock
+	}
 	f.clock = arr.At
 	f.stepped = true
-	if arr.Kind == ArrivalFrame {
+	if arr.Kind == ArrivalFrame || arr.Kind == ArrivalHost {
 		f.inflightRemove(arr.FrameID)
+	}
+	if arr.Kind == ArrivalAction {
+		action := arr.action.Clone()
+		action.At = arr.At
+		if action.Inject != nil {
+			action.Inject.At = arr.At
+		}
+		if action.Record != nil {
+			action.Record.At = arr.At
+		}
+		if err := f.applyAction(action); err != nil {
+			f.recordFault(err)
+			return Entry{}, false
+		}
+		return Entry{At: arr.At, Kind: EntryAction}, true
+	}
+	if arr.Kind == ArrivalStream {
+		f.stepStream(arr.At, arr.source)
+		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device, Port: arr.Port}, true
+	}
+	if arr.Kind == ArrivalHost {
+		f.injectHostFrame(arr.At, Endpoint{Node: arr.Device}, arr.Frame, arr.pcp, arr.Seq, arr.FrameID, f.journeys[arr.FrameID])
+		return Entry{At: arr.At, Kind: EntryInjection, Device: arr.Device}, true
 	}
 
 	if arr.Kind == ArrivalWake {
@@ -699,7 +707,7 @@ func (f *Fabric) serve(now time.Time, txEnd Endpoint) {
 
 		return
 	}
-	if len(f.queue) > 0 && f.queue[0].At.Equal(now) && f.queue[0].Kind < ArrivalDequeue {
+	if f.topology.nodes[txEnd.Node].snapshot && len(f.queue) > 0 && f.queue[0].At.Equal(now) && f.queue[0].Kind < ArrivalDequeue {
 		if q.dequeuePending && !q.dequeueAt.After(now) {
 			return
 		}
@@ -1115,7 +1123,6 @@ func (f *Fabric) Run(budget int) RunResult {
 
 // RunScenario validates and executes a declared scenario under its specified budget and window.
 // It refuses any action before the fabric clock and retains a pre-action checkpoint for replay.
-// It refuses actions when the fabric has attached streams because their pull order does not account for action times.
 func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	norm, err := s.Normalize()
 	if err != nil {
@@ -1126,9 +1133,6 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	}
 	if err := f.validateActionTimes(norm.Actions); err != nil {
 		return RunResult{}, err
-	}
-	if len(f.attachments) > 0 && len(norm.Actions) > 0 {
-		return RunResult{}, errs.Msg("scenario actions cannot run with an attached stream")
 	}
 
 	checkpoint := f.Fork()
@@ -1225,6 +1229,8 @@ func (f *Fabric) run(budget int, window int) RunResult {
 func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunResult, error) {
 	f.initRunState()
 
+	f.enqueueActions(actions)
+
 	if budget <= 0 {
 		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil
 	}
@@ -1240,7 +1246,6 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		steps                   int
 		lastFingerprint         = f.Fingerprint()
 		wakeArrivalsSinceChange int
-		pendingActions          = actions
 	)
 
 	for steps < budget {
@@ -1248,30 +1253,18 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			stop = StopFault
 			break
 		}
-		f.pullInputs()
-		if f.err != nil {
-			stop = StopFault
-			break
-		}
-
-		if len(pendingActions) > 0 {
-			if len(f.queue) == 0 || !pendingActions[0].At.After(f.queue[0].At) {
-				act := pendingActions[0]
-				pendingActions = pendingActions[1:]
-				if err := f.applyAction(act); err != nil {
-					return RunResult{}, err
-				}
-				continue
-			}
-		}
 
 		if len(f.queue) == 0 {
 			stop = StopQueueDrained
 			break
 		}
 
+		actionEvent := f.queue[0].Kind == ArrivalAction
 		entry, ok := f.Step()
 		if !ok {
+			if actionEvent && f.err != nil {
+				return RunResult{}, f.err
+			}
 			if f.err != nil {
 				stop = StopFault
 			} else {
@@ -1300,7 +1293,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			}
 		}
 
-		if window > 0 && len(pendingActions) == 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() && !f.sourcesPending() {
+		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() && !f.sourcesPending() {
 			stop = StopConverged
 			break
 		}
@@ -1315,7 +1308,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		stop = StopBudget
 	}
 
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, len(pendingActions)), nil
+	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount()), nil
 }
 
 func detectCycle(fps []string, window int) ([]string, bool) {
@@ -1375,13 +1368,15 @@ func (f *Fabric) hasPendingJourneys() bool {
 }
 
 func (f *Fabric) pendingWork() PendingWork {
-	var arrivals, wakes, egress, journeys int
+	var arrivals, wakes, egress, journeys, inputs int
 	for _, arr := range f.queue {
 		switch arr.Kind {
 		case ArrivalFrame:
 			arrivals++
 		case ArrivalWake:
 			wakes++
+		case ArrivalHost, ArrivalStream, ArrivalAction:
+			inputs++
 		}
 	}
 	for _, q := range f.egress {
@@ -1396,6 +1391,7 @@ func (f *Fabric) pendingWork() PendingWork {
 	}
 	return PendingWork{
 		Arrivals: arrivals,
+		Inputs:   inputs,
 		Wakes:    wakes,
 		Egress:   egress,
 		Journeys: journeys,
@@ -1407,6 +1403,9 @@ func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle 
 	var issues []analysis.Issue
 	for _, j := range rep {
 		issues = append(issues, j.Metadata.Issues()...)
+	}
+	for _, id := range slices.Sorted(maps.Keys(f.flows)) {
+		issues = append(issues, f.flows[id].Metadata.Issues()...)
 	}
 	var uniqueIssues []analysis.Issue
 	for _, iss := range issues {
@@ -1569,4 +1568,14 @@ func (f *Fabric) initRunState() {
 	if f.nextSeq == 0 {
 		f.nextSeq = 1
 	}
+}
+
+func (f *Fabric) pendingActionCount() int {
+	count := 0
+	for _, arr := range f.queue {
+		if arr.Kind == ArrivalAction {
+			count++
+		}
+	}
+	return count
 }

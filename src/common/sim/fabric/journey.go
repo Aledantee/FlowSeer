@@ -28,6 +28,8 @@ type EntryKind string
 const (
 	// EntryInjection records the initial introduction of a frame into the fabric.
 	EntryInjection EntryKind = "Injection"
+	// EntryAction records execution of a scenario action.
+	EntryAction EntryKind = "Action"
 
 	// EntryHop records frame processing by a virtual switch forwarding engine.
 	EntryHop EntryKind = "Hop"
@@ -206,7 +208,7 @@ func (f *Fabric) Report() []Journey {
 
 	pendingFrames := make(map[FrameID]bool)
 	for _, arr := range f.queue {
-		if arr.Kind == ArrivalFrame {
+		if arr.Kind == ArrivalFrame || arr.Kind == ArrivalHost {
 			pendingFrames[arr.FrameID] = true
 		}
 	}

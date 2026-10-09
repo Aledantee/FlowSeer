@@ -26,6 +26,8 @@ const (
 )
 
 const (
+	// IssueStreamFault reports a source frame that cannot enter the run.
+	IssueStreamFault analysis.IssueCode = "stream-fault"
 	// IssueBudgetExhausted is the issue code raised when a run halts because its step budget was exhausted.
 	IssueBudgetExhausted analysis.IssueCode = "budget-exhausted"
 	// IssueSchedulingFault is the issue code raised when a scheduling fault halts simulation.
@@ -38,6 +40,8 @@ const (
 
 // PendingWork summarizes remaining work across all queues at the time a run halted.
 type PendingWork struct {
+	// Inputs counts queued host transmissions, stream frames, and scenario actions.
+	Inputs   int
 	Arrivals int
 	Wakes    int
 	Egress   int

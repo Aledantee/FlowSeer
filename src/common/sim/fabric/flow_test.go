@@ -89,7 +89,7 @@ func TestAggregateFlowFoldsOfferedDeliveriesAndLatency(t *testing.T) {
 }
 
 // TestAggregateWithoutADestinationFoldsItsDrop covers an injection whose host
-// link is Down: with no step run, the frame folds its offered count and its
+// link is Down: stepping the host event folds its offered count and its
 // drop under the link's reason, and leaves no journey behind.
 func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 	base := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
@@ -112,8 +112,14 @@ func TestAggregateWithoutADestinationFoldsItsDrop(t *testing.T) {
 		}
 	}
 
+	if got := len(fab.Report()); got != frames {
+		t.Fatalf("pending journeys = %d, want %d", got, frames)
+	}
+	if got := fab.Run(frames + 1).Steps; got != frames {
+		t.Fatalf("steps = %d, want %d", got, frames)
+	}
 	if reported := fab.Report(); len(reported) != 0 {
-		t.Errorf("Report held %d journeys before any step, want none", len(reported))
+		t.Errorf("Report held %d journeys after host events, want none", len(reported))
 	}
 	stats := fab.Flows()[4]
 	if stats.Offered != frames {

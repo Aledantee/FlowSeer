@@ -71,8 +71,8 @@ func newTopology(t topology) (*Fabric, error) {
 		topology: t, clock: t.start, evidence: t.evidence,
 		links: make([]Link, len(t.cables)), linkTrust: make([]linkTrust, len(t.cables)),
 		byEnd: make(map[Endpoint]linkEndRef), uncabled: make(map[Endpoint]Uncabled),
-		wakes: make(map[string]time.Time), dequeueItems: make(map[Endpoint]int), wakeItems: make(map[string]int),
-		nextFrameID: 1, nextSeq: 1, journeys: make(map[FrameID]*Journey), entered: make(map[FrameID]map[Endpoint]bool),
+		arrivalQueue: arrivalQueue{wakes: make(map[string]time.Time), dequeueItems: make(map[Endpoint]int), wakeItems: make(map[string]int)},
+		nextFrameID:  1, nextSeq: 1, journeys: make(map[FrameID]*Journey), entered: make(map[FrameID]map[Endpoint]bool),
 		cableCrossings: make(map[Endpoint]uint), inflight: make(map[FrameID]int), heldAggregates: make(map[string][]FrameID),
 	}
 	for i, c := range t.cables {

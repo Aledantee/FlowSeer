@@ -36,8 +36,8 @@ func TestHostBoundLegRecordsCrossing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result := fab.Run(10); result.Steps != 3 {
-		t.Errorf("steps = %d, want 3 (two switches and the host)", result.Steps)
+	if result := fab.Run(10); result.Steps != 4 {
+		t.Errorf("steps = %d, want 4 (host transmission, two switches, and host delivery)", result.Steps)
 	}
 	j := fab.Report()[id-1]
 	var crossings int
@@ -277,6 +277,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: netaddr.MAC{0, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0, 0, 0, 0, 0, 1}}}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	fab.Step()
 	second, _ := fab.Step()
 	third, _ := fab.Step()
@@ -318,8 +319,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	}
 
 	steps := fab.Run(10).Steps
-	if steps != 3 {
-		t.Fatalf("steps = %d, want 3", steps)
+	if steps != 4 {
+		t.Fatalf("steps = %d, want 4", steps)
 	}
 
 	journeys := fab.Report()
@@ -408,8 +409,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	}
 
 	stepsRev := fab.Run(10).Steps
-	if stepsRev != 3 {
-		t.Fatalf("stepsRev = %d, want 3", stepsRev)
+	if stepsRev != 4 {
+		t.Fatalf("stepsRev = %d, want 4", stepsRev)
 	}
 
 	journeys = fab.Report()
@@ -450,6 +451,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
+	stepHostInputs(t, fab, 1)
 	steps := fab.Run(1).Steps
 	if steps != 1 {
 		t.Fatalf("steps = %d, want 1", steps)
@@ -538,7 +540,9 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	expectedSteps := []stepExpectation{
+		{device: "h1", at: t0},
 		{device: "sw1", port: "1/1/1", at: t0.Add(672 * time.Nanosecond)},
+		{device: "h2", at: t0.Add(time.Microsecond)},
 		{device: "sw2", port: "1/1/1", at: t0.Add(1672 * time.Nanosecond)},
 		{device: "sw2", port: "1/1/24", at: t0.Add(2870 * time.Nanosecond)},
 		{device: "h2", at: t0.Add(3542 * time.Nanosecond)},
@@ -560,7 +564,7 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	if _, ok := fab.Step(); ok {
-		t.Errorf("expected queue to be empty after 6 steps")
+		t.Errorf("expected queue to be empty after 8 steps")
 	}
 
 	journeys := fab.Report()
@@ -1736,6 +1740,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 		t.Fatalf("Inject h3: %v", err)
 	}
 
+	stepHostInputs(t, fab, 2)
 	step1, ok := fab.Step()
 	if !ok {
 		t.Fatal("step 1 returned ok=false")
@@ -2140,6 +2145,7 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 		t.Fatalf("Inject 2: %v", err)
 	}
 
+	stepHostInputs(t, fab, 2)
 	step1, ok := fab.Step()
 	if !ok {
 		t.Fatal("step 1 ok=false")
@@ -2218,6 +2224,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject from a host on a Down link: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if len(fab.Snapshot().Queue) != 0 {
 		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
 	}
@@ -2269,6 +2276,7 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject from a host on an Unknown link: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if len(fab.Snapshot().Queue) != 0 {
 		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
 	}
@@ -2480,6 +2488,10 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject queued frame: %v", err)
 	}
+	stepHostInputs(t, fab, 2)
+	if got := fab.Snapshot().Queued[fabric.Endpoint{Node: "h1"}]; got != 1 {
+		t.Fatalf("queued host frames = %d, want 1", got)
+	}
 	hostEnd := fabric.Endpoint{Node: "h1"}
 	switchEnd := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
 	if err := fab.SetFault(hostEnd, switchEnd, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
@@ -2510,6 +2522,7 @@ func TestInjectRefusesTimeBeforeRunningClock(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("Inject initial frame: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if _, ok := fab.Step(); !ok {
 		t.Fatal("Step returned no entry")
 	}
@@ -2796,6 +2809,16 @@ func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
 	for _, copy := range copies {
 		if journeyHasKind(copy.Entries, fabric.EntryLoop) {
 			t.Errorf("sibling copy %d entries = %+v, want no EntryLoop", copy.FrameID, copy.Entries)
+		}
+	}
+}
+
+func stepHostInputs(t *testing.T, fab *fabric.Fabric, count int) {
+	t.Helper()
+	for i := range count {
+		entry, ok := fab.Step()
+		if !ok || entry.Kind != fabric.EntryInjection {
+			t.Fatalf("host input %d = %+v, %t, want Injection", i, entry, ok)
 		}
 	}
 }

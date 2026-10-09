@@ -44,8 +44,8 @@ func TestPortCountersForwardingAndEgressDropExport(t *testing.T) {
 	}
 
 	steps := fab.Run(10).Steps
-	if steps != 3 {
-		t.Fatalf("steps = %d, want 3", steps)
+	if steps != 4 {
+		t.Fatalf("steps = %d, want 4", steps)
 	}
 
 	snap := fab.Snapshot()

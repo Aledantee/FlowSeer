@@ -364,7 +364,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	}
 
 	_, err = fab.Inject(fabric.Injection{
-		At:     cfg.Start,
+		At:     fab.Snapshot().Clock,
 		Origin: fabric.Endpoint{Node: "h1"},
 		Packet: &fabric.Packet{
 			To:       netip.MustParseAddr("10.0.10.9"),

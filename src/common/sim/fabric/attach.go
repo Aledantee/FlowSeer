@@ -5,6 +5,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
@@ -31,8 +32,9 @@ type attachedSource struct {
 
 // AttachStream adds a finite source to the run. It refuses a nil source, an
 // invalid origin, a zero flow, an unknown retention, or a start before the
-// clock after stepping has begun. The source is read by Step and Run, and Fork
-// copies its current cursor.
+// clock after stepping has begun. Attachment reads its first frame. Each stream
+// event introduces that frame and reads its successor. Fork copies the cursor.
+// A refused codec frame or backward offset ends only that stream, with an issue on its flow.
 func (f *Fabric) AttachStream(att StreamAttachment) error {
 	if att.Source == nil {
 		return errs.New().Msg("stream source is nil")
@@ -70,7 +72,9 @@ func (f *Fabric) AttachStream(att StreamAttachment) error {
 			Msg("stream start precedes fabric clock")
 	}
 
+	f.initRunState()
 	f.attachments = append(f.attachments, attachedSource{attachment: att})
+	f.nextStreamFrame(len(f.attachments) - 1)
 	return nil
 }
 
@@ -83,83 +87,57 @@ func (f *Fabric) sourcesPending() bool {
 	return false
 }
 
-func (f *Fabric) pullInputs() {
-	defer f.settleTouched()
-
-	for i := range f.attachments {
-		source := &f.attachments[i]
-		if source.ended || source.peeked {
-			continue
-		}
-		offset, frame, ok := source.attachment.Source.Next()
-		if !ok {
-			source.ended = true
-			continue
-		}
-		source.at = f.topology.start.Add(source.attachment.Start).Add(offset)
-		source.frame = frame
-		source.peeked = true
-	}
-
-	for {
-		selected := -1
-		for i := range f.attachments {
-			source := &f.attachments[i]
-			if source.peeked && (selected < 0 || source.at.Before(f.attachments[selected].at)) {
-				selected = i
-			}
-		}
-		pendingFirst := len(f.pendingHosts) > 0 &&
-			(selected < 0 || !f.attachments[selected].at.Before(f.pendingHosts[0].at))
-		if selected < 0 && !pendingFirst {
-			return
-		}
-
-		var at time.Time
-		if pendingFirst {
-			at = f.pendingHosts[0].at
-		} else {
-			at = f.attachments[selected].at
-		}
-		if len(f.queue) > 0 && at.After(f.queue[0].At) {
-			return
-		}
-
-		if pendingFirst {
-			item := f.pendingHosts[0]
-			f.pendingHosts[0] = pendingHostInjection{}
-			f.pendingHosts = f.pendingHosts[1:]
-			f.inflightRemove(item.fid)
-			f.injectHostFrame(item.at, item.origin, item.frame, item.pcp, item.seq, item.fid, f.journeys[item.fid])
-			continue
-		}
-
-		source := &f.attachments[selected]
-		if _, unnamed := f.topology.nodes[source.attachment.Origin.Node].physical[""]; unnamed {
-			ref, _ := f.linkEnd(source.attachment.Origin.Node, "")
-			if ref.end.Oper == port.Down {
-				source.ended = true
-				source.peeked = false
-				continue
-			}
-		}
-
-		_, err := f.inject(Injection{
-			At: source.at, Origin: source.attachment.Origin, Frame: source.frame,
-			Flow: source.attachment.Flow, Retention: source.attachment.Retention,
-		}, false)
-		if err != nil {
-			f.err = errs.Wrap(err, "inject attached stream frame")
-			return
-		}
+func (f *Fabric) nextStreamFrame(index int) {
+	source := &f.attachments[index]
+	offset, frame, ok := source.attachment.Source.Next()
+	if !ok {
+		source.ended = true
 		source.peeked = false
-		offset, frame, ok := source.attachment.Source.Next()
-		if !ok {
-			source.ended = true
-			continue
-		}
-		source.at = f.topology.start.Add(source.attachment.Start).Add(offset)
-		source.frame = frame
-		source.peeked = true
+		return
 	}
+	at := f.topology.start.Add(source.attachment.Start).Add(offset)
+	if source.peeked && at.Before(source.at) {
+		f.endStream(source, errs.Msg("stream offset runs backward"))
+		return
+	}
+	source.at, source.frame, source.peeked = at, cloneFrame(frame), true
+	seq := f.nextSeq
+	f.nextSeq++
+	f.enqueue(Arrival{At: at, Kind: ArrivalStream, Seq: seq, Device: source.attachment.Origin.Node, Port: source.attachment.Origin.Port, source: index})
+}
+
+func (f *Fabric) stepStream(at time.Time, index int) {
+	source := &f.attachments[index]
+	if _, err := source.frame.Encode(); err != nil {
+		f.endStream(source, errs.Wrap(err, "encode attached stream frame"))
+		return
+	}
+	if _, unnamed := f.topology.nodes[source.attachment.Origin.Node].physical[""]; unnamed {
+		ref, _ := f.linkEnd(source.attachment.Origin.Node, "")
+		if ref.end.Oper == port.Down {
+			source.ended, source.peeked = true, false
+			source.frame = ethernet.Frame{}
+			return
+		}
+	}
+	_, err := f.inject(Injection{
+		At: at, Origin: source.attachment.Origin, Frame: source.frame,
+		Flow: source.attachment.Flow, Retention: source.attachment.Retention,
+	}, false)
+	if err != nil {
+		f.endStream(source, errs.Wrap(err, "inject attached stream frame"))
+		return
+	}
+	f.nextStreamFrame(index)
+}
+
+func (f *Fabric) endStream(source *attachedSource, err error) {
+	source.ended, source.peeked = true, false
+	source.frame = ethernet.Frame{}
+	issue := analysis.Issue{
+		Code: IssueStreamFault, Status: analysis.Unsupported,
+		Scope: analysis.WholeScope(), Message: err.Error(),
+	}
+	stats := f.flowAccumulator(source.attachment.Flow)
+	stats.Metadata = stats.Metadata.Merge(analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, analysis.EvidenceCatalog{}, nil))
 }
