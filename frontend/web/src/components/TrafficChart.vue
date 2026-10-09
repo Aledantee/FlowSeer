@@ -38,26 +38,40 @@ onMounted(() => {
 })
 onUnmounted(() => observer?.disconnect())
 
-// Round the axis top up to a step of 1, 2, or 5 × 10ⁿ so gridlines land on
-// readable values.
+// Round the axis top up to a step of 1, 2, or 5 × 10ⁿ in scaled units so
+// gridlines land on readable values.
+const maxMbps = computed(() =>
+  Math.max(0, ...props.points.map((point) => point.mbps)),
+)
+const isGbps = computed(() => maxMbps.value >= 1000)
+const scaleFactor = computed(() => (isGbps.value ? 1000 : 1))
+const unitKey = computed<'gbps' | 'mbps'>(() =>
+  isGbps.value ? 'gbps' : 'mbps',
+)
+const unitLabel = computed(() => t(`view.common.units.${unitKey.value}`))
+
+const scaledValue = (mbps: number) => mbps / scaleFactor.value
+
 const ceiling = computed(() => {
-  const max = Math.max(1, ...props.points.map((point) => point.mbps))
+  const scaledMax = scaledValue(maxMbps.value)
+  const max = Math.max(1, scaledMax)
   const magnitude = 10 ** Math.floor(Math.log10(max))
   const step = [1, 2, 5, 10].find((f) => f * magnitude >= max) ?? 10
   return step * magnitude
 })
+
 const ticks = computed(() => [0, 0.5, 1].map((f) => f * ceiling.value))
 const x = (index: number) =>
   pad.left +
   (index * (width.value - pad.left - pad.right)) /
     Math.max(1, props.points.length - 1)
-const y = (mbps: number) =>
-  pad.top + (1 - mbps / ceiling.value) * (height - pad.top - pad.bottom)
+const y = (scaled: number) =>
+  pad.top + (1 - scaled / ceiling.value) * (height - pad.top - pad.bottom)
 const line = computed(() =>
   props.points
     .map(
       (point, index) =>
-        `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(point.mbps).toFixed(1)}`,
+        `${index ? 'L' : 'M'}${x(index).toFixed(1)},${y(scaledValue(point.mbps)).toFixed(1)}`,
     )
     .join(''),
 )
@@ -70,10 +84,32 @@ const current = computed(() =>
   active.value === undefined ? undefined : props.points[active.value],
 )
 
+function shouldShowTimeLabel(index: number): boolean {
+  const len = props.points.length
+  if (len <= 1) return true
+  if (index === 0 || index === len - 1) return true
+
+  const availableWidth = width.value - pad.left - pad.right
+  if (len <= 6) {
+    if (availableWidth >= 360) return true
+    if (availableWidth >= 240) return index % 2 === 0
+    return false
+  }
+
+  if (availableWidth >= 480) {
+    return index % 6 === 0
+  }
+  if (availableWidth >= 300) {
+    return index % 12 === 0
+  }
+  return false
+}
+
 function track(event: PointerEvent) {
   const box = frame.value?.getBoundingClientRect()
   if (!box) return
-  const step = (width.value - pad.left - pad.right) / (props.points.length - 1)
+  const step =
+    (width.value - pad.left - pad.right) / Math.max(1, props.points.length - 1)
   const index = Math.round((event.clientX - box.left - pad.left) / step)
   active.value = Math.min(props.points.length - 1, Math.max(0, index))
 }
@@ -134,10 +170,16 @@ function step(event: KeyboardEvent) {
           </template>
           <template v-for="(point, index) in points" :key="index">
             <text
-              v-if="index % 6 === 0 || index === points.length - 1"
+              v-if="shouldShowTimeLabel(index)"
               :x="x(index)"
               :y="height - 6"
-              :text-anchor="index === points.length - 1 ? 'end' : 'middle'"
+              :text-anchor="
+                index === points.length - 1
+                  ? 'end'
+                  : index === 0
+                    ? 'start'
+                    : 'middle'
+              "
             >
               {{
                 index === points.length - 1
@@ -160,7 +202,7 @@ function step(event: KeyboardEvent) {
           <circle
             class="traffic-dot"
             :cx="x(active)"
-            :cy="y(current.mbps)"
+            :cy="y(scaledValue(current.mbps))"
             r="4"
           />
         </g>
@@ -170,7 +212,7 @@ function step(event: KeyboardEvent) {
         class="traffic-tooltip"
         :style="{
           left: `${x(active)}px`,
-          top: `${y(current.mbps)}px`,
+          top: `${y(scaledValue(current.mbps))}px`,
         }"
         :class="{ flip: x(active) > width * 0.7 }"
       >
@@ -181,9 +223,11 @@ function step(event: KeyboardEvent) {
         }}</small>
         <strong>
           <I18nT scope="global" keypath="view.common.valueWithUnit">
-            <template #value>{{ n(current.mbps, 'decimal') }}</template>
+            <template #value>{{
+              n(scaledValue(current.mbps), 'decimal')
+            }}</template>
             <template #unit>
-              <span>{{ t('view.common.units.mbps') }}</span>
+              <span>{{ unitLabel }}</span>
             </template>
           </I18nT>
         </strong>
@@ -201,7 +245,7 @@ function step(event: KeyboardEvent) {
           <th scope="col">
             {{
               t('view.trafficChart.traffic', {
-                unit: t('view.common.units.mbps'),
+                unit: unitLabel,
               })
             }}
           </th>
@@ -210,7 +254,7 @@ function step(event: KeyboardEvent) {
       <tbody>
         <tr v-for="(point, index) in points" :key="index">
           <td>{{ hourLabel(point.hour) }}</td>
-          <td>{{ n(point.mbps, 'decimal') }}</td>
+          <td>{{ n(scaledValue(point.mbps), 'decimal') }}</td>
         </tr>
       </tbody>
     </table>

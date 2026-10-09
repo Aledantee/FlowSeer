@@ -42,6 +42,15 @@ describe('scope overview', () => {
     expect(history[0]?.hour).toBe(4)
     expect(history.at(-1)).toEqual({ hour: 3, mbps: live })
   })
+  it('generates a 6-hour history ending at the live aggregate', () => {
+    const history = trafficHistory(devices, 3, 6)
+    const live = devices
+      .filter((device) => device.health !== 'Offline')
+      .reduce((sum, device) => sum + device.throughput, 0)
+    expect(history).toHaveLength(6)
+    expect(history[0]?.hour).toBe(22)
+    expect(history.at(-1)).toEqual({ hour: 3, mbps: live })
+  })
   it('ranks the worst site first and names its newest issue', () => {
     const ranked = rankSites(siteRollups(devices, sites)).map(
       (rollup) => rollup.site.id,
