@@ -182,3 +182,12 @@ func reflectorBaseConfig(t *testing.T) assembly.Config {
 
 	return cfg
 }
+
+func newEmptyFabric(t *testing.T, start time.Time) *fabric.Fabric {
+	t.Helper()
+	f, err := fabric.New(fabric.Config{Start: start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}

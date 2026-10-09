@@ -220,7 +220,7 @@ func (a Action) Normalize() (Action, error) {
 	return cp, nil
 }
 
-// Clone returns an independent deep copy of the Action.
+// Clone copies action storage and shares immutable frame tags and payload.
 func (a Action) Clone() Action {
 	cp := a
 	if a.Inject != nil {
@@ -533,7 +533,7 @@ func (s Scenario) Normalize() (Scenario, error) {
 	return norm, nil
 }
 
-// Clone returns an independent deep copy of the Scenario.
+// Clone copies scenario storage and shares immutable frame tags and payload.
 func (s Scenario) Clone() Scenario {
 	cp := Scenario{
 		Name: s.Name,

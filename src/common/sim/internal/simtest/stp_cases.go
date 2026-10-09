@@ -351,7 +351,7 @@ func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src,
 	}
 
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: originHost},
 		Frame:  ethernet.Frame{Src: src, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("mst")},
 	})

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
@@ -200,7 +201,7 @@ func Spec(f *fabric.Fabric) ConstructionSpec {
 		Switches: make(map[string]vswitch.ConstructionSpec), Hosts: make(map[string]hostmodel.Config), Reflectors: make(map[string]reflectormodel.Config),
 	}
 	for name, node := range top.Nodes {
-		switch d := node.Device.(type) {
+		switch d := f.Device(name).(type) {
 		case *vswitch.Switch:
 			swSpec := d.Spec()
 			swSpec.Config.Ports = node.Ports.Clone()
@@ -488,9 +489,11 @@ func Retention(f *fabric.Fabric) map[string]vswitch.Retention {
 	nodes := f.Config().Nodes
 	ret := make(map[string]vswitch.Retention)
 	for _, name := range slices.Sorted(maps.Keys(nodes)) {
-		if sw, ok := nodes[name].Device.(*vswitch.Switch); ok {
-			ret[name] = sw.Retention()
-		}
+		f.Inspect(name, func(d device.Device) {
+			if sw, ok := d.(*vswitch.Switch); ok {
+				ret[name] = sw.Retention()
+			}
+		})
 	}
 	return ret
 }

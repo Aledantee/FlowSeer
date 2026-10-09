@@ -33,7 +33,8 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 		Tags:    []vlan.Tag{tag},
 		Payload: []byte{1},
 	}
-	f := &Fabric{journeys: map[FrameID]*Journey{
+	f := newRunFabric(t, time.Time{})
+	f.journeys = map[FrameID]*journey{
 		1: {
 			FrameID: 1,
 			Injection: Injection{
@@ -53,7 +54,7 @@ func TestReportDeepClonesNestedJourneyData(t *testing.T) {
 				},
 			}},
 		},
-	}}
+	}
 
 	report := f.Report()
 	report[0].Injection.Frame.Tags[0].VID = 20
@@ -106,11 +107,9 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	ep := Endpoint{Node: "sw1", Port: "e0"}
 
 	t.Run("dequeue before the clock", func(t *testing.T) {
-		f := &Fabric{
-			egress:  map[Endpoint]*egressQueue{ep: {}},
-			clock:   base,
-			stepped: true,
-		}
+		f := newRunFabric(t, base)
+		f.egress = map[Endpoint]*egressQueue{ep: {}}
+		f.stepped = true
 
 		f.scheduleDequeue(ep, base.Add(-time.Second))
 
@@ -132,9 +131,8 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 
 	t.Run("second dequeue while one is pending", func(t *testing.T) {
-		f := &Fabric{
-			egress: map[Endpoint]*egressQueue{ep: {dequeuePending: true}},
-		}
+		f := newRunFabric(t, time.Time{})
+		f.egress = map[Endpoint]*egressQueue{ep: {dequeuePending: true}}
 
 		f.scheduleDequeue(ep, base)
 
@@ -147,11 +145,9 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 	})
 
 	t.Run("Run halts and Err keeps the first fault", func(t *testing.T) {
-		f := &Fabric{
-			egress:  map[Endpoint]*egressQueue{ep: {}},
-			clock:   base,
-			stepped: true,
-		}
+		f := newRunFabric(t, base)
+		f.egress = map[Endpoint]*egressQueue{ep: {}}
+		f.stepped = true
 
 		f.scheduleDequeue(ep, base.Add(-time.Second))
 		first := f.Err()
@@ -180,7 +176,7 @@ func TestHeldDropCountsOnlyAgainstAPort(t *testing.T) {
 
 	t.Run("a drop naming no port creates no endpoint", func(t *testing.T) {
 		t.Parallel()
-		f := &Fabric{clock: base}
+		f := newRunFabric(t, base)
 		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "interface", Key: "vlan20"}},
 			Reason: routing.ReasonNeighborMiss,
@@ -193,7 +189,7 @@ func TestHeldDropCountsOnlyAgainstAPort(t *testing.T) {
 
 	t.Run("a drop naming a port counts against it", func(t *testing.T) {
 		t.Parallel()
-		f := &Fabric{clock: base}
+		f := newRunFabric(t, base)
 		f.applyOutput(base, "sw1", device.Output{Drops: []device.Drop{{
 			Step:   trace.Step{Subject: trace.Subject{Kind: "port", Key: "1/1/2"}},
 			Port:   "1/1/2",
@@ -216,10 +212,8 @@ func TestHeldDropCountsOnlyAgainstAPort(t *testing.T) {
 func TestUnknownHoldTokenStartsOneJourney(t *testing.T) {
 	t.Parallel()
 
-	f := &Fabric{
-		journeys: make(map[FrameID]*Journey),
-	}
-	f.initRunState()
+	f := newRunFabric(t, time.Time{})
+	f.journeys = make(map[FrameID]*journey)
 
 	em := device.Emission{
 		Port:     "swp1",
@@ -233,7 +227,7 @@ func TestUnknownHoldTokenStartsOneJourney(t *testing.T) {
 	if len(f.journeys) != 1 {
 		t.Fatalf("len(journeys) = %d, want 1", len(f.journeys))
 	}
-	var j *Journey
+	var j *journey
 	for _, journey := range f.journeys {
 		j = journey
 	}
@@ -257,3 +251,12 @@ type topSpeedFact uint64
 
 func (f topSpeedFact) TypeID() string    { return "fabric.top_speed_bps" }
 func (f topSpeedFact) Canonical() string { return strconv.FormatUint(uint64(f), 10) }
+
+func newRunFabric(t *testing.T, start time.Time) *Fabric {
+	t.Helper()
+	f, err := New(Config{Start: start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return f
+}

@@ -73,7 +73,6 @@ func (f *Fabric) AttachStream(att StreamAttachment) error {
 			Msg("stream start precedes fabric clock")
 	}
 
-	f.initRunState()
 	f.attachments = append(f.attachments, attachedSource{attachment: att})
 	f.nextStreamFrame(len(f.attachments) - 1)
 	return nil
@@ -101,7 +100,7 @@ func (f *Fabric) nextStreamFrame(index int) {
 		f.endStream(source, errs.Msg("stream offset runs backward"))
 		return
 	}
-	source.at, source.frame, source.peeked = at, cloneFrame(frame), true
+	source.at, source.frame, source.peeked = at, frame, true
 	seq := f.nextSeq
 	f.nextSeq++
 	f.enqueue(Arrival{At: at, Kind: ArrivalStream, Seq: seq, Device: source.attachment.Origin.Node, Port: source.attachment.Origin.Port, source: index})

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -243,7 +244,7 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 	// Prime 2048 learned forwarding entries (256 per switch)
 	entriesPerSwitch := RepresentativeScaleLearnedEntries / RepresentativeScaleNodeCount
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		sw := fab.Device(fmt.Sprintf("sw%d", s)).(*vswitch.Switch)
+		name := fmt.Sprintf("sw%d", s)
 		seeds := make([]bridge.Seed, entriesPerSwitch)
 		for e := range entriesPerSwitch {
 			fid := vlanList[e%len(vlanList)]
@@ -256,7 +257,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 				Lifetime: bridge.Aging,
 			}
 		}
-		mustNil(sw.Learn(seeds))
+		mustNil(fabric.Operate(fab, name, func(d device.Device, _ time.Time) (device.Output, error) {
+			return device.Output{}, d.(*vswitch.Switch).Learn(seeds)
+		}))
 	}
 
 	// Prime queued arrivals up to queueDepth

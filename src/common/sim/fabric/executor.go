@@ -104,7 +104,6 @@ func (f *Fabric) applyAction(a Action) error {
 		}
 		if rec.OriginalLen > rec.CapturedLen {
 			if j := f.journeys[fid]; j != nil {
-				j.State = JourneyTruncated
 				issue := analysis.Issue{
 					Code:    IssueTruncatedRecord,
 					Status:  analysis.Incomplete,
@@ -136,7 +135,6 @@ func (f *Fabric) run(budget int, window int) RunResult {
 }
 
 func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunResult, error) {
-	f.initRunState()
 
 	f.enqueueActions(actions)
 
@@ -215,7 +213,7 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 				lastFingerprint = fp
 				wakeArrivalsSinceChange = 0
 			}
-			if entry.Kind == EntryWake {
+			if entry.Arrival == ArrivalWake {
 				wakeArrivalsSinceChange++
 			}
 

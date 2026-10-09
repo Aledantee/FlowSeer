@@ -1,16 +1,14 @@
-// Package fabric composes virtual switches, hosts, and cables into a Layer 2 network fabric.
 package fabric
 
 import (
 	"maps"
 	"slices"
-	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // Fork returns an independent execution copy of the fabric at its current simulation point.
-// Construction inputs and immutable frames are shared; all simulation state is deep-copied.
+// Immutable evidence and frame buffers are shared. Simulation state is copied independently.
 func (f *Fabric) Fork() *Fabric {
 	links := make([]Link, len(f.links))
 	for i, l := range f.links {
@@ -24,11 +22,9 @@ func (f *Fabric) Fork() *Fabric {
 	}
 
 	var uncabled map[Endpoint]Uncabled
-	if f.uncabled != nil {
-		uncabled = make(map[Endpoint]Uncabled, len(f.uncabled))
-		for ep, u := range f.uncabled {
-			uncabled[ep] = u.Clone()
-		}
+	uncabled = make(map[Endpoint]Uncabled, len(f.uncabled))
+	for ep, u := range f.uncabled {
+		uncabled[ep] = u.Clone()
 	}
 
 	topology := f.topology.clone()
@@ -40,23 +36,15 @@ func (f *Fabric) Fork() *Fabric {
 	var queue []Arrival
 	if len(f.queue) > 0 {
 		queue = slices.Clone(f.queue)
-		for i := range queue {
-			if queue[i].Kind == ArrivalHost {
-				queue[i].Frame = cloneFrame(queue[i].Frame)
-			}
-		}
 	}
 	attachments := make([]attachedSource, len(f.attachments))
 	for i, source := range f.attachments {
 		attachments[i] = source
 		attachments[i].attachment.Source = source.attachment.Source.Clone()
-		attachments[i].frame = cloneFrame(source.frame)
+		attachments[i].frame = source.frame
 	}
 
-	var wakes map[string]time.Time
-	if f.wakes != nil {
-		wakes = maps.Clone(f.wakes)
-	}
+	wakes := maps.Clone(f.wakes)
 
 	var dequeueItems map[Endpoint]int
 	if len(f.dequeueItems) > 0 {
@@ -68,38 +56,26 @@ func (f *Fabric) Fork() *Fabric {
 		wakeItems = maps.Clone(f.wakeItems)
 	}
 
-	var journeys map[FrameID]*Journey
-	if f.journeys != nil {
-		journeys = make(map[FrameID]*Journey, len(f.journeys))
-		for id, j := range f.journeys {
-			journeys[id] = j.shallowClone()
-		}
+	var journeys map[FrameID]*journey
+	journeys = make(map[FrameID]*journey, len(f.journeys))
+	for id, j := range f.journeys {
+		journeys[id] = j.shallowClone()
 	}
 
 	var entered map[FrameID]map[Endpoint]bool
-	if f.entered != nil {
-		entered = make(map[FrameID]map[Endpoint]bool, len(f.entered))
-		for id, eps := range f.entered {
-			entered[id] = maps.Clone(eps)
-		}
+	entered = make(map[FrameID]map[Endpoint]bool, len(f.entered))
+	for id, eps := range f.entered {
+		entered[id] = maps.Clone(eps)
 	}
 
-	var cableCrossings map[Endpoint]uint
-	if f.cableCrossings != nil {
-		cableCrossings = maps.Clone(f.cableCrossings)
-	}
+	cableCrossings := maps.Clone(f.cableCrossings)
 
-	var busyUntil map[Endpoint]time.Time
-	if f.busyUntil != nil {
-		busyUntil = maps.Clone(f.busyUntil)
-	}
+	busyUntil := maps.Clone(f.busyUntil)
 
 	var egress map[Endpoint]*egressQueue
-	if f.egress != nil {
-		egress = make(map[Endpoint]*egressQueue, len(f.egress))
-		for ep, q := range f.egress {
-			egress[ep] = cloneEgressQueue(q, journeys)
-		}
+	egress = make(map[Endpoint]*egressQueue, len(f.egress))
+	for ep, q := range f.egress {
+		egress[ep] = cloneEgressQueue(q, journeys)
 	}
 
 	var unstatedBacked map[Endpoint]trace.EvidenceRef
@@ -107,10 +83,7 @@ func (f *Fabric) Fork() *Fabric {
 		unstatedBacked = maps.Clone(f.unstatedBacked)
 	}
 
-	var inflight map[FrameID]int
-	if f.inflight != nil {
-		inflight = maps.Clone(f.inflight)
-	}
+	inflight := maps.Clone(f.inflight)
 
 	var held map[holdKey]FrameID
 	if len(f.held) > 0 {
@@ -130,10 +103,8 @@ func (f *Fabric) Fork() *Fabric {
 	if f.counters != nil {
 		counters = make(map[Endpoint]*Counters, len(f.counters))
 		for ep, c := range f.counters {
-			if c != nil {
-				cloned := c.Clone()
-				counters[ep] = &cloned
-			}
+			cloned := c.Clone()
+			counters[ep] = &cloned
 		}
 	}
 
@@ -192,17 +163,14 @@ func cloneLinkTrustSlice(trust []linkTrust) []linkTrust {
 	return cp
 }
 
-func cloneEgressQueue(q *egressQueue, journeys map[FrameID]*Journey) *egressQueue {
-	if q == nil {
-		return nil
-	}
+func cloneEgressQueue(q *egressQueue, journeys map[FrameID]*journey) *egressQueue {
 	cp := *q
 	for i := 0; i < 8; i++ {
 		if len(q.pending[i]) > 0 {
 			pending := make([]queued, len(q.pending[i]))
 			for j, item := range q.pending[i] {
 				pending[j] = item
-				if journeys != nil && journeys[item.fid] != nil {
+				if journeys[item.fid] != nil {
 					pending[j].journey = journeys[item.fid]
 				} else if item.journey != nil {
 					pending[j].journey = item.journey.shallowClone()

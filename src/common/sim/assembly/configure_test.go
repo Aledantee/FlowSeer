@@ -266,7 +266,7 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 
 	// Retention matches vswitch.Derive on the same pair.
 	targetSpec := fab.Device("sw1").(*vswitch.Switch).Spec()
-	derivedDirect, _, err := vswitch.Derive(swBefore, targetSpec, fab.Snapshot().Clock)
+	derivedDirect, _, err := vswitch.Derive(swBefore, targetSpec, fab.Clock())
 	if err != nil {
 		t.Fatalf("vswitch.Derive: %v", err)
 	}
@@ -565,7 +565,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 	}
 
 	// Switch held the frame. Now configure sw1 adding a static route at time t.
-	tConfigure := fab.Snapshot().Clock
+	tConfigure := fab.Clock()
 	newCfg := fab.Device("sw1").(*vswitch.Switch).Config()
 	vrf := newCfg.Routing.VRFs[routing.DefaultVRF]
 	vrf.Routes = append(vrf.Routes, routing.Route{

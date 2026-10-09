@@ -30,7 +30,6 @@ func (f *Fabric) Inject(inj Injection) (FrameID, error) {
 }
 
 func (f *Fabric) inject(inj Injection, queueHost bool) (FrameID, error) {
-	f.initRunState()
 	if inj.At.Before(f.clock) {
 		return 0, errs.New().Attr("at", inj.At).Attr("clock", f.clock).
 			Msg("injection time precedes fabric clock")
@@ -91,7 +90,7 @@ func (f *Fabric) inject(inj Injection, queueHost bool) (FrameID, error) {
 	seq := f.nextSeq
 	f.nextSeq++
 
-	journey := &Journey{
+	journey := &journey{
 		FrameID:   fid,
 		Origin:    JourneyOrigin{Kind: OriginInjection},
 		Injection: inj,
@@ -110,7 +109,7 @@ func (f *Fabric) inject(inj Injection, queueHost bool) (FrameID, error) {
 	case hostRef != nil && queueHost:
 		f.enqueue(Arrival{
 			At: inj.At, Kind: ArrivalHost, Seq: seq, Device: inj.Origin.Node,
-			Frame: cloneFrame(frame), FrameID: fid, pcp: originated.Emissions[0].PCP,
+			Frame: frame, FrameID: fid, pcp: originated.Emissions[0].PCP,
 		})
 	case hostRef != nil:
 		f.injectHostFrame(inj.At, inj.Origin, frame, originated.Emissions[0].PCP, seq, fid, journey)
@@ -131,7 +130,7 @@ func (f *Fabric) inject(inj Injection, queueHost bool) (FrameID, error) {
 	return fid, nil
 }
 
-func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.Frame, pcp vlan.PCP, seq uint64, fid FrameID, journey *Journey) {
+func (f *Fabric) injectHostFrame(at time.Time, origin Endpoint, frame ethernet.Frame, pcp vlan.PCP, seq uint64, fid FrameID, journey *journey) {
 	ref, _ := f.linkEnd(origin.Node, "")
 	if ref.end.Oper != port.Up {
 		kind := EntryDrop

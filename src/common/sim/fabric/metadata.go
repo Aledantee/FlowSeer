@@ -1,4 +1,3 @@
-// Package fabric composes virtual switches, hosts, and cables into a Layer 2 network fabric.
 package fabric
 
 import (
@@ -116,7 +115,7 @@ func (f *Fabric) mergeRaised(base analysis.Metadata, issues []analysis.Issue) an
 
 // markQueueBufferUnstated records the first threshold crossing per physical
 // endpoint before enqueue, retaining its evidence for later metadata reads.
-func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, step trace.Step, journey *Journey) {
+func (f *Fabric) markQueueBufferUnstated(now time.Time, ep Endpoint, egressPort string, pcp vlan.PCP, fid FrameID, step trace.Step, journey *journey) {
 	if _, marked := f.unstatedBacked[ep]; marked {
 		return
 	}

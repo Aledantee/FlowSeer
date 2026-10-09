@@ -177,7 +177,13 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	// The routed selection uses VID zero. A later selection from the wire tag
 	// would use a different, deliberately primed bucket.
 	primeFrame := ethernet.Frame{Src: macRouter, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, Payload: []byte("prime")}
-	zero := fab.Device("sw").(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+	var zero device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		zero = d.(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if len(zero.Egress) != 1 || zero.Egress[0].Member != "member-a" {
 		t.Fatalf("VID zero egress = %+v, want member-a", zero.Egress)
 	}
@@ -185,7 +191,13 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 		t.Fatal(err)
 	}
 	primeFrame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
-	tagged := fab.Device("sw").(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+	var tagged device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		tagged = d.(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if len(tagged.Egress) != 1 || tagged.Egress[0].Member != "member-b" {
 		t.Fatalf("VID 20 egress = %+v, want member-b", tagged.Egress)
 	}

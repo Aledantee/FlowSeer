@@ -377,7 +377,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	fid1, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h2"},
 		Frame: ethernet.Frame{
 			Src:     macs["h2"],
@@ -717,7 +717,7 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 			break
 		}
 		if entry.Device == "sw2" {
-			lastEntry = entry
+			lastEntry = entry.Entry
 			break
 		}
 	}
@@ -827,7 +827,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 		sw := fab.Device("sw2").(*vswitch.Switch)
 		lag, _ := sw.Ports().Port("lag1")
 
-		return lag.OperStatus, sw.State(fab.Snapshot().Clock).Roles["lag1"]
+		return lag.OperStatus, sw.State(fab.Clock()).Roles["lag1"]
 	}
 	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != device.StateForwarding {
 		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
@@ -1097,7 +1097,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		if !ok {
 			break
 		}
-		if entry.Kind == fabric.EntryWake && entry.Device == "sw2" && !entry.At.Before(t0.Add(5*time.Second)) {
+		if entry.Arrival == fabric.ArrivalWake && entry.Device == "sw2" && !entry.At.Before(t0.Add(5*time.Second)) {
 			break
 		}
 	}
@@ -1325,7 +1325,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 
 	fid10, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v10"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
@@ -1357,7 +1357,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	}
 
 	fid20, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v20"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},
@@ -1441,7 +1441,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	}
 
 	fid10, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v10"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
@@ -1467,7 +1467,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	}
 
 	fid20, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v20"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},

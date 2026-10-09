@@ -1,4 +1,3 @@
-// Package fabric composes virtual switches, hosts, and cables into a Layer 2 network fabric.
 package fabric
 
 import (
@@ -32,7 +31,7 @@ type Fabric struct {
 	attachments    []attachedSource
 	nextFrameID    FrameID
 	nextSeq        uint64
-	journeys       map[FrameID]*Journey
+	journeys       map[FrameID]*journey
 	entered        map[FrameID]map[Endpoint]bool
 	cableCrossings map[Endpoint]uint
 	busyUntil      map[Endpoint]time.Time

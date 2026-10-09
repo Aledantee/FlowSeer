@@ -152,24 +152,6 @@ func testPhyAssumption() *cablemodel.PhyAssumption {
 	}
 }
 
-func TestStopReasonTableNoEmptyConstant(t *testing.T) {
-	reasons := []fabric.StopReason{fabric.StopNotRun, fabric.StopQueueDrained, fabric.StopBudget, fabric.StopConverged, fabric.StopOscillating, fabric.StopFault}
-
-	seen := make(map[fabric.StopReason]bool)
-	for _, r := range reasons {
-		if r == "" {
-			t.Errorf("StopReason constant is empty string")
-		}
-		if seen[r] {
-			t.Errorf("duplicate StopReason constant %q", r)
-		}
-		seen[r] = true
-	}
-	if len(reasons) != 6 {
-		t.Errorf("got %d StopReason constants, want 6", len(reasons))
-	}
-}
-
 func TestStopReasonsCoverage(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 
@@ -222,11 +204,9 @@ func TestStopReasonsCoverage(t *testing.T) {
 
 	// StopFault
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	fabFault := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{
-		Clock:   t0,
-		Stepped: true,
-		Egress:  map[fabric.Endpoint]*fabric.ExportEgressQueue{ep: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{})},
-	})
+	fabFault := newEmptyFabric(t, t0)
+	*fabric.ExportFabricStepped(fabFault) = true
+	*fabric.ExportFabricEgress(fabFault) = map[fabric.Endpoint]*fabric.ExportEgressQueue{ep: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{})}
 	fabric.ExportFabricScheduleDequeue(fabFault, ep, t0.Add(-time.Second))
 	resFault := fabFault.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	if resFault.Stop != fabric.StopFault {
@@ -287,32 +267,31 @@ func TestBudgetAndUnsupportedBothSurvive(t *testing.T) {
 
 func TestPendingWorkHandBuiltQueue(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
-	f := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{
-		Queue: []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0, FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0.Add(time.Microsecond), FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(2 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(3 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalDequeue, At: t0.Add(4 * time.Microsecond)})},
-		Egress: map[fabric.Endpoint]*fabric.ExportEgressQueue{
-			{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
-				Pending: [8][]fabric.ExportQueued{
-					0: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("a")}})},
-					1: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("b")}}), fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("c")}})},
-				},
-			}),
-		},
-		Journeys: map[fabric.FrameID]*fabric.Journey{
-			1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
-				FrameID: 1,
-				Entries: []fabric.Entry{
-					{
-						Kind:   fabric.EntryHop,
-						Device: "sw1",
-						Result: &device.Result{
-							Trace: trace.Trace{Outcome: trace.Held},
-						},
+	f := newEmptyFabric(t, time.Time{})
+	*fabric.ExportFabricQueue(f) = []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0, FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalFrame, At: t0.Add(time.Microsecond), FrameID: 1}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(2 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalWake, At: t0.Add(3 * time.Microsecond)}), fabric.MakeTestArrival(fabric.ExportArrivalFields{Kind: fabric.ArrivalDequeue, At: t0.Add(4 * time.Microsecond)})}
+	*fabric.ExportFabricEgress(f) = map[fabric.Endpoint]*fabric.ExportEgressQueue{
+		{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
+			Pending: [8][]fabric.ExportQueued{
+				0: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("a")}})},
+				1: {fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("b")}}), fabric.MakeTestQueued(fabric.ExportQueuedFields{Fid: 1, Frame: ethernet.Frame{Payload: []byte("c")}})},
+			},
+		}),
+	}
+	*fabric.ExportFabricJourneys(f) = map[fabric.FrameID]*fabric.ExportJourney{
+		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
+			FrameID: 1,
+			Entries: []fabric.Entry{
+				{
+					Kind:   fabric.EntryHop,
+					Device: "sw1",
+					Result: &device.Result{
+						Trace: trace.Trace{Outcome: trace.Held},
 					},
 				},
-			}),
-		},
-		Inflight: map[fabric.FrameID]int{1: 5},
-	})
+			},
+		}),
+	}
+	*fabric.ExportFabricInflight(f) = map[fabric.FrameID]int{1: 5}
 
 	pw := fabric.ExportFabricPendingWork(f)
 	if pw.Arrivals != 2 {
@@ -788,9 +767,9 @@ func TestRunScenarioBudgetExhaustionReportsDroppedActions(t *testing.T) {
 
 func TestPendingInputsCounted(t *testing.T) {
 	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
-	at := fab.Snapshot().Clock.Add(time.Second)
+	at := fab.Clock().Add(time.Second)
 	frame := flowFrame(src, dst)
-	if _, err := fab.Inject(fabric.Injection{At: fab.Snapshot().Clock, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
+	if _, err := fab.Inject(fabric.Injection{At: fab.Clock(), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := fab.Inject(fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {

@@ -11,7 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func (f *Fabric) recordAcceptance(j *Journey, name, port string, frame ethernet.Frame, at time.Time, res device.Result) Entry {
+func (f *Fabric) recordAcceptance(j *journey, name, port string, frame ethernet.Frame, at time.Time, res device.Result) Entry {
 	var cable *Cable
 	if res.Acceptance == device.DeliveryAcceptance {
 		cable = f.portCable(name, port)
@@ -25,7 +25,7 @@ func (f *Fabric) recordAcceptance(j *Journey, name, port string, frame ethernet.
 		kind = EntryReflection
 		if res.Acceptance == device.DeliveryAcceptance {
 			kind = EntryDelivery
-			j.Deliveries = append(j.Deliveries, Delivery{Host: name, At: at, Frame: cloneFrame(frame)})
+			j.Deliveries = append(j.Deliveries, Delivery{Host: name, At: at, Frame: frame})
 		}
 	} else if res.Metadata.Status() == analysis.Incomplete {
 		kind = EntryUnresolved

@@ -50,7 +50,7 @@ specification and substitutes the node's configured port table.
 `assembly.Spec(f).Config()` comes from that specification. The fabric holds no
 stored switch configuration.
 
-[`Fabric.Metadata`](../../../src/common/sim/fabric/fabric.go) compares
+[`Fabric.Metadata`](../../../src/common/sim/fabric/metadata.go) compares
 `builtNode.ports` against `derivedEnd`. A conflict remains visible while the
 switch forwards using the derived state.
 

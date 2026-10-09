@@ -255,11 +255,11 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			j := fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
+			j := new(fabric.MakeTestJourney(fabric.ExportJourneyFields{
 				FrameID:  1,
 				Entries:  tc.entries,
 				Metadata: analysis.NewMetadata(analysis.WholeScope(), tc.issues, analysis.EvidenceCatalog{}, nil),
-			})
+			}))
 			got := fabric.ExportAssignJourneyState(j, tc.pending)
 			if got != tc.wantState {
 				t.Fatalf("assignJourneyState() = %q, want %q", got, tc.wantState)

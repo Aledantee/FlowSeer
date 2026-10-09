@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
@@ -639,8 +640,10 @@ func TestScenarioReplaySeededFabricEquality(t *testing.T) {
 	fab, cfg := newTestThreeHostFabric(t, t0)
 
 	macH2 := cfg.Hosts["h2"].Address
-	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{
-		{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+	if err := fabric.Operate(fab, "sw1", func(d device.Device, _ time.Time) (device.Output, error) {
+		return device.Output{}, d.(*vswitch.Switch).Learn([]bridge.Seed{
+			{MAC: macH2, Port: "1/1/2", Lifetime: bridge.Static},
+		})
 	}); err != nil {
 		t.Fatalf("Learn: %v", err)
 	}
@@ -772,7 +775,7 @@ func TestScenarioMutationIndependence(t *testing.T) {
 	clone.Actions[0].Inject.Frame.Src = netaddr.MAC{4}
 	clone.Actions[0].Inject.Frame.Tags = []vlan.Tag{{VID: 20}}
 	clone.Actions[0].Inject.Frame.EtherType = ethernet.EtherTypeIPv4
-	clone.Actions[0].Inject.Frame.Payload[0] = 'X'
+	clone.Actions[0].Inject.Frame.Payload = []byte("changed")
 	clone.Actions[0].Inject.Packet = &fabric.Packet{To: netip.MustParseAddr("192.0.2.1"), Protocol: 17, Payload: []byte("changed")}
 	clone.Actions[0].Inject.Retention = fabric.RetainAggregate
 	clone.Actions[0].Inject.Flow = 2
@@ -1065,8 +1068,11 @@ func TestActionCloneInjectionAndFaultIsolation(t *testing.T) {
 		Inject: &fabric.Injection{Frame: ethernet.Frame{Tags: []vlan.Tag{{VID: 10}}, Payload: []byte{1}}, Packet: &fabric.Packet{Payload: []byte{2}}},
 	}
 	clone := original.Clone()
-	clone.Inject.Frame.Tags[0].VID = 20
-	clone.Inject.Frame.Payload[0] = 3
+	if &clone.Inject.Frame.Tags[0] != &original.Inject.Frame.Tags[0] || &clone.Inject.Frame.Payload[0] != &original.Inject.Frame.Payload[0] {
+		t.Fatal("clone did not share immutable frame buffers")
+	}
+	clone.Inject.Frame.Tags = []vlan.Tag{{VID: 20}}
+	clone.Inject.Frame.Payload = []byte{3}
 	clone.Inject.Packet.Payload[0] = 4
 	if original.Inject.Frame.Tags[0].VID != 10 || original.Inject.Frame.Payload[0] != 1 || original.Inject.Packet.Payload[0] != 2 {
 		t.Fatal("clone shares injection buffers")

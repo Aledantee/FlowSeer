@@ -72,7 +72,8 @@ func newTopology(t topology) (*Fabric, error) {
 		links: make([]Link, len(t.cables)), linkTrust: make([]linkTrust, len(t.cables)),
 		byEnd: make(map[Endpoint]linkEndRef), uncabled: make(map[Endpoint]Uncabled),
 		arrivalQueue: arrivalQueue{wakes: make(map[string]time.Time), dequeueItems: make(map[Endpoint]int), wakeItems: make(map[string]int)},
-		nextFrameID:  1, nextSeq: 1, journeys: make(map[FrameID]*Journey), entered: make(map[FrameID]map[Endpoint]bool),
+		nextFrameID:  1, nextSeq: 1, journeys: make(map[FrameID]*journey), entered: make(map[FrameID]map[Endpoint]bool),
+		busyUntil: make(map[Endpoint]time.Time), egress: make(map[Endpoint]*egressQueue),
 		cableCrossings: make(map[Endpoint]uint), inflight: make(map[FrameID]int), held: make(map[holdKey]FrameID),
 	}
 	for i, c := range t.cables {
@@ -97,7 +98,6 @@ func newTopology(t topology) (*Fabric, error) {
 }
 
 func (f *Fabric) replace(name string, node builtNode, links []Link, trust []linkTrust, changed []int) error {
-	f.initRunState()
 	defer f.settleTouched()
 	f.links = links
 	f.linkTrust = trust
@@ -128,7 +128,6 @@ func (f *Fabric) replace(name string, node builtNode, links []Link, trust []link
 }
 
 func (f *Fabric) operate(name string, fn func(device.Device, time.Time) (device.Output, error)) error {
-	f.initRunState()
 	defer f.settleTouched()
 	out, err := fn(f.nodeDevice(name), f.clock)
 	if err != nil {
@@ -254,8 +253,25 @@ func Operate(f *Fabric, name string, fn func(device.Device, time.Time) (device.O
 	return f.operate(name, fn)
 }
 
-// Device returns the live device by name, or nil when absent. Not safe for concurrent use.
-func (f *Fabric) Device(name string) device.Device { return f.nodeDevice(name) }
+// Device returns an independent fork by name, or nil when absent.
+// Not safe for concurrent use.
+func (f *Fabric) Device(name string) device.Device {
+	if d := f.nodeDevice(name); d != nil {
+		return d.Fork()
+	}
+	return nil
+}
+
+// Inspect calls fn with the live device when name exists. The function must
+// change nothing and retain no mutable reference. Not safe for concurrent use.
+func (f *Fabric) Inspect(name string, fn func(device.Device)) {
+	if d := f.nodeDevice(name); d != nil {
+		fn(d)
+	}
+}
+
+// Clock returns the current simulation time. Not safe for concurrent use.
+func (f *Fabric) Clock() time.Time { return f.clock }
 
 func linkStateChanged(old Link, oldCfg topology, next Link, nextCfg topology) bool {
 	if old.A.Oper != next.A.Oper || old.A.Reason != next.A.Reason || old.A.Speed != next.A.Speed {

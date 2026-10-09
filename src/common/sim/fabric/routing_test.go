@@ -365,7 +365,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 	}
 
 	_, err = fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Packet: &fabric.Packet{
 			To:       netip.MustParseAddr("10.0.10.9"),
@@ -1846,7 +1846,7 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 	if len(failures) != 1 {
 		t.Fatalf("sw1 drop journeys = %d, want 1 failed held frame", len(failures))
 	}
-	if failures[0].At != derived.Snapshot().Clock || failures[0].Reason != routing.ReasonNeighborMiss {
+	if failures[0].At != derived.Clock() || failures[0].Reason != routing.ReasonNeighborMiss {
 		t.Errorf("derive drop = %+v, want neighbor-miss at derived clock", failures[0])
 	}
 }

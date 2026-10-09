@@ -207,7 +207,7 @@ func TestMinimizePaddedCounterexampleReducesToMinimal(t *testing.T) {
 	if reducedCmp.Difference.Observable != initialCmp.Difference.Observable {
 		t.Errorf("reduced candidate observable = %q, want %q", reducedCmp.Difference.Observable, initialCmp.Difference.Observable)
 	}
-	reduced.Actions[0].Inject.Frame.Payload[0] = 'X'
+	reduced.Actions[0].Inject.Frame.Payload = []byte("changed")
 	if string(paddedCandidate.Actions[1].Inject.Frame.Payload) != "critical" || paddedCandidate.Actions[1].Index != 0 {
 		t.Fatalf("original target action = %+v, want independent critical payload and unnumbered index", paddedCandidate.Actions[1])
 	}

@@ -993,6 +993,9 @@ unchanged. The retention assertions of `Fb/routing_test.go:1757` and of
 the configure test at `Fb/configure_test.go:269`, which U11 moves to `A`,
 hold after the accessor forks. `V/size_test.go`'s check is repeated for `Fb` and `A`.
 `Fb/bench_test.go` records allocations per step before and after.
+Aggregate hold fixtures read `Flows().Held` or the existing live hold key count,
+because an aggregate step no longer carries a cloned hop result. Reported
+`Journey.State` stays a computed projection and is absent from execution storage.
 
 ### U18. READMEs and records
 Files: src/common/sim/fabric/README.md, src/common/sim/README.md, src/common/sim/assembly/README.md, src/common/sim/device/README.md, src/common/sim/device/vswitch/README.md, src/common/sim/device/host/README.md, src/common/sim/device/reflector/README.md, src/common/sim/medium/cable/README.md, src/common/sim/netmodel/README.md, src/common/sim/search/README.md, CONCEPTS.md, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-10-01-simulation-package-shape-direction.md

@@ -118,7 +118,7 @@ func loopProtectCaseSpec() (assembly.ConstructionSpec, error) {
 // egress-level drop recorded while flooding out of a still-admitted port.
 func loopProtectCaseIngressBlocked(fab *fabric.Fabric, portName string) (bool, error) {
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock.Add(time.Millisecond),
+		At:     fab.Clock().Add(time.Millisecond),
 		Origin: fabric.Endpoint{Node: "sw1", Port: portName},
 		Frame:  ethernet.Frame{Dst: loopProtectCaseDst, Src: loopProtectCaseSrc, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{9, 9, 9}},
 	})
@@ -223,7 +223,7 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 
 			broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 			bfid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock.Add(time.Second),
+				At:     fab.Clock().Add(time.Second),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: broadcast, Src: loopProtectCaseH1, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{1, 2, 3}},
 			})
@@ -250,7 +250,7 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 			// The decisive journey: a frame injected directly on the blocked
 			// port, dropped at that port's own ingress.
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock.Add(time.Millisecond),
+				At:     fab.Clock().Add(time.Millisecond),
 				Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				Frame:  ethernet.Frame{Dst: loopProtectCaseDst, Src: loopProtectCaseSrc, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{9, 9, 9}},
 			})

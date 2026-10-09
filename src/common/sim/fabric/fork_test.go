@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -26,42 +27,46 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-var fabricDeepCopiedProbes = map[string]func(t *testing.T){
-	"arrivalQueue":   probeFabricArrivalQueue,
-	"topology":       probeFabricTopology,
-	"links":          probeFabricLinks,
-	"linkTrust":      probeFabricLinkTrust,
-	"uncabled":       probeFabricUncabled,
-	"byEnd":          probeFabricByEnd,
-	"journeys":       probeFabricJourneys,
-	"entered":        probeFabricEntered,
-	"cableCrossings": probeFabricCableCrossings,
-	"busyUntil":      probeFabricBusyUntil,
-	"egress":         probeFabricEgress,
-	"counters":       probeFabricCounters,
-	"unstatedBacked": probeFabricUnstatedBacked,
-	"inflight":       probeFabricInflight,
-	"held":           probeFabricHeld,
-	"flows":          probeFabricFlows,
+var fabricForkChecks = map[string]struct {
+	class forkClass
+	probe func(*testing.T)
+}{
+	"topology":        {classDeepCopied, probeFabricTopology},
+	"evidence":        {classImmutableShared, nil},
+	"runtimeEvidence": {classCopied, nil},
+	"links":           {classDeepCopied, probeFabricLinks},
+	"linkTrust":       {classDeepCopied, probeFabricLinkTrust},
+	"uncabled":        {classDeepCopied, probeFabricUncabled},
+	"byEnd":           {classDeepCopied, probeFabricByEnd},
+	"clock":           {classCopied, nil},
+	"stepped":         {classCopied, nil},
+	"arrivalQueue":    {classDeepCopied, probeFabricArrivalQueue},
+	"nextFrameID":     {classCopied, nil},
+	"nextSeq":         {classCopied, nil},
+	"journeys":        {classDeepCopied, probeFabricJourneys},
+	"entered":         {classDeepCopied, probeFabricEntered},
+	"cableCrossings":  {classDeepCopied, probeFabricCableCrossings},
+	"busyUntil":       {classDeepCopied, probeFabricBusyUntil},
+	"egress":          {classDeepCopied, probeFabricEgress},
+	"counters":        {classDeepCopied, probeFabricCounters},
+	"unstatedBacked":  {classDeepCopied, probeFabricUnstatedBacked},
+	"metadataCache":   {classImmutableShared, nil},
+	"inflight":        {classDeepCopied, probeFabricInflight},
+	"held":            {classDeepCopied, probeFabricHeld},
+	"flows":           {classDeepCopied, probeFabricFlows},
+	"touched":         {classResetOnFork, nil},
+	"err":             {classCopied, nil},
+	"attachments":     {classDeepCopied, probeFabricAttachments},
 }
 
 func probeFabricUnstatedBacked(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	(*fabric.ExportFabricUnstatedBacked(fab)) = map[fabric.Endpoint]trace.EvidenceRef{ep: "source-ref"}
+	*fabric.ExportFabricUnstatedBacked(fab) = map[fabric.Endpoint]trace.EvidenceRef{ep: "source-ref"}
 	fork := fab.Fork()
-
-	forkEP := fabric.Endpoint{Node: "sw1", Port: "1/1/2"}
-	(*fabric.ExportFabricUnstatedBacked(fork))[forkEP] = "fork-ref"
-	if _, ok := (*fabric.ExportFabricUnstatedBacked(fab))[forkEP]; ok {
-		t.Errorf("source unstatedBacked gained entry added to fork")
-	}
-	delete((*fabric.ExportFabricUnstatedBacked(fork)), ep)
-	if _, ok := (*fabric.ExportFabricUnstatedBacked(fab))[ep]; !ok {
-		t.Errorf("source unstatedBacked lost entry deleted from fork")
-	}
-	if got, want := (*fabric.ExportFabricUnstatedBacked(fab))[ep], trace.EvidenceRef("source-ref"); got != want {
-		t.Errorf("source evidence ref = %q, want %q", got, want)
+	(*fabric.ExportFabricUnstatedBacked(fork))[ep] = "fork-ref"
+	if (*fabric.ExportFabricUnstatedBacked(fab))[ep] != "source-ref" {
+		t.Error("source evidence reference changed through fork")
 	}
 }
 
@@ -96,31 +101,27 @@ func probeFabricLinks(t *testing.T) {
 
 func probeFabricLinkTrust(t *testing.T) {
 	fab := newTestFabricForFork(t)
+	(*fabric.ExportFabricLinkTrust(fab))[0] = fabric.MakeTestLinkTrust(fabric.ExportLinkTrustFields{Issues: []analysis.Issue{{Code: "source"}}})
 	fork := fab.Fork()
-	(*fabric.ExportFabricLinkTrust(fab)) = append((*fabric.ExportFabricLinkTrust(fab)), fabric.MakeTestLinkTrust(fabric.ExportLinkTrustFields{Issues: []analysis.Issue{{Code: "source-issue"}}}))
-	if len((*fabric.ExportFabricLinkTrust(fork))) == len((*fabric.ExportFabricLinkTrust(fab))) {
-		t.Errorf("fork linkTrust slice grew when source mutated")
-	}
-	(*fabric.ExportFabricLinkTrust(fork)) = append((*fabric.ExportFabricLinkTrust(fork)), fabric.MakeTestLinkTrust(fabric.ExportLinkTrustFields{Issues: []analysis.Issue{{Code: "fork-issue"}}}))
-	if (*fabric.ExportLinkTrustIssues(&(*fabric.ExportFabricLinkTrust(fork))[len((*fabric.ExportFabricLinkTrust(fork)))-1]))[0].Code != "fork-issue" {
-		t.Errorf("fork linkTrust entry missing")
+	(*fabric.ExportLinkTrustIssues(&(*fabric.ExportFabricLinkTrust(fork))[0]))[0].Code = "fork"
+	if (*fabric.ExportLinkTrustIssues(&(*fabric.ExportFabricLinkTrust(fab))[0]))[0].Code != "source" {
+		t.Error("source link issue changed through fork")
 	}
 }
 
 func probeFabricUncabled(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-
-	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/99"}
-	(*fabric.ExportFabricUncabled(fab))[ep] = fabric.Uncabled{Endpoint: ep}
-	if _, ok := (*fabric.ExportFabricUncabled(fork))[ep]; ok {
-		t.Errorf("fork uncabled map gained entry added to source")
+	keys := slices.SortedFunc(maps.Keys(*fabric.ExportFabricUncabled(fab)), func(a, b fabric.Endpoint) int { return strings.Compare(a.Canonical(), b.Canonical()) })
+	if len(keys) == 0 {
+		t.Fatal("fixture has no uncabled entry")
 	}
-
-	forkEP := fabric.Endpoint{Node: "sw1", Port: "1/1/98"}
-	(*fabric.ExportFabricUncabled(fork))[forkEP] = fabric.Uncabled{Endpoint: forkEP}
-	if _, ok := (*fabric.ExportFabricUncabled(fab))[forkEP]; ok {
-		t.Errorf("source uncabled map gained entry added to fork")
+	ep := keys[0]
+	u := (*fabric.ExportFabricUncabled(fork))[ep]
+	u.Endpoint.Port = "changed"
+	(*fabric.ExportFabricUncabled(fork))[ep] = u
+	if (*fabric.ExportFabricUncabled(fab))[ep].Endpoint.Port == "changed" {
+		t.Error("source uncabled entry changed through fork")
 	}
 }
 
@@ -129,18 +130,18 @@ func probeFabricSwitches(t *testing.T) {
 	fork := fab.Fork()
 
 	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x88}
-	if err := fab.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fabric.ExportFabricNodeDevice(fab, "sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: mac, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fab learn: %v", err)
 	}
-	if fork.Device("sw1").(*vswitch.Switch).Forget(10, mac) {
+	if fabric.ExportFabricNodeDevice(fork, "sw1").(*vswitch.Switch).Forget(10, mac) {
 		t.Errorf("fork switch learned entry learned on source")
 	}
 
 	forkMAC := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
-	if err := fork.Device("sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
+	if err := fabric.ExportFabricNodeDevice(fork, "sw1").(*vswitch.Switch).Learn([]bridge.Seed{{FID: 10, MAC: forkMAC, Port: "1/1/1", Lifetime: bridge.Aging}}); err != nil {
 		t.Fatalf("fork learn: %v", err)
 	}
-	if fab.Device("sw1").(*vswitch.Switch).Forget(10, forkMAC) {
+	if fabric.ExportFabricNodeDevice(fab, "sw1").(*vswitch.Switch).Forget(10, forkMAC) {
 		t.Errorf("source switch learned entry learned on fork")
 	}
 }
@@ -179,7 +180,7 @@ func probeFabricDevices(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := tc.fabric.Inject(fabric.Injection{
-				At:     tc.fabric.Snapshot().Clock,
+				At:     tc.fabric.Clock(),
 				Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				Frame:  ethernet.Frame{Src: netaddr.MAC{0, 1, 2, 3, 4, 5}, Dst: netaddr.MAC{255, 255, 255, 255, 255, 255}},
 			})
@@ -213,139 +214,103 @@ func probeFabricByEnd(t *testing.T) {
 	if (*fabric.ExportLinkEndRefEnd(&refSrc)) == (*fabric.ExportLinkEndRefEnd(&refDst)) {
 		t.Errorf("byEnd.end pointers aliased across fork")
 	}
+	refDstEnd := fabric.ExportLinkEndRefEnd(&refDst)
+	(*refDstEnd).Oper = port.Down
+	if (*fabric.ExportLinkEndRefEnd(&refSrc)).Oper != port.Up {
+		t.Error("source link end changed through fork")
+	}
+
 }
 
 func probeFabricQueue(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-	(*fabric.ExportFabricQueue(fab)) = append((*fabric.ExportFabricQueue(fab)), fabric.MakeTestArrival(fabric.ExportArrivalFields{Seq: 9999}))
-	if len((*fabric.ExportFabricQueue(fork))) == len((*fabric.ExportFabricQueue(fab))) {
-		t.Errorf("fork queue grew when source queue appended")
-	}
-	(*fabric.ExportFabricQueue(fork)) = append((*fabric.ExportFabricQueue(fork)), fabric.MakeTestArrival(fabric.ExportArrivalFields{Seq: 8888}))
-	if (*fabric.ExportFabricQueue(fab))[len((*fabric.ExportFabricQueue(fab)))-1].Seq == 8888 {
-		t.Errorf("source queue saw fork arrival")
-	}
-	(*fabric.ExportFabricQueue(fab)) = []fabric.Arrival{{Kind: fabric.ArrivalHost, Frame: ethernet.Frame{Payload: []byte{1}}}}
-	fork = fab.Fork()
-	(*fabric.ExportFabricQueue(fork))[0].Frame.Payload[0] = 2
-	if got := (*fabric.ExportFabricQueue(fab))[0].Frame.Payload[0]; got != 1 {
-		t.Errorf("source queued host payload = %d, want 1", got)
+	(*fabric.ExportFabricQueue(fork))[0].Seq = 8888
+	if (*fabric.ExportFabricQueue(fab))[0].Seq == 8888 {
+		t.Error("source queue element changed through fork")
 	}
 }
 
 func probeFabricInflight(t *testing.T) {
 	fab := newTestFabricForFork(t)
+	key := fabric.FrameID(1)
+	(*fabric.ExportFabricInflight(fab))[key] = 1
 	fork := fab.Fork()
-	(*fabric.ExportFabricInflight(fab))[1] = 1
-	if _, ok := (*fabric.ExportFabricInflight(fork))[1]; ok {
-		t.Errorf("fork inflight saw entry added to source")
-	}
-	(*fabric.ExportFabricInflight(fork))[2] = 1
-	if _, ok := (*fabric.ExportFabricInflight(fab))[2]; ok {
-		t.Errorf("source inflight saw entry added to fork")
+	(*fabric.ExportFabricInflight(fork))[key] = 9
+	if (*fabric.ExportFabricInflight(fab))[key] != 1 {
+		t.Error("source Inflight entry changed through fork")
 	}
 }
 
 func probeFabricHeld(t *testing.T) {
 	fab := newTestFabricForFork(t)
+	key := fabric.MakeTestHoldKey("sw1", 1)
+	(*fabric.ExportFabricHeld(fab))[key] = 1
 	fork := fab.Fork()
-	(*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw2", 1)] = 1
-	if _, ok := (*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw2", 1)]; ok {
-		t.Errorf("fork held saw entry added to source")
-	}
-	(*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw3", 1)] = 2
-	if _, ok := (*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw3", 1)]; ok {
-		t.Errorf("source held saw entry added to fork")
-	}
-	(*fabric.ExportFabricHeld(fork))[fabric.MakeTestHoldKey("sw1", 1)] = 3
-	if (*fabric.ExportFabricHeld(fab))[fabric.MakeTestHoldKey("sw1", 1)] == 3 {
-		t.Errorf("source held mapping changed when fork's changed")
+	(*fabric.ExportFabricHeld(fork))[key] = 9
+	if (*fabric.ExportFabricHeld(fab))[key] != 1 {
+		t.Error("source Held entry changed through fork")
 	}
 }
 
 func probeFabricFlows(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	(*fabric.ExportFabricFlows(fab)) = make(map[fabric.FlowID]*fabric.FlowStats)
+	*fabric.ExportFabricFlows(fab) = map[fabric.FlowID]*fabric.FlowStats{1: {Offered: 1}}
 	fork := fab.Fork()
-	(*fabric.ExportFabricFlows(fab))[1] = &fabric.FlowStats{Offered: 1}
-	if _, ok := (*fabric.ExportFabricFlows(fork))[1]; ok {
-		t.Errorf("fork flows saw entry added to source")
-	}
-	(*fabric.ExportFabricFlows(fork))[2] = &fabric.FlowStats{Offered: 2}
-	if _, ok := (*fabric.ExportFabricFlows(fab))[2]; ok {
-		t.Errorf("source flows saw entry added to fork")
+	(*fabric.ExportFabricFlows(fork))[1].Offered = 9
+	if (*fabric.ExportFabricFlows(fab))[1].Offered != 1 {
+		t.Error("source flow changed through fork")
 	}
 }
 
 func probeFabricDequeueItems(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	(*fabric.ExportFabricDequeueItems(fab))[fabric.Endpoint{Node: "existing"}] = 0
+	key := fabric.Endpoint{Node: "existing"}
+	(*fabric.ExportFabricDequeueItems(fab))[key] = 1
 	fork := fab.Fork()
-	(*fabric.ExportFabricDequeueItems(fab))[fabric.Endpoint{Node: "src"}] = 1
-	if _, ok := (*fabric.ExportFabricDequeueItems(fork))[fabric.Endpoint{Node: "src"}]; ok {
-		t.Errorf("fork dequeueItems saw entry added to source")
-	}
-	(*fabric.ExportFabricDequeueItems(fork))[fabric.Endpoint{Node: "dst"}] = 2
-	if _, ok := (*fabric.ExportFabricDequeueItems(fab))[fabric.Endpoint{Node: "dst"}]; ok {
-		t.Errorf("source dequeueItems saw entry added to fork")
+	(*fabric.ExportFabricDequeueItems(fork))[key] = 9
+	if (*fabric.ExportFabricDequeueItems(fab))[key] != 1 {
+		t.Error("source DequeueItems entry changed through fork")
 	}
 }
 
 func probeFabricWakeItems(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	(*fabric.ExportFabricWakeItems(fab))["existing"] = 0
+	key := "existing"
+	(*fabric.ExportFabricWakeItems(fab))[key] = 1
 	fork := fab.Fork()
-	(*fabric.ExportFabricWakeItems(fab))["src"] = 1
-	if _, ok := (*fabric.ExportFabricWakeItems(fork))["src"]; ok {
-		t.Errorf("fork wakeItems saw entry added to source")
-	}
-	(*fabric.ExportFabricWakeItems(fork))["dst"] = 2
-	if _, ok := (*fabric.ExportFabricWakeItems(fab))["dst"]; ok {
-		t.Errorf("source wakeItems saw entry added to fork")
+	(*fabric.ExportFabricWakeItems(fork))[key] = 9
+	if (*fabric.ExportFabricWakeItems(fab))[key] != 1 {
+		t.Error("source WakeItems entry changed through fork")
 	}
 }
 
 func probeFabricWakes(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-	(*fabric.ExportFabricWakes(fab))["extra-src"] = time.Unix(2000, 0)
-	if _, ok := (*fabric.ExportFabricWakes(fork))["extra-src"]; ok {
-		t.Errorf("fork wakes saw entry added to source")
-	}
-	(*fabric.ExportFabricWakes(fork))["extra-fork"] = time.Unix(3000, 0)
-	if _, ok := (*fabric.ExportFabricWakes(fab))["extra-fork"]; ok {
-		t.Errorf("source wakes saw entry added to fork")
+	before := (*fabric.ExportFabricWakes(fab))["sw1"]
+	(*fabric.ExportFabricWakes(fork))["sw1"] = before.Add(time.Second)
+	if (*fabric.ExportFabricWakes(fab))["sw1"] != before {
+		t.Error("source wake changed through fork")
 	}
 }
 
 func probeFabricJourneys(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-	(*fabric.ExportFabricJourneys(fab))[999] = fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{FrameID: 999})
-	if _, ok := (*fabric.ExportFabricJourneys(fork))[999]; ok {
-		t.Errorf("fork journeys saw entry added to source")
-	}
-	(*fabric.ExportFabricJourneys(fork))[888] = fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{FrameID: 888})
-	if _, ok := (*fabric.ExportFabricJourneys(fab))[888]; ok {
-		t.Errorf("source journeys saw entry added to fork")
+	(*fabric.ExportFabricJourneys(fork))[1].FrameID = 9
+	if (*fabric.ExportFabricJourneys(fab))[1].FrameID != 1 {
+		t.Error("source journey changed through fork")
 	}
 }
 
 func probeFabricEntered(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-
-	ep := fabric.Endpoint{Node: "sw2", Port: "1/1/24"}
-	(*fabric.ExportFabricEntered(fab))[1][ep] = true
-	if (*fabric.ExportFabricEntered(fork))[1][ep] {
-		t.Errorf("fork entered map mutated when source mutated")
-	}
-
-	forkEP := fabric.Endpoint{Node: "sw2", Port: "1/1/1"}
-	(*fabric.ExportFabricEntered(fork))[1][forkEP] = true
-	if (*fabric.ExportFabricEntered(fab))[1][forkEP] {
-		t.Errorf("source entered map mutated when fork mutated")
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	(*fabric.ExportFabricEntered(fork))[1][ep] = false
+	if !(*fabric.ExportFabricEntered(fab))[1][ep] {
+		t.Error("source entered element changed through fork")
 	}
 }
 
@@ -382,15 +347,10 @@ func probeFabricBusyUntil(t *testing.T) {
 func probeFabricEgress(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	fork := fab.Fork()
-
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0] = append(fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0], fabric.MakeTestQueued(fabric.ExportQueuedFields{Seq: 999}))
-	if len(fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0]) == len(fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0]) {
-		t.Errorf("fork egress pending queue grew when source mutated")
-	}
-	fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0] = append(fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0], fabric.MakeTestQueued(fabric.ExportQueuedFields{Seq: 888}))
-	if (*fabric.ExportQueuedSeq(&fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0][len(fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0])-1])) == 888 {
-		t.Errorf("source egress pending queue saw fork mutation")
+	*fabric.ExportQueuedSeq(&fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fork))[ep])[0][0]) = 9
+	if *fabric.ExportQueuedSeq(&fabric.ExportEgressQueuePending((*fabric.ExportFabricEgress(fab))[ep])[0][0]) != 1 {
+		t.Error("source queued element changed through fork")
 	}
 }
 
@@ -624,7 +584,7 @@ func TestSnapshotImmutability(t *testing.T) {
 		steps++
 
 		queueMoved := len((*fabric.ExportFabricQueue(fab))) != initialFabricQueueLen
-		fdbMoved := len(fab.Device("sw1").(*vswitch.Switch).Entries()) > len(initialSw1Entries)
+		fdbMoved := len(fabric.ExportFabricNodeDevice(fab, "sw1").(*vswitch.Switch).Entries()) > len(initialSw1Entries)
 		countersMoved := false
 		for _, c := range *fabric.ExportFabricCounters(fab) {
 			if c.InBytes > 0 || c.OutBytes > 0 || c.InDiscards > 0 || c.OutDiscards > 0 {
@@ -654,7 +614,7 @@ func TestSnapshotImmutability(t *testing.T) {
 	if !hasCounterMoved {
 		t.Fatalf("fabric counters did not move")
 	}
-	if len(fab.Device("sw1").(*vswitch.Switch).Entries()) <= len(initialSw1Entries) {
+	if len(fabric.ExportFabricNodeDevice(fab, "sw1").(*vswitch.Switch).Entries()) <= len(initialSw1Entries) {
 		t.Fatalf("fabric sw1 entries did not move")
 	}
 
@@ -817,7 +777,7 @@ func probeFabricArrivalQueue(t *testing.T) {
 		"queue": probeFabricQueue, "wakes": probeFabricWakes,
 		"dequeueItems": probeFabricDequeueItems, "wakeItems": probeFabricWakeItems,
 	}
-	field, ok := reflect.TypeOf(fabric.MakeTestFabric(fabric.ExportFabricFields{})).FieldByName("arrivalQueue")
+	field, ok := reflect.TypeOf(fabric.Fabric{}).FieldByName("arrivalQueue")
 	if !ok {
 		t.Fatal("fabric has no arrivalQueue")
 	}

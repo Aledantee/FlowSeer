@@ -65,12 +65,6 @@ const (
 	// EntryLoop records frame re-entry at a device port already visited by the same frame.
 	EntryLoop EntryKind = "Loop"
 
-	// EntryWake records a scheduled timer wake-up advancing a virtual switch.
-	EntryWake EntryKind = "Wake"
-
-	// EntryDequeue records an endpoint selecting its next egress frame.
-	EntryDequeue EntryKind = "Dequeue"
-
 	// EntryQueueThreshold records the first crossing of an unstated egress
 	// buffer's diagnostic depth threshold on a physical endpoint.
 	EntryQueueThreshold EntryKind = "QueueThreshold"
@@ -187,10 +181,25 @@ type Journey struct {
 	Deliveries []Delivery
 	Metadata   analysis.Metadata
 	State      JourneyState
+}
+
+type journey struct {
+	FrameID    FrameID
+	Protocol   bool
+	Origin     JourneyOrigin
+	Injection  Injection
+	Entries    []Entry
+	Deliveries []Delivery
+	Metadata   analysis.Metadata
 
 	// settled records that the journey's last in-flight arrival has left and
 	// its flow fold has run, so a later settle of the same frame folds once.
 	settled bool
+}
+
+func (j *journey) report() Journey {
+	return Journey{FrameID: j.FrameID, Protocol: j.Protocol, Origin: j.Origin,
+		Injection: j.Injection, Entries: j.Entries, Deliveries: j.Deliveries, Metadata: j.Metadata}
 }
 
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.
@@ -219,7 +228,7 @@ func (f *Fabric) Report() []Journey {
 
 	out := make([]Journey, 0, len(f.journeys))
 	for _, j := range f.journeys {
-		cp := j.clone()
+		cp := j.report().clone()
 		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID])
 		out = append(out, cp)
 	}
@@ -290,9 +299,6 @@ func isJourneyHeld(j *Journey) bool {
 }
 
 func isJourneyTruncated(j *Journey) bool {
-	if j.State == JourneyTruncated {
-		return true
-	}
 	if slices.ContainsFunc(j.Metadata.Issues(), func(iss analysis.Issue) bool {
 		return iss.Code == IssueTruncatedRecord
 	}) {
@@ -306,10 +312,16 @@ func isJourneyTruncated(j *Journey) bool {
 func (j Journey) clone() Journey {
 	cp := j
 	cp.Injection = j.Injection.clone()
+	cp.Injection.Frame = cloneFrame(j.Injection.Frame)
 	if len(j.Entries) > 0 {
 		cp.Entries = make([]Entry, len(j.Entries))
 		for i, e := range j.Entries {
 			cp.Entries[i] = e.clone()
+			if result := cp.Entries[i].Result; result != nil {
+				for k := range result.Egress {
+					result.Egress[k].Frame = cloneFrame(result.Egress[k].Frame)
+				}
+			}
 		}
 	}
 	if len(j.Deliveries) > 0 {
@@ -328,7 +340,7 @@ func (j Journey) clone() Journey {
 
 // shallowClone returns a copy of the journey that shares ethernet.Frame values
 // across forks while cloning mutable traversal history and deliveries.
-func (j *Journey) shallowClone() *Journey {
+func (j *journey) shallowClone() *journey {
 	if j == nil {
 		return nil
 	}
@@ -371,7 +383,7 @@ func (e Entry) clone() Entry {
 // record appends e to the journey and folds into the journey's metadata the
 // issues and assumptions e depends on as the fabric stands now, together with
 // issues the caller raised about the journey itself.
-func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
+func (f *Fabric) record(j *journey, e Entry, raised ...analysis.Issue) {
 	j.Entries = append(j.Entries, e)
 
 	merged := j.Metadata
@@ -455,7 +467,7 @@ func cloneResult(r device.Result) *device.Result {
 		cp.Egress = make([]device.Egress, len(r.Egress))
 		for i, egress := range r.Egress {
 			cp.Egress[i] = egress
-			cp.Egress[i].Frame = cloneFrame(egress.Frame)
+			cp.Egress[i].Frame = egress.Frame
 		}
 	}
 
@@ -464,7 +476,7 @@ func cloneResult(r device.Result) *device.Result {
 
 func (i Injection) clone() Injection {
 	cp := i
-	cp.Frame = cloneFrame(i.Frame)
+	cp.Frame = i.Frame
 	if i.Packet != nil {
 		packet := *i.Packet
 		packet.Payload = slices.Clone(i.Packet.Payload)

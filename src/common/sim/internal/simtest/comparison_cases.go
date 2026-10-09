@@ -425,7 +425,7 @@ func ComparisonCorpus() []ComparisonCase {
 	// Case 4: fabric/equivalent-complete
 	c4FabA, c4FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
+	c4ClockA, c4ClockB := c4FabA.Clock(), c4FabB.Clock()
 	c4ReportA, c4ReportB := c4FabA.Report(), c4FabB.Report()
 	c4LinksA, c4LinksB := c4FabA.Links(), c4FabB.Links()
 	c4SpecA, c4SpecB := assembly.Spec(c4FabA), assembly.Spec(c4FabB)
@@ -466,11 +466,11 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c4FabA.Snapshot().Clock.Equal(c4ClockA) {
-				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Snapshot().Clock)
+			if !c4FabA.Clock().Equal(c4ClockA) {
+				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Clock())
 			}
-			if !c4FabB.Snapshot().Clock.Equal(c4ClockB) {
-				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Snapshot().Clock)
+			if !c4FabB.Clock().Equal(c4ClockB) {
+				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Clock())
 			}
 			if !reflect.DeepEqual(c4FabA.Report(), c4ReportA) {
 				return errs.Msg("c4FabA report mutated")
@@ -507,7 +507,7 @@ func ComparisonCorpus() []ComparisonCase {
 	}
 	c5FabA, c5FabB, err := buildFabricPair(cutCableMutation, nil)
 	mustNil(err)
-	c5ClockA, c5ClockB := c5FabA.Snapshot().Clock, c5FabB.Snapshot().Clock
+	c5ClockA, c5ClockB := c5FabA.Clock(), c5FabB.Clock()
 	c5ReportA, c5ReportB := c5FabA.Report(), c5FabB.Report()
 	c5LinksA, c5LinksB := c5FabA.Links(), c5FabB.Links()
 	c5SpecA, c5SpecB := assembly.Spec(c5FabA), assembly.Spec(c5FabB)
@@ -548,10 +548,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c5FabA.Snapshot().Clock.Equal(c5ClockA) {
+			if !c5FabA.Clock().Equal(c5ClockA) {
 				return errs.Msg("c5FabA clock advanced")
 			}
-			if !c5FabB.Snapshot().Clock.Equal(c5ClockB) {
+			if !c5FabB.Clock().Equal(c5ClockB) {
 				return errs.Msg("c5FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c5FabA.Report(), c5ReportA) {
@@ -589,7 +589,7 @@ func ComparisonCorpus() []ComparisonCase {
 	}
 	c6FabA, c6FabB, err := buildFabricPair(mediumMutation, nil)
 	mustNil(err)
-	c6ClockA, c6ClockB := c6FabA.Snapshot().Clock, c6FabB.Snapshot().Clock
+	c6ClockA, c6ClockB := c6FabA.Clock(), c6FabB.Clock()
 	c6ReportA, c6ReportB := c6FabA.Report(), c6FabB.Report()
 	c6LinksA, c6LinksB := c6FabA.Links(), c6FabB.Links()
 	c6SpecA, c6SpecB := assembly.Spec(c6FabA), assembly.Spec(c6FabB)
@@ -630,10 +630,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c6FabA.Snapshot().Clock.Equal(c6ClockA) {
+			if !c6FabA.Clock().Equal(c6ClockA) {
 				return errs.Msg("c6FabA clock advanced")
 			}
-			if !c6FabB.Snapshot().Clock.Equal(c6ClockB) {
+			if !c6FabB.Clock().Equal(c6ClockB) {
 				return errs.Msg("c6FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c6FabA.Report(), c6ReportA) {
@@ -661,7 +661,7 @@ func ComparisonCorpus() []ComparisonCase {
 	// Case 7: fabric/inconclusive-budget-exhausted
 	c7FabA, c7FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock
+	c7ClockA, c7ClockB := c7FabA.Clock(), c7FabB.Clock()
 	c7ReportA, c7ReportB := c7FabA.Report(), c7FabB.Report()
 	c7LinksA, c7LinksB := c7FabA.Links(), c7FabB.Links()
 	c7SpecA, c7SpecB := assembly.Spec(c7FabA), assembly.Spec(c7FabB)
@@ -702,10 +702,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c7FabA.Snapshot().Clock.Equal(c7ClockA) {
+			if !c7FabA.Clock().Equal(c7ClockA) {
 				return errs.Msg("c7FabA clock advanced")
 			}
-			if !c7FabB.Snapshot().Clock.Equal(c7ClockB) {
+			if !c7FabB.Clock().Equal(c7ClockB) {
 				return errs.Msg("c7FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c7FabA.Report(), c7ReportA) {

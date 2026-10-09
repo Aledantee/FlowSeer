@@ -38,7 +38,7 @@ func injectHeldPair(t *testing.T, retention fabric.JourneyRetention) (*fabric.Fa
 	var ids [2]fabric.FrameID
 	for i, addr := range []string{"10.0.20.7", "10.0.20.8"} {
 		fid, err := fab.Inject(fabric.Injection{
-			At: fab.Snapshot().Clock, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+			At: fab.Clock(), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			Frame: heldPropertyFrame(t, srcMAC, swMAC, netip.MustParseAddr("10.0.10.7"), netip.MustParseAddr(addr), []byte("same payload")),
 			Flow:  21, Retention: retention,
 		})
@@ -58,13 +58,13 @@ func injectHeldPair(t *testing.T, retention fabric.JourneyRetention) (*fabric.Fa
 func releaseHeldAddress(t *testing.T, fab *fabric.Fabric, swMAC netaddr.MAC, addr string) {
 	t.Helper()
 	_, err := fab.Inject(fabric.Injection{
-		At: fab.Snapshot().Clock.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+		At: fab.Clock().Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		Frame: heldPropertyARPReply(t, netaddr.MAC{0, 0x11, 0x22, 0x33, 0x44, 0x77}, netip.MustParseAddr(addr), swMAC),
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	until := fab.Snapshot().Clock.Add(10 * time.Millisecond)
+	until := fab.Clock().Add(10 * time.Millisecond)
 	for len(fab.Snapshot().Queue) > 0 && !fab.Snapshot().Queue[0].At.After(until) {
 		if _, ok := fab.Step(); !ok {
 			t.Fatal("release did not advance")
@@ -561,11 +561,11 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 		t.Fatalf("Inject packet: %v", err)
 	}
 	for {
-		e, ok := fab.Step()
+		_, ok := fab.Step()
 		if !ok {
 			t.Fatal("frame was not held")
 		}
-		if e.Result != nil && e.Result.Outcome == trace.Held {
+		if fab.Flows()[9].Held == 1 {
 			break
 		}
 	}
@@ -876,13 +876,11 @@ func checkHoldExit(t *testing.T, exit string, retention fabric.JourneyRetention,
 	}
 	var holds int
 	for steps := 0; holds < 2 && steps < 1000; steps++ {
-		e, ok := fab.Step()
+		_, ok := fab.Step()
 		if !ok {
 			t.Fatal("ended before both holds")
 		}
-		if e.Result != nil && e.Result.Outcome == trace.Held {
-			holds++
-		}
+		holds = len(*fabric.ExportFabricHeld(fab))
 	}
 	if holds != 2 {
 		t.Fatalf("held frames = %d, want 2 within 1000 steps", holds)
@@ -1040,7 +1038,7 @@ func observeJourneys(t *testing.T, fab *fabric.Fabric, budget int) ([]fabric.Jou
 		if !ok {
 			break
 		}
-		entries = append(entries, e)
+		entries = append(entries, e.Entry)
 	}
 	if err := fab.Err(); err != nil {
 		t.Fatal(err)

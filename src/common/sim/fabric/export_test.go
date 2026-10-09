@@ -83,7 +83,7 @@ func ExportFabricEgress(x *Fabric) *map[Endpoint]*egressQueue { return &x.egress
 func ExportFabricEnqueue(x *Fabric, a0 Arrival) { x.enqueue(a0) }
 
 // ExportFabricEnqueueEgress exposes internal state to external package tests.
-func ExportFabricEnqueueEgress(x *Fabric, a0 time.Time, a1 Endpoint, a2 string, a3 ethernet.Frame, a4 uint64, a5 FrameID, a6 *Journey, a7 vlan.PCP, a8 string) bool {
+func ExportFabricEnqueueEgress(x *Fabric, a0 time.Time, a1 Endpoint, a2 string, a3 ethernet.Frame, a4 uint64, a5 FrameID, a6 *journey, a7 vlan.PCP, a8 string) bool {
 	return x.enqueueEgress(a0, a1, a2, a3, a4, a5, a6, a7, a8)
 }
 
@@ -116,7 +116,7 @@ type ExportFabricFields struct {
 	WakeItems       map[string]int
 	NextFrameID     FrameID
 	NextSeq         uint64
-	Journeys        map[FrameID]*Journey
+	Journeys        map[FrameID]*journey
 	Entered         map[FrameID]map[Endpoint]bool
 	CableCrossings  map[Endpoint]uint
 	BusyUntil       map[Endpoint]time.Time
@@ -143,11 +143,8 @@ func ExportFabricHeld(x *Fabric) *map[holdKey]FrameID { return &x.held }
 // ExportFabricInflight exposes internal state to external package tests.
 func ExportFabricInflight(x *Fabric) *map[FrameID]int { return &x.inflight }
 
-// ExportFabricInitRunState exposes internal state to external package tests.
-func ExportFabricInitRunState(x *Fabric) { x.initRunState() }
-
 // ExportFabricJourneys exposes internal state to external package tests.
-func ExportFabricJourneys(x *Fabric) *map[FrameID]*Journey { return &x.journeys }
+func ExportFabricJourneys(x *Fabric) *map[FrameID]*journey { return &x.journeys }
 
 // ExportFabricLinkTrust exposes internal state to external package tests.
 func ExportFabricLinkTrust(x *Fabric) *[]linkTrust { return &x.linkTrust }
@@ -258,7 +255,7 @@ type ExportQueuedFields struct {
 	Octets     uint64
 	Seq        uint64
 	Fid        FrameID
-	Journey    *Journey
+	Journey    *journey
 	Pcp        vlan.PCP
 	EgressPort string
 	Enqueued   time.Time
@@ -328,21 +325,19 @@ func MakeTestEgressQueuePointer(x ExportEgressQueueFields) *egressQueue {
 	return &v
 }
 
-// MakeTestFabric exposes internal state to external package tests.
-func MakeTestFabric(x ExportFabricFields) Fabric {
-	return Fabric{topology: x.Topology, evidence: x.Evidence, runtimeEvidence: x.RuntimeEvidence, links: x.Links, linkTrust: x.LinkTrust, uncabled: x.Uncabled, byEnd: x.ByEnd, clock: x.Clock, stepped: x.Stepped, arrivalQueue: arrivalQueue{queue: x.Queue, wakes: x.Wakes, dequeueItems: x.DequeueItems, wakeItems: x.WakeItems}, attachments: x.Attachments, nextFrameID: x.NextFrameID, nextSeq: x.NextSeq, journeys: x.Journeys, entered: x.Entered, cableCrossings: x.CableCrossings, busyUntil: x.BusyUntil, egress: x.Egress, counters: x.Counters, unstatedBacked: x.UnstatedBacked, metadataCache: x.MetadataCache, inflight: x.Inflight, held: x.Held, flows: x.Flows, touched: x.Touched, err: x.Err}
-}
-
-// MakeTestFabricPointer exposes internal state to external package tests.
-func MakeTestFabricPointer(x ExportFabricFields) *Fabric { v := MakeTestFabric(x); return &v }
-
 // MakeTestJourney exposes internal state to external package tests.
 func MakeTestJourney(x ExportJourneyFields) Journey {
-	return Journey{FrameID: x.FrameID, Protocol: x.Protocol, Origin: x.Origin, Injection: x.Injection, Entries: x.Entries, Deliveries: x.Deliveries, Metadata: x.Metadata, State: x.State, settled: x.Settled}
+	return Journey{FrameID: x.FrameID, Protocol: x.Protocol, Origin: x.Origin, Injection: x.Injection, Entries: x.Entries, Deliveries: x.Deliveries, Metadata: x.Metadata, State: x.State}
 }
 
 // MakeTestJourneyPointer exposes internal state to external package tests.
-func MakeTestJourneyPointer(x ExportJourneyFields) *Journey { v := MakeTestJourney(x); return &v }
+func MakeTestJourneyPointer(x ExportJourneyFields) *journey {
+	return &journey{FrameID: x.FrameID, Protocol: x.Protocol, Origin: x.Origin,
+		Injection: x.Injection, Entries: x.Entries, Deliveries: x.Deliveries, Metadata: x.Metadata, settled: x.Settled}
+}
+
+// ExportJourney exposes the execution record to package tests.
+type ExportJourney = journey
 
 // MakeTestLinkTrust exposes internal state to external package tests.
 func MakeTestLinkTrust(x ExportLinkTrustFields) linkTrust {

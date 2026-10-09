@@ -53,7 +53,6 @@ func mtuAccountingFabric(t *testing.T, mtu int, buffer *uint64) (*fabric.Fabric,
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fabric.ExportFabricInitRunState(fab)
 
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
 	(*fabric.ExportFabricBusyUntil(fab))[ep] = fabric.ExportFabricClock(fab).Add(time.Hour)
@@ -93,7 +92,6 @@ func lagAccountingFabric(t *testing.T, lagMTU int, buffer *uint64) (*fabric.Fabr
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fabric.ExportFabricInitRunState(fab)
 
 	eps := make([]fabric.Endpoint, 0, len(members))
 	for _, name := range members {

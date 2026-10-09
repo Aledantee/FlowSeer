@@ -81,7 +81,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
 		t.Fatal("the port did not migrate")
 	}
-	clock := fab.Snapshot().Clock
+	clock := fab.Clock()
 	if err := assembly.McheckAction("sw1", "1/1/1").Operation.Apply(fab, "sw1"); err != nil {
 		t.Fatalf("mcheck: %v", err)
 	}

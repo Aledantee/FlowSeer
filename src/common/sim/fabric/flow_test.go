@@ -199,7 +199,7 @@ func TestPolicedFlowDropsAndDeliveriesMatchAdmissions(t *testing.T) {
 func TestFlowMetadataCarriesTheJourneyTrust(t *testing.T) {
 	fab := journeyFabric(t, true)
 	if _, err := fab.Inject(fabric.Injection{
-		At:        fab.Snapshot().Clock,
+		At:        fab.Clock(),
 		Origin:    fabric.Endpoint{Node: "h1"},
 		Frame:     ethernet.Frame{Dst: journeyH2, Src: journeyH1, EtherType: ethernet.EtherTypeIPv4},
 		Retention: fabric.RetainAggregate,

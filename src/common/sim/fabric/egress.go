@@ -9,14 +9,13 @@ import (
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
-func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) {
+func (f *Fabric) transmit(now time.Time, device, portName, memberName string, frame ethernet.Frame, seq uint64, fid FrameID, journey *journey, pcp vlan.PCP, mirror string) {
 	outPort := portName
 	if memberName != "" {
 		outPort = memberName
 	}
 
-	rawOut, _ := frame.Encode()
-	outOctets := uint64(len(rawOut))
+	outOctets := encodedOctets(frame)
 	outClass := classifyMAC(frame.Dst)
 
 	outPorts := []string{portName}
@@ -60,14 +59,13 @@ func (f *Fabric) transmit(now time.Time, device, portName, memberName string, fr
 // whether the queue admitted it. A stated buffer that the frame would overflow
 // tail-drops it and returns false, so the caller counts a discard, not a
 // transmission.
-func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string, frame ethernet.Frame, seq uint64, fid FrameID, journey *Journey, pcp vlan.PCP, mirror string) bool {
+func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string, frame ethernet.Frame, seq uint64, fid FrameID, journey *journey, pcp vlan.PCP, mirror string) bool {
 	q := f.egress[txEnd]
 	if q == nil {
 		q = &egressQueue{}
 		f.egress[txEnd] = q
 	}
-	raw, _ := frame.Encode()
-	octets := uint64(len(raw))
+	octets := encodedOctets(frame)
 	queueDevice := f.nodeDevice(txEnd.Node)
 	if queueDevice == nil {
 		queueDevice = f.topology.defaultQueue
@@ -88,7 +86,7 @@ func (f *Fabric) enqueueEgress(now time.Time, txEnd Endpoint, egressPort string,
 		f.markQueueBufferUnstated(now, txEnd, egressPort, pcp, fid, *decision.Step, journey)
 	}
 	q.pending[pcp] = append(q.pending[pcp], queued{
-		frame:      cloneFrame(frame),
+		frame:      frame,
 		octets:     octets,
 		seq:        seq,
 		fid:        fid,
@@ -304,7 +302,7 @@ func (f *Fabric) transmitCable(start time.Time, txEnd Endpoint, ref linkEndRef, 
 		Device:  farEnd.Node,
 		Port:    farEnd.Port,
 		FrameID: item.fid,
-		Frame:   cloneFrame(item.frame),
+		Frame:   item.frame,
 		Corrupt: corrupt,
 	})
 

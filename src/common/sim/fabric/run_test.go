@@ -1188,8 +1188,8 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 			t.Fatal("queue drained before reaching wakeTime")
 		}
 		if entry.At.Equal(wakeTime) {
-			if entry.Kind != fabric.EntryWake {
-				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Kind, fabric.EntryWake)
+			if entry.Arrival != fabric.ArrivalWake {
+				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Arrival, fabric.ArrivalWake)
 			}
 			break
 		}
@@ -1405,8 +1405,8 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 
 	for _, j := range fab.Report() {
 		for _, e := range j.Entries {
-			if e.Kind == fabric.EntryWake {
-				t.Errorf("found EntryWake in journey of non-STP fabric: %+v", e)
+			if e.Kind == "Wake" || e.Kind == "Dequeue" {
+				t.Errorf("timer event stored in journey: %+v", e)
 			}
 		}
 	}
@@ -1780,7 +1780,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 			t.Fatal("queue exhausted before both sw2 hops")
 		}
 		if entry.Kind == fabric.EntryHop && entry.Device == "sw2" {
-			sw2Hops = append(sw2Hops, entry)
+			sw2Hops = append(sw2Hops, entry.Entry)
 		}
 	}
 	if diff := sw2Hops[1].At.Sub(sw2Hops[0].At); diff != 704*time.Nanosecond {
@@ -2155,7 +2155,7 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 		t.Fatal("step 2 ok=false")
 	}
 	// The host dequeue is now an observable step between the two frame arrivals.
-	if dequeue.Kind != fabric.EntryDequeue || dequeue.Device != "h1" {
+	if dequeue.Arrival != fabric.ArrivalDequeue || dequeue.Device != "h1" {
 		t.Fatalf("step 2 = %+v, want h1 dequeue", dequeue)
 	}
 	step2, ok := fab.Step()

@@ -133,7 +133,7 @@ func TestEgressQueueServesStrictPriority(t *testing.T) {
 		if !ok {
 			t.Fatal("Step() exhausted the queue before the trunk dequeue")
 		}
-		if entry.Kind == fabric.EntryDequeue && entry.Device == "sw1" && entry.Port == "1/1/24" {
+		if entry.Arrival == fabric.ArrivalDequeue && entry.Device == "sw1" && entry.Port == "1/1/24" {
 			break
 		}
 	}

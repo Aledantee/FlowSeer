@@ -7,7 +7,7 @@ import "go.aledante.io/FlowSeer/src/common/sim/fabric"
 // built device hears its links before its output and next wake are scheduled.
 func Derive(cur *fabric.Fabric, target ConstructionSpec) (*fabric.Fabric, error) {
 	if cur != nil && target.Start.IsZero() {
-		target.Start = cur.Snapshot().Clock
+		target.Start = cur.Clock()
 	}
 	return build(cur, target)
 }

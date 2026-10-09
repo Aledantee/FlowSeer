@@ -377,7 +377,7 @@ keyed by flow.
 
 ```go
 if _, err := fab.Inject(fabric.Injection{
-	At:        fab.Snapshot().Clock,
+	At:        fab.Clock(),
 	Origin:    fabric.Endpoint{Node: "h1"},
 	Frame:     frame,
 	Retention: fabric.RetainAggregate,
@@ -704,7 +704,7 @@ Spanning tree and other internal protocols schedule state transitions and
 frame emissions through the run's arrival queue. Each device holds at most one
 wake entry in the queue (`Kind` is `ArrivalWake`, port empty, frame ID 0,
 sequence 0). Because `ArrivalWake` sorts ahead of `ArrivalFrame` at one
-instant, a wake executes before frames scheduled for the same instant. `Step` returns `EntryWake` for
+instant, a wake executes before frames scheduled for the same instant. `Step` returns `StepResult.Arrival == ArrivalWake` for
 these timer events without appending to any frame journey. A scenario's
 `ActionMcheck` is the one out-of-band protocol call: it runs the switch's
 management check at the current clock and queues the emission and the next wake
@@ -1324,3 +1324,25 @@ memory sanitizer overhead varies across execution environments.
 A `Fabric` is not safe for concurrent use. Simulators mutate internal clock
 timestamps, queues, forwarding entries, and interface counters during execution.
 Callers running concurrent simulations must create separate `Fabric` instances.
+
+`Clock()` reads the simulation time without building a snapshot. `Device(name)`
+returns an independent device fork. `Inspect(name, fn)` reads the live device
+without changing it or retaining mutable references, which lets
+`assembly.Retention` report the actual derivation outcome.
+
+`StepResult.Arrival` identifies wake and dequeue events. Their entry kind is
+empty because timer service belongs to the scheduler. A retained frame step
+carries its hop result. An aggregate frame step keeps its metadata and outcome
+entries without cloning the hop result. Execution records store no derived
+journey state. `Report()` computes it from the pending work and recorded events.
+
+Frame tags and payload are immutable and shared on execution, scenario, and fork
+copy paths. `Report()` copies them for callers that need mutable report values.
+`BenchmarkStep` measures one prepared step per operation:
+
+```sh
+go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkStep$' -benchtime=100x
+```
+
+It records 303 allocations per retained step and 294 per aggregate step, against
+310 and 309 before the execution copy and port-table changes.

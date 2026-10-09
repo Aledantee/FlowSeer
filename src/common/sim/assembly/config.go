@@ -411,59 +411,8 @@ func (c Config) Validate() error {
 		}
 	}
 
-	for _, name := range hostNames {
-		if name == "" {
-			return errs.New().Msg("host name cannot be empty")
-		}
-		if _, isSw := c.Switches[name]; isSw {
-			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a host", name)
-		}
-		if _, isReflector := c.Reflectors[name]; isReflector {
-			return errs.New().Attr("field", "hosts."+name).Attr("node", name).Msgf("node %q cannot be both a host and a reflector", name)
-		}
-		h := c.Hosts[name]
-		if err := checkMAC(name, h.Address); err != nil {
-			return err
-		}
-		if h.VLAN != nil && !h.VLAN.Valid() {
-			return errs.New().
-				Attr("host", name).
-				Attr("vlan", *h.VLAN).
-				Msgf("host %q has invalid VLAN ID %d", name, *h.VLAN)
-		}
-		if err := cablemodel.ValidateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
-			return errs.Wrapf(err, "host %q", name)
-		}
-		if err := h.Accept.Validate("hosts." + name + ".accept"); err != nil {
-			return err
-		}
-		if h.IP != nil {
-			if len(h.IP.Addresses) == 0 {
-				return errs.New().
-					Attr("host", name).
-					Msgf("host %q with IP stack must configure at least one address", name)
-			}
-			rtCfg, tbl := hostmodel.RoutingConfig(name, h)
-			if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
-				return errs.Wrapf(err, "host %q", name)
-			}
-		}
-	}
-
-	// A collision between a reflector's name and a switch's or a host's is
-	// caught in those loops, above, which run first and already check the
-	// reflector map; checking the other direction here would never trigger.
-	for _, name := range reflectorNames {
-		if name == "" {
-			return errs.New().Msg("reflector name cannot be empty")
-		}
-		refl := c.Reflectors[name]
-		if err := checkMAC(name, refl.Address); err != nil {
-			return err
-		}
-		if err := refl.Validate("reflectors." + name); err != nil {
-			return err
-		}
+	if err := c.validateEndpoints(hostNames, reflectorNames, checkMAC); err != nil {
+		return err
 	}
 
 	hostCables := make(map[string]int, len(c.Hosts))
@@ -644,3 +593,62 @@ func (c Config) validateEndpoint(ep fabric.Endpoint, hostCables map[string]int, 
 }
 
 func sameLengthMeters(a, b float64) bool { return cmp.Compare(a, b) == 0 }
+
+func (c Config) validateEndpoints(hostNames, reflectorNames []string, checkMAC func(string, netaddr.MAC) error) error {
+	for _, name := range hostNames {
+		if name == "" {
+			return errs.New().Msg("host name cannot be empty")
+		}
+		if _, isSw := c.Switches[name]; isSw {
+			return errs.New().Attr("node", name).Msgf("node %q cannot be both a switch and a host", name)
+		}
+		if _, isReflector := c.Reflectors[name]; isReflector {
+			return errs.New().Attr("field", "hosts."+name).Attr("node", name).Msgf("node %q cannot be both a host and a reflector", name)
+		}
+		h := c.Hosts[name]
+		if err := checkMAC(name, h.Address); err != nil {
+			return err
+		}
+		if h.VLAN != nil && !h.VLAN.Valid() {
+			return errs.New().
+				Attr("host", name).
+				Attr("vlan", *h.VLAN).
+				Msgf("host %q has invalid VLAN ID %d", name, *h.VLAN)
+		}
+		if err := cablemodel.ValidateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
+			return errs.Wrapf(err, "host %q", name)
+		}
+		if err := h.Accept.Validate("hosts." + name + ".accept"); err != nil {
+			return err
+		}
+		if h.IP != nil {
+			if len(h.IP.Addresses) == 0 {
+				return errs.New().
+					Attr("host", name).
+					Msgf("host %q with IP stack must configure at least one address", name)
+			}
+			rtCfg, tbl := hostmodel.RoutingConfig(name, h)
+			if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
+				return errs.Wrapf(err, "host %q", name)
+			}
+		}
+	}
+
+	// A collision between a reflector's name and a switch's or a host's is
+	// caught in those loops, above, which run first and already check the
+	// reflector map; checking the other direction here would never trigger.
+	for _, name := range reflectorNames {
+		if name == "" {
+			return errs.New().Msg("reflector name cannot be empty")
+		}
+		refl := c.Reflectors[name]
+		if err := checkMAC(name, refl.Address); err != nil {
+			return err
+		}
+		if err := refl.Validate("reflectors." + name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

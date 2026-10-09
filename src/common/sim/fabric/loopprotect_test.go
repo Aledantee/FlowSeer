@@ -110,7 +110,7 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 		t.Fatalf("no port was blocked; want exactly one of 1/1/1, 1/1/2 acted on")
 	}
 
-	now := fab.Snapshot().Clock.Add(time.Second)
+	now := fab.Clock().Add(time.Second)
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	fid, err := fab.Inject(fabric.Injection{
 		At:     now,
@@ -171,7 +171,7 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 func loopProtectPortBlocked(t *testing.T, fab *fabric.Fabric, portName string) bool {
 	t.Helper()
 
-	now := fab.Snapshot().Clock.Add(time.Millisecond)
+	now := fab.Clock().Add(time.Millisecond)
 	src := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x30}
 	dst := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x31}
 	fid, err := fab.Inject(fabric.Injection{
@@ -304,7 +304,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 
 	deadline := t0.Add(90 * time.Second)
 	for steps := 0; steps < 20000; steps++ {
-		if !fab.Snapshot().Clock.Before(deadline) {
+		if !fab.Clock().Before(deadline) {
 			break
 		}
 		if _, ok := fab.Step(); !ok {
@@ -314,8 +314,8 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	if err := fab.Err(); err != nil {
 		t.Fatalf("fabric run fault: %v", err)
 	}
-	if fab.Snapshot().Clock.Before(deadline) {
-		t.Fatalf("fabric queue drained at %v before reaching %v; scenario needs periodic STP hellos to keep advancing", fab.Snapshot().Clock, deadline)
+	if fab.Clock().Before(deadline) {
+		t.Fatalf("fabric queue drained at %v before reaching %v; scenario needs periodic STP hellos to keep advancing", fab.Clock(), deadline)
 	}
 
 	// sw1 is the root: as root, its own designated vector always beats

@@ -71,109 +71,8 @@ func diffJourney(jA, jB Journey) (analysis.Difference, string, bool) {
 		}, "Protocol", true
 	}
 
-	entriesA := slices.DeleteFunc(slices.Clone(jA.Entries), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
-	entriesB := slices.DeleteFunc(slices.Clone(jB.Entries), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
-	minEntries := min(len(entriesA), len(entriesB))
-	for k := 0; k < minEntries; k++ {
-		eA := entriesA[k]
-		eB := entriesB[k]
-
-		if eA.Kind != eB.Kind {
-			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
-				return analysis.Difference{
-					Observable: "journey terminal",
-					Current:    string(eA.Kind),
-					Expected:   string(eB.Kind),
-				}, fmt.Sprintf("Entries[%d].Kind", k), true
-			}
-			return analysis.Difference{
-				Observable: "path",
-				Current:    string(eA.Kind),
-				Expected:   string(eB.Kind),
-			}, fmt.Sprintf("Entries[%d].Kind", k), true
-		}
-
-		if eA.Device != eB.Device || eA.Port != eB.Port {
-			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
-				return analysis.Difference{
-					Observable: "drop location",
-					Current:    formatEndpoint(eA.Device, eA.Port),
-					Expected:   formatEndpoint(eB.Device, eB.Port),
-				}, fmt.Sprintf("Entries[%d].%s", k, differingEndpointField(eA, eB)), true
-			}
-			return analysis.Difference{
-				Observable: "path",
-				Current:    formatEndpoint(eA.Device, eA.Port),
-				Expected:   formatEndpoint(eB.Device, eB.Port),
-			}, fmt.Sprintf("Entries[%d].%s", k, differingEndpointField(eA, eB)), true
-		}
-
-		if !sameCable(eA.Cable, eB.Cable) {
-			return analysis.Difference{
-				Observable: "path",
-				Current:    formatCable(eA.Cable),
-				Expected:   formatCable(eB.Cable),
-			}, fmt.Sprintf("Entries[%d].Cable.%s", k, cableField(eA.Cable, eB.Cable)), true
-		}
-
-		if eA.Reason != eB.Reason {
-			return analysis.Difference{
-				Observable: "drop reason",
-				Current:    string(eA.Reason),
-				Expected:   string(eB.Reason),
-			}, fmt.Sprintf("Entries[%d].Reason", k), true
-		}
-
-		if eA.PCP != eB.PCP {
-			return analysis.Difference{
-				Observable: "journey rewrite",
-				Current:    strconv.Itoa(int(eA.PCP)),
-				Expected:   strconv.Itoa(int(eB.PCP)),
-			}, fmt.Sprintf("Entries[%d].PCP", k), true
-		}
-
-		if !eA.At.Equal(eB.At) {
-			return analysis.Difference{
-				Observable: "timing",
-				Current:    eA.At.Format(time.RFC3339Nano),
-				Expected:   eB.At.Format(time.RFC3339Nano),
-			}, fmt.Sprintf("Entries[%d].At", k), true
-		}
-		if eA.Latency != eB.Latency {
-			return analysis.Difference{
-				Observable: "timing",
-				Current:    eA.Latency.String(),
-				Expected:   eB.Latency.String(),
-			}, fmt.Sprintf("Entries[%d].Latency", k), true
-		}
-		if eA.Serialization != eB.Serialization {
-			return analysis.Difference{
-				Observable: "timing",
-				Current:    eA.Serialization.String(),
-				Expected:   eB.Serialization.String(),
-			}, fmt.Sprintf("Entries[%d].Serialization", k), true
-		}
-		if eA.Wait != eB.Wait {
-			return analysis.Difference{
-				Observable: "timing",
-				Current:    eA.Wait.String(),
-				Expected:   eB.Wait.String(),
-			}, fmt.Sprintf("Entries[%d].Wait", k), true
-		}
-
-		if eA.Result != nil && eB.Result != nil {
-			if diff, field, hasDiff := diffHopResult(*eA.Result, *eB.Result); hasDiff {
-				return diff, fmt.Sprintf("Entries[%d].Result.%s", k, field), true
-			}
-		}
-	}
-
-	if len(entriesA) != len(entriesB) {
-		return analysis.Difference{
-			Observable: "path",
-			Current:    fmt.Sprintf("%d entries", len(entriesA)),
-			Expected:   fmt.Sprintf("%d entries", len(entriesB)),
-		}, "Entries.Length", true
+	if diff, field, found := diffJourneyEntries(jA.Entries, jB.Entries); found {
+		return diff, field, true
 	}
 
 	if len(jA.Deliveries) != len(jB.Deliveries) {
@@ -289,5 +188,114 @@ func diffHopResult(rA, rB device.Result) (analysis.Difference, string, bool) {
 			}, fmt.Sprintf("Egress[%d].Frame.Payload", i), true
 		}
 	}
+	return analysis.Difference{}, "", false
+}
+
+func diffJourneyEntries(a, b []Entry) (analysis.Difference, string, bool) {
+	entriesA := slices.DeleteFunc(slices.Clone(a), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
+	entriesB := slices.DeleteFunc(slices.Clone(b), func(e Entry) bool { return e.Kind == EntryQueueThreshold })
+	minEntries := min(len(entriesA), len(entriesB))
+	for k := 0; k < minEntries; k++ {
+		eA := entriesA[k]
+		eB := entriesB[k]
+
+		if eA.Kind != eB.Kind {
+			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
+				return analysis.Difference{
+					Observable: "journey terminal",
+					Current:    string(eA.Kind),
+					Expected:   string(eB.Kind),
+				}, fmt.Sprintf("Entries[%d].Kind", k), true
+			}
+			return analysis.Difference{
+				Observable: "path",
+				Current:    string(eA.Kind),
+				Expected:   string(eB.Kind),
+			}, fmt.Sprintf("Entries[%d].Kind", k), true
+		}
+
+		if eA.Device != eB.Device || eA.Port != eB.Port {
+			if eA.Kind == EntryDrop || eB.Kind == EntryDrop {
+				return analysis.Difference{
+					Observable: "drop location",
+					Current:    formatEndpoint(eA.Device, eA.Port),
+					Expected:   formatEndpoint(eB.Device, eB.Port),
+				}, fmt.Sprintf("Entries[%d].%s", k, differingEndpointField(eA, eB)), true
+			}
+			return analysis.Difference{
+				Observable: "path",
+				Current:    formatEndpoint(eA.Device, eA.Port),
+				Expected:   formatEndpoint(eB.Device, eB.Port),
+			}, fmt.Sprintf("Entries[%d].%s", k, differingEndpointField(eA, eB)), true
+		}
+
+		if !sameCable(eA.Cable, eB.Cable) {
+			return analysis.Difference{
+				Observable: "path",
+				Current:    formatCable(eA.Cable),
+				Expected:   formatCable(eB.Cable),
+			}, fmt.Sprintf("Entries[%d].Cable.%s", k, cableField(eA.Cable, eB.Cable)), true
+		}
+
+		if eA.Reason != eB.Reason {
+			return analysis.Difference{
+				Observable: "drop reason",
+				Current:    string(eA.Reason),
+				Expected:   string(eB.Reason),
+			}, fmt.Sprintf("Entries[%d].Reason", k), true
+		}
+
+		if eA.PCP != eB.PCP {
+			return analysis.Difference{
+				Observable: "journey rewrite",
+				Current:    strconv.Itoa(int(eA.PCP)),
+				Expected:   strconv.Itoa(int(eB.PCP)),
+			}, fmt.Sprintf("Entries[%d].PCP", k), true
+		}
+
+		if !eA.At.Equal(eB.At) {
+			return analysis.Difference{
+				Observable: "timing",
+				Current:    eA.At.Format(time.RFC3339Nano),
+				Expected:   eB.At.Format(time.RFC3339Nano),
+			}, fmt.Sprintf("Entries[%d].At", k), true
+		}
+		if eA.Latency != eB.Latency {
+			return analysis.Difference{
+				Observable: "timing",
+				Current:    eA.Latency.String(),
+				Expected:   eB.Latency.String(),
+			}, fmt.Sprintf("Entries[%d].Latency", k), true
+		}
+		if eA.Serialization != eB.Serialization {
+			return analysis.Difference{
+				Observable: "timing",
+				Current:    eA.Serialization.String(),
+				Expected:   eB.Serialization.String(),
+			}, fmt.Sprintf("Entries[%d].Serialization", k), true
+		}
+		if eA.Wait != eB.Wait {
+			return analysis.Difference{
+				Observable: "timing",
+				Current:    eA.Wait.String(),
+				Expected:   eB.Wait.String(),
+			}, fmt.Sprintf("Entries[%d].Wait", k), true
+		}
+
+		if eA.Result != nil && eB.Result != nil {
+			if diff, field, hasDiff := diffHopResult(*eA.Result, *eB.Result); hasDiff {
+				return diff, fmt.Sprintf("Entries[%d].Result.%s", k, field), true
+			}
+		}
+	}
+
+	if len(entriesA) != len(entriesB) {
+		return analysis.Difference{
+			Observable: "path",
+			Current:    fmt.Sprintf("%d entries", len(entriesA)),
+			Expected:   fmt.Sprintf("%d entries", len(entriesB)),
+		}, "Entries.Length", true
+	}
+
 	return analysis.Difference{}, "", false
 }

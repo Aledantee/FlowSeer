@@ -134,7 +134,7 @@ func queueBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 func primeQueueBufferLearning(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC) {
 	t.Helper()
 	if _, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h3"},
 		Frame:  ethernet.Frame{Src: macs["h3"], Dst: macs["h1"]},
 	}); err != nil {
@@ -164,7 +164,6 @@ func unstatedBackedFabric(t *testing.T, names []string) (*fabric.Fabric, []fabri
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fabric.ExportFabricInitRunState(fab)
 
 	eps := make([]fabric.Endpoint, 0, len(names))
 	for _, name := range names {
@@ -207,7 +206,7 @@ func TestQueueBufferUnstatedIssueReachesFlow(t *testing.T) {
 
 	// h1's and h2's frames arrive together, so the second appends at 2028
 	// octets and crosses the 1518-octet threshold.
-	at := fab.Snapshot().Clock
+	at := fab.Clock()
 	for _, host := range []string{"h1", "h2"} {
 		if _, err := fab.Inject(fabric.Injection{
 			At:        at,

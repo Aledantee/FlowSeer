@@ -68,7 +68,7 @@ func TestFabricSchedulesLoopProtectWakeWithNoSTPOrLAG(t *testing.T) {
 		if !ok {
 			break
 		}
-		if entry.Kind == fabric.EntryWake && entry.Device == "sw1" {
+		if entry.Arrival == fabric.ArrivalWake && entry.Device == "sw1" {
 			sawWake = true
 		}
 	}

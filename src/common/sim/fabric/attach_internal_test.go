@@ -21,11 +21,6 @@ type scriptedSource struct {
 	invalid bool
 }
 
-func init() {
-	fabricFieldClasses["attachments"] = classDeepCopied
-	fabricDeepCopiedProbes["attachments"] = probeFabricAttachments
-}
-
 func probeFabricAttachments(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	(*fabric.ExportFabricAttachments(fab)) = []fabric.ExportAttachedSource{fabric.MakeTestAttachedSource(fabric.ExportAttachedSourceFields{
@@ -34,9 +29,9 @@ func probeFabricAttachments(t *testing.T) {
 		Peeked:     true,
 	})}
 	fork := fab.Fork()
-	fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fork))[0]).Payload[0] = 2
-	if got := fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fab))[0]).Payload[0]; got != 1 {
-		t.Errorf("source peek payload = %d, want 1", got)
+	fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fork))[0]).Src[0] = 9
+	if fabric.ExportAttachedSourceFrame(&(*fabric.ExportFabricAttachments(fab))[0]).Src[0] != 0 {
+		t.Error("source peek frame value changed through fork")
 	}
 	if _, _, ok := fabric.ExportAttachedSourceAttachment(&(*fabric.ExportFabricAttachments(fork))[0]).Source.Next(); !ok {
 		t.Fatal("fork source has no next frame")

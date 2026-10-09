@@ -303,7 +303,7 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 			_, err = cand.Inject(fabric.Injection{
-				At:     cand.Snapshot().Clock,
+				At:     cand.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst:       candForkH2,
@@ -322,7 +322,7 @@ func casePlanningCandidateForkDiverges() Case {
 
 			// Source fabric injects the planned frame and continues its run unaffected.
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst:       candForkH2,
@@ -800,7 +800,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: transceiverH2, Src: transceiverH1, EtherType: ethernet.EtherTypeIPv4},
 			})
@@ -884,7 +884,7 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: transceiverH3, Src: transceiverH1, EtherType: ethernet.EtherTypeIPv4},
 			})
@@ -1054,7 +1054,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: uncabledBehind3, Src: uncabledH1, EtherType: ethernet.EtherTypeIPv4},
 			})
@@ -1201,7 +1201,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: unreportedNegotiationH2, Src: unreportedNegotiationH1, EtherType: ethernet.EtherTypeIPv4},
 			})
@@ -1388,7 +1388,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: unknownUplinkH2, Src: unknownUplinkH1, EtherType: ethernet.EtherTypeIPv4},
 			})
@@ -1507,7 +1507,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst: foreignUnicastForeign, Src: foreignUnicastH1, EtherType: ethernet.EtherTypeIPv4,

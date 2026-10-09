@@ -107,274 +107,10 @@ func Diff(a, b Config) []trace.Change {
 	}
 	changes = append(changes, diffUncabled(a.Uncabled, b.Uncabled)...)
 
-	swNames := make(map[string]struct{})
-	for name := range a.Switches {
-		swNames[name] = struct{}{}
-	}
-	for name := range b.Switches {
-		swNames[name] = struct{}{}
-	}
-	sortedSw := make([]string, 0, len(swNames))
-	for name := range swNames {
-		sortedSw = append(sortedSw, name)
-	}
-	slices.Sort(sortedSw)
-
-	for _, name := range sortedSw {
-		swA, inA := a.Switches[name]
-		swB, inB := b.Switches[name]
-		switch {
-		case inA && !inB:
-			changes = append(changes, trace.Change{
-				Layer: fabric.Layer,
-				Subject: trace.Subject{
-					Kind: "switch",
-					Key:  name,
-				},
-				Field: "",
-				From:  vswitch.ConfigFact(swA),
-				To:    nil,
-			})
-		case !inA && inB:
-			changes = append(changes, trace.Change{
-				Layer: fabric.Layer,
-				Subject: trace.Subject{
-					Kind: "switch",
-					Key:  name,
-				},
-				Field: "",
-				From:  nil,
-				To:    vswitch.ConfigFact(swB),
-			})
-		case inA && inB:
-			swChanges := vswitch.Diff(swA, swB)
-			for _, ch := range swChanges {
-				ch.Subject.Key = trace.CompositeKey(name, ch.Subject.Key)
-				changes = append(changes, ch)
-			}
-		}
-	}
-
-	cablesA := sortedCables(a.Cables)
-	cablesB := sortedCables(b.Cables)
-
-	mapA := make(map[cableEndpoints]fabric.Cable, len(cablesA))
-	for _, c := range cablesA {
-		mapA[cableEndpointsFor(c)] = c
-	}
-	mapB := make(map[cableEndpoints]fabric.Cable, len(cablesB))
-	for _, c := range cablesB {
-		mapB[cableEndpointsFor(c)] = c
-	}
-
-	for _, cA := range cablesA {
-		endpoints := cableEndpointsFor(cA)
-		key := endpoints.Canonical()
-		cB, exists := mapB[endpoints]
-		if !exists {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "",
-				From:    cableSnapshot(cA),
-				To:      nil,
-			})
-			continue
-		}
-		cA = canonicalCableOrientation(cA)
-		cB = canonicalCableOrientation(cB)
-
-		if !sameLengthMeters(cA.LengthMeters, cB.LengthMeters) {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "length",
-				From:    lengthFact(cA.LengthMeters),
-				To:      lengthFact(cB.LengthMeters),
-			})
-		}
-		if mA, mB := cA.Medium, cB.Medium; mA != mB {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "medium",
-				From:    mA,
-				To:      mB,
-			})
-		}
-		if !samePtr(cA.Delay, cB.Delay) {
-			var fromDelay, toDelay trace.Fact
-			if cA.Delay != nil {
-				fromDelay = delayFact(*cA.Delay)
-			}
-			if cB.Delay != nil {
-				toDelay = delayFact(*cB.Delay)
-			}
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "delay",
-				From:    fromDelay,
-				To:      toDelay,
-			})
-		}
-		if cA.TopSpeedBPS != cB.TopSpeedBPS {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "top_speed",
-				From:    topSpeedFact(cA.TopSpeedBPS),
-				To:      topSpeedFact(cB.TopSpeedBPS),
-			})
-		}
-		if !sameFault(cA.Fault, cB.Fault) {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "fault",
-				From:    faultSnapshot(cA.Fault),
-				To:      faultSnapshot(cB.Fault),
-			})
-		}
-	}
-
-	for _, cB := range cablesB {
-		endpoints := cableEndpointsFor(cB)
-		key := endpoints.Canonical()
-		if _, exists := mapA[endpoints]; !exists {
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "cable", Key: key},
-				Field:   "",
-				From:    nil,
-				To:      cableSnapshot(cB),
-			})
-		}
-	}
-
-	hostNames := make(map[string]struct{})
-	for name := range a.Hosts {
-		hostNames[name] = struct{}{}
-	}
-	for name := range b.Hosts {
-		hostNames[name] = struct{}{}
-	}
-	sortedHosts := make([]string, 0, len(hostNames))
-	for name := range hostNames {
-		sortedHosts = append(sortedHosts, name)
-	}
-	slices.Sort(sortedHosts)
-
-	for _, name := range sortedHosts {
-		hA, inA := a.Hosts[name]
-		hB, inB := b.Hosts[name]
-		switch {
-		case inA && !inB:
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "host", Key: name},
-				Field:   "",
-				From:    hostSnapshot(hA),
-				To:      nil,
-			})
-		case !inA && inB:
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "host", Key: name},
-				Field:   "",
-				From:    nil,
-				To:      hostSnapshot(hB),
-			})
-		case inA && inB:
-			epA, okA := hostEndpoint(name, a.Cables)
-			epB, okB := hostEndpoint(name, b.Cables)
-			if okA && okB && epA != epB {
-				changes = append(changes, trace.Change{
-					Layer:   fabric.Layer,
-					Subject: trace.Subject{Kind: "host", Key: name},
-					Field:   "port",
-					From:    epA,
-					To:      epB,
-				})
-			}
-			if hA.Address != hB.Address {
-				changes = append(changes, trace.Change{
-					Layer:   fabric.Layer,
-					Subject: trace.Subject{Kind: "host", Key: name},
-					Field:   "address",
-					From:    macFact(hA.Address),
-					To:      macFact(hB.Address),
-				})
-			}
-			if !samePtr(hA.VLAN, hB.VLAN) {
-				var fromVal, toVal trace.Fact
-				if hA.VLAN != nil {
-					fromVal = vlanFact(*hA.VLAN)
-				}
-				if hB.VLAN != nil {
-					toVal = vlanFact(*hB.VLAN)
-				}
-				changes = append(changes, trace.Change{
-					Layer:   fabric.Layer,
-					Subject: trace.Subject{Kind: "host", Key: name},
-					Field:   "vlan",
-					From:    fromVal,
-					To:      toVal,
-				})
-			}
-			diffHostIP(&changes, name, hA.IP, hB.IP)
-			diffHostEthernet(&changes, name, hA.Ethernet, hB.Ethernet)
-			diffHostAccept(&changes, name, hA.Accept, hB.Accept)
-		}
-	}
-
-	reflectorNames := make(map[string]struct{})
-	for name := range a.Reflectors {
-		reflectorNames[name] = struct{}{}
-	}
-	for name := range b.Reflectors {
-		reflectorNames[name] = struct{}{}
-	}
-	sortedReflectors := make([]string, 0, len(reflectorNames))
-	for name := range reflectorNames {
-		sortedReflectors = append(sortedReflectors, name)
-	}
-	slices.Sort(sortedReflectors)
-
-	for _, name := range sortedReflectors {
-		rA, inA := a.Reflectors[name]
-		rB, inB := b.Reflectors[name]
-		switch {
-		case inA && !inB:
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "reflector", Key: name},
-				Field:   "",
-				From:    reflectorSnapshot(rA),
-				To:      nil,
-			})
-		case !inA && inB:
-			changes = append(changes, trace.Change{
-				Layer:   fabric.Layer,
-				Subject: trace.Subject{Kind: "reflector", Key: name},
-				Field:   "",
-				From:    nil,
-				To:      reflectorSnapshot(rB),
-			})
-		case inA && inB:
-			if rA.Address != rB.Address {
-				changes = append(changes, trace.Change{
-					Layer:   fabric.Layer,
-					Subject: trace.Subject{Kind: "reflector", Key: name},
-					Field:   "address",
-					From:    macFact(rA.Address),
-					To:      macFact(rB.Address),
-				})
-			}
-			diffPorts(&changes, name, rA.Ports, rB.Ports)
-			diffAttachments(&changes, name, rA.Attachments, rB.Attachments)
-		}
-	}
+	changes = append(changes, diffSwitches(a, b)...)
+	changes = append(changes, diffCables(a, b)...)
+	changes = append(changes, diffHosts(a, b)...)
+	changes = append(changes, diffReflectors(a, b)...)
 
 	return changes
 }
@@ -729,4 +465,289 @@ func hostEndpoint(name string, cables []fabric.Cable) (fabric.Endpoint, bool) {
 		}
 	}
 	return fabric.Endpoint{}, false
+}
+
+func diffSwitches(a, b Config) []trace.Change {
+	var changes []trace.Change
+	swNames := make(map[string]struct{})
+	for name := range a.Switches {
+		swNames[name] = struct{}{}
+	}
+	for name := range b.Switches {
+		swNames[name] = struct{}{}
+	}
+	sortedSw := make([]string, 0, len(swNames))
+	for name := range swNames {
+		sortedSw = append(sortedSw, name)
+	}
+	slices.Sort(sortedSw)
+
+	for _, name := range sortedSw {
+		swA, inA := a.Switches[name]
+		swB, inB := b.Switches[name]
+		switch {
+		case inA && !inB:
+			changes = append(changes, trace.Change{
+				Layer: fabric.Layer,
+				Subject: trace.Subject{
+					Kind: "switch",
+					Key:  name,
+				},
+				Field: "",
+				From:  vswitch.ConfigFact(swA),
+				To:    nil,
+			})
+		case !inA && inB:
+			changes = append(changes, trace.Change{
+				Layer: fabric.Layer,
+				Subject: trace.Subject{
+					Kind: "switch",
+					Key:  name,
+				},
+				Field: "",
+				From:  nil,
+				To:    vswitch.ConfigFact(swB),
+			})
+		case inA && inB:
+			swChanges := vswitch.Diff(swA, swB)
+			for _, ch := range swChanges {
+				ch.Subject.Key = trace.CompositeKey(name, ch.Subject.Key)
+				changes = append(changes, ch)
+			}
+		}
+	}
+	return changes
+}
+
+func diffCables(a, b Config) []trace.Change {
+	var changes []trace.Change
+	cablesA := sortedCables(a.Cables)
+	cablesB := sortedCables(b.Cables)
+
+	mapA := make(map[cableEndpoints]fabric.Cable, len(cablesA))
+	for _, c := range cablesA {
+		mapA[cableEndpointsFor(c)] = c
+	}
+	mapB := make(map[cableEndpoints]fabric.Cable, len(cablesB))
+	for _, c := range cablesB {
+		mapB[cableEndpointsFor(c)] = c
+	}
+
+	for _, cA := range cablesA {
+		endpoints := cableEndpointsFor(cA)
+		key := endpoints.Canonical()
+		cB, exists := mapB[endpoints]
+		if !exists {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "",
+				From:    cableSnapshot(cA),
+				To:      nil,
+			})
+			continue
+		}
+		cA = canonicalCableOrientation(cA)
+		cB = canonicalCableOrientation(cB)
+
+		if !sameLengthMeters(cA.LengthMeters, cB.LengthMeters) {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "length",
+				From:    lengthFact(cA.LengthMeters),
+				To:      lengthFact(cB.LengthMeters),
+			})
+		}
+		if mA, mB := cA.Medium, cB.Medium; mA != mB {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "medium",
+				From:    mA,
+				To:      mB,
+			})
+		}
+		if !samePtr(cA.Delay, cB.Delay) {
+			var fromDelay, toDelay trace.Fact
+			if cA.Delay != nil {
+				fromDelay = delayFact(*cA.Delay)
+			}
+			if cB.Delay != nil {
+				toDelay = delayFact(*cB.Delay)
+			}
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "delay",
+				From:    fromDelay,
+				To:      toDelay,
+			})
+		}
+		if cA.TopSpeedBPS != cB.TopSpeedBPS {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "top_speed",
+				From:    topSpeedFact(cA.TopSpeedBPS),
+				To:      topSpeedFact(cB.TopSpeedBPS),
+			})
+		}
+		if !sameFault(cA.Fault, cB.Fault) {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "fault",
+				From:    faultSnapshot(cA.Fault),
+				To:      faultSnapshot(cB.Fault),
+			})
+		}
+	}
+
+	for _, cB := range cablesB {
+		endpoints := cableEndpointsFor(cB)
+		key := endpoints.Canonical()
+		if _, exists := mapA[endpoints]; !exists {
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "cable", Key: key},
+				Field:   "",
+				From:    nil,
+				To:      cableSnapshot(cB),
+			})
+		}
+	}
+	return changes
+}
+
+func diffHosts(a, b Config) []trace.Change {
+	var changes []trace.Change
+	hostNames := make(map[string]struct{})
+	for name := range a.Hosts {
+		hostNames[name] = struct{}{}
+	}
+	for name := range b.Hosts {
+		hostNames[name] = struct{}{}
+	}
+	sortedHosts := make([]string, 0, len(hostNames))
+	for name := range hostNames {
+		sortedHosts = append(sortedHosts, name)
+	}
+	slices.Sort(sortedHosts)
+
+	for _, name := range sortedHosts {
+		hA, inA := a.Hosts[name]
+		hB, inB := b.Hosts[name]
+		switch {
+		case inA && !inB:
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "host", Key: name},
+				Field:   "",
+				From:    hostSnapshot(hA),
+				To:      nil,
+			})
+		case !inA && inB:
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "host", Key: name},
+				Field:   "",
+				From:    nil,
+				To:      hostSnapshot(hB),
+			})
+		case inA && inB:
+			epA, okA := hostEndpoint(name, a.Cables)
+			epB, okB := hostEndpoint(name, b.Cables)
+			if okA && okB && epA != epB {
+				changes = append(changes, trace.Change{
+					Layer:   fabric.Layer,
+					Subject: trace.Subject{Kind: "host", Key: name},
+					Field:   "port",
+					From:    epA,
+					To:      epB,
+				})
+			}
+			if hA.Address != hB.Address {
+				changes = append(changes, trace.Change{
+					Layer:   fabric.Layer,
+					Subject: trace.Subject{Kind: "host", Key: name},
+					Field:   "address",
+					From:    macFact(hA.Address),
+					To:      macFact(hB.Address),
+				})
+			}
+			if !samePtr(hA.VLAN, hB.VLAN) {
+				var fromVal, toVal trace.Fact
+				if hA.VLAN != nil {
+					fromVal = vlanFact(*hA.VLAN)
+				}
+				if hB.VLAN != nil {
+					toVal = vlanFact(*hB.VLAN)
+				}
+				changes = append(changes, trace.Change{
+					Layer:   fabric.Layer,
+					Subject: trace.Subject{Kind: "host", Key: name},
+					Field:   "vlan",
+					From:    fromVal,
+					To:      toVal,
+				})
+			}
+			diffHostIP(&changes, name, hA.IP, hB.IP)
+			diffHostEthernet(&changes, name, hA.Ethernet, hB.Ethernet)
+			diffHostAccept(&changes, name, hA.Accept, hB.Accept)
+		}
+	}
+	return changes
+}
+
+func diffReflectors(a, b Config) []trace.Change {
+	var changes []trace.Change
+	reflectorNames := make(map[string]struct{})
+	for name := range a.Reflectors {
+		reflectorNames[name] = struct{}{}
+	}
+	for name := range b.Reflectors {
+		reflectorNames[name] = struct{}{}
+	}
+	sortedReflectors := make([]string, 0, len(reflectorNames))
+	for name := range reflectorNames {
+		sortedReflectors = append(sortedReflectors, name)
+	}
+	slices.Sort(sortedReflectors)
+
+	for _, name := range sortedReflectors {
+		rA, inA := a.Reflectors[name]
+		rB, inB := b.Reflectors[name]
+		switch {
+		case inA && !inB:
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "reflector", Key: name},
+				Field:   "",
+				From:    reflectorSnapshot(rA),
+				To:      nil,
+			})
+		case !inA && inB:
+			changes = append(changes, trace.Change{
+				Layer:   fabric.Layer,
+				Subject: trace.Subject{Kind: "reflector", Key: name},
+				Field:   "",
+				From:    nil,
+				To:      reflectorSnapshot(rB),
+			})
+		case inA && inB:
+			if rA.Address != rB.Address {
+				changes = append(changes, trace.Change{
+					Layer:   fabric.Layer,
+					Subject: trace.Subject{Kind: "reflector", Key: name},
+					Field:   "address",
+					From:    macFact(rA.Address),
+					To:      macFact(rB.Address),
+				})
+			}
+			diffPorts(&changes, name, rA.Ports, rB.Ports)
+			diffAttachments(&changes, name, rA.Attachments, rB.Attachments)
+		}
+	}
+	return changes
 }

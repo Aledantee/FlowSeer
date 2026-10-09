@@ -83,7 +83,7 @@ func journeyFabric(t *testing.T, seedH2 bool) *fabric.Fabric {
 func sendH1ToH2(t *testing.T, fab *fabric.Fabric) fabric.Journey {
 	t.Helper()
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  ethernet.Frame{Dst: journeyH2, Src: journeyH1, EtherType: ethernet.EtherTypeIPv4},
 	})

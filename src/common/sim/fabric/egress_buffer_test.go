@@ -107,7 +107,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 func primeEgressLearning(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC) {
 	t.Helper()
 	if _, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h3"},
 		Frame:  ethernet.Frame{Src: macs["h3"], Dst: macs["h1"]},
 	}); err != nil {
@@ -122,7 +122,7 @@ func egressBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 
 func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.JourneyRetention) {
 	t.Helper()
-	at := fab.Snapshot().Clock
+	at := fab.Clock()
 	for range 20 {
 		if _, err := fab.Inject(fabric.Injection{
 			At:        at,
@@ -237,7 +237,7 @@ func TestEgressBufferCountsEncodedFrameOctets(t *testing.T) {
 			fab, macs := egressBufferTopology(t, &buffer)
 			primeEgressLearning(t, fab, macs)
 
-			at := fab.Snapshot().Clock
+			at := fab.Clock()
 			for _, host := range []string{"h1", "h2"} {
 				if _, err := fab.Inject(fabric.Injection{
 					At:        at,
@@ -289,7 +289,7 @@ func TestEgressUnstatedBufferReportsPeak(t *testing.T) {
 	fab, macs := egressBufferTopology(t, nil)
 	primeEgressLearning(t, fab, macs)
 
-	at := fab.Snapshot().Clock
+	at := fab.Clock()
 	for range 10 {
 		if _, err := fab.Inject(fabric.Injection{
 			At:     at,

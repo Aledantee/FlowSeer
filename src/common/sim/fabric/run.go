@@ -64,12 +64,19 @@ type Snapshot struct {
 	EgressDepths map[Endpoint]map[vlan.PCP]EgressDepth
 }
 
+// StepResult identifies the executed queue event and its immediate frame entry.
+// A wake or dequeue has an empty Entry.Kind because it is not a journey event.
+type StepResult struct {
+	Entry
+	Arrival ArrivalKind
+}
+
 type queued struct {
 	frame      ethernet.Frame
 	octets     uint64
 	seq        uint64
 	fid        FrameID
-	journey    *Journey
+	journey    *journey
 	pcp        vlan.PCP
 	egressPort string
 	enqueued   time.Time
@@ -95,7 +102,7 @@ type EgressDepth struct {
 // serialization is the time the frame occupies the wire at rateBPS. Every
 // caller transmits on a link that negotiated, so the rate is never 0.
 func serialization(frame ethernet.Frame, rateBPS uint64) time.Duration {
-	return rateInterval(uint64(frame.WireOctets())*8, rateBPS)
+	return rateInterval((max(encodedOctets(frame), uint64(60+4*len(frame.Tags)))+24)*8, rateBPS)
 }
 
 func rateInterval(wireBits, rateBPS uint64) time.Duration {
@@ -142,14 +149,22 @@ func (f *Fabric) portCable(node, portName string) *Cable {
 // are enqueued onto connected cables or delivered to target hosts.
 // Step returns false when the arrival queue is empty or a scheduling fault has
 // been recorded; [Fabric.Err] distinguishes the two.
-func (f *Fabric) Step() (Entry, bool) {
+func (f *Fabric) Step() (StepResult, bool) {
+	if f.err != nil || len(f.queue) == 0 {
+		return StepResult{}, false
+	}
+	kind := f.queue[0].Kind
+	entry, ok := f.step()
+	return StepResult{Entry: entry, Arrival: kind}, ok
+}
+
+func (f *Fabric) step() (Entry, bool) {
 	if f.err != nil {
 		return Entry{}, false
 	}
 	if len(f.queue) == 0 {
 		return Entry{}, false
 	}
-	f.initRunState()
 	defer f.settleTouched()
 
 	arr := f.popArrival()
@@ -196,7 +211,6 @@ func (f *Fabric) Step() (Entry, bool) {
 
 		return Entry{
 			At:     arr.At,
-			Kind:   EntryWake,
 			Device: arr.Device,
 		}, true
 	}
@@ -210,161 +224,12 @@ func (f *Fabric) Step() (Entry, bool) {
 
 		return Entry{
 			At:     arr.At,
-			Kind:   EntryDequeue,
 			Device: arr.Device,
 			Port:   arr.Port,
 		}, true
 	}
 
-	journey := f.journeys[arr.FrameID]
-
-	ep := Endpoint{Node: arr.Device, Port: arr.Port}
-	if f.entered[arr.FrameID] == nil {
-		f.entered[arr.FrameID] = make(map[Endpoint]bool)
-	}
-	if f.entered[arr.FrameID][ep] {
-		loopEntry := Entry{
-			At:     arr.At,
-			Kind:   EntryLoop,
-			Device: arr.Device,
-			Port:   arr.Port,
-		}
-		f.record(journey, loopEntry)
-	}
-	f.entered[arr.FrameID][ep] = true
-
-	sw := f.nodeDevice(arr.Device)
-	var inPorts []string
-	inPorts = append(inPorts, arr.Port)
-	if p, ok := sw.Ports().Port(arr.Port); ok && p.LagParent != "" {
-		inPorts = append(inPorts, p.LagParent)
-	}
-
-	// Inject refused any frame the codec cannot encode, and a bridge only
-	// rewrites the tag stack with valid tags, so Encode cannot fail here.
-	rawIn, _ := arr.Frame.Encode()
-	inOctets := uint64(len(rawIn))
-
-	if arr.Corrupt {
-		for _, p := range inPorts {
-			f.countCorruptIngress(arr.Device, p, inOctets)
-		}
-
-		var cable *Cable
-		if arr.Port == "" {
-			cable = f.portCable(arr.Device, arr.Port)
-		}
-		dropEntry := Entry{
-			At:     arr.At,
-			Kind:   EntryDrop,
-			Device: arr.Device,
-			Port:   arr.Port,
-			Reason: cablemodel.ReasonBadFrame,
-			Cable:  cable,
-		}
-		f.record(journey, dropEntry)
-
-		return dropEntry, true
-	}
-
-	inClass := classifyMAC(arr.Frame.Dst)
-	for _, p := range inPorts {
-		f.countIngress(arr.Device, p, inOctets, inClass)
-	}
-	// A SPAN mirror copy carries a non-empty Origin.Mirror and has already
-	// passed the original ingress policy, so a downstream switch must not charge
-	// its bytes again. A reflection carries OriginReflection for provenance but no
-	// mirror name; it is a first-class datagram the policer must still see.
-	var out device.Output
-	if journey.Origin.Mirror == "" {
-		out = sw.Receive(arr.At, arr.Port, arr.Frame)
-	} else {
-		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
-	}
-	res := out.Result
-	var acceptanceEntry *Entry
-	if res.Acceptance != device.NoAcceptance {
-		e := f.recordAcceptance(journey, arr.Device, arr.Port, arr.Frame, arr.At, res)
-		acceptanceEntry = &e
-	}
-	if out.Err != nil {
-		f.recordFault(out.Err)
-	}
-	if out.Hold != 0 {
-		f.held[holdKey{node: arr.Device, token: out.Hold}] = arr.FrameID
-		f.inflightAdd(arr.FrameID)
-	}
-
-	f.scheduleWake(arr.Device)
-	if out.Policed {
-		for _, p := range inPorts {
-			f.countWholeFrameDrop(arr.Device, p, res.Reason)
-		}
-		dropEntry := Entry{
-			At: arr.At, Kind: EntryDrop, Device: arr.Device,
-			Port: arr.Port, Result: &res, Reason: res.Reason,
-		}
-		f.record(journey, dropEntry)
-		return dropEntry, true
-	}
-
-	hopEntry := Entry{
-		At:     arr.At,
-		Kind:   EntryHop,
-		Device: arr.Device,
-		Port:   arr.Port,
-		Result: cloneResult(res),
-	}
-	if acceptanceEntry == nil {
-		f.record(journey, hopEntry)
-	}
-
-	if res.Outcome == trace.Dropped && acceptanceEntry == nil {
-		for _, p := range inPorts {
-			f.countWholeFrameDrop(arr.Device, p, res.Reason)
-		}
-
-		dropEntry := Entry{
-			At:     arr.At,
-			Kind:   EntryDrop,
-			Device: arr.Device,
-			Port:   arr.Port,
-			Reason: res.Reason,
-		}
-		f.record(journey, dropEntry)
-	}
-
-	for _, eg := range res.Egress {
-		var outPorts []string
-		outPorts = append(outPorts, eg.Port)
-		if eg.Member != "" {
-			outPorts = append(outPorts, eg.Member)
-		}
-
-		if eg.Dropped != "" {
-			for _, p := range outPorts {
-				f.countEgressDrop(arr.Device, p, eg.Dropped)
-			}
-			f.record(journey, Entry{
-				At:     arr.At,
-				Kind:   EntryDrop,
-				Device: arr.Device,
-				Port:   eg.Port,
-				Reason: eg.Dropped,
-			})
-
-			continue
-		}
-
-		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey, eg.PCP, "")
-	}
-
-	f.applyDeviceOutput(arr.At, arr.Device, out, journey)
-
-	if acceptanceEntry != nil {
-		return *acceptanceEntry, true
-	}
-	return hopEntry, true
+	return f.stepFrame(arr)
 }
 
 // cloneEntered returns an independent copy of a frame's re-entry set, so a
@@ -443,36 +308,173 @@ type RunOptions struct {
 	Window int
 }
 
-func (f *Fabric) initRunState() {
-	if f.journeys == nil {
-		f.journeys = make(map[FrameID]*Journey)
+func (f *Fabric) stepFrame(arr Arrival) (Entry, bool) {
+	journey := f.journeys[arr.FrameID]
+
+	ep := Endpoint{Node: arr.Device, Port: arr.Port}
+	if f.entered[arr.FrameID] == nil {
+		f.entered[arr.FrameID] = make(map[Endpoint]bool)
 	}
-	if f.entered == nil {
-		f.entered = make(map[FrameID]map[Endpoint]bool)
+	if f.entered[arr.FrameID][ep] {
+		loopEntry := Entry{
+			At:     arr.At,
+			Kind:   EntryLoop,
+			Device: arr.Device,
+			Port:   arr.Port,
+		}
+		f.record(journey, loopEntry)
 	}
-	if f.cableCrossings == nil {
-		f.cableCrossings = make(map[Endpoint]uint)
+	f.entered[arr.FrameID][ep] = true
+
+	sw := f.nodeDevice(arr.Device)
+	var inPorts []string
+	inPorts = append(inPorts, arr.Port)
+	if p, ok := f.topology.nodes[arr.Device].ports.Port(arr.Port); ok && p.LagParent != "" {
+		inPorts = append(inPorts, p.LagParent)
 	}
-	if f.busyUntil == nil {
-		f.busyUntil = make(map[Endpoint]time.Time)
+
+	// Inject refused any frame the codec cannot encode, and a bridge only
+	// rewrites the tag stack with valid tags, so Encode cannot fail here.
+	rawIn, _ := arr.Frame.Encode()
+	inOctets := uint64(len(rawIn))
+
+	if arr.Corrupt {
+		for _, p := range inPorts {
+			f.countCorruptIngress(arr.Device, p, inOctets)
+		}
+
+		var cable *Cable
+		if arr.Port == "" {
+			cable = f.portCable(arr.Device, arr.Port)
+		}
+		dropEntry := Entry{
+			At:     arr.At,
+			Kind:   EntryDrop,
+			Device: arr.Device,
+			Port:   arr.Port,
+			Reason: cablemodel.ReasonBadFrame,
+			Cable:  cable,
+		}
+		f.record(journey, dropEntry)
+
+		return dropEntry, true
 	}
-	if f.egress == nil {
-		f.egress = make(map[Endpoint]*egressQueue)
+
+	inClass := classifyMAC(arr.Frame.Dst)
+	for _, p := range inPorts {
+		f.countIngress(arr.Device, p, inOctets, inClass)
 	}
-	f.initQueueIndexes()
-	if f.wakes == nil {
-		f.wakes = make(map[string]time.Time)
+	// A SPAN mirror copy carries a non-empty Origin.Mirror and has already
+	// passed the original ingress policy, so a downstream switch must not charge
+	// its bytes again. A reflection carries OriginReflection for provenance but no
+	// mirror name; it is a first-class datagram the policer must still see.
+	var out device.Output
+	if journey.Origin.Mirror == "" {
+		out = sw.Receive(arr.At, arr.Port, arr.Frame)
+	} else {
+		out = sw.ReceiveMirrored(arr.At, arr.Port, arr.Frame)
 	}
-	if f.inflight == nil {
-		f.inflight = make(map[FrameID]int)
+	res := out.Result
+	var acceptanceEntry *Entry
+	if res.Acceptance != device.NoAcceptance {
+		e := f.recordAcceptance(journey, arr.Device, arr.Port, arr.Frame, arr.At, res)
+		acceptanceEntry = &e
 	}
-	if f.held == nil {
-		f.held = make(map[holdKey]FrameID)
+	if out.Err != nil {
+		f.recordFault(out.Err)
 	}
-	if f.nextFrameID == 0 {
-		f.nextFrameID = 1
+	if out.Hold != 0 {
+		if f.held == nil {
+			f.held = make(map[holdKey]FrameID)
+		}
+		f.held[holdKey{node: arr.Device, token: out.Hold}] = arr.FrameID
+		f.inflightAdd(arr.FrameID)
 	}
-	if f.nextSeq == 0 {
-		f.nextSeq = 1
+
+	f.scheduleWake(arr.Device)
+	if out.Policed {
+		for _, p := range inPorts {
+			f.countWholeFrameDrop(arr.Device, p, res.Reason)
+		}
+		dropEntry := Entry{
+			At: arr.At, Kind: EntryDrop, Device: arr.Device,
+			Port: arr.Port, Result: &res, Reason: res.Reason,
+		}
+		f.record(journey, dropEntry)
+		return dropEntry, true
 	}
+
+	return f.forwardFrame(arr, journey, res, out, inPorts, acceptanceEntry)
+}
+
+func (f *Fabric) forwardFrame(arr Arrival, journey *journey, res device.Result, out device.Output, inPorts []string, acceptanceEntry *Entry) (Entry, bool) {
+	hopEntry := Entry{
+		At:     arr.At,
+		Kind:   EntryHop,
+		Device: arr.Device,
+		Port:   arr.Port,
+	}
+	if journey.Injection.Retention == RetainJourney {
+		hopEntry.Result = cloneResult(res)
+	}
+	if acceptanceEntry == nil {
+		dependencyEntry := hopEntry
+		dependencyEntry.Result = &res
+		journey.Metadata = journey.Metadata.Merge(res.Metadata)
+		if scopes := f.dependencies(dependencyEntry); len(scopes) > 0 {
+			journey.Metadata = journey.Metadata.Merge(scopedMetadata(f.Metadata(), scopes))
+		}
+		journey.Entries = append(journey.Entries, hopEntry)
+	}
+
+	if res.Outcome == trace.Dropped && acceptanceEntry == nil {
+		for _, p := range inPorts {
+			f.countWholeFrameDrop(arr.Device, p, res.Reason)
+		}
+
+		dropEntry := Entry{
+			At:     arr.At,
+			Kind:   EntryDrop,
+			Device: arr.Device,
+			Port:   arr.Port,
+			Reason: res.Reason,
+		}
+		f.record(journey, dropEntry)
+	}
+
+	for _, eg := range res.Egress {
+		var outPorts []string
+		outPorts = append(outPorts, eg.Port)
+		if eg.Member != "" {
+			outPorts = append(outPorts, eg.Member)
+		}
+
+		if eg.Dropped != "" {
+			for _, p := range outPorts {
+				f.countEgressDrop(arr.Device, p, eg.Dropped)
+			}
+			f.record(journey, Entry{
+				At:     arr.At,
+				Kind:   EntryDrop,
+				Device: arr.Device,
+				Port:   eg.Port,
+				Reason: eg.Dropped,
+			})
+
+			continue
+		}
+
+		f.transmit(arr.At, arr.Device, eg.Port, eg.Member, eg.Frame, arr.Seq, arr.FrameID, journey, eg.PCP, "")
+	}
+
+	f.applyDeviceOutput(arr.At, arr.Device, out, journey)
+
+	if acceptanceEntry != nil {
+		return *acceptanceEntry, true
+	}
+	return hopEntry, true
+}
+
+func encodedOctets(frame ethernet.Frame) uint64 {
+	return uint64(14 + 4*len(frame.Tags) + len(frame.Payload))
 }

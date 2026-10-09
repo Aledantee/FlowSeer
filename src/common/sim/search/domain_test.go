@@ -62,8 +62,8 @@ func TestCandidateCloneIsolation(t *testing.T) {
 
 	// Mutate clone
 	cloned.Tuple = "t2"
-	cloned.Actions[0].Inject.Frame.Tags[0].VID = 20
-	cloned.Actions[0].Inject.Frame.Payload[0] = 99
+	cloned.Actions[0].Inject.Frame.Tags = []vlan.Tag{{VID: 20}}
+	cloned.Actions[0].Inject.Frame.Payload = []byte{99}
 	cloned.Actions[0].Inject.Packet.Payload[0] = 88
 	cloned.Actions[1].Fault.Fault.Sequence[0] = 77
 

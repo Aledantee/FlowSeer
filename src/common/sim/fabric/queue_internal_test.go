@@ -13,18 +13,18 @@ import (
 
 func TestPastArrivalRunsAtClock(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	clock := fab.Snapshot().Clock
+	clock := fab.Clock()
 	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: clock.Add(-time.Second), Kind: fabric.ArrivalWake, Device: "unused"}))
 	entry, ok := fab.Step()
-	if !ok || !entry.At.Equal(clock) || !fab.Snapshot().Clock.Equal(clock) {
-		t.Fatalf("Step = %+v, %t, clock = %s, want %s", entry, ok, fab.Snapshot().Clock, clock)
+	if !ok || !entry.At.Equal(clock) || !fab.Clock().Equal(clock) {
+		t.Fatalf("Step = %+v, %t, clock = %s, want %s", entry, ok, fab.Clock(), clock)
 	}
 }
 
 func TestZeroArrivalKindRefused(t *testing.T) {
 	fab := newTestFabricForFork(t)
 	before := len(fab.Snapshot().Queue)
-	fabric.ExportFabricEnqueue(fab, fabric.Arrival{At: fab.Snapshot().Clock})
+	fabric.ExportFabricEnqueue(fab, fabric.Arrival{At: fab.Clock()})
 	if fab.Err() == nil || len(fab.Snapshot().Queue) != before {
 		t.Fatalf("Err = %v, queue = %d, want fault and %d arrivals", fab.Err(), len(fab.Snapshot().Queue), before)
 	}
@@ -71,15 +71,11 @@ func TestQueueStepsWakeFrameDequeueInOrder(t *testing.T) {
 		if !ok {
 			t.Fatalf("Step %d returned false", i)
 		}
-		got := fabric.EntryDequeue
-		switch want {
-		case fabric.ArrivalWake:
-			got = fabric.EntryWake
-		case fabric.ArrivalFrame:
-			got = fabric.EntryHop
+		if entry.Arrival != want {
+			t.Errorf("Step %d processed %v, want %v", i, entry.Arrival, want)
 		}
-		if entry.Kind != got {
-			t.Errorf("Step %d processed %v, want %v", i, entry.Kind, got)
+		if want == fabric.ArrivalFrame && entry.Kind != fabric.EntryHop {
+			t.Errorf("frame step kind = %v, want Hop", entry.Kind)
 		}
 	}
 }
@@ -88,8 +84,7 @@ func TestQueueStepsWakeFrameDequeueInOrder(t *testing.T) {
 // it, and reschedules it earlier: the queue must hold exactly one dequeue for
 // the endpoint, at the new time, and the endpoint index must name it.
 func TestQueueRescheduleKeepsOneDequeuePerEndpoint(t *testing.T) {
-	fab := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{})
-	fabric.ExportFabricInitRunState(fab)
+	fab := newEmptyFabric(t, time.Time{})
 
 	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
 	base := time.Unix(1000, 0)
@@ -117,8 +112,7 @@ func TestQueueRescheduleKeepsOneDequeuePerEndpoint(t *testing.T) {
 // keys are indexed, pops them, and asserts each key left its index when its
 // arrival was popped.
 func TestQueuePopClearsKeyIndexes(t *testing.T) {
-	fab := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{})
-	fabric.ExportFabricInitRunState(fab)
+	fab := newEmptyFabric(t, time.Time{})
 
 	ep := fabric.Endpoint{Node: "sw2", Port: "1/1/1"}
 	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: time.Unix(10, 0), Kind: fabric.ArrivalDequeue, Device: ep.Node, Port: ep.Port}))
@@ -147,8 +141,7 @@ func TestQueuePopClearsKeyIndexes(t *testing.T) {
 // interleaved pushes, indexed removals, and pops. Unique Seq values make
 // compareArrival a total order even when timestamps and kinds tie.
 func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
-	fab := fabric.MakeTestFabricPointer(fabric.ExportFabricFields{})
-	fabric.ExportFabricInitRunState(fab)
+	fab := newEmptyFabric(t, time.Time{})
 
 	const total = 10_000
 	const removals = 1_000

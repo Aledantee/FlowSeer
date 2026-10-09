@@ -24,6 +24,30 @@ const (
 	aggregateJourneyCount = 10
 )
 
+func BenchmarkStep(b *testing.B) {
+	for _, retention := range []fabric.JourneyRetention{fabric.RetainJourney, fabric.RetainAggregate} {
+		b.Run(map[fabric.JourneyRetention]string{fabric.RetainJourney: "journey", fabric.RetainAggregate: "aggregate"}[retention], func(b *testing.B) {
+			fab, src, dst := benchmarkChainFabric(b)
+			frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				b.StopTimer()
+				if len(*fabric.ExportFabricQueue(fab)) == 0 {
+					if _, err := fab.Inject(fabric.Injection{At: *fabric.ExportFabricClock(fab), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Retention: retention, Flow: 1}); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.StartTimer()
+				if _, ok := fab.Step(); !ok {
+					b.Fatal("prepared step returned no event")
+				}
+			}
+			b.StopTimer()
+		})
+	}
+}
+
 // benchmarkChainFabric builds the two-switch chain the aggregate benchmarks
 // run their load over: h1 on sw1, a fiber trunk, and h2 on sw2.
 func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
@@ -86,7 +110,7 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 	frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
 	injected := 0
 	for range batches {
-		clock := fab.Snapshot().Clock
+		clock := fab.Clock()
 		for range aggregateBatchSize {
 			if _, err := fab.Inject(fabric.Injection{
 				At:        clock,

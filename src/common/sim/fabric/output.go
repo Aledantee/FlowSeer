@@ -12,28 +12,27 @@ import (
 
 // applyDeviceOutput keeps token resolutions until every emission, drop, and
 // copy has used its parent. Device tokens can repeat across nodes.
-func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output, current *Journey) {
-	f.initRunState()
+func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output, current *journey) {
 	if out.Err != nil {
 		f.recordFault(out.Err)
 	}
-	var resolved map[device.HoldToken]*Journey
-	resolve := func(token device.HoldToken, ingress string, frame ethernet.Frame, protocol bool) *Journey {
+	var resolved map[device.HoldToken]*journey
+	resolve := func(token device.HoldToken, ingress string, frame ethernet.Frame, protocol bool) *journey {
 		if token != 0 {
 			if j := resolved[token]; j != nil {
 				return j
 			}
 		}
-		var j *Journey
+		var j *journey
 		if fid := f.held[holdKey{node: node, token: token}]; token != 0 && fid != 0 {
 			j = f.journeys[fid]
 		}
 		if j == nil {
 			fid := f.nextFrameID
 			f.nextFrameID++
-			j = &Journey{
+			j = &journey{
 				FrameID: fid, Protocol: protocol, Origin: JourneyOrigin{Kind: OriginInjection},
-				Injection: Injection{At: now, Origin: Endpoint{Node: node, Port: ingress}, Frame: cloneFrame(frame)},
+				Injection: Injection{At: now, Origin: Endpoint{Node: node, Port: ingress}, Frame: frame},
 			}
 			f.journeys[fid] = j
 			f.touch(fid)
@@ -41,7 +40,7 @@ func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output
 		}
 		if token != 0 {
 			if resolved == nil {
-				resolved = make(map[device.HoldToken]*Journey)
+				resolved = make(map[device.HoldToken]*journey)
 			}
 			resolved[token] = j
 		}
@@ -76,7 +75,7 @@ func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output
 		inj := Injection{
 			At:        now,
 			Origin:    Endpoint{Node: node, Port: copy.Port},
-			Frame:     cloneFrame(copy.Frame),
+			Frame:     copy.Frame,
 			Retention: parent.Injection.Retention,
 			Flow:      parent.Injection.Flow,
 		}
@@ -84,7 +83,7 @@ func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output
 		if out.Acceptance == device.ReflectionAcceptance {
 			kind = OriginReflection
 		}
-		copyJourney := &Journey{
+		copyJourney := &journey{
 			FrameID: fid,
 			Origin: JourneyOrigin{
 				Kind:   kind,

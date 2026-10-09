@@ -1587,12 +1587,12 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject ARP reply: %v", err)
 	}
-	for fab.Snapshot().Clock.Before(confirmAt) {
+	for fab.Clock().Before(confirmAt) {
 		if _, ok := fab.Step(); !ok {
 			t.Fatal("fab.Step failed before later confirmation")
 		}
 	}
-	if got := fab.Snapshot().Clock; !got.Equal(confirmAt) {
+	if got := fab.Clock(); !got.Equal(confirmAt) {
 		t.Fatalf("clock = %s, want confirmation at %s", got, confirmAt)
 	}
 

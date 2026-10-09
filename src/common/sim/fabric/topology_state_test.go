@@ -469,7 +469,7 @@ func TestUncabledPortDropsDefinitelyAndOmittedPortIsUnresolved(t *testing.T) {
 	hopTo := func(dst netaddr.MAC) (*device.Result, fabric.Journey) {
 		t.Helper()
 		fid, err := fab.Inject(fabric.Injection{
-			At:     fab.Snapshot().Clock,
+			At:     fab.Clock(),
 			Origin: fabric.Endpoint{Node: "h1"},
 			Frame:  ethernet.Frame{Dst: dst, Src: macH1, EtherType: ethernet.EtherTypeIPv4},
 		})
@@ -732,7 +732,7 @@ func TestUnknownRedundantUplinkMarksSpanningTreeForwarding(t *testing.T) {
 	}
 
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  ethernet.Frame{Dst: macH2, Src: macH1, EtherType: ethernet.EtherTypeIPv4},
 	})

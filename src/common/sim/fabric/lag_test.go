@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
@@ -68,10 +69,16 @@ func TestRoutedLAGSolicitationKeepsCommittedMember(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prime := fab.Device("sw").(*vswitch.Switch).Receive(start, "prime", ethernet.Frame{
-		Src: routerMAC, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-		Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}, Payload: []byte("prime wire VLAN"),
-	})
+	var prime device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		prime = d.(*vswitch.Switch).Receive(start, "prime", ethernet.Frame{
+			Src: routerMAC, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+			Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}, Payload: []byte("prime wire VLAN"),
+		})
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if len(prime.Egress) != 1 || prime.Egress[0].Port != "lag1" || prime.Egress[0].Member != "member-a" {
 		t.Fatalf("prime = %+v, want lag1/member-a at VID 20", prime)
 	}
@@ -288,7 +295,7 @@ func TestBalanceTCP(t *testing.T) {
 			break
 		}
 		if _, ok := fab.Step(); !ok {
-			converged = fab.Snapshot().Clock
+			converged = fab.Clock()
 			break
 		}
 	}
@@ -300,7 +307,7 @@ func TestBalanceTCP(t *testing.T) {
 	cursor := converged
 	for _, srcPort := range ports {
 		for rep := 0; rep < 2; rep++ {
-			if clock := fab.Snapshot().Clock; clock.After(cursor) {
+			if clock := fab.Clock(); clock.After(cursor) {
 				cursor = clock
 			}
 			injTime := cursor.Add(time.Millisecond)
@@ -501,7 +508,7 @@ func TestDelays(t *testing.T) {
 
 	// Wait for initial up-delay (2s) so 1/1/1 and 1/1/2 become enabled.
 	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
-	t1 := fab.Snapshot().Clock // t0 + 2s
+	t1 := fab.Clock() // t0 + 2s
 
 	// Cut first cable at t1.
 	if err := fab.SetFault(
@@ -577,7 +584,7 @@ func TestDelays(t *testing.T) {
 	}
 
 	// Restore cable at t2.
-	t2 := fab.Snapshot().Clock
+	t2 := fab.Clock()
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "A", Port: "1/1/1"},
 		fabric.Endpoint{Node: "B", Port: "1/1/1"},

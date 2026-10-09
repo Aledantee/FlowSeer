@@ -23,7 +23,7 @@ cannot be attributed to another frame with a matching payload.
 
 [`Fabric`](../../../src/common/sim/fabric/fabric.go) keeps a map from device
 and token to `FrameID`. A hold contributes to the frame's in-flight count.
-[`applyDeviceOutput`](../../../src/common/sim/fabric/run.go) resolves a token
+[`applyDeviceOutput`](../../../src/common/sim/fabric/output.go) resolves a token
 once for the whole output. Emissions and drops continue the held journey.
 Mirror copies name that frame and inherit its flow and retention. The key is
 removed after every part of the output has used it.

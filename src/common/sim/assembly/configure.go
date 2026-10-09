@@ -51,7 +51,7 @@ func Configure(f *fabric.Fabric, node string, cfg vswitch.Config) error {
 	targetSpec := normSpec.Switches[node]
 	targetSpec.Config.Ports = rebuiltPorts
 
-	derived, out, err := vswitch.Derive(curSw, targetSpec, f.Snapshot().Clock)
+	derived, out, err := vswitch.Derive(curSw, targetSpec, f.Clock())
 	if err != nil {
 		return errs.Wrapf(err, "derive switch %q", node)
 	}

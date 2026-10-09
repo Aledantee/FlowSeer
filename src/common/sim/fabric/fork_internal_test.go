@@ -1,12 +1,16 @@
 package fabric_test
 
 import (
+	"errors"
+	"maps"
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 	"unsafe"
 
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -38,6 +42,7 @@ const (
 	classImmutableShared forkClass = iota
 	classDeepCopied
 	classResetOnFork
+	classCopied
 )
 
 func (c forkClass) String() string {
@@ -46,6 +51,8 @@ func (c forkClass) String() string {
 		return "immutableShared"
 	case classDeepCopied:
 		return "deepCopied"
+	case classCopied:
+		return "copied"
 	case classResetOnFork:
 		return "resetOnFork"
 	default:
@@ -53,70 +60,46 @@ func (c forkClass) String() string {
 	}
 }
 
-var fabricFieldClasses = map[string]forkClass{
-	"topology":        classDeepCopied,
-	"evidence":        classImmutableShared,
-	"runtimeEvidence": classImmutableShared,
-	"links":           classDeepCopied,
-	"linkTrust":       classDeepCopied,
-	"uncabled":        classDeepCopied,
-	"byEnd":           classDeepCopied,
-	"clock":           classImmutableShared,
-	"stepped":         classImmutableShared,
-	"arrivalQueue":    classDeepCopied,
-	"nextFrameID":     classImmutableShared,
-	"nextSeq":         classImmutableShared,
-	"journeys":        classDeepCopied,
-	"entered":         classDeepCopied,
-	"cableCrossings":  classDeepCopied,
-	"busyUntil":       classDeepCopied,
-	"egress":          classDeepCopied,
-	"counters":        classDeepCopied,
-	"unstatedBacked":  classDeepCopied,
-	"metadataCache":   classImmutableShared,
-	"inflight":        classDeepCopied,
-	"held":            classDeepCopied,
-	"flows":           classDeepCopied,
-	"touched":         classResetOnFork,
-	"err":             classImmutableShared,
-}
-
 func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
-	typ := reflect.TypeOf(fabric.MakeTestFabric(fabric.ExportFabricFields{}))
+	typ := reflect.TypeOf(fabric.Fabric{})
 	fieldNames := make(map[string]bool, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
 		fieldNames[f.Name] = true
-		class, ok := fabricFieldClasses[f.Name]
+		check, ok := fabricForkChecks[f.Name]
+		class := check.class
 		if !ok {
 			t.Errorf("field %q on fabric.Fabric has no fork classification", f.Name)
 			continue
 		}
 		if class == classDeepCopied {
-			if _, hasProbe := fabricDeepCopiedProbes[f.Name]; !hasProbe {
-				t.Errorf("field %q is classified deepCopied but has no probe in fabricDeepCopiedProbes", f.Name)
+			if check.probe == nil {
+				t.Errorf("field %q is classified deepCopied but has no probe in fabricForkChecks", f.Name)
 			}
 		}
 	}
 
-	for name := range fabricFieldClasses {
+	for name := range fabricForkChecks {
 		if !fieldNames[name] {
-			t.Errorf("fabricFieldClasses names field %q which does not exist on fabric.Fabric", name)
+			t.Errorf("fabricForkChecks names field %q which does not exist on fabric.Fabric", name)
 		}
 	}
 
 	fab := newTestFabricForFork(t)
+	*fabric.ExportFabricRuntimeEvidence(fab), _ = (*fabric.ExportFabricRuntimeEvidence(fab)).Add(analysis.Evidence{Kind: "runtime", Context: "copy proof"})
+	exportValue(reflect.ValueOf(fab).Elem().FieldByName("err")).Set(reflect.ValueOf(errors.New("sticky fault")))
+	exportValue(reflect.ValueOf(fab).Elem().FieldByName("touched")).Set(reflect.ValueOf([]fabric.FrameID{1}))
 	fork := fab.Fork()
 
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
-		class := fabricFieldClasses[f.Name]
+		class := fabricForkChecks[f.Name].class
 		vSrc := reflect.ValueOf(fab).Elem().Field(i)
 		vDst := reflect.ValueOf(fork).Elem().Field(i)
 
 		switch class {
-		case classImmutableShared:
+		case classImmutableShared, classCopied:
 			assertPointerOrValueIdentical(t, "Fabric."+f.Name, vSrc, vDst)
 		case classResetOnFork:
 			if !vDst.IsZero() {
@@ -127,8 +110,15 @@ func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
 		}
 	}
 
-	for name, probe := range fabricDeepCopiedProbes {
-		t.Run("probe_"+name, probe)
+	checked := 0
+	for _, name := range slices.Sorted(maps.Keys(fabricForkChecks)) {
+		if probe := fabricForkChecks[name].probe; probe != nil {
+			t.Run("probe_"+name, probe)
+			checked++
+		}
+	}
+	if checked != 17 {
+		t.Fatalf("checked probes = %d, want 17", checked)
 	}
 }
 
@@ -274,7 +264,7 @@ func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	(*fabric.ExportFabricWakes(fab)) = map[string]time.Time{
 		"sw1": fabric.ExportFabricClock(fab).Add(time.Second),
 	}
-	(*fabric.ExportFabricJourneys(fab)) = map[fabric.FrameID]*fabric.Journey{
+	(*fabric.ExportFabricJourneys(fab)) = map[fabric.FrameID]*fabric.ExportJourney{
 		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{FrameID: 1, Injection: fabric.Injection{At: (*fabric.ExportFabricClock(fab))}}),
 	}
 	(*fabric.ExportFabricEntered(fab)) = map[fabric.FrameID]map[fabric.Endpoint]bool{

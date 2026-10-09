@@ -109,7 +109,7 @@ func (f *Fabric) settle(fid FrameID) {
 // the stream's counters: its latency is measured from the mirror hop's own
 // injection, and its drops, losses, unresolved, rejection, and held outcomes
 // are the copy's, not the stream's. It still merges its metadata.
-func (f *Fabric) foldJourney(j *Journey) {
+func (f *Fabric) foldJourney(j *journey) {
 	stats := f.flowAccumulator(j.Injection.Flow)
 	if j.Origin.Kind == OriginInjection {
 		stats.Offered++
@@ -170,7 +170,7 @@ func (f *Fabric) flowAccumulator(id FlowID) *FlowStats {
 // copyMirrorName names the copy bucket a mirror or reflector journey folds
 // into: its mirror's name, or "reflection" for a reflector copy, which
 // carries no mirror name.
-func copyMirrorName(j *Journey) string {
+func copyMirrorName(j *journey) string {
 	if j.Origin.Mirror != "" {
 		return j.Origin.Mirror
 	}
