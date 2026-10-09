@@ -30,12 +30,15 @@ const reasonHeldCauseUnknown trace.Reason = "held-cause-unknown"
 
 // NeighborDrop is one frame taken out of a hold queue that could not be put on a wire,
 // carrying the reason from whichever stage refused it: the routing layer, for a frame that timed
-// out or was pushed out of a full queue, or the bridge or the port table, for a released frame
-// the egress then refused. Wake, Age, and an observing Forward can each produce neighbor drop
-// records when settling held frames. Reason is that stage's own answer rather than one the reader
-// supplies, and Step is the trace step naming it. Port is the egress port the drop is counted against,
-// and is empty when no single port owns it (a VLAN interface whose bridge found no candidate at all),
-// in which case a consumer counts it against no port rather than inventing an endpoint.
+// out or was pushed out of a full queue, the filter, for a released frame a bound rule set
+// refuses, or the bridge or the port table, for a released frame the egress then refused.
+// [Switch.Receive], [Switch.Advance], and [Derive] report them in [Output.Drops] when they settle
+// held frames. Reason is that stage's own answer rather than one the reader supplies, and Step is
+// the trace step naming it. Steps holds the steps behind the refusal, the filter's for a filter
+// refusal and the routed steps for an egress refusal, and is empty for a routing-layer exit. Port
+// is the egress port the drop is counted against, and is empty when no single port owns it (a VLAN
+// interface whose bridge found no candidate at all), in which case a consumer counts it against no
+// port rather than inventing an endpoint.
 type NeighborDrop struct {
 	Step   trace.Step
 	Steps  []trace.Step
@@ -50,8 +53,8 @@ type NeighborDrop struct {
 // in the same call, rather than leaving a resolved entry's queue for a
 // caller to notice. [routing.Layer.NextWake] reports a timer for an
 // Incomplete, Delay, or Probe entry, so a fabric run that scheduled a wake for the old
-// deadline cancels it the moment Receive resolves the entry. Settling on
-// Wake, Age, or an observing Forward flushes that queue and any other entry
+// deadline cancels it the moment Receive resolves the entry. Settling here, in
+// [Switch.Advance], and in a routed [Switch.Receive] flushes that queue and any other entry
 // whose resolution deadline has separately passed by now.
 func (s *Switch) receiveAndRelease(now time.Time, iface string, frame ethernet.Frame) {
 	s.emitRouting(now, s.routing.Receive(now, iface, frame).Emissions)
@@ -145,7 +148,8 @@ func (s *Switch) putRoutedFrame(
 	c *call, ifaceName, ingress string, pcp vlan.PCP, dei bool,
 	frame ethernet.Frame, steps []trace.Step, scopes []analysis.Scope,
 ) bridge.Result {
-	// Both callers resolve the interface before attempting egress.
+	// Both callers pass an interface the routing layer resolved: a routed lookup
+	// returns one, and releaseHeldFrame checks it before the call.
 	iface, _ := s.routing.Interface(ifaceName)
 	if iface.VLAN != 0 && iface.Port == "" {
 		in := bridge.Ingress{FID: iface.VLAN, PCP: pcp, DEI: dei, Steps: steps, Now: c.now, Commit: c.commit}
@@ -226,8 +230,8 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 	}
 }
 
-// applyRoutingExits turns the routing layer's hold-queue exits into what
-// an observing forward, [Switch.Wake], or [Switch.Age] caller can observe: a released frame becomes an Emission
+// applyRoutingExits turns the routing layer's hold-queue exits into what a
+// caller of [Switch.Receive], [Switch.Advance], or [Derive] can observe: a released frame becomes an Emission
 // with Protocol false, since it is ordinary data the switch is finally able
 // to send rather than a protocol frame of the switch's own, and a frame that
 // left the queue any other way becomes a [NeighborDrop] under the reason its

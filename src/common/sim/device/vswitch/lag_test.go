@@ -174,7 +174,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		t.Errorf("after Peek, LACPDUsRx = %d, want 0", info.LACPDUsRx)
 	}
 
-	// Forward valid LACPDU on 1/1/1 (member port): Consumed with lag layer step and LACPDUsRx = 1
+	// Receive valid LACPDU on 1/1/1 (member port): Consumed with lag layer step and LACPDUsRx = 1
 	res := captureOutput(callOutputs, sw, sw.Receive(now, "1/1/1", validFrame))
 	if res.Outcome != trace.Consumed {
 		t.Errorf("res.Outcome = %s, want Consumed", res.Outcome)
@@ -186,7 +186,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		t.Errorf("LACP trace has no member decision fact: %+v", res.Steps)
 	}
 	if info := sw.MemberInfo("1/1/1"); info.LACPDUsRx != 1 {
-		t.Errorf("after Forward, LACPDUsRx = %d, want 1", info.LACPDUsRx)
+		t.Errorf("after Receive, LACPDUsRx = %d, want 1", info.LACPDUsRx)
 	}
 	if copies := takeCopies(callOutputs, sw); len(copies) != 1 || copies[0].Mirror != "control" || copies[0].Port != "1/1/4" {
 		t.Errorf("output copies = %+v, want received LACPDU mirrored to 1/1/4", copies)
@@ -220,7 +220,7 @@ func TestLACPDUHandlingAtSwitch(t *testing.T) {
 		t.Errorf("resBad.Reason = %s, want %s", resBad.Reason, lag.ReasonUnsupportedLACPDU)
 	}
 	if info := sw.MemberInfo("1/1/1"); info.BadLACPDUs != 1 {
-		t.Errorf("after Forward bad, BadLACPDUs = %d, want 1", info.BadLACPDUs)
+		t.Errorf("after Receive bad, BadLACPDUs = %d, want 1", info.BadLACPDUs)
 	}
 	for _, out := range []vswitch.Output{peekBad, resBad} {
 		want := lag.LACPDecodeFact(badFrame, false, lag.ReasonUnsupportedLACPDU)
@@ -362,10 +362,8 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	if roles["lag1"].PathCost != 2000 {
 		t.Errorf("lag1 PathCost = %d, want 2000 (10 Gbps)", roles["lag1"].PathCost)
 	}
-	if _,
-
-		// Member 1/1/1 goes down through LinkChange
-		err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000); err != nil {
+	// Member 1/1/1 goes down through LinkChange
+	if _, err := sw.LinkChange(now, "1/1/1", port.Down, vswitch.PointToPointTrue, 10_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -378,10 +376,8 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	if roles["lag1"].PathCost != 20000 {
 		t.Errorf("after link down, lag1 PathCost = %d, want 20000 (1 Gbps)", roles["lag1"].PathCost)
 	}
-	if _,
-
-		// Both members down: lag1 has no enabled member
-		err := sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	// Both members down: lag1 has no enabled member
+	if _, err := sw.LinkChange(now, "1/1/2", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 	mem, ok = sw.SelectMember(now, "lag1", dummyFrame, 10)
@@ -394,9 +390,9 @@ func TestMemberLinkDownMovesSelectionAndSTPPathCost(t *testing.T) {
 	}
 }
 
-// TestLagRowFollowsMemberRowsNotTheDelay is evidence that the LAG row reads
-// Down the moment every member row is down, while a down delay still holds
-// the layer's enablement.
+// TestLagRowFollowsMemberRowsNotTheDelay proves the LAG row reads Down the
+// moment every member row is down, while a down delay still holds the layer's
+// enablement until the delay has run from the report.
 func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up})
@@ -409,18 +405,20 @@ func TestLagRowFollowsMemberRowsNotTheDelay(t *testing.T) {
 	})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(time.Time{}, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/1", port.Down, vswitch.PointToPointTrue, 0); err != nil {
 		t.Fatalf("LinkChange: %v", err)
-	}
-	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
-		t.Fatal(err)
 	}
 	p, _ := sw.Ports().Port("lag1")
 	if p.OperStatus != port.Down {
 		t.Fatalf("lag1 OperStatus = %v, want Down as soon as its member row is down", p.OperStatus)
 	}
+	sw.Advance(t0.Add(time.Second - time.Nanosecond))
 	if !sw.MemberInfo("1/1/1").LinkUp {
 		t.Fatal("the layer dropped the member before its down delay")
+	}
+	sw.Advance(t0.Add(time.Second))
+	if sw.MemberInfo("1/1/1").LinkUp {
+		t.Error("the layer kept the member after its down delay")
 	}
 }
 
@@ -449,11 +447,11 @@ func balancedLAGConfig(t *testing.T, rebalanceInterval *time.Duration) vswitch.C
 	}
 }
 
-// TestForwardCommitsLAGSelectionPeekDoesNot is evidence for this change:
-// Peek must not commit a bucket assignment or rotate the enabled list, so a
-// Forward call that follows two Peeks of the same frame reaches the same
-// selector state a lone Forward on a fresh switch would.
-func TestForwardCommitsLAGSelectionPeekDoesNot(t *testing.T) {
+// TestReceiveCommitsLAGSelectionPeekDoesNot proves that
+// Peek does not commit a bucket assignment or rotate the enabled list, so a
+// Receive that follows two Peeks of the same frame reaches the same
+// selector state a lone Receive on a fresh switch would.
+func TestReceiveCommitsLAGSelectionPeekDoesNot(t *testing.T) {
 	cfg := balancedLAGConfig(t, nil)
 	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
 
@@ -470,11 +468,11 @@ func TestForwardCommitsLAGSelectionPeekDoesNot(t *testing.T) {
 	}
 }
 
-// TestForwardRaisesLAGRebalanceUnmodeled is evidence for this change: a
+// TestReceiveRaisesLAGRebalanceUnmodeled proves that a
 // balanced selection whose bucket was assigned at least one rebalance
 // interval ago carries lag-rebalance-unmodeled, and a zero RebalanceInterval
 // disables the signal entirely.
-func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
+func TestReceiveRaisesLAGRebalanceUnmodeled(t *testing.T) {
 	frame := ethernet.Frame{Dst: netaddr.MAC{0x02, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}}
 	t0 := fixedTime
 	ten := 10 * time.Second
@@ -506,7 +504,7 @@ func TestForwardRaisesLAGRebalanceUnmodeled(t *testing.T) {
 	}
 }
 
-// TestRebalanceIssueScopedToJourneysThroughBalancedLAG is evidence that the
+// TestRebalanceIssueScopedToJourneysThroughBalancedLAG proves that the
 // lag-rebalance-unmodeled issue names only the journeys that actually used
 // the balanced LAG, not every journey a switch with a stale bucket forwards.
 func TestRebalanceIssueScopedToJourneysThroughBalancedLAG(t *testing.T) {

@@ -98,10 +98,8 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 	}
 	swSTP.Receive(t0, "1/1/1", mustEncode(t, rootBPDU, macRoot))
 	swSTP.Receive(t0, "1/1/2", mustEncode(t, rootBPDU, macRoot))
-	if _,
-
-		// Redundant uplink 1/1/2 transitions to Unknown link state.
-		err := swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	// Redundant uplink 1/1/2 transitions to Unknown link state.
+	if _, err := swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -179,16 +177,12 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _,
-
-		// Member 1/1/2 becomes Unknown. Member 1/1/1 is still Up, so lag1 remains forwarding.
-		err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err !=
-
-		// Traffic destined to lag1 consults lag1 and its members -> Incomplete with protocol-link-unknown.
-		nil {
+	// Member 1/1/2 becomes Unknown. Member 1/1/1 is still Up, so lag1 remains forwarding.
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
+	// Traffic destined to lag1 consults lag1 and its members -> Incomplete with protocol-link-unknown.
 	frameLag := ethernet.Frame{Src: macSrc, Dst: macLagDest, EtherType: ethernet.EtherTypeIPv4}
 	resLag := sw.Receive(t0.Add(2*time.Second), "1/1/3", frameLag)
 
@@ -247,10 +241,8 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _,
-
-		// Member 1/1/2 becomes Unknown.
-		err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	// Member 1/1/2 becomes Unknown.
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -259,10 +251,8 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 	if resIncomplete.Metadata.Status() != analysis.Incomplete {
 		t.Fatalf("got status %v while member is unknown, want Incomplete", resIncomplete.Metadata.Status())
 	}
-	if _,
-
-		// Member 1/1/2 receives a known Up report -> clears the issue.
-		err := sw.LinkChange(t0.Add(3*time.Second), "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	// Member 1/1/2 receives a known Up report -> clears the issue.
+	if _, err := sw.LinkChange(t0.Add(3*time.Second), "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -313,10 +303,8 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("learn seed: %v", err)
 	}
 	swAuto.Start(t0)
-	if _,
-
-		// 1/1/1 has unknown duplex -> point-to-point status is unknown.
-		err := swAuto.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+	// 1/1/1 has unknown duplex -> point-to-point status is unknown.
+	if _, err := swAuto.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
 		t.Fatal(err)
 	}
 
@@ -578,10 +566,8 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 	if !hasProtocolLinkIssue(res) {
 		t.Fatalf("derived issues = %v, want %q for unobserved 1/1/3", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
-	if _,
-
-		// LinkChange on 1/1/3 clears the issue
-		err := next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000); err != nil {
+	// LinkChange on 1/1/3 clears the issue
+	if _, err := next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000); err != nil {
 		t.Fatal(err)
 	}
 	resAfter := next.Receive(t0.Add(3*time.Second), "1/1/1", frame)

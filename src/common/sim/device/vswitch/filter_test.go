@@ -133,6 +133,67 @@ func TestHeldFrameFiltersAtRelease(t *testing.T) {
 	}
 }
 
+// TestHeldFrameAcceptsThroughTheReverseRuleAtRelease proves release resolves a
+// stateful decision against the interfaces the frame crossed: the deferred
+// ingress decision against the egress interface, and the egress decision
+// against the ingress interface.
+func TestHeldFrameAcceptsThroughTheReverseRuleAtRelease(t *testing.T) {
+	protoTCP := uint8(6)
+	// The held frame is 10.0.10.7:40000 to 10.0.20.7:443, so a rule for the
+	// flow the other way round makes it a reply.
+	reply := filter.Rule{
+		Name: "server-initiated", Action: filter.Accept,
+		Match: filter.Match{
+			Protocol: &protoTCP,
+			Src:      []netip.Prefix{netip.MustParsePrefix("10.0.20.7/32")},
+			SrcPorts: []filter.PortRange{{Start: 443, End: 443}},
+			Dst:      []netip.Prefix{netip.MustParsePrefix("10.0.10.7/32")},
+		},
+	}
+	for name, policy := range map[string]*filter.Config{
+		"deferred ingress decision": {
+			Sets: map[string]filter.RuleSet{
+				"deferred": {Stateful: true, Default: filter.Drop},
+				"reverse":  {Stateful: true, Default: filter.Drop, Rules: []filter.Rule{reply}},
+			},
+			Bindings: []filter.Binding{
+				{Interface: "vlan10", Direction: filter.In, Set: "deferred"},
+				{Interface: "vlan20", Direction: filter.In, Set: "reverse"},
+			},
+		},
+		"egress through the ingress interface": {
+			Sets: map[string]filter.RuleSet{
+				"outbound": {Stateful: true, Default: filter.Drop},
+				"reverse":  {Stateful: true, Default: filter.Drop, Rules: []filter.Rule{reply}},
+			},
+			Bindings: []filter.Binding{
+				{Interface: "vlan20", Direction: filter.Out, Set: "outbound"},
+				{Interface: "vlan10", Direction: filter.Out, Set: "reverse"},
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			sw := mustInternalSwitch(t, heldFilterConfig(t, policy))
+			if out := sw.Receive(fixedTime, "1/1/1", heldFilterFrame(t)); out.Outcome != trace.Held {
+				t.Fatalf("outcome = %s, want held", out.Outcome)
+			}
+			out := sw.Receive(fixedTime.Add(time.Millisecond), "1/1/2", heldFilterReply(t))
+			if len(out.Drops) != 0 {
+				t.Fatalf("drops = %+v, want the held frame accepted", out.Drops)
+			}
+			released := 0
+			for _, em := range out.Emissions {
+				if !em.Protocol && em.Port == "1/1/2" {
+					released++
+				}
+			}
+			if released != 1 {
+				t.Errorf("released data emissions on 1/1/2 = %d in %+v, want one", released, out.Emissions)
+			}
+		})
+	}
+}
+
 func TestHeldFrameMeetsDerivedIngressFilter(t *testing.T) {
 	policy := &filter.Config{
 		Sets:     map[string]filter.RuleSet{"inbound": {Default: filter.Accept}},

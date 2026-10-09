@@ -3,6 +3,7 @@ package vswitch
 import (
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 	"unsafe"
@@ -140,6 +141,17 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 		}
 	}
 
+	// newTestSwitchForFork spends the policer bucket on "1/1/1" and learns a
+	// neighbor, both at the same instant, so a fork carries them over.
+	spent := ethernet.Frame{Payload: make([]byte, 400-38)}
+	forked := sw.Fork()
+	if got := forked.Receive(time.Unix(1000, 0), "1/1/1", spent); got.Reason != traffic.ReasonPoliced {
+		t.Errorf("fork of the spent-bucket source: reason = %v, want %v as the source refuses", got.Reason, traffic.ReasonPoliced)
+	}
+	if !slices.ContainsFunc(forked.Neighbors(), func(n routing.NeighborEntry) bool { return n.Addr == netip.MustParseAddr("10.0.10.98") }) {
+		t.Errorf("fork neighbors = %+v, want the learned 10.0.10.98", forked.Neighbors())
+	}
+
 	for name, probe := range switchDeepCopiedProbes {
 		t.Run("probe_"+name, probe)
 	}
@@ -169,10 +181,7 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 		typ := src.Type()
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
-			if !f.IsExported() {
-				continue
-			}
-			fSrc, fDst := src.Field(i), dst.Field(i)
+			fSrc, fDst := exportValue(src.Field(i)), exportValue(dst.Field(i))
 			if fSrc.Kind() == reflect.Map || fSrc.Kind() == reflect.Slice || fSrc.Kind() == reflect.Pointer {
 				if fSrc.Pointer() != fDst.Pointer() {
 					t.Errorf("%s.%s: pointer differs across fork", name, f.Name)
@@ -307,13 +316,11 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0); err !=
-
-		// Populate runtime maps so they are non-empty for the pointer check.
-		nil {
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0); err != nil {
 		t.Fatal(err)
 	}
 
+	// Populate runtime maps so they are non-empty for the pointer check.
 	sw.portP2P = map[string]PointToPoint{"1/1/1": PointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}

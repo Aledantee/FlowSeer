@@ -174,11 +174,10 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 		name string
 		run  func(*Switch)
 	}{
-		{"Forward", func(sw *Switch) { sw.Receive(now, "in", f) }},
+		{"Receive", func(sw *Switch) { sw.Receive(now, "in", f) }},
 		{"Peek", func(sw *Switch) { sw.Peek(now, "in", f) }},
 		{"ReceiveMirrored", func(sw *Switch) { sw.ReceiveMirrored(now, "in", f) }},
-		{"Age", func(sw *Switch) { sw.Advance(now) }},
-		{"Wake", func(sw *Switch) { sw.Advance(now) }},
+		{"Advance", func(sw *Switch) { sw.Advance(now) }},
 		{"Start", func(sw *Switch) { sw.Start(now) }},
 		{"LinkChange", func(sw *Switch) {
 			if _, err := sw.LinkChange(now, "out", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
@@ -186,10 +185,20 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 			}
 		}},
 		{"Mcheck", func(sw *Switch) { sw.Mcheck(now, "in") }},
+		{"ClearLoopProtect", func(sw *Switch) { sw.ClearLoopProtect(now, "in") }},
+		{"Derive", func(sw *Switch) {
+			next, _, err := Derive(sw, sw.Spec())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if next.call != nil {
+				t.Errorf("derived switch call = %+v, want nil", next.call)
+			}
+		}},
 		{"SelectMember", func(sw *Switch) { sw.SelectMember(now, "absent", f, 0) }},
 	}
-	if len(entries) != 9 {
-		t.Fatalf("entry cases = %d, want 9", len(entries))
+	if len(entries) != 10 {
+		t.Fatalf("entry cases = %d, want 10", len(entries))
 	}
 	for _, entry := range entries {
 		t.Run(entry.name, func(t *testing.T) {

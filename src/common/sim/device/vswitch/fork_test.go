@@ -330,7 +330,7 @@ func TestForkBackPointerLagMemberRemoved(t *testing.T) {
 		t.Errorf("fork 1/1/3 should still be forwarding")
 	}
 
-	// Forward packet over lag1 on fork
+	// Receive a packet over lag1 on fork
 	frame := ethernet.Frame{
 		Src:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99},

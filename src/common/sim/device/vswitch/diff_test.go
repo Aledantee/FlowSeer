@@ -340,7 +340,7 @@ func TestDiffLoopProtectCapabilityAndFieldChange(t *testing.T) {
 	}
 }
 
-// TestDiffReportsDeviceMAC is evidence for the device-level mac change.
+// TestDiffReportsDeviceMAC proves a changed device MAC is reported once, on the device subject.
 func TestDiffReportsDeviceMAC(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical}))

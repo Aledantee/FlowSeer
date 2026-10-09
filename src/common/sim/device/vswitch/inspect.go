@@ -152,7 +152,10 @@ func (s *Switch) Roles() map[string]stp.PortInfo {
 }
 
 // TreeRoles returns the runtime spanning tree status for each configured port
-// across each configured VLAN, or nil if the layer or VLAN table is absent.
+// in each VLAN the configuration names, or nil if the spanning tree layer is
+// absent. Those VLANs come from the VLAN table, the PVST trees, the MST
+// instances, and the multicast snooping VLANs, with VLAN 1 added for PVST and
+// MST to sample the CIST. Without any of them the result holds VLAN 1 alone.
 func (s *Switch) TreeRoles() map[vlan.ID]map[string]stp.PortInfo {
 	if s.stp == nil || s.cfg.STP == nil {
 		return nil

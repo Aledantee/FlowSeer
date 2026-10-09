@@ -387,7 +387,7 @@ func TestSwitchLearnRejectsInvalidSeedsWithoutRecordingThem(t *testing.T) {
 	}
 }
 
-func TestForwardMetadataKeepsEvidenceLinkedAssumptions(t *testing.T) {
+func TestPeekMetadataKeepsEvidenceLinkedAssumptions(t *testing.T) {
 	ports := twoPortTable(t)
 	catalog, ref := (analysis.EvidenceCatalog{}).Add(analysis.Evidence{
 		Kind:    "snapshot",
@@ -469,7 +469,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 	// Ingress on Unknown oper status port: produces Incomplete issue and does not forward
 	resUnknown := sw.Receive(now, "1/1/1", frame)
 	if resUnknown.Metadata.Status() != analysis.Incomplete {
-		t.Errorf("unknown oper status Forward status = %v, want Incomplete", resUnknown.Metadata.Status())
+		t.Errorf("unknown oper status Receive status = %v, want Incomplete", resUnknown.Metadata.Status())
 	}
 	if resUnknown.Outcome == trace.Forwarded || resUnknown.Outcome == trace.Flooded {
 		t.Errorf("unknown oper status forwarded frame, outcome = %v", resUnknown.Outcome)
@@ -497,13 +497,13 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 		t.Errorf("known down port reason = %v, want %v", resDown.Reason, port.ReasonPortDown)
 	}
 	if resDown.Metadata.Status() != analysis.Complete {
-		t.Errorf("known down port Forward status = %v, want Complete (not incomplete)", resDown.Metadata.Status())
+		t.Errorf("known down port Receive status = %v, want Complete (not incomplete)", resDown.Metadata.Status())
 	}
 
 	// Ingress on Known Up port: sibling port uncertainty does NOT taint unrelated port
 	resUp := sw.Receive(now, "1/1/3", frame)
 	if resUp.Metadata.Status() != analysis.Complete {
-		t.Errorf("unrelated known-up port Forward status = %v, want Complete", resUp.Metadata.Status())
+		t.Errorf("unrelated known-up port Receive status = %v, want Complete", resUp.Metadata.Status())
 	}
 	if len(resUp.Metadata.Issues()) != 0 {
 		t.Errorf("unrelated known-up port has unexpected issues: %+v", resUp.Metadata.Issues())

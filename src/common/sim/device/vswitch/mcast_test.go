@@ -338,7 +338,7 @@ func TestIGMPControlRejectsBadFramesWithoutState(t *testing.T) {
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
 			res := sw.Receive(fixedTime, "1/1/1", tt.frame(t))
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
-				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+				t.Errorf("Receive = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
 			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
 				t.Errorf("bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
@@ -359,7 +359,7 @@ func TestMalformedMLDCandidateDoesNotLearn(t *testing.T) {
 	sw := mustSwitch(t, mcastSwitchConfig(t, nil))
 	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
-		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+		t.Errorf("Receive = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
 	if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
 		t.Errorf("truncated MLD control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
@@ -443,7 +443,7 @@ func TestUnsupportedMLDRequiresLinkLocalSource(t *testing.T) {
 				}
 			} else {
 				if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl || len(mcastForwardedPorts(res)) != 0 {
-					t.Errorf("Forward = %s/%s, ports = %v, want Dropped/%s with no forwarded ports", res.Outcome, res.Reason, mcastForwardedPorts(res), mcast.ReasonBadControl)
+					t.Errorf("Receive = %s/%s, ports = %v, want Dropped/%s with no forwarded ports", res.Outcome, res.Reason, mcastForwardedPorts(res), mcast.ReasonBadControl)
 				}
 			}
 		})
@@ -476,7 +476,7 @@ func TestMLDUnspecifiedQueryAndDoneRefused(t *testing.T) {
 			frame := makeMLDControlFrame(t, netip.IPv6Unspecified(), group, mcastHostMAC, netaddr.MAC{0x33, 0x33, 0, 0, 0, 1}, 1, true, mld.Message{Type: messageType, Version: mld.V1, Group: group})
 			result := sw.Receive(fixedTime, "1/1/1", frame)
 			if result.Outcome != trace.Dropped || result.Reason != mcast.ReasonBadControl {
-				t.Errorf("Forward = %s/%s, want Dropped/%s", result.Outcome, result.Reason, mcast.ReasonBadControl)
+				t.Errorf("Receive = %s/%s, want Dropped/%s", result.Outcome, result.Reason, mcast.ReasonBadControl)
 			}
 		})
 	}
@@ -504,7 +504,7 @@ func TestMLDControlValidatesOuterHeader(t *testing.T) {
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
 			res := sw.Receive(fixedTime, "1/1/1", frame)
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
-				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+				t.Errorf("Receive = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
 			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 {
 				t.Errorf("bad MLD changed state: entries=%+v groups=%+v", sw.Entries(), sw.Groups(10, fixedTime))
@@ -536,7 +536,7 @@ func TestMLDRouterAlertValidation(t *testing.T) {
 			sw := mustSwitch(t, mcastSwitchConfig(t, nil))
 			res := sw.Receive(fixedTime, "1/1/1", frame)
 			if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
-				t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+				t.Errorf("Receive = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 			}
 			if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
 				t.Errorf("invalid Router Alert changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
@@ -564,7 +564,7 @@ func TestSnoopedControlPrecedesRoutedVLANOwnership(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 	res := sw.Receive(fixedTime, "1/1/1", frame)
 	if res.Outcome != trace.Dropped || res.Reason != mcast.ReasonBadControl {
-		t.Errorf("Forward = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
+		t.Errorf("Receive = %s/%s, want Dropped/%s", res.Outcome, res.Reason, mcast.ReasonBadControl)
 	}
 	if len(sw.Entries()) != 0 || len(sw.Groups(10, fixedTime)) != 0 || len(sw.RouterPorts(10, fixedTime)) != 0 {
 		t.Errorf("routed bad control changed state: entries=%+v groups=%+v routers=%+v", sw.Entries(), sw.Groups(10, fixedTime), sw.RouterPorts(10, fixedTime))
@@ -802,11 +802,11 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	}
 }
 
-// TestMulticastLeaveTimingThroughForward is evidence for this change: a
+// TestMulticastLeaveTimingThroughReceive proves that a
 // non-fast leave keeps forwarding for LMQT after an observed group-specific
 // query, for the full membership interval and mcast-query-unobserved without
 // one, and Complete regardless when the VLAN has no router port.
-func TestMulticastLeaveTimingThroughForward(t *testing.T) {
+func TestMulticastLeaveTimingThroughReceive(t *testing.T) {
 	group := netip.MustParseAddr("239.6.6.6")
 	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x06, 0x06, 0x06}
 	allRoutersMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x00, 0x00, 0x02}
@@ -914,4 +914,56 @@ func TestMulticastLeaveTimingThroughForward(t *testing.T) {
 			t.Errorf("status at t+3s = %v, want Complete", res.Metadata.Status())
 		}
 	})
+}
+
+// TestAdvanceAgesAnExpiredMembership proves Advance removes a membership whose
+// interval has run out. Resolution ignores an expired record whether or not it
+// was removed, so the check is a Derive that takes the member port out of the
+// snooped VLAN: it loses a record that is still stored and nothing once Advance
+// has removed it.
+func TestAdvanceAgesAnExpiredMembership(t *testing.T) {
+	group := netip.MustParseAddr("239.7.7.7")
+	groupMAC := netaddr.MAC{0x01, 0x00, 0x5e, 0x07, 0x07, 0x07}
+	pvid := vlan.ID(10)
+	ports := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{
+		Ports: ports,
+		Bridge: &bridge.Config{VLAN: &bridge.VLAN{
+			Table: map[vlan.ID]string{10: "ten", 20: "twenty"},
+			Switchports: map[string]bridge.Switchport{
+				"p1": {PVID: &pvid, Untagged: []vlan.ID{10}},
+				"p9": {PVID: &pvid, Untagged: []vlan.ID{10}},
+			},
+		}},
+		Mcast: &mcast.Config{VLANs: map[vlan.ID]mcast.VLANSnooping{10: {}}},
+	})
+	sw.Receive(fixedTime, "p1", makeIGMPControlFrame(t,
+		netip.MustParseAddr("10.0.0.1"), group, mcastHostMAC, groupMAC, 1,
+		igmp.Message{Type: igmp.ReportV2, Group: group}))
+	if groups := sw.Groups(10, fixedTime.Add(time.Second)); len(groups) != 1 {
+		t.Fatalf("groups while the membership is live = %+v, want one", groups)
+	}
+
+	moved := sw.Config()
+	other := vlan.ID(20)
+	moved.Bridge.VLAN.Switchports["p1"] = bridge.Switchport{PVID: &other, Untagged: []vlan.ID{20}}
+	derive := func(at time.Time) vswitch.LayerRetention {
+		t.Helper()
+		sw := sw.Fork()
+		sw.Advance(at)
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: moved})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return derived.Retention().Mcast
+	}
+	if ret := derive(fixedTime.Add(time.Second)); ret.Kept {
+		t.Errorf("multicast retention with a live membership on a removed port = %+v, want not kept", ret)
+	}
+	expired := fixedTime.Add(mcast.DefaultMembershipInterval + time.Second)
+	if ret := derive(expired); !ret.Kept {
+		t.Errorf("multicast retention after Advance past the membership interval = %+v, want kept: nothing left to lose", ret)
+	}
 }

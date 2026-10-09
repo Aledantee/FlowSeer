@@ -197,8 +197,8 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 
 // TestLoopProtectManualClearsOnLAGPortCycle proves that a Manual recovery
 // applied to a protected LAG port clears when the LAG's link cycles down and
-// back up, the same way it clears on a physical port: updateLagState now
-// notifies loop protection of the LAG's aggregate link state, not just
+// back up, the same way it clears on a physical port: updateLagState
+// notifies loop protection of the LAG's aggregate link state as well as
 // spanning tree, so a LAG-only switch's protected port is not stuck applied
 // forever once blocked.
 func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
@@ -256,6 +256,43 @@ func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
 	}
 }
 
+// TestClearLoopProtectByLAGMemberNameLiftsTheLAGsAction proves a manual clear
+// that names a LAG member lifts the action applied to the LAG, the logical port
+// loop protection tracks.
+func TestClearLoopProtectByLAGMemberNameLiftsTheLAGsAction(t *testing.T) {
+	tbl := mustTable(t, port.NewBuilder().
+		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
+		Add(port.Port{Name: "1/1/2", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}))
+	sw := mustSwitch(t, vswitch.Config{
+		Ports:  tbl,
+		Bridge: &bridge.Config{},
+		LAG: &lag.Config{LAGs: map[string]lag.LAG{
+			"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"1/1/1": {}, "1/1/2": {}}},
+		}},
+		LoopProtect: &loopprotect.Config{
+			Ports: map[string]loopprotect.Port{
+				"lag1": {Action: loopprotect.Block, Recovery: loopprotect.Recovery{Mode: loopprotect.Manual}},
+			},
+		},
+	})
+	mac := sw.Config().MAC
+	probe := loopprotect.Probe{OriginMAC: mac, VID: 0, Sequence: 1, Port: "lag1"}
+	if res := sw.Receive(fixedTime, "lag1", mustEncodeProbe(t, probe, mac)); res.Outcome != trace.Consumed {
+		t.Fatalf("probe outcome = %s, want %s", res.Outcome, trace.Consumed)
+	}
+	data := ethernet.Frame{Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, Src: netaddr.MAC{0, 0, 0, 0, 0, 0x55}, EtherType: 0x0800, Payload: []byte{1, 2, 3}}
+	if blocked := sw.Receive(fixedTime, "lag1", data); blocked.Reason != bridge.ReasonPortBlocked {
+		t.Fatalf("frame on lag1 after Block applied = %s/%s, want %s", blocked.Outcome, blocked.Reason, bridge.ReasonPortBlocked)
+	}
+	sw.ClearLoopProtect(fixedTime, "1/1/1")
+	// lag1 is the only non-member port, so a broadcast off it has no egress left
+	// once the block is lifted.
+	if after := sw.Receive(fixedTime, "lag1", data); after.Reason != bridge.ReasonNoEgress {
+		t.Errorf("frame on lag1 after clearing by member name = %s/%s, want %s", after.Outcome, after.Reason, bridge.ReasonNoEgress)
+	}
+}
+
 // TestLoopProtectTrunkWithPVIDEmitsAProbe proves that a protected trunk port
 // with no configured VLANs still probes on a VLAN-aware bridge, once it
 // carries a PVID: the layer emits VID 0 for such a port, and the switch
@@ -303,7 +340,7 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+		t.Fatalf("emissions after Advance = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
 	}
 }
 
@@ -349,7 +386,7 @@ func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
 		found = true
 	}
 	if !found {
-		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+		t.Fatalf("emissions after Advance = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
 	}
 }
 
@@ -371,8 +408,8 @@ func loopProtectReturnFactString(t *testing.T, res vswitch.Output) string {
 // TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN proves that a probe
 // emitted on a port with no configured VLANs (VID 0, resolved to the port's
 // PVID) does not falsely report an inter-VLAN loop when it returns on a
-// VLAN-aware bridge. It drives the real emission path (Wake, Drain, then
-// Forward with the frame the switch actually put on the wire): the switch
+// VLAN-aware bridge. It drives the real emission path (Advance, then
+// Receive with the frame the switch actually put on the wire): the switch
 // must re-encode the probe's payload with the resolved VID before
 // transmitting, so the payload names the VLAN the frame rides and a return
 // classified into that VLAN is not inter-VLAN.
@@ -392,7 +429,7 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 		}},
 		LoopProtect: &loopprotect.Config{
 			Ports: map[string]loopprotect.Port{
-				// No VLANs configured: Wake emits VID 0 for this port.
+				// No VLANs configured: Advance emits VID 0 for this port.
 				"1/1/1": {Action: loopprotect.Block},
 			},
 		},
@@ -416,7 +453,7 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+		t.Fatalf("emissions after Advance = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
 	}
 
 	// An unmanaged loop hands the same probe back on the port it left from.
@@ -549,12 +586,12 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 	}
 }
 
-// TestLoopProtectValidateAgreesWithEgressAdmission is evidence that
+// TestLoopProtectValidateAgreesWithEgressAdmission proves that
 // vswitch.Config.Validate and bridge.Switchport.CarriesVID never disagree
 // about whether a protected port carries the VLAN it probes: for every
 // switchport shape below, either Validate refuses the configuration or a
-// probe for that port actually reaches the switch's emitted frames after a
-// Wake, never neither. A PVID by itself does not admit a VID on egress (only
+// probe for that port actually reaches the switch's emitted frames after an
+// Advance, never neither. A PVID by itself does not admit a VID on egress (only
 // Tagged, Untagged, or a tunnel's VID does), so a config that only checked
 // PVID at validation time could accept a setup that then emits nothing.
 func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
@@ -710,7 +747,7 @@ func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
 				}
 			}
 			if !found {
-				t.Fatalf("emissions after Wake = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
+				t.Fatalf("emissions after Advance = %+v, want a decodable loop-protection probe on 1/1/1", emissions)
 			}
 		})
 	}
