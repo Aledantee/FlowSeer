@@ -37,6 +37,7 @@ func (s *Switch) Fork() device.Device {
 	if s.protocolIssues != nil {
 		cp.protocolIssues = maps.Clone(s.protocolIssues)
 	}
+	cp.heldMirrors = cloneHeldMirrors(s.heldMirrors)
 	entries := s.layers(time.Time{})
 	for _, entry := range entries {
 		if entry.clone != nil {

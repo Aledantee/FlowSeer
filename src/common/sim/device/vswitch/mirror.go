@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
@@ -51,6 +52,65 @@ func (s *Switch) police(now time.Time, name string, octets int) bool {
 	}
 
 	return s.traffic.Admit(now, name, octets)
+}
+
+// heldMirror is what the switch remembers about a frame the routing layer holds, keyed by its
+// hold token, so the copies taken when the frame is released agree with the ones taken when it
+// was held. Mirrors names the mirrors that copied the frame on arrival, and a mirror is copied
+// to once per frame however many of its selectors match. Ingress and VLAN are the logical port
+// and the VLAN the frame arrived on, which the routing layer's own record of the ingress
+// interface cannot supply and which a release must select on as a live route would.
+// Silent marks a frame that arrived as a mirror copy and therefore produces no copies at all.
+type heldMirror struct {
+	Ingress string
+	VLAN    vlan.ID
+	Mirrors []string
+	Silent  bool
+}
+
+func (h heldMirror) clone() heldMirror {
+	h.Mirrors = slices.Clone(h.Mirrors)
+	return h
+}
+
+func cloneHeldMirrors(held map[routing.HoldToken]heldMirror) map[routing.HoldToken]heldMirror {
+	if held == nil {
+		return nil
+	}
+	cp := make(map[routing.HoldToken]heldMirror, len(held))
+	for token, h := range held {
+		cp[token] = h.clone()
+	}
+	return cp
+}
+
+// rememberHeldMirror records the arrival of the frame the current call holds. A call that
+// holds nothing, or that does not commit, leaves no record.
+func (s *Switch) rememberHeldMirror(ingress string, vid vlan.ID, copies []traffic.Copy) {
+	c := s.call
+	if !c.commit || c.hold == 0 {
+		return
+	}
+	h := heldMirror{Ingress: ingress, VLAN: vid, Silent: c.mirrored}
+	for _, cp := range copies {
+		if !slices.Contains(h.Mirrors, cp.Mirror) {
+			h.Mirrors = append(h.Mirrors, cp.Mirror)
+		}
+	}
+	if s.heldMirrors == nil {
+		s.heldMirrors = make(map[routing.HoldToken]heldMirror)
+	}
+	s.heldMirrors[c.hold] = h
+}
+
+// withoutMirrored drops the copies the frame's arrival already produced.
+func (h heldMirror) withoutMirrored(copies []traffic.Copy) []traffic.Copy {
+	if h.Silent {
+		return nil
+	}
+	return slices.DeleteFunc(copies, func(cp traffic.Copy) bool {
+		return slices.Contains(h.Mirrors, cp.Mirror)
+	})
 }
 
 func (s *Switch) readyMirrorCopies(now time.Time, res *bridge.Result, copies []traffic.Copy, mutate bool) []traffic.Copy {

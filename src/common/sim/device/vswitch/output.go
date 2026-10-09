@@ -1,6 +1,7 @@
 package vswitch
 
 import (
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
@@ -23,7 +24,8 @@ func (s *Switch) Receive(now time.Time, ingress string, frame ethernet.Frame) de
 	return s.receive(now, ingress, frame, false)
 }
 
-// ReceiveMirrored handles a mirror arrival without policing or producing copies.
+// ReceiveMirrored handles a mirror arrival without policing or producing copies of its own
+// frame. Copies of held frames the arrival releases are still reported.
 func (s *Switch) ReceiveMirrored(now time.Time, ingress string, frame ethernet.Frame) device.Output {
 	return s.receive(now, ingress, frame, true)
 }
@@ -32,6 +34,7 @@ func (s *Switch) receive(now time.Time, ingress string, frame ethernet.Frame, mi
 	c, end := s.beginCall(now, true)
 	defer end()
 	s.advance(now)
+	c.mirrored = mirrored
 	var res bridge.Result
 	if !mirrored && !s.police(now, ingress, frame.WireOctets()) {
 		policer := s.cfg.Traffic.Policers[ingress]
@@ -48,7 +51,9 @@ func (s *Switch) receive(now time.Time, ingress string, frame ethernet.Frame, mi
 		res = s.forward(now, ingress, frame, true)
 	}
 	if mirrored {
-		c.copies = nil
+		// A frame that arrived as a mirror copy makes none of its own. Copies stamped
+		// with a hold token belong to the frames its arrival released.
+		c.copies = slices.DeleteFunc(c.copies, func(cp mirrorCopy) bool { return cp.Hold == 0 })
 	}
 	out := c.output(s.wrapResult(c, res))
 	out.Policed = res.Reason == traffic.ReasonPoliced

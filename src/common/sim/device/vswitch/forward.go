@@ -379,7 +379,17 @@ func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.
 		}
 	}
 	resolvedIngress := s.logicalIngress(ingress)
-	copies := s.traffic.Copies(switchports, resolvedIngress, res.FID, received, egress)
+	vid := res.FID
+	release := s.call.release
+	if release != nil {
+		resolvedIngress, vid = release.Ingress, release.VLAN
+	}
+	copies := s.traffic.Copies(switchports, resolvedIngress, vid, received, egress)
+	if release != nil {
+		copies = release.withoutMirrored(copies)
+	} else if mutate {
+		s.rememberHeldMirror(resolvedIngress, vid, copies)
+	}
 	copies = s.readyMirrorCopies(now, &res, copies, mutate)
 	for _, cp := range copies {
 		s.call.copies = append(s.call.copies, mirrorCopy{Copy: cp})

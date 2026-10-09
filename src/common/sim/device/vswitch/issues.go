@@ -22,6 +22,8 @@ import (
 // Child frames isolate their issues while returning their output to the parent.
 type call struct {
 	hold                     routing.HoldToken
+	mirrored                 bool
+	release                  *heldMirror
 	emissions                []emission
 	copies                   []mirrorCopy
 	drops                    []neighborDrop

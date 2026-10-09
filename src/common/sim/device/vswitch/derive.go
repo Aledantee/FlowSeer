@@ -100,6 +100,15 @@ func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, devic
 		}
 	}
 	next.recomputeProtocolLinkIssues()
+	if next.retention.Routing.Kept {
+		next.heldMirrors = cloneHeldMirrors(cur.heldMirrors)
+		if !next.retention.Traffic.Kept {
+			for token, h := range next.heldMirrors {
+				h.Mirrors = nil
+				next.heldMirrors[token] = h
+			}
+		}
+	}
 	if !next.retention.Routing.Kept && cur.routing != nil {
 		next.applyRoutingExits(now, cur.routing.Clone().FailHeld())
 	}

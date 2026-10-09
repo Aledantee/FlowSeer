@@ -70,6 +70,7 @@ var switchFieldClasses = map[string]forkFieldClass{
 	"portP2P":            {class: classDeepCopied},
 	"portSpeed":          {class: classDeepCopied},
 	"protocolIssues":     {class: classDeepCopied},
+	"heldMirrors":        {class: classDeepCopied},
 	"seeds":              {class: classDeepCopied},
 	"nodeID":             {class: classImmutableShared},
 	"metadata":           {class: classImmutableShared},
@@ -325,6 +326,7 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	sw.portP2P = map[string]pointToPoint{"1/1/1": pointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}
+	sw.heldMirrors = map[routing.HoldToken]heldMirror{1: {Ingress: "1/1/1", Mirrors: []string{"span"}}}
 	sw.retention = allKeptRetention()
 
 	frame, err := arp.Encode(arp.Message{
