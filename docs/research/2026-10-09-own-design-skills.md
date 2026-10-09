@@ -38,8 +38,8 @@ table and chart rules (`.claude/skills/web-component/SKILL.md:26-34`,
 `references/overlays-and-motion.md:124-146`). The steering document describes
 its references as holding "the overlay and motion rules agents most often break,
 each traced to a failure fixed in this repository or to a primary source"
-(`docs/agent-steering.md:113-125`). Its description ends "Not for view logic"
-(`.claude/skills/web-component/SKILL.md:3`), and for "a deeper visual critique"
+(`docs/agent-steering.md:113-125`). Its description ends "Not for view logic,
+domain code, or backend work." (`.claude/skills/web-component/SKILL.md:3`), and for "a deeper visual critique"
 it hands off to the third-party Impeccable plugin "when it is installed"
 (`references/review.md:99-105`).
 
@@ -162,7 +162,7 @@ distinctiveness coming "from information architecture, content/voice, and
 component choices" ([anthropics/skills PR
 1561](https://github.com/anthropics/skills/pull/1561)). Impeccable's maintainer
 fixed the same conflict as a bug after its AI-palette rule fired **218 times**
-on his own site's declared colour, and the fix works only when a `DESIGN.md`
+on the project site's declared colour, and the fix works only when a `DESIGN.md`
 with a correct colours block exists ([impeccable PR
 809](https://github.com/pbakaus/impeccable/pull/809)). FlowSeer's critiques
 record the local version: seven detector findings, "all false positives (brand

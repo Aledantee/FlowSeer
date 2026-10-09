@@ -130,8 +130,8 @@ blank-canvas brief" and proposes that existing tokens and components become
 "fixed material," with distinctiveness coming from "information architecture,
 content/voice, and component choices" ([anthropics/skills PR
 #1561](https://github.com/anthropics/skills/pull/1561)). Impeccable recorded the
-same conflict as a bug when its AI-palette rule "fired 80 times" on a site's own
-documented tokens ([impeccable PR
+same conflict as a bug when its AI-palette rule "fired 80 times" in one review
+of a site's own documented tokens, and 218 times across that site's 54 pages ([impeccable PR
 #809](https://github.com/pbakaus/impeccable/pull/809)). A project with an owned
 system has to tell any design skill that its tokens are fixed.
 
@@ -144,8 +144,8 @@ it "seems to replace one knock-off visual identity for another," and the author
 conceded the form example "got functionally worse"
 ([HN](https://news.ycombinator.com/item?id=46632320),
 [HN](https://news.ycombinator.com/item?id=46635642),
-[HN](https://news.ycombinator.com/item?id=46649766)). He later stated the
-structural risk himself: "if everybody uses the same skill to do frontend design
+[HN](https://news.ycombinator.com/item?id=46649766)). The author later stated the
+structural risk: "if everybody uses the same skill to do frontend design
 work... everything ends up looking the same," and "It's never going to be a tool
 for one-shot design"
 ([Latent.Space](https://latent.space/p/skill-engineering-design)). The skills
@@ -211,10 +211,10 @@ an open-ended "does this look good" loop with anything.
 The practice growing fastest in 2026 is packaging a design engineer's rules as a
 skill and running a separate strict review pass. Emil Kowalski's position is
 that "almost every 'taste' decision has a logical reason if you look close
-enough," and his rules are numeric and binary: start from `scale(0.95)` not
+enough," and the rules are numeric and binary: start from `scale(0.95)` not
 `scale(0)`, ease-out on enter and exit, **UI animation under 300ms**,
 micro-interactions at 100 to 150ms, exits faster than entrances ([Agents with
-Taste](https://emilkowal.ski/ui/agents-with-taste)). His skills repository
+Taste](https://emilkowal.ski/ui/agents-with-taste)). The skills repository
 reached about 44,700 stars in seven months and splits building from reviewing,
 with separate commands for worst-case data and mobile quirks
 ([emilkowalski/skills](https://github.com/emilkowalski/skills)). Vercel ships
@@ -298,7 +298,7 @@ doing design rising from 44% to 60%
 ([Figma](https://www.figma.com/blog/2026-ai-report/)). Both publishers have a
 stake in "design matters more." The working accounts match them anyway. A Jane
 Street designer credits Claude with "free, unlimited iteration" while steering
-the details himself ([Jane
+the details in person ([Jane
 Street](https://blog.janestreet.com/i-design-with-claude-code-more-than-figma-now-index/)),
 and a designer on HN concludes that "someone needs to evaluate the output and
 hold responsibility for the UI/UX"
