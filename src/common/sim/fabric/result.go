@@ -79,4 +79,14 @@ type RunResult struct {
 	Fingerprints   []string
 	Cycle          []string
 	DroppedActions int
+	roots          []runRoot
+}
+
+type runRoot struct {
+	fid       FrameID
+	ordinal   int
+	flow      FlowID
+	retention Retention
+	injection *InjectionLocation
+	source    *SourceLocation
 }

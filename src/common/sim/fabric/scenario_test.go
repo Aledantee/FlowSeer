@@ -43,7 +43,7 @@ func TestScenarioActionsBeforeFabricClock(t *testing.T) {
 		if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 			t.Fatal(err)
 		}
-		if res := fab.Run(10); res.Steps == 0 || !res.Clock.After(at) {
+		if res := fab.Run(10, 0); res.Steps == 0 || !res.Clock.After(at) {
 			t.Fatalf("stepped setup = %+v, want steps and clock after action", res)
 		}
 		return fab
@@ -829,10 +829,10 @@ func TestScenarioForkIsolation(t *testing.T) {
 	forked := fab.Fork()
 
 	// Run fork to completion
-	_ = forked.Run(100)
+	_ = forked.Run(100, 0)
 
 	// Verify source fabric steps and clock are unaffected
-	sourceRes := fab.Run(5)
+	sourceRes := fab.Run(5, 0)
 	if sourceRes.Steps != 5 {
 		t.Errorf("sourceRes.Steps = %d, want 5", sourceRes.Steps)
 	}

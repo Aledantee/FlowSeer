@@ -6,7 +6,41 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
+
+type fingerprintCountingDevice struct {
+	linkErrorDevice
+	states int
+}
+
+func (d *fingerprintCountingDevice) State(time.Time) device.State {
+	d.states++
+	return device.State{}
+}
+
+func (d *fingerprintCountingDevice) Advance(time.Time) device.Output { return device.Output{} }
+
+func TestRunComputesNoFingerprint(t *testing.T) {
+	d := &fingerprintCountingDevice{}
+	f, err := New(Config{Nodes: map[string]Node{"n": {Device: d, Snapshot: true}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
+	run := f.Run(10, 0)
+	if run.Steps != 1 || run.Stop != StopQueueDrained {
+		t.Fatalf("run = %+v, want one drained step", run)
+	}
+	if d.states != 0 || len(run.Fingerprints) != 0 {
+		t.Errorf("fingerprint state reads/history = %d/%d, want 0/0", d.states, len(run.Fingerprints))
+	}
+	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
+	run = f.Run(10, 2)
+	if d.states != 2 || len(run.Fingerprints) != 1 {
+		t.Errorf("window state reads/history = %d/%d, want 2/1", d.states, len(run.Fingerprints))
+	}
+}
 
 func TestDiffFabricRunsOneSidedJourneyPresence(t *testing.T) {
 	root := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}}

@@ -28,6 +28,7 @@ type attachedSource struct {
 	frame      ethernet.Frame
 	peeked     bool
 	ended      bool
+	ordinal    int
 }
 
 // AttachStream adds a finite source to the run. It refuses a nil source, an
@@ -108,6 +109,7 @@ func (f *Fabric) nextStreamFrame(index int) {
 
 func (f *Fabric) stepStream(at time.Time, index int) {
 	source := &f.attachments[index]
+	defer func() { source.ordinal++ }()
 	if _, err := source.frame.Encode(); err != nil {
 		f.endStream(source, errs.Wrap(err, "encode attached stream frame"))
 		return

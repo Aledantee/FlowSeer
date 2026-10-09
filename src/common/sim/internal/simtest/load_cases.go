@@ -110,7 +110,7 @@ func executeLoadCase(buffer *uint64, policed bool, decisive trace.RuleID) (Execu
 	}); err != nil {
 		return ExecutionResult{}, err
 	}
-	if run := fab.Run(10_000); run.Err != nil || run.Pending.Journeys != 0 {
+	if run := fab.Run(10_000, 0); run.Err != nil || run.Pending.Journeys != 0 {
 		return ExecutionResult{}, errs.Msgf("load run did not settle: %+v", run)
 	}
 	if err := validateReceiveReport(fab.Report()); err != nil {

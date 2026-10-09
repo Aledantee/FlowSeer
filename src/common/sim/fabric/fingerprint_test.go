@@ -1008,12 +1008,12 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 	}
 
 	// Run initial steps until converged.
-	fab.Run(20)
+	fab.Run(20, 0)
 	snap1 := fab.Snapshot()
 	fp1 := snap1.Fingerprint()
 
 	// Run another hello cycle (e.g. 5 more steps).
-	fab.Run(5)
+	fab.Run(5, 0)
 	snap2 := fab.Snapshot()
 	fp2 := snap2.Fingerprint()
 

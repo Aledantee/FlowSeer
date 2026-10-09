@@ -126,7 +126,7 @@ func reflectorArrival(t *testing.T, cfg assembly.Config, frame ethernet.Frame) f
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	for _, j := range fab.Report() {
 		if j.FrameID == fid {

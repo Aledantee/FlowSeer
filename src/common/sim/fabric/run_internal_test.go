@@ -160,7 +160,7 @@ func TestScheduleDequeueRecordsFaultInsteadOfPanicking(t *testing.T) {
 		if f.Err() != first {
 			t.Errorf("Err() = %q after a second fault, want the first %q", f.Err(), first)
 		}
-		if res := f.Run(10); res.Steps != 0 {
+		if res := f.Run(10, 0); res.Steps != 0 {
 			t.Errorf("Run(10) = %d after a fault, want 0", res.Steps)
 		}
 		if f.Err() == nil {

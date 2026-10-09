@@ -1039,8 +1039,10 @@ func (f *Fabric) removeWake(device string) {
 // Run repeatedly invokes [Fabric.Step] until the arrival queue is empty, budget steps have executed,
 // or a scheduling fault or convergence condition halts simulation.
 // A non-positive budget executes zero steps and returns [StopNotRun].
-func (f *Fabric) Run(budget int) RunResult {
-	return f.run(budget, 0)
+// A positive window enables fingerprint convergence and cycle detection.
+// A zero window computes no fingerprints.
+func (f *Fabric) Run(budget, window int) RunResult {
+	return f.run(budget, window)
 }
 
 // RunScenario validates and executes a declared scenario under its specified budget and window.
@@ -1060,14 +1062,11 @@ func (f *Fabric) RunScenario(s Scenario) (RunResult, error) {
 	checkpoint := f.Fork()
 
 	res, err := f.runWithActions(norm.Budget, norm.Window, norm.Actions)
-	if err != nil {
-		return RunResult{}, err
-	}
 	res.Replay = ReplaySpec{
 		checkpoint: checkpoint,
 		Scenario:   norm.Clone(),
 	}
-	return res, nil
+	return res, err
 }
 
 // Replay executes the scenario on a fresh fork of its checkpoint.
@@ -1166,9 +1165,15 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		cycle                   []string
 		stop                    StopReason
 		steps                   int
-		lastFingerprint         = f.Fingerprint()
+		lastFingerprint         string
 		wakeArrivalsSinceChange int
+		roots                   []runRoot
+		actionOrdinal           int
+		actionErr               error
 	)
+	if window > 0 {
+		lastFingerprint = f.Fingerprint()
+	}
 
 	for steps < budget {
 		if f.err != nil {
@@ -1181,11 +1186,16 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			break
 		}
 
-		actionEvent := f.queue[0].Kind == ArrivalAction
+		arr := f.queue[0]
+		fid := f.nextFrameID
+		ordinal := 0
+		if arr.Kind == ArrivalStream {
+			ordinal = f.attachments[arr.source].ordinal
+		}
 		entry, ok := f.Step()
 		if !ok {
-			if actionEvent && f.err != nil {
-				return RunResult{}, f.err
+			if arr.Kind == ArrivalAction && f.err != nil {
+				actionErr = f.err
 			}
 			if f.err != nil {
 				stop = StopFault
@@ -1195,29 +1205,44 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 			break
 		}
 		steps++
-
-		fp := f.Fingerprint()
-		fingerprints = append(fingerprints, fp)
-
-		if fp != lastFingerprint {
-			lastFingerprint = fp
-			wakeArrivalsSinceChange = 0
+		if arr.Kind == ArrivalAction && (arr.action.Kind == ActionInject || arr.action.Kind == ActionRecord) && f.nextFrameID > fid {
+			root := runRoot{fid: fid, ordinal: actionOrdinal, injection: &InjectionLocation{Index: arr.action.Index, At: arr.At.Round(0).UTC()}}
+			actionOrdinal++
+			if arr.action.Inject != nil {
+				root.flow, root.retention = arr.action.Inject.Flow, arr.action.Inject.Retention
+			}
+			roots = append(roots, root)
 		}
-		if entry.Kind == EntryWake {
-			wakeArrivalsSinceChange++
-		}
-
-		if window >= 2 && len(fingerprints) >= 2*2 {
-			if foundCycle, ok := detectCycle(fingerprints, window); ok {
-				stop = StopOscillating
-				cycle = foundCycle
-				break
+		if arr.Kind == ArrivalStream {
+			if f.nextFrameID > fid {
+				att := f.attachments[arr.source].attachment
+				roots = append(roots, runRoot{fid: fid, flow: att.Flow, retention: att.Retention, source: &SourceLocation{Attachment: arr.source, Frame: ordinal}})
 			}
 		}
 
-		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() && !f.sourcesPending() {
-			stop = StopConverged
-			break
+		if window > 0 {
+			fp := f.Fingerprint()
+			fingerprints = append(fingerprints, fp)
+			if fp != lastFingerprint {
+				lastFingerprint = fp
+				wakeArrivalsSinceChange = 0
+			}
+			if entry.Kind == EntryWake {
+				wakeArrivalsSinceChange++
+			}
+
+			if window >= 2 && len(fingerprints) >= 2*2 {
+				if foundCycle, ok := detectCycle(fingerprints, window); ok {
+					stop = StopOscillating
+					cycle = foundCycle
+					break
+				}
+			}
+
+			if wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() && !f.sourcesPending() {
+				stop = StopConverged
+				break
+			}
 		}
 
 		if f.err != nil {
@@ -1230,7 +1255,9 @@ func (f *Fabric) runWithActions(budget int, window int, actions []Action) (RunRe
 		stop = StopBudget
 	}
 
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount()), nil
+	res := f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount())
+	res.roots = roots
+	return res, actionErr
 }
 
 func detectCycle(fps []string, window int) ([]string, bool) {
@@ -1281,12 +1308,7 @@ func (f *Fabric) queueHoldsOnlyWakes() bool {
 }
 
 func (f *Fabric) hasPendingJourneys() bool {
-	for _, j := range f.Report() {
-		if j.State == JourneyPending {
-			return true
-		}
-	}
-	return false
+	return len(f.inflight) != 0
 }
 
 func (f *Fabric) pendingWork() PendingWork {
@@ -1306,11 +1328,7 @@ func (f *Fabric) pendingWork() PendingWork {
 			egress += q.pendingCount()
 		}
 	}
-	for _, j := range f.Report() {
-		if j.State == JourneyPending {
-			journeys++
-		}
-	}
+	journeys = len(f.inflight)
 	return PendingWork{
 		Arrivals: arrivals,
 		Inputs:   inputs,
@@ -1321,10 +1339,9 @@ func (f *Fabric) pendingWork() PendingWork {
 }
 
 func (f *Fabric) buildRunResult(stop StopReason, steps int, fingerprints, cycle []string, budget int, droppedActions int) RunResult {
-	rep := f.Report()
 	var issues []analysis.Issue
-	for _, j := range rep {
-		issues = append(issues, j.Metadata.Issues()...)
+	for _, id := range slices.Sorted(maps.Keys(f.journeys)) {
+		issues = append(issues, f.journeys[id].Metadata.Issues()...)
 	}
 	for _, id := range slices.Sorted(maps.Keys(f.flows)) {
 		issues = append(issues, f.flows[id].Metadata.Issues()...)

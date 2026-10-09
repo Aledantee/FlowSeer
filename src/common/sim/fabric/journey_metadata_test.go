@@ -90,7 +90,7 @@ func sendH1ToH2(t *testing.T, fab *fabric.Fabric) fabric.Journey {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	return fab.Report()[fid-1]
 }
@@ -157,7 +157,7 @@ func TestSwitchOriginInjectionEntryCarriesItsPortAndCable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	injection := fab.Report()[fid-1].Entries[0]
 	if injection.Port != "1/1/1" || injection.Cable == nil || injection.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
@@ -218,7 +218,7 @@ func TestReflectedCopyJourneyFoldsItsCableMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	var copyJourney fabric.Journey
 	for _, j := range fab.Report() {

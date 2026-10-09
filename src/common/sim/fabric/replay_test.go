@@ -31,7 +31,7 @@ func steppedReplayFabric(t *testing.T) (*fabric.Fabric, fabric.Scenario) {
 		if _, err := fab.Inject(fabric.Injection{At: t0.Add(time.Duration(i) * time.Second), Origin: fabric.Endpoint{Node: "h2"}, Frame: ethernet.Frame{Src: h2, Dst: h1, Payload: []byte("learn")}}); err != nil {
 			t.Fatal(err)
 		}
-		fab.Run(20)
+		fab.Run(20, 0)
 	}
 	history := fab.Report()
 	if len(history) != 3 {
@@ -352,7 +352,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(100, 0)
 
 	// 2. Return frame from h2 to macA forwards directly to 1/1/1.
 	_, err = fab.Inject(fabric.Injection{
@@ -383,7 +383,7 @@ func TestReplayKnownUnicastAndSamePortDrop(t *testing.T) {
 	}
 
 	// 3. Frame from h1 with destination macA drops as same-port.
-	fab.Run(100)
+	fab.Run(100, 0)
 	_, err = fab.Inject(fabric.Injection{
 		At:     now.Add(2 * time.Second),
 		Origin: fabric.Endpoint{Node: "h1"},

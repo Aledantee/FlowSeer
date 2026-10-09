@@ -352,7 +352,7 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 	}
 
 	// Run enough steps for STP wake/emissions, caller frame delivery, and mirror copy delivery
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	journeys := fab.Report()
 	if len(journeys) == 0 {

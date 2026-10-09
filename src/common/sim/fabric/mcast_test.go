@@ -154,7 +154,7 @@ func injectMcastFrame(t *testing.T, fab *fabric.Fabric, at time.Time, host strin
 	if err != nil {
 		t.Fatalf("Inject from %s: %v", host, err)
 	}
-	fab.Run(100)
+	fab.Run(100, 0)
 	for _, journey := range fab.Report() {
 		if journey.FrameID == id {
 			return journey

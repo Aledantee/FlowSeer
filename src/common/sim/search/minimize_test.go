@@ -659,7 +659,7 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 			if _, err := f.Inject(prior); err != nil {
 				t.Fatal(err)
 			}
-			if r := f.Run(30); r.Status != analysis.Complete {
+			if r := f.Run(30, 0); r.Status != analysis.Complete {
 				t.Fatalf("prior run status = %s, want Complete", r.Status)
 			}
 		}

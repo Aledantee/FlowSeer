@@ -144,7 +144,7 @@ func main() {
 		panic(err)
 	}
 
-	res := fab.Run(10)
+	res := fab.Run(10, 0)
 	fmt.Printf("Completed in %d steps\n", res.Steps)
 }
 ```
@@ -171,7 +171,7 @@ if err := fab.AttachStream(fabric.StreamAttachment{
 }); err != nil {
 	panic(err)
 }
-result := fab.Run(10_000)
+result := fab.Run(10_000, 0)
 stats := fab.Flows()[7]
 fmt.Printf("%s: %d frames offered\n", result.Stop, stats.Offered)
 ```
@@ -385,7 +385,7 @@ if _, err := fab.Inject(fabric.Injection{
 }); err != nil {
 	log.Fatal(err)
 }
-fab.Run(1_000_000)
+fab.Run(1_000_000, 0)
 stats := fab.Flows()[7]
 fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 	stats.Offered, stats.Delivered["h2"], stats.Latency.Min)
@@ -395,19 +395,30 @@ fmt.Printf("%d offered, %d delivered to h2, min %s\n",
 
 `BenchmarkAggregateMillion` injects one million 64-octet frames from `h1`
 across `sw1` and `sw2` to `h2` in batches of ten thousand, each batch at the
-run's clock and drained by a run with a one-million-step budget; the benchmark
+run's clock and drained by a run with a one-million-step budget. The benchmark
 fails if a batch leaves the arrival queue non-empty.
 `BenchmarkAggregateHundredThousandJourneys` runs the same load at a hundred
 thousand frames with journey retention, so a missed budget can be laid at the
 per-frame record rather than at retention.
 
-Measured on the development host (Apple M4 Pro, 2026-09-23): the aggregate
-benchmark took 295 s, and with `-benchmem` reported 2.5 TB of cumulative
-allocation over 5.0 billion allocations; the hundred-thousand-journey
-benchmark took 39 s, against a target of 120 s and 2 GiB for the million-frame
-run. The run loop fingerprints the fabric after every step, and the
-fingerprint builds a `Snapshot`, which copies and sorts the whole arrival
-queue; that per-step work, not retention, dominates both figures.
+`BenchmarkAggregateMillionScenario` uses the same fabric and batches through
+`RunScenario`, including each batch's replay checkpoint. With a zero window,
+both entry points compute no fingerprints and read no journey report in the
+executor (`run.go`, `TestRunComputesNoFingerprint`).
+
+On Apple M4 Pro, the following command reports:
+
+```sh
+go test ./src/common/sim/fabric -run '^$' -bench '^BenchmarkAggregateMillion(Scenario)?$' -benchtime=1x -benchmem
+```
+
+| Benchmark | Time | Cumulative bytes allocated | Allocations |
+| --- | --- | --- | --- |
+| `BenchmarkAggregateMillion` | 97.509 s | 553,086,267,888 | 1,451,956,192 |
+| `BenchmarkAggregateMillionScenario` | 96.438 s | 554,063,757,520 | 1,455,767,932 |
+
+Both meet the 120-second target. Cumulative allocation still exceeds the
+2 GiB target. These figures count all batches and do not measure live heap.
 
 ## Media and reach
 
@@ -658,7 +669,7 @@ configuration leaves them zero.
 
 ## Snapshot after one step
 
-Calling `fab.Run(1)` on the scenario processes the initial arrival at `sw1`
+Calling `fab.Run(1, 0)` on the scenario processes the initial arrival at `sw1`
 and leaves the transmission in flight:
 
 - `Clock`: Set to `t0 + 672ns`, the arrival timestamp of the completed step.
@@ -708,7 +719,7 @@ the advertisement resolving the neighbor. `Switch.Advance` settles a
 resolution timeout. The `Receive` that overflows the hold queue reports the
 frame it pushed out. Periodic
 hellos ensure the queue never drains; callers supply a step budget to
-`Run(budget)` which returns a `RunResult` containing the stop reason, steps
+`Run(budget, window)` which returns a `RunResult` containing the stop reason, steps
 taken, pending work, status, issues, and fingerprints. In scenarios configured
 with an observation window, `RunScenario` detects convergence automatically when
 the canonical fingerprint remains unchanged across consecutive wakes,
@@ -919,7 +930,7 @@ The package declares reasons for link failures and frame discards:
 
 ## Run lifecycle and scenarios
 
-A simulation run is driven by `Run(budget)` or `RunScenario(scenario)` under an
+A simulation run is driven by `Run(budget, window)` or `RunScenario(scenario)` under an
 explicit step limit, halting with a typed `RunResult`. The run halts with one
 of six stop reasons:
 
@@ -935,6 +946,14 @@ of six stop reasons:
 - `StopFault`: A scheduling invariant was breached, halting execution with an
   `analysis.Unsupported` issue.
 - `StopNotRun`: A non-positive budget was provided; zero steps were executed.
+
+A zero window skips fingerprints. A positive window enables convergence and
+cycle detection. Pending journeys count frames with live arrivals, queued
+transmissions or holds. A recorded outcome without live work does not keep
+the run pending. Status and issues merge retained journeys and folded flows,
+so retention does not change the run's trust result. An action error returns
+the completed steps, clock, issues and replay checkpoint with the error
+(`TestRunResultAcrossRetentions`, `TestActionErrorKeepsSteps` in the package tests).
 
 ### Scenarios and replay
 
@@ -1263,13 +1282,19 @@ alignment (`align.go`, `TestAlignOriginalIndicesAndDiagnosticVerdicts`).
 `a` nor `b` is stepped, injected into, or mutated; both fabrics remain available
 for continued simulation or subsequent comparisons.
 
-The lifted precondition allows comparing fabrics mid-run. Scenario journeys pair
-by injection ordinal (`injFIDsA[i]` to `injFIDsB[i]`). Pre-scenario journeys
+The lifted precondition allows comparing fabrics mid-run. Injected and recorded
+roots pair by injection ordinal in execution order. Their locations keep the
+action index and time. An attached frame pairs by attachment ordinal and
+its frame ordinal, which persists when a run continues. One-sided frames are
+compared too (`TestCompareAttachedSources`, `TestCompareAttachedSourceOrdinals`,
+`TestCompareContinuedAttachedSourceOrdinal` in `compare_test.go`). Pre-scenario journeys
 already present on either input are excluded from `Comparison.Current` and
 `Comparison.Expected` so background or pre-run traffic cannot pollute the
 scenario comparison. Mirror, reflection, and release descendants pair by
 parent-relative kind, mirror name, and occurrence, including descendants present on one side
-only (`pairJourneys` in `comparison_location.go`).
+only (`pairJourneys` in `comparison_location.go`). A freed aggregate root pairs
+by its flow's statistics. Different statistics prove a difference, while equal
+statistics leave the missing journeys inconclusive (`TestCompareAggregatedRoots`).
 
 ## Representative scale and fork cost
 

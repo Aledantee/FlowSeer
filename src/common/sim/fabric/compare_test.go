@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"net/netip"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -21,7 +22,158 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
+
+func comparisonAcceptanceFabrics(t *testing.T) (*fabric.Fabric, *fabric.Fabric, ethernet.Frame) {
+	t.Helper()
+	cfg, src, _ := makeTwoSwitchConfigs(t)
+	cfg.Start = time.Unix(100, 0).UTC()
+	frame := ethernet.Frame{Src: src, Dst: netaddr.MAC{2, 0, 0, 0, 0, 99}, Payload: []byte("captured")}
+	a, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := cfg.Hosts["h2"]
+	host.Accept.Promiscuous = true
+	cfg.Hosts["h2"] = host
+	b, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a, b, frame
+}
+
+func TestCompareRecordedFrame(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	at := time.Unix(100, 0).UTC()
+	sc := fabric.Scenario{Name: "record", Actions: []fabric.Action{{At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}}}}
+	cmp := fabric.Compare(a, b, sc, 100)
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Fatalf("comparison = %+v, want Different with one recorded root per side", cmp)
+	}
+	if cmp.Current[0].State != fabric.JourneyRejected || cmp.Expected[0].State != fabric.JourneyDelivered {
+		t.Fatalf("states = %s/%s, want Rejected/Delivered", cmp.Current[0].State, cmp.Expected[0].State)
+	}
+	if cmp.Location.Injection == nil || cmp.Location.Injection.Index != 1 {
+		t.Errorf("location = %+v, want recorded action 1", cmp.Location)
+	}
+}
+
+func TestCompareAttachedSources(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: 1}).Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []*fabric.Fabric{a, b} {
+		if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source.Clone(), Flow: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	left, right := a.Fork(), b.Fork()
+	ra, rb := left.Run(100, 0), right.Run(100, 0)
+	if ra.Steps != 4 || rb.Steps != 4 || !reflect.DeepEqual(left.Snapshot(), right.Snapshot()) {
+		t.Fatalf("fixture steps = %d/%d, final state equal = %t, want 4/4, true", ra.Steps, rb.Steps, reflect.DeepEqual(left.Snapshot(), right.Snapshot()))
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "attached"}, 100)
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Steps != [2]int{4, 4} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Fatalf("comparison = %+v, want Different with steps 4/4 and one source root per side", cmp)
+	}
+	if cmp.Current[0].State != fabric.JourneyRejected || cmp.Expected[0].State != fabric.JourneyDelivered {
+		t.Errorf("source states = %s/%s, want Rejected/Delivered", cmp.Current[0].State, cmp.Expected[0].State)
+	}
+}
+
+func TestActionErrorKeepsSteps(t *testing.T) {
+	cfg, src, dst := makeTwoSwitchConfigs(t)
+	cfg.Start = time.Unix(100, 0).UTC()
+	f, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc := scenarioFromInjections([]fabric.Injection{
+		{At: cfg.Start, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
+		{At: cfg.Start.Add(time.Second), Origin: fabric.Endpoint{Node: "missing"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
+	})
+	sc.Budget = 100
+	run, err := f.RunScenario(sc)
+	if err == nil || run.Err == nil || run.Stop != fabric.StopFault || run.Steps != 5 || !run.Clock.Equal(cfg.Start.Add(time.Second)) || run.Replay.Checkpoint() == nil {
+		t.Fatalf("run = %+v, error %v, want fault after five steps at failed action with replay", run, err)
+	}
+	if !hasIssueCode(run.Issues, fabric.IssueSchedulingFault) {
+		t.Errorf("issues = %+v, want scheduling fault", run.Issues)
+	}
+	base, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmp := fabric.Compare(base, base, sc, 100)
+	if cmp.Err == nil || cmp.Disposition != analysis.Inconclusive || cmp.Steps != [2]int{5, 5} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Errorf("comparison = %+v, want Inconclusive with error and completed steps/roots", cmp)
+	}
+}
+
+func TestCompareAggregatedRoots(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	injection := fabric.Injection{At: time.Unix(100, 0).UTC(), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 1, Retention: fabric.RetainAggregate}
+	scenario := scenarioFromInjections([]fabric.Injection{injection})
+	different := fabric.Compare(a, b, scenario, 100)
+	if different.Err != nil || different.Disposition != analysis.Different || different.Location.Field != "Flow.Delivered" || len(different.Current) != 0 || len(different.Expected) != 0 {
+		t.Fatalf("aggregated comparison = %+v, want Different at Flow.Delivered with no retained journeys", different)
+	}
+	equal := fabric.Compare(a, a, scenario, 100)
+	if equal.Err != nil || equal.Disposition != analysis.Inconclusive || equal.Difference.Observable != "" {
+		t.Errorf("equal aggregates = %+v, want Inconclusive without a proven difference", equal)
+	}
+}
+
+func TestCompareAttachedSourceOrdinals(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	frame.Dst = assembly.Spec(a).Config().Hosts["h2"].Address
+	for side, f := range []*fabric.Fabric{a, b} {
+		// Attachment zero fires last. Pairing by execution order would name
+		// it instead of attachment one's extra second frame.
+		for attachment := range 2 {
+			count := 1
+			if side == 0 && attachment == 1 {
+				count = 2
+			}
+			source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: count}).Source()
+			if err != nil {
+				t.Fatal(err)
+			}
+			start := time.Duration(1-attachment) * 10 * time.Second
+			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: fabric.FlowID(attachment + 1)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "source-ordinals"}, 100)
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 1, Frame: 1}) || cmp.Location.Field != "Root" {
+		t.Fatalf("source multiplicity = %+v, want attachment 1 frame 1 root difference", cmp)
+	}
+}
+
+func TestCompareContinuedAttachedSourceOrdinal(t *testing.T) {
+	a, _, frame := comparisonAcceptanceFabrics(t)
+	frame.Dst = assembly.Spec(a).Config().Hosts["h2"].Address
+	source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: 2}).Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1}); err != nil {
+		t.Fatal(err)
+	}
+	b := a.Fork()
+	if run := a.Run(1, 0); run.Steps != 1 || run.Pending.Journeys != 1 {
+		t.Fatalf("continued fixture = %+v, want first source frame in flight", run)
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "continued-source"}, 100)
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 0, Frame: 0}) || cmp.Location.Field != "Root" || cmp.Difference.Current != "false" || cmp.Difference.Expected != "true" {
+		t.Fatalf("continued sources = %+v, want expected-only source frame zero", cmp)
+	}
+}
 
 func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
 	actions := make([]fabric.Action, len(injs))
@@ -739,13 +891,13 @@ func TestCompareNonConsuming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	resA := fabA.Run(10)
+	resA := fabA.Run(10, 0)
 
 	_, err = twinA.Inject(scenario[0])
 	if err != nil {
 		t.Fatalf("Inject twinA: %v", err)
 	}
-	resTwin := twinA.Run(10)
+	resTwin := twinA.Run(10, 0)
 
 	if resA.Steps != resTwin.Steps {
 		t.Errorf("Steps mismatch: fabA=%d, twinA=%d", resA.Steps, resTwin.Steps)
@@ -870,7 +1022,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	fabA.Run(10)
+	fabA.Run(10, 0)
 
 	// Inject 3 pre-scenario frames into fabB in a different order/timing.
 	_, err = fabB.Inject(fabric.Injection{
@@ -912,7 +1064,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabB 3: %v", err)
 	}
-	fabB.Run(10)
+	fabB.Run(10, 0)
 
 	// Now run Compare with a fresh scenario.
 	scenario := []fabric.Injection{
@@ -1058,8 +1210,8 @@ func TestCompareResultImmutability(t *testing.T) {
 	disposition := cmp.Disposition
 
 	// Step fabA and fabB further.
-	fabA.Run(5)
-	fabB.Run(5)
+	fabA.Run(5, 0)
+	fabB.Run(5, 0)
 
 	if len(cmp.Current) != curCount || len(cmp.Expected) != expCount {
 		t.Error("Comparison journeys count changed after external stepping")
@@ -1603,6 +1755,9 @@ func TestAlignCompareKeepsSettledInjectionOrdinal(t *testing.T) {
 	comparison := fabric.Compare(a, b, scenario, 30)
 	if comparison.Err != nil || comparison.Disposition != analysis.Different {
 		t.Fatalf("comparison = %+v, want Different without error", comparison)
+	}
+	if comparison.Location.Injection == nil || comparison.Location.Injection.Index != 1 || comparison.Location.Field != "Flow.Delivered" {
+		t.Errorf("aggregate difference = %+v, want injection 1 Flow.Delivered", comparison.Location)
 	}
 	if len(comparison.Current) != 1 || len(comparison.Expected) != 1 {
 		t.Fatalf("journey counts = %d/%d, want 1/1 after aggregate settlement", len(comparison.Current), len(comparison.Expected))

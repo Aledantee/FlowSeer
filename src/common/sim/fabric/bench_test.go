@@ -81,7 +81,7 @@ func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MA
 // batch at the run's current clock and followed by a draining run, and fails
 // the benchmark if a batch leaves the arrival queue non-empty. It returns the
 // total frames injected.
-func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.Retention) int {
+func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.Retention, scenario bool) int {
 	b.Helper()
 	frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
 	injected := 0
@@ -99,7 +99,17 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 			}
 			injected++
 		}
-		if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+		var res fabric.RunResult
+		if scenario {
+			var err error
+			res, err = fab.RunScenario(fabric.Scenario{Name: "aggregate-batch", Budget: 1_000_000})
+			if err != nil {
+				b.Fatal(err)
+			}
+		} else {
+			res = fab.Run(1_000_000, 0)
+		}
+		if res.Stop != fabric.StopQueueDrained {
 			b.Fatalf("Run stop = %s after %d frames, want %s", res.Stop, injected, fabric.StopQueueDrained)
 		}
 		if queued := len(fab.Snapshot().Queue); queued != 0 {
@@ -116,7 +126,7 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 func BenchmarkAggregateMillion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fab, src, dst := benchmarkChainFabric(b)
-		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate)
+		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate, false)
 		if injected != aggregateBatches*aggregateBatchSize {
 			b.Fatalf("injected %d frames, want %d", injected, aggregateBatches*aggregateBatchSize)
 		}
@@ -129,6 +139,18 @@ func BenchmarkAggregateMillion(b *testing.B) {
 func BenchmarkAggregateHundredThousandJourneys(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fab, src, dst := benchmarkChainFabric(b)
-		runAggregateBatches(b, fab, src, dst, aggregateJourneyCount, fabric.RetainJourney)
+		runAggregateBatches(b, fab, src, dst, aggregateJourneyCount, fabric.RetainJourney, false)
+	}
+}
+
+// BenchmarkAggregateMillionScenario measures the same million-frame load with
+// the pre-action checkpoint each RunScenario retains for replay.
+func BenchmarkAggregateMillionScenario(b *testing.B) {
+	for range b.N {
+		fab, src, dst := benchmarkChainFabric(b)
+		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate, true)
+		if injected != aggregateBatches*aggregateBatchSize {
+			b.Fatalf("injected %d frames, want %d", injected, aggregateBatches*aggregateBatchSize)
+		}
 	}
 }

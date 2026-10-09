@@ -206,7 +206,7 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: fixedTime.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw", Port: "member-a"}, Frame: reply}); err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 	if err := fab.Err(); err != nil {
 		t.Fatal(err)
 	}

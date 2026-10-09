@@ -1,7 +1,10 @@
 package fabric
 
 import (
+	"cmp"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -24,8 +27,11 @@ type Comparison struct {
 // (injections and faults) to the forks, runs each fork up to the step budget,
 // and compares their behavioral observables.
 // The caller's fabrics a and b are never stepped, injected, or learned into.
-// New scenario journeys pair by injection ordinal across the two forks; pre-scenario
-// journeys are excluded from comparison. Faults are scheduled topology events, not journeys.
+// Injected and recorded roots pair by injection ordinal. Attached frames pair by
+// attachment and frame ordinal, including frames present on only one side.
+// Pre-scenario journeys are excluded. Faults are topology events, not journeys.
+// A settled aggregate pairs by its flow statistics. Equal statistics cannot
+// prove journey equivalence, so the comparison is Inconclusive without another difference.
 // Comparison walks, per paired journey, State, Origin, ordered Entries (path hops,
 // cable crossings, deliveries, and drops with reason and location), Deliveries,
 // Protocol, and carried frame content, then the run's Stop reason, Status, Pending
@@ -74,23 +80,9 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 		}
 	}
 
-	runResA, injFIDsA, errA := runScenarioFork(forkA, norm.Budget, norm.Window, norm.Actions)
-	if errA != nil {
-		return Comparison{
-			Disposition: analysis.Inconclusive,
-			Replay:      replaySpecs,
-			Err:         errA,
-		}
-	}
-
-	runResB, injFIDsB, errB := runScenarioFork(forkB, norm.Budget, norm.Window, norm.Actions)
-	if errB != nil {
-		return Comparison{
-			Disposition: analysis.Inconclusive,
-			Replay:      replaySpecs,
-			Err:         errB,
-		}
-	}
+	runResA, errA := forkA.runWithActions(norm.Budget, norm.Window, norm.Actions)
+	runResB, errB := forkB.runWithActions(norm.Budget, norm.Window, norm.Actions)
+	injFIDsA, injFIDsB := rootIDs(runResA.roots), rootIDs(runResB.roots)
 
 	allJourneysA := forkA.Report()
 	allJourneysB := forkB.Report()
@@ -98,124 +90,136 @@ func Compare(a, b *Fabric, scenario Scenario, budget int) Comparison {
 	scenarioJourneysA := collectScenarioJourneys(allJourneysA, injFIDsA)
 	scenarioJourneysB := collectScenarioJourneys(allJourneysB, injFIDsB)
 
-	diff, location, hasDiff := diffFabricRuns(
-		norm.Actions,
-		injFIDsA, injFIDsB,
-		scenarioJourneysA, scenarioJourneysB,
-		runResA, runResB,
-		forkA.Snapshot(), forkB.Snapshot(),
-	)
+	diff, location, hasDiff, uncertain := diffRunRoots(runResA.roots, runResB.roots, scenarioJourneysA, scenarioJourneysB, forkA.Flows(), forkB.Flows())
+	if !hasDiff {
+		diff, location, hasDiff = diffFabricRuns(nil, nil, nil, nil, nil, runResA, runResB, forkA.Snapshot(), forkB.Snapshot())
+	}
 
 	var disp analysis.Disposition
 	switch {
-	case runResA.Status != analysis.Complete || runResB.Status != analysis.Complete:
+	case errA != nil || errB != nil || runResA.Status != analysis.Complete || runResB.Status != analysis.Complete:
 		disp = analysis.Inconclusive
 	case hasDiff:
 		disp = analysis.Different
+	case uncertain:
+		disp = analysis.Inconclusive
 	default:
 		disp = analysis.Equivalent
 	}
 
+	runErr := errA
+	if runErr == nil {
+		runErr = errB
+	}
 	return Comparison{
 		Current:     scenarioJourneysA,
-		roots:       [2][]FrameID{injFIDsA, injFIDsB},
+		roots:       [2][]FrameID{actionRootIDs(runResA.roots), actionRootIDs(runResB.roots)},
 		Expected:    scenarioJourneysB,
 		Disposition: disp,
 		Difference:  diff,
 		Location:    location,
 		Replay:      replaySpecs,
 		Steps:       [2]int{runResA.Steps, runResB.Steps},
+		Err:         runErr,
 	}
 }
 
-func runScenarioFork(f *Fabric, budget int, window int, actions []Action) (RunResult, []FrameID, error) {
-	f.initRunState()
-
-	f.enqueueActions(actions)
-
-	if budget <= 0 {
-		return f.buildRunResult(StopNotRun, 0, nil, nil, budget, len(actions)), nil, nil
+func rootIDs(roots []runRoot) []FrameID {
+	var ids []FrameID
+	for _, root := range roots {
+		ids = append(ids, root.fid)
 	}
+	return ids
+}
 
-	if f.err != nil {
-		return f.buildRunResult(StopFault, 0, nil, nil, budget, len(actions)), nil, nil
+func actionRootIDs(roots []runRoot) []FrameID {
+	var ids []FrameID
+	for _, root := range roots {
+		if root.injection != nil {
+			ids = append(ids, root.fid)
+		}
 	}
+	return ids
+}
 
-	var (
-		fingerprints            []string
-		cycle                   []string
-		stop                    StopReason
-		steps                   int
-		lastFingerprint         = f.Fingerprint()
-		wakeArrivalsSinceChange int
-		injectFIDs              []FrameID
-	)
+type rootKey struct {
+	source       bool
+	index, frame int
+}
 
-	for steps < budget {
-		if f.err != nil {
-			stop = StopFault
-			break
+func (r runRoot) key() rootKey {
+	if r.source != nil {
+		return rootKey{source: true, index: r.source.Attachment, frame: r.source.Frame}
+	}
+	return rootKey{index: r.ordinal}
+}
+
+func diffRunRoots(a, b []runRoot, journeysA, journeysB []Journey, flowsA, flowsB map[FlowID]FlowStats) (analysis.Difference, DifferenceLocation, bool, bool) {
+	byA, byB := make(map[rootKey]runRoot), make(map[rootKey]runRoot)
+	for _, r := range a {
+		byA[r.key()] = r
+	}
+	for _, r := range b {
+		byB[r.key()] = r
+	}
+	keys := slices.Collect(maps.Keys(byA))
+	for key := range byB {
+		if _, ok := byA[key]; !ok {
+			keys = append(keys, key)
 		}
-
-		if len(f.queue) == 0 {
-			stop = StopQueueDrained
-			break
-		}
-
-		arr := f.queue[0]
-		fid := f.nextFrameID
-		entry, ok := f.Step()
-		if !ok {
-			if arr.Kind == ArrivalAction && f.err != nil {
-				return RunResult{}, nil, f.err
+	}
+	slices.SortFunc(keys, func(a, b rootKey) int {
+		if a.source != b.source {
+			if a.source {
+				return 1
 			}
-			if f.err != nil {
-				stop = StopFault
-			} else {
-				stop = StopQueueDrained
+			return -1
+		}
+		if c := cmp.Compare(a.index, b.index); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.frame, b.frame)
+	})
+	uncertain := false
+	for _, key := range keys {
+		ra, oka := byA[key]
+		rb, okb := byB[key]
+		root := ra
+		if !oka {
+			root = rb
+		}
+		location := DifferenceLocation{Area: DifferenceJourney, Injection: root.injection, Source: root.source, Subject: "journey"}
+		if !oka || !okb {
+			location.Field = "Root"
+			return analysis.Difference{Observable: "multiplicity", Current: strconv.FormatBool(oka), Expected: strconv.FormatBool(okb)}, location, true, uncertain
+		}
+		retainedA := slices.ContainsFunc(journeysA, func(j Journey) bool { return j.FrameID == ra.fid })
+		retainedB := slices.ContainsFunc(journeysB, func(j Journey) bool { return j.FrameID == rb.fid })
+		if (!retainedA && ra.retention == RetainAggregate) || (!retainedB && rb.retention == RetainAggregate) {
+			if diff, field, found := diffFlowStats(flowsA[ra.flow], flowsB[rb.flow]); found {
+				location.Field = "Flow." + field
+				return diff, location, true, uncertain
 			}
-			break
+			uncertain = true
+			continue
 		}
-		if arr.Kind == ArrivalAction && arr.action.Kind == ActionInject {
-			injectFIDs = append(injectFIDs, fid)
+		action := Action{Kind: ActionInject}
+		if root.injection != nil {
+			action.Index, action.At = root.injection.Index, root.injection.At
 		}
-		steps++
-
-		fp := f.Fingerprint()
-		fingerprints = append(fingerprints, fp)
-
-		if fp != lastFingerprint {
-			lastFingerprint = fp
-			wakeArrivalsSinceChange = 0
-		}
-		if entry.Kind == EntryWake {
-			wakeArrivalsSinceChange++
-		}
-
-		if window >= 2 && len(fingerprints) >= 2*2 {
-			if foundCycle, ok := detectCycle(fingerprints, window); ok {
-				stop = StopOscillating
-				cycle = foundCycle
-				break
+		for _, pair := range pairJourneys([]Action{action}, []FrameID{ra.fid}, []FrameID{rb.fid}, journeysA, journeysB) {
+			location.Lineage = pair.location.Lineage
+			if pair.current < 0 || pair.expected < 0 {
+				location.Field = "Journey"
+				return analysis.Difference{Observable: "multiplicity", Current: strconv.FormatBool(pair.current >= 0), Expected: strconv.FormatBool(pair.expected >= 0)}, location, true, uncertain
 			}
-		}
-
-		if window > 0 && wakeArrivalsSinceChange >= window && f.queueHoldsOnlyWakes() && !f.hasPendingJourneys() {
-			stop = StopConverged
-			break
-		}
-
-		if f.err != nil {
-			stop = StopFault
-			break
+			if diff, field, found := diffJourney(journeysA[pair.current], journeysB[pair.expected]); found {
+				location.Field = field
+				return diff, location, true, uncertain
+			}
 		}
 	}
-
-	if stop == "" {
-		stop = StopBudget
-	}
-
-	return f.buildRunResult(stop, steps, fingerprints, cycle, budget, f.pendingActionCount()), injectFIDs, nil
+	return analysis.Difference{}, DifferenceLocation{}, false, uncertain
 }
 
 func collectScenarioJourneys(allJourneys []Journey, roots []FrameID) []Journey {

@@ -55,7 +55,7 @@ func arrivalAtReceiver(t *testing.T, receiver hostmodel.Config, frame ethernet.F
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	return fab.Report()[fid-1]
 }

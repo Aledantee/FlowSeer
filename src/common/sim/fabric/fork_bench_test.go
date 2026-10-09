@@ -19,6 +19,6 @@ func BenchmarkForkAndStep100(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		fork := fab.Fork()
-		_ = fork.Run(100)
+		_ = fork.Run(100, 0)
 	}
 }

@@ -3,6 +3,7 @@ package fabric
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"time"
@@ -10,6 +11,33 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
+
+func diffFlowStats(a, b FlowStats) (analysis.Difference, string, bool) {
+	fields := []struct {
+		name              string
+		equal             bool
+		current, expected any
+	}{
+		{"Offered", a.Offered == b.Offered, a.Offered, b.Offered},
+		{"Delivered", maps.Equal(a.Delivered, b.Delivered), a.Delivered, b.Delivered},
+		{"Drops", maps.Equal(a.Drops, b.Drops), a.Drops, b.Drops},
+		{"Lost", a.Lost == b.Lost, a.Lost, b.Lost},
+		{"Unresolved", a.Unresolved == b.Unresolved, a.Unresolved, b.Unresolved},
+		{"Rejected", a.Rejected == b.Rejected, a.Rejected, b.Rejected},
+		{"Held", a.Held == b.Held, a.Held, b.Held},
+		{"Copies", maps.Equal(a.Copies, b.Copies), a.Copies, b.Copies},
+		{"Latency.Min", a.Latency.Min == b.Latency.Min, a.Latency.Min, b.Latency.Min},
+		{"Latency.Max", a.Latency.Max == b.Latency.Max, a.Latency.Max, b.Latency.Max},
+		{"Latency.Sum", a.Latency.Sum == b.Latency.Sum, a.Latency.Sum, b.Latency.Sum},
+		{"Latency.Count", a.Latency.Count == b.Latency.Count, a.Latency.Count, b.Latency.Count},
+	}
+	for _, field := range fields {
+		if !field.equal {
+			return analysis.Difference{Observable: "flow", Current: fmt.Sprint(field.current), Expected: fmt.Sprint(field.expected)}, field.name, true
+		}
+	}
+	return analysis.Difference{}, "", false
+}
 
 func diffJourney(jA, jB Journey) (analysis.Difference, string, bool) {
 	if jA.State != jB.State {

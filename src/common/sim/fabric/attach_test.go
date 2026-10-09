@@ -80,7 +80,7 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if result := fab.Run(1_000); result.Stop != fabric.StopQueueDrained {
+	if result := fab.Run(1_000, 0); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", result.Stop, fabric.StopQueueDrained)
 	}
 	journeys := fab.Report()
@@ -151,7 +151,7 @@ func TestAttachStreamPlacesFramesAtFabricEpoch(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	if result := fab.Run(1000); result.Stop != fabric.StopQueueDrained {
+	if result := fab.Run(1000, 0); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", result.Stop, fabric.StopQueueDrained)
 	}
 	journeys := fab.Report()
@@ -229,7 +229,7 @@ func TestAttachedStreamEndsAtDownHostLink(t *testing.T) {
 	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(1000)
+	fab.Run(1000, 0)
 	if got := len(fab.Report()); got != 2 {
 		t.Errorf("reported frames = %d, want 2 before the cut", got)
 	}
@@ -249,7 +249,7 @@ func TestAttachedStreamUnknownHostLinkIsUnresolved(t *testing.T) {
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 2, 10_000), Flow: 1, Retention: fabric.RetainJourney}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(100, 0)
 	if got := len(fab.Report()); got != 2 {
 		t.Fatalf("reported frames = %d, want 2", got)
 	}
@@ -277,8 +277,8 @@ func TestAttachedStreamFlowEqualsEagerInjection(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	lazy.Run(1000)
-	eager.Run(1000)
+	lazy.Run(1000, 0)
+	eager.Run(1000, 0)
 	if got, want := lazy.Flows(), eager.Flows(); !reflect.DeepEqual(got, want) {
 		t.Error("attached and eager flow statistics differ")
 		for id := range got {
@@ -325,8 +325,8 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	lazy.Run(100_000)
-	eager.Run(100_000)
+	lazy.Run(100_000, 0)
+	eager.Run(100_000, 0)
 	if got, want := lazy.Flows(), eager.Flows(); !reflect.DeepEqual(got, want) {
 		t.Error("attached and eager LAG flow statistics differ")
 		for id := range got {
@@ -414,8 +414,8 @@ func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
 			t.Fatalf("eager Inject: %v", err)
 		}
 	}
-	attached.Run(1000)
-	eager.Run(1000)
+	attached.Run(1000, 0)
+	eager.Run(1000, 0)
 	for _, flow := range []fabric.FlowID{1, 2} {
 		var got, want []time.Time
 		for _, journey := range attached.Report() {
@@ -447,7 +447,7 @@ func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
 			t.Fatalf("Inject at %s: %v", offset, err)
 		}
 	}
-	fab.Run(1000)
+	fab.Run(1000, 0)
 	journeys := fab.Report()
 	if len(journeys) != 2 || len(journeys[0].Deliveries) == 0 || len(journeys[1].Deliveries) == 0 {
 		t.Fatalf("journeys = %+v, want two host deliveries", journeys)
@@ -469,7 +469,7 @@ func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
 	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(1000)
+	fab.Run(1000, 0)
 	journeys := fab.Report()
 	if len(journeys) != 2 || len(journeys[1].Entries) < 2 || journeys[1].Entries[1].Kind != fabric.EntryDrop {
 		t.Fatalf("journeys = %+v, want a host link drop after injection", journeys)
@@ -516,7 +516,7 @@ func TestHostInjectionOrder(t *testing.T) {
 						if _, ok := fab.Step(); !ok {
 							t.Fatal("initial Step failed")
 						}
-						fab.Run(1000)
+						fab.Run(1000, 0)
 					}
 					if queued {
 						if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
@@ -539,7 +539,7 @@ func TestHostInjectionOrder(t *testing.T) {
 							t.Fatalf("host journey = %+v, want pending injection", j)
 						}
 					}
-					fab.Run(1000)
+					fab.Run(1000, 0)
 					var crossings []time.Time
 					for _, journey := range fab.Report() {
 						for _, entry := range journey.Entries {
@@ -604,7 +604,7 @@ func TestAttachedStreamJourneyOwnsFrame(t *testing.T) {
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1, Retention: fabric.RetainJourney}); err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(1000)
+	fab.Run(1000, 0)
 	frame.Tags[0].VID = 2
 	frame.Payload[0] ^= 0xff
 	journeys := fab.Report()

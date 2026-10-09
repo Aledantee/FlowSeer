@@ -133,7 +133,7 @@ func TestConformanceRunLifecycle(t *testing.T) {
 	t0 := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 
 	// 1. Not run if budget is 0
-	resNotRun := fab.Run(0)
+	resNotRun := fab.Run(0, 0)
 	if resNotRun.Stop != fabric.StopNotRun {
 		t.Errorf("Run(0) StopReason = %v, want %v", resNotRun.Stop, fabric.StopNotRun)
 	}
@@ -159,13 +159,13 @@ func TestConformanceRunLifecycle(t *testing.T) {
 	}
 
 	// 3. StopBudget when budget is limited
-	resBudget := fab.Run(1)
+	resBudget := fab.Run(1, 0)
 	if resBudget.Stop != fabric.StopBudget {
 		t.Errorf("Run(1) StopReason = %v, want %v", resBudget.Stop, fabric.StopBudget)
 	}
 
 	// 4. Drain queue with sufficient budget
-	resDrained := fab.Run(100)
+	resDrained := fab.Run(100, 0)
 	if resDrained.Stop != fabric.StopQueueDrained {
 		t.Errorf("Run(100) StopReason = %v, want %v", resDrained.Stop, fabric.StopQueueDrained)
 	}

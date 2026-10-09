@@ -77,7 +77,7 @@ func TestStreamFaultEndsOneStream(t *testing.T) {
 			if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 2, 1000), Flow: 2}); err != nil {
 				t.Fatal(err)
 			}
-			res := fab.Run(1000)
+			res := fab.Run(1000, 0)
 			if res.Stop != fabric.StopQueueDrained || res.Err != nil {
 				t.Fatalf("result = %+v, want drained without scheduling fault", res)
 			}
@@ -210,8 +210,8 @@ func TestForkClonesHalfPulledSource(t *testing.T) {
 		t.Fatal("Step returned no arrival")
 	}
 	left, right := fab.Fork(), fab.Fork()
-	left.Run(1000)
-	right.Run(1000)
+	left.Run(1000, 0)
+	right.Run(1000, 0)
 	if got, want := attachedJourneys(left), attachedJourneys(right); !reflect.DeepEqual(got, want) {
 		t.Errorf("left fork stream report = %+v, want %+v", got, want)
 	}

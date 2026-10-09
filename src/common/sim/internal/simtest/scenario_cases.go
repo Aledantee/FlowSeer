@@ -339,7 +339,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			runRes := fab.Run(2)
+			runRes := fab.Run(2, 0)
 			if runRes.Stop != fabric.StopBudget {
 				return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 			}

@@ -183,7 +183,7 @@ func stateMatches(protoState stpv1.ForwardingState, layerState stp.State) bool {
 func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 	fab, t0, macs := newRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	sw1MAC := macs["sw1"]
 	swNames := []string{"sw1", "sw2", "sw3"}

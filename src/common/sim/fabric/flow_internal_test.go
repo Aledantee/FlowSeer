@@ -128,7 +128,7 @@ func TestAggregateBroadcastFoldsOnce(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(100, 0); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -166,7 +166,7 @@ func TestAggregateFreesJourneys(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(1_000_000, 0); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -201,7 +201,7 @@ func TestFloodedFlowFoldsOnceNotTwice(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(100, 0); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -419,7 +419,7 @@ func TestMirrorCopyFoldsIntoCopies(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if res := fab.Run(100); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(100, 0); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -453,7 +453,7 @@ func TestMirrorCopyStaysOutOfTheStreamCounters(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
-		if res := fab.Run(100); res.Stop != fabric.StopQueueDrained {
+		if res := fab.Run(100, 0); res.Stop != fabric.StopQueueDrained {
 			t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 		}
 
@@ -480,7 +480,7 @@ func TestMirrorCopyStaysOutOfTheStreamCounters(t *testing.T) {
 		}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
-		if res := fab.Run(100); res.Stop != fabric.StopQueueDrained {
+		if res := fab.Run(100, 0); res.Stop != fabric.StopQueueDrained {
 			t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 		}
 
@@ -746,7 +746,7 @@ func runHeldProperty(t *testing.T, aggregated bool) heldPropertyRun {
 		))
 	}
 
-	fab.Run(100)
+	fab.Run(100, 0)
 
 	releaseOf := make(map[fabric.FrameID]fabric.FrameID)
 	for _, fid := range heldIDs[:3] {
@@ -1099,7 +1099,7 @@ func TestProtocolJourneyFreedAtSettle(t *testing.T) {
 	if len(protocols) != 2 {
 		t.Fatalf("live protocol journeys = %d, want 2 solicitations", len(protocols))
 	}
-	fab.Run(100)
+	fab.Run(100, 0)
 	for _, fid := range protocols {
 		if (*fabric.ExportFabricJourneys(fab))[fid] != nil || (*fabric.ExportFabricEntered(fab))[fid] != nil {
 			t.Fatalf("settled protocol %d retained journey or entered set", fid)

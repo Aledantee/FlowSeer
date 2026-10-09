@@ -31,6 +31,13 @@ type InjectionLocation struct {
 	At    time.Time
 }
 
+// SourceLocation pairs frames by zero-based attachment and frame ordinals.
+// Frame ordinals persist across continued runs. Values are safe for concurrent reads.
+type SourceLocation struct {
+	Attachment int
+	Frame      int
+}
+
 // LineageStep identifies a child within its parent's same-kind, same-name children.
 // Occurrence is zero-based. Values are safe for concurrent reads.
 type LineageStep struct {
@@ -39,12 +46,13 @@ type LineageStep struct {
 	Occurrence int
 }
 
-// DifferenceLocation names an exact behavioral field. Only journey locations carry
-// Injection and Lineage. Field entry ordinals exclude queue diagnostics.
+// DifferenceLocation names an exact behavioral field. A journey location carries
+// Injection or Source and may carry Lineage. Field entry ordinals exclude queue diagnostics.
 // Treat its slices and pointer as immutable during concurrent reads.
 type DifferenceLocation struct {
 	Area      DifferenceArea
 	Injection *InjectionLocation
+	Source    *SourceLocation
 	Lineage   []LineageStep
 	Subject   string
 	Field     string
@@ -100,7 +108,7 @@ func injectionLineages(journeys []Journey, root FrameID) []lineageJourney {
 func pairJourneys(actions []Action, rootsA, rootsB []FrameID, a, b []Journey) []journeyPair {
 	var injections []Action
 	for _, action := range actions {
-		if action.Kind == ActionInject {
+		if action.Kind == ActionInject || action.Kind == ActionRecord {
 			injections = append(injections, action)
 		}
 	}

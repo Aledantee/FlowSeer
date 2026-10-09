@@ -209,10 +209,10 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 func TestRingConvergenceAndHostDelivery(t *testing.T) {
 	fab, _, macs := newThreeSwitchRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	snap1 := fab.Snapshot()
-	fab.Run(1)
+	fab.Run(1, 0)
 	snap2 := fab.Snapshot()
 
 	if !rolesAgree(extractRoles(snap1), extractRoles(snap2)) {
@@ -253,7 +253,7 @@ func TestRingConvergenceAndHostDelivery(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	var frameJourney *fabric.Journey
 	for _, j := range fab.Report() {
@@ -374,7 +374,7 @@ func TestObservableStepConvergence(t *testing.T) {
 func TestCutCableReconvergence(t *testing.T) {
 	fab, _, macs := newThreeSwitchRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	fid1, err := fab.Inject(fabric.Injection{
 		At:     fab.Snapshot().Clock,
@@ -388,7 +388,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject first frame: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	sw3EntriesBefore := fab.Snapshot().Devices["sw3"].Entries
 	learnedOldPath := false
@@ -411,7 +411,7 @@ func TestCutCableReconvergence(t *testing.T) {
 		t.Fatalf("SetFault cut: %v", err)
 	}
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	snap := fab.Snapshot()
 
@@ -432,7 +432,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject second frame: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	sw3EntriesAfter := fab.Snapshot().Devices["sw3"].Entries
 	for _, e := range sw3EntriesAfter {
@@ -764,7 +764,7 @@ func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 // from a layer that was thrown away.
 func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 	fab, _, _ := newThreeSwitchRingTopology(t)
-	fab.Run(200)
+	fab.Run(200, 0)
 	before := fab.Snapshot()
 
 	cfg := assembly.Spec(fab).Config()
@@ -821,7 +821,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	lagState := func() (port.LinkState, device.PortInfo) {
 		sw := fab.Device("sw2").(*vswitch.Switch)
@@ -1322,7 +1322,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 		2: {"l2": {PathCost: 200_000}},
 	})
 
-	fab.Run(1000)
+	fab.Run(1000, 0)
 
 	fid10, err := fab.Inject(fabric.Injection{
 		At:     fab.Snapshot().Clock,
@@ -1336,7 +1336,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 10: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	j10 := findJourney(t, fab, fid10)
 	if len(j10.Deliveries) != 1 || j10.Deliveries[0].Host != "h2-v10" {
@@ -1368,7 +1368,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 20: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	j20 := findJourney(t, fab, fid20)
 	if len(j20.Deliveries) != 1 || j20.Deliveries[0].Host != "h2-v20" {
@@ -1415,7 +1415,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 
 	fab := newTwoSwitchTrunkTopology(t, region1, region2, nil, nil)
 
-	fab.Run(1000)
+	fab.Run(1000, 0)
 
 	snap := fab.Snapshot()
 
@@ -1452,7 +1452,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 10: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	j10 := findJourney(t, fab, fid10)
 	if len(j10.Deliveries) != 1 {
@@ -1478,7 +1478,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 20: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	j20 := findJourney(t, fab, fid20)
 	if len(j20.Deliveries) != 1 {
@@ -1594,7 +1594,7 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 	fab := newFourSwitchMSTRing(t)
 
-	fab.Run(400)
+	fab.Run(400, 0)
 
 	snap := fab.Snapshot()
 	for _, dev := range []string{"sw2", "sw3", "sw4"} {
@@ -1623,7 +1623,7 @@ func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 		t.Fatalf("SetFault sw4-sw1: %v", err)
 	}
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	snap = fab.Snapshot()
 	var newRootPriority uint16

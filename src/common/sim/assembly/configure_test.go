@@ -168,7 +168,7 @@ func TestConfigureKeepsInFlightFrame(t *testing.T) {
 		t.Fatalf("Configure: %v", err)
 	}
 
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	var frameJourney fabric.Journey
 	var found bool
@@ -211,7 +211,7 @@ func TestConfigureLearnedStateAdmittedKept(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	snap := fab.Snapshot()
 	entries1 := snap.Devices["sw1"].Entries
@@ -334,7 +334,7 @@ func TestConfigureLinkStateFollowsSwitchConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	for _, j := range fab.Report() {
 		if j.FrameID == fid {
@@ -578,7 +578,7 @@ func TestConfigureHeldFramesFailAtFabricClock(t *testing.T) {
 		t.Fatalf("Configure: %v", err)
 	}
 
-	res := fab.Run(50)
+	res := fab.Run(50, 0)
 	if res.Stop != fabric.StopQueueDrained && res.Stop != fabric.StopConverged {
 		t.Fatalf("res.Stop = %v, want StopQueueDrained or StopConverged", res.Stop)
 	}
@@ -689,7 +689,7 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		t.Fatalf("assembly.New: %v", err)
 	}
 
-	fab.Run(200)
+	fab.Run(200, 0)
 
 	// sw1 is root.
 	snap0 := fab.Snapshot()
@@ -718,8 +718,8 @@ func TestConfigureProtocolTimersRestart(t *testing.T) {
 		}
 	}
 
-	baseline.Run(200)
-	reconfigured.Run(200)
+	baseline.Run(200, 0)
+	reconfigured.Run(200, 0)
 	if baseline.Fingerprint() != reconfigured.Fingerprint() {
 		t.Errorf("no-op Configure changed the fingerprint:\n got  %s\n want %s",
 			reconfigured.Fingerprint(), baseline.Fingerprint())

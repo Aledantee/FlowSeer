@@ -36,7 +36,7 @@ func TestHostBoundLegRecordsCrossing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result := fab.Run(10); result.Steps != 4 {
+	if result := fab.Run(10, 0); result.Steps != 4 {
 		t.Errorf("steps = %d, want 4 (host transmission, two switches, and host delivery)", result.Steps)
 	}
 	j := fab.Report()[id-1]
@@ -73,7 +73,7 @@ func TestHostInjectionKeepsPCP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 	j := fab.Report()[id-1]
 	var crossings int
 	for _, e := range j.Entries {
@@ -200,7 +200,7 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: macH2, Src: macH1}}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(10, 0)
 	j := fab.Report()[0]
 	if len(j.Deliveries) != 0 {
 		t.Errorf("Deliveries = %+v, want none from a corrupting cable", j.Deliveries)
@@ -318,7 +318,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Errorf("fid1 = %d, want 1", fid1)
 	}
 
-	steps := fab.Run(10).Steps
+	steps := fab.Run(10, 0).Steps
 	if steps != 4 {
 		t.Fatalf("steps = %d, want 4", steps)
 	}
@@ -408,7 +408,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Fatalf("Inject reverse: %v", err)
 	}
 
-	stepsRev := fab.Run(10).Steps
+	stepsRev := fab.Run(10, 0).Steps
 	if stepsRev != 4 {
 		t.Fatalf("stepsRev = %d, want 4", stepsRev)
 	}
@@ -452,7 +452,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 	}
 
 	stepHostInputs(t, fab, 1)
-	steps := fab.Run(1).Steps
+	steps := fab.Run(1, 0).Steps
 	if steps != 1 {
 		t.Fatalf("steps = %d, want 1", steps)
 	}
@@ -482,7 +482,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Errorf("sw2 FDB entries = %+v, want empty", sw2Entries)
 	}
 
-	steps = fab.Run(1).Steps
+	steps = fab.Run(1, 0).Steps
 	if steps != 1 {
 		t.Fatalf("second Run(1) steps = %d, want 1", steps)
 	}
@@ -604,7 +604,7 @@ func TestCableLossFault(t *testing.T) {
 		t.Fatalf("Inject 2: %v", err)
 	}
 
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	journeys := fab.Report()
 	if len(journeys) != 2 {
@@ -656,7 +656,7 @@ func TestCableCorruptionFault(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -766,7 +766,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(50).Steps
+	steps := fab.Run(50, 0).Steps
 	if steps != 50 {
 		t.Errorf("steps = %d, want 50", steps)
 	}
@@ -865,7 +865,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(10)
+		fab.Run(10, 0)
 
 		journeys := fab.Report()
 		if len(journeys) != 1 || len(journeys[0].Deliveries) != 1 {
@@ -927,7 +927,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(5)
+		fab.Run(5, 0)
 
 		journeys := fab.Report()
 		if len(journeys) != 1 {
@@ -1040,7 +1040,7 @@ func TestRunZeroSteps(t *testing.T) {
 		t.Fatalf("queue before Run(0) = %d, want 1", len(snapBefore.Queue))
 	}
 
-	res := fab.Run(0)
+	res := fab.Run(0, 0)
 	if res.Steps != 0 {
 		t.Errorf("Run(0) returned %d steps, want 0", res.Steps)
 	}
@@ -1398,7 +1398,7 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 		}
 	}
 
-	steps := fab.Run(10).Steps
+	steps := fab.Run(10, 0).Steps
 	if steps == 0 {
 		t.Fatal("expected Run to take steps")
 	}
@@ -1833,7 +1833,7 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -1973,7 +1973,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(10)
+		fab.Run(10, 0)
 
 		journeys := fab.Report()
 		if len(journeys) != 1 {
@@ -2094,7 +2094,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -2461,7 +2461,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		}
 	}
 
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	snap := fab.Snapshot()
 	sw1, ok := snap.Devices["sw1"]
@@ -2498,7 +2498,7 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 	if err := fab.SetFault(hostEnd, switchEnd, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(50, 0)
 
 	for _, journey := range fab.Report() {
 		if journey.FrameID != queuedID {
@@ -2603,7 +2603,7 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	journeys := fab.Report()
 	var parent fabric.Journey
@@ -2721,7 +2721,7 @@ func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 	}
 
 	const budget = 40
-	steps := fab.Run(budget).Steps
+	steps := fab.Run(budget, 0).Steps
 	if steps != budget {
 		t.Fatalf("Run(%d) = %d, want the full budget: the loop should not drain the queue", budget, steps)
 	}
@@ -2795,7 +2795,7 @@ func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	journeys := fab.Report()
 	var copies []fabric.Journey

@@ -89,7 +89,7 @@ func TestFabricConstructionSpecAndPropagation(t *testing.T) {
 		t.Fatalf("fab.Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(10, 0)
 
 	report := fab.Report()
 	if len(report) != 1 {
@@ -495,7 +495,7 @@ func TestFabricPerHopReadinessMetadataPropagation(t *testing.T) {
 		t.Fatalf("Inject sw1 1/1/1: %v", err)
 	}
 
-	fab.Run(20)
+	fab.Run(20, 0)
 
 	reports := fab.Report()
 	if len(reports) != 3 {
