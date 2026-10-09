@@ -301,3 +301,22 @@ func TestReflectorDropsACorruptArrivalBeforeAnyClauseRuns(t *testing.T) {
 		t.Errorf("deliveries = %+v, want none", journey.Deliveries)
 	}
 }
+
+func TestReflectorSpecRoundTrip(t *testing.T) {
+	cfg := statedPhysical(reflectorAcceptConfig(t))
+	fab, err := fabric.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec := fab.Spec()
+	if len(spec.Reflectors) != 1 || !spec.Reflectors["r1"].Equal(cfg.Reflectors["r1"]) {
+		t.Fatalf("Spec reflectors = %+v, want configured r1", spec.Reflectors)
+	}
+	copy, err := fabric.NewWithSpec(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !copy.Spec().Equal(spec) {
+		t.Fatal("reflector specification changed on round trip")
+	}
+}
