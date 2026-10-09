@@ -9,11 +9,11 @@ component: conformance-gates
 severity: high
 symptoms:
   - "A verifier run for a change to a root package does not select a nested module or package whose tagged tests import it"
-  - "`verify-change.sh --print-selection -- src/protocol/ssh/buffer.go` prints no `dependent=src/edge/netpen` line"
+  - "`verify change --print-selection -- src/protocol/ssh/buffer.go` prints no `dependent=src/edge/netpen` line"
 root_cause: "`go list -deps`, `.Deps`, `.TestImports`, and `.XTestImports` cover only the files the default build selects. An import made only from a file under `//go:build <tag>` is absent, so an importer computed from that listing skips the package that vet_tagged would have compiled."
 resolution_type: code_fix
 applies_when:
-  - "Changing how verify-change.sh picks targets, dependent modules, or importers from a go list listing"
+  - "Changing how the verifier picks targets, dependent modules, or importers from a go list listing"
   - "Writing any tool or gate that decides which packages depend on a changed package"
   - "Investigating a targeted verifier run that stayed green while a tagged integration or bench test stopped compiling"
 related_components: [netpen, verify-change, integration-tests]
@@ -47,32 +47,30 @@ gate it skipped (`vet_tagged`) is the one that would have caught the break.
 Any "who depends on this package" question gets answered over the same
 builds the gate then checks: the default build plus one listing per tag
 the files carry. The verifier's dependent-module selection does this
-(`.claude/skills/verify-change/scripts/verify-change.sh:338-345`):
+(`Verification.module_deps` in `tools/scripts/verify/change.py`):
 
-```bash
-module_deps() {
-  local tag
-  go list -e -deps -test -f '{{.ImportPath}}' ./... || return
-  while IFS= read -r tag; do
-    [[ -n $tag ]] || continue
-    go list -e -deps -test -tags "$tag" -f '{{.ImportPath}}' ./... || return
-  done < <(build_tags ./...)
-}
+```python
+arguments = ["go", "list", "-e", "-deps", "-test"]
+code, listed = spawn([*arguments, "-f", "{{.ImportPath}}", "./..."], cwd=directory, capture=True, quiet=True)
+...
+for tag in self.build_tags(["./..."], directory, quiet=True):
+    code, listed = spawn([*arguments, "-tags", tag, "-f", "{{.ImportPath}}", "./..."], cwd=directory, capture=True, quiet=True)
 ```
 
-`build_tags` (`verify-change.sh:326`) is the tag extraction `vet_tagged`
-also uses, so the listing and the vet cover the same tags. The test is the "counts a nested module's
-imports behind a build tag" case in `tools/hooks/tests/run.sh:765`. It
+`Verification.build_tags` is the tag extraction `vet_tagged`
+also uses, so the listing and the vet cover the same tags. The test is
+`test_verifier_selection_counts_a_nested_modules_imports_behind_a_build_tag`
+in `tools/scripts/tests/verify/test_verify_selection.py`. It
 failed before `module_deps` existed.
 
 ## What this does not cover
 
 The root module's targeted run has the same gap, and it is still open. Its
 importer fixpoint reads an untagged listing
-(`verify-change.sh:637`):
+(`GO_LIST_ROWS` in `tools/scripts/verify/change.py`, passed to `go list -e -f` by `Verification.check_module`):
 
-```bash
-go list -e -f '{{.ImportPath}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}' ./... > "$build_dir/packages.txt"
+```python
+GO_LIST_ROWS = '{{.ImportPath}}|{{join .Deps " "}} {{join .TestImports " "}} {{join .XTestImports " "}}'
 ```
 
 `src/protocol/netconf/test/integration` imports `src/protocol/netconf` only

@@ -140,7 +140,7 @@ Files: <paths>
 After: <units that must land first, or none>
 Change: what the code does after the unit, in present tense.
 Tests: the test files and cases that prove it.
-Verify: `.claude/skills/verify-change/scripts/verify-change.sh -- <paths>`
+Verify: `uv run tools/scripts/run.py verify change -- <paths>`
 
 ## Verification
 The commands that prove the whole change, and any manual or lab check.

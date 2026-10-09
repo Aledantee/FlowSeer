@@ -132,7 +132,7 @@ For each unit:
      trailing `echo` or `tail` reports its own exit code as the gate's):
 
    ```bash
-   .claude/skills/verify-change/scripts/verify-change.sh -- <paths>
+   uv run tools/scripts/run.py verify change -- <paths>
    ```
 
    When a unit leaves the package red until the next unit lands, verify those

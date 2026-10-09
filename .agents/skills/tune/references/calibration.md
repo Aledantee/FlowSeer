@@ -152,7 +152,7 @@ rm <worktree>/$pkg/accept_test.go
 (cd <worktree> && golangci-lint run ./$pkg/ && go test -race -count=1 ./$pkg/)
 ```
 
-Do not run `verify-change.sh` on a lane. It race-tests every package that
+Do not run `verify change` on a lane. It race-tests every package that
 imports a changed one, and `pump`'s importers reach `generated/go/mib`
 (`git show bd9e0862:.claude/skills/verify-change/scripts/verify-change.sh`,
 the `go list` closure before `go test -race`), a run of many minutes per

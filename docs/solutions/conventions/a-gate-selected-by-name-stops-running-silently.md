@@ -65,7 +65,7 @@ axes, so the next person to add a gate does not reintroduce a list.
 
 ## The same defect wears a second costume in the verifier
 
-`verify-change.sh` forces repository-wide gates into a targeted run, because a
+The verifier forces repository-wide gates into a targeted run, because a
 change that violates one of them touches none of those packages and the importer
 fixpoint never selects them. That force-append was a hard-coded trio, and it had
 already fallen behind: `test/conformance/dependencies` existed and was not in it,
@@ -76,7 +76,7 @@ walks those modules by path and is the only thing that does.
 
 Both are the same lesson: the selection is now `./test/conformance/...`, run once
 per targeted verification from the repository root
-(`.claude/skills/verify-change/scripts/verify-change.sh:478-498`).
+(`Verification.check_repository_wide` in `tools/scripts/verify/change.py`).
 
 ## A symlinked skill directory can disappear from targeted verification
 
@@ -89,11 +89,11 @@ $ git ls-files -- .agents/skills/delegate/scripts
 .agents/skills/delegate/scripts/test_orca_worker.py
 ```
 
-`verify-change.sh` expands a directory argument with `git ls-files`
-(`.agents/skills/verify-change/scripts/verify-change.sh:135-155`). A directory
+The verifier expands a directory argument with `git ls-files`
+(`Verification.expand_directories` in `tools/scripts/verify/change.py`). A directory
 spelled through the symlink therefore supplies no skill files to the selector.
-The later hook gate walks `.claude/skills/*/scripts` only after the selector has
-chosen hook tooling (`.agents/skills/verify-change/scripts/verify-change.sh:873-896`).
+The later hook gate lints the skills' shell scripts only after the selector has
+chosen hook tooling (`Verification.check_hook_tooling` in the same file).
 Use the tracked `.agents/skills` spelling for a targeted skill verification, or
 resolve directory arguments before selecting gates.
 
