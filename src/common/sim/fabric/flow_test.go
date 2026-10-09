@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -233,9 +235,9 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 	addrH2 := netip.MustParseAddr("10.0.20.7")
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{
@@ -258,7 +260,7 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 				},
 			},
 		}},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -269,11 +271,11 @@ func TestAggregateHeldFrameReleaseKeepsItsProvenance(t *testing.T) {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("assembly.New: %v", err)

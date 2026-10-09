@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
@@ -252,12 +254,12 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 		},
 	}
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -272,7 +274,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 				Address: macH2,
 			},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{
 				Cable: cablemodel.Cable{LengthMeters: 5},
 				A:     fabric.Endpoint{Node: "h1"},
@@ -284,7 +286,7 @@ func TestHostIPStackSendsThroughGateway(t *testing.T) {
 				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -408,9 +410,9 @@ func TestFabricMACAssignment(t *testing.T) {
 	vid20 := vlan.ID(20)
 
 	baseCfg := func() assembly.Config {
-		return assembly.Config{
-			Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-			Switches: map[string]vswitch.Config{
+		return simtest.RoutedFixture(
+			time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			map[string]vswitch.Config{
 				"sw1": {
 					Ports: ports1,
 					STP:   &stp.Config{},
@@ -440,7 +442,7 @@ func TestFabricMACAssignment(t *testing.T) {
 					Ports: ports2,
 				},
 			},
-			Hosts: map[string]hostmodel.Config{
+			map[string]hostmodel.Config{
 				"h1": {
 					IP: &hostmodel.IP{
 						Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
@@ -452,7 +454,7 @@ func TestFabricMACAssignment(t *testing.T) {
 				},
 				"h2": {},
 			},
-			Cables: []fabric.Cable{
+			[]fabric.Cable{
 				{
 					Cable: cablemodel.Cable{LengthMeters: 5},
 					A:     fabric.Endpoint{Node: "h1"},
@@ -469,7 +471,7 @@ func TestFabricMACAssignment(t *testing.T) {
 					B:     fabric.Endpoint{Node: "h2"},
 				},
 			},
-		}
+		)
 	}
 
 	cfg := baseCfg()
@@ -659,12 +661,12 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 		},
 	}
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -679,7 +681,7 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 				Address: macH2,
 			},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{
 				Cable: cablemodel.Cable{LengthMeters: 5},
 				A:     fabric.Endpoint{Node: "h1"},
@@ -691,7 +693,7 @@ func TestHostOnRoutedPortReachesHostOnVLAN(t *testing.T) {
 				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -767,15 +769,15 @@ func TestDeriveDoesNotCarryAnAddressTheNewConfigurationClaims(t *testing.T) {
 		t.Fatalf("build ports: %v", err)
 	}
 	cfgFor := func(h1 netaddr.MAC) assembly.Config {
-		return assembly.Config{
-			Start:    time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-			Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-			Hosts:    map[string]hostmodel.Config{"h1": {Address: h1}},
-			Cables: []fabric.Cable{{
+		return simtest.RoutedFixture(
+			time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+			map[string]vswitch.Config{"sw1": {Ports: ports}},
+			map[string]hostmodel.Config{"h1": {Address: h1}},
+			[]fabric.Cable{{
 				A: fabric.Endpoint{Node: "h1"},
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			}},
-		}
+		)
 	}
 
 	cur, err := assembly.New(statedPhysical(cfgFor(netaddr.MAC{})))
@@ -854,12 +856,12 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 		},
 	}
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -872,11 +874,11 @@ func TestFabricReleasesHeldFrameOnObservedARPReply(t *testing.T) {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -985,9 +987,9 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 	addrH1 := netip.MustParseAddr("10.0.30.7")
 	addrH2 := netip.MustParseAddr("10.0.10.7")
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": {
 				MAC:   swMAC,
 				Ports: ports,
@@ -1005,7 +1007,7 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -1016,11 +1018,11 @@ func TestFabricReleasesHeldFrameOnSubInterfaceToVLANHost(t *testing.T) {
 			},
 			"h2": {Address: macH2, VLAN: &vid10},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "eth3"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "eth1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -1146,12 +1148,12 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 		},
 	}
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": swCfg,
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -1163,10 +1165,10 @@ func TestFabricRecordsNeighborFailureOnHeldFrameTimeout(t *testing.T) {
 				},
 			},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -1249,9 +1251,9 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 	pvid10 := vlan.ID(10)
 	pvid20 := vlan.ID(20)
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": {
 				MAC:   swMAC,
 				Ports: ports,
@@ -1272,7 +1274,7 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 				}},
 			},
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				VLAN:    nil,
@@ -1283,10 +1285,10 @@ func TestFabricNeighborFailureOnAnSVIIsCountedAgainstNoPort(t *testing.T) {
 				},
 			},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -1364,9 +1366,9 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 	pvid10 := vlan.ID(10)
 	pvid20 := vlan.ID(20)
 
-	cfg := assembly.Config{
-		Start: time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 17, 12, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{
 			"sw1": {
 				MAC:   swMAC,
 				Ports: ports,
@@ -1387,7 +1389,7 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 				}},
 			},
 		},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -1397,15 +1399,15 @@ func TestFabricNeighborFailureOnAnSVIDoesNotWidenToTheSwitch(t *testing.T) {
 				},
 			},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
-		Uncabled: []fabric.Uncabled{
-			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
-			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
-		},
-		PhyAssumption: gigabitCopper(),
+	)
+	cfg.Uncabled = []fabric.Uncabled{
+		{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+		{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 	}
+	cfg.PhyAssumption = gigabitCopper()
 
 	fab, err := assembly.New(cfg)
 	if err != nil {
@@ -1490,9 +1492,11 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 	// priority the frame queued at.
 	build := func(t *testing.T, neighbors []routing.Neighbor) *fabric.Fabric {
 		t.Helper()
-		cfg := assembly.Config{
-			Start: start,
-			Switches: map[string]vswitch.Config{
+		// h1 gives 1/1/1 a link. An unconnected port comes up Down, so
+		// a frame injected there would never reach the switch.
+		cfg := simtest.RoutedFixture(
+			start,
+			map[string]vswitch.Config{
 				"sw1": {
 					MAC:   sw1MAC,
 					Ports: twoPorts(t),
@@ -1510,15 +1514,12 @@ func TestFabricReleasedFrameQueuesAtItsIngressPriority(t *testing.T) {
 				},
 				"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 			},
-			// h1 exists only to give 1/1/1 a link: an unconnected port comes up Down, and a
-			// frame injected onto a down port never reaches the switch at all.
-			Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
-			Cables: []fabric.Cable{
+			map[string]hostmodel.Config{"h1": {Address: macH1}},
+			[]fabric.Cable{
 				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 				{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 			},
-		}
-
+		)
 		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("assembly.New: %v", err)
@@ -1633,9 +1634,9 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 
 	vid10 := vlan.ID(10)
 
-	cfg := assembly.Config{
-		Start: start,
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		start,
+		map[string]vswitch.Config{
 			"sw1": {
 				MAC:   sw1MAC,
 				Ports: twoPorts(t),
@@ -1658,12 +1659,12 @@ func TestFabricDeriveRetainsHeldFrameUnderUnchangedRoutingKey(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 		},
-		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
-		Cables: []fabric.Cable{
+		map[string]hostmodel.Config{"h1": {Address: macH1}},
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -1758,9 +1759,9 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 
 	vid10 := vlan.ID(10)
 
-	cfg := assembly.Config{
-		Start: start,
-		Switches: map[string]vswitch.Config{
+	cfg := simtest.RoutedFixture(
+		start,
+		map[string]vswitch.Config{
 			"sw1": {
 				MAC:   sw1MAC,
 				Ports: twoPorts(t),
@@ -1783,12 +1784,12 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 			},
 			"sw2": {MAC: sw2MAC, Ports: twoPorts(t)},
 		},
-		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
-		Cables: []fabric.Cable{
+		map[string]hostmodel.Config{"h1": {Address: macH1}},
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
-	}
+	)
 
 	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
@@ -1854,7 +1855,12 @@ func TestFabricDeriveFailsHeldFrameOnNeighborPolicyEdit(t *testing.T) {
 func TestFabricDeriveOrdersHeldFrameDropsBySwitchName(t *testing.T) {
 	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
 	nextHop := netip.MustParseAddr("10.0.60.2")
-	cfg := assembly.Config{Start: start, Switches: make(map[string]vswitch.Config), Hosts: make(map[string]hostmodel.Config)}
+	cfg := simtest.RoutedFixture(
+		start,
+		make(map[string]vswitch.Config),
+		make(map[string]hostmodel.Config),
+		nil,
+	)
 	for i, name := range []string{"sw1", "sw2"} {
 		mac := netaddr.MAC{2, 0, 0, 0, 0, byte(i + 1)}
 		cfg.Switches[name] = vswitch.Config{

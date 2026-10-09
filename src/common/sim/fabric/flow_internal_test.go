@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/internal/simtest"
+
 	"go.aledante.io/FlowSeer/src/common/sim/assembly"
 
 	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
@@ -512,10 +514,9 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 	addrH2 := netip.MustParseAddr("10.0.20.7")
 
-	cfg := assembly.Config{
-		Start:         t0,
-		PhyAssumption: testPhyAssumption(),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		t0,
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
@@ -533,7 +534,7 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 				},
 			}}},
 		}},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
 				IP: &hostmodel.IP{
@@ -544,11 +545,12 @@ func TestHeldFlowCountsHeld(t *testing.T) {
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
+	cfg.PhyAssumption = testPhyAssumption()
 	fab := newInvariantFabric(t, cfg)
 
 	if _, err := fab.Inject(fabric.Injection{
@@ -633,10 +635,9 @@ func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x77}
 
-	cfg := assembly.Config{
-		Start:         time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC),
-		PhyAssumption: testPhyAssumption(),
-		Switches: map[string]vswitch.Config{"sw1": {
+	cfg := simtest.RoutedFixture(
+		time.Date(2026, 9, 21, 10, 0, 0, 0, time.UTC),
+		map[string]vswitch.Config{"sw1": {
 			MAC:   swMAC,
 			Ports: ports,
 			Bridge: &bridge.Config{VLAN: &bridge.VLAN{
@@ -653,7 +654,7 @@ func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC
 				},
 			}}},
 		}},
-		Hosts: map[string]hostmodel.Config{
+		map[string]hostmodel.Config{
 			"h1": {Address: macH1, IP: &hostmodel.IP{
 				Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 				Gateway:   netip.MustParseAddr("10.0.10.1"),
@@ -661,11 +662,12 @@ func heldPropertyFixture(t *testing.T) (*fabric.Fabric, netaddr.MAC, netaddr.MAC
 			}},
 			"h2": {Address: macH2},
 		},
-		Cables: []fabric.Cable{
+		[]fabric.Cable{
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{Cable: cablemodel.Cable{LengthMeters: 5}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
-	}
+	)
+	cfg.PhyAssumption = testPhyAssumption()
 
 	fab, err := assembly.New(cfg)
 	if err != nil {
