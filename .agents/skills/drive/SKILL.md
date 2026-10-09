@@ -174,7 +174,7 @@ before `land`:
    A non-zero result stops the drive. Carry every `missing` block in the
    report.
 3. Run the verifier once on the union of the plan's changed paths, sandbox
-   disabled: `.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>`
+   disabled: `uv run tools/scripts/run.py verify change -- <changed paths>`
 4. Grade the last lane, once, with that result: `accepted` when the branch
    merged as the workers left it, `amended` when the coordinator corrected
    the work, `--verify pass` when the verifier ran green. The plan's earlier

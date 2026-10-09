@@ -196,7 +196,7 @@ Planless work skips the first retire and still runs the check.
 Verify the union, sandbox disabled:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh --base main
+uv run tools/scripts/run.py verify change --base main
 ```
 
 This run clears the marks the merge left on files identical to `main`, and the

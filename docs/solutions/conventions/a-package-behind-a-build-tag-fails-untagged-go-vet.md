@@ -8,12 +8,12 @@ problem_type: bug
 component: conformance-gates
 severity: medium
 symptoms:
-  - "verify-change.sh fails during targeted Go package verification with: build constraints exclude all Go files in <path>"
+  - "The verifier fails during targeted Go package verification with: build constraints exclude all Go files in <path>"
   - "Untagged go vet ./path/to/pkg exits with code 1 while go vet -tags=<tag> ./path/to/pkg succeeds"
-root_cause: "verify-change.sh executes run go vet \"${targets[@]}\" without build tags before running vet_tagged. When all source files in a package declare a build constraint tag, untagged go vet finds no matching source files and fails with a constraint exclusion error."
+root_cause: "The verifier runs go vet on the targeted packages without build tags before running vet_tagged. When all source files in a package declare a build constraint tag, untagged go vet finds no matching source files and fails with a constraint exclusion error."
 resolution_type: workaround
 applies_when:
-  - "Investigating a verify-change.sh failure where untagged go vet fails on a build-tag-gated package with 'build constraints exclude all Go files'"
+  - "Investigating a verifier failure where untagged go vet fails on a build-tag-gated package with 'build constraints exclude all Go files'"
   - "Structuring a Go package where every source file lives behind a build tag constraint (such as netpen_t1, netpen_t2, or snmp_integration_t4)"
   - "Deciding the authoritative verification gate for a tagged test tier when targeted verification reports an untagged vet failure"
 related_components: [netpen, snmp]
@@ -30,14 +30,14 @@ When a Go package isolates every source file behind a build constraint tag, unta
 //go:build netpen_t2
 ```
 
-Targeted verification (`.claude/skills/verify-change/scripts/verify-change.sh:511-512`) compiles and vets targeted packages in two passes:
+Targeted verification (`Verification.check_module` in `tools/scripts/verify/change.py`) compiles and vets targeted packages in two passes:
 
-```bash
-run go vet "${targets[@]}"
-vet_tagged "${targets[@]}"
+```python
+self.run(["go", "vet", *targets], cwd=module)
+self.vet_tagged(targets, module)
 ```
 
-The first invocation passes `${targets[@]}` directly to `go vet` without tags. When `targets` includes `go.aledante.io/FlowSeer/src/edge/netpen/test/integration/lab`, `go vet` encounters a package where no file matches default build constraints:
+The first invocation passes `targets` directly to `go vet` without tags. When `targets` includes `go.aledante.io/FlowSeer/src/edge/netpen/test/integration/lab`, `go vet` encounters a package where no file matches default build constraints:
 
 ```
 == Go module: src/edge/netpen ==
@@ -48,7 +48,7 @@ package go.aledante.io/FlowSeer/src/edge/netpen/test/integration/lab: build cons
 FlowSeer verification FAILED (exit 1) in gate: go vet
 ```
 
-The command exits 1. `verify-change.sh` reports failure in the Go module gate even though the subsequent `vet_tagged` pass and the tagged test suites both pass.
+The command exits 1. The verifier reports failure in the Go module gate even though the subsequent `vet_tagged` pass and the tagged test suites both pass.
 
 ## Why it bites
 
@@ -65,7 +65,7 @@ go -C src/edge/netpen vet -tags=netpen_t2 ./test/integration/...
 go -C src/edge/netpen test -race -short -tags=netpen_t2 ./test/integration/...
 ```
 
-When verifying changes in a tag-gated package (such as `netpen_t1`, `netpen_t2`, or `snmp_integration_t4`), verify that the tagged commands exit 0. If `verify-change.sh` flags an untagged constraint exclusion on that package, confirm that all files in the package intentionally share the tag and treat the tagged invocation as the passing check.
+When verifying changes in a tag-gated package (such as `netpen_t1`, `netpen_t2`, or `snmp_integration_t4`), verify that the tagged commands exit 0. If the verifier flags an untagged constraint exclusion on that package, confirm that all files in the package intentionally share the tag and treat the tagged invocation as the passing check.
 
 ## What this does not cover
 

@@ -57,9 +57,6 @@ class PreToolPolicyTest(HookCase):
     @across("pre-tool-policy")
     def test_edit_asks_before_touching_a_policy_surface(self, hook):
         """Edit asks before touching a policy surface"""
-        (self.fixture / ".agents/skills/verify-change/scripts").mkdir(parents=True)
-        (self.fixture / ".claude").mkdir()
-        (self.fixture / ".claude/skills").symlink_to("../.agents/skills")
         for surface in (
             "AGENTS.md",
             "CLAUDE.md",
@@ -68,8 +65,6 @@ class PreToolPolicyTest(HookCase):
             ".claude/settings.json",
             ".codex/hooks.json",
             "test/conformance/a11y/a11y_policy_test.go",
-            ".agents/skills/verify-change/scripts/verify-change.sh",
-            ".claude/skills/verify-change/scripts/verify-change.sh",
             "tools/scripts/lib/repo.py",
             "tools/scripts/run.py",
             "tools/scripts/hooks/x.py",

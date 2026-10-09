@@ -94,7 +94,7 @@ The diff-aware verifier picks its gates from the paths you changed and runs them
 over the packages that can observe the change:
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+uv run tools/scripts/run.py verify change -- <changed paths>
 ```
 
 Use `--full` for a cross-module or schema change. The last line is the verdict,

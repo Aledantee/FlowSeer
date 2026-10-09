@@ -272,7 +272,7 @@ paragraph became a numbered step or a table row, an output contract
 stated at the top and the bottom of an agent definition became one
 section at the end, and a story became its one-clause reason. In
 `verify-change` the gate list is closed because a list restated from
-memory drops gates, and the script is the last command of a background
+memory drops gates, and the command is the last command of a background
 invocation because a trailing `tail` supplies its own exit code over a
 log that holds `FAIL` lines. Dates stay out of skills and agent
 definitions except in format examples. This document keeps them where
@@ -1139,6 +1139,11 @@ Enforce with the verifier, not with prose. Every skill ends by running
 `verify-change` on the changed paths. Anthropic's guidance is explicit that
 an instruction in a skill is a request and a hook is a guarantee.
 
+The verifier is the Python command `uv run tools/scripts/run.py verify change`,
+in `tools/scripts/verify/change.py`, and its suites live in
+`tools/scripts/tests/verify/`. It replaced a Bash script, and the history
+below describes the same verifier in both forms.
+
 Verify once, on the integrated result, at the scope the change can reach.
 When every worker and then the coordinator run the verifier, and the
 verifier races the whole module for any Go path, two small tests cost
@@ -1152,23 +1157,23 @@ Make a gate's silence impossible to read as a pass. The verifier has
 reported success for reasons unrelated to the code: a directory argument
 selecting no gate, a no-gate exit clearing its own marker, a cached corpus
 pass, a `--path` naming a file the baseline lacks, and a background wrapper
-whose `tail` replaced the script's exit code. Each was fixed in the script
+whose `tail` replaced the command's exit code. Each was fixed in the verifier
 rather than in prose, since a rule that was read and broken wants
 enforcement: a directory expands to its files, a no-gate run exits non-zero
 before touching the receipt, the corpus tier carries `-count=1`,
 `buf breaking` targets only files `main` holds, and the last line of every
 run names the verdict. A `--full` run could also block forever on a
 Docker daemon that had stopped answering, with a verdict line that did
-not say which gate had failed. The wrapper now bounds its `docker info` probe, and the
+not say which gate had failed. The `verify service-otel-integration` command now bounds its `docker info` probe, and the
 verdict line names the gate that was running. The invariant packages (`src/common/errs` and
 everything under `test/conformance/`) run once on every targeted run that
 selects a Go module, whichever module it is, for the same reason: a per-package gate cannot see a repository-wide namespace,
 and a rule asking the implementer to remember that does not hold. `--full` bounds `go test -p` because a gate that fails for reasons
 the diff cannot cause teaches its readers to discount it. Three more
-failures of that kind live in the script rather than in prose: the lint
+failures of that kind live in the verifier rather than in prose: the lint
 gate passes `--allow-serial-runners`, because `golangci-lint` holds one
 lock per machine and would otherwise die on any concurrent run; the
-script searches `$(go env GOPATH)/bin` and checks every tool the selected
+verifier searches `$(go env GOPATH)/bin` and checks every tool the selected
 gates need before the first gate, because a session's PATH must not
 decide whether the tree verifies and a late tool failure reads as a gate
 result; and a passing run prints the dirty-marker lines it could not

@@ -92,7 +92,7 @@ read as a complete, followable step, and does it contradict `AGENTS.md`,
 `docs/agent-steering.md`, or another skill?". Apply the findings that hold.
 
 ```bash
-.claude/skills/verify-change/scripts/verify-change.sh -- <changed paths>
+uv run tools/scripts/run.py verify change -- <changed paths>
 ```
 
 ## 5. Audit enforcement and plan retirement

@@ -48,7 +48,7 @@ Three things hid it until the verifier ran:
 - The four unit-test suites under `.agents/skills/*/scripts/` passed, and
   `plan_record.py check` passed over every state file on disk.
 - Only the verifier runs the hook tests
-  (`.agents/skills/verify-change/scripts/verify-change.sh:953-954`), and a
+  (`Verification.run_suite` in `tools/scripts/verify/change.py`), and a
   worker does not run the verifier.
 - `tools/hooks/` is a policy surface (`AGENTS.md`, Hard boundaries), so the
   one-line repair needed the user's approval in the middle of the work

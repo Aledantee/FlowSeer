@@ -124,3 +124,20 @@ construction, for example one wrapper in `tools/scripts/run.py` that turns
 an exception in a `PreToolUse` hook into `hookio.deny`, instead of a
 `try` in each hook. `pre-tool-policy` and `protect-generated-bash` already
 deny on an uncaught exception per the same Decisions.
+
+## 2026-10-09 delegate: a stage worker's report is not routed to a file
+Skill or agent: `.claude/skills/delegate/SKILL.md`, Write the brief, item 4,
+and `.claude/skills/drive/SKILL.md`, the implement row of the stage table.
+What happened: item 4 gives a report file to "a lane whose product is a
+report (`critique`, `research`, a review lane, a review stage ...)", and
+`.claude/skills/drive/references/review-stage.md` repeats it for review. The
+implement and compound stages are not in that list, and `drive` has no
+reference for them that says otherwise. Their reports (changed paths, the
+focused test result, the hash of each commit, and the policy-surface diffs
+that wait for approval) also run long, and `delegate orca-worker read`
+returns only the terminal's last screens, so the coordinator of the uv
+scripts Phase 4 plan had to ask for a file at each stop. The steps were
+followed as written.
+Suggested change: in item 4, give every stage worker a report file under the
+session scratchpad directory and name that rule in `drive` where it briefs
+`implement` and `compound`, not only `review`.
