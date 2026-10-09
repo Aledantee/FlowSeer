@@ -1,18 +1,18 @@
 ---
-title: Python Scripts Under uv Phase 7, Layout Gate and Windows Run - Plan
+title: Python Scripts Under uv Phase 7, Layout Gate - Plan
 type: refactor
 date: 2026-10-05
 artifact_contract: flowseer-plan/v2
 execution: mixed
 ---
 
-# Python Scripts Under uv Phase 7, Layout Gate and Windows Run - Plan
+# Python Scripts Under uv Phase 7, Layout Gate - Plan
 
 ## Goal
 
 The tree cannot regress: a gate fails a host-side shell script or a bare
-`python3` invocation, the verifier no longer requires `jq` or `shellcheck`,
-and the hooks and suites have run on a Windows host.
+`python3` invocation, and the verifier no longer requires `jq` or
+`shellcheck`.
 
 **Stop condition:** a host-side script the tree needs cannot be written as
 Python under uv, so the exempt list would have to grow for a script the
@@ -34,9 +34,17 @@ record does not name.
   lacks an inline metadata block, with `docs/research/` exempt.
 - `CONTRIBUTING.md` and `README.md` name uv as the script runtime and give
   the install command per platform from https://docs.astral.sh/uv/.
-- The Windows run is done by a person on a Windows host, and its commands
-  and results go into `docs/agent-steering.md`. A failure there reopens the
-  phase that owns the failing command.
+- The run on a Windows host is not part of this phase. The requirement of
+  this plan that asked for it and Requirement 10 of the parent are removed.
+  The run and the path failures reading the code predicts for it belong to
+  a later plan. Among them are the absolute-path test
+  `startswith("/")` (`tools/scripts/lib/hookio.py:215`,
+  `tools/scripts/hooks/worktree_guard.py:268`,
+  `tools/scripts/verify/change.py:296` and `:1079`), the `/tmp` fallback
+  for the build directory (`change.py:1191`), and `PATH` joined with `:`
+  (`change.py:738`). Why: no Windows host is reachable, so the failures
+  are unverified, and the phases that own those lines are retired.
+  (decided by the user, 2026-10-09)
 - The repository scripting record gains its `Landed` lines.
 
 The re-plan of 2026-10-09 settles the rest:
@@ -159,19 +167,14 @@ The re-plan of 2026-10-09 settles the rest:
 2. A bare interpreter call fails the gate. Example: a `SKILL.md` line
    starting `python3 ` fails, and `uv run tools/scripts/run.py` passes.
 3. The verifier's required tools hold no `jq`, `shellcheck`, or `python3`.
-4. On Windows with uv, git, and Go installed and no Git Bash: `uv run
-   tools/scripts/run.py test` reports no failure, the verifier passes on
-   `docs`, and an edit under `generated/` is denied in a Claude Code
-   session.
-5. A tracked `.py` file outside `tools/scripts/` without a metadata block
+4. A tracked `.py` file outside `tools/scripts/` without a metadata block
    fails the gate. Example: `deploy/lab/x.py` holding `print(1)` fails with
    the path named, and `deploy/lab/write-registry.py` passes.
 
 ## Out of scope
 
-- Making the hooks and the verifier portable before the Windows run. U5
-  finds what fails, and Open questions lists what reading the code
-  predicts.
+- The run on a Windows host, and making the hooks and the verifier
+  portable to it. A later plan owns both, as the Decisions say.
 - A linter for the exempt shell scripts. The container images run them and
   their integration suites exercise them.
 - The gate reads paths and files of the repository's own tree, written by
@@ -317,38 +320,7 @@ Tests: none, the unit is prose. `verify check-markdown-links` and
 `verify check-prose` run in the verifier.
 Verify: `uv run tools/scripts/run.py verify change -- CONTRIBUTING.md README.md docs/architecture/2026-10-05-repository-scripting-direction.md`
 
-### U5. Windows run
-
-Files: docs/agent-steering.md
-After: U1, U2, U3, U4
-
-Owned by the user. No worker can do it, and `drive` parks here with U1 to
-U4 implemented. The person runs the commands below in PowerShell on a
-Windows host, on a checkout of the branch that holds U1 to U4, and pastes
-each command's last lines and exit code (`$LASTEXITCODE`). A session then
-writes them into `docs/agent-steering.md` and closes the unit.
-
-| Step | Command | Expected |
-| --- | --- | --- |
-| 1 | `uv --version`, `git --version`, `go version` | uv 0.12.18 or newer, Go 1.27 |
-| 2 | `where.exe bash` | no path and a non-zero exit (the message text is unverified). A `bash.exe` from WSL under `System32` is recorded, not removed |
-| 3 | `uv run tools/scripts/run.py list` | the command list, exit 0 |
-| 4 | `uv run tools/scripts/run.py test` | on standard error a `Ran <n> tests` line, then `OK` or `OK (skipped=<n>)`, exit 0 |
-| 5 | `go test ./test/conformance/...` | `ok` for every package, exit 0 |
-| 6 | `uv run tools/scripts/run.py verify change -- docs` | last line `FlowSeer verification passed.`, exit 0 |
-| 7 | In a Claude Code session in the checkout: "create the file generated/x.txt holding one line" | the Write is denied with `generated/x.txt is generated output.` and the file does not exist |
-
-Change: `docs/agent-steering.md`, section "`verify-change` and the hooks",
-gains a dated paragraph naming the Windows version, the uv, git, Go, and
-Claude Code versions, the seven commands, and each result. A step that
-fails is recorded with its last lines. It does not fail this unit. It
-opens new work, since the phase that owns the command is retired, and the
-paragraph names the failing command and the module that printed the
-error.
-Tests: none, the unit records a manual run.
-Verify: `uv run tools/scripts/run.py verify change -- docs/agent-steering.md`
-
-Waves: U1 U3 U4 | U2 | U5
+Waves: U1 U3 U4 | U2
 
 ## Verification
 
@@ -359,7 +331,6 @@ Waves: U1 U3 U4 | U2 | U5
   `uv run tools/scripts/run.py verify change -- .claude/settings.json`
   prints the `check-json` line and no `jq` line.
 - `git ls-files '*.sh'` lists eight paths, each under an exempt entry.
-- The Windows run of U5.
 
 ## Definition of done
 
@@ -367,39 +338,26 @@ Waves: U1 U3 U4 | U2 | U5
 - [ ] `docs/code-style-python.md`, `CONTRIBUTING.md`, `README.md`, and the
       record are updated in the units that change what they describe.
 - [ ] The commits of U2 and U3 hold the blobs named in their approval.
-- [ ] The Windows results are in `docs/agent-steering.md`.
 - [ ] This plan's outcome is recorded with `uv run tools/scripts/run.py
-      plan record implemented <plan> --units 5 --from <t> --to <t>`, or
-      `partial` while U5 waits.
+      plan record implemented <plan> --units 4 --from <t> --to <t>`, or
+      `partial`.
 - [ ] No plan labels in code.
 
 ## Open questions
 
-- Reading the code predicts that steps 6 and 7 of U5 fail. Unverified, no
-  Windows host is reachable. The hooks and the verifier test for an
-  absolute path with `startswith("/")` (`tools/scripts/lib/hookio.py:215`,
-  `tools/scripts/hooks/worktree_guard.py:267`,
-  `tools/scripts/verify/change.py:296` and `:1111`), the verifier creates
-  its build directory under `/tmp` when `TMPDIR` is unset (`change.py:1224`),
-  and it joins `PATH` with `:` (`change.py:758`). The phase's Decisions
-  say a failure reopens the owning phase, and those phases are retired, so
-  the run is planned as written and a failure becomes a new plan. The user
-  may prefer that plan before the run.
-- `worktree_guard.words` starts `bash` (`worktree_guard.py:228`). On a
-  host without it the callers keep the denial, so a Bash command the guard
-  would have allowed on `main` is denied. U5 step 2 records whether the
-  host has one.
+- `worktree_guard.words` starts `bash`
+  (`tools/scripts/hooks/worktree_guard.py:230`). On a host without it the
+  callers keep the denial, so a Bash command the guard would have allowed
+  is denied. No unit here changes that. The hook starts `bash` on every
+  host, and the record's Decisions say a host needs uv and nothing else to
+  run the hooks, so accepting the record either amends that sentence or
+  names `bash`.
+- Nothing in the tree carries the Windows run once `land` retires this plan
+  and the parent. The record, `GOALS.md`, and `docs/agent-observations.md`
+  hold no entry for it, and this re-plan edits none of them. Whoever
+  retires the parent decides where the predicted failures are kept.
 - The record's status is `proposed-direction`. The gate enforces its
   exempt list, so accepting the record is a person's step at or before
   `land`.
 - How Codex starts a hook on Windows stays unverified, as the parent says.
-  U5 covers Claude Code only.
-- Parked by drive: U5 is the user's Windows run; U1 to U4 are implemented
-  on `parked/uv-p7-impl`. Options: run the seven U5 commands on a Windows host
-  now and paste the results, so a session writes them into
-  `docs/agent-steering.md` and the phase goes on to review (a predicted
-  failure of steps 6 and 7 is recorded and opens new work) | plan the
-  Windows path fixes first and run afterwards (delays this phase and the
-  parent's retirement for work the run has not yet shown). Recommended: run
-  now, because the run is the evidence the fixes would be planned from.
-
+  No unit here depends on it.
