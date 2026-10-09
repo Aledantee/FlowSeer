@@ -98,6 +98,16 @@ func main() {
 }
 ```
 
+## State
+
+`State(now)` converts the layer snapshots in [state.go](state.go) into
+`device.State`. Sampling does not advance timers. Returned rows and maps
+are independent of the switch. Tree keys come from each row's `TreeRef`,
+and the CIST is read through `Roles`, so assigning VLAN 1 to an MSTI does
+not hide the common tree. [TestStateCarriesEveryLayerField](state_test.go)
+walks the nine layer roots, including nested multicast source records,
+and checks 29 enumeration values through the converters.
+
 ## Per-call output
 
 `Receive` returns forwarding, emissions, mirror copies, and held-frame drops

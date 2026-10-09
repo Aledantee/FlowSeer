@@ -1204,8 +1204,12 @@ behavioral snapshots:
   delivery destination host, and delivered frame contents.
 - **Status and issues**: Run-level stop reasons (`Stop`), completion statuses (`Status`),
   pending work queues (`Pending`), and canonical analysis issues (`Issues`).
-- **Final state**: Post-run forwarding databases (`FDB`), port operational states,
-  neighbor resolution tables, and link states.
+- **Final state**: The device's behavioral projection and link states.
+  `Snapshot.Devices` holds `device.State`. Its `Fingerprint` and `Diff` use
+  one classification in [device/state.go](../device/state.go), including
+  FDB origin and lifetime, multicast state, ports, power, tree roles, and
+  neighbor VRF and hold depth. Differences show the differing rows and
+  entry counts. The four STP counters are diagnostic.
 
 Semantic trace annotations, step evidence references, and human diagnostic messages
 are diagnostic: differences in diagnostics alone never yield `Different`.

@@ -681,6 +681,37 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 		assertMinimizationReplay(t, current, expected, input, 30, result)
 	})
 	t.Run("snapshot fields with identical displayed values", func(t *testing.T) {
+		at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		cfg := fabric.Config{Start: at, Hosts: map[string]fabric.Host{"a": {}, "b": {}, "c": {}, "d": {}}, Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Medium: fabric.TwistedPair},
+			{A: fabric.Endpoint{Node: "c"}, B: fabric.Endpoint{Node: "d"}, Medium: fabric.TwistedPair},
+		}}
+		current, err := fabric.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2}
+		cfg.Cables[1].Fault = fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 2}
+		expected, err := fabric.New(cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
+		initial := runCompare(current, expected, input, 30)
+		without := runCompare(current, expected, Candidate{}, 30)
+		if initial.Disposition != analysis.Different || without.Disposition != analysis.Different || initial.Difference != without.Difference || initial.Location.Field != "Links.[c:-d:].Fault.Kind" || without.Location.Field != "Links.[a:-b:].Fault.Kind" {
+			t.Fatalf("initial = %s %+v %+v, empty = %s %+v %+v, want same displayed values on distinct link fields", initial.Disposition, initial.Location, initial.Difference, without.Disposition, without.Location, without.Difference)
+		}
+		result, err := Minimize(current, expected, input, 30)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.Minimality != Minimal || len(result.Candidate.Actions) != 1 {
+			t.Fatalf("result = %+v, want one retained clear-fault action", result)
+		}
+		assertMinimizationReplay(t, current, expected, input, 30, result)
+	})
+	t.Run("snapshot text identifies the differing port", func(t *testing.T) {
 		current, _, _, _, _ := makeMinimizeFabrics(t)
 		cfg := current.Config()
 		cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCut}
@@ -693,8 +724,8 @@ func TestMinimizeGlobalTargets(t *testing.T) {
 		input := Candidate{Actions: []fabric.Action{{Kind: fabric.ActionFault, At: at, Fault: &fabric.FaultAction{A: cfg.Cables[0].A, B: cfg.Cables[0].B, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
 		initial := runCompare(current, expected, input, 30)
 		without := runCompare(current, expected, Candidate{}, 30)
-		if initial.Disposition != analysis.Different || without.Disposition != analysis.Different || initial.Difference != without.Difference || initial.Location.Field != "Ports.[\"1/1/2\"].OperStatus" || without.Location.Field != "Ports.[\"1/1/1\"].OperStatus" {
-			t.Fatalf("initial = %s %+v %+v, empty = %s %+v %+v, want same displayed values on distinct port fields", initial.Disposition, initial.Location, initial.Difference, without.Disposition, without.Location, without.Difference)
+		if initial.Disposition != analysis.Different || without.Disposition != analysis.Different || initial.Difference == without.Difference || initial.Location.Field != "Ports.[\"1/1/2\"].OperStatus" || without.Location.Field != "Ports.[\"1/1/1\"].OperStatus" {
+			t.Fatalf("initial = %s %+v %+v, empty = %s %+v %+v, want distinct displayed values on distinct port fields", initial.Disposition, initial.Location, initial.Difference, without.Disposition, without.Location, without.Difference)
 		}
 		result, err := Minimize(current, expected, input, 30)
 		if err != nil {
@@ -748,7 +779,7 @@ func TestMinimizeExactValuesCanRetainOtherwiseRemovableAction(t *testing.T) {
 	if initial.Disposition != analysis.Different || removed.Disposition != analysis.Different || !reflect.DeepEqual(initial.Location, removed.Location) || initial.Difference.Observable != "final state" || removed.Difference.Observable != initial.Difference.Observable {
 		t.Fatalf("initial = %s %+v %+v, removed = %s %+v %+v, want same snapshot target and label", initial.Disposition, initial.Location, initial.Difference, removed.Disposition, removed.Location, removed.Difference)
 	}
-	if initial.Difference.Current != "sw1: 2 fdb entries" || initial.Difference.Expected != "sw1: 2 fdb entries" || removed.Difference.Current != "sw1: 1 fdb entries" || removed.Difference.Expected != "sw1: 1 fdb entries" {
+	if !strings.Contains(initial.Difference.Current, `"Entries.Length"="2"`) || !strings.Contains(initial.Difference.Expected, `"Entries.Length"="2"`) || !strings.Contains(removed.Difference.Current, `"Entries.Length"="1"`) || !strings.Contains(removed.Difference.Expected, `"Entries.Length"="1"`) {
 		t.Fatalf("initial difference = %+v, removed difference = %+v, want counts 2/2 and 1/1", initial.Difference, removed.Difference)
 	}
 	result, err := Minimize(current, expected, input, 30)

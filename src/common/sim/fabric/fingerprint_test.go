@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 
 	"go.aledante.io/FlowSeer/src/common/net/arp"
@@ -17,7 +19,6 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -49,7 +50,7 @@ var deviceFieldClasses = map[string]fieldClassification{
 	"Ports":         fieldIncluded,
 	"Power":         fieldIncluded,
 	"Counters":      fieldExcluded,
-	"Roles":         fieldExcluded,
+	"Roles":         fieldIncluded,
 	"TreeRoles":     fieldIncluded,
 	"RelayCounters": fieldExcluded,
 	"Neighbors":     fieldIncluded,
@@ -110,9 +111,9 @@ func TestFingerprintFieldClassificationWalk(t *testing.T) {
 	t.Parallel()
 
 	checkFieldClasses(t, reflect.TypeOf(Snapshot{}), snapshotFieldClasses)
-	checkFieldClasses(t, reflect.TypeOf(Device{}), deviceFieldClasses)
-	checkFieldClasses(t, reflect.TypeOf(stp.PortInfo{}), portInfoFieldClasses)
-	checkFieldClasses(t, reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses)
+	checkFieldClasses(t, reflect.TypeOf(device.State{}), deviceFieldClasses)
+	checkFieldClasses(t, reflect.TypeOf(device.PortInfo{}), portInfoFieldClasses)
+	checkFieldClasses(t, reflect.TypeOf(device.NeighborEntry{}), neighborEntryFieldClasses)
 }
 
 func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
@@ -120,16 +121,16 @@ func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
 
 	msti := baseSnapshotForTest()
 	dev := msti.Devices["sw1"]
-	info := dev.TreeRoles[10]["1/1/1"]
-	info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 10}
-	dev.TreeRoles[10]["1/1/1"] = info
+	info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+	info.Tree = device.TreeRef{Kind: device.TreeMSTI, ID: 10}
+	dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 	msti.Devices["sw1"] = dev
 
 	perVLAN := cloneSnapshot(msti)
 	dev = perVLAN.Devices["sw1"]
-	info = dev.TreeRoles[10]["1/1/1"]
-	info.Tree = stp.TreeRef{Kind: stp.TreeVLAN, ID: 10}
-	dev.TreeRoles[10]["1/1/1"] = info
+	info = dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+	info.Tree = device.TreeRef{Kind: device.TreeVLAN, ID: 10}
+	dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 	perVLAN.Devices["sw1"] = dev
 
 	if msti.Fingerprint() == perVLAN.Fingerprint() {
@@ -138,30 +139,31 @@ func TestFingerprintDistinguishesTreeKindsWithTheSameID(t *testing.T) {
 }
 
 func TestFingerprintEscapesTheTreeKind(t *testing.T) {
-	t.Parallel()
-
-	info := stp.PortInfo{Tree: stp.TreeRef{Kind: "a=b:c,tree_id=9", ID: 1}}
-	got := encodeFingerprintPortInfo(info)
-	const wantPrefix = "tree_kind=a%3Db%3Ac%2Ctree_id%3D9,tree_id=1,role="
-	if !strings.HasPrefix(got, wantPrefix) {
-		t.Errorf("encoding = %s, want prefix %s", got, wantPrefix)
+	s := baseSnapshotForTest()
+	d := s.Devices["sw1"]
+	info := d.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: 10}]["1/1/1"]
+	info.Tree.Kind = "a=b:c,tree_id=9"
+	d.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: 10}]["1/1/1"] = info
+	s.Devices["sw1"] = d
+	if !strings.Contains(s.Fingerprint(), `"a=b:c,tree_id=9"`) {
+		t.Errorf("fingerprint = %s, want quoted tree kind", s.Fingerprint())
 	}
 }
 
 func baseSnapshotForTest() Snapshot {
 	return Snapshot{
 		Clock: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
-		Devices: map[string]Device{
+		Devices: map[string]device.State{
 			"sw1": {
 				Ports: []port.Port{
 					{Name: "1/1/1", OperStatus: port.Up},
 				},
-				TreeRoles: map[vlan.ID]map[string]stp.PortInfo{
-					10: {
+				TreeRoles: map[device.TreeRef]map[string]device.PortInfo{
+					{Kind: device.TreeVLAN, ID: 10}: {
 						"1/1/1": {
-							Tree:           stp.TreeRef{Kind: stp.TreeMSTI, ID: 1},
+							Tree:           device.TreeRef{Kind: device.TreeMSTI, ID: 1},
 							Role:           bpdu.RoleRoot,
-							State:          stp.StateForwarding,
+							State:          device.StateForwarding,
 							BlockReason:    "",
 							Priority:       128,
 							PathCost:       20000,
@@ -175,60 +177,58 @@ func baseSnapshotForTest() Snapshot {
 						},
 					},
 				},
-				Entries: []bridge.Entry{
+				Entries: []device.Entry{
 					{
 						FID:      10,
 						MAC:      netaddr.MAC{0, 1, 2, 3, 4, 5},
 						Port:     "1/1/1",
-						Origin:   bridge.Configured,
-						Lifetime: bridge.Static,
+						Origin:   device.Configured,
+						Lifetime: device.Static,
 					},
 				},
-				Groups: map[vlan.ID][]mcast.Entry{
+				Groups: map[vlan.ID][]device.GroupEntry{
 					10: {
 						{
 							Group: netip.MustParseAddr("239.1.1.1"),
 							Port:  "1/1/1",
-							Mode:  mcast.Include,
+							Mode:  device.Include,
 						},
 					},
 				},
-				RouterPorts: map[vlan.ID][]mcast.RouterPort{
+				RouterPorts: map[vlan.ID][]device.RouterPort{
 					10: {
 						{
 							Port:     "1/1/1",
-							Origin:   mcast.Configured,
-							Lifetime: mcast.Static,
+							Origin:   device.Configured,
+							Lifetime: device.Static,
 						},
 					},
 				},
-				Power: vswitch.PowerResult{
-					Allocation: phy.Allocation{
-						Ports: map[string]phy.PortAllocation{
-							"1/1/1": {
-								State:        phy.PowerDelivered,
-								MinNanowatts: 1_000_000_000,
-								MaxNanowatts: 5_000_000_000,
-								Denial:       "",
-							},
+				Power: device.Allocation{
+					Ports: map[string]device.PortAllocation{
+						"1/1/1": {
+							State:        device.PowerDelivered,
+							MinNanowatts: 1_000_000_000,
+							MaxNanowatts: 5_000_000_000,
+							Denial:       "",
 						},
-						Groups: map[string]phy.GroupAllocation{
-							"g1": {
-								BudgetNanowatts:       30_000_000_000,
-								AllocatedNanowatts:    5_000_000_000,
-								RemainderMinNanowatts: 25_000_000_000,
-								RemainderMaxNanowatts: 25_000_000_000,
-							},
+					},
+					Groups: map[string]device.GroupAllocation{
+						"g1": {
+							BudgetNanowatts:       30_000_000_000,
+							AllocatedNanowatts:    5_000_000_000,
+							RemainderMinNanowatts: 25_000_000_000,
+							RemainderMaxNanowatts: 25_000_000_000,
 						},
 					},
 				},
-				Neighbors: []routing.NeighborEntry{
+				Neighbors: []device.NeighborEntry{
 					{
 						VRF:       "default",
 						Interface: "1/1/1",
 						Addr:      netip.MustParseAddr("10.0.0.1"),
 						MAC:       netaddr.MAC{0, 1, 2, 3, 4, 6},
-						State:     routing.NeighborReachable,
+						State:     device.NeighborReachable,
 						HoldDepth: 0,
 					},
 				},
@@ -259,14 +259,14 @@ func baseSnapshotForTest() Snapshot {
 func cloneSnapshot(s Snapshot) Snapshot {
 	cp := s
 	if s.Devices != nil {
-		cp.Devices = make(map[string]Device, len(s.Devices))
+		cp.Devices = make(map[string]device.State, len(s.Devices))
 		for k, v := range s.Devices {
 			d := v
 			d.Ports = slices.Clone(v.Ports)
 			if v.TreeRoles != nil {
-				d.TreeRoles = make(map[vlan.ID]map[string]stp.PortInfo, len(v.TreeRoles))
+				d.TreeRoles = make(map[device.TreeRef]map[string]device.PortInfo, len(v.TreeRoles))
 				for vid, pMap := range v.TreeRoles {
-					d.TreeRoles[vid] = make(map[string]stp.PortInfo, len(pMap))
+					d.TreeRoles[vid] = make(map[string]device.PortInfo, len(pMap))
 					for pName, pInfo := range pMap {
 						d.TreeRoles[vid][pName] = pInfo
 					}
@@ -274,27 +274,28 @@ func cloneSnapshot(s Snapshot) Snapshot {
 			}
 			d.Entries = slices.Clone(v.Entries)
 			if v.Groups != nil {
-				d.Groups = make(map[vlan.ID][]mcast.Entry, len(v.Groups))
+				d.Groups = make(map[vlan.ID][]device.GroupEntry, len(v.Groups))
 				for vid, gList := range v.Groups {
 					d.Groups[vid] = slices.Clone(gList)
 				}
 			}
 			if v.RouterPorts != nil {
-				d.RouterPorts = make(map[vlan.ID][]mcast.RouterPort, len(v.RouterPorts))
+				d.RouterPorts = make(map[vlan.ID][]device.RouterPort, len(v.RouterPorts))
 				for vid, rList := range v.RouterPorts {
 					d.RouterPorts[vid] = slices.Clone(rList)
 				}
 			}
 			if v.Power.Ports != nil || v.Power.Groups != nil {
-				pMap := make(map[string]phy.PortAllocation, len(v.Power.Ports))
+				pMap := make(map[string]device.PortAllocation, len(v.Power.Ports))
 				for pName, pa := range v.Power.Ports {
 					pMap[pName] = pa
 				}
-				gMap := make(map[string]phy.GroupAllocation, len(v.Power.Groups))
+				gMap := make(map[string]device.GroupAllocation, len(v.Power.Groups))
 				for gName, ga := range v.Power.Groups {
 					gMap[gName] = ga
 				}
-				d.Power.Allocation = phy.Allocation{Ports: pMap, Groups: gMap}
+				d.Power.Ports = pMap
+				d.Power.Groups = gMap
 			}
 			d.Neighbors = slices.Clone(v.Neighbors)
 			cp.Devices[k] = d
@@ -346,9 +347,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_vid",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				tree := dev.TreeRoles[10]
-				delete(dev.TreeRoles, 10)
-				dev.TreeRoles[20] = tree
+				tree := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]
+				delete(dev.TreeRoles, device.TreeRef{Kind: device.TreeVLAN, ID: 10})
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(20)}] = tree
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -356,9 +357,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_port_name",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				delete(dev.TreeRoles[10], "1/1/1")
-				dev.TreeRoles[10]["1/1/2"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				delete(dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}], "1/1/1")
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/2"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -366,9 +367,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_tree_id",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.Tree = device.TreeRef{Kind: device.TreeMSTI, ID: 2}
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -376,9 +377,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_role",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Role = bpdu.RoleDesignated
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -386,9 +387,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_state",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.State = stp.StateDiscarding
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.State = device.StateDiscarding
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -396,9 +397,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_block_reason",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.BlockReason = stp.BlockReasonBPDUGuard
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.BlockReason = device.BlockReasonBPDUGuard
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -406,9 +407,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_priority",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Priority = 64
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -416,9 +417,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_path_cost",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.PathCost = 40000
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -426,9 +427,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_designated_root",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedRoot.Priority = 8192
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -436,9 +437,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_designated",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Designated.Priority = 8192
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -446,9 +447,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_designated_port",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedPort = 2
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -456,9 +457,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_designated_cost",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedCost = 100
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -466,9 +467,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_point_to_point",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.PointToPoint = false
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -476,9 +477,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_edge",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Edge = true
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -486,9 +487,9 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "tree_roles_send_rstp",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.SendRSTP = false
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -520,7 +521,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "fdb_origin",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Entries[0].Origin = bridge.Observed
+				dev.Entries[0].Origin = device.Observed
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -528,7 +529,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "fdb_lifetime",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Entries[0].Lifetime = bridge.Aging
+				dev.Entries[0].Lifetime = device.Aging
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -552,7 +553,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "mcast_mode",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Groups[10][0].Mode = mcast.Exclude
+				dev.Groups[10][0].Mode = device.Exclude
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -568,7 +569,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "mcast_rport_origin",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.RouterPorts[10][0].Origin = mcast.Observed
+				dev.RouterPorts[10][0].Origin = device.Observed
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -576,7 +577,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "mcast_rport_lifetime",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.RouterPorts[10][0].Lifetime = mcast.Aging
+				dev.RouterPorts[10][0].Lifetime = device.Aging
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -585,7 +586,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				pa := dev.Power.Ports["1/1/1"]
-				pa.State = phy.PowerDenied
+				pa.State = device.PowerDenied
 				dev.Power.Ports["1/1/1"] = pa
 				s.Devices["sw1"] = dev
 			},
@@ -726,7 +727,7 @@ func TestFingerprintInjectiveAcrossIncludedFields(t *testing.T) {
 			name: "neighbor_state",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Neighbors[0].State = routing.NeighborIncomplete
+				dev.Neighbors[0].State = device.NeighborIncomplete
 				s.Devices["sw1"] = dev
 			},
 		},
@@ -759,16 +760,16 @@ func TestFingerprintDeterministicMapOrdering(t *testing.T) {
 
 	// Build a snapshot with multiple devices, VLANs, ports, and links.
 	createSnap := func(order []string) Snapshot {
-		devices := make(map[string]Device, len(order))
+		devices := make(map[string]device.State, len(order))
 		for _, name := range order {
-			treeRoles := make(map[vlan.ID]map[string]stp.PortInfo)
+			treeRoles := make(map[device.TreeRef]map[string]device.PortInfo)
 			for _, vid := range []vlan.ID{20, 10, 30} {
-				treeRoles[vid] = map[string]stp.PortInfo{
-					"1/1/2": {Role: bpdu.RoleDesignated, State: stp.StateForwarding},
-					"1/1/1": {Role: bpdu.RoleRoot, State: stp.StateForwarding},
+				treeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(vid)}] = map[string]device.PortInfo{
+					"1/1/2": {Role: bpdu.RoleDesignated, State: device.StateForwarding},
+					"1/1/1": {Role: bpdu.RoleRoot, State: device.StateForwarding},
 				}
 			}
-			devices[name] = Device{
+			devices[name] = device.State{
 				Ports: []port.Port{
 					{Name: "1/1/2", OperStatus: port.Up},
 					{Name: "1/1/1", OperStatus: port.Up},
@@ -855,10 +856,10 @@ func TestFingerprintTimerInsensitive(t *testing.T) {
 	// 4. Device Counters and RelayCounters leave fingerprint unchanged.
 	counters := cloneSnapshot(base)
 	dev := counters.Devices["sw1"]
-	dev.Counters = map[string]Counters{
+	dev.Counters = map[string]device.PortCounters{
 		"1/1/1": {InBytes: 100, OutBytes: 200},
 	}
-	dev.RelayCounters = bridge.Counters{Learned: 50}
+	dev.RelayCounters = device.RelayCounters{Learned: 50}
 	counters.Devices["sw1"] = dev
 	if got := counters.Fingerprint(); got != baseFP {
 		t.Errorf("counters changed fingerprint: %s vs %s", got, baseFP)
@@ -868,12 +869,12 @@ func TestFingerprintTimerInsensitive(t *testing.T) {
 	// leave fingerprint unchanged.
 	stpCounters := cloneSnapshot(base)
 	devSTP := stpCounters.Devices["sw1"]
-	pInfo := devSTP.TreeRoles[10]["1/1/1"]
+	pInfo := devSTP.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 	pInfo.TxBPDUs = 50
 	pInfo.RxBPDUs = 60
 	pInfo.ForwardTransitions = 2
 	pInfo.BadBPDUs = 3
-	devSTP.TreeRoles[10]["1/1/1"] = pInfo
+	devSTP.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = pInfo
 	stpCounters.Devices["sw1"] = devSTP
 	if got := stpCounters.Fingerprint(); got != baseFP {
 		t.Errorf("stp hello counters changed fingerprint: %s vs %s", got, baseFP)
@@ -887,9 +888,9 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	base := baseSnapshotForTest()
 	mut := cloneSnapshot(base)
 	dev := mut.Devices["sw1"]
-	pInfo := dev.TreeRoles[10]["1/1/1"]
+	pInfo := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 	pInfo.Role = bpdu.RoleAlternate
-	dev.TreeRoles[10]["1/1/1"] = pInfo
+	dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = pInfo
 	mut.Devices["sw1"] = dev
 	if mut.Fingerprint() == base.Fingerprint() {
 		t.Fatalf("port role change left fingerprint unchanged")
@@ -899,19 +900,19 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	// Setup a switch with CIST (VLAN 1) and MSTI 1 (VLAN 10).
 	mstSnap1 := cloneSnapshot(base)
 	mstDev1 := mstSnap1.Devices["sw1"]
-	mstDev1.TreeRoles[1] = map[string]stp.PortInfo{
-		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeCIST, ID: 0}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+	mstDev1.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(1)}] = map[string]device.PortInfo{
+		"1/1/1": {Tree: device.TreeRef{Kind: device.TreeCIST, ID: 0}, Role: bpdu.RoleRoot, State: device.StateForwarding},
 	}
-	mstDev1.TreeRoles[10] = map[string]stp.PortInfo{
-		"1/1/1": {Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleRoot, State: stp.StateForwarding},
+	mstDev1.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}] = map[string]device.PortInfo{
+		"1/1/1": {Tree: device.TreeRef{Kind: device.TreeMSTI, ID: 1}, Role: bpdu.RoleRoot, State: device.StateForwarding},
 	}
 	mstSnap1.Devices["sw1"] = mstDev1
 
 	mstSnap2 := cloneSnapshot(mstSnap1)
 	mstDev2 := mstSnap2.Devices["sw1"]
 	// CIST unchanged, MSTI 1 role changed
-	mstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
-		Tree: stp.TreeRef{Kind: stp.TreeMSTI, ID: 1}, Role: bpdu.RoleAlternate, State: stp.StateDiscarding,
+	mstDev2.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = device.PortInfo{
+		Tree: device.TreeRef{Kind: device.TreeMSTI, ID: 1}, Role: bpdu.RoleAlternate, State: device.StateDiscarding,
 	}
 	mstSnap2.Devices["sw1"] = mstDev2
 
@@ -922,7 +923,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 	// 3. Per-VLAN root change in PVST changes fingerprint.
 	pvstSnap1 := cloneSnapshot(base)
 	pvstDev1 := pvstSnap1.Devices["sw1"]
-	pvstDev1.TreeRoles[10] = map[string]stp.PortInfo{
+	pvstDev1.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}] = map[string]device.PortInfo{
 		"1/1/1": {
 			DesignatedRoot: bpdu.BridgeID{Priority: 4096, Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
 		},
@@ -931,7 +932,7 @@ func TestFingerprintDetectsTopologyAndRoleChanges(t *testing.T) {
 
 	pvstSnap2 := cloneSnapshot(pvstSnap1)
 	pvstDev2 := pvstSnap2.Devices["sw1"]
-	pvstDev2.TreeRoles[10]["1/1/1"] = stp.PortInfo{
+	pvstDev2.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = device.PortInfo{
 		DesignatedRoot: bpdu.BridgeID{Priority: 8192, Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 	}
 	pvstSnap2.Devices["sw1"] = pvstDev2
@@ -958,7 +959,8 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 	}
 
 	cfg := Config{
-		Start: t0,
+		PhyAssumption: &PhyAssumption{Medium: TwistedPair, Ethernet: phy.Ethernet{SupportedSpeedsBPS: []uint64{1_000_000_000}, AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true}}},
+		Start:         t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  ports(),
@@ -993,6 +995,12 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 
+	for _, link := range fab.Links() {
+		if link.A.Oper != port.Up || link.B.Oper != port.Up {
+			t.Fatalf("link = %s/%s, want Up/Up", link.A.Oper, link.B.Oper)
+		}
+	}
+
 	// Run initial steps until converged.
 	fab.Run(20)
 	snap1 := fab.Snapshot()
@@ -1002,6 +1010,24 @@ func TestFingerprintUnchangedAcrossHelloWake(t *testing.T) {
 	fab.Run(5)
 	snap2 := fab.Snapshot()
 	fp2 := snap2.Fingerprint()
+
+	crossed := false
+	for _, journey := range fab.Report() {
+		if !journey.Protocol {
+			continue
+		}
+		if _, err := bpdu.Decode(journey.Injection.Frame); err != nil {
+			continue
+		}
+		for _, entry := range journey.Entries {
+			if entry.Kind == EntryCrossing {
+				crossed = true
+			}
+		}
+	}
+	if !crossed {
+		t.Fatal("no BPDU crossed the Up link")
+	}
 
 	if fp1 != fp2 {
 		t.Errorf("periodic hello changed converged fabric fingerprint:\n%s\nvs\n%s", fp1, fp2)
@@ -1039,8 +1065,13 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		// Device fields
+		{typ: reflect.TypeOf(device.State{}), field: "Roles", mutate: func(s *Snapshot) {
+			d := s.Devices["sw1"]
+			d.Roles = map[string]device.PortInfo{"p": {State: device.StateForwarding}}
+			s.Devices["sw1"] = d
+		}},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "Ports",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1049,18 +1080,18 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "TreeRoles",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Role = bpdu.RoleAlternate
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "Entries",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1069,16 +1100,16 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "Groups",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Groups[10][0].Mode = mcast.Exclude
+				dev.Groups[10][0].Mode = device.Exclude
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "RouterPorts",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1087,172 +1118,172 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "Power",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
 				pa := dev.Power.Ports["1/1/1"]
-				pa.State = phy.PowerDenied
+				pa.State = device.PowerDenied
 				dev.Power.Ports["1/1/1"] = pa
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(Device{}),
+			typ:   reflect.TypeOf(device.State{}),
 			field: "Neighbors",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Neighbors[0].State = routing.NeighborIncomplete
+				dev.Neighbors[0].State = device.NeighborIncomplete
 				s.Devices["sw1"] = dev
 			},
 		},
-		// stp.PortInfo fields
+		// device.PortInfo fields
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "Tree",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.Tree = stp.TreeRef{Kind: stp.TreeMSTI, ID: 2}
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.Tree = device.TreeRef{Kind: device.TreeMSTI, ID: 2}
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "Role",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Role = bpdu.RoleDesignated
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "State",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.State = stp.StateDiscarding
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.State = device.StateDiscarding
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "BlockReason",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
-				info.BlockReason = stp.BlockReasonBPDUGuard
-				dev.TreeRoles[10]["1/1/1"] = info
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
+				info.BlockReason = device.BlockReasonBPDUGuard
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "Priority",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Priority = 64
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "PathCost",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.PathCost = 40000
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "DesignatedRoot",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedRoot.Priority = 8192
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "Designated",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Designated.Priority = 8192
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "DesignatedPort",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedPort = 2
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "DesignatedCost",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.DesignatedCost = 100
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "PointToPoint",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.PointToPoint = false
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "Edge",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.Edge = true
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(stp.PortInfo{}),
+			typ:   reflect.TypeOf(device.PortInfo{}),
 			field: "SendRSTP",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				info := dev.TreeRoles[10]["1/1/1"]
+				info := dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"]
 				info.SendRSTP = false
-				dev.TreeRoles[10]["1/1/1"] = info
+				dev.TreeRoles[device.TreeRef{Kind: device.TreeVLAN, ID: uint16(10)}]["1/1/1"] = info
 				s.Devices["sw1"] = dev
 			},
 		},
-		// routing.NeighborEntry fields
+		// device.NeighborEntry fields
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "VRF",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1261,7 +1292,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "Interface",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1270,7 +1301,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "Addr",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1279,7 +1310,7 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "MAC",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1288,16 +1319,16 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 			},
 		},
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "State",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
-				dev.Neighbors[0].State = routing.NeighborIncomplete
+				dev.Neighbors[0].State = device.NeighborIncomplete
 				s.Devices["sw1"] = dev
 			},
 		},
 		{
-			typ:   reflect.TypeOf(routing.NeighborEntry{}),
+			typ:   reflect.TypeOf(device.NeighborEntry{}),
 			field: "HoldDepth",
 			mutate: func(s *Snapshot) {
 				dev := s.Devices["sw1"]
@@ -1312,9 +1343,9 @@ func TestFingerprintIncludedFieldsAffectFingerprint(t *testing.T) {
 		classes map[string]fieldClassification
 	}{
 		{reflect.TypeOf(Snapshot{}), snapshotFieldClasses},
-		{reflect.TypeOf(Device{}), deviceFieldClasses},
-		{reflect.TypeOf(stp.PortInfo{}), portInfoFieldClasses},
-		{reflect.TypeOf(routing.NeighborEntry{}), neighborEntryFieldClasses},
+		{reflect.TypeOf(device.State{}), deviceFieldClasses},
+		{reflect.TypeOf(device.PortInfo{}), portInfoFieldClasses},
+		{reflect.TypeOf(device.NeighborEntry{}), neighborEntryFieldClasses},
 	}
 
 	type key struct {
@@ -1376,13 +1407,13 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 	base := baseSnapshotForTest()
 	snapIncomplete := cloneSnapshot(base)
 	devIncomp := snapIncomplete.Devices["sw1"]
-	devIncomp.Neighbors = []routing.NeighborEntry{
+	devIncomp.Neighbors = []device.NeighborEntry{
 		{
 			VRF:       "default",
 			Interface: "1/1/1",
 			Addr:      netip.MustParseAddr("10.0.0.1"),
 			MAC:       netaddr.MAC{},
-			State:     routing.NeighborIncomplete,
+			State:     device.NeighborIncomplete,
 			HoldDepth: 1,
 		},
 	}
@@ -1391,13 +1422,13 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 
 	snapReachable := cloneSnapshot(snapIncomplete)
 	devReach := snapReachable.Devices["sw1"]
-	devReach.Neighbors = []routing.NeighborEntry{
+	devReach.Neighbors = []device.NeighborEntry{
 		{
 			VRF:       "default",
 			Interface: "1/1/1",
 			Addr:      netip.MustParseAddr("10.0.0.1"),
 			MAC:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
-			State:     routing.NeighborReachable,
+			State:     device.NeighborReachable,
 			HoldDepth: 0,
 		},
 	}
@@ -1497,7 +1528,7 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 	}
 
 	snap1 := fab.Snapshot()
-	if len(snap1.Devices["sw1"].Neighbors) != 1 || snap1.Devices["sw1"].Neighbors[0].State != routing.NeighborIncomplete {
+	if len(snap1.Devices["sw1"].Neighbors) != 1 || snap1.Devices["sw1"].Neighbors[0].State != device.NeighborIncomplete {
 		t.Fatalf("got sw1 neighbors %+v, want exactly 1 Incomplete neighbor", snap1.Devices["sw1"].Neighbors)
 	}
 	fp1 := snap1.Fingerprint()
@@ -1524,13 +1555,13 @@ func TestFingerprintNeighborResolutionState(t *testing.T) {
 			t.Fatal("fab.Step failed before reply")
 		}
 		neighbors := fab.Snapshot().Devices["sw1"].Neighbors
-		if len(neighbors) == 1 && neighbors[0].State == routing.NeighborReachable {
+		if len(neighbors) == 1 && neighbors[0].State == device.NeighborReachable {
 			break
 		}
 	}
 
 	snap2 := fab.Snapshot()
-	if len(snap2.Devices["sw1"].Neighbors) != 1 || snap2.Devices["sw1"].Neighbors[0].State != routing.NeighborReachable {
+	if len(snap2.Devices["sw1"].Neighbors) != 1 || snap2.Devices["sw1"].Neighbors[0].State != device.NeighborReachable {
 		t.Fatalf("got sw1 neighbors %+v, want exactly 1 Reachable neighbor", snap2.Devices["sw1"].Neighbors)
 	}
 	fp2 := snap2.Fingerprint()

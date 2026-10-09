@@ -659,14 +659,14 @@ func TestSnapshotDevicesEntriesCarryOriginAndLifetime(t *testing.T) {
 	fab.Run(10)
 
 	entries := fab.Snapshot().Devices["sw1"].Entries
-	byMAC := make(map[netaddr.MAC]bridge.Entry, len(entries))
+	byMAC := make(map[netaddr.MAC]device.Entry, len(entries))
 	for _, e := range entries {
 		byMAC[e.MAC] = e
 	}
-	if seeded, ok := byMAC[macs["h3"]]; !ok || seeded.Origin != bridge.Configured || seeded.Lifetime != bridge.Static {
+	if seeded, ok := byMAC[macs["h3"]]; !ok || seeded.Origin != device.Configured || seeded.Lifetime != device.Static {
 		t.Errorf("seeded entry (h3) = %+v, ok=%v, want Origin: Configured, Lifetime: Static", seeded, ok)
 	}
-	if learned, ok := byMAC[macs["h2"]]; !ok || learned.Origin != bridge.Observed || learned.Lifetime != bridge.Aging {
+	if learned, ok := byMAC[macs["h2"]]; !ok || learned.Origin != device.Observed || learned.Lifetime != device.Aging {
 		t.Errorf("learned entry (h2) = %+v, ok=%v, want Origin: Observed, Lifetime: Aging", learned, ok)
 	}
 }

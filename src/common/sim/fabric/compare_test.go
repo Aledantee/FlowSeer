@@ -1237,6 +1237,9 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 	if cmp.Difference.Observable != "final state" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "final state")
 	}
+	if !strings.Contains(cmp.Difference.Expected, "00:11:22:33:44:88") || !strings.Contains(cmp.Difference.Expected, "1/1/1") || !strings.Contains(cmp.Difference.Expected, "static") {
+		t.Errorf("Difference.Expected = %q, want the differing seeded entry", cmp.Difference.Expected)
+	}
 }
 
 func TestCompareDetectsStatusDifference(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -28,7 +29,7 @@ func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 
 type portStatus struct {
 	role  bpdu.Role
-	state stp.State
+	state device.PortState
 }
 
 func extractRoles(snap fabric.Snapshot) map[string]map[string]portStatus {
@@ -213,21 +214,21 @@ func TestRingConvergenceAndHostDelivery(t *testing.T) {
 	snap := snap2
 
 	sw2P2 := snap.Devices["sw2"].Roles["1/1/2"]
-	if sw2P2.Role != bpdu.RoleRoot || sw2P2.State != stp.StateForwarding {
+	if sw2P2.Role != bpdu.RoleRoot || sw2P2.State != device.StateForwarding {
 		t.Errorf("sw2 1/1/2 = (%v, %v), want (Root, Forwarding)", sw2P2.Role, sw2P2.State)
 	}
 
 	sw3P3 := snap.Devices["sw3"].Roles["1/1/3"]
-	if sw3P3.Role != bpdu.RoleRoot || sw3P3.State != stp.StateForwarding {
+	if sw3P3.Role != bpdu.RoleRoot || sw3P3.State != device.StateForwarding {
 		t.Errorf("sw3 1/1/3 = (%v, %v), want (Root, Forwarding)", sw3P3.Role, sw3P3.State)
 	}
 
 	sw3P2 := snap.Devices["sw3"].Roles["1/1/2"]
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw3P2.Role != bpdu.RoleDesignated || sw3P2.State != stp.StateForwarding {
+	if sw3P2.Role != bpdu.RoleDesignated || sw3P2.State != device.StateForwarding {
 		t.Errorf("sw3 1/1/2 = (%v, %v), want (Designated, Forwarding)", sw3P2.Role, sw3P2.State)
 	}
-	if sw2P3.Role != bpdu.RoleAlternate || sw2P3.State != stp.StateDiscarding {
+	if sw2P3.Role != bpdu.RoleAlternate || sw2P3.State != device.StateDiscarding {
 		t.Errorf("sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -292,7 +293,7 @@ func TestObservableStepConvergence(t *testing.T) {
 	}
 	for _, cp := range cabledPorts {
 		info := snap0.Devices[cp.dev].Roles[cp.port]
-		if info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		if info.Role != bpdu.RoleDesignated || info.State != device.StateDiscarding {
 			t.Errorf("%s %s in initial snapshot = (%v, %v), want (Designated, Discarding)", cp.dev, cp.port, info.Role, info.State)
 		}
 	}
@@ -313,10 +314,10 @@ func TestObservableStepConvergence(t *testing.T) {
 		sw2P2 := snap.Devices["sw2"].Roles["1/1/2"]
 		sw3P3 := snap.Devices["sw3"].Roles["1/1/3"]
 
-		if sw1P2.State == stp.StateForwarding &&
-			sw1P3.State == stp.StateForwarding &&
-			sw2P2.State == stp.StateForwarding &&
-			sw3P3.State == stp.StateForwarding {
+		if sw1P2.State == device.StateForwarding &&
+			sw1P3.State == device.StateForwarding &&
+			sw2P2.State == device.StateForwarding &&
+			sw3P3.State == device.StateForwarding {
 			if facingSw1ForwardingAt.IsZero() {
 				facingSw1ForwardingAt = snap.Clock
 			}
@@ -407,7 +408,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	snap := fab.Snapshot()
 
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw2P3.Role != bpdu.RoleRoot || sw2P3.State != stp.StateForwarding {
+	if sw2P3.Role != bpdu.RoleRoot || sw2P3.State != device.StateForwarding {
 		t.Errorf("sw2 1/1/3 after cut = (%v, %v), want (Root, Forwarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -626,7 +627,7 @@ func TestHubTransparentInRing(t *testing.T) {
 		}
 		curSnap := fab.Snapshot()
 		desig := curSnap.Devices["sw3"].Roles["1/1/2"]
-		if desig.State == stp.StateForwarding && designatedForwardingAt.IsZero() {
+		if desig.State == device.StateForwarding && designatedForwardingAt.IsZero() {
 			designatedForwardingAt = curSnap.Clock
 		}
 		curRoles := extractRoles(curSnap)
@@ -647,7 +648,7 @@ func TestHubTransparentInRing(t *testing.T) {
 
 	finalSnap := fab.Snapshot()
 	alt := finalSnap.Devices["sw2"].Roles["1/1/3"]
-	if alt.Role != bpdu.RoleAlternate || alt.State != stp.StateDiscarding {
+	if alt.Role != bpdu.RoleAlternate || alt.State != device.StateDiscarding {
 		t.Errorf("Alternate port sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", alt.Role, alt.State)
 	}
 }
@@ -812,13 +813,13 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	}
 	fab.Run(50)
 
-	lagState := func() (port.LinkState, stp.PortInfo) {
+	lagState := func() (port.LinkState, device.PortInfo) {
 		sw := fab.Switch("sw2")
 		lag, _ := sw.Ports().Port("lag1")
 
-		return lag.OperStatus, sw.Roles()["lag1"]
+		return lag.OperStatus, sw.State(fab.Snapshot().Clock).Roles["lag1"]
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != device.StateForwarding {
 		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
@@ -826,7 +827,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, cut); err != nil {
 		t.Fatalf("SetFault first member: %v", err)
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != device.StateForwarding {
 		t.Fatalf("after one member cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 

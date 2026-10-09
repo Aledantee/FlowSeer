@@ -14,6 +14,7 @@ import (
 
 // Device processes frames and timers under a caller-owned clock. Calls require
 // serial access. Fork returns an independent device at the same runtime state.
+// State samples independent state without advancing timers.
 // AdmitEgress reads queue policy without changing occupancy. Its depth and frame
 // size are encoded octets, excluding preamble and gap.
 type Device interface {
@@ -25,6 +26,7 @@ type Device interface {
 	LinkChange(time.Time, string, Link) (Output, error)
 	Fork() Device
 	Ports() port.Table
+	State(time.Time) State
 }
 
 // Output holds the result and all frames and held-frame drops produced by a call.

@@ -19,10 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -65,22 +62,6 @@ type Injection struct {
 	Flow      FlowID
 }
 
-// Device represents the instantaneous subsystem state of a virtual switch in the fabric.
-type Device struct {
-	Entries     []bridge.Entry
-	Groups      map[vlan.ID][]mcast.Entry
-	RouterPorts map[vlan.ID][]mcast.RouterPort
-	Ports       []port.Port
-	Power       vswitch.PowerResult
-	Counters    map[string]Counters
-	Roles       map[string]stp.PortInfo
-	TreeRoles   map[vlan.ID]map[string]stp.PortInfo
-	// RelayCounters is what the relay's learning table counted, beside the
-	// per-port Counters.
-	RelayCounters bridge.Counters
-	Neighbors     []routing.NeighborEntry
-}
-
 // Snapshot captures an instantaneous view of simulation time, in-flight arrivals, pending egress frames,
 // physical links, device states, and the endpoints still transmitting past the clock.
 type Snapshot struct {
@@ -88,7 +69,7 @@ type Snapshot struct {
 	Queue   []Arrival
 	Queued  map[Endpoint]int
 	Links   []Link
-	Devices map[string]Device
+	Devices map[string]device.State
 	Busy    map[Endpoint]time.Time
 	// EgressDepths carries each endpoint queue's current and peak depth in
 	// encoded frame octets. It is absent from [Snapshot.Fingerprint] and from
@@ -1793,31 +1774,14 @@ func (f *Fabric) Snapshot() Snapshot {
 
 	links := f.Links()
 
-	devices := make(map[string]Device, len(f.switches))
-	for name, sw := range f.switches {
-		var groups map[vlan.ID][]mcast.Entry
-		var routerPorts map[vlan.ID][]mcast.RouterPort
-		cfg := sw.Config()
-		if cfg.Mcast != nil {
-			groups = make(map[vlan.ID][]mcast.Entry, len(cfg.Mcast.VLANs))
-			routerPorts = make(map[vlan.ID][]mcast.RouterPort, len(cfg.Mcast.VLANs))
-			for vid := range cfg.Mcast.VLANs {
-				groups[vid] = sw.Groups(vid, f.clock)
-				routerPorts[vid] = sw.RouterPorts(vid, f.clock)
-			}
+	devices := make(map[string]device.State, len(f.switches))
+	for _, name := range f.switchNames() {
+		state := f.switches[name].State(f.clock)
+		state.Counters = make(map[string]device.PortCounters)
+		for portName, counters := range f.snapshotCounters(name) {
+			state.Counters[portName] = device.PortCounters(counters)
 		}
-		devices[name] = Device{
-			Entries:       sw.Entries(),
-			Groups:        groups,
-			RouterPorts:   routerPorts,
-			Ports:         sw.Ports().Ports(),
-			Power:         sw.Power(),
-			Counters:      f.snapshotCounters(name),
-			Roles:         sw.Roles(),
-			TreeRoles:     sw.TreeRoles(),
-			RelayCounters: sw.RelayCounters(),
-			Neighbors:     sw.Neighbors(),
-		}
+		devices[name] = state
 	}
 
 	var busy map[Endpoint]time.Time

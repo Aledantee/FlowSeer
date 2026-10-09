@@ -578,6 +578,12 @@ which expects the four counters as differences, and
 compares a snapshot field to a layer value names the `D` type instead.
 `TestFingerprintUnchangedAcrossHelloWake` runs on an `Up` link and
 asserts a BPDU crossed.
+The search field-identity case uses distinct link fields with identical
+displayed values because device differences identify their rows. A second
+case keeps the port setup and asserts distinct text for distinct ports. The FDB
+exact-value case keeps its 2/2 versus 1/1 entry counts beside the differing
+entry, so the same two actions remain necessary. The tree-kind escaping
+case reads the public fingerprint because its encoder belongs to `D`.
 
 ### U6. The cable
 Files: src/common/sim/medium/cable, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/common/sim/fact_contract_test.go, src/common/sim/device/vswitch/routed_egress_matrix_test.go, src/edge/simload/test/integration/lab_test.go, test/conformance/sim/layer_contract_test.go

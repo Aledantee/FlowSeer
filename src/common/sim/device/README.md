@@ -33,3 +33,24 @@ The switch converts layer-owned values in
 [`call.output`](vswitch/output.go). The
 [import gate](../../../../test/conformance/sim/layer_contract_test.go) checks
 this directory alone. Device kinds beneath it may import their layers.
+
+`State(now)` samples the device without advancing it. Its independent rows
+carry the layer fields through types declared in [state.go](state.go).
+`TreeRoles` uses `TreeRef` keys, so a CIST and an MSTI remain distinct even
+when VLAN 1 belongs to the MSTI.
+
+```go
+before := d.State(now)
+next := d.State(later)
+field, current, expected := before.Diff(next)
+fmt.Printf("%s: %s -> %s\n", field, current, expected)
+```
+
+`State.Fingerprint` and `State.Diff` read the same field classification.
+The forwarding database, multicast state, ports, power allocations, tree
+roles, and neighbor resolution are behavioral. Port counters, relay
+counters, and the four STP counters are diagnostic. Timer timestamps and
+power analysis metadata stay available in the snapshot and do not enter
+its behavioral projection. Differences include the rows that differ,
+beside their field path and entry count. [TestStateProjection](state_test.go)
+checks 18 mutations against both methods.

@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -808,7 +809,7 @@ func TestSnapshotPhase4b(t *testing.T) {
 		t.Fatalf("Devices[sw1] missing from snapshot")
 	}
 
-	var found *routing.NeighborEntry
+	var found *device.NeighborEntry
 	for i := range sw1Dev.Neighbors {
 		if sw1Dev.Neighbors[i].Addr == unresolvedIP {
 			found = &sw1Dev.Neighbors[i]
@@ -820,8 +821,8 @@ func TestSnapshotPhase4b(t *testing.T) {
 		t.Fatalf("snapshot Devices[sw1] has no neighbor for %s; neighbors: %+v", unresolvedIP, sw1Dev.Neighbors)
 	}
 
-	if found.State != routing.NeighborIncomplete {
-		t.Errorf("neighbor state = %v, want %v", found.State, routing.NeighborIncomplete)
+	if found.State != device.NeighborIncomplete {
+		t.Errorf("neighbor state = %v, want %v", found.State, device.NeighborIncomplete)
 	}
 	if found.HoldDepth != 1 {
 		t.Errorf("neighbor hold depth = %d, want 1", found.HoldDepth)
