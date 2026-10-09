@@ -221,6 +221,28 @@ because `L/phy/phy.go:46` takes a `layer.Env`. Its path is not under
   identifier in U5.
 - Entries 1 to 25 were re-read on this tree, not run. The fabric's `Fork`
   and queue order are not redesigned, as the outline decided.
+- `vswitch.Derive` returns the frames its advance to `now` emits, less the
+  protocol frames of a layer the target rebuilt. Each frame is attributed
+  to the layer that builds it (`src/common/sim/device/vswitch/derive.go`,
+  `timers.go`). Dropping every protocol frame of the advance was the
+  alternative, and a kept layer would then skip one periodic frame
+  (decided by the user, 2026-10-09).
+- A held frame is mirrored once per destination. The switch remembers, per
+  hold token, the mirrors and destinations that copied the frame on arrival
+  and drops a matching copy at release
+  (`src/common/sim/device/vswitch/mirror.go`), so the rule holds after a
+  traffic rebuild that renames a mirror or moves its output (decided by the
+  user, 2026-10-09).
+- A host arrival is a queue event of its own, one more step per delivery
+  (decided by the user, 2026-10-09).
+- `DiffScenarios` pairs actions by ID and does not read their declaration
+  order, so two scenarios that differ only in the order of same-time
+  actions diff empty (decided by the user, 2026-10-09).
+- A frame held at the end of a run counts in `held_at_end` and not in
+  `offered` (decided by the user, 2026-10-09).
+- A refused action stops the run with `StopActionRefused` and the refusal
+  in the returned error, with no issue entry (decided by the user,
+  2026-10-09).
 
 ## Requirements
 
@@ -1043,29 +1065,8 @@ Never `--full`, as the parent says.
 
 ## Open questions
 
-Raised by the review, for the user. Two fix rounds each changed the same two
-mechanisms, and a simpler design exists for each:
-
-- U3, "`vswitch.Derive(cur, target, now)` advances a clone of `cur` to `now`
-  before it carries a record, so a record past its lifetime is aged and not
-  reported lost." The text does not say what happens to the frames that
-  advance emits. The code returns them, less the protocol frames of a layer
-  the target rebuilt, and attributes each frame to a layer by a slot set
-  where the frame is built (`src/common/sim/device/vswitch/derive.go`,
-  `timers.go`). The least code that meets the sentence returns only output
-  that carries a hold token and drops every protocol frame of the advance,
-  with no attribution. A kept layer then skips one periodic frame. Which of
-  the two does U3 require?
-- U2, "A released frame yields the copies its egress selects." The code
-  remembers, per hold token, the mirrors and destinations that copied the
-  frame on arrival and drops a matching copy at release
-  (`src/common/sim/device/vswitch/mirror.go`). The least code that meets
-  the sentence remembers the ingress port and VLAN alone and skips, at
-  release, a mirror that selects the frame by its ingress under the
-  configuration of that moment. The two differ after a traffic rebuild that
-  renames a mirror or moves its output. Which of the two does U2 require?
-
-The five questions of the first pass are Decisions, each marked with its
+The five questions of the first pass and the six the review raised are
+Decisions, each marked with its
 date.
 
 For the implementer:
