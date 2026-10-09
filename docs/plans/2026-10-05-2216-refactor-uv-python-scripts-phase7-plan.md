@@ -361,3 +361,11 @@ Waves: U1 U3 U4 | U2
   `land`.
 - How Codex starts a hook on Windows stays unverified, as the parent says.
   No unit here depends on it.
+
+## Review gaps
+
+Open follow-ups of the review. They do not hold its verdict, and each needs
+a change to the gate's classifier, which the follow-up pass does not make.
+
+- test/conformance/scripting/scripting_test.go:330: `#!/usr/bin/env -S-P /opt/bin bash` returns `bin` as the interpreter, since `-S` joined to an option that takes an operand skips no operand; fails: a row with that first line expecting `shell script`; class: hardening
+- test/conformance/scripting/scripting_test.go:72: `OUT=$(mktemp -d) python3 a.py` returns no finding, since an unquoted command substitution holding a blank ends the assignment word; fails: a `SKILL.md` row with that line expecting `bare interpreter call`; class: hardening
