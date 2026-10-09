@@ -1217,6 +1217,10 @@ time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv
 time (printf '{"cwd":"%s"}' "$PWD" | GOCACHE="$cache/go" UV_CACHE_DIR="$cache/uv" uv run tools/scripts/run.py hooks stop-check)
 ```
 
+The scripting gate (`test/conformance/scripting/`) joined the packages that
+command runs. On 2026-10-09 (arm64 macOS 26.6.2, Go 1.27.1, uv 0.12.23) the
+cold run took 12.4 seconds and the warm one 1.4, so the timeout stays at 30.
+
 Measure again when a conformance package is added.
 
 The integration branch is `main`. `--base master` and `master..HEAD` fail

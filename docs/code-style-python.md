@@ -58,3 +58,12 @@ explain why, with no process narration, no planning identifiers, and no TODOs.
 - **A package-local script carries its own metadata block and imports
   nothing from `tools/scripts/`.** A bench gate or a lab script that its
   package runs then works without the rest of the tree.
+- **Write no host-side shell script and no bare `python3` line.**
+  `test/conformance/scripting/` fails a tracked or new file that is a shell
+  script (a `.sh`, `.bash`, or `.zsh` name, or a `#!` line naming a shell), a
+  command that starts `python` or `python3` instead of `uv run`, and a `.py`
+  file outside `tools/scripts/` that lacks an inline metadata block. Its
+  exempt list names the files that must stay shell, each with its reason: the
+  snmpd pass-scripts and the clixon `startup.sh`, which run inside container
+  images without uv, vendored files under `spec/`, and `docs/research/`.
+  Adding an entry changes the scripting record.
