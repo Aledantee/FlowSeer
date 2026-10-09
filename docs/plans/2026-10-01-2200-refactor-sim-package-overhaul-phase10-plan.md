@@ -38,7 +38,7 @@ and `traffic`. What each is imported for, and what carries it instead:
 | `phy` | negotiation and link values (`Fb/fabric.go:1143-1345`, `Fb/link.go`), host and reflector Ethernet facts | `medium/cable` (U6), the endpoint devices |
 | `stp.PointToPointForce*` | the administrative override, read twice (`Fb/fabric.go:1490-1538`) and a third time in `V/link.go:50-57` | the switch decides from a link report (U3) |
 | `traffic` rules, reasons, facts | the tail drop and threshold steps (`Fb/run.go:955-961`, `Fb/fabric.go:1073-1093`), the policed test (`Fb/run.go:539`) | a decision the device returns with its step (U4) |
-| `bridge.ReasonNoMember`, `bridge.Seed` | member selection in `transmit` (`Fb/run.go:870-883`), `Fb/configure.go` | every emission names its member (U2). Seeds are read through `vswitch.ConstructionSpec` without naming the type |
+| `bridge.ReasonNoMember`, `bridge.Seed` | member selection in `transmit` (`Fb/run.go:870-883`), `Fb/configure.go` | every emission names its member (U2). The switch keeps its static seeds itself (U3) |
 
 Result: the seam carries all of it, read as the record's rule is written,
 "no capability package directly". The stop condition does not fire for
@@ -113,7 +113,7 @@ to the user. Every unit below is written for the direct reading.
   (`Fb/run.go:1258-1274` returns before the crossing today). Step counts
   of every run that delivers to a host rise by one per delivery.
 - `Scenario` loses `Spec` and `Budget`, and limits travel in one options
-  value. An action is paired by an identity, not by its index. Why: the
+  value. An action is paired by a required identity, not by its index. Why: the
   inventory's Design entries state both, and `Compare` already discards
   the scenario's spec and overrides its budget (`Fb/compare.go:45-47,60-61`).
 - `Config.Validate` is the contract for a configuration, and
@@ -202,7 +202,7 @@ Re-read on this tree. A struck entry names the commit that fixed it.
 | 8 | Holds | `Fb/accept.go:221,238` | U8 |
 | 9 | Holds. Decided: documented | `Fb/run.go:1215-1232`, `Fb/README.md:832-833` | U6 |
 | 10 | Holds | `Fb/attach.go:124,140-154` | U9 |
-| 11 | Narrower. A stated port MTU moves the threshold | `Fb/run.go:971-978`, `Fb/fabric.go:1058` | U4 |
+| 11 | Narrower. A stated port MTU moves the threshold. Open question 5 | `Fb/run.go:971-978`, `Fb/fabric.go:1058` | U4 |
 | 12 | Holds, in both executors | `Fb/run.go:1615-1617`, `Fb/compare.go:164-172` | U11 |
 | 13 | Holds | `Fb/record.go:27-46` | U13 |
 
@@ -334,12 +334,13 @@ type names changed and no expectation changed. An expectation that moves
 is a deviation to report.
 
 ### U2. Every emission is complete
-Files: src/common/sim/device/vswitch/route.go, src/common/sim/device/vswitch/timers.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/lag.go, src/common/sim/device/vswitch/routed_egress_matrix_test.go, src/common/sim/device/vswitch/mirror_test.go, src/common/sim/device/vswitch/held_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/device/device.go, src/common/sim/fabric/run.go, src/common/sim/fabric/lag_test.go, src/common/sim/fabric/routing_test.go
+Files: src/common/sim/device/vswitch, src/common/sim/device/device.go, src/common/sim/fabric/run.go, src/common/sim/fabric/lag_test.go, src/common/sim/fabric/routing_test.go
 After: U1
 Change: an emission or copy on a LAG names the member the switch
 committed, on every path (R8). `emitRouting` sets it
 (`V/route.go:225-228`). A released frame yields the copies its egress
-selects, each carrying the release's `HoldToken`. `Switch.SelectMember`
+selects. Each copy names the held frame's `HoldToken` as its parent, and
+is a frame of its own (U10). `Switch.SelectMember`
 has no caller outside `V` and is unexported, and the LAG branch of
 `Fb/run.go:859-889` is deleted.
 Tests: a generated check in `V/routed_egress_matrix_test.go` of 12 cases:
@@ -354,7 +355,7 @@ hashes to another member than VID 0. Expected to change: any
 `Fb/routing_test.go` case that reads a solicitation's crossing on a LAG.
 
 ### U3. A link report, a clock for Derive, and every start
-Files: src/common/sim/device/device.go, src/common/sim/device/vswitch/link.go, src/common/sim/device/vswitch/derive.go, src/common/sim/device/vswitch/link_test.go, src/common/sim/device/vswitch/protocol_link_test.go, src/common/sim/device/vswitch/derive_test.go, src/common/sim/device/vswitch/README.md, src/common/sim/fabric/fabric.go, src/common/sim/fabric/derive.go, src/common/sim/fabric/configure.go, src/common/sim/fabric/routing_test.go, src/common/sim/fabric/stp_test.go, src/common/sim/fabric/topology_state_test.go, src/common/sim/internal/simtest, docs/architecture/2026-09-10-virtual-device-direction.md
+Files: src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/internal/simtest, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U2
 Change: `LinkChange(now, port, device.Link)` takes the state, the speed,
 this end's duplex, and whether the peer relays. The switch applies its
@@ -362,7 +363,9 @@ administrative override and decides point-to-point in one place.
 `vswitch.PointToPoint`, `portPointToPoint`, and `uncabledPointToPoint` are
 gone. `startLayers` reports every port of every switch and schedules its
 wake (entry 5), and returns the first `LinkChange` error to `New`,
-`Derive`, and `Configure`. `V/link.go:148` returns its error.
+`Derive`, and `Configure`. `V/link.go:148` returns its error. `Configure` keeps a switch's static
+seeds through a method of the switch, so `Fb/configure.go:23-28` names
+no `bridge` type.
 `vswitch.Derive(cur, target, now)` advances a clone of `cur` to `now`
 before it carries a record, so a record past its lifetime is aged and not
 reported lost. The record's Protocol link-state input paragraph is amended.
@@ -378,26 +381,26 @@ the forced values. `TestLinkChangeErrorReachesNew` in
 expectation, since the rule moves unchanged.
 
 ### U4. Queue decisions come from the device
-Files: src/common/sim/layer/traffic/config.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/README.md, src/common/sim/layer/traffic/config_test.go, src/common/sim/device/device.go, src/common/sim/device/vswitch/mirror.go, src/common/sim/device/vswitch/inspect.go, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/egress_buffer_internal_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/traffic_test.go, src/common/sim/fabric/README.md
+Files: src/common/sim/layer/traffic/config.go, src/common/sim/layer/traffic/layer.go, src/common/sim/layer/traffic/README.md, src/common/sim/layer/traffic/config_test.go, src/common/sim/device/device.go, src/common/sim/device/vswitch, src/common/sim/fabric/run.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/egress_buffer_internal_test.go, src/common/sim/fabric/queue_buffer_internal_test.go, src/common/sim/fabric/egress_buffer_test.go, src/common/sim/fabric/traffic_test.go, src/common/sim/fabric/README.md, docs/architecture/2026-09-18-offered-load-streams-direction.md
 After: U3
 Change: `Device.AdmitEgress(port, pcp, depth, octets)` returns whether
 the queue takes the frame, the drop or threshold step, and the queue's
-maximum rate. `traffic.Config` builds both steps. A queue with no stated
-buffer raises the threshold observation only when frames already wait:
-`depth > 0` and the sum passes the threshold (entry 11). `Output.Policed`
+maximum rate. `traffic.Config` builds both steps. The threshold rule stays as the
+offered-load record states it (`:73-77`) unless Open question 5 changes
+it, and this unit lands that answer with the record's amendment. `Output.Policed`
 replaces the test on `traffic.ReasonPoliced`. `Fb` imports no `traffic`.
 `QueueMaxRate`, `QueueBuffer`, and `PortMTU` leave the switch's exported
 surface. A host's queue uses the same decision with no table, in U7.
-Tests: `TestLoneJumboRaisesNoThreshold` in
-`Fb/queue_buffer_internal_test.go`: one 9,018-octet frame on an empty
-queue records no `QueueThreshold` entry, and a second behind it does.
+Tests: `TestLoneJumboThreshold` in `Fb/queue_buffer_internal_test.go`
+pins Open question 5's answer for one 9,018-octet frame on an empty
+queue, once with an unstated MTU and once with a stated MTU of 9,000.
 `TestQueueAdmit` in `L/traffic/config_test.go`: stated buffer at, one
 under, and one over the limit, and the unstated threshold at depth zero.
 Expected to change: none of the existing tail-drop expectations. The step
 bytes are pinned by `Fb/egress_buffer_internal_test.go` and must not move.
 
 ### U5. One device state and one projection
-Files: src/common/sim/device/state.go, src/common/sim/device/state_test.go, src/common/sim/device/vswitch/inspect.go, src/common/sim/device/vswitch/inspect_test.go, src/common/sim/fabric/run.go, src/common/sim/fabric/fingerprint.go, src/common/sim/fabric/compare_state.go, src/common/sim/fabric/fingerprint_test.go, src/common/sim/fabric/align_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/README.md, src/common/sim/netmodel, src/common/sim/internal/simtest
+Files: src/common/sim/device/device.go, src/common/sim/device/state.go, src/common/sim/device/state_test.go, src/common/sim/device/vswitch, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/internal/simtest
 After: U4
 Change: `Device.State(now)` returns `device.State`, which replaces
 `fabric.Device` and the nine accessors of `Fb/run.go:1845-1865`. `D`
@@ -421,14 +424,16 @@ which expects the four counters as differences, and
 asserts a BPDU crossed.
 
 ### U6. The cable
-Files: src/common/sim/medium/cable, src/common/sim/fabric/medium.go, src/common/sim/fabric/medium_test.go, src/common/sim/fabric/link.go, src/common/sim/fabric/link_test.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/config.go, src/common/sim/fabric/run.go, src/common/sim/fabric/diff.go, src/common/sim/fabric/README.md, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, test/conformance/sim/layer_contract_test.go
+Files: src/common/sim/medium/cable, src/common/sim/fabric, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, test/conformance/sim/layer_contract_test.go
 After: U5
 Change: `C` holds the medium, reach, propagation, the top speed, the
 fault, the two-ended resolution of `Fb/fabric.go:1143-1345`, and the
 crossing decision of `Fb/run.go:1215-1243` as a method that takes the
 crossing count and the direction. `fabric.Cable` keeps the two endpoints
-and holds a `cable.Cable`. `Link` no longer embeds `Cable`. `Fb` imports
-no `phy`. `C/README.md` states the count a fault position uses and the
+and holds a `cable.Cable`. `Link` no longer embeds `Cable`. `C` also holds the physical assumption
+profile and the Ethernet validation of `Fb/config.go:511-535,790,1190`.
+`Fb` names `phy` only for the host's and the reflector's Ethernet
+fields, which leave in U7 and U8. `C/README.md` states the count a fault position uses and the
 admin-unknown rule (`Fb/fabric.go:1216-1218`), with a named reason
 constant in place of the literal.
 Tests: `Fb/medium_test.go` and the resolution cases of `Fb/link_test.go`
@@ -437,7 +442,7 @@ positions 2 and 3 of a `LoseSequence` are one frame each way, and a BPDU
 takes a position. It pins the documented count.
 
 ### U7. The host
-Files: src/common/sim/device/host, src/common/sim/fabric/accept.go, src/common/sim/fabric/host_accept_test.go, src/common/sim/fabric/config.go, src/common/sim/fabric/config_test.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/run.go, src/common/sim/fabric/attach.go, src/common/sim/fabric/journey.go, src/common/sim/fabric/diff.go, src/common/sim/fabric/run_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/README.md, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md
+Files: src/common/sim/device/host, src/common/sim/fabric, src/common/sim/layer/routing, src/common/sim/netmodel, src/common/sim/search, src/common/sim/internal/simtest, src/edge/simload/test/integration/lab_test.go, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-10-virtual-device-direction.md
 After: U6
 Change: `device/host` holds the host's configuration, its acceptance
 rules, and its IP stack, and implements `Device`. `fabric.Host`,
@@ -450,18 +455,24 @@ form applied to the VID alone. Sites that classify by `cfg.Hosts`:
 `Fb/run.go:222,1259`, `Fb/attach.go:46,138`, `Fb/journey.go:436`,
 `Fb/fabric.go:1387,1509`. Sites that iterate it: `Fb/fabric.go:94,276,288,
 342,371,453,517,643`. Whether the host answers a solicitation is Open
-question 2, and this unit lands the answer.
+question 2, and this unit lands the answer. Under its first two options
+`routing.Config` gains a field that clears the Router flag of
+`L/routing/receive.go:136-139`, and the virtual-device record's host
+sentence (`:885-886`) is amended.
 Tests: `Fb/host_accept_test.go` moves to `device/host` with its
 expectations unchanged. `TestHostBoundLegRecordsCrossing` in
 `Fb/run_test.go`. `TestHostInjectionKeepsPCP`: a frame injected with PCP 5
-on a tagged host crosses at 5. Expected to change: every expectation of
+on a tagged host crosses at 5. Under Open question 2's first two
+options, `TestHostAdvertisementClearsRouterFlag` in `L/routing` and a
+fabric case in which a switch resolves a host with no configured
+neighbor. Expected to change: every expectation of
 `Steps` and of entry order on a run that delivers to a host, in
 `Fb/run_test.go`, `Fb/result_test.go`, `Fb/flow_test.go`, and the scenario
 cases of `ST`. Each rises by one step per delivery, and an Arrival entry
 follows a Crossing.
 
 ### U8. The reflector, and the import rule
-Files: src/common/sim/device/reflector, src/common/sim/fabric/accept.go, src/common/sim/fabric/reflector_accept_test.go, src/common/sim/fabric/reflector_diff_test.go, src/common/sim/fabric/config.go, src/common/sim/fabric/config_test.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/run.go, src/common/sim/fabric/attach.go, src/common/sim/fabric/journey.go, src/common/sim/fabric/README.md, src/common/sim/internal/simtest, test/conformance/sim/layer_contract_test.go, test/conformance/sim/testdata, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-16-local-network-analysis-direction.md
+Files: src/common/sim/device/reflector, src/common/sim/fabric, src/common/sim/internal/simtest, test/conformance/sim/layer_contract_test.go, test/conformance/sim/testdata, docs/architecture/2026-10-01-simulation-package-shape-direction.md, docs/architecture/2026-09-16-local-network-analysis-direction.md
 After: U7
 Change: `device/reflector` holds the reflector's configuration and
 rules, implements `Device`, and returns each reflected copy as a `Copy`.
@@ -509,9 +520,12 @@ keeps its assertion and loses its setup arrival, and `Fb/run_test.go:
 Files: src/common/sim/fabric/run.go, src/common/sim/fabric/flow.go, src/common/sim/fabric/journey.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/compare_journey.go, src/common/sim/fabric/comparison_location.go, src/common/sim/fabric/flow_internal_test.go, src/common/sim/fabric/flow_test.go, src/common/sim/fabric/routing_test.go, src/common/sim/fabric/journey_state_test.go, src/common/sim/fabric/fork_test.go, src/common/sim/fabric/align_test.go, src/common/sim/fabric/README.md, src/common/sim/internal/simtest, docs/architecture/2026-09-10-virtual-device-direction.md, docs/architecture/2026-09-18-offered-load-streams-direction.md, docs/solutions/architecture-patterns/a-settled-aggregate-record-is-freed-at-settle-keep-its-identity-in-a-key.md
 After: U9
 Change: `Output.Hold` enters a map from device and token to `FrameID`,
-and the frame counts as in flight while held. An emission, a copy, or a
-drop that carries the token continues that journey, and the last one
-removes the key. A token the fabric does not know, as after `Derive`,
+and the frame counts as in flight while held. The fabric resolves a token once for a whole
+`Output`. An emission or a drop that carries it continues the held
+journey. A copy that carries it starts a mirror journey whose origin
+names the held frame, with that frame's flow and retention, as a live
+copy does (`Fb/run.go:600-633`). The key is removed after the output is
+applied. A token the fabric does not know, as after `Derive`,
 starts a journey of its own. `OriginRelease`, `JourneyReleased`,
 `heldAggregates`, `findAndPopHeld`, and the one-entry journey of
 `recordNeighborFailure` are gone. A protocol journey and its `entered`
@@ -522,7 +536,10 @@ out, evicted by overflow, refused by the filter at release, failed by a
 `Configure` that rebuilds routing} by {`RetainJourney`,
 `RetainAggregate`} by {holds end in order, in reverse}. Each asserts the
 journey or flow of the right frame, an empty hold map, and
-`StopConverged`. R4's example as `TestReleaseOutOfOrder`. Expected to
+`StopConverged`. R4's example as `TestReleaseOutOfOrder`.
+`TestReleaseWithMirrorUnderAggregate`: one held frame released past an
+egress mirror counts one `Delivered`, one `Copies`, one latency sample,
+and leaves no key. Expected to
 change: `Fb/flow_internal_test.go:686-690,726-728`,
 `Fb/routing_test.go:1975`, `Fb/flow_test.go:326-327`,
 `Fb/journey_state_test.go:184,269`, `Fb/fork_test.go:221-222`, and the
@@ -537,11 +554,14 @@ keeps a count of pending journeys and reads no `Report()`. It computes a
 fingerprint only under a window (R6), and `Run` takes a window. An action
 error returns the result so far with the error (entry 12). `RunResult`
 takes status and issues from the flows as well as the journeys (R5).
-`Compare` pairs an aggregated root by its flow statistics and returns
+A frame of an attached source is a root, paired across the
+sides by its attachment's ordinal and its frame's ordinal, one-sided
+frames included. `Compare` pairs an aggregated root by its flow statistics and returns
 `Inconclusive` where two aggregated sides cannot be told apart by
 journey (entry 15).
-Tests: `TestCompareRecordedFrame`. `TestCompareAttachedSources`: two
-fabrics whose sources transmit from different hosts compare `Different`.
+Tests: `TestCompareRecordedFrame`. `TestCompareAttachedSources`: an empty
+schedule and one source per side, with equal step counts and equal final
+state, where one side's host rejects the frame, compares `Different`.
 `TestRunResultAcrossRetentions`: 8 fixtures (delivered, dropped, lost,
 released, timed out, unresolved, rejected, mirrored), each run under both
 retentions with equal `Status` and `Issues`. `TestActionErrorKeepsSteps`.
@@ -550,12 +570,14 @@ scale benchmark's figure and command go into `Fb/README.md`. Expected to
 change: `Fb/compare_test.go:2276`.
 
 ### U12. Scenario and replay
-Files: src/common/sim/fabric/scenario.go, src/common/sim/fabric/result.go, src/common/sim/fabric/run.go, src/common/sim/fabric/compare.go, src/common/sim/fabric/scenario_test.go, src/common/sim/fabric/replay_test.go, src/common/sim/fabric/compare_test.go, src/common/sim/fabric/result_test.go, src/common/sim/fabric/README.md, src/common/sim/search, src/common/sim/internal/simtest
+Files: src/common/sim/fabric, src/common/sim/search, src/common/sim/internal/simtest
 After: U11
 Change: `Scenario` is an action schedule, and budget and window travel in
-one options value. An action has an `ID`, unique in its scenario, and
-`DiffScenarios` pairs by it. An empty `ID` is filled with the action's
-ordinal among those of its time and kind. `sameInjection` compares
+one options value. An action has an `ID`, required and unique in its scenario,
+and `DiffScenarios` pairs by it. `search` and `ST` name their actions.
+The start guard of `Fb/scenario.go:438` moves to `RunScenario` and
+`Compare`, which refuse an action of any kind dated before the clock of
+the fabric it runs on, each side of a comparison against its own. `sameInjection` compares
 `Packet`, `Retention`, and `Flow` (entry 21), and a summary names what
 differs (entry 24). How a replay represents a continued run is Open
 question 3, and entries 7 and 17 land its answer here.
@@ -563,13 +585,14 @@ Tests: `TestInsertedActionReportsOne`: one action inserted before five
 reports one change. `TestDiffScenariosEveryInjectionField` with a case
 each for `Packet`, `Retention`, and `Flow`. `TestActionSummaryNamesLoss`:
 an interval of 2 against 3 reads differently on the two sides. The
-before-start case of `Fb/scenario_test.go:286-298` gets an inner time
-equal to its action time, so only the guard can refuse it.
+before-start case of `Fb/scenario_test.go:286-298` runs through
+`RunScenario` with an inner time equal to its action time, once per
+action kind, so only the guard can refuse it.
 `Fb/scenario_test.go:803` mutates every field of the clone, and
 `Fb/compare_test.go:1814` asserts `Err`.
 
 ### U13. Records, differences, and identifiers
-Files: src/common/sim/fabric/record.go, src/common/sim/fabric/record_test.go, src/common/sim/fabric/diff.go, src/common/sim/fabric/diff_coverage_test.go, src/common/sim/fabric/construction_result_test.go, src/common/sim/fabric/scenario.go, src/common/sim/fabric/config.go, src/common/sim/fabric/fabric.go, src/common/sim/fabric/README.md
+Files: src/common/sim/fabric
 After: U12
 Change: `Record.Validate` refuses a `Frame` that does not encode to
 `Bytes` and a `CapturedLen` above `OriginalLen` (entry 13).
@@ -645,7 +668,7 @@ Never `--full`, as the parent says.
 
 ## Open questions
 
-Questions 1 to 4 are the user's. Readiness stays `needs-decisions` until
+Questions 1 to 5 are the user's. Readiness stays `needs-decisions` until
 they are answered. The first option of each is the recommendation.
 
 1. What does the import rule bound, and what may `fabric` name? The
@@ -703,6 +726,14 @@ they are answered. The first option of each is the recommendation.
    - Frames ever held. Cost: a delivered frame counts twice, under
      `Held` and `Delivered`.
    - Remove the field. Cost: a caller cannot see a hold in a flow.
+5. Does one frame larger than the threshold raise `queue-buffer-unstated`
+   on an empty queue (entry 11)? The offered-load record (`:73-77`) raises
+   it "once the depth passes one maximum-size frame".
+   - Keep the record. A lone jumbo frame on a port with no stated MTU
+     reads `Incomplete`. Entry 11 is struck as the recorded rule.
+   - Raise it only when a frame already waits. Cost: the record is
+     amended, and a port whose MTU is unstated reports `Complete` for a
+     frame larger than the 1,518 default.
 
 For the implementer:
 
