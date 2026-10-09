@@ -1043,8 +1043,30 @@ Never `--full`, as the parent says.
 
 ## Open questions
 
-None is the user's. The five of the first pass are Decisions, each marked
-with its date.
+Raised by the review, for the user. Two fix rounds each changed the same two
+mechanisms, and a simpler design exists for each:
+
+- U3, "`vswitch.Derive(cur, target, now)` advances a clone of `cur` to `now`
+  before it carries a record, so a record past its lifetime is aged and not
+  reported lost." The text does not say what happens to the frames that
+  advance emits. The code returns them, less the protocol frames of a layer
+  the target rebuilt, and attributes each frame to a layer by a slot set
+  where the frame is built (`src/common/sim/device/vswitch/derive.go`,
+  `timers.go`). The least code that meets the sentence returns only output
+  that carries a hold token and drops every protocol frame of the advance,
+  with no attribution. A kept layer then skips one periodic frame. Which of
+  the two does U3 require?
+- U2, "A released frame yields the copies its egress selects." The code
+  remembers, per hold token, the mirrors and destinations that copied the
+  frame on arrival and drops a matching copy at release
+  (`src/common/sim/device/vswitch/mirror.go`). The least code that meets
+  the sentence remembers the ingress port and VLAN alone and skips, at
+  release, a mirror that selects the frame by its ingress under the
+  configuration of that moment. The two differ after a traffic rebuild that
+  renames a mirror or moves its output. Which of the two does U2 require?
+
+The five questions of the first pass are Decisions, each marked with its
+date.
 
 For the implementer:
 
@@ -1077,6 +1099,12 @@ For the implementer:
 Follow-ups of the review. They do not hold the verdict. `S` is
 `src/common/sim`.
 
+Blocking false tests, on the tests of fixes the review made:
+
+- S/device/vswitch/timers.go:74: stamp the per-VLAN BPDU emission of `applySTPEffects` with the LAG slot; fails: a generated case of `TestDeriveReturnsNoProtocolFrameOfRebuiltLayer` with a per-VLAN spanning tree, decoded with `bpdu.DecodeSSTP`; class: false test, blocking; review-fix-test: yes
+- S/device/vswitch/route.go:212: stamp the bridged routing emission of `emitRouting` with another layer's slot; fails: a generated case with a solicitation on a VLAN interface, IPv4 and IPv6; class: false test, blocking; review-fix-test: yes
+- S/device/vswitch/derive_layer_ownership_test.go:235: drop every emission and copy that carries a hold token from the `Derive` output; fails: the hold-token case with a held frame released during the advance, asserting at least one emission and one copy with the token; class: false test, blocking; review-fix-test: yes
+
 False tests:
 
 - S/fabric/result_test.go:505: delete the `Learn` call on `fab.Device("sw1")`, which is a fork (also :575 and S/fabric/record_test.go:57); fails: the dependent tests that expect known-unicast forwarding to `1/1/2`; class: false test
@@ -1089,6 +1117,8 @@ False tests:
 - S/fabric/fork_internal_test.go:145: set `clock: f.topology.start` in `Fork`; fails: the fork gate comparing the whole `time.Time` value; class: false test
 - S/fabric/run_test.go:1408: produce a wake entry in the journey; fails: an assertion on `StepResult.Arrival` in place of the strings `"Wake"` and `"Dequeue"` no code produces; class: false test
 - S/device/vswitch/routed_egress_matrix_test.go:124: leave `Member` empty in `emitRouting`; fails: the eight solicitation and probe cells compared against a data frame of the flow; class: false test
+- S/device/vswitch/mirror_once_test.go:805: remove the `FailHeld` call in `Derive`; fails: the rebuilt-routing case asserting the drop for the held token in the `Derive` output; class: false test
+- S/device/vswitch/derive_layer_ownership_test.go:132: the "loop protection through a LAG transition" scenario equals the own-timer scenario, since `loopprotect.LinkChange` emits nothing; fails: nothing the own-timer case does not; class: false test
 
 Gaps:
 
@@ -1113,6 +1143,7 @@ Gaps:
 - S/fabric/record_test.go:65: ignore the `Encode` error in `Record.Validate`; fails: the VID case with `Dst` reset and the message asserted; class: gap
 - S/device/host/host.go:152: drop a field in the host's neighbor conversion; fails: a host `State` read with a neighbor; class: gap
 - S/fabric/result_test.go:30: `TestRunResultAcrossRetentions` passes when `buildRunResult` skips journeys; fails: a fixture with no flow; class: gap
+- S/device/vswitch/mirror_once_test.go:683: the selector table omits `SelectVLANs` and `SnapLen`, the histories omit a timed-out and an evicted hold, and no case has two mirrors to one destination, a rebuilt mirror with the same name and a new destination, or an `OutputVLAN` with several member ports; fails: each as a generated case; class: gap
 
 Convention:
 
@@ -1128,6 +1159,7 @@ Convention:
 - CONCEPTS.md:211: the five new entries are hard-wrapped where every neighbour is one paragraph; fails: the file's form; class: convention
 - S/device/vswitch/timers.go:40: `[Fabric.injectEmission]`; S/device/vswitch/held_test.go:1319 `[NeighborDrop]`; S/device/vswitch/protocol_link_test.go:440; S/fabric/fabric.go:46 and S/fabric/metadata.go:35 `[Fabric.Configure]`, metadata.go:29 `[Diff]`; S/fabric/scenario.go:48,77; S/fabric/run.go:67,146; S/fabric/queue.go:21,25; S/fabric/snapshot.go:11; S/fabric/journey.go:207; S/fabric/flow.go:17,109; S/fabric/result.go:53; S/fabric/comparison_location.go:27; S/fabric/compare.go:26; S/medium/cable/resolve.go:24; S/assembly/derive.go:5; S/fabric/fabric_test.go:96; fails: each comment against the code; class: convention
 - S/fabric/attach_test.go:435: test names that name removed mechanisms (`TestEagerHostInjection*`, `TestStepPullsFromEmptyQueue`, `TestPendingWorkHandBuiltQueue`), the stranded comment at S/fabric/fork_internal_test.go:256, stale wording at S/fabric/routing_test.go:947 and S/fabric/scenario_test.go:714; fails: the name against what the test does; class: convention
+- S/device/vswitch/derive_layer_ownership_test.go:73: the comments at :73 and :107 say loop protection speaks from inside the LAG layer's timer; S/device/vswitch/mirror.go:65 says a destination is copied once while two surviving mirrors to one output each copy; S/device/vswitch/timers.go:44 narrates the defect it replaced; fails: each comment against the code; class: convention
 
 Hardening:
 
