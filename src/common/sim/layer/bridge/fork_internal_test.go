@@ -211,7 +211,7 @@ func newTestBridgeForFork(t *testing.T) *Layer {
 	br.SetGroupResolver(testResolver{}, analysis.ProtocolScope("sw1", "mcast", "0"), "mcast", "group-members")
 	br.SetGate(testGate{learns: true, forwards: true}, analysis.ProtocolScope("sw1", "stp", "0"))
 
-	// Learn an entry so dynamic and fdb are non-empty.
+	// Learn an entry through Ingress so dynamic and fdb are non-empty.
 	frame := ethernet.Frame{Src: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}}
 	br.Ingress(time.Unix(1000, 0), "1/1/1", frame, true, true)
 
@@ -292,30 +292,30 @@ func probeBridgeCounters(t *testing.T) {
 	cSrcBefore := b.Counters()
 	cForkBefore := fork.Counters()
 
-	// Mutate source by learning a new seed
+	// Mutate source by installing a seed
 	seedSrc := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x55, 0x66, 0x77, 0x88, 0x01}, Port: "1/1/1", Lifetime: Aging}
-	if err := b.Learn([]Seed{seedSrc}); err != nil {
-		t.Fatalf("b.Learn: %v", err)
+	if err := b.InstallSeeds([]Seed{seedSrc}); err != nil {
+		t.Fatalf("b.InstallSeeds: %v", err)
 	}
 
 	if fork.Counters() != cForkBefore {
-		t.Errorf("source learning changed fork counters")
+		t.Errorf("source seed install changed fork counters")
 	}
 	if b.Counters() == cSrcBefore {
-		t.Errorf("source learning did not increment source counters")
+		t.Errorf("source seed install did not increment source counters")
 	}
 
-	// Mutate fork by learning a new seed
+	// Mutate fork by installing a seed
 	seedFork := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x55, 0x66, 0x77, 0x88, 0x02}, Port: "1/1/2", Lifetime: Aging}
-	if err := fork.Learn([]Seed{seedFork}); err != nil {
-		t.Fatalf("fork.Learn: %v", err)
+	if err := fork.InstallSeeds([]Seed{seedFork}); err != nil {
+		t.Fatalf("fork.InstallSeeds: %v", err)
 	}
 
 	if b.Counters().Learned != cSrcBefore.Learned+1 {
-		t.Errorf("fork learning changed source counters: got %d, want %d", b.Counters().Learned, cSrcBefore.Learned+1)
+		t.Errorf("fork seed install changed source counters: got %d, want %d", b.Counters().Learned, cSrcBefore.Learned+1)
 	}
 	if fork.Counters().Learned != cForkBefore.Learned+1 {
-		t.Errorf("fork learning did not increment fork counters")
+		t.Errorf("fork seed install did not increment fork counters")
 	}
 }
 
@@ -326,30 +326,30 @@ func probeBridgeDynamic(t *testing.T) {
 	dynSrcBefore := b.dynamic
 	dynForkBefore := fork.dynamic
 
-	// Mutate source: learn new seed
+	// Mutate source: install a seed
 	seedSrc := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x01}, Port: "1/1/1", Lifetime: Aging}
-	if err := b.Learn([]Seed{seedSrc}); err != nil {
-		t.Fatalf("b.Learn: %v", err)
+	if err := b.InstallSeeds([]Seed{seedSrc}); err != nil {
+		t.Fatalf("b.InstallSeeds: %v", err)
 	}
 
 	if fork.dynamic != dynForkBefore {
-		t.Errorf("source learning changed fork dynamic count")
+		t.Errorf("source seed install changed fork dynamic count")
 	}
 	if b.dynamic == dynSrcBefore {
-		t.Errorf("source learning did not change source dynamic count")
+		t.Errorf("source seed install did not change source dynamic count")
 	}
 
-	// Mutate fork: learn new seed
+	// Mutate fork: install a seed
 	seedFork := Seed{FID: 10, MAC: netaddr.MAC{0x00, 0x99, 0x88, 0x77, 0x66, 0x02}, Port: "1/1/2", Lifetime: Aging}
-	if err := fork.Learn([]Seed{seedFork}); err != nil {
-		t.Fatalf("fork.Learn: %v", err)
+	if err := fork.InstallSeeds([]Seed{seedFork}); err != nil {
+		t.Fatalf("fork.InstallSeeds: %v", err)
 	}
 
 	if b.dynamic != dynSrcBefore+1 {
-		t.Errorf("fork learning changed source dynamic count")
+		t.Errorf("fork seed install changed source dynamic count")
 	}
 	if fork.dynamic != dynForkBefore+1 {
-		t.Errorf("fork learning did not change fork dynamic count")
+		t.Errorf("fork seed install did not change fork dynamic count")
 	}
 }
 

@@ -36,7 +36,7 @@ func TestHubCompletenessUsesEveryEligibleEgressState(t *testing.T) {
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: test.state}))
 			sw := mustSwitch(t, vswitch.Config{Ports: ports})
 
-			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			res := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			if got := res.Metadata.Status(); got != test.wantStatus {
 				t.Fatalf("hub status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
@@ -67,7 +67,7 @@ func TestBridgeFloodCompletenessUsesEligibleButNotIrrelevantUnknownPorts(t *test
 				Add(port.Port{Name: "out", Kind: port.Physical, AdminStatus: port.Up, OperStatus: test.state}))
 			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 
-			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			res := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			if got := res.Metadata.Status(); got != test.wantStatus {
 				t.Fatalf("bridge status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
@@ -94,7 +94,7 @@ func TestBridgeFloodCompletenessUsesEligibleButNotIrrelevantUnknownPorts(t *test
 			},
 		}}})
 
-		res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+		res := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 		if got := res.Metadata.Status(); got != analysis.Complete {
 			t.Fatalf("bridge status = %s, want %s; issues: %+v", got, analysis.Complete, res.Metadata.Issues())
 		}
@@ -122,7 +122,7 @@ func TestKnownBridgeEgressUsesItsOwnPortState(t *testing.T) {
 			sw := mustSwitch(t, vswitch.Config{Ports: ports, Bridge: &bridge.Config{}})
 			mustSwitchLearn(t, sw, []bridge.Seed{{MAC: macH2, Port: "out", Lifetime: bridge.Static}})
 
-			res := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+			res := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			if got := res.Metadata.Status(); got != test.wantStatus {
 				t.Fatalf("bridge status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
@@ -169,7 +169,7 @@ func TestRoutedEgressCompletenessUsesConsultedPortState(t *testing.T) {
 				Payload:   makeIPv4Packet(t, ipH1, ipH2, 64, []byte("payload")),
 			}
 
-			res := sw.Forward(fixedTime, "in", frame)
+			res := sw.Receive(fixedTime, "in", frame)
 			if got := res.Metadata.Status(); got != test.wantStatus {
 				t.Fatalf("routed status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
 			}
@@ -182,7 +182,7 @@ func TestRoutedEgressCompletenessUsesConsultedPortState(t *testing.T) {
 	}
 }
 
-func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult) {
+func assertSingleUnknownPortIssue(t *testing.T, res vswitch.Output) {
 	t.Helper()
 	if !traceHasFactType(res.Steps, "port.forwarding") {
 		t.Errorf("unknown-port trace has no port forwarding fact: %+v", res.Steps)
@@ -196,94 +196,6 @@ func assertSingleUnknownPortIssue(t *testing.T, res vswitch.ForwardResult) {
 	}
 	if want := analysis.PortScope("", "out"); issues[0].Scope.Compare(want) != 0 {
 		t.Errorf("issue scope = %s, want %s", issues[0].Scope, want)
-	}
-}
-
-func TestComposeForwardResultUsesSwitchOwnedDependencyMetadata(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "member", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "unrelated", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	catalog := analysis.EvidenceCatalog{}
-	issues := make([]analysis.Issue, 0, 5)
-	for _, scoped := range []struct {
-		name  string
-		scope analysis.Scope
-	}{
-		{name: "node", scope: analysis.NodeScope("sw1")},
-		{name: "member", scope: analysis.PortScope("sw1", "member")},
-		{name: "lag", scope: analysis.PortScope("sw1", "lag1")},
-		{name: "missing", scope: analysis.PortScope("sw1", "missing")},
-		{name: "unrelated", scope: analysis.PortScope("sw1", "unrelated")},
-	} {
-		var ref trace.EvidenceRef
-		catalog, ref = catalog.Add(analysis.Evidence{
-			Kind:    "snapshot",
-			Origin:  scoped.name,
-			Context: "conflicting loaded state",
-		})
-		issues = append(issues, analysis.Issue{
-			Code:     analysis.IssueCode("test." + scoped.name),
-			Status:   analysis.Unsupported,
-			Scope:    scoped.scope,
-			Message:  scoped.name + " is unsupported",
-			Evidence: []trace.EvidenceRef{ref},
-		})
-	}
-	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-		Config: vswitch.Config{Ports: ports},
-		NodeID: "sw1",
-		Metadata: analysis.NewMetadata(
-			analysis.NodeScope("sw1"),
-			issues,
-			catalog,
-			nil,
-		),
-	})
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
-	}
-
-	member := sw.ComposeForwardResult(bridge.Result{Ingress: "member"}, "member")
-	if member.Metadata.Status() != analysis.Unsupported {
-		t.Fatalf("member status = %s, want Unsupported", member.Metadata.Status())
-	}
-	wantMemberCodes := map[analysis.IssueCode]bool{
-		"test.node":   false,
-		"test.member": false,
-		"test.lag":    false,
-	}
-	for _, issue := range member.Metadata.Issues() {
-		if _, ok := wantMemberCodes[issue.Code]; !ok {
-			t.Errorf("member result contains unrelated issue %q", issue.Code)
-			continue
-		}
-		wantMemberCodes[issue.Code] = true
-		if len(issue.Evidence) != 1 {
-			t.Errorf("issue %q evidence = %+v, want one reference", issue.Code, issue.Evidence)
-		}
-	}
-	for code, found := range wantMemberCodes {
-		if !found {
-			t.Errorf("member result missing issue %q", code)
-		}
-	}
-
-	missing := sw.ComposeForwardResult(bridge.Result{Ingress: "missing"}, "missing")
-	if missing.Metadata.Status() != analysis.Unsupported {
-		t.Fatalf("missing status = %s, want Unsupported", missing.Metadata.Status())
-	}
-	foundMissingEvidence := false
-	for _, issue := range missing.Metadata.Issues() {
-		if issue.Code == "test.missing" && len(issue.Evidence) == 1 {
-			foundMissingEvidence = true
-		}
-		if issue.Code == "test.unrelated" || issue.Code == "test.member" || issue.Code == "test.lag" {
-			t.Errorf("missing result contains unrelated issue %q", issue.Code)
-		}
-	}
-	if !foundMissingEvidence {
-		t.Errorf("missing ingress result lacks its loaded issue evidence: %+v", missing.Metadata.Issues())
 	}
 }
 
@@ -567,29 +479,6 @@ func TestNegativeSubInterfaceTagMissRetainsScopedUncertainty(t *testing.T) {
 	}
 }
 
-func TestComposeForwardResultTreatsMissingDependencyAsUnknown(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "present", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	sw := mustSwitch(t, vswitch.Config{Ports: ports})
-
-	res := sw.ComposeForwardResult(bridge.Result{}, "missing")
-	if got := res.Metadata.Status(); got != analysis.Incomplete {
-		t.Fatalf("status = %s, want %s; issues: %+v", got, analysis.Incomplete, res.Metadata.Issues())
-	}
-	issues := res.Metadata.Issues()
-	if len(issues) != 1 {
-		t.Fatalf("issues = %+v, want one missing-dependency issue", issues)
-	}
-	wantScope := analysis.PortScope("", "missing")
-	if issues[0].Code != "unknown-operational-status" || issues[0].Scope.Compare(wantScope) != 0 {
-		t.Errorf("issue = %+v, want unknown-operational-status at %s", issues[0], wantScope)
-	}
-	consulted := res.ConsultedPorts()
-	if len(consulted) != 1 || consulted[0].AdminStatus != port.Unknown || consulted[0].OperStatus != port.Unknown {
-		t.Errorf("consulted ports = %+v, want missing placeholder with explicit Unknown states", consulted)
-	}
-}
-
 func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "present", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -646,12 +535,12 @@ func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 	for _, test := range tests {
 		for _, operation := range []struct {
 			name string
-			run  func(*vswitch.Switch) vswitch.ForwardResult
+			run  func(*vswitch.Switch) vswitch.Output
 		}{
-			{name: "Forward", run: func(sw *vswitch.Switch) vswitch.ForwardResult {
-				return sw.Forward(fixedTime, "missing", test.frame)
+			{name: "Receive", run: func(sw *vswitch.Switch) vswitch.Output {
+				return sw.Receive(fixedTime, "missing", test.frame)
 			}},
-			{name: "Peek", run: func(sw *vswitch.Switch) vswitch.ForwardResult {
+			{name: "Peek", run: func(sw *vswitch.Switch) vswitch.Output {
 				return sw.Peek(fixedTime, "missing", test.frame)
 			}},
 		} {
@@ -670,7 +559,7 @@ func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 	}
 }
 
-func assertMissingIngressDependency(t *testing.T, res vswitch.ForwardResult, loadedRef trace.EvidenceRef) {
+func assertMissingIngressDependency(t *testing.T, res vswitch.Output, loadedRef trace.EvidenceRef) {
 	t.Helper()
 
 	consulted := res.ConsultedPorts()
@@ -718,107 +607,6 @@ func assertMissingIngressDependency(t *testing.T, res vswitch.ForwardResult, loa
 	}
 }
 
-func TestForwardingMetadataDoesNotOverstateLoadedCoverage(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "p1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
-		Add(port.Port{Name: "p2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-
-	tests := []struct {
-		name             string
-		loadedScope      analysis.Scope
-		dependencies     []string
-		wantStatus       analysis.Status
-		wantCoveragePort string
-	}{
-		{name: "child scope excludes consulted sibling", loadedScope: analysis.PortScope("sw1", "p1"), dependencies: []string{"p2"}, wantStatus: analysis.Incomplete, wantCoveragePort: "p2"},
-		{name: "child scope covers consulted port", loadedScope: analysis.PortScope("sw1", "p1"), dependencies: []string{"p1"}, wantStatus: analysis.Complete},
-		{name: "child scope with no dependencies", loadedScope: analysis.PortScope("sw1", "p1"), wantStatus: analysis.Complete},
-		{name: "node scope covers sibling", loadedScope: analysis.NodeScope("sw1"), dependencies: []string{"p2"}, wantStatus: analysis.Complete},
-		{name: "whole scope covers sibling", loadedScope: analysis.WholeScope(), dependencies: []string{"p2"}, wantStatus: analysis.Complete},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-				Config:   vswitch.Config{Ports: ports},
-				NodeID:   "sw1",
-				Metadata: analysis.NewMetadata(test.loadedScope, nil, analysis.EvidenceCatalog{}, nil),
-			})
-			if err != nil {
-				t.Fatalf("NewWithSpec: %v", err)
-			}
-
-			res := sw.ComposeForwardResult(bridge.Result{}, test.dependencies...)
-			if got := res.Metadata.Status(); got != test.wantStatus {
-				t.Fatalf("status = %s, want %s; issues: %+v", got, test.wantStatus, res.Metadata.Issues())
-			}
-			if got := res.Metadata.Scope(); got.Compare(analysis.NodeScope("sw1")) != 0 {
-				t.Errorf("scope = %s, want %s", got, analysis.NodeScope("sw1"))
-			}
-			issues := res.Metadata.Issues()
-			if test.wantCoveragePort == "" {
-				if len(issues) != 0 {
-					t.Errorf("issues = %+v, want none", issues)
-				}
-				return
-			}
-			if len(issues) != 1 {
-				t.Fatalf("issues = %+v, want one coverage issue", issues)
-			}
-			wantScope := analysis.PortScope("sw1", test.wantCoveragePort)
-			if issues[0].Code != "forwarding-dependency-outside-loaded-scope" || issues[0].Scope.Compare(wantScope) != 0 {
-				t.Errorf("coverage issue = %+v, want scoped issue at %s", issues[0], wantScope)
-			}
-		})
-	}
-}
-
-func TestNamedSwitchKeepsWholeConstructionMetadataWithoutPortDependencies(t *testing.T) {
-	ports := mustTable(t, port.NewBuilder().
-		Add(port.Port{Name: "in", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	catalog, ref := analysis.EvidenceCatalog{}.Add(analysis.Evidence{
-		Kind:    "snapshot",
-		Origin:  "inventory",
-		Context: "switch-wide state was unavailable",
-	})
-	metadata := analysis.NewMetadata(
-		analysis.NodeScope("sw1"),
-		[]analysis.Issue{{
-			Code:     "test.whole",
-			Status:   analysis.Unsupported,
-			Scope:    analysis.WholeScope(),
-			Message:  "the source could not model switch-wide state",
-			Evidence: []trace.EvidenceRef{ref},
-		}},
-		catalog,
-		[]analysis.Assumption{{
-			Scope:     analysis.WholeScope(),
-			Statement: "the unavailable state affects every switch result",
-			Evidence:  []trace.EvidenceRef{ref},
-		}},
-	)
-	sw, err := vswitch.NewWithSpec(vswitch.ConstructionSpec{
-		Config: vswitch.Config{Ports: ports}, NodeID: "sw1", Metadata: metadata,
-	})
-	if err != nil {
-		t.Fatalf("NewWithSpec: %v", err)
-	}
-
-	res := sw.ComposeForwardResult(bridge.Result{})
-	if got := res.Metadata.Status(); got != analysis.Unsupported {
-		t.Errorf("status = %s, want Unsupported", got)
-	}
-	if issues := res.Metadata.Issues(); len(issues) != 1 || issues[0].Code != "test.whole" {
-		t.Errorf("issues = %+v, want whole-scope construction issue", issues)
-	}
-	if assumptions := res.Metadata.Assumptions(); len(assumptions) != 1 || assumptions[0].Statement == "" {
-		t.Errorf("assumptions = %+v, want whole-scope construction assumption", assumptions)
-	}
-	if _, ok := res.Metadata.Evidence().Lookup(ref); !ok {
-		t.Errorf("evidence = %+v, want %q", res.Metadata.Evidence().Entries(), ref)
-	}
-}
-
 func TestMirrorOutputDropUsesIngressDependencyMetadata(t *testing.T) {
 	ports := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "mirror", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Unknown}))
@@ -854,7 +642,7 @@ func TestMirrorOutputDropUsesIngressDependencyMetadata(t *testing.T) {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	res := sw.Forward(fixedTime, "mirror", ethernet.Frame{Src: macH1, Dst: macH2})
+	res := sw.Receive(fixedTime, "mirror", ethernet.Frame{Src: macH1, Dst: macH2})
 	if res.Reason != traffic.ReasonMirrorOutput {
 		t.Fatalf("reason = %s, want %s", res.Reason, traffic.ReasonMirrorOutput)
 	}

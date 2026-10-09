@@ -112,6 +112,13 @@ both initialized to the group budget.
 `subSat` saturates subtraction at zero. `GroupAllocation` exposes both
 `RemainderMinNanowatts` and `RemainderMaxNanowatts`.
 
+PSE groups allocate against their nominal capacity, which
+`spec/mib/ietf/POWER-ETHERNET-MIB:420` defines as `pethMainPsePower`. Class
+power comes from `classPowerLevels` in `poe.go`: classes 0 and 3 draw 15.4 W,
+class 1 draws 4.0 W, class 2 draws 7.0 W, class 4 draws 30.0 W, and classes 5
+through 8 draw 45 W, 60 W, 75 W, and 90 W. Those values are unverified against
+IEEE Std 802.3 (see Limits).
+
 ## Sources
 
 - UNH: UNH-IOL Clause 28 Auto-Negotiation Management System Test Suite,
@@ -126,3 +133,14 @@ both initialized to the group budget.
   one stays unsupported.
 - The class power table (`classPowerLevels` in `poe.go`) is unverified against
   IEEE Std 802.3.
+
+## Denied PoE port status
+
+The exported `PoeFacet.status` follows the allocation: a powered port is
+`DELIVERING_POWER`. A port with no attached device, or one denied for the
+group's budget or its own limit, is `SEARCHING`, the state RFC 3621's
+`pethPsePortDetectionStatus` gives a PSE port that is enabled and probing
+for a device, which fits a port that would be powered when capacity returns.
+A port whose delivery is disabled is `DISABLED`. A device of a class the
+port cannot source is `FAULT`. A port with no attached device exports no
+`power_class` and draws nothing from the budget ([PoE export](../../netmodel/export.go)).

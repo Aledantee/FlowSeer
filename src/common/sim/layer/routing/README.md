@@ -375,7 +375,13 @@ lookup forwards and starts Delay. Delay and Probe forward on the cached
 MAC. Probes send to that MAC, and for IPv6 to the target IP address.
 `NextWake` reports the earliest Incomplete, Delay, or Probe deadline.
 
-`Receive(now, iface, frame)` processes only frames addressed to the
+`Receives(iface, frame)` tests the destination before decoding. ARP addressed
+to the interface MAC or broadcast is admitted even with an undecodable
+payload. IPv6 requires Next Header 58 immediately followed by a Neighbor
+Solicitation or Advertisement. A hop-by-hop header before ICMPv6 is refused
+([receive_test.go](receive_test.go)).
+
+`Receive(now, iface, frame)` applies that predicate and processes frames addressed to the
 interface's MAC, ARP broadcast, or IPv6 all-nodes and local solicited-node
 MACs. [ndp.Decode](../../../net/ndp/ndp.go) checks hop limit 255, checksum,
 code zero, minimum message length, a unicast target, and option lengths up
@@ -462,8 +468,8 @@ solicits or holds a frame for an absent binding.
 
 ### Limits
 
-- Neither `Receive` nor `ndp.Decode` checks IPv6 Next Header 58. The
-  [switch reception predicate](../../device/vswitch/switch.go) checks it.
+- `Receives` requires IPv6 Next Header 58 directly in the base header.
+  Reception does not follow extension headers ([receive.go](receive.go)).
 - `ndp.Decode` stops option validation at the first matching link-layer
   option. Options after it are unchecked, unlike RFC 4861 section 7.1.
 - The layer returns no ICMP error for any drop, including no-route, hop

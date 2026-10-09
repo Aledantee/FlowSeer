@@ -147,7 +147,7 @@ synthesis decisions:
 The construction specification contains normalized configuration, executable
 seeds, the source device identity, and an immutable copy of the loading metadata.
 Building a switch with `vswitch.NewWithSpec(res.Spec)` therefore carries scoped
-loading conflicts, skips, assumptions, and their evidence into later `Forward`
+loading conflicts, skips, assumptions, and their evidence into later forwarding
 results. The detailed loading report remains on `Result` because it describes the
 translation rather than runtime forwarding.
 
@@ -188,3 +188,23 @@ whichever claimant happened to load first. Two VLAN-kind interfaces
 reporting the same VLAN id contest a separate namespace, since neither one
 resolves to a port: the same conflict code is recorded on the VLAN's own
 lookup scope instead, and again neither claimant reaches the VRF.
+
+## Loader defaults
+
+When importing from network model protobuf messages, `netmodel.Load` populates
+omitted values with standard defaults and records each in the `Report`:
+
+| Field               | Default value    | Standard or source                  |
+| ------------------- | ---------------- | ----------------------------------- |
+| `aging_time`        | 300s             | BRIDGE-MIB:778 dot1dTpAgingTime     |
+| `frame_admission`   | `admitAll`       | Q-BRIDGE-MIB:1413 AcceptableFrame   |
+| `ingress_filtering` | `false`          | Q-BRIDGE-MIB:1437 IngressFiltering  |
+| `pvid`              | untagged VLAN ID | Port has exactly one untagged VID   |
+| `qinq_ethtype`      | 0x88A8           | Open vSwitch qinq-ethtype, 802.1ad  |
+| `mtu`               | unlimited (0)    | Loader fallback when MTU is absent  |
+| `tx_hold_count`     | 6                | RSTP-MIB:73 dot1dStpTxHoldCount     |
+| `max_class`         | 8                | No net/phy message carries one      |
+| `priority`          | none (last)      | PoeSettings without a priority      |
+| `power_nanowatts`   | 0 nW             | PseBudget without a budget          |
+| `bond_mode`         | `active-backup`  | Open vSwitch bond_mode default      |
+| `lacp`              | `off`            | Open vSwitch lacp default           |

@@ -220,9 +220,12 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 	bpduDec := expectedFact("stp.bpdu_decision",
 		`bpdu={version=2;type=0;flags=14;root="4096/02:00:00:00:08:01";root_cost=0;bridge="4096/02:00:00:00:08:01";port_id=32769;message_age=0;max_age=20000000000;hello=2000000000;forward_delay=15000000000};before={tree_kind="CIST";tree_id=0;role="Designated";state="Discarding";block_reason="";priority=128;path_cost=20000;designated_root="8192/02:00:00:00:08:02";designated="8192/02:00:00:00:08:02";designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;tx_bpdus=1;rx_bpdus=0;bad_bpdus=0;send_rstp=true};after={tree_kind="CIST";tree_id=0;role="Root";state="Forwarding";block_reason="";priority=128;path_cost=20000;designated_root="4096/02:00:00:00:08:01";designated="4096/02:00:00:00:08:01";designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=2;rx_bpdus=1;bad_bpdus=0;send_rstp=true}`)
 
+	bpduTransition := expectedFact("stp.bpdu_decision",
+		`port="1/1/1";action="bpdu";before={tree_kind="CIST";tree_id=0;role="Designated";state="Discarding";block_reason="";priority=128;path_cost=20000;designated_root="8192/02:00:00:00:08:02";designated="8192/02:00:00:00:08:02";designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=0;tx_bpdus=1;rx_bpdus=0;bad_bpdus=0;send_rstp=true};after={tree_kind="CIST";tree_id=0;role="Root";state="Forwarding";block_reason="";priority=128;path_cost=20000;designated_root="4096/02:00:00:00:08:01";designated="4096/02:00:00:00:08:01";designated_port=32769;designated_cost=0;point_to_point=true;edge=false;forward_transitions=1;tx_bpdus=2;rx_bpdus=1;bad_bpdus=0;send_rstp=true}`)
+
 	step := expectedStep("stp", trace.OpClassify, "stp.bpdu.admit", trace.Subject{Kind: "port", Key: "1/1/1"},
 		[]FactExpectation{bpduIn},
-		[]FactExpectation{bpduDec})
+		[]FactExpectation{bpduDec, bpduTransition})
 
 	var cat analysis.EvidenceCatalog
 	evidence := analysis.Evidence{
@@ -264,7 +267,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 		ExpectedSubjects: []trace.Subject{
 			{Kind: "port", Key: "1/1/1"},
 		},
-		ExpectedFacts: []FactExpectation{bpduIn, bpduDec},
+		ExpectedFacts: []FactExpectation{bpduIn, bpduDec, bpduTransition},
 		ExpectedSteps: []StepExpectation{step},
 		Execute: func() (ExecutionResult, error) {
 			gigabit := gigabitAuto()

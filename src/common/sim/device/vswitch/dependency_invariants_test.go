@@ -98,7 +98,7 @@ func TestFDBDependencyInvariantAcrossLearningAndLookup(t *testing.T) {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
 
-			result := sw.Forward(fixedTime, "1/1/1", test.frame(t))
+			result := sw.Receive(fixedTime, "1/1/1", test.frame(t))
 			if test.wantCode == "" {
 				if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
 					t.Fatalf("unrelated forwarding metadata = %s %+v, want Complete", result.Metadata.Status(), result.Metadata.Issues())
@@ -150,7 +150,7 @@ func TestBoundedFDBLearningConsultsTableState(t *testing.T) {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
 
-			result := sw.Forward(fixedTime, "1/1/1", ethernet.Frame{
+			result := sw.Receive(fixedTime, "1/1/1", ethernet.Frame{
 				Src: newSourceMAC, Dst: destinationMAC,
 			})
 			if test.wantUnstable {
@@ -174,32 +174,32 @@ func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
 
 	for _, path := range []struct {
 		name string
-		run  func(*testing.T, string, analysis.Metadata) vswitch.ForwardResult
+		run  func(*testing.T, string, analysis.Metadata) vswitch.Output
 	}{
 		{
 			name: "hub",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.ForwardResult {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, nil, nil, 0)
-				return sw.Forward(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
+				return sw.Receive(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
 			},
 		},
 		{
 			name: "mirror",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.ForwardResult {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
 				const outputVLAN vlan.ID = 99
 				trafficConfig := &traffic.Config{Mirrors: []traffic.Mirror{{
 					Name: "span", SelectSrcPorts: []string{"in"}, OutputVLAN: new(outputVLAN),
 				}}}
 				seeds := []bridge.Seed{{FID: 10, MAC: macH2, Port: "out", Lifetime: bridge.Static}}
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, trafficConfig, seeds, outputVLAN)
-				return sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+				return sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 			},
 		},
 		{
 			name: "LACP",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.ForwardResult {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, nil, nil, 0)
-				return sw.Forward(fixedTime, "member", ethernet.Frame{
+				return sw.Receive(fixedTime, "member", ethernet.Frame{
 					EtherType: ethernet.EtherTypeSlowProtocols,
 					Payload:   []byte{1},
 				})
@@ -265,7 +265,7 @@ func TestAggregatorDependencyExcludedBeforePhysicalShortCircuit(t *testing.T) {
 				t.Fatalf("NewWithSpec: %v", err)
 			}
 
-			result := sw.Forward(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
+			result := sw.Receive(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
 			if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
 				t.Fatalf("metadata = %s %+v, want Complete physical-port short circuit", result.Metadata.Status(), result.Metadata.Issues())
 			}
@@ -298,7 +298,7 @@ func TestAggregatorDependencyExcludedBeforeAggregateEgressSelection(t *testing.T
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	result := sw.Forward(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
+	result := sw.Receive(fixedTime, "in", ethernet.Frame{Src: macH1, Dst: macH2})
 	if result.Metadata.Status() != analysis.Complete || len(result.Metadata.Issues()) != 0 {
 		t.Fatalf("metadata = %s %+v, want Complete aggregate-port short circuit", result.Metadata.Status(), result.Metadata.Issues())
 	}
@@ -328,7 +328,7 @@ func TestLACPConsultsAggregatorAfterPhysicalAdmission(t *testing.T) {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
 
-	result := sw.Forward(fixedTime, "member", ethernet.Frame{
+	result := sw.Receive(fixedTime, "member", ethernet.Frame{
 		EtherType: ethernet.EtherTypeSlowProtocols,
 		Payload:   []byte{1},
 	})

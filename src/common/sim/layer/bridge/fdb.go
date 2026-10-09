@@ -132,13 +132,13 @@ func (b *Layer) Flush(targets []layer.FlushTarget) {
 	}
 }
 
-// Learn validates and preloads the forwarding database with the provided seeds. A seed naming a
+// InstallSeeds validates and preloads the forwarding database with the provided seeds. A seed naming a
 // LAG member is stored under the LAG, as the relay learns it, so a later lookup
 // treats the aggregation as one port. Invalid or duplicate seeds leave the table unchanged.
 // Aging seeds count as learned and are bounded by MaxEntries, evicting the
 // oldest dynamic entry when the table exceeds the bound. An aging seed for an existing
 // static entry changes nothing. Static seeds count nothing.
-func (b *Layer) Learn(seeds []Seed) error {
+func (b *Layer) InstallSeeds(seeds []Seed) error {
 	normalized, err := NormalizeSeeds(b.cfg, layer.Env{Ports: b.ports}, seeds)
 	if err != nil {
 		return err

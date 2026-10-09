@@ -175,7 +175,8 @@ Every analysis evaluation separates four orthogonal axes:
    checks. Invalid inputs (such as non-existent port references or malformed
    VLAN IDs) are rejected with a Go `error` before simulation begins.
 2. **Domain outcome**: What the simulated dataplane did with the frame:
-   `Forwarded`, `Flooded`, `Dropped`, or `Consumed`, along with a domain reason
+   `Forwarded`, `Flooded`, `Dropped`, `Consumed`, or `Held` (queued on an
+   unresolved neighbor), along with a domain reason
    (such as `ingress-filter`, `port-down`, or `unicast-hit`).
 3. **Analysis readiness**: The trust placed in the answer: `Complete`,
    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, derived from an
@@ -233,18 +234,26 @@ the state between two devices is what this operation exists to show.
 `Fork`'s copy rule follows from what each field is, not from a rule written
 once and trusted. Construction fixes some fields and execution mutates the
 rest, so every field of `Switch`, `Bridge`, and `Fabric` carries one of three
-classes. An `immutableShared` field is unwritten after construction; the
+classes. An `immutableShared` field is unwritten after construction. The
 fork points at the same value the source does. A `deepCopied` field is
-mutated by execution; the fork gets its own copy the source's later writes
-cannot reach. A `resetOnFork` field is a binding back to the switch or
-bridge that holds it — the bridge's spanning-tree gate, its LAG selector,
-its multicast resolver — and is rebound to the fork's own layers rather than
-copied, because a copied binding would have the fork asking the source for a
-LAG member or a multicast resolution. Each class has its own assertion:
-pointer identity for the first, a mutation probe for the second, a
-zero-value check for the third before the switch rebinds it. A table
-recording a class per field and never checking it back is a defect this
-phase has already seen once; see [one slot, two
+mutated by execution. The fork gets its own copy the source's later writes
+cannot reach. `Switch.Fork` loops over the table in
+`src/common/sim/device/vswitch/layers.go` to clone each layer, including the
+packet filter, then applies the table's relay bindings to those clones.
+A `resetOnFork` field is left at its zero value in the fork. Two kinds
+exist. A binding back to the switch or bridge that holds it (the bridge's
+spanning-tree gate, its LAG selector, its multicast resolver) is rebound to
+the fork's own layers rather than copied, because a copied binding would have
+the fork asking the source for a LAG member or a multicast resolution. The
+switch's active `call` is nil between public entries, so a fork starts
+without one. Each class has its own assertion:
+pointer identity and equality of value fields for the first, a mutation probe
+for the second, a zero-value check for the third before the switch rebinds it. A table
+classifies only fields populated on at least one source fixture, with an
+explicit reason for a field that is zero between calls. The switch gate in
+`fork_internal_test.go` uses populated layers and a separate no-spanning-tree
+fixture with scoped trust metadata. Recording a class per field and never
+checking it back is a defect. See [one slot, two
 roles](../solutions/architecture-patterns/one-slot-two-roles-is-a-defect-class-not-a-defect.md).
 
 An `ethernet.Frame` is an immutable value: nothing in the library writes
@@ -281,10 +290,18 @@ layer. The bridge filtering database is reseeded per eligible dynamic entry
 ([`derive.go`](../../src/common/sim/device/vswitch/derive.go)).
 Multicast restores state per entry on VLANs both
 layers snoop, restricted to target logical ports admitted by the switch's
-port forwarding, VLAN membership, and spanning-tree predicate. Its key names
+port forwarding and VLAN membership. Spanning tree gates egress when a
+frame arrives and never decides which membership Derive retains. Its key names
 only the difference in the retention report. `mcast.Layer.Restore` copies
 the whole group state and each observed router port with their deadlines,
 while the target's static router ports take precedence.
+`Kept` means key equality for a layer carried whole and for traffic.
+Multicast and the bridge are carried per record and report kept when no
+source record is absent afterwards. The bridge counts keys missing after
+reseed, including capacity evictions. A lost record with equal keys names
+`config`. An absent layer on both sides is kept. Filter is rebuilt from
+configuration and reports key equality because it holds no runtime record.
+
 Dependency keys are computed from constructed switches, never from a raw target
 specification, because a raw spec has not yet run through the normalization
 and MAC assignment that decide what a field becomes; see [validate and
@@ -397,10 +414,10 @@ A caller compares a current network or switch against a candidate to detect
 regressions and verify equivalence. Comparison evaluates behavioral observables
 rather than whole-state fingerprints or shallow boolean equality:
 
-- **Switch observables.** For `vswitch.ForwardResult`, comparison checks
+- **Switch observables.** For `vswitch.Output`, comparison checks
   forwarded frames per egress port with rewritten fields, the selected LAG
-  member, mirror copies, PCP, and the typed forwarding outcome (`Forwarded`,
-  `Flooded`, `Dropped`, or `Consumed`, with domain reason). Semantic trace
+  member, mirror copy VLAN, selected member and frame content, PCP, and the typed forwarding outcome (`Forwarded`,
+  `Flooded`, `Dropped`, `Consumed`, or `Held`, with domain reason). Semantic trace
   steps and metadata are diagnostic and never cause a `Different` verdict.
 - **Fabric observables.** Per paired journey in `fabric.Journey`, comparison
   checks `State`, `Origin`, ordered `Entries` (path hops, cable crossings,
@@ -549,7 +566,7 @@ bounded equivalence under a resource contract:
   only the group timer. MLD reports may come from `::` under RFC 4541 §3,
   while queries and Done require a link-local source
   (`src/common/sim/layer/mcast/state.go`,
-  `src/common/sim/device/vswitch/switch.go`).
+  `src/common/sim/device/vswitch/mcast.go`).
 
 ### Spanning-tree information lifetime, guards, and the gate
 
@@ -817,7 +834,7 @@ bounded equivalence under a resource contract:
   modulo-N because a withdrawn or added path must move as few flows as
   possible: "which flows move when this path fails" is answered wrongly by an
   algorithm that moves nearly all of them. The hash is a pure function of the
-  packet, so `Peek` and `Forward` agree and neither commits anything.
+  packet, so `Peek` and `Receive` agree and neither commits anything.
 - **Recursion resolves when the table is built, and a route that cannot
   resolve is withdrawn rather than left to fail per packet.** A static route
   whose next hop is not on-link is resolved against its own VRF's table, to a
@@ -870,9 +887,9 @@ Amendment 2026-10-07: sending and reception are implemented in
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
-  frame instead of dropping it, bounded by a configured hold depth; the
-  `Forward` that observes the advertisement resolving that neighbor releases
-  the frames that observation freed, and `Switch.Wake` settles a resolution
+  frame instead of dropping it, bounded by a configured hold depth. The
+  `Receive` that observes the advertisement resolving that neighbor releases
+  the frames that observation freed, and `Switch.Advance` settles a resolution
   timeout, the same call that fires spanning tree hellos and LACP timers. A
   resolved entry releases its held frames as ordinary emissions, and a
   timed-out one reports them dropped with `neighbor-miss`. `Emission`
@@ -881,6 +898,21 @@ Amendment 2026-10-07: sending and reception are implemented in
   BPDU, an LACPDU, a Marker response, a loop-protect probe, or a routing
   solicitation, probe, or answer. The fabric seam that injects emissions needs
   to tell a held user frame apart from a frame the switch originated.
+  On release, the switch evaluates the current ingress binding with the held
+  frame's ingress interface, resolves a deferred decision against its egress
+  interface, and evaluates the egress binding. A refusal carries the filter's
+  reason and steps in `NeighborDrop`. An originated frame meets only the
+  egress binding. This also applies after a derive changes the filter while
+  retaining the routing hold queue
+  (`TestHeldFrameMeetsDerivedIngressFilter` in
+  `src/common/sim/device/vswitch/filter_test.go`).
+  `Output.Hold` is the routing result's token for a held frame. A later
+  `Emission.Hold` or `NeighborDrop.Hold` carries the same token, alongside
+  the held frame's `Ingress`. Protocol emissions carry a zero token.
+  Live and released frames share `putRoutedFrame` in
+  `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
+  priority agree. The fabric transmits a release on that selected member
+  (`src/common/sim/fabric/run.go:injectEmission`).
 
 ### Semantic traces and producer-owned facts
 
@@ -1081,3 +1113,50 @@ to target static configuration. The target's intervals govern later learning.
 its independence. `TestDeriveKeepsSourceSpecificMulticast` in
 `src/common/sim/device/vswitch/derive_internal_test.go` checks that an unrelated
 VLAN edit keeps `INCLUDE {10.0.0.9}` and its forwarding result.
+
+### 2026-10-08: Derivation reports record loss
+
+[`derive.go`](../../src/common/sim/device/vswitch/derive.go) carries layers
+through the shared table. Multicast restoration excludes the spanning tree
+predicate. Bridge and multicast verdicts count lost records, while whole
+layers and traffic compare keys. `Retention` includes bridge and filter.
+`Forget` removes construction seeds as well as the active FDB entry.
+
+### 2026-10-08: Comparison reads mirror content
+
+[`compare.go`](../../src/common/sim/device/vswitch/compare.go) compares
+returned copies by mirror, port, VLAN, member, and frame. Trace facts are
+diagnostic. An incomplete side makes the disposition inconclusive even
+when a behavioral difference is found, and the difference remains visible.
+
+### 2026-10-08: Fork clones every layer through the layer table
+
+`Switch.Fork` clones each present layer, the packet filter included, through
+the table in `src/common/sim/device/vswitch/layers.go`, then rebinds the
+bridge's gate, selector, and resolver to the clones. The field classification
+in `fork_internal_test.go` runs over populated fixtures, and an
+`immutableShared` struct is checked by value as well as by pointer.
+`TestForkKeepsTheFilter` in `src/common/sim/device/vswitch/fork_test.go` checks
+that a fork keeps its bound filter.
+
+### 2026-10-08: Receive and advance return their output
+
+`Peek`, `Start`, `Mcheck`, and `Derive` return `Output` directly, and
+`LinkChange` returns it with an error for an absent port or invalid link state.
+The switch holds no pending emissions, copies, or neighbor failures between
+calls (`TestSwitchHoldsNoPendingOutput` in
+`src/common/sim/device/vswitch/switch_internal_test.go`). `Receive` and `Advance` settle the layer
+timers due at their instant, and the `Receive` that evicts a held frame reports
+the drop in its own `Output`.
+
+### 2026-10-08: Held frames meet the filter at release
+
+A held frame leaves through the same routed egress as a live one
+(`putRoutedFrame` in `src/common/sim/device/vswitch/route.go`), so its port,
+selected LAG member, tags, and priority agree. At release the switch evaluates
+the current ingress binding, resolves a deferred decision against the egress
+interface, and evaluates the egress binding. An originated frame meets the
+egress binding alone. `Output.Hold`, `Emission.Hold`, and `NeighborDrop.Hold`
+carry one token for a held frame, with its ingress interface, and the fabric
+transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
+`src/common/sim/device/vswitch/filter_test.go` checks the filtering.

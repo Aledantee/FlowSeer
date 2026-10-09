@@ -14,6 +14,11 @@ checks the tagged and untagged forms on transmission ports.
 A caller runs `Ingress(now, port, frame, learn, commit)`, then `Egress(in,
 frame)` if ingress succeeds. `learn` permits FDB writes. `commit` determines
 whether the later LAG selection mutates its bound selector.
+For deferred learning, an admitted descriptor from `Ingress` with `learn`
+false passes to `Learn(in, frame)`. It reuses the classification and learning
+gate decision, preserving entries, counters, trace steps, and consulted
+scopes ([ingress_learn_test.go](ingress_learn_test.go)). A learning-only
+port still learns and refuses during `Ingress` with `learn` true.
 `EgressTo` applies the replication rules to a supplied logical port list.
 An `Ingress` with an empty `Port` represents a locally originated frame,
 so every otherwise eligible port can transmit it. `OriginateFrame` applies
@@ -122,7 +127,7 @@ With VLAN awareness, at least one switchport must carry the VID, per Q2003 8.8 d
 That port can differ from the ingress port. VLAN-unaware learning uses FID
 0. Flood VLANs disable learning.
 
-`Learn` validates the entire seed slice before writes. Aging seeds count as
+`InstallSeeds` validates the entire seed slice before writes. Aging seeds count as
 learned when inserted. An aging seed for an existing static key changes
 nothing and counts nothing, preserving the static control required by
 Q2003 8.10.1 c 1 and Table 8-5. Seed validation is in [seed.go](seed.go).
@@ -215,7 +220,7 @@ Tests are grouped by subject in `config_test.go`,
 `layer_test.go`, `diff_test.go`, and `group_resolver_test.go`.
 Shared fixtures and doubles live in [helpers_test.go](helpers_test.go).
 `fork_internal_test.go`, `diff_coverage_test.go`, `dependency_test.go`,
-and `ingress_admission_test.go` check cross-cutting contracts.
+`ingress_admission_test.go`, and `ingress_learn_test.go` check cross-cutting contracts.
 `export_test.go` supplies forwarding helpers only to tests.
 
 ## Limits
@@ -226,12 +231,14 @@ and `ingress_admission_test.go` check cross-cutting contracts.
 - VLAN membership comes from configuration. Q2003 8.10.9 combines static
   and dynamic registration. Group membership arrives through the resolver.
 - A port without a PVID drops untagged ingress as `no-pvid`. Q2003 8.4.4
-  supplies a PVID for every port. The [loader defaults](../../device/vswitch/README.md#loader-defaults)
+  supplies a PVID for every port. The [loader defaults](../../netmodel/README.md#loader-defaults)
   leave it unset when several untagged VLANs exist.
 - Reserved destinations are refused before classification and source
   learning. Q2003 8.6.1 submits ingress-permitted frames to learning.
-  The [switch](../../device/vswitch/switch.go) intercepts BPDUs and LACPDUs
-  before relay ingress.
+  The [switch](../../device/vswitch/intercept.go) intercepts BPDUs and LACPDUs
+  before relay ingress so a discarding port can still hear its spanning
+  tree peer. The switch learns neither sender, including on a learning
+  port where Q2003 8.5 and 8.6.1 would permit it.
 - An outer TPID other than `0x8100` is payload on a port without a tunnel.
   The [virtual-device direction](../../../../../docs/architecture/2026-09-10-virtual-device-direction.md)
   chooses one C-VLAN component. Tunnel ports follow OVS `dot1q-tunnel`.

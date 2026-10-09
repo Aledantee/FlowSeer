@@ -674,3 +674,52 @@ runtime layer only when both keys match and rebuilds it otherwise.
   of these shapes either fails to decode or reads as a plain RST or MST BPDU
   with the extension ignored. Version 4 and later BPDUs are not in this list:
   see "Decoding a version 3 BPDU" above for how they actually decode.
+
+## Switch integration
+
+The switch's [interception](../../device/vswitch/intercept.go) admits BPDUs
+only on an up port linked in this layer. IEEE-addressed BPDUs bypass relay
+processing. SSTP resolves a priority tag or service outer tag onto the port's
+untagged VLAN. The switch passes bridge admission as `SSTPArrival.Admitted`
+without applying the spanning tree gate, because a discarding port still
+needs to hear BPDUs.
+
+A decoded BPDU applies link guard before judging VLAN admission. The trace
+uses `stp.sstp.vlan-not-admitted` or `stp.sstp.vlan-untracked` when the
+arrival VLAN lacks admission or a tree. Other processed arrivals use
+`stp.sstp.admit`. Configuration and RST arrivals name both the TLV and
+arrival VLAN. A TCN names the arrival VLAN alone. Each changed tree adds
+a port transition fact ([BPDU tests](../../device/vswitch/stp_test.go)).
+
+[Emission](../../device/vswitch/timers.go) tags a nonzero emission VID
+through `bridge.OriginateFrame`. A per-VLAN BPDU leaves tagged where the VLAN
+is tagged and untagged where it is the port's untagged VLAN. It is withheld
+where the port does not carry the VLAN. A zero VID leaves untagged without a
+VLAN membership check, which an IEEE-addressed BPDU needs on a trunk with no
+native VLAN.
+
+A PVST switch requires a VLAN table and a tree for every carried VLAN
+([configuration](../../device/vswitch/config.go)). Construction refuses a
+carried VLAN with no tree, naming `stp.pvst.trees` and the VLAN, because that
+VLAN would have no defined forwarding state. It refuses a PVST configuration on
+a bridge with no VLAN table, naming `stp.pvst`, because there is nothing
+per-VLAN about a bridge with no VLAN table.
+
+## Protocol timing at the switch
+
+A port that hears a version 0 BPDU after its 3 s migration delay sends
+Configuration BPDUs until `Mcheck` or an RST BPDU after another delay
+returns it to RSTP. Migration belongs to the link rather than a VLAN tree.
+Under PVST a migrated port sends VLAN 1's untagged IEEE Configuration BPDU
+without an SSTP copy. Other trees can send SSTP Configuration BPDUs on
+their transmit timers. Under `AutoEdge`, a proposing point-to-point port
+becomes an edge port after 3 s without a BPDU. Receiving a BPDU revokes
+that status ([receive.go](receive.go), [timers](advance.go)).
+
+`TxHoldCount` caps transmissions per port. Held BPDUs leave at the next
+tick. `PortInfo` exposes sent, received, and undecodable (`BadBPDUs`)
+counts alongside `SendRSTP` ([info.go](info.go)). The default hold count
+is 6 per second per `spec/mib/ietf/RSTP-MIB:73`. Migration checking follows
+`spec/mib/ietf/RSTP-MIB:130`, and CIST auto-edge is specified by
+`spec/mib/ieee/IEEE8021-MSTP-MIB-201806210000Z.mib:1426`. The state
+machines and their limits are described above.

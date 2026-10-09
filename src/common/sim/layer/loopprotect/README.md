@@ -262,3 +262,18 @@ keys match and rebuilds it otherwise.
   neither; the switch drops a probe for a port that is not forwarding or that
   a spanning tree holds discarding before it reaches the wire. See "Emission
   ignores the gate" above.
+
+## Switch integration
+
+The switch [intercepts](../../device/vswitch/forward.go) a decoded probe
+naming itself after bridge classification. A foreign probe follows the
+ordinary multicast relay path. A returning probe meets the ingress gate
+before the layer acts on the sender's logical port.
+
+[Probe emission](../../device/vswitch/timers.go) requires an operationally
+forwarding port and spanning tree forwarding on the VLAN. It uses ordinary
+egress VLAN tagging and ignores this layer's own bridge gate so a blocked
+port can keep testing recovery. An applied `Disable` stops probes in this
+layer. A forwarding-denying action flushes learned entries for that port.
+`ClearLoopProtect` resolves a member to its logical port and returns an
+empty output ([loop protection tests](../../device/vswitch/loopprotect_test.go)).

@@ -125,7 +125,7 @@ func TestLoad_CompleteModel(t *testing.T) {
 		Src: netaddr.MAC{0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee},
 		Dst: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
 	}
-	fwdRes := sw.Forward(now, "1/1/2", frame)
+	fwdRes := sw.Receive(now, "1/1/2", frame)
 	if fwdRes.Metadata.Status() != analysis.Complete {
 		t.Errorf("Forward status = %v, want Complete", fwdRes.Metadata.Status())
 	}
@@ -195,7 +195,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/1 (unknown oper status) never forwards and returns Incomplete forwarding result
-	fwd1 := sw.Forward(now, "1/1/1", frame)
+	fwd1 := sw.Receive(now, "1/1/1", frame)
 	if fwd1.Outcome == trace.Forwarded || fwd1.Outcome == trace.Flooded {
 		t.Errorf("unknown port 1/1/1 forwarded frame, outcome = %v", fwd1.Outcome)
 	}
@@ -204,7 +204,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/2 (explicit down) returns definite port-down drop with Complete status
-	fwd2 := sw.Forward(now, "1/1/2", frame)
+	fwd2 := sw.Receive(now, "1/1/2", frame)
 	if fwd2.Outcome != trace.Dropped || fwd2.Reason != port.ReasonPortDown {
 		t.Errorf("down port 1/1/2 outcome=%v reason=%v, want Dropped port-down", fwd2.Outcome, fwd2.Reason)
 	}
@@ -213,7 +213,7 @@ func TestLoad_PartialModel_MissingOperStatus(t *testing.T) {
 	}
 
 	// 1/1/3 (known up) forwards with Complete status; sibling uncertainty does NOT taint it
-	fwd3 := sw.Forward(now, "1/1/3", frame)
+	fwd3 := sw.Receive(now, "1/1/3", frame)
 	if fwd3.Metadata.Status() != analysis.Complete {
 		t.Errorf("known up port 1/1/3 Forward status = %v, want Complete", fwd3.Metadata.Status())
 	}
@@ -663,25 +663,25 @@ func TestLoad_InvalidNumericAdminOperEnum(t *testing.T) {
 	}
 
 	// 1/1/1 (invalid admin enum -> Unknown) drops with unknown-operational-status and Unsupported status
-	fwd1 := sw.Forward(now, "1/1/1", frame)
+	fwd1 := sw.Receive(now, "1/1/1", frame)
 	if fwd1.Metadata.Status() != analysis.Unsupported {
 		t.Errorf("1/1/1 Forward status = %v, want Unsupported", fwd1.Metadata.Status())
 	}
 
 	// 1/1/2 (invalid oper enum -> Unknown) drops with unknown-operational-status and Unsupported status
-	fwd2 := sw.Forward(now, "1/1/2", frame)
+	fwd2 := sw.Receive(now, "1/1/2", frame)
 	if fwd2.Metadata.Status() != analysis.Unsupported {
 		t.Errorf("1/1/2 Forward status = %v, want Unsupported", fwd2.Metadata.Status())
 	}
 
 	// 1/1/3 (known admin down) drops with port-down and Complete status
-	fwd3 := sw.Forward(now, "1/1/3", frame)
+	fwd3 := sw.Receive(now, "1/1/3", frame)
 	if fwd3.Outcome != trace.Dropped || fwd3.Reason != port.ReasonPortDown || fwd3.Metadata.Status() != analysis.Complete {
 		t.Errorf("1/1/3 Forward = %+v, want Dropped port-down with Complete status", fwd3)
 	}
 
 	// 1/1/4 (known oper testing -> down) drops with port-down and Complete status
-	fwd4 := sw.Forward(now, "1/1/4", frame)
+	fwd4 := sw.Receive(now, "1/1/4", frame)
 	if fwd4.Outcome != trace.Dropped || fwd4.Reason != port.ReasonPortDown || fwd4.Metadata.Status() != analysis.Complete {
 		t.Errorf("1/1/4 Forward = %+v, want Dropped port-down with Complete status", fwd4)
 	}

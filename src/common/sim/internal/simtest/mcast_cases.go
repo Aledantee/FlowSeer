@@ -303,7 +303,7 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []by
 	mdnsFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: etherType, Payload: pkt}
 
 	now := time.Unix(1700000000, 0)
-	fwd := sw.Forward(now, "p1", mdnsFrame)
+	fwd := sw.Receive(now, "p1", mdnsFrame)
 
 	return ExecutionResult{
 		Outcome:  fwd.Outcome,
@@ -311,7 +311,7 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []by
 		Steps:    fwd.Steps,
 		Metadata: fwd.Metadata,
 		Switch:   sw,
-		Forward:  &fwd,
+		Forward:  &fwd.ForwardResult,
 	}, nil
 }
 

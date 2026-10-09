@@ -2,6 +2,7 @@ package vswitch
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
 	"slices"
 	"strconv"
@@ -18,16 +19,21 @@ import (
 // on two switches, and reports the derived comparison disposition and the first
 // differing behavioral observable.
 type Comparison struct {
-	Current     ForwardResult
-	Expected    ForwardResult
+	Current     Output
+	Expected    Output
 	Disposition analysis.Disposition
 	Difference  analysis.Difference
 }
 
-// compareResults compares two [ForwardResult] values directly and reports their exact
-// behavioral disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-func compareResults(cur, exp ForwardResult) Comparison {
-	diff, hasDiff := diffForwardResult(cur, exp)
+func compareResults(cur, exp Output) Comparison {
+	diff, hasDiff := diffForwardResult(cur.ForwardResult, exp.ForwardResult)
+	if !hasDiff {
+		copiesA, copiesB := mirrorCopies(cur.Copies), mirrorCopies(exp.Copies)
+		if !slices.Equal(copiesA, copiesB) {
+			diff = analysis.Difference{Observable: "mirror", Current: strings.Join(copiesA, ","), Expected: strings.Join(copiesB, ",")}
+			hasDiff = true
+		}
+	}
 	var disp analysis.Disposition
 	switch {
 	case cur.Metadata.Status() != analysis.Complete || exp.Metadata.Status() != analysis.Complete:
@@ -49,7 +55,8 @@ func compareResults(cur, exp ForwardResult) Comparison {
 // Compare evaluates a frame arrival on both switches using [Switch.Peek] without mutating
 // their forwarding tables, returning both results and reporting their exact behavioral
 // disposition ([analysis.Equivalent], [analysis.Different], or [analysis.Inconclusive]).
-// On [analysis.Different], Difference names the first differing observable in declared order:
+// Difference names the first differing observable even when incomplete input
+// makes the disposition [analysis.Inconclusive]. Its declared order is:
 // typed forwarding outcome and reason, classified FID, egress ports and per-port drops,
 // rewritten frame fields (dst, src, ethertype, tags, payload), selected LAG member,
 // egress PCP, and mirror copies. Semantic traces and metadata are diagnostic and never
@@ -179,33 +186,24 @@ func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 		}
 	}
 
-	mirrorsA := mirrorCopies(cur)
-	mirrorsB := mirrorCopies(exp)
-	if !slices.Equal(mirrorsA, mirrorsB) {
-		return analysis.Difference{
-			Observable: "mirror",
-			Current:    strings.Join(mirrorsA, ","),
-			Expected:   strings.Join(mirrorsB, ","),
-		}, true
-	}
-
 	return analysis.Difference{}, false
 }
 
-func mirrorCopies(res ForwardResult) []string {
-	var out []string
-	for _, step := range res.Steps {
-		if step.RuleID == traffic.RuleMirrorCopy {
-			desc := step.Subject.Key
-			for _, fact := range step.Outputs {
-				if fact.TypeID() == traffic.FactTypeMirrorDecision {
-					desc = fact.Canonical()
-					break
-				}
-			}
-			out = append(out, desc)
+func mirrorCopies(copies []traffic.Copy) []string {
+	ordered := slices.Clone(copies)
+	slices.SortFunc(ordered, func(a, b traffic.Copy) int {
+		if order := cmp.Compare(a.Mirror, b.Mirror); order != 0 {
+			return order
 		}
+		if order := cmp.Compare(a.Port, b.Port); order != 0 {
+			return order
+		}
+		return cmp.Compare(a.VLAN, b.VLAN)
+	})
+	out := make([]string, len(ordered))
+	for i, copy := range ordered {
+		out[i] = fmt.Sprintf("mirror=%q;port=%q;vlan=%d;member=%q;src=%s;dst=%s;ether_type=%d;tags=%v;payload=%x",
+			copy.Mirror, copy.Port, copy.VLAN, copy.Member, copy.Frame.Src, copy.Frame.Dst, copy.Frame.EtherType, copy.Frame.Tags, copy.Frame.Payload)
 	}
-	slices.Sort(out)
 	return out
 }

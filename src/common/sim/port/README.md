@@ -85,7 +85,7 @@ configured MTU smaller than `payloadLen` returns `ReasonMTUExceeded`. An
 ## Identifiers under layer `port`
 
 The hub path of the virtual switch (`Switch.forwardHub` in
-[switch.go](../device/vswitch/switch.go)) emits these rules under layer `port`:
+[hub.go](../device/vswitch/hub.go)) emits these rules under layer `port`:
 
 | Rule | Emitted when |
 | --- | --- |
