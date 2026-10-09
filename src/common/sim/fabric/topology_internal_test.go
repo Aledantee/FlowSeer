@@ -34,7 +34,7 @@ func TestRunHalfImportsNoDeviceKind(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(path, "/sim/layer/") || strings.Contains(path, "/sim/device/") {
+			if path == "go.aledante.io/FlowSeer/src/common/sim/layer" || strings.Contains(path, "/sim/layer/") || strings.Contains(path, "/sim/device/") {
 				t.Errorf("%s imports %s", name, path)
 			}
 		}
