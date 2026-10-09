@@ -925,7 +925,7 @@ onUnmounted(() => clearInterval(timer))
         <span class="nav-text">{{ labels.page(item) }}</span>
         <span
           v-if="item === 'devices'"
-          class="nav-count ml-auto bg-chrome-hover rounded px-1.5 py-px text-2xs"
+          class="nav-count ml-auto bg-chrome-hover rounded-control px-1.5 py-px text-2xs font-mono tabular-nums"
         >
           {{ n(scope.length, 'integer') }}
         </span>
@@ -1059,7 +1059,7 @@ onUnmounted(() => clearInterval(timer))
         :shortcut="SHORTCUTS.minimize"
       >
         <button
-          class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
+          class="minimize-page grid place-items-center shrink-0 w-6.5 h-6.5 ml-2 p-0 border-0 rounded-control bg-transparent text-chrome-muted-foreground hover:bg-chrome-hover/45 hover:text-chrome-foreground cursor-pointer [&>svg]:w-3.5 max-[560px]:min-h-[44px] max-[560px]:min-w-[44px]"
           :aria-label="t('view.fleet.minimizeMain')"
           @click="minimizePane('main')"
         >

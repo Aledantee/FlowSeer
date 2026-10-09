@@ -79,7 +79,7 @@ async function logOut() {
         "
       >
         <button
-          class="account-theme grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
+          class="account-theme grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded-control hover:bg-chrome-hover cursor-pointer [&>svg]:w-5 [&>svg]:h-5"
           type="button"
           role="switch"
           :aria-label="t('view.themeSwitcher.label')"
@@ -101,7 +101,7 @@ async function logOut() {
           </I18nT>
         </template>
         <button
-          class="account-locale grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover cursor-pointer text-xs font-semibold"
+          class="account-locale grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded-control hover:bg-chrome-hover cursor-pointer text-xs font-semibold"
           type="button"
           @click="toggleLocale"
         >
@@ -127,7 +127,7 @@ async function logOut() {
       <template #trigger>
         <button
           ref="trigger"
-          class="account-trigger grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded hover:bg-chrome-hover aria-expanded:bg-chrome-hover cursor-pointer"
+          class="account-trigger grid place-items-center w-11 h-11 border-0 bg-transparent text-inherit p-0 rounded-control hover:bg-chrome-hover aria-expanded:bg-chrome-hover cursor-pointer"
           type="button"
           :aria-label="t('view.accountMenu.label')"
           :title="t('view.accountMenu.operator')"

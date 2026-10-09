@@ -45,7 +45,7 @@ const isIdentifier = (value: string) =>
     >
       <template #trigger>
         <button
-          class="scope-trigger group flex items-center gap-3 w-full px-1 py-1.5 border-0 bg-transparent text-chrome-foreground text-left text-xs rounded hover:bg-chrome-hover/45 aria-expanded:bg-chrome-hover/45 cursor-pointer"
+          class="scope-trigger group flex items-center gap-3 w-full px-1 py-1.5 border-0 bg-transparent text-chrome-foreground text-left text-xs rounded-control hover:bg-chrome-hover/45 aria-expanded:bg-chrome-hover/45 cursor-pointer"
           :title="name"
           :aria-label="t('view.scopeSwitcher.triggerLabel', { label, name })"
           aria-haspopup="listbox"
@@ -70,7 +70,7 @@ const isIdentifier = (value: string) =>
         >
           <img
             v-if="option.iconUrl"
-            class="scope-avatar w-4 h-4 rounded"
+            class="scope-avatar w-4 h-4 rounded-control"
             :src="option.iconUrl"
             alt=""
           />

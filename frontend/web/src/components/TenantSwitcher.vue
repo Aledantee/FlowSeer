@@ -9,7 +9,7 @@ const { t } = useI18n({ useScope: 'global' })
 
 <template>
   <div
-    class="tenant-switcher relative flex items-center gap-2.5 min-w-0 text-chrome-foreground rounded"
+    class="tenant-switcher relative flex items-center gap-2.5 min-w-0 text-chrome-foreground rounded-control"
   >
     <ScopeSwitcher
       v-if="tenants.length > 1"
