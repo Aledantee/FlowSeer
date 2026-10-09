@@ -243,16 +243,6 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 	}
 
 	cfg := owned.Config()
-	// fabric.Uncabled field paths name submitted positions,
-	// which normalization's sort would otherwise replace.
-	cabled := make(map[fabric.Endpoint]int, len(cfg.Cables)*2)
-	for _, cable := range cfg.Cables {
-		cabled[cable.A]++
-		cabled[cable.B]++
-	}
-	if err := cfg.validateUncabled(cabled); err != nil {
-		return ConstructionSpec{}, err
-	}
 	if cur != nil {
 		usedMACs := configuredMACs(cfg)
 		carry := func(assigned netaddr.MAC) (netaddr.MAC, bool) {
@@ -301,6 +291,9 @@ func normalizeConstructionSpec(cur *fabric.Fabric, spec ConstructionSpec) (Const
 		}
 	}
 
+	// Validate normalizes its own copy to judge it, and judges the submitted fault,
+	// accepted multicast list, and fabric.Uncabled entries, whose answers and field
+	// paths the normalization below would change.
 	if err := cfg.Validate(); err != nil {
 		return ConstructionSpec{}, err
 	}

@@ -33,7 +33,8 @@ Switch subjects and scenario operation subjects use quoted component keys from
 
 ```mermaid
 flowchart LR
-    config[Config or ConstructionSpec] --> normalize[Normalize and validate]
+    config[Config or ConstructionSpec] --> validate["Validate: submitted faults and lists, then the normalized form"]
+    validate --> normalize[Normalize]
     normalize --> resolve[Cable resolution]
     resolve --> build[Build or derive devices]
     build --> start[fabric.New or fabric.Replace]

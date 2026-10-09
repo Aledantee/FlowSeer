@@ -2616,10 +2616,19 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 		t.Fatalf("parent journey %d not found", parentID)
 	}
 
-	if !slices.ContainsFunc(parent.Entries, func(e fabric.Entry) bool {
+	noAddress := func(e fabric.Entry) bool {
 		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == reflectormodel.ReasonReflectorNoAddress
-	}) {
+	}
+	if !slices.ContainsFunc(parent.Entries, noAddress) {
 		t.Errorf("parent entries = %+v, want a no-address drop naming rp3", parent.Entries)
+	}
+	for _, e := range parent.Entries {
+		if noAddress(e) && e.Step != nil && (e.Step.Layer == "" || e.Step.RuleID == "" || e.Step.Subject == (trace.Subject{})) {
+			t.Errorf("no-address drop carries the undeclared step %+v, want no step or one with layer, rule, and subject", *e.Step)
+		}
+	}
+	if got := fabric.ExportPortCounters(fab, "r1", "rp3"); got.OutDiscards != 0 || got.Discards[reflectormodel.ReasonReflectorNoAddress] != 0 {
+		t.Errorf("rp3 counters = %+v, want no discard: no frame was sent toward it", got)
 	}
 
 	var copyJourney fabric.Journey

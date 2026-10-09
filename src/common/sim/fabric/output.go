@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 // applyDeviceOutput keeps token resolutions until every emission, drop, and
@@ -57,11 +58,17 @@ func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output
 		if drop.Hold != 0 || j == nil {
 			j = resolve(drop.Hold, drop.Ingress, ethernet.Frame{}, false)
 		}
-		if drop.Port != "" {
-			f.countEgressDrop(node, drop.Port, drop.Reason)
+		entry := Entry{At: now, Kind: EntryDrop, Device: node, Port: drop.Port, Reason: drop.Reason}
+		// A drop that declares no step names a port it never tried to send on, so it
+		// is neither a discard at that port nor an entry with an empty step.
+		if stepDeclared(drop.Step) {
+			step := drop.Step
+			entry.Step = &step
+			if drop.Port != "" {
+				f.countEgressDrop(node, drop.Port, drop.Reason)
+			}
 		}
-		step := drop.Step
-		f.record(j, Entry{At: now, Kind: EntryDrop, Device: node, Port: drop.Port, Reason: drop.Reason, Step: &step})
+		f.record(j, entry)
 	}
 	for _, copy := range out.Copies {
 		parent := current
@@ -129,6 +136,11 @@ func (f *Fabric) applyDeviceOutput(now time.Time, node string, out device.Output
 			f.inflightRemove(fid)
 		}
 	}
+}
+
+// stepDeclared reports whether a step names a layer, a rule, or a subject.
+func stepDeclared(s trace.Step) bool {
+	return s.Layer != "" || s.RuleID != "" || s.Subject != (trace.Subject{})
 }
 
 func (f *Fabric) scheduleWake(device string) {

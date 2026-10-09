@@ -926,7 +926,7 @@ The package declares reasons for link failures and frame discards:
 | `reflector-protocol-not-udp` | Frame's IP protocol is not UDP |
 | `reflector-udp-header-undecodable` | Reflector cannot decode the UDP header it must check |
 | `reflector-udp-port-not-mdns` | Frame's UDP destination port is not 5353 |
-| `reflector-no-address` | Target attachment names no address of the accepted datagram's family |
+| `reflector-no-address` | Target attachment names no address of the accepted datagram's family; the entry carries no step and counts no discard at that port |
 
 ## Run lifecycle and scenarios
 
@@ -968,7 +968,9 @@ queue, so a later `Run` or `RunScenario` on the same fabric never fires them
 ### Scenarios and replay
 
 `Record.Validate` refuses conflicting `Frame` and `Bytes` values and a
-`CapturedLen` above `OriginalLen`. `Record.Clone` owns the frame value and raw
+`CapturedLen` above a set `OriginalLen`, where zero means unset. `Record.Normalize`
+defaults an unset length and refuses the record when the default breaks that
+rule. `Record.Clone` owns the frame value and raw
 bytes, while frame tags and payload remain shared as immutable inputs.
 [record_test.go](record_test.go) checks validation and clone ownership.
 

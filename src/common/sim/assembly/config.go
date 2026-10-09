@@ -3,6 +3,7 @@ package assembly
 import (
 	"bytes"
 	"cmp"
+	"maps"
 	"math"
 	"net/netip"
 	"slices"
@@ -335,7 +336,51 @@ func comparePrefix(a, b netip.Prefix) int {
 // names. Errors about host facts, reflector attachments, fabric.Uncabled entries, and the
 // assumption carry a "field" path attribute such as "uncabled.1", "hosts.h1.ethernet.duplex",
 // "hosts.h1.accept.multicast.0", or "reflectors.r1.attachments.b.vlan".
+//
+// Validate accepts a configuration that is valid after [Config.Normalize], so a route
+// prefix with host bits set passes, as it does in a switch built alone. A cable's fault,
+// a host's accepted multicast list, and the fabric.Uncabled entries are judged as submitted,
+// because normalization clears an inactive fault parameter and sorts both lists, and the
+// field paths name the submitted positions.
 func (c Config) Validate() error {
+	if err := c.validateSubmitted(); err != nil {
+		return err
+	}
+
+	return c.Normalize().validateNormalized()
+}
+
+// validateSubmitted runs the checks whose answer or field path normalization
+// changes, on the configuration as submitted: a fault's inactive parameters
+// are cleared, an accepted multicast list is sorted, and fabric.Uncabled entries
+// are sorted, so each would otherwise report a position or accept an input the
+// caller never wrote.
+func (c Config) validateSubmitted() error {
+	for i, cable := range c.Cables {
+		if err := cablemodel.ValidateFault(cable.Fault); err != nil {
+			return errs.Wrapf(err, "cable %d fault", i)
+		}
+	}
+	cabled := make(map[fabric.Endpoint]int, len(c.Cables)*2)
+	for _, cable := range c.Cables {
+		cabled[cable.A]++
+		cabled[cable.B]++
+	}
+	if err := c.validateUncabled(cabled); err != nil {
+		return err
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Hosts)) {
+		if err := c.Hosts[name].Accept.Validate("hosts." + name + ".accept"); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateNormalized checks a normalized configuration. The checks that judge
+// the submitted form are in validateSubmitted.
+func (c Config) validateNormalized() error {
 	swNames := make([]string, 0, len(c.Switches))
 	for name := range c.Switches {
 		swNames = append(swNames, name)
@@ -437,10 +482,6 @@ func (c Config) Validate() error {
 			return errs.Wrapf(err, "cable %d", i)
 		}
 
-		if err := cablemodel.ValidateFault(cable.Fault); err != nil {
-			return errs.Wrapf(err, "cable %d fault", i)
-		}
-
 		if err := c.validateEndpoint(cable.A, hostCables, portCables); err != nil {
 			return errs.Wrapf(err, "cable %d endpoint A", i)
 		}
@@ -476,10 +517,6 @@ func (c Config) Validate() error {
 					Msgf("reflector port %q on %q must be connected to a cable", portName, name)
 			}
 		}
-	}
-
-	if err := c.validateUncabled(portCables); err != nil {
-		return err
 	}
 
 	return c.PhyAssumption.Validate()
@@ -617,9 +654,6 @@ func (c Config) validateEndpoints(hostNames, reflectorNames []string, checkMAC f
 		}
 		if err := cablemodel.ValidateEthernet("hosts."+name+".ethernet", h.Ethernet); err != nil {
 			return errs.Wrapf(err, "host %q", name)
-		}
-		if err := h.Accept.Validate("hosts." + name + ".accept"); err != nil {
-			return err
 		}
 		if h.IP != nil {
 			if len(h.IP.Addresses) == 0 {
