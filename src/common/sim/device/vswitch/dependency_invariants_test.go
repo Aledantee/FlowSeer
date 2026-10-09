@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -174,18 +175,18 @@ func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
 
 	for _, path := range []struct {
 		name string
-		run  func(*testing.T, string, analysis.Metadata) vswitch.Output
+		run  func(*testing.T, string, analysis.Metadata) device.Output
 	}{
 		{
 			name: "hub",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) device.Output {
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, nil, nil, 0)
 				return sw.Receive(fixedTime, "member", ethernet.Frame{Src: macH1, Dst: macH2})
 			},
 		},
 		{
 			name: "mirror",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) device.Output {
 				const outputVLAN vlan.ID = 99
 				trafficConfig := &traffic.Config{Mirrors: []traffic.Mirror{{
 					Name: "span", SelectSrcPorts: []string{"in"}, OutputVLAN: new(outputVLAN),
@@ -197,7 +198,7 @@ func TestExactAggregatorDependenciesAcrossSwitchPaths(t *testing.T) {
 		},
 		{
 			name: "LACP",
-			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) vswitch.Output {
+			run: func(t *testing.T, aggregate string, metadata analysis.Metadata) device.Output {
 				sw := newAggregatorDependencySwitch(t, aggregate, metadata, nil, nil, 0)
 				return sw.Receive(fixedTime, "member", ethernet.Frame{
 					EtherType: ethernet.EtherTypeSlowProtocols,

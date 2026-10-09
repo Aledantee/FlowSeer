@@ -3,7 +3,12 @@ package simtest
 import (
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -48,7 +53,7 @@ func loopProtectCaseGigabit() phy.Ethernet {
 // unless something else breaks it. sw1's two looped ports run loop
 // protection with Block; sw2 is a plain bridge. Each switch also carries one
 // host, so a broadcast either host sends has somewhere to be delivered.
-func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
+func loopProtectCaseSpec() (assembly.ConstructionSpec, error) {
 	gigabit := loopProtectCaseGigabit()
 
 	newPorts := func() (port.Table, error) {
@@ -59,11 +64,11 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 
 	sw1Ports, err := newPorts()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	sw2Ports, err := newPorts()
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 
 	ethFacts := map[string]phy.Ethernet{"1/1/1": gigabit, "1/1/2": gigabit, "1/1/3": gigabit}
@@ -86,21 +91,21 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 		Phy:    &phy.Config{Ethernet: ethFacts},
 	}
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: loopProtectCaseStart,
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {NodeID: "sw1", Config: sw1Cfg},
 			"sw2": {NodeID: "sw2", Config: sw2Cfg},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: loopProtectCaseH1, Ethernet: gigabit},
 			"h2": {Address: loopProtectCaseH2, Ethernet: gigabit},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
 		},
 	}, nil
 }
@@ -113,14 +118,14 @@ func loopProtectCaseSpec() (fabric.ConstructionSpec, error) {
 // egress-level drop recorded while flooding out of a still-admitted port.
 func loopProtectCaseIngressBlocked(fab *fabric.Fabric, portName string) (bool, error) {
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock.Add(time.Millisecond),
+		At:     fab.Clock().Add(time.Millisecond),
 		Origin: fabric.Endpoint{Node: "sw1", Port: portName},
 		Frame:  ethernet.Frame{Dst: loopProtectCaseDst, Src: loopProtectCaseSrc, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{9, 9, 9}},
 	})
 	if err != nil {
 		return false, err
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	for _, j := range fab.Report() {
 		if j.FrameID != fid {
@@ -193,13 +198,13 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				return ExecutionResult{}, err
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 			// Let one probe interval pass so loop protection sends its
 			// probes, sees them return through the other switch, and acts.
-			fab.Run(200)
+			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 			blocked, err := loopProtectCaseIngressBlocked(fab, "1/1/1")
 			if err != nil {
@@ -218,14 +223,14 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 
 			broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 			bfid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock.Add(time.Second),
+				At:     fab.Clock().Add(time.Second),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: broadcast, Src: loopProtectCaseH1, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{1, 2, 3}},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(200)
+			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 			deliveries := 0
 			for _, j := range fab.Report() {
@@ -245,16 +250,19 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 			// The decisive journey: a frame injected directly on the blocked
 			// port, dropped at that port's own ingress.
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock.Add(time.Millisecond),
+				At:     fab.Clock().Add(time.Millisecond),
 				Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				Frame:  ethernet.Frame{Dst: loopProtectCaseDst, Src: loopProtectCaseSrc, EtherType: ethernet.EtherTypeIPv4, Payload: []byte{9, 9, 9}},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(50)
+			fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -262,7 +270,7 @@ func caseTroubleshootingLoopProtectContainsAccessLoop() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil

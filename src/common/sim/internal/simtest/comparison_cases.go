@@ -6,7 +6,12 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -171,6 +176,12 @@ func ComparisonCorpus() []ComparisonCase {
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
 			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -228,6 +239,12 @@ func ComparisonCorpus() []ComparisonCase {
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
 			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -281,6 +298,12 @@ func ComparisonCorpus() []ComparisonCase {
 			} else {
 				cmp = vswitch.Compare(swA, swB, now, "1/1/1", testFrame)
 			}
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ComparisonResult{}, err
+			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
 				Observable:  cmp.Difference.Observable,
@@ -311,6 +334,7 @@ func ComparisonCorpus() []ComparisonCase {
 		Name: "comparison-scenario",
 		Actions: []fabric.Action{
 			{
+				ID:   "offer",
 				At:   now,
 				Kind: fabric.ActionInject,
 				Inject: &fabric.Injection{
@@ -320,7 +344,6 @@ func ComparisonCorpus() []ComparisonCase {
 				},
 			},
 		},
-		Budget: 50,
 	}
 
 	buildFabricPair := func(
@@ -329,8 +352,8 @@ func ComparisonCorpus() []ComparisonCase {
 	) (*fabric.Fabric, *fabric.Fabric, error) {
 		makeFab := func(mutateCables func([]fabric.Cable) []fabric.Cable) (*fabric.Fabric, error) {
 			baseCables := []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+				{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+				{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 			}
 			if mutateCables != nil {
 				baseCables = mutateCables(baseCables)
@@ -341,7 +364,7 @@ func ComparisonCorpus() []ComparisonCase {
 				{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up},
 			}
 			for _, c := range baseCables {
-				if c.Fault.Kind == fabric.FaultCut {
+				if c.Fault.Kind == cablemodel.FaultCut {
 					for pi := range portList {
 						if (c.A.Node == "sw1" && c.A.Port == portList[pi].Name) ||
 							(c.B.Node == "sw1" && c.B.Port == portList[pi].Name) {
@@ -373,19 +396,19 @@ func ComparisonCorpus() []ComparisonCase {
 				},
 			}
 
-			hosts := map[string]fabric.Host{
+			hosts := map[string]hostmodel.Config{
 				"h1": {Address: mac1, Ethernet: gigabit},
 				"h2": {Address: mac2, Ethernet: gigabit},
 			}
 
 			cables := shuffleSlice(rng, baseCables)
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: shuffleMap(rng, switches),
 				Hosts:    shuffleMap(rng, hosts),
 				Cables:   cables,
 			}
-			return fabric.NewWithSpec(spec)
+			return assembly.NewWithSpec(spec)
 		}
 
 		fabA, err := makeFab(nil)
@@ -402,10 +425,10 @@ func ComparisonCorpus() []ComparisonCase {
 	// Case 4: fabric/equivalent-complete
 	c4FabA, c4FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c4ClockA, c4ClockB := c4FabA.Snapshot().Clock, c4FabB.Snapshot().Clock
+	c4ClockA, c4ClockB := c4FabA.Clock(), c4FabB.Clock()
 	c4ReportA, c4ReportB := c4FabA.Report(), c4FabB.Report()
 	c4LinksA, c4LinksB := c4FabA.Links(), c4FabB.Links()
-	c4SpecA, c4SpecB := c4FabA.Spec(), c4FabB.Spec()
+	c4SpecA, c4SpecB := assembly.Spec(c4FabA), assembly.Spec(c4FabB)
 
 	case4 := ComparisonCase{
 		Name:                "fabric/equivalent-complete",
@@ -422,12 +445,18 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -437,11 +466,11 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c4FabA.Snapshot().Clock.Equal(c4ClockA) {
-				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Snapshot().Clock)
+			if !c4FabA.Clock().Equal(c4ClockA) {
+				return errs.Msgf("c4FabA clock advanced from %v to %v", c4ClockA, c4FabA.Clock())
 			}
-			if !c4FabB.Snapshot().Clock.Equal(c4ClockB) {
-				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Snapshot().Clock)
+			if !c4FabB.Clock().Equal(c4ClockB) {
+				return errs.Msgf("c4FabB clock advanced from %v to %v", c4ClockB, c4FabB.Clock())
 			}
 			if !reflect.DeepEqual(c4FabA.Report(), c4ReportA) {
 				return errs.Msg("c4FabA report mutated")
@@ -455,10 +484,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c4FabB.Links(), c4LinksB) {
 				return errs.Msg("c4FabB links mutated")
 			}
-			if !reflect.DeepEqual(c4FabA.Spec(), c4SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabA), c4SpecA) {
 				return errs.Msg("c4FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c4FabB.Spec(), c4SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c4FabB), c4SpecB) {
 				return errs.Msg("c4FabB spec mutated")
 			}
 			return nil
@@ -471,17 +500,17 @@ func ComparisonCorpus() []ComparisonCase {
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+				res[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 			}
 		}
 		return res
 	}
 	c5FabA, c5FabB, err := buildFabricPair(cutCableMutation, nil)
 	mustNil(err)
-	c5ClockA, c5ClockB := c5FabA.Snapshot().Clock, c5FabB.Snapshot().Clock
+	c5ClockA, c5ClockB := c5FabA.Clock(), c5FabB.Clock()
 	c5ReportA, c5ReportB := c5FabA.Report(), c5FabB.Report()
 	c5LinksA, c5LinksB := c5FabA.Links(), c5FabB.Links()
-	c5SpecA, c5SpecB := c5FabA.Spec(), c5FabB.Spec()
+	c5SpecA, c5SpecB := assembly.Spec(c5FabA), assembly.Spec(c5FabB)
 
 	case5 := ComparisonCase{
 		Name:                "fabric/cable-cut-different",
@@ -498,12 +527,18 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -513,10 +548,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c5FabA.Snapshot().Clock.Equal(c5ClockA) {
+			if !c5FabA.Clock().Equal(c5ClockA) {
 				return errs.Msg("c5FabA clock advanced")
 			}
-			if !c5FabB.Snapshot().Clock.Equal(c5ClockB) {
+			if !c5FabB.Clock().Equal(c5ClockB) {
 				return errs.Msg("c5FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c5FabA.Report(), c5ReportA) {
@@ -531,10 +566,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c5FabB.Links(), c5LinksB) {
 				return errs.Msg("c5FabB links mutated")
 			}
-			if !reflect.DeepEqual(c5FabA.Spec(), c5SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabA), c5SpecA) {
 				return errs.Msg("c5FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c5FabB.Spec(), c5SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c5FabB), c5SpecB) {
 				return errs.Msg("c5FabB spec mutated")
 			}
 			return nil
@@ -547,17 +582,17 @@ func ComparisonCorpus() []ComparisonCase {
 		copy(res, cables)
 		for i := range res {
 			if res[i].A.Node == "h2" || res[i].B.Node == "h2" {
-				res[i].Medium = fabric.SinglemodeFiber
+				res[i].Medium = cablemodel.SinglemodeFiber
 			}
 		}
 		return res
 	}
 	c6FabA, c6FabB, err := buildFabricPair(mediumMutation, nil)
 	mustNil(err)
-	c6ClockA, c6ClockB := c6FabA.Snapshot().Clock, c6FabB.Snapshot().Clock
+	c6ClockA, c6ClockB := c6FabA.Clock(), c6FabB.Clock()
 	c6ReportA, c6ReportB := c6FabA.Report(), c6FabB.Report()
 	c6LinksA, c6LinksB := c6FabA.Links(), c6FabB.Links()
-	c6SpecA, c6SpecB := c6FabA.Spec(), c6FabB.Spec()
+	c6SpecA, c6SpecB := assembly.Spec(c6FabA), assembly.Spec(c6FabB)
 
 	case6 := ComparisonCase{
 		Name:                "fabric/medium-path-different",
@@ -574,12 +609,18 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 50)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 50)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 50, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -589,10 +630,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c6FabA.Snapshot().Clock.Equal(c6ClockA) {
+			if !c6FabA.Clock().Equal(c6ClockA) {
 				return errs.Msg("c6FabA clock advanced")
 			}
-			if !c6FabB.Snapshot().Clock.Equal(c6ClockB) {
+			if !c6FabB.Clock().Equal(c6ClockB) {
 				return errs.Msg("c6FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c6FabA.Report(), c6ReportA) {
@@ -607,10 +648,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c6FabB.Links(), c6LinksB) {
 				return errs.Msg("c6FabB links mutated")
 			}
-			if !reflect.DeepEqual(c6FabA.Spec(), c6SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabA), c6SpecA) {
 				return errs.Msg("c6FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c6FabB.Spec(), c6SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c6FabB), c6SpecB) {
 				return errs.Msg("c6FabB spec mutated")
 			}
 			return nil
@@ -620,10 +661,10 @@ func ComparisonCorpus() []ComparisonCase {
 	// Case 7: fabric/inconclusive-budget-exhausted
 	c7FabA, c7FabB, err := buildFabricPair(nil, nil)
 	mustNil(err)
-	c7ClockA, c7ClockB := c7FabA.Snapshot().Clock, c7FabB.Snapshot().Clock
+	c7ClockA, c7ClockB := c7FabA.Clock(), c7FabB.Clock()
 	c7ReportA, c7ReportB := c7FabA.Report(), c7FabB.Report()
 	c7LinksA, c7LinksB := c7FabA.Links(), c7FabB.Links()
-	c7SpecA, c7SpecB := c7FabA.Spec(), c7FabB.Spec()
+	c7SpecA, c7SpecB := assembly.Spec(c7FabA), assembly.Spec(c7FabB)
 
 	case7 := ComparisonCase{
 		Name:                "fabric/inconclusive-budget-exhausted",
@@ -640,12 +681,18 @@ func ComparisonCorpus() []ComparisonCase {
 			}
 			var cmp fabric.Comparison
 			if candidateFirst {
-				cmp = fabric.Compare(fabB, fabA, fabScenario, 1)
+				cmp = fabric.Compare(fabB, fabA, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			} else {
-				cmp = fabric.Compare(fabA, fabB, fabScenario, 1)
+				cmp = fabric.Compare(fabA, fabB, fabScenario, fabric.RunOptions{Budget: 1, Window: 0})
 			}
 			if cmp.Err != nil {
 				return ComparisonResult{}, cmp.Err
+			}
+			if err := validateReceiveReport(cmp.Current); err != nil {
+				return ComparisonResult{}, err
+			}
+			if err := validateReceiveReport(cmp.Expected); err != nil {
+				return ComparisonResult{}, err
 			}
 			return ComparisonResult{
 				Disposition: cmp.Disposition,
@@ -655,10 +702,10 @@ func ComparisonCorpus() []ComparisonCase {
 			}, nil
 		},
 		VerifyNonConsuming: func() error {
-			if !c7FabA.Snapshot().Clock.Equal(c7ClockA) {
+			if !c7FabA.Clock().Equal(c7ClockA) {
 				return errs.Msg("c7FabA clock advanced")
 			}
-			if !c7FabB.Snapshot().Clock.Equal(c7ClockB) {
+			if !c7FabB.Clock().Equal(c7ClockB) {
 				return errs.Msg("c7FabB clock advanced")
 			}
 			if !reflect.DeepEqual(c7FabA.Report(), c7ReportA) {
@@ -673,10 +720,10 @@ func ComparisonCorpus() []ComparisonCase {
 			if !reflect.DeepEqual(c7FabB.Links(), c7LinksB) {
 				return errs.Msg("c7FabB links mutated")
 			}
-			if !reflect.DeepEqual(c7FabA.Spec(), c7SpecA) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabA), c7SpecA) {
 				return errs.Msg("c7FabA spec mutated")
 			}
-			if !reflect.DeepEqual(c7FabB.Spec(), c7SpecB) {
+			if !reflect.DeepEqual(assembly.Spec(c7FabB), c7SpecB) {
 				return errs.Msg("c7FabB spec mutated")
 			}
 			return nil

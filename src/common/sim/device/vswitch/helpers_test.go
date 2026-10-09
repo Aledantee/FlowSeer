@@ -17,12 +17,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -344,7 +344,7 @@ func makeARPReply(t *testing.T, senderIP, targetIP netip.Addr, senderMAC, dstMAC
 }
 
 // holdFrameToward forwards a frame from 1/1/1 toward dst and asserts it was held.
-func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.Addr, payload []byte) vswitch.Output {
+func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.Addr, payload []byte) device.Output {
 	t.Helper()
 	pkt := makeIPv4Packet(t, ipH1, dst, 64, payload)
 	frame := ethernet.Frame{Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4, Payload: pkt}
@@ -357,9 +357,9 @@ func holdFrameToward(t *testing.T, sw *vswitch.Switch, at time.Time, dst netip.A
 
 // soleDataEmission returns the one emission addressed to dst, failing when there is not exactly
 // one: a Receive that observes an advertisement also relays the advertisement itself.
-func soleDataEmission(t *testing.T, emissions []vswitch.Emission, dst netaddr.MAC) vswitch.Emission {
+func soleDataEmission(t *testing.T, emissions []device.Emission, dst netaddr.MAC) device.Emission {
 	t.Helper()
-	var found []vswitch.Emission
+	var found []device.Emission
 	for _, em := range emissions {
 		if em.Frame.Dst == dst {
 			found = append(found, em)
@@ -372,9 +372,9 @@ func soleDataEmission(t *testing.T, emissions []vswitch.Emission, dst netaddr.MA
 }
 
 // dataAfterSolicitations checks protocol frames separately from ordinary releases.
-func dataAfterSolicitations(t *testing.T, emissions []vswitch.Emission, count int) []vswitch.Emission {
+func dataAfterSolicitations(t *testing.T, emissions []device.Emission, count int) []device.Emission {
 	t.Helper()
-	var data []vswitch.Emission
+	var data []device.Emission
 	requests := 0
 	for _, em := range emissions {
 		if !em.Protocol {
@@ -411,7 +411,7 @@ func dataAfterSolicitations(t *testing.T, emissions []vswitch.Emission, count in
 }
 
 // captureOutput keeps the outputs a fixture needs to inspect across several calls.
-func captureOutput(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch, out vswitch.Output) vswitch.Output {
+func captureOutput(callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch, out device.Output) device.Output {
 	prior := callOutputs[sw]
 	prior.Emissions = append(prior.Emissions, out.Emissions...)
 	prior.Drops = append(prior.Drops, out.Drops...)
@@ -420,16 +420,16 @@ func captureOutput(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.S
 	return out
 }
 
-func captureLinkOutput(t *testing.T, callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch, now time.Time, name string, state port.LinkState) {
+func captureLinkOutput(t *testing.T, callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch, now time.Time, name string, state port.LinkState) {
 	t.Helper()
-	out, err := sw.LinkChange(now, name, state, vswitch.PointToPointUnknown, 0)
+	out, err := sw.LinkChange(now, name, device.Link{State: state, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 0})
 	if err != nil {
 		t.Fatal(err)
 	}
 	captureOutput(callOutputs, sw, out)
 }
 
-func takeEmissions(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []vswitch.Emission {
+func takeEmissions(callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch) []device.Emission {
 	out := callOutputs[sw]
 	emissions := out.Emissions
 	out.Emissions = nil
@@ -437,7 +437,7 @@ func takeEmissions(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.S
 	return emissions
 }
 
-func takeCopies(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []traffic.Copy {
+func takeCopies(callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch) []device.Copy {
 	out := callOutputs[sw]
 	copies := out.Copies
 	out.Copies = nil
@@ -445,7 +445,7 @@ func takeCopies(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Swit
 	return copies
 }
 
-func takeDrops(callOutputs map[*vswitch.Switch]vswitch.Output, sw *vswitch.Switch) []vswitch.NeighborDrop {
+func takeDrops(callOutputs map[*vswitch.Switch]device.Output, sw *vswitch.Switch) []device.Drop {
 	out := callOutputs[sw]
 	drops := out.Drops
 	out.Drops = nil

@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -27,7 +28,7 @@ func TestClearLoopProtectReturnsOutputAndRestoresForwarding(t *testing.T) {
 		t.Fatalf("before clear = %+v, want blocked", out)
 	}
 	clearer, ok := any(sw).(interface {
-		ClearLoopProtect(time.Time, string) vswitch.Output
+		ClearLoopProtect(time.Time, string) device.Output
 	})
 	if !ok {
 		t.Fatal("ClearLoopProtect does not return Output")
@@ -202,7 +203,7 @@ func TestLoopProtectGatedPortDropsBeforeDetection(t *testing.T) {
 // spanning tree, so a LAG-only switch's protected port is not stuck applied
 // forever once blocked.
 func TestLoopProtectManualClearsOnLAGPortCycle(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, LagParent: "lag1", AdminStatus: port.Up, OperStatus: port.Up}).
@@ -300,7 +301,7 @@ func TestClearLoopProtectByLAGMemberNameLiftsTheLAGsAction(t *testing.T) {
 // frame, so the probe is not silently discarded for naming a VID the bridge
 // does not admit.
 func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -345,7 +346,7 @@ func TestLoopProtectTrunkWithPVIDEmitsAProbe(t *testing.T) {
 }
 
 func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -393,7 +394,7 @@ func TestLoopProtectProbeWithNoConfiguredVLANCarriesPortPVID(t *testing.T) {
 // loopProtectReturnFactString locates the "loopprotect.probe.return" step in
 // res's trace and returns its output fact's canonical string, or "" if the
 // step is not present.
-func loopProtectReturnFactString(t *testing.T, res vswitch.Output) string {
+func loopProtectReturnFactString(t *testing.T, res device.Output) string {
 	t.Helper()
 
 	for _, step := range res.Steps {
@@ -414,7 +415,7 @@ func loopProtectReturnFactString(t *testing.T, res vswitch.Output) string {
 // transmitting, so the payload names the VLAN the frame rides and a return
 // classified into that VLAN is not inter-VLAN.
 func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -482,7 +483,7 @@ func TestLoopProtectAccessPortReturnedProbeIsNotInterVLAN(t *testing.T) {
 // the return into a different VLAN, reproducing what a real inter-VLAN loop
 // looks like on the wire.
 func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	pvid := vlan.ID(20)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -539,7 +540,7 @@ func TestLoopProtectCrossVLANReturnedProbeIsInterVLAN(t *testing.T) {
 // of an untagged wire. The loop itself is still real, so the action must
 // still apply; only the VLAN finding is false.
 func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	pvid := vlan.ID(10)
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
@@ -595,7 +596,7 @@ func TestLoopProtectAsymmetricVLANReturnedProbeIsNotInterVLAN(t *testing.T) {
 // Tagged, Untagged, or a tunnel's VID does), so a config that only checked
 // PVID at validation time could accept a setup that then emits nothing.
 func TestLoopProtectValidateAgreesWithEgressAdmission(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	vid10 := vlan.ID(10)
 
 	newTable := func(names ...string) port.Table {

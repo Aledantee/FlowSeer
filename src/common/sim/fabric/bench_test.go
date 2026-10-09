@@ -4,12 +4,17 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -18,6 +23,30 @@ const (
 	aggregateBatches      = 100
 	aggregateJourneyCount = 10
 )
+
+func BenchmarkStep(b *testing.B) {
+	for _, retention := range []fabric.JourneyRetention{fabric.RetainJourney, fabric.RetainAggregate} {
+		b.Run(map[fabric.JourneyRetention]string{fabric.RetainJourney: "journey", fabric.RetainAggregate: "aggregate"}[retention], func(b *testing.B) {
+			fab, src, dst := benchmarkChainFabric(b)
+			frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				b.StopTimer()
+				if len(*fabric.ExportFabricQueue(fab)) == 0 {
+					if _, err := fab.Inject(fabric.Injection{At: *fabric.ExportFabricClock(fab), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Retention: retention, Flow: 1}); err != nil {
+						b.Fatal(err)
+					}
+				}
+				b.StartTimer()
+				if _, ok := fab.Step(); !ok {
+					b.Fatal("prepared step returned no event")
+				}
+			}
+			b.StopTimer()
+		})
+	}
+}
 
 // benchmarkChainFabric builds the two-switch chain the aggregate benchmarks
 // run their load over: h1 on sw1, a fiber trunk, and h2 on sw2.
@@ -49,19 +78,19 @@ func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MA
 
 	src := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	dst := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports(), Bridge: bridgeCfg()},
 			"sw2": {Ports: ports(), Bridge: bridgeCfg()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: src},
 			"h2": {Address: dst},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}))
@@ -76,12 +105,12 @@ func benchmarkChainFabric(b *testing.B) (*fabric.Fabric, netaddr.MAC, netaddr.MA
 // batch at the run's current clock and followed by a draining run, and fails
 // the benchmark if a batch leaves the arrival queue non-empty. It returns the
 // total frames injected.
-func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.Retention) int {
+func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC, batches int, retention fabric.JourneyRetention, scenario bool) int {
 	b.Helper()
 	frame := ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 50)}
 	injected := 0
 	for range batches {
-		clock := fab.Snapshot().Clock
+		clock := fab.Clock()
 		for range aggregateBatchSize {
 			if _, err := fab.Inject(fabric.Injection{
 				At:        clock,
@@ -94,7 +123,17 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 			}
 			injected++
 		}
-		if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+		var res fabric.RunResult
+		if scenario {
+			var err error
+			res, err = fab.RunScenario(fabric.Scenario{Name: "aggregate-batch"}, fabric.RunOptions{Budget: 1_000_000, Window: 0})
+			if err != nil {
+				b.Fatal(err)
+			}
+		} else {
+			res = fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
+		}
+		if res.Stop != fabric.StopQueueDrained {
 			b.Fatalf("Run stop = %s after %d frames, want %s", res.Stop, injected, fabric.StopQueueDrained)
 		}
 		if queued := len(fab.Snapshot().Queue); queued != 0 {
@@ -111,7 +150,7 @@ func runAggregateBatches(b *testing.B, fab *fabric.Fabric, src, dst netaddr.MAC,
 func BenchmarkAggregateMillion(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fab, src, dst := benchmarkChainFabric(b)
-		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate)
+		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate, false)
 		if injected != aggregateBatches*aggregateBatchSize {
 			b.Fatalf("injected %d frames, want %d", injected, aggregateBatches*aggregateBatchSize)
 		}
@@ -124,6 +163,18 @@ func BenchmarkAggregateMillion(b *testing.B) {
 func BenchmarkAggregateHundredThousandJourneys(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fab, src, dst := benchmarkChainFabric(b)
-		runAggregateBatches(b, fab, src, dst, aggregateJourneyCount, fabric.RetainJourney)
+		runAggregateBatches(b, fab, src, dst, aggregateJourneyCount, fabric.RetainJourney, false)
+	}
+}
+
+// BenchmarkAggregateMillionScenario measures the same million-frame load with
+// the pre-action checkpoint each RunScenario retains for replay.
+func BenchmarkAggregateMillionScenario(b *testing.B) {
+	for range b.N {
+		fab, src, dst := benchmarkChainFabric(b)
+		injected := runAggregateBatches(b, fab, src, dst, aggregateBatches, fabric.RetainAggregate, true)
+		if injected != aggregateBatches*aggregateBatchSize {
+			b.Fatalf("injected %d frames, want %d", injected, aggregateBatches*aggregateBatchSize)
+		}
 	}
 }

@@ -5,7 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -33,13 +38,13 @@ func loopProtectSelfLoopPorts(t *testing.T) port.Table {
 	)
 }
 
-func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.Config, netaddr.MAC) {
+func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (assembly.Config, netaddr.MAC) {
 	t.Helper()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -54,7 +59,7 @@ func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -71,13 +76,11 @@ func loopProtectSelfLoopConfig(t *testing.T, action loopprotect.Action) (fabric.
 // runToQuiescence runs the fabric until its arrival queue drains on its own
 // or the budget is exhausted, whichever comes first, and fails the test if
 // a scheduling fault occurred.
-func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
+func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) []fabric.Entry {
 	t.Helper()
 
-	fab.Run(budget)
-	if err := fab.Err(); err != nil {
-		t.Fatalf("fabric run fault: %v", err)
-	}
+	_, entries := observeJourneys(t, fab, budget)
+	return entries
 }
 
 // TestLoopProtectSelfLoopBlockActsOnExactlyOnePort proves Block's two-port
@@ -89,9 +92,9 @@ func runToQuiescence(t *testing.T, fab *fabric.Fabric, budget int) {
 func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 	cfg, macH1 := loopProtectSelfLoopConfig(t, loopprotect.Block)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	runToQuiescence(t, fab, 200)
@@ -107,7 +110,7 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 		t.Fatalf("no port was blocked; want exactly one of 1/1/1, 1/1/2 acted on")
 	}
 
-	now := fab.Snapshot().Clock.Add(time.Second)
+	now := fab.Clock().Add(time.Second)
 	broadcast := netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
 	fid, err := fab.Inject(fabric.Injection{
 		At:     now,
@@ -142,12 +145,12 @@ func TestLoopProtectSelfLoopBlockActsOnExactlyOnePort(t *testing.T) {
 func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 	cfg, _ := loopProtectSelfLoopConfig(t, loopprotect.NoLearn)
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
-	runToQuiescence(t, fab, 200)
+	entries := runToQuiescence(t, fab, 200)
 
 	for _, name := range []string{"1/1/1", "1/1/2"} {
 		if loopProtectPortBlocked(t, fab, name) {
@@ -156,7 +159,7 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 	}
 
 	for _, name := range []string{"1/1/1", "1/1/2"} {
-		if !traceLoopProtectBlockStepSeen(t, fab, name) {
+		if !traceLoopProtectBlockStepSeen(entries, name) {
 			t.Errorf("port %s never recorded a loop-protection port.block step, want both ports acted on under NoLearn", name)
 		}
 	}
@@ -168,7 +171,7 @@ func TestLoopProtectSelfLoopNoLearnActsOnBothPorts(t *testing.T) {
 func loopProtectPortBlocked(t *testing.T, fab *fabric.Fabric, portName string) bool {
 	t.Helper()
 
-	now := fab.Snapshot().Clock.Add(time.Millisecond)
+	now := fab.Clock().Add(time.Millisecond)
 	src := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x30}
 	dst := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x31}
 	fid, err := fab.Inject(fabric.Injection{
@@ -219,25 +222,17 @@ func loopProtectBlockedPort(t *testing.T, fab *fabric.Fabric, a, b string) (bloc
 	}
 }
 
-func traceLoopProtectBlockStepSeen(t *testing.T, fab *fabric.Fabric, portName string) bool {
-	t.Helper()
-
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Result == nil {
-				continue
-			}
-			for _, step := range e.Result.Steps {
-				if step.RuleID != "loopprotect.port.block" {
-					continue
-				}
-				if step.Subject.Kind == "port" && step.Subject.Key == portName {
-					return true
-				}
+func traceLoopProtectBlockStepSeen(entries []fabric.Entry, portName string) bool {
+	for _, e := range entries {
+		if e.Result == nil {
+			continue
+		}
+		for _, step := range e.Result.Steps {
+			if step.RuleID == "loopprotect.port.block" && step.Subject.Kind == "port" && step.Subject.Key == portName {
+				return true
 			}
 		}
 	}
-
 	return false
 }
 
@@ -272,7 +267,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -302,14 +297,14 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	deadline := t0.Add(90 * time.Second)
 	for steps := 0; steps < 20000; steps++ {
-		if !fab.Snapshot().Clock.Before(deadline) {
+		if !fab.Clock().Before(deadline) {
 			break
 		}
 		if _, ok := fab.Step(); !ok {
@@ -319,8 +314,8 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	if err := fab.Err(); err != nil {
 		t.Fatalf("fabric run fault: %v", err)
 	}
-	if fab.Snapshot().Clock.Before(deadline) {
-		t.Fatalf("fabric queue drained at %v before reaching %v; scenario needs periodic STP hellos to keep advancing", fab.Snapshot().Clock, deadline)
+	if fab.Clock().Before(deadline) {
+		t.Fatalf("fabric queue drained at %v before reaching %v; scenario needs periodic STP hellos to keep advancing", fab.Clock(), deadline)
 	}
 
 	// sw1 is the root: as root, its own designated vector always beats
@@ -331,7 +326,7 @@ func TestLoopProtectWithRSTPDetectsNothing(t *testing.T) {
 	blocked := 0
 	for _, name := range []string{"1/1/1", "1/1/2"} {
 		info := snap.Devices["sw2"].Roles[name]
-		if info.State == stp.StateDiscarding && (info.Role == bpdu.RoleAlternate || info.Role == bpdu.RoleBackup) {
+		if info.State == device.StateDiscarding && (info.Role == bpdu.RoleAlternate || info.Role == bpdu.RoleBackup) {
 			blocked++
 		}
 	}
@@ -394,7 +389,7 @@ func TestLoopProtectInterVLANReturn(t *testing.T) {
 	vid10 := vlan.ID(10)
 	vid20 := vlan.ID(20)
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -425,31 +420,29 @@ func TestLoopProtectInterVLANReturn(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
-	runToQuiescence(t, fab, 200)
+	entries := runToQuiescence(t, fab, 200)
 
 	found := false
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Result == nil {
+	for _, e := range entries {
+		if e.Result == nil {
+			continue
+		}
+		for _, step := range e.Result.Steps {
+			if step.RuleID != "loopprotect.probe.return" {
 				continue
 			}
-			for _, step := range e.Result.Steps {
-				if step.RuleID != "loopprotect.probe.return" {
+			for _, fact := range step.Outputs {
+				if fact == nil {
 					continue
 				}
-				for _, fact := range step.Outputs {
-					if fact == nil {
-						continue
-					}
-					c := fact.Canonical()
-					if containsAll(c, "sent_vid=10", "returned_vid=20", "inter_vlan=true") {
-						found = true
-					}
+				c := fact.Canonical()
+				if containsAll(c, "sent_vid=10", "returned_vid=20", "inter_vlan=true") {
+					found = true
 				}
 			}
 		}

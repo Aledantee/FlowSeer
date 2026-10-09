@@ -208,6 +208,26 @@ Every physical quantity has one canonical unit, named in the field suffix, in in
 
 A device the simulator under `src/common/sim` builds from a port table and the capabilities its configuration carries: a relay, VLAN awareness, Ethernet speeds, PoE, link aggregation. Its capabilities are the layers it is built with, and a layer's presence in the configuration is its own discriminator, the facet rule applied to the simulator. The inventory's `Capability` is the coarser area a Binding reports; a virtual device with the `relay` and `vlan` layers is what a Binding's switching capability looks like from inside.
 
+### Simulation device
+
+The layer-free contract a fabric drives: origination, reception, timers, link reports, forks, and state. A switch, host, and reflector implement it ([device/device.go](src/common/sim/device/device.go)).
+
+### Simulation host
+
+A single-attachment device that originates packets, accepts its own traffic, and answers local ARP and Neighbor Discovery requests. It learns and resolves no neighbors ([host/README.md](src/common/sim/device/host/README.md)).
+
+### Simulation reflector
+
+A device that accepts mDNS queries and returns rebuilt copies through its other attachments. A reflection keeps its parent frame identity in the journey's origin ([reflector/README.md](src/common/sim/device/reflector/README.md)).
+
+### Simulation cable
+
+The medium that resolves physical link facts and decides loss or corruption at a crossing. The fabric counts crossings and schedules delivery ([cable/README.md](src/common/sim/medium/cable/README.md)).
+
+### Simulation assembly
+
+The package that builds the devices a fabric runs from Go configurations or construction specifications. It owns reconfiguration, derivation, retention, and configuration diffs ([assembly/README.md](src/common/sim/assembly/README.md)).
+
 ### Endpoint
 
 A client device connected to the network by a wired switchport or wireless BSS association. An Endpoint carries a UUID-keyed identity in `model/endpoint/v1` with an active/stale/retired lifecycle, observed MAC and IP addresses, optional fingerprint and counters, and an attachment oneof (`wired` or `wireless`). Endpoints are observed clients rather than configured infrastructure, so the family is deliberately partial: `EndpointState` and `EndpointEvent` without an `EndpointConfig`.

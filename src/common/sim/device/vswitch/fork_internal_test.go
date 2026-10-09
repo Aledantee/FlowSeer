@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -69,6 +70,7 @@ var switchFieldClasses = map[string]forkFieldClass{
 	"portP2P":            {class: classDeepCopied},
 	"portSpeed":          {class: classDeepCopied},
 	"protocolIssues":     {class: classDeepCopied},
+	"heldMirrors":        {class: classDeepCopied},
 	"seeds":              {class: classDeepCopied},
 	"nodeID":             {class: classImmutableShared},
 	"metadata":           {class: classImmutableShared},
@@ -113,7 +115,7 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 	populated := make(map[string]bool)
 
 	for _, source := range fixtures {
-		fork := source.Fork()
+		fork := source.Fork().(*Switch)
 		for i := 0; i < typ.NumField(); i++ {
 			f := typ.Field(i)
 			class := switchFieldClasses[f.Name].class
@@ -144,7 +146,7 @@ func TestSwitchFieldsAreClassifiedAndChecked(t *testing.T) {
 	// newTestSwitchForFork spends the policer bucket on "1/1/1" and learns a
 	// neighbor, both at the same instant, so a fork carries them over.
 	spent := ethernet.Frame{Payload: make([]byte, 400-38)}
-	forked := sw.Fork()
+	forked := sw.Fork().(*Switch)
 	if got := forked.Receive(time.Unix(1000, 0), "1/1/1", spent); got.Reason != traffic.ReasonPoliced {
 		t.Errorf("fork of the spent-bucket source: reason = %v, want %v as the source refuses", got.Reason, traffic.ReasonPoliced)
 	}
@@ -313,17 +315,18 @@ func newTestSwitchForFork(t *testing.T) *Switch {
 	if sw.filter == nil {
 		t.Fatal("newTestSwitchForFork produced nil filter")
 	}
-	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", port.Up, PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", port.Up, PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(time.Unix(1000, 0), "1/1/2", device.Link{State: port.Up, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Populate runtime maps so they are non-empty for the pointer check.
-	sw.portP2P = map[string]PointToPoint{"1/1/1": PointToPointTrue}
+	sw.portP2P = map[string]pointToPoint{"1/1/1": pointToPointTrue}
 	sw.portSpeed = map[string]uint64{"1/1/1": 1_000_000_000}
 	sw.protocolIssues = map[string]analysis.Issue{"1/1/1": {Code: "test-issue"}}
+	sw.heldMirrors = map[routing.HoldToken]heldMirror{1: {Ingress: "1/1/1", Mirrors: []string{"span"}}}
 	sw.retention = allKeptRetention()
 
 	frame, err := arp.Encode(arp.Message{

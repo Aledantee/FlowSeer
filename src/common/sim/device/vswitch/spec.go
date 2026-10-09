@@ -112,6 +112,17 @@ func (s *Switch) Spec() ConstructionSpec {
 	return spec
 }
 
+// StaticSeeds returns independent configured FDB bindings that do not age.
+func (s *Switch) StaticSeeds() []bridge.Seed {
+	var seeds []bridge.Seed
+	for _, seed := range s.seeds {
+		if seed.Lifetime == bridge.Static {
+			seeds = append(seeds, seed)
+		}
+	}
+	return seeds
+}
+
 // Learn validates and preloads the switch's bridge forwarding database with the
 // provided seeds. It records normalized seeds in the construction specification.
 // Invalid or duplicate seeds leave the switch unchanged.

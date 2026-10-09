@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -13,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/search"
 )
@@ -48,9 +53,9 @@ func buildSearchConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, ne
 		},
 	}
 
-	cfg := fabric.Config{
-		PhyAssumption: &fabric.PhyAssumption{
-			Medium: fabric.TwistedPair,
+	cfg := assembly.Config{
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -58,29 +63,27 @@ func buildSearchConformanceFabric(t *testing.T, vid2 uint16) (*fabric.Fabric, ne
 			},
 		},
 		Switches: map[string]vswitch.Config{"sw1": swCfg},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: h1MAC},
 			"h2": {Address: h2MAC},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "h2"},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "h2"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	return fab, h2MAC
 }
@@ -165,8 +168,8 @@ func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
 	expected, _ := buildSearchConformanceFabric(t, 20)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	injection := fabric.Injection{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 1}, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("target")}}
-	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultNone}}}}}
-	initial := fabric.Compare(current, expected, input.ToScenario(30), 30)
+	input := search.Candidate{Tuple: "original", Actions: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &injection}, {At: at.Add(time.Second), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultNone}}}}}
+	initial := fabric.Compare(current, expected, input.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if initial.Disposition != analysis.Different {
 		t.Fatalf("initial disposition = %s, want Different", initial.Disposition)
 	}
@@ -180,7 +183,7 @@ func TestConformanceMinimizationReplaysExactTarget(t *testing.T) {
 	if result.Candidate.Tuple != "h1: -> 02:00:00:00:00:02 etype:0x0800 payload:746172676574" {
 		t.Errorf("tuple = %q, want retained injection tuple", result.Candidate.Tuple)
 	}
-	replay := fabric.Compare(current, expected, result.Candidate.ToScenario(30), 30)
+	replay := fabric.Compare(current, expected, result.Candidate.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if replay.Disposition != analysis.Different || replay.Difference != initial.Difference || result.Difference != initial.Difference || !reflect.DeepEqual(replay.Location, initial.Location) || !reflect.DeepEqual(result.Target, initial.Location) {
 		t.Fatalf("replay = %s %+v %+v, result target %+v difference %+v, want initial target %+v difference %+v", replay.Disposition, replay.Location, replay.Difference, result.Target, result.Difference, initial.Location, initial.Difference)
 	}

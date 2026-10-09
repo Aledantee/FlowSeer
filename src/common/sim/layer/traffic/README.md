@@ -60,8 +60,8 @@ hangs off the `qos` column of a Port. A policer therefore names a port that is
 no LAG, and a LAG member is a valid name. A queue names a LAG or a port that is
 no member, because the egress queue of a member answers to its LAG's
 statement. `Validate` refuses a policer on a LAG at `policers.<name>` and a
-queue on a member at `queues.<name>`. `Layer.MaxRate` and `Layer.QueueBuffer`
-answer a member's name with its LAG's statement.
+queue on a member at `queues.<name>`. `Layer.AdmitEgress` answers a member's
+name with its LAG's statement.
 
 Each policer bucket starts with `BurstOctets` tokens. Each call to `Admit` lazily adds
 `RateBPS * elapsed / 8` octets, capped at the burst, then spends the frame size
@@ -75,12 +75,24 @@ returns, so it excludes the wire's preamble, start delimiter, and interpacket
 gap. `Config.QueueBuffer` looks it up the same way; a missing entry means that
 priority's buffer is unbounded and its queue never tail-drops.
 
+`Config.AdmitEgress` takes the depth before enqueue, encoded frame octets, and
+the port MTU. It returns admission, the maximum rate, and a tail-drop or
+threshold step. The switch converts this value to `device.QueueDecision`, so
+the fabric applies the decision without reading the traffic table. For example,
+a 100-octet frame at depth 900 fits a stated 1000-octet buffer. At depth 901 it
+returns `queue-full` with a `traffic.queue.drop` step.
+
 On an unstated queue, `traffic.queue.buffer-unstated` names the first enqueue
 that raises one of the physical endpoint's per-PCP queues above one
 port-MTU-sized encoded frame. `QueueThresholdFact` records the depth before that
 enqueue, the frame's encoded octets, and the threshold. A LAG supplies the
 logical queue and MTU; the selected member owns the physical queue and its
 issue. Later crossings on another PCP of the same member create no second event.
+The threshold is MTU plus 18 octets, or 1518 with no stated MTU. A lone
+9018-octet frame crosses the default threshold on an empty queue. With MTU 9000
+it equals the threshold and produces no step. `TestQueueAdmit` in
+[config_test.go](config_test.go) pins the empty-queue crossing and the buffer
+boundaries.
 
 ## Limits
 

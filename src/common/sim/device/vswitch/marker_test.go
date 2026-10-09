@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestMarkerResponderAtSwitch(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	t.Parallel()
 
 	mac := netaddr.MAC{2, 0, 0, 0, 0, 10}

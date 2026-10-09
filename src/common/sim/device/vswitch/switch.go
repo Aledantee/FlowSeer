@@ -18,9 +18,9 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
-// ForwardResult combines the Ethernet bridge forwarding outcome with analysis
+// forwardResult combines the Ethernet bridge forwarding outcome with analysis
 // trust metadata recording status, issues, evidence, and assumptions.
-type ForwardResult struct {
+type forwardResult struct {
 	bridge.Result
 	Metadata analysis.Metadata
 }
@@ -53,9 +53,10 @@ type Switch struct {
 	filter             *filter.Layer
 	traffic            *traffic.Layer
 	trafficSwitchports map[string]traffic.Switchport
-	portP2P            map[string]PointToPoint
+	portP2P            map[string]pointToPoint
 	portSpeed          map[string]uint64
 	protocolIssues     map[string]analysis.Issue
+	heldMirrors        map[routing.HoldToken]heldMirror
 	seeds              []bridge.Seed
 	nodeID             string
 	metadata           analysis.Metadata

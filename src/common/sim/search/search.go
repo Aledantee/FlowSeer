@@ -38,12 +38,12 @@ func Search(current, candidate *fabric.Fabric, dom Domain, lim Limits) (Result, 
 
 		res.Coverage.Tested++
 
-		sc := cand.ToScenario(lim.Budget)
+		sc := cand.ToScenario()
 		cand.Actions = sc.Actions
 		var comparisonErr error
 		var cmp fabric.Comparison
 		if comparisonErr = cand.Validate(); comparisonErr == nil {
-			cmp = fabric.Compare(current, candidate, sc, lim.Budget)
+			cmp = fabric.Compare(current, candidate, sc, fabric.RunOptions{Budget: lim.Budget, Window: 0})
 			comparisonErr = cmp.Err
 		}
 		if comparisonErr != nil {

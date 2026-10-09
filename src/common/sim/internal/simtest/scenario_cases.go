@@ -5,7 +5,12 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -96,7 +101,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: linkFlapT0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
@@ -118,37 +123,37 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 						Seeds: []bridge.Seed{{MAC: linkFlapH1, Port: "1/1/1", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: linkFlapH1, Ethernet: gigabit},
 					"h2": {Address: linkFlapH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			sc := fabric.Scenario{
-				Name:   "scenario-replays-link-flap",
-				Budget: 20,
-				Spec:   spec,
+				Name: "scenario-replays-link-flap",
 				Actions: []fabric.Action{
 					{
+						ID:   "cut-trunk",
 						At:   linkFlapT0.Add(time.Second),
 						Kind: fabric.ActionFault,
 						Fault: &fabric.FaultAction{
 							A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 							B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-							Fault: fabric.Fault{Kind: fabric.FaultCut},
+							Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 						},
 					},
 					{
+						ID:   "offer-after-cut",
 						At:   linkFlapT0.Add(2 * time.Second),
 						Kind: fabric.ActionInject,
 						Inject: &fabric.Injection{
@@ -164,7 +169,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				},
 			}
 
-			runRes, err := fab.RunScenario(sc)
+			runRes, err := fab.RunScenario(sc, fabric.RunOptions{Budget: 20, Window: 0})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -183,11 +188,8 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 			}
 			j1 := report[0]
 
-			fab2, err := fabric.NewWithSpec(runRes.Replay.Spec)
-			if err != nil {
-				return ExecutionResult{}, err
-			}
-			if _, err := fab2.RunScenario(runRes.Replay.Scenario); err != nil {
+			fab2 := runRes.Replay.Checkpoint()
+			if _, err := fab2.RunScenario(runRes.Replay.Scenario, runRes.Replay.Options); err != nil {
 				return ExecutionResult{}, err
 			}
 			report2 := fab2.Report()
@@ -204,7 +206,7 @@ func casePlanningScenarioReplaysLinkFlap() Case {
 				Reason:   journeyHopReason(j1),
 				Steps:    journeySteps(j1),
 				Metadata: j1.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j1,
 			}, nil
 		},
@@ -284,7 +286,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: periodicT0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
@@ -316,28 +318,37 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				},
 				Cables: []fabric.Cable{
 					{
-						A:      fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-						B:      fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-						Medium: fabric.TwistedPair,
+						Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair},
+						A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+						B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 					},
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
-			runRes := fab.Run(2)
+			// Retain the received BPDU as a caller frame. Internal protocol
+			// journeys are freed once their arrivals settle.
+			initial := fab.Report()
+			if len(initial) == 0 {
+				return ExecutionResult{}, errs.Msg("no initial BPDU")
+			}
+			fid, err := fab.Inject(fabric.Injection{At: periodicT0, Origin: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Frame: initial[0].Injection.Frame})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			runRes := fab.Run(fabric.RunOptions{Budget: 2, Window: 0})
 			if runRes.Stop != fabric.StopBudget {
 				return ExecutionResult{}, errs.Msgf("run stop reason = %v, want StopBudget", runRes.Stop)
 			}
 
-			report := fab.Report()
-			if len(report) == 0 {
-				return ExecutionResult{}, errs.Msg("expected at least one journey in report")
+			j, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
 			}
-			j := report[0]
 
 			issue := analysis.Issue{
 				Code:     fabric.IssueBudgetExhausted,
@@ -352,7 +363,7 @@ func caseTroubleshootingPeriodicProtocolHidesExhaustion() Case {
 				Reason:   journeyHopReason(j),
 				Steps:    journeySteps(j),
 				Metadata: analysis.NewMetadata(analysis.WholeScope(), []analysis.Issue{issue}, cat, nil),
-				Switch:   fab.Switch("sw2"),
+				Switch:   fab.Device("sw2").(*vswitch.Switch),
 				Journey:  &j,
 			}, nil
 		},

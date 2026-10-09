@@ -56,9 +56,11 @@ src/common/sim/
   device/                        the seam a fabric drives
     vswitch/                     a switch: layers composed over a port table
     host/                        an endpoint: an IP stack and its acceptance rules
+    reflector/                   an mDNS endpoint: acceptance and reflected copies
   medium/
     cable/                       length, propagation, speed bound, faults
   fabric/                        topology, the event queue, journeys, comparison
+  assembly/                      construction, reconfiguration, derivation, diffs
   netmodel/                      the protobuf boundary
   search/
   internal/simtest/              the conformance corpus
@@ -68,10 +70,12 @@ src/common/sim/
 flowchart BT
     trace --> analysis --> port --> layer["layer/*"]
     layer --> device["device/*"]
-    device --> fabric
+    device --> assembly
+    seam["device"] --> fabric
+    fabric --> assembly
     phy["layer/phy"] --> cable["medium/cable"]
     cable --> fabric
-    fabric --> netmodel
+    device --> netmodel
     fabric --> search
 ```
 
@@ -81,21 +85,29 @@ diagram cannot show:
 - A capability package imports `port`, `layer`, `trace`, `analysis`, and
   `src/common/net`. It imports no sibling capability and no device.
 - A device imports capability packages and never `fabric`.
-- `fabric` imports `device` and `medium/cable`, and no capability package
-  directly. What it needs from a device (forwarding, emissions, state for a
+- `fabric` imports `device` and no package beneath it, and `medium/cable`.
+  It imports no capability package directly. What it needs from a device (forwarding, emissions, state for a
   snapshot) crosses the device seam.
 - A medium imports the physical-layer package of the ports it joins. The
   cable imports `layer/phy` for Ethernet settings and negotiation, so
   `fabric` depends on `layer/phy` through the cable and on no other layer.
-- `netmodel` sits beside `fabric` because it builds fabric inputs as well as
-  switch specs.
+- `netmodel` builds switch specifications at the protobuf boundary.
+  `assembly` builds devices and topologies from Go configurations so the
+  fabric runtime can depend only on the device seam.
 
 **The device seam.** `device` declares the interface `fabric` drives: receive
 a frame on a port at a time, advance to a time, report the next wake, take a
-link change, fork, and expose state. The switch and the host both implement
+link change, fork, and expose state. The switch, host, and reflector implement
 it, which is what `docs/code-style.md` asks of an interface. An access point
-or a client with behaviour is a third package under `device/`, built from the
+or a client with behaviour is another package under `device/`, built from the
 same layers plus its own.
+
+The seam's types name no layer. `Device.Originate` presents a switch injection
+as an arrival on its named port and a host injection as a wire emission.
+`device/host` owns configuration, acceptance, and the IP stack
+(`src/common/sim/device/host/host.go`, `src/common/sim/device/host/accept.go`).
+The fabric queues host-bound frames at their delivery time and records their
+crossing before the arrival (`src/common/sim/fabric/egress.go`, `transmitCable`).
 
 **The medium seam.** The cable model moves to `medium/cable` and `fabric`
 calls it as a concrete type. No `Medium` interface is written while the cable
@@ -181,3 +193,23 @@ in `test/conformance/sim`. Two lines of the contract above changed to match
 it. `Config.Clone` takes no `layer.Env`, since a copy needs no device
 context. A subject key of several parts has one form, built by
 `trace.CompositeKey`.
+
+### 2026-10-09: reflector device
+
+`device/reflector` owns configuration, validation, and acceptance. Its
+`Receive` returns copies in attachment name order. `device.Result.Acceptance`
+distinguishes delivery from reflection so `fabric` records the decision
+without looking up the node kind (`src/common/sim/device/reflector/reflector.go`,
+`src/common/sim/fabric/acceptance.go`). Reflected copies carry
+`OriginReflection` and name their source frame in `Origin.Of`.
+
+### 2026-10-09: fabric runtime and assembly imports
+
+`fabric` imports `sim/device` and `medium/cable`. It names no concrete device
+package or capability layer. `sim/device` imports no layer, including the
+root `sim/layer`. `sim/assembly` builds what `fabric` runs and owns
+construction, configuration, derivation, and diffs. These boundaries let
+the runtime drive another device kind without importing its implementation
+([fabric/topology.go](../../src/common/sim/fabric/topology.go),
+[device/device.go](../../src/common/sim/device/device.go),
+[assembly/assemble.go](../../src/common/sim/assembly/assemble.go)).

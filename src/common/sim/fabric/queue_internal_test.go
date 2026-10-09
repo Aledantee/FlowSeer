@@ -1,4 +1,4 @@
-package fabric
+package fabric_test
 
 import (
 	"fmt"
@@ -8,7 +8,27 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 )
+
+func TestPastArrivalRunsAtClock(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	clock := fab.Clock()
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: clock.Add(-time.Second), Kind: fabric.ArrivalWake, Device: "unused"}))
+	entry, ok := fab.Step()
+	if !ok || !entry.At.Equal(clock) || !fab.Clock().Equal(clock) {
+		t.Fatalf("Step = %+v, %t, clock = %s, want %s", entry, ok, fab.Clock(), clock)
+	}
+}
+
+func TestZeroArrivalKindRefused(t *testing.T) {
+	fab := newTestFabricForFork(t)
+	before := len(fab.Snapshot().Queue)
+	fabric.ExportFabricEnqueue(fab, fabric.Arrival{At: fab.Clock()})
+	if fab.Err() == nil || len(fab.Snapshot().Queue) != before {
+		t.Fatalf("Err = %v, queue = %d, want fault and %d arrivals", fab.Err(), len(fab.Snapshot().Queue), before)
+	}
+}
 
 // TestQueueStepsWakeFrameDequeueInOrder enqueues one of each arrival kind at
 // the same instant in reverse priority order and checks that Step pops them
@@ -16,27 +36,27 @@ import (
 // compareArrival rather than in heap order.
 func TestQueueStepsWakeFrameDequeueInOrder(t *testing.T) {
 	fab := newTestFabricForFork(t)
-	fab.queue = nil
-	fab.dequeueItems = make(map[Endpoint]int)
-	fab.wakeItems = make(map[string]int)
+	(*fabric.ExportFabricQueue(fab)) = nil
+	(*fabric.ExportFabricDequeueItems(fab)) = make(map[fabric.Endpoint]int)
+	(*fabric.ExportFabricWakeItems(fab)) = make(map[string]int)
 
-	at := fab.clock.Add(time.Second)
-	ep := Endpoint{Node: "sw1", Port: "1/1/2"}
-	if _, err := fab.Inject(Injection{
+	at := fabric.ExportFabricClock(fab).Add(time.Second)
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/2"}
+	if _, err := fab.Inject(fabric.Injection{
 		At:     at,
 		Origin: ep,
 		Frame:  ethernet.Frame{Src: netaddr.MAC{0x02}, Payload: []byte("q")},
 	}); err != nil {
 		t.Fatalf("inject frame: %v", err)
 	}
-	fab.enqueue(Arrival{At: at, Kind: ArrivalDequeue, Device: ep.Node, Port: ep.Port})
-	fab.enqueue(Arrival{At: at, Kind: ArrivalWake, Device: ep.Node})
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: at, Kind: fabric.ArrivalDequeue, Device: ep.Node, Port: ep.Port}))
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: at, Kind: fabric.ArrivalWake, Device: ep.Node}))
 
 	sorted := fab.Snapshot().Queue
-	if !slices.IsSortedFunc(sorted, compareArrival) {
+	if !slices.IsSortedFunc(sorted, fabric.ExportCompareArrival) {
 		t.Fatalf("Snapshot queue not sorted by compareArrival: %+v", sorted)
 	}
-	wantKinds := []ArrivalKind{ArrivalWake, ArrivalFrame, ArrivalDequeue}
+	wantKinds := []fabric.ArrivalKind{fabric.ArrivalWake, fabric.ArrivalFrame, fabric.ArrivalDequeue}
 	if len(sorted) != len(wantKinds) {
 		t.Fatalf("Snapshot queue length = %d, want %d", len(sorted), len(wantKinds))
 	}
@@ -51,15 +71,11 @@ func TestQueueStepsWakeFrameDequeueInOrder(t *testing.T) {
 		if !ok {
 			t.Fatalf("Step %d returned false", i)
 		}
-		got := EntryDequeue
-		switch want {
-		case ArrivalWake:
-			got = EntryWake
-		case ArrivalFrame:
-			got = EntryHop
+		if entry.Arrival != want {
+			t.Errorf("Step %d processed %v, want %v", i, entry.Arrival, want)
 		}
-		if entry.Kind != got {
-			t.Errorf("Step %d processed %v, want %v", i, entry.Kind, got)
+		if want == fabric.ArrivalFrame && entry.Kind != fabric.EntryHop {
+			t.Errorf("frame step kind = %v, want Hop", entry.Kind)
 		}
 	}
 }
@@ -68,23 +84,22 @@ func TestQueueStepsWakeFrameDequeueInOrder(t *testing.T) {
 // it, and reschedules it earlier: the queue must hold exactly one dequeue for
 // the endpoint, at the new time, and the endpoint index must name it.
 func TestQueueRescheduleKeepsOneDequeuePerEndpoint(t *testing.T) {
-	fab := &Fabric{}
-	fab.initRunState()
+	fab := newEmptyFabric(t, time.Time{})
 
-	ep := Endpoint{Node: "sw1", Port: "1/1/1"}
+	ep := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
 	base := time.Unix(1000, 0)
-	fab.egress[ep] = &egressQueue{}
-	fab.scheduleDequeue(ep, base.Add(2*time.Second))
-	fab.removeDequeue(ep)
-	fab.scheduleDequeue(ep, base.Add(time.Second))
+	(*fabric.ExportFabricEgress(fab))[ep] = fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{})
+	fabric.ExportFabricScheduleDequeue(fab, ep, base.Add(2*time.Second))
+	fabric.ExportFabricRemoveDequeue(fab, ep)
+	fabric.ExportFabricScheduleDequeue(fab, ep, base.Add(time.Second))
 
-	if len(fab.queue) != 1 {
-		t.Fatalf("queue length = %d, want 1 dequeue", len(fab.queue))
+	if len((*fabric.ExportFabricQueue(fab))) != 1 {
+		t.Fatalf("queue length = %d, want 1 dequeue", len((*fabric.ExportFabricQueue(fab))))
 	}
-	if got, want := fab.queue[0].At, base.Add(time.Second); !got.Equal(want) {
+	if got, want := (*fabric.ExportFabricQueue(fab))[0].At, base.Add(time.Second); !got.Equal(want) {
 		t.Errorf("dequeue at %s, want %s", got, want)
 	}
-	idx, ok := fab.dequeueItems[ep]
+	idx, ok := (*fabric.ExportFabricDequeueItems(fab))[ep]
 	if !ok {
 		t.Fatalf("dequeueItems has no entry for %s/%s", ep.Node, ep.Port)
 	}
@@ -97,30 +112,28 @@ func TestQueueRescheduleKeepsOneDequeuePerEndpoint(t *testing.T) {
 // keys are indexed, pops them, and asserts each key left its index when its
 // arrival was popped.
 func TestQueuePopClearsKeyIndexes(t *testing.T) {
-	fab := &Fabric{}
-	fab.initRunState()
+	fab := newEmptyFabric(t, time.Time{})
 
-	ep := Endpoint{Node: "sw2", Port: "1/1/1"}
-	fab.enqueue(Arrival{At: time.Unix(10, 0), Kind: ArrivalDequeue, Device: ep.Node, Port: ep.Port})
-	fab.enqueue(Arrival{At: time.Unix(20, 0), Kind: ArrivalWake, Device: "sw2"})
+	ep := fabric.Endpoint{Node: "sw2", Port: "1/1/1"}
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: time.Unix(10, 0), Kind: fabric.ArrivalDequeue, Device: ep.Node, Port: ep.Port}))
+	fabric.ExportFabricEnqueue(fab, fabric.MakeTestArrival(fabric.ExportArrivalFields{At: time.Unix(20, 0), Kind: fabric.ArrivalWake, Device: "sw2"}))
 
-	if _, ok := fab.dequeueItems[ep]; !ok {
+	if _, ok := (*fabric.ExportFabricDequeueItems(fab))[ep]; !ok {
 		t.Fatalf("dequeueItems missing %s", ep)
 	}
-	if _, ok := fab.wakeItems["sw2"]; !ok {
+	if _, ok := (*fabric.ExportFabricWakeItems(fab))["sw2"]; !ok {
 		t.Fatalf("wakeItems missing sw2")
 	}
-
-	fab.popArrival()
-	if _, ok := fab.dequeueItems[ep]; ok {
+	fabric.ExportFabricPopArrival(fab)
+	if _, ok := (*fabric.ExportFabricDequeueItems(fab))[ep]; ok {
 		t.Errorf("popped dequeue left its index behind")
 	}
-	fab.popArrival()
-	if _, ok := fab.wakeItems["sw2"]; ok {
+	fabric.ExportFabricPopArrival(fab)
+	if _, ok := (*fabric.ExportFabricWakeItems(fab))["sw2"]; ok {
 		t.Errorf("popped wake left its index behind")
 	}
-	if len(fab.queue) != 0 {
-		t.Errorf("queue length = %d after popping both, want 0", len(fab.queue))
+	if len((*fabric.ExportFabricQueue(fab))) != 0 {
+		t.Errorf("queue length = %d after popping both, want 0", len((*fabric.ExportFabricQueue(fab))))
 	}
 }
 
@@ -128,8 +141,7 @@ func TestQueuePopClearsKeyIndexes(t *testing.T) {
 // interleaved pushes, indexed removals, and pops. Unique Seq values make
 // compareArrival a total order even when timestamps and kinds tie.
 func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
-	fab := &Fabric{}
-	fab.initRunState()
+	fab := newEmptyFabric(t, time.Time{})
 
 	const total = 10_000
 	const removals = 1_000
@@ -141,36 +153,36 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 		return state >> 33
 	}
 
-	pushed := make([]Arrival, 0, total)
+	pushed := make([]fabric.Arrival, 0, total)
 	active := make([]bool, 0, total)
 	dequeueCandidates := make([]int, 0, total/3)
 	wakeCandidates := make([]int, 0, total/3)
-	usedDequeue := make(map[Endpoint]bool)
+	usedDequeue := make(map[fabric.Endpoint]bool)
 	usedWake := make(map[string]bool)
 
-	sortedRemaining := func() []Arrival {
-		expected := make([]Arrival, 0, len(pushed))
+	sortedRemaining := func() []fabric.Arrival {
+		expected := make([]fabric.Arrival, 0, len(pushed))
 		for i, arr := range pushed {
 			if active[i] {
 				expected = append(expected, arr)
 			}
 		}
-		slices.SortFunc(expected, compareArrival)
+		slices.SortFunc(expected, fabric.ExportCompareArrival)
 		return expected
 	}
-	checkPop := func(want Arrival) {
-		got := fab.popArrival()
-		if compareArrival(got, want) != 0 {
+	checkPop := func(want fabric.Arrival) {
+		got := fabric.ExportFabricPopArrival(fab)
+		if fabric.ExportCompareArrival(got, want) != 0 {
 			t.Fatalf("pop = %+v, want %+v", got, want)
 		}
 		active[int(want.Seq)-1] = false
 		switch got.Kind {
-		case ArrivalDequeue:
-			if _, ok := fab.dequeueItems[Endpoint{Node: got.Device, Port: got.Port}]; ok {
+		case fabric.ArrivalDequeue:
+			if _, ok := (*fabric.ExportFabricDequeueItems(fab))[fabric.Endpoint{Node: got.Device, Port: got.Port}]; ok {
 				t.Fatalf("popped dequeue left its index behind")
 			}
-		case ArrivalWake:
-			if _, ok := fab.wakeItems[got.Device]; ok {
+		case fabric.ArrivalWake:
+			if _, ok := (*fabric.ExportFabricWakeItems(fab))[got.Device]; ok {
 				t.Fatalf("popped wake left its index behind")
 			}
 		}
@@ -181,32 +193,32 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 	nextDequeue := 0
 	nextWake := 0
 	for i := range total {
-		arr := Arrival{
+		arr := fabric.MakeTestArrival(fabric.ExportArrivalFields{
 			At:     base.Add(time.Duration(next()%1000) * time.Microsecond),
 			Seq:    uint64(i) + 1,
 			Device: fmt.Sprintf("sw%d", next()%4096),
 			Port:   fmt.Sprintf("1/1/%d", next()%64),
-			Kind:   ArrivalFrame,
-		}
+			Kind:   fabric.ArrivalFrame,
+		})
 		switch next() % 3 {
 		case 0:
-			ep := Endpoint{Node: arr.Device, Port: arr.Port}
+			ep := fabric.Endpoint{Node: arr.Device, Port: arr.Port}
 			if !usedDequeue[ep] {
 				usedDequeue[ep] = true
-				arr.Kind = ArrivalDequeue
+				arr.Kind = fabric.ArrivalDequeue
 				dequeueCandidates = append(dequeueCandidates, i)
 			}
 		case 1:
 			if !usedWake[arr.Device] {
 				usedWake[arr.Device] = true
-				arr.Kind = ArrivalWake
+				arr.Kind = fabric.ArrivalWake
 				wakeCandidates = append(wakeCandidates, i)
 			}
 		}
 
 		pushed = append(pushed, arr)
 		active = append(active, true)
-		fab.enqueue(arr)
+		fabric.ExportFabricEnqueue(fab, arr)
 
 		if i > 0 && i%50 == 0 {
 			checkPop(sortedRemaining()[0])
@@ -225,10 +237,10 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 			}
 			idx := dequeueCandidates[nextDequeue]
 			arr := pushed[idx]
-			before := len(fab.queue)
-			fab.removeDequeueArrival(Endpoint{Node: arr.Device, Port: arr.Port})
-			if len(fab.queue) != before-1 {
-				t.Fatalf("removeDequeueArrival removed %d arrivals, want 1", before-len(fab.queue))
+			before := len((*fabric.ExportFabricQueue(fab)))
+			fabric.ExportFabricRemoveDequeueArrival(fab, fabric.Endpoint{Node: arr.Device, Port: arr.Port})
+			if len((*fabric.ExportFabricQueue(fab))) != before-1 {
+				t.Fatalf("removeDequeueArrival removed %d arrivals, want 1", before-len((*fabric.ExportFabricQueue(fab))))
 			}
 			active[idx] = false
 			removedDequeues++
@@ -245,10 +257,10 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 			}
 			idx := wakeCandidates[nextWake]
 			arr := pushed[idx]
-			before := len(fab.queue)
-			fab.removeWakeArrival(arr.Device)
-			if len(fab.queue) != before-1 {
-				t.Fatalf("removeWakeArrival removed %d arrivals, want 1", before-len(fab.queue))
+			before := len((*fabric.ExportFabricQueue(fab)))
+			fabric.ExportFabricRemoveWakeArrival(fab, arr.Device)
+			if len((*fabric.ExportFabricQueue(fab))) != before-1 {
+				t.Fatalf("removeWakeArrival removed %d arrivals, want 1", before-len((*fabric.ExportFabricQueue(fab))))
 			}
 			active[idx] = false
 			removedWakes++
@@ -261,16 +273,16 @@ func TestQueueHeapOrderMatchesCompareArrival(t *testing.T) {
 	}
 
 	// An absent key must leave the queue unchanged.
-	before := len(fab.queue)
-	fab.removeDequeueArrival(Endpoint{Node: "absent", Port: "absent"})
-	fab.removeWakeArrival("absent")
-	if len(fab.queue) != before {
+	before := len((*fabric.ExportFabricQueue(fab)))
+	fabric.ExportFabricRemoveDequeueArrival(fab, fabric.Endpoint{Node: "absent", Port: "absent"})
+	fabric.ExportFabricRemoveWakeArrival(fab, "absent")
+	if len((*fabric.ExportFabricQueue(fab))) != before {
 		t.Fatalf("removing absent keys changed the queue length")
 	}
 
 	expected := sortedRemaining()
-	if len(fab.queue) != len(expected) {
-		t.Fatalf("queue length = %d after removals, want %d", len(fab.queue), len(expected))
+	if len((*fabric.ExportFabricQueue(fab))) != len(expected) {
+		t.Fatalf("queue length = %d after removals, want %d", len((*fabric.ExportFabricQueue(fab))), len(expected))
 	}
 	for _, want := range expected {
 		checkPop(want)

@@ -7,6 +7,12 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -19,11 +25,74 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
+func TestHostBoundLegRecordsCrossing(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	id, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}); result.Steps != 4 {
+		t.Errorf("steps = %d, want 4 (host transmission, two switches, and host delivery)", result.Steps)
+	}
+	j := fab.Report()[id-1]
+	var crossings int
+	for i, entry := range j.Entries {
+		if entry.Kind != fabric.EntryCrossing || entry.Device != "h2" || entry.Port != "" {
+			continue
+		}
+		crossings++
+		if entry.Wait != 0 || entry.Serialization != 672*time.Nanosecond || entry.PCP != 0 {
+			t.Errorf("host-bound crossing = %+v, want wait 0, serialization 672ns, PCP 0", entry)
+		}
+		if i+1 >= len(j.Entries) || j.Entries[i+1].Kind != fabric.EntryArrival || j.Entries[i+1].Device != "h2" || !j.Entries[i+1].At.Equal(entry.At.Add(entry.Serialization+entry.Latency)) {
+			t.Errorf("entries = %+v, want host arrival after its crossing", j.Entries)
+		}
+	}
+	if crossings != 1 || len(j.Deliveries) != 1 {
+		t.Fatalf("host crossings/deliveries = %d/%d, want 1/1", crossings, len(j.Deliveries))
+	}
+}
+
+func TestHostInjectionKeepsPCP(t *testing.T) {
+	vid := vlan.ID(10)
+	src, dst := netaddr.MAC{2, 0, 0, 0, 0, 1}, netaddr.MAC{2, 0, 0, 0, 0, 2}
+	fab, err := assembly.New(statedPhysical(assembly.Config{
+		Switches: map[string]vswitch.Config{"sw": {Ports: mustTable(t, port.NewBuilder().Range("p%d", 1, 2, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: src, VLAN: &vid}, "h2": {Address: dst, VLAN: &vid}},
+		Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw", Port: "p1"}}, {A: fabric.Endpoint{Node: "sw", Port: "p2"}, B: fabric.Endpoint{Node: "h2"}}},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst, Tags: []vlan.Tag{{VID: 20, PCP: 5, DEI: true}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+	j := fab.Report()[id-1]
+	var crossings int
+	for _, e := range j.Entries {
+		if e.Kind == fabric.EntryCrossing {
+			crossings++
+			if e.PCP != 5 {
+				t.Errorf("crossing PCP = %d, want 5", e.PCP)
+			}
+		}
+	}
+	if crossings != 2 || len(j.Deliveries) != 1 {
+		t.Fatalf("crossings/deliveries = %d/%d, want 2/1", crossings, len(j.Deliveries))
+	}
+	if tags := j.Deliveries[0].Frame.Tags; len(tags) != 1 || tags[0].VID != 10 || tags[0].PCP != 5 || !tags[0].DEI {
+		t.Errorf("delivered tags = %+v, want one VID 10 tag at PCP 5 with DEI set", tags)
+	}
+}
+
+func newTwoSwitchTopology(t *testing.T, cableFault cablemodel.Fault) (*fabric.Fabric, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
 	b1 := port.NewBuilder()
@@ -65,7 +134,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  pTable1,
@@ -76,7 +145,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -86,11 +155,9 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
-				Fault:        cableFault,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber, Fault: cableFault},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -99,7 +166,7 @@ func newTwoSwitchTopology(t *testing.T, cableFault fabric.Fault) (*fabric.Fabric
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -119,12 +186,12 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	}
 	macH1 := netaddr.MAC{0, 0, 0, 0, 0, 0x01}
 	macH2 := netaddr.MAC{0, 0, 0, 0, 0, 0x02}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: macH1}, "h2": {Address: macH2}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: macH1}, "h2": {Address: macH2}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}, Fault: fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}},
+			{Cable: cablemodel.Cable{Fault: cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}))
 	if err != nil {
@@ -133,14 +200,17 @@ func TestCorruptingCableToAHostDropsTheCopy(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: macH2, Src: macH1}}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 	j := fab.Report()[0]
 	if len(j.Deliveries) != 0 {
 		t.Errorf("Deliveries = %+v, want none from a corrupting cable", j.Deliveries)
 	}
 	last := j.Entries[len(j.Entries)-1]
-	if last.Kind != fabric.EntryDrop || last.Reason != fabric.ReasonBadFrame || last.Device != "h2" {
+	if last.Kind != fabric.EntryDrop || last.Reason != cablemodel.ReasonBadFrame || last.Device != "h2" {
 		t.Errorf("last entry = %+v, want a bad-frame drop at h2", last)
+	}
+	if last.Cable == nil || last.Cable.A != (fabric.Endpoint{Node: "h2"}) || last.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
+		t.Fatalf("host corrupt-entry cable = %+v, want sw1:1/1/2 to h2", last.Cable)
 	}
 }
 
@@ -155,9 +225,9 @@ func TestVlanHostReplacesTheCallersTag(t *testing.T) {
 		t.Fatal(err)
 	}
 	vid10 := vlan.ID(10)
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: ports}},
-		Hosts:    map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
+		Hosts:    map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}, VLAN: &vid10}, "h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
@@ -190,15 +260,15 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 
 		return tbl
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: table()}, "sw2": {Ports: table()}, "sw3": {Ports: table()},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}, LengthMeters: 10},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, LengthMeters: 10},
+			{Cable: cablemodel.Cable{LengthMeters: 10}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 10}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
 		},
 	}))
 	if err != nil {
@@ -207,6 +277,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: now, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Dst: netaddr.MAC{0, 0, 0, 0, 0, 9}, Src: netaddr.MAC{0, 0, 0, 0, 0, 1}}}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	fab.Step()
 	second, _ := fab.Step()
 	third, _ := fab.Step()
@@ -218,7 +289,7 @@ func TestSameInstantCopiesStepInDeviceOrder(t *testing.T) {
 // A frame the codec cannot encode is refused at injection, where the caller
 // can act on it, rather than counted as zero octets in a run.
 func TestInjectRefusesAFrameTheCodecRejects(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	bad := ethernet.Frame{Dst: macH2, Src: macH1, Tags: []vlan.Tag{{TPID: 0x9100, VID: 10}}}
 	if _, err := fab.Inject(fabric.Injection{Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: bad}); err == nil {
 		t.Error("Inject(frame with TPID 0x9100) error = nil, want an error")
@@ -226,7 +297,7 @@ func TestInjectRefusesAFrameTheCodecRejects(t *testing.T) {
 }
 
 func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -247,9 +318,9 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Errorf("fid1 = %d, want 1", fid1)
 	}
 
-	steps := fab.Run(10).Steps
-	if steps != 2 {
-		t.Fatalf("steps = %d, want 2", steps)
+	steps := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}).Steps
+	if steps != 4 {
+		t.Fatalf("steps = %d, want 4", steps)
 	}
 
 	journeys := fab.Report()
@@ -268,6 +339,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		fabric.EntryHop,
 		fabric.EntryCrossing,
 		fabric.EntryHop,
+		fabric.EntryCrossing,
 		fabric.EntryArrival,
 		fabric.EntryDelivery,
 	}
@@ -305,8 +377,8 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 	if j1.Entries[4].Result.Outcome != trace.Flooded {
 		t.Errorf("sw2 outcome = %v, want Flooded", j1.Entries[4].Result.Outcome)
 	}
-	if j1.Entries[5].Device != "h2" || j1.Entries[6].Device != "h2" {
-		t.Errorf("arrival and delivery devices = %q, %q, want h2", j1.Entries[5].Device, j1.Entries[6].Device)
+	if j1.Entries[6].Device != "h2" || j1.Entries[7].Device != "h2" {
+		t.Errorf("arrival and delivery devices = %q, %q, want h2", j1.Entries[6].Device, j1.Entries[7].Device)
 	}
 
 	if len(j1.Deliveries) != 1 {
@@ -336,9 +408,9 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 		t.Fatalf("Inject reverse: %v", err)
 	}
 
-	stepsRev := fab.Run(10).Steps
-	if stepsRev != 2 {
-		t.Fatalf("stepsRev = %d, want 2", stepsRev)
+	stepsRev := fab.Run(fabric.RunOptions{Budget: 10, Window: 0}).Steps
+	if stepsRev != 4 {
+		t.Fatalf("stepsRev = %d, want 4", stepsRev)
 	}
 
 	journeys = fab.Report()
@@ -362,7 +434,7 @@ func TestTwoSwitchFrameForwardingAndReverse(t *testing.T) {
 }
 
 func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -379,7 +451,8 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(1).Steps
+	stepHostInputs(t, fab, 1)
+	steps := fab.Run(fabric.RunOptions{Budget: 1, Window: 0}).Steps
 	if steps != 1 {
 		t.Fatalf("steps = %d, want 1", steps)
 	}
@@ -409,14 +482,14 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 		t.Errorf("sw2 FDB entries = %+v, want empty", sw2Entries)
 	}
 
-	steps = fab.Run(1).Steps
+	steps = fab.Run(fabric.RunOptions{Budget: 1, Window: 0}).Steps
 	if steps != 1 {
 		t.Fatalf("second Run(1) steps = %d, want 1", steps)
 	}
 
 	snap2 := fab.Snapshot()
-	if len(snap2.Queue) != 0 {
-		t.Errorf("len(snap2.Queue) = %d, want 0", len(snap2.Queue))
+	if len(snap2.Queue) != 1 {
+		t.Errorf("len(snap2.Queue) = %d, want 1 host arrival", len(snap2.Queue))
 	}
 	if !snap2.Clock.Equal(wantAt) {
 		t.Errorf("snap2.Clock = %v, want %v", snap2.Clock, wantAt)
@@ -429,7 +502,7 @@ func TestRunBudgetHaltsAndSnapshotTransientState(t *testing.T) {
 }
 
 func TestInterleavedFramesByArrivalTime(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj1 := fabric.Injection{
@@ -467,10 +540,14 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	expectedSteps := []stepExpectation{
+		{device: "h1", at: t0},
 		{device: "sw1", port: "1/1/1", at: t0.Add(672 * time.Nanosecond)},
+		{device: "h2", at: t0.Add(time.Microsecond)},
 		{device: "sw2", port: "1/1/1", at: t0.Add(1672 * time.Nanosecond)},
 		{device: "sw2", port: "1/1/24", at: t0.Add(2870 * time.Nanosecond)},
+		{device: "h2", at: t0.Add(3542 * time.Nanosecond)},
 		{device: "sw1", port: "1/1/24", at: t0.Add(3870 * time.Nanosecond)},
+		{device: "h1", at: t0.Add(4542 * time.Nanosecond)},
 	}
 
 	for i, want := range expectedSteps {
@@ -487,7 +564,7 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 	}
 
 	if _, ok := fab.Step(); ok {
-		t.Errorf("expected queue to be empty after 4 steps")
+		t.Errorf("expected queue to be empty after 8 steps")
 	}
 
 	journeys := fab.Report()
@@ -503,8 +580,8 @@ func TestInterleavedFramesByArrivalTime(t *testing.T) {
 }
 
 func TestCableLossFault(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{
-		Kind: fabric.FaultLoseEveryNth,
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{
+		Kind: cablemodel.FaultLoseEveryNth,
 		N:    2,
 	})
 
@@ -527,7 +604,7 @@ func TestCableLossFault(t *testing.T) {
 		t.Fatalf("Inject 2: %v", err)
 	}
 
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	journeys := fab.Report()
 	if len(journeys) != 2 {
@@ -548,8 +625,8 @@ func TestCableLossFault(t *testing.T) {
 	if lastEntry.Kind != fabric.EntryLoss {
 		t.Errorf("frame 2 last entry Kind = %v, want Loss", lastEntry.Kind)
 	}
-	if lastEntry.Reason != fabric.ReasonCableLoss {
-		t.Errorf("frame 2 last entry Reason = %v, want %v", lastEntry.Reason, fabric.ReasonCableLoss)
+	if lastEntry.Reason != cablemodel.ReasonCableLoss {
+		t.Errorf("frame 2 last entry Reason = %v, want %v", lastEntry.Reason, cablemodel.ReasonCableLoss)
 	}
 	if lastEntry.Cable == nil {
 		t.Errorf("frame 2 last entry Cable is nil")
@@ -563,8 +640,8 @@ func TestCableLossFault(t *testing.T) {
 }
 
 func TestCableCorruptionFault(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{
-		Kind: fabric.FaultCorruptEveryNth,
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{
+		Kind: cablemodel.FaultCorruptEveryNth,
 		N:    1,
 	})
 
@@ -579,7 +656,7 @@ func TestCableCorruptionFault(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -597,8 +674,8 @@ func TestCableCorruptionFault(t *testing.T) {
 	if lastEntry.Device != "sw2" || lastEntry.Port != "1/1/24" {
 		t.Errorf("last entry location = (%q, %q), want (sw2, 1/1/24)", lastEntry.Device, lastEntry.Port)
 	}
-	if lastEntry.Reason != fabric.ReasonBadFrame {
-		t.Errorf("last entry Reason = %v, want %v", lastEntry.Reason, fabric.ReasonBadFrame)
+	if lastEntry.Reason != cablemodel.ReasonBadFrame {
+		t.Errorf("last entry Reason = %v, want %v", lastEntry.Reason, cablemodel.ReasonBadFrame)
 	}
 }
 
@@ -647,12 +724,12 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macUnknown := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable1, Bridge: newBridgeCfg()},
 			"sw2": {Ports: pTable2, Bridge: newBridgeCfg()},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
@@ -661,19 +738,19 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 10,
+				Cable: cablemodel.Cable{LengthMeters: 10},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				LengthMeters: 10,
+				Cable: cablemodel.Cable{LengthMeters: 10},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -689,7 +766,7 @@ func TestLoopDetectionAndStepBudget(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	steps := fab.Run(50).Steps
+	steps := fab.Run(fabric.RunOptions{Budget: 50, Window: 0}).Steps
 	if steps != 50 {
 		t.Errorf("steps = %d, want 50", steps)
 	}
@@ -735,7 +812,7 @@ func TestHostTagFormHandling(t *testing.T) {
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 		macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable1,
@@ -762,7 +839,7 @@ func TestHostTagFormHandling(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 				"h2": {Address: macH2, VLAN: &vid10},
 			},
@@ -773,7 +850,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -788,7 +865,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(10)
+		fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 		journeys := fab.Report()
 		if len(journeys) != 1 || len(journeys[0].Deliveries) != 1 {
@@ -809,7 +886,7 @@ func TestHostTagFormHandling(t *testing.T) {
 		vid10 := vlan.ID(10)
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable,
@@ -827,7 +904,7 @@ func TestHostTagFormHandling(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1, VLAN: &vid10},
 			},
 			Cables: []fabric.Cable{
@@ -835,7 +912,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -850,7 +927,7 @@ func TestHostTagFormHandling(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(5)
+		fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 		journeys := fab.Report()
 		if len(journeys) != 1 {
@@ -885,7 +962,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 	pTable, _ := b.Build()
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable,
@@ -899,7 +976,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{1, 2, 3, 4, 5, 6}},
 		},
 		Cables: []fabric.Cable{
@@ -907,7 +984,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -946,7 +1023,7 @@ func TestDevicePortCaptureReplay(t *testing.T) {
 }
 
 func TestRunZeroSteps(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	inj := fabric.Injection{
@@ -963,7 +1040,7 @@ func TestRunZeroSteps(t *testing.T) {
 		t.Fatalf("queue before Run(0) = %d, want 1", len(snapBefore.Queue))
 	}
 
-	res := fab.Run(0)
+	res := fab.Run(fabric.RunOptions{Budget: 0, Window: 0})
 	if res.Steps != 0 {
 		t.Errorf("Run(0) returned %d steps, want 0", res.Steps)
 	}
@@ -978,7 +1055,7 @@ func TestRunZeroSteps(t *testing.T) {
 }
 
 func TestInjectInvalidOrigins(t *testing.T) {
-	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	dummyFrame := ethernet.Frame{Payload: []byte("x")}
@@ -1023,9 +1100,9 @@ func TestInjectInvalidOrigins(t *testing.T) {
 // reflector is a node the fabric knows, but one with no host or switch port
 // to inject at.
 func TestInjectAtReflectorOriginNamesTheReflector(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectCopyConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	_, err = fab.Inject(fabric.Injection{
@@ -1054,7 +1131,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1069,7 +1146,7 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 		},
 		Cables: []fabric.Cable{{
@@ -1111,8 +1188,11 @@ func TestWakePrecedesFrameAtSameInstant(t *testing.T) {
 			t.Fatal("queue drained before reaching wakeTime")
 		}
 		if entry.At.Equal(wakeTime) {
-			if entry.Kind != fabric.EntryWake {
-				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Kind, fabric.EntryWake)
+			if entry.Arrival != fabric.ArrivalWake {
+				t.Fatalf("first entry at %v was %v, want %v", wakeTime, entry.Arrival, fabric.ArrivalWake)
+			}
+			if entry.Kind != "" {
+				t.Fatalf("wake entry kind = %q, want empty", entry.Kind)
 			}
 			break
 		}
@@ -1130,7 +1210,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 	}
 
 	mac := netaddr.MAC{0, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1146,7 +1226,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 		},
 		Cables: []fabric.Cable{{
@@ -1180,7 +1260,7 @@ func TestRescheduledWakeLeavesOneQueueEntry(t *testing.T) {
 }
 
 func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
-	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	snapBefore := fab.Snapshot()
 	found := false
@@ -1200,7 +1280,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 	err := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault: %v", err)
@@ -1212,7 +1292,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 			if l.A.Oper != port.Down || l.B.Oper != port.Down {
 				t.Errorf("after SetFault cut, link ends are A=%v, B=%v, want Down", l.A.Oper, l.B.Oper)
 			}
-			if l.A.Reason != fabric.ReasonCut || l.B.Reason != fabric.ReasonCut {
+			if l.A.Reason != cablemodel.ReasonCut || l.B.Reason != cablemodel.ReasonCut {
 				t.Errorf("after SetFault cut, reasons are A=%v, B=%v, want cut", l.A.Reason, l.B.Reason)
 			}
 		}
@@ -1221,7 +1301,7 @@ func TestSetFaultUpdatesOperationalStatusAndRefusesUnknownPair(t *testing.T) {
 	errUnknown := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/99"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/99"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if errUnknown == nil {
 		t.Error("SetFault expected error for unknown endpoints, got nil")
@@ -1233,22 +1313,22 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 	b := fabric.Endpoint{Node: "sw2", Port: "1/1/24"}
 	tests := []struct {
 		name  string
-		fault fabric.Fault
-		want  fabric.Fault
+		fault cablemodel.Fault
+		want  cablemodel.Fault
 	}{
 		{
 			name:  "empty kind",
-			fault: fabric.Fault{},
-			want:  fabric.Fault{Kind: fabric.FaultNone},
+			fault: cablemodel.Fault{},
+			want:  cablemodel.Fault{Kind: cablemodel.FaultNone},
 		},
 		{
 			name: "unsorted duplicate sequence",
-			fault: fabric.Fault{
-				Kind:     fabric.FaultLoseSequence,
+			fault: cablemodel.Fault{
+				Kind:     cablemodel.FaultLoseSequence,
 				Sequence: []uint{5, 1, 5, 3},
 			},
-			want: fabric.Fault{
-				Kind:     fabric.FaultLoseSequence,
+			want: cablemodel.Fault{
+				Kind:     cablemodel.FaultLoseSequence,
 				Sequence: []uint{1, 3, 5},
 			},
 		},
@@ -1256,7 +1336,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+			fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 			if err := fab.SetFault(a, b, test.fault); err != nil {
 				t.Fatalf("SetFault: %v", err)
 			}
@@ -1264,7 +1344,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 				test.fault.Sequence[0] = 99
 			}
 
-			assertFault := func(where string, got fabric.Fault) {
+			assertFault := func(where string, got cablemodel.Fault) {
 				t.Helper()
 				if got.Kind != test.want.Kind || got.N != test.want.N || !slices.Equal(got.Sequence, test.want.Sequence) {
 					t.Errorf("%s fault = %+v, want %+v", where, got, test.want)
@@ -1274,14 +1354,14 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 			for _, link := range fab.Links() {
 				if (link.Cable.A == a && link.Cable.B == b) || (link.Cable.A == b && link.Cable.B == a) {
 					foundLink = true
-					assertFault("live link", link.Fault)
+					assertFault("live link", link.Cable.Fault)
 				}
 			}
 			if !foundLink {
 				t.Fatal("live link is absent")
 			}
 
-			spec := fab.Spec()
+			spec := assembly.Spec(fab)
 			foundCable := false
 			for _, cable := range spec.Cables {
 				if (cable.A == a && cable.B == b) || (cable.A == b && cable.B == a) {
@@ -1297,7 +1377,7 @@ func TestSetFaultStoresNormalizedFault(t *testing.T) {
 }
 
 func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	for _, arr := range fab.Snapshot().Queue {
 		if arr.Kind == fabric.ArrivalWake {
@@ -1321,17 +1401,19 @@ func TestTwoSwitchRunWithoutLayerUnchangedByWakeFacility(t *testing.T) {
 		}
 	}
 
-	steps := fab.Run(10).Steps
-	if steps == 0 {
-		t.Fatal("expected Run to take steps")
-	}
-
-	for _, j := range fab.Report() {
-		for _, e := range j.Entries {
-			if e.Kind == fabric.EntryWake {
-				t.Errorf("found EntryWake in journey of non-STP fabric: %+v", e)
-			}
+	var steps int
+	for {
+		stepRes, ok := fab.Step()
+		if !ok {
+			break
 		}
+		steps++
+		if stepRes.Arrival == fabric.ArrivalWake || stepRes.Arrival == fabric.ArrivalDequeue {
+			t.Fatalf("unexpected timer arrival: %v", stepRes.Arrival)
+		}
+	}
+	if steps == 0 {
+		t.Fatal("expected Step to process arrivals")
 	}
 }
 
@@ -1348,15 +1430,15 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 	gateway := netip.MustParseAddr("10.0.10.1")
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 					Gateway:   gateway,
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1380,9 +1462,9 @@ func TestInjectMalformedPacketRejected(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	validPacket := &fabric.Packet{
@@ -1456,15 +1538,15 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 	gateway := netip.MustParseAddr("2001:db8:1::1")
 	offLinkDst := netip.MustParseAddr("2001:db8:99::1")
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: ports},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &fabric.HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("2001:db8:1::7/64")},
 					Gateway:   gateway,
 					Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1481,9 +1563,9 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	fid, err := fab.Inject(fabric.Injection{
@@ -1535,9 +1617,9 @@ func TestHostIPv6PacketToOffLinkViaGateway(t *testing.T) {
 
 func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 	gateway := netip.MustParseAddr("10.0.10.1")
-	h := fabric.Host{
+	h := hostmodel.Config{
 		Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x00, 0x01},
-		IP: &fabric.HostIP{
+		IP: &hostmodel.IP{
 			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 			Gateway:   gateway,
 			Neighbors: map[netip.Addr]netaddr.MAC{
@@ -1546,9 +1628,9 @@ func TestHostRoutingConfigDefaultRoutesPresent(t *testing.T) {
 		},
 	}
 
-	rtCfg, tbl := fabric.HostRoutingConfig("h1", h)
+	rtCfg, tbl := hostmodel.RoutingConfig("h1", h)
 	if err := rtCfg.Validate(layer.Env{Ports: tbl}); err != nil {
-		t.Fatalf("HostRoutingConfig failed Validate: %v", err)
+		t.Fatalf("host RoutingConfig failed Validate: %v", err)
 	}
 
 	vrf, ok := rtCfg.VRFs[routing.DefaultVRF]
@@ -1584,7 +1666,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable1,
@@ -1612,7 +1694,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}},
 			"h2": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}},
 			"h3": {Address: netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x03}},
@@ -1621,16 +1703,15 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1664,6 +1745,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 		t.Fatalf("Inject h3: %v", err)
 	}
 
+	stepHostInputs(t, fab, 2)
 	step1, ok := fab.Step()
 	if !ok {
 		t.Fatal("step 1 returned ok=false")
@@ -1703,7 +1785,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 			t.Fatal("queue exhausted before both sw2 hops")
 		}
 		if entry.Kind == fabric.EntryHop && entry.Device == "sw2" {
-			sw2Hops = append(sw2Hops, entry)
+			sw2Hops = append(sw2Hops, entry.Entry)
 		}
 	}
 	if diff := sw2Hops[1].At.Sub(sw2Hops[0].At); diff != 704*time.Nanosecond {
@@ -1737,7 +1819,7 @@ func TestTrunkBusyClockSerializesConcurrentFloods(t *testing.T) {
 }
 
 func TestSerializationAndPropagationTiming(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload46 := make([]byte, 46)
@@ -1756,7 +1838,7 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -1764,8 +1846,8 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 	}
 
 	j := journeys[0]
-	if len(j.Entries) != 7 {
-		t.Fatalf("len(j.Entries) = %d, want 7", len(j.Entries))
+	if len(j.Entries) != 8 {
+		t.Fatalf("len(j.Entries) = %d, want 8", len(j.Entries))
 	}
 
 	e1 := j.Entries[1]
@@ -1803,11 +1885,11 @@ func TestSerializationAndPropagationTiming(t *testing.T) {
 		t.Errorf("e4 = %+v, want hop on sw2 at t0+2870ns", e4)
 	}
 
-	e5 := j.Entries[5]
+	e5 := j.Entries[6]
 	if e5.Kind != fabric.EntryArrival || e5.Device != "h2" || !e5.At.Equal(t0.Add(3542*time.Nanosecond)) {
 		t.Errorf("e5 = %+v, want arrival at h2 at t0+3542ns", e5)
 	}
-	e6 := j.Entries[6]
+	e6 := j.Entries[7]
 	if e6.Kind != fabric.EntryDelivery || e6.Device != "h2" || !e6.At.Equal(t0.Add(3542*time.Nanosecond)) {
 		t.Errorf("e6 = %+v, want delivery to h2 at t0+3542ns", e6)
 	}
@@ -1834,7 +1916,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 		macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 		macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-		cfg := fabric.Config{
+		cfg := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": {
 					Ports: pTable1,
@@ -1861,24 +1943,22 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 					},
 				},
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 				"h2": {Address: macH2},
 			},
 			Cables: []fabric.Cable{
 				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-					B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-					LengthMeters: 300,
-					Medium:       fabric.MultimodeFiber,
-					Delay:        &delayOverride,
+					Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber, Delay: &delayOverride},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+					B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 				},
 				{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 			},
 		}
 
-		fab, err := fabric.New(statedPhysical(cfg))
+		fab, err := assembly.New(statedPhysical(cfg))
 		if err != nil {
 			t.Fatalf("New fabric: %v", err)
 		}
@@ -1898,7 +1978,7 @@ func TestDelayOverrideOnTrunk(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 
-		fab.Run(10)
+		fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 		journeys := fab.Report()
 		if len(journeys) != 1 {
@@ -1938,7 +2018,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: pTable1,
@@ -1967,23 +2047,22 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 10000,
-				Medium:       fabric.SinglemodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 10000, Medium: cablemodel.SinglemodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2020,7 +2099,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	journeys := fab.Report()
 	if len(journeys) != 1 {
@@ -2040,7 +2119,7 @@ func TestSinglemodeFiberTenGigabitTiming(t *testing.T) {
 }
 
 func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{Kind: fabric.FaultNone})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{Kind: cablemodel.FaultNone})
 
 	t0 := time.Date(2026, 9, 10, 10, 0, 0, 0, time.UTC)
 	payload46 := make([]byte, 46)
@@ -2071,6 +2150,7 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 		t.Fatalf("Inject 2: %v", err)
 	}
 
+	stepHostInputs(t, fab, 2)
 	step1, ok := fab.Step()
 	if !ok {
 		t.Fatal("step 1 ok=false")
@@ -2080,7 +2160,7 @@ func TestHostBusyClockSerializesSubsequentInjections(t *testing.T) {
 		t.Fatal("step 2 ok=false")
 	}
 	// The host dequeue is now an observable step between the two frame arrivals.
-	if dequeue.Kind != fabric.EntryDequeue || dequeue.Device != "h1" {
+	if dequeue.Arrival != fabric.ArrivalDequeue || dequeue.Device != "h1" {
 		t.Fatalf("step 2 = %+v, want h1 dequeue", dequeue)
 	}
 	step2, ok := fab.Step()
@@ -2115,24 +2195,23 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 	pTable, _ := b.Build()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	cfg := statedPhysical(fabric.Config{
+	cfg := statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				LengthMeters: 300,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 		},
 	})
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -2150,6 +2229,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject from a host on a Down link: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if len(fab.Snapshot().Queue) != 0 {
 		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
 	}
@@ -2163,7 +2243,7 @@ func TestInjectFromHostWithReachExceededCableRecordsDrop(t *testing.T) {
 		t.Fatalf("journey entries = %+v, want injection then drop", entries)
 	}
 	drop := entries[1]
-	if drop.Kind != fabric.EntryDrop || drop.Reason != fabric.ReasonReachExceeded || drop.Device != "h1" || !drop.At.Equal(t0) {
+	if drop.Kind != fabric.EntryDrop || drop.Reason != cablemodel.ReasonReachExceeded || drop.Device != "h1" || !drop.At.Equal(t0) {
 		t.Errorf("second entry = %+v, want drop at h1 at t0 with reason reach-exceeded", drop)
 	}
 	if drop.Cable == nil || drop.Cable.B != (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) {
@@ -2177,15 +2257,15 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 	pTable, _ := b.Build()
 
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: pTable},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 		},
 	})
 	if err != nil {
@@ -2201,6 +2281,7 @@ func TestInjectFromHostOnUnknownLinkRecordsUnresolved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject from a host on an Unknown link: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if len(fab.Snapshot().Queue) != 0 {
 		t.Errorf("Snapshot().Queue has %d items, want 0", len(fab.Snapshot().Queue))
 	}
@@ -2238,7 +2319,7 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 	}
 
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -2259,10 +2340,9 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 100,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 100, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}))
@@ -2270,14 +2350,15 @@ func TestBPDUCrossingCarriesSerialization(t *testing.T) {
 		t.Fatalf("New fabric: %v", err)
 	}
 
+	var journeys []fabric.Journey
 	for {
+		journeys = fab.Report()
 		entry, ok := fab.Step()
 		if !ok || entry.Device == "sw2" {
 			break
 		}
 	}
 
-	journeys := fab.Report()
 	if len(journeys) == 0 {
 		t.Fatal("expected at least one journey")
 	}
@@ -2321,7 +2402,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 	}
 
 	vid10 := vlan.ID(10)
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -2339,7 +2420,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: netaddr.MAC{0, 0, 0, 0, 0, 1}},
 			"h2": {Address: netaddr.MAC{0, 0, 0, 0, 0, 2}},
 			"h3": {Address: netaddr.MAC{0, 0, 0, 0, 0, 3}},
@@ -2351,9 +2432,9 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	macA := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
@@ -2385,7 +2466,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 		}
 	}
 
-	fab.Run(10)
+	fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	snap := fab.Snapshot()
 	sw1, ok := snap.Devices["sw1"]
@@ -2402,7 +2483,7 @@ func TestSnapshotRelayCounters(t *testing.T) {
 }
 
 func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
 
@@ -2413,19 +2494,23 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject queued frame: %v", err)
 	}
+	stepHostInputs(t, fab, 2)
+	if got := fab.Snapshot().Queued[fabric.Endpoint{Node: "h1"}]; got != 1 {
+		t.Fatalf("queued host frames = %d, want 1", got)
+	}
 	hostEnd := fabric.Endpoint{Node: "h1"}
 	switchEnd := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
-	if err := fab.SetFault(hostEnd, switchEnd, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(hostEnd, switchEnd, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	for _, journey := range fab.Report() {
 		if journey.FrameID != queuedID {
 			continue
 		}
 		for _, entry := range journey.Entries {
-			if entry.Kind == fabric.EntryLoss && entry.Reason == fabric.ReasonCableLoss {
+			if entry.Kind == fabric.EntryLoss && entry.Reason == cablemodel.ReasonCableLoss {
 				if got := fab.Snapshot().Queued[hostEnd]; got != 0 {
 					t.Errorf("queued host frames = %d, want 0", got)
 				}
@@ -2437,12 +2522,13 @@ func TestQueuedFrameOnCutCableRecordsLossAndDrains(t *testing.T) {
 }
 
 func TestInjectRefusesTimeBeforeRunningClock(t *testing.T) {
-	fab, macH1, macH2 := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, macH1, macH2 := newTwoSwitchTopology(t, cablemodel.Fault{})
 	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
 	frame := ethernet.Frame{Src: macH1, Dst: macH2, Payload: make([]byte, 46)}
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("Inject initial frame: %v", err)
 	}
+	stepHostInputs(t, fab, 1)
 	if _, ok := fab.Step(); !ok {
 		t.Fatal("Step returned no entry")
 	}
@@ -2466,29 +2552,29 @@ var (
 
 // reflectCopyConfig cables a reflector directly to three hosts, one per
 // attachment, so each attachment's fate is unambiguous: no switch and no
-// shared port stand between a copy and its destination. Attachment "a" is
+// shared port stand between a copy and its destination. reflectormodel.Attachment "a" is
 // the arrival side (VLAN 10); "b" (VLAN 20) has an IPv4 address and answers
 // on h2; "c" (VLAN 30) carries only an IPv6 address, so an IPv4 query gives
 // it no copy.
-func reflectCopyConfig(t *testing.T) fabric.Config {
+func reflectCopyConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
 
-	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+	return assembly.Config{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 			"h2": {
 				Address: reflectH2Address, VLAN: &vid20,
-				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
-				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+				IP:     &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: hostmodel.Accept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
 			},
 			"h3": {Address: reflectH3Address, VLAN: &vid30},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"rp1": {}, "rp2": {}, "rp3": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "rp1", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "rp2", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 					"c": {Port: "rp3", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("fd00::9/64")}},
@@ -2513,16 +2599,16 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 // end to end, and a drop naming the attachment with no address of that
 // family instead of a second copy.
 func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectCopyConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectCopyConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	journeys := fab.Report()
 	var parent fabric.Journey
@@ -2535,21 +2621,30 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 		t.Fatalf("parent journey %d not found", parentID)
 	}
 
-	if !slices.ContainsFunc(parent.Entries, func(e fabric.Entry) bool {
-		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == fabric.ReasonReflectorNoAddress
-	}) {
+	noAddress := func(e fabric.Entry) bool {
+		return e.Kind == fabric.EntryDrop && e.Device == "r1" && e.Port == "rp3" && e.Reason == reflectormodel.ReasonReflectorNoAddress
+	}
+	if !slices.ContainsFunc(parent.Entries, noAddress) {
 		t.Errorf("parent entries = %+v, want a no-address drop naming rp3", parent.Entries)
+	}
+	for _, e := range parent.Entries {
+		if noAddress(e) && e.Step != nil && (e.Step.Layer == "" || e.Step.RuleID == "" || e.Step.Subject == (trace.Subject{})) {
+			t.Errorf("no-address drop carries the undeclared step %+v, want no step or one with layer, rule, and subject", *e.Step)
+		}
+	}
+	if got := fabric.ExportPortCounters(fab, "r1", "rp3"); got.OutDiscards != 0 || got.Discards[reflectormodel.ReasonReflectorNoAddress] != 0 {
+		t.Errorf("rp3 counters = %+v, want no discard: no frame was sent toward it", got)
 	}
 
 	var copyJourney fabric.Journey
 	for _, j := range journeys {
-		if j.Origin.Kind == fabric.OriginMirror && j.Origin.Of == parentID {
+		if j.Origin.Kind == fabric.OriginReflection && j.Origin.Of == parentID {
 			copyJourney = j
 			break
 		}
 	}
 	if copyJourney.FrameID == 0 {
-		t.Fatalf("no copy journey found with OriginMirror of parent %d among: %+v", parentID, journeys)
+		t.Fatalf("no copy journey found with OriginReflection of parent %d among: %+v", parentID, journeys)
 	}
 
 	ipHeader, ipPayload, err := ip.Decode(copyJourney.Injection.Frame.Payload)
@@ -2591,19 +2686,19 @@ func TestReflectorOriginatesACopyPerOtherAttachmentAndDropsWithoutAnAddress(t *t
 // loop, and it is also the reflector-to-reflector cable the Decisions
 // require the far end to enqueue rather than call inline: r1 and r2 are
 // cabled to each other with no switch between them.
-func reflectLoopConfig(t *testing.T) fabric.Config {
+func reflectLoopConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
-	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+	return assembly.Config{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"up": {}, "trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"up":  {Port: "up", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.10/24")}},
@@ -2612,7 +2707,7 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 			"r2": {
 				Address: netaddr.MAC{0x02, 0x00, 0x00, 0x00, 0x02, 0xbb},
 				Ports:   map[string]phy.Ethernet{"trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.20/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.20/24")}},
 				},
@@ -2630,9 +2725,9 @@ func reflectLoopConfig(t *testing.T) fabric.Config {
 // trunk, an EntryLoop lands once entered is exhausted, and the run stops on
 // Run's budget rather than draining the queue or overflowing the stack.
 func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectLoopConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectLoopConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	if _, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
@@ -2640,7 +2735,7 @@ func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 	}
 
 	const budget = 40
-	steps := fab.Run(budget).Steps
+	steps := fab.Run(fabric.RunOptions{Budget: budget, Window: 0}).Steps
 	if steps != budget {
 		t.Fatalf("Run(%d) = %d, want the full budget: the loop should not drain the queue", budget, steps)
 	}
@@ -2668,23 +2763,23 @@ func TestTwoReflectorsSharingTwoVLANsLoopAndHaltOnBudget(t *testing.T) {
 // arrive at the same switch port endpoint, which is exactly the case a
 // shared (rather than seeded) re-entry set reports as a false loop on the
 // second sibling.
-func reflectSiblingConfig(t *testing.T) fabric.Config {
+func reflectSiblingConfig(t *testing.T) assembly.Config {
 	t.Helper()
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	vid10, vid20, vid30 := vlan.ID(10), vlan.ID(20), vlan.ID(30)
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{"sw1": {Ports: mustTable(t, b)}},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectH1Address, VLAN: &vid10},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectR1Address,
 				Ports:   map[string]phy.Ethernet{"trunk": {}},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"a": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"b": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 					"c": {Port: "trunk", VLAN: &vid30, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.30.9/24")}},
@@ -2705,16 +2800,16 @@ func reflectSiblingConfig(t *testing.T) fabric.Config {
 // switch port entered when the first sibling arrives and falsely flag the
 // second.
 func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
-	fab, err := fabric.New(statedPhysical(reflectSiblingConfig(t)))
+	fab, err := assembly.New(statedPhysical(reflectSiblingConfig(t)))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 	frame := mdnsFrame(t, reflectH1Address, nil, reflectorGroupMAC, reflectorGroupAddr, 17, 5353)
 	parentID, err := fab.Inject(fabric.Injection{At: fixedTime, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	journeys := fab.Report()
 	var copies []fabric.Journey
@@ -2729,6 +2824,16 @@ func TestReflectorSiblingCopiesAreNotALoop(t *testing.T) {
 	for _, copy := range copies {
 		if journeyHasKind(copy.Entries, fabric.EntryLoop) {
 			t.Errorf("sibling copy %d entries = %+v, want no EntryLoop", copy.FrameID, copy.Entries)
+		}
+	}
+}
+
+func stepHostInputs(t *testing.T, fab *fabric.Fabric, count int) {
+	t.Helper()
+	for i := range count {
+		entry, ok := fab.Step()
+		if !ok || entry.Kind != fabric.EntryInjection {
+			t.Fatalf("host input %d = %+v, %t, want Injection", i, entry, ok)
 		}
 	}
 }

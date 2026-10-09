@@ -80,7 +80,7 @@ func TestTransmitRejectsInvalidStreamShapeBeforeOpening(t *testing.T) {
 }
 
 func TestComparePreservesIssuesAndObservationLabels(t *testing.T) {
-	input := `{"version":1,"destination":"host","simulator":{"status":"incomplete","issues":[{"code":"queue-full","status":"incomplete","scope":"node[\"sw1\"]","message":"queue bounded"}],"flows":[{"id":1,"offered":10,"delivered":{"host":8},"drops":{"queue-full":2},"lost":0,"unresolved":0,"rejected":0,"held":0,"copies":{},"latency":{"Min":0,"Max":0,"Sum":0,"Count":0},"status":"incomplete","issues":[]}]},"lab":{"flows":{"1":{"sent":10,"unique_received":8,"missing":2,"duplicates":0,"reordered":0,"late_after_close":0,"latency":{"min":0,"max":0,"sum":0,"count":0}}},"malformed":0,"interface_drops":0}}`
+	input := `{"version":1,"destination":"host","simulator":{"status":"incomplete","issues":[{"code":"queue-full","status":"incomplete","scope":"node[\"sw1\"]","message":"queue bounded"}],"flows":[{"id":1,"offered":10,"delivered":{"host":8},"drops":{"queue-full":2},"lost":0,"unresolved":0,"rejected":0,"held_at_end":0,"copies":{},"latency":{"Min":0,"Max":0,"Sum":0,"Count":0},"status":"incomplete","issues":[]}]},"lab":{"flows":{"1":{"sent":10,"unique_received":8,"missing":2,"duplicates":0,"reordered":0,"late_after_close":0,"latency":{"min":0,"max":0,"sum":0,"count":0}}},"malformed":0,"interface_drops":0}}`
 	var output, diagnostics bytes.Buffer
 	if code := run([]string{"compare"}, strings.NewReader(input), &output, &diagnostics, simload.Dependencies{}); code != 0 {
 		t.Fatalf("run code = %d, diagnostics = %q", code, diagnostics.String())

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
-
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -34,7 +34,7 @@ func TestLinkChangePortStaysUnknown(t *testing.T) {
 	}
 
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
-	if _, err := sw.LinkChange(t0, "1/1/1", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/1", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +99,7 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 	swSTP.Receive(t0, "1/1/1", mustEncode(t, rootBPDU, macRoot))
 	swSTP.Receive(t0, "1/1/2", mustEncode(t, rootBPDU, macRoot))
 	// Redundant uplink 1/1/2 transitions to Unknown link state.
-	if _, err := swSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := swSTP.LinkChange(t0.Add(time.Second), "1/1/2", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -128,7 +128,7 @@ func TestUnknownUplinkAmongRedundantSTPPaths(t *testing.T) {
 		t.Fatalf("learn static entry on non-stp: %v", err)
 	}
 	swNoSTP.Start(t0)
-	if _, err := swNoSTP.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := swNoSTP.LinkChange(t0.Add(time.Second), "1/1/2", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -178,7 +178,7 @@ func TestUnknownLAGMemberDowngradesOnlyLAG(t *testing.T) {
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
 	// Member 1/1/2 becomes Unknown. Member 1/1/1 is still Up, so lag1 remains forwarding.
-	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -242,7 +242,7 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
 	// Member 1/1/2 becomes Unknown.
-	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", port.Unknown, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/2", device.Link{State: port.Unknown, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -252,7 +252,7 @@ func TestLaterUpReportClearsIssue(t *testing.T) {
 		t.Fatalf("got status %v while member is unknown, want Incomplete", resIncomplete.Metadata.Status())
 	}
 	// Member 1/1/2 receives a known Up report -> clears the issue.
-	if _, err := sw.LinkChange(t0.Add(3*time.Second), "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0.Add(3*time.Second), "1/1/2", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -304,7 +304,7 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 	}
 	swAuto.Start(t0)
 	// 1/1/1 has unknown duplex -> point-to-point status is unknown.
-	if _, err := swAuto.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+	if _, err := swAuto.LinkChange(t0.Add(time.Second), "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -341,7 +341,7 @@ func TestSTPUnknownDuplexPointToPoint(t *testing.T) {
 		t.Fatalf("learn seed: %v", err)
 	}
 	swForced.Start(t0)
-	if _, err := swForced.LinkChange(t0.Add(time.Second), "1/1/1", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+	if _, err := swForced.LinkChange(t0.Add(time.Second), "1/1/1", device.Link{State: port.Up, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	resForced := swForced.Receive(t0.Add(2*time.Second), "1/1/1", frame)
@@ -388,7 +388,7 @@ func allAutoSTPPorts() map[string]stp.Port {
 	}
 }
 
-func hasProtocolLinkIssue(res vswitch.Output) bool {
+func hasProtocolLinkIssue(res device.Output) bool {
 	return slices.ContainsFunc(res.Metadata.Issues(), func(iss analysis.Issue) bool {
 		return iss.Code == vswitch.IssueProtocolLinkUnknown
 	})
@@ -400,7 +400,7 @@ func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	sw := newAutoSTPSwitch(t, map[string]stp.Port{"1/1/1": {PathCost: 20000}})
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/2", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/2", device.Link{State: port.Unknown, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -413,7 +413,7 @@ func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	if hasProtocolLinkIssue(res) {
 		t.Fatalf("unconfigured unknown link raised protocol issues: %+v", res.Metadata.Issues())
 	}
-	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", port.Unknown, vswitch.PointToPointFalse, 0); err != nil {
+	if _, err := sw.LinkChange(t0.Add(time.Second), "1/1/1", device.Link{State: port.Unknown, Duplex: device.DuplexHalf, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
 	res = sw.Receive(t0.Add(2*time.Second), "1/1/3", frame)
@@ -437,15 +437,16 @@ func TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts(t *testing.T) {
 	}
 }
 
-// An unset point-to-point report says nothing about the link, so it must count
-// as unknown on a port whose spanning tree point-to-point mode is automatic.
-func TestLinkChangeUnsetPointToPointIsUnknown(t *testing.T) {
+// A link report with no duplex says nothing about the link, so the switch reads
+// the port's point-to-point state as unknown and raises [vswitch.IssueProtocolLinkUnknown]
+// for a port whose spanning tree point-to-point mode is automatic.
+func TestLinkChangeUnsetDuplexIsUnknown(t *testing.T) {
 	t.Parallel()
 
 	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, "", 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/2", device.Link{State: port.Up, Duplex: "", PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -468,7 +469,7 @@ func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
 	sw := newAutoSTPSwitch(t, allAutoSTPPorts())
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointUnknown, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/2", device.Link{State: port.Up, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -481,7 +482,7 @@ func TestDeriveKeepsUnknownPointToPointIssue(t *testing.T) {
 		t.Fatalf("precondition: current switch carries no %q issue", vswitch.IssueProtocolLinkUnknown)
 	}
 
-	next, _, err := vswitch.Derive(sw, sw.Spec())
+	next, _, err := vswitch.Derive(sw, sw.Spec(), fixedTime)
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
@@ -539,10 +540,10 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 	}
 	t0 := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	sw.Start(t0)
-	if _, err := sw.LinkChange(t0, "1/1/2", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/2", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(t0, "1/1/3", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(t0, "1/1/3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -552,7 +553,7 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 		Setting:            &phy.Setting{SpeedBPS: 100_000_000, Duplex: phy.Full},
 	}
 
-	next, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg})
+	next, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: targetCfg}, fixedTime)
 	if err != nil {
 		t.Fatalf("derive: %v", err)
 	}
@@ -567,7 +568,7 @@ func TestDeriveDropsDuplexAndSpeedOnPortSpeedChange(t *testing.T) {
 		t.Fatalf("derived issues = %v, want %q for unobserved 1/1/3", res.Metadata.Issues(), vswitch.IssueProtocolLinkUnknown)
 	}
 	// LinkChange on 1/1/3 clears the issue
-	if _, err := next.LinkChange(t0.Add(2*time.Second), "1/1/3", port.Up, vswitch.PointToPointTrue, 100_000_000); err != nil {
+	if _, err := next.LinkChange(t0.Add(2*time.Second), "1/1/3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 100_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	resAfter := next.Receive(t0.Add(3*time.Second), "1/1/1", frame)

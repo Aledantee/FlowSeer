@@ -5,6 +5,11 @@ import (
 	"net/netip"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -14,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -174,15 +180,15 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		}
 	}
 
-	hosts := make(map[string]fabric.Host, RepresentativeScaleHostCount)
+	hosts := make(map[string]hostmodel.Config, RepresentativeScaleHostCount)
 	for h := 1; h <= RepresentativeScaleHostCount; h++ {
 		hName := fmt.Sprintf("h%d", h)
 		hMAC := netaddr.MAC{0x02, 0x00, 0x00, 0x00, byte(h >> 8), byte(h)}
 		hIP := netip.MustParseAddr(fmt.Sprintf("10.100.0.%d", h))
-		hosts[hName] = fabric.Host{
+		hosts[hName] = hostmodel.Config{
 			Address: hMAC,
 			VLAN:    &vlanList[0],
-			IP: &fabric.HostIP{
+			IP: &hostmodel.IP{
 				Addresses: []netip.Prefix{netip.PrefixFrom(hIP, 24)},
 			},
 		}
@@ -196,10 +202,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 			hIndex := (s-1)*8 + k + 1
 			hName := fmt.Sprintf("h%d", hIndex)
 			cables = append(cables, fabric.Cable{
-				A:            fabric.Endpoint{Node: hName, Port: ""},
-				B:            fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
-				LengthMeters: 5,
-				Medium:       fabric.TwistedPair,
+				Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+				A:     fabric.Endpoint{Node: hName, Port: ""},
+				B:     fabric.Endpoint{Node: swName, Port: fmt.Sprintf("1/1/%d", k+3)},
 			})
 		}
 	}
@@ -208,10 +213,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
 		nextS := (s % RepresentativeScaleNodeCount) + 1
 		cables = append(cables, fabric.Cable{
-			A:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
-			B:            fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
-			LengthMeters: 10,
-			Medium:       fabric.TwistedPair,
+			Cable: cablemodel.Cable{LengthMeters: 10, Medium: cablemodel.TwistedPair},
+			A:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", s), Port: "1/1/11"},
+			B:     fabric.Endpoint{Node: fmt.Sprintf("sw%d", nextS), Port: "1/1/12"},
 		})
 	}
 
@@ -226,7 +230,7 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		}
 	}
 
-	fabCfg := fabric.Config{
+	fabCfg := assembly.Config{
 		Start:    tStart,
 		Switches: switches,
 		Hosts:    hosts,
@@ -234,13 +238,13 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 		Uncabled: uncabled,
 	}
 
-	fab, err := fabric.New(fabCfg)
+	fab, err := assembly.New(fabCfg)
 	mustNil(err)
 
 	// Prime 2048 learned forwarding entries (256 per switch)
 	entriesPerSwitch := RepresentativeScaleLearnedEntries / RepresentativeScaleNodeCount
 	for s := 1; s <= RepresentativeScaleNodeCount; s++ {
-		sw := fab.Switch(fmt.Sprintf("sw%d", s))
+		name := fmt.Sprintf("sw%d", s)
 		seeds := make([]bridge.Seed, entriesPerSwitch)
 		for e := range entriesPerSwitch {
 			fid := vlanList[e%len(vlanList)]
@@ -253,7 +257,9 @@ func RepresentativeFabricAtQueueDepth(queueDepth int) *fabric.Fabric {
 				Lifetime: bridge.Aging,
 			}
 		}
-		mustNil(sw.Learn(seeds))
+		mustNil(fabric.Operate(fab, name, func(d device.Device, _ time.Time) (device.Output, error) {
+			return device.Output{}, d.(*vswitch.Switch).Learn(seeds)
+		}))
 	}
 
 	// Prime queued arrivals up to queueDepth

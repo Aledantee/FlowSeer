@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -182,7 +183,7 @@ func TestRoutedEgressCompletenessUsesConsultedPortState(t *testing.T) {
 	}
 }
 
-func assertSingleUnknownPortIssue(t *testing.T, res vswitch.Output) {
+func assertSingleUnknownPortIssue(t *testing.T, res device.Output) {
 	t.Helper()
 	if !traceHasFactType(res.Steps, "port.forwarding") {
 		t.Errorf("unknown-port trace has no port forwarding fact: %+v", res.Steps)
@@ -535,12 +536,12 @@ func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 	for _, test := range tests {
 		for _, operation := range []struct {
 			name string
-			run  func(*vswitch.Switch) vswitch.Output
+			run  func(*vswitch.Switch) device.Output
 		}{
-			{name: "Receive", run: func(sw *vswitch.Switch) vswitch.Output {
+			{name: "Receive", run: func(sw *vswitch.Switch) device.Output {
 				return sw.Receive(fixedTime, "missing", test.frame)
 			}},
-			{name: "Peek", run: func(sw *vswitch.Switch) vswitch.Output {
+			{name: "Peek", run: func(sw *vswitch.Switch) device.Output {
 				return sw.Peek(fixedTime, "missing", test.frame)
 			}},
 		} {
@@ -559,7 +560,7 @@ func TestMissingIngressRetainsForwardingDependencyMetadata(t *testing.T) {
 	}
 }
 
-func assertMissingIngressDependency(t *testing.T, res vswitch.Output, loadedRef trace.EvidenceRef) {
+func assertMissingIngressDependency(t *testing.T, res device.Output, loadedRef trace.EvidenceRef) {
 	t.Helper()
 
 	consulted := res.ConsultedPorts()

@@ -12,10 +12,8 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -33,7 +31,7 @@ func locationComparison(a, b []Journey, rootsA, rootsB []FrameID, actions []Acti
 }
 
 func locationAction(index int) Action {
-	return Action{Kind: ActionInject, Index: index, At: time.Date(2026, 1, 1, 0, 0, index, 0, time.UTC)}
+	return Action{ID: "align_test-1", Kind: ActionInject, Index: index, At: time.Date(2026, 1, 1, 0, 0, index, 0, time.UTC)}
 }
 
 func TestJourneyDifferenceFields(t *testing.T) {
@@ -42,7 +40,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 		change      func(*Journey)
 	}{
 		{"terminal", "State", func(j *Journey) { j.State = JourneyDropped }},
-		{"origin kind", "Origin.Kind", func(j *Journey) { j.Origin.Kind = OriginRelease }},
+		{"origin kind", "Origin.Kind", func(j *Journey) { j.Origin.Kind = OriginReflection }},
 		{"origin mirror", "Origin.Mirror", func(j *Journey) { j.Origin.Mirror = "span" }},
 		{"protocol", "Protocol", func(j *Journey) { j.Protocol = true }},
 		{"entry kind", "Entries[0].Kind", func(j *Journey) { j.Entries[0].Kind = EntryArrival }},
@@ -58,7 +56,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 		{"cable B port", "Entries[0].Cable.B.Port", func(j *Journey) { j.Entries[0].Cable.B.Port = "other" }},
 		{"cable length", "Entries[0].Cable.LengthMeters", func(j *Journey) { j.Entries[0].Cable.LengthMeters = 1 }},
 		{"cable medium", "Entries[0].Cable.Medium", func(j *Journey) { j.Entries[0].Cable.Medium = "changed" }},
-		{"cable fault kind", "Entries[0].Cable.Fault.Kind", func(j *Journey) { j.Entries[0].Cable.Fault.Kind = FaultLoseEveryNth }},
+		{"cable fault kind", "Entries[0].Cable.Fault.Kind", func(j *Journey) { j.Entries[0].Cable.Fault.Kind = cablemodel.FaultLoseEveryNth }},
 		{"cable fault n", "Entries[0].Cable.Fault.N", func(j *Journey) { j.Entries[0].Cable.Fault.N = 1 }},
 		{"cable fault sequence", "Entries[0].Cable.Fault.Sequence", func(j *Journey) { j.Entries[0].Cable.Fault.Sequence = []uint{1} }},
 		{"reason", "Entries[0].Reason", func(j *Journey) { j.Entries[0].Reason = "refused" }},
@@ -85,7 +83,7 @@ func TestJourneyDifferenceFields(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			a := Journey{FrameID: 1, State: JourneyDelivered, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryHop, Cable: &Cable{}, Result: &vswitch.ForwardResult{Result: bridge.Result{Egress: []bridge.Egress{{}}}}}}, Deliveries: []Delivery{{}}}
+			a := Journey{FrameID: 1, State: JourneyDelivered, Origin: JourneyOrigin{Kind: OriginInjection}, Entries: []Entry{{Kind: EntryHop, Cable: &Cable{}, Result: &device.Result{Egress: []device.Egress{{}}}}}, Deliveries: []Delivery{{}}}
 			if tc.name == "drop device" || tc.name == "drop port" {
 				a.Entries[0].Kind = EntryDrop
 			}
@@ -122,7 +120,7 @@ func TestAlignAncestryAndBehavior(t *testing.T) {
 		{"second root extra mirror", []Journey{root(10), root(20)}, []Journey{root(110), root(120), child(130, 120, OriginMirror, "span")}, []FrameID{10, 20}, []FrameID{110, 120}, 2, -1, 2, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}}, "Journey", true},
 		{"prior ids reorder reports", []Journey{root(10), root(20), child(30, 10, OriginMirror, "span")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), root(130)}, []FrameID{10, 20}, []FrameID{110, 130}, 2, 1, 2, 1, []LineageStep{{Kind: OriginInjection}}, "Entries[1].Device", true},
 		{"extra mirror", []Journey{root(10)}, []Journey{root(110), child(120, 110, OriginMirror, "span")}, []FrameID{10}, []FrameID{110}, 1, -1, 1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}}, "Journey", true},
-		{"extra release", []Journey{root(10), child(20, 10, OriginRelease, "")}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 1, -1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginRelease}}, "Journey", true},
+		{"extra reflection", []Journey{root(10), child(20, 10, OriginReflection, "")}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 1, -1, 0, []LineageStep{{Kind: OriginInjection}, {Kind: OriginReflection}}, "Journey", true},
 		{"nested mirrors", []Journey{root(10), child(20, 10, OriginMirror, "span"), child(30, 20, OriginMirror, "nested")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), child(130, 120, OriginMirror, "nested")}, []FrameID{10}, []FrameID{110}, 1, 2, 2, 1, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span"}, {Kind: OriginMirror, Mirror: "nested"}}, "Entries[1].Device", true},
 		{"same name occurrence", []Journey{root(10), child(20, 10, OriginMirror, "span"), child(30, 10, OriginMirror, "span")}, []Journey{root(110), child(120, 110, OriginMirror, "span"), child(130, 110, OriginMirror, "span")}, []FrameID{10}, []FrameID{110}, 1, 2, 2, 1, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span", Occurrence: 1}}, "Entries[1].Device", true},
 		{"terminal equal traces", []Journey{root(10)}, []Journey{root(110)}, []FrameID{10}, []FrameID{110}, 1, 0, 0, 0, []LineageStep{{Kind: OriginInjection}}, "State", false},
@@ -178,7 +176,7 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 		{"issue status", "run", "Issues[0].Status", DifferenceRun, func(r *RunResult, _ *Snapshot) { r.Issues[0].Status = analysis.Incomplete }},
 		{"issue scope", "run", "Issues[0].Scope", DifferenceRun, func(r *RunResult, _ *Snapshot) { r.Issues[0].Scope = analysis.NodeScope("other") }},
 		{"device missing", "sw", "Device", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { delete(s.Devices, "sw") }},
-		{"device added", "added", "Device", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Devices["added"] = Device{} }},
+		{"device added", "added", "Device", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Devices["added"] = device.State{} }},
 		{"fdb count", "sw", "Entries.Length", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { d := s.Devices["sw"]; d.Entries = nil; s.Devices["sw"] = d }},
 		{"fdb key", "sw", "Entries.[\"00:00:00:00:00:00\"/\"0\"/\"other\"]", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
@@ -198,17 +196,17 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 			s.Devices["sw"] = d
 		}},
 		{"neighbor count", "sw", "Neighbors.Length", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { d := s.Devices["sw"]; d.Neighbors = nil; s.Devices["sw"] = d }},
-		{"neighbor key", "sw", "Neighbors.[\"other\"/\"192.0.2.1\"]", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
+		{"neighbor key", "sw", "Neighbors.[\"\"/\"other\"/\"192.0.2.1\"]", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
 			d.Neighbors[0].Interface = "other"
 			s.Devices["sw"] = d
 		}},
-		{"neighbor mac", "sw", "Neighbors.[\"p\"/\"192.0.2.1\"].MAC", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
+		{"neighbor mac", "sw", "Neighbors.[\"\"/\"p\"/\"192.0.2.1\"].MAC", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
 			d.Neighbors[0].MAC = netaddr.MAC{1}
 			s.Devices["sw"] = d
 		}},
-		{"neighbor state", "sw", "Neighbors.[\"p\"/\"192.0.2.1\"].State", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
+		{"neighbor state", "sw", "Neighbors.[\"\"/\"p\"/\"192.0.2.1\"].State", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
 			d.Neighbors[0].State = "changed"
 			s.Devices["sw"] = d
@@ -216,107 +214,107 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 		{"role missing", "sw", "Roles.[\"p\"]", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { d := s.Devices["sw"]; delete(d.Roles, "p"); s.Devices["sw"] = d }},
 		{"role added", "sw", "Roles.[\"other\"]", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["other"] = stp.PortInfo{}
+			d.Roles["other"] = device.PortInfo{}
 			s.Devices["sw"] = d
 		}},
 		{"role state", "sw", "Roles.[\"p\"].State", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{State: stp.StateForwarding}
+			d.Roles["p"] = device.PortInfo{State: device.StateForwarding}
 			s.Devices["sw"] = d
 		}},
 		{"role Tree.Kind", "sw", "Roles.[\"p\"].Tree.Kind", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Tree: stp.TreeRef{Kind: stp.TreeVLAN}}
+			d.Roles["p"] = device.PortInfo{Tree: device.TreeRef{Kind: device.TreeVLAN}}
 			s.Devices["sw"] = d
 		}},
 		{"role Tree.ID", "sw", "Roles.[\"p\"].Tree.ID", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Tree: stp.TreeRef{ID: 1}}
+			d.Roles["p"] = device.PortInfo{Tree: device.TreeRef{ID: 1}}
 			s.Devices["sw"] = d
 		}},
 		{"role Role", "sw", "Roles.[\"p\"].Role", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Role: "Root"}
+			d.Roles["p"] = device.PortInfo{Role: "Root"}
 			s.Devices["sw"] = d
 		}},
 		{"role BlockReason", "sw", "Roles.[\"p\"].BlockReason", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{BlockReason: "guard"}
+			d.Roles["p"] = device.PortInfo{BlockReason: "guard"}
 			s.Devices["sw"] = d
 		}},
 		{"role Priority", "sw", "Roles.[\"p\"].Priority", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Priority: 1}
+			d.Roles["p"] = device.PortInfo{Priority: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role PathCost", "sw", "Roles.[\"p\"].PathCost", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{PathCost: 1}
+			d.Roles["p"] = device.PortInfo{PathCost: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role DesignatedRoot.Priority", "sw", "Roles.[\"p\"].DesignatedRoot.Priority", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{DesignatedRoot: bpdu.BridgeID{Priority: 1}}
+			d.Roles["p"] = device.PortInfo{DesignatedRoot: bpdu.BridgeID{Priority: 1}}
 			s.Devices["sw"] = d
 		}},
 		{"role DesignatedRoot.Address", "sw", "Roles.[\"p\"].DesignatedRoot.Address", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{DesignatedRoot: bpdu.BridgeID{Address: netaddr.MAC{1}}}
+			d.Roles["p"] = device.PortInfo{DesignatedRoot: bpdu.BridgeID{Address: netaddr.MAC{1}}}
 			s.Devices["sw"] = d
 		}},
 		{"role Designated.Priority", "sw", "Roles.[\"p\"].Designated.Priority", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Designated: bpdu.BridgeID{Priority: 1}}
+			d.Roles["p"] = device.PortInfo{Designated: bpdu.BridgeID{Priority: 1}}
 			s.Devices["sw"] = d
 		}},
 		{"role Designated.Address", "sw", "Roles.[\"p\"].Designated.Address", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Designated: bpdu.BridgeID{Address: netaddr.MAC{1}}}
+			d.Roles["p"] = device.PortInfo{Designated: bpdu.BridgeID{Address: netaddr.MAC{1}}}
 			s.Devices["sw"] = d
 		}},
 		{"role DesignatedPort", "sw", "Roles.[\"p\"].DesignatedPort", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{DesignatedPort: 1}
+			d.Roles["p"] = device.PortInfo{DesignatedPort: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role DesignatedCost", "sw", "Roles.[\"p\"].DesignatedCost", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{DesignatedCost: 1}
+			d.Roles["p"] = device.PortInfo{DesignatedCost: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role PointToPoint", "sw", "Roles.[\"p\"].PointToPoint", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{PointToPoint: true}
+			d.Roles["p"] = device.PortInfo{PointToPoint: true}
 			s.Devices["sw"] = d
 		}},
 		{"role Edge", "sw", "Roles.[\"p\"].Edge", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{Edge: true}
+			d.Roles["p"] = device.PortInfo{Edge: true}
 			s.Devices["sw"] = d
 		}},
 		{"role ForwardTransitions", "sw", "Roles.[\"p\"].ForwardTransitions", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{ForwardTransitions: 1}
+			d.Roles["p"] = device.PortInfo{ForwardTransitions: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role TxBPDUs", "sw", "Roles.[\"p\"].TxBPDUs", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{TxBPDUs: 1}
+			d.Roles["p"] = device.PortInfo{TxBPDUs: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role RxBPDUs", "sw", "Roles.[\"p\"].RxBPDUs", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{RxBPDUs: 1}
+			d.Roles["p"] = device.PortInfo{RxBPDUs: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role BadBPDUs", "sw", "Roles.[\"p\"].BadBPDUs", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{BadBPDUs: 1}
+			d.Roles["p"] = device.PortInfo{BadBPDUs: 1}
 			s.Devices["sw"] = d
 		}},
 		{"role SendRSTP", "sw", "Roles.[\"p\"].SendRSTP", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) {
 			d := s.Devices["sw"]
-			d.Roles["p"] = stp.PortInfo{SendRSTP: true}
+			d.Roles["p"] = device.PortInfo{SendRSTP: true}
 			s.Devices["sw"] = d
 		}},
 		{"link count", "fabric", "Links.Length", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links = nil }},
@@ -325,9 +323,9 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 		{"link B speed", "fabric", "Links.[a:-b:].B.Speed.SpeedBPS", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].B.Speed.SpeedBPS = 1 }},
 		{"link A oper", "fabric", "Links.[a:-b:].A.Oper", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].A.Oper = port.Down }},
 		{"link B oper", "fabric", "Links.[a:-b:].B.Oper", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].B.Oper = port.Down }},
-		{"link fault kind", "fabric", "Links.[a:-b:].Fault.Kind", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.Kind = FaultLoseEveryNth }},
-		{"link fault n", "fabric", "Links.[a:-b:].Fault.N", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.N = 1 }},
-		{"link fault sequence", "fabric", "Links.[a:-b:].Fault.Sequence", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Fault.Sequence = []uint{1} }},
+		{"link fault kind", "fabric", "Links.[a:-b:].Fault.Kind", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.Kind = cablemodel.FaultLoseEveryNth }},
+		{"link fault n", "fabric", "Links.[a:-b:].Fault.N", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.N = 1 }},
+		{"link fault sequence", "fabric", "Links.[a:-b:].Fault.Sequence", DifferenceSnapshot, func(_ *RunResult, s *Snapshot) { s.Links[0].Cable.Fault.Sequence = []uint{1} }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -335,18 +333,31 @@ func TestGlobalDifferenceLocations(t *testing.T) {
 				return RunResult{Status: analysis.Complete, Issues: []analysis.Issue{{Code: "test"}}}
 			}
 			makeSnapshot := func() Snapshot {
-				return Snapshot{Devices: map[string]Device{"sw": {Entries: []bridge.Entry{{Port: "p"}}, Ports: []port.Port{{Name: "p", AdminStatus: port.Up, OperStatus: port.Up}}, Neighbors: []routing.NeighborEntry{{Interface: "p", Addr: netip.MustParseAddr("192.0.2.1")}}, Roles: map[string]stp.PortInfo{"p": {}}}}, Links: []Link{{A: LinkEnd{Endpoint: Endpoint{Node: "a"}}, B: LinkEnd{Endpoint: Endpoint{Node: "b"}}}}}
+				return Snapshot{Devices: map[string]device.State{"sw": {Entries: []device.Entry{{Port: "p"}}, Ports: []port.Port{{Name: "p", AdminStatus: port.Up, OperStatus: port.Up}}, Neighbors: []device.NeighborEntry{{Interface: "p", Addr: netip.MustParseAddr("192.0.2.1")}}, Roles: map[string]device.PortInfo{"p": {}}}}, Links: []Link{{A: LinkEnd{Endpoint: Endpoint{Node: "a"}}, B: LinkEnd{Endpoint: Endpoint{Node: "b"}}}}}
 			}
 			a, b := makeRun(), makeRun()
 			sa, sb := makeSnapshot(), makeSnapshot()
 			tc.mutate(&b, &sb)
 			comparison := locationComparison(nil, nil, nil, nil, nil, a, b, sa, sb)
+			diagnostic := tc.name == "role ForwardTransitions" || tc.name == "role TxBPDUs" || tc.name == "role RxBPDUs" || tc.name == "role BadBPDUs"
 			wantDisposition := analysis.Different
+			if diagnostic {
+				wantDisposition = analysis.Equivalent
+			}
 			if tc.name == "status" {
 				wantDisposition = analysis.Inconclusive
 			}
 			if comparison.Disposition != wantDisposition {
 				t.Fatalf("disposition = %s, want %s", comparison.Disposition, wantDisposition)
+			}
+			if diagnostic {
+				if comparison.Difference.Observable != "" || !reflect.DeepEqual(comparison.Location, DifferenceLocation{}) {
+					t.Errorf("diagnostic difference = %+v at %+v, want none", comparison.Difference, comparison.Location)
+				}
+				if alignment, ok := Align(comparison); ok {
+					t.Errorf("diagnostic alignment = %+v, want none", alignment)
+				}
+				return
 			}
 			want := DifferenceLocation{Area: tc.area, Subject: tc.subject, Field: tc.field}
 			if !reflect.DeepEqual(comparison.Location, want) {

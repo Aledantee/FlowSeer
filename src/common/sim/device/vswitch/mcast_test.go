@@ -17,6 +17,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/mcast"
@@ -79,7 +80,7 @@ func testICMPv6Checksum(hdr ip.Header, payload []byte) uint16 {
 	return ^uint16(sum)
 }
 
-func mcastForwardedPorts(res vswitch.Output) []string {
+func mcastForwardedPorts(res device.Output) []string {
 	var ports []string
 	for _, egress := range res.Egress {
 		if egress.Dropped == "" {
@@ -678,7 +679,7 @@ func TestPeekLeavesMulticastAndMACTablesUntouched(t *testing.T) {
 }
 
 func TestMulticastControlRunsThroughTrafficFinishing(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	cfg := mcastSwitchConfig(t, nil)
 	vlanCfg := cfg.Mcast.VLANs[10]
 	vlanCfg.RouterPorts = []string{"1/1/3"}
@@ -758,7 +759,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 		igmp.Message{Type: igmp.ReportV2, Group: group},
 	))
 
-	kept, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()})
+	kept, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: base.Clone()}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive retaining multicast state: %v", err)
 	}
@@ -768,7 +769,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 
 	removed := base.Clone()
 	delete(removed.Mcast.VLANs, 10)
-	dropped, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed})
+	dropped, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: removed}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive removing snooped VLAN: %v", err)
 	}
@@ -788,7 +789,7 @@ func TestMulticastValidationAndDerivation(t *testing.T) {
 	changedMcast.RouterPortInterval = 45 * time.Second
 	changedMcast.RouterPorts = []string{"1/1/3"}
 	changed.Mcast.VLANs[10] = changedMcast
-	retained, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed})
+	retained, _, err := vswitch.Derive(cur, vswitch.ConstructionSpec{Config: changed}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive changing multicast configuration: %v", err)
 	}
@@ -951,9 +952,9 @@ func TestAdvanceAgesAnExpiredMembership(t *testing.T) {
 	moved.Bridge.VLAN.Switchports["p1"] = bridge.Switchport{PVID: &other, Untagged: []vlan.ID{20}}
 	derive := func(at time.Time) vswitch.LayerRetention {
 		t.Helper()
-		sw := sw.Fork()
+		sw := sw.Fork().(*vswitch.Switch)
 		sw.Advance(at)
-		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: moved})
+		derived, _, err := vswitch.Derive(sw, vswitch.ConstructionSpec{Config: moved}, fixedTime)
 		if err != nil {
 			t.Fatal(err)
 		}

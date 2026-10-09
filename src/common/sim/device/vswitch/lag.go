@@ -15,12 +15,7 @@ func (s *Switch) aggregatorScope(name string) analysis.Scope {
 	return analysis.FieldScope(protocolScope(s.nodeID, lag.LayerName), "aggregators", name)
 }
 
-// SelectMember commits an enabled member choice for the named LAG to carry f
-// at vid, recording the choice as the layer's new bucket assignment or
-// last-active member: a fabric transmission or another real transmission the
-// switch makes outside the bridge pipeline. It returns false if the LAG is
-// unknown, has no layer, or has no enabled member.
-func (s *Switch) SelectMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
+func (s *Switch) selectMember(now time.Time, lagName string, f ethernet.Frame, vid vlan.ID) (string, bool) {
 	_, end := s.beginCall(now, true)
 	defer end()
 

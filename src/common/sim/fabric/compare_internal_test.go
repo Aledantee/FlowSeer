@@ -6,22 +6,56 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
+
+type fingerprintCountingDevice struct {
+	linkErrorDevice
+	states int
+}
+
+func (d *fingerprintCountingDevice) State(time.Time) device.State {
+	d.states++
+	return device.State{}
+}
+
+func (d *fingerprintCountingDevice) Advance(time.Time) device.Output { return device.Output{} }
+
+func TestRunComputesNoFingerprint(t *testing.T) {
+	d := &fingerprintCountingDevice{}
+	f, err := New(Config{Nodes: map[string]Node{"n": {Device: d, Snapshot: true}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
+	run := f.Run(RunOptions{Budget: 10, Window: 0})
+	if run.Steps != 1 || run.Stop != StopQueueDrained {
+		t.Fatalf("run = %+v, want one drained step", run)
+	}
+	if d.states != 0 || len(run.Fingerprints) != 0 {
+		t.Errorf("fingerprint state reads/history = %d/%d, want 0/0", d.states, len(run.Fingerprints))
+	}
+	f.enqueue(Arrival{Kind: ArrivalWake, Device: "n"})
+	run = f.Run(RunOptions{Budget: 10, Window: 2})
+	if d.states != 2 || len(run.Fingerprints) != 1 {
+		t.Errorf("window state reads/history = %d/%d, want 2/1", d.states, len(run.Fingerprints))
+	}
+}
 
 func TestDiffFabricRunsOneSidedJourneyPresence(t *testing.T) {
 	root := Journey{FrameID: 10, Origin: JourneyOrigin{Kind: OriginInjection}}
 	mirrorA := Journey{FrameID: 20, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-a"}}
 	mirrorB := Journey{FrameID: 30, Origin: JourneyOrigin{Kind: OriginMirror, Of: 10, Mirror: "span-b"}}
-	release := Journey{FrameID: 40, Origin: JourneyOrigin{Kind: OriginRelease, Of: 10}}
+	release := Journey{FrameID: 40, Origin: JourneyOrigin{Kind: OriginReflection, Of: 10}}
 	cases := []struct {
 		name    string
 		a, b    []Journey
 		lineage []LineageStep
 	}{
 		{"different mirror names", []Journey{root, mirrorA}, []Journey{root, mirrorB}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
-		{"mirror and release", []Journey{root, mirrorA}, []Journey{root, release}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
+		{"mirror and reflection", []Journey{root, mirrorA}, []Journey{root, release}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
 		{"extra mirror", []Journey{root, mirrorA}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginMirror, Mirror: "span-a"}}},
-		{"extra release", []Journey{root, release}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginRelease}}},
+		{"extra reflection", []Journey{root, release}, []Journey{root}, []LineageStep{{Kind: OriginInjection}, {Kind: OriginReflection}}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

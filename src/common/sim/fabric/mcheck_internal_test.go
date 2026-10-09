@@ -1,8 +1,13 @@
-package fabric
+package fabric_test
 
 import (
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -10,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -21,10 +27,10 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	b := port.NewBuilder()
 	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 	ports, _ := b.Build()
-	cfg := Config{
+	cfg := assembly.Config{
 		Start: t0,
-		PhyAssumption: &PhyAssumption{
-			Medium: TwistedPair,
+		PhyAssumption: &cablemodel.PhyAssumption{
+			Medium: cablemodel.TwistedPair,
 			Ethernet: phy.Ethernet{
 				SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 				AutoNegotiationSupported: phy.CapabilitySupported,
@@ -42,10 +48,10 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 				},
 			},
 		},
-		Hosts:  map[string]Host{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
-		Cables: []Cable{{A: Endpoint{Node: "sw1", Port: "1/1/1"}, B: Endpoint{Node: "h1"}, Medium: TwistedPair}},
+		Hosts:  map[string]hostmodel.Config{"h1": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 0x11}}},
+		Cables: []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}}},
 	}
-	fab, err := New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -59,9 +65,9 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bpdu.Encode: %v", err)
 	}
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:     t0.Add(4 * time.Second),
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  frame,
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
@@ -75,8 +81,8 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
 		t.Fatal("the port did not migrate")
 	}
-	clock := fab.Snapshot().Clock
-	if err := fab.mcheck("sw1", "1/1/1"); err != nil {
+	clock := fab.Clock()
+	if err := assembly.McheckAction("sw1", "1/1/1").Operation.Apply(fab, "sw1"); err != nil {
 		t.Fatalf("mcheck: %v", err)
 	}
 	if !fab.Snapshot().Devices["sw1"].Roles["1/1/1"].SendRSTP {
@@ -94,7 +100,7 @@ func TestFabricMcheckQueuesTheRSTReply(t *testing.T) {
 	if !found {
 		t.Errorf("no RST BPDU journey dated the fabric clock %v after mcheck", clock)
 	}
-	if err := fab.mcheck("h1", ""); err == nil {
+	if err := assembly.McheckAction("h1", "missing").Operation.Apply(fab, "h1"); err == nil {
 		t.Error("mcheck on a host returned no error")
 	}
 }

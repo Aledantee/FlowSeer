@@ -5,6 +5,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -55,7 +59,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 		"h3": {0x02, 0, 0, 0, 0, 0x03},
 	}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: time.Date(2026, 9, 24, 12, 0, 0, 0, time.UTC),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -79,7 +83,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 				Traffic: &traffic.Config{Queues: queues},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macs["h1"], Ethernet: egressForcedEthernet(100_000_000)},
 			"h2": {Address: macs["h2"], Ethernet: egressForcedEthernet(100_000_000)},
 			"h3": {Address: macs["h3"], Ethernet: egressForcedEthernet(1_000_000_000)},
@@ -91,7 +95,7 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 		},
 	}))
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	return fab, macs
@@ -103,22 +107,22 @@ func egressBufferTopology(t *testing.T, buffer *uint64) (*fabric.Fabric, map[str
 func primeEgressLearning(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC) {
 	t.Helper()
 	if _, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h3"},
 		Frame:  ethernet.Frame{Src: macs["h3"], Dst: macs["h1"]},
 	}); err != nil {
 		t.Fatalf("prime Inject: %v", err)
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 }
 
 func egressBufferFrame(src, dst netaddr.MAC) ethernet.Frame {
 	return ethernet.Frame{Src: src, Dst: dst, Payload: make([]byte, 1000)}
 }
 
-func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.Retention) {
+func injectEgressFlow(t *testing.T, fab *fabric.Fabric, macs map[string]netaddr.MAC, host string, flow fabric.FlowID, retention fabric.JourneyRetention) {
 	t.Helper()
-	at := fab.Snapshot().Clock
+	at := fab.Clock()
 	for range 20 {
 		if _, err := fab.Inject(fabric.Injection{
 			At:        at,
@@ -143,7 +147,7 @@ func TestEgressStatedBufferTailDrop(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -196,7 +200,7 @@ func TestEgressStatedBufferUnderCapacity(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 
@@ -233,7 +237,7 @@ func TestEgressBufferCountsEncodedFrameOctets(t *testing.T) {
 			fab, macs := egressBufferTopology(t, &buffer)
 			primeEgressLearning(t, fab, macs)
 
-			at := fab.Snapshot().Clock
+			at := fab.Clock()
 			for _, host := range []string{"h1", "h2"} {
 				if _, err := fab.Inject(fabric.Injection{
 					At:        at,
@@ -245,7 +249,7 @@ func TestEgressBufferCountsEncodedFrameOctets(t *testing.T) {
 					t.Fatalf("Inject %s: %v", host, err)
 				}
 			}
-			fab.Run(1_000_000)
+			fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
 			if got := fab.Flows()[1].Delivered["h3"]; got != tc.delivered {
 				t.Errorf("buffer %d: Delivered[h3] = %d, want %d", tc.buffer, got, tc.delivered)
@@ -261,7 +265,7 @@ func TestEgressUnstatedBufferNeverDrops(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 1, fabric.RetainAggregate)
 	injectEgressFlow(t, fab, macs, "h2", 2, fabric.RetainAggregate)
-	fab.Run(1_000_000)
+	fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0})
 
 	for _, flow := range []fabric.FlowID{1, 2} {
 		stats := fab.Flows()[flow]
@@ -285,7 +289,7 @@ func TestEgressUnstatedBufferReportsPeak(t *testing.T) {
 	fab, macs := egressBufferTopology(t, nil)
 	primeEgressLearning(t, fab, macs)
 
-	at := fab.Snapshot().Clock
+	at := fab.Clock()
 	for range 10 {
 		if _, err := fab.Inject(fabric.Injection{
 			At:     at,
@@ -330,7 +334,7 @@ func TestEgressTailDropEntryCarriesItsFact(t *testing.T) {
 	primeEgressLearning(t, fab, macs)
 	injectEgressFlow(t, fab, macs, "h1", 0, fabric.RetainJourney)
 	injectEgressFlow(t, fab, macs, "h2", 0, fabric.RetainJourney)
-	if res := fab.Run(1_000_000); res.Stop != fabric.StopQueueDrained {
+	if res := fab.Run(fabric.RunOptions{Budget: 1_000_000, Window: 0}); res.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", res.Stop, fabric.StopQueueDrained)
 	}
 

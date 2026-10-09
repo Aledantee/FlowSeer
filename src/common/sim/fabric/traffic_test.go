@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -16,6 +20,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -44,7 +49,7 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 		"h3": {0x00, 0x11, 0x22, 0x33, 0x44, 0x03},
 		"h4": {0x00, 0x11, 0x22, 0x33, 0x44, 0x04},
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports("1/1/1", "1/1/2", "1/1/4", "1/1/24"),
@@ -70,17 +75,17 @@ func newTrafficTopology(t *testing.T, trafficCfg *traffic.Config) (*fabric.Fabri
 				}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macs["h1"]},
 			"h2": {Address: macs["h2"]},
 			// h3 sits on the mirror output port and, like an analyzer, takes
 			// copies addressed to other hosts.
-			"h3": {Address: macs["h3"], Accept: fabric.HostAccept{Promiscuous: true}},
+			"h3": {Address: macs["h3"], Accept: hostmodel.Accept{Promiscuous: true}},
 			"h4": {Address: macs["h4"], VLAN: &vid10},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}, LengthMeters: 300, Medium: fabric.MultimodeFiber},
+			{Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/24"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/24"}},
 			{A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h2"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/4"}, B: fabric.Endpoint{Node: "h3"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h4"}},
@@ -128,11 +133,11 @@ func TestEgressQueueServesStrictPriority(t *testing.T) {
 		if !ok {
 			t.Fatal("Step() exhausted the queue before the trunk dequeue")
 		}
-		if entry.Kind == fabric.EntryDequeue && entry.Device == "sw1" && entry.Port == "1/1/24" {
+		if entry.Arrival == fabric.ArrivalDequeue && entry.Device == "sw1" && entry.Port == "1/1/24" {
 			break
 		}
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	var crossings []fabric.Entry
 	for _, journey := range fab.Report() {
@@ -227,7 +232,7 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject h1: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var copyJourney *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -274,7 +279,7 @@ func TestMirrorCopyJourneyAndReservedOutput(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject h2 flood: %v", err)
 	}
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	var h3Dropped bool
 	h3Deliveries := 0
@@ -315,7 +320,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject h1: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var trunkCopy, hostCopy *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -365,7 +370,7 @@ func TestMirrorToVLANUsesEachPortsTagForm(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject reserved destination: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	for _, journey := range fab.Report()[before:] {
 		if journey.Origin.Mirror == "m2" {
 			t.Errorf("reserved destination produced mirror journey %+v", journey)
@@ -406,7 +411,7 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 			macSource := netaddr.MAC{2, 0, 0, 0, 0, 1}
 			macDestination := netaddr.MAC{2, 0, 0, 0, 0, 2}
 			frame := ethernet.Frame{Src: macSource, Dst: macDestination, Payload: []byte("mirror member")}
-			fab, err := fabric.New(statedPhysical(fabric.Config{
+			fab, err := assembly.New(statedPhysical(assembly.Config{
 				Start: t0,
 				Switches: map[string]vswitch.Config{
 					"sw1": {
@@ -427,11 +432,11 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 						}}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"source":      {Address: macSource},
 					"destination": {Address: macDestination},
-					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, Accept: fabric.HostAccept{Promiscuous: true}},
-					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}, Accept: fabric.HostAccept{Promiscuous: true}},
+					"sink-a":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, Accept: hostmodel.Accept{Promiscuous: true}},
+					"sink-b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 4}, Accept: hostmodel.Accept{Promiscuous: true}},
 				},
 				Cables: []fabric.Cable{
 					{A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "sw1", Port: "in"}},
@@ -441,18 +446,19 @@ func TestOutputVLANMirrorTransmitsOnTracedLAGMember(t *testing.T) {
 				},
 			}))
 			if err != nil {
-				t.Fatalf("fabric.New: %v", err)
+				t.Fatalf("assembly.New: %v", err)
 			}
 
-			wantMember, ok := fab.Switch("sw1").SelectMember(t0, "lag1", frame, outputVLAN)
-			if !ok {
-				t.Fatal("mirror output has no selected member")
+			wantMember := "member-a"
+			preview := fab.Device("sw1").(*vswitch.Switch).Peek(t0, "in", frame)
+			if len(preview.Copies) != 1 || preview.Copies[0].Member != wantMember {
+				t.Fatalf("preview copies = %+v, want member-a", preview.Copies)
 			}
 			frameID, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "source"}, Frame: frame})
 			if err != nil {
 				t.Fatalf("Inject: %v", err)
 			}
-			fab.Run(100)
+			fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 			var tracedMember string
 			var copyJourney *fabric.Journey
@@ -499,7 +505,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	fab, macs := newTrafficTopology(t, &traffic.Config{Policers: map[string]traffic.Policer{
 		"1/1/1": {RateBPS: 1_000_000, BurstOctets: 10_000},
 	}})
-	spec := fab.Spec()
+	spec := assembly.Spec(fab)
 	catalog := analysis.EvidenceCatalog{}
 	issues := make([]analysis.Issue, 0, 3)
 	for _, scoped := range []struct {
@@ -527,7 +533,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	sw1Spec := spec.Switches["sw1"]
 	sw1Spec.Metadata = analysis.NewMetadata(analysis.NodeScope("sw1"), issues, catalog, nil)
 	spec.Switches["sw1"] = sw1Spec
-	fab, err := fabric.NewWithSpec(spec)
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		t.Fatalf("NewWithSpec: %v", err)
 	}
@@ -547,7 +553,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 		}
 		ids = append(ids, fid)
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 
 	hops := 0
 	var tenth fabric.Journey
@@ -620,7 +626,7 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject after refill: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	for _, journey := range fab.Report() {
 		if journey.FrameID != lastID {
 			continue
@@ -632,6 +638,52 @@ func TestIngressPolicerDropsBeforeForwarding(t *testing.T) {
 		}
 	}
 	t.Error("frame after 10 ms refill did not reach sw1 forwarding")
+}
+
+func TestQueuedFrameUsesServiceTimeRate(t *testing.T) {
+	t0 := time.Date(2026, 9, 11, 12, 0, 0, 0, time.UTC)
+	fab, macs := newTrafficTopology(t, &traffic.Config{Queues: map[string]traffic.PortQueues{
+		"1/1/24": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
+	}})
+	for _, dst := range []byte{1, 2} {
+		_, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Frame: ethernet.Frame{
+			Dst: netaddr.MAC{0, 0xaa, 0xbb, 0xcc, 0xdd, dst}, Src: macs["h1"],
+			Tags: []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}}, Payload: make([]byte, 46),
+		}})
+		if err != nil {
+			t.Fatalf("Inject: %v", err)
+		}
+	}
+	for range 2 {
+		if entry, ok := fab.Step(); !ok || entry.Kind != fabric.EntryHop {
+			t.Fatalf("Step = (%+v, %t), want ingress hop", entry, ok)
+		}
+	}
+	trunk := fabric.Endpoint{Node: "sw1", Port: "1/1/24"}
+	if got := fab.Snapshot().Queued[trunk]; got != 2 {
+		t.Fatalf("queued frames before Configure = %d, want 2", got)
+	}
+	cfg := assembly.Spec(fab).Switches["sw1"].Config
+	cfg.Traffic.Queues["1/1/24"].MaxRateBPS[0] = 200_000_000
+	if err := assembly.Configure(fab, "sw1", cfg); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if got := fab.Snapshot().Queued[trunk]; got != 2 {
+		t.Fatalf("queued frames after Configure = %d, want 2", got)
+	}
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
+	var crossings []time.Time
+	for _, journey := range fab.Report() {
+		for _, entry := range journey.Entries {
+			if entry.Kind == fabric.EntryCrossing && entry.Device == "sw2" && entry.Port == "1/1/24" {
+				crossings = append(crossings, entry.At)
+			}
+		}
+	}
+	slices.SortFunc(crossings, time.Time.Compare)
+	if len(crossings) != 2 || !crossings[0].Equal(t0) || !crossings[1].Equal(t0.Add(3520*time.Nanosecond)) {
+		t.Fatalf("crossings = %v, want t0 and t0+3520ns for 704 bits at 200 Mbit/s", crossings)
+	}
 }
 
 func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
@@ -678,7 +730,7 @@ func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
 	fab, macs := newFabric()
 	firstID := injectLow(fab, macs, t0, 1)
 	secondID := injectLow(fab, macs, t0.Add(time.Nanosecond), 2)
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	if got := hopAt(fab, firstID); !got.Equal(t0.Add(2870 * time.Nanosecond)) {
 		t.Errorf("first PCP 0 hop = %v, want %v", got, t0.Add(2870*time.Nanosecond))
 	}
@@ -702,7 +754,7 @@ func TestQueueMaximumRateAndPriorityCompose(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject PCP 7: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	highAt := hopAt(fab, highID)
 	if want := t0.Add(3574 * time.Nanosecond); !highAt.Equal(want) {
 		t.Errorf("PCP 7 hop = %v, want idle-link service at %v", highAt, want)
@@ -734,7 +786,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 	vid99 := vlan.ID(99)
 	macH1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
 	macH2 := netaddr.MAC{0x02, 0, 0, 0, 0, 2}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports("1/1/1", "1/1/24"),
@@ -765,7 +817,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 			"h3": {Address: netaddr.MAC{0x02, 0, 0, 0, 0, 3}},
@@ -786,7 +838,7 @@ func TestMirrorJourneySkipsDownstreamPolicingAndMirroring(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	var upstream *fabric.Journey
 	for _, journey := range fab.Report() {
@@ -812,9 +864,9 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 	base, macs := newTrafficTopology(t, &traffic.Config{Policers: map[string]traffic.Policer{
 		"1/1/1": {RateBPS: 1, BurstOctets: 84},
 	}})
-	cfg := base.Config()
-	cfg.Cables[0].Fault = fabric.Fault{Kind: fabric.FaultCorruptEveryNth, N: 1}
-	fab, err := fabric.New(statedPhysical(cfg))
+	cfg := assembly.Spec(base).Config()
+	cfg.Cables[0].Fault = cablemodel.Fault{Kind: cablemodel.FaultCorruptEveryNth, N: 1}
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -822,15 +874,15 @@ func TestCorruptArrivalSpendsNoPolicerTokens(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: t0, Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 		t.Fatalf("Inject corrupt frame: %v", err)
 	}
-	fab.Run(20)
-	if err := fab.SetFault(cfg.Cables[0].A, cfg.Cables[0].B, fabric.Fault{}); err != nil {
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
+	if err := fab.SetFault(cfg.Cables[0].A, cfg.Cables[0].B, cablemodel.Fault{}); err != nil {
 		t.Fatalf("clear fault: %v", err)
 	}
 	goodID, err := fab.Inject(fabric.Injection{At: t0.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame})
 	if err != nil {
 		t.Fatalf("Inject good frame: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	for _, journey := range fab.Report() {
 		if journey.FrameID != goodID {
@@ -859,7 +911,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 		return table
 	}
 	macH1 := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: buildPorts(),
@@ -869,7 +921,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 			},
 			"sw2": {Ports: buildPorts()},
 		},
-		Hosts: map[string]fabric.Host{"h1": {Address: macH1}},
+		Hosts: map[string]hostmodel.Config{"h1": {Address: macH1}},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
@@ -885,7 +937,7 @@ func TestLoopReentryIsPoliced(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	for _, journey := range fab.Report() {
 		for i, entry := range journey.Entries {
@@ -908,13 +960,13 @@ func TestLogicalLAGQueueRateUsesPhysicalMemberClock(t *testing.T) {
 		"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"1/1/1": {}, "1/1/2": {}}},
 	}}
 	base, macH1, macH2 := newLagTopology(t, t0, lagCfg, nil)
-	cfg := base.Config()
+	cfg := assembly.Spec(base).Config()
 	swA := cfg.Switches["A"]
 	swA.Traffic = &traffic.Config{Queues: map[string]traffic.PortQueues{
 		"lag1": {MaxRateBPS: map[vlan.PCP]uint64{0: 100_000_000}},
 	}}
 	cfg.Switches["A"] = swA
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -927,7 +979,7 @@ func TestLogicalLAGQueueRateUsesPhysicalMemberClock(t *testing.T) {
 		}
 		ids = append(ids, id)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 
 	starts := make(map[fabric.FrameID]time.Time)
 	ports := make(map[fabric.FrameID]string)

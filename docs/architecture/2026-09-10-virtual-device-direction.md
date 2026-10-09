@@ -110,7 +110,7 @@ ownership across specialized packages:
   The entry names the physical endpoint. The endpoint's issue and that step
   cite the same `fabric.runtime` evidence, whose context records the endpoint,
   queue, frame, instant, and fact values. The runtime catalog is available
-  through `Fabric.Metadata()` and journey metadata; `Fabric.Spec()` remains
+  through `Fabric.Metadata()` and journey metadata; `assembly.Spec(f)` remains
   the construction input and does not acquire runtime evidence. A later
   crossing on another PCP of the same endpoint creates no second event.
   This is the event model of ns-3 without goroutines. The queue also
@@ -199,12 +199,25 @@ None of these axes may be inferred from another:
 ### Construction specifications and singular normalization
 
 Every capability package exposes one normalization function (`Normalize`).
-Public constructors validate only after normalization.
+Public constructors normalize and then validate. Traffic field paths are the exception: they
+are validated before normalization so they name the submitted slice positions
+(`vswitch.ConstructionSpec.Normalize`).
 
 To reproduce simulations without drift, `vswitch.ConstructionSpec` and
 `fabric.ConstructionSpec` pair normalized configuration with non-configuration
 seeds (such as preloaded forwarding database entries). Re-running a simulation
 from its construction specification yields identical state and trace records.
+
+### 2026-10-09: Assembly owns construction
+
+`assembly.ConstructionSpec` replaces `fabric.ConstructionSpec`.
+`assembly.Derive` rebuilds a fabric from that specification, and
+`assembly.Configure` replaces one switch at the fabric clock. Their
+construction and retention rules below still apply. The runtime accepts built
+nodes through `fabric.Config`, `fabric.New`, `fabric.Replace`, and
+`fabric.Operate`, so it imports the device seam without a concrete device kind
+([assembly/assemble.go](../../src/common/sim/assembly/assemble.go),
+[fabric/topology.go](../../src/common/sim/fabric/topology.go)).
 
 ### State ownership, forking, and snapshots
 
@@ -214,15 +227,13 @@ exposes what a device or a run holds — the clock, the frames in flight, each
 device's forwarding database, port and neighbor state, and held-frame depth
 — as values a caller can compare but never step forward. A fork is an
 executable copy: a second `Switch` or `Fabric` that starts identical to its
-source and diverges under its own steps from there. It is the input a
-current-against-candidate comparison will take once one exists;
-`fabric.Compare`'s present precondition that neither fabric has injected a
-frame is the next phase's to lift, not this one's. `Derive` is neither. It
+source and diverges under its own steps from there. Comparison forks its
+inputs to evaluate a scenario without consuming their live state. `Derive`
 rebuilds a switch or a fabric from a target construction specification,
 carries forward only the runtime state each capability layer's retention key
 says still applies, and starts a fresh run rather than continuing one.
 
-`Fabric.Configure` is a fourth operation, and the only one that changes
+`assembly.Configure` is a fourth operation, and the only one that changes
 configuration without leaving the run. It replaces one switch's configuration
 at the fabric clock, refuses the change unless the whole fabric would still
 construct, and rebuilds that switch through `vswitch.Derive`, so the retention
@@ -338,23 +349,29 @@ them.
   its state; `Uncabled` is `Down` with `no-cable`, a stated absence; neither
   is `Unknown` with `adjacency-unresolved`, since nothing says what, if
   anything, is attached. A configured `OperStatus` that disagrees with the
-  derived state is kept for the reader (`Config()`, `Spec()`), but the
+  derived state is kept for the reader (`Config()`, `assembly.Spec`), but the
   derived state executes, and the disagreement adds an `oper-status-conflict`
   issue instead of the derived value silently overwriting it.
 - **`Config.PhyAssumption`.** An opt-in medium and Ethernet profile that
   fills only what an end or cable leaves unreported: empty speeds, an
   unknown capability, a nil setting, or an unspecified medium. Filled values
-  appear in `Fabric.Links()`; `Config()`, `Spec()`, and `Diff` show only the
+  appear in `Fabric.Links()`; `Config()`, `assembly.Spec`, and `Diff` show only the
   knob itself, and each link it fills carries one `Assumption` naming the
   facts, so a standards default runs only on the record.
-- **Protocol link-state input.** `Switch.LinkChange` takes `port.LinkState`,
-  not a boolean, so an `Unknown` link leaves the port `Unknown` instead of
-  being coerced to `Down`; STP and LAG still hear it as not operational. The
+- **Protocol link-state input.** `Switch.LinkChange` takes `device.Link`:
+  operational state, speed, this end's duplex, and whether the peer relays
+  or terminates frames. The switch applies its administrative STP override
+  and decides point-to-point (`src/common/sim/device/vswitch/link.go`).
+  An `Unknown` link leaves the port `Unknown`. STP and LAG hear it as
+  not operational. The
   switch raises `protocol-link-unknown` on every port whose role or
   membership those protocols compute once one of their inputs is unknown; a
   later `Up` report clears it. Without this, an unknown redundant uplink
   would silently re-elect a spanning tree root with every dependent journey
   reading `Complete`.
+  Startup reports every port, with LAG members before their parents, and
+  schedules each switch's wake. Its first link-report error reaches the
+  constructor, `Derive`, or `Configure` (`src/common/sim/fabric/fabric.go`).
 - **Host acceptance.** A frame the pipeline delivers to a host is not
   necessarily one the host keeps. After arrival, the host checks VLAN
   form, destination MAC, and, for a host with an IP stack, the IP
@@ -385,7 +402,7 @@ Every recorded journey receives exactly one result state. `JourneyPending` is th
 sole nonterminal state, assigned when work on the frame remains queued, in an
 egress buffer, or held awaiting neighbor resolution at the run boundary. All other
 states are terminal: `JourneyDelivered`, `JourneyRejected`, `JourneyDropped`,
-`JourneyLooped`, `JourneyTruncated`, `JourneyUnresolved`, and `JourneyReleased`.
+`JourneyLooped`, `JourneyTruncated`, and `JourneyUnresolved`.
 Host rejection is separated from delivery at this layer: a physical arrival that
 the destination host refuses (due to MAC mismatch, VLAN filter, or IP rejection)
 is terminal `JourneyRejected` and is excluded from deliveries.
@@ -393,10 +410,9 @@ is terminal `JourneyRejected` and is excluded from deliveries.
 A journey's origin is a typed relation rather than an overloaded parent pointer.
 Its kind records how the frame entered the simulation: a caller's direct
 injection (`OriginInjection`), a mirror copy produced by port mirroring
-(`OriginMirror`), or a frame released from a neighbor hold queue
-(`OriginRelease`). For mirror copies and releases, the origin links back to the
-holding or source frame ID without adding forward-pointing pointers that could
-drift out of agreement.
+(`OriginMirror`), or a reflected datagram (`OriginReflection`). Copies name
+the source frame ID. A release continues the held frame's own journey and
+keeps its original origin.
 
 Convergence and oscillation are evaluated on a canonical state fingerprint of
 protocol-relevant snapshot state across consecutive periodic wake arrivals. The
@@ -404,8 +420,9 @@ fingerprint explicitly excludes the clock, the arrival queue, and counters.
 Without that exclusion, periodic protocol events (such as spanning tree BPDUs)
 would advance the clock and refresh counters on every step, making a settled
 fabric look perpetually changing or disguising budget exhaustion as normal
-progress. A scenario declares its observation window and positive step budget as
-an in-memory Go value; it carries no file persistence or packet-capture parser.
+progress. A scenario declares its action schedule. `fabric.RunOptions` carries
+the observation window and positive step budget beside that schedule. Both are
+in-memory Go values with no file persistence or packet-capture parser.
 When the run names streams, their seeds determine field draws.
 
 ### Current-against-candidate comparison
@@ -435,14 +452,20 @@ rather than whole-state fingerprints or shallow boolean equality:
   stored:
   - `Equivalent` requires both sides' `Status` to be `Complete` and every
     behavioral observable to match.
-  - `Different` requires a proven behavioral observable mismatch, naming the
-    first differing observable and carrying an immutable `ReplaySpec`.
+  - `Different` requires Complete readiness on both sides and a proven
+    behavioral observable mismatch, naming the first differing observable
+    and carrying a `ReplaySpec` whose checkpoint
+    preserves the fabric's pre-action live state. Replay forks that checkpoint
+    on each call, including its cable crossing counts, and has no written form.
     Fabric comparisons also name a `DifferenceLocation`: journey, run, or
     snapshot area, subject, and exact field. Journey targets retain the
-    injection index and UTC time plus mirror/release lineage.
-  - `Inconclusive` occurs when either side reports `Incomplete`, `Exhausted`,
-    `Unstable`, or `Unsupported`, or when budget stopped a run that still held
-    pending work. Equivalence over partial evaluation is never assumed.
+    injection index and UTC time plus mirror and reflection lineage.
+  - `Inconclusive` occurs on an execution error or when either side reports
+    `Incomplete`, `Exhausted`, `Unstable`, or `Unsupported`, or when budget stopped a run that still held
+    pending work. It takes precedence even when an observable differs, and
+    `Difference` and `Location` keep that difference. Equal settled aggregate
+    roots are also inconclusive because flow totals cannot prove journey
+    equivalence ([compare.go](../../src/common/sim/fabric/compare.go)).
 - **Internal forking and lifted precondition.** `fabric.Compare` forks both
   inputs internally via `a.Fork()` and `b.Fork()`, injects the scenario, runs
   the forks to budget, and compares. The caller's `a` and `b` fabrics are never
@@ -454,7 +477,7 @@ rather than whole-state fingerprints or shallow boolean equality:
   pair by frame ID. Instead, journeys pair by injection ordinal: the nth
   scenario injection's journey on side A pairs with the nth injection's journey
   on side B. Pre-scenario journeys represent shared history and are excluded
-  from the diff. Mirror and release descendants pair by kind, mirror name,
+  from the diff. Mirror and reflection descendants pair by kind, mirror name,
   and parent-relative occurrence, including one-sided descendants
   (`src/common/sim/fabric/comparison_location.go`).
 - **Separation from convergence fingerprints.** `Snapshot.Fingerprint()` remains
@@ -484,7 +507,8 @@ bounded equivalence under a resource contract:
   domains. No routed-domain interface is declared (`src/common/sim/search`).
 - **Comparison per candidate.** `search.Search(current, candidate, dom, lim)`
   evaluates each candidate via
-  `fabric.Compare(current, candidate, cand.ToScenario(lim.Budget), lim.Budget)`.
+  `fabric.Compare(current, candidate, cand.ToScenario(),
+  fabric.RunOptions{Budget: lim.Budget})`.
   `fabric.Compare` forks both fabrics internally. Neither the current nor the
   candidate fabric is stepped or consumed across the search, so callers can reuse
   mid-run fabrics directly. Invalid limits return an error before enumeration.
@@ -493,7 +517,8 @@ bounded equivalence under a resource contract:
 - **Resource contract and asymmetric retention.** Discarded candidates (equivalent
   or inconclusive) record coverage accounting and a summary count only, without
   full execution traces. Only retained `Different` candidates (bounded by
-  `lim.MaxDifferences`) preserve their tuple identity, immutable `[2]ReplaySpec`,
+  `lim.MaxDifferences`) preserve their tuple identity, `[2]ReplaySpec` with
+  pre-action in-memory checkpoints for both fabrics,
   and first differing `Difference` observable. Zero retention keeps counts
   only, and `-1` retains all differences. Tested coverage includes errors.
 - **Deterministic counterexample minimization.** When a behavioral difference is
@@ -882,8 +907,12 @@ Amendment 2026-10-07: sending and reception are implemented in
   unicast MAC, ARP broadcast, and IPv6 all-nodes or local solicited-node MACs.
   The switch sends routing emissions as protocol frames at priority zero,
   with the same VLAN, routed-port, and sub-interface egress paths as a
-  released frame. A host stack remains `NeighborDisabled`, since fabric
-  hosts do not process these control frames.
+  released frame. A host stack remains `NeighborDisabled` and processes
+  these control frames to answer for its own addresses, without learning or
+  resolving neighbors (`src/common/sim/device/host/host.go`, `Receive`).
+  Its advertisements clear the Router flag through `routing.Config.ClearRouterFlag`,
+  because RFC 4861 section 4.4 identifies that flag with a router sender
+  (https://www.rfc-editor.org/rfc/rfc4861.html#section-4.4).
 - **A frame held during resolution rides the same wake and emission facility
   the run model already gives every protocol layer.** A committing `Route`
   or `Originate` call that lands on an `Incomplete` neighbor queues the
@@ -901,18 +930,18 @@ Amendment 2026-10-07: sending and reception are implemented in
   On release, the switch evaluates the current ingress binding with the held
   frame's ingress interface, resolves a deferred decision against its egress
   interface, and evaluates the egress binding. A refusal carries the filter's
-  reason and steps in `NeighborDrop`. An originated frame meets only the
+  reason and steps in `device.Drop`. An originated frame meets only the
   egress binding. This also applies after a derive changes the filter while
   retaining the routing hold queue
   (`TestHeldFrameMeetsDerivedIngressFilter` in
   `src/common/sim/device/vswitch/filter_test.go`).
   `Output.Hold` is the routing result's token for a held frame. A later
-  `Emission.Hold` or `NeighborDrop.Hold` carries the same token, alongside
+  `Emission.Hold` or `device.Drop.Hold` carries the same token, alongside
   the held frame's `Ingress`. Protocol emissions carry a zero token.
   Live and released frames share `putRoutedFrame` in
   `src/common/sim/device/vswitch/route.go`, so their port, member, tags, and
   priority agree. The fabric transmits a release on that selected member
-  (`src/common/sim/fabric/run.go:injectEmission`).
+  (`src/common/sim/fabric/output.go:applyDeviceOutput`).
 
 ### Semantic traces and producer-owned facts
 
@@ -1156,7 +1185,25 @@ A held frame leaves through the same routed egress as a live one
 selected LAG member, tags, and priority agree. At release the switch evaluates
 the current ingress binding, resolves a deferred decision against the egress
 interface, and evaluates the egress binding. An originated frame meets the
-egress binding alone. `Output.Hold`, `Emission.Hold`, and `NeighborDrop.Hold`
+egress binding alone. `Output.Hold`, `Emission.Hold`, and `device.Drop.Hold`
 carry one token for a held frame, with its ingress interface, and the fabric
 transmits a release on the selected member. `TestHeldFrameFiltersAtRelease` in
 `src/common/sim/device/vswitch/filter_test.go` checks the filtering.
+
+### 2026-10-09: A hold continues the same journey
+
+[`output.go`](../../src/common/sim/fabric/output.go) maps a device and hold token to
+its frame's `FrameID`. A hold counts as in flight. One output resolves each
+token once for all its emissions, drops, and copies, then removes the key.
+A release continues that journey. A failure appends its drop there. A mirror
+copy names the held frame and inherits its flow and retention. An unknown
+token starts a new journey, as on a fabric rebuilt by `assembly.Derive`.
+
+[`flow.go`](../../src/common/sim/fabric/flow.go) folds at settle, after the
+hold and all transmissions end. It frees aggregate and protocol traversal
+storage. `FlowStats.Held` counts keys for the flow when `Flows()` is read.
+Release contributes to `Delivered`, and failure to `Drops`.
+`TestHoldExits` in
+[`flow_internal_test.go`](../../src/common/sim/fabric/flow_internal_test.go)
+checks all five exits under both retentions in both orders, with no keys
+remaining and `StopConverged`.

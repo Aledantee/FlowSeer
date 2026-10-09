@@ -59,7 +59,7 @@ When runtime execution discovers a condition that warrants an analysis issue:
    analysis issue.
 3. **Filter diagnostic-only entries from behavioral comparisons.** When the
    observation records internal state without changing frame delivery or
-   drops, have `diffJourney` filter the entry out. This lets the diagnostic step
+   drops, have `diffJourneyEntries` filter the entry out. This lets the diagnostic step
    serve human inspectors and conformance checks without producing false
    behavioral diffs between otherwise identical runs.
 
@@ -84,29 +84,29 @@ f.record(journey, Entry{
 ```
 
 `Metadata()` merges `runtimeEvidence` and passes `ref` to `queueBufferUnstatedIssue`.
-In `compare.go`, `diffJourney` strips `EntryQueueThreshold` before comparing
+In `compare_journey.go`, `diffJourneyEntries` strips `EntryQueueThreshold` before comparing
 behavioral entries.
 
 ## Evidence
 
-- The queue trace operation: `OpQueue` in `src/common/sim/trace/trace.go:42`.
+- The queue trace operation: `OpQueue` in `src/common/sim/trace/trace.go`.
 - The typed fact and rule: `RuleQueueBufferUnstated` and `QueueThresholdFact` in
-  `src/common/sim/layer/traffic/fact.go:16`, `:61-65`.
+  `src/common/sim/layer/traffic/fact.go`.
 - Observation capture and step emission: `markQueueBufferUnstated` in
-  `src/common/sim/fabric/fabric.go:1025-1064`.
+  `src/common/sim/fabric/metadata.go`.
 - Shared evidence reference in metadata issue: `queueBufferUnstatedIssue` in
-  `src/common/sim/fabric/fabric.go:1002-1010`.
-- Diagnostic filtering during comparison: `diffJourney` in
-  `src/common/sim/fabric/compare.go:453-454`.
+  `src/common/sim/fabric/metadata.go`.
+- Diagnostic filtering during comparison: `diffJourneyEntries` in
+  `src/common/sim/fabric/compare_journey.go`.
 - Verification of shared reference: `TestEgressUnstatedThresholdRecordsEvidenceAtEnqueue`
-  in `src/common/sim/fabric/egress_buffer_internal_test.go:108-156`.
+  in `src/common/sim/fabric/egress_buffer_internal_test.go`.
 - Corpus validation: `planning/oversubscribed-trunk-unstated-buffer` in
-  `src/common/sim/internal/simtest/load_cases.go:211-231`.
+  `src/common/sim/internal/simtest/load_cases.go`.
 
 ## What this does not cover
 
 - Static construction evidence: evidence known prior to execution (such as
-  cabling declarations or interface config) is stored in `Fabric.Config.Spec().Evidence`
+  cabling declarations or interface config) is stored in `assembly.Spec(fab).Evidence`
   and requires no runtime trace step.
 - Lifecycle copying across branches: when components holding runtime state or
   attachments fork, lifecycle methods like `Fabric.Fork` must clone those

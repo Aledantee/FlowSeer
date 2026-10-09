@@ -8,8 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -29,6 +28,8 @@ type EntryKind string
 const (
 	// EntryInjection records the initial introduction of a frame into the fabric.
 	EntryInjection EntryKind = "Injection"
+	// EntryAction records execution of a scenario action.
+	EntryAction EntryKind = "Action"
 
 	// EntryHop records frame processing by a virtual switch forwarding engine.
 	EntryHop EntryKind = "Hop"
@@ -64,12 +65,6 @@ const (
 	// EntryLoop records frame re-entry at a device port already visited by the same frame.
 	EntryLoop EntryKind = "Loop"
 
-	// EntryWake records a scheduled timer wake-up advancing a virtual switch.
-	EntryWake EntryKind = "Wake"
-
-	// EntryDequeue records an endpoint selecting its next egress frame.
-	EntryDequeue EntryKind = "Dequeue"
-
 	// EntryQueueThreshold records the first crossing of an unstated egress
 	// buffer's diagnostic depth threshold on a physical endpoint.
 	EntryQueueThreshold EntryKind = "QueueThreshold"
@@ -81,8 +76,10 @@ const (
 // entry rests on: the one crossed, lost on, or arrived over, and for an injection the origin's cable. Step is
 // set on a host's Delivery, Rejection, or Unresolved entry after an Arrival, on a reflector's Reflection,
 // Rejection, or Unresolved entry, which carries no preceding Arrival, and on the Drop entry a
-// [vswitch.NeighborDrop] produces for a held frame that left its hold queue and reached no wire, where
+// [device.Drop] produces for a held frame that left its hold queue and reached no wire, where
 // Port and Reason likewise come from the drop rather than from reading the step back.
+// A drop that declares no step, as a reflector's drop for an attachment with no address, records no
+// step and counts no discard at its port, since nothing was sent toward it.
 // A QueueThreshold entry carries the physical endpoint and the queue observation step.
 type Entry struct {
 	At            time.Time
@@ -94,7 +91,7 @@ type Entry struct {
 	Serialization time.Duration
 	Wait          time.Duration
 	PCP           vlan.PCP
-	Result        *vswitch.ForwardResult
+	Result        *device.Result
 	Step          *trace.Step
 	Reason        trace.Reason
 }
@@ -123,9 +120,6 @@ const (
 
 	// JourneyUnresolved indicates the frame reached an unknown link state or undecodable header at host or reflector.
 	JourneyUnresolved JourneyState = "Unresolved"
-
-	// JourneyReleased indicates a frame held in a neighbor hold queue was released after address resolution.
-	JourneyReleased JourneyState = "Released"
 )
 
 // JourneyOriginKind identifies how a frame journey entered the simulation.
@@ -135,11 +129,11 @@ const (
 	// OriginInjection indicates a frame introduced directly by a caller or switch protocol emission.
 	OriginInjection JourneyOriginKind = "Injection"
 
-	// OriginMirror indicates a frame produced as a port mirror or reflector copy of another frame.
+	// OriginMirror indicates a frame produced as a port mirror copy of another frame.
 	OriginMirror JourneyOriginKind = "Mirror"
 
-	// OriginRelease indicates a frame released from a neighbor hold queue after address resolution.
-	OriginRelease JourneyOriginKind = "Release"
+	// OriginReflection indicates a rebuilt datagram copied from an accepted frame.
+	OriginReflection JourneyOriginKind = "Reflection"
 )
 
 // JourneyOrigin records how a journey began and its relationship to ancestor frames.
@@ -163,7 +157,6 @@ var journeyStatePrecedence = []JourneyState{
 	JourneyUnresolved,
 	JourneyLooped,
 	JourneyTruncated,
-	JourneyReleased,
 	JourneyDelivered,
 	JourneyRejected,
 	JourneyDropped,
@@ -190,13 +183,31 @@ type Journey struct {
 	Deliveries []Delivery
 	Metadata   analysis.Metadata
 	State      JourneyState
+}
+
+type journey struct {
+	FrameID    FrameID
+	Protocol   bool
+	Origin     JourneyOrigin
+	Injection  Injection
+	Entries    []Entry
+	Deliveries []Delivery
+	Metadata   analysis.Metadata
 
 	// settled records that the journey's last in-flight arrival has left and
 	// its flow fold has run, so a later settle of the same frame folds once.
 	settled bool
 }
 
+func (j *journey) report() Journey {
+	return Journey{
+		FrameID: j.FrameID, Protocol: j.Protocol, Origin: j.Origin,
+		Injection: j.Injection, Entries: j.Entries, Deliveries: j.Deliveries, Metadata: j.Metadata,
+	}
+}
+
 // Report returns independent copies of all recorded journeys sorted in ascending order of frame ID.
+// It computes each journey's state from pending work and metadata.
 func (f *Fabric) Report() []Journey {
 	if len(f.journeys) == 0 {
 		return nil
@@ -204,7 +215,7 @@ func (f *Fabric) Report() []Journey {
 
 	pendingFrames := make(map[FrameID]bool)
 	for _, arr := range f.queue {
-		if arr.Kind == ArrivalFrame {
+		if arr.Kind == ArrivalFrame || arr.Kind == ArrivalHost {
 			pendingFrames[arr.FrameID] = true
 		}
 	}
@@ -216,23 +227,14 @@ func (f *Fabric) Report() []Journey {
 		}
 	}
 
-	releasedFrames := make(map[FrameID]bool)
-	for _, j := range f.journeys {
-		if j.Origin.Kind == OriginRelease && j.Origin.Of != 0 {
-			releasedFrames[j.Origin.Of] = true
-		}
-	}
-
-	for fid, j := range f.journeys {
-		if isJourneyHeld(j) && !releasedFrames[fid] {
-			pendingFrames[fid] = true
-		}
+	for _, fid := range f.held {
+		pendingFrames[fid] = true
 	}
 
 	out := make([]Journey, 0, len(f.journeys))
 	for _, j := range f.journeys {
-		cp := j.clone()
-		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID], releasedFrames[j.FrameID])
+		cp := j.report().clone()
+		cp.State = assignJourneyState(&cp, pendingFrames[j.FrameID])
 		out = append(out, cp)
 	}
 	slices.SortFunc(out, func(a, b Journey) int {
@@ -242,7 +244,7 @@ func (f *Fabric) Report() []Journey {
 	return out
 }
 
-func assignJourneyState(j *Journey, pending, released bool) JourneyState {
+func assignJourneyState(j *Journey, pending bool) JourneyState {
 	for _, state := range journeyStatePrecedence {
 		switch state {
 		case JourneyPending:
@@ -260,10 +262,6 @@ func assignJourneyState(j *Journey, pending, released bool) JourneyState {
 		case JourneyTruncated:
 			if isJourneyTruncated(j) {
 				return JourneyTruncated
-			}
-		case JourneyReleased:
-			if released {
-				return JourneyReleased
 			}
 		case JourneyDelivered:
 			if len(j.Deliveries) > 0 || hasEntryKind(j, EntryDelivery) || hasEntryKind(j, EntryReflection) || isJourneyConsumed(j) {
@@ -306,9 +304,6 @@ func isJourneyHeld(j *Journey) bool {
 }
 
 func isJourneyTruncated(j *Journey) bool {
-	if j.State == JourneyTruncated {
-		return true
-	}
 	if slices.ContainsFunc(j.Metadata.Issues(), func(iss analysis.Issue) bool {
 		return iss.Code == IssueTruncatedRecord
 	}) {
@@ -322,10 +317,16 @@ func isJourneyTruncated(j *Journey) bool {
 func (j Journey) clone() Journey {
 	cp := j
 	cp.Injection = j.Injection.clone()
+	cp.Injection.Frame = cloneFrame(j.Injection.Frame)
 	if len(j.Entries) > 0 {
 		cp.Entries = make([]Entry, len(j.Entries))
 		for i, e := range j.Entries {
 			cp.Entries[i] = e.clone()
+			if result := cp.Entries[i].Result; result != nil {
+				for k := range result.Egress {
+					result.Egress[k].Frame = cloneFrame(result.Egress[k].Frame)
+				}
+			}
 		}
 	}
 	if len(j.Deliveries) > 0 {
@@ -344,7 +345,7 @@ func (j Journey) clone() Journey {
 
 // shallowClone returns a copy of the journey that shares ethernet.Frame values
 // across forks while cloning mutable traversal history and deliveries.
-func (j *Journey) shallowClone() *Journey {
+func (j *journey) shallowClone() *journey {
 	if j == nil {
 		return nil
 	}
@@ -387,7 +388,7 @@ func (e Entry) clone() Entry {
 // record appends e to the journey and folds into the journey's metadata the
 // issues and assumptions e depends on as the fabric stands now, together with
 // issues the caller raised about the journey itself.
-func (f *Fabric) record(j *Journey, e Entry, raised ...analysis.Issue) {
+func (f *Fabric) record(j *journey, e Entry, raised ...analysis.Issue) {
 	j.Entries = append(j.Entries, e)
 
 	merged := j.Metadata
@@ -433,7 +434,7 @@ func scopedMetadata(m analysis.Metadata, scopes []analysis.Scope) analysis.Metad
 func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	var scopes []analysis.Scope
 	endpoint := func(ep Endpoint) {
-		if _, isHost := f.cfg.Hosts[ep.Node]; ep.Port != "" || isHost {
+		if _, unnamed := f.topology.nodes[ep.Node].physical[""]; ep.Port != "" || unnamed {
 			scopes = append(scopes, endpointScope(ep))
 		}
 		if ref, ok := f.byEnd[ep]; ok {
@@ -457,8 +458,10 @@ func (f *Fabric) dependencies(e Entry) []analysis.Scope {
 	return scopes
 }
 
-func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
+func cloneResult(r device.Result) *device.Result {
 	cp := r
+	cp.PortDependencies = r.ConsultedPorts()
+	cp.ScopeDependencies = r.ConsultedScopes()
 	if len(r.Steps) > 0 {
 		cp.Steps = make([]trace.Step, len(r.Steps))
 		for i, step := range r.Steps {
@@ -466,10 +469,10 @@ func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
 		}
 	}
 	if len(r.Egress) > 0 {
-		cp.Egress = make([]bridge.Egress, len(r.Egress))
+		cp.Egress = make([]device.Egress, len(r.Egress))
 		for i, egress := range r.Egress {
 			cp.Egress[i] = egress
-			cp.Egress[i].Frame = cloneFrame(egress.Frame)
+			cp.Egress[i].Frame = egress.Frame
 		}
 	}
 
@@ -478,7 +481,7 @@ func cloneResult(r vswitch.ForwardResult) *vswitch.ForwardResult {
 
 func (i Injection) clone() Injection {
 	cp := i
-	cp.Frame = cloneFrame(i.Frame)
+	cp.Frame = i.Frame
 	if i.Packet != nil {
 		packet := *i.Packet
 		packet.Payload = slices.Clone(i.Packet.Payload)

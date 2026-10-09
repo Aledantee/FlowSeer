@@ -1,10 +1,14 @@
-package fabric
+package fabric_test
 
 import (
 	"testing"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
@@ -13,53 +17,18 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
-
-// validate verifies that Of and Mirror fields are consistent with Kind.
-func (o JourneyOrigin) validate() error {
-	switch o.Kind {
-	case OriginInjection:
-		if o.Of != 0 {
-			return errs.New().Attr("kind", o.Kind).Attr("of", o.Of).Msg("injection origin must not specify parent frame ID")
-		}
-		if o.Mirror != "" {
-			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("injection origin must not specify mirror name")
-		}
-	case OriginMirror:
-		if o.Of == 0 {
-			return errs.New().Attr("kind", o.Kind).Msg("mirror origin must specify parent frame ID")
-		}
-	case OriginRelease:
-		if o.Of == 0 {
-			return errs.New().Attr("kind", o.Kind).Msg("release origin must specify holding frame ID")
-		}
-		if o.Mirror != "" {
-			return errs.New().Attr("kind", o.Kind).Attr("mirror", o.Mirror).Msg("release origin must not specify mirror name")
-		}
-	default:
-		return errs.New().Attr("kind", o.Kind).Msg("unknown journey origin kind")
-	}
-
-	return nil
-}
 
 type originClassificationRule struct {
 	requireOf    bool
 	forbidMirror bool
 }
 
-var originClassificationTable = map[JourneyOriginKind]originClassificationRule{
-	OriginInjection: {requireOf: false, forbidMirror: true},
-	OriginMirror:    {requireOf: true, forbidMirror: false},
-	OriginRelease:   {requireOf: true, forbidMirror: true},
-}
+var originClassificationTable = map[fabric.JourneyOriginKind]originClassificationRule{fabric.OriginInjection: {requireOf: false, forbidMirror: true}, fabric.OriginMirror: {requireOf: true, forbidMirror: false}, fabric.OriginReflection: {requireOf: true, forbidMirror: true}}
 
-var allDeclaredOriginKinds = []JourneyOriginKind{
-	OriginInjection,
-	OriginMirror,
-	OriginRelease,
-}
+var allDeclaredOriginKinds = []fabric.JourneyOriginKind{fabric.OriginInjection, fabric.OriginMirror, fabric.OriginReflection}
 
 func TestJourneyOriginKindClassificationGate(t *testing.T) {
 	t.Parallel()
@@ -81,11 +50,11 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			t.Parallel()
 
 			// Check valid baseline according to rule
-			validOrigin := JourneyOrigin{Kind: kind}
+			validOrigin := fabric.JourneyOrigin{Kind: kind}
 			if rule.requireOf {
 				validOrigin.Of = 42
 			}
-			if err := validOrigin.validate(); err != nil {
+			if err := fabric.ExportJourneyOriginValidate(validOrigin); err != nil {
 				t.Errorf("valid baseline for %s failed validate: %v", kind, err)
 			}
 
@@ -93,13 +62,13 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			if rule.requireOf {
 				invalid := validOrigin
 				invalid.Of = 0
-				if err := invalid.validate(); err == nil {
+				if err := fabric.ExportJourneyOriginValidate(invalid); err == nil {
 					t.Errorf("%s with Of=0 passed validate, want error (requireOf=true)", kind)
 				}
 			} else {
 				invalid := validOrigin
 				invalid.Of = 42
-				if err := invalid.validate(); err == nil {
+				if err := fabric.ExportJourneyOriginValidate(invalid); err == nil {
 					t.Errorf("%s with Of=42 passed validate, want error (requireOf=false)", kind)
 				}
 			}
@@ -108,18 +77,18 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 			if rule.forbidMirror {
 				invalid := validOrigin
 				invalid.Mirror = "unexpected-mirror"
-				if err := invalid.validate(); err == nil {
+				if err := fabric.ExportJourneyOriginValidate(invalid); err == nil {
 					t.Errorf("%s with Mirror set passed validate, want error (forbidMirror=true)", kind)
 				}
 			} else {
 				withMirror := validOrigin
 				withMirror.Mirror = "span-session"
-				if err := withMirror.validate(); err != nil {
+				if err := fabric.ExportJourneyOriginValidate(withMirror); err != nil {
 					t.Errorf("%s with Mirror set failed validate: %v", kind, err)
 				}
 				withoutMirror := validOrigin
 				withoutMirror.Mirror = ""
-				if err := withoutMirror.validate(); err != nil {
+				if err := fabric.ExportJourneyOriginValidate(withoutMirror); err != nil {
 					t.Errorf("%s with Mirror unset failed validate: %v", kind, err)
 				}
 			}
@@ -127,8 +96,8 @@ func TestJourneyOriginKindClassificationGate(t *testing.T) {
 	}
 
 	// 3. Check that an unknown kind returns an error.
-	unknown := JourneyOrigin{Kind: JourneyOriginKind("UnknownKind")}
-	if err := unknown.validate(); err == nil {
+	unknown := fabric.JourneyOrigin{Kind: fabric.JourneyOriginKind("UnknownKind")}
+	if err := fabric.ExportJourneyOriginValidate(unknown); err == nil {
 		t.Errorf("validate on unknown kind returned nil, want error")
 	}
 }
@@ -139,161 +108,145 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 	cases := []struct {
 		name      string
 		pending   bool
-		released  bool
-		entries   []Entry
+		entries   []fabric.Entry
 		issues    []analysis.Issue
-		wantState JourneyState
+		wantState fabric.JourneyState
 	}{
-		// 8 individual state cases
+		// Each state is exercised on its own.
 		{
 			name:      "individual_pending",
 			pending:   true,
-			wantState: JourneyPending,
+			wantState: fabric.JourneyPending,
 		},
 		{
 			name: "individual_unresolved",
-			entries: []Entry{
-				{Kind: EntryUnresolved, Reason: "test-unresolved"},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryUnresolved, Reason: "test-unresolved"},
 			},
-			wantState: JourneyUnresolved,
+			wantState: fabric.JourneyUnresolved,
 		},
 		{
 			name: "individual_looped",
-			entries: []Entry{
-				{Kind: EntryLoop},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryLoop},
 			},
-			wantState: JourneyLooped,
+			wantState: fabric.JourneyLooped,
 		},
 		{
 			name: "individual_truncated_issue",
 			issues: []analysis.Issue{
-				{Code: IssueTruncatedRecord},
+				{Code: fabric.IssueTruncatedRecord},
 			},
-			wantState: JourneyTruncated,
+			wantState: fabric.JourneyTruncated,
 		},
 		{
 			name: "individual_truncated_reason",
-			entries: []Entry{
-				{Reason: reasonTruncatedRecord},
+			entries: []fabric.Entry{
+				{Reason: fabric.ExportReasonTruncatedRecord},
 			},
-			wantState: JourneyTruncated,
-		},
-		{
-			name:      "individual_released",
-			released:  true,
-			wantState: JourneyReleased,
+			wantState: fabric.JourneyTruncated,
 		},
 		{
 			name: "individual_delivered_entry",
-			entries: []Entry{
-				{Kind: EntryDelivery},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryDelivery},
 			},
-			wantState: JourneyDelivered,
+			wantState: fabric.JourneyDelivered,
 		},
 		{
 			name: "individual_delivered_reflection",
-			entries: []Entry{
-				{Kind: EntryReflection},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryReflection},
 			},
-			wantState: JourneyDelivered,
+			wantState: fabric.JourneyDelivered,
 		},
 		{
 			name: "individual_rejected",
-			entries: []Entry{
-				{Kind: EntryRejection, Reason: "mac-mismatch"},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryRejection, Reason: "mac-mismatch"},
 			},
-			wantState: JourneyRejected,
+			wantState: fabric.JourneyRejected,
 		},
 		{
 			name: "individual_dropped_entry",
-			entries: []Entry{
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
-			wantState: JourneyDropped,
+			wantState: fabric.JourneyDropped,
 		},
 		{
 			name: "individual_dropped_loss",
-			entries: []Entry{
-				{Kind: EntryLoss, Reason: ReasonCableLoss},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryLoss, Reason: cablemodel.ReasonCableLoss},
 			},
-			wantState: JourneyDropped,
+			wantState: fabric.JourneyDropped,
 		},
 
-		// 7 adjacent pair cases testing strict declared precedence:
+		// Adjacent states follow the declared precedence.
 		// 1. Pending outranks Unresolved
 		{
 			name:    "pair_pending_over_unresolved",
 			pending: true,
-			entries: []Entry{
-				{Kind: EntryUnresolved, Reason: "test-unresolved"},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryUnresolved, Reason: "test-unresolved"},
 			},
-			wantState: JourneyPending,
+			wantState: fabric.JourneyPending,
 		},
 		// 2. Unresolved outranks Looped
 		{
 			name: "pair_unresolved_over_looped",
-			entries: []Entry{
-				{Kind: EntryUnresolved, Reason: "test-unresolved"},
-				{Kind: EntryLoop},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryUnresolved, Reason: "test-unresolved"},
+				{Kind: fabric.EntryLoop},
 			},
-			wantState: JourneyUnresolved,
+			wantState: fabric.JourneyUnresolved,
 		},
 		// 3. Looped outranks Truncated
 		{
 			name: "pair_looped_over_truncated",
-			entries: []Entry{
-				{Kind: EntryLoop},
-				{Reason: reasonTruncatedRecord},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryLoop},
+				{Reason: fabric.ExportReasonTruncatedRecord},
 			},
 			issues: []analysis.Issue{
-				{Code: IssueTruncatedRecord},
+				{Code: fabric.IssueTruncatedRecord},
 			},
-			wantState: JourneyLooped,
+			wantState: fabric.JourneyLooped,
 		},
-		// 4. Truncated outranks Released
+		// Truncated outranks Delivered.
 		{
-			name:     "pair_truncated_over_released",
-			released: true,
-			issues: []analysis.Issue{
-				{Code: IssueTruncatedRecord},
-			},
-			wantState: JourneyTruncated,
+			name:      "pair_truncated_over_delivered",
+			issues:    []analysis.Issue{{Code: fabric.IssueTruncatedRecord}},
+			entries:   []fabric.Entry{{Kind: fabric.EntryDelivery}},
+			wantState: fabric.JourneyTruncated,
 		},
-		// 5. Released outranks Delivered
-		{
-			name:     "pair_released_over_delivered",
-			released: true,
-			entries: []Entry{
-				{Kind: EntryDelivery},
-			},
-			wantState: JourneyReleased,
-		},
-		// 6. Delivered outranks Rejected
+
+		// Delivered outranks Rejected
 		{
 			name: "pair_delivered_over_rejected",
-			entries: []Entry{
-				{Kind: EntryDelivery},
-				{Kind: EntryRejection, Reason: "mac-mismatch"},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryDelivery},
+				{Kind: fabric.EntryRejection, Reason: "mac-mismatch"},
 			},
-			wantState: JourneyDelivered,
+			wantState: fabric.JourneyDelivered,
 		},
-		// 7. Rejected outranks Dropped
+		// Rejected outranks Dropped
 		{
 			name: "pair_rejected_over_dropped",
-			entries: []Entry{
-				{Kind: EntryRejection, Reason: "mac-mismatch"},
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryRejection, Reason: "mac-mismatch"},
+				{Kind: fabric.EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
-			wantState: JourneyRejected,
+			wantState: fabric.JourneyRejected,
 		},
 		// Delivered outranks Dropped (flooding case where one host delivers, one drops)
 		{
 			name: "delivered_over_dropped",
-			entries: []Entry{
-				{Kind: EntryDelivery},
-				{Kind: EntryDrop, Reason: ReasonBadFrame},
+			entries: []fabric.Entry{
+				{Kind: fabric.EntryDelivery},
+				{Kind: fabric.EntryDrop, Reason: cablemodel.ReasonBadFrame},
 			},
-			wantState: JourneyDelivered,
+			wantState: fabric.JourneyDelivered,
 		},
 	}
 
@@ -302,12 +255,12 @@ func TestJourneyStatePrecedenceTable(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			j := &Journey{
+			j := new(fabric.MakeTestJourney(fabric.ExportJourneyFields{
 				FrameID:  1,
 				Entries:  tc.entries,
 				Metadata: analysis.NewMetadata(analysis.WholeScope(), tc.issues, analysis.EvidenceCatalog{}, nil),
-			}
-			got := assignJourneyState(j, tc.pending, tc.released)
+			}))
+			got := fabric.ExportAssignJourneyState(j, tc.pending)
 			if got != tc.wantState {
 				t.Fatalf("assignJourneyState() = %q, want %q", got, tc.wantState)
 			}
@@ -338,7 +291,7 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		Setting:                  &phy.Setting{AutoNegotiation: true},
 	}
 
-	cfg := Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -365,22 +318,22 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1":   {Address: macH1, Ethernet: gig},
 			"h2":   {Address: macH2, Ethernet: gig},
 			"span": {Address: macSpan, Ethernet: gig},
 		},
-		Cables: []Cable{
-			{A: Endpoint{Node: "h1"}, B: Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: TwistedPair},
-			{A: Endpoint{Node: "h2"}, B: Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: TwistedPair},
-			{A: Endpoint{Node: "span"}, B: Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: TwistedPair},
+		Cables: []fabric.Cable{
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "span"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	// 1. Caller injection from h1 to h2
@@ -390,16 +343,16 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		EtherType: ethernet.EtherTypeIPv4,
 		Payload:   []byte("test-payload-bytes"),
 	}
-	if _, err := fab.Inject(Injection{
+	if _, err := fab.Inject(fabric.Injection{
 		At:     t0.Add(time.Millisecond),
-		Origin: Endpoint{Node: "h1"},
+		Origin: fabric.Endpoint{Node: "h1"},
 		Frame:  frame,
 	}); err != nil {
 		t.Fatalf("fab.Inject: %v", err)
 	}
 
 	// Run enough steps for STP wake/emissions, caller frame delivery, and mirror copy delivery
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	journeys := fab.Report()
 	if len(journeys) == 0 {
@@ -414,14 +367,14 @@ func TestJourneyReportPopulatesOriginAndState(t *testing.T) {
 		if j.State == "" {
 			t.Errorf("journey %d has empty State", j.FrameID)
 		}
-		if err := j.Origin.validate(); err != nil {
+		if err := fabric.ExportJourneyOriginValidate(j.Origin); err != nil {
 			t.Errorf("journey %d origin validation failed: %v", j.FrameID, err)
 		}
 
-		if j.Origin.Kind == OriginInjection && !j.Protocol {
+		if j.Origin.Kind == fabric.OriginInjection && !j.Protocol {
 			hasInjection = true
 		}
-		if j.Origin.Kind == OriginMirror {
+		if j.Origin.Kind == fabric.OriginMirror {
 			hasMirror = true
 			if j.Origin.Mirror != "span1" {
 				t.Errorf("mirror journey %d Mirror = %q, want %q", j.FrameID, j.Origin.Mirror, "span1")

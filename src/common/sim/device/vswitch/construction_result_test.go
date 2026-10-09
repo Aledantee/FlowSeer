@@ -11,6 +11,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -511,7 +512,7 @@ func TestForwardResultEnvelopeAndUnknownOperStatus(t *testing.T) {
 }
 
 func TestRepresentativeSemanticTraceSteps(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	ports := twoPortTable(t)
 	cfg := vswitch.Config{
 		Ports: ports,

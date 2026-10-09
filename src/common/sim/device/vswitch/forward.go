@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -23,7 +24,7 @@ import (
 
 // Peek processes an arrival on an ingress port at the given time without mutating
 // runtime state and returns the forwarding result, metadata, and mirror copies.
-func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) Output {
+func (s *Switch) Peek(now time.Time, ingress string, f ethernet.Frame) device.Output {
 	c, end := s.beginCall(now, false)
 	defer end()
 
@@ -378,9 +379,21 @@ func (s *Switch) finishForward(now time.Time, ingress string, received ethernet.
 		}
 	}
 	resolvedIngress := s.logicalIngress(ingress)
-	copies := s.traffic.Copies(switchports, resolvedIngress, res.FID, received, egress)
+	vid := res.FID
+	release := s.call.release
+	if release != nil {
+		resolvedIngress, vid = release.Ingress, release.VLAN
+	}
+	copies := s.traffic.Copies(switchports, resolvedIngress, vid, received, egress)
+	if release != nil {
+		copies = release.withoutMirrored(copies)
+	} else if mutate {
+		s.rememberHeldMirror(resolvedIngress, vid, copies)
+	}
 	copies = s.readyMirrorCopies(now, &res, copies, mutate)
-	s.call.copies = append(s.call.copies, copies...)
+	for _, cp := range copies {
+		s.call.copies = append(s.call.copies, mirrorCopy{Copy: cp})
+	}
 
 	return res
 }

@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -831,7 +832,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 	})
 
 	t.Run("down routed port drops with port-down under routing", func(t *testing.T) {
-		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Down, vswitch.PointToPointTrue, 0); err != nil {
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 			t.Fatalf("LinkChange down: %v", err)
 		}
 		frame := ethernet.Frame{
@@ -848,7 +849,7 @@ func TestRoutedPortForwardingAndBypassRelay(t *testing.T) {
 		if res.Outcome != trace.Dropped || res.Reason != port.ReasonPortDown {
 			t.Errorf("got outcome=%v reason=%v, want Dropped/port-down", res.Outcome, res.Reason)
 		}
-		if _, err := sw.LinkChange(time.Time{}, "1/1/5", port.Up, vswitch.PointToPointTrue, 0); err != nil {
+		if _, err := sw.LinkChange(time.Time{}, "1/1/5", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0}); err != nil {
 			t.Fatalf("LinkChange up: %v", err)
 		}
 	})
@@ -1525,7 +1526,7 @@ func TestRoutedFrameEgressLAGNoMember(t *testing.T) {
 }
 
 func TestRoutedFrameEgressPortBlocked(t *testing.T) {
-	callOutputs := make(map[*vswitch.Switch]vswitch.Output)
+	callOutputs := make(map[*vswitch.Switch]device.Output)
 	p10 := vlan.ID(10)
 	p20 := vlan.ID(20)
 
@@ -1686,7 +1687,7 @@ func TestRoutedPortReceivesNeighborFrames(t *testing.T) {
 
 // routeLookupFact returns the canonical route-lookup fact carried by a forwarding
 // result, which is where the equal-cost candidate set reaches a journey.
-func routeLookupFact(t *testing.T, res vswitch.Output) string {
+func routeLookupFact(t *testing.T, res device.Output) string {
 	t.Helper()
 	for _, step := range res.Steps {
 		if step.Layer != routing.LayerName || step.Op != trace.OpLookup {
@@ -1873,7 +1874,7 @@ func TestConsumedRoutedNeighborRecordsMatchedVLAN(t *testing.T) {
 			if vid != 0 {
 				frame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: vid}}
 			}
-			for _, out := range []vswitch.Output{sw.Peek(fixedTime, "1/1/1", frame), sw.Receive(fixedTime, "1/1/1", frame)} {
+			for _, out := range []device.Output{sw.Peek(fixedTime, "1/1/1", frame), sw.Receive(fixedTime, "1/1/1", frame)} {
 				if out.Outcome != trace.Consumed || out.FID != 0 {
 					t.Fatalf("output = %+v, want consumed with FID 0", out)
 				}

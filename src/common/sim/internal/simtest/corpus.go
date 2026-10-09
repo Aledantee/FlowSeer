@@ -12,6 +12,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/netmodel"
@@ -55,7 +56,7 @@ type ExecutionResult struct {
 	Switch         *vswitch.Switch
 	ModelResult    *netmodel.Result
 	Comparison     *vswitch.Comparison
-	Forward        *vswitch.ForwardResult
+	Forward        *device.Result
 	Journey        *fabric.Journey
 	FabricMetadata *analysis.Metadata
 }
@@ -918,11 +919,11 @@ func assertOptionalComparisonExpectation(t testing.TB, caseID string, actual *vs
 	if actual.Disposition != expectedDisp {
 		t.Errorf("case %s comparison disposition = %v, want %v", caseID, actual.Disposition, expectedDisp)
 	}
-	assertForwardExpectation(t, caseID, "comparison current", actual.Current.ForwardResult, expected.Current)
-	assertForwardExpectation(t, caseID, "comparison expected", actual.Expected.ForwardResult, expected.Expected)
+	assertForwardExpectation(t, caseID, "comparison current", actual.Current.Result, expected.Current)
+	assertForwardExpectation(t, caseID, "comparison expected", actual.Expected.Result, expected.Expected)
 }
 
-func assertForwardExpectation(t testing.TB, caseID, axis string, actual vswitch.ForwardResult, expected ForwardExpectation) {
+func assertForwardExpectation(t testing.TB, caseID, axis string, actual device.Result, expected ForwardExpectation) {
 	t.Helper()
 	if actual.Outcome != expected.Outcome {
 		t.Errorf("case %s %s outcome = %s, want %s", caseID, axis, actual.Outcome, expected.Outcome)
@@ -941,7 +942,7 @@ func metadataFromModelResult(result *netmodel.Result) *analysis.Metadata {
 	return &result.Metadata
 }
 
-func metadataFromForwardResult(result *vswitch.ForwardResult) *analysis.Metadata {
+func metadataFromForwardResult(result *device.Result) *analysis.Metadata {
 	if result == nil {
 		return nil
 	}
@@ -1098,8 +1099,8 @@ func assertDeterministicComparison(t testing.TB, caseID string, first, second *v
 	if first.Disposition != second.Disposition {
 		t.Errorf("case %s non-deterministic comparison disposition across runs: %v vs %v", caseID, first.Disposition, second.Disposition)
 	}
-	assertDeterministicForwardResult(t, caseID, "comparison current", &first.Current.ForwardResult, &second.Current.ForwardResult)
-	assertDeterministicForwardResult(t, caseID, "comparison expected", &first.Expected.ForwardResult, &second.Expected.ForwardResult)
+	assertDeterministicForwardResult(t, caseID, "comparison current", &first.Current.Result, &second.Current.Result)
+	assertDeterministicForwardResult(t, caseID, "comparison expected", &first.Expected.Result, &second.Expected.Result)
 }
 
 func assertDeterministicModelResult(t testing.TB, caseID string, first, second *netmodel.Result) {
@@ -1119,7 +1120,7 @@ func assertDeterministicModelResult(t testing.TB, caseID string, first, second *
 	assertDeterministicMetadata(t, caseID, "model", first.Metadata, second.Metadata)
 }
 
-func assertDeterministicForwardResult(t testing.TB, caseID, axis string, first, second *vswitch.ForwardResult) {
+func assertDeterministicForwardResult(t testing.TB, caseID, axis string, first, second *device.Result) {
 	t.Helper()
 	if first == nil || second == nil {
 		if first != nil || second != nil {
@@ -1137,4 +1138,30 @@ func assertDeterministicForwardResult(t testing.TB, caseID, axis string, first, 
 		t.Errorf("case %s non-deterministic %s domain result across runs", caseID, axis)
 	}
 	assertDeterministicMetadata(t, caseID, axis, first.Metadata, second.Metadata)
+}
+
+// validateReceiveResult checks the outcome even when the caller discards the output.
+func validateReceiveResult(result device.Result) error {
+	switch result.Outcome {
+	case trace.Forwarded, trace.Flooded, trace.Dropped, trace.Consumed, trace.Held:
+		return nil
+	default:
+		return errs.Msgf("receive on %q returned invalid outcome %q with %d egresses", result.Ingress, result.Outcome, len(result.Egress))
+	}
+}
+
+// validateReceiveReport checks all recorded receives before selecting a journey.
+// A policed receive is recorded as a drop rather than a hop.
+func validateReceiveReport(report []fabric.Journey) error {
+	for _, journey := range report {
+		for _, entry := range journey.Entries {
+			if entry.Result == nil {
+				continue
+			}
+			if err := validateReceiveResult(*entry.Result); err != nil {
+				return errs.Wrapf(err, "frame %d on device %q", journey.FrameID, entry.Device)
+			}
+		}
+	}
+	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
@@ -35,7 +36,7 @@ func TestDeriveCarriesLinkReportsTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := sw.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime, "1/1/3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	target := sw.Spec()
@@ -50,20 +51,20 @@ func TestDeriveCarriesLinkReportsTogether(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, _, err := Derive(sw, target)
+	next, _, err := Derive(sw, target, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+	if next.portP2P["1/1/3"] != pointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
 		t.Fatalf("changed member report = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
 	}
 	if (next.portP2P == nil) != (next.portSpeed == nil) {
 		t.Fatal("Derive left only one link-report map nil")
 	}
-	if _, err := next.LinkChange(fixedTime, "1/1/3", port.Up, PointToPointUnknown, 0); err != nil {
+	if _, err := next.LinkChange(fixedTime, "1/1/3", device.Link{State: port.Up, Duplex: device.DuplexUnknown, PeerRelays: false, SpeedBPS: 0}); err != nil {
 		t.Fatal(err)
 	}
-	if next.portP2P["1/1/3"] != PointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
+	if next.portP2P["1/1/3"] != pointToPointUnknown || next.portSpeed["1/1/3"] != 0 {
 		t.Fatalf("member report after LinkChange = %s/%d, want Unknown/0", next.portP2P["1/1/3"], next.portSpeed["1/1/3"])
 	}
 }
@@ -102,7 +103,7 @@ func TestDeriveKeepsSourceSpecificMulticast(t *testing.T) {
 	sp := target.Bridge.VLAN.Switchports["1/1/3"]
 	sp.Tagged = []vlan.ID{20}
 	target.Bridge.VLAN.Switchports["1/1/3"] = sp
-	next, _, err := Derive(cur, ConstructionSpec{Config: target})
+	next, _, err := Derive(cur, ConstructionSpec{Config: target}, t0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,7 +163,7 @@ func TestDeriveKeepsOneGateEntryPerScope(t *testing.T) {
 		t.Fatalf("GateCount() on New = %d, want 1", got)
 	}
 
-	derived, _, err := Derive(sw, ConstructionSpec{Config: cfg})
+	derived, _, err := Derive(sw, ConstructionSpec{Config: cfg}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive() error = %v", err)
 	}
@@ -230,7 +231,7 @@ func TestDeriveConfiguredForwardingEntryPortRenameAndDropping(t *testing.T) {
 		Config: targetCfg,
 		Seeds:  []bridge.Seed{staticSeed},
 	}
-	derived, _, err := Derive(sw, targetSpec)
+	derived, _, err := Derive(sw, targetSpec, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive with port rename: %v", err)
 	}
@@ -249,7 +250,7 @@ func TestDeriveConfiguredForwardingEntryPortRenameAndDropping(t *testing.T) {
 		Config: targetCfg,
 		Seeds:  nil,
 	}
-	derivedDrop, _, err := Derive(derived, dropSpec)
+	derivedDrop, _, err := Derive(derived, dropSpec, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive dropping static seed: %v", err)
 	}
@@ -295,7 +296,7 @@ func TestDeriveBridgeLosesALearnedEntryTheSeedRuleRefuses(t *testing.T) {
 
 	moved := cfg.Clone()
 	moved.Bridge.VLAN.Switchports["1/1/2"] = bridge.Switchport{PVID: &vid20, Untagged: []vlan.ID{20}}
-	derived, _, err := Derive(sw, ConstructionSpec{Config: moved})
+	derived, _, err := Derive(sw, ConstructionSpec{Config: moved}, time.Unix(1000, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,7 +312,7 @@ func TestDeriveBridgeLosesALearnedEntryTheSeedRuleRefuses(t *testing.T) {
 // for each of the six capability layers, asserting that mutating each dependency
 // rebuilds the layer and names the difference, while an unrelated mutation retains it.
 func TestLayerDependencyMutationMatrix(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	t.Run("STP", func(t *testing.T) {
 		ports, err := port.NewBuilder().
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -436,7 +437,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput1, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput1, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput1)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -457,7 +458,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
 			}}
-			derived, deriveOutput2, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput2, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput2)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -543,7 +544,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput3, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput3, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput3)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -563,7 +564,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
 			}}
-			derived, deriveOutput4, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput4, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput4)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -664,7 +665,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput5, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput5, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput5)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -684,7 +685,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
 			}}
-			derived, deriveOutput6, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput6, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput6)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -784,7 +785,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput7, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput7, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput7)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -811,7 +812,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
 			}}
-			derived, deriveOutput8, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput8, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput8)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -831,7 +832,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 			tgt.Ports, _ = b.Build()
 
-			derived, deriveOutput9, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput9, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput9)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -852,7 +853,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
 			tgt.Ports, _ = b.Build()
 
-			derived, deriveOutput10, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput10, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput10)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -870,7 +871,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt := base.Clone()
 			delete(tgt.Mcast.VLANs, vid10)
 
-			derived, deriveOutput11, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput11, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput11)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -887,7 +888,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt := base.Clone()
 			tgt.Mcast = nil
 
-			derived, deriveOutput12, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput12, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput12)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -1010,8 +1011,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				t.Fatalf("New: %v", err)
 			}
 			sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
-			receiveRoutingReply(t, sw.routing, fixedTime, "eth1", dst, learnedMAC)
-			if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+			if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborIncomplete || n[0].HoldDepth != 1 {
 				t.Fatalf("planted routing neighbor mismatch: %+v", n)
 			}
 			return sw
@@ -1022,7 +1022,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 				cur := plantRoutingState()
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput13, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput13, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput13)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -1054,7 +1054,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			tgt.Traffic = &traffic.Config{Policers: map[string]traffic.Policer{
 				"1/1/1": {RateBPS: 1_000_000, BurstOctets: 1_000},
 			}}
-			derived, deriveOutput14, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput14, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput14)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -1064,10 +1064,13 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			}
 			// Assert dynamic state is kept on retain path
 			n := derived.routing.Neighbors()
-			if len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+			if len(n) != 1 || n[0].State != routing.NeighborIncomplete || n[0].HoldDepth != 1 {
 				t.Fatalf("unexpected retained neighbors: %+v", n)
 			}
-			// The following Advance releases the held frame.
+			if len(deriveOutput14.Emissions) != 0 || len(deriveOutput14.Drops) != 0 {
+				t.Fatalf("Derive output = %+v, want no emission or drop before reply", deriveOutput14)
+			}
+			receiveRoutingReply(t, derived.routing, fixedTime, dst, learnedMAC)
 			captureOutput(callOutputs, derived, derived.Advance(fixedTime.Add(time.Second)))
 			if emissions := takeEmissions(callOutputs, derived); len(emissions) != 1 {
 				t.Errorf("emissions = %d, want 1 released held frame", len(emissions))
@@ -1147,7 +1150,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 			t.Run(m.name, func(t *testing.T) {
 				tgt := base.Clone()
 				m.mutate(&tgt)
-				derived, deriveOutput15, err := Derive(cur, ConstructionSpec{Config: tgt})
+				derived, deriveOutput15, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 				captureOutput(callOutputs, derived, deriveOutput15)
 				if err != nil {
 					t.Fatalf("Derive: %v", err)
@@ -1165,7 +1168,7 @@ func TestLayerDependencyMutationMatrix(t *testing.T) {
 		t.Run("unrelated edit retains Traffic", func(t *testing.T) {
 			tgt := base.Clone()
 			tgt.STP = &stp.Config{Priority: 16384}
-			derived, deriveOutput16, err := Derive(cur, ConstructionSpec{Config: tgt})
+			derived, deriveOutput16, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 			captureOutput(callOutputs, derived, deriveOutput16)
 			if err != nil {
 				t.Fatalf("Derive: %v", err)
@@ -1238,11 +1241,11 @@ func TestDeriveSwitchIdempotenceAndFiftyRandomConstructions(t *testing.T) {
 
 	// Idempotence over two consecutive derives
 	spec := ConstructionSpec{Config: baseCfg}
-	d1, _, err := Derive(sw, spec)
+	d1, _, err := Derive(sw, spec, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive 1: %v", err)
 	}
-	d2, _, err := Derive(d1, spec)
+	d2, _, err := Derive(d1, spec, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive 2: %v", err)
 	}
@@ -1258,7 +1261,7 @@ func TestDeriveSwitchIdempotenceAndFiftyRandomConstructions(t *testing.T) {
 	}
 
 	// 50 constructions with randomized map insertion order producing identical results
-	firstDerived, _, err := Derive(sw, ConstructionSpec{Config: buildSampleConfig(rand.New(rand.NewPCG(1, 1)))})
+	firstDerived, _, err := Derive(sw, ConstructionSpec{Config: buildSampleConfig(rand.New(rand.NewPCG(1, 1)))}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive first: %v", err)
 	}
@@ -1268,7 +1271,7 @@ func TestDeriveSwitchIdempotenceAndFiftyRandomConstructions(t *testing.T) {
 	for i := range 50 {
 		rng := rand.New(rand.NewPCG(uint64(i+2), uint64(i*7+3)))
 		shuffledCfg := buildSampleConfig(rng)
-		derived, _, err := Derive(sw, ConstructionSpec{Config: shuffledCfg})
+		derived, _, err := Derive(sw, ConstructionSpec{Config: shuffledCfg}, fixedTime)
 		if err != nil {
 			t.Fatalf("iteration %d Derive failed: %v", i, err)
 		}
@@ -1328,7 +1331,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 	dstA := netip.MustParseAddr("10.0.10.50")
 	macA := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
 	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstA, 17, []byte("packet-a"), true)
-	receiveRoutingReply(t, cur.routing, fixedTime, "eth1", dstA, macA)
+	receiveRoutingReply(t, cur.routing, fixedTime, dstA, macA)
 
 	dstB := netip.MustParseAddr("10.0.10.60")
 	cur.routing.Originate(fixedTime, routing.DefaultVRF, dstB, 17, []byte("packet-b"), true)
@@ -1346,7 +1349,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 	vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 	changedSpec.Routing.VRFs[routing.DefaultVRF] = vrf
 
-	derived, _, err := Derive(cur, ConstructionSpec{Config: changedSpec})
+	derived, _, err := Derive(cur, ConstructionSpec{Config: changedSpec}, fixedTime)
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -1361,7 +1364,7 @@ func TestDeriveDoesNotMutateSourceRoutingState(t *testing.T) {
 }
 
 func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	ports, err := port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -1401,7 +1404,7 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 	}
 
 	fixedTime := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
-	plantState := func() *Switch {
+	plantState := func(resolved bool) *Switch {
 		sw, err := New(base)
 		if err != nil {
 			t.Fatalf("New: %v", err)
@@ -1409,19 +1412,23 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		dst := netip.MustParseAddr("10.0.10.50")
 		learnedMAC := netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50}
 		sw.routing.Originate(fixedTime, routing.DefaultVRF, dst, 17, []byte("held-data"), true)
-		receiveRoutingReply(t, sw.routing, fixedTime, "eth1", dst, learnedMAC)
-		if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != routing.NeighborReachable || n[0].HoldDepth != 1 {
+		want := routing.NeighborIncomplete
+		if resolved {
+			receiveRoutingReply(t, sw.routing, fixedTime, dst, learnedMAC)
+			want = routing.NeighborReachable
+		}
+		if n := sw.routing.Neighbors(); len(n) != 1 || n[0].State != want || n[0].HoldDepth != 1 {
 			t.Fatalf("planted routing neighbor mismatch: %+v", n)
 		}
 		return sw
 	}
 
-	t.Run("unrelated VLAN edit keeps Reachable neighbor and held frame released by Advance", func(t *testing.T) {
-		cur := plantState()
+	t.Run("unrelated VLAN edit keeps unresolved hold until reply", func(t *testing.T) {
+		cur := plantState(false)
 		tgt := base.Clone()
 		tgt.Bridge.VLAN.Table[20] = "vlan20"
 
-		derived, deriveOutput1, err := Derive(cur, ConstructionSpec{Config: tgt})
+		derived, deriveOutput1, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 		captureOutput(callOutputs, derived, deriveOutput1)
 		if err != nil {
 			t.Fatalf("Derive: %v", err)
@@ -1431,9 +1438,13 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 		}
 
 		neighbors := derived.routing.Neighbors()
-		if len(neighbors) != 1 || neighbors[0].State != routing.NeighborReachable || neighbors[0].HoldDepth != 1 {
+		if len(neighbors) != 1 || neighbors[0].State != routing.NeighborIncomplete || neighbors[0].HoldDepth != 1 {
 			t.Fatalf("unexpected derived neighbors: %+v", neighbors)
 		}
+		if len(deriveOutput1.Emissions) != 0 || len(deriveOutput1.Drops) != 0 {
+			t.Fatalf("Derive output = %+v, want no emission or drop before reply", deriveOutput1)
+		}
+		receiveRoutingReply(t, derived.routing, fixedTime, netip.MustParseAddr("10.0.10.50"), netaddr.MAC{0x02, 0, 0, 0x10, 0x10, 0x50})
 		captureOutput(callOutputs, derived, derived.Advance(fixedTime.Add(time.Second)))
 		if emissions := takeEmissions(callOutputs, derived); len(emissions) != 1 {
 			t.Errorf("emissions = %d, want 1 released held frame", len(emissions))
@@ -1444,13 +1455,13 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 	})
 
 	t.Run("changing RetransTimer rebuilds and held frame is reported failed", func(t *testing.T) {
-		cur := plantState()
+		cur := plantState(false)
 		tgt := base.Clone()
 		vrf := tgt.Routing.VRFs[routing.DefaultVRF]
 		vrf.NeighborPolicy.RetransTimer = 10 * time.Second
 		tgt.Routing.VRFs[routing.DefaultVRF] = vrf
 
-		derived, deriveOutput2, err := Derive(cur, ConstructionSpec{Config: tgt})
+		derived, deriveOutput2, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
 		captureOutput(callOutputs, derived, deriveOutput2)
 		if err != nil {
 			t.Fatalf("Derive: %v", err)
@@ -1471,6 +1482,32 @@ func TestDeriveRoutingHeldFrameFailedOnRebuildReleasedOnRetain(t *testing.T) {
 			t.Errorf("neighbor failure reason = %v, want %v", failures[0].Reason, routing.ReasonNeighborMiss)
 		}
 	})
+
+	for _, rebuild := range []bool{false, true} {
+		name := "resolved hold emits on retain"
+		if rebuild {
+			name = "resolved hold emits on rebuild"
+		}
+		t.Run(name, func(t *testing.T) {
+			cur := plantState(true)
+			tgt := base.Clone()
+			if rebuild {
+				vrf := tgt.Routing.VRFs[routing.DefaultVRF]
+				vrf.NeighborPolicy.RetransTimer = 10 * time.Second
+				tgt.Routing.VRFs[routing.DefaultVRF] = vrf
+			}
+			derived, out, err := Derive(cur, ConstructionSpec{Config: tgt}, fixedTime)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if derived.Retention().Routing.Kept == rebuild {
+				t.Errorf("routing retention = %+v, want Kept %t", derived.Retention().Routing, !rebuild)
+			}
+			if len(out.Emissions) != 1 || len(out.Drops) != 0 {
+				t.Errorf("Derive output = %+v, want one emission and zero drops", out)
+			}
+		})
+	}
 }
 
 func TestDeriveRoutingRebuildsAcrossNodeIdentities(t *testing.T) {
@@ -1485,7 +1522,7 @@ func TestDeriveRoutingRebuildsAcrossNodeIdentities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, _, err := Derive(cur, ConstructionSpec{Config: cfg, NodeID: "after"})
+	next, _, err := Derive(cur, ConstructionSpec{Config: cfg, NodeID: "after"}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1494,8 +1531,9 @@ func TestDeriveRoutingRebuildsAcrossNodeIdentities(t *testing.T) {
 	}
 }
 
-func receiveRoutingReply(t *testing.T, l *routing.Layer, now time.Time, name string, addr netip.Addr, mac netaddr.MAC) {
+func receiveRoutingReply(t *testing.T, l *routing.Layer, now time.Time, addr netip.Addr, mac netaddr.MAC) {
 	t.Helper()
+	const name = "eth1"
 	iface, ok := l.Interface(name)
 	if !ok {
 		t.Fatalf("missing interface %q", name)

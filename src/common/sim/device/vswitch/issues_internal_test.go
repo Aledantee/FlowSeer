@@ -13,6 +13,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -67,7 +68,7 @@ func issueCallFrame(t *testing.T, dst netip.Addr) ethernet.Frame {
 	return ethernet.Frame{Src: netaddr.MAC{2, 0, 0, 0, 0, 7}, Dst: netaddr.MAC{2, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: payload}
 }
 
-func callHasIssue(res Output, code analysis.IssueCode) bool {
+func callHasIssue(res device.Output, code analysis.IssueCode) bool {
 	return slices.ContainsFunc(res.Metadata.Issues(), func(issue analysis.Issue) bool { return issue.Code == code })
 }
 
@@ -90,7 +91,7 @@ func TestPolicedDropCarriesNoEarlierIssue(t *testing.T) {
 }
 
 func TestReleaseChargesNoMulticastQueryToTheObservingFrame(t *testing.T) {
-	callOutputs := make(map[*Switch]Output)
+	callOutputs := make(map[*Switch]device.Output)
 	sw := issueCallSwitch(t)
 	t0 := time.Unix(100, 0)
 	group := netip.MustParseAddr("239.1.2.3")
@@ -144,21 +145,21 @@ func TestSelectMemberOutsideACallRaisesNothing(t *testing.T) {
 	}
 	f := issueCallFrame(t, netip.MustParseAddr("10.0.20.77"))
 	t0 := time.Unix(100, 0)
-	if member, ok := sw.SelectMember(t0, "bond", f, 0); !ok || member == "" {
+	if member, ok := sw.selectMember(t0, "bond", f, 0); !ok || member == "" {
 		t.Fatalf("initial selection = %q/%v, want enabled member", member, ok)
 	}
 	now := t0.Add(11 * time.Second)
 	if sel := sw.lag.Peek(now, "bond", f, 0); !sel.OK || !sel.RebalanceUnmodeled {
 		t.Fatalf("aged selection = %+v, want enabled stale balanced selection", sel)
 	}
-	if member, ok := sw.SelectMember(now, "bond", f, 0); !ok || member == "" {
+	if member, ok := sw.selectMember(now, "bond", f, 0); !ok || member == "" {
 		t.Fatalf("aged selection = %q/%v, want enabled member", member, ok)
 	}
 	res := sw.Peek(now, "in", ethernet.Frame{})
 	if callHasIssue(res, IssueLAGRebalanceUnmodeled) {
 		t.Errorf("next frame issues = %+v, want no lag-rebalance-unmodeled", res.Metadata.Issues())
 	}
-	if _, err := sw.LinkChange(now, "in", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "in", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
 	res = sw.Receive(now, "in", f)
@@ -180,14 +181,14 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 		{"Advance", func(sw *Switch) { sw.Advance(now) }},
 		{"Start", func(sw *Switch) { sw.Start(now) }},
 		{"LinkChange", func(sw *Switch) {
-			if _, err := sw.LinkChange(now, "out", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now, "out", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				t.Fatal(err)
 			}
 		}},
 		{"Mcheck", func(sw *Switch) { sw.Mcheck(now, "in") }},
 		{"ClearLoopProtect", func(sw *Switch) { sw.ClearLoopProtect(now, "in") }},
 		{"Derive", func(sw *Switch) {
-			next, _, err := Derive(sw, sw.Spec())
+			next, _, err := Derive(sw, sw.Spec(), now)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -195,7 +196,7 @@ func TestNoCallOutlivesItsEntry(t *testing.T) {
 				t.Errorf("derived switch call = %+v, want nil", next.call)
 			}
 		}},
-		{"SelectMember", func(sw *Switch) { sw.SelectMember(now, "absent", f, 0) }},
+		{"selectMember", func(sw *Switch) { sw.selectMember(now, "absent", f, 0) }},
 	}
 	if len(entries) != 10 {
 		t.Fatalf("entry cases = %d, want 10", len(entries))

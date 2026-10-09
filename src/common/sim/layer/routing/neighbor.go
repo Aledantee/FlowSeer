@@ -437,14 +437,15 @@ func (l *Layer) NextWake() (time.Time, bool) {
 // the original had at the moment of the clone.
 func (l *Layer) Clone() *Layer {
 	cp := &Layer{
-		nodeID:   l.nodeID,
-		byVLAN:   make(map[vlan.ID]string, len(l.byVLAN)),
-		byPort:   make(map[string]map[vlan.ID]string, len(l.byPort)),
-		ifaceVRF: make(map[string]string, len(l.ifaceVRF)),
-		ifaces:   make(map[string]Interface, len(l.ifaces)),
-		vrfs:     make(map[string]*vrfState, len(l.vrfs)),
-		exits:    slices.Clone(l.exits),
-		lastHold: l.lastHold,
+		clearRouterFlag: l.clearRouterFlag,
+		nodeID:          l.nodeID,
+		byVLAN:          make(map[vlan.ID]string, len(l.byVLAN)),
+		byPort:          make(map[string]map[vlan.ID]string, len(l.byPort)),
+		ifaceVRF:        make(map[string]string, len(l.ifaceVRF)),
+		ifaces:          make(map[string]Interface, len(l.ifaces)),
+		vrfs:            make(map[string]*vrfState, len(l.vrfs)),
+		exits:           slices.Clone(l.exits),
+		lastHold:        l.lastHold,
 	}
 	for k, v := range l.byVLAN {
 		cp.byVLAN[k] = v
