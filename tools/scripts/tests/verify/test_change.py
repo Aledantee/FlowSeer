@@ -105,6 +105,7 @@ class VerdictLineTest(support.VerifierCase):
         stdout, stderr = io.StringIO(), io.StringIO()
         previous = os.getcwd()
         self.addCleanup(os.chdir, previous)
+        os.chdir(self.root)
         # The run changes to the root and puts the Go tools' directory on PATH.
         with mock.patch.dict(os.environ, self.stubs.env(self.env), clear=True):
             with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
@@ -132,6 +133,8 @@ class VerdictLineTest(support.VerifierCase):
         result = self.verify_in_process("--", "README.md")
         self.assertEqual((result.code, support.last_line(result.stdout)), (0, support.PASSED))
         self.assertNotIn("FAILED", result.stderr)
+        self.assertTrue(self.receipt.exists())
+        self.assertIn("paths=README.md ", self.receipt.read_text().splitlines())
 
 
 if __name__ == "__main__":
