@@ -209,7 +209,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				res := s.bridge.Egress(bridge.Ingress{FID: em.VID, Now: now, Commit: true}, em.Frame)
 				for _, eg := range res.Egress {
 					if eg.Dropped == "" {
-						s.emit(emission{Port: eg.Port, Member: eg.Member, Frame: eg.Frame, Protocol: true})
+						s.emit(emission{Port: eg.Port, Member: eg.Member, Frame: eg.Frame, Protocol: true, slot: tableRouting + 1})
 					}
 				}
 				return
@@ -230,7 +230,7 @@ func (s *Switch) emitRouting(now time.Time, emissions []layer.Emission) {
 				}
 				member = selected.Member
 			}
-			s.emit(emission{Port: em.Port, Member: member, Frame: frame, Protocol: true})
+			s.emit(emission{Port: em.Port, Member: member, Frame: frame, Protocol: true, slot: tableRouting + 1})
 		}()
 	}
 }

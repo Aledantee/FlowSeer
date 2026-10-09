@@ -41,10 +41,12 @@ type emission struct {
 	// is a protocol frame.
 	Protocol bool
 
-	// slot is one more than the index in the layer table of the layer whose
-	// timer produced the frame, or zero for a frame no table advance produced.
-	// [Derive] reads it to tell a frame a replaced layer still owes from one a
-	// kept layer does.
+	// slot is one more than the index in the layer table of the layer that
+	// built the frame, or zero for a frame no protocol built. The function that
+	// builds a frame sets it, so a frame is its layer's wherever the call that
+	// produced it came from: a BPDU caused by a LAG transition is spanning
+	// tree's, although the LAG layer's timer was running. [Derive] reads it to
+	// tell a frame a replaced layer still owes from one a kept layer does.
 	slot int
 }
 
@@ -61,7 +63,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		// tagged, untagged where it is the port's untagged VLAN, and not at
 		// all where the port does not carry it.
 		if em.VID == 0 {
-			s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+			s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true, slot: tableSTP + 1})
 
 			continue
 		}
@@ -69,7 +71,7 @@ func (s *Switch) applySTPEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true, slot: tableSTP + 1})
 	}
 }
 
@@ -111,13 +113,13 @@ func (s *Switch) applyLoopProtectEffects(fx layer.Effects) {
 		if !ok {
 			continue
 		}
-		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: egress, Protocol: true, slot: tableLoopProtect + 1})
 	}
 }
 
 func (s *Switch) applyLAGEffects(now time.Time, fx layer.Effects) {
 	for _, em := range fx.Emissions {
-		s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true})
+		s.emit(emission{Port: em.Port, Frame: em.Frame, Protocol: true, slot: tableLAG + 1})
 	}
 	for _, lagName := range fx.Changed {
 		// LAG effects name aggregators from the validated configuration and table.
