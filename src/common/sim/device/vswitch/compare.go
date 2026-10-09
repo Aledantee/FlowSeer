@@ -11,22 +11,21 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 )
 
 // Comparison holds the forwarding results from evaluating the same frame arrival
 // on two switches, and reports the derived comparison disposition and the first
 // differing behavioral observable.
 type Comparison struct {
-	Current     Output
-	Expected    Output
+	Current     device.Output
+	Expected    device.Output
 	Disposition analysis.Disposition
 	Difference  analysis.Difference
 }
 
-func compareResults(cur, exp Output) Comparison {
-	diff, hasDiff := diffForwardResult(cur.ForwardResult, exp.ForwardResult)
+func compareResults(cur, exp device.Output) Comparison {
+	diff, hasDiff := diffForwardResult(cur.Result, exp.Result)
 	if !hasDiff {
 		copiesA, copiesB := mirrorCopies(cur.Copies), mirrorCopies(exp.Copies)
 		if !slices.Equal(copiesA, copiesB) {
@@ -65,7 +64,7 @@ func Compare(a, b *Switch, now time.Time, port string, f ethernet.Frame) Compari
 	return compareResults(a.Peek(now, port, f), b.Peek(now, port, f))
 }
 
-func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
+func diffForwardResult(cur, exp device.Result) (analysis.Difference, bool) {
 	if cur.Outcome != exp.Outcome {
 		return analysis.Difference{
 			Observable: "outcome",
@@ -91,11 +90,11 @@ func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 	// The bridge guarantees at most one Egress entry per logical port (unicast resolves to
 	// at most one destination port, and flooding/replication deduplicates candidate ports
 	// via a seen set), so keying by eg.Port preserves all egress records without collapse.
-	curByPort := make(map[string]bridge.Egress, len(cur.Egress))
+	curByPort := make(map[string]device.Egress, len(cur.Egress))
 	for _, eg := range cur.Egress {
 		curByPort[eg.Port] = eg
 	}
-	expByPort := make(map[string]bridge.Egress, len(exp.Egress))
+	expByPort := make(map[string]device.Egress, len(exp.Egress))
 	for _, eg := range exp.Egress {
 		expByPort[eg.Port] = eg
 	}
@@ -189,9 +188,9 @@ func diffForwardResult(cur, exp ForwardResult) (analysis.Difference, bool) {
 	return analysis.Difference{}, false
 }
 
-func mirrorCopies(copies []traffic.Copy) []string {
+func mirrorCopies(copies []device.Copy) []string {
 	ordered := slices.Clone(copies)
-	slices.SortFunc(ordered, func(a, b traffic.Copy) int {
+	slices.SortFunc(ordered, func(a, b device.Copy) int {
 		if order := cmp.Compare(a.Mirror, b.Mirror); order != 0 {
 			return order
 		}

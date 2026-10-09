@@ -14,6 +14,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/lacp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
@@ -82,9 +83,9 @@ func TestForkCapabilityMatrix(t *testing.T) {
 				t.Fatal(err)
 			}
 			built++
-			fork := source.Fork()
+			fork := source.Fork().(*Switch)
 			now := time.Unix(1000, 0)
-			check := func(name string, got, want Output) {
+			check := func(name string, got, want device.Output) {
 				t.Helper()
 				comparisons++
 				if !reflect.DeepEqual(got, want) {
@@ -104,7 +105,7 @@ func TestForkCapabilityMatrix(t *testing.T) {
 					}
 				}
 			}
-			second := source.Fork()
+			second := source.Fork().(*Switch)
 			fork.Advance(now.Add(time.Hour))
 			at := now.Add(9 * time.Second)
 			check("source after fork hour", source.Receive(at, "1/1/1", frames[0].frame), second.Receive(at, "1/1/1", frames[0].frame))

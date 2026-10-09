@@ -2,6 +2,7 @@ package fabric_test
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"reflect"
@@ -10,12 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/pcap"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
@@ -50,8 +56,8 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 		t.Fatal(err)
 	}
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
-	fab, _, _ := newTwoSwitchTopology(t, fabric.Fault{})
-	cfg := fab.Config()
+	fab, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{})
+	cfg := assembly.Spec(fab).Config()
 	cfg.Start = t0
 	sw1 := cfg.Switches["sw1"]
 	sw1.MAC = netaddr.MAC{2, 0xff, 0, 0, 0, 1}
@@ -65,7 +71,7 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 	h2 := cfg.Hosts["h2"]
 	h2.Address = netaddr.MAC{2, 0, 0, 0, 0, 2}
 	cfg.Hosts["h2"] = h2
-	fab, err = fabric.New(cfg)
+	fab, err = assembly.New(cfg)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +80,7 @@ func TestAttachCapturePreservesSpacingAndMACs(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if result := fab.Run(1_000); result.Stop != fabric.StopQueueDrained {
+	if result := fab.Run(fabric.RunOptions{Budget: 1_000, Window: 0}); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", result.Stop, fabric.StopQueueDrained)
 	}
 	journeys := fab.Report()
@@ -132,10 +138,10 @@ func streamSource(t *testing.T, frame ethernet.Frame, count int, fps uint64) str
 
 func TestAttachStreamPlacesFramesAtFabricEpoch(t *testing.T) {
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	cfg := fab.Config()
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	cfg := assembly.Spec(fab).Config()
 	cfg.Start = t0
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -145,7 +151,7 @@ func TestAttachStreamPlacesFramesAtFabricEpoch(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	if result := fab.Run(1000); result.Stop != fabric.StopQueueDrained {
+	if result := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0}); result.Stop != fabric.StopQueueDrained {
 		t.Fatalf("Run stop = %s, want %s", result.Stop, fabric.StopQueueDrained)
 	}
 	journeys := fab.Report()
@@ -162,7 +168,7 @@ func TestAttachStreamPlacesFramesAtFabricEpoch(t *testing.T) {
 
 func TestAttachStreamRefusals(t *testing.T) {
 	t0 := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame := flowFrame(src, dst)
 	base := fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, frame, 1, 10_000), Flow: 1}
 	tests := []struct {
@@ -187,9 +193,9 @@ func TestAttachStreamRefusals(t *testing.T) {
 		})
 	}
 	t.Run("reflector origin", func(t *testing.T) {
-		cfg := fab.Config()
-		cfg.Reflectors = map[string]fabric.Reflector{"r1": {Address: netaddr.MAC{2, 0, 0, 0, 0, 10}}}
-		withReflector, err := fabric.New(cfg)
+		cfg := assembly.Spec(fab).Config()
+		cfg.Reflectors = map[string]reflectormodel.Config{"r1": {Address: netaddr.MAC{2, 0, 0, 0, 0, 10}}}
+		withReflector, err := assembly.New(cfg)
 		if err != nil {
 			t.Fatalf("New: %v", err)
 		}
@@ -211,7 +217,7 @@ func TestAttachStreamRefusals(t *testing.T) {
 }
 
 func TestAttachedStreamEndsAtDownHostLink(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 4, 10_000), Flow: 1, Retention: fabric.RetainJourney}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
@@ -220,20 +226,20 @@ func TestAttachedStreamEndsAtDownHostLink(t *testing.T) {
 			t.Fatal("Step stopped before the second frame")
 		}
 	}
-	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	if got := len(fab.Report()); got != 2 {
 		t.Errorf("reported frames = %d, want 2 before the cut", got)
 	}
 }
 
 func TestAttachedStreamUnknownHostLinkIsUnresolved(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	cfg := fab.Config()
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	cfg := assembly.Spec(fab).Config()
 	cfg.PhyAssumption = nil
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -243,7 +249,7 @@ func TestAttachedStreamUnknownHostLinkIsUnresolved(t *testing.T) {
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 2, 10_000), Flow: 1, Retention: fabric.RetainJourney}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	if got := len(fab.Report()); got != 2 {
 		t.Fatalf("reported frames = %d, want 2", got)
 	}
@@ -255,8 +261,8 @@ func TestAttachedStreamUnknownHostLinkIsUnresolved(t *testing.T) {
 }
 
 func TestAttachedStreamFlowEqualsEagerInjection(t *testing.T) {
-	lazy, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	eager, _, _ := newTwoSwitchTopology(t, fabric.Fault{})
+	lazy, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	eager, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame := flowFrame(src, dst)
 	source := streamSource(t, frame, 8, 10_000)
 	if err := lazy.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source.Clone(), Flow: 7, Retention: fabric.RetainAggregate}); err != nil {
@@ -267,12 +273,12 @@ func TestAttachedStreamFlowEqualsEagerInjection(t *testing.T) {
 		if !ok {
 			break
 		}
-		if _, err := eager.Inject(fabric.Injection{At: eager.Config().Start.Add(at), Origin: fabric.Endpoint{Node: "h1"}, Frame: next, Flow: 7, Retention: fabric.RetainAggregate}); err != nil {
+		if _, err := eager.Inject(fabric.Injection{At: assembly.Spec(eager).Config().Start.Add(at), Origin: fabric.Endpoint{Node: "h1"}, Frame: next, Flow: 7, Retention: fabric.RetainAggregate}); err != nil {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	lazy.Run(1000)
-	eager.Run(1000)
+	lazy.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	eager.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	if got, want := lazy.Flows(), eager.Flows(); !reflect.DeepEqual(got, want) {
 		t.Error("attached and eager flow statistics differ")
 		for id := range got {
@@ -319,8 +325,8 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 			t.Fatalf("Inject: %v", err)
 		}
 	}
-	lazy.Run(100_000)
-	eager.Run(100_000)
+	lazy.Run(fabric.RunOptions{Budget: 100_000, Window: 0})
+	eager.Run(fabric.RunOptions{Budget: 100_000, Window: 0})
 	if got, want := lazy.Flows(), eager.Flows(); !reflect.DeepEqual(got, want) {
 		t.Error("attached and eager LAG flow statistics differ")
 		for id := range got {
@@ -357,8 +363,8 @@ func TestAttachedLagStreamsMatchEagerDeliveries(t *testing.T) {
 }
 
 func TestAttachedStreamStepKeepsClockMonotonic(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	start := fab.Config().Start
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	start := assembly.Spec(fab).Config().Start
 	frame := flowFrame(src, dst)
 	if _, err := fab.Inject(fabric.Injection{At: start.Add(50 * time.Microsecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
 		t.Fatalf("Inject switch: %v", err)
@@ -388,9 +394,9 @@ func TestAttachedStreamStepKeepsClockMonotonic(t *testing.T) {
 }
 
 func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
-	attached, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	eager, _, _ := newTwoSwitchTopology(t, fabric.Fault{})
-	start := attached.Config().Start
+	attached, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	eager, _, _ := newTwoSwitchTopology(t, cablemodel.Fault{})
+	start := assembly.Spec(attached).Config().Start
 	frame := flowFrame(src, dst)
 	switchInjection := fabric.Injection{At: start.Add(50 * time.Microsecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}
 	lateHost := fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 2}
@@ -408,8 +414,8 @@ func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
 			t.Fatalf("eager Inject: %v", err)
 		}
 	}
-	attached.Run(1000)
-	eager.Run(1000)
+	attached.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	eager.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	for _, flow := range []fabric.FlowID{1, 2} {
 		var got, want []time.Time
 		for _, journey := range attached.Report() {
@@ -432,67 +438,174 @@ func TestMixedEagerAndAttachedHostDeliveriesMatchEager(t *testing.T) {
 	}
 }
 
-func TestEagerHostInjectionsReleaseInTimeOrder(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	start := fab.Config().Start
+func TestHostInjectionsReleaseInTimeOrder(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	start := assembly.Spec(fab).Config().Start
 	frame := flowFrame(src, dst)
-	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: frame}); err != nil {
-		t.Fatalf("Inject switch: %v", err)
-	}
 	for _, offset := range []time.Duration{100 * time.Microsecond, 50 * time.Microsecond} {
 		if _, err := fab.Inject(fabric.Injection{At: start.Add(offset), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame}); err != nil {
 			t.Fatalf("Inject at %s: %v", offset, err)
 		}
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	journeys := fab.Report()
-	if len(journeys) != 3 || len(journeys[1].Deliveries) == 0 || len(journeys[2].Deliveries) == 0 {
+	if len(journeys) != 2 || len(journeys[0].Deliveries) == 0 || len(journeys[1].Deliveries) == 0 {
 		t.Fatalf("journeys = %+v, want two host deliveries", journeys)
 	}
-	if !journeys[2].Deliveries[0].At.Before(journeys[1].Deliveries[0].At) {
-		t.Fatalf("50us delivery %s is not before 100us delivery %s", journeys[2].Deliveries[0].At, journeys[1].Deliveries[0].At)
+	if !journeys[1].Deliveries[0].At.Before(journeys[0].Deliveries[0].At) {
+		t.Fatalf("50us delivery %s is not before 100us delivery %s", journeys[1].Deliveries[0].At, journeys[0].Deliveries[0].At)
 	}
 }
 
-func TestEagerHostInjectionChecksLinkAtRelease(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	start := fab.Config().Start
+func TestHostInjectionChecksLinkAtRelease(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	start := assembly.Spec(fab).Config().Start
 	if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
 		t.Fatalf("Inject switch: %v", err)
 	}
 	if _, err := fab.Inject(fabric.Injection{At: start.Add(100 * time.Microsecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+	if err := fab.SetFault(fabric.Endpoint{Node: "h1"}, fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	journeys := fab.Report()
 	if len(journeys) != 2 || len(journeys[1].Entries) < 2 || journeys[1].Entries[1].Kind != fabric.EntryDrop {
 		t.Fatalf("journeys = %+v, want a host link drop after injection", journeys)
 	}
 }
 
-func TestRunScenarioRefusesActionsWithAttachedStream(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
-	start := fab.Config().Start
-	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: streamSource(t, flowFrame(src, dst), 1, 10_000), Start: 5 * time.Millisecond, Flow: 1}); err != nil {
+func TestScenarioRunsWithAttachedStream(t *testing.T) {
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+	start := assembly.Spec(fab).Config().Start
+	if err := fab.AttachStream(fabric.StreamAttachment{
+		Origin: fabric.Endpoint{Node: "h1"},
+		Source: streamSource(t, flowFrame(src, dst), 2, 500),
+		Start:  time.Millisecond,
+		Flow:   1,
+	}); err != nil {
 		t.Fatalf("AttachStream: %v", err)
 	}
-	_, err := fab.RunScenario(fabric.Scenario{
-		Name: "stream with action", Budget: 100,
+	result, err := fab.RunScenario(fabric.Scenario{
+		Name: "stream with action",
 		Actions: []fabric.Action{{
-			At: start.Add(time.Millisecond), Kind: fabric.ActionFault,
-			Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}},
+			ID: "attach_test-1",
+			At: start.Add(2 * time.Millisecond), Kind: fabric.ActionFault,
+			Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}},
 		}},
-	})
-	if err == nil || !strings.Contains(err.Error(), "attached stream") {
-		t.Fatalf("RunScenario error = %v, want attached stream refusal", err)
+	}, fabric.RunOptions{Budget: 100, Window: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Stop != fabric.StopQueueDrained {
+		t.Fatalf("result = %+v, want StopQueueDrained", result)
+	}
+	if fab.Flows()[1].Offered != 1 || fab.Flows()[1].Delivered["h2"] != 1 {
+		t.Fatalf("flows = %+v, want 1 offered and 1 delivered before cut", fab.Flows())
+	}
+	if fab.Links()[0].A.Oper != port.Down {
+		t.Fatal("scenario did not cut the host link")
+	}
+}
+
+func TestHostInjectionOrder(t *testing.T) {
+	orders := [][3]int{{1, 2, 3}, {1, 3, 2}, {2, 1, 3}, {2, 3, 1}, {3, 1, 2}, {3, 2, 1}}
+	checked := 0
+	for _, order := range orders {
+		for _, stepped := range []bool{false, true} {
+			for _, queued := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%v/stepped=%t/queued=%t", order, stepped, queued), func(t *testing.T) {
+					fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+					start := assembly.Spec(fab).Config().Start
+					if stepped {
+						if _, err := fab.Inject(fabric.Injection{At: start, Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+						if _, ok := fab.Step(); !ok {
+							t.Fatal("initial Step failed")
+						}
+						fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+					}
+					if queued {
+						if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					for _, offset := range order {
+						if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Duration(offset) * time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					if _, busy := fab.Snapshot().Busy[fabric.Endpoint{Node: "h1"}]; busy {
+						t.Fatal("future injection charged host before its event")
+					}
+					for _, j := range fab.Report() {
+						if j.Injection.Origin.Node != "h1" {
+							continue
+						}
+						if len(j.Entries) != 1 || j.State != fabric.JourneyPending {
+							t.Fatalf("host journey = %+v, want pending injection", j)
+						}
+					}
+					fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+					var crossings []time.Time
+					for _, journey := range fab.Report() {
+						for _, entry := range journey.Entries {
+							if entry.Wait < 0 {
+								t.Fatalf("negative Wait: %s", entry.Wait)
+							}
+							if journey.Injection.Origin.Node == "h1" && entry.Kind == fabric.EntryCrossing && entry.Device == "sw1" && entry.Port == "1/1/1" {
+								crossings = append(crossings, entry.At)
+							}
+						}
+					}
+					if len(crossings) != 3 {
+						t.Fatalf("host crossings = %d, want 3", len(crossings))
+					}
+					// Reports use frame identity, so compare the three known injection positions.
+					for i, offset := range order {
+						want := start.Add(time.Duration(offset) * time.Second)
+						if !crossings[i].Equal(want) {
+							t.Fatalf("crossing %d = %s, want %s", i, crossings[i], want)
+						}
+					}
+					checked++
+				})
+			}
+		}
+	}
+	if checked != 24 {
+		t.Fatalf("checked %d cases, want 24", checked)
+	}
+}
+
+func TestInjectBeforeClockRefused(t *testing.T) {
+	for _, stepped := range []bool{false, true} {
+		t.Run(fmt.Sprint(stepped), func(t *testing.T) {
+			fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
+			start := assembly.Spec(fab).Config().Start
+			if stepped {
+				if _, err := fab.Inject(fabric.Injection{At: start.Add(time.Second), Origin: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Frame: flowFrame(src, dst)}); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := fab.Step(); !ok {
+					t.Fatal("Step failed")
+				}
+			}
+			before := fab.Snapshot()
+			if _, err := fab.Inject(fabric.Injection{At: before.Clock.Add(-time.Nanosecond), Origin: fabric.Endpoint{Node: "h1"}, Frame: flowFrame(src, dst)}); err == nil {
+				t.Fatal("Inject accepted time before clock")
+			}
+			if !reflect.DeepEqual(before, fab.Snapshot()) {
+				t.Fatal("refused injection changed snapshot")
+			}
+		})
 	}
 }
 
 func TestAttachedStreamJourneyOwnsFrame(t *testing.T) {
-	fab, src, dst := newTwoSwitchTopology(t, fabric.Fault{})
+	fab, src, dst := newTwoSwitchTopology(t, cablemodel.Fault{})
 	frame := flowFrame(src, dst)
 	frame.Tags = []vlan.Tag{{VID: 1}}
 	wantPayload := bytes.Clone(frame.Payload)
@@ -500,7 +613,7 @@ func TestAttachedStreamJourneyOwnsFrame(t *testing.T) {
 	if err := fab.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1, Retention: fabric.RetainJourney}); err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 	frame.Tags[0].VID = 2
 	frame.Payload[0] ^= 0xff
 	journeys := fab.Report()

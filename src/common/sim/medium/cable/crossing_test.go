@@ -1,0 +1,169 @@
+package cable_test
+
+import (
+	"testing"
+	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
+	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
+	"go.aledante.io/FlowSeer/src/common/sim/medium/cable"
+	"go.aledante.io/FlowSeer/src/common/sim/port"
+)
+
+func TestFaultPositionCountsBothDirections(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macA := netaddr.MAC{0x02, 0, 0, 0, 0, 1}
+	macB := netaddr.MAC{0x02, 0, 0, 0, 0, 2}
+	cfg := assembly.Config{
+		Start: start,
+		Hosts: map[string]hostmodel.Config{
+			"a": {Address: macA, Accept: hostmodel.Accept{Promiscuous: true}},
+			"b": {Address: macB, Accept: hostmodel.Accept{Promiscuous: true}},
+		},
+		Cables: []fabric.Cable{{
+			A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"},
+			Cable: cable.Cable{Medium: cable.TwistedPair, Fault: cable.Fault{Kind: cable.FaultLoseSequence, Sequence: []uint{2, 3}}},
+		}},
+		PhyAssumption: gigabitCopper(),
+	}
+	fab, err := assembly.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := fab.Links()
+	if len(links) != 1 || links[0].A.Oper != port.Up || links[0].B.Oper != port.Up {
+		t.Fatalf("links = %+v, want one Up link", links)
+	}
+	id := bpdu.BridgeID{Priority: 32768, Address: macA}
+	protocol, err := bpdu.Encode(bpdu.BPDU{
+		Type: bpdu.TypeConfiguration, RootID: id, BridgeID: id, PortID: 0x8001,
+		HelloTime: 2 * time.Second, MaxAge: 20 * time.Second, ForwardDelay: 15 * time.Second,
+	}, macA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name   string
+		origin string
+		frame  ethernet.Frame
+		want   fabric.JourneyState
+	}{
+		{name: "position 1 BPDU A to B", origin: "a", frame: protocol, want: fabric.JourneyDelivered},
+		{name: "position 2 data B to A", origin: "b", frame: ethernet.Frame{Src: macB, Dst: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("two")}, want: fabric.JourneyDropped},
+		{name: "position 3 data A to B", origin: "a", frame: ethernet.Frame{Src: macA, Dst: macB, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("three")}, want: fabric.JourneyDropped},
+		{name: "position 4 data B to A", origin: "b", frame: ethernet.Frame{Src: macB, Dst: macA, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("four")}, want: fabric.JourneyDelivered},
+	}
+	// Apply the four transmissions in position order, advancing after each.
+	checked := 0
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			fid, err := fab.Inject(fabric.Injection{At: start.Add(time.Duration(i) * time.Millisecond), Origin: fabric.Endpoint{Node: tc.origin}, Frame: tc.frame})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := fab.Run(fabric.RunOptions{Budget: 16, Window: 0})
+			if result.Stop != fabric.StopQueueDrained {
+				t.Fatalf("Run stop = %v, want QueueDrained", result.Stop)
+			}
+			journeys := fab.Report()
+			if len(journeys) != i+1 {
+				t.Fatalf("journeys = %d, want %d", len(journeys), i+1)
+			}
+			j := journeys[i]
+			if j.FrameID != fid {
+				t.Fatalf("journey FrameID = %d, want %d", j.FrameID, fid)
+			}
+			if j.State != tc.want {
+				t.Fatalf("journey state = %v, want %v", j.State, tc.want)
+			}
+			losses := 0
+			for _, entry := range j.Entries {
+				if entry.Kind != fabric.EntryLoss {
+					continue
+				}
+				losses++
+				if entry.Reason != cable.ReasonCableLoss {
+					t.Errorf("loss reason = %v, want cable-loss", entry.Reason)
+				}
+			}
+			wantLosses := 0
+			if tc.want == fabric.JourneyDropped {
+				wantLosses = 1
+			}
+			if losses != wantLosses {
+				t.Fatalf("loss entries = %d, want %d", losses, wantLosses)
+			}
+			checked++
+		})
+	}
+	if checked != 4 {
+		t.Fatalf("checked positions = %d, want 4", checked)
+	}
+	if journeys := fab.Report(); len(journeys) != 4 {
+		t.Errorf("journeys = %d, want 4", len(journeys))
+	}
+}
+
+// TestFaultPositionCountsSwitchProtocolFrames checks that a switch's own BPDUs take positions in
+// the cable's crossing count like any other frame: a host frame sent after k BPDUs crossed is
+// position k+1, so a LoseSequence naming that position drops it and no earlier or later frame.
+func TestFaultPositionCountsSwitchProtocolFrames(t *testing.T) {
+	start := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
+	macSwitch := netaddr.MAC{0x02, 0, 0, 0, 0, 0xa1}
+	macHost := netaddr.MAC{0x02, 0, 0, 0, 0, 0xb1}
+	config := func(fault cable.Fault) assembly.Config {
+		return assembly.Config{
+			Start: start,
+			Switches: map[string]vswitch.Config{"sw": {
+				MAC:    macSwitch,
+				Ports:  mustTable(t, port.NewBuilder().Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})),
+				Bridge: &bridge.Config{},
+				STP:    &stp.Config{Priority: 32768, Address: macSwitch, Ports: map[string]stp.Port{"1/1/1": {}}},
+			}},
+			Hosts: map[string]hostmodel.Config{"h": {Address: macHost, Accept: hostmodel.Accept{Promiscuous: true}}},
+			Cables: []fabric.Cable{{
+				A: fabric.Endpoint{Node: "sw", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h"},
+				Cable: cable.Cable{Medium: cable.TwistedPair, Fault: fault},
+			}},
+			PhyAssumption: gigabitCopper(),
+		}
+	}
+	data := ethernet.Frame{Src: macHost, Dst: macSwitch, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("data")}
+	// The switch sends a BPDU when it starts and one every two seconds after, so the host
+	// frame sent at five seconds follows the BPDUs at zero, two, and four seconds.
+	const wantPosition = 4
+	lostAt := []uint{}
+	for position := uint(1); position <= 6; position++ {
+		fab, err := assembly.New(config(cable.Fault{Kind: cable.FaultLoseSequence, Sequence: []uint{position}}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		fid, err := fab.Inject(fabric.Injection{At: start.Add(5 * time.Second), Origin: fabric.Endpoint{Node: "h"}, Frame: data})
+		if err != nil {
+			t.Fatal(err)
+		}
+		fab.Run(fabric.RunOptions{Budget: 40})
+		for _, j := range fab.Report() {
+			if j.FrameID != fid {
+				continue
+			}
+			for _, entry := range j.Entries {
+				if entry.Kind == fabric.EntryLoss {
+					lostAt = append(lostAt, position)
+				}
+			}
+		}
+	}
+	if len(lostAt) != 1 || lostAt[0] != wantPosition {
+		t.Fatalf("the host frame is lost at positions %v, want only %d", lostAt, wantPosition)
+	}
+}

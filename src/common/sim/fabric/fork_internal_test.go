@@ -1,23 +1,34 @@
-package fabric
+package fabric_test
 
 import (
+	"errors"
+	"maps"
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 	"unsafe"
+
+	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
-func defaultPhyAssumption() *PhyAssumption {
-	return &PhyAssumption{
-		Medium: TwistedPair,
+func defaultPhyAssumption() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -32,6 +43,7 @@ const (
 	classImmutableShared forkClass = iota
 	classDeepCopied
 	classResetOnFork
+	classCopied
 )
 
 func (c forkClass) String() string {
@@ -40,6 +52,8 @@ func (c forkClass) String() string {
 		return "immutableShared"
 	case classDeepCopied:
 		return "deepCopied"
+	case classCopied:
+		return "copied"
 	case classResetOnFork:
 		return "resetOnFork"
 	default:
@@ -47,75 +61,46 @@ func (c forkClass) String() string {
 	}
 }
 
-var fabricFieldClasses = map[string]forkClass{
-	"cfg":             classDeepCopied,
-	"evidence":        classImmutableShared,
-	"runtimeEvidence": classImmutableShared,
-	"links":           classDeepCopied,
-	"linkTrust":       classDeepCopied,
-	"uncabled":        classDeepCopied,
-	"switches":        classDeepCopied,
-	"hostStacks":      classDeepCopied,
-	"byEnd":           classDeepCopied,
-	"clock":           classImmutableShared,
-	"stepped":         classImmutableShared,
-	"queue":           classDeepCopied,
-	"wakes":           classDeepCopied,
-	"dequeueItems":    classDeepCopied,
-	"wakeItems":       classDeepCopied,
-	"nextFrameID":     classImmutableShared,
-	"nextSeq":         classImmutableShared,
-	"journeys":        classDeepCopied,
-	"entered":         classDeepCopied,
-	"cableCrossings":  classDeepCopied,
-	"busyUntil":       classDeepCopied,
-	"egress":          classDeepCopied,
-	"counters":        classDeepCopied,
-	"unstatedBacked":  classDeepCopied,
-	"metadataCache":   classImmutableShared,
-	"inflight":        classDeepCopied,
-	"heldAggregates":  classDeepCopied,
-	"flows":           classDeepCopied,
-	"touched":         classResetOnFork,
-	"err":             classImmutableShared,
-}
-
 func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
-	typ := reflect.TypeOf(Fabric{})
+	typ := reflect.TypeOf(fabric.Fabric{})
 	fieldNames := make(map[string]bool, typ.NumField())
 
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
 		fieldNames[f.Name] = true
-		class, ok := fabricFieldClasses[f.Name]
+		check, ok := fabricForkChecks[f.Name]
+		class := check.class
 		if !ok {
 			t.Errorf("field %q on fabric.Fabric has no fork classification", f.Name)
 			continue
 		}
 		if class == classDeepCopied {
-			if _, hasProbe := fabricDeepCopiedProbes[f.Name]; !hasProbe {
-				t.Errorf("field %q is classified deepCopied but has no probe in fabricDeepCopiedProbes", f.Name)
+			if check.probe == nil {
+				t.Errorf("field %q is classified deepCopied but has no probe in fabricForkChecks", f.Name)
 			}
 		}
 	}
 
-	for name := range fabricFieldClasses {
+	for name := range fabricForkChecks {
 		if !fieldNames[name] {
-			t.Errorf("fabricFieldClasses names field %q which does not exist on fabric.Fabric", name)
+			t.Errorf("fabricForkChecks names field %q which does not exist on fabric.Fabric", name)
 		}
 	}
 
 	fab := newTestFabricForFork(t)
+	*fabric.ExportFabricRuntimeEvidence(fab), _ = fabric.ExportFabricRuntimeEvidence(fab).Add(analysis.Evidence{Kind: "runtime", Context: "copy proof"})
+	exportValue(reflect.ValueOf(fab).Elem().FieldByName("err")).Set(reflect.ValueOf(errors.New("sticky fault")))
+	exportValue(reflect.ValueOf(fab).Elem().FieldByName("touched")).Set(reflect.ValueOf([]fabric.FrameID{1}))
 	fork := fab.Fork()
 
 	for i := 0; i < typ.NumField(); i++ {
 		f := typ.Field(i)
-		class := fabricFieldClasses[f.Name]
+		class := fabricForkChecks[f.Name].class
 		vSrc := reflect.ValueOf(fab).Elem().Field(i)
 		vDst := reflect.ValueOf(fork).Elem().Field(i)
 
 		switch class {
-		case classImmutableShared:
+		case classImmutableShared, classCopied:
 			assertPointerOrValueIdentical(t, "Fabric."+f.Name, vSrc, vDst)
 		case classResetOnFork:
 			if !vDst.IsZero() {
@@ -126,8 +111,15 @@ func TestFabricFieldsAreClassifiedAndChecked(t *testing.T) {
 		}
 	}
 
-	for name, probe := range fabricDeepCopiedProbes {
-		t.Run("probe_"+name, probe)
+	checked := 0
+	for _, name := range slices.Sorted(maps.Keys(fabricForkChecks)) {
+		if probe := fabricForkChecks[name].probe; probe != nil {
+			t.Run("probe_"+name, probe)
+			checked++
+		}
+	}
+	if checked != 18 {
+		t.Fatalf("checked probes = %d, want 18", checked)
 	}
 }
 
@@ -152,6 +144,13 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 			t.Errorf("%s: backing pointer not identical across fork: got %v and %v", name, src.Pointer(), dst.Pointer())
 		}
 	case reflect.Struct:
+		if tSrc, ok := src.Interface().(time.Time); ok {
+			tDst := dst.Interface().(time.Time)
+			if !tSrc.Equal(tDst) {
+				t.Errorf("%s: time.Time differs across fork: got %v, want %v", name, tDst, tSrc)
+			}
+			return
+		}
 		typ := src.Type()
 		hasPointers := false
 		for i := 0; i < typ.NumField(); i++ {
@@ -177,7 +176,7 @@ func assertPointerOrValueIdentical(t *testing.T, name string, src, dst reflect.V
 	}
 }
 
-func newTestFabricForFork(t *testing.T) *Fabric {
+func newTestFabricForFork(t *testing.T) *fabric.Fabric {
 	t.Helper()
 
 	b1 := port.NewBuilder()
@@ -216,7 +215,7 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := Config{
+	cfg := assembly.Config{
 		Start: time.Unix(1000, 0),
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -228,77 +227,87 @@ func newTestFabricForFork(t *testing.T) *Fabric {
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {
 				Address: macH1,
-				IP: &HostIP{
+				IP: &hostmodel.IP{
 					Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.7/24")},
 				},
 			},
 			"h2": {Address: macH2},
 		},
-		Cables: []Cable{
+		Cables: []fabric.Cable{
 			{
-				A: Endpoint{Node: "h1"},
-				B: Endpoint{Node: "sw1", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "h1"},
+				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A: Endpoint{Node: "h2"},
-				B: Endpoint{Node: "sw2", Port: "1/1/1"},
+				A: fabric.Endpoint{Node: "h2"},
+				B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
+				Cable: cablemodel.Cable{LengthMeters: 300},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 		},
-		Uncabled: []Uncabled{
-			{Endpoint: Endpoint{Node: "sw1", Port: "1/1/2"}},
+		Uncabled: []fabric.Uncabled{
+			{Endpoint: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 		},
 		PhyAssumption: defaultPhyAssumption(),
 	}
 
-	fab, err := New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
-
 	// Populate runtime maps and slices for non-empty pointer checks
-	fab.clock = time.Unix(1500, 0)
-	fab.stepped = true
-	fab.nextFrameID = 10
-	fab.nextSeq = 20
-
-	fab.queue = []Arrival{
-		{At: fab.clock.Add(time.Millisecond), Device: "sw1", Port: "1/1/1", Seq: 1},
+	(*fabric.ExportFabricClock(fab)) = time.Unix(1500, 0)
+	(*fabric.ExportFabricStepped(fab)) = true
+	(*fabric.ExportFabricNextFrameID(fab)) = 10
+	(*fabric.ExportFabricNextSeq(fab)) = 20
+	(*fabric.ExportFabricQueue(fab)) = []fabric.Arrival{fabric.MakeTestArrival(fabric.ExportArrivalFields{At: fabric.ExportFabricClock(fab).Add(time.Millisecond), Device: "sw1", Port: "1/1/1", Seq: 1})}
+	(*fabric.ExportFabricWakes(fab)) = map[string]time.Time{
+		"sw1": fabric.ExportFabricClock(fab).Add(time.Second),
 	}
-	fab.wakes = map[string]time.Time{
-		"sw1": fab.clock.Add(time.Second),
+	(*fabric.ExportFabricJourneys(fab)) = map[fabric.FrameID]*fabric.ExportJourney{
+		1: fabric.MakeTestJourneyPointer(fabric.ExportJourneyFields{
+			FrameID:   1,
+			Injection: fabric.Injection{At: (*fabric.ExportFabricClock(fab))},
+			Entries: []fabric.Entry{
+				{Device: "sw1", Port: "1/1/1", Reason: "source"},
+			},
+		}),
 	}
-	fab.journeys = map[FrameID]*Journey{
-		1: {FrameID: 1, Injection: Injection{At: fab.clock}},
-	}
-	fab.entered = map[FrameID]map[Endpoint]bool{
+	(*fabric.ExportFabricEntered(fab)) = map[fabric.FrameID]map[fabric.Endpoint]bool{
 		1: {{Node: "sw1", Port: "1/1/1"}: true},
 	}
-	fab.cableCrossings = map[Endpoint]uint{
+	(*fabric.ExportFabricCableCrossings(fab)) = map[fabric.Endpoint]uint{
 		{Node: "sw1", Port: "1/1/1"}: 1,
 	}
-	fab.heldAggregates = map[string][]FrameID{
-		"sw1": {5},
+	(*fabric.ExportFabricHeld(fab)) = map[fabric.ExportHoldKey]fabric.FrameID{
+		fabric.MakeTestHoldKey("sw1", 1): 5,
 	}
-	fab.busyUntil = map[Endpoint]time.Time{
-		{Node: "sw1", Port: "1/1/1"}: fab.clock.Add(10 * time.Millisecond),
+	(*fabric.ExportFabricBusyUntil(fab)) = map[fabric.Endpoint]time.Time{
+		{Node: "sw1", Port: "1/1/1"}: fabric.ExportFabricClock(fab).Add(10 * time.Millisecond),
 	}
-	fab.egress = map[Endpoint]*egressQueue{
-		{Node: "sw1", Port: "1/1/1"}: {
-			pending: [8][]queued{
-				{{seq: 1, fid: 1, enqueued: fab.clock}},
+	(*fabric.ExportFabricEgress(fab)) = map[fabric.Endpoint]*fabric.ExportEgressQueue{
+		{Node: "sw1", Port: "1/1/1"}: fabric.MakeTestEgressQueuePointer(fabric.ExportEgressQueueFields{
+			Pending: [8][]fabric.ExportQueued{
+				{fabric.MakeTestQueued(fabric.ExportQueuedFields{
+					Seq:      1,
+					Fid:      1,
+					Enqueued: (*fabric.ExportFabricClock(fab)),
+					Journey:  (*fabric.ExportFabricJourneys(fab))[1],
+				})},
 			},
-		},
+		}),
 	}
-	fab.counters = map[Endpoint]*Counters{
-		{Node: "sw1", Port: "1/1/1"}: {InBytes: 100},
+	(*fabric.ExportFabricCounters(fab)) = map[fabric.Endpoint]*fabric.Counters{
+		{Node: "sw1", Port: "1/1/1"}: {
+			InBytes:  100,
+			Discards: map[trace.Reason]uint64{cablemodel.ReasonBadFrame: 5},
+		},
 	}
 
 	return fab

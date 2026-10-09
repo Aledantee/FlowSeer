@@ -34,18 +34,19 @@ type SimulatorReport struct {
 
 // SimulatorFlow keeps raw fabric counters and its per-flow trust metadata.
 type SimulatorFlow struct {
-	ID         fabric.FlowID       `json:"id"`
-	Offered    uint64              `json:"offered"`
-	Delivered  map[string]uint64   `json:"delivered"`
-	Drops      map[string]uint64   `json:"drops"`
-	Lost       uint64              `json:"lost"`
-	Unresolved uint64              `json:"unresolved"`
-	Rejected   uint64              `json:"rejected"`
-	Held       uint64              `json:"held"`
-	Copies     map[string]uint64   `json:"copies"`
-	Latency    fabric.LatencyStats `json:"latency"`
-	Status     string              `json:"status"`
-	Issues     []IssueReport       `json:"issues"`
+	ID         fabric.FlowID     `json:"id"`
+	Offered    uint64            `json:"offered"`
+	Delivered  map[string]uint64 `json:"delivered"`
+	Drops      map[string]uint64 `json:"drops"`
+	Lost       uint64            `json:"lost"`
+	Unresolved uint64            `json:"unresolved"`
+	Rejected   uint64            `json:"rejected"`
+	// HeldAtEnd is the flow's held-frame count read at the end of the run.
+	HeldAtEnd uint64              `json:"held_at_end"`
+	Copies    map[string]uint64   `json:"copies"`
+	Latency   fabric.LatencyStats `json:"latency"`
+	Status    string              `json:"status"`
+	Issues    []IssueReport       `json:"issues"`
 }
 
 // ObservationReport is the JSON-friendly, sorted form of Observation.
@@ -162,7 +163,7 @@ func simulatorFlow(id fabric.FlowID, stats fabric.FlowStats, metadata analysis.M
 		Lost:       stats.Lost,
 		Unresolved: stats.Unresolved,
 		Rejected:   stats.Rejected,
-		Held:       stats.Held,
+		HeldAtEnd:  stats.Held,
 		Copies:     copies,
 		Latency:    stats.Latency,
 		Status:     metadata.Status().String(),

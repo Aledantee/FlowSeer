@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -56,7 +58,7 @@ func newLacpFabric(t *testing.T, start time.Time, macA, macB netaddr.MAC, lagA, 
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: start,
 		Switches: map[string]vswitch.Config{
 			"A": {
@@ -85,7 +87,7 @@ func newLacpFabric(t *testing.T, start time.Time, macA, macB netaddr.MAC, lagA, 
 		PhyAssumption: gigabitCopper(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -310,7 +312,7 @@ func TestLacpExport_Converged(t *testing.T) {
 		}
 	}
 
-	swA := fab.Switch("A")
+	swA := fab.Device("A").(*vswitch.Switch)
 
 	aggs, portStates := netmodel.Lacp(swA)
 
@@ -425,7 +427,7 @@ func TestLacpExport_SelectedMembersFollowAttachment(t *testing.T) {
 		}
 	}
 
-	aggs, states := netmodel.Lacp(fab.Switch("A"))
+	aggs, states := netmodel.Lacp(fab.Device("A").(*vswitch.Switch))
 	if len(aggs) != 1 {
 		t.Fatalf("got %d aggregators, want 1", len(aggs))
 	}
@@ -506,7 +508,7 @@ func TestLacp_RoundTrip(t *testing.T) {
 		}
 	}
 
-	swA := fab.Switch("A")
+	swA := fab.Device("A").(*vswitch.Switch)
 	aggs, portStates := netmodel.Lacp(swA)
 
 	adminUp := interfacev1.AdminStatus_ADMIN_STATUS_UP

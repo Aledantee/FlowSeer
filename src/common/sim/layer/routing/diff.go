@@ -238,6 +238,9 @@ func Diff(a, b Config) []trace.Change {
 	b = b.Normalize(layer.Env{})
 
 	var changes []trace.Change
+	if a.ClearRouterFlag != b.ClearRouterFlag {
+		changes = append(changes, trace.Change{Layer: LayerName, Subject: trace.Subject{Kind: "routing"}, Field: "clear_router_flag", From: routerFlagFact(a.ClearRouterFlag), To: routerFlagFact(b.ClearRouterFlag)})
+	}
 
 	vrfNames := make(map[string]struct{})
 	for name := range a.VRFs {
@@ -531,3 +534,8 @@ func Diff(a, b Config) []trace.Change {
 
 	return changes
 }
+
+type routerFlagFact bool
+
+func (f routerFlagFact) TypeID() string    { return "routing.clear_router_flag" }
+func (f routerFlagFact) Canonical() string { return strconv.FormatBool(bool(f)) }

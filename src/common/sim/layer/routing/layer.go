@@ -302,14 +302,15 @@ func (vs *vrfState) clone() *vrfState {
 // neighbor table and its hold queues when called with commit set, and [Layer.Receive]
 // and [Layer.Advance] always do.
 type Layer struct {
-	nodeID   string
-	byVLAN   map[vlan.ID]string
-	byPort   map[string]map[vlan.ID]string
-	ifaceVRF map[string]string
-	ifaces   map[string]Interface
-	vrfs     map[string]*vrfState
-	exits    []HeldFrame
-	lastHold HoldToken
+	clearRouterFlag bool
+	nodeID          string
+	byVLAN          map[vlan.ID]string
+	byPort          map[string]map[vlan.ID]string
+	ifaceVRF        map[string]string
+	ifaces          map[string]Interface
+	vrfs            map[string]*vrfState
+	exits           []HeldFrame
+	lastHold        HoldToken
 }
 
 // New normalizes and constructs a [Layer] from the provided configuration and
@@ -340,12 +341,13 @@ func newLayer(cfg Config, nodeID string) *Layer {
 	cloned := cfg.Clone()
 
 	l := &Layer{
-		nodeID:   nodeID,
-		byVLAN:   make(map[vlan.ID]string),
-		byPort:   make(map[string]map[vlan.ID]string),
-		ifaceVRF: make(map[string]string),
-		ifaces:   make(map[string]Interface),
-		vrfs:     make(map[string]*vrfState, len(cloned.VRFs)),
+		clearRouterFlag: cloned.ClearRouterFlag,
+		nodeID:          nodeID,
+		byVLAN:          make(map[vlan.ID]string),
+		byPort:          make(map[string]map[vlan.ID]string),
+		ifaceVRF:        make(map[string]string),
+		ifaces:          make(map[string]Interface),
+		vrfs:            make(map[string]*vrfState, len(cloned.VRFs)),
 	}
 
 	for vrfName, vrf := range cloned.VRFs {
@@ -1232,7 +1234,7 @@ func RetentionKey(cfg Config, env layer.Env) string {
 	}
 	norm := cfg.Normalize(env)
 	var b strings.Builder
-	fmt.Fprintf(&b, "config=node_id=%q;", env.NodeID)
+	fmt.Fprintf(&b, "config=node_id=%q;clear_router_flag=%t;", env.NodeID, norm.ClearRouterFlag)
 	var ifacePorts []string
 	vrfNames := make([]string, 0, len(norm.VRFs))
 	for name := range norm.VRFs {

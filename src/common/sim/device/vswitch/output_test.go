@@ -12,6 +12,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -65,7 +66,7 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 	oa := a.Receive(at, "p2", mustEncode(t, frame(2048), peer))
 	ob := b.Receive(at, "p2", mustEncode(t, frame(2048), peer))
 	ob.Emissions = append(prior.Emissions, ob.Emissions...)
-	compare := func(at time.Time, oa, ob vswitch.Output) {
+	compare := func(at time.Time, oa, ob device.Output) {
 		t.Helper()
 		if !reflect.DeepEqual(a.TreeRoles(), b.TreeRoles()) {
 			t.Errorf("%v TreeRoles differ: %v / %v", at, a.TreeRoles(), b.TreeRoles())
@@ -81,10 +82,10 @@ func TestReceiveAdvancesAgedInformationBeforeABPDU(t *testing.T) {
 	}
 	compare(at, oa, ob)
 	for _, sw := range []*vswitch.Switch{a, b} {
-		if _, err := sw.LinkChange(at, "p3", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		if _, err := sw.LinkChange(at, "p3", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := sw.LinkChange(at, "p3", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+		if _, err := sw.LinkChange(at, "p3", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 			t.Fatal(err)
 		}
 
@@ -185,15 +186,15 @@ func outputData() ethernet.Frame {
 func TestReceivePolicesAndReceiveMirroredDoesNot(t *testing.T) {
 	sw := outputTrafficSwitch(t, false)
 	first := sw.Receive(fixedTime, "in", outputData())
-	if first.Outcome != trace.Flooded || len(first.Copies) != 1 {
+	if first.Policed || first.Outcome != trace.Flooded || len(first.Copies) != 1 {
 		t.Fatalf("first output = %+v, want Flooded and one copy", first)
 	}
 	out := sw.Receive(fixedTime, "in", outputData())
-	if out.Outcome != trace.Dropped || out.Reason != traffic.ReasonPoliced || len(out.Steps) != 1 || out.Steps[0].RuleID != traffic.RulePolicerRefuse {
+	if !out.Policed || out.Outcome != trace.Dropped || out.Reason != traffic.ReasonPoliced || len(out.Steps) != 1 || out.Steps[0].RuleID != traffic.RulePolicerRefuse {
 		t.Errorf("exhausted output = %+v, want policer refusal", out)
 	}
 	mirrored := sw.ReceiveMirrored(fixedTime, "in", outputData())
-	if mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
+	if mirrored.Policed || mirrored.Outcome != trace.Flooded || len(mirrored.Copies) != 0 || len(mirrored.Egress) == 0 {
 		t.Errorf("mirrored output = %+v, want Flooded with egress and no copies", mirrored)
 	}
 
@@ -259,7 +260,7 @@ func TestAdvanceVisitsEveryTimedLayer(t *testing.T) {
 	}
 	out := sw.Advance(fixedTime.Add(2 * time.Second))
 	for _, kind := range []string{"stp", "lag", "loopprotect", "routing"} {
-		if !slices.ContainsFunc(out.Emissions, func(em vswitch.Emission) bool {
+		if !slices.ContainsFunc(out.Emissions, func(em device.Emission) bool {
 			switch kind {
 			case "stp":
 				_, err := bpdu.Decode(em.Frame)
@@ -307,10 +308,10 @@ func TestEntriesReturnTheirOutput(t *testing.T) {
 	if out := sw.Start(fixedTime); len(out.Emissions) == 0 {
 		t.Fatal("Start returned no output")
 	}
-	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Fatal(err)
 	}
-	out, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", port.Up, vswitch.PointToPointTrue, 1_000_000_000)
+	out, err := sw.LinkChange(fixedTime.Add(time.Second), "protocol", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +327,7 @@ func TestEntriesReturnTheirOutput(t *testing.T) {
 	}
 	cfg := routed.Config()
 	cfg.Routing = nil
-	_, out, err = vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg})
+	_, out, err = vswitch.Derive(routed, vswitch.ConstructionSpec{Config: cfg}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +342,7 @@ func TestPeekReturnsCopiesAndLeavesNoState(t *testing.T) {
 	sw := mustSwitch(t, cfg)
 	sw.Start(fixedTime)
 	sw.Receive(fixedTime, "in", outputData())
-	baseline := sw.Fork()
+	baseline := sw.Fork().(*vswitch.Switch)
 	at := fixedTime.Add(2 * time.Second)
 	peekFrame := outputData()
 	peekFrame.Src = netaddr.MAC{2, 0, 0, 0, 0, 99}
@@ -365,7 +366,7 @@ func TestPeekReturnsCopiesAndLeavesNoState(t *testing.T) {
 	}
 	routed := buildRoutedPortSwitch(t)
 	routed.Receive(fixedTime, "1/1/1", outputHeldFrame(t))
-	fork := routed.Fork()
+	fork := routed.Fork().(*vswitch.Switch)
 	routed.Peek(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t))
 	if a, b := routed.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t)), fork.Receive(fixedTime.Add(time.Millisecond), "1/1/2", outputReply(t)); !reflect.DeepEqual(a, b) {
 		t.Errorf("neighbor reception changed by Peek: %+v / %+v", a, b)

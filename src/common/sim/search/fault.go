@@ -9,6 +9,7 @@ import (
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 // TimedFaultDomainConfig configures a finite timed cable fault exploration domain. Its
@@ -76,7 +77,7 @@ func NewTimedFaultDomain(cfg TimedFaultDomainConfig) (*TimedFaultDomain, error) 
 	if err != nil {
 		return nil, err
 	}
-	baseTraffic := (Candidate{Actions: cfg.BaseTraffic}).ToScenario(1).Actions
+	baseTraffic := (Candidate{Actions: cfg.BaseTraffic}).ToScenario().Actions
 
 	return &TimedFaultDomain{
 		faults:      faults,
@@ -115,7 +116,7 @@ func (d *TimedFaultDomain) buildCandidate(f fabric.FaultAction, at time.Time) Ca
 	}
 	fault := f
 	fault.Fault = f.Fault.Clone()
-	actions = append(actions, fabric.Action{At: at, Index: index + 1, Kind: fabric.ActionFault, Fault: &fault})
+	actions = append(actions, fabric.Action{ID: fmt.Sprintf("fault-%d", index+1), At: at, Index: index + 1, Kind: fabric.ActionFault, Fault: &fault})
 	return Candidate{Tuple: formatFaultTuple(f, at), Actions: actions}
 }
 
@@ -154,7 +155,7 @@ func deduplicateAndSortFaults(in []fabric.FaultAction) []fabric.FaultAction {
 	type key struct {
 		aNode, aPort string
 		bNode, bPort string
-		kind         fabric.FaultKind
+		kind         cablemodel.FaultKind
 		n            uint
 		seq          string
 	}

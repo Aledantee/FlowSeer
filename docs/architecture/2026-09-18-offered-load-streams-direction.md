@@ -12,7 +12,7 @@ amends: docs/architecture/2026-09-10-virtual-device-direction.md
 ## Context
 
 A fabric run takes one frame per `Fabric.Inject` call
-(`src/common/sim/fabric/run.go`). The run already models what load acts
+(`src/common/sim/fabric/injection.go`). The run already models what load acts
 on: serialization at the negotiated rate, a busy clock per endpoint, strict
 priority egress queues with a per-queue maximum rate, ingress policers, and
 mirrors. It has no way to state load. A caller who wants 800 Mbit/s into a
@@ -51,14 +51,14 @@ be compared.
   including the spec's start offset, never an absolute time:
   the fabric and the transmitter each add their own epoch, and `Clone`
   lets a fork continue from the same position.
-- A stream is a source the run pulls from. The fabric holds attached sources
-  and, before each step, injects every source frame whose time is not after
-  the earliest queued arrival. Nothing expands a stream ahead of the clock.
-  Why: memory stays flat in the stream length, and a source can end when its
-  origin link goes down. When the queue is empty the run injects the
-  earliest source frame, so a stream alone keeps a run moving. `RunScenario`
-  refuses actions while a stream is attached, because its action loop does
-  not order actions against source frames.
+- A stream contributes one queue event at a time. Attachment reads its first
+  frame and queues that event. Stepping it introduces the frame and reads the
+  successor. Why: memory stays flat in the stream length, and an `Unknown`
+  link consumes one frame per event. A source ends when its host link goes
+  down. Codec refusals and backward offsets end that source with a flow
+  issue, while other sources continue. Scenario actions, host transmissions,
+  and stream frames share the order in `fabric/queue.go`, so `RunScenario`
+  accepts attached streams.
 - Variation is deterministic. A field steps by increment or decrement, or
   draws from a generator the package owns, seeded by the stream spec. The
   generator is SplitMix64, pinned by known-answer vectors. The virtual device
@@ -85,8 +85,12 @@ be compared.
   offered, deliveries per host, drops per reason, cable losses, unresolved
   fates, host rejections, frames held for neighbor resolution, latency from
   injection to each delivery as minimum, maximum, sum and count, and the
-  merged trust metadata of every folded journey. A held frame settles at the
-  hold and the frame the switch later releases carries no flow. Mirror and
+  merged trust metadata of every folded journey. A hold keeps its frame in
+  flight. Release continues that frame's journey and folds its delivery into
+  the original flow. Timeout, overflow, filter refusal, and routing rebuild
+  fold a drop into that flow. `FlowStats.Held` is a gauge of frames in the
+  fabric's device-and-token hold map at `Flows()` time. The simload report
+  exposes the end-of-run reading as `HeldAtEnd` (`held_at_end`). Mirror and
   reflector copies are counted apart, per mirror name or `reflection`, and
   never as deliveries of the stream. Why: the planning answer is the
   aggregate, and the trust metadata has to survive the fold or an `Unknown`
@@ -164,3 +168,12 @@ corpus cases, the `src/common/net/pcap` reader with the capture source, and
 the `src/edge/simload` transmitter with its opt-in ICX7150 comparison
 test. The live comparison run is an owner-run step and had not run when the
 transmitter landed.
+
+### Held-frame accounting (2026-10-09)
+
+[`TestHeldIsAGauge`](../../src/common/sim/fabric/flow_internal_test.go) reads
+two frames held in one flow, then one held and one delivered after release.
+[`TestReleaseWithMirrorUnderAggregate`](../../src/common/sim/fabric/flow_internal_test.go)
+checks that a released frame and its egress mirror contribute one delivery,
+one copy, and one latency sample. A held frame retains its journey until its
+hold and transmissions end. Aggregate retention frees that journey at settle.

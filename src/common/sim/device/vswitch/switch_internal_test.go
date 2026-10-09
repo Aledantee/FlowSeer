@@ -11,12 +11,12 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
-	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
@@ -86,7 +86,7 @@ func TestLinkChangeReturnsInvalidOperStatusFault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	_, first := sw.LinkChange(now, "1/1/1", port.LinkState("bogus"), PointToPointTrue, 1_000_000_000)
+	_, first := sw.LinkChange(now, "1/1/1", device.Link{State: port.LinkState("bogus"), Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if first == nil {
 		t.Fatal("LinkChange returned nil after an invalid oper status, want a fault")
 	}
@@ -94,7 +94,7 @@ func TestLinkChangeReturnsInvalidOperStatusFault(t *testing.T) {
 		t.Errorf("fault names port %v, want 1/1/1", got)
 	}
 
-	_, second := sw.LinkChange(now.Add(time.Second), "1/1/2", port.LinkState("worse"), PointToPointTrue, 1_000_000_000)
+	_, second := sw.LinkChange(now.Add(time.Second), "1/1/2", device.Link{State: port.LinkState("worse"), Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000})
 	if second == nil || errs.Attributes(second)["name"] != "1/1/2" {
 		t.Errorf("second fault = %v, want error naming 1/1/2", second)
 	}
@@ -116,7 +116,7 @@ func TestLinkChangeValidTransitionReturnsNoFault(t *testing.T) {
 	}
 
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	if _, err := sw.LinkChange(now, "1/1/1", port.Down, PointToPointTrue, 1_000_000_000); err != nil {
+	if _, err := sw.LinkChange(now, "1/1/1", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 		t.Errorf("LinkChange returned %v after a valid transition, want nil", err)
 	}
 }
@@ -158,7 +158,7 @@ func TestReleaseHeldFrameOntoDownPortRecordsPortStatusDown(t *testing.T) {
 	c, end := sw.beginCall(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), true)
 	sw.releaseHeldFrame(c.now, hf)
 	end()
-	drops := c.output(ForwardResult{}).Drops
+	drops := c.output(forwardResult{}).Drops
 	if len(drops) != 1 {
 		t.Fatalf("output drops returned %d drops, want 1", len(drops))
 	}
@@ -208,14 +208,14 @@ func TestSwitchHoldsNoPendingOutput(t *testing.T) {
 	typ := reflect.TypeFor[Switch]()
 	for i := 0; i < typ.NumField(); i++ {
 		field := typ.Field(i)
-		if field.Type == reflect.TypeFor[[]Emission]() || field.Type == reflect.TypeFor[[]traffic.Copy]() || field.Type == reflect.TypeFor[[]NeighborDrop]() {
+		if field.Type == reflect.TypeFor[[]emission]() || field.Type == reflect.TypeFor[[]mirrorCopy]() || field.Type == reflect.TypeFor[[]neighborDrop]() {
 			t.Errorf("Switch field %s retains output of type %s", field.Name, field.Type)
 		}
 	}
 }
 
 // captureOutput keeps the outputs a fixture needs to inspect across several calls.
-func captureOutput(callOutputs map[*Switch]Output, sw *Switch, out Output) Output {
+func captureOutput(callOutputs map[*Switch]device.Output, sw *Switch, out device.Output) device.Output {
 	prior := callOutputs[sw]
 	prior.Emissions = append(prior.Emissions, out.Emissions...)
 	prior.Drops = append(prior.Drops, out.Drops...)
@@ -224,7 +224,7 @@ func captureOutput(callOutputs map[*Switch]Output, sw *Switch, out Output) Outpu
 	return out
 }
 
-func takeEmissions(callOutputs map[*Switch]Output, sw *Switch) []Emission {
+func takeEmissions(callOutputs map[*Switch]device.Output, sw *Switch) []device.Emission {
 	out := callOutputs[sw]
 	emissions := out.Emissions
 	out.Emissions = nil
@@ -232,7 +232,7 @@ func takeEmissions(callOutputs map[*Switch]Output, sw *Switch) []Emission {
 	return emissions
 }
 
-func takeDrops(callOutputs map[*Switch]Output, sw *Switch) []NeighborDrop {
+func takeDrops(callOutputs map[*Switch]device.Output, sw *Switch) []device.Drop {
 	out := callOutputs[sw]
 	drops := out.Drops
 	out.Drops = nil

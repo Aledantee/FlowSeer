@@ -64,13 +64,12 @@ trace that is a value, and no state between frames.
   egress; its parent port stays outside the bridge and the spanning tree,
   as a routed port does today. The schema's `Subinterface` kind with one
   C-TAG loads as one.
-- **The mDNS reflector is a fabric node kind.** `fabric.Reflector` has
-  attachments over cabled ports; on an mDNS datagram it originates one copy
+- **The mDNS reflector is a fabric node kind.** `device/reflector.Config` has
+  attachments over cabled ports. On an mDNS datagram it originates one copy
   per other attachment with its own source, hop limit 255, and source port
-  5353. Hosts stay passive; the reflector is the one endpoint kind that
-  reacts, and it reacts only to mDNS.
+  5353. The reflector reacts only to mDNS.
 - **A reflected copy is a journey with a parent, and loops are detected on
-  the frame, not the root.** The copy carries `Parent`; re-entry detection
+  the frame, not the root.** The copy carries `Origin.Of`. Re-entry detection
   keys on the frame, with a reflected copy's re-entry set seeded from a copy
   of its parent's. A root key cannot work: it cannot tell a sibling copy
   from an ancestor, so a reflector with three attachments would report a
@@ -135,3 +134,8 @@ and routed sub-interfaces in `src/common/sim/layer/routing` and
 `src/common/sim/fabric`. Landed 2026-09-19: the filter capability in
 `src/common/sim/layer/filter`, the `flowseer.net.filter.v1` schema, its
 `netmodel` translation, and the filter corpus cases.
+
+The reflector device lives in `src/common/sim/device/reflector`. Its
+`Receive` accepts matching MAC and IP mDNS families and returns each rebuilt
+datagram as a `device.Copy`. `fabric` assigns `OriginReflection` and preserves
+`Origin.Of` when recording those copies (`src/common/sim/fabric/output.go`).

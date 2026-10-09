@@ -798,7 +798,7 @@ func TestBaseMACAssignment(t *testing.T) {
 		target := cur.Spec()
 		target.Config = nextCfg
 		target.Config.MAC = cur.Config().MAC
-		nextSw, _, err := vswitch.Derive(cur, target)
+		nextSw, _, err := vswitch.Derive(cur, target, fixedTime)
 		if err != nil {
 			t.Fatalf("Derive failed: %v", err)
 		}

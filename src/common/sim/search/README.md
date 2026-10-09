@@ -7,7 +7,15 @@ to `fabric`, which owns injection and descendant pairing.
 ## Search and reduce a counterexample
 
 ```go
-func compareDomain(current, candidate *fabric.Fabric) error {
+func compareDomain(currentConfig, candidateConfig assembly.Config) error {
+    current, err := assembly.New(currentConfig)
+    if err != nil {
+        return err
+    }
+    candidate, err := assembly.New(candidateConfig)
+    if err != nil {
+        return err
+    }
     domain, err := search.NewL2TrafficDomain(search.L2TrafficDomainConfig{
         Sources: []fabric.Endpoint{{Node: "h1"}},
         Destinations: []netaddr.MAC{{2, 0, 0, 0, 0, 2}},
@@ -36,7 +44,7 @@ func compareDomain(current, candidate *fabric.Fabric) error {
         fmt.Printf("%s: %d actions, target %+v, difference %s\n",
             reduced.Minimality, len(reduced.Candidate.Actions), reduced.Target, reduced.Difference)
         comparison := fabric.Compare(current, candidate,
-            reduced.Candidate.ToScenario(limits.Budget), limits.Budget)
+            reduced.Candidate.ToScenario(), fabric.RunOptions{Budget: limits.Budget})
         if comparison.Err != nil {
             return comparison.Err
         }
@@ -51,8 +59,9 @@ func compareDomain(current, candidate *fabric.Fabric) error {
 }
 ```
 
-The snippet uses `fmt`, `net/ethernet`, `net/netaddr`, `net/vlan`, `sim/fabric`,
-and `sim/search`. The caller supplies fabrics containing host `h1`.
+The snippet uses `fmt`, `net/ethernet`, `net/netaddr`, `net/vlan`, `sim/assembly`,
+`sim/fabric`, and `sim/search`. The caller supplies configurations containing
+host `h1` and its cable attachment.
 
 ```mermaid
 flowchart LR
@@ -77,8 +86,9 @@ empty domain. A zero L2 `At` uses the default epoch.
 
 `Candidate.Actions` owns injection and fault declarations. `Candidate.Clone`
 deep-copies frame tags, frame and packet payloads, and fault loss sequences.
-`ToScenario` numbers unnumbered declarations once, placing injections before
-faults at tied times. Existing indices survive reduction. Duplicate timestamp
+`ToScenario` names unnamed declarations before sorting, then numbers unnumbered
+declarations with injections before faults at tied times. Existing IDs and
+indices survive reduction. Duplicate IDs and duplicate timestamp
 and index pairs are invalid. Times use full UTC identity, and endpoint tuples
 use `Endpoint.Canonical` so delimiter-bearing names remain distinct.
 
@@ -92,9 +102,14 @@ Invalid limits return an error before enumeration.
 Every evaluated candidate increments exactly one of `EquivalentCount`,
 `InconclusiveCount`, `TotalDifferences`, or `Errors`. Candidate errors do not
 halt enumeration. `Result.Err` keeps the first error wrapped with its tuple.
+`InconclusiveCount` includes incomplete runs even when a difference was found.
+Equal settled aggregate roots also count as inconclusive because flow totals
+cannot prove journey equivalence ([fabric/compare.go](../fabric/compare.go)).
 `Coverage.Tested + len(Result.Remainder)` equals the domain size, including
 errors. Retained differences carry independent candidates and both replay
-specifications. Discarded differences contribute to counts only.
+checkpoints. Each replay is an in-memory value preserving its fabric's
+pre-action live state, including learned records and cable crossing counts.
+It cannot be serialized. Discarded differences contribute to counts only.
 
 ## Exact minimization targets
 
@@ -112,6 +127,6 @@ field but changes displayed FDB counts from 2/2 to 1/1. Both injections remain.
 `Minimal` means no further single-action removal preserves this exact target.
 
 `fabric.Align` returns the behavioral location separately from an optional
-diagnostic trace. It uses scenario injection identity and mirror/release
+diagnostic trace. It uses scenario injection identity and mirror and reflection
 ancestry, includes one-sided descendants, and indexes original report entries.
 Diagnostic facts never change the behavioral disposition.

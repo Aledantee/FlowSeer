@@ -1,12 +1,16 @@
 package fabric_test
 
 import (
+	"fmt"
 	"net/netip"
 	"reflect"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -17,14 +21,158 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/traffic"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
-	"go.aledante.io/FlowSeer/src/common/sim/trace"
+	"go.aledante.io/FlowSeer/src/common/sim/stream"
 )
 
-// isFact reports whether f is a non-nil fact with the given type identifier
-// and canonical form.
-func isFact(f trace.Fact, typeID, canonical string) bool {
-	return f != nil && f.TypeID() == typeID && f.Canonical() == canonical
+func comparisonAcceptanceFabrics(t *testing.T) (*fabric.Fabric, *fabric.Fabric, ethernet.Frame) {
+	t.Helper()
+	cfg, src, _ := makeTwoSwitchConfigs(t)
+	cfg.Start = time.Unix(100, 0).UTC()
+	frame := ethernet.Frame{Src: src, Dst: netaddr.MAC{2, 0, 0, 0, 0, 99}, Payload: []byte("captured")}
+	a, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := cfg.Hosts["h2"]
+	host.Accept.Promiscuous = true
+	cfg.Hosts["h2"] = host
+	b, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return a, b, frame
+}
+
+func TestCompareRecordedFrame(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	at := time.Unix(100, 0).UTC()
+	sc := fabric.Scenario{Name: "record", Actions: []fabric.Action{{ID: "record", At: at, Kind: fabric.ActionRecord, Record: &fabric.Record{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: &frame}}}}
+	cmp := fabric.Compare(a, b, sc, fabric.RunOptions{Budget: 100, Window: 0})
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Fatalf("comparison = %+v, want Different with one recorded root per side", cmp)
+	}
+	if cmp.Current[0].State != fabric.JourneyRejected || cmp.Expected[0].State != fabric.JourneyDelivered {
+		t.Fatalf("states = %s/%s, want Rejected/Delivered", cmp.Current[0].State, cmp.Expected[0].State)
+	}
+	if cmp.Location.Injection == nil || cmp.Location.Injection.Index != 1 {
+		t.Errorf("location = %+v, want recorded action 1", cmp.Location)
+	}
+}
+
+func TestCompareAttachedSources(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: 1}).Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []*fabric.Fabric{a, b} {
+		if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source.Clone(), Flow: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	left, right := a.Fork(), b.Fork()
+	ra, rb := left.Run(fabric.RunOptions{Budget: 100, Window: 0}), right.Run(fabric.RunOptions{Budget: 100, Window: 0})
+	if ra.Steps != 4 || rb.Steps != 4 || !reflect.DeepEqual(left.Snapshot(), right.Snapshot()) {
+		t.Fatalf("fixture steps = %d/%d, final state equal = %t, want 4/4, true", ra.Steps, rb.Steps, reflect.DeepEqual(left.Snapshot(), right.Snapshot()))
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "attached"}, fabric.RunOptions{Budget: 100, Window: 0})
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Steps != [2]int{4, 4} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Fatalf("comparison = %+v, want Different with steps 4/4 and one source root per side", cmp)
+	}
+	if cmp.Current[0].State != fabric.JourneyRejected || cmp.Expected[0].State != fabric.JourneyDelivered {
+		t.Errorf("source states = %s/%s, want Rejected/Delivered", cmp.Current[0].State, cmp.Expected[0].State)
+	}
+}
+
+func TestActionErrorKeepsSteps(t *testing.T) {
+	cfg, src, dst := makeTwoSwitchConfigs(t)
+	cfg.Start = time.Unix(100, 0).UTC()
+	f, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sc := scenarioFromInjections([]fabric.Injection{
+		{At: cfg.Start, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
+		{At: cfg.Start.Add(time.Second), Origin: fabric.Endpoint{Node: "missing"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
+	})
+	run, err := f.RunScenario(sc, fabric.RunOptions{Budget: 100, Window: 0})
+	if err == nil || run.Err == nil || run.Stop != fabric.StopActionRefused || run.Steps != 5 || !run.Clock.Equal(cfg.Start.Add(time.Second)) || run.Replay.Checkpoint() == nil {
+		t.Fatalf("run = %+v, error %v, want refusal after five steps at failed action with replay", run, err)
+	}
+	if hasIssueCode(run.Issues, fabric.IssueSchedulingFault) || f.Err() != nil {
+		t.Errorf("issues = %+v, fabric error = %v, want no scheduling fault for a refused action", run.Issues, f.Err())
+	}
+	base, err := assembly.New(statedPhysical(cfg))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmp := fabric.Compare(base, base, sc, fabric.RunOptions{Budget: 100, Window: 0})
+	if cmp.Err == nil || cmp.Disposition != analysis.Inconclusive || cmp.Steps != [2]int{5, 5} || len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
+		t.Errorf("comparison = %+v, want Inconclusive with error and completed steps/roots", cmp)
+	}
+}
+
+func TestCompareAggregatedRoots(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	injection := fabric.Injection{At: time.Unix(100, 0).UTC(), Origin: fabric.Endpoint{Node: "h1"}, Frame: frame, Flow: 1, Retention: fabric.RetainAggregate}
+	scenario := scenarioFromInjections([]fabric.Injection{injection})
+	different := fabric.Compare(a, b, scenario, fabric.RunOptions{Budget: 100, Window: 0})
+	if different.Err != nil || different.Disposition != analysis.Different || different.Location.Field != "Flow.Delivered" || len(different.Current) != 0 || len(different.Expected) != 0 {
+		t.Fatalf("aggregated comparison = %+v, want Different at Flow.Delivered with no retained journeys", different)
+	}
+	equal := fabric.Compare(a, a, scenario, fabric.RunOptions{Budget: 100, Window: 0})
+	if equal.Err != nil || equal.Disposition != analysis.Inconclusive || equal.Difference.Observable != "" {
+		t.Errorf("equal aggregates = %+v, want Inconclusive without a proven difference", equal)
+	}
+}
+
+func TestCompareAttachedSourceOrdinals(t *testing.T) {
+	a, b, frame := comparisonAcceptanceFabrics(t)
+	frame.Dst = assembly.Spec(a).Config().Hosts["h2"].Address
+	for side, f := range []*fabric.Fabric{a, b} {
+		// Attachment zero fires last. Pairing by execution order would name
+		// it instead of attachment one's extra second frame.
+		for attachment := range 2 {
+			count := 1
+			if side == 0 && attachment == 1 {
+				count = 2
+			}
+			source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: count}).Source()
+			if err != nil {
+				t.Fatal(err)
+			}
+			start := time.Duration(1-attachment) * 10 * time.Second
+			if err := f.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Start: start, Flow: fabric.FlowID(attachment + 1)}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "source-ordinals"}, fabric.RunOptions{Budget: 100, Window: 0})
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 1, Frame: 1}) || cmp.Location.Field != "Root" {
+		t.Fatalf("source multiplicity = %+v, want attachment 1 frame 1 root difference", cmp)
+	}
+}
+
+func TestCompareContinuedAttachedSourceOrdinal(t *testing.T) {
+	a, _, frame := comparisonAcceptanceFabrics(t)
+	frame.Dst = assembly.Spec(a).Config().Hosts["h2"].Address
+	source, err := (stream.Spec{Frame: frame, Rate: stream.Rate{FramesPerSecond: 1}, Count: 2}).Source()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.AttachStream(fabric.StreamAttachment{Origin: fabric.Endpoint{Node: "h1"}, Source: source, Flow: 1}); err != nil {
+		t.Fatal(err)
+	}
+	b := a.Fork()
+	if run := a.Run(fabric.RunOptions{Budget: 1, Window: 0}); run.Steps != 1 || run.Pending.Journeys != 1 {
+		t.Fatalf("continued fixture = %+v, want first source frame in flight", run)
+	}
+	cmp := fabric.Compare(a, b, fabric.Scenario{Name: "continued-source"}, fabric.RunOptions{Budget: 100, Window: 0})
+	if cmp.Err != nil || cmp.Disposition != analysis.Different || cmp.Location.Source == nil || *cmp.Location.Source != (fabric.SourceLocation{Attachment: 0, Frame: 0}) || cmp.Location.Field != "Root" || cmp.Difference.Current != "false" || cmp.Difference.Expected != "true" {
+		t.Fatalf("continued sources = %+v, want expected-only source frame zero", cmp)
+	}
 }
 
 func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
@@ -32,6 +180,7 @@ func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
 	for i := range injs {
 		inj := injs[i]
 		actions[i] = fabric.Action{
+			ID:     fmt.Sprintf("injection-%d", i+1),
 			At:     inj.At,
 			Kind:   fabric.ActionInject,
 			Inject: &inj,
@@ -43,7 +192,7 @@ func scenarioFromInjections(injs []fabric.Injection) fabric.Scenario {
 	}
 }
 
-func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC) {
+func makeTwoSwitchConfigs(t *testing.T) (assembly.Config, netaddr.MAC, netaddr.MAC) {
 	t.Helper()
 
 	b1 := port.NewBuilder()
@@ -85,7 +234,7 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 	macH1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x01}
 	macH2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  pTable1,
@@ -96,7 +245,7 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 				Bridge: newBridgeCfg(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 			"h2": {Address: macH2},
 		},
@@ -106,10 +255,9 @@ func makeTwoSwitchConfigs(t *testing.T) (fabric.Config, netaddr.MAC, netaddr.MAC
 				B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
-				LengthMeters: 300,
-				Medium:       fabric.MultimodeFiber,
+				Cable: cablemodel.Cable{LengthMeters: 300, Medium: cablemodel.MultimodeFiber},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/24"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/24"},
 			},
 			{
 				A: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
@@ -125,11 +273,11 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -148,15 +296,15 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
 	if cmp.Disposition != analysis.Equivalent {
 		t.Errorf("Compare returned disposition: %v, want Equivalent", cmp.Disposition)
 	}
-	if cmp.Steps[0] != 2 || cmp.Steps[1] != 2 {
-		t.Errorf("Steps = %v, want [2, 2]", cmp.Steps)
+	if cmp.Steps[0] != 5 || cmp.Steps[1] != 5 {
+		t.Errorf("Steps = %v, want [5, 5]", cmp.Steps)
 	}
 	if len(cmp.Current) != 1 || len(cmp.Expected) != 1 {
 		t.Fatalf("Journeys length mismatch: cur=%d, exp=%d", len(cmp.Current), len(cmp.Expected))
@@ -171,18 +319,18 @@ func TestCompareEqualFabricsReturnsEquivalent(t *testing.T) {
 
 func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 	base, macs := newTrafficTopology(t, nil)
-	currentCfg := base.Config()
-	expectedCfg := base.Config()
+	currentCfg := assembly.Spec(base).Config()
+	expectedCfg := assembly.Spec(base).Config()
 	sw1 := expectedCfg.Switches["sw1"]
 	sw1.Traffic = &traffic.Config{Mirrors: []traffic.Mirror{{
 		Name: "span", SelectSrcPorts: []string{"1/1/1"}, OutputPort: "1/1/4",
 	}}}
 	expectedCfg.Switches["sw1"] = sw1
-	current, err := fabric.New(statedPhysical(currentCfg))
+	current, err := assembly.New(statedPhysical(currentCfg))
 	if err != nil {
 		t.Fatalf("New current: %v", err)
 	}
-	expected, err := fabric.New(statedPhysical(expectedCfg))
+	expected, err := assembly.New(statedPhysical(expectedCfg))
 	if err != nil {
 		t.Fatalf("New expected: %v", err)
 	}
@@ -192,7 +340,7 @@ func TestCompareDetectsMirrorCopyDeliveryDifference(t *testing.T) {
 		Frame:  ethernet.Frame{Src: macs["h1"], Dst: macs["h2"], Payload: make([]byte, 46)},
 	}}
 
-	comparison := fabric.Compare(current, expected, scenarioFromInjections(scenario), 100)
+	comparison := fabric.Compare(current, expected, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 100, Window: 0})
 	if comparison.Err != nil {
 		t.Fatalf("Compare: %v", comparison.Err)
 	}
@@ -223,7 +371,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 
 	for i := range expCfg.Cables {
 		if expCfg.Cables[i].A.Node == "sw1" && expCfg.Cables[i].B.Node == "sw2" {
-			expCfg.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			expCfg.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	for _, swName := range []string{"sw1", "sw2"} {
@@ -239,11 +387,11 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		expCfg.Switches[swName] = swCfg
 	}
 
-	curFab, err := fabric.New(statedPhysical(curCfg))
+	curFab, err := assembly.New(statedPhysical(curCfg))
 	if err != nil {
 		t.Fatalf("New curFab: %v", err)
 	}
-	expFab, err := fabric.New(statedPhysical(expCfg))
+	expFab, err := assembly.New(statedPhysical(expCfg))
 	if err != nil {
 		t.Fatalf("New expFab: %v", err)
 	}
@@ -262,7 +410,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(curFab, expFab, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(curFab, expFab, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -280,7 +428,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		t.Errorf("Expected deliveries = %d, want 0", len(cmp.Expected[0].Deliveries))
 	}
 
-	changes := fabric.Diff(curCfg, expCfg)
+	changes := assembly.Diff(curCfg, expCfg)
 
 	var (
 		foundSwitchportChange bool
@@ -288,7 +436,7 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 	)
 
 	for _, ch := range changes {
-		if ch.Subject.Kind == "port" && ch.Subject.Key == "sw2/1%2F1%2F1" {
+		if ch.Subject.Kind == "port" && ch.Subject.Key == `"sw2"/"1/1/1"` {
 			if ch.Field == "pvid" {
 				foundSwitchportChange = true
 			}
@@ -296,10 +444,10 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 		if ch.Subject.Kind == "cable" && ch.Subject.Key == "sw1:1/1/24-sw2:1/1/24" {
 			if ch.Field == "fault" && ch.Layer == fabric.Layer {
 				foundCableFaultChange = true
-				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(fabric.FaultNone)) {
+				if ch.From.TypeID() != "fabric.fault" || !strings.Contains(ch.From.Canonical(), string(cablemodel.FaultNone)) {
 					t.Errorf("cable fault From = %v:%q, want FaultNone snapshot", ch.From.TypeID(), ch.From.Canonical())
 				}
-				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(fabric.FaultCut)) {
+				if ch.To.TypeID() != "fabric.fault" || !strings.Contains(ch.To.Canonical(), string(cablemodel.FaultCut)) {
 					t.Errorf("cable fault To = %v:%q, want FaultCut snapshot", ch.To.TypeID(), ch.To.Canonical())
 				}
 			}
@@ -307,666 +455,11 @@ func TestCompareAndDiffDetectVlanAndCableFaultChange(t *testing.T) {
 	}
 
 	if !foundSwitchportChange {
-		t.Errorf("Diff missing switchport change under sw2/1%%2F1%%2F1: %v", changes)
+		t.Errorf("Diff missing switchport change under quoted sw2 and 1/1/1: %v", changes)
 	}
 	if !foundCableFaultChange {
 		t.Errorf("Diff missing cable fault change sw1:1/1/24-sw2:1/1/24: %v", changes)
 	}
-}
-
-func TestDeriveRetainsAdmittedDynamicEntries(t *testing.T) {
-	b := port.NewBuilder()
-	b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	b.Add(port.Port{Name: "1/1/3", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	ports, err := b.Build()
-	if err != nil {
-		t.Fatalf("build ports: %v", err)
-	}
-
-	vid10 := vlan.ID(10)
-	vid20 := vlan.ID(20)
-
-	macA := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0a}
-	macB := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0b}
-	macC := netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x0c}
-
-	curCfg := fabric.Config{
-		Switches: map[string]vswitch.Config{
-			"sw1": {
-				Ports: ports,
-				Bridge: &bridge.Config{
-					VLAN: &bridge.VLAN{
-						Table: map[vlan.ID]string{
-							10: "vlan10",
-							20: "vlan20",
-						},
-						Switchports: map[string]bridge.Switchport{
-							"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
-							"1/1/2": {PVID: &vid10, Untagged: []vlan.ID{10}},
-							"1/1/3": {PVID: &vid10, Untagged: []vlan.ID{10}},
-						},
-					},
-				},
-			},
-		},
-		Hosts: map[string]fabric.Host{
-			"h1": {Address: macB},
-			"h2": {Address: macA},
-			"h3": {Address: macC},
-		},
-		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
-		},
-	}
-
-	curFab, err := fabric.New(statedPhysical(curCfg))
-	if err != nil {
-		t.Fatalf("New curFab: %v", err)
-	}
-
-	now := time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC)
-	// Inject frame from h2 to learn (10, macA) on 1/1/2.
-	_, err = curFab.Inject(fabric.Injection{
-		At:     now,
-		Origin: fabric.Endpoint{Node: "h2"},
-		Frame: ethernet.Frame{
-			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-			Src:       macA,
-			EtherType: ethernet.EtherTypeIPv4,
-			Payload:   []byte("frame A"),
-		},
-	})
-	if err != nil {
-		t.Fatalf("Inject h2: %v", err)
-	}
-
-	// Inject frame from h1 to learn (10, macB) on 1/1/1.
-	_, err = curFab.Inject(fabric.Injection{
-		At:     now.Add(time.Second),
-		Origin: fabric.Endpoint{Node: "h1"},
-		Frame: ethernet.Frame{
-			Dst:       netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
-			Src:       macB,
-			EtherType: ethernet.EtherTypeIPv4,
-			Payload:   []byte("frame B"),
-		},
-	})
-	if err != nil {
-		t.Fatalf("Inject h1: %v", err)
-	}
-
-	curFab.Run(10)
-
-	entries := curFab.Switch("sw1").Entries()
-	if len(entries) != 2 {
-		t.Fatalf("sw1 learned entries = %d, want 2", len(entries))
-	}
-
-	// In the expected config, 1/1/2 moves to VLAN 20.
-	expCfg := curCfg.Clone()
-	expSw := expCfg.Switches["sw1"]
-	expSw.Bridge.VLAN.Switchports["1/1/2"] = bridge.Switchport{
-		PVID:     &vid20,
-		Untagged: []vlan.ID{20},
-	}
-	expCfg.Switches["sw1"] = expSw
-
-	derivedFab, err := fabric.Derive(curFab, constructionSpec(statedPhysical(expCfg)))
-	if err != nil {
-		t.Fatalf("Derive: %v", err)
-	}
-
-	derivedEntries := derivedFab.Switch("sw1").Entries()
-	if len(derivedEntries) != 1 {
-		t.Fatalf("derived sw1 entries = %d, want 1: %v", len(derivedEntries), derivedEntries)
-	}
-	if derivedEntries[0].FID != 10 || derivedEntries[0].MAC != macB || derivedEntries[0].Port != "1/1/1" {
-		t.Errorf("derived entry mismatch: got %v, want (10, %s) -> 1/1/1", derivedEntries[0], macB)
-	}
-}
-
-func TestDeriveBuildsFreshSwitchWhenNoNamesake(t *testing.T) {
-	curCfg, _, _ := makeTwoSwitchConfigs(t)
-	curFab, err := fabric.New(statedPhysical(curCfg))
-	if err != nil {
-		t.Fatalf("New: %v", err)
-	}
-
-	expCfg := curCfg.Clone()
-	b3 := port.NewBuilder()
-	b3.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-	pTable3, err := b3.Build()
-	if err != nil {
-		t.Fatalf("build sw3 ports: %v", err)
-	}
-
-	vid10 := vlan.ID(10)
-	expCfg.Switches["sw3"] = vswitch.Config{
-		Ports: pTable3,
-		Bridge: &bridge.Config{
-			VLAN: &bridge.VLAN{
-				Table: map[vlan.ID]string{10: "vlan10"},
-				Switchports: map[string]bridge.Switchport{
-					"1/1/1": {PVID: &vid10, Untagged: []vlan.ID{10}},
-				},
-			},
-		},
-	}
-	expCfg.Hosts["h3"] = fabric.Host{Address: netaddr.MAC{0x00, 0x00, 0x00, 0x00, 0x00, 0x03}}
-	expCfg.Cables = append(expCfg.Cables, fabric.Cable{
-		A: fabric.Endpoint{Node: "h3"},
-		B: fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
-	})
-
-	derived, err := fabric.Derive(curFab, constructionSpec(statedPhysical(expCfg)))
-	if err != nil {
-		t.Fatalf("Derive with new switch: %v", err)
-	}
-	if derived.Switch("sw3") == nil {
-		t.Errorf("derived switch sw3 is nil, want fresh switch")
-	}
-
-	// From nil cur
-	fromNil, err := fabric.Derive(nil, constructionSpec(statedPhysical(expCfg)))
-	if err != nil {
-		t.Fatalf("Derive from nil: %v", err)
-	}
-	if fromNil.Switch("sw3") == nil {
-		t.Errorf("derive from nil sw3 is nil, want fresh switch")
-	}
-}
-
-func TestDiffAllSubjectKinds(t *testing.T) {
-	curCfg, macH1, _ := makeTwoSwitchConfigs(t)
-
-	t.Run("equal configs return empty diff", func(t *testing.T) {
-		changes := fabric.Diff(curCfg, curCfg.Clone())
-		if len(changes) != 0 {
-			t.Errorf("Diff returned %d changes for equal configs, want 0", len(changes))
-		}
-	})
-
-	t.Run("cable modifications and added/removed cables", func(t *testing.T) {
-		expCfg := curCfg.Clone()
-		// Modify first cable length and top speed
-		expCfg.Cables[0].LengthMeters = 50
-		expCfg.Cables[0].TopSpeedBPS = 100_000_000
-
-		changes := fabric.Diff(curCfg, expCfg)
-		var foundLen, foundSpeed bool
-		for _, ch := range changes {
-			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "length" && isFact(ch.From, "fabric.length_meters", "0") && isFact(ch.To, "fabric.length_meters", "50") {
-					foundLen = true
-				}
-				if ch.Field == "top_speed" && isFact(ch.From, "fabric.top_speed_bps", "0") && isFact(ch.To, "fabric.top_speed_bps", "100000000") {
-					foundSpeed = true
-				}
-			}
-		}
-		if !foundLen || !foundSpeed {
-			t.Errorf("missing cable length or top_speed change: %v", changes)
-		}
-	})
-
-	t.Run("unspecified medium diffs against twisted pair", func(t *testing.T) {
-		cfgA := curCfg.Clone()
-		cfgA.Cables[0].Medium = fabric.MediumUnspecified
-
-		cfgB := cfgA.Clone()
-		cfgB.Cables[0].Medium = fabric.TwistedPair
-
-		from, to := changedFieldFacts(t, "medium", cfgA, cfgB)
-		if from != fabric.MediumUnspecified || to != fabric.TwistedPair {
-			t.Errorf("medium change = %v -> %v, want Unspecified -> TwistedPair", from, to)
-		}
-	})
-
-	t.Run("cable medium and delay modifications", func(t *testing.T) {
-		cfgA := curCfg.Clone()
-		cfgA.Cables[0].Medium = fabric.TwistedPair
-		cfgA.Cables[0].Delay = nil
-
-		cfgB := cfgA.Clone()
-		d := 1 * time.Microsecond
-		cfgB.Cables[0].Medium = fabric.SinglemodeFiber
-		cfgB.Cables[0].Delay = &d
-
-		changes := fabric.Diff(cfgA, cfgB)
-		var foundMedium, foundDelay bool
-		for _, ch := range changes {
-			if ch.Subject.Kind == "cable" && ch.Subject.Key == "h1:-sw1:1/1/1" {
-				if ch.Field == "medium" && ch.From == fabric.TwistedPair && ch.To == fabric.SinglemodeFiber {
-					foundMedium = true
-				}
-				if ch.Field == "delay" && ch.From == nil && isFact(ch.To, "fabric.delay", (1*time.Microsecond).String()) {
-					foundDelay = true
-				}
-			}
-		}
-		if !foundMedium {
-			t.Errorf("missing cable medium change: %v", changes)
-		}
-		if !foundDelay {
-			t.Errorf("missing cable delay change: %v", changes)
-		}
-	})
-
-	t.Run("host moved port, address changed, vlan changed", func(t *testing.T) {
-		b := port.NewBuilder()
-		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		b.Add(port.Port{Name: "1/1/2", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		tbl, _ := b.Build()
-
-		vid10 := vlan.ID(10)
-		vid20 := vlan.ID(20)
-
-		cfgA := fabric.Config{
-			Switches: map[string]vswitch.Config{
-				"sw1": {Ports: tbl},
-			},
-			Hosts: map[string]fabric.Host{
-				"h1": {Address: macH1, VLAN: &vid10},
-			},
-			Cables: []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			},
-		}
-
-		macH1New := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x99}
-		cfgB := fabric.Config{
-			Switches: map[string]vswitch.Config{
-				"sw1": {Ports: tbl},
-			},
-			Hosts: map[string]fabric.Host{
-				"h1": {Address: macH1New, VLAN: &vid20},
-			},
-			Cables: []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
-			},
-		}
-
-		changes := fabric.Diff(cfgA, cfgB)
-
-		var foundPort, foundAddr, foundVLAN bool
-		for _, ch := range changes {
-			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
-				if ch.Field == "port" && ch.From == (fabric.Endpoint{Node: "sw1", Port: "1/1/1"}) &&
-					ch.To == (fabric.Endpoint{Node: "sw1", Port: "1/1/2"}) {
-					foundPort = true
-				}
-				if ch.Field == "address" && isFact(ch.From, "fabric.mac", macH1.String()) && isFact(ch.To, "fabric.mac", macH1New.String()) {
-					foundAddr = true
-				}
-				if ch.Field == "vlan" && isFact(ch.From, "fabric.vlan", strconv.Itoa(int(vid10))) && isFact(ch.To, "fabric.vlan", strconv.Itoa(int(vid20))) {
-					foundVLAN = true
-				}
-			}
-		}
-
-		if !foundPort {
-			t.Errorf("missing host port move change: %v", changes)
-		}
-		if !foundAddr {
-			t.Errorf("missing host address change: %v", changes)
-		}
-		if !foundVLAN {
-			t.Errorf("missing host vlan change: %v", changes)
-		}
-	})
-
-	t.Run("switch and host added and removed", func(t *testing.T) {
-		b := port.NewBuilder()
-		b.Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up})
-		tbl, _ := b.Build()
-
-		cfgA := fabric.Config{
-			Switches: map[string]vswitch.Config{
-				"sw1": {Ports: tbl},
-			},
-			Hosts: map[string]fabric.Host{
-				"h1": {Address: macH1},
-			},
-			Cables: []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
-			},
-		}
-
-		cfgB := fabric.Config{
-			Switches: map[string]vswitch.Config{
-				"sw2": {Ports: tbl},
-			},
-			Hosts: map[string]fabric.Host{
-				"h2": {Address: macH1},
-			},
-			Cables: []fabric.Cable{
-				{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
-			},
-		}
-
-		changes := fabric.Diff(cfgA, cfgB)
-
-		var (
-			sw1Removed, sw2Added bool
-			h1Removed, h2Added   bool
-		)
-
-		for _, ch := range changes {
-			if ch.Subject.Kind == "switch" {
-				if ch.Subject.Key == "sw1" && ch.Field == "" && ch.To == nil {
-					sw1Removed = true
-				}
-				if ch.Subject.Key == "sw2" && ch.Field == "" && ch.From == nil {
-					sw2Added = true
-				}
-			}
-			if ch.Subject.Kind == "host" {
-				if ch.Subject.Key == "h1" && ch.Field == "" && ch.To == nil {
-					h1Removed = true
-				}
-				if ch.Subject.Key == "h2" && ch.Field == "" && ch.From == nil {
-					h2Added = true
-				}
-			}
-		}
-
-		if !sw1Removed || !sw2Added {
-			t.Errorf("switch add/remove diff failed: %v", changes)
-		}
-		if !h1Removed || !h2Added {
-			t.Errorf("host add/remove diff failed: %v", changes)
-		}
-	})
-
-	t.Run("host IP stack diff reports gateway and neighbor changes", func(t *testing.T) {
-		gw1 := netip.MustParseAddr("10.0.10.1")
-		gw2 := netip.MustParseAddr("10.0.10.254")
-		nbr1 := netip.MustParseAddr("10.0.10.2")
-		nbr2 := netip.MustParseAddr("10.0.10.3")
-		mac1 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x11}
-		mac2 := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x22}
-
-		cfgA := fabric.Config{
-			Hosts: map[string]fabric.Host{
-				"h1": {
-					Address: macH1,
-					IP: &fabric.HostIP{
-						Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
-						Gateway:   gw1,
-						Neighbors: map[netip.Addr]netaddr.MAC{
-							nbr1: mac1,
-						},
-					},
-				},
-			},
-		}
-
-		cfgB := fabric.Config{
-			Hosts: map[string]fabric.Host{
-				"h1": {
-					Address: macH1,
-					IP: &fabric.HostIP{
-						Addresses: []netip.Prefix{
-							netip.MustParsePrefix("10.0.10.10/24"),
-							netip.MustParsePrefix("fd00::10/64"),
-						},
-						Gateway: gw2,
-						Neighbors: map[netip.Addr]netaddr.MAC{
-							nbr1: mac1,
-							nbr2: mac2,
-						},
-					},
-				},
-			},
-		}
-
-		changes := fabric.Diff(cfgA, cfgB)
-
-		var foundAddrs, foundGW, foundNbr bool
-		for _, ch := range changes {
-			if ch.Subject.Kind == "host" && ch.Subject.Key == "h1" {
-				if ch.Field == "addresses" {
-					foundAddrs = true
-					if !trace.EqualFact(ch.From, fabric.PrefixesFact([]string{"10.0.10.10/24"})) ||
-						!trace.EqualFact(ch.To, fabric.PrefixesFact([]string{"10.0.10.10/24", "fd00::10/64"})) {
-						t.Errorf("addresses diff = %v -> %v", ch.From, ch.To)
-					}
-				}
-				if ch.Field == "gateway" {
-					foundGW = true
-					if !isFact(ch.From, "fabric.gateway", gw1.String()) || !isFact(ch.To, "fabric.gateway", gw2.String()) {
-						t.Errorf("gateway diff = %v -> %v, want %v -> %v", ch.From, ch.To, gw1, gw2)
-					}
-				}
-				if ch.Field == "neighbors.10.0.10.3" {
-					foundNbr = true
-					if ch.From != nil || !isFact(ch.To, "fabric.mac", mac2.String()) {
-						t.Errorf("neighbor diff = %v -> %v, want nil -> %v", ch.From, ch.To, mac2)
-					}
-				}
-			}
-		}
-
-		if !foundAddrs {
-			t.Errorf("missing addresses diff: %v", changes)
-		}
-		if !foundGW {
-			t.Errorf("missing gateway diff: %v", changes)
-		}
-		if !foundNbr {
-			t.Errorf("missing neighbor diff: %v", changes)
-		}
-	})
-}
-
-func TestDiffDetectsReversedDirectionalFaults(t *testing.T) {
-	for _, kind := range []fabric.FaultKind{fabric.FaultDeadAToB, fabric.FaultDeadBToA} {
-		t.Run(string(kind), func(t *testing.T) {
-			cfgA, _, _ := makeTwoSwitchConfigs(t)
-			cfgA.Cables[1].Fault = fabric.Fault{Kind: kind}
-			cfgB := cfgA.Clone()
-			cfgB.Cables[1].A, cfgB.Cables[1].B = cfgB.Cables[1].B, cfgB.Cables[1].A
-
-			changes := fabric.Diff(cfgA, cfgB)
-			var faultChange *trace.Change
-			for i := range changes {
-				if changes[i].Subject.Kind == "cable" && changes[i].Field == "fault" {
-					faultChange = &changes[i]
-					break
-				}
-			}
-			if faultChange == nil {
-				t.Fatal("Diff missed behavior change from reversing a directional cable fault")
-			}
-			if trace.EqualFact(faultChange.From, faultChange.To) {
-				t.Errorf("fault change has equal facts: %v -> %v", faultChange.From, faultChange.To)
-			}
-			wantFrom, wantTo := kind, fabric.FaultDeadAToB
-			if kind == fabric.FaultDeadAToB {
-				wantTo = fabric.FaultDeadBToA
-			}
-			if !strings.Contains(faultChange.From.Canonical(), string(wantFrom)) ||
-				!strings.Contains(faultChange.To.Canonical(), string(wantTo)) {
-				t.Errorf("fault change = %q -> %q, want %q -> %q", faultChange.From.Canonical(), faultChange.To.Canonical(), wantFrom, wantTo)
-			}
-
-			reverseFrom, reverseTo := changedFieldFacts(t, "fault", cfgB, cfgA)
-			if !strings.Contains(reverseFrom.Canonical(), string(wantTo)) ||
-				!strings.Contains(reverseTo.Canonical(), string(wantFrom)) {
-				t.Errorf("reverse fault change = %q -> %q, want %q -> %q", reverseFrom.Canonical(), reverseTo.Canonical(), wantTo, wantFrom)
-			}
-
-			equivalent := cfgA.Clone()
-			equivalent.Cables[1].A, equivalent.Cables[1].B = equivalent.Cables[1].B, equivalent.Cables[1].A
-			if kind == fabric.FaultDeadAToB {
-				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadBToA
-			} else {
-				equivalent.Cables[1].Fault.Kind = fabric.FaultDeadAToB
-			}
-			if changes := fabric.Diff(cfgA, equivalent); len(changes) != 0 {
-				t.Errorf("equivalent reversed cable diff = %v, want no changes", changes)
-			}
-		})
-	}
-}
-
-func TestDiffUsesLosslessImmutableSnapshotFacts(t *testing.T) {
-	vid10 := vlan.ID(10)
-	vid20 := vlan.ID(20)
-	mac := netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
-	gateway := netip.MustParseAddr("10.0.10.1")
-	host := fabric.Host{
-		Address: mac,
-		VLAN:    &vid10,
-		IP: &fabric.HostIP{
-			Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")},
-			Gateway:   gateway,
-			Neighbors: map[netip.Addr]netaddr.MAC{
-				gateway: {0x00, 0x11, 0x22, 0x33, 0x44, 0x01},
-			},
-		},
-	}
-
-	hostCfgA := fabric.Config{Hosts: map[string]fabric.Host{"h1": host}}
-	hostCfgB := hostCfgA.Clone()
-	hostB := hostCfgB.Hosts["h1"]
-	hostB.VLAN = &vid20
-	hostCfgB.Hosts["h1"] = hostB
-	hostFactA := addedFact(t, "host", hostCfgA)
-	hostFactB := addedFact(t, "host", hostCfgB)
-	if trace.EqualFact(hostFactA, hostFactB) {
-		t.Error("host snapshot facts collide when VLAN behavior differs")
-	}
-	if got := reflect.TypeOf(hostFactA); got == reflect.TypeOf(fabric.Host{}) {
-		t.Errorf("host diff fact has mutable config type %v", got)
-	}
-	hostVariants := []struct {
-		name   string
-		mutate func(*fabric.Host)
-	}{
-		{name: "address", mutate: func(h *fabric.Host) { h.Address[5]++ }},
-		{name: "IP presence", mutate: func(h *fabric.Host) { h.IP = nil }},
-		{name: "IP address", mutate: func(h *fabric.Host) {
-			h.IP.Addresses[0] = netip.MustParsePrefix("10.0.20.10/24")
-		}},
-		{name: "gateway", mutate: func(h *fabric.Host) {
-			h.IP.Gateway = netip.MustParseAddr("10.0.10.254")
-		}},
-		{name: "neighbor", mutate: func(h *fabric.Host) {
-			h.IP.Neighbors[gateway] = netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x02}
-		}},
-	}
-	for _, variant := range hostVariants {
-		t.Run("host "+variant.name, func(t *testing.T) {
-			changed := host.Clone()
-			variant.mutate(&changed)
-			fact := addedFact(t, "host", fabric.Config{Hosts: map[string]fabric.Host{"h1": changed}})
-			if trace.EqualFact(hostFactA, fact) {
-				t.Errorf("host snapshot facts collide when %s differs", variant.name)
-			}
-		})
-	}
-
-	delay := time.Nanosecond
-	cableA := fabric.Cable{
-		A: fabric.Endpoint{Node: "left", Port: "one"},
-		B: fabric.Endpoint{Node: "right", Port: "two"},
-	}
-	cableB := cableA.Clone()
-	cableB.Delay = &delay
-	cableB.Fault = fabric.Fault{Kind: fabric.FaultCut}
-	cableCfgA := fabric.Config{Cables: []fabric.Cable{cableA}}
-	cableCfgB := fabric.Config{Cables: []fabric.Cable{cableB}}
-	cableFactA := addedFact(t, "cable", cableCfgA)
-	cableFactB := addedFact(t, "cable", cableCfgB)
-	if got := reflect.TypeOf(cableFactA); got == reflect.TypeOf(fabric.Cable{}) {
-		t.Errorf("cable diff fact has mutable config type %v", got)
-	}
-	cableVariants := []struct {
-		name   string
-		mutate func(*fabric.Cable)
-	}{
-		{name: "endpoint node", mutate: func(c *fabric.Cable) { c.A.Node = "left:one" }},
-		{name: "endpoint port", mutate: func(c *fabric.Cable) { c.A.Port = "one:two" }},
-		{name: "length", mutate: func(c *fabric.Cable) { c.LengthMeters = 1.5 }},
-		{name: "top speed", mutate: func(c *fabric.Cable) { c.TopSpeedBPS = 1_000_000_000 }},
-		{name: "fault", mutate: func(c *fabric.Cable) { c.Fault = fabric.Fault{Kind: fabric.FaultCut} }},
-		{name: "medium", mutate: func(c *fabric.Cable) { c.Medium = fabric.SinglemodeFiber }},
-		{name: "delay", mutate: func(c *fabric.Cable) { c.Delay = &delay }},
-	}
-	for _, variant := range cableVariants {
-		t.Run("cable "+variant.name, func(t *testing.T) {
-			changed := cableA.Clone()
-			variant.mutate(&changed)
-			fact := addedFact(t, "cable", fabric.Config{Cables: []fabric.Cable{changed}})
-			if trace.EqualFact(cableFactA, fact) {
-				t.Errorf("cable snapshot facts collide when %s differs", variant.name)
-			}
-		})
-	}
-
-	faultCfgA := fabric.Config{Cables: []fabric.Cable{{
-		A:     cableA.A,
-		B:     cableA.B,
-		Fault: fabric.Fault{Kind: fabric.FaultLoseSequence, Sequence: []uint{1}},
-	}}}
-	faultCfgB := faultCfgA.Clone()
-	faultCfgB.Cables[0].Fault.Sequence[0] = 2
-	faultFactA, faultFactB := changedFieldFacts(t, "fault", faultCfgA, faultCfgB)
-	if trace.EqualFact(faultFactA, faultFactB) {
-		t.Error("fault snapshot facts collide when loss sequence differs")
-	}
-	if got := reflect.TypeOf(faultFactA); got == reflect.TypeOf(fabric.Fault{}) {
-		t.Errorf("fault diff fact has mutable config type %v", got)
-	}
-
-	wantHost := hostFactA.Canonical()
-	wantCable := cableFactB.Canonical()
-	wantFault := faultFactA.Canonical()
-	*hostCfgA.Hosts["h1"].VLAN = 30
-	hostCfgA.Hosts["h1"].IP.Addresses[0] = netip.MustParsePrefix("10.0.30.10/24")
-	hostCfgA.Hosts["h1"].IP.Neighbors[gateway] = netaddr.MAC{}
-	*cableCfgB.Cables[0].Delay = 2 * time.Nanosecond
-	cableCfgB.Cables[0].Fault.Kind = fabric.FaultNone
-	faultCfgA.Cables[0].Fault.Sequence[0] = 99
-	if got := hostFactA.Canonical(); got != wantHost {
-		t.Errorf("host fact changed after source mutation: got %q, want %q", got, wantHost)
-	}
-	if got := cableFactB.Canonical(); got != wantCable {
-		t.Errorf("cable fact changed after source mutation: got %q, want %q", got, wantCable)
-	}
-	if got := faultFactA.Canonical(); got != wantFault {
-		t.Errorf("fault fact changed after source mutation: got %q, want %q", got, wantFault)
-	}
-}
-
-func addedFact(t *testing.T, kind string, cfg fabric.Config) trace.Fact {
-	t.Helper()
-
-	for _, change := range fabric.Diff(fabric.Config{}, cfg) {
-		if change.Subject.Kind == kind && change.Field == "" && change.To != nil {
-			return change.To
-		}
-	}
-	t.Fatalf("missing added %s fact", kind)
-
-	return nil
-}
-
-func changedFieldFacts(t *testing.T, field string, a, b fabric.Config) (trace.Fact, trace.Fact) {
-	t.Helper()
-
-	for _, change := range fabric.Diff(a, b) {
-		if change.Field == field {
-			return change.From, change.To
-		}
-	}
-	t.Fatalf("missing %s change", field)
-
-	return nil, nil
 }
 
 func TestCompareDetectsPathDifference(t *testing.T) {
@@ -974,13 +467,13 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
 	// Change cable medium between sw1 and sw2 in cfgB.
-	cfgB.Cables[1].Medium = fabric.SinglemodeFiber
+	cfgB.Cables[1].Medium = cablemodel.SinglemodeFiber
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -998,7 +491,7 @@ func TestCompareDetectsPathDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1019,11 +512,11 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 	cfgA.Cables[1].Delay = &delayA
 	cfgB.Cables[1].Delay = &delayB
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1041,7 +534,7 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1055,21 +548,21 @@ func TestCompareDetectsTimingDifference(t *testing.T) {
 
 func TestCompareDetectsDropLocationDifference(t *testing.T) {
 	base, macs := newTrafficTopology(t, nil)
-	cfgA := base.Config()
-	cfgB := base.Config()
+	cfgA := assembly.Spec(base).Config()
+	cfgB := assembly.Spec(base).Config()
 
 	// In both configs: cut cable to h4 (on 1/1/2) and cable to h3 (on 1/1/4).
 	for i := range cfgA.Cables {
 		if cfgA.Cables[i].A.Port == "1/1/2" || cfgA.Cables[i].B.Port == "1/1/2" {
-			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgA.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 		if cfgA.Cables[i].A.Port == "1/1/4" || cfgA.Cables[i].B.Port == "1/1/4" {
-			cfgA.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgA.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
-	for _, cfg := range []*fabric.Config{&cfgA, &cfgB} {
+	for _, cfg := range []*assembly.Config{&cfgA, &cfgB} {
 		swCfg := cfg.Switches["sw1"]
 		b := port.NewBuilder()
 		for _, p := range swCfg.Ports.Ports() {
@@ -1094,11 +587,11 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 	sw1B.Seeds = []bridge.Seed{{MAC: targetMAC, FID: 10, Port: "1/1/4", Lifetime: bridge.Static}}
 	specB.Switches["sw1"] = sw1B
 
-	fabA, err := fabric.NewWithSpec(specA)
+	fabA, err := assembly.NewWithSpec(specA)
 	if err != nil {
 		t.Fatalf("NewWithSpec fabA: %v", err)
 	}
-	fabB, err := fabric.NewWithSpec(specB)
+	fabB, err := assembly.NewWithSpec(specB)
 	if err != nil {
 		t.Fatalf("NewWithSpec fabB: %v", err)
 	}
@@ -1116,7 +609,7 @@ func TestCompareDetectsDropLocationDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1138,7 +631,7 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 	// Cut cable to h2 in cfgB so frame drops instead of delivering.
 	for i := range cfgB.Cables {
 		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()
@@ -1153,11 +646,11 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 	sw2Cfg.Ports, _ = b.Build()
 	cfgB.Switches["sw2"] = sw2Cfg
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1175,7 +668,7 @@ func TestCompareDetectsJourneyTerminalDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1204,11 +697,11 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 	}}
 	specB.Switches["sw2"] = sw2B
 
-	fabA, err := fabric.NewWithSpec(specA)
+	fabA, err := assembly.NewWithSpec(specA)
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.NewWithSpec(specB)
+	fabB, err := assembly.NewWithSpec(specB)
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1227,7 +720,7 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1236,6 +729,9 @@ func TestCompareDetectsFinalStateDifference(t *testing.T) {
 	}
 	if cmp.Difference.Observable != "final state" {
 		t.Errorf("Difference.Observable = %q, want %q", cmp.Difference.Observable, "final state")
+	}
+	if !strings.Contains(cmp.Difference.Expected, "00:11:22:33:44:88") || !strings.Contains(cmp.Difference.Expected, "1/1/1") || !strings.Contains(cmp.Difference.Expected, "static") {
+		t.Errorf("Difference.Expected = %q, want the differing seeded entry", cmp.Difference.Expected)
 	}
 }
 
@@ -1253,11 +749,11 @@ func TestCompareDetectsStatusDifference(t *testing.T) {
 	}, analysis.EvidenceCatalog{}, nil)
 	specB.Switches["sw1"] = sw1B
 
-	fabA, err := fabric.NewWithSpec(specA)
+	fabA, err := assembly.NewWithSpec(specA)
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.NewWithSpec(specB)
+	fabB, err := assembly.NewWithSpec(specB)
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1275,7 +771,7 @@ func TestCompareDetectsStatusDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1305,11 +801,11 @@ func TestCompareDetectsIssuesDifference(t *testing.T) {
 	}, analysis.EvidenceCatalog{}, nil)
 	specB.Switches["sw1"] = sw1B
 
-	fabA, err := fabric.NewWithSpec(specA)
+	fabA, err := assembly.NewWithSpec(specA)
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.NewWithSpec(specB)
+	fabB, err := assembly.NewWithSpec(specB)
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1327,7 +823,7 @@ func TestCompareDetectsIssuesDifference(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1343,15 +839,15 @@ func TestCompareNonConsuming(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
-	twinA, err := fabric.New(statedPhysical(cfgA))
+	twinA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New twinA: %v", err)
 	}
@@ -1373,7 +869,7 @@ func TestCompareNonConsuming(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1396,13 +892,13 @@ func TestCompareNonConsuming(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	resA := fabA.Run(10)
+	resA := fabA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	_, err = twinA.Inject(scenario[0])
 	if err != nil {
 		t.Fatalf("Inject twinA: %v", err)
 	}
-	resTwin := twinA.Run(10)
+	resTwin := twinA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	if resA.Steps != resTwin.Steps {
 		t.Errorf("Steps mismatch: fabA=%d, twinA=%d", resA.Steps, resTwin.Steps)
@@ -1450,11 +946,11 @@ func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
 	s2B.STP = sw2STP
 	cfgB.Switches["sw2"] = s2B
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1472,8 +968,8 @@ func TestCompareActivePeriodicProtocolRepeatability(t *testing.T) {
 		},
 	}
 
-	cmp1 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
-	cmp2 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp1 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
+	cmp2 := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 
 	if cmp1.Disposition != cmp2.Disposition {
 		t.Errorf("Disposition mismatch: %v vs %v", cmp1.Disposition, cmp2.Disposition)
@@ -1490,11 +986,11 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1527,7 +1023,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabA: %v", err)
 	}
-	fabA.Run(10)
+	fabA.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	// Inject 3 pre-scenario frames into fabB in a different order/timing.
 	_, err = fabB.Inject(fabric.Injection{
@@ -1569,7 +1065,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject fabB 3: %v", err)
 	}
-	fabB.Run(10)
+	fabB.Run(fabric.RunOptions{Budget: 10, Window: 0})
 
 	// Now run Compare with a fresh scenario.
 	scenario := []fabric.Injection{
@@ -1585,7 +1081,7 @@ func TestCompareMidRunInputsOrdinalPairing(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1605,11 +1101,11 @@ func TestCompareEquivalentComplete(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1627,7 +1123,7 @@ func TestCompareEquivalentComplete(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1643,11 +1139,11 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1666,7 +1162,7 @@ func TestCompareInconclusiveIncomplete(t *testing.T) {
 	}
 
 	// Budget of 1 step is exhausted before frame arrives at h2.
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 1)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 1, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1682,11 +1178,11 @@ func TestCompareResultImmutability(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1704,7 +1200,7 @@ func TestCompareResultImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1715,8 +1211,8 @@ func TestCompareResultImmutability(t *testing.T) {
 	disposition := cmp.Disposition
 
 	// Step fabA and fabB further.
-	fabA.Run(5)
-	fabB.Run(5)
+	fabA.Run(fabric.RunOptions{Budget: 5, Window: 0})
+	fabB.Run(fabric.RunOptions{Budget: 5, Window: 0})
 
 	if len(cmp.Current) != curCount || len(cmp.Expected) != expCount {
 		t.Error("Comparison journeys count changed after external stepping")
@@ -1733,11 +1229,11 @@ func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
 	cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1775,7 +1271,7 @@ func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
 
 	// Budget of 2 steps: fabA completes (StopQueueDrained, Complete)
 	// fabB stops at budget (StopBudget, Exhausted) with identical scenario journey.
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 2)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 2, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1787,11 +1283,11 @@ func TestCompareAsymmetricCompletionInconclusive(t *testing.T) {
 func TestComparePacketOriginImmutability(t *testing.T) {
 	cfgA, _, _ := makeTwoSwitchConfigs(t)
 	cfgB, _, _ := makeTwoSwitchConfigs(t)
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1811,7 +1307,7 @@ func TestComparePacketOriginImmutability(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	// Mutate caller's packet pointer and payload
 	pkt.Protocol = 6
 	pkt.Payload[0] = 'X'
@@ -1870,7 +1366,7 @@ func TestCompareNonEmptyQueueExcludesPreScenarioDescendants(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -1908,11 +1404,11 @@ func TestCompareMultiDeviceDivergenceDeterminism(t *testing.T) {
 	}}
 	specB.Switches["sw2"] = sw2B
 
-	fabA, err := fabric.NewWithSpec(specA)
+	fabA, err := assembly.NewWithSpec(specA)
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.NewWithSpec(specB)
+	fabB, err := assembly.NewWithSpec(specB)
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1934,7 +1430,7 @@ func TestCompareMultiDeviceDivergenceDeterminism(t *testing.T) {
 	// Without sorting, Go map iteration order flakes between sw1 and sw2 across runs.
 	observed := make(map[string]bool)
 	for i := 0; i < 50; i++ {
-		cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+		cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 		if cmp.Err != nil {
 			t.Fatalf("Compare: %v", cmp.Err)
 		}
@@ -1956,7 +1452,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 	// Cut cable to h2 in cfgB so frame drops instead of delivering.
 	for i := range cfgB.Cables {
 		if cfgB.Cables[i].A.Node == "h2" || cfgB.Cables[i].B.Node == "h2" {
-			cfgB.Cables[i].Fault = fabric.Fault{Kind: fabric.FaultCut}
+			cfgB.Cables[i].Fault = cablemodel.Fault{Kind: cablemodel.FaultCut}
 		}
 	}
 	sw2Ports := cfgB.Switches["sw2"].Ports.Ports()
@@ -1971,11 +1467,11 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 	sw2Cfg.Ports, _ = b.Build()
 	cfgB.Switches["sw2"] = sw2Cfg
 
-	fabA, err := fabric.New(statedPhysical(cfgA))
+	fabA, err := assembly.New(statedPhysical(cfgA))
 	if err != nil {
 		t.Fatalf("New fabA: %v", err)
 	}
-	fabB, err := fabric.New(statedPhysical(cfgB))
+	fabB, err := assembly.New(statedPhysical(cfgB))
 	if err != nil {
 		t.Fatalf("New fabB: %v", err)
 	}
@@ -1993,7 +1489,7 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		},
 	}
 
-	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), 10)
+	cmp := fabric.Compare(fabA, fabB, scenarioFromInjections(scenario), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmp.Err != nil {
 		t.Fatalf("Compare: %v", cmp.Err)
 	}
@@ -2017,11 +1513,8 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		t.Errorf("Replay candidate Status = %v, want Complete", resB.Status)
 	}
 
-	repFabA, err := fabric.NewWithSpec(cmp.Replay[0].Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec current: %v", err)
-	}
-	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario); err != nil {
+	repFabA := cmp.Replay[0].Checkpoint()
+	if _, err := repFabA.RunScenario(cmp.Replay[0].Scenario, cmp.Replay[0].Options); err != nil {
 		t.Fatalf("RunScenario current: %v", err)
 	}
 	jA := repFabA.Report()
@@ -2029,11 +1522,8 @@ func TestCompareReplayReproducesBothCurrentAndCandidate(t *testing.T) {
 		t.Errorf("Replayed current journeys = %v, want 1 delivered journey", jA)
 	}
 
-	repFabB, err := fabric.NewWithSpec(cmp.Replay[1].Spec)
-	if err != nil {
-		t.Fatalf("NewWithSpec candidate: %v", err)
-	}
-	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario); err != nil {
+	repFabB := cmp.Replay[1].Checkpoint()
+	if _, err := repFabB.RunScenario(cmp.Replay[1].Scenario, cmp.Replay[1].Options); err != nil {
 		t.Fatalf("RunScenario candidate: %v", err)
 	}
 	jB := repFabB.Report()
@@ -2047,11 +1537,11 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 		cfgA, macH1, macH2 := makeTwoSwitchConfigs(t)
 		cfgB, _, _ := makeTwoSwitchConfigs(t)
 
-		fabA, err := fabric.New(statedPhysical(cfgA))
+		fabA, err := assembly.New(statedPhysical(cfgA))
 		if err != nil {
 			t.Fatalf("New fabA: %v", err)
 		}
-		fabB, err := fabric.New(statedPhysical(cfgB))
+		fabB, err := assembly.New(statedPhysical(cfgB))
 		if err != nil {
 			t.Fatalf("New fabB: %v", err)
 		}
@@ -2074,6 +1564,7 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			Name: "configure-both-sides",
 			Actions: []fabric.Action{
 				{
+					ID:   "compare_test-3",
 					At:   t0,
 					Kind: fabric.ActionInject,
 					Inject: &fabric.Injection{
@@ -2087,14 +1578,13 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 					},
 				},
 				{
-					At:   t0.Add(time.Second),
-					Kind: fabric.ActionConfigure,
-					Configure: &fabric.ConfigureAction{
-						Node:   "sw2",
-						Config: sw2New,
-					},
+					ID:        "compare_test-4",
+					At:        t0.Add(time.Second),
+					Kind:      fabric.ActionConfigure,
+					Configure: new(assembly.ConfigureAction("sw2", sw2New)),
 				},
 				{
+					ID:   "compare_test-5",
 					At:   t0.Add(2 * time.Second),
 					Kind: fabric.ActionInject,
 					Inject: &fabric.Injection{
@@ -2108,10 +1598,9 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 					},
 				},
 			},
-			Budget: 50,
 		}
 
-		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		cmp := fabric.Compare(fabA, fabB, sc, fabric.RunOptions{Budget: 50, Window: 0})
 		if cmp.Err != nil {
 			t.Fatalf("Compare: %v", cmp.Err)
 		}
@@ -2154,11 +1643,11 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 		cfgA, macH1, _ := makeTwoSwitchConfigs(t)
 
 		sw1Clone := cfgA.Switches["sw1"].Clone()
-		cfgB := fabric.Config{
+		cfgB := assembly.Config{
 			Switches: map[string]vswitch.Config{
 				"sw1": sw1Clone,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: macH1},
 			},
 			Cables: []fabric.Cable{
@@ -2169,11 +1658,11 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			},
 		}
 
-		fabA, err := fabric.New(statedPhysical(cfgA))
+		fabA, err := assembly.New(statedPhysical(cfgA))
 		if err != nil {
 			t.Fatalf("New fabA: %v", err)
 		}
-		fabB, err := fabric.New(statedPhysical(cfgB))
+		fabB, err := assembly.New(statedPhysical(cfgB))
 		if err != nil {
 			t.Fatalf("New fabB: %v", err)
 		}
@@ -2183,18 +1672,15 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 			Name: "configure-missing-switch",
 			Actions: []fabric.Action{
 				{
-					At:   t0,
-					Kind: fabric.ActionConfigure,
-					Configure: &fabric.ConfigureAction{
-						Node:   "sw2",
-						Config: cfgA.Switches["sw2"].Clone(),
-					},
+					ID:        "compare_test-6",
+					At:        t0,
+					Kind:      fabric.ActionConfigure,
+					Configure: new(assembly.ConfigureAction("sw2", cfgA.Switches["sw2"].Clone())),
 				},
 			},
-			Budget: 50,
 		}
 
-		cmp := fabric.Compare(fabA, fabB, sc, 50)
+		cmp := fabric.Compare(fabA, fabB, sc, fabric.RunOptions{Budget: 50, Window: 0})
 		if cmp.Err == nil {
 			t.Fatal("Compare with missing switch expected error, got nil")
 		}
@@ -2209,13 +1695,13 @@ func TestCompareWithConfigureActionBothSidesAndMissingSwitch(t *testing.T) {
 
 func TestAlignEquivalentReturnsFalse(t *testing.T) {
 	cfg, src, dst := makeTwoSwitchConfigs(t)
-	a, err := fabric.New(statedPhysical(cfg))
+	a, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
 	b := a.Fork()
 	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
-	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), fabric.RunOptions{Budget: 10, Window: 0})
 	if comparison.Disposition != analysis.Equivalent {
 		t.Fatalf("disposition = %s, want Equivalent", comparison.Disposition)
 	}
@@ -2229,17 +1715,17 @@ func TestAlignNamesFirstDifferingTraceEntry(t *testing.T) {
 	changed := cfg.Clone()
 	changed.Switches["sw1"].Bridge.VLAN.Table[20] = "VLAN20"
 	changed.Switches["sw1"].Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: new(vlan.ID(20)), Untagged: []vlan.ID{20}}
-	a, err := fabric.New(statedPhysical(cfg))
+	a, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := fabric.New(statedPhysical(changed))
+	b, err := assembly.New(statedPhysical(changed))
 	if err != nil {
 		t.Fatal(err)
 	}
 	injection := fabric.Injection{At: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}}
-	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), 10)
-	if comparison.Disposition != analysis.Different {
+	comparison := fabric.Compare(a, b, scenarioFromInjections([]fabric.Injection{injection}), fabric.RunOptions{Budget: 10, Window: 0})
+	if comparison.Err != nil || comparison.Disposition != analysis.Different {
 		t.Fatalf("disposition = %s, want Different, error %v", comparison.Disposition, comparison.Err)
 	}
 	alignment, ok := fabric.Align(comparison)
@@ -2256,11 +1742,11 @@ func TestAlignCompareKeepsSettledInjectionOrdinal(t *testing.T) {
 	changed := cfg.Clone()
 	changed.Switches["sw1"].Bridge.VLAN.Table[20] = "VLAN20"
 	changed.Switches["sw1"].Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{PVID: new(vlan.ID(20)), Untagged: []vlan.ID{20}}
-	a, err := fabric.New(statedPhysical(cfg))
+	a, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := fabric.New(statedPhysical(changed))
+	b, err := assembly.New(statedPhysical(changed))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2269,9 +1755,12 @@ func TestAlignCompareKeepsSettledInjectionOrdinal(t *testing.T) {
 		{At: at, Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}, Flow: 1, Retention: fabric.RetainAggregate},
 		{At: at.Add(time.Second), Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst}},
 	})
-	comparison := fabric.Compare(a, b, scenario, 30)
+	comparison := fabric.Compare(a, b, scenario, fabric.RunOptions{Budget: 30, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Different {
 		t.Fatalf("comparison = %+v, want Different without error", comparison)
+	}
+	if comparison.Location.Injection == nil || comparison.Location.Injection.Index != 1 || comparison.Location.Field != "Flow.Delivered" {
+		t.Errorf("aggregate difference = %+v, want injection 1 Flow.Delivered", comparison.Location)
 	}
 	if len(comparison.Current) != 1 || len(comparison.Expected) != 1 {
 		t.Fatalf("journey counts = %d/%d, want 1/1 after aggregate settlement", len(comparison.Current), len(comparison.Expected))

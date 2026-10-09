@@ -10,6 +10,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/loopprotect"
@@ -86,7 +87,7 @@ func TestEmissionCapabilityMatrix(t *testing.T) {
 			}
 			subsets++
 			var twinBPDU, twinProbe, twinSolicit bool
-			check := func(name string, out Output) {
+			check := func(name string, out device.Output) {
 				t.Helper()
 				for _, em := range out.Emissions {
 					switch em.Port {

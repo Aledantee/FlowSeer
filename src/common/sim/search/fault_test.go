@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 func sampleFaultConfig() TimedFaultDomainConfig {
@@ -18,17 +19,17 @@ func sampleFaultConfig() TimedFaultDomainConfig {
 			{
 				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 			{
 				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				Fault: fabric.Fault{Kind: fabric.FaultDeadAToB},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultDeadAToB},
 			},
 			{
 				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
 				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				Fault: fabric.Fault{Kind: fabric.FaultLoseEveryNth, N: 5},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultLoseEveryNth, N: 5},
 			},
 		},
 		Times: []time.Time{
@@ -129,7 +130,7 @@ func TestTimedFaultDomainEmptyYieldsNothingAndZeroSize(t *testing.T) {
 		}},
 		{"empty-times", TimedFaultDomainConfig{
 			Faults: []fabric.FaultAction{
-				{A: fabric.Endpoint{Node: "sw1"}, B: fabric.Endpoint{Node: "sw2"}, Fault: fabric.Fault{Kind: fabric.FaultCut}},
+				{A: fabric.Endpoint{Node: "sw1"}, B: fabric.Endpoint{Node: "sw2"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}},
 			},
 		}},
 		{"all-empty", TimedFaultDomainConfig{}},
@@ -216,7 +217,7 @@ func TestTimedFaultDomainEarlyStop(t *testing.T) {
 
 func TestTimedFaultDomainGeneratedIndexOverflow(t *testing.T) {
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Index: math.MaxInt, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
+	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Index: math.MaxInt, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
 	if _, err := NewTimedFaultDomain(cfg); err == nil {
 		t.Fatal("generated fault index overflow accepted")
 	}
@@ -229,7 +230,7 @@ func TestTimedFaultDomainGeneratedIndexOverflow(t *testing.T) {
 
 func TestTimedFaultDomainRejectsMalformedDimensions(t *testing.T) {
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	base := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
+	base := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a"}, B: fabric.Endpoint{Node: "b"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}}, Times: []time.Time{at}, BaseTraffic: []fabric.Action{{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "a"}}}}}
 	for _, tc := range []struct {
 		name string
 		edit func(*TimedFaultDomainConfig)
@@ -271,7 +272,7 @@ func TestTimedFaultDomainRejectsMalformedDimensions(t *testing.T) {
 func TestTimedFaultDomainCanonicalFullTimeIdentity(t *testing.T) {
 	base := time.Date(1600, 1, 1, 0, 0, 0, 0, time.UTC)
 	later := base.Add(math.MaxInt64).Add(math.MaxInt64).Add(2)
-	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a/b", Port: "c"}, B: fabric.Endpoint{Node: "a", Port: "b/c"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}, Times: []time.Time{later, base.In(time.FixedZone("east", 3600)), base}}
+	cfg := TimedFaultDomainConfig{Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "a/b", Port: "c"}, B: fabric.Endpoint{Node: "a", Port: "b/c"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}}, Times: []time.Time{later, base.In(time.FixedZone("east", 3600)), base}}
 	dom, err := NewTimedFaultDomain(cfg)
 	if err != nil {
 		t.Fatal(err)

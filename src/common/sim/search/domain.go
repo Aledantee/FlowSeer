@@ -6,6 +6,7 @@ import (
 	"cmp"
 	"math"
 	"slices"
+	"strconv"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
@@ -18,7 +19,7 @@ type Tuple string
 func (t Tuple) String() string { return string(t) }
 
 // Candidate pairs an ordered injection and fault scenario with its domain identity.
-// Action indices identify declarations and survive reduction.
+// Action IDs identify declarations and survive reduction.
 type Candidate struct {
 	Tuple   Tuple
 	Actions []fabric.Action
@@ -44,14 +45,20 @@ func (c Candidate) Validate() error {
 			return errs.Msgf("candidate action %d must be injection or fault", i)
 		}
 	}
-	return c.ToScenario(1).Validate()
+	return c.ToScenario().Validate()
 }
 
-// ToScenario copies the candidate for execution. Unnumbered declarations receive
+// ToScenario copies the candidate and assigns IDs to unnamed declarations before
+// sorting. Existing IDs survive reduction. Unnumbered declarations receive
 // indices once, with injections preceding faults at tied times. Numbered actions
 // retain their indices and follow the fabric's timestamp/index order.
-func (c Candidate) ToScenario(budget int) fabric.Scenario {
+func (c Candidate) ToScenario() fabric.Scenario {
 	actions := c.Clone().Actions
+	for i := range actions {
+		if actions[i].ID == "" {
+			actions[i].ID = "action-" + strconv.Itoa(i+1)
+		}
+	}
 	numbered := false
 	for _, action := range actions {
 		if action.Index != 0 {
@@ -84,7 +91,7 @@ func (c Candidate) ToScenario(budget int) fabric.Scenario {
 		}
 		return cmp.Compare(a.Index, b.Index)
 	})
-	return fabric.Scenario{Name: "search-candidate", Actions: actions, Budget: budget}
+	return fabric.Scenario{Name: "search-candidate", Actions: actions}
 }
 
 // Limits bounds evaluations and retained differences. It is immutable during Search.

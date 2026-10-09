@@ -1,10 +1,18 @@
 package fabric_test
 
 import (
+	"maps"
+	"slices"
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -14,6 +22,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/stp"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
+	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
 func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
@@ -28,7 +37,7 @@ func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 
 type portStatus struct {
 	role  bpdu.Role
-	state stp.State
+	state device.PortState
 }
 
 func extractRoles(snap fabric.Snapshot) map[string]map[string]portStatus {
@@ -116,7 +125,7 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 		"h3":  {0, 0, 0, 0, 2, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -156,40 +165,40 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -200,10 +209,10 @@ func newThreeSwitchRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[st
 func TestRingConvergenceAndHostDelivery(t *testing.T) {
 	fab, _, macs := newThreeSwitchRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	snap1 := fab.Snapshot()
-	fab.Run(1)
+	fab.Run(fabric.RunOptions{Budget: 1, Window: 0})
 	snap2 := fab.Snapshot()
 
 	if !rolesAgree(extractRoles(snap1), extractRoles(snap2)) {
@@ -213,21 +222,21 @@ func TestRingConvergenceAndHostDelivery(t *testing.T) {
 	snap := snap2
 
 	sw2P2 := snap.Devices["sw2"].Roles["1/1/2"]
-	if sw2P2.Role != bpdu.RoleRoot || sw2P2.State != stp.StateForwarding {
+	if sw2P2.Role != bpdu.RoleRoot || sw2P2.State != device.StateForwarding {
 		t.Errorf("sw2 1/1/2 = (%v, %v), want (Root, Forwarding)", sw2P2.Role, sw2P2.State)
 	}
 
 	sw3P3 := snap.Devices["sw3"].Roles["1/1/3"]
-	if sw3P3.Role != bpdu.RoleRoot || sw3P3.State != stp.StateForwarding {
+	if sw3P3.Role != bpdu.RoleRoot || sw3P3.State != device.StateForwarding {
 		t.Errorf("sw3 1/1/3 = (%v, %v), want (Root, Forwarding)", sw3P3.Role, sw3P3.State)
 	}
 
 	sw3P2 := snap.Devices["sw3"].Roles["1/1/2"]
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw3P2.Role != bpdu.RoleDesignated || sw3P2.State != stp.StateForwarding {
+	if sw3P2.Role != bpdu.RoleDesignated || sw3P2.State != device.StateForwarding {
 		t.Errorf("sw3 1/1/2 = (%v, %v), want (Designated, Forwarding)", sw3P2.Role, sw3P2.State)
 	}
-	if sw2P3.Role != bpdu.RoleAlternate || sw2P3.State != stp.StateDiscarding {
+	if sw2P3.Role != bpdu.RoleAlternate || sw2P3.State != device.StateDiscarding {
 		t.Errorf("sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -244,7 +253,7 @@ func TestRingConvergenceAndHostDelivery(t *testing.T) {
 		t.Fatalf("Inject: %v", err)
 	}
 
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	var frameJourney *fabric.Journey
 	for _, j := range fab.Report() {
@@ -292,7 +301,7 @@ func TestObservableStepConvergence(t *testing.T) {
 	}
 	for _, cp := range cabledPorts {
 		info := snap0.Devices[cp.dev].Roles[cp.port]
-		if info.Role != bpdu.RoleDesignated || info.State != stp.StateDiscarding {
+		if info.Role != bpdu.RoleDesignated || info.State != device.StateDiscarding {
 			t.Errorf("%s %s in initial snapshot = (%v, %v), want (Designated, Discarding)", cp.dev, cp.port, info.Role, info.State)
 		}
 	}
@@ -313,10 +322,10 @@ func TestObservableStepConvergence(t *testing.T) {
 		sw2P2 := snap.Devices["sw2"].Roles["1/1/2"]
 		sw3P3 := snap.Devices["sw3"].Roles["1/1/3"]
 
-		if sw1P2.State == stp.StateForwarding &&
-			sw1P3.State == stp.StateForwarding &&
-			sw2P2.State == stp.StateForwarding &&
-			sw3P3.State == stp.StateForwarding {
+		if sw1P2.State == device.StateForwarding &&
+			sw1P3.State == device.StateForwarding &&
+			sw2P2.State == device.StateForwarding &&
+			sw3P3.State == device.StateForwarding {
 			if facingSw1ForwardingAt.IsZero() {
 				facingSw1ForwardingAt = snap.Clock
 			}
@@ -365,10 +374,10 @@ func TestObservableStepConvergence(t *testing.T) {
 func TestCutCableReconvergence(t *testing.T) {
 	fab, _, macs := newThreeSwitchRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	fid1, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h2"},
 		Frame: ethernet.Frame{
 			Src:     macs["h2"],
@@ -379,7 +388,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject first frame: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	sw3EntriesBefore := fab.Snapshot().Devices["sw3"].Entries
 	learnedOldPath := false
@@ -396,18 +405,18 @@ func TestCutCableReconvergence(t *testing.T) {
 	err = fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
 		fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	)
 	if err != nil {
 		t.Fatalf("SetFault cut: %v", err)
 	}
 
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	snap := fab.Snapshot()
 
 	sw2P3 := snap.Devices["sw2"].Roles["1/1/3"]
-	if sw2P3.Role != bpdu.RoleRoot || sw2P3.State != stp.StateForwarding {
+	if sw2P3.Role != bpdu.RoleRoot || sw2P3.State != device.StateForwarding {
 		t.Errorf("sw2 1/1/3 after cut = (%v, %v), want (Root, Forwarding)", sw2P3.Role, sw2P3.State)
 	}
 
@@ -423,7 +432,7 @@ func TestCutCableReconvergence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject second frame: %v", err)
 	}
-	fab.Run(20)
+	fab.Run(fabric.RunOptions{Budget: 20, Window: 0})
 
 	sw3EntriesAfter := fab.Snapshot().Devices["sw3"].Entries
 	for _, e := range sw3EntriesAfter {
@@ -517,7 +526,7 @@ func TestHubTransparentInRing(t *testing.T) {
 		"h3":  {0, 0, 0, 0, 2, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -563,45 +572,45 @@ func TestHubTransparentInRing(t *testing.T) {
 				Ports: newHubPorts(),
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h2": {Address: macs["h2"]},
 			"h3": {Address: macs["h3"]},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "hub", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "hub", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "hub", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "hub", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "h3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/1"},
 			},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -626,7 +635,7 @@ func TestHubTransparentInRing(t *testing.T) {
 		}
 		curSnap := fab.Snapshot()
 		desig := curSnap.Devices["sw3"].Roles["1/1/2"]
-		if desig.State == stp.StateForwarding && designatedForwardingAt.IsZero() {
+		if desig.State == device.StateForwarding && designatedForwardingAt.IsZero() {
 			designatedForwardingAt = curSnap.Clock
 		}
 		curRoles := extractRoles(curSnap)
@@ -647,7 +656,7 @@ func TestHubTransparentInRing(t *testing.T) {
 
 	finalSnap := fab.Snapshot()
 	alt := finalSnap.Devices["sw2"].Roles["1/1/3"]
-	if alt.Role != bpdu.RoleAlternate || alt.State != stp.StateDiscarding {
+	if alt.Role != bpdu.RoleAlternate || alt.State != device.StateDiscarding {
 		t.Errorf("Alternate port sw2 1/1/3 = (%v, %v), want (Alternate, Discarding)", alt.Role, alt.State)
 	}
 }
@@ -666,7 +675,7 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 	mac1 := netaddr.MAC{0, 0, 0, 0, 1, 1}
 	mac2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -687,9 +696,9 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 		},
 	}))
@@ -699,17 +708,20 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 
 	_ = mac2
 
+	var journeys []fabric.Journey
+	var lastEntry fabric.Entry
 	for {
+		journeys = fab.Report()
 		entry, ok := fab.Step()
 		if !ok {
 			break
 		}
 		if entry.Device == "sw2" {
+			lastEntry = entry.Entry
 			break
 		}
 	}
 
-	journeys := fab.Report()
 	if len(journeys) == 0 {
 		t.Fatal("expected at least one journey")
 	}
@@ -719,9 +731,8 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 		t.Errorf("journey.Protocol = %t, want true", bpduJourney.Protocol)
 	}
 
-	lastEntry := bpduJourney.Entries[len(bpduJourney.Entries)-1]
-	if lastEntry.Kind != fabric.EntryDrop || lastEntry.Reason != "reserved-address" || lastEntry.Device != "sw2" {
-		t.Errorf("last entry = %+v, want Drop at sw2 with reserved-address", lastEntry)
+	if lastEntry.Kind != fabric.EntryHop || lastEntry.Result == nil || lastEntry.Result.Outcome != trace.Dropped || lastEntry.Result.Reason != "reserved-address" || lastEntry.Device != "sw2" {
+		t.Errorf("last entry = %+v, want dropped hop at sw2 with reserved-address", lastEntry)
 	}
 }
 
@@ -730,7 +741,7 @@ func TestBPDUVisibleOnSwitchWithoutLayer(t *testing.T) {
 func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 	tbl := mustTable(t, port.NewBuilder().
 		Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}))
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports:  tbl,
@@ -742,7 +753,7 @@ func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 			},
 		},
 	}
-	if _, err := fabric.New(statedPhysical(cfg)); err == nil {
+	if _, err := assembly.New(statedPhysical(cfg)); err == nil {
 		t.Fatal("New accepted a spanning tree fabric with a zero Start")
 	}
 }
@@ -753,12 +764,12 @@ func TestZeroStartRefusedWithSpanningTree(t *testing.T) {
 // from a layer that was thrown away.
 func TestDeriveWithSpanningTreeQueuesNoStrayProposals(t *testing.T) {
 	fab, _, _ := newThreeSwitchRingTopology(t)
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 	before := fab.Snapshot()
 
-	cfg := fab.Config()
+	cfg := assembly.Spec(fab).Config()
 	cfg.Start = before.Clock
-	next, err := fabric.Derive(fab, constructionSpec(statedPhysical(cfg)))
+	next, err := assembly.Derive(fab, constructionSpec(statedPhysical(cfg)))
 	if err != nil {
 		t.Fatalf("Derive: %v", err)
 	}
@@ -795,7 +806,7 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 			Ports:    map[string]stp.Port{"lag1": {}},
 		}
 	}
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {Ports: lagPorts(), Bridge: &bridge.Config{}, STP: stpCfg(1, 4096)},
@@ -806,27 +817,27 @@ func TestCutLagMemberKeepsLagUp(t *testing.T) {
 			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
 		},
 	}
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
-	lagState := func() (port.LinkState, stp.PortInfo) {
-		sw := fab.Switch("sw2")
+	lagState := func() (port.LinkState, device.PortInfo) {
+		sw := fab.Device("sw2").(*vswitch.Switch)
 		lag, _ := sw.Ports().Port("lag1")
 
-		return lag.OperStatus, sw.Roles()["lag1"]
+		return lag.OperStatus, sw.State(fab.Clock()).Roles["lag1"]
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != device.StateForwarding {
 		t.Fatalf("before cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
-	cut := fabric.Fault{Kind: fabric.FaultCut}
+	cut := cablemodel.Fault{Kind: cablemodel.FaultCut}
 	if err := fab.SetFault(fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, cut); err != nil {
 		t.Fatalf("SetFault first member: %v", err)
 	}
-	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != stp.StateForwarding {
+	if oper, info := lagState(); oper != port.Up || info.Role != bpdu.RoleRoot || info.State != device.StateForwarding {
 		t.Fatalf("after one member cut: lag1 %v %v/%v, want Up Root/Forwarding", oper, info.Role, info.State)
 	}
 
@@ -854,7 +865,7 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 	macH1 := netaddr.MAC{0, 0, 0, 0, 2, 1}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -881,19 +892,19 @@ func TestFabricLegacyBPDUInjectionMigratesPort(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 		},
 	}))
@@ -999,7 +1010,7 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	macSW2 := netaddr.MAC{0, 0, 0, 0, 1, 2}
 	macH1 := netaddr.MAC{0, 0, 0, 2, 1, 1}
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1027,19 +1038,19 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: macH1},
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "h1"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 0,
+				Cable: cablemodel.Cable{LengthMeters: 0},
+				A:     fabric.Endpoint{Node: "h1"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 		},
 	}))
@@ -1077,12 +1088,16 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 
+	observed := make(map[fabric.FrameID]fabric.Journey)
 	for {
+		for _, j := range fab.Report() {
+			observed[j.FrameID] = j
+		}
 		entry, ok := fab.Step()
 		if !ok {
 			break
 		}
-		if entry.Kind == fabric.EntryWake && entry.Device == "sw2" && !entry.At.Before(t0.Add(5*time.Second)) {
+		if entry.Arrival == fabric.ArrivalWake && entry.Device == "sw2" && !entry.At.Before(t0.Add(5*time.Second)) {
 			break
 		}
 	}
@@ -1098,8 +1113,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		t.Errorf("sw2:1/1/2 busy until %v, want %v", busyUntil, wantBusy)
 	}
 
-	var replies []fabric.Journey
 	for _, j := range fab.Report() {
+		observed[j.FrameID] = j
+	}
+	var replies []fabric.Journey
+	for _, fid := range slices.Sorted(maps.Keys(observed)) {
+		j := observed[fid]
 		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
 			if j.Injection.At.After(t0.Add(4 * time.Second)) {
 				replies = append(replies, j)
@@ -1125,6 +1144,9 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 	}
 
 	for {
+		for _, j := range fab.Report() {
+			observed[j.FrameID] = j
+		}
 		snap := fab.Snapshot()
 		if snap.Clock.After(t0.Add(5500 * time.Millisecond)) {
 			break
@@ -1134,8 +1156,12 @@ func TestFabricTxHoldCountLimitsInferiorBPDUReplies(t *testing.T) {
 		}
 	}
 
-	repliesAfter := 0
 	for _, j := range fab.Report() {
+		observed[j.FrameID] = j
+	}
+	repliesAfter := 0
+	for _, fid := range slices.Sorted(maps.Keys(observed)) {
+		j := observed[fid]
 		if j.Protocol && j.Injection.Origin.Node == "sw2" && j.Injection.Origin.Port == "1/1/2" {
 			if j.Injection.At.After(t0.Add(4*time.Second)) && j.Injection.At.Before(t0.Add(6*time.Second)) {
 				repliesAfter++
@@ -1227,7 +1253,7 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 		return &region
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -1251,23 +1277,23 @@ func newTwoSwitchTrunkTopology(t *testing.T, mst1, mst2 *stp.MST, instPorts1, in
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1-v10": {Address: macs["h1-v10"]},
 			"h1-v20": {Address: macs["h1-v20"]},
 			"h2-v10": {Address: macs["h2-v10"]},
 			"h2-v20": {Address: macs["h2-v20"]},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h1-v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h1-v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h2-v10"}, B: fabric.Endpoint{Node: "sw2", Port: "v10"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "h2-v20"}, B: fabric.Endpoint{Node: "sw2", Port: "v20"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1-v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h1-v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h2-v10"}, B: fabric.Endpoint{Node: "sw2", Port: "v10"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "h2-v20"}, B: fabric.Endpoint{Node: "sw2", Port: "v20"}},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1296,10 +1322,10 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 		2: {"l2": {PathCost: 200_000}},
 	})
 
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 
 	fid10, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v10"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
@@ -1310,7 +1336,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 10: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	j10 := findJourney(t, fab, fid10)
 	if len(j10.Deliveries) != 1 || j10.Deliveries[0].Host != "h2-v10" {
@@ -1331,7 +1357,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	}
 
 	fid20, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v20"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},
@@ -1342,7 +1368,7 @@ func TestMSTInstancesForwardOnIndependentLinks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 20: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	j20 := findJourney(t, fab, fid20)
 	if len(j20.Deliveries) != 1 || j20.Deliveries[0].Host != "h2-v20" {
@@ -1389,7 +1415,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 
 	fab := newTwoSwitchTrunkTopology(t, region1, region2, nil, nil)
 
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
 
 	snap := fab.Snapshot()
 
@@ -1415,7 +1441,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	}
 
 	fid10, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v10"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 1},
@@ -1426,7 +1452,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 10: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	j10 := findJourney(t, fab, fid10)
 	if len(j10.Deliveries) != 1 {
@@ -1441,7 +1467,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	}
 
 	fid20, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: "h1-v20"},
 		Frame: ethernet.Frame{
 			Src:     netaddr.MAC{0, 0, 0, 0, 2, 2},
@@ -1452,7 +1478,7 @@ func TestMSTRegionBoundaryFollowsCIST(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject VLAN 20: %v", err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 
 	j20 := findJourney(t, fab, fid20)
 	if len(j20.Deliveries) != 1 {
@@ -1536,18 +1562,18 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 		}
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start:    t0,
 		Switches: switches,
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "a"}, B: fabric.Endpoint{Node: "sw2", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw2", Port: "b"}, B: fabric.Endpoint{Node: "sw3", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw3", Port: "b"}, B: fabric.Endpoint{Node: "sw4", Port: "a"}, LengthMeters: 1.0},
-			{A: fabric.Endpoint{Node: "sw4", Port: "b"}, B: fabric.Endpoint{Node: "sw1", Port: "b"}, LengthMeters: 1.0},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw1", Port: "a"}, B: fabric.Endpoint{Node: "sw2", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw2", Port: "b"}, B: fabric.Endpoint{Node: "sw3", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw3", Port: "b"}, B: fabric.Endpoint{Node: "sw4", Port: "a"}},
+			{Cable: cablemodel.Cable{LengthMeters: 1.0}, A: fabric.Endpoint{Node: "sw4", Port: "b"}, B: fabric.Endpoint{Node: "sw1", Port: "b"}},
 		},
 	}
 
-	fab, err := fabric.New(statedPhysical(cfg))
+	fab, err := assembly.New(statedPhysical(cfg))
 	if err != nil {
 		t.Fatalf("New fabric: %v", err)
 	}
@@ -1568,7 +1594,7 @@ func newFourSwitchMSTRing(t *testing.T) *fabric.Fabric {
 func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 	fab := newFourSwitchMSTRing(t)
 
-	fab.Run(400)
+	fab.Run(fabric.RunOptions{Budget: 400, Window: 0})
 
 	snap := fab.Snapshot()
 	for _, dev := range []string{"sw2", "sw3", "sw4"} {
@@ -1586,18 +1612,18 @@ func TestMSTRingRootRemovalReconvergesOnLowestRemainingPriority(t *testing.T) {
 	// than being corrected by a fresh superior BPDU from sw1 itself.
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "sw1", Port: "a"}, fabric.Endpoint{Node: "sw2", Port: "a"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault sw1-sw2: %v", err)
 	}
 	if err := fab.SetFault(
 		fabric.Endpoint{Node: "sw4", Port: "b"}, fabric.Endpoint{Node: "sw1", Port: "b"},
-		fabric.Fault{Kind: fabric.FaultCut},
+		cablemodel.Fault{Kind: cablemodel.FaultCut},
 	); err != nil {
 		t.Fatalf("SetFault sw4-sw1: %v", err)
 	}
 
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	snap = fab.Snapshot()
 	var newRootPriority uint16

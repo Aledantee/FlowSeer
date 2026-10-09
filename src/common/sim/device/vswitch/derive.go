@@ -1,44 +1,56 @@
 package vswitch
 
 import (
+	"slices"
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
 // Derive constructs the target and carries eligible state through the layer table.
 // Whole-layer retention compares normalized dependency keys. Bridge and multicast
-// retention report whether any source record was lost. A record past its
-// deadline that the source has not yet aged out counts like any other, as lost
-// when the target does not carry it. Traffic retains unchanged
+// retention report whether any source record was lost after a clone of cur
+// advances to now. Expired records do not count as lost. Traffic retains unchanged
 // policer buckets independently of its whole-layer verdict. Filter is rebuilt.
 // Dynamic bridge entries remain bounded by target capacity. Static seeds and
 // construction trust come from the target. Port duplex and speed move together
-// only where port and PHY dependencies match. Output reports held-frame drops
-// from rebuilt routing. An invalid target returns an error.
-func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
+// only where port and PHY dependencies match. The clone of cur first advances to now.
+// device.Output reports what that advance emitted, copied, or dropped, minus the
+// protocol frames of a layer the target did not keep, which the target no longer
+// owes. Frames carrying a hold token stay. It also reports the held-frame drops of
+// rebuilt routing. An invalid target returns an error.
+func Derive(cur *Switch, target ConstructionSpec, now time.Time) (*Switch, device.Output, error) {
 	next, err := NewWithSpec(target)
 	if err != nil {
-		return nil, Output{}, err
+		return nil, device.Output{}, err
 	}
 
-	c, end := next.beginCall(time.Time{}, true)
+	c, end := next.beginCall(now, true)
 	defer end()
 
+	var aged *call
 	if cur == nil {
 		cur = &Switch{}
+	} else {
+		cur = cur.Fork().(*Switch)
+		var endAge func()
+		aged, endAge = cur.beginCall(now, true)
+		cur.advance(now)
+		endAge()
 	}
 	source, targetLayers := cur.layers(time.Time{}), next.layers(time.Time{})
+	layerKept := make([]bool, len(targetLayers))
 	for i, entry := range targetLayers {
 		oldKey, newKey := source[i].key(cur), entry.key(next)
 		lost := 0
 		if entry.carry != nil {
 			lost, err = entry.carry(cur, next)
 			if err != nil {
-				return nil, Output{}, err
+				return nil, device.Output{}, err
 			}
 		} else if oldKey != "" && oldKey == newKey && source[i].clone != nil && !entry.rebuild {
 			source[i].clone(cur, next)
@@ -47,6 +59,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 		if entry.perRecord {
 			kept = lost == 0
 		}
+		layerKept[i] = kept
 		report := entry.retention(next)
 		*report = LayerRetention{Kept: kept}
 		if !kept {
@@ -65,7 +78,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 	}
 	if cur.portP2P != nil || cur.portSpeed != nil {
 
-		next.portP2P = make(map[string]PointToPoint)
+		next.portP2P = make(map[string]pointToPoint)
 		next.portSpeed = make(map[string]uint64)
 		for _, p := range next.ports.Ports() {
 			old, ok := cur.ports.Port(p.Name)
@@ -74,7 +87,7 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 			}
 			if old != p || cur.linkSpeed(old) != next.linkSpeed(p) {
 				if _, heard := cur.portP2P[p.Name]; heard {
-					next.portP2P[p.Name] = PointToPointUnknown
+					next.portP2P[p.Name] = pointToPointUnknown
 				}
 				continue
 			}
@@ -87,10 +100,23 @@ func Derive(cur *Switch, target ConstructionSpec) (*Switch, Output, error) {
 		}
 	}
 	next.recomputeProtocolLinkIssues()
-	if !next.retention.Routing.Kept && cur.routing != nil {
-		next.applyRoutingExits(time.Time{}, cur.routing.Clone().FailHeld())
+	if next.retention.Routing.Kept {
+		next.heldMirrors = cloneHeldMirrors(cur.heldMirrors)
 	}
-	return next, c.output(ForwardResult{}), nil
+	if !next.retention.Routing.Kept && cur.routing != nil {
+		next.applyRoutingExits(now, cur.routing.Clone().FailHeld())
+	}
+	out := c.output(forwardResult{})
+	if aged != nil {
+		aged.emissions = slices.DeleteFunc(aged.emissions, func(em emission) bool {
+			return em.Hold == 0 && em.slot > 0 && !layerKept[em.slot-1]
+		})
+		agedOut := aged.output(forwardResult{})
+		out.Emissions = append(agedOut.Emissions, out.Emissions...)
+		out.Copies = append(agedOut.Copies, out.Copies...)
+		out.Drops = append(agedOut.Drops, out.Drops...)
+	}
+	return next, out, nil
 }
 
 func carryMcast(cur, next *Switch) (int, error) {

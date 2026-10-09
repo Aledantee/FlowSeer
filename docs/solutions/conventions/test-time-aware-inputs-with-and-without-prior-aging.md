@@ -147,6 +147,19 @@ so half the rows compared identical histories. The corrected matrix has
 (`:140-147`). A second learning frame exposes dynamic-count drift that equal
 entries can hide (`:128-134`).
 
+## A rule that ages first releases what a standing test planted
+
+When an operation starts to age state before it acts, a test that planted an
+expired record to be carried now sees it released. `Derive` advances a clone of
+the source to the derive time before carrying records (commit `f72bb34b`).
+`TestDeriveAgesBeforeCarry` seeds the source with a one-second aging time,
+advances it past expiry, and asserts the derived switch has no entries or
+neighbors and reports one neighbor-miss drop, while the source keeps both
+(`src/common/sim/device/vswitch/derive_test.go:26-63`). A standing test that
+needs a record to survive the rule must plant it after the aging point or
+with a deadline beyond the derive time. Keep a separate case for what the
+rule now does.
+
 ## Scope
 
 Apply this comparison when caller aging must be optional. It does not

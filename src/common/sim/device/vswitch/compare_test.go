@@ -9,6 +9,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
@@ -19,8 +20,8 @@ import (
 )
 
 func TestCompareDetectsMirrorVLANDifference(t *testing.T) {
-	cur := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 98}}}
-	exp := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 99}}}
+	cur := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "monitor", VLAN: 98}}}
+	exp := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "monitor", VLAN: 99}}}
 	cmp := vswitch.CompareOutputsForTest(cur, exp)
 	if cmp.Disposition != analysis.Different || cmp.Difference != (analysis.Difference{
 		Observable: "mirror",
@@ -32,8 +33,8 @@ func TestCompareDetectsMirrorVLANDifference(t *testing.T) {
 }
 
 func TestCompareDetectsMirrorMemberDifference(t *testing.T) {
-	cur := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "lag1", VLAN: 98, Member: "m1"}}}
-	exp := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "lag1", VLAN: 98, Member: "m2"}}}
+	cur := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "lag1", VLAN: 98, Member: "m1"}}}
+	exp := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "lag1", VLAN: 98, Member: "m2"}}}
 	cmp := vswitch.CompareOutputsForTest(cur, exp)
 	if cmp.Disposition != analysis.Different || cmp.Difference != (analysis.Difference{
 		Observable: "mirror",
@@ -45,8 +46,8 @@ func TestCompareDetectsMirrorMemberDifference(t *testing.T) {
 }
 
 func TestCompareDetectsMirrorFrameDifference(t *testing.T) {
-	cur := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 98, Frame: ethernet.Frame{Payload: []byte{1, 2}}}}}
-	exp := vswitch.Output{Copies: []traffic.Copy{{Mirror: "span", Port: "monitor", VLAN: 98, Frame: ethernet.Frame{Payload: []byte{1}}}}}
+	cur := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "monitor", VLAN: 98, Frame: ethernet.Frame{Payload: []byte{1, 2}}}}}
+	exp := device.Output{Copies: []device.Copy{{Mirror: "span", Port: "monitor", VLAN: 98, Frame: ethernet.Frame{Payload: []byte{1}}}}}
 	cmp := vswitch.CompareOutputsForTest(cur, exp)
 	if cmp.Disposition != analysis.Different || cmp.Difference != (analysis.Difference{
 		Observable: "mirror",
@@ -58,10 +59,10 @@ func TestCompareDetectsMirrorFrameDifference(t *testing.T) {
 }
 
 func TestCompareMirrorCopiesIgnoreOrder(t *testing.T) {
-	first := traffic.Copy{Mirror: "span", Port: "monitor-a", VLAN: 98}
-	second := traffic.Copy{Mirror: "span", Port: "monitor-b", VLAN: 98}
-	cur := vswitch.Output{Copies: []traffic.Copy{first, second}}
-	exp := vswitch.Output{Copies: []traffic.Copy{second, first}}
+	first := device.Copy{Mirror: "span", Port: "monitor-a", VLAN: 98}
+	second := device.Copy{Mirror: "span", Port: "monitor-b", VLAN: 98}
+	cur := device.Output{Copies: []device.Copy{first, second}}
+	exp := device.Output{Copies: []device.Copy{second, first}}
 	if cmp := vswitch.CompareOutputsForTest(cur, exp); cmp.Disposition != analysis.Equivalent || cmp.Difference != (analysis.Difference{}) {
 		t.Fatalf("comparison = %+v, want Equivalent for the same two copies in a different order", cmp)
 	}
@@ -70,23 +71,23 @@ func TestCompareMirrorCopiesIgnoreOrder(t *testing.T) {
 func TestCompareNamesEachFirstObservable(t *testing.T) {
 	for _, tc := range []struct {
 		name              string
-		change            func(*vswitch.Output)
+		change            func(*device.Output)
 		current, expected string
 	}{
-		{"reason", func(o *vswitch.Output) { o.Reason = "port-down" }, "", "port-down"},
-		{"fid", func(o *vswitch.Output) { o.FID = 20 }, "10", "20"},
-		{"egress.port", func(o *vswitch.Output) { o.Egress[0].Port = "p2" }, "p1", "<absent>"},
-		{"egress.dropped", func(o *vswitch.Output) { o.Egress[0].Dropped = "port-down" }, "", "port-down"},
-		{"frame.src", func(o *vswitch.Output) { o.Egress[0].Frame.Src = macH1 }, "00:00:00:00:00:00", "00:11:22:33:44:11"},
-		{"frame.ethertype", func(o *vswitch.Output) { o.Egress[0].Frame.EtherType = ethernet.EtherTypeIPv6 }, "IPv4 (0x0800)", "IPv6 (0x86dd)"},
-		{"frame.tags", func(o *vswitch.Output) { o.Egress[0].Frame.Tags = []vlan.Tag{{VID: 10}} }, "[]", "[{0 0 false 10}]"},
-		{"frame.payload", func(o *vswitch.Output) { o.Egress[0].Frame.Payload = []byte{2} }, "01", "02"},
+		{"reason", func(o *device.Output) { o.Reason = "port-down" }, "", "port-down"},
+		{"fid", func(o *device.Output) { o.FID = 20 }, "10", "20"},
+		{"egress.port", func(o *device.Output) { o.Egress[0].Port = "p2" }, "p1", "<absent>"},
+		{"egress.dropped", func(o *device.Output) { o.Egress[0].Dropped = "port-down" }, "", "port-down"},
+		{"frame.src", func(o *device.Output) { o.Egress[0].Frame.Src = macH1 }, "00:00:00:00:00:00", "00:11:22:33:44:11"},
+		{"frame.ethertype", func(o *device.Output) { o.Egress[0].Frame.EtherType = ethernet.EtherTypeIPv6 }, "IPv4 (0x0800)", "IPv6 (0x86dd)"},
+		{"frame.tags", func(o *device.Output) { o.Egress[0].Frame.Tags = []vlan.Tag{{VID: 10}} }, "[]", "[{0 0 false 10}]"},
+		{"frame.payload", func(o *device.Output) { o.Egress[0].Frame.Payload = []byte{2} }, "01", "02"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cur := vswitch.Output{ForwardResult: vswitch.ForwardResult{Result: bridge.Result{
+			cur := device.Output{Result: device.Result{
 				Trace: trace.Trace{Outcome: trace.Forwarded}, FID: 10,
-				Egress: []bridge.Egress{{Port: "p1", Frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: []byte{1}}}},
-			}}}
+				Egress: []device.Egress{{Port: "p1", Frame: ethernet.Frame{EtherType: ethernet.EtherTypeIPv4, Payload: []byte{1}}}},
+			}}
 			exp := cur
 			exp.Egress = slices.Clone(cur.Egress)
 			tc.change(&exp)

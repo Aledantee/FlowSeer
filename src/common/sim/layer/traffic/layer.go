@@ -98,6 +98,15 @@ func (l *Layer) Copies(switchports map[string]Switchport, ingress string, vid vl
 	return copies(l.cfg, switchports, ingress, vid, received, egress)
 }
 
+// AdmitEgress applies the queue owner's configuration. A LAG member uses its
+// LAG's statement. A nil layer uses an unbounded queue with no maximum rate.
+func (l *Layer) AdmitEgress(name string, pcp vlan.PCP, depth, octets uint64, mtu int) QueueDecision {
+	if l == nil {
+		return (Config{}).AdmitEgress(name, pcp, depth, octets, mtu)
+	}
+	return l.cfg.AdmitEgress(l.queueOwner(name), pcp, depth, octets, mtu)
+}
+
 // MaxRate returns the configured maximum rate in bits per second for the queue on name
 // with traffic class pcp, and whether one was configured. A LAG member uses its LAG's statement.
 func (l *Layer) MaxRate(name string, pcp vlan.PCP) (uint64, bool) {

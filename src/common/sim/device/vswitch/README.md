@@ -8,7 +8,9 @@ or wall clocks.
 
 The example builds a switch with two access ports and one trunk port, forwards
 an untagged frame, derives an updated state, and compares forwarding behavior
-across the two states.
+across the two states. `Fabric.Device` returns a fork, so the receive, derive,
+and compare below leave the fabric untouched. Use `Inject` and `Run` to
+execute on the fabric's queue.
 
 ```go
 package main
@@ -21,8 +23,13 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+	"go.aledante.io/FlowSeer/src/common/sim/device/host"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
+	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	"go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -54,10 +61,28 @@ func main() {
 	}
 
 	now := time.Unix(1700000000, 0)
-	sw, err := vswitch.New(swCfg)
+	fab, err := assembly.New(assembly.Config{
+		Start:    now,
+		Switches: map[string]vswitch.Config{"sw1": swCfg},
+		Hosts:    map[string]host.Config{"h1": {}, "h2": {}, "h3": {}},
+		Cables: []fabric.Cable{
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "h1"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "h2"}},
+			{A: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, B: fabric.Endpoint{Node: "h3"}},
+		},
+		PhyAssumption: &cable.PhyAssumption{
+			Medium: cable.TwistedPair,
+			Ethernet: phy.Ethernet{
+				SupportedSpeedsBPS:        []uint64{1_000_000_000},
+				AutoNegotiationSupported: phy.CapabilitySupported,
+				Setting:                  &phy.Setting{AutoNegotiation: true},
+			},
+		},
+	})
 	if err != nil {
 		panic(err)
 	}
+	sw := fab.Device("sw1").(*vswitch.Switch)
 
 	frame := ethernet.Frame{
 		Dst:       netaddr.MAC{0x00, 0x11, 0x22, 0x33, 0x44, 0x55},
@@ -84,7 +109,7 @@ func main() {
 
 	nextSpec := sw.Spec()
 	nextSpec.Config = nextCfg
-	nextSw, out, err := vswitch.Derive(sw, nextSpec)
+	nextSw, out, err := vswitch.Derive(sw, nextSpec, now)
 	if err != nil {
 		panic(err)
 	}
@@ -97,6 +122,16 @@ func main() {
 	}
 }
 ```
+
+## State
+
+`State(now)` converts the layer snapshots in [state.go](state.go) into
+`device.State`. Sampling does not advance timers. Returned rows and maps
+are independent of the switch. Tree keys come from each row's `TreeRef`,
+and the CIST is read through `Roles`, so assigning VLAN 1 to an MSTI does
+not hide the common tree. [TestStateCarriesEveryLayerField](state_test.go)
+walks the nine layer roots, including nested multicast source records,
+and checks 29 enumeration values through the converters.
 
 ## Per-call output
 
@@ -147,9 +182,23 @@ observations, or learning. The switch holds no output between calls
 Every emission passes `emit` in `timers.go`. A mirror output port emits
 copies alone, including when spanning tree, loop protection, routing, or
 a held-frame release would otherwise send there. A refused release becomes
-a `NeighborDrop` with reason `mirror-output`. Mirror selectors resolve the
+a `device.Drop` with reason `mirror-output`. Mirror selectors resolve the
 physical ingress to its logical port, including a received LACPDU's member
-(`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`).
+(`mirror.go`, `TestMirrorCopiesLACPFromLogicalIngress`). A released frame
+also produces the copies selected by its successful egress. Each copy
+carries the held frame's token and owns its frame storage
+(`TestReleasedFrameIsMirroredOnEgress`).
+
+Open vSwitch mirrors a packet to a given destination once, even when several
+selectors match it. A held frame keeps that rule across the hold. The switch
+records, per hold token, the logical ingress port, the ingress VLAN, and the
+mirrors that copied the frame on arrival (`heldMirror` in `mirror.go`). At
+release the selectors see that ingress and VLAN, and a mirror that already
+copied the frame is skipped, so only a mirror selecting by the release port
+adds a copy (`TestHeldFrameIsMirroredOncePerMirror`). `Fork` and `Derive` carry
+the record with the routing layer's queue. `ReceiveMirrored` makes no copies
+of its own frame, held or released, and keeps the copies of the held frames
+its arrival releases (`TestReceiveMirroredKeepsCopiesOfReleasedFrames`).
 
 Open vSwitch reserves a mirror output port for mirror copies and runs
 no spanning tree on it. Keeping loop-protection probes off the port is the
@@ -270,8 +319,9 @@ The virtual switch uses a ladder of architectural layers:
   state suppresses it with complete readiness. `Output.Copies` carries the
   admitted copies so the fabric can enqueue them as separate transmissions.
   `Receive` applies the switch-owned token bucket at arrival, while
-  `QueueMaxRate` gives the fabric scheduler the maximum rate
-  for an egress port and PCP.
+  `Output.Policed` reports an ingress refusal. `AdmitEgress` returns admission,
+  the drop or threshold step, and the maximum rate for an egress port and PCP.
+  The fabric owns queue occupancy and passes its depth to this decision.
 
 Optional [physical subsystems](../../layer/phy/README.md) (`phy.Config`)
 provide Ethernet speed resolution, negotiation, and PoE budget allocation.
@@ -361,10 +411,11 @@ so the host drives them through explicit calls:
   [IEEE 802.1Q-2003, 13.36.1](https://bittwist.sourceforge.io/doc/802.1Q-2003.pdf)
   advises against a cost that follows every member failure and specifies
   no rate calculation.
-- `LinkChange(now, port, state, pointToPoint, speed)` tells the protocol layers
-  one link moved. `state` ([port.LinkState]) preserves unknown operational state
-  while informing protocol layers that the link is non-operational. `pointToPoint`
-  ([PointToPoint]) conveys operational point-to-point duplex status. For a LAG
+- `LinkChange(now, port, device.Link)` reports operational state, speed,
+  this end's duplex, and whether the peer relays or terminates frames.
+  The switch applies the administrative STP override and resolves
+  point-to-point from these facts (`link.go`). An unknown operational state
+  stays unknown while the protocols hear a non-operational link. For a LAG
   member, it notifies the aggregation layer, updates the LAG port's operational
   state, and informs spanning tree of the LAG's link and speed from the enabled
   members. It returns the call's emissions and drops in `Output`, or an
@@ -391,10 +442,12 @@ so the host drives them through explicit calls:
 - `Roles()` exposes current port roles and forwarding states.
 - `LagInfo(lag)` returns the runtime aggregation status of the named LAG.
 - `MemberInfo(member)` returns the runtime aggregation status of the member port.
-- `SelectMember(now, lag, frame, vid)` commits an enabled member choice for a
-  frame egressing a LAG outside the bridge pipeline, such as a fabric
-  transmission. The bridge's own LAG egress commits exactly when the forwarding
-  call that produced it does (`Receive` commits, `Peek` does not).
+Every LAG egress, emission, and mirror copy carries its selected `Member`.
+The switch commits that choice when it produces the frame. `Peek` reports
+the choice without committing it. The fabric transmits on the returned
+member (`TestRoutedLAGEmissionMatrix` and
+`TestRoutedLAGSolicitationKeepsCommittedMember` in
+`src/common/sim/fabric/lag_test.go`).
 
 ## Construction specifications and trust metadata
 
@@ -430,9 +483,9 @@ Exported constructors validate and normalize configurations:
   the source and its fork. `TestForkCapabilityMatrix` checks equal outputs
   across 192 valid capability combinations and isolates an hour of fork
   advancement from the source.
-- [Switch.Receive] and [Switch.Peek] return [Output], embedding [ForwardResult]
-  and carrying emissions, copies, and held-frame drops. The result combines the domain
-  [bridge.Result] with [analysis.Metadata] recording scoped issues, operational
+- [Switch.Receive] and [Switch.Peek] return `device.Output`, embedding `device.Result`
+  and carrying emissions, copies, and held-frame drops. The result carries forwarding
+  decisions with [analysis.Metadata] recording scoped issues, operational
   readiness, and evidence. A port with unknown operational status never forwards
   and attaches an Incomplete issue scoped to that port, while known-down ports
   drop traffic authoritatively with Complete readiness.
@@ -442,11 +495,14 @@ Exported constructors validate and normalize configurations:
   keeping PoE uncertainty scoped to the port's PoE field and out of forwarding
   metadata.
 - Protocol layers maintain `protocol-link-unknown` Incomplete issues. When
-  spanning tree computes topology while any STP port's operational state or
-  point-to-point duplex status is unknown, every STP port on the switch receives
-  an issue. When a LAG computes membership or operational state with an unknown
+  spanning tree computes topology while a port configured under `STP.Ports`
+  has unknown operational state or point-to-point duplex status, every port
+  configured under `STP.Ports` receives an issue. When a LAG computes
+  membership or operational state with an unknown
   member, the LAG and all its member ports receive an issue. Results that consult
-  those ports attach these issues to their forwarding metadata.
+  those ports attach these issues to their forwarding metadata
+  ([issues.go](issues.go), `TestProtocolLinkIssuesOnlyNameConfiguredSTPPorts`
+  in [protocol_link_test.go](protocol_link_test.go)).
 - A forward or peek that used a balanced-mode LAG selection old enough that
   unmodeled rebalancing could have moved it raises `lag-rebalance-unmodeled`
   on that LAG's aggregator scope, only for the journeys that went through it.
@@ -506,7 +562,7 @@ results.
 Runtime hit sets belong to one call (`issues.go`, `call`). A held frame that
 releases when an ARP reply arrives has its own call, so its multicast query
 or LAG rebalance condition does not appear on the reply's result. Routing
-emissions and `SelectMember` also discard their own hits because they return
+emissions and `selectMember` also discard their own hits because they return
 no forwarding result. `Receive` starts with empty hit sets, so a policed
 drop cannot inherit an earlier held frame's unresolved neighbor.
 `issues_internal_test.go` checks these boundaries and cleanup at every entry.
@@ -522,11 +578,15 @@ flowchart LR
 
 ## Derivation and state retention
 
-`Derive(cur, spec)` builds the target and carries state through the layer
+`Derive(cur, spec, now)` builds the target and advances an independent clone
+of `cur` to `now` before carrying state through the layer
 table in `layers.go`. Spanning tree, loop protection, LAG, routing, traffic,
 and filter report `Kept` when their normalized dependency keys match.
 Traffic carries unchanged policer buckets even when its whole key differs.
 Filter holds no runtime records and is rebuilt from the target.
+Expired records are aged before retention is judged. Emissions and held-frame
+drops from that advance are returned with the derivation output
+(`TestDeriveAgesBeforeCarry` in `derive_test.go`).
 
 Multicast and the bridge report `Kept` when no source record is absent
 afterwards, regardless of key equality. Multicast restores memberships
@@ -569,16 +629,16 @@ The comparison evaluates three dispositions:
 
 - `analysis.Equivalent`: Forwarding outcome, discard reason, classified FID, rewritten
   frame fields, egress ports, selected LAG members, egress PCP, and mirror copies match.
-- `analysis.Different`: Divergence detected at a behavioral observable.
+- `analysis.Different`: Both results are Complete and a behavioral observable differs.
   `Comparison.Difference` names the first differing observable and the observed
   values on each side (`Difference.Current` and `Difference.Expected`).
-- `analysis.Inconclusive`: Either result is incomplete, including when an
+- `analysis.Inconclusive`: Either result has non-Complete readiness, including when an
   observable differs. `Difference` still names the first difference found,
   because incomplete input cannot support a definitive disposition.
 
 ### Behavioral versus diagnostic split
 
-Comparison reads the normalized `Output` and its embedded `ForwardResult`:
+Comparison reads `device.Output` and its embedded `device.Result`:
 
 1. **Outcome**: Typed forwarding decision (`Forwarded`, `Flooded`, `Dropped`, `Consumed`, `Held`).
 2. **Reason**: Specific discard or forwarding reason (`ReasonNoEgress`, `ReasonPortDown`, etc.).
@@ -617,7 +677,7 @@ that will be shared comes from `Clone`.
 | [fork.go](fork.go) | Independent runtime copies |
 | [issues.go](issues.go) | Per-call readiness and dependency hits |
 | [metadata.go](metadata.go) | Scopes and metadata of a call's result |
-| [output.go](output.go) | `Output` and the `Receive` and `Advance` entry points |
+| [output.go](output.go) | Conversion to `device.Output` and the receive and advance entry points |
 | [layers.go](layers.go) | Layer table: advance, clone, and retention keys |
 | [retention.go](retention.go) | Per-layer retention outcome |
 | [derive.go](derive.go) | Derivation of a target switch from a current one |

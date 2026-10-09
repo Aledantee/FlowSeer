@@ -5,10 +5,15 @@ import (
 	"slices"
 	"time"
 
-	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	interfacev1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/interface/v1"
 	switchingv1 "go.aledante.io/FlowSeer/generated/go/proto/flowseer/net/switching/v1"
+	"go.aledante.io/FlowSeer/src/common/errs"
 	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
@@ -16,6 +21,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -168,7 +174,7 @@ func casePlanningPortVLANChange() Case {
 
 			changes := vswitch.Diff(cfgCur, cfgNext)
 
-			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext})
+			swNext, _, err := vswitch.Derive(swCur, vswitch.ConstructionSpec{Config: cfgNext}, time.Unix(1700000000, 0))
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -182,6 +188,12 @@ func casePlanningPortVLANChange() Case {
 			}
 
 			cmp := vswitch.Compare(swCur, swNext, now, "1/1/1", frame)
+			if err := validateReceiveResult(cmp.Current.Result); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(cmp.Expected.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:    cmp.Expected.Outcome,
@@ -251,7 +263,7 @@ func casePlanningCandidateForkDiverges() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -263,32 +275,35 @@ func casePlanningCandidateForkDiverges() Case {
 						Seeds: []bridge.Seed{{MAC: candForkH2, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: candForkH1, Ethernet: gigabit},
 					"h2": {Address: candForkH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
-			fab.Run(5)
+			fab.Run(fabric.RunOptions{Budget: 5, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// Fork a candidate simulation mid-run.
 			cand := fab.Fork()
 
 			// The candidate fork diverges: fault the link to h2 and run on the candidate.
-			if err := cand.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, fabric.Fault{Kind: fabric.FaultCut}); err != nil {
+			if err := cand.SetFault(fabric.Endpoint{Node: "h2"}, fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 				return ExecutionResult{}, err
 			}
 			_, err = cand.Inject(fabric.Injection{
-				At:     cand.Snapshot().Clock,
+				At:     cand.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst:       candForkH2,
@@ -300,11 +315,14 @@ func casePlanningCandidateForkDiverges() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			cand.Run(20)
+			cand.Run(fabric.RunOptions{Budget: 20, Window: 0})
+			if err := validateReceiveReport(cand.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// Source fabric injects the planned frame and continues its run unaffected.
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst:       candForkH2,
@@ -316,9 +334,15 @@ func casePlanningCandidateForkDiverges() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -326,7 +350,7 @@ func casePlanningCandidateForkDiverges() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -497,6 +521,9 @@ func caseShadowingPartialUnknownPort() Case {
 			}
 
 			fwdUnknown := sw.Receive(now, "1/1/2", frame)
+			if err := validateReceiveResult(fwdUnknown.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:     fwdUnknown.Outcome,
@@ -505,7 +532,7 @@ func caseShadowingPartialUnknownPort() Case {
 				Metadata:    loadRes.Metadata,
 				Switch:      sw,
 				ModelResult: &loadRes,
-				Forward:     &fwdUnknown.ForwardResult,
+				Forward:     &fwdUnknown.Result,
 			}, nil
 		},
 	}
@@ -618,6 +645,9 @@ func caseTroubleshootingUnicastForwarding() Case {
 			}
 
 			fwd := sw.Receive(now, "1/1/1", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -625,7 +655,7 @@ func caseTroubleshootingUnicastForwarding() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -656,7 +686,7 @@ var unresolvedTransceiverEvidence = analysis.Evidence{
 // so the observed rule still resolves the link; carrying an unspecified medium and a nonzero
 // length, it adds propagation-unknown. A static forwarding entry for each of h2 and h3 makes a
 // frame to either of them known unicast, so a hop consults only its ingress and egress ports.
-func unresolvedTransceiverSpec() fabric.ConstructionSpec {
+func unresolvedTransceiverSpec() assembly.ConstructionSpec {
 	gigabit := gigabitAuto()
 	observed := gigabit
 	observed.Observed = &phy.Observed{SpeedBPS: 1_000_000_000, Duplex: phy.Full}
@@ -664,7 +694,7 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 	tbl, _ := port.NewBuilder().Range("1/1/%d", 1, 3, port.Port{Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).Build()
 
 	cat, ref := analysis.EvidenceCatalog{}.Add(unresolvedTransceiverEvidence)
-	spec := fabric.ConstructionSpec{
+	spec := assembly.ConstructionSpec{
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
 				NodeID: "sw1",
@@ -679,15 +709,15 @@ func unresolvedTransceiverSpec() fabric.ConstructionSpec {
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: transceiverH1, Ethernet: gigabit},
 			"h2": {Address: transceiverH2, Ethernet: observed},
 			"h3": {Address: transceiverH3, Ethernet: gigabit},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, LengthMeters: 2, Evidence: []trace.EvidenceRef{ref}},
-			{A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+			{Cable: cablemodel.Cable{LengthMeters: 2}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Evidence: []trace.EvidenceRef{ref}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h3"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
 		},
 		Evidence: cat,
 	}
@@ -712,7 +742,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 	linkScope := analysis.LinkScope("h2:-sw1:1/1/2")
 	cat, ref := analysis.EvidenceCatalog{}.Add(unresolvedTransceiverEvidence)
 	issue := IssueExpectation{
-		Code:     fabric.IssuePropagationUnknown,
+		Code:     cablemodel.IssuePropagationUnknown,
 		Status:   analysis.Incomplete,
 		Scope:    linkScope,
 		Evidence: []trace.EvidenceRef{ref},
@@ -764,22 +794,28 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 		ExpectedFacts: []FactExpectation{fdbHit, macFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.NewWithSpec(unresolvedTransceiverSpec())
+			fab, err := assembly.NewWithSpec(unresolvedTransceiverSpec())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: transceiverH2, Src: transceiverH1, EtherType: ethernet.EtherTypeIPv4},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			steps := journeySteps(journey)
 			fabricMetadata := fab.Metadata()
 
@@ -788,7 +824,7 @@ func caseTopologyShadowingUnresolvedTransceiver() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          steps,
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -842,22 +878,28 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 		ExpectedFacts: []FactExpectation{fdbHit, macFact},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.NewWithSpec(unresolvedTransceiverSpec())
+			fab, err := assembly.NewWithSpec(unresolvedTransceiverSpec())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: transceiverH3, Src: transceiverH1, EtherType: ethernet.EtherTypeIPv4},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			steps := journeySteps(journey)
 			fabricMetadata := fab.Metadata()
 
@@ -866,7 +908,7 @@ func caseTopologyShadowingUnresolvedTransceiverKnownDelivery() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          steps,
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -893,7 +935,7 @@ func journeySteps(j fabric.Journey) []trace.Step {
 // journeyHopResult returns the last recorded hop's forwarding result: the switch-layer outcome
 // host-level acceptance or rejection follows. A journey without a hop, such as one that never
 // left its origin, returns nil.
-func journeyHopResult(j fabric.Journey) *vswitch.ForwardResult {
+func journeyHopResult(j fabric.Journey) *device.Result {
 	for _, e := range slices.Backward(j.Entries) {
 		if e.Result != nil {
 			return e.Result
@@ -985,7 +1027,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1000,28 +1042,34 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 						},
 					},
 				},
-				Hosts:    map[string]fabric.Host{"h1": {Address: uncabledH1, Ethernet: gigabit}},
-				Cables:   []fabric.Cable{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}, Medium: fabric.TwistedPair}},
+				Hosts:    map[string]hostmodel.Config{"h1": {Address: uncabledH1, Ethernet: gigabit}},
+				Cables:   []fabric.Cable{{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1"}}},
 				Uncabled: []fabric.Uncabled{{Endpoint: fabric.Endpoint{Node: "sw1", Port: "3"}, Evidence: []trace.EvidenceRef{uncabledRef}}},
 				Evidence: cat,
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: uncabledBehind3, Src: uncabledH1, EtherType: ethernet.EtherTypeIPv4},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1029,7 +1077,7 @@ func caseTopologyShadowingUncabledPortDefiniteDrop() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1124,7 +1172,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1136,33 +1184,39 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 						Seeds: []bridge.Seed{{MAC: unreportedNegotiationH2, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: unreportedNegotiationH1, Ethernet: gigabit},
 					"h2": {Address: unreportedNegotiationH2},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair, Evidence: []trace.EvidenceRef{linkRef}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Evidence: []trace.EvidenceRef{linkRef}},
 				},
 				Evidence: specCat,
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: unreportedNegotiationH2, Src: unreportedNegotiationH1, EtherType: ethernet.EtherTypeIPv4},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1170,7 +1224,7 @@ func caseTopologyShadowingUnreportedNegotiation() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1306,41 +1360,50 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Start: t0,
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {NodeID: "sw1", Config: sw1Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/1", Lifetime: bridge.Static}}},
 					"sw2": {NodeID: "sw2", Config: sw2Config, Seeds: []bridge.Seed{{MAC: unknownUplinkH2, Port: "1/1/3", Lifetime: bridge.Static}}},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: unknownUplinkH1, Ethernet: gigabit},
 					"h2": {Address: unknownUplinkH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/2"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/3"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw2", Port: "1/1/3"}},
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(200)
+			fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame:  ethernet.Frame{Dst: unknownUplinkH2, Src: unknownUplinkH1, EtherType: ethernet.EtherTypeIPv4},
 			})
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(50)
+			fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1348,7 +1411,7 @@ func caseTopologyShadowingUnknownUplinkSTP() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1416,7 +1479,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				return ExecutionResult{}, err
 			}
 
-			spec := fabric.ConstructionSpec{
+			spec := assembly.ConstructionSpec{
 				Switches: map[string]vswitch.ConstructionSpec{
 					"sw1": {
 						NodeID: "sw1",
@@ -1428,23 +1491,23 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 						Seeds: []bridge.Seed{{MAC: foreignUnicastForeign, Port: "1/1/2", Lifetime: bridge.Static}},
 					},
 				},
-				Hosts: map[string]fabric.Host{
+				Hosts: map[string]hostmodel.Config{
 					"h1": {Address: foreignUnicastH1, Ethernet: gigabit},
 					"h2": {Address: foreignUnicastH2, Ethernet: gigabit},
 				},
 				Cables: []fabric.Cable{
-					{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Medium: fabric.TwistedPair},
-					{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}, Medium: fabric.TwistedPair},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/2"}},
 				},
 			}
 
-			fab, err := fabric.NewWithSpec(spec)
+			fab, err := assembly.NewWithSpec(spec)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 
 			fid, err := fab.Inject(fabric.Injection{
-				At:     fab.Snapshot().Clock,
+				At:     fab.Clock(),
 				Origin: fabric.Endpoint{Node: "h1"},
 				Frame: ethernet.Frame{
 					Dst: foreignUnicastForeign, Src: foreignUnicastH1, EtherType: ethernet.EtherTypeIPv4,
@@ -1454,9 +1517,15 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
-			journey := fab.Report()[fid-1]
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
 			fabricMetadata := fab.Metadata()
 
 			return ExecutionResult{
@@ -1464,7 +1533,7 @@ func caseTroubleshootingHostRejectsForeignUnicast() Case {
 				Reason:         journeyHopReason(journey),
 				Steps:          journeySteps(journey),
 				Metadata:       journey.Metadata,
-				Switch:         fab.Switch("sw1"),
+				Switch:         fab.Device("sw1").(*vswitch.Switch),
 				Journey:        &journey,
 				FabricMetadata: &fabricMetadata,
 			}, nil
@@ -1569,17 +1638,26 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 			// Both flows land on distinct members: flow1 takes the front of
 			// the enabled list (member-a, bucket 28), and flow2 takes the
 			// new front after the rotation (member-b, bucket 253).
-			sw.Receive(now, "in", flow1)
-			sw.Receive(now, "in", flow2)
+			if err := validateReceiveResult(sw.Receive(now, "in", flow1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(sw.Receive(now, "in", flow2).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// member-a faults. Only the bucket it held (flow1's) needs
 			// reassignment; flow2's bucket was never on member-a.
-			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "member-a", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(2*time.Second), "in", flow1)
+			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", flow1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fwd := sw.Receive(now.Add(2*time.Second), "in", flow2)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1587,7 +1665,7 @@ func casePlanningLAGMemberFaultKeepsSurvivingFlows() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1680,17 +1758,24 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 			frame := ethernet.Frame{Dst: dst, Src: netaddr.MAC{0x02, 0, 0, 0, 0, 1}, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("x")}
 
 			now := time.Unix(1700000000, 0)
-			sw.Receive(now, "in", frame)
-
-			if _, err := sw.LinkChange(now.Add(time.Second), "a", port.Down, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if err := validateReceiveResult(sw.Receive(now, "in", frame).Result); err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(2*time.Second), "in", frame)
 
-			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", port.Up, vswitch.PointToPointTrue, 1_000_000_000); err != nil {
+			if _, err := sw.LinkChange(now.Add(time.Second), "a", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
+				return ExecutionResult{}, err
+			}
+			if err := validateReceiveResult(sw.Receive(now.Add(2*time.Second), "in", frame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
+
+			if _, err := sw.LinkChange(now.Add(3*time.Second), "a", device.Link{State: port.Up, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 1_000_000_000}); err != nil {
 				return ExecutionResult{}, err
 			}
 			fwd := sw.Receive(now.Add(4*time.Second), "in", frame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1698,7 +1783,7 @@ func caseTroubleshootingActiveBackupNoFailback() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1808,7 +1893,9 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				return ExecutionResult{}, err
 			}
 			joinFrame := ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}
-			sw.Receive(now, "p1", joinFrame)
+			if err := validateReceiveResult(sw.Receive(now, "p1", joinFrame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			dataFrame := func(src netip.Addr) (ethernet.Frame, error) {
 				hdr := ip.Header{Src: src, Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
@@ -1823,13 +1910,18 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now.Add(time.Second), "p9", frameS1)
+			if err := validateReceiveResult(sw.Receive(now.Add(time.Second), "p9", frameS1).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			frameS2, err := dataFrame(s2)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
 			fwd := sw.Receive(now.Add(time.Second), "p9", frameS2)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1837,7 +1929,7 @@ func caseTroubleshootingSSMRejectsUnjoinedSource() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -1949,7 +2041,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket})
+			if err := validateReceiveResult(sw.Receive(now, "p1", ethernet.Frame{Dst: groupMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: joinPacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			leavePayload, err := igmp.Encode(igmp.Message{Type: igmp.Leave, Group: group})
 			if err != nil {
@@ -1960,7 +2054,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket})
+			if err := validateReceiveResult(sw.Receive(leaveAt, "p1", ethernet.Frame{Dst: allRoutersMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: leavePacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			queryPayload, err := igmp.Encode(igmp.Message{Type: igmp.Query, Version: igmp.V2, Group: group})
 			if err != nil {
@@ -1971,7 +2067,9 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket})
+			if err := validateReceiveResult(sw.Receive(leaveAt, "p9", ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: queryPacket}).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			dataHdr := ip.Header{Src: netip.MustParseAddr("10.9.9.9"), Dst: group, HopLimit: 32, Protocol: 17, V4: &ip.V4{}}
 			dataPacket, err := dataHdr.Encode([]byte("data"))
@@ -1980,8 +2078,13 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 			}
 			dataFrame := ethernet.Frame{Dst: groupMAC, Src: routerMAC, EtherType: ethernet.EtherTypeIPv4, Payload: dataPacket}
 
-			sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame)
+			if err := validateReceiveResult(sw.Receive(leaveAt.Add(time.Second), "p9", dataFrame).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 			fwd := sw.Receive(leaveAt.Add(2*time.Second), "p9", dataFrame)
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1989,7 +2092,7 @@ func caseTroubleshootingLeaveLastMemberQuery() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2151,6 +2254,9 @@ func casePlanningECMPCandidatesRecorded() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -2158,7 +2264,7 @@ func casePlanningECMPCandidatesRecorded() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2285,6 +2391,9 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// The reply arrives on the retransmit deadline, after the second solicitation.
 			replyMsg := arp.Message{
@@ -2301,9 +2410,12 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				return ExecutionResult{}, err
 			}
 			received := sw.Receive(now.Add(time.Second), "out", reply)
+			if err := validateReceiveResult(received.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 			advanced := sw.Advance(now.Add(time.Second))
 
-			var emissions []vswitch.Emission
+			var emissions []device.Emission
 			solicitations := 0
 			for _, emission := range append(append(fwd.Emissions, received.Emissions...), advanced.Emissions...) {
 				if !emission.Protocol {
@@ -2332,13 +2444,56 @@ func caseTroubleshootingNeighborResolutionPending() Case {
 				return ExecutionResult{}, errs.Msgf("neighbor failures = %d, want 0: %+v", len(failures), failures)
 			}
 
+			// The same unresolved forward must finish under its original fabric identity.
+			fabricSwitch := spec.Clone()
+			fabricSwitch.NodeID = "router"
+			gigabit := gigabitAuto()
+			fabricSwitch.Config.Phy = &phy.Config{Ethernet: map[string]phy.Ethernet{"in": gigabit, "out": gigabit}}
+			fab, err := assembly.NewWithSpec(assembly.ConstructionSpec{
+				Start:    now,
+				Switches: map[string]vswitch.ConstructionSpec{"router": fabricSwitch},
+				Hosts: map[string]hostmodel.Config{
+					"source": {Address: hostMAC, Ethernet: gigabit},
+					"target": {Address: learnedMAC, Ethernet: gigabit},
+				},
+				Cables: []fabric.Cable{
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "source"}, B: fabric.Endpoint{Node: "router", Port: "in"}},
+					{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "target"}, B: fabric.Endpoint{Node: "router", Port: "out"}},
+				},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			fid, err := fab.Inject(fabric.Injection{
+				At: now, Origin: fabric.Endpoint{Node: "router", Port: "in"}, Flow: 1,
+				Frame: ethernet.Frame{Dst: routerMAC, Src: hostMAC, EtherType: ethernet.EtherTypeIPv4, Payload: pkt},
+			})
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			if _, err := fab.Inject(fabric.Injection{At: now.Add(time.Second), Origin: fabric.Endpoint{Node: "router", Port: "out"}, Frame: reply}); err != nil {
+				return ExecutionResult{}, err
+			}
+			run := fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+			journey, err := reportJourney(fab, fid)
+			if err != nil {
+				return ExecutionResult{}, err
+			}
+			if run.Err != nil || run.Stop != fabric.StopQueueDrained || journey.State != fabric.JourneyDelivered || len(journey.Deliveries) != 1 || journey.Deliveries[0].Host != "target" {
+				return ExecutionResult{}, errs.Msgf("held journey %d = %+v, stop = %v, want one delivery to target and a drained queue", fid, journey, run.Stop)
+			}
+			stats := fab.Flows()
+			if len(stats) != 1 || stats[1].Offered != 1 || stats[1].Delivered["target"] != 1 || stats[1].Held != 0 {
+				return ExecutionResult{}, errs.Msgf("released flow = %+v, want one offered, one target delivery, no holds", stats)
+			}
+
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
 				Reason:   fwd.Reason,
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2455,6 +2610,9 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				EtherType: ethernet.EtherTypeIPv4,
 				Payload:   pkt,
 			})
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -2462,7 +2620,7 @@ func caseTroubleshootingRecursiveRouteNotInstalled() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 	}
@@ -2522,4 +2680,13 @@ func DefaultRegistry() *Registry {
 	r.MustRegister(casePlanningOversubscribedTrunkUnstatedBuffer())
 	r.MustRegister(casePlanningPolicedStream())
 	return r
+}
+
+func reportJourney(fab *fabric.Fabric, fid fabric.FrameID) (fabric.Journey, error) {
+	for _, j := range fab.Report() {
+		if j.FrameID == fid {
+			return j, nil
+		}
+	}
+	return fabric.Journey{}, errs.Msgf("retained frame %d has no journey", fid)
 }

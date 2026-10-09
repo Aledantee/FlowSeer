@@ -19,7 +19,7 @@ func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
 		Message: "the queue is bounded",
 	}}, analysis.EvidenceCatalog{}, nil)
 	flows := map[fabric.FlowID]fabric.FlowStats{
-		2: {Offered: 2, Delivered: map[string]uint64{"host": 1}, Metadata: metadata},
+		2: {Offered: 2, Held: 1, Delivered: map[string]uint64{"host": 1}, Metadata: metadata},
 		1: {Offered: 1, Delivered: map[string]uint64{"host": 1}, Metadata: metadata},
 	}
 	lab := Observation{Flows: map[fabric.FlowID]FlowObservation{
@@ -33,6 +33,9 @@ func TestReportSortsFlowsAndPreservesSimulatorIssues(t *testing.T) {
 	}
 	if report.Simulator.Status != "incomplete" || len(report.Simulator.Issues) != 1 {
 		t.Fatalf("simulator summary = %+v", report.Simulator)
+	}
+	if got := report.Simulator.Flows[1].HeldAtEnd; got != 1 {
+		t.Fatalf("end-of-run held count = %d, want 1", got)
 	}
 	if report.Normalized[1].LabUnreceived != 1 {
 		t.Fatalf("normalized lab gap = %+v", report.Normalized[1])

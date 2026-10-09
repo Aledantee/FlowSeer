@@ -5,7 +5,12 @@ import (
 	"slices"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
@@ -202,7 +207,7 @@ var (
 // link its frame must cross at sw1; a case's evidence is whether the far end
 // (sw2) admits the frame on that link or the tree governing that VLAN holds
 // it blocked there.
-func stpMSTFabricSpec(mst1, mst2 *stp.MST) (fabric.ConstructionSpec, error) {
+func stpMSTFabricSpec(mst1, mst2 *stp.MST) (assembly.ConstructionSpec, error) {
 	return stpTwoLinkFabricSpec(
 		func(c *stp.Config) { c.MST = mst1 },
 		func(c *stp.Config) { c.MST = mst2 },
@@ -213,7 +218,7 @@ func stpMSTFabricSpec(mst1, mst2 *stp.MST) (fabric.ConstructionSpec, error) {
 // per-VLAN spanning trees in place of the MST region. Everything else is
 // [stpMSTFabricSpec]'s fixture unchanged, so the two protocols are compared
 // over one topology rather than two.
-func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (fabric.ConstructionSpec, error) {
+func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (assembly.ConstructionSpec, error) {
 	return stpTwoLinkFabricSpec(
 		func(c *stp.Config) { c.PVST = pvst1 },
 		func(c *stp.Config) { c.PVST = pvst2 },
@@ -222,7 +227,7 @@ func stpPVSTFabricSpec(pvst1, pvst2 *stp.PVST) (fabric.ConstructionSpec, error) 
 
 // stpTwoLinkFabricSpec builds the shared fixture, letting each caller install
 // the per-switch spanning tree mode.
-func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.ConstructionSpec, error) {
+func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (assembly.ConstructionSpec, error) {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 
 	newPorts := func(access1, access2 string) (port.Table, error) {
@@ -250,11 +255,11 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 
 	sw1Ports, err := newPorts("v10", "v20")
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 	sw2Ports, err := newPorts("d10", "d20")
 	if err != nil {
-		return fabric.ConstructionSpec{}, err
+		return assembly.ConstructionSpec{}, err
 	}
 
 	sw1STP := &stp.Config{
@@ -270,7 +275,7 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 	}
 	sw2Mode(sw2STP)
 
-	return fabric.ConstructionSpec{
+	return assembly.ConstructionSpec{
 		Start: stpCaseStart,
 		Switches: map[string]vswitch.ConstructionSpec{
 			"sw1": {
@@ -305,19 +310,19 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 				},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1v10": {Address: stpMSTSrc10, Ethernet: gigabitAuto()},
 			"h1v20": {Address: stpMSTSrc20, Ethernet: gigabitAuto()},
 			"h2v10": {Address: stpMSTDst10, Ethernet: gigabitAuto()},
 			"h2v20": {Address: stpMSTDst20, Ethernet: gigabitAuto()},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h1v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h1v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2v10"}, B: fabric.Endpoint{Node: "sw2", Port: "d10"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2v20"}, B: fabric.Endpoint{Node: "sw2", Port: "d20"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "l1"}, B: fabric.Endpoint{Node: "sw2", Port: "l1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "l2"}, B: fabric.Endpoint{Node: "sw2", Port: "l2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1v10"}, B: fabric.Endpoint{Node: "sw1", Port: "v10"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1v20"}, B: fabric.Endpoint{Node: "sw1", Port: "v20"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2v10"}, B: fabric.Endpoint{Node: "sw2", Port: "d10"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2v20"}, B: fabric.Endpoint{Node: "sw2", Port: "d20"}},
 		},
 	}, nil
 }
@@ -325,7 +330,7 @@ func stpTwoLinkFabricSpec(sw1Mode, sw2Mode func(*stp.Config)) (fabric.Constructi
 // stpMSTInjectFrame builds fab, runs it to convergence, injects one frame from
 // the VLAN 10 or VLAN 20 host on sw1's side toward that VLAN's host on sw2's
 // side, and returns the resulting journey.
-func stpMSTInjectFrame(spec fabric.ConstructionSpec, vid vlan.ID) (*fabric.Fabric, fabric.Journey, error) {
+func stpMSTInjectFrame(spec assembly.ConstructionSpec, vid vlan.ID) (*fabric.Fabric, fabric.Journey, error) {
 	if vid == 10 {
 		return stpMSTInjectFrameTo(spec, "h1v10", stpMSTSrc10, stpMSTDst10)
 	}
@@ -335,26 +340,31 @@ func stpMSTInjectFrame(spec fabric.ConstructionSpec, vid vlan.ID) (*fabric.Fabri
 
 // stpMSTInjectFrameTo builds fab, runs it to convergence, injects one frame
 // from originHost toward dst, and returns the resulting journey.
-func stpMSTInjectFrameTo(spec fabric.ConstructionSpec, originHost string, src, dst netaddr.MAC) (*fabric.Fabric, fabric.Journey, error) {
-	fab, err := fabric.NewWithSpec(spec)
+func stpMSTInjectFrameTo(spec assembly.ConstructionSpec, originHost string, src, dst netaddr.MAC) (*fabric.Fabric, fabric.Journey, error) {
+	fab, err := assembly.NewWithSpec(spec)
 	if err != nil {
 		return nil, fabric.Journey{}, err
 	}
-	fab.Run(1000)
+	fab.Run(fabric.RunOptions{Budget: 1000, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return fab, fabric.Journey{}, err
+	}
 
 	fid, err := fab.Inject(fabric.Injection{
-		At:     fab.Snapshot().Clock,
+		At:     fab.Clock(),
 		Origin: fabric.Endpoint{Node: originHost},
 		Frame:  ethernet.Frame{Src: src, Dst: dst, EtherType: ethernet.EtherTypeIPv4, Payload: []byte("mst")},
 	})
 	if err != nil {
 		return fab, fabric.Journey{}, err
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
+	if err := validateReceiveReport(fab.Report()); err != nil {
+		return fab, fabric.Journey{}, err
+	}
 
-	report := fab.Report()
-
-	return fab, report[fid-1], nil
+	journey, err := reportJourney(fab, fid)
+	return fab, journey, err
 }
 
 // stpMSTRegion returns the MST region the two MST corpus cases share: VLAN 10
@@ -486,7 +496,7 @@ func casePlanningMSTPVLANInstancesDiverge() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},
@@ -586,7 +596,7 @@ func casePlanningMSTPVLANInstancesDivergeVLAN20CrossesL1() Case {
 				Reason:   journeyHopReason(j20),
 				Steps:    journeySteps(j20),
 				Metadata: j20.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j20,
 			}, nil
 		},
@@ -682,7 +692,7 @@ func casePlanningMSTPVLANInstancesDivergeInstanceBlocksAlternate() Case {
 				Reason:   journeyHopReason(j),
 				Steps:    journeySteps(j),
 				Metadata: j.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j,
 			}, nil
 		},
@@ -792,7 +802,7 @@ func caseTopologyShadowingMSTRegionBoundary() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},
@@ -892,7 +902,7 @@ func caseTopologyShadowingMSTRegionBoundaryVLAN20CrossesL1() Case {
 				Reason:   journeyHopReason(j20),
 				Steps:    journeySteps(j20),
 				Metadata: j20.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j20,
 			}, nil
 		},
@@ -926,7 +936,9 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(33*time.Second), "p2", rootClaim)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(33*time.Second), "p2", rootClaim).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// A second bridge claims the same root on p1 at a cost that beats
 			// this bridge's own, so storing the claim would make p1 Alternate
@@ -937,9 +949,14 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(34*time.Second), "p1", staleClaim)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(34*time.Second), "p1", staleClaim).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			fwd := sw.Receive(stpCaseStart.Add(35*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -947,7 +964,7 @@ func caseTroubleshootingStaleRootAgesOut() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/stale-root-ages-out",
@@ -997,11 +1014,16 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// A frame the forwarding database resolves to p1 now meets a port
 			// the guard has disabled.
 			fwd := sw.Receive(stpCaseStart.Add(2*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1009,7 +1031,7 @@ func caseTroubleshootingBPDUGuardDisablesEdge() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/bpdu-guard-disables-edge",
@@ -1065,13 +1087,18 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU)
+			if err := validateReceiveResult(sw.Receive(stpCaseStart.Add(time.Second), "p1", superiorBPDU).Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			// The link breaks in the receive direction only: nothing more
 			// arrives, and three hello times later the information expires.
 			sw.Advance(stpCaseStart.Add(9 * time.Second))
 
 			fwd := sw.Receive(stpCaseStart.Add(10*time.Second), "p9", stpCaseDataFrame())
+			if err := validateReceiveResult(fwd.Result); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			return ExecutionResult{
 				Outcome:  fwd.Outcome,
@@ -1079,7 +1106,7 @@ func caseTroubleshootingLoopGuardUnidirectionalLink() Case {
 				Steps:    fwd.Steps,
 				Metadata: fwd.Metadata,
 				Switch:   sw,
-				Forward:  &fwd.ForwardResult,
+				Forward:  &fwd.Result,
 			}, nil
 		},
 		ID:      "troubleshooting/loop-guard-unidirectional-link",
@@ -1236,7 +1263,7 @@ func casePlanningPVSTPerVLANRoot() Case {
 				Reason:   journeyHopReason(j10),
 				Steps:    journeySteps(j10),
 				Metadata: j10.Metadata,
-				Switch:   fab.Switch("sw1"),
+				Switch:   fab.Device("sw1").(*vswitch.Switch),
 				Journey:  &j10,
 			}, nil
 		},

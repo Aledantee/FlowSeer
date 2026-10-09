@@ -51,11 +51,29 @@ case analysis.Unstable:
     // Model contains contradictory or conflicting state rows.
 }
 
-// Build the switch directly from the construction specification.
-sw, err := vswitch.NewWithSpec(res.Spec)
+// Build the fabric, then apply the loaded specification with its FDB seeds.
+// No cable names a port here, so each one is declared uncabled and reads Down.
+var uncabled []fabric.Uncabled
+for _, p := range res.Spec.Config.Ports.Ports() {
+    if p.Kind != port.LAG {
+        uncabled = append(uncabled, fabric.Uncabled{Endpoint: fabric.Endpoint{Node: "sw1", Port: p.Name}})
+    }
+}
+fab, err := assembly.New(assembly.Config{
+    Start:    now,
+    Switches: map[string]vswitch.Config{"sw1": res.Spec.Config},
+    Uncabled: uncabled,
+})
 if err != nil {
     return err
 }
+spec := assembly.Spec(fab)
+spec.Switches["sw1"] = res.Spec
+fab, err = assembly.Derive(fab, spec)
+if err != nil {
+    return err
+}
+fmt.Println(fab.Snapshot().Devices["sw1"])
 ```
 
 ## Error versus result separation
@@ -146,8 +164,9 @@ synthesis decisions:
 
 The construction specification contains normalized configuration, executable
 seeds, the source device identity, and an immutable copy of the loading metadata.
-Building a switch with `vswitch.NewWithSpec(res.Spec)` therefore carries scoped
-loading conflicts, skips, assumptions, and their evidence into later forwarding
+Building a switch with `vswitch.NewWithSpec(res.Spec)`, or a fabric from the
+specification with `assembly.Derive` as above, therefore carries scoped loading
+conflicts, skips, assumptions, and their evidence into later forwarding
 results. The detailed loading report remains on `Result` because it describes the
 translation rather than runtime forwarding.
 

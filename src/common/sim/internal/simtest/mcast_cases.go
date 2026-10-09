@@ -304,6 +304,9 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []by
 
 	now := time.Unix(1700000000, 0)
 	fwd := sw.Receive(now, "p1", mdnsFrame)
+	if err := validateReceiveResult(fwd.Result); err != nil {
+		return ExecutionResult{}, err
+	}
 
 	return ExecutionResult{
 		Outcome:  fwd.Outcome,
@@ -311,7 +314,7 @@ func mdnsCaseExecute(hostMAC, groupMAC netaddr.MAC, hdr ip.Header, datagram []by
 		Steps:    fwd.Steps,
 		Metadata: fwd.Metadata,
 		Switch:   sw,
-		Forward:  &fwd.ForwardResult,
+		Forward:  &fwd.Result,
 	}, nil
 }
 

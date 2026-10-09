@@ -6,9 +6,17 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
+	"go.aledante.io/FlowSeer/src/common/net/arp"
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
+	"go.aledante.io/FlowSeer/src/common/net/ip"
+	"go.aledante.io/FlowSeer/src/common/net/ndp"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/device/vswitch"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
@@ -16,9 +24,133 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/layer/lag"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
+
+func TestRoutedLAGEmissionMatrix(t *testing.T) {
+	cells := 0
+	for _, kind := range []string{"routed LAG", "sub-interface on a LAG", "VLAN interface on a LAG"} {
+		for _, path := range []string{"ARP request", "Neighbor Solicitation", "unicast probe", "release"} {
+			t.Run(kind+"/"+path, func(t *testing.T) {
+				cfg, replyPort, replyTags, _, _, _ := routedEgressConfig(t, kind, "none")
+				cfg.LAG = &lag.Config{LAGs: map[string]lag.LAG{"lag1": {
+					Mode: lag.BalanceSLB, Members: map[string]lag.Member{"member-a": {}, "member-b": {}},
+				}}}
+				frame := ethernet.Frame{
+					Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
+					Tags:    []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 10}},
+					Payload: makeIPv4Packet(t, ipH1, ipH2, 64, []byte("same flow")),
+				}
+				if path == "Neighbor Solicitation" {
+					vrf := cfg.Routing.VRFs[routing.DefaultVRF]
+					for name, prefix := range map[string]string{"vlan10": "2001:db8:10::1/64", "vlan20": "2001:db8:20::1/64"} {
+						iface := vrf.Interfaces[name]
+						iface.Prefixes = []netip.Prefix{netip.MustParsePrefix(prefix)}
+						vrf.Interfaces[name] = iface
+					}
+					cfg.Routing.VRFs[routing.DefaultVRF] = vrf
+					frame.EtherType = ethernet.EtherTypeIPv6
+					frame.Payload = makeIPv6Packet(t, netip.MustParseAddr("2001:db8:10::7"), netip.MustParseAddr("2001:db8:20::7"), 64, []byte("same flow"))
+				}
+				sw := mustSwitch(t, cfg)
+				held := sw.Receive(fixedTime, "1/1/1", frame)
+				if held.Outcome != trace.Held || held.Hold == 0 || len(held.Emissions) != 1 {
+					t.Fatalf("initial output = %+v, want held token and one solicitation", held)
+				}
+				first := held.Emissions[0]
+				var second device.Emission
+				switch path {
+				case "ARP request", "Neighbor Solicitation":
+					if !first.Protocol {
+						t.Fatal("solicitation is not a protocol emission")
+					}
+					if path == "ARP request" {
+						msg, err := arp.Decode(first.Frame)
+						if err != nil || msg.Operation != arp.Request || msg.TargetAddr != ipH2 {
+							t.Fatalf("ARP = %+v/%v, want request for %s", msg, err, ipH2)
+						}
+					} else {
+						hdr, payload, err := ip.Decode(first.Frame.Payload)
+						if err != nil {
+							t.Fatal(err)
+						}
+						msg, err := ndp.Decode(hdr, payload)
+						if err != nil || msg.Type != ndp.NeighborSolicitation || msg.Target != netip.MustParseAddr("2001:db8:20::7") {
+							t.Fatalf("NDP = %+v/%v, want Neighbor Solicitation", msg, err)
+						}
+					}
+					retry := sw.Advance(fixedTime.Add(time.Second))
+					if len(retry.Emissions) != 1 {
+						t.Fatalf("retry = %+v, want one emission", retry)
+					}
+					second = retry.Emissions[0]
+				case "release", "unicast probe":
+					reply := makeARPReply(t, ipH2, netip.MustParseAddr("10.0.20.1"), macH2, macRouter)
+					reply.Tags = replyTags
+					released := sw.Receive(fixedTime.Add(time.Millisecond), replyPort, reply)
+					first = soleDataEmission(t, released.Emissions, macH2)
+					if first.Protocol || first.Hold != held.Hold {
+						t.Fatalf("release = %+v, want held token %d", first, held.Hold)
+					}
+					if path == "release" {
+						live := sw.Receive(fixedTime.Add(2*time.Millisecond), "1/1/1", frame)
+						if live.Outcome != trace.Forwarded || len(live.Egress) != 1 {
+							t.Fatalf("live = %+v, want one forwarded egress", live)
+						}
+						second = device.Emission{Port: live.Egress[0].Port, Member: live.Egress[0].Member, Frame: live.Egress[0].Frame}
+					} else {
+						stale := sw.Receive(fixedTime.Add(31*time.Second), "1/1/1", frame)
+						if stale.Outcome != trace.Forwarded {
+							t.Fatalf("stale = %+v, want forwarded", stale)
+						}
+						probe := sw.Advance(fixedTime.Add(36 * time.Second))
+						if len(probe.Emissions) != 1 {
+							t.Fatalf("probe = %+v, want one emission", probe)
+						}
+						first = probe.Emissions[0]
+						msg, err := arp.Decode(first.Frame)
+						if err != nil || msg.Operation != arp.Request || first.Frame.Dst != macH2 || !first.Protocol {
+							t.Fatalf("probe = %+v/%+v/%v, want unicast ARP", first, msg, err)
+						}
+						retry := sw.Advance(fixedTime.Add(37 * time.Second))
+						if len(retry.Emissions) != 1 {
+							t.Fatalf("probe retry = %+v, want one emission", retry)
+						}
+						second = retry.Emissions[0]
+					}
+				}
+				if first.Port != "lag1" || first.Member != "member-a" || second.Port != "lag1" || second.Member != first.Member || second.Frame.Src != first.Frame.Src {
+					t.Fatalf("first = %+v, second = %+v, want same flow on lag1/member-a", first, second)
+				}
+				if path != "release" {
+					// A data frame of the same flow, forwarded with its neighbor resolved,
+					// names the member the protocol frame has to share.
+					liveCfg := cfg.Clone()
+					vrf := liveCfg.Routing.VRFs[routing.DefaultVRF]
+					nextHop := ipH2
+					if path == "Neighbor Solicitation" {
+						nextHop = netip.MustParseAddr("2001:db8:20::7")
+					}
+					vrf.Neighbors = []routing.Neighbor{{Interface: "vlan20", Addr: nextHop, MAC: macH2}}
+					liveCfg.Routing.VRFs[routing.DefaultVRF] = vrf
+					live := mustSwitch(t, liveCfg).Receive(fixedTime, "1/1/1", frame)
+					if len(live.Egress) != 1 {
+						t.Fatalf("live outcome = %s with egress %+v, want one egress", live.Outcome, live.Egress)
+					}
+					if eg := live.Egress[0]; eg.Port != first.Port || eg.Member != first.Member {
+						t.Errorf("%s leaves on %s/%s, want the data frame's %s/%s", path, first.Port, first.Member, eg.Port, eg.Member)
+					}
+				}
+				cells++
+			})
+		}
+	}
+	if cells != 12 {
+		t.Fatalf("emission cells = %d, want 12 reaching member expectations", cells)
+	}
+}
 
 func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	cfg, _, _, _, _, _ := routedEgressConfig(t, "routed LAG", "none")
@@ -30,21 +162,30 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	cfg.LAG = &lag.Config{LAGs: map[string]lag.LAG{
 		"lag1": {Mode: lag.BalanceSLB, Members: map[string]lag.Member{"member-a": {}, "member-b": {}}},
 	}}
+	target := cfg.Clone()
+	bridgeCfg := cfg.Clone()
+	cfg.Bridge = nil
+	cfg.Routing = nil
+	vrf = bridgeCfg.Routing.VRFs[routing.DefaultVRF]
+	delete(vrf.Interfaces, "vlan20")
+	bridgeCfg.Routing.VRFs[routing.DefaultVRF] = vrf
+	bridgeCfg.Bridge.VLAN.Switchports["1/1/1"] = bridge.Switchport{Tagged: []vlan.ID{10, 20}}
+	bridgeCfg.Bridge.VLAN.Switchports["lag1"] = bridge.Switchport{Tagged: []vlan.ID{20}}
 	vid := vlan.ID(20)
-	fab, err := fabric.New(fabric.Config{
+	fab, err := assembly.New(assembly.Config{
 		Start:    fixedTime,
 		Switches: map[string]vswitch.Config{"sw": cfg},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"source": {Address: macH1},
-			"a":      {Address: macH2, VLAN: &vid, Accept: fabric.HostAccept{Promiscuous: true}},
-			"b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, VLAN: &vid, Accept: fabric.HostAccept{Promiscuous: true}},
+			"a":      {Address: macH2, VLAN: &vid, Accept: hostmodel.Accept{Promiscuous: true}},
+			"b":      {Address: netaddr.MAC{2, 0, 0, 0, 0, 3}, VLAN: &vid, Accept: hostmodel.Accept{Promiscuous: true}},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "sw", Port: "1/1/1"}, B: fabric.Endpoint{Node: "source"}},
 			{A: fabric.Endpoint{Node: "sw", Port: "member-a"}, B: fabric.Endpoint{Node: "a"}},
 			{A: fabric.Endpoint{Node: "sw", Port: "member-b"}, B: fabric.Endpoint{Node: "b"}},
 		},
-		PhyAssumption: &fabric.PhyAssumption{Medium: fabric.TwistedPair, Ethernet: phy.Ethernet{
+		PhyAssumption: &cablemodel.PhyAssumption{Medium: cablemodel.TwistedPair, Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported, Setting: &phy.Setting{AutoNegotiation: true},
 		}},
@@ -52,17 +193,35 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sw := fab.Switch("sw")
 	// The routed selection uses VID zero. A later selection from the wire tag
 	// would use a different, deliberately primed bucket.
-	for _, prime := range []struct {
-		vid    vlan.ID
-		member string
-	}{{0, "member-a"}, {20, "member-b"}} {
-		member, ok := sw.SelectMember(fixedTime, "lag1", ethernet.Frame{Src: macRouter}, prime.vid)
-		if !ok || member != prime.member {
-			t.Fatalf("selection for VID %d = %s/%v, want %s", prime.vid, member, ok, prime.member)
-		}
+	primeFrame := ethernet.Frame{Src: macRouter, Dst: netaddr.MAC{0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, Payload: []byte("prime")}
+	var zero device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		zero = d.(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(zero.Egress) != 1 || zero.Egress[0].Member != "member-a" {
+		t.Fatalf("VID zero egress = %+v, want member-a", zero.Egress)
+	}
+	if err := assembly.Configure(fab, "sw", bridgeCfg); err != nil {
+		t.Fatal(err)
+	}
+	primeFrame.Tags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
+	var tagged device.Output
+	if err := fabric.Operate(fab, "sw", func(d device.Device, _ time.Time) (device.Output, error) {
+		tagged = d.(*vswitch.Switch).Receive(fixedTime, "1/1/1", primeFrame)
+		return device.Output{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(tagged.Egress) != 1 || tagged.Egress[0].Member != "member-b" {
+		t.Fatalf("VID 20 egress = %+v, want member-b", tagged.Egress)
+	}
+	if err := assembly.Configure(fab, "sw", target); err != nil {
+		t.Fatal(err)
 	}
 	frame := ethernet.Frame{
 		Src: macH1, Dst: macRouter, EtherType: ethernet.EtherTypeIPv4,
@@ -78,13 +237,13 @@ func TestHeldLAGEgressUsesSelectedMemberOnWire(t *testing.T) {
 	if _, err := fab.Inject(fabric.Injection{At: fixedTime.Add(time.Millisecond), Origin: fabric.Endpoint{Node: "sw", Port: "member-a"}, Frame: reply}); err != nil {
 		t.Fatal(err)
 	}
-	fab.Run(50)
+	fab.Run(fabric.RunOptions{Budget: 50, Window: 0})
 	if err := fab.Err(); err != nil {
 		t.Fatal(err)
 	}
 	releases := 0
 	for _, journey := range fab.Report() {
-		if journey.Origin.Kind != fabric.OriginRelease || journey.Origin.Of != heldID {
+		if journey.FrameID != heldID {
 			continue
 		}
 		releases++
@@ -190,7 +349,7 @@ func routedEgressConfig(t *testing.T, kind, binding string) (vswitch.Config, str
 		delete(cfg.Bridge.VLAN.Switchports, "1/1/2")
 		replyTags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
 		wantTags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20, PCP: 5, DEI: true}}
-	case "routed LAG":
+	case "routed LAG", "sub-interface on a LAG", "VLAN interface on a LAG":
 		cfg.Ports = mustTable(t, port.NewBuilder().
 			Add(port.Port{Name: "1/1/1", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 			Add(port.Port{Name: "lag1", Kind: port.LAG, AdminStatus: port.Up, OperStatus: port.Up}).
@@ -199,6 +358,15 @@ func routedEgressConfig(t *testing.T, kind, binding string) (vswitch.Config, str
 		delete(cfg.Bridge.VLAN.Switchports, "1/1/2")
 		iface.Port = "lag1"
 		replyPort, wantPort, wantMember = "member-a", "lag1", "member-a"
+		if kind != "routed LAG" {
+			iface.VLAN = 20
+			replyTags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20}}
+			wantTags = []vlan.Tag{{TPID: uint16(ethernet.EtherTypeDot1Q), VID: 20, PCP: 5, DEI: true}}
+		}
+		if kind == "VLAN interface on a LAG" {
+			iface.Port = ""
+			cfg.Bridge.VLAN.Switchports["lag1"] = bridge.Switchport{Tagged: []vlan.ID{20}}
+		}
 	default:
 		t.Fatalf("unknown egress kind %s", kind)
 	}

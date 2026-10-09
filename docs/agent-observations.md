@@ -137,3 +137,62 @@ Suggested change: add a sentence to Answer that an answer removing a
 requirement edits the requirement in the phase and in its parent in the same
 commit, names where the dropped work now lives, and runs the verifier on
 both paths. `steer` decides whether `plan` needs the same line.
+
+## 2026-10-09 implement: a stage stops whole when a unit's rule makes a planned or standing test unbuildable
+Skill or agent: `.claude/skills/implement/SKILL.md`, step 2, and
+`.claude/skills/drive/SKILL.md`, step 4.
+What happened: the fabric and device seam phase of the simulation overhaul
+stopped three times on a test, not on code. A planned test could not be
+built because validation refuses its input (plan commit `9f8a6beb` moved it
+to a later unit). A standing test lost the state it planted because the
+unit's rule released it first (`01add323`). A planned test needed a device
+two of its three callers cannot accept (`2b5a531a`, settled in `63e54bdd`).
+Each stop was followed as written: the worker stated a blocker and the
+whole stage ended, with fifteen units still pending the first time. The
+coordinator ruled on each as test placement or setup and restarted the
+stage.
+Suggested change: give `implement` a rule for these cases. A planned test
+its unit cannot build moves to the first later unit that can, noted in both
+units' Tests text. A standing test whose planted state the rule removes
+gets a setup that survives the rule, with its counts and reasons unchanged,
+plus a case for what the rule now does. The worker stops only when neither
+keeps the proof or a user Decision would change. Say in `drive`, step 4,
+that such a ruling is the coordinator's and is reported, not parked.
+
+## 2026-10-09 delegate: `orca-worker status` read a working lane as idle
+Skill or agent: `tools/scripts/skills/delegate/orca_worker.py`, `status`.
+What happened: `status` printed `idle` for a plan stage lane whose screen
+showed the worker mid-turn. The screen, read with `read`, was right. The
+step was followed as written and gave the wrong answer.
+Suggested change: have `status` use the same working test `wait` uses, or
+print `unknown` when the two disagree. Add a test with a mid-turn screen.
+
+## 2026-10-09 drive: skills loaded before a merge of `main` name commands the merge removed
+Skill or agent: `.claude/skills/drive/SKILL.md`, step 3.
+What happened: the drive merged `main` into its branch between phases
+(`30071f66`). That merge replaced `.claude/skills/delegate/scripts/orca-worker.sh`
+with `uv run tools/scripts/run.py delegate orca-worker`. The coordinator's
+loaded copy of `drive`, `delegate`, and `land` still named the shell
+script, so the next dispatch failed on a missing file. Worker lanes started
+from the pre-merge branch were stopped by a Stop hook that printed
+`run.py: unknown command: hooks stop-check`.
+Suggested change: in `drive`, step 3, after a land's merge of `main`,
+reload the workflow skills when
+`git diff --name-only ORIG_HEAD..HEAD -- .agents/skills tools/scripts`
+prints a path, and start no lane from a branch older than that merge.
+
+## 2026-10-09 verify-change: the OpenTelemetry integration gate fails under Colima without three settings
+Skill or agent: `.claude/skills/verify-change/SKILL.md`, the service
+OpenTelemetry integration gate.
+What happened: a stage worker's final verifier failed with
+`rootless Docker not found, failed to create Docker provider` although
+`docker info` succeeded on the Colima context. It passed with `DOCKER_HOST`
+set to the Colima socket, `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`,
+and a `TMPDIR` under the home directory, since the default one is not
+mounted in the VM. The worker cites
+`github.com/testcontainers/testcontainers-go@v0.44.0/internal/core/docker_host.go:126-150`
+for the lookup order. That reading is unverified here. No step names these
+settings, so each worker rediscovers them.
+Suggested change: have the gate read the active Docker context's socket
+when `DOCKER_HOST` is unset, or name the three settings in
+`verify-change`'s notes on Docker.

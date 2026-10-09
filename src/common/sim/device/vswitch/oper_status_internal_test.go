@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/errs"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
@@ -24,7 +25,7 @@ func TestLinkChangeRejectsAbsentPortWithoutMutation(t *testing.T) {
 	}
 	before := sw.ports.Ports()
 	beforeRelay := sw.bridge.Clone()
-	_, err = sw.LinkChange(time.Time{}, "absent", port.Down, PointToPointTrue, 0)
+	_, err = sw.LinkChange(time.Time{}, "absent", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0})
 	if err == nil {
 		t.Fatal("LinkChange(absent, Down) accepted absent port")
 	}
@@ -53,7 +54,7 @@ func TestLinkChangeRejectsAbsentPortWithoutRelay(t *testing.T) {
 		t.Fatal("New without Bridge constructed a relay, want nil")
 	}
 	before := sw.ports.Clone()
-	_, err = sw.LinkChange(time.Time{}, "absent", port.Down, PointToPointTrue, 0)
+	_, err = sw.LinkChange(time.Time{}, "absent", device.Link{State: port.Down, Duplex: device.DuplexFull, PeerRelays: true, SpeedBPS: 0})
 	if err == nil {
 		t.Error("LinkChange(absent, Down) error = nil, want error")
 	} else if got := errs.Attributes(err)["field"]; got != "ports.absent" {

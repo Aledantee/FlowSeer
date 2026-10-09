@@ -6,7 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
 	"go.aledante.io/FlowSeer/src/common/net/bpdu"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"buf.build/go/protovalidate"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -40,9 +43,9 @@ func mustEncode(t *testing.T, b bpdu.BPDU, src netaddr.MAC) ethernet.Frame {
 // gigabitCopper is the physical profile these fabric fixtures assume, since
 // they exercise protocol export and loading rather than link negotiation:
 // auto-negotiating 10 Mb/s to 1 Gb/s ends over twisted pair.
-func gigabitCopper() *fabric.PhyAssumption {
-	return &fabric.PhyAssumption{
-		Medium: fabric.TwistedPair,
+func gigabitCopper() *cablemodel.PhyAssumption {
+	return &cablemodel.PhyAssumption{
+		Medium: cablemodel.TwistedPair,
 		Ethernet: phy.Ethernet{
 			SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 			AutoNegotiationSupported: phy.CapabilitySupported,
@@ -74,7 +77,7 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		"sw3": {0, 0, 0, 0, 1, 3},
 	}
 
-	cfg := fabric.Config{
+	cfg := assembly.Config{
 		Start: t0,
 		Switches: map[string]vswitch.Config{
 			"sw1": {
@@ -116,19 +119,19 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		},
 		Cables: []fabric.Cable{
 			{
-				A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-				B:            fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+				B:     fabric.Endpoint{Node: "sw2", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw2", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw3", Port: "1/1/2"},
 			},
 			{
-				A:            fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
-				B:            fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
-				LengthMeters: 1.0,
+				Cable: cablemodel.Cable{LengthMeters: 1.0},
+				A:     fabric.Endpoint{Node: "sw3", Port: "1/1/3"},
+				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/3"},
 			},
 		},
 		Uncabled: []fabric.Uncabled{
@@ -139,9 +142,9 @@ func newRingTopology(t *testing.T) (*fabric.Fabric, time.Time, map[string]netadd
 		PhyAssumption: gigabitCopper(),
 	}
 
-	fab, err := fabric.New(cfg)
+	fab, err := assembly.New(cfg)
 	if err != nil {
-		t.Fatalf("fabric.New: %v", err)
+		t.Fatalf("assembly.New: %v", err)
 	}
 
 	return fab, t0, macs
@@ -180,7 +183,7 @@ func stateMatches(protoState stpv1.ForwardingState, layerState stp.State) bool {
 func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 	fab, t0, macs := newRingTopology(t)
 
-	fab.Run(200)
+	fab.Run(fabric.RunOptions{Budget: 200, Window: 0})
 
 	sw1MAC := macs["sw1"]
 	swNames := []string{"sw1", "sw2", "sw3"}
@@ -189,7 +192,7 @@ func TestStpExportAndLoad_RingConvergence(t *testing.T) {
 	operUp := interfacev1.OperStatus_OPER_STATUS_UP
 
 	for _, name := range swNames {
-		sw := fab.Switch(name)
+		sw := fab.Device(name).(*vswitch.Switch)
 		if sw == nil {
 			t.Fatalf("switch %s not found in fabric", name)
 		}

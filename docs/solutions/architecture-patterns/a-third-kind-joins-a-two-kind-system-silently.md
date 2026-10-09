@@ -72,13 +72,16 @@ construction path.
 
 ## Evidence
 
-- The two-map shape and its classification sites:
-  `src/common/sim/fabric/config.go`, `fabric.go`, and `run.go`. After the
-  change the reflector map is read at twenty non-test sites across the package.
-- The panicking lookup: `src/common/sim/fabric/run.go` reads
-  `f.switches[arr.Device]` and dereferences it two lines later through
-  `Ports()`, which returns `s.ports.Clone()`
-  (`src/common/sim/device/vswitch/switch.go:390-392`).
+- The configuration maps and their construction sites live in
+  `src/common/sim/assembly/config.go` and `src/common/sim/assembly/assemble.go`.
+  Runtime acceptance comes from `device.Result.Acceptance`, returned by the
+  host and reflector. `src/common/sim/fabric/run.go` drives both through
+  `device.Device.Receive`.
+- The reflector configuration and acceptance live in
+  `src/common/sim/device/reflector/config.go` and `accept.go`.
+  `TestReflectorSpecRoundTrip` in
+  `src/common/sim/fabric/reflector_accept_test.go` checks the configured map
+  survives construction and reconstruction.
 - The dropped map: removing the reflector field from the construction-spec
   assembler fails the round-trip test with
   `cable 2 endpoint A: endpoint node "r1" not found`, watched on 2026-09-17.

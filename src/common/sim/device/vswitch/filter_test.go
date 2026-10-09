@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"go.aledante.io/FlowSeer/src/common/net/arp"
-	"go.aledante.io/FlowSeer/src/common/net/netaddr"
-
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
+	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/tcp"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/device"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/filter"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/routing"
@@ -85,7 +85,7 @@ func heldFilterReply(t *testing.T) ethernet.Frame {
 	return frame
 }
 
-func assertHeldFilterDrop(t *testing.T, out Output, iface string) {
+func assertHeldFilterDrop(t *testing.T, out device.Output, iface string) {
 	t.Helper()
 	if len(out.Drops) != 1 || out.Drops[0].Reason != filter.ReasonFilterDrop {
 		t.Fatalf("drops = %+v, want one filter refusal", out.Drops)
@@ -205,7 +205,7 @@ func TestHeldFrameMeetsDerivedIngressFilter(t *testing.T) {
 	}
 	cfg := sw.Config()
 	cfg.Filter.Sets["inbound"] = filter.RuleSet{Default: filter.Drop}
-	next, out, err := Derive(sw, ConstructionSpec{Config: cfg})
+	next, out, err := Derive(sw, ConstructionSpec{Config: cfg}, fixedTime)
 	if err != nil {
 		t.Fatal(err)
 	}

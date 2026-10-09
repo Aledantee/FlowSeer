@@ -136,7 +136,7 @@ func (l *Layer) Receive(now time.Time, ifaceName string, frame ethernet.Frame) l
 		answerHeader := ip.Header{Src: msg.Target, Dst: dst, Protocol: 58, HopLimit: 255, V6: &ip.V6{}}
 		answer, err := ndp.Encode(answerHeader, ndp.Message{
 			Type: ndp.NeighborAdvertisement, Target: msg.Target,
-			Router: true, Solicited: !hdr.Src.IsUnspecified(), Override: true, HasLinkLayerAddr: true, LinkLayerAddr: iface.MAC,
+			Router: !l.clearRouterFlag, Solicited: !hdr.Src.IsUnspecified(), Override: true, HasLinkLayerAddr: true, LinkLayerAddr: iface.MAC,
 		})
 		if err != nil {
 			return layer.Effects{}

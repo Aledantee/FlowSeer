@@ -4,6 +4,7 @@ import (
 	"maps"
 
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/trace"
 )
 
@@ -95,7 +96,7 @@ func (f *Fabric) countCorruptIngress(device, portName string, inBytes uint64) {
 	c := f.counter(device, portName)
 	c.InBytes += inBytes
 	c.InErrors++
-	c.Discards[ReasonBadFrame]++
+	c.Discards[cablemodel.ReasonBadFrame]++
 }
 
 func (f *Fabric) countWholeFrameDrop(device, portName string, reason trace.Reason) {
@@ -126,7 +127,8 @@ func (f *Fabric) countEgressDrop(device, portName string, reason trace.Reason) {
 // snapshotCounters copies every port's counters for one device, with a zero
 // row for a port that counted nothing, so a reader sees the whole table.
 func (f *Fabric) snapshotCounters(device string) map[string]Counters {
-	sw, ok := f.switches[device]
+	sw := f.nodeDevice(device)
+	ok := sw != nil
 	if !ok {
 		return nil
 	}

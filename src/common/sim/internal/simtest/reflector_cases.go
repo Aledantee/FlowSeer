@@ -4,7 +4,14 @@ import (
 	"net/netip"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	reflectormodel "go.aledante.io/FlowSeer/src/common/sim/device/reflector"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/errs"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -63,7 +70,7 @@ var (
 // [caseTroubleshootingMDNSIPv4FloodsUnderSnooping]'s sibling proof at the
 // switch layer alone. r1's two attachments carry the only addresses of h2's
 // family, so accepting on one produces exactly one copy.
-func reflectedQueryConfig() (fabric.Config, error) {
+func reflectedQueryConfig() (assembly.Config, error) {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 	flood := false
@@ -74,10 +81,10 @@ func reflectedQueryConfig() (fabric.Config, error) {
 		Add(port.Port{Name: "p9", Kind: port.Physical, AdminStatus: port.Up, OperStatus: port.Up}).
 		Build()
 	if err != nil {
-		return fabric.Config{}, err
+		return assembly.Config{}, err
 	}
 
-	return fabric.Config{
+	return assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: tbl,
@@ -96,28 +103,28 @@ func reflectedQueryConfig() (fabric.Config, error) {
 				Phy: &phy.Config{Ethernet: map[string]phy.Ethernet{"p1": gigabit, "p2": gigabit, "p9": gigabit}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectedQueryH1MAC, Ethernet: gigabit},
 			"h2": {
 				Address: reflectedQueryH2MAC, Ethernet: gigabit,
-				IP:     &fabric.HostIP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
-				Accept: fabric.HostAccept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
+				IP:     &hostmodel.IP{Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.5/24")}},
+				Accept: hostmodel.Accept{Multicast: []netaddr.MAC{reflectorGroupMAC}},
 			},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectedQueryR1MAC,
 				Ports:   map[string]phy.Ethernet{"trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"v10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"v20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.9/24")}},
 				},
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "p1"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "p2"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "sw1", Port: "p9"}, B: fabric.Endpoint{Node: "r1", Port: "trunk"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "p1"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h2"}, B: fabric.Endpoint{Node: "sw1", Port: "p2"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "sw1", Port: "p9"}, B: fabric.Endpoint{Node: "r1", Port: "trunk"}},
 		},
 	}, nil
 }
@@ -186,7 +193,7 @@ func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab, err := fabric.New(cfg)
+			fab, err := assembly.New(cfg)
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -203,7 +210,10 @@ func caseTroubleshootingMDNSReflectedAcrossVLANs() Case {
 			if err != nil {
 				return ExecutionResult{}, err
 			}
-			fab.Run(10)
+			fab.Run(fabric.RunOptions{Budget: 10, Window: 0})
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 
 			var copyJourney fabric.Journey
 			matches := 0
@@ -246,19 +256,19 @@ var (
 // their ancestry has not yet entered; only the third copy, r1's reflection
 // of that second one back onto the trunk a second time, finds the trunk
 // port already there and closes the loop.
-func reflectorLoopConfig() fabric.Config {
+func reflectorLoopConfig() assembly.Config {
 	vid10, vid20 := vlan.ID(10), vlan.ID(20)
 	gigabit := gigabitAuto()
 
-	return fabric.Config{
-		Hosts: map[string]fabric.Host{
+	return assembly.Config{
+		Hosts: map[string]hostmodel.Config{
 			"h1": {Address: reflectorLoopH1MAC, VLAN: &vid10, Ethernet: gigabit},
 		},
-		Reflectors: map[string]fabric.Reflector{
+		Reflectors: map[string]reflectormodel.Config{
 			"r1": {
 				Address: reflectorLoopR1MAC,
 				Ports:   map[string]phy.Ethernet{"up": gigabit, "trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"up":  {Port: "up", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.9/24")}},
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.10/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.10/24")}},
@@ -267,15 +277,15 @@ func reflectorLoopConfig() fabric.Config {
 			"r2": {
 				Address: reflectorLoopR2MAC,
 				Ports:   map[string]phy.Ethernet{"trunk": gigabit},
-				Attachments: map[string]fabric.Attachment{
+				Attachments: map[string]reflectormodel.Attachment{
 					"t10": {Port: "trunk", VLAN: &vid10, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.10.20/24")}},
 					"t20": {Port: "trunk", VLAN: &vid20, Addresses: []netip.Prefix{netip.MustParsePrefix("10.0.20.20/24")}},
 				},
 			},
 		},
 		Cables: []fabric.Cable{
-			{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "up"}, Medium: fabric.TwistedPair},
-			{A: fabric.Endpoint{Node: "r1", Port: "trunk"}, B: fabric.Endpoint{Node: "r2", Port: "trunk"}, Medium: fabric.TwistedPair},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "r1", Port: "up"}},
+			{Cable: cablemodel.Cable{Medium: cablemodel.TwistedPair}, A: fabric.Endpoint{Node: "r1", Port: "trunk"}, B: fabric.Endpoint{Node: "r2", Port: "trunk"}},
 		},
 	}
 }
@@ -303,7 +313,7 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 	udpPorts := expectedFact("fabric.udp_ports", "src=5353;dst=5353")
 
 	steps := []StepExpectation{
-		expectedStep(fabric.ReflectorLayer, trace.OpFilter, "reflector.accepted", trace.Subject{Kind: "reflector", Key: "r2"},
+		expectedStep(reflectormodel.Layer, trace.OpFilter, "reflector.accepted", trace.Subject{Kind: "reflector", Key: "r2"},
 			[]FactExpectation{vlanTags, macFact, addrFact, udpPorts}, nil),
 	}
 
@@ -329,7 +339,7 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 		ExpectedFacts: []FactExpectation{macFact, addrFact, udpPorts},
 		ExpectedSteps: steps,
 		Execute: func() (ExecutionResult, error) {
-			fab, err := fabric.New(reflectorLoopConfig())
+			fab, err := assembly.New(reflectorLoopConfig())
 			if err != nil {
 				return ExecutionResult{}, err
 			}
@@ -345,7 +355,10 @@ func caseTroubleshootingMDNSTwoReflectorsLoop() Case {
 			}); err != nil {
 				return ExecutionResult{}, err
 			}
-			steps := fab.Run(reflectorLoopBudget).Steps
+			steps := fab.Run(fabric.RunOptions{Budget: reflectorLoopBudget, Window: 0}).Steps
+			if err := validateReceiveReport(fab.Report()); err != nil {
+				return ExecutionResult{}, err
+			}
 			if steps != reflectorLoopBudget || len(fab.Snapshot().Queue) == 0 {
 				return ExecutionResult{}, errs.Msgf(
 					"fabric.Run(%d) = %d steps with %d arrivals queued, want the budget exhausted with work still queued",
@@ -389,7 +402,7 @@ func journeyHasKind(entries []fabric.Entry, kind fabric.EntryKind) bool {
 // entry: [trace.Consumed] for a reflector or host taking the frame for
 // itself, [trace.Dropped] for one rejecting, discarding, or failing to
 // decide it. Unlike journeyHopOutcome, which reads the last switch-layer
-// [vswitch.ForwardResult], a reflector's own arrival carries no such
+// [device.Result], a reflector's own arrival carries no such
 // result, only the Step its acceptance or refusal recorded.
 func journeyLastEntryOutcome(j fabric.Journey) trace.Outcome {
 	if len(j.Entries) == 0 {

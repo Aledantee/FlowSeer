@@ -162,7 +162,7 @@ func (d *L2TrafficDomain) buildCandidate(
 
 	return Candidate{
 		Tuple:   tuple,
-		Actions: []fabric.Action{{At: d.at, Index: 1, Kind: fabric.ActionInject, Inject: &inj}},
+		Actions: []fabric.Action{{ID: "inject", At: d.at, Index: 1, Kind: fabric.ActionInject, Inject: &inj}},
 	}
 }
 

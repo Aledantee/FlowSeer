@@ -8,6 +8,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 var (
@@ -48,8 +49,8 @@ func TestCandidateCloneIsolation(t *testing.T) {
 				At: time.Date(2026, 1, 1, 0, 0, 1, 0, time.UTC), Kind: fabric.ActionFault, Fault: &fabric.FaultAction{
 					A: fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 					B: fabric.Endpoint{Node: "sw2", Port: "1/1/1"},
-					Fault: fabric.Fault{
-						Kind:     fabric.FaultLoseSequence,
+					Fault: cablemodel.Fault{
+						Kind:     cablemodel.FaultLoseSequence,
 						Sequence: []uint{1, 3},
 					},
 				},
@@ -61,8 +62,8 @@ func TestCandidateCloneIsolation(t *testing.T) {
 
 	// Mutate clone
 	cloned.Tuple = "t2"
-	cloned.Actions[0].Inject.Frame.Tags[0].VID = 20
-	cloned.Actions[0].Inject.Frame.Payload[0] = 99
+	cloned.Actions[0].Inject.Frame.Tags = []vlan.Tag{{VID: 20}}
+	cloned.Actions[0].Inject.Frame.Payload = []byte{99}
 	cloned.Actions[0].Inject.Packet.Payload[0] = 88
 	cloned.Actions[1].Fault.Fault.Sequence[0] = 77
 
@@ -104,7 +105,7 @@ func TestCandidateValidationAndStableIndices(t *testing.T) {
 		t.Fatal("configure action accepted")
 	}
 	candidate.Actions = []fabric.Action{injection}
-	scenario := candidate.ToScenario(10)
+	scenario := candidate.ToScenario()
 	if scenario.Actions[0].Index != 7 {
 		t.Fatalf("Index=%d, want 7", scenario.Actions[0].Index)
 	}
@@ -130,15 +131,22 @@ func TestProductSizeBounds(t *testing.T) {
 func TestCandidateNumbersInjectionBeforeTiedFault(t *testing.T) {
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	candidate := Candidate{Actions: []fabric.Action{
-		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}},
+		{At: at, Kind: fabric.ActionFault, Fault: &fabric.FaultAction{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}},
 		{At: at, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}}},
 	}}
 	if err := candidate.Validate(); err != nil {
 		t.Fatal(err)
 	}
-	scenario := candidate.ToScenario(10)
+	scenario := candidate.ToScenario()
 	if len(scenario.Actions) != 2 || scenario.Actions[0].Kind != fabric.ActionInject || scenario.Actions[0].Index != 1 || scenario.Actions[1].Kind != fabric.ActionFault || scenario.Actions[1].Index != 2 {
 		t.Fatalf("actions = %+v, want injection 1 then fault 2", scenario.Actions)
+	}
+	if scenario.Actions[0].ID != "action-2" || scenario.Actions[1].ID != "action-1" {
+		t.Fatalf("action IDs = %q/%q, want action-2/action-1", scenario.Actions[0].ID, scenario.Actions[1].ID)
+	}
+	reduced := Candidate{Actions: scenario.Actions[:1]}.ToScenario()
+	if reduced.Actions[0].ID != "action-2" {
+		t.Fatalf("reduced action ID = %q, want action-2", reduced.Actions[0].ID)
 	}
 	if candidate.Actions[0].Index != 0 || candidate.Actions[1].Index != 0 {
 		t.Fatalf("original indices = %d/%d, want 0/0", candidate.Actions[0].Index, candidate.Actions[1].Index)

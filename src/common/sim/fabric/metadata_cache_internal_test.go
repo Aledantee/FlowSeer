@@ -1,10 +1,12 @@
-package fabric
+package fabric_test
 
 import (
 	"slices"
 	"testing"
 
 	"go.aledante.io/FlowSeer/src/common/sim/analysis"
+	"go.aledante.io/FlowSeer/src/common/sim/fabric"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 )
 
 // TestFabricMetadataCachesUntilSetFault pins the two halves of the cache:
@@ -14,16 +16,16 @@ func TestFabricMetadataCachesUntilSetFault(t *testing.T) {
 	fab := newTestFabricForFork(t)
 
 	first := fab.Metadata()
-	if fab.metadataCache == nil {
+	if (*fabric.ExportFabricMetadataCache(fab)) == nil {
 		t.Fatal("Metadata did not cache its result")
 	}
 	if !sameMetadata(first, fab.Metadata()) {
 		t.Error("two Metadata calls without a SetFault returned different values")
 	}
 
-	a := Endpoint{Node: "h1"}
-	b := Endpoint{Node: "sw1", Port: "1/1/1"}
-	if err := fab.SetFault(a, b, Fault{Kind: FaultCut}); err != nil {
+	a := fabric.Endpoint{Node: "h1"}
+	b := fabric.Endpoint{Node: "sw1", Port: "1/1/1"}
+	if err := fab.SetFault(a, b, cablemodel.Fault{Kind: cablemodel.FaultCut}); err != nil {
 		t.Fatalf("SetFault: %v", err)
 	}
 

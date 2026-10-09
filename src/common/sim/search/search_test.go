@@ -7,6 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/netaddr"
 	"go.aledante.io/FlowSeer/src/common/net/vlan"
@@ -15,6 +19,7 @@ import (
 	"go.aledante.io/FlowSeer/src/common/sim/fabric"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/bridge"
 	"go.aledante.io/FlowSeer/src/common/sim/layer/phy"
+	cablemodel "go.aledante.io/FlowSeer/src/common/sim/medium/cable"
 	"go.aledante.io/FlowSeer/src/common/sim/port"
 )
 
@@ -56,9 +61,9 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			},
 		}
 
-		cfg := fabric.Config{
-			PhyAssumption: &fabric.PhyAssumption{
-				Medium: fabric.TwistedPair,
+		cfg := assembly.Config{
+			PhyAssumption: &cablemodel.PhyAssumption{
+				Medium: cablemodel.TwistedPair,
 				Ethernet: phy.Ethernet{
 					SupportedSpeedsBPS:       []uint64{10_000_000, 100_000_000, 1_000_000_000},
 					AutoNegotiationSupported: phy.CapabilitySupported,
@@ -68,29 +73,27 @@ func makeTestFabrics(t *testing.T) (cur, cand, curTwin, candTwin *fabric.Fabric,
 			Switches: map[string]vswitch.Config{
 				"sw1": swCfg,
 			},
-			Hosts: map[string]fabric.Host{
+			Hosts: map[string]hostmodel.Config{
 				"h1": {Address: h1MAC},
 				"h2": {Address: h2MAC},
 			},
 			Cables: []fabric.Cable{
 				{
-					A:            fabric.Endpoint{Node: "h1"},
-					B:            fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "h1"},
+					B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
 				},
 				{
-					A:            fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
-					B:            fabric.Endpoint{Node: "h2"},
-					LengthMeters: 5,
-					Medium:       fabric.TwistedPair,
+					Cable: cablemodel.Cable{LengthMeters: 5, Medium: cablemodel.TwistedPair},
+					A:     fabric.Endpoint{Node: "sw1", Port: "1/1/2"},
+					B:     fabric.Endpoint{Node: "h2"},
 				},
 			},
 		}
 
-		fab, err := fabric.New(cfg)
+		fab, err := assembly.New(cfg)
 		if err != nil {
-			t.Fatalf("fabric.New: %v", err)
+			t.Fatalf("assembly.New: %v", err)
 		}
 		return fab
 	}
@@ -218,11 +221,11 @@ func TestSearchDetectsDifferenceAndCapturesReplay(t *testing.T) {
 	if diff.Difference.Observable == "" {
 		t.Errorf("retained difference observable is empty")
 	}
-	if diff.Replay[0].Contract != fabric.ReplayContract {
-		t.Errorf("retained difference replay[0] contract = %q, want %q", diff.Replay[0].Contract, fabric.ReplayContract)
+	if diff.Replay[0].Checkpoint() == nil {
+		t.Errorf("retained difference replay[0] has no checkpoint")
 	}
-	if diff.Replay[1].Contract != fabric.ReplayContract {
-		t.Errorf("retained difference replay[1] contract = %q, want %q", diff.Replay[1].Contract, fabric.ReplayContract)
+	if diff.Replay[1].Checkpoint() == nil {
+		t.Errorf("retained difference replay[1] has no checkpoint")
 	}
 }
 
@@ -278,12 +281,12 @@ func TestSearchFabricsUnchangedAfterSearch(t *testing.T) {
 		},
 	}
 
-	cmpCur := fabric.Compare(cur, curTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(10), 10)
+	cmpCur := fabric.Compare(cur, curTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCur.Disposition != analysis.Equivalent {
 		t.Errorf("cur diverged from curTwin after Search: %v (%v)", cmpCur.Disposition, cmpCur.Difference)
 	}
 
-	cmpCand := fabric.Compare(cand, candTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(10), 10)
+	cmpCand := fabric.Compare(cand, candTwin, Candidate{Actions: []fabric.Action{{At: scenario[0].At, Kind: fabric.ActionInject, Inject: &scenario[0]}}}.ToScenario(), fabric.RunOptions{Budget: 10, Window: 0})
 	if cmpCand.Disposition != analysis.Equivalent {
 		t.Errorf("cand diverged from candTwin after Search: %v (%v)", cmpCand.Disposition, cmpCand.Difference)
 	}
@@ -341,7 +344,7 @@ func TestTimedFaultDomainBehavioralTime(t *testing.T) {
 			{
 				A:     fabric.Endpoint{Node: "h1"},
 				B:     fabric.Endpoint{Node: "sw1", Port: "1/1/1"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
 		Times:       []time.Time{t1, t2},
@@ -399,7 +402,7 @@ func TestTimedFaultDomainUncabledPairError(t *testing.T) {
 			{
 				A:     fabric.Endpoint{Node: "sw1", Port: "9/9/9"},
 				B:     fabric.Endpoint{Node: "sw2", Port: "9/9/9"},
-				Fault: fabric.Fault{Kind: fabric.FaultCut},
+				Fault: cablemodel.Fault{Kind: cablemodel.FaultCut},
 			},
 		},
 		Times:       []time.Time{t0},
@@ -433,8 +436,8 @@ type candidateList []Candidate
 func TestSearchRejectsExecutableConfigureCandidate(t *testing.T) {
 	current, _, twin, _, _, _ := makeTestFabrics(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: &fabric.ConfigureAction{Node: "sw1", Config: current.Config().Switches["sw1"]}}}}
-	comparison := fabric.Compare(current, twin, input.ToScenario(30), 30)
+	input := Candidate{Tuple: "configure", Actions: []fabric.Action{{At: at, Kind: fabric.ActionConfigure, Configure: new(assembly.ConfigureAction("sw1", assembly.Spec(current).Config().Switches["sw1"]))}}}
+	comparison := fabric.Compare(current, twin, input.ToScenario(), fabric.RunOptions{Budget: 30, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Equivalent {
 		t.Fatalf("fabric comparison = %+v, want executable equivalent configure action", comparison)
 	}
@@ -550,17 +553,17 @@ func TestTimedFaultDomainInjectsBeforeFaultAtEqualTime(t *testing.T) {
 	cur, _, twin, _, src, dst := makeTestFabrics(t)
 	at := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	injection := fabric.Action{At: at, Index: 7, Kind: fabric.ActionInject, Inject: &fabric.Injection{Origin: fabric.Endpoint{Node: "h1"}, Frame: ethernet.Frame{Src: src, Dst: dst, Payload: []byte("tie")}}}
-	domain, err := NewTimedFaultDomain(TimedFaultDomainConfig{BaseTraffic: []fabric.Action{injection}, Times: []time.Time{at}, Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: fabric.Fault{Kind: fabric.FaultCut}}}})
+	domain, err := NewTimedFaultDomain(TimedFaultDomainConfig{BaseTraffic: []fabric.Action{injection}, Times: []time.Time{at}, Faults: []fabric.FaultAction{{A: fabric.Endpoint{Node: "h1"}, B: fabric.Endpoint{Node: "sw1", Port: "1/1/1"}, Fault: cablemodel.Fault{Kind: cablemodel.FaultCut}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	var candidate Candidate
 	domain.Enumerate(func(c Candidate) bool { candidate = c; return false })
-	scenario := candidate.ToScenario(20)
+	scenario := candidate.ToScenario()
 	if len(scenario.Actions) != 2 || scenario.Actions[0].Kind != fabric.ActionInject || scenario.Actions[0].Index != 7 || scenario.Actions[1].Kind != fabric.ActionFault || scenario.Actions[1].Index != 8 {
 		t.Fatalf("tied actions=%+v", scenario.Actions)
 	}
-	comparison := fabric.Compare(cur, twin, scenario, 20)
+	comparison := fabric.Compare(cur, twin, scenario, fabric.RunOptions{Budget: 20, Window: 0})
 	if comparison.Err != nil || comparison.Disposition != analysis.Inconclusive || len(comparison.Current) != 1 {
 		t.Fatalf("comparison=%+v", comparison)
 	}
@@ -572,7 +575,7 @@ func TestTimedFaultDomainInjectsBeforeFaultAtEqualTime(t *testing.T) {
 	reversed := candidate.Clone()
 	reversed.Actions[0].Index = 8
 	reversed.Actions[1].Index = 7
-	reverseComparison := fabric.Compare(cur, twin, reversed.ToScenario(20), 20)
+	reverseComparison := fabric.Compare(cur, twin, reversed.ToScenario(), fabric.RunOptions{Budget: 20, Window: 0})
 	if reverseComparison.Err != nil || len(reverseComparison.Current) != 1 || len(reverseComparison.Current[0].Entries) != 2 || reverseComparison.Current[0].Entries[1].Kind != fabric.EntryDrop {
 		t.Fatalf("fault-first did not drop injection: %+v", reverseComparison.Current)
 	}

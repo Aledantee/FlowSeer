@@ -22,15 +22,22 @@ import (
 // Child frames isolate their issues while returning their output to the parent.
 type call struct {
 	hold                     routing.HoldToken
-	emissions                []Emission
-	copies                   []traffic.Copy
-	drops                    []NeighborDrop
+	mirrored                 bool
+	release                  *heldMirror
+	emissions                []emission
+	copies                   []mirrorCopy
+	drops                    []neighborDrop
 	now                      time.Time
 	commit                   bool
 	lagRebalanceHits         map[string]lag.Selection
 	mcastQueryUnobservedHits []mcastQueryUnobservedHit
 	neighborUnresolvedHits   []neighborUnresolvedHit
 	pvstBoundaryHits         map[pvstBoundaryHit]struct{}
+}
+
+type mirrorCopy struct {
+	traffic.Copy
+	Hold routing.HoldToken
 }
 
 func (s *Switch) beginCall(now time.Time, commit bool) (*call, func()) {
@@ -75,7 +82,7 @@ type neighborUnresolvedHit struct {
 	addr  netip.Addr
 }
 
-func (s *Switch) wrapResult(c *call, res bridge.Result) ForwardResult {
+func (s *Switch) wrapResult(c *call, res bridge.Result) forwardResult {
 	var issues []runtimeIssue
 	consultedScopes := res.ConsultedScopes()
 
@@ -139,7 +146,7 @@ func (s *Switch) wrapResult(c *call, res bridge.Result) ForwardResult {
 	issues = append(issues, s.neighborUnresolvedIssues(c)...)
 	issues = append(issues, s.pvstBoundaryIssues(c)...)
 
-	return ForwardResult{
+	return forwardResult{
 		Result:   res,
 		Metadata: forwardingMetadata(s.nodeID, s.metadata, consultedScopes, issues),
 	}
@@ -459,7 +466,7 @@ func (s *Switch) recomputeProtocolLinkIssues() {
 			continue
 		}
 		forced := pCfg.PointToPoint == stp.PointToPointForceTrue || pCfg.PointToPoint == stp.PointToPointForceFalse
-		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == PointToPointUnknown {
+		if p.OperStatus == port.Up && !forced && s.portP2P[p.Name] == pointToPointUnknown {
 			stpAffected = true
 		}
 	}

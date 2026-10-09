@@ -6,6 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"go.aledante.io/FlowSeer/src/common/sim/assembly"
+
+	hostmodel "go.aledante.io/FlowSeer/src/common/sim/device/host"
+
 	"go.aledante.io/FlowSeer/src/common/net/ethernet"
 	"go.aledante.io/FlowSeer/src/common/net/igmp"
 	"go.aledante.io/FlowSeer/src/common/net/ip"
@@ -50,7 +54,7 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 			B: fabric.Endpoint{Node: "sw1", Port: portNames[i]},
 		})
 	}
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"sw1": {
 				Ports: ports,
@@ -65,11 +69,11 @@ func newMcastFabric(t *testing.T, floodUnregistered *bool, fastLeave bool) *fabr
 		},
 		// The hosts accept every group MAC, so a delivery shows what the
 		// snooping switch sent out a port rather than what a host joined.
-		Hosts: map[string]fabric.Host{
-			"h1": {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h2": {Address: mcastFabricMACs["h2"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h3": {Address: mcastFabricMACs["h3"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"h4": {Address: mcastFabricMACs["h4"], Accept: fabric.HostAccept{AllMulticast: true}},
+		Hosts: map[string]hostmodel.Config{
+			"h1": {Address: mcastFabricMACs["h1"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h2": {Address: mcastFabricMACs["h2"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h3": {Address: mcastFabricMACs["h3"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"h4": {Address: mcastFabricMACs["h4"], Accept: hostmodel.Accept{AllMulticast: true}},
 		},
 		Cables: cables,
 	}))
@@ -150,7 +154,7 @@ func injectMcastFrame(t *testing.T, fab *fabric.Fabric, at time.Time, host strin
 	if err != nil {
 		t.Fatalf("Inject from %s: %v", host, err)
 	}
-	fab.Run(100)
+	fab.Run(fabric.RunOptions{Budget: 100, Window: 0})
 	for _, journey := range fab.Report() {
 		if journey.FrameID == id {
 			return journey
@@ -334,7 +338,7 @@ func TestFabricSourceFilterAcrossUplink(t *testing.T) {
 	s1 := netip.MustParseAddr("10.0.1.1")
 	s2 := netip.MustParseAddr("10.0.1.2")
 
-	fab, err := fabric.New(statedPhysical(fabric.Config{
+	fab, err := assembly.New(statedPhysical(assembly.Config{
 		Switches: map[string]vswitch.Config{
 			"A": {
 				Ports:  buildPorts(t),
@@ -346,9 +350,9 @@ func TestFabricSourceFilterAcrossUplink(t *testing.T) {
 				Bridge: &bridge.Config{VLAN: &bridge.VLAN{Table: map[vlan.ID]string{10: "ten"}, Switchports: switchports}},
 			},
 		},
-		Hosts: map[string]fabric.Host{
-			"h1":  {Address: mcastFabricMACs["h1"], Accept: fabric.HostAccept{AllMulticast: true}},
-			"src": {Address: srcMAC, Accept: fabric.HostAccept{AllMulticast: true}},
+		Hosts: map[string]hostmodel.Config{
+			"h1":  {Address: mcastFabricMACs["h1"], Accept: hostmodel.Accept{AllMulticast: true}},
+			"src": {Address: srcMAC, Accept: hostmodel.Accept{AllMulticast: true}},
 		},
 		Cables: []fabric.Cable{
 			{A: fabric.Endpoint{Node: "A", Port: "uplink"}, B: fabric.Endpoint{Node: "B", Port: "uplink"}},
