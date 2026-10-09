@@ -203,12 +203,16 @@ func validateTopology(t topology) error {
 			}
 			used[ep] = true
 		}
+		if err := cablemodel.ValidateFault(c.Fault); err != nil {
+			return errs.Wrapf(err, "cable %q:%q to %q:%q fault", c.A.Node, c.A.Port, c.B.Node, c.B.Port)
+		}
 	}
 	return nil
 }
 
 // New takes ownership of built devices, resolves their links, and starts the run.
-// It returns no fabric on an invalid endpoint, duplicate cable attachment, or link error.
+// It returns no fabric on an invalid endpoint, duplicate cable attachment,
+// invalid cable fault, or link error.
 func New(c Config) (*Fabric, error) {
 	t := topologyFromConfig(c)
 	if err := validateTopology(t); err != nil {

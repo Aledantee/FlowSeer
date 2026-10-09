@@ -98,6 +98,26 @@ func TestFabricRefusesUnknownEndpoint(t *testing.T) {
 	}
 }
 
+func TestFabricRefusesInvalidCableFault(t *testing.T) {
+	for name, fault := range map[string]cablemodel.Fault{
+		"unknown kind":      {Kind: "Cutt"},
+		"every nth, no n":   {Kind: cablemodel.FaultLoseEveryNth},
+		"cut with a number": {Kind: cablemodel.FaultCut, N: 3},
+	} {
+		t.Run(name, func(t *testing.T) {
+			nodes := map[string]Node{
+				"a": {Device: &linkErrorDevice{}, Physical: map[string]cablemodel.End{"p": {}}},
+				"b": {Device: &linkErrorDevice{}, Physical: map[string]cablemodel.End{"p": {}}},
+			}
+			cable := Cable{A: Endpoint{Node: "a", Port: "p"}, B: Endpoint{Node: "b", Port: "p"}, Cable: cablemodel.Cable{Fault: fault}}
+			f, err := New(Config{Nodes: nodes, Cables: []Cable{cable}})
+			if err == nil || f != nil || !strings.Contains(err.Error(), "fault") {
+				t.Fatalf("invalid fault built = %v, error = %v, want no fabric and a fault error", f != nil, err)
+			}
+		})
+	}
+}
+
 func TestFabricRefusesTwoCablesOnAPort(t *testing.T) {
 	d := &linkErrorDevice{}
 	c := Cable{A: Endpoint{Node: "a", Port: "p"}, B: Endpoint{Node: "b", Port: "p"}}
