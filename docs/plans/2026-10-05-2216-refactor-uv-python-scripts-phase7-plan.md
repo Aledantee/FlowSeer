@@ -394,3 +394,12 @@ Waves: U1 U3 U4 | U2 | U5
   `land`.
 - How Codex starts a hook on Windows stays unverified, as the parent says.
   U5 covers Claude Code only.
+- Parked by drive: U5 is the user's Windows run; U1 to U4 are implemented
+  on `parked/uv-p7-impl`. Options: run the seven U5 commands on a Windows host
+  now and paste the results, so a session writes them into
+  `docs/agent-steering.md` and the phase goes on to review (a predicted
+  failure of steps 6 and 7 is recorded and opens new work) | plan the
+  Windows path fixes first and run afterwards (delays this phase and the
+  parent's retirement for work the run has not yet shown). Recommended: run
+  now, because the run is the evidence the fixes would be planned from.
+
