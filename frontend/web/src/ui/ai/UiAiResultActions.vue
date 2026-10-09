@@ -146,7 +146,7 @@ function handleFeedback(rating: 'up' | 'down') {
   >
     <button
       type="button"
-      class="inline-flex items-center gap-1 px-2 py-1 text-2xs font-medium rounded-control border border-border bg-card hover:bg-hover text-foreground cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      class="inline-flex items-center gap-1 px-2 py-1 text-2xs font-mono font-medium rounded-control border border-border bg-card hover:bg-hover text-foreground cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       :aria-label="
         copied ? t('ui.aiResultActions.copied') : t('ui.aiResultActions.copy')
       "
@@ -173,7 +173,7 @@ function handleFeedback(rating: 'up' | 'down') {
 
     <button
       type="button"
-      class="inline-flex items-center gap-1 px-2 py-1 text-2xs font-medium rounded-control border border-border bg-card hover:bg-hover text-foreground cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      class="inline-flex items-center gap-1 px-2 py-1 text-2xs font-mono font-medium rounded-control border border-border bg-card hover:bg-hover text-foreground cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       :aria-label="t('ui.aiResultActions.regenerate')"
       data-action="regenerate"
       @click="handleRegenerate"

@@ -316,4 +316,37 @@ describe('LoginView', () => {
       'Example network',
     )
   })
+
+  it('fits German locale labels without text clipping or layout distortion and applies Signal styling', async () => {
+    const { host } = await mountLogin('/login', 'de')
+    const page = host.querySelector('#frame-page > main.login-page')
+    expect(page).not.toBeNull()
+
+    const title = host.querySelector('h1')
+    expect(title?.className).toContain('font-mono')
+    expect(title?.textContent?.trim()).toBe('Bei FlowSeer anmelden')
+
+    const overviewTitle = page?.querySelector('#login-overview-title')
+    expect(overviewTitle?.className).toContain('font-mono')
+    expect(overviewTitle?.textContent?.trim()).toBe(
+      'Das Netz sehen. Zusammenhänge verstehen.',
+    )
+
+    const networkFigure = page?.querySelector('figure.login-network')
+    expect(networkFigure?.classList.contains('ui-card')).toBe(true)
+
+    const nodeTitles = page?.querySelectorAll('.login-path h3')
+    expect(nodeTitles).toBeDefined()
+    expect(nodeTitles?.length).toBe(3)
+    nodeTitles?.forEach((h3) => {
+      expect(h3.className).toContain('font-mono')
+    })
+
+    const trafficValue = page?.querySelector('.login-traffic-value')
+    expect(trafficValue?.className).toContain('font-mono')
+    expect(trafficValue?.className).toContain('tabular-nums')
+
+    const pathText = [...(nodeTitles ?? [])].map((h) => h.textContent?.trim())
+    expect(pathText).toEqual(['Gateway', 'Switch', 'Access Point'])
+  })
 })

@@ -90,7 +90,7 @@ function formatSegment(seg?: string): string {
       </button>
     </template>
     <div class="flex flex-col gap-2 text-xs" data-ai-label-content>
-      <div class="font-medium text-foreground border-b border-border pb-1">
+      <div class="font-mono text-2xs font-semibold uppercase tracking-wide text-foreground border-b border-border pb-1">
         {{ t('ui.aiLabel.title') }}
       </div>
       <div v-if="targets.length > 0" class="flex flex-col gap-2">
@@ -128,7 +128,7 @@ function formatSegment(seg?: string): string {
         v-if="allSources.length > 0"
         class="flex flex-col gap-1 border-t border-border pt-1.5"
       >
-        <span class="text-2xs font-medium text-muted-foreground">{{
+        <span class="font-mono text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{{
           t('ui.aiLabel.sources')
         }}</span>
         <div class="flex flex-wrap gap-1">

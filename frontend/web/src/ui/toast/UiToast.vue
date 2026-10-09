@@ -105,7 +105,7 @@ function handleAnimationEnd(event: AnimationEvent) {
 }
 
 const toastVariants = tv({
-  base: 'pointer-events-auto bg-popover text-foreground border shadow-lg rounded-control p-4 flex items-center justify-between gap-4 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
+  base: 'pointer-events-auto bg-popover text-foreground border rounded-control p-4 flex items-center justify-between gap-4 data-[state=open]:animate-fade-in data-[state=closed]:animate-fade-out',
   variants: {
     variant: {
       default: 'border-border',
@@ -138,7 +138,7 @@ const toastVariants = tv({
     <div class="flex flex-col gap-1">
       <ToastTitle
         v-if="title || $slots.title"
-        class="text-sm font-semibold text-foreground"
+        class="font-mono text-sm font-semibold tracking-tight text-foreground"
       >
         <slot name="title">{{ title }}</slot>
       </ToastTitle>
@@ -162,7 +162,7 @@ const toastVariants = tv({
         </slot>
       </ToastAction>
       <ToastClose
-        class="rounded-xs p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        class="rounded-control p-1 text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         :aria-label="resolvedCloseLabel"
       >
         <svg
